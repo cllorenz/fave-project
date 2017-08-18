@@ -18,12 +18,15 @@ from Queue import Queue
 
 from netplumber.model import Model
 from netplumber.mapping import Mapping, field_sizes
-from netplumber.vector import Vector
+from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
 import netplumber.jsonrpc as jsonrpc
 
 from ip6np.packet_filter import PacketFilterModel
 from openflow.switch import SwitchModel, SwitchCommand
-
+from topology.topology import TopologyCommand, LinksModel
+from topology.host import HostModel
+from topology.generator import GeneratorModel
+from topology.probe import ProbeModel
 
 UDS_ADDR = "/tmp/np_aggregator.socket"
 
@@ -62,23 +65,43 @@ def is_port(s):
         p = int(s)
         if 0 > p or p > 0xffff:
             return False
-    except:
+    except ValueError:
         return False
 
     return True
 
+is_ext_port = is_port
 
 def model_from_string(s):
     j = json.loads(s)
     try:
-        return {
+        models = {
             "model" : Model,
             "packet_filter" : PacketFilterModel,
             "switch" : SwitchModel,
-            "switch_command" : SwitchCommand
-        }[j["type"]].from_json(j)
+            "switch_command" : SwitchCommand,
+            #"topology" : TopologyModel,
+            "topology_command" : TopologyCommand,
+            "links" : LinksModel,
+            "host" : HostModel,
+            "generator" : GeneratorModel,
+            "probe" : ProbeModel
+        }
+        model = models[j["type"]]
+
     except KeyError:
-        raise Exception("model type not implemented")
+        raise Exception("model type not implemented: " + j["type"])
+
+    else:
+        return model.from_json(j)
+
+
+def calc_port(tab,model,port):
+    return (tab<<16)+model.ports[port]
+
+
+def calc_rule_index(t_idx,r_idx):
+    return (t_idx<<16)+r_idx
 
 
 class Aggregator(object):
@@ -93,23 +116,13 @@ class Aggregator(object):
         self.fresh_table_index = 1
         self.ports = {}
         self.rule_ids = {}
+        self.links = {}
 
     def handler(self):
         while True:
-            command,data = self.queue.get()
+            data = self.queue.get()
             model = model_from_string(data)
-
             self.sync_diff(model)
-
-            """
-            if model.node in self.models:
-                diff,common = models[model.node].diff(model)
-                self.sync_diff(diff=diff,common=common)
-
-            else:
-                self.models[model.node] = model
-                self.sync_diff(common=model)
-            """
             self.queue.task_done()
 
 
@@ -151,10 +164,17 @@ class Aggregator(object):
 
     def sync_diff(self,model):
         # extend global mapping
-        if self.mapping.length <= model.mapping.length:
-            jsonrpc.expand(self.sock,model.mapping.length)
+        mlength = self.mapping.length
 
-        self.extend_mapping(model.mapping)
+        if model.type == "packet_filter":
+            self.extend_mapping(model.mapping)
+        elif model.type == "switch_command" and model.command == "add_rule":
+            self.extend_mapping(model.rule.mapping)
+        elif model.type == "topology_command" and model.command == 'add' and model.model.type in ['host','generator']:
+            self.extend_mapping(model.model.mapping)
+
+        if mlength < self.mapping.length:
+            jsonrpc.expand(self.sock, self.mapping.length+1)
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
@@ -162,11 +182,11 @@ class Aggregator(object):
                 switch = self.models[model.node]
 
                 if model.command == "add_rule":
-                    switch.add_rule(model.idx,model.rule)
+                    switch.add_rule(model.rule.idx,model.rule)
                 elif model.command == "remove_rule":
-                    switch.remove_rule(model.idx)
+                    switch.remove_rule(model.rule.idx)
                 elif model.command == "update_rule":
-                    switch.update_rule(model.idx,model.rule)
+                    switch.update_rule(model.rule.idx,model.rule)
                 else:
                     # ignore unknown command
                     return
@@ -174,12 +194,74 @@ class Aggregator(object):
                 model = switch
 
             else:
-                ports = self.query_ports(model.node)
-                test_command = lambda x: x in ["add_rule","update_rule"]
-                rules = [model.rule] if test_command(model.command) else []
-                model = SwitchModel(model.node,ports=ports,rules=rules)
+                eprint(
+                    "Error while processing flow modification: no such dp:",
+                    str(model.node),
+                    sep=" "
+                )
+                return
+                #ports = self.query_ports(model.node)
+                #test_command = lambda x: x in ["add_rule","update_rule"]
+                #rules = [model.rule] if test_command(model.command) else []
+                #model = SwitchModel(model.node,ports=ports,rules=rules)
+
+        # handle topology changes (e.g. by the network management)
+        if model.type == "topology_command":
+            cmd = model
+
+            if cmd.model.type == "links":
+                for link in cmd.model:
+                    sport,dport = link
+                    sport = self.global_port(sport)
+                    dport = self.global_port(dport)
+
+                    if cmd.command == "add":
+                        jsonrpc.add_link(self.sock,sport,dport)
+                        self.links[sport] = dport
+                    elif cmd.command == "del":
+                        jsonrpc.delete_link(self.sock,sport,dport)
+                        del self.links[sport]
+
+            elif cmd.model.type == "packet_filter":
+                if cmd.command == "add":
+                    self.add_packet_filter(cmd.model)
+                    self.models[cmd.model.node] = cmd.model
+                elif cmd.command == "del":
+                    self.delete_switch(cmd.model)
+                    del self.models[cmd.model.node]
+
+            elif cmd.model.type  == "switch":
+                if cmd.command == "add":
+                    self.add_switch(cmd.model)
+                    self.models[cmd.model.node] = cmd.model
+                elif cmd.command == "del":
+                    self.delete_switch(cmd.model)
+                    del self.models[cmd.model.node]
+
+            elif cmd.model.type == "host":
+                if cmd.command == "add":
+                    self.add_host(cmd.model)
+                elif cmd.command == "del":
+                    self.delete_host(cmd.model)
+
+            elif cmd.model.type == "generator":
+                if cmd.command == "add":
+                    self.add_generator(cmd.model)
+                elif cmd.command == "del":
+                    self.delete_generator(cmd.model)
+
+            elif cmd.model.type == "probe":
+                if cmd.command == "add":
+                    self.add_probe(cmd.model)
+                    #print self.ports
+                    #print len(self.ports)
+                elif cmd.command == "del":
+                    self.delete_probe(cmd.model)
+
+            return
 
         if model.node in self.models:
+
             # calculate items to remove and items to add
             add = model - self.models[model.node]
             sub = self.models[model.node] - model
@@ -203,14 +285,27 @@ class Aggregator(object):
             if not f in self.mapping:
                 self.mapping.extend(f)
 
-    def add_model(self,model):
-        # add tables
+
+    def add_packet_filter(self,model):
+        self.add_tables(model,prefixed=True)
+        self.add_wiring(model)
+        self.add_rules(model)
+
+
+    def add_switch(self,model):
+        self.add_tables(model)
+        self.add_wiring(model)
+
+
+    def add_tables(self,model,prefixed=False):
+        ext_ports = []
         for t in model.tables:
-            name = model.node + '_' + t
+            name = '_'.join([model.node,t])
             idx = 1
 
             if name in self.tables:
-                idx = self.tables[t]
+                idx = self.tables[name]
+
             else:
                 idx = self.fresh_table_index
                 self.tables[name] = idx
@@ -218,17 +313,38 @@ class Aggregator(object):
 
             ports = []
             for p in model.ports:
-                if p.startswith(t):
-                    port_no = (idx << 16) + model.ports[p]
-                    ports.append(port_no)
-                    self.ports[model.node+'_'+p] = port_no
+                if prefixed and p.startswith("in_") and t.startswith("pre_routing"):
+                    portno = calc_port(idx,model,p)
+                    portname = '_'.join([model.node,p[3:]])
 
-            #ports = [(idx << 16)+model.ports[p] for p in model.ports if p.startswith(t)]
-            #ports += [(idx << 16)+model.ports[p] for p in ["internals_in","internals_out","post_routing"] if p in model.ports]
+                elif prefixed and p.startswith("out_") and t.startswith("post_routing"):
+                    portno = calc_port(idx,model,p)
+                    portname = '_'.join([model.node,p[4:]])
+
+                elif prefixed and not p.startswith(t):
+                    continue
+
+                else:
+                    portno = calc_port(idx,model,p)
+                    portname = '_'.join([model.node,p])
+
+                ports.append(portno)
+                #print "set port",portname,"=",portno
+                self.ports[portname] = portno
 
             jsonrpc.add_table(self.sock,idx,ports)
 
+        """
+        for p in model.ports:
+            if prefixed and is_ext_port(p):
+                portno = calc_port(idx,model,p)
+                ext_ports.append(portno)
 
+                print "set port",'_'.join([model.node,p]),"=",portno
+                self.ports['_'.join([model.node,p])] = portno
+        """
+
+    def add_wiring(self,model):
         # add links between tables
         for p1,p2 in model.wiring:
 
@@ -238,21 +354,21 @@ class Aggregator(object):
                 continue
 
             prefix = lambda x: '_'.join(x.split('_')[:2])
-            n1 = model.node + '_' + prefix(p1)
-            n2 = model.node + '_' + prefix(p2)
+            n1 = '_'.join([model.node,prefix(p1)])
+            n2 = '_'.join([model.node,prefix(p2)])
 
             i1 = self.tables[n1]
             i2 = self.tables[n2]
 
             jsonrpc.add_link(
                 self.sock,
-                (i1<<16)+model.ports[p1],
-                (i2<<16)+model.ports[p2]
+                self.ports['_'.join([model.node,p1])],
+                self.ports['_'.join([model.node,p2])]
             )
 
-        # add rules to tables
+    def add_rules(self,model):
         for t in model.tables:
-            ti = self.tables[model.node+'_'+t]
+            ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
                 rv = Vector(length=self.mapping.length)
@@ -261,28 +377,43 @@ class Aggregator(object):
                     size = field_sizes[f]
                     rv[offset:offset+size] = v[offset:offset+size]
 
-                self.rule_ids[(ti<<16)+ri] = jsonrpc.add_rule(
+                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
                     ti,
                     ri,
                     [],
-                    [self.ports[model.node+'_'+t+'_accept']] if a == 'ACCEPT' else [],
+                    [self.ports[
+                        '_'.join([model.node,t,a.lower()])
+                    ]] if a in ['ACCEPT','MISS'] else [],
                     rv.vector,
                     'x'*self.mapping.length,
                     None
                 )
 
-    def delete_model(self,model):
-        # delete rules
+    def delete_packet_filter(self,model):
+        self.delete_rules(model)
+        self.delete_wiring(model)
+        self.delete_tables(model)
+
+    delete_switch = delete_packet_filter
+
+    """
+    def delete_switch(self,model):
+        self.delete_rules(model)
+        self.delete_wiring(model)
+        self.delete_tables(model)
+    """
+
+
+    def delete_rules(self,model):
         for t in model.tables:
-            ti = self.tables[model.node+'_'+t]
+            ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
-                jsonrpc.remove_rule(self.rule_ids[(ti<<16)+ri])
-                del self.rule_ids[(ti<<16)+ri]
+                jsonrpc.remove_rule(self.rule_ids[calc_rule_index(ti,ri)])
+                del self.rule_ids[calc_rule_index(ti,ri)]
 
-
-        # delete links
+    def delete_wiring(self,model):
         for p1,p2 in model.wiring:
             n1 = prefix(p1)
             n2 = prefix(p2)
@@ -290,15 +421,266 @@ class Aggregator(object):
             i1 = self.tables[n1]
             i2 = self.tables[n2]
 
-            jsonrpc.remove_link((i1<<16)+model.ports[p1],(i2<<16)+model.ports[p2])
+            jsonrpc.remove_link(calc_port(i1,model,p1),calc_port(i2,model,p2))
 
-
-        # delete tables if possible
+    def delete_tables(self,model):
         for t in model.tables:
-            name = model.node + '_' + t
-            if not self.models[model.name][t]:
+            name = '_'.join([model.node,t])
+
+            if not self.models[model.node].tables[t]:
                 jsonrpc.remove_table(self.sock,self.tables[name])
                 del self.tables[name]
+
+
+
+
+    def add_host(self,model):
+        name = model.node
+        if name in self.tables:
+            self.delete_host(name)
+
+        idx = self.fresh_table_index
+        self.tables[name] = idx
+        self.fresh_table_index += 1
+
+        port = name + '_1'
+        portno = calc_port(idx,model,port)
+
+        #print "set port",'_'.join([model.node,port]),"=",portno
+        self.ports[port] = portno
+
+        outgoing = self.aligned_headerspace(model.outgoing,model.mapping)
+
+        sid = jsonrpc.add_source(
+            self.sock,
+            [v.vector for v in outgoing.hs_list],
+            [v.vector for v in outgoing.hs_diff],
+            [portno]
+        )
+
+        """
+        incoming = self.aligned_headerspace(model.incoming,model.mapping)
+        pid = jsonrpc.add_source_probe(
+            self.sock,
+            [portno],
+            'universal',
+            {
+                "type" : "header",
+                "hs_list" : [v.vector for v in incoming.hs_list],
+                "hs_diff" : [v.vector for v in incoming.hs_diff]
+            },
+            None
+        )
+        """
+        self.tables[name] = (idx,sid,model)
+
+
+    def delete_host(self,node):
+        idx,sid,model = self.tables[node]
+
+        # delete links
+        p1 = self.ports[node]
+        p2 = self.links[p1]
+        jsonrpc.remove_link(self.node,p1,p2)
+        jsonrpc.remove_link(self.node,p2,p1)
+
+        del self.links[p1]
+        del self.links[p2]
+
+        # delete source and probe
+        jsonrpc.remove_source(sid)
+        #jsonrpc.remove_source_probe(pid)
+
+        del self.tables[node]
+
+
+    def add_generator(self,model):
+        name = model.node
+        if name in self.tables:
+            self.delete_generator(name)
+
+        idx = self.fresh_table_index
+        self.tables[name] = idx
+        self.fresh_table_index += 1
+
+        port = name + '_1'
+        portno = calc_port(idx,model,port)
+
+        #print "set port",'_'.join([model.node,port]),"=",portno
+        self.ports[port] = portno
+
+        outgoing = self.aligned_headerspace(model.outgoing,model.mapping)
+
+#        if mlength < model.mapping.length:
+
+        sid = jsonrpc.add_source(
+            self.sock,
+            [v.vector for v in outgoing.hs_list],
+            [v.vector for v in outgoing.hs_diff],
+            [portno]
+        )
+        self.tables[name] = (idx,sid,model)
+
+
+    def delete_generator(self,node):
+        idx,sid,model = self.tables[node]
+
+        # delete links
+        p1 = self.ports[node]
+        p2 = self.links[p1]
+        jsonrpc.remove_link(self.node,p1,p2)
+        jsonrpc.remove_link(self.node,p2,p1)
+
+        del self.links[p1]
+        del self.links[p2]
+
+        # delete source and probe
+        jsonrpc.remove_source(sid)
+
+        del self.tables[node]
+
+
+    def get_model_table(self,node):
+        mtype = self.models[node].type
+        if mtype == 'packet_filter':
+            return self.tables[node+'_post_routing']
+        else:
+            return self.tables[node+'_1']
+
+
+    def add_probe(self,model):
+        name = model.node
+        if name in self.tables:
+            self.delete_probe(name)
+
+        idx = self.fresh_table_index
+        self.tables[name] = idx
+        self.fresh_table_index += 1
+
+        port = name + '_1'
+        portno = calc_port(idx,model,port)
+
+        #print "set port",'_'.join([model.node,port]),"=",portno
+        self.ports[port] = portno
+
+        #print "\nmodel.filter_fields:",model.filter_fields.to_json()
+        #print "\nmodel.test_fields:",model.test_fields.to_json()
+        #print "\nmodel.mapping:",model.mapping.to_json()
+        #print "\naggr mapping:",self.mapping.to_json()
+
+        mlength = self.mapping.length
+        self.mapping.expand(model.mapping)
+        if mlength < self.mapping.length:
+            jsonrpc.expand(self.sock,self.mapping.length+1)
+
+        #print "\naggr mapping:",self.mapping.to_json()
+
+        filter_fields = self.aligned_headerspace(model.filter_fields,model.mapping)
+        test_fields = self.aligned_headerspace(model.test_fields,model.mapping)
+
+        #print "\naligned filter:",filter_fields.to_json()
+        #print "\naligned test:",test_fields.to_json()
+
+        test_path = []
+        for pathlet in model.test_path.to_json()['pathlets']:
+            ptype = pathlet['type']
+            if ptype in ['start','end','skip']:
+                test_path.append(pathlet)
+            elif ptype == 'port':
+                pathlet['port'] = self.ports[pathlet['port']]
+                test_path.append(port)
+            elif ptype == 'next_ports':
+                pathlet['ports'] = [self.ports[port] for port in pathlet['ports']]
+                test_path.append(pathlet)
+            elif ptype == 'last_ports':
+                pathlet['ports'] = [self.ports[port] for port in pathlet['ports']]
+                test_path.append(pathlet)
+            elif ptype == 'table':
+                pathlet['table'] = self.get_model_table(pathlet['table'])
+                test_path.append(pathlet)
+            elif ptype == 'next_table':
+                pathlet['tables'] = [self.get_model_table(table) for table in pathlet['tables']]
+                test_path.append(pathlet)
+            elif ptype == 'last_table':
+                pathlet['tables'] = [self.get_model_table(table) for table in pathlet['tables']]
+                test_path.append(pathlet)
+
+
+        if test_fields and test_path:
+            test_expr = {
+                "type": "and",
+                "arg1" : {
+                    "type" : "header",
+                    "hs_list" : [v.vector for v in test_fields.hs_list],
+                    "hs_diff" : [v.vector for v in test_fields.hs_diff]
+                },
+                "arg2" : {
+                    "type" : "path",
+                    "pathlet" : test_path
+                }
+            }
+
+        pid = jsonrpc.add_source_probe(
+            self.sock,
+            [portno],
+            model.quantor,
+            {
+                "type" : "header",
+                "hs_list" : [v.vector for v in filter_fields.hs_list],
+                "hs_diff" : [v.vector for v in filter_fields.hs_diff]
+            },
+            test_expr
+        )
+        self.tables[name] = (idx,pid,model)
+
+
+
+    def delete_probe(self,name):
+        idx,sid,model = self.tables[node]
+
+        # delete links
+        p1 = self.ports[node]
+        p2 = self.links[p1]
+        jsonrpc.remove_link(self.node,p1,p2)
+        jsonrpc.remove_link(self.node,p2,p1)
+
+        del self.links[p1]
+        del self.links[p2]
+
+        # delete source and probe
+        jsonrpc.remove_source_probe(sid)
+
+        del self.tables[node]
+
+
+
+    def aligned_headerspace(self,hs,mapping):
+        hs_list = []
+        for vector in hs.hs_list:
+            hs_list.append(self.aligned_vector(vector,mapping))
+
+        hs_diff = []
+        for vector in hs.hs_diff:
+            hs_diff.append(self.aligned_vector(vector,mapping))
+
+        return HeaderSpace(self.mapping.length,hs_list,hs_diff)
+
+
+    def aligned_vector(self,vector,mapping):
+        v = Vector(self.mapping.length)
+        for f in mapping:
+            copy_field_between_vectors(mapping,self.mapping,vector,v,f)
+
+        return v
+
+
+    def global_port(self,port):
+        if port.count('.') > 1:
+            labels = port.split('.')
+            l = len(labels)
+            return self.ports['.'.join(labels[:l-1])+'_'+labels[l-1]]
+        else:
+            return self.ports[port.replace('.','_')]
 
 
 def main(argv):
