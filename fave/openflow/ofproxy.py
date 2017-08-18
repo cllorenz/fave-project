@@ -1,4 +1,6 @@
 
+import json
+
 import asyncore
 import errno
 import os
@@ -13,6 +15,11 @@ from ryu.ofproto import ofproto_v1_0_parser
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_3_parser
 from ryu.ofproto import ofproto_protocol
+
+from netplumber.vector import Vector
+
+from openflow.switch import Match,SwitchRule,SwitchRuleField,SwitchCommand,Forward,Rewrite
+from util.match_util import oxm_field_to_match_field
 
 log = logging.getLogger('tcp_proxy')
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +40,9 @@ class Sock(FixedDispatcher):
 
     def readable(self):
         return not self.other.write_buffer
+
+    def writeable(self):
+        return (len(self.write_buffer) > 0)
 
     def handle_read(self):
         self.other.write_buffer += self.recv(4096*4)
@@ -85,8 +95,8 @@ class Server(FixedDispatcher):
             log.info(' [+] %i -> %i ==> %i -> %i' % \
                          (addr[1], self.src_port,
                           right.getsockname()[1], self.dst_port))
-            print self.map
-            a,b = Sock(left, map=self.map, relay=self.relay), Sock(right, map=self.map, relay=self.relay)
+            a,b = Sock(left, map=self.map, relay=self.relay), \
+                  Sock(right, map=self.map, relay=self.relay)
             a.other, b.other = b, a
 
     def close(self):
@@ -96,8 +106,8 @@ class Server(FixedDispatcher):
 
 
 class OFProxy(object):
-    def __init__(self,map=None,relay=None):
-        self.srv = Server(dst_port=6653,src_port=6633,map=map,relay=relay)
+    def __init__(self,map=None):
+        self.srv = Server(dst_port=6653,src_port=6633,map=map,relay=OFRelay())
         self.port = self.srv.src_port
         self.map = map
 
@@ -106,7 +116,7 @@ class OFProxy(object):
         self.srv = None
 
     def reopen(self):
-        self.srv = Server(src_port=self.port, dst_port=6653, map=self.map)
+        self.srv = Server(src_port=self.port, dst_port=6653, map=self.map,relay=OFRelay())
 
     def __str__(self):
         return 'of://localhost:%s' % (self.port,)
@@ -120,23 +130,24 @@ class Relay(object):
         pass
 
 
-def match_to_fields(match):
-    j = match.to_jsondict()
-    print j
+def make_match(match):
+    m = match.to_jsondict()
+    fields = m['OFPMatch']['oxm_fields']
+    mf = []
 
-    wc = match._wc
+    for field in fields:
+        f = field['OXMTlv']
+        k = oxm_field_to_match_field[f['field']]
+        v = f['value']
 
-    for field in enumerate(match.fields):
-        print str(field)
+        mf.append(SwitchRuleField(k,v))
 
-        #wcv = ""
-        #if wc[i]:
-            
-        
+    return Match(fields=mf)
 
 
 class OFRelay(Relay):
     def __init__(self):
+        self.dpid = 0
         self.aggregator = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
         self.aggregator.connect("/tmp/np_aggregator.socket")
 
@@ -155,26 +166,49 @@ class OFRelay(Relay):
         ofp = cls.ofproto
         ofp_parser = cls.ofproto_parser
 
-        #print "cls: ",str(cls),"ofp: ",str(ofp),"ofp_parser: ",str(ofp_parser)
-        print "version: ",str(version),", msg_type: ",str(msg_type),", msg_len: ",str(msg_len),", xid: ",str(xid)
 
         if not msg_type in ofp_parser._MSG_PARSERS:
             return
         msg = ofp_parser.msg_parser(cls, version, msg_type, msg_len, xid, buf[:msg_len])
 
-        print "msg: ",str(msg)
-
-        #dpid = msg.dpid
+        if msg.msg_type == ofp.OFPT_FEATURES_REPLY:
+            self.dpid = msg.datapath_id
 
         if msg.msg_type == ofp.OFPT_FLOW_MOD:
-            print "match: ",str(msg.match)
-            fields = match_to_fields(msg.match)
-            actions = msg.actions
-            mapping = make_mapping(fields)
+            match = make_match(msg.match)
 
-            model = FlowModModel(dpid,match,actions,mapping)
+            actions = []
 
-            self.aggregator.send(model)
+            fwd_ports = []
+            rw_ports = []
+
+            for inst in msg.instructions:
+                for action in inst.actions:
+                    if type(action) == ofp_parser.OFPActionOutput:
+                        fwd_ports.append(action.port)
+                    elif type(action) == ofp_parser.OFPActionSetField:
+                        rw_ports.append(action.port)
+
+            if fwd_ports:
+                actions.append(Forward(fwd_ports))
+            if rw_ports:
+                actions.append(Rewrite(rw_ports))
+
+
+            node = self.dpid
+            idx = msg.priority
+
+            command = {
+                ofp.OFPFC_ADD : "add_rule",
+                ofp.OFPFC_DELETE : "remove_rule",
+                ofp.OFPFC_MODIFY : "update_rule"
+            }[msg.command]
+
+            rule = SwitchRule(node,idx,match=match,actions=actions)
+
+            model = SwitchCommand(node,command,rule)
+
+            self.aggregator.send(json.dumps(model.to_json()))
 
 
     def close(self):
@@ -185,9 +219,8 @@ if __name__ == '__main__':
     import time
 
     map = {}
-    relay = OFRelay()
 
-    proxy = OFProxy(map=map,relay=relay)
-    asyncore.loop(map=map)
+    proxy = OFProxy(map=map)
+    asyncore.loop(map=map,timeout=5.0)
     while True:
         time.sleep(1)
