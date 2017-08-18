@@ -14,16 +14,17 @@ class Model(object):
         self.mapping = mapping
 
     def __str__(self):
-        return "node: %s\ntype: %s\ntables:\n\t%s\nports:\n\t%s\nwiring:\n\t%s" % (
+        return "node: %s\ntype: %s\ntables:\n\t%s\nports:\n\t%s\nwiring:\n\t%s\nmapping:\n\t%s" % (
             self.node,
             self.type,
             self.tables,
             self.ports,
-            self.wiring
+            self.wiring,
+            self.mapping
         )
 
     def to_json(self):
-        model = {
+        return {
             "node" : self.node,
             "type" : self.type,
             "tables" : self.tables,
@@ -32,7 +33,8 @@ class Model(object):
             "mapping" : self.mapping.to_json()
         }
 
-        return json.dumps(model)
+    def to_json_str(self):
+        return json.dumps(self.to_json())
 
     @staticmethod
     def from_string(s):
@@ -68,12 +70,25 @@ class Model(object):
         assert(self.node == other.node)
         assert(self.type == other.type)
 
-        tables = dict_sub(self.tables,other.tables)
+        tables = {}
+        for t in self.tables:
+            if t in other.tables:
+                table = list_sub(self.tables[t],other.tables[t])
+                if table:
+                    tables[t] = table
+
         ports = dict_sub(self.ports,other.ports)
         wiring = list_sub(self.wiring,other.wiring)
         mapping = self.mapping + other.mapping
 
-        return Model(self.node,self.type,tables,ports,wiring,mapping)
+        return Model(
+            self.node,
+            type=self.type,
+            tables=tables,
+            ports=ports,
+            wiring=wiring,
+            mapping=mapping
+        )
 
     """
     def diff(self,other):
