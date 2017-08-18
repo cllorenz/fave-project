@@ -1,6 +1,6 @@
 import json
 
-
+from util.packet_util import normalize_ipv6_address, normalize_upper_port, normalize_ipv6_proto, normalize_ipv6header_header
 from netplumber.vector import Vector
 from netplumber.mapping import field_sizes
 from packet_filter import PacketFilterModel
@@ -11,89 +11,131 @@ from packet_filter import Rule
 def is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I")
 
-def normalize_ipv6_address(addr):
-    laddr,raddr = addr.split("::")
-    laddr = laddr.split(":")
-    if raddr:
-        raddr = raddr.split(":")
-        laddr += ["0" for _i in range(8-len(laddr)-len(raddr))] + raddr
-    return "".join([bin(int(block,16))[2:] for block in laddr])
+
+def normalize_interface(interface):
+    if interface == "lo": # XXX: deprecated... no lo in rule set allowed
+        return "0000000000000001"
+    else:
+        return '{:016b}'.format(int(interface,16))
+
+
+def normalize_module(module):
+    return {
+        "ipv6header"    : "00000001",
+        "limit"         : "00000010",
+        "state"         : "00000011",
+        "rt"            : "00000100",
+        "ah"            : "00000101",
+        "dst"           : "00000110",
+        "eui64"         : "00000111",
+        "frag"          : "00001000",
+        "hbh"           : "00001001",
+        "hl"            : "00001010",
+        "icmp6"         : "00001011",
+        "mh"            : "00001100",
+        "tos"           : "00001101"
+    }[module]
+
+
+def normalize_limit(limit):
+    # fields have the format value/unit
+    val,unit = limit.split("/")
+    factor = {
+        None    : 3600,
+        "sec"   : 1,
+        "min"   : 60,
+        "hour"  : 3600, 
+        "day"   : 86400
+    }[unit]
+    return "{0:032b}".format(int(val) * factor)
+
+
+def normalize_states(states):
+    states = states.split(",") if "," in field.value else [states]
+    to_bit = lambda x: {"NEW":1,"RELATED":2,"ESTABLISHED":4,"INVALID":8}[x]
+    bitmap = reduce(lambda x,y: x|y, map(to_bit, states))
+    return "{0:08b}".format(bitmap)
+
+
+def normalize_icmpv6_type(icmpv6_type):
+    return {
+        "destination-unreachable"   : "00000001xxxxxxxx",
+        "packet-too-big"            : "00000010xxxxxxxx",
+        "time-exceeded"             : "00000011xxxxxxxx",
+        "parameter-problem"         : "00000100xxxxxxxx",
+        "echo-request"              : "10000000xxxxxxxx",
+        "echo-reply"                : "10000001xxxxxxxx",
+        "neighbour-solicitation"    : "10000111xxxxxxxx",
+        "neighbour-advertisement"   : "10001000xxxxxxxx",
+        "ttl-zero-during-transit"   : "0000001100000000",
+        "unknown-header-type"       : "0000010000000001",
+        "unknown-option"            : "0000010000000010",
+    }[icmpv6_type]
+
+
+def normalize_rt_type(rt_type):
+    try:
+        lr,rr = rt_type.split(':')
+    except ValueError:
+        return "{0:08b}".format(int(rt_type))
+    else:
+        raise Exception("Range not implemented on field: rt_type")
+
+
+def normalize_ipv6header(header):
+    return "{0:08b}".format(int(header))
+
+
+def normalize_frag_id(frag_id):
+    return "{0:032b}".format(frag_id)
+
+
+def normalize_ah_spi(ah_spi):
+    try:
+        lspi,rspi = ah_spi.split(':')
+    except ValueError:
+        return "{0:032b}".format(int(ah_spi))
+    else:
+        raise Exception("Range not implemented on field: ah.spi")
+
+
+def normalize_ah_res(ah_res):
+    return "{0:016b}".format(int(ah_res))
+
+
+def normalize_mh_type(mh_type):
+    return "{0:08b}".format(int(mh_type))
 
 
 def field_value_to_bitvector(field):
     vector = Vector(length=field.size)
-
-    if field.name in [ "packet.ipv6.source", "packet.ipv6.destination" ]:
-        addr,cidr = field.value.split("/")
-        addr = normalize_ipv6_address(addr)
-        if cidr and int(cidr) < 128:
-            vector[:cidr] = addr
-        else:
-            vector[:field.size] = addr
-        vector[:] = addr
-
-    elif field.name in [ "packet.upper.sport","packet.upper.dport" ]:
-        vector[:] = "{0:016b}".format(int(field.value))
-
-    elif field.name == "interface":
-        if field.value == "lo":
-            interface = "0000000000000001"
-        else:
-            interface = bin(int(field.value,16))[2:]
-        vector[:] = interface
-
-    elif field.name == "module":
-        vector[:vector.length] = {
-            "ipv6header":"00000001",
-            "limit":"00000010",
-            "state":"00000011"
-        }[field.value]
-
-    elif field.name == "module.ipv6header.header":
-        vector[:] = {"ipv6-route":"00101011"}[field.value]
-
-    elif field.name == "module.limit":
-        # fields have the format value/unit
-        val,unit = field.value.split("/")
-        factor = {
-            None : 3600,
-            "sec" : 1,
-            "min" : 60,
-            "hour" : 3600, 
-            "day" : 86400
-        }[unit]
-        vector[:] = "{0:032b}".format(int(val) * factor)
-
-    elif field.name == "module.state":
-        states = field.value.split(",") if "," in field.value else [field.value]
-        to_bit = lambda x: {"NEW":1,"RELATED":2,"ESTABLISHED":4,"INVALID":8}[x]
-        bitmap = reduce(lambda x,y: x|y, map(to_bit, states))
-        vector[:] = "{0:08b}".format(bitmap)
-
-    elif field.name == "packet.ipv6.proto":
+    try:
         vector[:] = {
-            "icmpv6":"00111010",
-            "tcp" : "00000110",
-            "udp" : "00010001",
-        }[field.value]
-
-    elif field.name == "packet.ipv6.icmpv6.type":
-        vector[:] = {
-            "destination-unreachable" : "00000001xxxxxxxx",
-            "packet-too-big" : "00000010xxxxxxxx",
-            "time-exceeded" : "00000011xxxxxxxx",
-            "parameter-problem" : "00000100xxxxxxxx",
-            "echo-request" : "10000000xxxxxxxx",
-            "echo-reply" : "10000001xxxxxxxx",
-            "neighbour-solicitation" : "10000111xxxxxxxx",
-            "neighbour-advertisement" : "10001000xxxxxxxx",
-            "ttl-zero-during-transit" : "0000001100000000",
-            "unknown-header-type" : "0000010000000001",
-            "unknown-option" : "0000010000000010",
-        }[field.value]
-
-    # TODO: implement more fields
-    else:
+            "packet.ipv6.source" : normalize_ipv6_address,
+            "packet.ipv6.destination" : normalize_ipv6_address,
+            "packet.upper.sport" : normalize_upper_port,
+            "packet.upper.dport" : normalize_upper_port,
+            "interface" : normalize_interface,
+            "module" : normalize_module,
+            "module.ipv6header.header" : normalize_ipv6header_header,
+            "module.limit" : normalize_limit,
+            "module.state" : normalize_states,
+            "packet.ipv6.proto" : normalize_ipv6_proto,
+            "packet.ipv6.icmpv6.type" : normalize_icmpv6_type,
+            "module.ipv6header.rt.len" : normalize_ipv6header,
+            "module.ipv6header.rt.segsleft" : normalize_ipv6header,
+            "module.ipv6header.ah.len" : normalize_ipv6header,
+            "module.ipv6header.dst.len" : normalize_ipv6header,
+            "module.ipv6header.frag.len" : normalize_ipv6header,
+            "module.ipv6header.hbh.len" : normalize_ipv6header,
+            "module.ipv6header.hl.eq" : normalize_ipv6header,
+            "module.ipv6header.rt.type" : normalize_rt_type,
+            "module.ipv6header.frag.id" : normalize_frag_id,
+            "module.ipv6header.ah.res" : normalize_ah_res,
+            "module.ipv6header.ah.spi" : normalize_ah_spi,
+            "module.ipv6header.mh.type" : normalize_mh_type
+        }[field.name](field.value)
+    except KeyError:
         raise Exception("Field not implemented: %s" % field.name)
 
     return vector
@@ -101,19 +143,52 @@ def field_value_to_bitvector(field):
 
 def ast_to_rule(ast):
     tags = {
-        "-i":"interface",
-        "-s":"packet.ipv6.source",
-        "--source":"packet.ipv6.source",
-        "-d":"packet.ipv6.destination",
-        "--destination":"packet.ipv6.destination",
-        "-p":"packet.ipv6.proto",
-        "--icmpv6-type":"packet.ipv6.icmpv6.type",
-        "--dport":"packet.upper.dport",
-        "--sport":"packet.upper.sport",
-        "-m":"module",
-        "--limit":"module.limit",
-        "--state":"module.state",
-        "--header":"module.ipv6header.header",
+        "i"                 : "interface",
+        "s"                 : "packet.ipv6.source",
+        "source"            : "packet.ipv6.source",
+        "d"                 : "packet.ipv6.destination",
+        "destination"       : "packet.ipv6.destination",
+        "p"                 : "packet.ipv6.proto",
+        "protocol"          : "packet.ipv6.proto",
+        "icmpv6-type"       : "packet.ipv6.icmpv6.type", # type[/code] | typename
+        "dport"             : "packet.upper.dport",
+        "destination-port"  : "packet.upper.dport",
+        "sport"             : "packet.upper.sport",
+        "source-port"       : "packet.upper.sport",
+        #"tcp-flags"         : "packet.upper.tcp.flags", # mask comp
+        #"syn"               : "packet.upper.tcp.syn",
+        #"tcp-option"        : "packet.upper.tcp.option", # number
+        #"tos"               : "packet.ipv6.priority", # value[/mask]
+        "m"                 : "module",
+        "limit"             : "module.limit",
+        "state"             : "module.state",
+        "header"            : "module.ipv6header.header",
+        "rt"                : "module.rt",
+        "rt-type"           : "module.ipv6header.rt.type", # type
+        "rt-segsleft"       : "module.ipv6header.rt.segsleft", # num[:num]
+        "rt-len"            : "module.ipv6header.rt.len", # length
+        #"rt-0-res"         : "module.ipv6header.rt.0-res" # XXX maybe later
+        #"rt-0-addrs"       : "module.ipv6header.rt.0-addrs", # addr[,addr...] XXX maybe later
+        #"rt-0-not-strict"  : "module.ipv6header.rt.0-not-strict", # XXX maybe later
+        "ahspi"             : "module.ipv6header.ah.spi", # spi[:spi]
+        "ahlen"             : "module.ipv6header.ah.len", # length
+        "ahres"             : "module.ipv6header.ah.res",
+        "dst-len"           : "module.ipv6header.dst.len", # length
+        #"dst-opts"          : "module.ipv6header.dst.opts", # type[length][,type[length]...]
+        "eui64"             : "module.ipv6header.eui64",
+        "fragid"            : "module.ipv6header.frag.id", # id[:id]
+        #"fraglen"           : "module.ipv6header.frag.len", # length
+        "fragres"           : "module.ipv6header.frag.res",
+        "fragres"           : "module.ipv6header.frag.res",
+        "fragfirst"         : "module.ipv6header.frag.first",
+        "fragmore"          : "module.ipv6header.frag.more",
+        "fraglast"          : "module.ipv6header.frag.last",
+        "hbh-len"           : "module.ipv6header.hbh.len", # length
+        #"hbh-opts"          : "module.ipv6header.hbh.opts", # type[length][,type[length]...]
+        "hl-eq"             : "module.ipv6header.hl.eq", # value
+        "hl-lt"             : "module.ipv6header.hl.lt", # value
+        "hl-gt"             : "module.ipv6header.hl.gt", # value
+        "mh-type"           : "module.ipv6header.mh.type", # type[:type...]
     }
 
     tag = lambda k: tags[k]
@@ -122,7 +197,10 @@ def ast_to_rule(ast):
 
     size = lambda k: field_sizes[tag(k)]
 
-    value = lambda k: k[0].value if len(k) >= 1 else "" #TODO: ugly af
+    value = lambda k: k.get_first().value if k.get_first() is not None else ""
+
+    ast = ast.get_child("-A")
+    if not ast: return
 
     body = [
         Field(tag(f.value), size(f.value), value(f)) for f in ast if is_field(f)
@@ -131,7 +209,7 @@ def ast_to_rule(ast):
     for field in body:
         field.vector = field_value_to_bitvector(field)
 
-    action = value(ast.get_child("-j"))
+    action = get_action_from_ast(ast)
 
     chain = get_chain_from_ast(ast)
     rule = Rule(chain,action,body)
@@ -150,24 +228,29 @@ def get_rules_from_ast(ast):
 
 
 def get_chain_from_ast(ast):
-    chain = ast.get_child("-A").get_last().value
+    chain = ast.get_first().value
     return {
         "input":"input_rules",
         "output":"output_rules",
         "forward":"forward_rules"
     }[chain.lower()]
 
+def get_action_from_ast(ast):
+    return ast.get_child("-j").get_first().value
 
-def transform_ast_to_model(ast,node):
-    model = PacketFilterModel(node)
+
+def transform_ast_to_model(ast,node,ports):
+    model = PacketFilterModel(node,ports)
     model.rules = get_rules_from_ast(ast)
 
     return model
 
 
-def generate(ast,node):
+def generate(ast,node,address,ports):
     # transform AST to basic model
-    model = transform_ast_to_model(ast,node)
+    model = transform_ast_to_model(ast,node,ports=ports)
+
+    model.set_address(node,address)
 
     # generate vectors from rule tree
     model.generate_vectors()
@@ -181,5 +264,4 @@ def generate(ast,node):
     # put the rules into their chains
     model.finalize()
 
-    # generate model
-    return model.to_json()
+    return model

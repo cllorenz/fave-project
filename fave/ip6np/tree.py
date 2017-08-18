@@ -33,8 +33,13 @@ class Tree(list):
         return self._negated
 
     def set_negated(self,neg):
-        assert(type(neg) == Boolean)
+        assert(type(neg) == bool)
         self._negated = neg
+
+    def get_first(self):
+        if len(self) > 0:
+            return self[0]
+        return None
 
     def get_last(self):
         if len(self) > 0:
