@@ -367,10 +367,12 @@ class Aggregator(object):
             )
 
     def add_rules(self,model):
+        #print "\nadd_rules(), length:",self.mapping.length
         for t in model.tables:
             ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
+                #print "\nadd_rules(),",model.tables[t],ri,v,a
                 rv = Vector(length=self.mapping.length)
                 for f in model.mapping:
                     offset = model.mapping[f]
@@ -385,8 +387,8 @@ class Aggregator(object):
                     [self.ports[
                         '_'.join([model.node,t,a.lower()])
                     ]] if a in ['ACCEPT','MISS'] else [],
-                    rv.vector,
-                    'x'*self.mapping.length,
+                    rv.vector if rv.vector else 'x'*8,
+                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
                     None
                 )
 
