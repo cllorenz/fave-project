@@ -6,7 +6,7 @@ from netplumber.mapping import field_sizes
 from packet_filter import PacketFilterModel
 from packet_filter import Field
 from packet_filter import Rule
-
+from openflow.switch import SwitchRuleField
 
 def is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I")
@@ -107,8 +107,16 @@ def normalize_mh_type(mh_type):
     return "{0:08b}".format(int(mh_type))
 
 
+# XXX: refactor and move to own utility module
 def field_value_to_bitvector(field):
-    vector = Vector(length=field.size)
+    if type(field) == Field:
+        name,size,value = field.name,field.size,field.value
+    elif type(field) == SwitchRuleField:
+        name,size,value = field.name,field_sizes[field.name],field.value
+    else:
+        raise "field type not implemented:",type(field)
+
+    vector = Vector(length=size)
     try:
         vector[:] = {
             "packet.ipv6.source" : normalize_ipv6_address,
@@ -134,9 +142,9 @@ def field_value_to_bitvector(field):
             "module.ipv6header.ah.res" : normalize_ah_res,
             "module.ipv6header.ah.spi" : normalize_ah_spi,
             "module.ipv6header.mh.type" : normalize_mh_type
-        }[field.name](field.value)
+        }[name](value)
     except KeyError:
-        raise Exception("Field not implemented: %s" % field.name)
+        raise Exception("Field not implemented: %s" % name)
 
     return vector
 

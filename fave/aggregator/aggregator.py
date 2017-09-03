@@ -22,7 +22,8 @@ from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
 import netplumber.jsonrpc as jsonrpc
 
 from ip6np.packet_filter import PacketFilterModel
-from openflow.switch import SwitchModel, SwitchCommand
+from ip6np.generator import field_value_to_bitvector
+from openflow.switch import SwitchModel, SwitchCommand, SwitchRule
 from topology.topology import TopologyCommand, LinksModel
 from topology.host import HostModel
 from topology.generator import GeneratorModel
@@ -118,6 +119,14 @@ class Aggregator(object):
         self.rule_ids = {}
         self.links = {}
 
+    def print_aggregator(self):
+        print "Aggregator:"
+        print self.mapping
+        print "tables:\n\t%s" % self.tables
+        print "ports:\n\t%s" % self.ports
+        print "rule ids:\n\t%s" % self.rule_ids
+        print "links:\n\t%s" % self.links
+
     def handler(self):
         while True:
             data = self.queue.get()
@@ -174,7 +183,7 @@ class Aggregator(object):
             self.extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
-            jsonrpc.expand(self.sock, self.mapping.length+1)
+            jsonrpc.expand(self.sock, self.mapping.length) # XXX: +1 necessary?
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
@@ -369,6 +378,10 @@ class Aggregator(object):
     def add_rules(self,model):
         #print "\nadd_rules(), length:",self.mapping.length
         for t in model.tables:
+            # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
+            if t == "pre_routing":
+                continue
+
             ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
@@ -388,6 +401,33 @@ class Aggregator(object):
                         '_'.join([model.node,t,a.lower()])
                     ]] if a in ['ACCEPT','MISS'] else [],
                     rv.vector if rv.vector else 'x'*8,
+                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                    None
+                )
+
+        if "pre_routing" in model.tables:
+            for r in model.tables["pre_routing"]:
+                rule = SwitchRule.from_json(r)
+                self.mapping.expand(rule.mapping)
+                rv = Vector(length=self.mapping.length)
+                for f in rule.match:
+                    offset = self.mapping[f.name]
+                    size = field_sizes[f.name]
+                    rv[offset:offset+size] = field_value_to_bitvector(f).vector
+
+                ports = []
+                for a in rule.actions:
+                    if a.name != "forward":
+                        continue
+                    ports.extend([self.ports[p] for p in a.ports])
+
+                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                    self.sock,
+                    self.tables['_'.join([model.node,'pre_routing'])],
+                    rule.idx,
+                    [],
+                    ports,
+                    rv.vector,
                     'x'*self.mapping.length if self.mapping.length else 'x'*8,
                     None
                 )
@@ -573,7 +613,7 @@ class Aggregator(object):
         mlength = self.mapping.length
         self.mapping.expand(model.mapping)
         if mlength < self.mapping.length:
-            jsonrpc.expand(self.sock,self.mapping.length+1)
+            jsonrpc.expand(self.sock,self.mapping.length) # XXX: +1 necessary?
 
         #print "\naggr mapping:",self.mapping.to_json()
 

@@ -96,9 +96,12 @@ class Match(list):
         if type(j) == str:
             j = json.loads(j)
 
-        return Match(
-            fields = [fieldify(field) for field in j["fields"]]
-        )
+#        try:
+        fields = [SwitchRuleField.from_json(f) for f in j["fields"]]
+#        except:
+#            fields = [fieldify(field) for field in j["fields"]]
+
+        return Match(fields=fields)
 
 
 class SwitchRule(Model):
@@ -114,6 +117,9 @@ class SwitchRule(Model):
     @staticmethod
     def _match_to_mapping(match):
         mapping = Mapping()
+
+        if not match:
+            return mapping
 
         for field in match:
             mapping.extend(field.name)
@@ -150,6 +156,8 @@ class SwitchRule(Model):
             mapping = Mapping.from_json(j["mapping"])
         )
 
+    def __str__(self):
+        return "%s\ntid: %s\nidx: %s\nmatch:\n\t%s\nactions:\n\t%s\n" % (super(SwitchRule,self).__str__(),self.tid,self.idx,self.match,self.actions)
 
 class SwitchCommand(object):
     def __init__(self,node,command,rule):
