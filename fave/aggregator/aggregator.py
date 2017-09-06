@@ -16,6 +16,8 @@ from threading import Thread
 
 from Queue import Queue
 
+from copy import deepcopy as dc
+
 from netplumber.model import Model
 from netplumber.mapping import Mapping, field_sizes
 from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
@@ -188,7 +190,7 @@ class Aggregator(object):
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
             if model.node in self.models:
-                switch = self.models[model.node]
+                switch = dc(self.models[model.node]) # XXX: is there a more efficient way than copying?
 
                 if model.command == "add_rule":
                     switch.add_rule(model.rule.idx,model.rule)
@@ -288,6 +290,18 @@ class Aggregator(object):
             self.add_model(model)
 
 
+    def delete_model(self,model):
+        if model.type == "packet_filter":
+            self.delete_packet_filter(model)
+        elif model.type == "switch":
+            self.delete_switch(model)
+
+    def add_model(self,model):
+        if model.type == "packet_filter":
+            self.add_packet_filter(model)
+        elif model.type == "switch":
+            self.add_switch(model)
+
     def extend_mapping(self,m):
         assert(type(m) == Mapping)
         for f in m:
@@ -304,6 +318,7 @@ class Aggregator(object):
     def add_switch(self,model):
         self.add_tables(model)
         self.add_wiring(model)
+        self.add_switch_rules(model)
 
 
     def add_tables(self,model,prefixed=False):
@@ -379,7 +394,7 @@ class Aggregator(object):
         #print "\nadd_rules(), length:",self.mapping.length
         for t in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
-            if t == "pre_routing":
+            if t == "pre_routing" or t == "post_routing":
                 continue
 
             ti = self.tables['_'.join([model.node,t])]
@@ -405,10 +420,24 @@ class Aggregator(object):
                     None
                 )
 
-        if "pre_routing" in model.tables:
-            for r in model.tables["pre_routing"]:
-                rule = SwitchRule.from_json(r)
+        for table in ["pre_routing","post_routing"]:
+            if not table in model.tables:
+                continue
+
+            ti = self.tables['_'.join([model.node,table])]
+
+            for r in model.tables[table]:
+                if type(r) == SwitchRule:
+                    rule = r
+                else:
+                    rule = SwitchRule.from_json(r)
+                ri = rule.idx
+
+                mlength = self.mapping.length
                 self.mapping.expand(rule.mapping)
+                if mlength < self.mapping.length:
+                    jsonrpc.expand(self.sock,self.mapping.length)
+
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
                     offset = self.mapping[f.name]
@@ -419,11 +448,46 @@ class Aggregator(object):
                 for a in rule.actions:
                     if a.name != "forward":
                         continue
-                    ports.extend([self.ports[p] for p in a.ports])
+                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
-                    self.tables['_'.join([model.node,'pre_routing'])],
+                    self.tables['_'.join([model.node,table])],
+                    rule.idx,
+                    [],
+                    ports,
+                    rv.vector,
+                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                    None
+                )
+
+    # XXX: merge with pre- post-routing handling above
+    def add_switch_rules(self,model):
+        for table in model.tables:
+            ti = self.tables['_'.join([model.node,table])]
+            for rule in model.tables[table]:
+                ri = rule.idx
+
+                mlength = self.mapping.length
+                self.mapping.expand(rule.mapping)
+                if mlength < self.mapping.length:
+                    jsonrpc.expand(self.sock,self.mapping.length)
+
+                rv = Vector(length=self.mapping.length)
+                for f in rule.match:
+                    offset = self.mapping[f.name]
+                    size = field_sizes[f.name]
+                    rv[offset:offset+size] = field_value_to_bitvector(f).vector
+
+                ports = []
+                for a in rule.actions:
+                    if a.name != "forward":
+                        continue
+                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
+
+                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                    self.sock,
+                    self.tables['_'.join([model.node,table])],
                     rule.idx,
                     [],
                     ports,
