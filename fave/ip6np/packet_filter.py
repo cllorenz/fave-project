@@ -259,12 +259,17 @@ class PacketFilterModel(Model):
                 actions=[Forward(["_".join([node,"pre_routing_forward"])])]
             )
         ]
+        self.normalize()
 
     def add_rule(self,idx,rule):
         self.chains["post_routing"].insert(idx,rule)
+        self.tables["post_routing"].insert(idx,rule)
+        self.rules.append(rule)
 
     def remove_rule(self,idx):
         del self.chains["post_routing"][idx]
+        del self.tables["post_routing"][idx]
+        del self.rules[rule]
 
     def update_rule(self,idx,rule):
         self.remove_rule(idx)
