@@ -52,23 +52,24 @@ echo -n ", link (bar-->bla)... "
 PYTHONPATH=. python2 topology/topology.py -a -l bar.4:bla.1
 echo "ok"
 
-PYTHONPATH=. python2 netplumber/print_np.py -t
-PYTHONPATH=. python2 netplumber/print_np.py -n
-
-
 # test firewall
-echo -n "add firewall... "
+echo -n "add firewall rules... "
 #PYTHONPATH=. python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f ip6np/iptables_ruleset_reduced.sh
 echo "ok"
 
 # test rule setting
 echo -n "add switch rules... "
-#PYTHONPATH=. python2 openflow/switch.py -a -i 1 -n foo -t 1 -f ipv6_dst=2001:db8::1 -c fd=foo.1
-#PYTHONPATH=. python2 openflow/switch.py -a -i 2 -n foo -t 1 -f ipv6_dst=2001:db8::2 -c fd=foo.2
+PYTHONPATH=. python2 openflow/switch.py -a -i 1 -n foo -t 1 -f ipv6_dst=2001:db8::1 -c fd=foo.1
+PYTHONPATH=. python2 openflow/switch.py -a -i 2 -n foo -t 1 -f ipv6_dst=2001:db8::2 -c fd=foo.2
 
-#PYTHONPATH=. python2 openflow/switch.py -a -i 1 -n bar -f ipv6_dst=2001:db8::2 -c fd=bar.2
-#PYTHONPATH=. python2 openflow/switch.py -a -i 2 -n bar -f ipv6_dst=2001:db8::1 -c fd=bar.1
+PYTHONPATH=. python2 openflow/switch.py -a -i 1 -n bar -f ipv6_dst=2001:db8::2 -c fd=bar.2
+PYTHONPATH=. python2 openflow/switch.py -a -i 2 -n bar -f ipv6_dst=2001:db8::1 -c fd=bar.1
 echo "ok"
+
+
+PYTHONPATH=. python2 netplumber/print_np.py -t
+PYTHONPATH=. python2 netplumber/print_np.py -n
+
 
 # test openflow
 #echo -n "start ryu... "
