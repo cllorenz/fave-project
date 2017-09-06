@@ -264,15 +264,12 @@ class Aggregator(object):
             elif cmd.model.type == "probe":
                 if cmd.command == "add":
                     self.add_probe(cmd.model)
-                    #print self.ports
-                    #print len(self.ports)
                 elif cmd.command == "del":
                     self.delete_probe(cmd.model)
 
             return
 
         if model.node in self.models:
-
             # calculate items to remove and items to add
             add = model - self.models[model.node]
             sub = self.models[model.node] - model
@@ -353,7 +350,6 @@ class Aggregator(object):
                     portname = '_'.join([model.node,p])
 
                 ports.append(portno)
-                #print "set port",portname,"=",portno
                 self.ports[portname] = portno
 
             jsonrpc.add_table(self.sock,idx,ports)
@@ -391,7 +387,6 @@ class Aggregator(object):
             )
 
     def add_rules(self,model):
-        #print "\nadd_rules(), length:",self.mapping.length
         for t in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
             if t == "pre_routing" or t == "post_routing":
@@ -400,7 +395,6 @@ class Aggregator(object):
             ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
-                #print "\nadd_rules(),",model.tables[t],ri,v,a
                 rv = Vector(length=self.mapping.length)
                 for f in model.mapping:
                     offset = model.mapping[f]
@@ -552,7 +546,6 @@ class Aggregator(object):
         port = name + '_1'
         portno = calc_port(idx,model,port)
 
-        #print "set port",'_'.join([model.node,port]),"=",portno
         self.ports[port] = portno
 
         outgoing = self.aligned_headerspace(model.outgoing,model.mapping)
@@ -612,12 +605,9 @@ class Aggregator(object):
         port = name + '_1'
         portno = calc_port(idx,model,port)
 
-        #print "set port",'_'.join([model.node,port]),"=",portno
         self.ports[port] = portno
 
         outgoing = self.aligned_headerspace(model.outgoing,model.mapping)
-
-#        if mlength < model.mapping.length:
 
         sid = jsonrpc.add_source(
             self.sock,
@@ -666,26 +656,15 @@ class Aggregator(object):
         port = name + '_1'
         portno = calc_port(idx,model,port)
 
-        #print "set port",'_'.join([model.node,port]),"=",portno
         self.ports[port] = portno
-
-        #print "\nmodel.filter_fields:",model.filter_fields.to_json()
-        #print "\nmodel.test_fields:",model.test_fields.to_json()
-        #print "\nmodel.mapping:",model.mapping.to_json()
-        #print "\naggr mapping:",self.mapping.to_json()
 
         mlength = self.mapping.length
         self.mapping.expand(model.mapping)
         if mlength < self.mapping.length:
             jsonrpc.expand(self.sock,self.mapping.length) # XXX: +1 necessary?
 
-        #print "\naggr mapping:",self.mapping.to_json()
-
         filter_fields = self.aligned_headerspace(model.filter_fields,model.mapping)
         test_fields = self.aligned_headerspace(model.test_fields,model.mapping)
-
-        #print "\naligned filter:",filter_fields.to_json()
-        #print "\naligned test:",test_fields.to_json()
 
         test_path = []
         for pathlet in model.test_path.to_json()['pathlets']:
