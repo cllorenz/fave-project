@@ -181,7 +181,7 @@ class Aggregator(object):
             self.extend_mapping(model.mapping)
         elif model.type == "switch_command" and model.command == "add_rule":
             self.extend_mapping(model.rule.mapping)
-        elif model.type == "topology_command" and model.command == 'add' and model.model.type in ['host','generator']:
+        elif model.type == "topology_command" and model.command == 'add' and model.model.type in ['probe','host','generator']:
             self.extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
