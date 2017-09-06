@@ -217,8 +217,10 @@ class SwitchModel(Model):
 
     def add_rule(self,idx,rule):
         self.rules.insert(idx,rule)
+        self.tables["1"].insert(idx,rule)
 
     def remove_rule(self,idx):
+        del self.tables["1"][idx]
         del self.rules[idx]
 
     def update_rule(self,idx,rule):
