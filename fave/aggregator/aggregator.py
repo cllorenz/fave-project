@@ -480,7 +480,9 @@ class Aggregator(object):
                 for a in rule.actions:
                     if a.name != "forward":
                         continue
-                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
+                    ports.extend([
+                        self.ports['_'.join(p.rsplit('.',1))] for p in a.ports
+                    ])
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
