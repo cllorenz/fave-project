@@ -180,7 +180,7 @@ def advanced_test(sock):
     result = add_rule(sock,3,3,[31],[33],"xxxx1001xxxxxx11","x"*16,"xxxx1000xxxxxx11")
 
     # results in true probe condition
-    remove_rule(sockresult)
+    remove_rule(sock,result)
     add_rule(sock,3,4,[31],[34],"xxxx1001xxxxxxxx","x"*16,None)
 
     reset_plumbing_network(sock)
@@ -346,6 +346,7 @@ def expand_test(sock):
 
     links = [(99,1)]
     sources = [(["x"*160],None,[99])]
+#    sources = [] # TODO: fix regression!!!
     probes = []
 
     init(sock,1)
@@ -404,7 +405,7 @@ def main():
 
     #policy_test(sock)
 
-    #expand_test(sock)
+    expand_test(sock)
 
     #print_plumbing_network(sock)
     #print_topology(sock)
