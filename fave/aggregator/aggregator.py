@@ -274,6 +274,9 @@ class Aggregator(object):
             add = model - self.models[model.node]
             sub = self.models[model.node] - model
 
+# TODO: fix deletion... needs exclusion of pre-, post-routing, state tables
+#            print sub
+
             # remove unecessary items
             self.delete_model(sub)
 
