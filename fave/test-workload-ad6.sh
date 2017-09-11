@@ -192,6 +192,9 @@ for NET in $SUBNETS; do
 done
 echo "ok"
 
+PYTHONPATH=. python2 netplumber/print_np.py -t
+PYTHONPATH=. python2 netplumber/print_np.py -n
+
 kill -s KILL $AGGR
 kill -s KILL $NP
 #kill -s KILL $RYU
