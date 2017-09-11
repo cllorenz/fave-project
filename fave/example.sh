@@ -36,9 +36,9 @@ PYTHONPATH=. python2 topology/topology.py -a -l foo.2:bar.1,bar.3:foo.2
 echo "ok"
 
 echo -n "add hosts... generator"
-PYTHONPATH=. python2 topology/topology.py -a -t generator -n baz -f ipv6_dst=2001:db8::1
+PYTHONPATH=. python2 topology/topology.py -a -t generator -n baz -f "ipv6_dst=2001:db8::1"
 echo -n ", generator"
-PYTHONPATH=. python2 topology/topology.py -a -t generator -n boz -f ipv6_dst=2001:db8::2;tcp_dst=80
+PYTHONPATH=. python2 topology/topology.py -a -t generator -n boz -f "ipv6_dst=2001:db8::2;tcp_dst=80"
 
 echo -n ", link (baz-->bar)"
 PYTHONPATH=. python2 topology/topology.py -a -l baz.1:bar.2
