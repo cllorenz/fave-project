@@ -278,7 +278,7 @@ class Aggregator(object):
 #            print sub
 
             # remove unecessary items
-            self.delete_model(sub)
+#            self.delete_model(sub)
 
             # add new items
             self.add_model(add)

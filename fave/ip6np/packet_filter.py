@@ -262,6 +262,17 @@ class PacketFilterModel(Model):
         self.normalize()
 
     def add_rule(self,idx,rule):
+        offset = (len(self.ports)-19)/2
+        for action in rule.actions:
+            if action.name != "forward":
+                continue
+
+            ports = []
+            for port in action.ports:
+                prefix,no = port.split('.')
+                ports.append("%s.%s" % (prefix,int(no)+offset))
+            action.ports = ports
+
         self.chains["post_routing"].insert(idx,rule)
         self.tables["post_routing"].insert(idx,rule)
         self.rules.append(rule)

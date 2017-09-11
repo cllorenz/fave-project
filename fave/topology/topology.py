@@ -180,7 +180,7 @@ def main(argv):
             model = HostModel(dev,address,ports=ports if ports != 0 else [])
         elif dtype == 'packet_filter':
             model = PacketFilterModel(dev,ports=range(1,len(ports)*2+1))
-            model.set_address(dev,address)
+#            model.set_address(dev,address)
         elif dtype == 'links':
             model = LinksModel(links)
         elif dtype == 'generator':
