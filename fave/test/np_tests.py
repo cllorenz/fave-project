@@ -397,7 +397,7 @@ def main():
 
     #advanced_test(sock)
 
-    #cycle_test(sock)
+    cycle_test(sock)
 
     #slicing_test(sock)
 
