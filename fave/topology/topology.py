@@ -140,6 +140,10 @@ def main(argv):
                 key,body = field.split('=')
                 values = body.split(',')
                 fields[key] = values
+                if key.startswith('tcp') or key.startswith('udp'):
+                    fields['ip_proto'] = [key[:3]]
+                elif key.startswith('icmp'):
+                    fields['ip_proto'] = [key[:4]]
         elif opt == '-F':
             filter_fields = {}
             for field in arg.split(';'):

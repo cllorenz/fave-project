@@ -280,7 +280,14 @@ def main(argv):
         elif opt == '-i':
             idx = int(arg)
         elif opt == '-f':
-            fields = [fieldify(f.split('=')) for f in arg.split(',')]
+            fields = []
+            for field in arg.split(';'):
+                fields.append(fieldify(field.split('=')))
+                if field.startswith('tcp') or field.startswith('udp'):
+                    fields.append(SwitchRuleField('ip_proto',field[:3]))
+                elif field.startswith('icmp'):
+                    fields.append(SwitchRuleField('ip_proto',field[:4]))
+
         elif opt == '-c':
             for action in arg.split(','):
                 cmd,body = action.split('=')
