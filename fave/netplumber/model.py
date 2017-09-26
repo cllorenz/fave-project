@@ -2,6 +2,7 @@
 
 import json
 from util.collections_util import list_sub,dict_sub
+from netplumber.mapping import Mapping
 
 
 class Model(object):
@@ -41,8 +42,7 @@ class Model(object):
         assert(type(s) == str)
 
         j = json.loads(s)
-        return from_json(j)
-
+        return Model.from_json(j)
 
     @staticmethod
     def from_json(j):
@@ -55,6 +55,7 @@ class Model(object):
             mapping=Mapping(j["mapping"])
         )
 
+    """
     @staticmethod
     def from_string(s):
         j = json.loads(s)
@@ -64,7 +65,7 @@ class Model(object):
             }[j["type"]].from_json(j)
         except KeyError:
             raise Exception("model type not implemented")
-
+    """
 
     def __sub__(self,other):
         assert(self.node == other.node)
@@ -89,6 +90,17 @@ class Model(object):
             wiring=wiring,
             mapping=mapping
         )
+
+    def __eq__(self,other):
+        assert(type(other) == Model)
+        return all([
+            self.node == other.node,
+            self.type == other.type,
+            self.tables == other.tables,
+            self.ports == other.ports,
+            self.wiring == other.wiring,
+            self.mapping == other.mapping
+        ])
 
     """
     def diff(self,other):
