@@ -56,6 +56,9 @@ class Vector(object):
     def __len__(self):
         return self.length
 
+    def __eq__(self,other):
+        assert(type(other) == Vector)
+        return self.length == other.length and self.vector == other.vector
 
 class HeaderSpace(object):
     def __init__(self,length,hs_list,hs_diff=[]):
@@ -71,6 +74,7 @@ class HeaderSpace(object):
 
 
     def enlarge(self,size):
+        self.length += size
         for v in self.hs_list:
             v.enlarge(size)
         for v in self.hs_diff:
@@ -109,3 +113,11 @@ class HeaderSpace(object):
             hs_diff.append(v)
 
         return HeaderSpace(length,hs_list,hs_diff)
+
+    def __eq__(self,other):
+        assert(type(other) == HeaderSpace)
+        return all([
+            self.length == other.length,
+            self.hs_list == other.hs_list,
+            self.hs_diff == other.hs_diff
+        ])
