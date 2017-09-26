@@ -7,7 +7,7 @@ TMPDIR=/tmp/np
 mkdir -p $TMPDIR
 
 echo "start unit tests..."
-PYTHONPATH=. python2 tests/unit_tests.py
+PYTHONPATH=. python2 test/unit_tests.py
 
 echo -n "start netplumber... "
 TMPFILE=$TMPDIR/np.log
