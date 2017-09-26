@@ -8,11 +8,11 @@ pv = '\w+\.\d+'
 tv = '\w+'
 
 port    = '\.\*\(port=(?P<value>%s)\)' % pv
-nports  = '\(ports in \((?P<value>(%s,)*%s)\)\)' % (pv,pv)
-lports  = '\.\*\(ports in \((?P<value>(%s,)*%s)\)\)\$' % (pv,pv)
+nports  = '\(port in \((?P<value>(%s,)*%s)\)\)' % (pv,pv)
+lports  = '\.\*\(port in \((?P<value>(%s,)*%s)\)\)\$' % (pv,pv)
 table   = '\.\*\(table=(?P<value>%s)\)' % tv
-ntables = '\(tables in \((?P<value>(%s,)*%s)\)\)' % (tv,tv)
-ltables = '\.\*\(tables in \((?P<value>(%s,)*%s)\)\)\$' % (tv,tv)
+ntables = '\(table in \((?P<value>(%s,)*%s)\)\)' % (tv,tv)
+ltables = '\.\*\(table in \((?P<value>(%s,)*%s)\)\)\$' % (tv,tv)
 
 port_regex    = re.compile("^%s$"%port)
 nports_regex  = re.compile("^%s$"%nports)
@@ -81,13 +81,6 @@ def pathlet_to_str(pathlet):
 
 
 def str_to_pathlet(s):
-    if s == '^':
-        return 'start',1
-    elif s == '$':
-        return 'end',1
-    elif s == '.':
-        return 'skip',1
-
     match = re.match(sport_regex,s)
     if match:
         return ".*(port=%s)" % match.group("value"),match.end()
@@ -110,7 +103,15 @@ def str_to_pathlet(s):
 
     match = re.match(sltables_regex,s)
     if match:
-        return ".*(table in (%s))" % match.group('value'),match.end()
+        return ".*(table in (%s))$" % match.group('value'),match.end()
+
+    if s.startswith('^'):
+        return 'start',1
+    elif s.startswith('$'):
+        return 'end',1
+    elif s.startswith('.'):
+        return 'skip',1
+
 
 
 def pathlet_to_json(pathlet):
@@ -170,7 +171,8 @@ def json_to_pathlet(j):
 
 class Path(object):
     def __init__(self,pathlets=[]):
-        self.pathlets = pathlets #[p for p in pathlets if check_pathlet(p)]
+        self.pathlets = [p for p in pathlets if check_pathlet(p)]
+        assert(pathlets == self.pathlets)
 
     def to_json(self):
         return {
@@ -195,3 +197,6 @@ class Path(object):
             pathlets.append(pathlet)
             s = s[end:]
         return Path(pathlets=pathlets)
+
+    def __eq__(self,other):
+        return self.pathlets == other.pathlets
