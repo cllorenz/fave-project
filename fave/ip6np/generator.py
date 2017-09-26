@@ -14,9 +14,9 @@ def is_rule(ast):
 
 def normalize_interface(interface):
     if interface == "lo": # XXX: deprecated... no lo in rule set allowed
-        return "0000000000000001"
+        return "0000000000000000"
     else:
-        return '{:016b}'.format(int(interface,16))
+        return '{:016b}'.format(int(interface))
 
 
 def normalize_module(module):

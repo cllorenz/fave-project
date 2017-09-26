@@ -417,7 +417,53 @@ class Aggregator(object):
                     None
                 )
 
-        for table in ["pre_routing","post_routing"]:
+        for table in ["post_routing"]:
+            if not table in model.tables:
+                continue
+
+            ti = self.tables['_'.join([model.node,table])]
+
+            for r in model.tables[table]:
+                if type(r) == SwitchRule:
+                    rule = r
+                else:
+                    rule = SwitchRule.from_json(r)
+                ri = rule.idx
+
+                mlength = self.mapping.length
+                self.mapping.expand(rule.mapping)
+                if mlength < self.mapping.length:
+                    jsonrpc.expand(self.sock,self.mapping.length)
+
+                rv = Vector(length=self.mapping.length)
+                for f in rule.match:
+                    offset = self.mapping[f.name]
+                    size = field_sizes[f.name]
+                    rv[offset:offset+size] = field_value_to_bitvector(f).vector
+
+                rw = dc(rv)
+                offset = self.mapping["interface"]
+                size = field_sizes["interface"]
+                rw[offset:offset+size] = "x"*size
+
+                ports = []
+                for a in rule.actions:
+                    if a.name != "forward":
+                        continue
+                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
+
+                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                    self.sock,
+                    self.tables['_'.join([model.node,table])],
+                    rule.idx,
+                    [],
+                    ports,
+                    rv.vector,
+                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                    rw.vector
+                )
+
+        for table in ["pre_routing"]:
             if not table in model.tables:
                 continue
 
@@ -447,18 +493,25 @@ class Aggregator(object):
                         continue
                     ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
 
-                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
-                    self.sock,
-                    self.tables['_'.join([model.node,table])],
-                    rule.idx,
-                    [],
-                    ports,
-                    rv.vector,
-                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
-                    None
-                )
+                rw = dc(rv)
+                offset = self.mapping["interface"]
+                size = field_sizes["interface"]
 
-    # XXX: merge with pre- post-routing handling above
+                for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
+                    rw[offset:offset+size] = '{:016b}'.format(port)
+
+                    self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                        self.sock,
+                        self.tables['_'.join([model.node,table])],
+                        rule.idx,
+                        [self.ports['_'.join([model.node,str(port)])]],
+                        ports,
+                        rv.vector,
+                        'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                        rw.vector
+            )
+
+    # XXX: merge with pre- post-routing handling above?
     def add_switch_rules(self,model):
         for table in model.tables:
             ti = self.tables['_'.join([model.node,table])]
