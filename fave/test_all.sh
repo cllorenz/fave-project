@@ -6,6 +6,9 @@ NPPORT=1234
 TMPDIR=/tmp/np
 mkdir -p $TMPDIR
 
+echo "start unit tests..."
+PYTHONPATH=. python2 tests/unit_tests.py
+
 echo -n "start netplumber... "
 TMPFILE=$TMPDIR/np.log
 net_plumber --hdr-len 1 --server $NPADDR $NPPORT > $TMPFILE &
