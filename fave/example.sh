@@ -6,9 +6,13 @@ NPPORT=1234
 TMPDIR=/tmp/np
 mkdir -p $TMPDIR
 
+echo -n "clean log files... "
+rm -f $TMPDIR/*.log
+echo "ok"
+
 echo -n "start netplumber... "
-TMPFILE=$TMPDIR/np.log
-net_plumber --hdr-len 1 --server $NPADDR $NPPORT > $TMPFILE &
+TMPFILE=$TMPDIR/stdout.log
+net_plumber --log4j-config example.conf --hdr-len 1 --server $NPADDR $NPPORT > $TMPFILE &
 NP=$!
 sleep 1
 echo "ok"
