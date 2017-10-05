@@ -9,17 +9,9 @@ mkdir -p $TMPDIR
 echo "start unit tests..."
 PYTHONPATH=. python2 test/unit_tests.py
 
-echo -n "start netplumber... "
-TMPFILE=$TMPDIR/np.log
-net_plumber --hdr-len 1 --server $NPADDR $NPPORT > $TMPFILE &
-NP=$!
-sleep 1
-echo "ok"
-
 echo -n "regressions... "
-PYTHONPATH=. test/np_tests.py
+PYTHONPATH=. test/test_rpc.py
 echo "ok"
-kill -s KILL $NP
 
 echo "example network..."
 bash example.sh
