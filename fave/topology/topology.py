@@ -32,6 +32,13 @@ class LinksModel(object):
         return self.links.__iter__()
 
 
+    def __eq__(self,other):
+        assert(type(other) == LinksModel)
+        return self.type == other.type and \
+            len(self.links) == len(other.links) and \
+            all([link in other.links for link in self.links])
+
+
 class TopologyCommand(object):
     def __init__(self,node,command,model=None):
         self.node = node
@@ -65,6 +72,12 @@ class TopologyCommand(object):
             }[j["model"]["type"]].from_json(j["model"])
         )
 
+    def __eq__(self,other):
+        assert(type(other) == TopologyCommand)
+        return self.node == other.node and \
+            self.type == other.type and \
+            self.command == other.command and \
+            self.model == other.model
 
 def print_help():
     eprint(

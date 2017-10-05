@@ -5,7 +5,7 @@ import unittest
 from test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
 from test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil
 from test_netplumber import TestMapping,TestVector,TestHeaderSpace,TestModel
-
+from test_topology import TestLinksModel,TestTopologyCommand
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
@@ -34,5 +34,13 @@ if __name__ == '__main__':
         unittest.defaultTestLoader.loadTestsFromTestCase(TestHeaderSpace)
     )
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestModel))
+
+    suite.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestLinksModel)
+    )
+
+    suite.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestTopologyCommand)
+    )
 
     unittest.TextTestRunner(verbosity=2).run(suite)
