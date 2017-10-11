@@ -107,6 +107,10 @@ def calc_rule_index(t_idx,r_idx):
     return (t_idx<<16)+r_idx
 
 
+def normalize_port(port):
+    return '_'.join(port.rsplit('.',1))
+
+
 class Aggregator(object):
     BUF_SIZE = 4096
 
@@ -339,18 +343,18 @@ class Aggregator(object):
             for p in model.ports:
                 if prefixed and p.startswith("in_") and t.startswith("pre_routing"):
                     portno = calc_port(idx,model,p)
-                    portname = '_'.join([model.node,p[3:]])
+                    portname = normalize_port('.'.join([model.node,p[3:]]))
 
                 elif prefixed and p.startswith("out_") and t.startswith("post_routing"):
                     portno = calc_port(idx,model,p)
-                    portname = '_'.join([model.node,p[4:]])
+                    portname = normalize_port('.'.join([model.node,p[4:]]))
 
                 elif prefixed and not p.startswith(t):
                     continue
 
                 else:
                     portno = calc_port(idx,model,p)
-                    portname = '_'.join([model.node,p])
+                    portname = normalize_port('.'.join([model.node,p]))
 
                 ports.append(portno)
                 self.ports[portname] = portno
@@ -385,8 +389,8 @@ class Aggregator(object):
 
             jsonrpc.add_link(
                 self.sock,
-                self.ports['_'.join([model.node,p1])],
-                self.ports['_'.join([model.node,p2])]
+                self.global_port('_'.join([model.node,p1])),
+                self.global_port('_'.join([model.node,p2]))
             )
 
     def add_rules(self,model):
@@ -409,9 +413,9 @@ class Aggregator(object):
                     ti,
                     ri,
                     [],
-                    [self.ports[
+                    [self.global_port(
                         '_'.join([model.node,t,a.lower()])
-                    ]] if a in ['ACCEPT','MISS'] else [],
+                    )] if a in ['ACCEPT','MISS'] else [],
                     rv.vector if rv.vector else 'x'*8,
                     'x'*self.mapping.length if self.mapping.length else 'x'*8,
                     None
@@ -450,7 +454,7 @@ class Aggregator(object):
                 for a in rule.actions:
                     if a.name != "forward":
                         continue
-                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
+                    ports.extend([self.global_port(p) for p in a.ports])
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
@@ -491,7 +495,7 @@ class Aggregator(object):
                 for a in rule.actions:
                     if a.name != "forward":
                         continue
-                    ports.extend([self.ports[p.replace('.','_')] for p in a.ports])
+                    ports.extend([self.global_port(p) for p in a.ports])
 
                 rw = dc(rv)
                 offset = self.mapping["interface"]
@@ -504,7 +508,7 @@ class Aggregator(object):
                         self.sock,
                         self.tables['_'.join([model.node,table])],
                         rule.idx,
-                        [self.ports['_'.join([model.node,str(port)])]],
+                        [self.global_port('_'.join([model.node,str(port)]))],
                         ports,
                         rv.vector,
                         'x'*self.mapping.length if self.mapping.length else 'x'*8,
@@ -534,7 +538,7 @@ class Aggregator(object):
                     if a.name != "forward":
                         continue
                     ports.extend([
-                        self.ports['_'.join(p.rsplit('.',1))] for p in a.ports
+                        self.global_port(p) for p in a.ports
                     ])
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
@@ -601,7 +605,7 @@ class Aggregator(object):
         self.tables[name] = idx
         self.fresh_table_index += 1
 
-        port = name + '_1'
+        port = normalize_port(name + '.1')
         portno = calc_port(idx,model,port)
 
         self.ports[port] = portno
@@ -636,7 +640,7 @@ class Aggregator(object):
         idx,sid,model = self.tables[node]
 
         # delete links
-        p1 = self.ports[node]
+        p1 = self.global_ports(node+'.1')
         p2 = self.links[p1]
         jsonrpc.remove_link(self.node,p1,p2)
         jsonrpc.remove_link(self.node,p2,p1)
@@ -660,7 +664,7 @@ class Aggregator(object):
         self.tables[name] = idx
         self.fresh_table_index += 1
 
-        port = name + '_1'
+        port = normalize_port(name + '.1')
         portno = calc_port(idx,model,port)
 
         self.ports[port] = portno
@@ -680,7 +684,7 @@ class Aggregator(object):
         idx,sid,model = self.tables[node]
 
         # delete links
-        p1 = self.ports[node]
+        p1 = self.global_port(node+'.1')
         p2 = self.links[p1]
         jsonrpc.remove_link(self.node,p1,p2)
         jsonrpc.remove_link(self.node,p2,p1)
@@ -699,7 +703,7 @@ class Aggregator(object):
         if mtype == 'packet_filter':
             return self.tables[node+'_post_routing']
         else:
-            return self.tables[node+'_1']
+            return self.tables[node+'.1']
 
 
     def add_probe(self,model):
@@ -711,7 +715,7 @@ class Aggregator(object):
         self.tables[name] = idx
         self.fresh_table_index += 1
 
-        port = name + '_1'
+        port = normalize_port(name + '.1')
         portno = calc_port(idx,model,port)
 
         self.ports[port] = portno
@@ -730,13 +734,13 @@ class Aggregator(object):
             if ptype in ['start','end','skip']:
                 test_path.append(pathlet)
             elif ptype == 'port':
-                pathlet['port'] = self.ports[pathlet['port']]
+                pathlet['port'] = self.global_port(pathlet['port'])
                 test_path.append(port)
             elif ptype == 'next_ports':
-                pathlet['ports'] = [self.ports[port] for port in pathlet['ports']]
+                pathlet['ports'] = [self.global_port(port) for port in pathlet['ports']]
                 test_path.append(pathlet)
             elif ptype == 'last_ports':
-                pathlet['ports'] = [self.ports[port] for port in pathlet['ports']]
+                pathlet['ports'] = [self.global_port(port) for port in pathlet['ports']]
                 test_path.append(pathlet)
             elif ptype == 'table':
                 pathlet['table'] = self.get_model_table(pathlet['table'])
@@ -782,7 +786,7 @@ class Aggregator(object):
         idx,sid,model = self.tables[node]
 
         # delete links
-        p1 = self.ports[node]
+        p1 = self.global_port(node+'.1')
         p2 = self.links[p1]
         jsonrpc.remove_link(self.node,p1,p2)
         jsonrpc.remove_link(self.node,p2,p1)
