@@ -230,7 +230,7 @@ class Aggregator(object):
                         jsonrpc.add_link(self.sock,sport,dport)
                         self.links[sport] = dport
                     elif cmd.command == "del":
-                        jsonrpc.delete_link(self.sock,sport,dport)
+                        jsonrpc.remove_link(self.sock,sport,dport)
                         del self.links[sport]
 
             elif cmd.model.type == "packet_filter":
