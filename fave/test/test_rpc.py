@@ -69,7 +69,7 @@ class TestRPC(unittest.TestCase):
     def test_basic(self):
         tables = [
             # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
-            (1,[0,1,2],[
+            (1,[1,2,3],[
                 (1,[1],[2],"xxxxxxx0","x"*8,None),
                 (2,[1],[3],"xxxxxxx1","x"*8,None)
             ]),
