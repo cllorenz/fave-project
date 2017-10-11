@@ -46,6 +46,14 @@ def check_pathlet(pathlet):
         re.match(ntables_regex,pathlet) is not None or \
         re.match(ltables_regex,pathlet) is not None
 
+def check_str_pathlet(pathlet):
+    return pathlet in str_pathlets or \
+        re.match(sport_regex,pathlet)    is not None or \
+        re.match(snports_regex,pathlet)  is not None or \
+        re.match(slports_regex,pathlet)  is not None or \
+        re.match(stable_regex,pathlet)   is not None or \
+        re.match(sntables_regex,pathlet) is not None or \
+        re.match(sltables_regex,pathlet) is not None
 
 def pathlet_to_str(pathlet):
     if pathlet == 'start':
@@ -168,11 +176,16 @@ def json_to_pathlet(j):
     elif ptype == "last_tables":
         return ".*(table in (%s))$" % ','.join(j["tables"])
 
+def normalize_pathlet(pathlet):
+    if check_str_pathlet(pathlet):
+        p,i = str_to_pathlet(pathlet)
+        return p
+    elif check_pathlet(pathlet):
+        return pathlet
 
 class Path(object):
     def __init__(self,pathlets=[]):
-        self.pathlets = [p for p in pathlets if check_pathlet(p)]
-        assert(pathlets == self.pathlets)
+        self.pathlets = [normalize_pathlet(p) for p in pathlets]
 
     def to_json(self):
         return {
