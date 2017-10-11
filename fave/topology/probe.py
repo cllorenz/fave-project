@@ -3,7 +3,8 @@ import itertools
 
 from util.packet_util import ETHER_TYPE_IPV6, normalize_ipv6_address, normalize_ipv6_proto, normalize_upper_port
 from util.path_util import Path
-from netplumber.mapping import Mapping
+from util.match_util import oxm_field_to_match_field
+from netplumber.mapping import Mapping,field_sizes
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from ip6np.generator import field_value_to_bitvector
 from ip6np.packet_filter import Field
