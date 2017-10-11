@@ -40,29 +40,37 @@ class LinksModel(object):
 
 
 class TopologyCommand(object):
-    def __init__(self,node,command,model=None):
+    def __init__(self,node,command,model=None,mtype=""):
         self.node = node
         self.type = "topology_command"
         self.command = command
         self.model = model
+        self.mtype = mtype
+        if model:
+            self.mtype = model.type
+
 
     def to_json(self):
-        return {
+        j = {
             "node" : self.node,
             "type" : self.type,
             "command" : self.command,
-            "model" : self.model.to_json(),
         }
+        if self.model:
+            j["model"] = self.model.to_json()
+        if self.mtype:
+            j["mtype"] = self.mtype
+
+        return j
 
     @staticmethod
     def from_json(j):
         if type(j) == str:
             j = json.loads(j)
 
-        return TopologyCommand(
-            j["node"],
-            j["command"],
-            {
+        model = None
+        if "model" in j:
+            model = {
                 "switch" : SwitchModel,
                 "packet_filter" : PacketFilterModel,
                 "links" : LinksModel,
@@ -70,6 +78,16 @@ class TopologyCommand(object):
                 "generator" : GeneratorModel,
                 "probe" : ProbeModel
             }[j["model"]["type"]].from_json(j["model"])
+
+        mtype = ""
+        if "mtype" in j:
+            mtype = j["mtype"]
+
+        return TopologyCommand(
+            j["node"],
+            j["command"],
+            model=model,
+            mtype=mtype
         )
 
     def __eq__(self,other):
@@ -102,11 +120,12 @@ def print_help():
 def main(argv):
     command = "add"
     dev = ""
-    #dtype = "switch"
+    dtype = ""
     ports = []
     links = []
     topo = TopologyCommand(command,dev)
     address = ""
+    fields = {}
     filter_fields = {}
     test_fields = {}
     test_path = []

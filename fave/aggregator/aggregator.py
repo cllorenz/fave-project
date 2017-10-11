@@ -224,7 +224,7 @@ class Aggregator(object):
         if model.type == "topology_command":
             cmd = model
 
-            if cmd.model.type == "links":
+            if cmd.mtype == "links":
                 for link in cmd.model:
                     sport,dport = link
                     sport = self.global_port(sport)
@@ -237,39 +237,39 @@ class Aggregator(object):
                         jsonrpc.remove_link(self.sock,sport,dport)
                         del self.links[sport]
 
-            elif cmd.model.type == "packet_filter":
+            elif cmd.mtype == "packet_filter":
                 if cmd.command == "add":
                     self.add_packet_filter(cmd.model)
                     self.models[cmd.model.node] = cmd.model
                 elif cmd.command == "del":
-                    self.delete_switch(cmd.model)
+                    self.delete_switch(cmd.node)
                     del self.models[cmd.model.node]
 
-            elif cmd.model.type  == "switch":
+            elif cmd.mtype  == "switch":
                 if cmd.command == "add":
                     self.add_switch(cmd.model)
                     self.models[cmd.model.node] = cmd.model
                 elif cmd.command == "del":
-                    self.delete_switch(cmd.model)
+                    self.delete_switch(cmd.node)
                     del self.models[cmd.model.node]
 
-            elif cmd.model.type == "host":
+            elif cmd.mtype == "host":
                 if cmd.command == "add":
                     self.add_host(cmd.model)
                 elif cmd.command == "del":
-                    self.delete_host(cmd.model)
+                    self.delete_host(cmd.node)
 
-            elif cmd.model.type == "generator":
+            elif cmd.mtype == "generator":
                 if cmd.command == "add":
                     self.add_generator(cmd.model)
                 elif cmd.command == "del":
-                    self.delete_generator(cmd.model)
+                    self.delete_generator(cmd.node)
 
-            elif cmd.model.type == "probe":
+            elif cmd.mtype == "probe":
                 if cmd.command == "add":
                     self.add_probe(cmd.model)
                 elif cmd.command == "del":
-                    self.delete_probe(cmd.model)
+                    self.delete_probe(cmd.node)
 
             return
 
