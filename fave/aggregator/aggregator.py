@@ -723,7 +723,7 @@ class Aggregator(object):
         mlength = self.mapping.length
         self.mapping.expand(model.mapping)
         if mlength < self.mapping.length:
-            jsonrpc.expand(self.sock,self.mapping.length) # XXX: +1 necessary?
+            jsonrpc.expand(self.sock,self.mapping.length)
 
         filter_fields = self.aligned_headerspace(model.filter_fields,model.mapping)
         test_fields = self.aligned_headerspace(model.test_fields,model.mapping)
