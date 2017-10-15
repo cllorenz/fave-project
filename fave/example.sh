@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-NPADDR=127.0.0.1
-NPPORT=1234
-
 TMPDIR=/tmp/np
 mkdir -p $TMPDIR
 
@@ -11,16 +8,11 @@ rm -f $TMPDIR/*.log
 echo "ok"
 
 echo -n "start netplumber... "
-TMPFILE=$TMPDIR/stdout.log
-net_plumber --log4j-config example.conf --hdr-len 1 --server $NPADDR $NPPORT > $TMPFILE &
-NP=$!
-sleep 1
+scripts/start_np.sh example.conf
 echo "ok"
 
 echo -n "start aggregator... "
-PYTHONPATH=. python2 aggregator/aggregator.py &
-AGGR=$!
-sleep 1
+scripts/start_aggr.sh
 echo "ok"
 
 ##
@@ -85,6 +77,7 @@ PYTHONPATH=. python2 netplumber/print_np.py -n
 #echo "start openflow proxy..."
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
-kill -s KILL $AGGR
-kill -s KILL $NP
+scripts/stop_aggr.sh
+scripts/stop_np.sh
+
 #kill -s KILL $RYU
