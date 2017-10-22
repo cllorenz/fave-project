@@ -6,6 +6,7 @@ from test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
 from test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil
 from test_netplumber import TestMapping,TestVector,TestHeaderSpace,TestModel
 from test_topology import TestLinksModel,TestTopologyCommand
+from test_tree import TestTree
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
@@ -41,6 +42,10 @@ if __name__ == '__main__':
 
     suite.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestTopologyCommand)
+    )
+
+    suite.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestTree)
     )
 
     unittest.TextTestRunner(verbosity=2).run(suite)
