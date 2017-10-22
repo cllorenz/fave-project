@@ -14,4 +14,4 @@ PYTHONPATH=. test/test_rpc.py
 echo "ok"
 
 echo "example network..."
-bash example.sh
+bash examples/example.sh

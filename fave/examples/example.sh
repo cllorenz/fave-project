@@ -8,7 +8,7 @@ rm -f $TMPDIR/*.log
 echo "ok"
 
 echo -n "start netplumber... "
-scripts/start_np.sh example.conf
+scripts/start_np.sh examples/example.conf
 echo "ok"
 
 echo -n "start aggregator... "
