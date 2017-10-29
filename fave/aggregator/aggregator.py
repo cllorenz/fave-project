@@ -333,37 +333,33 @@ class Aggregator(object):
         ext_ports = []
         for t in model.tables:
             name = '_'.join([model.node,t])
-            idx = 1
 
-            if name in self.tables:
-                idx = self.tables[name]
-
-            else:
+            if not name in self.tables:
                 idx = self.fresh_table_index
                 self.tables[name] = idx
                 self.fresh_table_index += 1
 
-            ports = []
-            for p in model.ports:
-                if prefixed and p.startswith("in_") and t.startswith("pre_routing"):
-                    portno = calc_port(idx,model,p)
-                    portname = normalize_port('.'.join([model.node,p[3:]]))
+                ports = []
+                for p in model.ports:
+                    if prefixed and p.startswith("in_") and t.startswith("pre_routing"):
+                        portno = calc_port(idx,model,p)
+                        portname = normalize_port('.'.join([model.node,p[3:]]))
 
-                elif prefixed and p.startswith("out_") and t.startswith("post_routing"):
-                    portno = calc_port(idx,model,p)
-                    portname = normalize_port('.'.join([model.node,p[4:]]))
+                    elif prefixed and p.startswith("out_") and t.startswith("post_routing"):
+                        portno = calc_port(idx,model,p)
+                        portname = normalize_port('.'.join([model.node,p[4:]]))
 
-                elif prefixed and not p.startswith(t):
-                    continue
+                    elif prefixed and not p.startswith(t):
+                        continue
 
-                else:
-                    portno = calc_port(idx,model,p)
-                    portname = normalize_port('.'.join([model.node,p]))
+                    else:
+                        portno = calc_port(idx,model,p)
+                        portname = normalize_port('.'.join([model.node,p]))
 
-                ports.append(portno)
-                self.ports[portname] = portno
+                    ports.append(portno)
+                    self.ports[portname] = portno
 
-            jsonrpc.add_table(self.sock,idx,ports)
+                jsonrpc.add_table(self.sock,idx,ports)
 
         """
         for p in model.ports:
