@@ -43,6 +43,7 @@ class TestTopologyCommand(unittest.TestCase):
             {
                 'node':'links',
                 'type':'topology_command',
+                'mtype' : 'links',
                 'model':self.model.to_json(),
                 'command':'add'
             }
