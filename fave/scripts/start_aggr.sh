@@ -2,7 +2,7 @@
 
 mkdir -p /tmp/np
 
-PYTHONPATH=. python2 aggregator/aggregator.py &
+PYTHONPATH=. python2 aggregator/aggregator.py -s /tmp/net_plumber.socket &
 
 PID=$!
 echo $PID > /tmp/aggr.pid

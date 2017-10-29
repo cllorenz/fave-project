@@ -63,6 +63,10 @@ def is_domain(s):
     return all([re.match(label,l) for l in labels])
 
 
+def is_unix(s):
+    return not '\0' in s
+
+
 def is_port(s):
     try:
         p = int(s)
@@ -832,7 +836,7 @@ class Aggregator(object):
 
 def main(argv):
     server = "127.0.0.1"
-    port = 1234
+    port = 0
 
     try:
         opts,args = getopt.getopt(argv,"hs:p:",["help","server=","port="])
@@ -845,12 +849,22 @@ def main(argv):
             print_help()
             sys.exit(0)
         elif opt == '-s':
-            server = arg if is_ip(arg) or is_domain(arg) else server
+            server = arg if is_ip(arg) or is_domain(arg) else arg if is_unix(arg) else server
         elif opt == '-p':
             port = int(arg) if is_port(arg) else port
 
-    np = (server,port)
-    sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    sock = None
+    if port == 0:
+        np = server
+        sock = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+    else:
+        np = (server,port)
+        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+    if not sock:
+        print_help()
+        sys.exit(1)
+
     sock.connect(np)
 
     aggregator = Aggregator(sock)
