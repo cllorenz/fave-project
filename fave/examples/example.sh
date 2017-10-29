@@ -64,9 +64,7 @@ PYTHONPATH=. python2 openflow/switch.py -a -i 2 -n bar -f ipv6_dst=2001:db8::1 -
 echo "ok"
 
 
-PYTHONPATH=. python2 netplumber/print_np.py -t
-PYTHONPATH=. python2 netplumber/print_np.py -n
-
+PYTHONPATH=. python2 netplumber/print_np.py -utn
 
 # test openflow
 #echo -n "start ryu... "
