@@ -9,7 +9,7 @@ from netplumber.model import Model
 
 from openflow.switch import SwitchRule,Forward,Match,SwitchRuleField
 
-
+# TODO: replace with SwitchRuleField
 class Field(object):
     def __init__(self,name,size,value,negated=False):
         self.name = name
@@ -27,7 +27,7 @@ class Field(object):
             self.vector if self.vector else "no vector"
         )
 
-
+# TODO: replace with SwitchRule
 class Rule(list):
     def __init__(self,chain,action,fields=[]):
         super(Rule,self).__init__(fields)
