@@ -14,4 +14,6 @@ else
 fi
 
 echo $PID > /tmp/np.pid
+#taskset -p 0x00000001 $PID > /dev/null
+
 sleep 0.5s
