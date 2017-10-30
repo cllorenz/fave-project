@@ -61,7 +61,8 @@ namespace Json
     {
       Json::Value response;
       ssize_t nb = -1;
-      char buf[1500];
+      /* XXX: changed buffer size to 9000 bytes */
+      char buf[9000];
       struct sockaddr_storage addr;
       socklen_t addrlen = sizeof(struct sockaddr_storage);
 

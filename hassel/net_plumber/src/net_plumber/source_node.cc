@@ -62,7 +62,7 @@ string SourceNode::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%llx",node_id);
+  sprintf(buf,"0x%lx",node_id);
   result << " Source: " << buf << "\n";
   result << string(40, '=') << "\n";
   result << source_to_str() << "\n";
@@ -85,3 +85,10 @@ void SourceNode::process_src_flow(Flow *f) {
   propagate_src_flow_on_pipes(source_flow.begin());
 }
 
+void SourceNode::enlarge(uint32_t length) {
+	if (length <= this->length) {
+		return;
+	}
+	Node::enlarge(length);
+	this->length = length;
+}

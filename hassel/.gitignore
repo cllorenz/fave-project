@@ -1,0 +1,5 @@
+*.o
+*.d
+*.pyc
+*.so
+net_plumber/Ubuntu-NetPlumber-Release/net_plumber

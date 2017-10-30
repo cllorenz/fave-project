@@ -40,5 +40,11 @@ bool        elem_in_unsorted_list (uint32_t elem, List_t list);
 bool        lists_has_intersection(List_t a, List_t b);
 List_t      copy_list (List_t l);
 
+double get_wall_time_s(void);
+double get_wall_time_ms(void);
+double get_wall_time_us(void);
+double get_cpu_time_s(void);
+double get_cpu_time_ms(void);
+double get_cpu_time_us(void);
 
 #endif  // NET_PLUMBER_UTILS_H_

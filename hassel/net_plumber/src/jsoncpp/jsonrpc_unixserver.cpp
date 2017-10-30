@@ -17,19 +17,20 @@
  */
 
 /**
- * \file jsonrpc_tcpserver.cpp
+ * \file jsonrpc_UnixServer.cpp
  * \brief JSON-RPC TCP server.
  * \author Sebastien Vincent
  */
 
 #include <stdexcept>
 
-#include "jsonrpc_tcpserver.h"
+#include "jsonrpc_unixserver.h"
 
 #include "netstring.h"
 
 #include <cstring>
 #include <cerrno>
+
 
 namespace Json 
 {
@@ -37,12 +38,11 @@ namespace Json
   namespace Rpc
   {
 
-    TcpServer::TcpServer(const std::string& address, uint16_t port) : Server(address, port)
+    UnixServer::UnixServer(const std::string& address) : Server(address)
     {
-      m_protocol = networking::TCP;
     }
 
-    TcpServer::~TcpServer()
+    UnixServer::~UnixServer()
     {
       if(m_sock != -1)
       {
@@ -50,7 +50,7 @@ namespace Json
       }
     }
     
-    ssize_t TcpServer::Send(int fd, const std::string& data)
+    ssize_t UnixServer::Send(int fd, const std::string& data)
     {
       std::string rep = data;
 
@@ -63,7 +63,7 @@ namespace Json
       return ::send(fd, rep.c_str(), rep.length(), 0);
     }
 
-    bool TcpServer::Recv(int fd)
+    bool UnixServer::Recv(int fd)
     {
       Json::Value response;
       ssize_t nb = -1;
@@ -94,8 +94,11 @@ namespace Json
         m_jsonHandler.Process(msg, response);
 
         /* in case of notification message received, the response could be Json::Value::null */
+
+
         if(response != Json::Value::null)
         {
+
           std::string rep = m_jsonHandler.GetString(response);
 
           /* encoding */
@@ -130,7 +133,7 @@ namespace Json
       }
     }
 
-    void TcpServer::WaitMessage(uint32_t ms)
+    void UnixServer::WaitMessage(uint32_t ms)
     {
       fd_set fdsr;
       struct timeval tv;
@@ -194,7 +197,7 @@ namespace Json
       }
     }
 
-    bool TcpServer::Listen() const
+    bool UnixServer::Listen() const
     {
       if(m_sock == -1)
       {
@@ -209,7 +212,7 @@ namespace Json
       return true;
     }
 
-    bool TcpServer::Accept()
+    bool UnixServer::Accept()
     {
       int client = -1;
       socklen_t addrlen = sizeof(struct sockaddr_storage);
@@ -230,7 +233,7 @@ namespace Json
       return true;
     }
 
-    void TcpServer::Close()
+    void UnixServer::Close()
     {
       /* close all client sockets */
       for(std::list<int>::iterator it = m_clients.begin() ; it != m_clients.end() ; it++)
@@ -242,7 +245,7 @@ namespace Json
       /* listen socket should be closed in Server destructor */
     }
 
-    const std::list<int> TcpServer::GetClients() const
+    const std::list<int> UnixServer::GetClients() const
     {
       return m_clients;
     }

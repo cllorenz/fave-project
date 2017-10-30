@@ -4,6 +4,8 @@
 
   Author: mchang@cs.stanford.com (Michael Chang)
           peyman.kazemian@gmail.com (Peyman Kazemian)
+          kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+          cllorenz@uni-potsdam.de (Claas Lorenz)
 */
 
 #include "array.h"
@@ -53,6 +55,26 @@ array_create (int len, enum bit_val val)
   array_t *res = xmalloc (alen * sizeof *res);
   if (val != BIT_UNDEF) memset (res, val * 0x55, 2 * len);
   memset ((uint8_t *) res + 2 * len, 0xff, alen * sizeof *res - 2 * len);
+  return res;
+}
+
+array_t *
+array_resize (array_t* ptr, int oldlen, int newlen)
+{
+  if (oldlen >= newlen)
+    return ptr;
+
+  if (!ptr)
+    exit(EXIT_FAILURE);
+
+  int oldalen = SIZE (oldlen);
+  int newalen = SIZE (newlen);
+
+  array_t* res = realloc (ptr, newalen*8);
+  if (!res)
+    exit(EXIT_FAILURE);
+
+  memset ((uint8_t *)res + oldalen*8, 0xff, (newalen - oldalen)*8);
   return res;
 }
 
@@ -137,7 +159,7 @@ array_to_str (const array_t *a, int len, bool decimal)
 bool
 array_has_x (const array_t *a, int len)
 {
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     array_t tmp = a[i];
     if (i == SIZE (len) - 1) tmp &= ~((1ull << (len % (sizeof *a / 2))) - 1);
     if (has_x (a[i])) return true;
@@ -148,7 +170,7 @@ array_has_x (const array_t *a, int len)
 bool
 array_has_z (const array_t *a, int len)
 {
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     if (has_z (a[i])) return true;
   return false;
 }
@@ -160,23 +182,29 @@ array_is_eq (const array_t *a, const array_t *b, int len)
 bool
 array_is_sub (const array_t *a, const array_t *b, int len)
 {
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     if (b[i] & ~a[i]) return false;
   return true;
+}
+
+bool
+array_is_sub_eq (const array_t *a, const array_t *b, int len)
+{
+    return array_is_eq(a,b,len) || array_is_sub(a,b,len);
 }
 
 int
 array_one_bit_subtract (array_t *a, array_t *b, int len ) {
   int total_diff = 0;
   array_t diffs[len];
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     array_t c = b[i] & ~a[i];
     diffs[i] = c;
     total_diff += __builtin_popcountll(c);
     if (total_diff > 1) return total_diff;
   }
   if (total_diff == 1) {
-    for (int i = 0; i < SIZE (len); i++) {
+    for (size_t i = 0; i < SIZE (len); i++) {
       if (diffs[i]) {
         if (diffs[i] & EVEN_MASK)
           b[i] = b[i] & ~(diffs[i] >> 1);
@@ -198,7 +226,7 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   bool bSuba = true;
   int diff_count = 0;
   array_t tmp[SIZE (len)];
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     if (equal && a[i] != b[i]) equal = false;
     if (!equal && bSuba && (b[i] & ~a[i])) bSuba = false;
     if (!equal && aSubb && (a[i] & ~b[i])) aSubb = false;
@@ -284,7 +312,7 @@ array_set_byte (array_t *a, uint16_t val, int byte)
 void
 array_and (const array_t *a, const array_t *b, int len, array_t *res)
 {
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     res[i] = ((a[i] | b[i]) & ODD_MASK) | (a[i] & b[i] & EVEN_MASK);
 }
 
@@ -292,7 +320,7 @@ bool
 array_cmpl (const array_t *a, int len, int *n, array_t **res)
 {
   *n = 0;
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     array_t cur = ~a[i];
     while (cur) {
       array_t next = cur & (cur - 1);
@@ -325,7 +353,7 @@ array_diff (const array_t *a, const array_t *b, int len, int *n, array_t **res)
 bool
 array_isect (const array_t *a, const array_t *b, int len, array_t *res)
 {
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     res[i] = a[i] & b[i];
     if (has_z (res[i])) return false;
   }
@@ -335,14 +363,14 @@ array_isect (const array_t *a, const array_t *b, int len, array_t *res)
 void
 array_not (const array_t *a, int len, array_t *res)
 {
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     res[i] = ((a[i] >> 1) & ODD_MASK) | ((a[i] << 1) & EVEN_MASK);
 }
 
 void
 array_or (const array_t *a, const array_t *b, int len, array_t *res)
 {
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     res[i] = (a[i] & b[i] & ODD_MASK) | ((a[i] | b[i]) & EVEN_MASK);
 }
 
@@ -351,7 +379,7 @@ int
 array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, int len)
 {
   int n = 0;
-  for (int i = 0; i < SIZE (len); i++) {
+  for (size_t i = 0; i < SIZE (len); i++) {
     n += x_count (a[i], mask[i]);
     a[i] = (((a[i] | mask[i]) & rewrite[i]) & ODD_MASK) |
            (((a[i] & mask[i]) | rewrite[i]) & EVEN_MASK);
@@ -363,7 +391,7 @@ int
 array_x_count (const array_t *a, const array_t *mask, int len)
 {
   int n = 0;
-  for (int i = 0; i < SIZE (len); i++)
+  for (size_t i = 0; i < SIZE (len); i++)
     n += x_count (a[i], mask[i]);
   return n;
 }
@@ -399,6 +427,8 @@ array_diff_a (const array_t *a, const array_t *b, int len, int *n)
 array_t *
 array_isect_a (const array_t *a, const array_t *b, int len)
 {
+  if (!a || !b) return NULL;
+
   array_t *res = array_create (len, BIT_UNDEF);
   if (!array_isect (a, b, len, res)) {
     free (res);

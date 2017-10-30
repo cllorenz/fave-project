@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "net_plumber.h"
@@ -24,6 +26,10 @@
 #include <fstream>
 #include "net_plumber_utils.h"
 #include "../jsoncpp/json/json.h"
+#include "policy_checker.h"
+extern "C" {
+  #include "../headerspace/array.h"
+}
 
 using namespace std;
 using namespace log4cxx;
@@ -31,13 +37,17 @@ using namespace net_plumber;
 
 LoggerPtr NetPlumber::logger(Logger::getLogger("NetPlumber"));
 LoggerPtr loop_logger(Logger::getLogger("DefaultLoopDetectionLogger"));
+LoggerPtr blackhole_logger(Logger::getLogger("DefaultBlackholeDetectionLogger"));
+#ifdef PIPE_SLICING
+LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
+#endif
 
 string flow_to_str(Flow *f) {
   stringstream str;
   char buf[50];
   while(f->p_flow != f->node->get_EOSFI()) {
     char* h = hs_to_str(f->hs_object);
-    sprintf(buf,"0x%llx",f->node->node_id);
+    sprintf(buf,"0x%lx",f->node->node_id);
     str << h << " @ " << buf << " <-- ";
     free(h);
     f = *f->p_flow;
@@ -61,25 +71,50 @@ void default_blackhole_callback(NetPlumber *N, Flow *f, void *data) {
   stringstream error_msg;
   error_msg << "Black Hole Detected: after event " << get_event_name(e.type) <<
       " (ID1: " << e.id1 << ")";
-  LOG4CXX_FATAL(loop_logger,error_msg.str());
+  LOG4CXX_FATAL(blackhole_logger,error_msg.str());
 }
+
+#ifdef PIPE_SLICING
+void default_slice_overlap_callback(NetPlumber *N, Flow *f, void *data) {
+  Event e = N->get_last_event();
+  stringstream error_msg;
+  error_msg << "Slice Overlap Detected: after event " << get_event_name(e.type) <<
+      " (ID1: " << e.id1 << ")";
+  LOG4CXX_FATAL(slice_logger,error_msg.str());
+}
+#endif
+
+#ifdef PIPE_SLICING
+void default_slice_leakage_callback(NetPlumber *N, Flow *f, void *data) {
+  Event e = N->get_last_event();
+  stringstream error_msg;
+  error_msg << "Slice Leakage Detected: after event " << get_event_name(e.type) <<
+      " (ID1: " << e.id1 << ")";
+  LOG4CXX_FATAL(slice_logger,error_msg.str());
+}
+#endif
 
 string get_event_name(EVENT_TYPE t) {
   switch (t) {
-    case(1): return "Add Rule";
-    case(2): return "Remove Rule";
-    case(3): return "Add Link";
-    case(4): return "Remove Link";
-    case(5): return "Add Source";
-    case(6): return "Remove Source";
-    case(7): return "Add Sink";
-    case(8): return "Remove Sink";
-    case(9): return "Start Source Probe";
-    case(10): return "Stop Source Probe";
-    case(11): return "Start Sink Probe";
-    case(12): return "Stop Sink Probe";
-    case(13): return "Add Table";
-    case(14): return "Remove Table";
+    case(ADD_RULE)          : return "Add Rule";
+    case(REMOVE_RULE)       : return "Remove Rule";
+    case(ADD_LINK)          : return "Add Link";
+    case(REMOVE_LINK)       : return "Remove Link";
+    case(ADD_SOURCE)        : return "Add Source";
+    case(REMOVE_SOURCE)     : return "Remove Source";
+    case(ADD_SINK)          : return "Add Sink";
+    case(REMOVE_SINK)       : return "Remove Sink";
+    case(START_SOURCE_PROBE): return "Start Source Probe";
+    case(STOP_SOURCE_PROBE) : return "Stop Source Probe";
+    case(START_SINK_PROBE)  : return "Start Sink Probe";
+    case(STOP_SINK_PROBE)   : return "Stop Sink Probe";
+    case(ADD_TABLE)         : return "Add Table";
+    case(REMOVE_TABLE)      : return "Remove Table";
+#ifdef PIPE_SLICING
+    case(ADD_SLICE)         : return "Add Slice";
+    case(REMOVE_SLICE)      : return "Remove Slice";
+#endif
+    case(EXPAND): return "Expand"; // not implemented but maybe needed?
     default: return "None";
   }
 }
@@ -136,6 +171,7 @@ void NetPlumber::set_port_to_node_maps(Node *n) {
       inport_to_nodes[n->input_ports.list[i]]->push_back(n);
     }
   }
+
   for (uint32_t i = 0; i < n->output_ports.size; i++) {
     if (outport_to_nodes.count(n->output_ports.list[i]) == 0) {
       outport_to_nodes[n->output_ports.list[i]] = new list<Node*>(1,n);
@@ -179,15 +215,41 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
                                                   (*it)->input_ports);
       if (common_ports.size == 0) continue;
       // find common headerspace
+#ifdef FIREWALL_RULES
+      hs *common_hs;
+      array_t *common_arr;
+      bool is_fw = r->get_type() == FIREWALL_RULE;
+      if (is_fw)
+        common_hs = hs_isect_a(
+          ((FirewallRuleNode *)r)->fw_match,
+          ((FirewallRuleNode *)(*it))->fw_match
+        );
+      else
+        common_arr = array_isect_a(r->match,(*it)->match,this->length);
+
+      if ((is_fw && common_hs == NULL) || (!is_fw && common_arr == NULL)) {
+        if (!common_ports.shared) free(common_ports.list);
+        continue;
+      }
+#else
       array_t *common_hs = array_isect_a(r->match,(*it)->match,this->length);
+
       if (common_hs == NULL) {
         if (!common_ports.shared) free(common_ports.list);
         continue;
       }
+#endif
       // add influence
       Influence *inf = (Influence *)malloc(sizeof *inf);
       Effect *eff = (Effect *)malloc(sizeof *eff);
+#ifdef FIREWALL_RULES
+      if (is_fw)
+        inf->comm_hs = common_hs;
+      else
+        inf->comm_arr = common_arr;
+#else
       inf->comm_arr = common_hs;
+#endif
       inf->ports = common_ports;
       if (seen_rule) {
         inf->node = (*it);
@@ -216,7 +278,27 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*>::iterator it;
       for (it = potential_next_rules->begin();
            it != potential_next_rules->end(); it++) {
-        array_t *pipe_arr = array_isect_a((*it)->match, n->inv_match, length);
+        array_t *pipe_arr;
+#ifdef FIREWALL_RULES
+        if (n->get_type() == FIREWALL_RULE) {
+            hs tmp = {length,{0}};
+            if ((*it)->get_type() == FIREWALL_RULE)
+                hs_add_hs(&tmp,((FirewallRuleNode *)(*it))->fw_match);
+            else
+                hs_add(&tmp,array_copy((*it)->match,length));
+
+            hs_isect(&tmp,((FirewallRuleNode *)n)->fw_match);
+
+            if (tmp.list.used == 1)
+                pipe_arr = array_copy(tmp.list.elems[0],length);
+            else
+                pipe_arr = array_create(length,BIT_Z);
+            hs_destroy(&tmp);
+        }
+        else pipe_arr = array_isect_a((*it)->match, n->inv_match, length);
+#else
+        pipe_arr = array_isect_a((*it)->match,n->inv_match,length);
+#endif
         if (pipe_arr) {
           Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
           Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
@@ -228,6 +310,10 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->node = *it;
           bp->r_pipeline = n->add_fwd_pipeline(fp);
           fp->r_pipeline = (*it)->add_bck_pipeline(bp);
+#ifdef PIPE_SLICING
+          if (!this->add_pipe_to_slices(fp,*it))
+            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+#endif
         }
       }
     }
@@ -243,7 +329,28 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*>::iterator it;
       for (it = potential_prev_rules->begin();
            it != potential_prev_rules->end(); it++) {
-        array_t *pipe_arr = array_isect_a((*it)->inv_match, n->match, length);
+        array_t *pipe_arr;
+#ifdef FIREWALL_RULES
+        if (n->get_type() == FIREWALL_RULE) {
+            hs tmp = {length,{0}};
+            if ((*it)->get_type() == FIREWALL_RULE)
+                hs_add_hs(&tmp,((FirewallRuleNode *)(*it))->fw_match);
+            else
+                hs_add(&tmp,array_copy((*it)->match,length));
+
+            hs_isect(&tmp,((FirewallRuleNode *)n)->fw_match);
+
+            if (tmp.list.used == 1)
+                pipe_arr = array_copy(tmp.list.elems[0],length);
+            else
+                pipe_arr = array_create(length,BIT_Z);
+            hs_destroy(&tmp);
+        }
+        else pipe_arr = array_isect_a((*it)->inv_match, n->match, length);
+#else
+        pipe_arr = array_isect_a((*it)->inv_match,n->match,length);
+#endif
+
         if (pipe_arr) {
           Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
           Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
@@ -255,11 +362,61 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->node = n;
           bp->r_pipeline = (*it)->add_fwd_pipeline(fp);
           fp->r_pipeline = n->add_bck_pipeline(bp);
+#ifdef PIPE_SLICING
+          if (!this->add_pipe_to_slices(fp,n))
+            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+#endif
         }
       }
     }
   }
 }
+#ifdef PIPE_SLICING
+/* returns whether no leak is detected */
+bool NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next) {
+    std::list<struct Pipeline *> n = next->next_in_pipeline;
+    std::list<struct Pipeline *>::const_iterator p;
+    for (p = n.begin(); p != n.end(); p++)
+        if ((*p)->net_space_id != pipe->net_space_id) return false;
+
+    return true;
+}
+
+#endif
+
+#ifdef PIPE_SLICING
+/* returns whether the pipe is successfully to a slice (without leakage) */
+bool NetPlumber::add_pipe_to_slices(struct Pipeline *pipe, Node *next) {
+    std::map<uint64_t,struct Slice*>::iterator s;
+
+    struct hs *tmp = hs_create(this->length);
+    hs_add(tmp,array_copy(pipe->pipe_array,this->length));
+
+    for (s = this->slices.begin(); s != this->slices.end(); s++) {
+        uint64_t net_space_id = s->first;
+        struct Slice *slice = s->second;
+
+        // if the pipe belongs to a slice update the pipe and add it to the slice
+        if (hs_is_sub_eq(tmp,slice->net_space)) {
+            hs_free(tmp);
+            pipe->net_space_id = net_space_id;
+            slice->pipes->push_front(pipe);
+            pipe->r_slice = slice->pipes->begin();
+            return check_pipe_for_slice_leakage(pipe, next);
+        }
+    }
+    hs_free(tmp);
+    return false;
+}
+#endif
+
+#ifdef PIPE_SLICING
+void NetPlumber::remove_pipe_from_slices(struct Pipeline *pipe) {
+    if (!this->slices[pipe->net_space_id]) return;
+    struct Slice *slice = this->slices[pipe->net_space_id];
+    slice->pipes->erase(pipe->r_slice);
+}
+#endif
 
 /*
  * * * * * * * * * * * * *
@@ -271,8 +428,23 @@ NetPlumber::NetPlumber(int length) : length(length), last_ssp_id_used(0) {
   this->last_event.type = None;
   this->loop_callback = default_loop_callback;
   this->loop_callback_data = NULL;
-  this->blackhole_callback = default_loop_callback;
+  this->blackhole_callback = default_blackhole_callback;
   this->blackhole_callback_data = NULL;
+#ifdef PIPE_SLICING
+  struct Slice *slice = (struct Slice *)malloc(sizeof(*slice));
+  slice->net_space_id = 0;
+  slice->net_space = hs_create(length);
+  hs_add(slice->net_space,array_create(this->length,BIT_X));
+  slice->pipes = new std::list<struct Pipeline *>();
+  this->slices[0] = slice;
+  this->slice_overlap_callback = default_slice_overlap_callback;
+  this->slice_overlap_callback_data = NULL;
+  this->slice_leakage_callback = default_slice_leakage_callback;
+  this->slice_leakage_callback_data = NULL;
+#endif
+#ifdef POLICY_PROBES
+  this->policy_checker = new PolicyChecker(length);
+#endif
 }
 
 NetPlumber::~NetPlumber() {
@@ -280,6 +452,8 @@ NetPlumber::~NetPlumber() {
   for (p_it = probes.begin(); p_it != probes.end(); p_it++) {
     if ((*p_it)->get_type() == SOURCE_PROBE) {
       ((SourceProbeNode*)(*p_it))->stop_probe();
+    } else if ((*p_it)->get_type() == POLICY_PROBE) {
+      ((PolicyProbeNode*)(*p_it))->stop_probe();
     }
     clear_port_to_node_maps(*p_it);
     delete *p_it;
@@ -303,6 +477,9 @@ NetPlumber::~NetPlumber() {
     clear_port_to_node_maps(*s_it);
     delete *s_it;
   }
+#ifdef POLICY_PROBES
+  delete policy_checker;
+#endif
 }
 
 Event NetPlumber::get_last_event() {
@@ -351,6 +528,10 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
           bp->r_pipeline = (*src_it)->add_fwd_pipeline(fp);
           fp->r_pipeline = (*dst_it)->add_bck_pipeline(bp);
           (*src_it)->propagate_src_flows_on_pipe(bp->r_pipeline);
+#ifdef PIPE_SLICING
+          if (!this->add_pipe_to_slices(fp,*dst_it))
+            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+#endif
         }
       }
     }
@@ -432,7 +613,7 @@ void NetPlumber::add_table(uint32_t id, List_t ports) {
 
     table_to_nodes[id] = new list<RuleNode*>();
     table_to_ports[id] = ports;
-    table_to_last_id[id] = 0;
+    table_to_last_id[id] = 0l;
     return;
   } else if (id == 0) {
     LOG4CXX_ERROR(logger,"Can not create table with ID 0. ID should be > 0.");
@@ -540,17 +721,189 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
   }
 }
 
+#ifdef FIREWALL_RULES
+uint64_t NetPlumber::_add_fw_rule(uint32_t table,int index,
+                               bool group, uint64_t gid,
+                               List_t in_ports, List_t out_ports,
+                               hs *fw_match) {
+  if (table_to_nodes.count(table) > 0) {
+    table_to_last_id[table] += 1;
+    uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
+    if (in_ports.size == 0) in_ports = table_to_ports[table];
+    FirewallRuleNode *r;
+    if (!group || !gid) { //first rule in group or no group
+      if (!group) r = new FirewallRuleNode(this, length, id, table, in_ports, out_ports,
+                                   fw_match);
+      else r = new FirewallRuleNode(this, length, id, table, id, in_ports, out_ports,
+                            fw_match);
+      this->id_to_node[id] = r;
+      if (index < 0 || index >= (int)this->table_to_nodes[table]->size()) {
+        this->table_to_nodes[table]->push_back(r);
+      } else {
+        list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+        for (int i=0; i < index; i++, it++);
+        this->table_to_nodes[table]->insert(it,r);
+      }
+      this->last_event.type = ADD_FW_RULE;
+      this->last_event.id1 = id;
+      this->set_port_to_node_maps(r);
+      this->set_table_dependency(r);
+      this->set_node_pipelines(r);
+      r->subtract_infuences_from_flows();
+      r->process_src_flow(NULL);
+
+    } else if (id_to_node.count(gid) > 0 &&
+          ((FirewallRuleNode*)id_to_node[gid])->group == gid) {
+
+      FirewallRuleNode *rg = (FirewallRuleNode*)this->id_to_node[gid];
+      table = rg->table;
+      r = new FirewallRuleNode(this, length, id, table, gid, in_ports, out_ports,
+                       fw_match);
+      this->id_to_node[id] = r;
+      // insert rule after its lead group rule
+      list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+      for (; (*it)->node_id != gid; it++);
+      this->table_to_nodes[table]->insert(++it,r);
+      this->last_event.type = ADD_FW_RULE;
+      this->last_event.id1 = id;
+      // set port maps
+      this->set_port_to_node_maps(r);
+      //The influences of this rule is the same as lead rule in the group.
+      r->effect_on = rg->effect_on;
+      r->influenced_by = rg->influenced_by;
+      this->set_node_pipelines(r);
+      // no need to subtract influences. it has already taken care of
+      r->process_src_flow(NULL);
+
+    } else {
+      free(in_ports.list);free(out_ports.list);free(fw_match);
+      stringstream error_msg;
+      error_msg << "Group " << group << " does not exist. Can't add rule to it."
+          << "Ignoring add new rule request.";
+      LOG4CXX_WARN(logger,error_msg.str());
+      return 0;
+    }
+    return id;
+  } else {
+    free(in_ports.list);free(out_ports.list);free(fw_match);
+    stringstream error_msg;
+    error_msg << "trying to add a rule to a non-existing table (id: " << table
+        << "). Ignored.";
+    LOG4CXX_ERROR(logger,error_msg.str());
+    return 0;
+  }
+}
+
+uint64_t NetPlumber::add_fw_rule(uint32_t table,int index, List_t in_ports,
+            List_t out_ports, hs *fw_match) {
+
+  if (table_is_firewall.find(table) != table_is_firewall.end() &&
+      !table_is_firewall[table] &&
+      table_to_nodes[table]->size() > 0)
+  {
+      stringstream error_msg;
+      error_msg << "trying to add a firewall rule to a non-firewall table (id: "
+        << table << "). Ignored.";
+      LOG4CXX_ERROR(logger,error_msg.str());
+      return 0;
+  }
+
+  table_is_firewall[table] = true;
+
+  return _add_fw_rule(table,index,false,0,in_ports,out_ports,fw_match);
+}
+
+uint64_t NetPlumber::add_fw_rule_to_group(uint32_t table,int index, List_t in_ports
+                           ,List_t out_ports,hs *fw_match, uint64_t group) {
+  if (table_is_firewall.find(table) != table_is_firewall.end() &&
+      !table_is_firewall[table] &&
+      table_to_nodes[table]->size() > 0)
+  {
+      stringstream error_msg;
+      error_msg << "trying to add a firewall rule to a non-firewall table (id: "
+        << table << "). Ignored.";
+      LOG4CXX_ERROR(logger,error_msg.str());
+      return 0;
+  }
+
+  table_is_firewall[table] = true;
+
+  return _add_fw_rule(table,index,true,group,in_ports,out_ports,fw_match);
+}
+
+void NetPlumber::remove_fw_rule(uint64_t rule_id) {
+  if (id_to_node.count(rule_id) > 0 && id_to_node[rule_id]->get_type() == FIREWALL_RULE){
+    this->last_event.type = REMOVE_FW_RULE;
+    this->last_event.id1 = rule_id;
+    FirewallRuleNode *r = (FirewallRuleNode *)id_to_node[rule_id];
+    if (r->group == 0) free_rule_memory(r);
+    else free_group_memory(r->table,r->group);
+  } else {
+    stringstream error_msg;
+    error_msg << "Rule " << rule_id << " does not exist. Can't delete it.";
+    LOG4CXX_WARN(logger,error_msg.str());
+  }
+}
+#endif
+
 uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
             List_t out_ports, array_t* match, array_t *mask, array_t* rw) {
+#ifdef FIREWALL_RULES
+  if (table_is_firewall.find(table) != table_is_firewall.end() &&
+      table_is_firewall[table] &&
+      table_to_nodes[table]->size() > 0)
+  {
+      stringstream error_msg;
+      error_msg << "trying to add a non-firewall rule to a firewall table (id: "
+        << table << "). Ignored.";
+      LOG4CXX_ERROR(logger,error_msg.str());
+      return 0;
+  }
+
+  table_is_firewall[table] = false;
+#endif
+
   return _add_rule(table,index,false,0,in_ports,out_ports,match,mask,rw);
 }
 
 uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
                            ,List_t out_ports, array_t* match, array_t *mask,
                            array_t* rw, uint64_t group) {
+#ifdef FIREWALL_RULES
+  if (table_is_firewall.find(table) != table_is_firewall.end() &&
+      table_is_firewall[table] &&
+      table_to_nodes[table]->size() > 0)
+  {
+      stringstream error_msg;
+      error_msg << "trying to add a non-firewall rule to a firewall table (id: "
+        << table << "). Ignored.";
+      LOG4CXX_ERROR(logger,error_msg.str());
+      return 0;
+  }
+
+  table_is_firewall[table] = false;
+#endif
   return _add_rule(table,index,true,group,in_ports,out_ports,match,mask,rw);
 }
 
+//expand(int length); length is the number if octets of the vector.
+//"xxxxxxxx" is length 1
+//"xxxxxxxx xxxxxxxx" is length 2 and so on
+//|| z=00 1=10 0=01 x=11
+//length of n equals 2n bytes of memory
+int NetPlumber::expand(int length) {
+	if (length > this->length) {
+		for (
+            std::map<uint64_t,Node*>::iterator it_nodes = id_to_node.begin() ;
+            it_nodes != id_to_node.end();
+            ++it_nodes
+        ) {//should contain all flows, probes and rules
+            it_nodes->second->enlarge(length);
+		}
+		this->length = length;
+	}
+	return this->length;
+}
 
 void NetPlumber::remove_rule(uint64_t rule_id) {
   if (id_to_node.count(rule_id) > 0 && id_to_node[rule_id]->get_type() == RULE){
@@ -776,3 +1129,147 @@ void NetPlumber::save_dependency_graph(string file_name) {
   jsfile << root;
   jsfile.close();
 }
+
+#ifdef PIPE_SLICING
+bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
+    this->last_event.type = ADD_SLICE;
+    this->last_event.id1 = id;
+
+    /* if net space id is already present, replace old entry */
+    if (slices[id]) remove_slice(id);
+
+    /* if slice does not fit in free network space */
+    if (!hs_is_sub_eq(net_space,slices[0]->net_space)) {
+        this->slice_overlap_callback(this,NULL,this->slice_overlap_callback_data);
+        return false;
+    }
+
+    struct Slice *slice = (struct Slice *)malloc(sizeof(*slice));
+    slice->net_space_id = id;
+    slice->net_space = net_space;
+    slice->pipes = new std::list<struct Pipeline*>();
+
+    /* remove slice from free network space */
+    hs_minus(slices[0]->net_space,net_space);
+
+    /* add free pipelines to slice */
+    std::list<struct Pipeline *> *pipes = slices[0]->pipes;
+    std::list<struct Pipeline *>::iterator p;
+    struct Pipeline *pipe;
+    struct hs *tmp;
+
+    std::list<std::list<struct Pipeline *>::iterator> rem;
+
+    for (p = pipes->begin(); p != pipes->end(); p++) {
+        pipe = *p;
+
+        tmp = hs_create(this->length);
+        hs_add(tmp,array_copy(pipe->pipe_array,this->length));
+
+        if (hs_is_sub_eq(tmp,net_space)) {
+            pipe->net_space_id = slice->net_space_id;
+            slice->pipes->push_front(pipe);
+            pipe->r_slice = pipes->begin();
+            rem.push_back(p);
+        }
+
+        hs_free(tmp);
+    }
+
+
+    std::list<std::list<struct Pipeline *>::iterator>::iterator p2;
+    for (p2= rem.begin(); p2 != rem.end(); p2++) pipes->erase(*p2);
+
+    // TODO: is it necessary to destruct the pipeline list?
+    if(slices[id]) free(slices[id]);
+    slices[id] = slice;
+
+    return true;
+}
+#endif
+
+#ifdef PIPE_SLICING
+void NetPlumber::remove_slice(uint64_t id) {
+    this->last_event.type = REMOVE_SLICE;
+    this->last_event.id1 = id;
+
+    if (id == 0) return;
+
+    std::map<uint64_t,struct Slice *>::iterator slice;
+    struct Slice *s = NULL;
+
+    /* select slice if present */
+    if (slices[id]) s = slices[id];
+    else return;
+
+    /* remove pipelines from slice and add to free space */
+    std::list<struct Pipeline *> *pipes = s->pipes;
+    std::list<struct Pipeline *>::iterator p;
+    struct Pipeline *pipe;
+    for (p = pipes->begin(); p != pipes->end(); p++) {
+        pipe = *p;
+        pipe->net_space_id = 0;
+        slices[0]->pipes->push_front(pipe);
+        pipe->r_slice = pipes->begin();
+    }
+
+    delete pipes;
+
+    /* free network space */
+    hs_add_hs(slices[0]->net_space,s->net_space);
+
+    slices.erase(id);
+    free(s);
+}
+#endif
+
+#ifdef POLICY_PROBES
+void NetPlumber::add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action) {
+    policy_checker->add_policy_rule(index,match,action);
+}
+#endif
+
+#ifdef POLICY_PROBES
+void NetPlumber::remove_policy_rule(uint32_t index) {
+    policy_checker->remove_policy_rule(index);
+}
+#endif
+
+#ifdef POLICY_PROBES
+uint64_t NetPlumber::add_policy_probe_node(List_t ports,
+                               policy_probe_callback_t probe_callback,
+                               void *probe_callback_data) {
+  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
+  PolicyProbeNode* p = new PolicyProbeNode(this, length, node_id,
+                                           ports, policy_checker,
+                                           probe_callback, probe_callback_data);
+  this->id_to_node[node_id] = p;
+  this->probes.push_back(p);
+  this->last_event.type = START_POLICY_PROBE;
+  this->last_event.id1 = node_id;
+  this->set_port_to_node_maps(p);
+  this->set_node_pipelines(p);
+  p->process_src_flow(NULL);
+  p->start_probe();
+  return node_id;
+}
+#endif
+
+#ifdef POLICY_PROBES
+void NetPlumber::remove_policy_probe_node(uint64_t id) {
+  if (id_to_node.count(id) > 0 && id_to_node[id]->get_type() == POLICY_PROBE) {
+    this->last_event.type = STOP_POLICY_PROBE;
+    this->last_event.id1 = id;
+    PolicyProbeNode *p = (PolicyProbeNode *)id_to_node[id];
+    p->stop_probe();
+    id_to_node.erase(p->node_id);
+    probes.remove(p);
+    clear_port_to_node_maps(p);
+    delete p;
+  } else {
+    stringstream error_msg;
+    error_msg << "Probe Node " << id << " does not exist. Can't delete it.";
+    LOG4CXX_WARN(logger,error_msg.str());
+  }
+}
+#endif

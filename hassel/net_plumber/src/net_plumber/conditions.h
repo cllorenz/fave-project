@@ -14,6 +14,7 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef SRC_NET_PLUMBER_CONDITIONS_H_
@@ -50,6 +51,7 @@
 class Condition {
  public:
   Condition() {};
+  virtual void enlarge(uint32_t) {};
   virtual ~Condition() {};
   virtual bool check(Flow *f) = 0;
   virtual std::string to_string() = 0;
@@ -87,6 +89,7 @@ class AndCondition : public Condition {
   Condition *c2;
  public:
   AndCondition(Condition *c1, Condition *c2) : c1(c1), c2(c2) {}
+  void enlarge(uint32_t length) {c1->enlarge(length);c2->enlarge(length);};
   virtual ~AndCondition() {delete c1; delete c2;}
   bool check(Flow *f) {return c1->check(f) && c2->check(f);}
   std::string to_string() {
@@ -103,6 +106,7 @@ class OrCondition : public Condition {
   Condition *c2;
  public:
   OrCondition(Condition *c1, Condition *c2) : c1(c1), c2(c2) {}
+  void enlarge(uint32_t length) {c1->enlarge(length);c2->enlarge(length);};
   virtual ~OrCondition() {delete c1; delete c2;}
   bool check(Flow *f) {return c1->check(f) || c2->check(f);}
   std::string to_string() {
@@ -118,6 +122,7 @@ class NotCondition : public Condition {
   Condition *c;
  public:
   NotCondition(Condition *c) : c(c) {}
+  void enlarge(uint32_t length) {c->enlarge(length);};
   virtual ~NotCondition() {delete c;}
   bool check(Flow *f) {return !c->check(f);}
   std::string to_string() {return "!(" + c->to_string() + ")";}
@@ -132,6 +137,7 @@ class HeaderCondition : public Condition {
  public:
   HeaderCondition(hs *match_header) : h(match_header) {}
   ~HeaderCondition() { hs_free(h); }
+  void enlarge(uint32_t length);
   bool check(Flow *f);
   std::string to_string();
 };

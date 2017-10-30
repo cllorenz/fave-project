@@ -122,6 +122,38 @@ namespace networking
     return sock;
   }
 
+#ifndef _WIN32
+  int bind(const std::string& address)
+  {
+    int sock = -1;
+
+    struct sockaddr_un addr;
+
+    if (address.find_first_of("\0") != std::string::npos)
+    {
+        return -1;
+    }
+
+    sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (!(sock > 0))
+    {
+        return -1;
+    }
+
+    unlink(address.c_str());
+
+    addr.sun_family = AF_LOCAL;
+    strcpy(addr.sun_path, address.c_str());
+
+    if (::bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+    {
+        return -1;
+    }
+
+    return sock;
+  }
+#endif
+
   int bind(enum TransportProtocol protocol, const std::string& address, uint16_t port, struct sockaddr_storage* sockaddr, socklen_t* addrlen)
   {
     struct addrinfo hints;

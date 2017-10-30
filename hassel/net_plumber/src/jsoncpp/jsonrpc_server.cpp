@@ -30,6 +30,14 @@ namespace Json
   namespace Rpc
   {
 
+    Server::Server(const std::string& address)
+    {
+      m_sock = -1;
+      m_address = address;
+      m_port = 0;
+      SetEncapsulatedFormat(Json::Rpc::RAW);
+    }
+
     Server::Server(const std::string& address, uint16_t port)
     {
       m_sock = -1;
@@ -73,7 +81,13 @@ namespace Json
 
     bool Server::Bind()
     {
-      m_sock = networking::bind(m_protocol, m_address, m_port, NULL, NULL);
+      if (!m_port) {
+        m_sock = networking::bind(m_address);
+      }
+      else
+      {
+        m_sock = networking::bind(m_protocol, m_address, m_port, NULL, NULL);
+      }
 
       return (m_sock != -1) ? true : false;
     }

@@ -21,6 +21,9 @@
 #include <sstream>
 #include <stdlib.h>
 
+#include <time.h>
+#include <sys/time.h>
+
 using namespace std;
 
 int compare (const void * a, const void * b)
@@ -151,4 +154,32 @@ bool elem_in_unsorted_list(uint32_t elem, List_t list) {
     if (elem == list.list[i]) return true;
   }
   return false;
+}
+
+double get_wall_time_s(void) {
+    struct timeval t;
+    if (gettimeofday(&t,NULL)) {
+        return 0.0;
+    }
+    return (double)t.tv_sec + ((double)t.tv_usec * 0.000001);
+}
+
+double get_wall_time_ms(void) {
+    return get_wall_time_s() / 1000.0;
+}
+
+double get_wall_time_us(void) {
+    return get_wall_time_s() / 1000000.0;
+}
+
+double get_cpu_time_s(void) {
+    return (double)clock() / CLOCKS_PER_SEC;
+}
+
+double get_cpu_time_ms(void) {
+    return get_cpu_time_s() * 1000.0;
+}
+
+double get_cpu_time_us(void) {
+    return get_cpu_time_s() * 1000000.0;
 }

@@ -4,6 +4,7 @@
 
   Author: mchang@cs.stanford.com (Michael Chang)
           peyman.kazemian@gmail.com (Peyman Kazemian)
+          kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef _HS_H_
@@ -36,6 +37,7 @@ char *hs_to_str     (const struct hs *hs);
 
 
 void hs_add  (struct hs *hs, array_t *a);
+void hs_add_hs (struct hs *dst, const struct hs *src);
 void hs_diff (struct hs *hs, const array_t *a);
 
 bool hs_compact   (struct hs *hs);
@@ -49,6 +51,8 @@ void hs_minus     (struct hs *a, const struct hs *b);
 void hs_rewrite   (struct hs *hs, const array_t *mask, const array_t *rewrite);
 void hs_vec_append (struct hs_vec *v, array_t *a, bool diff);
 
+void hs_enlarge	  (struct hs *hs, int length);
+
 /*
  * rewrites diff according to mask/rewrite array and diff it from rw_hs only if
  * the following condition is met: "If diff_hs was diff'ed from orig_hs and then
@@ -57,5 +61,8 @@ void hs_vec_append (struct hs_vec *v, array_t *a, bool diff);
 bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite);
 
+bool hs_is_empty(const struct hs *hs);
+bool hs_is_sub(const struct hs *a, const struct hs *b);
+bool hs_is_sub_eq(const struct hs *a, const struct hs *b);
 #endif
 

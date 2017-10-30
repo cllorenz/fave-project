@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "rpc_handler.h"
@@ -22,10 +24,17 @@ extern "C" {
   #include "../headerspace/hs.h"
 }
 
+#include "net_plumber_utils.h"
+
+#include "policy_checker.h"
+
+using namespace log4cxx;
 using namespace Json::Rpc;
 using namespace std;
 
 namespace net_plumber {
+
+LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
 array_t *val_to_array(const Json::Value &val) {
   if (val.isNull()) {
@@ -61,7 +70,6 @@ List_t val_to_list(const Json::Value &val) {
   return make_sorted_list_from_array(val.size(),elems);
 }
 
-
 Condition *val_to_path(const Json::Value &pathlets) {
   PathCondition *path = new PathCondition();
   for (Json::Value::ArrayIndex i = 0; i < pathlets.size(); i++) {
@@ -102,10 +110,15 @@ Condition *val_to_cond(const Json::Value &val, int length) {
   return NULL;
 }
 
-
+ACTION_TYPE val_to_action(const char *action) {
+  if (strcmp(action,"allow")) return ACTION_ALLOW;
+  if (strcmp(action,"deny")) return ACTION_DENY;
+  return ACTION_UNKNOWN;
+}
+
 typedef bool (RpcHandler::*RpcFn) (const Json::Value &, Json::Value &);
 
-void RpcHandler::initServer (TcpServer &server) {
+void RpcHandler::initServer (Server *server) {
 #define FN(NAME) {#NAME, &RpcHandler::NAME}
   struct { string name; RpcFn fn; } methods[] = {
     FN(init), FN(destroy),
@@ -114,28 +127,55 @@ void RpcHandler::initServer (TcpServer &server) {
     FN(add_rule), FN(remove_rule),
     FN(add_source), FN(remove_source),
     FN(add_source_probe), FN(remove_source_probe),
-    FN(print_table)
+#ifdef PIPE_SLICING
+    FN(add_slice), FN(remove_slice),
+#endif
+#ifdef FIREWALL_RULES
+    FN(add_fw_rule), FN(remove_fw_rule),
+#endif
+#ifdef POLICY_PROBES
+    FN(add_policy_rule), FN(remove_policy_rule),
+    FN(add_policy_probe), FN(remove_policy_probe),
+#endif
+    FN(print_table),
+    FN(print_topology),
+    FN(print_plumbing_network),
+    FN(reset_plumbing_network),
+    FN(expand)
   };
   int n = sizeof methods / sizeof *methods;
   for (int i = 0; i < n; i++)
-    server.AddMethod (new RpcMethod<RpcHandler> (*this, methods[i].fn, methods[i].name));
+    server->AddMethod (new RpcMethod<RpcHandler> (*this, methods[i].fn, methods[i].name));
 #undef FN
 }
 
+#define LOG_MSG_RESET do {\
+    log_msg.str(""); \
+    log_msg.clear(); \
+  } while(0)
+
 #define PROTO(NAME) \
   bool RpcHandler::NAME (const Json::Value &req, Json::Value &resp) { \
-    cout << "Recv: " << req << endl; \
+    stringstream log_msg; \
+    log_msg << "Recv: " << req; \
+    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
+    LOG_MSG_RESET; \
     resp["id"] = req["id"]; resp["jsonrpc"] = req["jsonrpc"]; \
-    clock_t start, end; start = clock();
+    double start, end; start = get_cpu_time_ms();
 
 #define FINI do { \
-    cout << "Send: " << resp << endl; \
+    log_msg << "Send: " << resp; \
+    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
+    LOG_MSG_RESET; \
     return true; \
   } while (0)
+
 #define RETURN(VAL) \
-  end = clock(); \
-  cout << "Event handling time: " << (double(end - start) * 1000 / CLOCKS_PER_SEC) << "ms." << endl; \
-  do { resp["result"] = (VAL); FINI; } while (0)
+    end = get_cpu_time_ms(); \
+    log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"] << "."; \
+    LOG4CXX_INFO(rpc_logger,log_msg.str()); \
+    LOG_MSG_RESET; \
+    do { resp["result"] = (VAL); FINI; } while (0)
 
 #define ERROR(MSG) do { \
     resp["error"]["code"] = 1; resp["error"]["message"] = (MSG); FINI; \
@@ -198,12 +238,12 @@ PROTO(add_rule)
 
 PROTO(remove_rule)
   uint64_t node = PARAM(node).asUInt64();
-clock_t st, en; st = clock();
+  double st, en; st = get_cpu_time_us();
   netPlumber->remove_rule(node);
-en = clock();
-cout << "Only deleting takes: " << (double(en - st) * 1000000 / CLOCKS_PER_SEC) << "us." << endl; \
-
-
+  en = get_cpu_time_us();
+  log_msg << "Only deleting takes: " << (en - st) << "us.";
+  LOG4CXX_INFO(rpc_logger,log_msg.str());
+  LOG_MSG_RESET;
   RETURN(VOID);
 }
 
@@ -235,10 +275,111 @@ PROTO(remove_source_probe)
   RETURN(VOID);
 }
 
+#ifdef PIPE_SLICING
+PROTO(add_slice)
+  uint64_t id = PARAM(id).asUInt64();
+  hs *net_space = val_to_hs(PARAM(net_space),length);
+
+  bool ret = true;
+  ret = netPlumber->add_slice(id,net_space);
+  if (!ret) hs_destroy(net_space);
+  RETURN(Json::Value(ret));
+}
+#endif
+
+#ifdef PIPE_SLICING
+PROTO(remove_slice)
+    uint64_t id = PARAM(id).asUInt64();
+    netPlumber->remove_slice(id);
+    RETURN(VOID);
+}
+#endif
+
+#ifdef FIREWALL_RULES
+PROTO(add_fw_rule)
+    uint32_t table = PARAM(table).asUInt();
+    int index = PARAM(index).asInt();
+    List_t in_ports = val_to_list(PARAM(in_ports));
+    List_t out_ports = val_to_list(PARAM(out_ports));
+    hs *fw_match = val_to_hs(PARAM(fw_match),length);
+    uint64_t ret = netPlumber->add_fw_rule(table,index,in_ports,out_ports,fw_match);
+    RETURN((Json::Value::UInt64) ret);
+}
+#endif
+
+#ifdef FIREWALL_RULES
+PROTO(remove_fw_rule)
+    uint64_t id = PARAM(node).asUInt64();
+    netPlumber->remove_fw_rule(id);
+    RETURN(VOID);
+}
+#endif
+
+#ifdef POLICY_PROBES
+PROTO(add_policy_rule)
+    uint32_t index = PARAM(index).asUInt();
+    hs *match = val_to_hs(PARAM(match),length);
+    ACTION_TYPE action = val_to_action(PARAM(action).asCString());
+    if (action == ACTION_UNKNOWN) ERROR("No such action type. Use allow or deny.");
+    netPlumber->add_policy_rule(index,match,action);
+    RETURN(VOID);
+}
+#endif
+
+#ifdef POLICY_PROBES
+PROTO(remove_policy_rule)
+    uint32_t index = PARAM(index).asUInt();
+    netPlumber->remove_policy_rule(index);
+    RETURN(VOID);
+}
+#endif
+
+#ifdef POLICY_PROBES
+PROTO(add_policy_probe)
+    List_t ports = val_to_list(PARAM(ports));
+    uint64_t ret = netPlumber->add_policy_probe_node(ports,NULL,NULL);
+    RETURN((Json::Value::UInt64) ret);
+}
+#endif
+
+#ifdef POLICY_PROBES
+PROTO(remove_policy_probe)
+    uint64_t node = PARAM(node).asUInt64();
+    netPlumber->remove_policy_probe_node(node);
+    RETURN(VOID);
+}
+#endif
+
 PROTO(print_table)
   uint64_t id = PARAM(id).asUInt();
   netPlumber->print_table(id);
   RETURN(VOID);
+}
+
+PROTO(print_topology)
+  netPlumber->print_topology();
+  RETURN(VOID);
+}
+
+PROTO(print_plumbing_network)
+  netPlumber->print_plumbing_network();
+  RETURN(VOID);
+}
+
+PROTO(reset_plumbing_network)
+  netPlumber->~NetPlumber();
+  netPlumber = new NetPlumber(length);
+  RETURN(VOID);
+}
+
+/*
+ * This RPC expands the global vector length to <length> bit (padded)
+ */
+PROTO(expand)
+  uint32_t len = PARAM(length).asInt();
+  uint32_t ret = netPlumber->expand((len / 8) + ((len % 8) ? 1 : 0));
+  length = netPlumber->get_length();
+  RETURN((Json::UInt) ret);
 }
 
 }

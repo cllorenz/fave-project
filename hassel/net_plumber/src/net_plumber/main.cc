@@ -48,23 +48,34 @@ static void sig_stop(int) {
   server_stop = true;
 }
 
-void run_server(string ip, int port, NetPlumber *N) {
+void run_server(string address, int port, NetPlumber *N) {
   server_stop = false;
   signal(SIGINT, sig_stop);
   signal(SIGTERM, sig_stop);
 
   net_plumber::RpcHandler handler(N);
-  Json::Rpc::TcpServer server(ip, port);
+
+  Json::Rpc::Server *server;
+  if (port) {
+    server = new Json::Rpc::TcpServer(address, port);
+  } else {
+    server = new Json::Rpc::UnixServer(address);
+  }
 
   if (!networking::init()) errx(1, "Couldn't initialize networking.");
   handler.initServer(server);
-  if (!server.Bind()) errx(1, "bind(0.0.0.0:%d) failed.", port);
-  if (!server.Listen()) errx(1, "listen() failed.");
+  if (!server->Bind()) errx(1, "bind(0.0.0.0:%d) failed.", port);
+  if (port) {
+    if (!((Json::Rpc::TcpServer *)server)->Listen()) errx(1, "listen() failed.");
+  } else {
+    if (!((Json::Rpc::UnixServer *)server)->Listen()) errx(1, "listen() failed.");
+  }
 
   printf("Server listening on port %d.\n", port);
-  while (!server_stop) server.WaitMessage(1000);
+  while (!server_stop) server->WaitMessage(1000);
 
-  server.Close();
+  server->Close();
+  delete server;
   networking::cleanup();
 
 }
@@ -106,8 +117,8 @@ int main(int argc, char* argv[]) {
   string json_files_path = "";
   string policy_json_file = "";
   int hdr_len = 1;
-  string server_ip;
-  int server_port;
+  string server_address;
+  int server_port = 0;
   array_t *filter = NULL;
 
   for (int i = 1; i < argc; i++) {
@@ -125,12 +136,21 @@ int main(int argc, char* argv[]) {
       printf("\t --hdr-len <length> : <length> of packet header (default is 1 byte).\n");
       break;
     }
-    if ( strcmp(argv[i],"--server") == 0 ) {
+    if ( strncmp(argv[i],"--unix",6) == 0 ) {
+      if (i + 1 >= argc) {
+        printf("Please specify a file path.\n");
+        return -1;
+      }
+      server_address = argv[++i];
+      server_port = 0;
+      do_run_server = true;
+    }
+    if ( strncmp(argv[i],"--server",8) == 0 ) {
       if (i + 2 >= argc) {
         printf("Please specify IP and port for server.\n");
         return -1;
       }
-      server_ip = argv[++i];
+      server_address = argv[++i];
       server_port = atoi(argv[++i]);
       do_run_server = true;
     }
@@ -182,7 +202,7 @@ int main(int argc, char* argv[]) {
   }
   //configure log4cxx.
   if (log_config_file != "") {
-    PropertyConfigurator::configure("Log4cxxConfig.conf");
+    PropertyConfigurator::configure(log_config_file);
   } else {
     BasicConfigurator::configure();
   }
@@ -211,10 +231,10 @@ int main(int argc, char* argv[]) {
   }
 
   if (do_run_server) {
-    run_server(server_ip, server_port,N);
+    run_server(server_address, server_port,N);
   } else {
     printf("Done! Cleaning up the NetPlumber\n");
-    //delete N;
+    delete N;
   }
   return 0;
 

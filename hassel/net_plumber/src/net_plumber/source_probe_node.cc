@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "source_probe_node.h"
@@ -85,7 +87,7 @@ void SourceProbeNode::process_src_flow(Flow *f) {
     (*f->p_flow)->n_flows->push_front(f_it);
     f->processed_hs = hs_copy_a(f->hs_object);
     hs_comp_diff(f->processed_hs);
-    if (state == RUNNING) update_check(f,0);
+    if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
     list<struct Pipeline*>::iterator it;
     for (it = prev_in_pipeline.begin(); it != prev_in_pipeline.end(); it++) {
@@ -106,16 +108,16 @@ void SourceProbeNode::process_src_flow_at_location(
     f->processed_hs = hs_copy_a(f->hs_object);
     hs_comp_diff(f->processed_hs);
   }
-  if (state == RUNNING) update_check(f,1);
+  if (state == RUNNING) update_check(f,FLOW_MODIFY);
 }
 
 void SourceProbeNode::absorb_src_flow(list<struct Flow*>::iterator s_flow,
     bool first) {
-  if (state == RUNNING) update_check(*s_flow,2);
+  if (state == RUNNING) update_check(*s_flow,FLOW_DELETE);
   Node::absorb_src_flow(s_flow, first);
 }
 
-void SourceProbeNode::update_check(Flow *f, short action) {
+void SourceProbeNode::update_check(Flow *f, PROBE_FLOW_ACTION action) {
   /*
    * 0: add
    * 1: modified
@@ -126,7 +128,7 @@ void SourceProbeNode::update_check(Flow *f, short action) {
   if (f->processed_hs->list.used == 0) return;
 
   // Delete flow
-  if (action == 2) {
+  if (action == FLOW_DELETE) {
     if (check_results.count(f) > 0) {
       if (mode == EXISTENTIAL && check_results[f]) {
         cond_count--;
@@ -151,7 +153,8 @@ void SourceProbeNode::update_check(Flow *f, short action) {
   bool m = filter->check(f);
 
   // Newly added flow
-  if ((action == 0 && m) | (action == 1 && m && check_results.count(f) == 0)) {
+  if ((action == FLOW_ADD && m) |
+      (action == FLOW_MODIFY && m && check_results.count(f) == 0)) {
     bool c = test->check(f);
     check_results[f] = c;
     if (mode == EXISTENTIAL && c) {
@@ -172,7 +175,7 @@ void SourceProbeNode::update_check(Flow *f, short action) {
   }
 
   // Updated flow
-  else if (action == 1 && m) {
+  else if (action == FLOW_MODIFY && m) {
     bool c = test->check(f);
     if (check_results[f] == c) return;
     check_results[f] = c;
@@ -250,7 +253,7 @@ string SourceProbeNode::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%llx",node_id);
+  sprintf(buf,"0x%lx",node_id);
   if (mode == EXISTENTIAL) result << "  Existential ";
   else result << "  Universal ";
   result << "Probe: " << buf << "\n";
@@ -262,4 +265,12 @@ string SourceProbeNode::to_string() {
   return result.str();
 }
 
-
+void SourceProbeNode::enlarge(uint32_t length) {
+	if (length <= this->length) {
+		return;
+	}
+	filter->enlarge(length);
+	test->enlarge(length);
+	Node::enlarge(length);
+	this->length = length;
+}

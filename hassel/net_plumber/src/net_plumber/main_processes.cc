@@ -149,7 +149,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   reader.parse(jsfile,root,false);
   Json::Value commands = root["commands"];
   start = clock();
-  for (int i = 0; i < commands.size(); i++) {
+  for (int i = 0; i < (int)commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
       hs *tmp = val_to_hs(commands[i]["params"]["hs"], N->get_length());

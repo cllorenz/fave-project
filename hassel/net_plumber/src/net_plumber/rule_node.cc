@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include <stdio.h>
@@ -99,7 +101,7 @@ RuleNode::~RuleNode() {
       list<struct Effect*>::iterator effect = (*inf_it)->effect;
       Effect *f = *effect;
       (*effect)->node->effect_on->erase(effect);
-      free((*inf_it)->comm_arr);
+      array_free((*inf_it)->comm_arr);
       if (!(*inf_it)->ports.shared) free((*inf_it)->ports.list);
       free(*inf_it);
       free(f);
@@ -152,7 +154,7 @@ string RuleNode::rule_to_str() {
   result << ", oPorts: " << list_to_string(output_ports);
   if (group != 0) {
     char buf[70];
-    sprintf(buf,"0x%llx",group);
+    sprintf(buf,"0x%lx",group);
     result << " (group with " << buf << ")";
   }
   return result.str();
@@ -166,14 +168,14 @@ string RuleNode::influence_to_str() {
   list<Effect *>::iterator eff_it;
   for (eff_it = effect_on->begin(); eff_it != effect_on->end(); eff_it++) {
     list<struct Influence*>::iterator influence = (*eff_it)->influence;
-    sprintf(buf,"0x%llx",(*influence)->node->node_id);
+    sprintf(buf,"0x%lx",(*influence)->node->node_id);
     result << "\tRule " << buf << "\n";
   }
   result << "Influenced By:\n";
   list<Influence *>::iterator inf_it;
   for (inf_it = influenced_by->begin(); inf_it != influenced_by->end(); inf_it++) {
     list<struct Effect*>::iterator effect = (*inf_it)->effect;
-    sprintf(buf,"0x%llx",(*effect)->node->node_id);
+    sprintf(buf,"0x%lx",(*effect)->node->node_id);
     s = array_to_str((*inf_it)->comm_arr,this->length,false);
     result << "\tRule " << buf << " (h,p) = [" << s << " , " <<
     list_to_string((*inf_it)->ports) << "]\n";
@@ -188,7 +190,7 @@ string RuleNode::to_string() {
   result << string(40, '=') << "\n";
   sprintf(buf,"0x%x",table);
   result << string(4, ' ') << "Table: " << buf;
-  sprintf(buf,"0x%llx",node_id);
+  sprintf(buf,"0x%lx",node_id);
   result << " Rule: " << buf << "\n";
   result << string(40, '=') << "\n";
   result << rule_to_str() << "\n";
@@ -203,7 +205,7 @@ string flow_to_str2(Flow *f) {
   char buf[50];
   while(f->p_flow != f->node->get_EOSFI()) {
     char* h = hs_to_str(f->hs_object);
-    sprintf(buf,"0x%llx",f->node->node_id);
+    sprintf(buf,"0x%lx",f->node->node_id);
     str << h << " @ " << buf << " <-- ";
     free(h);
     f = *f->p_flow;
@@ -214,6 +216,7 @@ string flow_to_str2(Flow *f) {
   return str.str();
 }
 
+// TODO: check for black holes in this method
 void RuleNode::process_src_flow(Flow *f) {
   if (f) { // flow routing case
     //printf("at node %lx, processing flow: %s\n",node_id,flow_to_str2(f).c_str());
@@ -331,4 +334,28 @@ int RuleNode::count_effects() {
 
 int RuleNode::count_influences() {
   return this->influenced_by->size();
+}
+
+void RuleNode::enlarge(uint32_t length) {
+	if (length <= this->length) {
+		return;
+	}
+	if (this->mask)
+		this->mask = array_resize(this->mask,this->length, length);
+	if (this->rewrite)
+		this->rewrite = array_resize(this->rewrite,this->length, length);
+	if (this->inv_rw)
+		this->inv_rw = array_resize(this->inv_rw,this->length, length);
+	//Effect should not matter
+	for (
+        std::list<struct Influence*>::iterator it_influence = (*influenced_by).begin() ;
+        it_influence != (*influenced_by).end();
+        ++it_influence
+    ) {
+		if ((*it_influence)->comm_arr)
+			array_resize((*it_influence)->comm_arr,this->length, length);
+	}
+
+	Node::enlarge(length);
+	this->length = length;
 }

@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef SRC_NET_PLUMBER_NODE_H_
@@ -34,6 +36,8 @@ enum NODE_TYPE {
   SINK,
   SOURCE_PROBE,
   SINK_PROBE,
+  FIREWALL_RULE,
+  POLICY_PROBE
 };
 
 class Node;
@@ -55,6 +59,10 @@ struct Pipeline {
   Node *node;
   array_t *pipe_array;
   uint32_t local_port;
+#ifdef PIPE_SLICING
+  uint64_t net_space_id;
+  std::list<struct Pipeline*>::iterator r_slice;
+#endif
   std::list<struct Pipeline*>::iterator r_pipeline;
 };
 
@@ -70,13 +78,19 @@ class Node {
 
  public:
   const uint64_t node_id;
-  const int length;
-  struct List_t input_ports;
-  struct List_t output_ports;
+  //int length; //must not be const
+  uint32_t length; //must not be const
+
+  // pointer to net plumber instance.
+  void *plumber;
+
   array_t *match;
   array_t *inv_match;
   bool is_input_layer;
   bool is_output_layer;
+
+  struct List_t input_ports;
+  struct List_t output_ports;
 
   // Note: next_in_pipeline owns the array_t*.
   std::list<struct Pipeline*> next_in_pipeline;
@@ -84,10 +98,6 @@ class Node {
 
   // source and sink flow
   std::list<struct Flow*> source_flow;
-
-  // pointer to net plumber instance.
-  void *plumber;
-
 
   Node(void *plumber, int length, uint64_t node_id);
   virtual ~Node();
@@ -127,7 +137,7 @@ class Node {
    * source and sink flows going on that pipe.
    */
   void remove_link_pipes(uint32_t local_port,uint32_t remote_port);
-
+  virtual void enlarge(uint32_t size) = 0;
 
   /*
    * generate a string representing the pipelines.

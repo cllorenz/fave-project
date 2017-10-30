@@ -48,6 +48,7 @@ namespace Json
          * \param port local port to bind
          */
         Server(const std::string& address, uint16_t port);
+        Server(const std::string& address);
 
         /**
          * \brief Destructor.

@@ -14,6 +14,7 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "conditions.h"
@@ -63,6 +64,10 @@ bool HeaderCondition::check(Flow *f) {
     hs_free(tmp);
   }
   return result;
+}
+
+void HeaderCondition::enlarge(uint32_t length) {
+	hs_enlarge(this->h,length);
 }
 
 string HeaderCondition::to_string() {

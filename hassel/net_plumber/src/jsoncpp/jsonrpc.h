@@ -53,6 +53,7 @@
 #include "jsonrpc_client.h"
 #include "jsonrpc_udpclient.h"
 #include "jsonrpc_tcpclient.h"
+#include "jsonrpc_unixserver.h"
 #include "netstring.h"
 #include "networking.h"
 

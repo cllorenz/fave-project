@@ -4,6 +4,7 @@
 
   Author: mchang@cs.stanford.com (Michael Chang)
           peyman.kazemian@gmail.com (Peyman Kazemian)
+          kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef _ARRAY_H_
@@ -22,6 +23,7 @@ enum bit_val { BIT_Z = 0, BIT_0, BIT_1, BIT_X, BIT_UNDEF };
 #define ARRAY_BYTES(L) ( ROUND_UP (2 * (L), sizeof (array_t)) )
 
 array_t *array_create   (int len, enum bit_val val);
+array_t *array_resize   (array_t* ptr, int oldlen, int newlen);
 void     array_free     (array_t *a);
 
 array_t *array_copy     (const array_t *a, int len);
@@ -33,6 +35,7 @@ bool array_has_z  (const array_t *a, int len);
 bool array_is_eq  (const array_t *a, const array_t *b, int len);
 /* True if B is a subset of A. */
 bool array_is_sub (const array_t *a, const array_t *b, int len);
+bool array_is_sub_eq(const array_t *a, const array_t *b, int len);
 
 enum bit_val array_get_bit  (const array_t *a, int byte, int bit);
 uint16_t     array_get_byte (const array_t *a, int byte);

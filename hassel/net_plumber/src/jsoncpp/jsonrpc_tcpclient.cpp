@@ -56,7 +56,8 @@ namespace Json
 
     ssize_t TcpClient::Recv(std::string& data)
     {
-      char buf[1500];
+      /* XXX: changed buffer size to 9000 bytes */
+      char buf[9000];
       ssize_t nb = -1;
 
       if((nb = ::recv(m_sock, buf, sizeof(buf), 0)) == -1)

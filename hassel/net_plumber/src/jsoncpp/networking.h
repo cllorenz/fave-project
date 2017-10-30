@@ -60,6 +60,7 @@ typedef int socklen_t;
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/time.h>
 
 #include <unistd.h>
@@ -85,7 +86,8 @@ namespace networking
   enum TransportProtocol
   {
     UDP = IPPROTO_UDP, /**< UDP protocol. */
-    TCP = IPPROTO_TCP /**< TCP protocol. */
+    TCP = IPPROTO_TCP, /**< TCP protocol. */
+    UNIX = IPPROTO_UDP ^ IPPROTO_TCP /**< Not necessary for UNIX. */
   };
 
   /**
@@ -127,6 +129,9 @@ namespace networking
    */
   int bind(enum TransportProtocol protocol, const std::string& address, uint16_t port, struct sockaddr_storage* sockaddr, socklen_t* addrlen);
 
+#ifndef _WIN32
+  int bind(const std::string& address);
+#endif
 } /* namespace networking */
 
 #endif /* NETWORKING_H */

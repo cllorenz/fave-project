@@ -14,12 +14,15 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef SRC_NET_PLUMBER_SOURCE_PROBE_NODE_H_
 #define SRC_NET_PLUMBER_SOURCE_PROBE_NODE_H_
 
 #include "node.h"
+#include "probe_node_commons.h"
 #include "conditions.h"
 #include <map>
 
@@ -70,12 +73,6 @@
  *  PathCondition2: SkipNextSpecifier(2 times) --> EndPathSpecifier
  *  PathCondition3: SkipNextSpecifier(3 times) --> EndPathSpecifier
  */
-
-enum PROBE_STATE {
-  STOPPED = 0,
-  STARTED,
-  RUNNING,
-};
 
 enum PROBE_MODE {
   EXISTENTIAL,
@@ -133,9 +130,10 @@ class SourceProbeNode : public Node {
   void process_src_flow(Flow *f);
   void absorb_src_flow(std::list<struct Flow*>::iterator s_flow, bool first);
 
-  void update_check(Flow *f, short action);
+  void update_check(Flow *f, PROBE_FLOW_ACTION action);
   void start_probe();
   void stop_probe();
+  void enlarge(uint32_t size);
 
   /*
    * get_condition_count: for existential mode, returns number of flows meeting

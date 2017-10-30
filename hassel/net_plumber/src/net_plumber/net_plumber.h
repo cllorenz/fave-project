@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #ifndef SRC_NET_PLUMBER_H_
@@ -22,9 +24,15 @@
 #include <vector>
 #include <list>
 #include "rule_node.h"
+#ifdef FIREWALL_RULES
+#include "firewall_rule_node.h"
+#endif
 #include "source_node.h"
 #include "log4cxx/logger.h"
 #include "source_probe_node.h"
+#ifdef POLICY_PROBES
+#include "policy_probe_node.h"
+#endif
 
 enum EVENT_TYPE {
   None = 0,
@@ -41,13 +49,32 @@ enum EVENT_TYPE {
   START_SINK_PROBE,
   STOP_SINK_PROBE,
   ADD_TABLE,
-  REMOVE_TABLE
+  REMOVE_TABLE,
+#ifdef PIPE_SLICING
+  ADD_SLICE,
+  REMOVE_SLICE,
+#endif
+#ifdef FIREWALL_RULES
+  ADD_FW_RULE,
+  REMOVE_FW_RULE,
+#endif
+#ifdef POLICY_PROBES
+  START_POLICY_PROBE,
+  STOP_POLICY_PROBE,
+#endif
+  EXPAND
 };
 
 struct Event {
   EVENT_TYPE type;
   uint64_t id1;  //node id, table id or source port.
   uint64_t id2;  // destination port.
+};
+
+struct Slice {
+  uint64_t net_space_id;
+  struct hs *net_space;
+  std::list<struct Pipeline *> *pipes;
 };
 
 std::string get_event_name(EVENT_TYPE t);
@@ -101,9 +128,28 @@ namespace net_plumber {
     // list of probe nodes
     std::list<Node *> probes;
 
+#ifdef PIPE_SLICING
+    // net_space_id to slice
+    std::map<uint64_t,struct Slice *> slices;
+#endif
+
+#ifdef FIREWALL_RULES
+    // table id to firewall
+    std::map<uint32_t,bool> table_is_firewall;
+#endif
+
+#ifdef POLICY_PROBES
+    PolicyChecker *policy_checker;
+#endif
+
     uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
                        List_t in_ports, List_t out_ports,
                        array_t* match, array_t *mask, array_t* rw);
+
+#ifdef FIREWALL_RULES
+    uint64_t _add_fw_rule(uint32_t table,int index, bool group, uint64_t gid,
+                       List_t in_ports, List_t out_ports, hs *fw_match);
+#endif
 
    public:
     //call back function in case of a loop
@@ -111,6 +157,10 @@ namespace net_plumber {
     void *loop_callback_data;
     global_error_callback_t blackhole_callback;
     void *blackhole_callback_data;
+    global_error_callback_t slice_overlap_callback;
+    void *slice_overlap_callback_data;
+    global_error_callback_t slice_leakage_callback;
+    void *slice_leakage_callback_data;
 
     /*
      * constructor.
@@ -156,6 +206,7 @@ namespace net_plumber {
     void remove_table(uint32_t id);
     List_t get_table_ports(uint32_t id);
     void print_table(uint32_t id);
+    int expand(int length);
 
     /*
      * Rule Management:
@@ -181,6 +232,17 @@ namespace net_plumber {
                                array_t* rw, uint64_t group);
     void remove_rule(uint64_t node_id);
 
+#ifdef FIREWALL_RULES
+    /*
+     * Firewall Rule Management
+     */
+    uint64_t add_fw_rule(uint32_t table,int index, List_t in_ports, List_t out_ports,
+                  hs *fw_match);
+    uint64_t add_fw_rule_to_group(uint32_t table,int index, List_t in_ports,
+                               List_t out_ports, hs *fw_match, uint64_t group);
+    void remove_fw_rule(uint64_t node_id);
+#endif
+
     /*
      * Source Flow Node Management
      * add_source: adds a source node.
@@ -200,6 +262,28 @@ namespace net_plumber {
                               void *callback_data);
     void remove_source_probe(uint64_t id);
     SourceProbeNode *get_source_probe(uint64_t);
+
+#ifdef PIPE_SLICING
+    /*
+     * Slice Management
+     */
+    bool add_slice(uint64_t id, hs *net_space);
+    void remove_slice(uint64_t id);
+    void remove_pipe_from_slices(struct Pipeline *pipe);
+    bool check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next);
+#endif
+
+#ifdef POLICY_PROBES
+    /*
+     * Global Policy Management
+     */
+    void add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action);
+    void remove_policy_rule(uint32_t index);
+    uint64_t add_policy_probe_node(List_t ports,
+                                   policy_probe_callback_t probe_callback,
+                                   void *probe_callback_data);
+    void remove_policy_probe_node(uint64_t id);
+#endif
 
     /*
      * get list of nodes based on input port or output port.
@@ -231,6 +315,10 @@ namespace net_plumber {
     void set_table_dependency(RuleNode *r);
     void set_node_pipelines(Node *n);
 
+#ifdef PIPE_SLICING
+    // returns whether there were slice overlaps
+    bool add_pipe_to_slices(struct Pipeline *pipe, Node *next);
+#endif
   };
 }
 

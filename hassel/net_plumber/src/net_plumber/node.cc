@@ -14,6 +14,8 @@
    limitations under the License.
 
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+           cllorenz@uni-potsdam.de (Claas Lorenz)
+           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "node.h"
@@ -24,19 +26,25 @@ extern "C" {
 }
 #include <set>
 
+#ifdef PIPE_SLICING
+#include "net_plumber.h"
+using namespace net_plumber;
+#endif
+
 using namespace std;
+
 
 bool is_flow_looped(Flow *flow) {
   Flow *f = flow;
-  set<uint64_t> seen_tables;
+  set<uint64_t> seen_rules;
   while(1) {
-    uint64_t table_id = (f->node->node_id & 0xffffffff00000000);
-    if (seen_tables.count(table_id) == 0) {
-      seen_tables.insert(table_id);
+    uint64_t rule_id = (f->node->node_id);
+    if (seen_rules.count(rule_id) == 0) {
+      seen_rules.insert(rule_id);
     } else {
       return true;
     }
-    if (f->node->get_type() == RULE) {
+    if (f->node->get_type() == RULE || f->node->get_type() == FIREWALL_RULE) {
       f = *f->p_flow;
     } else {
       return false;
@@ -74,6 +82,9 @@ void Node::remove_pipes() {
     Node* other_n = (*r)->node;
     free(*r);
     other_n->prev_in_pipeline.erase(r);
+#ifdef PIPE_SLICING
+    ((NetPlumber *)plumber)->remove_pipe_from_slices(*it);
+#endif
     free(*it);
   }
   next_in_pipeline.clear();
@@ -120,7 +131,7 @@ string Node::pipeline_to_string() {
   list<struct Pipeline*>::iterator it;
   for (it = next_in_pipeline.begin(); it != next_in_pipeline.end(); it++) {
     list<struct Pipeline*>::iterator r = (*it)->r_pipeline;
-    sprintf(buf,"0x%llx",(*r)->node->node_id);
+    sprintf(buf,"0x%lx",(*r)->node->node_id);
     s = array_to_str((*it)->pipe_array,length,false);
     result << "\tNode " << buf << " Pipe HS: " << s << " [" <<
         (*it)->local_port << "-->" << (*r)->local_port << "]\n";
@@ -129,7 +140,7 @@ string Node::pipeline_to_string() {
   result << "Pipelined FROM:\n";
   for (it = prev_in_pipeline.begin(); it != prev_in_pipeline.end(); it++) {
     list<struct Pipeline*>::iterator r = (*it)->r_pipeline;
-    sprintf(buf,"0x%llx",(*r)->node->node_id);
+    sprintf(buf,"0x%lx",(*r)->node->node_id);
     s = array_to_str((*it)->pipe_array,length,false);
     result << "\tNode " << buf << " Pipe HS: " << s << " [" << (*r)->local_port
         << "-->" << (*it)->local_port << "]\n";
@@ -168,15 +179,16 @@ string Node::src_flow_to_string() {
 
 void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
   list<struct Pipeline*>::iterator it, tmp;
-  list<struct Flow*>::iterator f_it;
+//  list<struct Flow*>::iterator f_it;
   for (it = next_in_pipeline.begin(); it != next_in_pipeline.end(); ) {
     list<struct Pipeline*>::iterator r = (*it)->r_pipeline;
     if ((*it)->local_port == local_port && (*r)->local_port == remote_port) {
       (*r)->node->remove_src_flows_from_pipe(*it);
       (*it)->node->remove_sink_flow_from_pipe(*r);
       free((*it)->pipe_array);
+      tmp = r;
+      (*r)->node->prev_in_pipeline.erase(tmp);
       free(*r);
-      (*it)->node->prev_in_pipeline.erase(r);
       free(*it);
       tmp = it;
       it++;
@@ -203,6 +215,40 @@ void Node::remove_src_flows_from_pipe(Pipeline *fwd_p) {
       it++;
     }
   }
+}
+
+void Node::enlarge(uint32_t length) {
+	if (length <= this->length) {
+		return;
+	}
+	if (this->match)
+		this->match = array_resize(this->match,this->length, length);
+	if (this->inv_match)
+		this->inv_match = array_resize(this->inv_match,this->length, length);
+	for (
+        std::list<struct Pipeline*>::iterator it_pipenext = next_in_pipeline.begin();
+        it_pipenext != next_in_pipeline.end();
+        ++it_pipenext
+    ) {
+		(*it_pipenext)->pipe_array = array_resize((*it_pipenext)->pipe_array,this->length,length);
+	}
+	for (
+        std::list<struct Pipeline*>::iterator it_pipeprev = prev_in_pipeline.begin();
+        it_pipeprev != prev_in_pipeline.end();
+        ++it_pipeprev
+    ) {
+		(*it_pipeprev)->pipe_array = array_resize((*it_pipeprev)->pipe_array,this->length,length);
+	}
+	for (
+        std::list<struct Flow*>::iterator it_flow = source_flow.begin() ;
+        it_flow != source_flow.end();
+        ++it_flow
+    ) {//Flow already covored in net_plumber.cc?
+		hs_enlarge((*it_flow)->hs_object, length);
+		hs_enlarge((*it_flow)->processed_hs, length);//no pipe because every pipe already covered?
+	}
+
+	this->length = length;
 }
 
 void Node::remove_sink_flow_from_pipe(Pipeline *bck_p) {

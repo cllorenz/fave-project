@@ -1,5 +1,5 @@
 /*
-   Copyright 2012 Google Inc.
+   Copyright 2016 Claas Lorenz
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,54 +13,34 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: peyman.kazemian@gmail.com (Peyman Kazemian)
-           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+   Authors: cllorenz@uni-potsdam.de (Claas Lorenz),
+            peyman.kazemian@gmail.com (Peyman Kazemian)
 */
 
-#ifndef SRC_NET_PLUMBER_RULE_NODE_H_
-#define SRC_NET_PLUMBER_RULE_NODE_H_
+#ifndef SRC_NET_PLUMBER_FIREWALL_NODE_H_
+#define SRC_NET_PLUMBER_FIREWALL_NODE_H_
 
-#include "node.h"
+#include "rule_node.h"
 
-class RuleNode;
-
-struct Influence {
-  RuleNode *node;
-  std::list<struct Effect*>::iterator effect;
-  union { array_t *comm_arr; hs *comm_hs; };
-  List_t ports;
-};
-
-struct Effect {
-  RuleNode *node;
-  std::list<struct Influence*>::iterator influence;
-};
-
-class RuleNode : public Node {
+class FirewallRuleNode : public RuleNode {
  public:
-  const uint32_t table;
-  uint64_t group;
-  array_t *mask;
-  array_t *rewrite;
-  array_t *inv_rw;
-  std::list<struct Effect*> *effect_on;
-  std::list<struct Influence*> *influenced_by;
+  hs *fw_match;
 
   /*
    * constructor
    */
-  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
+  FirewallRuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
            List_t in_ports ,List_t out_ports,
-           array_t* match, array_t *mask, array_t* rw);
+           hs* fw_match);
 
-  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
+  FirewallRuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
            uint64_t group, List_t in_ports ,List_t out_ports,
-           array_t* match, array_t *mask, array_t* rw);
+           hs* fw_match);
 
   /*
    * destructor
    */
-  virtual ~RuleNode();
+  virtual ~FirewallRuleNode();
 
   /*
    * generate a string representing the rule itself
@@ -87,10 +67,16 @@ class RuleNode : public Node {
    * - subtract_from_src_flow: subtracts @arr_sub from @s_flow and propagates
    * the result throughout the network.
    */
-  void process_src_flow(Flow *f);
+  //void process_src_flow(Flow *f);
   void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
                                     array_t* change);
+  void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
+                                    hs* change);
   void subtract_infuences_from_flows();
+  void repropagate_src_flow_on_pipes(std::list<struct Flow*>::iterator s_flow,
+    hs *change);
+  void repropagate_src_flow_on_pipes(std::list<struct Flow*>::iterator s_flow,
+    array_t *change);
 
   /*
    * Setting influences.
@@ -103,10 +89,6 @@ class RuleNode : public Node {
    */
   int count_effects();
   int count_influences();
-  void enlarge(uint32_t size);
-
- protected:
-  void set_layer_flags();
 };
 
-#endif  // SRC_NET_PLUMBER_RULE_NODE_H_
+#endif  // SRC_NET_PLUMBER_FIREWALL_NODE_H_

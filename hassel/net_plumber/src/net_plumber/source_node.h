@@ -36,6 +36,7 @@ class SourceNode : public Node {
   void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
                                     array_t* change);
 
+  void enlarge(uint32_t size);
 };
 
 #endif  // SRC_NET_PLUMBER_SOURCE_NODE_H_

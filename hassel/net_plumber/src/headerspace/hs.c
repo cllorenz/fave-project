@@ -4,6 +4,7 @@
 
   Author: mchang@cs.stanford.com (Michael Chang)
           peyman.kazemian@gmail.com (Peyman Kazemian)
+          kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
 #include "hs.h"
@@ -147,6 +148,30 @@ vec_isect (struct hs_vec *a, const struct hs_vec *b, int len)
 }
 
 
+static void
+vec_enlarge (struct hs_vec *vec, int length_old, int length)
+{
+	if (length <= length_old) {
+		return;
+	}
+	for (int i = 0; i < vec->used; i++) {
+		vec->elems[i] = array_resize(vec->elems[i],length_old,length);
+	}
+	if (vec->diff && vec->diff->used != 0) {
+		vec_enlarge(vec->diff, length_old, length); //recursive
+	}
+}
+
+void
+hs_enlarge (struct hs *hs, int length)
+{
+	if (length <= hs->len) {
+		return;
+	}
+	vec_enlarge(&hs->list,hs->len,length);
+	hs->len = length;
+}
+
 struct hs *
 hs_create (int len)
 {
@@ -228,6 +253,18 @@ hs_diff (struct hs *hs, const array_t *a)
   }
 }
 
+void hs_add_hs (struct hs *dst, const struct hs *src) {
+    struct hs_vec list = src->list;
+    for (int i = 0; i < list.used; i++)
+        vec_append(&dst->list,list.elems[i],false);
+
+    if (!list.diff) return;
+
+    struct hs_vec diff = *list.diff;
+    for (int i = 0; i < diff.used; i++)
+        vec_append(&dst->list,diff.elems[i],true);
+}
+
 bool
 hs_compact (struct hs *hs) {
   return hs_compact_m(hs,NULL);
@@ -261,7 +298,7 @@ hs_comp_diff (struct hs *hs)
 {
   struct hs_vec *v = &hs->list, new_list = {0};
   for (int i = 0; i < v->used; i++) {
-    struct hs tmp = {hs->len}, tmp2 = {hs->len};
+    struct hs tmp = {hs->len,{0}}, tmp2 = {hs->len,{0}};
     vec_append (&tmp.list, v->elems[i], false);
     v->elems[i] = NULL;
     tmp2.list = v->diff[i];
@@ -289,6 +326,7 @@ hs_cmpl (struct hs *hs)
   }
 
   struct hs_vec *v = &hs->list, new_list = {0};
+
   for (int i = 0; i < v->used; i++) {
     struct hs_vec tmp = {0};
     tmp.elems = array_cmpl_a (v->elems[i], hs->len, &tmp.used);
@@ -426,6 +464,48 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     }
   }
   return changed;
+}
+
+bool hs_is_empty(const struct hs *hs) {
+    return !hs->list.elems;
+}
+
+bool hs_is_sub(const struct hs *a, const struct hs *b) {
+    assert (a->len == b->len);
+
+    struct hs tmp;
+
+    hs_copy(&tmp,a);
+    hs_minus(&tmp,b);
+
+    if (hs_is_empty(&tmp)) {
+        hs_destroy(&tmp);
+        return true;
+    }
+
+    hs_destroy(&tmp);
+    return false;
+}
+
+bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
+    assert (a->len == b->len);
+
+    /* if a lies completely in b */
+    if (hs_is_sub(a,b)) return true;
+
+    struct hs tmp;
+
+    hs_copy(&tmp,b);
+    hs_minus(&tmp,a);
+
+    /* if both are equal */
+    if (hs_is_empty(&tmp)) {
+        hs_destroy(&tmp);
+        return true;
+    }
+
+    hs_destroy(&tmp);
+    return false;
 }
 
 void
