@@ -108,7 +108,7 @@ done
 
 # populate firewall
 echo -n "populate firewall... "
-PYTHONPATH=. $TIME -o $PFRLOG python2 ip6np/ip6np.py -n pgf -i 2001:db8:abc::1 -f pgf-ruleset
+PYTHONPATH=. $TIME -o $PFRLOG python2 ip6np/ip6np.py -n pgf -i 2001:db8:abc::1 -f ruleset/pgf-ruleset
 
 # dmz (route)
 PYTHONPATH=. $TIME -o $SWLOG python2 openflow/switch.py -a -i 1 -n pgf -t 1 -f ipv6_dst=2001:db8:abc:0::0/64 -c fd=pgf.2

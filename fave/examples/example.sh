@@ -51,7 +51,7 @@ echo "ok"
 # test firewall
 echo -n "add firewall rules... "
 #PYTHONPATH=. python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f ip6np/iptables_ruleset_reduced.sh
-PYTHONPATH=. python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f simple_ruleset.sh
+PYTHONPATH=. python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f rulesets/simple_ruleset.sh
 echo "ok"
 
 # test rule setting
