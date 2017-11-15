@@ -104,15 +104,38 @@ def model_from_string(s):
 
 
 def calc_port(tab,model,port):
-    return (tab<<16)+model.ports[port]
+    try:
+        return (tab<<16)+model.ports[port]
+    except KeyError:
+        return (tab<<16)+1
 
 
 def calc_rule_index(t_idx,r_idx):
     return (t_idx<<16)+r_idx
 
 
+def has_dot_but_is_not_post_int_port(port):
+    labels = port.rsplit('.')
+    if len(labels) != 2:
+        return False
+    try:
+        int(labels[1])
+        return False
+    except ValueError:
+        return True
+
 def normalize_port(port):
-    return '_'.join(port.rsplit('.',1))
+    return port.replace('.','_')
+
+    if port.count('.') > 1:
+        labels = port.split('.')
+        l = len(labels)
+        return '.'.join(labels[:l-1])+'_'+labels[l-1]
+    elif has_dot_but_is_not_post_int_port(port):
+        return port
+    else:
+        return port.replace('.','_')
+
 
 
 class Aggregator(object):
@@ -361,31 +384,21 @@ class Aggregator(object):
 
                 jsonrpc.add_table(self.sock,idx,ports)
 
-        """
-        for p in model.ports:
-            if prefixed and is_ext_port(p):
-                portno = calc_port(idx,model,p)
-                ext_ports.append(portno)
-
-                print "set port",'_'.join([model.node,p]),"=",portno
-                self.ports['_'.join([model.node,p])] = portno
-        """
 
     def add_wiring(self,model):
         # add links between tables
         for p1,p2 in model.wiring:
 
-            # TODO: handle special ports properly
-            if p1 in ["internals_in","internals_out","post_routing"] or \
-                p2 in ["internals_in","internals_out","post_routing"]:
+            # The internals input and the post routing output are never the
+            # source of an internal wire. Respectively, the internals output and
+            # the post routing output are never targeted internally.
+            if p1 in ["internals_in","post_routing"] or \
+                p2 in ["internals_out","post_routing"]:
                 continue
 
             prefix = lambda x: '_'.join(x.split('_')[:2])
             n1 = '_'.join([model.node,prefix(p1)])
             n2 = '_'.join([model.node,prefix(p2)])
-
-            i1 = self.tables[n1]
-            i2 = self.tables[n2]
 
             jsonrpc.add_link(
                 self.sock,
@@ -822,12 +835,7 @@ class Aggregator(object):
 
 
     def global_port(self,port):
-        if port.count('.') > 1:
-            labels = port.split('.')
-            l = len(labels)
-            return self.ports['.'.join(labels[:l-1])+'_'+labels[l-1]]
-        else:
-            return self.ports[port.replace('.','_')]
+        return self.ports[normalize_port(port)]
 
 
 def main(argv):
