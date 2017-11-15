@@ -37,8 +37,8 @@ function private_sub {
 }
 
 
-SCRIPT=pgf-ruleset
-echo "" > $SCRIPT
+SCRIPT="rulesets/pgf-ruleset"
+echo -n "" > $SCRIPT
 
 
 SUBNETS="2001:db8:abc:1::0/64 \
