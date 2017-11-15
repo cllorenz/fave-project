@@ -108,7 +108,7 @@ done
 
 # populate firewall
 echo -n "populate firewall... "
-PYTHONPATH=. $TIME -o $PFRLOG python2 ip6np/ip6np.py -n pgf -i 2001:db8:abc::1 -f ruleset/pgf-ruleset
+PYTHONPATH=. $TIME -o $PFRLOG python2 ip6np/ip6np.py -n pgf -i 2001:db8:abc::1 -f rulesets/pgf-ruleset
 
 # dmz (route)
 PYTHONPATH=. $TIME -o $SWLOG python2 openflow/switch.py -a -i 1 -n pgf -t 1 -f ipv6_dst=2001:db8:abc:0::0/64 -c fd=pgf.2
@@ -159,10 +159,14 @@ for NET in $SUBNETS; do
 
         # forwarding rule to server
         PYTHONPATH=. $TIME -ao $SWLOG python2 openflow/switch.py -a -i 1 -n $NET -t 1 -f ipv6_dst=$ADDR -c fd=$NET.$port
+
+        srv=$(($srv+1))
     done
 
     # forwarding rule to firewall (default rule)
     PYTHONPATH=. $TIME -ao $SWLOG python2 openflow/switch.py -a -i 1 -n $NET -t 1 -c fd=$NET.1
+
+    cnt=$(($cnt+1))
 done
 echo "ok"
 
@@ -256,6 +260,7 @@ for NET in $SUBNETS; do
         #PYTHONPATH=. $TIME -ao $PROBELOG python2 topology/topology.py -d -n $SRV
         # ... and link
         #PYTHONPATH=. $TIME -ao $PROBELLOG python2 topology/topology.py -d -l $NET.$port:$SRV.1
+        srv=$(($srv+1))
     done
 
     echo "ok"
