@@ -60,6 +60,7 @@ class PacketFilterModel(Model):
             "forward_rules" : [],
             "forward_states" : [Rule("forward_states",'MISS',[])],
             "post_routing"  : [],
+            "internals"     : [],
         }
         internal_ports = {
             "pre_routing_input"     : 1,
@@ -74,13 +75,14 @@ class PacketFilterModel(Model):
             "forward_states_miss"   : 10,
             "forward_rules_in"      : 11,
             "forward_rules_accept"  : 12,
-            "output_states_accept"  : 13,
-            "output_states_miss"    : 14,
-            "output_rules_in"       : 15,
-            "output_rules_accept"   : 16,
-            "internals_in"          : 17,
-            "internals_out"         : 18,
-            "post_routing_in"       : 19,
+            "output_states_in"      : 13,
+            "output_states_accept"  : 14,
+            "output_states_miss"    : 15,
+            "output_rules_in"       : 16,
+            "output_rules_accept"   : 17,
+            "internals_in"          : 18,
+            "internals_out"         : 19,
+            "post_routing_in"       : 20,
         }
         input_ports = {
             "in_"+str(i) : (len(internal_ports)+len(ports)+i) \
