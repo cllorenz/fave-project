@@ -14,8 +14,7 @@ CPP_SRCS += \
 ../src/jsoncpp/jsonrpc_udpserver.cpp \
 ../src/jsoncpp/jsonrpc_unixserver.cpp \
 ../src/jsoncpp/netstring.cpp \
-../src/jsoncpp/networking.cpp \
-../src/jsoncpp/system.cpp 
+../src/jsoncpp/networking.cpp
 
 OBJS += \
 ./src/jsoncpp/jsoncpp.o \
@@ -28,8 +27,7 @@ OBJS += \
 ./src/jsoncpp/jsonrpc_udpserver.o \
 ./src/jsoncpp/jsonrpc_unixserver.o \
 ./src/jsoncpp/netstring.o \
-./src/jsoncpp/networking.o \
-./src/jsoncpp/system.o 
+./src/jsoncpp/networking.o
 
 CPP_DEPS += \
 ./src/jsoncpp/jsoncpp.d \

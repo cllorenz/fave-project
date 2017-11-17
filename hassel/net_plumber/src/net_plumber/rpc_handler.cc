@@ -154,19 +154,23 @@ void RpcHandler::initServer (Server *server) {
     log_msg.clear(); \
   } while(0)
 
-#define PROTO(NAME) \
-  bool RpcHandler::NAME (const Json::Value &req, Json::Value &resp) { \
-    stringstream log_msg; \
+/*
     log_msg << "Recv: " << req; \
     LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
     LOG_MSG_RESET; \
+ */
+#define PROTO(NAME) \
+  bool RpcHandler::NAME (const Json::Value &req, Json::Value &resp) { \
+    stringstream log_msg; \
     resp["id"] = req["id"]; resp["jsonrpc"] = req["jsonrpc"]; \
     double start, end; start = get_cpu_time_ms();
 
-#define FINI do { \
+/*
     log_msg << "Send: " << resp; \
     LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
     LOG_MSG_RESET; \
+ */
+#define FINI do { \
     return true; \
   } while (0)
 
