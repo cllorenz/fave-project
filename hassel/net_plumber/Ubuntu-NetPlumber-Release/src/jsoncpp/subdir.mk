@@ -40,14 +40,15 @@ CPP_DEPS += \
 ./src/jsoncpp/jsonrpc_udpserver.d \
 ./src/jsoncpp/jsonrpc_unixserver.d \
 ./src/jsoncpp/netstring.d \
-./src/jsoncpp/networking.d
+./src/jsoncpp/networking.d \
+./src/jsoncpp/system.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
 src/jsoncpp/%.o: ../src/jsoncpp/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -DJSON_IS_AMALGAMATION -I/usr/include/ -g -O3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	g++ -DJSON_IS_AMALGAMATION -I/usr/include/ -O3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

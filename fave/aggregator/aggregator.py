@@ -1,9 +1,5 @@
 #!/usr/bin/env python2
 
-import cProfile
-
-import signal
-
 import sys,getopt
 from util.print_util import eprint
 
@@ -36,13 +32,6 @@ from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
 
 UDS_ADDR = "/tmp/np_aggregator.socket"
-
-aggregator = None
-
-def handle_sigterm(signum,frame):
-    if aggregator:
-        print "stop aggregator"
-        aggregator.stop()
 
 def print_help():
     eprint(
@@ -148,18 +137,6 @@ def normalize_port(port):
         return port.replace('.','_')
 
 
-class ProfiledThread(Thread):
-    def run(self):
-        print "run thread"
-        profiler = cProfile.Profile()
-        res = profiler.runcall(Thread.run,self)
-        #profiler.print_stats()
-        print "dump profile"
-        profiler.dump_stats('aggr_handler.profile')
-        return res
-
-            
-
 
 class Aggregator(object):
     BUF_SIZE = 4096
@@ -174,7 +151,6 @@ class Aggregator(object):
         self.ports = {}
         self.rule_ids = {}
         self.links = {}
-        self.stop = False
 
     def print_aggregator(self):
         print "Aggregator:"
@@ -185,12 +161,11 @@ class Aggregator(object):
         print "links:\n\t%s" % self.links
 
     def handler(self):
-        while not self.stop:
+        while True:
             data = self.queue.get()
             model = model_from_string(data)
             self.sync_diff(model)
             self.queue.task_done()
-        print "stopped handler"
 
 
     def run(self):
@@ -198,22 +173,16 @@ class Aggregator(object):
         uds = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
         uds.bind(UDS_ADDR)
 
-        print "init thread"
         # start thread to handle incoming config events
-        t = ProfiledThread(target=self.handler)
+        t = Thread(target=self.handler)
         t.daemon = True
         t.start()
 
-        print "listen on socket"
         uds.listen(1)
 
-        print "perform operations"
         while True:
             # accept connections on unix domain socket
-            try:
-                conn,addr = uds.accept()
-            except socket.error:
-                break
+            conn,addr = uds.accept()
 
             # receive data from unix domain socket
             nbytes = Aggregator.BUF_SIZE
@@ -228,20 +197,12 @@ class Aggregator(object):
             # upon data receival enqueue
             self.queue.put(data)
 
-        print "close socket"
         # close unix domain socket
         uds.close()
 
-        print "join queue"
         # wait for the config event handler to finish
         self.queue.join()
 
-        print "join thread"
-        # join thread
-        t.join()
-
-    def stop(self):
-        self.stop = True
 
     def sync_diff(self,model):
         # extend global mapping
@@ -917,10 +878,7 @@ def main(argv):
         if os.path.exists(UDS_ADDR):
             raise
 
-    signal.signal(signal.SIGTERM,handle_sigterm)
-
     aggregator.run()
 
 if __name__ == "__main__":
-    #cProfile.run('main(%s)' % sys.argv[1:],"aggregator.profile")
     main(sys.argv[1:])
