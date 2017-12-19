@@ -205,13 +205,13 @@ for NET in $SUBNETS; do
         ADDR=2001:db8:abc:$cnt::$srv
         PORTS=`echo $HOST | cut -d ',' -f 2-`
 
-        PYTHONPATH=. $TIME -ao $PFLOG python2 topology/topology.py -a -t packet_filter -n $HN -i $A -p 1
+        PYTHONPATH=. $TIME -ao $PFLOG python2 topology/topology.py -a -t packet_filter -n $HN -i $ADDR -p 1
         # TODO: correct logging file: $TIME -ao $PFRLOG 
         PYTHONPATH=. python2 topology/topology.py -a -l $HN.1:$NET.$port,$NET.$port:$HN.1
 
-        PYTHONPATH=. $TIME -ao $SRCLOG python2 topology/topology.py -a -t generator -n $SRV -f "ipv6_src=$A"
+        PYTHONPATH=. $TIME -ao $SRCLOG python2 topology/topology.py -a -t generator -n $SRV -f "ipv6_src=$ADDR"
 
-        PYTHONPATH=. $TIME -ao $PFRLOG python2 ip6np/ip6np.py -n $HN -i $A -f "rulesets/$H-ruleset"
+        PYTHONPATH=. $TIME -ao $PFRLOG python2 ip6np/ip6np.py -n $HN -i $ADDR -f "rulesets/$H-ruleset"
 
         PYTHONPATH=. $TIME -ao $SRCLLOG python2 topology/topology.py -a -l $SRV.1:$H"_output_states_in"
 
