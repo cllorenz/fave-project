@@ -141,6 +141,7 @@ void RpcHandler::initServer (Server *server) {
     FN(print_topology),
     FN(print_plumbing_network),
     FN(reset_plumbing_network),
+    FN(dump_plumbing_network),
     FN(expand)
   };
   int n = sizeof methods / sizeof *methods;
@@ -386,5 +387,10 @@ PROTO(expand)
   RETURN((Json::UInt) ret);
 }
 
+PROTO(dump_plumbing_network)
+  const std::string dir = PARAM(dir).asString();
+  netPlumber->dump_plumbing_network(dir);
+  RETURN(VOID);
+}
 }
 
