@@ -147,6 +147,9 @@ class SourceProbeNode : public Node {
   std::list<Flow*>::iterator get_source_flow_iterator();
   std::string to_string();
 
+  void mode_to_json(Json::Value&);
+  void filter_to_json(Json::Value&);
+  void test_to_json(Json::Value&);
 };
 
 #endif  // SRC_NET_PLUMBER_SOURCE_PROBE_NODE_H_

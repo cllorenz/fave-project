@@ -274,3 +274,17 @@ void SourceProbeNode::enlarge(uint32_t length) {
 	Node::enlarge(length);
 	this->length = length;
 }
+
+void SourceProbeNode::mode_to_json(Json::Value& res) {
+    res = (Json::StaticString)(
+        (this->mode == UNIVERSAL) ? "universal" : "existential"
+    );
+}
+
+void SourceProbeNode::filter_to_json(Json::Value& res) {
+    filter->to_json(res);
+}
+
+void SourceProbeNode::test_to_json(Json::Value& res) {
+    test->to_json(res);
+}
