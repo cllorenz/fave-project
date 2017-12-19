@@ -201,3 +201,9 @@ def expand(sock,new_length):
     data["params"] = {"length":new_length}
     sendrecv(sock,json.dumps(data))
 
+#@profile_method
+def dump_plumbing_network(sock,odir):
+    data = basic_rpc()
+    data["method"] = "dump_plumbing_network"
+    data["params"] = { "dir" : odir }
+    sendrecv(sock,json.dumps(data))
