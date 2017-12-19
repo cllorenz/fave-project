@@ -156,6 +156,44 @@ bool elem_in_unsorted_list(uint32_t elem, List_t list) {
   return false;
 }
 
+Json::Value list_to_json(List_t list) {
+    Json::Value res(Json::arrayValue);
+
+    for (uint32_t i = 0; i < list.size; i++) {
+        Json::Value elem(Json::uintValue);
+        elem = list.list[i];
+        res.append(elem);
+    }
+
+    return res;
+}
+
+void hs_to_json(Json::Value& res, hs *h) {
+
+    Json::Value list(Json::arrayValue);
+    Json::Value diff(Json::arrayValue);
+
+    hs_vec vec = h->list;
+    int list_used = 0;
+    if (vec.used) list_used = vec.used;
+    for (int i = 0; i < list_used; i++) {
+        list.append(
+            (Json::StaticString)array_to_str(vec.elems[i],h->len,false)
+        );
+    }
+
+    int diff_used = 0;
+    if (vec.diff && vec.diff->used) diff_used = vec.diff->used;
+    for (int i = 0; i < diff_used; i++) {
+        diff.append(
+            (Json::StaticString)array_to_str(vec.diff->elems[i],h->len,false)
+        );
+    }
+
+    res["list"] = list;
+    res["diff"] = (!diff.empty()) ? diff : Json::Value(Json::nullValue);
+}
+
 double get_wall_time_s(void) {
     struct timeval t;
     if (gettimeofday(&t,NULL)) {

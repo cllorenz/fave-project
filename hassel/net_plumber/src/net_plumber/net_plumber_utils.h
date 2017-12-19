@@ -22,7 +22,9 @@
 #include <string>
 extern "C" {
   #include "../headerspace/util.h"
+  #include "../headerspace/hs.h"
 }
+#include "../jsoncpp/json/json.h"
 
 struct PACKED List_t {
   uint32_t size;
@@ -39,6 +41,8 @@ bool        elem_in_sorted_list (uint32_t elem, List_t list);
 bool        elem_in_unsorted_list (uint32_t elem, List_t list);
 bool        lists_has_intersection(List_t a, List_t b);
 List_t      copy_list (List_t l);
+Json::Value list_to_json(List_t l);
+void hs_to_json(Json::Value& res, hs *h);
 
 double get_wall_time_s(void);
 double get_wall_time_ms(void);
