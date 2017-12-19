@@ -23,6 +23,8 @@
 #include "node.h"
 #include <string>
 #include "net_plumber_utils.h"
+#include "../jsoncpp/json/json.h"
+
 /*
  * Language for describing policy using Conditions:
  *
@@ -56,6 +58,7 @@ class Condition {
   virtual bool check(Flow *f) = 0;
   virtual std::string to_string() = 0;
 
+  virtual void to_json(Json::Value&) = 0;
 };
 
 class TrueCondition : public Condition {
@@ -67,6 +70,7 @@ class TrueCondition : public Condition {
   virtual ~TrueCondition() {};
   bool check(Flow *f) { return true; }
   std::string to_string() { return "Always True"; }
+  virtual void to_json(Json::Value&);
 };
 
 class FalseCondition : public Condition {
@@ -78,6 +82,7 @@ class FalseCondition : public Condition {
   virtual ~FalseCondition() {};
   bool check(Flow *f) { return false; }
   std::string to_string() { return "Always False"; }
+  virtual void to_json(Json::Value&);
 };
 
 class AndCondition : public Condition {
@@ -95,6 +100,7 @@ class AndCondition : public Condition {
   std::string to_string() {
     return "(" + c1->to_string() + ") & (" + c2->to_string() + ")";
   }
+  virtual void to_json(Json::Value&);
 };
 
 class OrCondition : public Condition {
@@ -112,6 +118,7 @@ class OrCondition : public Condition {
   std::string to_string() {
     return "(" + c1->to_string() + ") | (" + c2->to_string() + ")";
   }
+  virtual void to_json(Json::Value&);
 };
 
 class NotCondition : public Condition {
@@ -126,6 +133,7 @@ class NotCondition : public Condition {
   virtual ~NotCondition() {delete c;}
   bool check(Flow *f) {return !c->check(f);}
   std::string to_string() {return "!(" + c->to_string() + ")";}
+  virtual void to_json(Json::Value&);
 };
 
 class HeaderCondition : public Condition {
@@ -140,6 +148,7 @@ class HeaderCondition : public Condition {
   void enlarge(uint32_t length);
   bool check(Flow *f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class PathSpecifier;
@@ -155,6 +164,7 @@ class PathCondition : public Condition {
   void add_pathlet(PathSpecifier *pathlet);
   bool check(Flow *f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class PathSpecifier {
@@ -163,6 +173,8 @@ class PathSpecifier {
   virtual std::string to_string() = 0;
   PathSpecifier() {}
   virtual ~PathSpecifier() {}
+
+  virtual void to_json(Json::Value&) = 0;
 };
 
 class PortSpecifier : public PathSpecifier {
@@ -176,6 +188,7 @@ class PortSpecifier : public PathSpecifier {
   ~PortSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class TableSpecifier : public PathSpecifier {
@@ -189,6 +202,7 @@ class TableSpecifier : public PathSpecifier {
   ~TableSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class NextPortsSpecifier : public PathSpecifier {
@@ -202,6 +216,7 @@ class NextPortsSpecifier : public PathSpecifier {
   ~NextPortsSpecifier() {free(ports.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class NextTablesSpecifier : public PathSpecifier {
@@ -215,6 +230,7 @@ class NextTablesSpecifier : public PathSpecifier {
   ~NextTablesSpecifier() {free(tables.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class LastPortsSpecifier : public PathSpecifier {
@@ -229,6 +245,7 @@ class LastPortsSpecifier : public PathSpecifier {
   ~LastPortsSpecifier() {free(ports.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class LastTablesSpecifier : public PathSpecifier {
@@ -243,6 +260,7 @@ class LastTablesSpecifier : public PathSpecifier {
   ~LastTablesSpecifier() {free(tables.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
+  virtual void to_json(Json::Value&);
 };
 
 class SkipNextSpecifier : public PathSpecifier {
@@ -254,6 +272,7 @@ class SkipNextSpecifier : public PathSpecifier {
   ~SkipNextSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string() {return ".";}
+  virtual void to_json(Json::Value&);
 };
 
 class EndPathSpecifier : public PathSpecifier {
@@ -265,6 +284,7 @@ class EndPathSpecifier : public PathSpecifier {
   ~EndPathSpecifier() {}
   bool check_and_move(Flow* &f) {return f->p_flow == f->node->get_EOSFI();}
   std::string to_string() { return "$";}
+  virtual void to_json(Json::Value&);
 };
 
 #endif  // SRC_NET_PLUMBER_CONDITIONS_H_

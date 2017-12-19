@@ -201,5 +201,105 @@ bool SkipNextSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
+void TrueCondition::to_json(Json::Value& res) {
+  res = true;
+}
 
+void FalseCondition::to_json(Json::Value& res) {
+  res = false;
+}
+
+void AndCondition::to_json(Json::Value& res) {
+  res["type"] = "and";
+
+  Json::Value arg1;
+  c1->to_json(arg1);
+  res["arg1"] = arg1;
+
+  Json::Value arg2;
+  c2->to_json(arg2);
+  res["arg2"] = arg2;
+}
+
+void OrCondition::to_json(Json::Value& res) {
+  res["type"] = "or";
+
+  Json::Value arg1;
+  c1->to_json(arg1);
+  res["arg1"] = arg1;
+
+  Json::Value arg2;
+  c2->to_json(arg2);
+  res["arg2"] = arg2;
+}
+
+void NotCondition::to_json(Json::Value& res) {
+  res["type"] = "not";
+
+  Json::Value arg;
+  c->to_json(arg);
+
+  res["arg"] = arg;
+}
+
+void HeaderCondition::to_json(Json::Value& res) {
+  res["type"] = "header";
+  Json::Value hs(Json::objectValue);
+  hs_to_json(hs,h);
+  res["header"] = hs;
+}
+
+void PathCondition::to_json(Json::Value& res) {
+  res["type"] = "path";
+
+  Json::Value pathlets(Json::arrayValue);
+  for (
+    std::list<PathSpecifier*>::iterator it = this->pathlets.begin();
+    it != this->pathlets.end();
+    it++
+  ) {
+    Json::Value pathlet(Json::objectValue);
+    (*it)->to_json(pathlet);
+    pathlets.append(pathlet);
+  }
+  res["pathlets"] = pathlets;
+}
+
+void PortSpecifier::to_json(Json::Value& res) {
+  res["type"] = "port";
+  res["port"] = this->port;
+}
+
+void TableSpecifier::to_json(Json::Value& res) {
+  res["type"] = "table";
+  res["table"] = this->table;
+}
+
+void NextPortsSpecifier::to_json(Json::Value& res) {
+  res["type"] = "next_ports";
+  res["ports"] = list_to_json(ports);
+}
+
+void NextTablesSpecifier::to_json(Json::Value& res) {
+  res["type"] = "next_tables";
+  res["tables"] = list_to_json(tables);
+}
+
+void LastPortsSpecifier::to_json(Json::Value& res) {
+  res["type"] = "last_ports";
+  res["ports"] = list_to_json(ports);
+}
+
+void LastTablesSpecifier::to_json(Json::Value& res) {
+  res["type"] = "last_tables";
+  res["tables"] = list_to_json(tables);
+}
+
+void SkipNextSpecifier::to_json(Json::Value& res) {
+  res["type"] = "skip";
+}
+
+void EndPathSpecifier::to_json(Json::Value& res) {
+  res["type"] = "end";
+}
 
