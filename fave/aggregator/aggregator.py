@@ -37,12 +37,23 @@ from topology.probe import ProbeModel
 
 UDS_ADDR = "/tmp/np_aggregator.socket"
 
-aggregator = None
+_aggregator = None
+
+profile = cProfile.Profile()
+
+def profile_method(method):
+    def profile_wrapper(*args,**kwargs):
+        profile.enable()
+        method(*args,**kwargs)
+        profile.disable()
+    return profile_wrapper
+
+def dump_stats():
+    profile.dump_stats("aggregator.stats")
 
 def handle_sigterm(signum,frame):
-    if aggregator:
-        print "stop aggregator"
-        aggregator.stop()
+    if _aggregator:
+        _aggregator.stop_aggr()
 
 def print_help():
     eprint(
@@ -90,6 +101,8 @@ def is_port(s):
 
 is_ext_port = is_port
 
+# XXX: returns None when profiled... WTF!?
+#@profile_method
 def model_from_string(s):
     j = json.loads(s)
     try:
@@ -147,19 +160,18 @@ def normalize_port(port):
     else:
         return port.replace('.','_')
 
-
+"""
 class ProfiledThread(Thread):
     def run(self):
         print "run thread"
         profiler = cProfile.Profile()
-        res = profiler.runcall(Thread.run,self)
-        #profiler.print_stats()
-        print "dump profile"
-        profiler.dump_stats('aggr_handler.profile')
-        return res
-
-            
-
+        try:
+            return profiler.runcall(Thread.run,self)
+            #profiler.print_stats()
+        finally:
+            print "dump profile"
+            profiler.dump_stats('aggr_handler.profile')
+"""
 
 class Aggregator(object):
     BUF_SIZE = 4096
@@ -184,30 +196,27 @@ class Aggregator(object):
         print "rule ids:\n\t%s" % self.rule_ids
         print "links:\n\t%s" % self.links
 
+    #@profile_method
     def handler(self):
         while not self.stop:
             data = self.queue.get()
-            model = model_from_string(data)
-            self.sync_diff(model)
+            if data:
+                model = model_from_string(data)
+                self.sync_diff(model)
             self.queue.task_done()
-        print "stopped handler"
-
 
     def run(self):
         # open new unix domain socket
         uds = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
         uds.bind(UDS_ADDR)
 
-        print "init thread"
         # start thread to handle incoming config events
-        t = ProfiledThread(target=self.handler)
+        t = Thread(target=self.handler)
         t.daemon = True
         t.start()
 
-        print "listen on socket"
         uds.listen(1)
 
-        print "perform operations"
         while True:
             # accept connections on unix domain socket
             try:
@@ -228,21 +237,23 @@ class Aggregator(object):
             # upon data receival enqueue
             self.queue.put(data)
 
-        print "close socket"
         # close unix domain socket
         uds.close()
 
-        print "join queue"
         # wait for the config event handler to finish
         self.queue.join()
 
-        print "join thread"
+        #jsonrpc.dump_stats()
+        #dump_stats()
+
         # join thread
         t.join()
 
-    def stop(self):
+    def stop_aggr(self):
         self.stop = True
+        self.queue.put("")
 
+    #@profile_method
     def sync_diff(self,model):
         # extend global mapping
         mlength = self.mapping.length
@@ -931,7 +942,8 @@ def main(argv):
 
     sock.connect(np)
 
-    aggregator = Aggregator(sock)
+    global _aggregator
+    _aggregator = Aggregator(sock)
     try:
         os.unlink(UDS_ADDR)
     except OSError:
@@ -940,7 +952,7 @@ def main(argv):
 
     signal.signal(signal.SIGTERM,handle_sigterm)
 
-    aggregator.run()
+    _aggregator.run()
 
 if __name__ == "__main__":
     #cProfile.run('main(%s)' % sys.argv[1:],"aggregator.profile")
