@@ -19,9 +19,9 @@ def print_help():
 
 
 
-if __name__ == '__main__':
+def main(argv):
     try:
-        opts,args = getopt.getopt(sys.argv[1:],"htnsu")
+        opts,args = getopt.getopt(argv,"htnsu")
     except:
         print_help()
         sys.exit(2)
@@ -81,3 +81,6 @@ if __name__ == '__main__':
     sock.close()
 
     sys.exit(0)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
