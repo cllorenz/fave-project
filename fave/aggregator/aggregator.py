@@ -780,6 +780,20 @@ class Aggregator(object):
         filter_fields = self.aligned_headerspace(model.filter_fields,model.mapping)
         test_fields = self.aligned_headerspace(model.test_fields,model.mapping)
 
+        if not filter_fields.hs_diff and len(filter_fields.hs_list) == 1:
+            filter_hs = filter_fields.hs_list[0].vector
+        else:
+            filter_hs = {
+                "hs_list" : [
+                    v.vector for v in filter_fields.hs_list
+                ] if filter_fields.hs_list else ["x"*self.mapping.length],
+                "hs_diff" : [
+                    v.vector for v in filter_fields.hs_diff
+                ] if filter_fields.hs_diff else None
+            }
+
+        filter_expr = { "type" : "header", "header" : filter_hs }
+
         test_path = []
         for pathlet in model.test_path.to_json()['pathlets']:
             ptype = pathlet['type']
@@ -787,7 +801,7 @@ class Aggregator(object):
                 test_path.append(pathlet)
             elif ptype == 'port':
                 pathlet['port'] = self.global_port(pathlet['port'])
-                test_path.append(port)
+                test_path.append(pathlet)
             elif ptype == 'next_ports':
                 pathlet['ports'] = [self.global_port(port) for port in pathlet['ports']]
                 test_path.append(pathlet)
@@ -806,16 +820,27 @@ class Aggregator(object):
 
 
         if test_fields and test_path:
+            if not test_fields.hs_diff and len(test_fields.hs_list) == 1:
+                test_hs = test_fields.hs_list[0].vector
+            else:
+                test_hs = {
+                    "hs_list" : [
+                        v.vector for v in test_fields.hs_list
+                    ] if test_fields.hs_list else ["x"*self.mapping.length],
+                    "hs_diff" : [
+                        v.vector for v in test_fields.hs_diff
+                    ] if test_fields.hs_diff else None
+                }
+
             test_expr = {
                 "type": "and",
                 "arg1" : {
                     "type" : "header",
-                    "hs_list" : [v.vector for v in test_fields.hs_list],
-                    "hs_diff" : [v.vector for v in test_fields.hs_diff]
+                    "header" : test_hs
                 },
                 "arg2" : {
                     "type" : "path",
-                    "pathlet" : test_path
+                    "pathlets" : test_path
                 }
             }
 
@@ -823,11 +848,7 @@ class Aggregator(object):
             self.sock,
             [portno],
             model.quantor,
-            {
-                "type" : "header",
-                "hs_list" : [v.vector for v in filter_fields.hs_list],
-                "hs_diff" : [v.vector for v in filter_fields.hs_diff]
-            },
+            filter_expr,
             test_expr
         )
         self.tables[name] = (idx,pid,model)
