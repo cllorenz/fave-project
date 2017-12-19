@@ -72,14 +72,19 @@ def remove_link(sock,from_port,to_port):
 def add_source(sock,hs_list,hs_diff,ports):
     data = basic_rpc()
     data["method"] = "add_source"
-    data["params"] = {
-        "hs":{
-            "type":"header",
-            "list":hs_list,
-            "diff":hs_diff
-        },
-        "ports":ports
-    }
+    if not hs_diff and len(hs_list) == 1:
+        data["params"] = {
+            "hs":hs_list[0],
+            "ports":ports
+        }
+    else:
+        data["params"] = {
+            "hs":{
+                "list":hs_list,
+                "diff":hs_diff
+            },
+            "ports":ports
+        }
     return extract_node(sendrecv(sock,json.dumps(data)))
 
 def remove_source(sock,s_idx):
