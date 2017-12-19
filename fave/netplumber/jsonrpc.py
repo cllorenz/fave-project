@@ -4,7 +4,7 @@ import json
 
 def sendrecv(sock,msg):
     sock.sendall(msg)
-    result = sock.recv(1024)
+    result = sock.recv(1073741824)
     return result
 
 def extract_node(msg):
