@@ -1121,7 +1121,7 @@ void NetPlumber::save_dependency_graph(string file_name) {
       target = ordering[other_n->node_id];
       link["source"] = source;
       link["target"] = target;
-      root["link"].append(link);
+      root["links"].append(link);
     }
   }
 
