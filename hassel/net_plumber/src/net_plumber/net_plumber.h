@@ -24,6 +24,7 @@
 #include <vector>
 #include <list>
 #include "rule_node.h"
+#include "../jsoncpp/json/json.h"
 #ifdef FIREWALL_RULES
 #include "firewall_rule_node.h"
 #endif
@@ -305,6 +306,7 @@ namespace net_plumber {
     void get_source_flow_stats(uint64_t node_id, int &inc, int &exc);
 
     void save_dependency_graph(std::string file_name);
+    void dump_plumbing_network(const std::string);
 
    private:
     void free_group_memory(uint32_t table, uint64_t group);

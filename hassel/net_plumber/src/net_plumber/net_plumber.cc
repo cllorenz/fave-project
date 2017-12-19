@@ -1130,6 +1130,207 @@ void NetPlumber::save_dependency_graph(string file_name) {
   jsfile.close();
 }
 
+void NetPlumber::dump_plumbing_network(const string dir) {
+
+    /*
+     *  {
+     *      "topology" : [...]
+     *  }
+     */
+    Json::Value topology_wrapper(Json::objectValue);
+    Json::Value topology(Json::arrayValue);
+
+    for (
+            std::map< uint32_t, std::vector<uint32_t>* >::iterator s_it = this->topology.begin();
+            s_it != this->topology.end();
+            s_it++
+    ) {
+        for (
+                std::vector<uint32_t>::iterator d_it = (*s_it).second->begin();
+                d_it != (*s_it).second->end();
+                d_it++
+        ) {
+            /*
+             * { "src" : 1, "dst" : 2 }
+             */
+            Json::Value link(Json::objectValue);
+            link["src"] = (*s_it).first;
+            link["dst"] = *d_it;
+
+            topology.append(link);
+        }
+    }
+
+    topology_wrapper["topology"] = topology;
+
+    stringstream tmp_topo;
+    tmp_topo << dir << "/topology.json";
+    string topo_file_name = tmp_topo.str();
+
+    ofstream topo_file(topo_file_name.c_str());
+    topo_file << topology_wrapper;
+    topo_file.close();
+
+    for (
+        std::map<uint32_t,std::list<RuleNode*>* >::iterator t_it = this->table_to_nodes.begin();
+        t_it != this->table_to_nodes.end();
+        t_it++
+    ) {
+        /*
+         *  {
+         *      "id" : 1,
+         *      "ports" : [...],
+         *      "rules" : [...]
+         *  }
+         */
+        Json::Value table(Json::objectValue);
+        const uint64_t id = (*t_it).first;
+        table["id"] = (Json::UInt64)id;
+
+        Json::Value ports(Json::arrayValue);
+        ports = list_to_json(table_to_ports[id]);
+
+        table["ports"] = ports;
+
+        Json::Value rules(Json::arrayValue);
+        for (
+            list<RuleNode*>::iterator r_it = (*t_it).second->begin();
+            r_it != (*t_it).second->end();
+            r_it++
+        ) {
+            /*
+             *  {
+             *      "action" : "fwd"|"rw",
+             *      "in_ports" : [...],
+             *      "out_ports" : [...],
+             *      "match" : "01x1...",
+             *      "mask" : "01x1...",
+             *      "rewrite" : "01x1..."
+             *  }
+             */
+            Json::Value rule(Json::objectValue);
+
+            rule["action"] = (*r_it)->rewrite ? "rw" : "fwd";
+            rule["in_ports"] = list_to_json((*r_it)->input_ports);
+            rule["out_ports"] = list_to_json((*r_it)->output_ports);
+
+            rule["match"] = (Json::StaticString)array_to_str(
+                (*r_it)->match,this->length,false
+            );
+
+            if ((*r_it)->mask) {
+                rule["mask"] = (Json::StaticString) array_to_str(
+                    (*r_it)->mask,this->length,false
+                );
+            }
+
+            if ((*r_it)->rewrite) {
+                rule["rewrite"] = (Json::StaticString) array_to_str(
+                    (*r_it)->rewrite,this->length,false
+                );
+            }
+
+            rules.append(rule);
+        }
+        table["rules"] = rules;
+
+        stringstream tmp_table;
+        tmp_table << dir << "/" << id << ".tf.json";
+        string table_file_name = tmp_table.str();
+
+        ofstream table_file(table_file_name.c_str());
+        table_file << table;
+        table_file.close();
+    }
+
+    /*
+     *  {
+     *      "policy" : [...]
+     *  }
+     */
+    Json::Value commands(Json::arrayValue);
+
+    for (
+        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        it != this->flow_nodes.end();
+        it++
+    ) {
+        /*
+         *  {
+         *      "method" : "add_source",
+         *      "params" : {
+         *          "hs" : { "list" : [...], "diff" : [...] },
+         *          "ports" : [...]
+         *      }
+         *  }
+         */
+        Json::Value command(Json::objectValue);
+        command["method"] = "add_source";
+
+        Json::Value params(Json::objectValue);
+        Json::Value hs(Json::objectValue);
+        hs_to_json(hs, (*it)->source_flow.back()->hs_object);
+        params["hs"] = hs;
+        params["ports"] = list_to_json((*it)->output_ports);
+
+        command["params"] = params;
+
+        commands.append(command);
+    }
+
+    for (
+        std::list<Node *>::iterator it = this->probes.begin();
+        it != this->probes.end();
+        it++
+    ) {
+        /*
+         *  {
+         *      "method" : "add_source_probe",
+         *      "params" : {
+         *          "ports" : [...],
+         *          "mode" : "existential"|"universal",
+         *          "filter" : {...},
+         *          "test" : {...}
+         *      }
+         *  }
+         */
+        Json::Value command(Json::objectValue);
+
+        command["method"] = "add_source_probe";
+
+        Json::Value params(Json::objectValue);
+        params["ports"] = list_to_json((*it)->output_ports);
+
+        Json::Value mode;
+        ((SourceProbeNode *)(*it))->mode_to_json(mode);
+        params["mode"] = mode;
+
+
+        Json::Value filter(Json::objectValue);
+        ((SourceProbeNode *)(*it))->filter_to_json(filter);
+        params["filter"] = filter;
+
+        Json::Value test(Json::objectValue);
+        ((SourceProbeNode *)(*it))->test_to_json(test);
+        params["test"] = test;
+
+        command["params"] = params;
+
+        commands.append(command);
+    }
+
+    Json::Value policy(Json::objectValue);
+    policy["commands"] = commands;
+
+    stringstream tmp_policy;
+    tmp_policy << dir << "/policy.json";
+    string policy_file_name = tmp_policy.str();
+
+    ofstream policy_file(policy_file_name.c_str());
+    policy_file << policy;
+    policy_file.close();
+}
+
 #ifdef PIPE_SLICING
 bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
     this->last_event.type = ADD_SLICE;
