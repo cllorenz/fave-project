@@ -86,6 +86,7 @@ Condition *val_to_path(const Json::Value &pathlets) {
       else if (!strcasecmp(type, "last_ports")) p = new LastPortsSpecifier(l);
       else if (!strcasecmp(type, "last_tables")) p = new LastTablesSpecifier(l);
     }
+    else if (!strcasecmp(type, "skip_next")) p = new SkipNextArbSpecifier();
     else if (!strcasecmp(type, "skip")) p = new SkipNextSpecifier();
     else if (!strcasecmp(type, "end")) p = new EndPathSpecifier();
     path->add_pathlet(p);

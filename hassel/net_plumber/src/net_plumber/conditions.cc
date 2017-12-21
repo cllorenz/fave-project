@@ -35,9 +35,41 @@ void PathCondition::add_pathlet(PathSpecifier *pathlet) {
 }
 
 bool PathCondition::check(Flow *f) {
+/*
   list<PathSpecifier*>::iterator it;
   for (it = pathlets.begin(); it != pathlets.end(); it++) {
     if (!(*it)->check_and_move(f)) return false;
+  }
+  return true;
+*/
+  stack<pair<list<PathSpecifier*>::iterator,Flow*> >decision_points;
+  list<PathSpecifier*>::iterator it = pathlets.begin();
+  while (it != pathlets.end()) {
+    if (!f && decision_points.empty()) {
+      return false;
+    } else if (!f && !decision_points.empty()) {
+      pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
+      decision_points.pop();
+      it = dp.first;
+      f = dp.second;
+      decision_points.push(make_pair(it,*(f->p_flow)));
+    } else {
+      if ((*it)->get_type() != PATHLET_SKIP_NEXT) {
+        bool c = (*it)->check_and_move(f);
+        if (!c && !decision_points.empty()) {
+          return false;
+        } else if (!c) {
+          pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
+          decision_points.pop();
+          it = dp.first;
+          f = dp.second;
+          decision_points.push(make_pair(it,*(f->p_flow)));
+        }
+      } else {
+        decision_points.push(make_pair(it,*(f->p_flow)));
+      }
+    }
+    it++;
   }
   return true;
 }
@@ -201,6 +233,11 @@ bool SkipNextSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
+// TODO: implement?
+bool SkipNextArbSpecifier::check_and_move(Flow* &f) {
+  return true;
+}
+
 void TrueCondition::to_json(Json::Value& res) {
   res = true;
 }
@@ -297,6 +334,10 @@ void LastTablesSpecifier::to_json(Json::Value& res) {
 
 void SkipNextSpecifier::to_json(Json::Value& res) {
   res["type"] = "skip";
+}
+
+void SkipNextArbSpecifier::to_json(Json::Value& res) {
+  res["type"] = "skip_next";
 }
 
 void EndPathSpecifier::to_json(Json::Value& res) {

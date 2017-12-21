@@ -50,6 +50,19 @@
  * specifiers, they are added here.
  */
 
+enum PATHLET_TYPE {
+    PATHLET_BASE = 0,
+    PATHLET_SKIP,
+    PATHLET_END,
+    PATHLET_SKIP_NEXT,
+    PATHLET_NEXT_PORT,
+    PATHLET_NEXT_TABLE,
+    PATHLET_PORTS,
+    PATHLET_TABLES,
+    PATHLET_LAST_PORTS,
+    PATHLET_LAST_TABLES
+};
+
 class Condition {
  public:
   Condition() {};
@@ -168,11 +181,15 @@ class PathCondition : public Condition {
 };
 
 class PathSpecifier {
+ protected:
+  PATHLET_TYPE type;
  public:
   virtual bool check_and_move(Flow* &f) = 0;
   virtual std::string to_string() = 0;
-  PathSpecifier() {}
+  PathSpecifier() : type(PATHLET_BASE) {}
+  PathSpecifier(PATHLET_TYPE t) : type(t) {}
   virtual ~PathSpecifier() {}
+  PATHLET_TYPE get_type() { return type; }
 
   virtual void to_json(Json::Value&) = 0;
 };
@@ -184,7 +201,7 @@ class PortSpecifier : public PathSpecifier {
  private:
   uint32_t port;
  public:
-  PortSpecifier(uint32_t p) : port(p) {}
+  PortSpecifier(uint32_t p) : PathSpecifier(PATHLET_NEXT_PORT), port(p) {}
   ~PortSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -198,7 +215,7 @@ class TableSpecifier : public PathSpecifier {
  private:
   uint32_t table;
  public:
-  TableSpecifier(uint32_t t) : table(t) {}
+  TableSpecifier(uint32_t t) : PathSpecifier(PATHLET_NEXT_TABLE),table(t) {}
   ~TableSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -212,7 +229,7 @@ class NextPortsSpecifier : public PathSpecifier {
  private:
   List_t ports;
  public:
-  NextPortsSpecifier(List_t ports) : ports(ports) {}
+  NextPortsSpecifier(List_t ports) : PathSpecifier(PATHLET_PORTS),ports(ports) {}
   ~NextPortsSpecifier() {free(ports.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -226,7 +243,7 @@ class NextTablesSpecifier : public PathSpecifier {
  private:
   List_t tables;
  public:
-  NextTablesSpecifier(List_t tables) : tables(tables) {}
+  NextTablesSpecifier(List_t tables) : PathSpecifier(PATHLET_TABLES),tables(tables) {}
   ~NextTablesSpecifier() {free(tables.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -241,7 +258,7 @@ class LastPortsSpecifier : public PathSpecifier {
  private:
   List_t ports;
  public:
-  LastPortsSpecifier(List_t ports) : ports(ports) {}
+  LastPortsSpecifier(List_t ports) : PathSpecifier(PATHLET_LAST_PORTS),ports(ports) {}
   ~LastPortsSpecifier() {free(ports.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -256,7 +273,7 @@ class LastTablesSpecifier : public PathSpecifier {
  private:
   List_t tables;
  public:
-  LastTablesSpecifier(List_t tables) : tables(tables) {}
+  LastTablesSpecifier(List_t tables) : PathSpecifier(PATHLET_LAST_TABLES),tables(tables) {}
   ~LastTablesSpecifier() {free(tables.list);}
   bool check_and_move(Flow* &f);
   std::string to_string();
@@ -268,11 +285,23 @@ class SkipNextSpecifier : public PathSpecifier {
    * "." regexp
    */
  public:
-  SkipNextSpecifier() {}
+  SkipNextSpecifier() : PathSpecifier(PATHLET_SKIP) {}
   ~SkipNextSpecifier() {}
   bool check_and_move(Flow* &f);
   std::string to_string() {return ".";}
   virtual void to_json(Json::Value&);
+};
+
+class SkipNextArbSpecifier : public PathSpecifier {
+  /*
+   * ".*" regexp
+   */
+  public:
+    SkipNextArbSpecifier() : PathSpecifier(PATHLET_SKIP_NEXT) {}
+    ~SkipNextArbSpecifier() {}
+    bool check_and_move(Flow* &f);
+    std::string to_string() {return ".*";}
+    virtual void to_json(Json::Value&);
 };
 
 class EndPathSpecifier : public PathSpecifier {
@@ -280,7 +309,7 @@ class EndPathSpecifier : public PathSpecifier {
    * $ - checks if we are at the end of path.
    */
  public:
-  EndPathSpecifier() {}
+  EndPathSpecifier() : PathSpecifier(PATHLET_END) {}
   ~EndPathSpecifier() {}
   bool check_and_move(Flow* &f) {return f->p_flow == f->node->get_EOSFI();}
   std::string to_string() { return "$";}
