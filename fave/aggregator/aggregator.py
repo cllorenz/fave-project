@@ -53,6 +53,7 @@ def dump_stats():
 
 def handle_sigterm(signum,frame):
     if _aggregator:
+        #_aggregator.print_aggregator()
         _aggregator.stop_aggr()
 
 def print_help():
@@ -864,6 +865,34 @@ class Aggregator(object):
                     "pathlets" : test_path
                 }
             }
+
+        elif test_fields:
+            if not test_fields.hs_diff and len(test_fields.hs_list) == 1:
+                test_hs = test_fields.hs_list[0].vector
+            else:
+                test_hs = {
+                    "hs_list" : [
+                        v.vector for v in test_fields.hs_list
+                    ] if test_fields.hs_list else ["x"*self.mapping.length],
+                    "hs_diff" : [
+                        v.vector for v in test_fields.hs_diff
+                    ] if test_fields.hs_diff else None
+                }
+
+            test_expr = {
+                "type" : "header",
+                "header" : test_hs
+            }
+
+        elif test_path:
+            test_expr = {
+                "type" : "path",
+                "pathlets" : test_path
+            }
+
+        else:
+            eprint("Error while add probe: no test fields or path. Aborting.")
+            return
 
         pid = jsonrpc.add_source_probe(
             self.sock,
