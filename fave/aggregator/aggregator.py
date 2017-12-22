@@ -187,14 +187,24 @@ class Aggregator(object):
         self.rule_ids = {}
         self.links = {}
         self.stop = False
+        self.generators = {}
+        self.probes = {}
 
     def print_aggregator(self):
-        print "Aggregator:"
-        print self.mapping
-        print "tables:\n\t%s" % self.tables
-        print "ports:\n\t%s" % self.ports
-        print "rule ids:\n\t%s" % self.rule_ids
-        print "links:\n\t%s" % self.links
+        print >> sys.stderr, "Aggregator:"
+        print >> sys.stderr, self.mapping
+        print >> sys.stderr, "tables:"
+        print >> sys.stderr, "\t",self.tables
+        print >> sys.stderr, "ports:"
+        print >> sys.stderr, "\t",self.ports
+        print >> sys.stderr, "rule ids:"
+        print >> sys.stderr, "\t",self.rule_ids
+        print >> sys.stderr, "links:"
+        print >> sys.stderr, "\t",self.links
+        print >> sys.stderr, "generators:"
+        print >> sys.stderr, "\t",self.generators
+        print >> sys.stderr, "probes:"
+        print >> sys.stderr, "\t",self.probes
 
     #@profile_method
     def handler(self):
@@ -696,11 +706,11 @@ class Aggregator(object):
             None
         )
         """
-        self.tables[name] = (idx,sid,model)
+        self.generators[name] = (idx,sid,model)
 
 
     def delete_host(self,node):
-        idx,sid,model = self.tables[node]
+        idx,sid,model = self.generators[node]
 
         # delete links
         p1 = self.global_ports(node+'.1')
@@ -720,7 +730,7 @@ class Aggregator(object):
 
     def add_generator(self,model):
         name = model.node
-        if name in self.tables:
+        if name in self.generators:
             self.delete_generator(name)
 
         idx = self.fresh_table_index
@@ -740,11 +750,11 @@ class Aggregator(object):
             [v.vector for v in outgoing.hs_diff],
             [portno]
         )
-        self.tables[name] = (idx,sid,model)
+        self.generators[name] = (idx,sid,model)
 
 
     def delete_generator(self,node):
-        idx,sid,model = self.tables[node]
+        idx,sid,model = self.generators[node]
 
         # delete links
         p1 = self.global_port(node+'.1')
@@ -771,7 +781,7 @@ class Aggregator(object):
 
     def add_probe(self,model):
         name = model.node
-        if name in self.tables:
+        if name in self.probes:
             self.delete_probe(name)
 
         idx = self.fresh_table_index
@@ -862,12 +872,11 @@ class Aggregator(object):
             filter_expr,
             test_expr
         )
-        self.tables[name] = (idx,pid,model)
-
+        self.probes[name] = (idx,pid,model)
 
 
     def delete_probe(self,name):
-        idx,sid,model = self.tables[node]
+        idx,sid,model = self.probes[node]
 
         # delete links
         p1 = self.global_port(node+'.1')
