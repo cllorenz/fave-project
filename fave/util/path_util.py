@@ -1,8 +1,8 @@
 import json
 import re
 
-path_pathlets = ['end','start','skip']
-str_pathlets  = ['^','$','.']
+path_pathlets = ['end','start','skip','skip_next']
+str_pathlets  = ['^','$','.','.*']
 
 pv = '\w+\.\d+'
 tv = '\w+'
@@ -63,6 +63,9 @@ def pathlet_to_str(pathlet):
     elif pathlet == 'skip':
         return '.'
 
+    elif pathlet == 'skip_next':
+        return '.*'
+
     match = re.match(port_regex,pathlet)
     if match:
         return ".*(p=%s)" % match.group('value')
@@ -117,18 +120,16 @@ def str_to_pathlet(s):
         return 'start',1
     elif s.startswith('$'):
         return 'end',1
+    elif s.startswith('.*'):
+        return 'skip_next',2
     elif s.startswith('.'):
         return 'skip',1
 
 
 
 def pathlet_to_json(pathlet):
-    if pathlet == 'start':
-        return {"type":"start"}
-    elif pathlet == 'end':
-        return {"type":"end"}
-    elif pathlet == 'skip':
-        return {"type":"skip"}
+    if pathlet in ['start','end','skip','skip_next']:
+        return {'type':pathlet}
 
     match = re.match(port_regex,pathlet)
     if match:
@@ -157,12 +158,8 @@ def pathlet_to_json(pathlet):
 
 def json_to_pathlet(j):
     ptype = j["type"]
-    if ptype == "start":
-        return "start"
-    elif ptype == "end":
-        return "end"
-    elif ptype == "skip":
-        return "skip"
+    if ptype in ["start","end","skip","skip_next"]:
+        return ptype
     elif ptype == "port":
         return ".*(port=%s)" % j["port"]
     elif ptype == "next_ports":
