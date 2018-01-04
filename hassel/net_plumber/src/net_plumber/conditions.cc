@@ -45,26 +45,39 @@ bool PathCondition::check(Flow *f) {
   stack<pair<list<PathSpecifier*>::iterator,Flow*> >decision_points;
   list<PathSpecifier*>::iterator it = pathlets.begin();
   while (it != pathlets.end()) {
+    // case 1: end of flow and no alternatives -> path does not meet spec, final decline
     if (!f && decision_points.empty()) {
       return false;
+
+    // case 2: end of flow but still alternatives open -> jump to decision point and continue with next alternative
     } else if (!f && !decision_points.empty()) {
       pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
       decision_points.pop();
       it = dp.first;
       f = dp.second;
       decision_points.push(make_pair(it,*(f->p_flow)));
+
+    // case 3: process flow and path
     } else {
+
+      // case 1: normal pathlet
       if ((*it)->get_type() != PATHLET_SKIP_NEXT) {
         bool c = (*it)->check_and_move(f);
-        if (!c && !decision_points.empty()) {
+
+        // case: path does not meet spec and no decisions left -> final decline
+        if (!c && decision_points.empty()) {
           return false;
-        } else if (!c) {
+
+        // case: path does not meet spec but still alternatives open -> jump to decision point, do one step, and retry
+        } else if (!c && !decision_points.empty()) {
           pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
           decision_points.pop();
           it = dp.first;
           f = dp.second;
           decision_points.push(make_pair(it,*(f->p_flow)));
         }
+
+      // case 2: special pathlet (skip arbitrarily, .*) -> introduce decision point
       } else {
         decision_points.push(make_pair(it,*(f->p_flow)));
       }
