@@ -216,7 +216,6 @@ string flow_to_str2(Flow *f) {
   return str.str();
 }
 
-// TODO: check for black holes in this method
 void RuleNode::process_src_flow(Flow *f) {
   if (f) { // flow routing case
     //printf("at node %lx, processing flow: %s\n",node_id,flow_to_str2(f).c_str());

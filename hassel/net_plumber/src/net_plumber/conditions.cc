@@ -246,7 +246,6 @@ bool SkipNextSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-// TODO: implement?
 bool SkipNextArbSpecifier::check_and_move(Flow* &f) {
   return true;
 }
