@@ -487,6 +487,23 @@ bool hs_is_sub(const struct hs *a, const struct hs *b) {
     return false;
 }
 
+bool hs_is_equal(const struct hs *a, const struct hs *b) {
+    assert (a->len == b->len);
+
+    struct hs tmp;
+    hs_copy(&tmp,a);
+    hs_minus(&tmp,b);
+    bool res = hs_is_empty(&tmp);
+
+    hs_copy(&tmp,b);
+    hs_minus(&tmp,a);
+    res &= hs_is_empty(&tmp);
+
+    hs_destroy(&tmp);
+
+    return res;
+}
+
 bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 

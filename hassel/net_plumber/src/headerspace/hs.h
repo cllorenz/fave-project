@@ -62,6 +62,7 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite);
 
 bool hs_is_empty(const struct hs *hs);
+bool hs_is_equal(const struct hs *a, const struct hs *b);
 bool hs_is_sub(const struct hs *a, const struct hs *b);
 bool hs_is_sub_eq(const struct hs *a, const struct hs *b);
 #endif
