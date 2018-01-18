@@ -38,6 +38,8 @@ using namespace net_plumber;
 LoggerPtr NetPlumber::logger(Logger::getLogger("NetPlumber"));
 LoggerPtr loop_logger(Logger::getLogger("DefaultLoopDetectionLogger"));
 LoggerPtr blackhole_logger(Logger::getLogger("DefaultBlackholeDetectionLogger"));
+LoggerPtr unreach_logger(Logger::getLogger("DefaultUnreachDetectionLogger"));
+LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
 #ifdef PIPE_SLICING
 LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
 #endif
@@ -72,6 +74,22 @@ void default_blackhole_callback(NetPlumber *N, Flow *f, void *data) {
   error_msg << "Black Hole Detected: after event " << get_event_name(e.type) <<
       " (ID1: " << e.id1 << ")";
   LOG4CXX_FATAL(blackhole_logger,error_msg.str());
+}
+
+void default_rule_unreach_callback(NetPlumber *N, Flow *f, void *data) {
+  Event e = N->get_last_event();
+  stringstream error_msg;
+  error_msg << "Unreachable Rule Detected: after event " <<
+    get_event_name(e.type) << " (ID1: " << e.id1 << ")";
+  LOG4CXX_FATAL(unreach_logger,error_msg.str());
+}
+
+void default_rule_shadow_callback(NetPlumber *N, Flow *f, void *data) {
+  Event e = N->get_last_event();
+  stringstream error_msg;
+  error_msg << "Shadowed Rule Detected: after event " <<
+    get_event_name(e.type) << " (ID1: " << e.id1 << ")";
+  LOG4CXX_FATAL(shadow_logger,error_msg.str());
 }
 
 #ifdef PIPE_SLICING
@@ -203,9 +221,14 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
   list<RuleNode*>* rules_list = table_to_nodes[r->table];
   list<RuleNode*>::iterator it;
   bool seen_rule = false;
+  bool check_rs = false;
+
+  struct hs aggr_hs = {0};
+
   for (it=rules_list->begin() ; it != rules_list->end(); it++) {
     if ((*it)->node_id == r->node_id) {
       seen_rule = true;
+      check_rs = true;
     } else if ((*it)->group != 0 && (*it)->node_id != (*it)->group){
       // escape *it, if *it belongs to a group and is not the lead of the group.
       continue;
@@ -219,6 +242,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       hs *common_hs;
       array_t *common_arr;
       bool is_fw = r->get_type() == FIREWALL_RULE;
+
       if (is_fw)
         common_hs = hs_isect_a(
           ((FirewallRuleNode *)r)->fw_match,
@@ -227,12 +251,18 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       else
         common_arr = array_isect_a(r->match,(*it)->match,this->length);
 
+      if (!(check_rs || seen_rule) && is_fw)
+        hs_add_hs(&aggr_hs,hs_copy_a(((FirewallRuleNode *)(*it))->fw_match));
+      else if (!(check_rs || seen_rule) && !is_fw) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
+
       if ((is_fw && common_hs == NULL) || (!is_fw && common_arr == NULL)) {
         if (!common_ports.shared) free(common_ports.list);
         continue;
       }
 #else
       array_t *common_hs = array_isect_a(r->match,(*it)->match,this->length);
+
+      if (!check_rs || seen_rule) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
 
       if (common_hs == NULL) {
         if (!common_ports.shared) free(common_ports.list);
@@ -251,6 +281,28 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       inf->comm_arr = common_hs;
 #endif
       inf->ports = common_ports;
+
+      // check reachability and shadowing
+      if (seen_rule && check_rs) {
+        hs_compact(&aggr_hs);
+
+        struct hs all_hs = {0};
+        hs_add(&all_hs,array_create(this->length,BIT_X));
+
+        struct hs rule_hs = {0};
+        hs_add(&rule_hs,array_copy((*it)->match,this->length));
+
+        if (hs_is_equal(&all_hs,&aggr_hs)) {
+          this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
+        } else if (hs_is_sub(&rule_hs,&aggr_hs)) {
+          this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
+        }
+
+        hs_destroy(&rule_hs);
+        hs_destroy(&all_hs);
+        check_rs = false;
+      }
+
       if (seen_rule) {
         inf->node = (*it);
         eff->node = r;
@@ -264,6 +316,8 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       }
     }
   }
+
+  hs_destroy(&aggr_hs);
 }
 
 void NetPlumber::set_node_pipelines(Node *n) {
@@ -430,6 +484,10 @@ NetPlumber::NetPlumber(int length) : length(length), last_ssp_id_used(0) {
   this->loop_callback_data = NULL;
   this->blackhole_callback = default_blackhole_callback;
   this->blackhole_callback_data = NULL;
+  this->rule_unreach_callback = default_rule_unreach_callback;
+  this->rule_unreach_callback_data = NULL;
+  this->rule_shadow_callback = default_rule_shadow_callback;
+  this->rule_shadow_callback_data = NULL;
 #ifdef PIPE_SLICING
   struct Slice *slice = (struct Slice *)malloc(sizeof(*slice));
   slice->net_space_id = 0;

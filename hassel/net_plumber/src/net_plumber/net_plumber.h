@@ -158,6 +158,10 @@ namespace net_plumber {
     void *loop_callback_data;
     global_error_callback_t blackhole_callback;
     void *blackhole_callback_data;
+    global_error_callback_t rule_unreach_callback;
+    void *rule_unreach_callback_data;
+    global_error_callback_t rule_shadow_callback;
+    void *rule_shadow_callback_data;
     global_error_callback_t slice_overlap_callback;
     void *slice_overlap_callback_data;
     global_error_callback_t slice_leakage_callback;
