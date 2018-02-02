@@ -80,7 +80,7 @@ array_resize (array_t* ptr, int oldlen, int newlen)
 
 void
 array_free (array_t *a)
-{ free (a); }
+{ if (!a) return; free (a); }
 
 
 array_t *
@@ -252,9 +252,9 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
     if (diff_count > 1) {*extra = NULL; return;}
   }
   // keep a if equal or b is subset of a
-  if (equal || bSuba) {free(b); *_b = NULL; *extra = NULL;}
+  if (equal || bSuba) { array_free(b); *_b = NULL; *extra = NULL;}
   // keep b if a is subset of b
-  else if (aSubb) {free(a); *_a = NULL; *extra = NULL; }
+  else if (aSubb) { array_free(a); *_a = NULL; *extra = NULL; }
   // keep b and a untouched if there is no merge. e.g. 100x u 1xx0
   else if (diff_count == 0) {*extra = NULL;}
   // or we will have a combine:
@@ -262,12 +262,12 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
     bool b1 = array_is_sub(tmp,a,len);
     bool b2 = array_is_sub(tmp,b,len);
     // e.g. 10x0 U 10x1 --> 10xx
-    if (b1 && b2) { free(a); free(b); *_a = NULL; *_b = NULL;
+    if (b1 && b2) { array_free(a); array_free(b); *_a = NULL; *_b = NULL;
       *extra = array_copy(tmp,len); }
     // e.g. 1001 U 1xx0 --> 100x U 1xx0
-    else if (b1) { free(a); *_a = NULL; *extra = array_copy(tmp,len);}
+    else if (b1) { array_free(a); *_a = NULL; *extra = array_copy(tmp,len);}
     // e.g. 1xx0 U 1001 --> 1xx0 U 100x
-    else if (b2) { free(b); *_b = NULL; *extra = array_copy(tmp,len);}
+    else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len);}
     // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
     else {*extra = array_copy(tmp,len);}
   }
@@ -431,7 +431,7 @@ array_isect_a (const array_t *a, const array_t *b, int len)
 
   array_t *res = array_create (len, BIT_UNDEF);
   if (!array_isect (a, b, len, res)) {
-    free (res);
+    array_free (res);
     return NULL;
   }
   return res;
