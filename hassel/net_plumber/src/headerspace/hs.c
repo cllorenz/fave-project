@@ -344,7 +344,7 @@ hs_cmpl (struct hs *hs)
     if (v->diff) { /* NULL if called from comp_diff */
       struct hs_vec *d = &v->diff[i];
       for (int j = 0; j < d->used; j++)
-        vec_append (&tmp, d->elems[j], false);
+        vec_append (&tmp, array_copy(d->elems[j],hs->len), false);
     }
 
     if (!new_list.used) new_list = tmp;
