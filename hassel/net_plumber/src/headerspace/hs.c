@@ -43,11 +43,11 @@ static void
 vec_destroy (struct hs_vec *v)
 {
   for (int i = 0; i < v->used; i++) {
-    free (v->elems[i]);
+    array_free (v->elems[i]);
     if (v->diff) vec_destroy (&v->diff[i]);
   }
-  free (v->elems);
-  free (v->diff);
+  if (v->elems) free (v->elems);
+  if (v->diff) free (v->diff);
 }
 
 static void
@@ -63,7 +63,7 @@ vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, in
 static void
 vec_elem_free (struct hs_vec *v, int i)
 {
-  free (v->elems[i]);
+  array_free (v->elems[i]);
   v->elems[i] = v->elems[--v->used];
   if (v->diff) {
     vec_destroy (&v->diff[i]);
@@ -182,11 +182,12 @@ hs_create (int len)
 
 void
 hs_destroy (struct hs *hs)
-{ vec_destroy (&hs->list); }
+{ if (!hs) return; vec_destroy (&hs->list); }
 
 void
 hs_free (struct hs *hs)
 {
+  if (!hs) return;
   hs_destroy (hs);
   free (hs);
 }
@@ -419,7 +420,7 @@ void
 hs_minus (struct hs *a, const struct hs *b)
 {
   assert (a->len == b->len);
-  struct hs tmp;
+  struct hs tmp = {0};
   hs_copy (&tmp, b);
   hs_cmpl (&tmp);
   hs_isect (a, &tmp);
@@ -437,7 +438,7 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
     struct hs_vec *diff = &v->diff[i];
     for (int j = 0; j < diff->used; j++) {
       if (n == array_rewrite (diff->elems[j], mask, rewrite, hs->len)) continue;
-      free (diff->elems[j]);
+      array_free (diff->elems[j]);
       diff->elems[j] = diff->elems[--diff->used];
       j--;
     }
@@ -446,7 +447,6 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 
 bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite) {
-
   const struct hs_vec *orig_v = &orig_hs->list;
   struct hs_vec *rw_v = &rw_hs->list;
   bool changed = false;
@@ -460,20 +460,20 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
       changed = true;
       vec_append (&rw_v->diff[i], tmp, true);
     } else {
-      free(tmp);
+      array_free(tmp);
     }
   }
   return changed;
 }
 
 bool hs_is_empty(const struct hs *hs) {
-    return !hs->list.elems;
+    return !hs->list.used;
 }
 
 bool hs_is_sub(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    struct hs tmp;
+    struct hs tmp = {0};
 
     hs_copy(&tmp,a);
     hs_minus(&tmp,b);
@@ -490,16 +490,18 @@ bool hs_is_sub(const struct hs *a, const struct hs *b) {
 bool hs_is_equal(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    struct hs tmp;
+    struct hs tmp = {0};
     hs_copy(&tmp,a);
     hs_minus(&tmp,b);
     bool res = hs_is_empty(&tmp);
-
-    hs_copy(&tmp,b);
-    hs_minus(&tmp,a);
-    res &= hs_is_empty(&tmp);
-
     hs_destroy(&tmp);
+
+    struct hs tmp2 = {0};
+    hs_copy(&tmp2,b);
+    hs_minus(&tmp2,a);
+    res &= hs_is_empty(&tmp2);
+
+    hs_destroy(&tmp2);
 
     return res;
 }
@@ -510,7 +512,7 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     /* if a lies completely in b */
     if (hs_is_sub(a,b)) return true;
 
-    struct hs tmp;
+    struct hs tmp = {0};
 
     hs_copy(&tmp,b);
     hs_minus(&tmp,a);
