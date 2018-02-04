@@ -19,6 +19,7 @@
 #include "test/net_plumber_basic_unit.h"
 #include "test/net_plumber_plumbing_unit.h"
 #include "test/conditions_unit.h"
+#include "../headerspace/test/hs_unit.h"
 #include <string.h>
 #include "main_processes.h"
 #include "net_plumber.h"
@@ -84,6 +85,7 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberBasicTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberPlumbingTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( ConditionsTest );
+  CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 
   // informs test-listener about testresults
   CPPUNIT_NS::TestResult testresult;
