@@ -467,11 +467,13 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
 }
 
 bool hs_is_empty(const struct hs *hs) {
-    return !hs->list.used;
+    return !hs || !hs->list.used;
 }
 
 bool hs_is_sub(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
+
+    if (hs_is_equal(a,b)) return false;
 
     struct hs tmp = {0};
 
