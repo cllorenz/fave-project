@@ -11,6 +11,7 @@ RM := rm -rf
 -include src/net_plumber/test/subdir.mk
 -include src/net_plumber/subdir.mk
 -include src/jsoncpp/subdir.mk
+-include src/headerspace/test/subdir.mk
 -include src/headerspace/subdir.mk
 -include subdir.mk
 -include objects.mk

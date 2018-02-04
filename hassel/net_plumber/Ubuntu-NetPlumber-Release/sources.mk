@@ -26,5 +26,6 @@ SUBDIRS := \
 src/net_plumber/test \
 src/net_plumber \
 src/jsoncpp \
+src/headerspace/test \
 src/headerspace \
 
