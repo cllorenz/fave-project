@@ -91,7 +91,7 @@ namespace net_plumber {
     static log4cxx::LoggerPtr logger;
 
     //length of header
-    int length;
+    size_t length;
 
     // last event happened in the net plumber.
     Event last_event;
@@ -171,8 +171,8 @@ namespace net_plumber {
      * constructor.
      * @length: length of header (L)
      */
-    NetPlumber(int length);
-    int get_length() { return this->length; }
+    NetPlumber(size_t length);
+    size_t get_length() { return this->length; }
 
     /*
      * destructor
@@ -211,7 +211,7 @@ namespace net_plumber {
     void remove_table(uint32_t id);
     List_t get_table_ports(uint32_t id);
     void print_table(uint32_t id);
-    int expand(int length);
+    size_t expand(size_t length);
 
     /*
      * Rule Management:

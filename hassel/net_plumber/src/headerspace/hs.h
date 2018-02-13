@@ -16,23 +16,23 @@
 struct hs_vec {
   array_t **elems;
   struct hs_vec *diff;
-  int used, alloc;
+  size_t used, alloc;
 };
 
 struct hs {
-  int len;
+  size_t len;
   struct hs_vec list;
 };
 
-struct hs *hs_create  (int len);
+struct hs *hs_create  (size_t len);
 void       hs_destroy (struct hs *hs);
 void       hs_free    (struct hs *hs);
 
 void       hs_copy   (struct hs *dst, const struct hs *src);
 struct hs *hs_copy_a (const struct hs *src);
 
-int   hs_count      (const struct hs *hs);
-int   hs_count_diff (const struct hs *hs);
+size_t   hs_count      (const struct hs *hs);
+size_t   hs_count_diff (const struct hs *hs);
 void  hs_print      (const struct hs *hs);
 char *hs_to_str     (const struct hs *hs);
 
@@ -52,7 +52,7 @@ void hs_minus     (struct hs *a, const struct hs *b);
 void hs_rewrite   (struct hs *hs, const array_t *mask, const array_t *rewrite);
 void hs_vec_append (struct hs_vec *v, array_t *a, bool diff);
 
-void hs_enlarge	  (struct hs *hs, int length);
+void hs_enlarge	  (struct hs *hs, size_t length);
 
 /*
  * rewrites diff according to mask/rewrite array and diff it from rw_hs only if

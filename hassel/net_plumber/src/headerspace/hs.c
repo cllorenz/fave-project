@@ -27,13 +27,13 @@ vec_append (struct hs_vec *v, array_t *a, bool diff)
 
 /* Copy SRC into DST, with arrays of length LEN. */
 static void
-vec_copy (struct hs_vec *dst, const struct hs_vec *src, int len)
+vec_copy (struct hs_vec *dst, const struct hs_vec *src, size_t len)
 {
   dst->used = dst->alloc = src->used;
   dst->elems = xmalloc (dst->alloc * sizeof *dst->elems);
   if (src->diff) dst->diff = xcalloc (dst->alloc, sizeof *dst->diff);
   else dst->diff = NULL;
-  for (int i = 0; i < src->used; i++) {
+  for (size_t i = 0; i < src->used; i++) {
     dst->elems[i] = array_copy (src->elems[i], len);
     if (src->diff) vec_copy (&dst->diff[i], &src->diff[i], len);
   }
@@ -42,7 +42,7 @@ vec_copy (struct hs_vec *dst, const struct hs_vec *src, int len)
 static void
 vec_destroy (struct hs_vec *v)
 {
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     array_free (v->elems[i]);
     if (v->diff) vec_destroy (&v->diff[i]);
   }
@@ -51,9 +51,9 @@ vec_destroy (struct hs_vec *v)
 }
 
 static void
-vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, int len)
+vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, size_t len)
 {
-  for (int i = 0; i < src->used; i++) {
+  for (size_t i = 0; i < src->used; i++) {
     array_t *tmp = array_isect_a (isect, src->elems[i], len);
     if (tmp) vec_append (dst, tmp, true);
   }
@@ -61,7 +61,7 @@ vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, in
 
 /* Free elem I of V, replacing it with last elem. */
 static void
-vec_elem_free (struct hs_vec *v, int i)
+vec_elem_free (struct hs_vec *v, size_t i)
 {
   array_free (v->elems[i]);
   v->elems[i] = v->elems[--v->used];
@@ -72,15 +72,15 @@ vec_elem_free (struct hs_vec *v, int i)
 }
 
 struct hs_vec
-vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, int len)
+vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
   struct hs_vec new_list = {0};
-  for (int i = 0; i < a->used; i++) {
-    for (int j = 0; j < b->used; j++) {
+  for (size_t i = 0; i < a->used; i++) {
+    for (size_t j = 0; j < b->used; j++) {
       array_t *isect = array_isect_a (a->elems[i], b->elems[j], len);
       if (!isect) continue;
       vec_append (&new_list, isect, false);
-      int idx = new_list.used - 1;
+      size_t idx = new_list.used - 1;
       struct hs_vec *d = &new_list.diff[idx];
       vec_diff (d, isect, &a->diff[i], len);
       vec_diff (d, isect, &b->diff[j], len);
@@ -90,10 +90,10 @@ vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, int len)
 }
 
 static char *
-vec_to_str (const struct hs_vec *v, int len, char *res)
+vec_to_str (const struct hs_vec *v, size_t len, char *res)
 {
   if (!v->diff) *res++ = '(';
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     bool diff = v->diff && v->diff[i].used;
     if (i) res += sprintf (res, " + ");
     char *s = array_to_str (v->elems[i], len, true);
@@ -115,10 +115,10 @@ vec_to_str (const struct hs_vec *v, int len, char *res)
 /* Remove elems of V that are covered by another elem. V must be a diff list.
    LEN is length of each array. */
 static void
-vec_compact (struct hs_vec *v, const array_t* mask, int len)
+vec_compact (struct hs_vec *v, const array_t* mask, size_t len)
 {
-  for (int i = 0; i < v->used; i++) {
-    for (int j = i + 1; j < v->used; j++) {
+  for (size_t i = 0; i < v->used; i++) {
+    for (size_t j = i + 1; j < v->used; j++) {
       array_t *extra;
       array_combine(&(v->elems[i]), &(v->elems[j]), &extra, mask, len);
       if (extra) {
@@ -140,7 +140,7 @@ vec_compact (struct hs_vec *v, const array_t* mask, int len)
 }
 
 static void
-vec_isect (struct hs_vec *a, const struct hs_vec *b, int len)
+vec_isect (struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
   struct hs_vec v = vec_isect_a (a, b, len);
   vec_destroy (a);
@@ -149,12 +149,12 @@ vec_isect (struct hs_vec *a, const struct hs_vec *b, int len)
 
 
 static void
-vec_enlarge (struct hs_vec *vec, int length_old, int length)
+vec_enlarge (struct hs_vec *vec, size_t length_old, size_t length)
 {
 	if (length <= length_old) {
 		return;
 	}
-	for (int i = 0; i < vec->used; i++) {
+	for (size_t i = 0; i < vec->used; i++) {
 		vec->elems[i] = array_resize(vec->elems[i],length_old,length);
 	}
 	if (vec->diff && vec->diff->used != 0) {
@@ -163,7 +163,7 @@ vec_enlarge (struct hs_vec *vec, int length_old, int length)
 }
 
 void
-hs_enlarge (struct hs *hs, int length)
+hs_enlarge (struct hs *hs, size_t length)
 {
 	if (length <= hs->len) {
 		return;
@@ -173,7 +173,7 @@ hs_enlarge (struct hs *hs, int length)
 }
 
 struct hs *
-hs_create (int len)
+hs_create (size_t len)
 {
   struct hs *hs = xcalloc (1, sizeof *hs);
   hs->len = len;
@@ -209,16 +209,16 @@ hs_copy_a (const struct hs *hs)
 }
 
 
-int
+size_t
 hs_count (const struct hs *hs)
 { return hs->list.used; }
 
-int
+size_t
 hs_count_diff (const struct hs *hs)
 {
-  int sum = 0;
+  size_t sum = 0;
   const struct hs_vec *v = &hs->list;
-  for (int i = 0; i < v->used; i++)
+  for (size_t i = 0; i < v->used; i++)
     sum += v->diff[i].used;
   return sum;
 }
@@ -248,7 +248,7 @@ void
 hs_diff (struct hs *hs, const array_t *a)
 {
   struct hs_vec *v = &hs->list;
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     array_t *tmp = array_isect_a (v->elems[i], a, hs->len);
     if (tmp) vec_append (&v->diff[i], tmp, true);
   }
@@ -256,13 +256,13 @@ hs_diff (struct hs *hs, const array_t *a)
 
 void hs_add_hs (struct hs *dst, const struct hs *src) {
     struct hs_vec list = src->list;
-    for (int i = 0; i < list.used; i++)
+    for (size_t i = 0; i < list.used; i++)
         vec_append(&dst->list,list.elems[i],false);
 
     if (!list.diff) return;
 
     struct hs_vec diff = *list.diff;
-    for (int i = 0; i < diff.used; i++)
+    for (size_t i = 0; i < diff.used; i++)
         vec_append(&dst->list,diff.elems[i],true);
 }
 
@@ -275,11 +275,11 @@ bool
 hs_compact_m (struct hs *hs, const array_t *mask)
 {
   struct hs_vec *v = &hs->list;
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     vec_compact (&v->diff[i], mask, hs->len);
-    for (int j = 0; j < v->diff[i].used; j++) {
+    for (size_t j = 0; j < v->diff[i].used; j++) {
       //if (!array_is_sub (v->diff[i].elems[j], v->elems[i], hs->len)) continue;
-      int cnt = array_one_bit_subtract (v->diff[i].elems[j], v->elems[i], hs->len);
+      size_t cnt = array_one_bit_subtract (v->diff[i].elems[j], v->elems[i], hs->len);
       if (cnt > 1) continue;
       else if (cnt == 1) {
         vec_elem_free (&(v->diff[i]), j);
@@ -298,7 +298,7 @@ void
 hs_comp_diff (struct hs *hs)
 {
   struct hs_vec *v = &hs->list, new_list = {0};
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     struct hs tmp = {hs->len,{0}}, tmp2 = {hs->len,{0}};
     vec_append (&tmp.list, v->elems[i], false);
     v->elems[i] = NULL;
@@ -307,7 +307,7 @@ hs_comp_diff (struct hs *hs)
 
     if (!new_list.used) new_list = tmp.list;
     else {
-      for (int j = 0; j < tmp.list.used; j++) {
+      for (size_t j = 0; j < tmp.list.used; j++) {
         vec_append (&new_list, tmp.list.elems[j], false);
         tmp.list.elems[j] = NULL;
       }
@@ -328,7 +328,7 @@ hs_cmpl (struct hs *hs)
 
   struct hs_vec *v = &hs->list, new_list = {0};
 
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     struct hs_vec tmp = {0};
     tmp.elems = array_cmpl_a (v->elems[i], hs->len, &tmp.used);
     tmp.alloc = tmp.used;
@@ -344,7 +344,7 @@ hs_cmpl (struct hs *hs)
     tmp.diff = xcalloc (tmp.alloc, sizeof *tmp.diff);
     if (v->diff) { /* NULL if called from comp_diff */
       struct hs_vec *d = &v->diff[i];
-      for (int j = 0; j < d->used; j++)
+      for (size_t j = 0; j < d->used; j++)
         vec_append (&tmp, array_copy(d->elems[j],hs->len), false);
     }
 
@@ -387,9 +387,9 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
 {
   const struct hs_vec *v = &hs->list;
   array_t tmp[ARRAY_BYTES (hs->len) / sizeof (array_t)];
-  int pos = -1;
+  size_t pos = -1;
 
-  for (int i = 0; i < v->used; i++) {
+  for (size_t i = 0; i < v->used; i++) {
     if (!array_isect (v->elems[i], a, hs->len, tmp)) continue;
     pos = i; break;
   }
@@ -398,7 +398,7 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
   memset (res, 0, sizeof *res);
   res->len = hs->len;
   struct hs_vec *resv = &res->list;
-  for (int i = pos; i < v->used; i++) {
+  for (size_t i = pos; i < v->used; i++) {
     if (i == pos) vec_append (resv, xmemdup (tmp, sizeof tmp), false);
     else {
       array_t *isect = array_isect_a (v->elems[i], a, res->len);
@@ -407,7 +407,7 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
     }
 
     struct hs_vec *diff = &v->diff[i], *resd = &resv->diff[resv->used - 1];
-    for (int j = 0; j < diff->used; j++) {
+    for (size_t j = 0; j < diff->used; j++) {
       array_t *isect = array_isect_a (diff->elems[j], a, res->len);
       if (!isect) continue;
       vec_append (resd, isect, true);
@@ -432,11 +432,11 @@ void
 hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 {
   struct hs_vec *v = &hs->list;
-  for (int i = 0; i < v->used; i++) {
-    int n = array_rewrite (v->elems[i], mask, rewrite, hs->len);
+  for (size_t i = 0; i < v->used; i++) {
+    size_t n = array_rewrite (v->elems[i], mask, rewrite, hs->len);
 
     struct hs_vec *diff = &v->diff[i];
-    for (int j = 0; j < diff->used; j++) {
+    for (size_t j = 0; j < diff->used; j++) {
       if (n == array_rewrite (diff->elems[j], mask, rewrite, hs->len)) continue;
       array_free (diff->elems[j]);
       diff->elems[j] = diff->elems[--diff->used];
@@ -451,11 +451,11 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
   struct hs_vec *rw_v = &rw_hs->list;
   bool changed = false;
 
-  for (int i = 0; i < orig_v->used; i++) {
+  for (size_t i = 0; i < orig_v->used; i++) {
     array_t *tmp = array_isect_a (orig_v->elems[i], diff, orig_hs->len);
     if (!tmp) continue;
-    int n = array_x_count (orig_v->elems[i], mask, orig_hs->len);
-    int m = array_rewrite (tmp, mask, rewrite, orig_hs->len);
+    size_t n = array_x_count (orig_v->elems[i], mask, orig_hs->len);
+    size_t m = array_rewrite (tmp, mask, rewrite, orig_hs->len);
     if (n == m) {
       changed = true;
       vec_append (&rw_v->diff[i], tmp, true);

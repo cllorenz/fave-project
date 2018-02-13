@@ -83,7 +83,7 @@ void HeaderspaceTest::test_diff() {
 
     hs *a = hs_copy_a(h);
 
-    for (int i = 0; i < a->list.used; i++)
+    for (size_t i = 0; i < a->list.used; i++)
         hs_vec_append(&a->list.diff[i], array_from_str("1xxxxxx1"), true);
 
     hs_diff(h,array_from_str("1xxxxxx1"));

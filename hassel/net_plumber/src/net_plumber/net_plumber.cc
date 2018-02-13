@@ -477,7 +477,7 @@ void NetPlumber::remove_pipe_from_slices(struct Pipeline *pipe) {
  * * * * * * * * * * * * *
  */
 
-NetPlumber::NetPlumber(int length) : length(length), last_ssp_id_used(0) {
+NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
   this->last_event.type = None;
   this->loop_callback = default_loop_callback;
   this->loop_callback_data = NULL;
@@ -948,7 +948,7 @@ uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
 //"xxxxxxxx xxxxxxxx" is length 2 and so on
 //|| z=00 1=10 0=01 x=11
 //length of n equals 2n bytes of memory
-int NetPlumber::expand(int length) {
+size_t NetPlumber::expand(size_t length) {
 	if (length > this->length) {
 		for (
             std::map<uint64_t,Node*>::iterator it_nodes = id_to_node.begin() ;
