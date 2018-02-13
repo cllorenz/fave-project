@@ -315,7 +315,7 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
       h = NULL;
     }
   }
-  free(h);
+  if (h) free(h);
 }
 
 void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
