@@ -223,14 +223,15 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
   bool seen_rule = false;
   bool checked_rs = false;
 
+  struct hs all_hs = {this->length,{0}};
+  hs_add(&all_hs,array_create(this->length,BIT_X));
+
   struct hs aggr_hs = {this->length,{0}};
 
   for (it=rules_list->begin() ; it != rules_list->end(); it++) {
     if ((*it)->node_id == r->node_id) {
 
       // check reachability and shadowing
-      struct hs all_hs = {this->length,{0}};
-      hs_add(&all_hs,array_create(this->length,BIT_X));
 
       struct hs rule_hs = {this->length,{0}};
       hs_add(&rule_hs,array_copy((*it)->match,this->length));
@@ -315,6 +316,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
   }
 
   hs_destroy(&aggr_hs);
+  hs_destroy(&all_hs);
 }
 
 void NetPlumber::set_node_pipelines(Node *n) {
