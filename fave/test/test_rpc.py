@@ -366,6 +366,48 @@ class TestRPC(unittest.TestCase):
         print_plumbing_network(self.sock)
 
 
+    def test_rule_unreachability(self):
+        tables = [
+            # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
+            (1,[1,2],[
+                (1,[],[2],"10xxxxxx","x"*8,None),
+                (2,[],[2],"01xxxxxx","x"*8,None),
+                (3,[],[2],"00xxxxxx","x"*8,None)
+            ])
+        ]
+
+        init(self.sock,1)
+        nodes = self.prepare_network(tables,[],[],[])
+
+        # add rule that completes the matching
+        add_rule(self.sock,*(1,4,[],[2],"11xxxxxx","x"*8,None))
+
+        # add unreachable rule
+        add_rule(self.sock,*(1,5,[],[2],"xx1xxxxx","x"*8,None))
+
+        print_plumbing_network(self.sock)
+
+
+    def test_rule_shadowing(self):
+        tables = [
+            # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
+            (1,[1,2],[
+                (1,[],[2],"10xxxxxx","x"*8,None),
+                (2,[],[2],"01xxxxxx","x"*8,None),
+                (3,[],[2],"00xxxxxx","x"*8,None)
+            ])
+        ]
+
+        init(self.sock,1)
+        nodes = self.prepare_network(tables,[],[],[])
+
+        # add shadowed rule
+        add_rule(self.sock,*(1,4,[],[2],"011xxxxx","x"*8,None))
+
+        # add unshadowed rule
+        add_rule(self.sock,*(1,5,[],[2],"11xxxxxx","x"*8,None))
+
+
     def expand_test(self):
         rules = [generate_random_rule(i,[1,2],[1,2],160) for i in range(0,50)]
 
