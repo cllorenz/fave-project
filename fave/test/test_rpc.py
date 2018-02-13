@@ -243,7 +243,7 @@ class TestRPC(unittest.TestCase):
         add_rule(self.sock,*(2,1,[3],[4],"x"*8,"x"*8,None))
 
 
-    def test_slicing(self):
+    def _test_slicing(self):
         tables = [
             # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
             (1,[1,2],[(1,[1],[2],"xxxxx110","x"*8,None)]),
@@ -282,7 +282,7 @@ class TestRPC(unittest.TestCase):
         remove_slice(self.sock,1)
 
 
-    def test_fw(self):
+    def _test_fw(self):
         tables = [
             # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
             (1,[1,2],[(1,[1],[2],"x"*8,"x"*8,None)]),
@@ -330,7 +330,7 @@ class TestRPC(unittest.TestCase):
         assert(r6 != 0)
 
 
-    def test_policy(self):
+    def _test_policy(self):
         tables = [
             # (t_idx,t_ports,[(r_idx,[in_ports],[out_ports],match,mask,rw)])
             (1,[1,2],[(1,[1],[2],"x"*8,"x"*8,None)]),
