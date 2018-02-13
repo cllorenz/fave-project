@@ -26,10 +26,10 @@ extern "C" {
 }
 #include <set>
 
-#ifdef PIPE_SLICING
+//#ifdef PIPE_SLICING
 #include "net_plumber.h"
 using namespace net_plumber;
-#endif
+//#endif
 
 using namespace std;
 
@@ -292,6 +292,15 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
       continue;
     if (!h) h = (hs *)malloc(sizeof *h);
     if (hs_isect_arr(h, (*s_flow)->processed_hs, (*it)->pipe_array)) {
+
+      if (hs_is_sub(h,(*s_flow)->processed_hs) && ((NetPlumber*)plumber)->blackhole_callback) {
+        ((NetPlumber*)plumber)->blackhole_callback(
+          (NetPlumber*)plumber,
+          *s_flow,
+          ((NetPlumber*)plumber)->blackhole_callback_data
+        );
+      }
+
       // create a new flow struct to pass to next node in pipeline
       Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
       next_flow->node = (*(*it)->r_pipeline)->node;
@@ -317,7 +326,19 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
       continue;
     if ((*it)->processed_hs == NULL) continue;
     if (!h) h = (hs *)malloc(sizeof *h);
+
     if (hs_isect_arr(h, (*it)->processed_hs, (*pipe)->pipe_array)) {
+
+      struct hs p_arr = {this->length,{0}};
+      hs_add(&p_arr,array_copy((*pipe)->pipe_array,this->length));
+      if (hs_is_sub(h,&p_arr) && ((NetPlumber*)plumber)->blackhole_callback) {
+        ((NetPlumber*)plumber)->blackhole_callback(
+          (NetPlumber*)plumber,
+          (*it),
+          ((NetPlumber*)plumber)->blackhole_callback_data
+        );
+      }
+
       Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
       next_flow->node = (*(*pipe)->r_pipeline)->node;
       next_flow->hs_object = h;
@@ -328,6 +349,7 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
       next_flow->processed_hs = NULL;
       (*(*pipe)->r_pipeline)->node->process_src_flow(next_flow);
       h = NULL;
+      hs_destroy(&p_arr);
     }
   }
   if (h) free(h);
