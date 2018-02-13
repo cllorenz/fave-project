@@ -221,14 +221,32 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
   list<RuleNode*>* rules_list = table_to_nodes[r->table];
   list<RuleNode*>::iterator it;
   bool seen_rule = false;
-  bool check_rs = false;
+  bool checked_rs = false;
 
-  struct hs aggr_hs = {0};
+  struct hs aggr_hs = {this->length,{0}};
 
   for (it=rules_list->begin() ; it != rules_list->end(); it++) {
     if ((*it)->node_id == r->node_id) {
+
+      // check reachability and shadowing
+      struct hs all_hs = {this->length,{0}};
+      hs_add(&all_hs,array_create(this->length,BIT_X));
+
+      struct hs rule_hs = {this->length,{0}};
+      hs_add(&rule_hs,array_copy((*it)->match,this->length));
+
+      if (hs_is_equal(&all_hs,&aggr_hs)) {
+        this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
+      } else if (hs_is_sub(&rule_hs,&aggr_hs)) {
+        this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
+      }
+
+      hs_destroy(&rule_hs);
+      hs_destroy(&all_hs);
+
+      checked_rs = true;
+
       seen_rule = true;
-      check_rs = true;
     } else if ((*it)->group != 0 && (*it)->node_id != (*it)->group){
       // escape *it, if *it belongs to a group and is not the lead of the group.
       continue;
@@ -251,9 +269,9 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       else
         common_arr = array_isect_a(r->match,(*it)->match,this->length);
 
-      if (!(check_rs || seen_rule) && is_fw)
+      if (!checked_rs && is_fw)
         hs_add_hs(&aggr_hs,hs_copy_a(((FirewallRuleNode *)(*it))->fw_match));
-      else if (!(check_rs || seen_rule) && !is_fw) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
+      else if (!checked_rs && !is_fw) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
 
       if ((is_fw && common_hs == NULL) || (!is_fw && common_arr == NULL)) {
         if (!common_ports.shared) free(common_ports.list);
@@ -262,7 +280,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 #else
       array_t *common_hs = array_isect_a(r->match,(*it)->match,this->length);
 
-      if (!check_rs || seen_rule) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
+      if (!checked_rs) hs_add(&aggr_hs,array_copy((*it)->match,this->length));
 
       if (common_hs == NULL) {
         if (!common_ports.shared) free(common_ports.list);
@@ -281,27 +299,6 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       inf->comm_arr = common_hs;
 #endif
       inf->ports = common_ports;
-
-      // check reachability and shadowing
-      if (seen_rule && check_rs) {
-        hs_compact(&aggr_hs);
-
-        struct hs all_hs = {0};
-        hs_add(&all_hs,array_create(this->length,BIT_X));
-
-        struct hs rule_hs = {0};
-        hs_add(&rule_hs,array_copy((*it)->match,this->length));
-
-        if (hs_is_equal(&all_hs,&aggr_hs)) {
-          this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
-        } else if (hs_is_sub(&rule_hs,&aggr_hs)) {
-          this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
-        }
-
-        hs_destroy(&rule_hs);
-        hs_destroy(&all_hs);
-        check_rs = false;
-      }
 
       if (seen_rule) {
         inf->node = (*it);
