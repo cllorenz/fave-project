@@ -711,7 +711,7 @@ void loop_detected(NetPlumber *N, Flow *f, void* data) {
 
 void NetPlumberPlumbingTest::test_detect_loop() {
   printf("\n");
-  bool is_looped;
+  bool is_looped = false;
   N->loop_callback = loop_detected;
   N->loop_callback_data = &is_looped;
   this->test_routing_add_fwd_rule_higher_priority();
