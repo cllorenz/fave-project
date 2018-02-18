@@ -29,7 +29,7 @@ vec_append (struct hs_vec *v, array_t *a, bool diff)
 static void
 vec_copy (struct hs_vec *dst, const struct hs_vec *src, size_t len)
 {
-  dst->used = dst->alloc = src->used;
+  dst->used = src->used; dst->alloc = src->alloc;
   dst->elems = xmalloc (dst->alloc * sizeof *dst->elems);
   if (src->diff) dst->diff = xcalloc (dst->alloc, sizeof *dst->diff);
   else dst->diff = NULL;
@@ -111,7 +111,6 @@ vec_to_str (const struct hs_vec *v, size_t len, char *res)
   return res;
 }
 
-
 /* Remove elems of V that are covered by another elem. V must be a diff list.
    LEN is length of each array. */
 static void
@@ -147,7 +146,6 @@ vec_isect (struct hs_vec *a, const struct hs_vec *b, size_t len)
   *a = v;
 }
 
-
 static void
 vec_enlarge (struct hs_vec *vec, size_t length_old, size_t length)
 {
@@ -192,7 +190,6 @@ hs_free (struct hs *hs)
   free (hs);
 }
 
-
 void
 hs_copy (struct hs *dst, const struct hs *src)
 {
@@ -208,7 +205,6 @@ hs_copy_a (const struct hs *hs)
   return res;
 }
 
-
 size_t
 hs_count (const struct hs *hs)
 { return hs->list.used; }
@@ -239,7 +235,6 @@ hs_to_str (const struct hs *hs)
   return xstrdup (s);
 } 
 
-
 void
 hs_add (struct hs *hs, array_t *a)
 { vec_append (&hs->list, a, false); }
@@ -257,13 +252,13 @@ hs_diff (struct hs *hs, const array_t *a)
 void hs_add_hs (struct hs *dst, const struct hs *src) {
     struct hs_vec list = src->list;
     for (size_t i = 0; i < list.used; i++)
-        vec_append(&dst->list,list.elems[i],false);
+        vec_append(&dst->list,array_copy(list.elems[i],src->len),false);
 
     if (!list.diff) return;
 
-    struct hs_vec diff = *list.diff;
-    for (size_t i = 0; i < diff.used; i++)
-        vec_append(&dst->list,diff.elems[i],true);
+    for (size_t i = 0; i < list.used; i++)
+        for (size_t j = 0; j < list.diff[i].used; j++)
+            vec_append(&dst->list,array_copy(list.diff[i].elems[j],src->len),true);
 }
 
 bool
