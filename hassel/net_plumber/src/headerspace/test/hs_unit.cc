@@ -52,30 +52,32 @@ void HeaderspaceTest::test_add() {
 
     hs_add(h,array_from_str("1xxxxxxx"));
 
-    hs *a = hs_create(HS_TEST_LEN);
-    hs_add(a,array_from_str("1xxxxxxx"));
+    struct hs a = {h->len,{0}};
+    hs_add(&a,array_from_str("1xxxxxxx"));
 
-    CPPUNIT_ASSERT(hs_is_equal(h,a));
+    CPPUNIT_ASSERT(hs_is_equal(h,&a));
 
-    hs_free(a);
+    hs_destroy(&a);
 }
 
 void HeaderspaceTest::test_add_hs() {
     test_add();
 
-    hs *a = hs_create(HS_TEST_LEN);
-    hs_add(a,array_from_str("0xxxxxxx"));
+    struct hs a = {h->len,{0}};
+    hs_add(&a,array_from_str("0xxxxxxx"));
 
-    hs *b = hs_create(HS_TEST_LEN);
-    hs_add(b,array_from_str("0xxxxxxx"));
-    hs_add(b,array_from_str("1xxxxxxx"));
+    struct hs b = {h->len,{0}};
+    hs_add(&b,array_from_str("0xxxxxxx"));
+    hs_add(&b,array_from_str("1xxxxxxx"));
 
-    hs_add_hs(h,hs_copy_a(a));
+    hs *c = hs_copy_a(&a);
+    hs_add_hs(h,c);
+    hs_free(c);
 
-    CPPUNIT_ASSERT(hs_is_equal(h,b));
+    CPPUNIT_ASSERT(hs_is_equal(h,&b));
 
-    hs_free(b);
-    hs_free(a);
+    hs_destroy(&b);
+    hs_destroy(&a);
 }
 
 void HeaderspaceTest::test_diff() {
@@ -86,7 +88,9 @@ void HeaderspaceTest::test_diff() {
     for (size_t i = 0; i < a->list.used; i++)
         hs_vec_append(&a->list.diff[i], array_from_str("1xxxxxx1"), true);
 
-    hs_diff(h,array_from_str("1xxxxxx1"));
+    array_t *b = array_from_str("1xxxxxx1");
+    hs_diff(h,b);
+    array_free(b);
 
     CPPUNIT_ASSERT(hs_is_equal(h,a));
 
@@ -125,7 +129,9 @@ void HeaderspaceTest::test_compact_m() {
     hs_vec_append(h->list.diff,array_from_str("11xxxxx1"),true);
     hs_vec_append(h->list.diff,array_from_str("10xxxxx1"),true);
 
-    hs_compact_m(a,array_from_str("11100001"));
+    array_t *b = array_from_str("11100001");
+    hs_compact_m(a,b);
+    array_free(b);
 
     CPPUNIT_ASSERT(hs_is_equal(h,a));
 
