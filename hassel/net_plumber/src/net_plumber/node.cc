@@ -187,8 +187,9 @@ void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
       (*it)->node->remove_sink_flow_from_pipe(*r);
       free((*it)->pipe_array);
       tmp = r;
-      (*r)->node->prev_in_pipeline.erase(tmp);
-      free(*r);
+      struct Pipeline *pipe = *r;
+      (*r)->node->prev_in_pipeline.erase(r);
+      free(pipe);
       free(*it);
       tmp = it;
       it++;
