@@ -37,7 +37,7 @@ ACTION_TYPE val_to_action(const char *action);
 
 class RpcHandler {
   NetPlumber *netPlumber;
-  int length;
+  size_t length;
 public:
   RpcHandler(NetPlumber *N): netPlumber(N), length(N->get_length()) { }
   void initServer(Json::Rpc::Server *server);

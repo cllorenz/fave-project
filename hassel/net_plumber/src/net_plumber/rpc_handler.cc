@@ -191,7 +191,7 @@ void RpcHandler::initServer (Server *server) {
 #define VOID Json::Value::null
 
 PROTO(init)
-  length = PARAM(length).asInt();
+  length = PARAM(length).asUInt64();
   if (netPlumber) ERROR ("Already initialized.");
   netPlumber = new NetPlumber(length);
   RETURN(VOID);
@@ -382,10 +382,10 @@ PROTO(reset_plumbing_network)
  * This RPC expands the global vector length to <length> bit (padded)
  */
 PROTO(expand)
-  uint32_t len = PARAM(length).asInt();
-  uint32_t ret = netPlumber->expand((len / 8) + ((len % 8) ? 1 : 0));
+  size_t len = PARAM(length).asUInt64();
+  size_t ret = netPlumber->expand((len / 8) + ((len % 8) ? 1 : 0));
   length = netPlumber->get_length();
-  RETURN((Json::UInt) ret);
+  RETURN((Json::Value::UInt64) ret);
 }
 
 PROTO(dump_plumbing_network)
