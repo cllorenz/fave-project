@@ -210,6 +210,7 @@ class TestRPC(unittest.TestCase):
             }
         )
 
+        destroy(self.sock)
         init(self.sock,2)
 
         nodes = self.prepare_network(tables,links,sources,[probe])
