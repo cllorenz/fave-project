@@ -101,7 +101,7 @@ array_from_str (const char *s)
   const char *cur = s;
   array_t *res = array_create (len, BIT_UNDEF);
   uint8_t *rcur = (uint8_t *) res;
-  for (int i = 0; i < 2 * len; i++) {
+  for (size_t i = 0; i < 2 * len; i++) {
     uint8_t tmp = 0;
     for (size_t j = 0; j < CHAR_BIT / 2; j++, cur++) {
       enum bit_val val;
