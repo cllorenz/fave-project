@@ -397,6 +397,89 @@ void HeaderspaceTest::test_is_equal() {
     hs_destroy(&a);
 }
 
+void HeaderspaceTest::test_is_equal_regression() {
+    printf("\n");
+
+    struct hs a = {47,{0}};
+    hs_vec_append(
+        &a.list,array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    struct hs b = {47,{0}};
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+00000000,00000000,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,00000001,00001101,10111000,\
+00001010,10111100,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000001,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000010,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,10000000,xxxxxxxx,00000010,00000000,00000000,\
+11010010,11110000,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,10000001,xxxxxxxx,00000010,00000000,00000000,\
+11010010,11110000,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    CPPUNIT_ASSERT(!hs_is_equal(&a,&b));
+    hs_destroy(&a);
+    hs_destroy(&b);
+}
+
 void HeaderspaceTest::test_is_sub() {
     test_add();
 
@@ -431,7 +514,10 @@ void HeaderspaceTest::test_is_sub_eq() {
     hs_vec_append(&a.list,array_from_str("1xxxxxx0"),false);
     CPPUNIT_ASSERT(hs_is_sub_eq(&a,h));
 
+    // h = 1xxxxxxx - 1xxxxx1x
     hs_vec_append(&h->list.diff[0],array_from_str("1xxxxx1x"),true);
+
+    // a = (1xxxxxx1 - (1xxxxxx1 + 1xxxxxx0)) + (1xxxxxx0 - (1xxxxxx1 + 1xxxxxx0))
     hs_vec_append(&a.list.diff[0],array_from_str("1xxxxxx1"),true);
     hs_vec_append(&a.list.diff[0],array_from_str("1xxxxxx0"),true);
     hs_vec_append(&a.list.diff[1],array_from_str("1xxxxxx1"),true);
@@ -439,11 +525,25 @@ void HeaderspaceTest::test_is_sub_eq() {
 
     CPPUNIT_ASSERT(hs_is_sub(&a,h));
 
+    // a = (1xxxxxx1 - (1xxxxxx1 + 1xxxxxx0 + 1xxxxx1x)) +
+    //     (1xxxxxx0 - (1xxxxxx1 + 1xxxxxx0))
     hs_vec_append(&a.list.diff[0],array_from_str("1xxxxx1x"),true);
 
     CPPUNIT_ASSERT(hs_is_sub_eq(&a,h));
-    CPPUNIT_ASSERT(hs_is_sub_eq(h,&a));
+    CPPUNIT_ASSERT(!hs_is_sub_eq(h,&a));
 
     hs_destroy(&a);
 }
 
+void HeaderspaceTest::test_merge() {
+    test_add();
+
+    struct hs a = {h->len,{0}};
+    hs_vec_append(&a.list,array_from_str("1xxxxxx1"),false);
+    CPPUNIT_ASSERT(hs_is_sub(&a,h));
+
+    hs_vec_append(&a.list,array_from_str("1xxxxxx0"),false);
+
+    hs_simple_merge(&a);
+    CPPUNIT_ASSERT(hs_is_equal(h,&a));
+}

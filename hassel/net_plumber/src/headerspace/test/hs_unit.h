@@ -30,6 +30,7 @@ extern "C" {
 
 class HeaderspaceTest : public CppUnit::TestFixture {
         CPPUNIT_TEST_SUITE(HeaderspaceTest);
+
         CPPUNIT_TEST(test_copy);
         CPPUNIT_TEST(test_copy_a);
         CPPUNIT_TEST(test_add);
@@ -49,8 +50,10 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_potponed_diff_and_rewrite);
         CPPUNIT_TEST(test_is_empty);
         CPPUNIT_TEST(test_is_equal);
+        CPPUNIT_TEST(test_is_equal_regression);
         CPPUNIT_TEST(test_is_sub);
         CPPUNIT_TEST(test_is_sub_eq);
+        CPPUNIT_TEST(test_merge);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -77,8 +80,10 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         void test_potponed_diff_and_rewrite();
         void test_is_empty();
         void test_is_equal();
+        void test_is_equal_regression();
         void test_is_sub();
         void test_is_sub_eq();
+        void test_merge();
 
     private:
         hs *h;
