@@ -493,7 +493,7 @@ array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_
 
 array_t *
 array_merge(const array_t *a, const array_t *b, size_t len) {
-    assert(!array_has_z(a,len) && !array_has_z(b,len));
+    if (array_has_z(a,len) || array_has_z(b,len)) return NULL;
 
     array_t *res = array_create(len,BIT_UNDEF);
 
