@@ -491,3 +491,20 @@ array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_
   memset (p + start / 4, 0x55 * val, shift / 4);
 }
 
+array_t *
+array_merge(const array_t *a, const array_t *b, size_t len) {
+    assert(!array_has_z(a,len) && !array_has_z(b,len));
+
+    array_t *res = array_create(len,BIT_UNDEF);
+
+    size_t cnt = 0;
+    for (size_t i=0; i<SIZE(len);i++) {
+        res[i] = a[i] | (a[i] ^ b[i]);
+        cnt += x_count(a[i] ^ b[i],-1);
+    }
+
+    if (cnt == 1) return res;
+
+    array_free(res);
+    return NULL;
+}

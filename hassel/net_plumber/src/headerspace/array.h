@@ -73,5 +73,7 @@ void array_combine(array_t **_a, array_t **_b, array_t **extra,
 size_t
 array_one_bit_subtract (array_t *a, array_t *b, size_t len );
 
+array_t *array_merge(const array_t *a, const array_t *b, size_t len);
+
 #endif
 
