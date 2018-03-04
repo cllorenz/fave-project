@@ -46,7 +46,6 @@ x_count (array_t a, array_t mask)
   return __builtin_popcountll (tmp);
 }
 
-
 array_t *
 array_create (size_t len, enum bit_val val)
 {
@@ -82,7 +81,6 @@ void
 array_free (array_t *a)
 { if (!a) return; free (a); }
 
-
 array_t *
 array_copy (const array_t *a, size_t len)
 {
@@ -155,7 +153,6 @@ array_to_str (const array_t *a, size_t len, bool decimal)
   return xstrdup (buf);
 }
 
-
 bool
 array_has_x (const array_t *a, size_t len)
 {
@@ -273,7 +270,6 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   }
 }
 
-
 enum bit_val
 array_get_bit (const array_t *a, size_t byte, size_t bit)
 {
@@ -308,7 +304,6 @@ array_set_byte (array_t *a, uint16_t val, size_t byte)
   a[2 * byte + 1] = val & 0xff;
 }
 
-
 void
 array_and (const array_t *a, const array_t *b, size_t len, array_t *res)
 {
@@ -396,7 +391,6 @@ array_x_count (const array_t *a, const array_t *mask, size_t len)
   return n;
 }
 
-
 array_t *
 array_and_a (const array_t *a, const array_t *b, size_t len)
 {
@@ -453,7 +447,6 @@ array_or_a (const array_t *a, const array_t *b, size_t len)
   return res;
 }
 
-
 void
 array_shift_left (array_t *a, size_t len, size_t start, size_t shift, enum bit_val val)
 {
