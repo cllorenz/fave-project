@@ -466,63 +466,157 @@ bool hs_is_empty(const struct hs *hs) {
     return !hs || !hs->list.used;
 }
 
+/*
+ * A \subset B \eq
+ *  (A \isect B \not= emptyset) \land (A - B = \emptyset) \land
+ *  ((A \isect B = \emptyset) \lor (A - B \not= \emptyset))
+ */
 bool hs_is_sub(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    if (hs_is_equal(a,b)) return false;
+    return hs_is_sub_eq(a,b) && !hs_is_equal(a,b);
 
-    struct hs tmp = {0};
-
-    hs_copy(&tmp,a);
-    hs_minus(&tmp,b);
-
-    if (hs_is_empty(&tmp)) {
-        hs_destroy(&tmp);
-        return true;
-    }
-
-    hs_destroy(&tmp);
-    return false;
+    if (hs_is_empty(b)) return false;
 }
 
 bool hs_is_equal(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    struct hs tmp = {0};
-    hs_copy(&tmp,a);
-    hs_minus(&tmp,b);
-    bool res = hs_is_empty(&tmp);
-    hs_destroy(&tmp);
-
-    struct hs tmp2 = {0};
-    hs_copy(&tmp2,b);
-    hs_minus(&tmp2,a);
-    res &= hs_is_empty(&tmp2);
-
-    hs_destroy(&tmp2);
-
-    return res;
+    return hs_is_sub_eq(a,b) && hs_is_sub_eq(b,a);
 }
 
+void hs_simple_merge(struct hs *a) {
+    struct hs_vec *v = &a->list;
+
+    size_t len = a->len;
+
+    size_t i = 0;
+    while (i<v->used) {
+        size_t j = i+1;
+
+        while (j<v->used) {
+            // v[i] is a superset of v[j] -> delete v[j]
+            if (array_is_sub_eq(v->elems[j],v->elems[i],len)) {
+                if (j<v->used-1) {
+                    array_free(v->elems[j]);
+                    v->elems[j] = v->elems[v->used-1];
+                }
+
+                v->used--;
+                continue;
+            }
+            // v[i] is a subset of v[j] -> replace v[i] with v[j] and delete v[j]
+            if (array_is_sub_eq(v->elems[i],v->elems[j],len)) {
+                array_free(v->elems[i]);
+                v->elems[i] = v->elems[j];
+                if (j < v->used-1) {
+                    array_free(v->elems[j]);
+                    v->elems[j] = v->elems[v->used-1];
+                }
+
+                v->used--;
+                continue;
+            }
+            // v[i] and v[j] can be merged -> replace v[i] with v_merge and delete v[j]
+            array_t *v_merge = array_merge(v->elems[i],v->elems[j],len);
+            if (v_merge) {
+                if (j < v->used-1) {
+                    array_free(v->elems[j]);
+                    v->elems[j] = v->elems[v->used-1];
+                }
+
+                array_free(v->elems[i]);
+                v->elems[i] = v_merge;
+                v->used--;
+                continue;
+            }
+            j++;
+        }
+        i++;
+    }
+}
+
+/*
+ * A \subseteq B \eq (A \isect B \not= emptyset) \land (A - B = \emptyset)
+ */
 bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    /* if a lies completely in b */
-    if (hs_is_sub(a,b)) return true;
+    // simple case (no diffs)
+    if ((!a->list.diff || !a->list.diff->used) && (!b->list.diff || !b->list.diff->used)) {
 
-    struct hs tmp = {0};
+        struct hs tmp_b = {b->len,{0}};
+        hs_copy(&tmp_b,b);
+        hs_simple_merge(&tmp_b);
 
-    hs_copy(&tmp,b);
-    hs_minus(&tmp,a);
+        struct hs_vec v_a = a->list;
+        struct hs_vec v_b = tmp_b.list;
+        size_t len = a->len;
 
-    /* if both are equal */
-    if (hs_is_empty(&tmp)) {
-        hs_destroy(&tmp);
+        for (size_t i = 0; i < v_a.used; i++) {
+            bool any = false;
+            for (size_t j = 0; j < v_b.used; j++) {
+                char *s_a = array_to_str(v_a.elems[i],len,false);
+                char *s_b = array_to_str(v_b.elems[j],len,false);
+
+                free(s_a);
+                free(s_b);
+
+                any |= array_is_sub_eq(v_a.elems[i],v_b.elems[j],len);
+
+                if (any) break;
+            }
+            if (!any) { hs_destroy(&tmp_b); return false; }
+        }
+        hs_destroy(&tmp_b);
         return true;
     }
 
-    hs_destroy(&tmp);
-    return false;
+    struct hs tmp_a = {a->len,{0}};
+    hs_copy(&tmp_a,a);
+    hs_compact(&tmp_a);
+
+    struct hs tmp_b = {b->len,{0}};
+    hs_copy(&tmp_b,b);
+    hs_compact(&tmp_b);
+
+    // A == B == emptyset
+    bool empty_a = hs_is_empty(&tmp_a);
+    bool empty_b = hs_is_empty(&tmp_b);
+
+    if ((empty_a || empty_b)) {
+        hs_destroy(&tmp_a);
+        hs_destroy(&tmp_b);
+        return (empty_a && !empty_b) || (empty_a && empty_b) || !(!empty_a && empty_b);
+    }
+
+    // A \isect B == emptyset
+    struct hs tmp_isect = {tmp_a.len,{0}};
+    hs_copy(&tmp_isect,&tmp_a);
+    hs_isect(&tmp_isect,&tmp_b);
+    if (hs_is_empty(&tmp_isect)) {
+        hs_destroy(&tmp_isect);
+        hs_destroy(&tmp_a);
+        hs_destroy(&tmp_b);
+        return false;
+    }
+    hs_destroy(&tmp_isect);
+
+    // A - B != emptyset
+    struct hs tmp_minus = {tmp_a.len,{0}};
+    hs_copy(&tmp_minus,&tmp_a);
+    hs_minus(&tmp_minus,&tmp_b);
+    if (!hs_is_empty(&tmp_minus)) {
+        hs_destroy(&tmp_minus);
+        hs_destroy(&tmp_a);
+        hs_destroy(&tmp_b);
+        return false;
+    }
+    hs_destroy(&tmp_minus);
+    hs_destroy(&tmp_a);
+    hs_destroy(&tmp_b);
+
+    return true;
 }
 
 void
