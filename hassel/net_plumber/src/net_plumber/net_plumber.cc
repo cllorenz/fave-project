@@ -232,7 +232,6 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
     if ((*it)->node_id == r->node_id) {
 
       // check reachability and shadowing
-
       struct hs rule_hs = {this->length,{0}};
       hs_add(&rule_hs,array_copy((*it)->match,this->length));
 
@@ -243,8 +242,6 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       }
 
       hs_destroy(&rule_hs);
-      hs_destroy(&all_hs);
-
       checked_rs = true;
 
       seen_rule = true;
