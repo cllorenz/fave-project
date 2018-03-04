@@ -415,7 +415,7 @@ void
 hs_minus (struct hs *a, const struct hs *b)
 {
   assert (a->len == b->len);
-  struct hs tmp = {0};
+  struct hs tmp = {b->len,{0}};
   hs_copy (&tmp, b);
   hs_cmpl (&tmp);
   hs_isect (a, &tmp);
