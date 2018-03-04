@@ -240,6 +240,9 @@ int main(int argc, char* argv[]) {
     printf("Done! Cleaning up the NetPlumber\n");
     delete N;
   }
+  // XXX: this fixes some valgrind memcheck issues but not all :-/ also it does
+  // not cover the PropertyConfigurator case
+  //BasicConfigurator::resetConfiguration();
   return 0;
 
 }
