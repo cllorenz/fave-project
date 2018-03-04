@@ -440,6 +440,7 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
   }
 }
 
+// XXX: deprecated
 bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite) {
   const struct hs_vec *orig_v = &orig_hs->list;
