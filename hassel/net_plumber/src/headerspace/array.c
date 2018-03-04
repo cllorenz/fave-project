@@ -179,15 +179,37 @@ array_is_eq (const array_t *a, const array_t *b, size_t len)
 bool
 array_is_sub (const array_t *a, const array_t *b, size_t len)
 {
-  for (size_t i = 0; i < SIZE (len); i++)
-    if (b[i] & ~a[i]) return false;
-  return true;
+    return !array_is_eq(a,b,len) && array_is_sub_eq(a,b,len);
 }
 
 bool
 array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
 {
-    return array_is_eq(a,b,len) || array_is_sub(a,b,len);
+    char *s_a = array_to_str(a,len,false);
+    char *s_b = array_to_str(b,len,false);
+    free(s_a); free(s_b);
+
+    for (size_t i = 0; i < SIZE(len); i++) {
+        // a^b -> shows differences between a and b
+        // if no bit is set a and b are equal
+        array_t diff = a[i] ^ b[i];
+
+        if (!diff) continue;
+
+        // f = (b << 1) & EVEN_MASK -> indicates first bit of an x in b
+        // s = (b >> 1) & ODD_MASK -> indicates second bit of an x in b
+        array_t f_b = b[i] & (b[i] << 1) & EVEN_MASK;
+        array_t s_b = b[i] & (b[i] >> 1) & ODD_MASK;
+
+        // f | g -> vector of all x in b
+        array_t set_x = f_b | s_b;
+
+        // shows if all differing bits between a and b are covered by x in b
+        array_t res = diff & ~set_x;
+
+        if (res) return false;
+    }
+    return true;
 }
 
 size_t
