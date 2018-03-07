@@ -185,9 +185,6 @@ array_is_sub (const array_t *a, const array_t *b, size_t len)
 bool
 array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
 {
-    char *s_a = array_to_str(a,len,false);
-    char *s_b = array_to_str(b,len,false);
-    free(s_a); free(s_b);
 
     for (size_t i = 0; i < SIZE(len); i++) {
         // a^b -> shows differences between a and b
