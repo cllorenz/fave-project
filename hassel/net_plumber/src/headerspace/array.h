@@ -29,6 +29,7 @@ void     array_free     (array_t *a);
 array_t *array_copy     (const array_t *a, size_t len);
 array_t *array_from_str (const char *s);
 char    *array_to_str   (const array_t *a, size_t len, bool decimal);
+void     array_print    (const array_t *a, size_t len, bool decimal);
 
 bool array_has_x  (const array_t *a, size_t len);
 bool array_has_z  (const array_t *a, size_t len);

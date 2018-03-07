@@ -153,6 +153,12 @@ array_to_str (const array_t *a, size_t len, bool decimal)
   return xstrdup (buf);
 }
 
+void array_print(const array_t *a, size_t len, bool decimal) {
+    char *a_s = array_to_str(a,len,decimal);
+    fprintf(stdout,"%s\n",a_s);
+    free(a_s);
+}
+
 bool
 array_has_x (const array_t *a, size_t len)
 {
@@ -500,6 +506,7 @@ array_merge(const array_t *a, const array_t *b, size_t len) {
         cnt += x_count(a[i] ^ b[i],-1);
     }
 
+    if (array_has_z(res,len)) { array_free(res); return NULL; }
     if (cnt == 1) return res;
 
     array_free(res);
