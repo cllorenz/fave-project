@@ -53,6 +53,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_is_equal_regression);
         CPPUNIT_TEST(test_is_sub);
         CPPUNIT_TEST(test_is_sub_eq);
+        CPPUNIT_TEST(test_is_equal_and_is_sub_eq_regression);
         CPPUNIT_TEST(test_merge);
 
         CPPUNIT_TEST_SUITE_END();
@@ -83,6 +84,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         void test_is_equal_regression();
         void test_is_sub();
         void test_is_sub_eq();
+        void test_is_equal_and_is_sub_eq_regression();
         void test_merge();
 
     private:

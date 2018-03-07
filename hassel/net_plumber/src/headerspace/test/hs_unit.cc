@@ -271,6 +271,7 @@ void HeaderspaceTest::test_isect_arr() {
     array_free(v2);
 }
 
+// XXX: fix mysterius memory leak found by valgrind
 void HeaderspaceTest::test_minus() {
     test_add();
     hs_vec_append(&h->list,array_from_str("01xxxxxx"),false);
@@ -480,6 +481,223 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
     hs_destroy(&b);
 }
 
+void HeaderspaceTest::test_is_equal_and_is_sub_eq_regression() {
+
+    struct hs a = {47,{0}};
+
+    hs_vec_append(
+        &a.list,
+        array_from_str("\
+00000000,00000000,00000110,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,00000000,00010110,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
+00000001,00001101,10111000,00001010,10111100,00000000,00000000,00000000,\
+00000000,00000000,00000000,00000000,00000000,00000000,00000001\
+"),
+        false
+    );
+
+    struct hs b = {47,{0}};
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000001,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000010,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,10000000,xxxxxxxx,00000010,00000000,00000000,\
+11010010,11110000,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,10000001,xxxxxxxx,00000010,00000000,00000000,\
+11010010,11110000,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000011,00000000,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000100,00000001,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00111010,00000100,00000010,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000100,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00101011,00000000,00000000,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000100,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00101011,00000010,00000001,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000100,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00101011,00000000,00000000,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000100,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00101011,00000010,00000001,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000100,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00101011,xxxxxxxx,00000000,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00000110,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,00000000,00010101,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
+00000001,00001101,10111000,00001010,10111100,00000000,00000000,00000000,\
+00000000,00000000,00000000,00000000,00000000,00000000,00000001\
+"),
+        false
+    );
+
+    hs_vec_append(
+        &b.list,
+        array_from_str("\
+xxxxxxxx,xxxxxxxx,00000110,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,00000000,01110011,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
+xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
+00000001,00001101,10111000,00001010,10111100,00000000,00000000,00000000,\
+00000000,00000000,00000000,00000000,00000000,00000000,00000001\
+"),
+        false
+    );
+
+    struct hs c = {47,{0}};
+
+    hs_vec_append(
+        &c.list,
+        array_create(47,BIT_X),
+        false
+    );
+
+    CPPUNIT_ASSERT(!hs_is_equal(&c,&b));
+    CPPUNIT_ASSERT(!hs_is_sub_eq(&a,&b));
+
+    hs_destroy(&a);
+    hs_destroy(&b);
+    hs_destroy(&c);
+}
+
 void HeaderspaceTest::test_is_sub() {
     test_add();
 
@@ -546,4 +764,6 @@ void HeaderspaceTest::test_merge() {
 
     hs_simple_merge(&a);
     CPPUNIT_ASSERT(hs_is_equal(h,&a));
+
+    hs_destroy(&a);
 }
