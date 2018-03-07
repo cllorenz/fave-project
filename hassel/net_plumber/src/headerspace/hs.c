@@ -82,6 +82,14 @@ vec_elem_free (struct hs_vec *v, size_t i)
   }
 }
 
+static void
+vec_elem_replace_and_delete (struct hs_vec *v, size_t i, size_t j)
+{
+  array_free(v->elems[i]);
+  v->elems[i] = v->elems[j];
+  vec_elem_remove(v,j);
+}
+
 struct hs_vec
 vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
@@ -508,37 +516,21 @@ void hs_simple_merge(struct hs *a) {
         while (j<v->used) {
             // v[i] is a superset of v[j] -> delete v[j]
             if (array_is_sub_eq(v->elems[j],v->elems[i],len)) {
-                if (j<v->used-1) {
-                    array_free(v->elems[j]);
-                    v->elems[j] = v->elems[v->used-1];
-                }
-
-                v->used--;
+                vec_elem_free(v,j);
                 continue;
             }
             // v[i] is a subset of v[j] -> replace v[i] with v[j] and delete v[j]
             if (array_is_sub_eq(v->elems[i],v->elems[j],len)) {
-                array_free(v->elems[i]);
-                v->elems[i] = v->elems[j];
-                if (j < v->used-1) {
-                    array_free(v->elems[j]);
-                    v->elems[j] = v->elems[v->used-1];
-                }
-
-                v->used--;
+                vec_elem_replace_and_delete(v,i,j);
                 continue;
             }
             // v[i] and v[j] can be merged -> replace v[i] with v_merge and delete v[j]
             array_t *v_merge = array_merge(v->elems[i],v->elems[j],len);
             if (v_merge) {
-                if (j < v->used-1) {
-                    array_free(v->elems[j]);
-                    v->elems[j] = v->elems[v->used-1];
-                }
+                vec_elem_free(v,j);
 
                 array_free(v->elems[i]);
                 v->elems[i] = v_merge;
-                v->used--;
                 continue;
             }
             j++;
