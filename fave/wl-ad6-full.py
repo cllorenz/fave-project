@@ -409,7 +409,7 @@ def main():
 
     print "ok"
 
-    print "create hosts (pf + source) in subnets...",
+    print "create hosts (pf + source) in subnets..."
     cnt = 4
 
     for net in subnets:
@@ -497,7 +497,7 @@ def main():
         cnt += 1
     print "ok"
 
-    print "  test subnets... "
+    print "  test subnets..."
     cnt = 4
     for net in subnets:
         srv = 1
