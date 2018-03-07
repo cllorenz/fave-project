@@ -63,12 +63,19 @@ vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, si
   }
 }
 
+static inline void
+vec_elem_remove (struct hs_vec *v, size_t i)
+{
+  if (i >= v->used-1) --v->used;
+  else v->elems[i] = v->elems[--v->used];
+}
+
 /* Free elem I of V, replacing it with last elem. */
 static void
 vec_elem_free (struct hs_vec *v, size_t i)
 {
   array_free (v->elems[i]);
-  v->elems[i] = v->elems[--v->used];
+  vec_elem_remove(v,i);
   if (v->diff) {
     vec_destroy (&v->diff[i]);
     v->diff[i] = v->diff[v->used];
