@@ -78,7 +78,7 @@ vec_elem_free (struct hs_vec *v, size_t i)
   vec_elem_remove(v,i);
   if (v->diff) {
     vec_destroy (&v->diff[i]);
-    v->diff[i] = v->diff[v->used];
+    if (i < v->diff->used) v->diff[i] = v->diff[v->used];
   }
 }
 
