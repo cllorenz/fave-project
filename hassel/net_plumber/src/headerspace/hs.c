@@ -30,7 +30,11 @@ static void
 vec_copy (struct hs_vec *dst, const struct hs_vec *src, size_t len)
 {
   dst->used = src->used; dst->alloc = src->alloc;
-  dst->elems = xmalloc (dst->alloc * sizeof *dst->elems);
+
+  size_t alloc = dst->alloc * sizeof *dst->elems;
+  if (!alloc) return;
+
+  dst->elems = xmalloc (alloc);
   if (src->diff) dst->diff = xcalloc (dst->alloc, sizeof *dst->diff);
   else dst->diff = NULL;
   for (size_t i = 0; i < src->used; i++) {
