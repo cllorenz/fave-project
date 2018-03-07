@@ -559,11 +559,6 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
         for (size_t i = 0; i < v_a.used; i++) {
             bool any = false;
             for (size_t j = 0; j < v_b.used; j++) {
-                char *s_a = array_to_str(v_a.elems[i],len,false);
-                char *s_b = array_to_str(v_b.elems[j],len,false);
-
-                free(s_a);
-                free(s_b);
 
                 any |= array_is_sub_eq(v_a.elems[i],v_b.elems[j],len);
 
