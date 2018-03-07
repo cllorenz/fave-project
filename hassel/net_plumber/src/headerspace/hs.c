@@ -243,7 +243,7 @@ hs_print (const struct hs *hs)
 {
   char s[MAX_STR];
   vec_to_str (&hs->list, hs->len, s);
-  printf ("%s\n", s);
+  fprintf (stdout,"%s\n", s);
 }
 
 char *
