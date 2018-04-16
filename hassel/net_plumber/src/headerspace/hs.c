@@ -47,6 +47,8 @@ vec_copy (struct hs_vec *dst, const struct hs_vec *src, size_t len)
 static void
 vec_destroy (struct hs_vec *v)
 {
+  if (!v) return;
+
   for (size_t i = 0; i < v->used; i++) {
     array_free (v->elems[i]);
     if (v->diff) vec_destroy (&v->diff[i]);
