@@ -202,7 +202,10 @@ hs_create (size_t len)
 
 void
 hs_destroy (struct hs *hs)
-{ if (!hs) return; vec_destroy (&hs->list); }
+{
+  if (!hs) return;
+  vec_destroy (&hs->list);
+}
 
 void
 hs_free (struct hs *hs)
