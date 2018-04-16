@@ -160,6 +160,8 @@ void ConditionsTest::test_header() {
 }
 
 list<Flow*>* ConditionsTest::create_flow(List_t ports, List_t tables) {
+  assert(ports.size == tables.size);
+
   list<Flow*> *result = new list<Flow*>();
   Flow *f, *prev;
   SourceNode *s = new SourceNode(NULL,1,0,hs_create(1),make_sorted_list(1,0));
