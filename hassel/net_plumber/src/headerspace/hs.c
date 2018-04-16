@@ -545,6 +545,10 @@ void hs_simple_merge(struct hs *a) {
     }
 }
 
+bool hs_has_diff(const struct hs *a) {
+    return (a->list.diff && a->list.diff->used);
+}
+
 /*
  * A \subseteq B \eq (A \isect B \not= emptyset) \land (A - B = \emptyset)
  */
@@ -552,7 +556,7 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
     // simple case (no diffs)
-    if ((!a->list.diff || !a->list.diff->used) && (!b->list.diff || !b->list.diff->used)) {
+    if (!hs_has_diff(a) && !hs_has_diff(b)) {
 
         struct hs tmp_b = {b->len,{0}};
         hs_copy(&tmp_b,b);
