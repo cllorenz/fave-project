@@ -937,7 +937,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
         true
     );
 
-    CPPUNIT_ASSERT(!hs_is_sub(&a,&b));
+    CPPUNIT_ASSERT(hs_is_sub(&a,&b));
 
     hs_destroy(&a);
     hs_destroy(&b);
