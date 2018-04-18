@@ -83,7 +83,7 @@ vec_elem_free (struct hs_vec *v, size_t i)
   vec_elem_remove(v,i);
   if (v->diff && i < v->diff->used) {
     vec_destroy (&v->diff[i]);
-    v->diff[i] = v->diff[--v->used];
+    v->diff[i] = v->diff[v->used];
   }
 }
 
@@ -300,6 +300,8 @@ hs_compact_m (struct hs *hs, const array_t *mask)
   for (size_t i = 0; i < v->used; i++) {
     vec_compact (&v->diff[i], mask, hs->len);
     for (size_t j = 0; j < v->diff[i].used; j++) {
+      // I have no idea why this line was commented out but including it
+      // prevents a hs_is_sub() regression
       //if (!array_is_sub (v->diff[i].elems[j], v->elems[i], hs->len)) continue;
       size_t cnt = array_one_bit_subtract (v->diff[i].elems[j], v->elems[i], hs->len);
       if (cnt > 1) continue;
