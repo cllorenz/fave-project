@@ -78,8 +78,7 @@ class Node {
 
  public:
   const uint64_t node_id;
-  //int length; //must not be const
-  uint32_t length; //must not be const
+  uint32_t length;
 
   // pointer to net plumber instance.
   void *plumber;
