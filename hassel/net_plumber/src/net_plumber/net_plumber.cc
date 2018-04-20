@@ -1353,7 +1353,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
         command["method"] = "add_source_probe";
 
         Json::Value params(Json::objectValue);
-        params["ports"] = list_to_json((*it)->output_ports);
+        params["ports"] = list_to_json((*it)->input_ports);
 
         Json::Value mode;
         ((SourceProbeNode *)(*it))->mode_to_json(mode);
