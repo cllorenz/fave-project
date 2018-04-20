@@ -393,5 +393,17 @@ PROTO(dump_plumbing_network)
   netPlumber->dump_plumbing_network(dir);
   RETURN(VOID);
 }
+
+PROTO(dump_flows)
+  const std::string dir = PARAM(dir).asString();
+  netPlumber->dump_flows(dir);
+  RETURN(VOID);
+}
+
+PROTO(dump_pipes)
+  const std::string dir = PARAM(dir).asString();
+  netPlumber->dump_pipes(dir);
+  RETURN(VOID);
+}
 }
 

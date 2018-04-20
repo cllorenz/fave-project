@@ -1385,6 +1385,121 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     policy_file.close();
 }
 
+
+void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
+    if (!flow->node->source_flow.empty()) { // traverse flows to their end
+        list<struct Flow*> source_flow = flow->node->source_flow;
+        for (
+            list<struct Flow*>::iterator n_flow = source_flow.begin();
+            n_flow != source_flow.end();
+            n_flow++
+        ) {
+            traverse_flow(flows,*n_flow);
+        }
+    } else { // reached eof: create a list and go back to source collecting all nodes
+        list<uint64_t> *f_list = new list<uint64_t>();
+        flows->push_back(f_list);
+        struct Flow *f = flow;
+        while (f->p_flow != f->node->get_EOSFI()) {
+            f_list->push_front(f->node->node_id);
+            f = *f->p_flow;
+        }
+    }
+}
+
+
+void NetPlumber::dump_flows(string dir) {
+    Json::Value flows_wrapper(Json::objectValue);
+    Json::Value flows(Json::arrayValue);
+
+    for (
+        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        it != this->flow_nodes.end();
+        it++
+    ) {
+        /*
+         *  [
+         *      [1,3,4] <- flow
+         *  ]
+         */
+
+        list<list<uint64_t>*> *path = new list<list<uint64_t>*>();
+
+        for (
+            list<Flow *>::iterator f_it = (*it)->source_flow.begin();
+            f_it != (*it)->source_flow.end();
+            f_it++
+        ) {
+            traverse_flow(path,*f_it);
+        }
+
+        for (
+            list<list<uint64_t>*>::iterator p_it = path->begin();
+            p_it != path->end();
+            p_it++
+        ) {
+            Json::Value flow(Json::arrayValue);
+            for (
+                list<uint64_t>::iterator f_it = (*p_it)->begin();
+                f_it != (*p_it)->end();
+                f_it++
+            ) {
+                flow.append((Json::UInt64) (*f_it));
+            }
+
+            flows.append(flow);
+
+            (*p_it)->clear();
+        }
+
+        path->clear();
+        delete path;
+    }
+
+    flows_wrapper["flows"] = flows;
+
+    stringstream tmp_flows;
+    tmp_flows << dir << "/flows.json";
+    string flows_file_name = tmp_flows.str();
+
+    ofstream flow_file(flows_file_name.c_str());
+    flow_file << flows_wrapper;
+    flow_file.close();
+}
+
+
+void NetPlumber::dump_pipes(string dir) {
+    Json::Value pipes_wrapper(Json::objectValue);
+    Json::Value pipes(Json::arrayValue);
+
+    for (
+            map<uint64_t,Node*>::iterator n_it = id_to_node.begin();
+            n_it != id_to_node.end();
+            n_it++
+        ) {
+        Json::Value pipe(Json::arrayValue);
+        pipe.append((Json::UInt64) (*n_it).first);
+
+        for (
+            list<struct Pipeline*>::iterator p_it = (*n_it).second->next_in_pipeline.begin();
+            p_it != (*n_it).second->next_in_pipeline.end();
+            p_it++
+        ) {
+            pipe.append((Json::UInt64) (*p_it)->node);
+        }
+    }
+
+    pipes_wrapper["pipes"] = pipes;
+
+    stringstream tmp_pipe_network;
+    tmp_pipe_network << dir << "/pipes.json";
+    string pipe_network_file_name = tmp_pipe_network.str();
+
+    ofstream pipe_network_file(pipe_network_file_name.c_str());
+    pipe_network_file << pipes_wrapper;
+    pipe_network_file.close();
+}
+
 #ifdef PIPE_SLICING
 bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
     this->last_event.type = ADD_SLICE;

@@ -67,6 +67,8 @@ private:
   FN(reset_plumbing_network);
   FN(expand);
   FN(dump_plumbing_network);
+  FN(dump_flows);
+  FN(dump_pipes);
 #undef FN
 };
 

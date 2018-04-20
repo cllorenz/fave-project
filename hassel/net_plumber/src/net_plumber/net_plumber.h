@@ -311,6 +311,8 @@ namespace net_plumber {
 
     void save_dependency_graph(std::string file_name);
     void dump_plumbing_network(const std::string);
+    void dump_flows(const std::string);
+    void dump_pipes(const std::string);
 
    private:
     void free_group_memory(uint32_t table, uint64_t group);
