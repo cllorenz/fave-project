@@ -247,3 +247,17 @@ def dump_plumbing_network(sock,odir):
     data["method"] = "dump_plumbing_network"
     data["params"] = { "dir" : odir }
     sendrecv(sock,json.dumps(data))
+
+#@profile_method
+def dump_flows(sock,odir):
+    data = basic_rpc()
+    data["method"] = "dump_flows"
+    data["params"] = { "dir" : odir }
+    sendrecv(sock,json.dumps(data))
+
+#@profile_method
+def dump_pipes(sock,odir):
+    data = basic_rpc()
+    data["method"] = "dump_pipes"
+    data["params"] = { "dir" : odir }
+    sendrecv(sock,json.dumps(data))

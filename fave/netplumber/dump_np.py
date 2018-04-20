@@ -12,9 +12,12 @@ from util.print_util import eprint
 
 def print_help():
     eprint(
-        "print_np -htn -o <dir>",
+        "print_np -hfnptn -o <dir>",
         "\t-h print this help and exit",
+        "\t-f dump flows",
+        "\t-n dump plumbing network (tables, links, rules, policy)",
         "\t-o <dir> output directory (default: np_dump)",
+        "\t-p dump pipes",
         "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=1234)",
         "\t-u connect to net_plumber via unix socket (/tmp/net_plumber.socket)",
         sep="\n"
@@ -24,13 +27,17 @@ def print_help():
 
 def main(argv):
     try:
-        opts,args = getopt.getopt(argv,"ho:su")
+        opts,args = getopt.getopt(argv,"hfno:psu")
     except:
         print_help()
         sys.exit(2)
 
     use_tcp = True
     use_unix = False
+
+    use_flows = False
+    use_network = False
+    use_pipes = False
 
     odir = "np_dump"
 
@@ -48,6 +55,15 @@ def main(argv):
             use_tcp = False
             use_unix = True
             np = "/tmp/net_plumber.socket"
+
+        elif opt == '-f':
+            use_flows = True
+
+        elif opt == '-n':
+            use_network = True
+
+        elif opt == '-p':
+            use_pipes = True
 
         elif opt == '-o':
             odir = arg
@@ -68,24 +84,18 @@ def main(argv):
         print_help()
         sys.exit(3)
 
-    os.system("mkdir -p %s" % odir)
-    os.system("rm -f %s/*" % odir)
+    if any([use_flows,use_network,use_pipes]):
+        os.system("mkdir -p %s" % odir)
+        os.system("rm -f %s/*" % odir)
 
-    jsonrpc.dump_plumbing_network(sock,odir)
+    if use_flows:
+        jsonrpc.dump_flows(sock,odir)
 
-    """
-    with open("%s/topology.json" % odir,'w') as topo:
-        topo.write("%s\n" % json.dumps({"topology":dump["topology"]}))
+    if use_network:
+        jsonrpc.dump_plumbing_network(sock,odir)
 
-    for t in dump["tables"]:
-        with open("%s/%s.tf.json" % (odir,t["id"]),"w") as table:
-            table.write("%s\n" % json.dumps(t))
-
-    with open("%s/policy.json" % odir,"w") as commands:
-        commands.write(
-            "%s\n" % json.dumps({"commands":dump["policy"]["commands"]})
-        )
-    """
+    if use_pipes:
+        jsonrpc.dump_pipes(sock,odir)
 
     sock.close()
 
