@@ -19,7 +19,13 @@ def dump_stats():
 def sendrecv(sock,msg):
     sock.sendall(msg)
     #result = sock.recv(1073741824)
-    result = sock.recv(536870912)
+    result = ''
+    while True:
+        part = sock.recv(4096)
+        result += part
+        if len(part) < 4096:
+            break
+    #result = sock.recv(536870912)
     return result
 
 def extract_node(msg):

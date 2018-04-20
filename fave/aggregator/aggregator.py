@@ -236,14 +236,21 @@ class Aggregator(object):
                 break
 
             # receive data from unix domain socket
-            nbytes = Aggregator.BUF_SIZE
+            #nbytes = Aggregator.BUF_SIZE
+            #data = ""
+            #while nbytes == Aggregator.BUF_SIZE:
+            #    tmp = conn.recv(Aggregator.BUF_SIZE)
+            #    nbytes = len(tmp)
+            #    data += tmp
+            #if not data:
+            #    break
+
             data = ""
-            while nbytes == Aggregator.BUF_SIZE:
-                tmp = conn.recv(Aggregator.BUF_SIZE)
-                nbytes = len(tmp)
-                data += tmp
-            if not data:
-                break
+            while True:
+                part = conn.recv(Aggregator.BUF_SIZE)
+                data += part
+                if len(part) < Aggregator.BUF_SIZE:
+                    break
 
             # upon data receival enqueue
             self.queue.put(data)
