@@ -1387,14 +1387,13 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 
 
 void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
-    if (!flow->node->source_flow.empty()) { // traverse flows to their end
-        list<struct Flow*> source_flow = flow->node->source_flow;
+    if (flow->n_flows && !flow->n_flows->empty()) { // traverse flows to their end
         for (
-            list<struct Flow*>::iterator n_flow = source_flow.begin();
-            n_flow != source_flow.end();
+            list<list<struct Flow*>::iterator>::iterator n_flow = flow->n_flows->begin();
+            n_flow != flow->n_flows->end();
             n_flow++
         ) {
-            traverse_flow(flows,*n_flow);
+            traverse_flow(flows,*(*n_flow));
         }
     } else { // reached eof: create a list and go back to source collecting all nodes
         list<uint64_t> *f_list = new list<uint64_t>();
@@ -1404,6 +1403,7 @@ void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
             f_list->push_front(f->node->node_id);
             f = *f->p_flow;
         }
+        f_list->push_front(f->node->node_id);
     }
 }
 
