@@ -143,6 +143,8 @@ void RpcHandler::initServer (Server *server) {
     FN(print_plumbing_network),
     FN(reset_plumbing_network),
     FN(dump_plumbing_network),
+    FN(dump_flows),
+    FN(dump_pipes),
     FN(expand)
   };
   int n = sizeof methods / sizeof *methods;
