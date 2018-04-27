@@ -129,9 +129,9 @@ RuleNode::~RuleNode() {
     delete effect_on;
     delete influenced_by;
   }
-  free(this->mask);
-  free(this->rewrite);
-  free(this->inv_rw);
+  array_free(this->mask);
+  array_free(this->rewrite);
+  array_free(this->inv_rw);
 }
 
 string RuleNode::rule_to_str() {
