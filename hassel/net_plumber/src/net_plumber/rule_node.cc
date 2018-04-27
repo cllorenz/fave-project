@@ -122,7 +122,7 @@ RuleNode::~RuleNode() {
           n->process_src_flow_at_location(src_it,NULL);
         }
       }
-      free(comm_arr);
+      array_free(comm_arr);
       if (!ports.shared) free(ports.list);
       free(*eff_it);
     }
