@@ -1478,15 +1478,20 @@ void NetPlumber::dump_pipes(string dir) {
             n_it++
         ) {
         Json::Value pipe(Json::arrayValue);
-        pipe.append((Json::UInt64) (*n_it).first);
+
+        list<struct Pipeline*> n_pipes = (*n_it).second->next_in_pipeline;
+
+        if (!n_pipes.empty()) pipe.append((Json::UInt64) (*n_it).first);
 
         for (
-            list<struct Pipeline*>::iterator p_it = (*n_it).second->next_in_pipeline.begin();
-            p_it != (*n_it).second->next_in_pipeline.end();
+            list<struct Pipeline*>::iterator p_it = n_pipes.begin();
+            p_it != n_pipes.end();
             p_it++
         ) {
-            pipe.append((Json::UInt64) (*p_it)->node);
+            pipe.append((Json::UInt64) (*(*p_it)->r_pipeline)->node->node_id);
         }
+
+        if (!n_pipes.empty()) pipes.append(pipe);
     }
 
     pipes_wrapper["pipes"] = pipes;
