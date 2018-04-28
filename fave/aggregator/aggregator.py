@@ -969,7 +969,7 @@ def main(argv):
             print_help()
             sys.exit(0)
         elif opt == '-s':
-            server = arg if is_ip(arg) or is_domain(arg) else arg if is_unix(arg) else server
+            if is_ip(arg) or is_domain(arg) or is_unix(arg): server = arg
         elif opt == '-p':
             port = int(arg) if is_port(arg) else port
 
