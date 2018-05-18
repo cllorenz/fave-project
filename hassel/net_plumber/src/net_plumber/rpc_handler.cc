@@ -239,6 +239,7 @@ PROTO(add_rule)
   List_t out = val_to_list(PARAM(out));
   array_t *match = val_to_array(PARAM(match));
   array_t *mask = val_to_array(PARAM(mask));
+  if (!mask) mask = array_create(length,BIT_X);
   array_t *rw = val_to_array(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
   RETURN((Json::Value::UInt64) ret);
