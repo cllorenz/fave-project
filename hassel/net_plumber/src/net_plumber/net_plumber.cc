@@ -757,7 +757,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
       r->process_src_flow(NULL);
 
     } else {
-      free(in_ports.list);free(out_ports.list);free(match);free(mask);free(rw);
+      free(in_ports.list);free(out_ports.list);array_free(match);array_free(mask);array_free(rw);
       stringstream error_msg;
       error_msg << "Group " << group << " does not exist. Can't add rule to it."
           << "Ignoring add new rule request.";
@@ -766,7 +766,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
     }
     return id;
   } else {
-    free(in_ports.list);free(out_ports.list);free(match);free(mask);free(rw);
+    free(in_ports.list);free(out_ports.list);array_free(match);array_free(mask);array_free(rw);
     stringstream error_msg;
     error_msg << "trying to add a rule to a non-existing table (id: " << table
         << "). Ignored.";
