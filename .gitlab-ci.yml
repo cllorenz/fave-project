@@ -1,5 +1,5 @@
 before_script:
-  - apt-get update
+  - apt-get update -qq
 
 hello:
   script:
