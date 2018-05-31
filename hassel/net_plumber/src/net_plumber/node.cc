@@ -231,14 +231,22 @@ void Node::enlarge(uint32_t length) {
         it_pipenext != next_in_pipeline.end();
         ++it_pipenext
     ) {
-		(*it_pipenext)->pipe_array = array_resize((*it_pipenext)->pipe_array,this->length,length);
+        struct Pipeline *pipe = *it_pipenext;
+		if (length > pipe->len) {
+            pipe->pipe_array = array_resize(pipe->pipe_array,this->length,length);
+            pipe->len = length;
+        }
 	}
 	for (
         std::list<struct Pipeline*>::iterator it_pipeprev = prev_in_pipeline.begin();
         it_pipeprev != prev_in_pipeline.end();
         ++it_pipeprev
     ) {
-		(*it_pipeprev)->pipe_array = array_resize((*it_pipeprev)->pipe_array,this->length,length);
+        struct Pipeline *pipe = *it_pipeprev;
+        if (length > pipe->len) {
+            pipe->pipe_array = array_resize(pipe->pipe_array,this->length,length);
+            pipe->len = length;
+        }
 	}
 	for (
         std::list<struct Flow*>::iterator it_flow = source_flow.begin() ;

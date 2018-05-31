@@ -351,8 +351,11 @@ void RuleNode::enlarge(uint32_t length) {
         it_influence != (*influenced_by).end();
         ++it_influence
     ) {
-		if ((*it_influence)->comm_arr)
-			array_resize((*it_influence)->comm_arr,this->length, length);
+        struct Influence *inf = *it_influence;
+		if (inf->comm_arr && (length > inf->len)) {
+            array_resize(inf->comm_arr,this->length, length);
+            inf->len = length;
+        }
 	}
 
 	Node::enlarge(length);

@@ -287,6 +287,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 #endif
       // add influence
       Influence *inf = (Influence *)malloc(sizeof *inf);
+      inf->len = length;
       Effect *eff = (Effect *)malloc(sizeof *eff);
 #ifdef FIREWALL_RULES
       if (is_fw)
@@ -355,7 +356,9 @@ void NetPlumber::set_node_pipelines(Node *n) {
           fp->local_port = n->output_ports.list[i];
           bp->local_port = end_ports->at(j);
           fp->pipe_array = pipe_arr;
-          bp->pipe_array = pipe_arr;
+          fp->len = length;
+          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->len = length;
           fp->node = n;
           bp->node = *it;
           bp->r_pipeline = n->add_fwd_pipeline(fp);
@@ -407,7 +410,9 @@ void NetPlumber::set_node_pipelines(Node *n) {
           fp->local_port = orig_ports->at(j);
           bp->local_port = n->input_ports.list[i];
           fp->pipe_array = pipe_arr;
-          bp->pipe_array = pipe_arr;
+          fp->len = length;
+          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->len = length;
           fp->node = *it;
           bp->node = n;
           bp->r_pipeline = (*it)->add_fwd_pipeline(fp);
@@ -576,7 +581,9 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
           fp->local_port = from_port;
           bp->local_port = to_port;
           fp->pipe_array = pipe_arr;
-          bp->pipe_array = pipe_arr;
+          fp->len = length;
+          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->len = length;
           fp->node = *src_it;
           bp->node = *dst_it;
           bp->r_pipeline = (*src_it)->add_fwd_pipeline(fp);

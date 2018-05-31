@@ -26,6 +26,7 @@ class RuleNode;
 
 struct Influence {
   RuleNode *node;
+  uint32_t len;
   std::list<struct Effect*>::iterator effect;
   union { array_t *comm_arr; hs *comm_hs; };
   List_t ports;

@@ -59,6 +59,7 @@ struct Pipeline {
   Node *node;
   array_t *pipe_array;
   uint32_t local_port;
+  uint32_t len;
 #ifdef PIPE_SLICING
   uint64_t net_space_id;
   std::list<struct Pipeline*>::iterator r_slice;
