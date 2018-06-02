@@ -1,0 +1,6 @@
+before_script:
+  - apt-get update -qq
+
+hello:
+  script:
+    - echo "Hello World!"
