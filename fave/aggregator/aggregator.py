@@ -216,9 +216,26 @@ class Aggregator(object):
     def handler(self):
         while not self.stop:
             data = self.queue.get()
-            if data:
+            Aggregator.LOGGER.debug('fetched data from queue')
+
+            # XXX: really ugly implementation for dumping though
+            if data and not json.loads(data)['type'] == 'dump':
                 model = model_from_string(data)
                 self.sync_diff(model)
+            else:
+                print data
+                dump = json.loads(data)
+                odir = dump['dir']
+
+                if dump['fave']:
+                    self.dump_aggregator(odir)
+                if dump['flows']:
+                    jsonrpc.dump_flows(self.sock,odir)
+                if dump['network']:
+                    jsonrpc.dump_plumbing_network(self.sock,odir)
+                if dump['pipes']:
+                    jsonrpc.dump_pipes(self.sock,odir)
+
             self.queue.task_done()
 
     def run(self):
@@ -959,6 +976,26 @@ class Aggregator(object):
 
     def global_port(self,port):
         return self.ports[normalize_port(port)]
+
+
+    def dump_aggregator(self,odir):
+        os.system("mkdir -p %s" % odir)
+        os.system("rm -f %s/*" % odir)
+
+        with open("%s/fave.json" % odir,"w") as of:
+            shift_table = lambda t: str(int(t) << 16)
+
+            j = {}
+            j["mapping"] = self.mapping.to_json()
+            j["id_to_table"] = {self.tables[k]:k for k in self.tables}
+            j["id_to_rule"] = {self.rule_ids[k]:k for k in self.rule_ids}
+            j["id_to_generator"] = {
+                self.generators[k][0]:k for k in self.generators
+            }
+            j["id_to_probe"] = {self.probes[k][0]:k for k in self.probes}
+            j["id_to_port"] = {self.ports[k]:k for k in self.ports}
+
+            of.write(json.dumps(j))
 
 
 def main(argv):
