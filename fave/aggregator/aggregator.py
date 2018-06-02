@@ -522,7 +522,7 @@ class Aggregator(object):
                         '_'.join([model.node,t,a.lower()])
                     )] if a in ['ACCEPT','MISS'] else [],
                     rv.vector if rv.vector else 'x'*8,
-                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                    None,
                     None
                 )
 
@@ -550,10 +550,12 @@ class Aggregator(object):
                     size = field_sizes[f.name]
                     rv[offset:offset+size] = field_value_to_bitvector(f).vector
 
-                rw = dc(rv)
-                offset = self.mapping["interface"]
-                size = field_sizes["interface"]
-                rw[offset:offset+size] = "x"*size
+                rw = None
+                if 'interface' in self.mapping:
+                    rw = dc(rv)
+                    offset = self.mapping["interface"]
+                    size = field_sizes["interface"]
+                    rw[offset:offset+size] = "x"*size
 
                 ports = []
                 for a in rule.actions:
@@ -568,8 +570,8 @@ class Aggregator(object):
                     [],
                     ports,
                     rv.vector,
-                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
-                    rw.vector
+                    None,
+                    rw.vector if rw else None
                 )
 
         for table in ["pre_routing"]:
@@ -602,12 +604,14 @@ class Aggregator(object):
                         continue
                     ports.extend([self.global_port(p) for p in a.ports])
 
-                rw = dc(rv)
-                offset = self.mapping["interface"]
-                size = field_sizes["interface"]
+                rw = None
+                if "interface" in self.mapping:
+                    rw = dc(rv)
+                    offset = self.mapping["interface"]
+                    size = field_sizes["interface"]
 
                 for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
-                    rw[offset:offset+size] = '{:016b}'.format(port)
+                    if rw: rw[offset:offset+size] = '{:016b}'.format(port)
 
                     self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                         self.sock,
@@ -616,8 +620,8 @@ class Aggregator(object):
                         [self.global_port('_'.join([model.node,str(port)]))],
                         ports,
                         rv.vector,
-                        'x'*self.mapping.length if self.mapping.length else 'x'*8,
-                        rw.vector
+                        None,
+                        rw.vector if rw else None
             )
 
     # XXX: merge with pre- post-routing handling above?
@@ -653,7 +657,7 @@ class Aggregator(object):
                     [],
                     ports,
                     rv.vector,
-                    'x'*self.mapping.length if self.mapping.length else 'x'*8,
+                    None,
                     None
                 )
 
