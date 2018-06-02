@@ -16,6 +16,8 @@ import json
 
 import daemon
 
+import logging
+
 from threading import Thread
 
 from Queue import Queue
@@ -105,6 +107,7 @@ is_ext_port = is_port
 # XXX: returns None when profiled... WTF!?
 #@profile_method
 def model_from_string(s):
+    Aggregator.LOGGER.debug('reconstruct model from string')
     j = json.loads(s)
     try:
         models = {
@@ -122,7 +125,8 @@ def model_from_string(s):
         model = models[j["type"]]
 
     except KeyError:
-        raise Exception("model type not implemented: " + j["type"])
+        Aggregator.LOGGER.error("model type not implemented: %s" % j["type"])
+        raise Exception("model type not implemented: %s" % j["type"])
 
     else:
         return model.from_json(j)
@@ -176,6 +180,7 @@ class ProfiledThread(Thread):
 
 class Aggregator(object):
     BUF_SIZE = 4096
+    LOGGER = logging.getLogger('Aggregator')
 
     def __init__(self,sock):
         self.sock = sock
@@ -273,6 +278,8 @@ class Aggregator(object):
 
     #@profile_method
     def sync_diff(self,model):
+        Aggregator.LOGGER.debug('synchronize model')
+
         # extend global mapping
         mlength = self.mapping.length
 
