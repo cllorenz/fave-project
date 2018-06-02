@@ -8,18 +8,19 @@ import socket
 import json
 import netplumber.jsonrpc as jsonrpc
 
+from aggregator.aggregator import UDS_ADDR
+
 from util.print_util import eprint
 
 def print_help():
     eprint(
-        "print_np -hfnptn -o <dir>",
+        "dump_np -ahfnp -o <dir>",
+        "\t-a dump fave aggregator",
         "\t-h print this help and exit",
         "\t-f dump flows",
         "\t-n dump plumbing network (tables, links, rules, policy)",
         "\t-o <dir> output directory (default: np_dump)",
         "\t-p dump pipes",
-        "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=1234)",
-        "\t-u connect to net_plumber via unix socket (/tmp/net_plumber.socket)",
         sep="\n"
     )
 
@@ -27,14 +28,12 @@ def print_help():
 
 def main(argv):
     try:
-        opts,args = getopt.getopt(argv,"hfno:psu")
+        opts,args = getopt.getopt(argv,"ahfno:p")
     except:
         print_help()
         sys.exit(2)
 
-    use_tcp = True
-    use_unix = False
-
+    use_fave = False
     use_flows = False
     use_network = False
     use_pipes = False
@@ -43,18 +42,12 @@ def main(argv):
 
     for opt,arg in opts:
         if opt == '-h':
+            eprint("usage:")
             print_help()
             sys.exit(0)
 
-        elif opt == '-s':
-            use_tcp = True
-            use_unix = False
-            np = ("127.0.0.1",1234)
-
-        elif opt == '-u':
-            use_tcp = False
-            use_unix = True
-            np = "/tmp/net_plumber.socket"
+        elif opt == '-a':
+            use_fave = True
 
         elif opt == '-f':
             use_flows = True
@@ -69,35 +62,29 @@ def main(argv):
             odir = arg
 
         else:
+            eprint("unknown option: %s, usage:" % opt)
             print_help()
             sys.exit(1)
 
-    if use_tcp:
-        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        sock.connect(np)
+    aggr = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+    aggr.connect(UDS_ADDR)
 
-    elif use_unix:
-        sock = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-        sock.connect(np)
+    dump = {
+        'type':'dump',
+        'dir':odir,
+        'fave':use_fave,
+        'flows':use_flows,
+        'network':use_network,
+        'pipes':use_pipes
+    }
 
-    else:
-        print_help()
-        sys.exit(3)
-
-    if any([use_flows,use_network,use_pipes]):
+    if any([use_fave,use_flows,use_network,use_pipes]):
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
 
-    if use_flows:
-        jsonrpc.dump_flows(sock,odir)
+    aggr.sendall(json.dumps(dump))
+    aggr.close()
 
-    if use_network:
-        jsonrpc.dump_plumbing_network(sock,odir)
-
-    if use_pipes:
-        jsonrpc.dump_pipes(sock,odir)
-
-    sock.close()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
