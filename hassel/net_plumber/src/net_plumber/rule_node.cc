@@ -353,7 +353,7 @@ void RuleNode::enlarge(uint32_t length) {
     ) {
         struct Influence *inf = *it_influence;
 		if (inf->comm_arr && (length > inf->len)) {
-            array_resize(inf->comm_arr,this->length, length);
+            inf->comm_arr = array_resize(inf->comm_arr, inf->len, length);
             inf->len = length;
         }
 	}
