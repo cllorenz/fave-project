@@ -187,7 +187,7 @@ vec_enlarge (struct hs_vec *vec, size_t length_old, size_t length)
 void
 hs_enlarge (struct hs *hs, size_t length)
 {
-	if (length <= hs->len) {
+	if (!hs || length <= hs->len) {
 		return;
 	}
 	vec_enlarge(&hs->list,hs->len,length);
