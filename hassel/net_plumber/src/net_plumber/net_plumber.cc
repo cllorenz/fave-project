@@ -287,7 +287,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 #endif
       // add influence
       Influence *inf = (Influence *)malloc(sizeof *inf);
-      inf->len = length;
+      inf->len = this->length;
       Effect *eff = (Effect *)malloc(sizeof *eff);
 #ifdef FIREWALL_RULES
       if (is_fw)
