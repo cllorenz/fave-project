@@ -9,6 +9,8 @@ from netplumber.model import Model
 
 from openflow.switch import SwitchRule,Forward,Match,SwitchRuleField
 
+from util.collections_util import list_sub
+
 # TODO: replace with SwitchRuleField
 class Field(object):
     def __init__(self,name,size,value,negated=False):
@@ -110,6 +112,23 @@ class PacketFilterModel(Model):
             ("output_rules_accept","post_routing_in") # output rules accept to post routing
         ]
         self.mapping = Mapping(length=0)
+
+    def __sub__(self,other):
+        assert(self.node == other.node)
+        assert(self.type == other.type)
+
+        pfm = super(PacketFilterModel,self).__sub__(other)
+        rules = list_sub(self.rules,other.rules)
+
+        pf = PacketFilterModel(
+            pfm.node,
+        )
+        pf.tables = pfm.tables
+        pf.rules = rules
+        pf.ports = pfm.ports
+        pf.mapping = pfm.mapping
+
+        return pf
 
 
     def to_json(self):
