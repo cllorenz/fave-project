@@ -37,6 +37,9 @@ from topology.host import HostModel
 from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
 
+def pstr(j):
+    return json.dumps(j,sort_keys=True,indent=4,separators=(',',': '))
+
 UDS_ADDR = "/tmp/np_aggregator.socket"
 
 _aggregator = None
