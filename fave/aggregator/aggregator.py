@@ -451,7 +451,7 @@ class Aggregator(object):
 
 
     def add_switch(self,model):
-        Aggregator.LOGGER.debug("apply switch:\n%s" % json.dumps(model.to_json()))
+        Aggregator.LOGGER.debug("apply switch:\n%s" % pstr(model.to_json()))
         self.add_tables(model)
         self.add_wiring(model)
         self.add_switch_rules(model)
