@@ -224,12 +224,17 @@ class Aggregator(object):
             data = self.queue.get()
             Aggregator.LOGGER.debug('fetched data from queue')
 
+            if not data:
+                self.queue.task_done()
+                continue
+
+            j = json.loads(data)
+
             # XXX: really ugly implementation for dumping though
-            if data and not json.loads(data)['type'] == 'dump':
-                model = model_from_string(data)
+            if not j['type'] == 'dump':
+                model = model_from_json(j)
                 self.sync_diff(model)
             else:
-                print data
                 dump = json.loads(data)
                 odir = dump['dir']
 
