@@ -12,6 +12,8 @@ from util.print_util import eprint
 
 from util.match_util import oxm_field_to_match_field
 
+from util.collections_util import list_sub
+
 class SwitchRuleField(object):
     def __init__(self,name,value):
         self.name = name
@@ -199,7 +201,7 @@ class SwitchModel(Model):
         j = super(SwitchModel,self).to_json()
         j["mapping"] = self.mapping
         j["ports"] = self.ports
-        j["tables"] = self.tables
+        j["tables"] = {t:[r.to_json() for r in self.tables[t]] for t in self.tables}
         j["rules"] = [rule.to_json() for rule in self.rules]
         return j
 
@@ -211,7 +213,7 @@ class SwitchModel(Model):
         of = SwitchModel(j["node"])
         of.mapping=Mapping.from_json(j["mapping"]) if j["mapping"] else Mapping()
         of.ports = j["ports"]
-        of.tables = j["tables"]
+        of.tables = {t:[SwitchRule.from_json(r) for r in j["tables"][t]] for t in j["tables"]}
         of.rules = [SwitchRule.from_json(rj) for rj in j["rules"]]
         return of
 
@@ -226,6 +228,24 @@ class SwitchModel(Model):
     def update_rule(self,idx,rule):
         self.remove_rule(idx)
         self.add_rule(idx,rule)
+
+    def __sub__(self,other):
+        assert(self.node == other.node)
+        assert(self.type == other.type)
+
+        sm = super(SwitchModel,self).__sub__(other)
+        rules = list_sub(self.rules,other.rules)
+
+        res = SwitchModel(
+            sm.node,
+            ports=sm.ports,
+            rules=rules
+        )
+        res.tables = sm.tables
+        res.wiring = sm.wiring
+        res.mapping = sm.mapping
+
+        return res
 
 
 def fieldify(field):
