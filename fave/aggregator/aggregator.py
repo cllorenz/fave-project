@@ -111,7 +111,10 @@ is_ext_port = is_port
 #@profile_method
 def model_from_string(s):
     Aggregator.LOGGER.debug('reconstruct model from string')
-    j = json.loads(s)
+    model_from_json(json.loads(s))
+
+
+def model_from_json(j):
     try:
         models = {
             "model" : Model,
