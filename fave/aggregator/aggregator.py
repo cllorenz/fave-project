@@ -517,7 +517,8 @@ class Aggregator(object):
             if t == "pre_routing" or t == "post_routing":
                 continue
 
-            ti = self.tables['_'.join([model.node,t])]
+            tn = '_'.join([model.node,t])
+            ti = self.tables[tn]
 
             for ri,v,a in model.tables[t]:
                 rv = Vector(length=self.mapping.length)
@@ -543,7 +544,8 @@ class Aggregator(object):
             if not table in model.tables:
                 continue
 
-            ti = self.tables['_'.join([model.node,table])]
+            tn = '_'.join([model.node,table])
+            ti = self.tables[tn]
 
             for r in model.tables[table]:
                 if type(r) == SwitchRule:
@@ -578,7 +580,7 @@ class Aggregator(object):
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
-                    self.tables['_'.join([model.node,table])],
+                    ti,
                     rule.idx,
                     [],
                     ports,
@@ -591,7 +593,8 @@ class Aggregator(object):
             if not table in model.tables:
                 continue
 
-            ti = self.tables['_'.join([model.node,table])]
+            tn = '_'.join([model.node,table])
+            ti = self.tables[tn]
 
             for r in model.tables[table]:
                 if type(r) == SwitchRule:
@@ -640,7 +643,10 @@ class Aggregator(object):
     # XXX: merge with pre- post-routing handling above?
     def add_switch_rules(self,model):
         for table in model.tables:
-            ti = self.tables['_'.join([model.node,table])]
+
+            tn = '_'.join([model.node,table])
+            ti = self.tables[tn]
+
             for rule in model.tables[table]:
                 ri = rule.idx
 
@@ -665,7 +671,7 @@ class Aggregator(object):
 
                 self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
                     self.sock,
-                    self.tables['_'.join([model.node,table])],
+                    ti,
                     rule.idx,
                     [],
                     ports,
