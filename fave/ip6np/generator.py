@@ -9,7 +9,7 @@ from packet_filter import Rule
 from openflow.switch import SwitchRuleField
 
 def is_rule(ast):
-    return ast.has_child("-A") or ast.has_child("-I")
+    return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
 
 
 def normalize_interface(interface):
@@ -207,7 +207,11 @@ def ast_to_rule(ast):
 
     value = lambda k: k.get_first().value if k.get_first() is not None else ""
 
-    ast = ast.get_child("-A")
+    if ast.has_child("-A"):
+        ast = ast.get_child("-A")
+    elif ast.has_child("-P"):
+        ast = ast.get_child("-P")
+
     if not ast: return
 
     body = [
@@ -244,7 +248,10 @@ def get_chain_from_ast(ast):
     }[chain.lower()]
 
 def get_action_from_ast(ast):
-    return ast.get_child("-j").get_first().value
+    if ast.has_child("-j"):
+        return ast.get_child("-j").get_first().value
+    else:
+        return ast.get_first().get_first().value
 
 
 def transform_ast_to_model(ast,node,ports):
