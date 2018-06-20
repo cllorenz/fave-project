@@ -507,9 +507,7 @@ class Aggregator(object):
                 Aggregator.LOGGER.debug("skip wiring %s to %s" % (p1,p2))
                 continue
 
-            prefix = lambda x: '_'.join(x.split('_')[:2])
-            n1 = '_'.join([model.node,prefix(p1)])
-            n2 = '_'.join([model.node,prefix(p2)])
+            Aggregator.LOGGER.debug("wire %s to %s" % (p1,p2))
 
             gp1 = self.global_port('_'.join([model.node,p1]))
             gp2 = self.global_port('_'.join([model.node,p2]))
