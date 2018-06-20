@@ -505,11 +505,13 @@ class Aggregator(object):
             n1 = '_'.join([model.node,prefix(p1)])
             n2 = '_'.join([model.node,prefix(p2)])
 
-            jsonrpc.add_link(
-                self.sock,
-                self.global_port('_'.join([model.node,p1])),
-                self.global_port('_'.join([model.node,p2]))
+            gp1 = self.global_port('_'.join([model.node,p1]))
+            gp2 = self.global_port('_'.join([model.node,p2]))
+
+            Aggregator.LOGGER.debug(
+                "add link to netplumber from %s to %s" % (gp1,gp2)
             )
+            jsonrpc.add_link(self.sock,gp1,gp2)
 
     def add_rules(self,model):
         for t in model.tables:
