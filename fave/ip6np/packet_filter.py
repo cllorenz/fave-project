@@ -121,7 +121,7 @@ class PacketFilterModel(Model):
         rules = list_sub(self.rules,other.rules)
 
         pf = PacketFilterModel(
-            pfm.node,
+            pfm.node
         )
         pf.tables = pfm.tables
         pf.rules = rules
