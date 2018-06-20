@@ -255,7 +255,7 @@ def get_action_from_ast(ast):
 
 
 def transform_ast_to_model(ast,node,ports):
-    model = PacketFilterModel(node,ports)
+    model = PacketFilterModel(node,ports=ports)
     model.rules = get_rules_from_ast(ast)
 
     return model
