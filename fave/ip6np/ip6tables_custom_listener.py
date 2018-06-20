@@ -36,6 +36,9 @@ class IP6TablesCustomListener(IP6TablesListener):
     def enterCommand_P(self, ctx):
         self._ast = self._ast.add_child("-P")
 
+    def exitCommand_P(self,ctx):
+        self._ast = self._ast.parent
+
     def enterJump(self,ctx):
         self._ast.add_child("-j")
 
