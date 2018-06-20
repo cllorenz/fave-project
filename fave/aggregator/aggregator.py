@@ -110,11 +110,11 @@ is_ext_port = is_port
 # XXX: returns None when profiled... WTF!?
 #@profile_method
 def model_from_string(s):
-    Aggregator.LOGGER.debug('reconstruct model from string')
     model_from_json(json.loads(s))
 
 
 def model_from_json(j):
+    Aggregator.LOGGER.debug('reconstruct model')
     try:
         models = {
             "model" : Model,
@@ -444,14 +444,15 @@ class Aggregator(object):
 
 
     def add_packet_filter(self,model):
-        Aggregator.LOGGER.debug("apply packet filter:\n%s" % pstr(model.to_json()))
+        Aggregator.LOGGER.debug("apply packet filter: %s" % model.node)
+
         self.add_tables(model,prefixed=True)
         self.add_wiring(model)
         self.add_rules(model)
 
 
     def add_switch(self,model):
-        Aggregator.LOGGER.debug("apply switch:\n%s" % pstr(model.to_json()))
+        Aggregator.LOGGER.debug("apply switch: %s" % model.node)
         self.add_tables(model)
         self.add_wiring(model)
         self.add_switch_rules(model)
@@ -487,6 +488,10 @@ class Aggregator(object):
                     ports.append(portno)
                     self.ports[portname] = portno
 
+                Aggregator.LOGGER.debug(
+                    "add table to netplumber: %s with index %s and ports %s" %
+                    (name,idx,ports)
+                )
                 jsonrpc.add_table(self.sock,idx,ports)
 
 
@@ -499,6 +504,7 @@ class Aggregator(object):
             # the post routing output are never targeted internally.
             if p1 in ["internals_in","post_routing"] or \
                 p2 in ["internals_out","post_routing"]:
+                Aggregator.LOGGER.debug("skip wiring %s to %s" % (p1,p2))
                 continue
 
             prefix = lambda x: '_'.join(x.split('_')[:2])
@@ -517,10 +523,13 @@ class Aggregator(object):
         for t in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
             if t == "pre_routing" or t == "post_routing":
+                Aggregator.LOGGER.debug("skip adding rules to table %s" % t)
                 continue
 
             tn = '_'.join([model.node,t])
             ti = self.tables[tn]
+
+            Aggregator.LOGGER.debug("add rules to %s" % tn)
 
             for ri,v,a in model.tables[t]:
                 rv = Vector(length=self.mapping.length)
@@ -1089,6 +1098,11 @@ def main(argv):
 
     global _aggregator
     _aggregator = Aggregator(sock)
+
+    log_handler = logging.FileHandler('/tmp/np/aggregator.log')
+    Aggregator.LOGGER.addHandler(log_handler)
+    Aggregator.LOGGER.setLevel(logging.DEBUG)
+
     try:
         os.unlink(UDS_ADDR)
     except OSError:
