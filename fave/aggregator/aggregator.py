@@ -547,6 +547,10 @@ class Aggregator(object):
                     None,
                     None
                 )
+                if calc_rule_index(ti,ri) in self.rule_ids:
+                    self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
+                else:
+                    self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
 
         for table in ["post_routing"]:
             if not table in model.tables:
@@ -586,7 +590,7 @@ class Aggregator(object):
                         continue
                     ports.extend([self.global_port(p) for p in a.ports])
 
-                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                r_id = jsonrpc.add_rule(
                     self.sock,
                     ti,
                     rule.idx,
@@ -596,6 +600,10 @@ class Aggregator(object):
                     None,
                     rw.vector if rw else None
                 )
+                if calc_rule_index(ti,ri) in self.rule_ids:
+                    self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
+                else:
+                    self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
 
         for table in ["pre_routing"]:
             if not table in model.tables:
@@ -637,7 +645,7 @@ class Aggregator(object):
                 for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
                     if rw: rw[offset:offset+size] = '{:016b}'.format(port)
 
-                    self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                    r_id = jsonrpc.add_rule(
                         self.sock,
                         self.tables['_'.join([model.node,table])],
                         rule.idx,
@@ -645,8 +653,12 @@ class Aggregator(object):
                         ports,
                         rv.vector,
                         None,
-                        rw.vector if rw else None
-            )
+                        rw.vector
+                    )
+                    if calc_rule_index(ti,ri) in self.rule_ids:
+                        self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
+                    else:
+                        self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
 
     # XXX: merge with pre- post-routing handling above?
     def add_switch_rules(self,model):
@@ -677,7 +689,7 @@ class Aggregator(object):
                         self.global_port(p) for p in a.ports
                     ])
 
-                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                r_id = jsonrpc.add_rule(
                     self.sock,
                     ti,
                     rule.idx,
@@ -687,6 +699,10 @@ class Aggregator(object):
                     None,
                     None
                 )
+                if calc_rule_index(ti,ri) in self.rule_ids:
+                    self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
+                else:
+                    self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
 
     def delete_packet_filter(self,model):
         self.delete_rules(model)
@@ -708,7 +724,8 @@ class Aggregator(object):
             ti = self.tables['_'.join([model.node,t])]
 
             for ri,v,a in model.tables[t]:
-                jsonrpc.remove_rule(self.rule_ids[calc_rule_index(ti,ri)])
+                for r_id in self.rule_ids[calc_rule_index(ti,ri)]:
+                    jsonrpc.remove_rule(r_id)
                 del self.rule_ids[calc_rule_index(ti,ri)]
 
     def delete_wiring(self,model):
@@ -1019,7 +1036,12 @@ class Aggregator(object):
             j = {}
             j["mapping"] = self.mapping.to_json()
             j["id_to_table"] = {self.tables[k]:k for k in self.tables}
-            j["id_to_rule"] = {self.rule_ids[k]:k for k in self.rule_ids}
+
+            j["id_to_rule"] = {}
+            for k in self.rule_ids:
+                for e in self.rule_ids[k]:
+                    j["id_to_rule"][e] = k
+
             j["id_to_generator"] = {
                 self.generators[k][0]:k for k in self.generators
             }
