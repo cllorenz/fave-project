@@ -637,13 +637,16 @@ class Aggregator(object):
                     ports.extend([self.global_port(p) for p in a.ports])
 
                 rw = None
-                if "interface" in self.mapping:
-                    rw = dc(rv)
-                    offset = self.mapping["interface"]
-                    size = field_sizes["interface"]
+                if not "interface" in self.mapping:
+                    self.mapping.extend("interface")
+                    rv.enlarge(field_sizes["interface"])
+
+                rw = dc(rv)
+                offset = self.mapping["interface"]
+                size = field_sizes["interface"]
 
                 for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
-                    if rw: rw[offset:offset+size] = '{:016b}'.format(port)
+                    rw[offset:offset+size] = '{:016b}'.format(port)
 
                     r_id = jsonrpc.add_rule(
                         self.sock,
