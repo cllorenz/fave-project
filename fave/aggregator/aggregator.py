@@ -529,14 +529,20 @@ class Aggregator(object):
                     size = field_sizes[f]
                     rv[offset:offset+size] = v[offset:offset+size]
 
-                self.rule_ids[calc_rule_index(ti,ri)] = jsonrpc.add_rule(
+                port = [self.global_port(
+                    '_'.join([model.node,t,a.lower()])
+                )] if a in ['ACCEPT','MISS'] else []
+
+                Aggregator.LOGGER.debug(
+                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    (ri,ti,rv.vector if rv else "*",port)
+                )
+                r_id = jsonrpc.add_rule(
                     self.sock,
                     ti,
                     ri,
                     [],
-                    [self.global_port(
-                        '_'.join([model.node,t,a.lower()])
-                    )] if a in ['ACCEPT','MISS'] else [],
+                    port,
                     rv.vector if rv.vector else 'x'*8,
                     None,
                     None
