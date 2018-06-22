@@ -251,22 +251,27 @@ class Aggregator(object):
 
     def run(self):
         # open new unix domain socket
+        Aggregator.LOGGER.info("open and bind uds socket")
         uds = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
         uds.bind(UDS_ADDR)
 
         # start thread to handle incoming config events
+        Aggregator.LOGGER.info("start handler thread")
         t = Thread(target=self.handler)
         t.daemon = True
         t.start()
 
+        Aggregator.LOGGER.info("listen on socket")
         uds.listen(1)
 
         while True:
             # accept connections on unix domain socket
+            Aggregator.LOGGER.debug("wait for connection")
             try:
                 conn,addr = uds.accept()
             except socket.error:
                 break
+            Aggregator.LOGGER.debug("accepted connection")
 
             # receive data from unix domain socket
             #nbytes = Aggregator.BUF_SIZE
@@ -287,20 +292,28 @@ class Aggregator(object):
 
             # upon data receival enqueue
             self.queue.put(data)
+            Aggregator.LOGGER.debug("enqueued data")
 
         # close unix domain socket
+        Aggregator.LOGGER.info("close receiving socket")
         uds.close()
 
         # wait for the config event handler to finish
+        Aggregator.LOGGER.info("join queue")
         self.queue.join()
 
         #jsonrpc.dump_stats()
         #dump_stats()
 
         # join thread
+        Aggregator.LOGGER.info("join handler thread")
         t.join()
 
+        Aggregator.LOGGER.info("finished run")
+
+
     def stop_aggr(self):
+        Aggregator.LOGGER.info("initiate stopping")
         self.stop = True
         self.queue.put("")
 
