@@ -230,11 +230,11 @@ class Aggregator(object):
 
             j = json.loads(data)
 
-            # XXX: really ugly implementation for dumping though
-            if not j['type'] == 'dump':
-                model = model_from_json(j)
-                self.sync_diff(model)
-            else:
+            if j['type'] == 'stop':
+                self.stop_aggr()
+                jsonrpc.stop(self.sock)
+
+            elif j['type'] == 'dump':
                 dump = json.loads(data)
                 odir = dump['dir']
 
@@ -247,12 +247,17 @@ class Aggregator(object):
                 if dump['pipes']:
                     jsonrpc.dump_pipes(self.sock,odir)
 
+            else:
+                model = model_from_json(j)
+                self.sync_diff(model)
+
             self.queue.task_done()
 
     def run(self):
         # open new unix domain socket
         Aggregator.LOGGER.info("open and bind uds socket")
         uds = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        uds.settimeout(1.0)
         uds.bind(UDS_ADDR)
 
         # start thread to handle incoming config events
@@ -264,7 +269,7 @@ class Aggregator(object):
         Aggregator.LOGGER.info("listen on socket")
         uds.listen(1)
 
-        while True:
+        while not self.stop:
             # accept connections on unix domain socket
             Aggregator.LOGGER.debug("wait for connection")
             try:
@@ -315,7 +320,7 @@ class Aggregator(object):
     def stop_aggr(self):
         Aggregator.LOGGER.info("initiate stopping")
         self.stop = True
-        self.queue.put("")
+
 
     #@profile_method
     def sync_diff(self,model):

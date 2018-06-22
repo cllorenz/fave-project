@@ -35,6 +35,13 @@ def extract_node(msg):
 def basic_rpc():
     return {"id":"0","jsonrpc":"2.0"}
 
+def stop(sock):
+    data = basic_rpc()
+    data["method"] = "stop"
+    data["params"] = None
+    sendrecv(sock,json.dumps(data))
+    sock.close()
+
 #@profile_method
 def init(sock,length):
     data = basic_rpc()

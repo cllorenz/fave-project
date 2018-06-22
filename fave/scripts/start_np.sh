@@ -14,7 +14,6 @@ else
     PID=$!
 fi
 
-echo $PID > /tmp/np.pid
 #taskset -p 0x00000001 $PID > /dev/null
 
 #sudo perf record -a -F 783 --call-graph dwarf -p $PID &
