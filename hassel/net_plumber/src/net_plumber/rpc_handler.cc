@@ -18,6 +18,8 @@
            kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
+#include <csignal>
+
 #include "rpc_handler.h"
 #include <ctime>
 extern "C" {
@@ -145,6 +147,7 @@ void RpcHandler::initServer (Server *server) {
     FN(dump_plumbing_network),
     FN(dump_flows),
     FN(dump_pipes),
+    FN(stop),
     FN(expand)
   };
   int n = sizeof methods / sizeof *methods;
@@ -202,6 +205,12 @@ PROTO(init)
 PROTO(destroy)
   delete netPlumber;
   netPlumber = NULL;
+  RETURN(VOID);
+}
+
+PROTO(stop)
+  delete netPlumber;
+  raise(SIGTERM);
   RETURN(VOID);
 }
 
