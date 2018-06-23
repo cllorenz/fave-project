@@ -528,12 +528,17 @@ class Aggregator(object):
             Aggregator.LOGGER.debug("wire %s to %s" % (p1,p2))
 
             gp1 = self.global_port('_'.join([model.node,p1]))
-            gp2 = self.global_port('_'.join([model.node,p2]))
 
-            Aggregator.LOGGER.debug(
-                "add link to netplumber from %s to %s" % (gp1,gp2)
-            )
-            jsonrpc.add_link(self.sock,gp1,gp2)
+            if not gp1 in self.links:
+                gp2 = self.global_port('_'.join([model.node,p2]))
+
+                Aggregator.LOGGER.debug(
+                    "add link to netplumber from %s to %s" % (gp1,gp2)
+                )
+                jsonrpc.add_link(self.sock,gp1,gp2)
+
+                self.links[gp1] = gp2
+
 
     def add_rules(self,model):
         for t in model.tables:
