@@ -1076,7 +1076,9 @@ class Aggregator(object):
             j["id_to_probe"] = {self.probes[k][0]:k for k in self.probes}
             j["id_to_port"] = {self.ports[k]:k for k in self.ports}
 
-            of.write(json.dumps(j))
+            of.write(
+                json.dumps(j,sort_keys=True,indent=4, separators=(',', ': '))
+            )
 
 
 def main(argv):
