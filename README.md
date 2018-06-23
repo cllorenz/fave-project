@@ -31,4 +31,4 @@ Afterwards, one can test the installation running
 
     $> PYTHONPATH=fave python2 fave/test/example.sh
 
-Typically, a session comprises of two processes: `aggregator.py` and `net_plumber`. These can be stopped or started using their respective scripts in `fave/scripts`. If one process dies one needs to restart both - first NetPlumber and then FaVe. Logfile are stored in `/tmp/np`.
+Typically, a session comprises of two processes: `aggregator.py` and `net_plumber`. These can be stopped or started using their respective scripts in `fave/scripts`. If one process dies one needs to restart both - first NetPlumber and then FaVe. Logfiles are stored in `/tmp/np`.
