@@ -159,10 +159,13 @@ class PacketFilterModel(Model):
             ]
 
         self.tables = {
-            k:chain_to_json(k) for k in self.chains if k != "pre_routing" #if k in active
+            k:chain_to_json(k) for k in self.chains if not k in ["pre_routing","post_routing"] #if k in active
         }
         self.tables["pre_routing"] = [
             r.to_json() for r in self.chains["pre_routing"]
+        ]
+        self.tables["post_routing"] = [
+            r.to_json() for r in self.chains["post_routing"]
         ]
 
         self.ports = {
