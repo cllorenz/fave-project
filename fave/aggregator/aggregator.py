@@ -60,6 +60,8 @@ def handle_sigterm(signum,frame):
     if _aggregator:
         _aggregator.stop_aggr()
 
+handle_sigint = handle_sigterm
+
 def print_help():
     eprint(
         "aggregator -s <server> -p <port>",
@@ -1132,6 +1134,7 @@ def main(argv):
             raise
 
     signal.signal(signal.SIGTERM,handle_sigterm)
+    signal.signal(signal.SIGINT,handle_sigint)
 
     _aggregator.run()
 
