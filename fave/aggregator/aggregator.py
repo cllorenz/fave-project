@@ -58,7 +58,6 @@ def dump_stats():
 
 def handle_sigterm(signum,frame):
     if _aggregator:
-        #_aggregator.print_aggregator()
         _aggregator.stop_aggr()
 
 def print_help():
