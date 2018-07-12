@@ -293,8 +293,9 @@ class PacketFilterModel(Model):
 
             ports = []
             for port in action.ports:
-                prefix,no = port.split('.')
-                ports.append("%s.%s" % (prefix,int(no)+offset))
+                labels = port.split('.')
+                prefix,no = ('_'.join(labels[:len(labels)-1]),labels[len(labels)-1])
+                ports.append("%s_%s" % (prefix,int(no)+offset))
             action.ports = ports
 
         self.chains["post_routing"].insert(idx,rule)
