@@ -627,6 +627,10 @@ class Aggregator(object):
                         continue
                     ports.extend([self.global_port(p) for p in a.ports])
 
+                Aggregator.LOGGER.debug(
+                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    (rule.idx,ti,rv.vector if rv else "*",ports)
+                )
                 r_id = jsonrpc.add_rule(
                     self.sock,
                     ti,
@@ -685,6 +689,17 @@ class Aggregator(object):
                 for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
                     rw[offset:offset+size] = '{:016b}'.format(port)
 
+                    Aggregator.LOGGER.debug(
+                        "add rule %s to %s:\n\t((%s) %s -> (%s) %s)" %
+                        (
+                            rule.idx,
+                            self.tables["%s_%s" % (model.node,table)],
+                            self.global_port("%s_%s" % (model.node,str(port))),
+                            rv.vector if rv else "*",
+                            rw.vector if rw else "*",
+                            ports
+                        )
+                    )
                     r_id = jsonrpc.add_rule(
                         self.sock,
                         self.tables['_'.join([model.node,table])],
@@ -782,6 +797,11 @@ class Aggregator(object):
                     ports.extend([
                         self.global_port(p) for p in a.ports
                     ])
+
+                Aggregator.LOGGER.debug(
+                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    (rule.idx,ti,rv.vector if rv else "*",ports)
+                )
 
                 r_id = jsonrpc.add_rule(
                     self.sock,
