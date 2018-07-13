@@ -151,7 +151,7 @@ class SwitchRule(Model):
 
         return SwitchRule(
             node=j["node"],
-            tid = int(j["tid"]),
+            tid = int(j["tid"]) if type(j["tid"]) == str and j["tid"].isdigit() else j["tid"],
             idx = int(j["idx"]),
             match = Match.from_json(j["match"]),
             actions = [actions[action["name"]].from_json(action) for action in j["actions"]],
