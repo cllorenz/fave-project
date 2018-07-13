@@ -56,11 +56,11 @@ class PacketFilterModel(Model):
         self.chains = {
             "pre_routing"   : [],
             "input_rules"   : [],
-            "input_states"  : [Rule("input_states",'MISS',[])],
+            "input_states"  : [Rule("input_states",'MISS')],
             "output_rules"  : [],
-            "output_states" : [Rule("output_states",'MISS',[])],
+            "output_states" : [Rule("output_states",'MISS')],
             "forward_rules" : [],
-            "forward_states" : [Rule("forward_states",'MISS',[])],
+            "forward_states" : [Rule("forward_states",'MISS')],
             "post_routing"  : [],
             "internals"     : [],
         }
