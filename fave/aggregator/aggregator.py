@@ -544,7 +544,13 @@ class Aggregator(object):
     def add_rules(self,model):
         for t in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
-            if t == "pre_routing" or t == "post_routing":
+            if t in [
+                        "pre_routing",
+                        "post_routing",
+                        "input_states",
+                        "output_states",
+                        "forward_states"
+                    ]:
                 Aggregator.LOGGER.debug("skip adding rules to table %s" % t)
                 continue
 
@@ -693,6 +699,60 @@ class Aggregator(object):
                         self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
                     else:
                         self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
+
+        for table in ["input_states","output_states","forward_states"]:
+            if not table in model.tables:
+                continue
+
+            tn = '_'.join([model.node,table])
+            ti = self.tables[tn]
+
+            for r in model.tables[table]:
+                if type(r) == SwitchRule:
+                    rule = r
+                else:
+                    rule = SwitchRule.from_json(r)
+                ri = rule.idx
+
+                mlength = self.mapping.length
+                self.mapping.expand(rule.mapping)
+                if mlength < self.mapping.length:
+                    jsonrpc.expand(self.sock,self.mapping.length)
+
+                rv = Vector(length=self.mapping.length)
+                for f in rule.match:
+                    offset = self.mapping[f.name]
+                    size = field_sizes[f.name]
+                    rv[offset:offset+size] = field_value_to_bitvector(f).vector
+
+                port = self.global_port(
+                    "%s_%s" % (tn,'miss' if ri == 65535 else 'accept')
+                )
+
+                Aggregator.LOGGER.debug(
+                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    (
+                        rule.idx,
+                        self.tables["%s_%s" % (model.node,table)],
+                        rv.vector if rv else "*",
+                        port
+                    )
+                )
+
+                r_id = jsonrpc.add_rule(
+                    self.sock,
+                    self.tables["%s_%s" % (model.node,table)],
+                    rule.idx,
+                    [],
+                    [port],
+                    rv.vector,
+                    None,
+                    None
+                )
+                if calc_rule_index(ti,ri) in self.rule_ids:
+                    self.rule_ids[calc_rule_index(ti,ri)].append(r_id)
+                else:
+                    self.rule_ids[calc_rule_index(ti,ri)] = [r_id]
 
     # XXX: merge with pre- post-routing handling above?
     def add_switch_rules(self,model):
