@@ -30,6 +30,8 @@ def sendrecv(sock,msg):
 
 def extract_node(msg):
     data = json.loads(msg)
+    if "error" in data and data["error"]["code"] != 0:
+        raise Exception(data["error"]["message"])
     return data["result"]
 
 def basic_rpc():
