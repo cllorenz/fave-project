@@ -343,6 +343,7 @@ class Aggregator(object):
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
             if model.node in self.models:
+
                 switch = dc(self.models[model.node]) # XXX: is there a more efficient way than copying?
 
                 if model.command == "add_rule":
@@ -566,20 +567,20 @@ class Aggregator(object):
                     size = field_sizes[f]
                     rv[offset:offset+size] = v[offset:offset+size]
 
-                port = [self.global_port(
+                ports = [self.global_port(
                     '_'.join([model.node,t,a.lower()])
                 )] if a in ['ACCEPT','MISS'] else []
 
                 Aggregator.LOGGER.debug(
                     "add rule %s to %s:\n\t(%s -> %s)" %
-                    (ri,ti,rv.vector if rv else "*",port)
+                    (ri,ti,rv.vector if rv else "*",ports)
                 )
                 r_id = jsonrpc.add_rule(
                     self.sock,
                     ti,
                     ri,
                     [],
-                    port,
+                    ports,
                     rv.vector if rv.vector else 'x'*8,
                     None,
                     None
@@ -702,9 +703,9 @@ class Aggregator(object):
                     )
                     r_id = jsonrpc.add_rule(
                         self.sock,
-                        self.tables['_'.join([model.node,table])],
+                        self.tables["%s_%s" % (model.node,table)],
                         rule.idx,
-                        [self.global_port('_'.join([model.node,str(port)]))],
+                        [self.global_port("%s_%s" % (model.node,str(port)))],
                         ports,
                         rv.vector,
                         None,
