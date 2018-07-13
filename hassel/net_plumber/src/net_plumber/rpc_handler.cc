@@ -183,7 +183,9 @@ void RpcHandler::initServer (Server *server) {
 
 #define RETURN(VAL) \
     end = get_cpu_time_ms(); \
-    log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"] << "."; \
+    log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"]; \
+    if (netPlumber) log_msg << "(ID1: " << netPlumber->get_last_event().id1 << ")."; \
+    else log_msg << "."; \
     LOG4CXX_INFO(rpc_logger,log_msg.str()); \
     LOG_MSG_RESET; \
     do { resp["result"] = (VAL); FINI; } while (0)
@@ -210,6 +212,7 @@ PROTO(destroy)
 
 PROTO(stop)
   delete netPlumber;
+  netPlumber = NULL;
   raise(SIGTERM);
   RETURN(VOID);
 }
