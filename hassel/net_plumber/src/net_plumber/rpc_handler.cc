@@ -41,9 +41,14 @@ LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 array_t *val_to_array(const Json::Value &val) {
   if (val.isNull()) {
     return NULL;
-  } else {
-    return array_from_str(val.asCString());
   }
+  const char *v = val.asCString();
+
+  if (strlen(v) == 0) {
+        return NULL;
+  }
+
+  return array_from_str(v);
 }
 
 hs *val_to_hs(const Json::Value &val, int len) {
@@ -250,6 +255,8 @@ PROTO(add_rule)
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
   array_t *match = val_to_array(PARAM(match));
+  // TODO: fix error handling properly
+  if (!match) match = array_create(length,BIT_X);// ERROR("empty match");
   array_t *mask = val_to_array(PARAM(mask));
   if (!mask) mask = array_create(length,BIT_X);
   array_t *rw = val_to_array(PARAM(rw));
