@@ -159,7 +159,7 @@ class PacketFilterModel(Model):
             ]
 
         self.tables = {
-            k:chain_to_json(k) for k in self.chains if not k in ["pre_routing","post_routing"] #if k in active
+            k:chain_to_json(k) for k in self.chains if not k in ["pre_routing","post_routing","input_states","output_states","forward_states"] #if k in active
         }
         self.tables["pre_routing"] = [
             r.to_json() for r in self.chains["pre_routing"]
@@ -167,6 +167,22 @@ class PacketFilterModel(Model):
         self.tables["post_routing"] = [
             r.to_json() for r in self.chains["post_routing"]
         ]
+        for table in ["input_states","output_states","forward_states"]:
+            self.tables[table] = [
+                SwitchRule(
+                    self.node,
+                    "%s_%s" % (self.node,table),
+                    i if r.action != 'MISS' else 65535,
+                    Match([SwitchRuleField(f.name,f.value) for f in r]),
+                    [Forward(ports = [
+                        "%s_%s_%s" % (
+                            self.node,
+                            table,
+                            'accept' if r.action != 'MISS' else 'miss'
+                        )
+                    ])]
+                ).to_json() for i,r in enumerate(self.chains[table])
+            ]
 
         self.ports = {
             k:v for k,v in self.ports.iteritems() #if prefix(k) in active
