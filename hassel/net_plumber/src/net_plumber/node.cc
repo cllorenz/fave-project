@@ -302,12 +302,15 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
     if (!h) h = (hs *)malloc(sizeof *h);
     if (hs_isect_arr(h, (*s_flow)->processed_hs, (*it)->pipe_array)) {
 
+      // TODO: fix blackhole check
       if (hs_is_sub(h,(*s_flow)->processed_hs) && ((NetPlumber*)plumber)->blackhole_callback) {
+        /*
         ((NetPlumber*)plumber)->blackhole_callback(
           (NetPlumber*)plumber,
           *s_flow,
           ((NetPlumber*)plumber)->blackhole_callback_data
-        );
+        )
+         */;
       }
 
       // create a new flow struct to pass to next node in pipeline
@@ -340,12 +343,16 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
 
       struct hs p_arr = {this->length,{0}};
       hs_add(&p_arr,array_copy((*pipe)->pipe_array,this->length));
+
+      // TODO: fix blackhole check
       if (hs_is_sub(h,&p_arr) && ((NetPlumber*)plumber)->blackhole_callback) {
+        /*
         ((NetPlumber*)plumber)->blackhole_callback(
           (NetPlumber*)plumber,
           (*it),
           ((NetPlumber*)plumber)->blackhole_callback_data
-        );
+        )
+         */;
       }
 
       Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
