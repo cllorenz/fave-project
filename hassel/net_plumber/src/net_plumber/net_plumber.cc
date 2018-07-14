@@ -1457,6 +1457,7 @@ void NetPlumber::dump_flows(string dir) {
             flows.append(flow);
 
             (*p_it)->clear();
+            delete *p_it;
         }
 
         path->clear();
