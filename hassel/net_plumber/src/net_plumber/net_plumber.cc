@@ -1275,20 +1275,20 @@ void NetPlumber::dump_plumbing_network(const string dir) {
             rule["in_ports"] = list_to_json((*r_it)->input_ports);
             rule["out_ports"] = list_to_json((*r_it)->output_ports);
 
-            rule["match"] = (Json::StaticString)array_to_str(
-                (*r_it)->match,this->length,false
-            );
+            char *match = array_to_str((*r_it)->match, this->length, false);
+            rule["match"] = (Json::StaticString)match;
+            free(match);
 
             if ((*r_it)->mask) {
-                rule["mask"] = (Json::StaticString) array_to_str(
-                    (*r_it)->mask,this->length,false
-                );
+                char *mask =  array_to_str((*r_it)->mask, this->length, false);
+                rule["mask"] = (Json::StaticString)mask;
+                free(mask);
             }
 
             if ((*r_it)->rewrite) {
-                rule["rewrite"] = (Json::StaticString) array_to_str(
-                    (*r_it)->rewrite,this->length,false
-                );
+                char *rw = array_to_str((*r_it)->rewrite, this->length, false);
+                rule["rewrite"] = (Json::StaticString)rw;
+                free(rw);
             }
 
             rules.append(rule);
