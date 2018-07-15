@@ -177,17 +177,17 @@ void hs_to_json(Json::Value& res, hs *h) {
     int list_used = 0;
     if (vec.used) list_used = vec.used;
     for (int i = 0; i < list_used; i++) {
-        list.append(
-            (Json::StaticString)array_to_str(vec.elems[i],h->len,false)
-        );
+        char *elem = array_to_str(vec.elems[i],h->len,false);
+        list.append( (Json::StaticString)elem );
+        free(elem);
     }
 
     int diff_used = 0;
     if (vec.diff && vec.diff->used) diff_used = vec.diff->used;
     for (int i = 0; i < diff_used; i++) {
-        diff.append(
-            (Json::StaticString)array_to_str(vec.diff->elems[i],h->len,false)
-        );
+        char *elem = array_to_str(vec.diff->elems[i],h->len,false);
+        diff.append( (Json::StaticString)elem );
+        free(elem);
     }
 
     res["list"] = list;
