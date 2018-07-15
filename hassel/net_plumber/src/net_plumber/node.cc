@@ -78,7 +78,7 @@ void Node::remove_pipes() {
   for (it = this->next_in_pipeline.begin();
        it != this->next_in_pipeline.end(); it++ ) {
     list<struct Pipeline*>::iterator r = (*it)->r_pipeline;
-    free((*it)->pipe_array);
+    array_free((*it)->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->prev_in_pipeline.erase(r);
@@ -91,7 +91,7 @@ void Node::remove_pipes() {
   for (it = this->prev_in_pipeline.begin();
        it != this->prev_in_pipeline.end(); it++ ) {
     list<struct Pipeline*>::iterator r = (*it)->r_pipeline;
-    free((*it)->pipe_array);
+    array_free((*it)->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->next_in_pipeline.erase(r);
