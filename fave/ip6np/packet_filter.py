@@ -282,9 +282,22 @@ class PacketFilterModel(Model):
             rule.enlarge_vector_to_length(self.mapping.length)
 
 
+    # XXX: ugly hack
+    def reorder_defaults(self):
+        for chain in ["input_rules","forward_rules","output_rules"]:
+            c = self.chains[chain]
+            if not c: continue
+
+            if not c[0]:
+                d = c[0]
+                c.remove(d)
+                c.append(d)
+
     def finalize(self):
         for rule in self.rules:
             self.chains[rule.chain].append(rule)
+        self.reorder_defaults()
+
 
     def set_address(self,node,address):
         self.chains["pre_routing"] = [
