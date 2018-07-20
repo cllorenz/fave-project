@@ -1155,7 +1155,7 @@ class Aggregator(object):
             j["id_to_rule"] = {}
             for k in self.rule_ids:
                 for e in self.rule_ids[k]:
-                    j["id_to_rule"][e] = k
+                    j["id_to_rule"][e] = k >> 16
 
             j["id_to_generator"] = {
                 self.generators[k][0]:k for k in self.generators
