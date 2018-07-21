@@ -31,7 +31,7 @@ def normalize_module(module):
         "frag"          : "00001000",
         "hbh"           : "00001001",
         "hl"            : "00001010",
-        "icmp6"         : "00001011",
+        "icmpv6"        : "00001011",
         "mh"            : "00001100",
         "tos"           : "00001101"
     }[module]
