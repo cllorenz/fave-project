@@ -215,16 +215,12 @@ class PacketFilterModel(Model):
         for field in rule:
             # unknown field
             if field.name not in mapping:
-                offset = len(vector)
-                mapping[field.name] = offset
-                mapping.length += field.size
-                vector.enlarge(field.size)
-                vector[offset:offset+field.size] = field.vector.vector
+                mapping.extend(field.name)
+                vector.enlarge(field_sizes[field.name])
 
             # known field
-            else:
-                offset = mapping[field.name]
-                vector[offset:offset+field.size] = field.vector.vector
+            offset = mapping[field.name]
+            vector[offset:offset+field.size] = field.vector.vector
 
         return vector
 
