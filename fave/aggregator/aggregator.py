@@ -331,11 +331,14 @@ class Aggregator(object):
         mlength = self.mapping.length
 
         if model.type == "packet_filter":
-            self.extend_mapping(model.mapping)
+            self.mapping.expand(model.mapping)
+            #self.extend_mapping(model.mapping)
         elif model.type == "switch_command" and model.command == "add_rule":
-            self.extend_mapping(model.rule.mapping)
+            self.mapping.expand(model.rule.mapping)
+            #self.extend_mapping(model.rule.mapping)
         elif model.type == "topology_command" and model.command == 'add' and model.model.type in ['probe','host','generator']:
-            self.extend_mapping(model.model.mapping)
+            self.mapping.expand(model.model.mapping)
+            #self.extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
             jsonrpc.expand(self.sock, self.mapping.length) # XXX: +1 necessary?
@@ -456,6 +459,7 @@ class Aggregator(object):
         elif model.type == "switch":
             self.add_switch(model)
 
+    # XXX: deprecated?
     def extend_mapping(self,m):
         assert(type(m) == Mapping)
         for f in m:
