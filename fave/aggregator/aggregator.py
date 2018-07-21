@@ -567,9 +567,10 @@ class Aggregator(object):
             for ri,v,a in model.tables[t]:
                 rv = Vector(length=self.mapping.length)
                 for f in model.mapping:
-                    offset = model.mapping[f]
+                    g_offset = self.mapping[f]
+                    m_offset = model.mapping[f]
                     size = field_sizes[f]
-                    rv[offset:offset+size] = v[offset:offset+size]
+                    rv[g_offset:g_offset+size] = v[m_offset:m_offset+size]
 
                 ports = [self.global_port(
                     '_'.join([model.node,t,a.lower()])
