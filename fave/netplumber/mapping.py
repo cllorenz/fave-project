@@ -112,6 +112,8 @@ class Mapping(dict):
 
 
     def expand(self,other):
+        assert(type(other) == Mapping)
+
         if self == other:
             return
 
