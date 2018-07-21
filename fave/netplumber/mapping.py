@@ -105,8 +105,7 @@ class Mapping(dict):
     """
 
     def __add__(self,other):
-        mapping = Mapping()
-        mapping.expand(self)
+        mapping = Mapping(length=self.length,mapping=self)
         mapping.expand(other)
         return mapping
 
