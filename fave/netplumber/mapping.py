@@ -50,7 +50,6 @@ class Mapping(dict):
     def __init__(self,length=0,mapping={}):
         super(Mapping,self).__init__(mapping)
         self.length = length
-        self.move = []
 
     def __str__(self):
         return "length: %i, mapping:\n\t%s" % (
@@ -119,6 +118,5 @@ class Mapping(dict):
         uncommon = [k for k in other if not (k in self)]
         for k in uncommon:
             self[k] = self.length
-            self.move.append((other[k],self.length))
             self.length += field_sizes[k]
 
