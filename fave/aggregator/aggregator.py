@@ -223,9 +223,10 @@ class Aggregator(object):
     def handler(self):
         while not self.stop:
             data = self.queue.get()
-            Aggregator.LOGGER.debug('fetched data from queue')
+            Aggregator.LOGGER.debug('worker: fetched data from queue')
 
             if not data:
+                Aggregator.LOGGER.debug('worker: ignoring empty data')
                 self.queue.task_done()
                 continue
 
@@ -278,7 +279,7 @@ class Aggregator(object):
 
         while not self.stop:
             # accept connections on unix domain socket
-            Aggregator.LOGGER.debug("wait for connection")
+            Aggregator.LOGGER.debug("master: wait for connection")
             try:
                 conn,addr = uds.accept()
             except socket.timeout:
@@ -288,7 +289,8 @@ class Aggregator(object):
                 Aggregator.LOGGER.debug("master: break listening loop due to socket error")
                 Aggregator.LOGGER.exception("master: error from accept():")
                 break
-            Aggregator.LOGGER.debug("accepted connection")
+
+            Aggregator.LOGGER.debug("master: accepted connection")
 
             # receive data from unix domain socket
             #nbytes = Aggregator.BUF_SIZE
@@ -309,24 +311,24 @@ class Aggregator(object):
 
             # upon data receival enqueue
             self.queue.put(data)
-            Aggregator.LOGGER.debug("enqueued data")
+            Aggregator.LOGGER.debug("master: enqueued data")
 
         # close unix domain socket
-        Aggregator.LOGGER.info("close receiving socket")
+        Aggregator.LOGGER.info("master: close receiving socket")
         uds.close()
 
         # wait for the config event handler to finish
-        Aggregator.LOGGER.info("join queue")
+        Aggregator.LOGGER.info("master: join queue")
         self.queue.join()
 
         #jsonrpc.dump_stats()
         #dump_stats()
 
         # join thread
-        Aggregator.LOGGER.info("join handler thread")
+        Aggregator.LOGGER.info("master: join handler thread")
         t.join()
 
-        Aggregator.LOGGER.info("finished run")
+        Aggregator.LOGGER.info("master: finished run")
 
 
     def stop_aggr(self):
@@ -336,7 +338,7 @@ class Aggregator(object):
 
     #@profile_method
     def sync_diff(self,model):
-        Aggregator.LOGGER.debug('synchronize model')
+        Aggregator.LOGGER.debug('worker: synchronize model')
 
         # extend global mapping
         mlength = self.mapping.length
@@ -479,7 +481,7 @@ class Aggregator(object):
 
 
     def add_packet_filter(self,model):
-        Aggregator.LOGGER.debug("apply packet filter: %s" % model.node)
+        Aggregator.LOGGER.debug("worker: apply packet filter: %s" % model.node)
 
         self.add_tables(model,prefixed=True)
         self.add_wiring(model)
@@ -487,7 +489,7 @@ class Aggregator(object):
 
 
     def add_switch(self,model):
-        Aggregator.LOGGER.debug("apply switch: %s" % model.node)
+        Aggregator.LOGGER.debug("worker: apply switch: %s" % model.node)
         self.add_tables(model)
         self.add_wiring(model)
         self.add_switch_rules(model)
@@ -524,7 +526,7 @@ class Aggregator(object):
                     self.ports[portname] = portno
 
                 Aggregator.LOGGER.debug(
-                    "add table to netplumber: %s with index %s and ports %s" %
+                    "worker: add table to netplumber: %s with index %s and ports %s" %
                     (name,idx,ports)
                 )
                 jsonrpc.add_table(self.sock,idx,ports)
@@ -539,10 +541,10 @@ class Aggregator(object):
             # the post routing output are never targeted internally.
             if p1 in ["internals_in","post_routing"] or \
                 p2 in ["internals_out","post_routing"]:
-                Aggregator.LOGGER.debug("skip wiring %s to %s" % (p1,p2))
+                Aggregator.LOGGER.debug("worker: skip wiring %s to %s" % (p1,p2))
                 continue
 
-            Aggregator.LOGGER.debug("wire %s to %s" % (p1,p2))
+            Aggregator.LOGGER.debug("worker: wire %s to %s" % (p1,p2))
 
             gp1 = self.global_port('_'.join([model.node,p1]))
 
@@ -550,7 +552,7 @@ class Aggregator(object):
                 gp2 = self.global_port('_'.join([model.node,p2]))
 
                 Aggregator.LOGGER.debug(
-                    "add link to netplumber from %s to %s" % (gp1,gp2)
+                    "worker: add link to netplumber from %s to %s" % (gp1,gp2)
                 )
                 jsonrpc.add_link(self.sock,gp1,gp2)
 
@@ -567,13 +569,13 @@ class Aggregator(object):
                         "output_states",
                         "forward_states"
                     ]:
-                Aggregator.LOGGER.debug("skip adding rules to table %s" % t)
+                Aggregator.LOGGER.debug("worker: skip adding rules to table %s" % t)
                 continue
 
             tn = '_'.join([model.node,t])
             ti = self.tables[tn]
 
-            Aggregator.LOGGER.debug("add rules to %s" % tn)
+            Aggregator.LOGGER.debug("worker: add rules to %s" % tn)
 
             for ri,v,a in model.tables[t]:
                 rv = Vector(length=self.mapping.length)
@@ -588,7 +590,7 @@ class Aggregator(object):
                 )] if a in ['ACCEPT','MISS'] else []
 
                 Aggregator.LOGGER.debug(
-                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    "worker: add rule %s to %s:\n\t(%s -> %s)" %
                     (ri,ti,rv.vector if rv else "*",ports)
                 )
                 r_id = jsonrpc.add_rule(
@@ -645,7 +647,7 @@ class Aggregator(object):
                     ports.extend([self.global_port(p) for p in a.ports])
 
                 Aggregator.LOGGER.debug(
-                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    "worker: add rule %s to %s:\n\t(%s -> %s)" %
                     (rule.idx,ti,rv.vector if rv else "*",ports)
                 )
                 r_id = jsonrpc.add_rule(
@@ -707,7 +709,7 @@ class Aggregator(object):
                     rw[offset:offset+size] = '{:016b}'.format(port)
 
                     Aggregator.LOGGER.debug(
-                        "add rule %s to %s:\n\t((%s) %s -> (%s) %s)" %
+                        "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)" %
                         (
                             rule.idx,
                             self.tables["%s_%s" % (model.node,table)],
@@ -762,7 +764,7 @@ class Aggregator(object):
                 )
 
                 Aggregator.LOGGER.debug(
-                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    "worker: add rule %s to %s:\n\t(%s -> %s)" %
                     (
                         rule.idx,
                         self.tables["%s_%s" % (model.node,table)],
@@ -816,7 +818,7 @@ class Aggregator(object):
                     ])
 
                 Aggregator.LOGGER.debug(
-                    "add rule %s to %s:\n\t(%s -> %s)" %
+                    "worker: add rule %s to %s:\n\t(%s -> %s)" %
                     (rule.idx,ti,rv.vector if rv else "*",ports)
                 )
 
