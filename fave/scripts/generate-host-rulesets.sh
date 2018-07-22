@@ -80,7 +80,6 @@ for HOST in $HOSTS; do
     echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
 
     # handle incoming icmpv6
-    echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $SCRIPT 
     echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
     echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
     echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
@@ -119,7 +118,6 @@ for SUB in $SUBNETS; do
         echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
 
         # handle incoming icmpv6
-        echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $SCRIPT 
         echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
         echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
         echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
