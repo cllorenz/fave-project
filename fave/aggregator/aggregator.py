@@ -281,7 +281,12 @@ class Aggregator(object):
             Aggregator.LOGGER.debug("wait for connection")
             try:
                 conn,addr = uds.accept()
+            except socket.timeout:
+                Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
+                continue
             except socket.error:
+                Aggregator.LOGGER.debug("master: break listening loop due to socket error")
+                Aggregator.LOGGER.exception("master: error from accept():")
                 break
             Aggregator.LOGGER.debug("accepted connection")
 
