@@ -229,14 +229,20 @@ class Aggregator(object):
                 self.queue.task_done()
                 continue
 
-            j = json.loads(data)
+            try:
+                j = json.loads(data)
+            except Exception as err:
+                Aggregator.LOGGER.exception('worker: could not parse data:')
+            else:
+                self.queue.task_done()
+                return
 
             if j['type'] == 'stop':
                 self.stop_aggr()
                 jsonrpc.stop(self.sock)
 
             elif j['type'] == 'dump':
-                dump = json.loads(data)
+                dump = j
                 odir = dump['dir']
 
                 if dump['fave']:
