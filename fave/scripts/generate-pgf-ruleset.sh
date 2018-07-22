@@ -73,7 +73,6 @@ echo "ip6tables -P OUTPUT DROP" >> $SCRIPT
 echo "ip6tables -A INPUT -i 0 -j DROP" >> $SCRIPT
 
 # handle incoming icmpv6
-echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $SCRIPT 
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
