@@ -234,7 +234,6 @@ class Aggregator(object):
                 j = json.loads(data)
             except Exception as err:
                 Aggregator.LOGGER.exception('worker: could not parse data:')
-            else:
                 self.queue.task_done()
                 return
 
