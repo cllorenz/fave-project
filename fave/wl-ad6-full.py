@@ -534,8 +534,7 @@ def main():
 
         cnt += 1
 
-    #dumper.main(["-unpf"])
-    #printer.main(["-u","-n"])
+    dumper.main(["-anpf"])
 
     print "stop aggregator",
     os.system("scripts/stop_aggr.sh")
