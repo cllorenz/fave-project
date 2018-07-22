@@ -536,11 +536,8 @@ def main():
 
     dumper.main(["-anpf"])
 
-    print "stop aggregator",
-    os.system("scripts/stop_aggr.sh")
-    print "ok"
-    print "stop netplumber",
-    os.system("scripts/stop_np.sh")
+    print "stop fave and netplumber",
+    os.system("scripts/stop_fave.sh")
     print "ok"
 
 if __name__ == "__main__":
