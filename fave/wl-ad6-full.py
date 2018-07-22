@@ -121,7 +121,7 @@ def main():
         sub_logger
     )
     measure(
-        lambda: topo.main(["-a","-l","pgf.2:dmz.1,dmz.1:pgf.2"]),
+        lambda: topo.main(["-a","-l","pgf.26:dmz.1,dmz.1:pgf.2"]),
         subl_logger
     )
     print "ok"
@@ -153,15 +153,13 @@ def main():
         sub_logger
     )
     measure(
-        lambda: topo.main(["-a","-l","pgf.3:wifi.1,wifi.1:pgf.3"]),
+        lambda: topo.main(["-a","-l","pgf.3:wifi.1,wifi.1:pgf.27"]),
         subl_logger
     )
-
-#PYTHONPATH=. $TIME -ao $SUBLOG python2 topology/topology.py -a -t generator -n wifi-clients -f ipv6_src=2001:db8:abc:1::0/64
     print "ok"
 
     # create subnets
-    print "create subnets...",
+    print "create subnets..."
     subnets = [
         "api",
         "asta",
@@ -214,10 +212,10 @@ def main():
         measure(
             lambda: topo.main([
                 "-a",
-                "-l","pgf.%s:%s.1,%s.1:pgf.%s" % (cnt,net,net,cnt)
+                "-l","pgf.%s:%s.1,%s.1:pgf.%s" % (cnt+24,net,net,cnt)
             ]),
             subl_logger
-        )        
+        )
 
         print "ok"
 
@@ -225,6 +223,7 @@ def main():
 
     # populate firewall
     print "populate firewall... ",
+
     measure(
         lambda: ip6tables.main([
             "-n","pgf","-i","2001:db8:abc::1","-f","rulesets/pgf-ruleset"
@@ -273,8 +272,8 @@ def main():
         )
 
         cnt += 1
-    print "ok"
 
+    print "ok"
 
     print "populate switches... ",
 
@@ -291,14 +290,16 @@ def main():
                 "-n","dmz",
                 "-t","1",
                 "-f","ipv6_dst=%s" % addr,
-                "-c","fd=dmz.1"
+                "-c","fd=dmz.%s" % cnt
             ]),
             sw_logger
         )
 
+        cnt += 1
+
     # forwarding rule to firewall (default rule)
     measure(
-        lambda: switch.main(["-a","-i","1","-n","dmz","-t","1","-c","fd=dmz.1"]),
+        lambda: switch.main(["-a","-i","10","-n","dmz","-t","1","-c","fd=dmz.1"]),
         sw_logger
     )
 
@@ -328,9 +329,12 @@ def main():
         srv = 1
 
         for host in subhosts:
-            port = srv + 1
+            ident = srv
+            srv += 1
+            port = srv
+
             server = "%s.%s" % (host[0],net)
-            addr = "2001:db8:abc:%s::%s" % (cnt,srv)
+            addr = "2001:db8:abc:%s::%s" % (cnt,ident)
 
             # forwarding rule to server
             measure(
@@ -344,7 +348,6 @@ def main():
                 ]),
                 sw_logger
             )
-
 
         # forwarding rule to firewall (default rule)
         measure(
@@ -361,7 +364,7 @@ def main():
         src_logger
     )
     measure(
-        lambda: topo.main(["-a","-l","internet.1:pgf.1"]),
+        lambda: topo.main(["-a","-l","internet.1:pgf.1,pgf.25:internet.1"]),
         srcl_logger
     )
     print "ok"
@@ -377,7 +380,7 @@ def main():
         measure(
             lambda: topo.main([
                 "-a",
-                "-l","%s.1:dmz.%s,dmz.%s:%s.1" % (h,cnt,cnt,h)
+                "-l","%s.2:dmz.%s,dmz.%s:%s.1" % (h,cnt,cnt,h)
             ]),
             subl_logger
         )
@@ -405,6 +408,18 @@ def main():
             srcl_logger
         )
 
+        # forwarding rule to switch
+        measure(
+            lambda: switch.main([
+                "-a",
+                "-i","1",
+                "-n",h,
+                "-t","1",
+                "-c","fd=%s.%s" % (h,1)
+            ]),
+            pfr_logger
+        )
+
         cnt += 1
 
     print "ok"
@@ -413,15 +428,14 @@ def main():
     cnt = 4
 
     for net in subnets:
-        print "  create host %s... " % net,
 
-        srv = 1
+        srv = 0
         for host in subhosts:
-            port = srv + 1
+            port = srv + 2
             hn = "%s.%s" % (host[0],net)
             nh = "%s-%s" % (net,host[0])
             server = "source.%s" % hn
-            addr = "2001:db8:abc:%s::%s" % (cnt,srv)
+            addr = "2001:db8:abc:%s::%s" % (cnt,srv+1)
 
             measure(
                 lambda: topo.main([
@@ -437,10 +451,10 @@ def main():
             measure(
                 lambda: topo.main([
                     "-a",
-                    "-l","%s.1:%s.%s,%s.%s:%s.1" % (hn,net,port,net,port,hn)
+                    "-l","%s.2:%s.%s,%s.%s:%s.1" % (hn,net,port,net,port,hn)
                 ]),
                 subl_logger
-            ) 
+            )
 
             measure(
                 lambda: topo.main([
@@ -459,12 +473,22 @@ def main():
                 srcl_logger
             )
 
+            measure(
+                lambda: switch.main([
+                    "-a",
+                    "-i","1",
+                    "-n",hn,
+                    "-t","1",
+                    "-c","fd=%s.%s" % (hn,1)
+                ]),
+                src_logger
+            )
+
             srv += 1
 
         print "ok"
 
         cnt += 1
-
     print "test ssh reachability from the internet..."
 
     print "  test dmz... ",
@@ -476,16 +500,20 @@ def main():
             lambda: topo.main([
                 "-a",
                 "-t","probe",
-                "-n",h,
+                "-n","probe.%s" % h,
                 "-q","existential",
                 "-P",".*(p=pgf.1);$",
                 "-F","tcp_dst=22"
             ]),
             probe_logger
         )
-        # link probe to switch
+        # link probe to host input
         measure(
-            lambda: topo.main(["-a","-l","%s.1:dmz.%s" % (h,cnt)]),
+            lambda: topo.main(["-a","-l","%s_input_states_accept:probe.%s.1" % (h,h)]),
+            probel_logger
+        )
+        measure(
+            lambda: topo.main(["-a","-l","%s_input_rules_accept:probe.%s.1" % (h,h)]),
             probel_logger
         )
 
@@ -525,7 +553,13 @@ def main():
             # link probe to switch
             measure(
                 lambda: topo.main([
-                    "-a","-l","%s_internals_in:%s.1" % (hn,server)
+                    "-a","-l","%s_input_states_accept:%s.1" % (hn,server)
+                ]),
+                probel_logger
+            )
+            measure(
+                lambda: topo.main([
+                    "-a","-l","%s_input_rules_accept:%s.1" % (hn,server)
                 ]),
                 probel_logger
             )
