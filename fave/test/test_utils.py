@@ -6,6 +6,7 @@ from util.collections_util import *
 from util.match_util import *
 from util.packet_util import *
 from util.path_util import *
+from util.json_util import *
 
 class TestCollectionsUtilDict(unittest.TestCase):
 
@@ -309,6 +310,53 @@ class TestPathUtil(unittest.TestCase):
         self.assertEqual(
             Path.from_string('^.*(p in (foo.1,foo.2,bar.3,bar.4))$'),p
         )
+
+class TestJsonUtil(unittest.TestCase):
+
+    def test_basic_equal(self):
+        a = 1
+        b = 1
+        c = 2
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+        a = "a"
+        b = "a"
+        c = "c"
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+        a = True
+        b = True
+        c = False
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+        a = None
+        b = None
+        c = 1
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+    def test_complex_equal(self):
+        a = { "a" : 1, "b" : 2 }
+        b = { "b" : 2, "a" : 1 }
+        c = { "c" : 3, "a" : 1 }
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+        a = [ 1, 2, 3, { "d" : "e" } ]
+        b = [ 1, 2, 3, { "d" : "e" } ]
+        c = [ 1, 2, { "d" : "e" }, 3 ]
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
+        a = { "a" : 1, "b" : [ 1, 2, 3, { "d" : "e" } ] }
+        b = { "b" : [ 1, 2, 3, { "d" : "e" } ], "a" : 1 }
+        c = { "c" : [ 1, 2, { "d" : "e" }, 3 ], "a" : 1 }
+        self.assertTrue(equal(a,b))
+        self.assertFalse(equal(a,c))
+
 
 if __name__ == '__main__':
     unittest.main()
