@@ -3,7 +3,7 @@
 import unittest
 
 from test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
-from test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil
+from test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil, TestJsonUtil
 from test_netplumber import TestMapping,TestVector,TestHeaderSpace,TestModel
 from test_topology import TestLinksModel,TestTopologyCommand
 from test_tree import TestTree
@@ -25,6 +25,9 @@ if __name__ == '__main__':
     )
     suite.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestPathUtil)
+    )
+    suite.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestJsonUtil)
     )
 
     suite.addTests(
