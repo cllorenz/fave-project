@@ -715,7 +715,7 @@ void NetPlumberPlumbingTest::test_detect_loop() {
   N->loop_callback = loop_detected;
   N->loop_callback_data = &is_looped;
   this->test_routing_add_fwd_rule_higher_priority();
-  N->add_link(11,12);
+  N->add_link(2,12);
   N->add_link(14,15);
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,12),
