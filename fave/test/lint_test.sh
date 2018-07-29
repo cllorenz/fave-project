@@ -3,7 +3,7 @@
 TMP=/tmp/pylint.log
 
 #PYFILES=`find . -name "*.py"`
-PYFILES="test/test_rpc.py netplumber/jsonrpc.py __init__.py test/test_netplumber.py netplumber/mapping.py"
+PYFILES="test/test_rpc.py netplumber/jsonrpc.py __init__.py test/test_netplumber.py netplumber/mapping.py netplumber/vector.py"
 
 for PYFILE in $PYFILES; do
     echo -n "lint $PYFILE: "
