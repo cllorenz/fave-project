@@ -25,7 +25,7 @@ from Queue import Queue
 from copy import deepcopy as dc
 
 from netplumber.model import Model
-from netplumber.mapping import Mapping, field_sizes
+from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
 import netplumber.jsonrpc as jsonrpc
 
@@ -581,7 +581,7 @@ class Aggregator(object):
                 for f in model.mapping:
                     g_offset = self.mapping[f]
                     m_offset = model.mapping[f]
-                    size = field_sizes[f]
+                    size = FIELD_SIZES[f]
                     rv[g_offset:g_offset+size] = v[m_offset:m_offset+size]
 
                 ports = [self.global_port(
@@ -629,14 +629,14 @@ class Aggregator(object):
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
                     offset = self.mapping[f.name]
-                    size = field_sizes[f.name]
+                    size = FIELD_SIZES[f.name]
                     rv[offset:offset+size] = field_value_to_bitvector(f).vector
 
                 rw = None
                 if 'interface' in self.mapping:
                     rw = dc(rv)
                     offset = self.mapping["interface"]
-                    size = field_sizes["interface"]
+                    size = FIELD_SIZES["interface"]
                     rw[offset:offset+size] = "x"*size
 
                 ports = []
@@ -686,7 +686,7 @@ class Aggregator(object):
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
                     offset = self.mapping[f.name]
-                    size = field_sizes[f.name]
+                    size = FIELD_SIZES[f.name]
                     rv[offset:offset+size] = field_value_to_bitvector(f).vector
 
                 ports = []
@@ -698,11 +698,11 @@ class Aggregator(object):
                 rw = None
                 if not "interface" in self.mapping:
                     self.mapping.extend("interface")
-                    rv.enlarge(field_sizes["interface"])
+                    rv.enlarge(FIELD_SIZES["interface"])
 
                 rw = dc(rv)
                 offset = self.mapping["interface"]
-                size = field_sizes["interface"]
+                size = FIELD_SIZES["interface"]
 
                 for port in range(1,1+(len(self.models[model.node].ports)-19)/2):
                     rw[offset:offset+size] = '{:016b}'.format(port)
@@ -755,7 +755,7 @@ class Aggregator(object):
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
                     offset = self.mapping[f.name]
-                    size = field_sizes[f.name]
+                    size = FIELD_SIZES[f.name]
                     rv[offset:offset+size] = field_value_to_bitvector(f).vector
 
                 port = self.global_port(
@@ -805,7 +805,7 @@ class Aggregator(object):
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
                     offset = self.mapping[f.name]
-                    size = field_sizes[f.name]
+                    size = FIELD_SIZES[f.name]
                     rv[offset:offset+size] = field_value_to_bitvector(f).vector
 
                 ports = []

@@ -1,7 +1,7 @@
 import json
 import itertools
 
-from netplumber.mapping import Mapping, field_sizes
+from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from ip6np.generator import field_value_to_bitvector
 from ip6np.packet_filter import Field
@@ -32,7 +32,7 @@ class GeneratorModel(object):
                     vector,
                     field,
                     field_value_to_bitvector(
-                        Field(field,field_sizes[field],comb[i])
+                        Field(field,FIELD_SIZES[field],comb[i])
                     ).vector
                 )
             outgoing.append(vector)

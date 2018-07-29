@@ -2,7 +2,7 @@ import json
 
 from util.packet_util import normalize_ipv6_address, normalize_upper_port, normalize_ipv6_proto, normalize_ipv6header_header
 from netplumber.vector import Vector
-from netplumber.mapping import field_sizes
+from netplumber.mapping import FIELD_SIZES
 from packet_filter import PacketFilterModel
 from packet_filter import Field
 from packet_filter import Rule
@@ -112,7 +112,7 @@ def field_value_to_bitvector(field):
     if type(field) == Field:
         name,size,value = field.name,field.size,field.value
     elif type(field) == SwitchRuleField:
-        name,size,value = field.name,field_sizes[field.name],field.value
+        name,size,value = field.name,FIELD_SIZES[field.name],field.value
     else:
         raise "field type not implemented:",type(field)
 
@@ -203,7 +203,7 @@ def ast_to_rule(ast):
 
     is_field = lambda f: tags.has_key(f.value)
 
-    size = lambda k: field_sizes[tag(k)]
+    size = lambda k: FIELD_SIZES[tag(k)]
 
     value = lambda k: k.get_first().value if k.get_first() is not None else ""
 

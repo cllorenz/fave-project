@@ -4,7 +4,7 @@ import itertools
 from util.packet_util import ETHER_TYPE_IPV6, normalize_ipv6_address, normalize_ipv6_proto, normalize_upper_port
 from util.path_util import Path
 from util.match_util import oxm_field_to_match_field
-from netplumber.mapping import Mapping,field_sizes
+from netplumber.mapping import Mapping,FIELD_SIZES
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from ip6np.generator import field_value_to_bitvector
 from ip6np.packet_filter import Field
@@ -44,7 +44,7 @@ class ProbeModel(object):
                         vector,
                         field,
                         field_value_to_bitvector(
-                            Field(field,field_sizes[field],comb[i])
+                            Field(field,FIELD_SIZES[field],comb[i])
                         ).vector
                     )
                 vectors.append(vector)

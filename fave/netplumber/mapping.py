@@ -3,7 +3,7 @@
 import json
 #from util.collections_util import diff_dicts
 
-field_sizes = {
+FIELD_SIZES = {
     "packet.ether.source" : 48,
     "packet.ether.destination" : 48,
     "packet.ether.type" : 8,
@@ -83,7 +83,7 @@ class Mapping(dict):
 
     def extend(self,field):
         self[field] = self.length
-        self.length += field_sizes[field]
+        self.length += FIELD_SIZES[field]
 
 
     """
@@ -119,5 +119,5 @@ class Mapping(dict):
         uncommon = [k for k in other if not (k in self)]
         for k in uncommon:
             self[k] = self.length
-            self.length += field_sizes[k]
+            self.length += FIELD_SIZES[k]
 

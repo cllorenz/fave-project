@@ -3,7 +3,7 @@
 from copy import deepcopy as dc
 
 from netplumber.vector import Vector
-from netplumber.mapping import Mapping,field_sizes
+from netplumber.mapping import Mapping,FIELD_SIZES
 
 from netplumber.model import Model
 
@@ -216,7 +216,7 @@ class PacketFilterModel(Model):
             # unknown field
             if field.name not in mapping:
                 mapping.extend(field.name)
-                vector.enlarge(field_sizes[field.name])
+                vector.enlarge(FIELD_SIZES[field.name])
 
             # known field
             offset = mapping[field.name]

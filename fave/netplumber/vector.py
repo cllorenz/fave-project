@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-from mapping import field_sizes
+from mapping import FIELD_SIZES
 
 
 def copy_field_between_vectors(map1,map2,v1,v2,field):
@@ -10,13 +10,13 @@ def copy_field_between_vectors(map1,map2,v1,v2,field):
 
 def get_field_from_vector(mapping,vector,field):
     start = mapping[field]
-    stop = start + field_sizes[field]
+    stop = start + FIELD_SIZES[field]
     return vector[start:stop]
 
 
 def set_field_in_vector(mapping,vector,field,value):
     start = mapping[field]
-    stop = start + field_sizes[field]
+    stop = start + FIELD_SIZES[field]
     vector[start:stop] = value
 
 
