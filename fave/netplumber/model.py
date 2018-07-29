@@ -55,17 +55,6 @@ class Model(object):
             mapping=Mapping(j["mapping"])
         )
 
-    """
-    @staticmethod
-    def from_string(s):
-        j = json.loads(s)
-        try:
-            return {
-                "model" : Model
-            }[j["type"]].from_json(j)
-        except KeyError:
-            raise Exception("model type not implemented")
-    """
 
     def __sub__(self,other):
         assert(self.node == other.node)
@@ -101,24 +90,3 @@ class Model(object):
             self.wiring == other.wiring,
             self.mapping == other.mapping
         ])
-
-    """
-    def diff(self,other):
-        assert(self.node == other.node)
-        assert(self.type == other.type)
-
-        tables = diff_dicts(self.tables,other.tables)
-        ports  = diff_dicts(self.ports,other.ports)
-        wiring = diff_lists(self.wiring,other.wiring)
-        mapping = self.mapping.diff(other.mapping)
-
-    def intersect(self,other):
-        assert(type(other) == Model)
-        assert(self.node == other.node)
-        assert(self.type == other.type)
-
-        tables = intersect_dicts(self.tables,other.tables)
-        ports = intersect_dicts(self.ports,other.ports)
-        wiring = intersect_lists(self.wiring,other.wiring)
-        mapping = self.mapping.intersect(other.mapping)
-    """
