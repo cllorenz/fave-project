@@ -110,7 +110,7 @@ class SwitchRule(Model):
     def __init__(self,node,tid,idx,match=None,actions=[],mapping=None):
         if not mapping:
             mapping = SwitchRule._match_to_mapping(match)
-        super(SwitchRule,self).__init__(node,type="switch_rule",mapping=mapping)
+        super(SwitchRule,self).__init__(node,mtype="switch_rule",mapping=mapping)
         self.tid = tid
         self.idx = idx
         self.match = match
