@@ -13,13 +13,12 @@ FIELD_SIZES = {
     "packet.ipv6.source" : 128,
     "packet.ipv6.destination" : 128,
     "packet.ipv6.proto" : 8,
-    #"packet.ipv6.priority":,  # XXX maybe later
+    #"packet.ipv6.priority" : ,
     "packet.ipv6.icmpv6.type" : 16,
     "packet.upper.dport" : 16,
     "packet.upper.sport" : 16,
-    #"packet.upper.tcp.flags" : 8,  # XXX maybe later
-    #"packet.upper.tcp.syn" : 8,  # XXX maybe later
-    #"packet.upper.tcp.option" : ,  # XXX maybe later
+    "packet.upper.tcp.flags" : 8,
+    #"packet.upper.tcp.option" : ,
     "module" : 8,
     "module.limit" : 32,
     "module.state" : 8,
@@ -29,9 +28,9 @@ FIELD_SIZES = {
     "module.ipv6header.rt.type" : 8,
     "module.ipv6header.rt.segsleft" : 8,
     "module.ipv6header.rt.len" : 8,
-    #"module.ipv6header.rt.0-res" :  # XXX maybe later
-    #"module.ipv6header.rt.0-addrs" : # XXX maybe later
-    #"module.ipv6header.rt.0-not-strict" : ,  # XXX maybe later
+    #"module.ipv6header.rt.0-res" : ,
+    #"module.ipv6header.rt.0-addrs" : ,
+    #"module.ipv6header.rt.0-not-strict" : ,
     "module.ipv6header.ah.spi" : 32,
     "module.ipv6header.ah.len" : 8,
     "module.ipv6header.ah.res" : 16,
