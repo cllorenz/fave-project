@@ -1,11 +1,9 @@
 #!/usr/bin/env python2
 
 import unittest
-import os
 
+import os
 import socket
-import sys
-import json
 import random
 from netplumber.jsonrpc import *
 
