@@ -4,7 +4,6 @@
 """
 
 import json
-#from util.collections_util import diff_dicts
 
 FIELD_SIZES = {
     "packet.ether.source" : 48,
