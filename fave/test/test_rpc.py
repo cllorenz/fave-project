@@ -434,4 +434,5 @@ class TestRPC(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    random.seed(0)
     unittest.main()
