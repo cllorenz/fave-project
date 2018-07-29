@@ -1,3 +1,5 @@
 [DESIGN]
 
 max-args = 8
+
+min-public-methods = 1
