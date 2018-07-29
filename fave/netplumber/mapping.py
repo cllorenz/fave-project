@@ -129,24 +129,6 @@ class Mapping(dict):
         self.length += FIELD_SIZES[field]
 
 
-    """
-    def diff(self, other):
-        if self == other:
-            return self
-
-        mapping = diff_dicts(self, other)
-
-        return Mapping(self.length, mapping=mapping)
-
-    def intersect(self, other):
-        if self == other
-            return self
-
-        mapping = intersect_dicts(self, other)
-
-        return Mapping(self.length, mapping=mapping)
-    """
-
     def __add__(self, other):
         """ Adds another mapping.
 
