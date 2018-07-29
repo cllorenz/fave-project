@@ -9,11 +9,14 @@ import os
 import socket
 import random
 
-from netplumber.jsonrpc import add_rule, print_plumbing_network, add_policy_rule
-from netplumber.jsonrpc import add_policy_probe, init, remove_fw_rule, add_fw_rule
-from netplumber.jsonrpc import remove_rule, remove_slice, add_slice, destroy
-from netplumber.jsonrpc import reset_plumbing_network, add_table, add_link
-from netplumber.jsonrpc import add_source, add_source_probe, expand
+from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand
+from netplumber.jsonrpc import print_plumbing_network
+from netplumber.jsonrpc import add_table, add_link
+from netplumber.jsonrpc import add_rule, remove_rule
+from netplumber.jsonrpc import add_source, add_source_probe
+from netplumber.jsonrpc import add_fw_rule, remove_fw_rule
+from netplumber.jsonrpc import add_policy_rule, add_policy_probe
+from netplumber.jsonrpc import add_slice, remove_slice
 
 
 def generate_random_rule(idx, in_ports, out_ports, length):
