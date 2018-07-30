@@ -1,61 +1,125 @@
-from functools import reduce
+""" This module provides an AST structure.
+"""
 
 class Tree(list):
-    def __init__(self,value=None,parent=None):
+    """ This class provides storing and manipulation capabilities for an AST.
+    """
+
+    def __init__(self, value=None, parent=None):
+        """ Constructs an AST object.
+
+        Keyword arguments:
+        value -- the tree's value (default: None)
+        parent -- the tree's parent tree (default: None)
+        """
+
+        super(Tree, self).__init__([])
         self.parent = parent
         self.value = value
         self._negated = False
 
-    def has_child(self,value):
+
+    def has_child(self, value):
+        """ Checks whether the tree is parent of a certain child.
+
+        Keyword arguments:
+        value -- the value to be checked
+        """
+
         for tree in self:
             if value == str(tree):
                 return True
         return False
 
+
     def has_children(self):
+        """ Checks whether the tree is parent of any children.
+        """
         return len(self) > 0
 
-    def add_child(self,elem):
-        if type(elem) is Tree:
+
+    def add_child(self, elem):
+        """ Appends a child leaf or tree to the tree
+
+        Keyword arguments:
+        elem -- the child to be added (may be value or tree)
+        """
+        if isinstance(elem, Tree):
             elem.parent = self
             self.append(elem)
             return elem
         else:
             return self.add_child(Tree(value=elem))
 
-    def get_child(self,value):
+
+    def get_child(self, value):
+        """ Fetches a child from the tree.
+
+        Keyword arguments:
+        value -- the child to be fetched
+        """
+
         for tree in self:
             if value == str(tree):
                 return tree
         return None
 
+
     def is_negated(self):
+        """ Checks whether the tree is negated.
+        """
         return self._negated
 
-    def set_negated(self,neg):
-        assert(type(neg) == bool)
+
+    def set_negated(self, neg=True):
+        """ Sets the tree's negation.
+
+        Keyword arguments:
+        neg -- negation value (Default: True)
+        """
+
+        assert isinstance(neg, bool)
         self._negated = neg
 
+
     def get_first(self):
+        """ Fetches the tree's first child.
+        """
+
         if len(self) > 0:
             return self[0]
         return None
 
+
     def get_last(self):
+        """ Fetches the tree's last child.
+        """
         if len(self) > 0:
             return self[len(self)-1]
         return None
 
-    def __equals__(self,obj):
+
+    def __equals__(self, obj):
         return self.value == str(obj)
+
 
     def __str__(self):
         return str(self.value)
 
+
     def print_tree(self):
+        """ Pretty prints the tree to stdout.
+        """
         print self.stringify()
 
-    def stringify(self,depth=0):
+
+    def stringify(self, depth=0):
+        """ Converts the tree to a pretty string.
+
+        Keyword arguments:
+        depth -- number of prefixed tabs (default: 0)
+        """
+
         if len(self) == 0:
             return "\t"*depth + str(self.value)
         else:
@@ -63,7 +127,6 @@ class Tree(list):
                 str(self.value) + \
                 ":\n" + \
                 reduce(
-                    lambda x,y: x+"\n"+y,
+                    lambda x, y: x+"\n"+y,
                     [c.stringify(depth+1) for c in self]
                 )
-
