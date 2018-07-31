@@ -11,9 +11,9 @@ from util.print_util import eprint
 from openflow.switch import SwitchModel
 from ip6np.packet_filter import PacketFilterModel
 
-from fave.topology.host import HostModel
-from fave.topology.generator import GeneratorModel
-from fave.topology.probe import ProbeModel
+from host import HostModel
+from generator import GeneratorModel
+from probe import ProbeModel
 
 
 class LinksModel(object):
