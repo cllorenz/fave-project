@@ -8,12 +8,12 @@ import socket
 import json
 
 from util.print_util import eprint
-
 from openflow.switch import SwitchModel
-from host import HostModel
 from ip6np.packet_filter import PacketFilterModel
-from generator import GeneratorModel
-from probe import ProbeModel
+
+from fave.topology.host import HostModel
+from fave.topology.generator import GeneratorModel
+from fave.topology.probe import ProbeModel
 
 
 class LinksModel(object):
@@ -70,7 +70,7 @@ class TopologyCommand(object):
     """
 
     def __init__(self, node, command, model=None, mtype=""):
-        """
+        """ Constructs a command for manipulating the topology in FaVe.
 
         Keyword arguments:
         node -- the name of the node to be manipulated
