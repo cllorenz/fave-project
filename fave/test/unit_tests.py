@@ -1,54 +1,57 @@
 #!/usr/bin/env python2
 
+""" This module groups all unit tests for FaVe modules.
+"""
+
 import unittest
 
-from test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
-from test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil, TestJsonUtil
-from test_netplumber import TestMapping,TestVector,TestHeaderSpace,TestModel
-from test_topology import TestLinksModel,TestTopologyCommand
-from test_tree import TestTree
+from test.test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
+from test.test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil, TestJsonUtil
+from test.test_netplumber import TestMapping, TestVector, TestHeaderSpace, TestModel
+from test.test_topology import TestLinksModel, TestTopologyCommand
+from test.test_tree import TestTree
 
 if __name__ == '__main__':
-    suite = unittest.TestSuite()
+    SUITE = unittest.TestSuite()
 
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestCollectionsUtilDict)
     )
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestCollectionsUtilList)
     )
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestMatchUtil)
     )
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestPacketUtil)
     )
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestPathUtil)
     )
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestJsonUtil)
     )
 
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestMapping)
     )
-    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestVector))
-    suite.addTests(
+    SUITE.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestVector))
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestHeaderSpace)
     )
-    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestModel))
+    SUITE.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestModel))
 
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestLinksModel)
     )
 
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestTopologyCommand)
     )
 
-    suite.addTests(
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestTree)
     )
 
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=2).run(SUITE)
