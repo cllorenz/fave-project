@@ -3,3 +3,8 @@
 max-args = 8
 
 min-public-methods = 1
+
+
+[TYPECHECK]
+
+ignored-classes=_socketobject
