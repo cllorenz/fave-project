@@ -46,14 +46,14 @@ ip6np/generator.py \
 ip6np/ip6np.py \
 ip6np/parser.py \
 ip6np/ip6tables_custom_listener.py \
-topology/generator.py
+topology/generator.py \
+topology/host.py
 "
 
 #./aggregator/aggregator.py
 #./openflow/ofproxy.py
 #./openflow/switch.py
 #./test/check_flows.py
-#./topology/host.py
 #./topology/probe.py
 #./wl-ad6-full.py
 
