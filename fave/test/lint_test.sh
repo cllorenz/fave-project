@@ -40,7 +40,8 @@ util/collections_util.py \
 aggregator/aggregator_mock.py \
 aggregator/stop.py \
 netplumber/dump_np.py \
-netplumber/print_np.py
+netplumber/print_np.py \
+ip6np/packet_filter.py
 "
 
 #./aggregator/aggregator.py
@@ -48,7 +49,6 @@ netplumber/print_np.py
 #./ip6np/parser.py
 #./ip6np/ip6np.py
 #./ip6np/ip6tables_custom_listener.py
-#./ip6np/packet_filter.py
 #./openflow/ofproxy.py
 #./openflow/switch.py
 #./test/check_flows.py
