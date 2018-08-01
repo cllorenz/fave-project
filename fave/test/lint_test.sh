@@ -12,7 +12,8 @@ test/antlr/ip6tables_lexer.py \
 test/antlr/ip6tables_listener.py \
 test/antlr/ip6tables_parser.py \
 test/antlr/parser.py \
-test/antlr/test.py
+test/antlr/test.py \
+examples/example-traverse.py
 "
 
 #PYFILES=`find . -name "*.py"`
@@ -43,7 +44,6 @@ netplumber/print_np.py
 "
 
 #./aggregator/aggregator.py
-#./examples/example-traverse.py
 #./ip6np/generator.py
 #./ip6np/parser.py
 #./ip6np/ip6np.py
