@@ -9,7 +9,7 @@ import unittest
 from util.collections_util import dict_diff, dict_isect, dict_sub, dict_union
 from util.collections_util import list_diff, list_isect, list_sub, list_union
 
-from util.match_util import oxm_field_to_match_field
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 from util.packet_util import ETHER_TYPE_IPV6
 from util.packet_util import IPV6_ROUTE, IPV6_HOP, IPV6_HBH, IPV6_DST
@@ -133,21 +133,21 @@ class TestMatchUtil(unittest.TestCase):
         """ Tests OXM field conversion.
         """
 
-        self.assertEqual(oxm_field_to_match_field['eth_src'], 'packet.ether.source')
-        self.assertEqual(oxm_field_to_match_field['eth_dst'], 'packet.ether.destination')
-        self.assertEqual(oxm_field_to_match_field['eth_type'], 'packet.ether.type')
-        self.assertEqual(oxm_field_to_match_field['ipv4_src'], 'packet.ipv4.source')
-        self.assertEqual(oxm_field_to_match_field['ipv4_dst'], 'packet.ipv4.destination')
-        self.assertEqual(oxm_field_to_match_field['ipv6_src'], 'packet.ipv6.source')
-        self.assertEqual(oxm_field_to_match_field['ipv6_dst'], 'packet.ipv6.destination')
-        self.assertEqual(oxm_field_to_match_field['ip_proto'], 'packet.ipv6.proto')
-        self.assertEqual(oxm_field_to_match_field['icmpv6_type'], 'packet.ipv6.icmpv6.type')
-        self.assertEqual(oxm_field_to_match_field['ipv6_exthdr'], 'module.ipv6header.header')
-        self.assertEqual(oxm_field_to_match_field['tcp_dst'], 'packet.upper.dport')
-        self.assertEqual(oxm_field_to_match_field['tcp_src'], 'packet.upper.sport')
-        self.assertEqual(oxm_field_to_match_field['udp_dst'], 'packet.upper.dport')
-        self.assertEqual(oxm_field_to_match_field['upd_src'], 'packet.upper.sport')
-        self.assertEqual(oxm_field_to_match_field['in_port'], 'interface')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['eth_src'], 'packet.ether.source')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['eth_dst'], 'packet.ether.destination')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['eth_type'], 'packet.ether.type')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ipv4_src'], 'packet.ipv4.source')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ipv4_dst'], 'packet.ipv4.destination')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ipv6_src'], 'packet.ipv6.source')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ipv6_dst'], 'packet.ipv6.destination')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ip_proto'], 'packet.ipv6.proto')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['icmpv6_type'], 'packet.ipv6.icmpv6.type')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['ipv6_exthdr'], 'module.ipv6header.header')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['tcp_dst'], 'packet.upper.dport')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['tcp_src'], 'packet.upper.sport')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['udp_dst'], 'packet.upper.dport')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['upd_src'], 'packet.upper.sport')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['in_port'], 'interface')
 
 
 class TestPacketUtil(unittest.TestCase):
