@@ -1,3 +1,6 @@
+""" This module provides a flow generator model.
+"""
+
 import json
 import itertools
 
@@ -8,10 +11,15 @@ from ip6np.packet_filter import Field
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 class GeneratorModel(object):
-    def __init__(self,node,fields={}):
+    """ This class provides a flow generator model.
+    """
+
+    def __init__(self, node, fields=None):
+        fields = fields if fields is not None else {}
+
         self.node = node
         self.type = "generator"
-        self.ports = { node+'_1' : 1 }
+        self.ports = {node+'_1' : 1}
 
         self.mapping = Mapping()
 
@@ -25,22 +33,25 @@ class GeneratorModel(object):
 
         for comb in combinations:
             vector = Vector(self.mapping.length)
-            for i,oxm in enumerate(keys):
+            for i, oxm in enumerate(keys):
                 field = OXM_FIELD_TO_MATCH_FIELD[oxm]
                 set_field_in_vector(
                     self.mapping,
                     vector,
                     field,
                     field_value_to_bitvector(
-                        Field(field,FIELD_SIZES[field],comb[i])
+                        Field(field, FIELD_SIZES[field], comb[i])
                     ).vector
                 )
             outgoing.append(vector)
 
-        self.outgoing = HeaderSpace(self.mapping.length,outgoing)
+        self.outgoing = HeaderSpace(self.mapping.length, outgoing)
 
 
     def to_json(self):
+        """ Converts the flow generator to JSON.
+        """
+
         return {
             "node" : self.node,
             "type" : self.type,
@@ -50,7 +61,13 @@ class GeneratorModel(object):
 
     @staticmethod
     def from_json(j):
-        if type(j) == str:
+        """ Creates a flow generator from JSON.
+
+        Keyword arguments:
+        j -- a JSON string or object
+        """
+
+        if isinstance(j, str):
             j = json.loads(j)
 
         model = GeneratorModel(
