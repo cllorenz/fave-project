@@ -6,7 +6,7 @@
 import socket
 import json
 
-from fave.aggregator.aggregator import UDS_ADDR
+from aggregator import UDS_ADDR
 
 _AGGR = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 _AGGR.connect(UDS_ADDR)
