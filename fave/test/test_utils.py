@@ -403,7 +403,7 @@ class TestPathUtil(unittest.TestCase):
         )
 
         self.assertEqual(
-            path.to_string(),
+            str(path),
             '^.*(p in (foo.1,foo.2,bar.3,bar.4))$'
         )
 
