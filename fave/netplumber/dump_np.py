@@ -1,16 +1,22 @@
 #!/usr/bin/env python2
 
+""" This module provides functionality to let FaVe dump its state.
+"""
+
 import os
-import sys,getopt
+import sys
+import getopt
 import socket
 import json
-import netplumber.jsonrpc as jsonrpc
 
 from aggregator.aggregator import UDS_ADDR
 
 from util.print_util import eprint
 
 def print_help():
+    """ Prints usage message to stderr.
+    """
+
     eprint(
         "dump_np -ahfnp -o <dir>",
         "\t-a dump fave aggregator",
@@ -25,9 +31,13 @@ def print_help():
 
 
 def main(argv):
+    """ Sends an event to FaVe to dump its state.
+    """
+
     try:
-        opts,args = getopt.getopt(argv,"ahfno:p")
-    except:
+        only_opts = lambda x: x[0]
+        opts = only_opts(getopt.getopt(argv, "ahfno:p"))
+    except getopt.GetoptError:
         print_help()
         sys.exit(2)
 
@@ -38,7 +48,7 @@ def main(argv):
 
     odir = "np_dump"
 
-    for opt,arg in opts:
+    for opt, arg in opts:
         if opt == '-h':
             eprint("usage:")
             print_help()
@@ -64,7 +74,7 @@ def main(argv):
             print_help()
             sys.exit(1)
 
-    aggr = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+    aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     aggr.connect(UDS_ADDR)
 
     dump = {
@@ -76,7 +86,7 @@ def main(argv):
         'pipes':use_pipes
     }
 
-    if any([use_fave,use_flows,use_network,use_pipes]):
+    if any([use_fave, use_flows, use_network, use_pipes]):
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
 
