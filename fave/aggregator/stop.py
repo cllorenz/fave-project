@@ -6,7 +6,7 @@
 import socket
 import json
 
-from aggregator_commons import UDS_ADDR
+from util.aggregator_utils import UDS_ADDR
 
 _AGGR = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 _AGGR.connect(UDS_ADDR)

@@ -24,6 +24,8 @@ from Queue import Queue
 
 from copy import deepcopy as dc
 
+from util.aggregator_utils import UDS_ADDR
+
 from netplumber.model import Model
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
@@ -36,8 +38,6 @@ from topology.topology import TopologyCommand, LinksModel
 from topology.host import HostModel
 from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
-
-from aggregator_commons import UDS_ADDR
 
 def pstr(j):
     return json.dumps(j,sort_keys=True,indent=4,separators=(',',': '))

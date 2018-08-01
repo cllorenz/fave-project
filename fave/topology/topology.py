@@ -7,6 +7,7 @@ import getopt
 import socket
 import json
 
+from util.aggregator_utils import UDS_ADDR
 from util.print_util import eprint
 from openflow.switch import SwitchModel
 from ip6np.packet_filter import PacketFilterModel
@@ -293,7 +294,7 @@ def main(argv):
         return
 
     aggregator = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    aggregator.connect("/tmp/np_aggregator.socket")
+    aggregator.connect(UDS_ADDR)
 
     aggregator.send(json.dumps(topo.to_json()))
 
