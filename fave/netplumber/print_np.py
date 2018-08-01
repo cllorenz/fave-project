@@ -1,12 +1,20 @@
 #!/usr/bin/env python2
 
-import sys,getopt
+""" This module provides functionality to let NetPlumber print its state.
+"""
+
+import sys
+import getopt
 import socket
+
 import netplumber.jsonrpc as jsonrpc
 
 from util.print_util import eprint
 
 def print_help():
+    """ Prints usage to stderr.
+    """
+
     eprint(
         "print_np -hsutn",
         "\t-h print this help and exit",
@@ -20,9 +28,13 @@ def print_help():
 
 
 def main(argv):
+    """ Connects to NetPlumber to let it print its state.
+    """
+
     try:
-        opts,args = getopt.getopt(argv,"htnsu")
-    except:
+        only_opts = lambda x: x[0]
+        opts = only_opts(getopt.getopt(argv, "htnsu"))
+    except getopt.GetoptError:
         print_help()
         sys.exit(2)
 
@@ -31,7 +43,7 @@ def main(argv):
     print_topo = False
     print_nw = False
 
-    for opt,arg in opts:
+    for opt in [oa[0] for oa in opts]:
         if opt == '-h':
             print_help()
             sys.exit(0)
@@ -50,27 +62,24 @@ def main(argv):
         elif opt == '-n':
             print_nw = True
 
-
         else:
             print_help()
             sys.exit(1)
 
     if use_tcp:
-        np = (server,port)
-        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        sock.connect(np)
+        server = "127.0.0.1"
+        port = 1234
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((server, port))
 
     elif use_unix:
-        sock = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect("/tmp/net_plumber.socket")
 
     else:
         print_help()
         sys.exit(3)
-
-    server = "127.0.0.1"
-    port = 1234
-
 
     if print_topo:
         jsonrpc.print_topology(sock)
@@ -81,6 +90,7 @@ def main(argv):
     sock.close()
 
     sys.exit(0)
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
