@@ -1,51 +1,51 @@
+""" This module provides an openflow proxy serving as event source for FaVe.
+"""
 
 import json
-
+import time
 import asyncore
 import errno
-import os
 import socket
 import logging
-import threading
 
-from ryu.lib import dpid as dpid_lib
 from ryu.ofproto import ofproto_parser
-from ryu.ofproto import ofproto_v1_0
-from ryu.ofproto import ofproto_v1_0_parser
-from ryu.ofproto import ofproto_v1_3
-from ryu.ofproto import ofproto_v1_3_parser
 from ryu.ofproto import ofproto_protocol
 
-from netplumber.vector import Vector
-
-from openflow.switch import Match,SwitchRule,SwitchRuleField,SwitchCommand,Forward,Rewrite
+from openflow.switch import Match, Forward, Rewrite
+from openflow.switch import SwitchRule, SwitchRuleField, SwitchCommand
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
-log = logging.getLogger('tcp_proxy')
+LOGGER = logging.getLogger('tcp_proxy')
 logging.basicConfig(level=logging.INFO)
 
 
 class FixedDispatcher(asyncore.dispatcher):
     def handle_error(self):
-        log.error("",exc_info=True)
-        raise
+        LOGGER.error("", exc_info=True)
+        raise Exception("Error while handling data...")
 
 
 class Sock(FixedDispatcher):
     write_buffer = ''
 
-    def __init__(self,sock,map={},relay=None):
-        asyncore.dispatcher.__init__(self,sock,map=map)
+
+    def __init__(self, sock, pmap=None, relay=None):
+        asyncore.dispatcher.__init__(self, sock, map=pmap if pmap is not None else {})
         self.relay = relay
+        self.other = None
+
 
     def readable(self):
         return not self.other.write_buffer
 
+
     def writeable(self):
-        return (len(self.write_buffer) > 0)
+        return len(self.write_buffer) > 0
+
 
     def handle_read(self):
         self.other.write_buffer += self.recv(4096*4)
+
 
     def handle_write(self):
         if self.relay:
@@ -53,8 +53,9 @@ class Sock(FixedDispatcher):
         sent = self.send(self.write_buffer)
         self.write_buffer = self.write_buffer[sent:]
 
+
     def handle_close(self):
-        log.info(' [-] %i -> %i (closed)' % \
+        LOGGER.info(' [-] %i -> %i (closed)' % \
                      (self.getsockname()[1], self.getpeername()[1]))
 
         self.relay.close()
@@ -66,16 +67,16 @@ class Sock(FixedDispatcher):
 
 
 class Server(FixedDispatcher):
-    def __init__(self, dst_port, src_port=0, map=None,relay=None):
+    def __init__(self, dst_port, src_port=0, pmap=None, relay=None):
         self.dst_port = dst_port
-        self.map = map
+        self.pmap = pmap
         self.relay = relay
-        asyncore.dispatcher.__init__(self, map=self.map)
+        asyncore.dispatcher.__init__(self, map=self.pmap)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(('localhost', src_port))
         self.src_port = self.getsockname()[1]
-        log.info(' [*] Proxying %i ==> %i' % \
+        LOGGER.info(' [*] Proxying %i ==> %i' % \
                      (self.src_port, self.dst_port))
         self.listen(5)
 
@@ -86,44 +87,45 @@ class Server(FixedDispatcher):
         left, addr = pair
         try:
             right = socket.create_connection(('localhost', self.dst_port))
-        except socket.error, e:
-            if e.errno is not errno.ECONNREFUSED: raise
-            log.info(' [!] %i -> %i ==> %i refused' % \
+        except socket.error, err:
+            if err.errno is not errno.ECONNREFUSED:
+                raise
+            LOGGER.info(' [!] %i -> %i ==> %i refused' % \
                          (addr[1], self.src_port, self.dst_port))
             left.close()
         else:
-            log.info(' [+] %i -> %i ==> %i -> %i' % \
+            LOGGER.info(' [+] %i -> %i ==> %i -> %i' % \
                          (addr[1], self.src_port,
                           right.getsockname()[1], self.dst_port))
-            a,b = Sock(left, map=self.map, relay=self.relay), \
-                  Sock(right, map=self.map, relay=self.relay)
-            a.other, b.other = b, a
+            sock_a, sock_b = Sock(left, pmap=self.pmap, relay=self.relay), \
+                  Sock(right, pmap=self.pmap, relay=self.relay)
+            sock_a.other, sock_b.other = sock_b, sock_a
 
     def close(self):
-        log.info(' [*] Closed %i ==> %i' % \
+        LOGGER.info(' [*] Closed %i ==> %i' % \
                      (self.src_port, self.dst_port))
         asyncore.dispatcher.close(self)
 
 
 class OFProxy(object):
-    def __init__(self,map=None):
-        self.srv = Server(dst_port=6653,src_port=6633,map=map,relay=OFRelay())
+    def __init__(self, pmap=None):
+        self.srv = Server(dst_port=6653, src_port=6633, pmap=pmap, relay=OFRelay())
         self.port = self.srv.src_port
-        self.map = map
+        self.pmap = pmap
 
     def close(self):
         self.srv.close()
         self.srv = None
 
     def reopen(self):
-        self.srv = Server(src_port=self.port, dst_port=6653, map=self.map,relay=OFRelay())
+        self.srv = Server(src_port=self.port, dst_port=6653, pmap=self.pmap, relay=OFRelay())
 
     def __str__(self):
-        return 'of://localhost:%s' % (self.port,)
+        return 'of://localhost:%s' % (self.port, )
 
 
 class Relay(object):
-    def handle_stream(self,buf):
+    def handle_stream(self, buf):
         pass
 
     def close(self):
@@ -131,35 +133,35 @@ class Relay(object):
 
 
 def make_match(match):
-    m = match.to_jsondict()
-    fields = m['OFPMatch']['oxm_fields']
-    mf = []
+    mat = match.to_jsondict()
+    fields = mat['OFPMatch']['oxm_fields']
+    mfields = []
 
     for field in fields:
-        f = field['OXMTlv']
-        k = OXM_FIELD_TO_MATCH_FIELD[f['field']]
-        v = f['value']
+        fld = field['OXMTlv']
+        key = OXM_FIELD_TO_MATCH_FIELD[fld['field']]
+        val = fld['value']
 
-        mf.append(SwitchRuleField(k,v))
+        mfields.append(SwitchRuleField(key, val))
 
-    return Match(fields=mf)
+    return Match(fields=mfields)
 
 
 class OFRelay(Relay):
     def __init__(self):
         self.dpid = 0
-        self.aggregator = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+        self.aggregator = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.aggregator.connect("/tmp/np_aggregator.socket")
 
 
-    def handle_stream(self,buf):
+    def handle_stream(self, buf):
         if not buf:
             return
 
         # get parser for openflow message
         try:
-            (version, msg_type, msg_len, xid) = ofproto_parser.header(buf)
-        except:
+            version, msg_type, msg_len, xid = ofproto_parser.header(buf)
+        except ValueError:
             return
 
         cls = ofproto_protocol.ProtocolDesc(version=version)
@@ -167,7 +169,7 @@ class OFRelay(Relay):
         ofp_parser = cls.ofproto_parser
 
 
-        if not msg_type in ofp_parser._MSG_PARSERS:
+        if msg_type not in ofp_parser._MSG_PARSERS:
             return
         msg = ofp_parser.msg_parser(cls, version, msg_type, msg_len, xid, buf[:msg_len])
 
@@ -184,9 +186,9 @@ class OFRelay(Relay):
 
             for inst in msg.instructions:
                 for action in inst.actions:
-                    if type(action) == ofp_parser.OFPActionOutput:
+                    if isinstance(action, ofp_parser.OFPActionOutput):
                         fwd_ports.append(action.port)
-                    elif type(action) == ofp_parser.OFPActionSetField:
+                    elif isinstance(action, ofp_parser.OFPActionSetField):
                         rw_ports.append(action.port)
 
             if fwd_ports:
@@ -204,9 +206,9 @@ class OFRelay(Relay):
                 ofp.OFPFC_MODIFY : "update_rule"
             }[msg.command]
 
-            rule = SwitchRule(node,idx,match=match,actions=actions)
+            rule = SwitchRule(node, self.dpid, idx, match=match, actions=actions)
 
-            model = SwitchCommand(node,command,rule)
+            model = SwitchCommand(node, command, rule)
 
             self.aggregator.send(json.dumps(model.to_json()))
 
@@ -216,11 +218,10 @@ class OFRelay(Relay):
 
 
 if __name__ == '__main__':
-    import time
 
-    map = {}
+    PMAP = {}
+    PROXY = OFProxy(pmap=PMAP)
 
-    proxy = OFProxy(map=map)
-    asyncore.loop(map=map,timeout=5.0)
+    asyncore.loop(map=PMAP, timeout=5.0)
     while True:
         time.sleep(1)
