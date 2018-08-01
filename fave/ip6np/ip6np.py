@@ -1,22 +1,25 @@
 #!/usr/bin/env python2
-import sys, getopt
 
-# uncomment if pypy is used
-#sys.path.append("/usr/lib/python2.7/site-packages")
+""" This module provides functionality to send ip6tables configurations to FaVe.
+"""
 
-from parser import ASTParser
-import generator
-
-#import time
+import sys
+import getopt
 import json
-
 import socket
 
+import generator
+
+from parser import ASTParser
 from util.print_util import eprint
 from aggregator.aggregator_commons import UDS_ADDR
 
 def print_help():
-    eprint("ip6np -n <node> -p <ports> -f <file>",
+    """ Prints the usage on stderr.
+    """
+
+    eprint(
+        "ip6np -n <node> -p <ports> -f <file>",
         "\t-n <node> node identifier",
         "\t-i <ip> ip address",
         "\t-p <ports> number of ports"
@@ -24,18 +27,23 @@ def print_help():
         sep="\n"
     )
 
+
 def main(argv):
+    """ Connects to FaVe and sends an ip6tables configuration event.
+    """
+
     ifile = ''
     node = ''
-    ports = [1,2]
+    ports = [1, 2]
 
     try:
-        opts,args = getopt.getopt(argv,"hn:i:p:f:",["node=","file="])
+        only_opts = lambda x: x[0]
+        opts = only_opts(getopt.getopt(argv, "hn:i:p:f:", ["node=", "file="]))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
 
-    for opt,arg in opts:
+    for opt, arg in opts:
         if opt == '-h':
             print_help()
             sys.exit(0)
@@ -44,31 +52,17 @@ def main(argv):
         elif opt == '-i':
             address = arg
         elif opt == '-p':
-            ports = range(1,int(arg))
+            ports = range(1, int(arg))
         elif opt == '-f':
             ifile = arg
 
-#    eprint("Input file is", ifile, sep=" ")
-
-#    t1 = time.time()
-    with open(ifile,'r') as f:
-        ruleset = f.read()
-
-#    t2 = time.time()
+    with open(ifile, 'r') as ifile:
+        ruleset = ifile.read()
 
     if ruleset:
         ast = ASTParser.parse(ruleset)
 
-#        t3 = time.time()
-
-        model = generator.generate(ast,node,address,ports)
-
-#        t4 = time.time()
-
-#        td1 = t2-t1
-#        td2 = t3-t2
-#        td3 = t4-t3
-#        res = td1+td2+td3
+        model = generator.generate(ast, node, address, ports)
 
         aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         aggr.connect(UDS_ADDR)
@@ -77,8 +71,6 @@ def main(argv):
 
         aggr.close()
 
-        #print(json.dumps(json.loads(model),indent=2,sort_keys=True))
-#        print("file reading: %s\nparsing: %s\nmodel generation: %s\ntotal: %s" % (str(td1),str(td2),str(td3),str(res)))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
