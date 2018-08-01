@@ -50,11 +50,11 @@ topology/generator.py \
 topology/host.py \
 topology/probe.py \
 openflow/switch.py \
-openflow/ofproxy.py
+openflow/ofproxy.py \
+test/check_flows.py
 "
 
 #./aggregator/aggregator.py
-#./test/check_flows.py
 #./wl-ad6-full.py
 
 for PYFILE in $PYFILES; do
