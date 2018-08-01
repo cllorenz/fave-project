@@ -1,8 +1,17 @@
-from ip6tables_listener import IP6TablesListener
-from tree import Tree
+""" This module provides a parse tree listener which constructs an AST from an
+    ip6tables rule set token stream.
+"""
+
 import parser
 
+from ip6tables_listener import IP6TablesListener
+from tree import Tree
+
 class IP6TablesCustomListener(IP6TablesListener):
+    """ This class implements a parse tree listener for ip6tables rule set token
+        streams.
+    """
+
     _ast = None
 
     # entry :         (SPACE? ip6tables? NL)+ EOF;
@@ -36,13 +45,13 @@ class IP6TablesCustomListener(IP6TablesListener):
     def enterCommand_P(self, ctx):
         self._ast = self._ast.add_child("-P")
 
-    def exitCommand_P(self,ctx):
+    def exitCommand_P(self, ctx):
         self._ast = self._ast.parent
 
-    def enterJump(self,ctx):
+    def enterJump(self, ctx):
         self._ast.add_child("-j")
 
-    def exitJump(self,ctx):
+    def exitJump(self, ctx):
         self._ast = self._ast.parent
 
     def enterTarget(self, ctx):
@@ -54,13 +63,13 @@ class IP6TablesCustomListener(IP6TablesListener):
     def enterChain(self, ctx):
         self._ast.get_last().add_child(ctx.getText())
 
-    def enterIdentifier(self,ctx):
+    def enterIdentifier(self, ctx):
         self._ast = self._ast.add_child(ctx.getText())
 
-    def exitIdentifier(self,ctx):
+    def exitIdentifier(self, ctx):
         self._ast = self._ast.parent
 
-    def enterValue(self,ctx):
+    def enterValue(self, ctx):
         self._ast.get_last().add_child(ctx.getText())
 
     # arg :           negation? DASH (DASH)? identifier SPACE value;
