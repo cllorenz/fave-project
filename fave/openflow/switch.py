@@ -10,7 +10,7 @@ from netplumber.model import Model
 
 from util.print_util import eprint
 
-from util.match_util import oxm_field_to_match_field
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 from util.collections_util import list_sub
 
@@ -251,7 +251,7 @@ class SwitchModel(Model):
 def fieldify(field):
     f,v = field
     try:
-        return SwitchRuleField(oxm_field_to_match_field[f],v)
+        return SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[f],v)
     except KeyError:
         return SwitchRuleField(f,v)
 

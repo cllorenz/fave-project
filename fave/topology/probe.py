@@ -3,7 +3,7 @@ import itertools
 
 from util.packet_util import ETHER_TYPE_IPV6, normalize_ipv6_address, normalize_ipv6_proto, normalize_upper_port
 from util.path_util import Path
-from util.match_util import oxm_field_to_match_field
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from netplumber.mapping import Mapping,FIELD_SIZES
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from ip6np.generator import field_value_to_bitvector
@@ -30,7 +30,7 @@ class ProbeModel(object):
             (test_fields,test_expr['test_fields'])
         ]:
             for field in fields:
-                self.mapping.extend(oxm_field_to_match_field[field])
+                self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
 
             keys = sorted(fields)
             combinations = itertools.product(*(fields[k] for k in keys))
@@ -38,7 +38,7 @@ class ProbeModel(object):
             for comb in combinations:
                 vector = Vector(self.mapping.length)
                 for i,oxm in enumerate(keys):
-                    field = oxm_field_to_match_field[oxm]
+                    field = OXM_FIELD_TO_MATCH_FIELD[oxm]
                     set_field_in_vector(
                         self.mapping,
                         vector,

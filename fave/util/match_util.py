@@ -1,4 +1,7 @@
-oxm_field_to_match_field = {
+""" This module provides utilities to convert match field identifier.
+"""
+
+OXM_FIELD_TO_MATCH_FIELD = {
     'eth_src' : "packet.ether.source",
     'eth_dst' : "packet.ether.destination",
     'eth_type' : "packet.ether.type",
@@ -15,4 +18,3 @@ oxm_field_to_match_field = {
     'upd_src' : "packet.upper.sport",
     'in_port' : 'interface'
 }
-

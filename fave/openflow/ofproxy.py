@@ -19,7 +19,7 @@ from ryu.ofproto import ofproto_protocol
 from netplumber.vector import Vector
 
 from openflow.switch import Match,SwitchRule,SwitchRuleField,SwitchCommand,Forward,Rewrite
-from util.match_util import oxm_field_to_match_field
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 log = logging.getLogger('tcp_proxy')
 logging.basicConfig(level=logging.INFO)
@@ -137,7 +137,7 @@ def make_match(match):
 
     for field in fields:
         f = field['OXMTlv']
-        k = oxm_field_to_match_field[f['field']]
+        k = OXM_FIELD_TO_MATCH_FIELD[f['field']]
         v = f['value']
 
         mf.append(SwitchRuleField(k,v))
