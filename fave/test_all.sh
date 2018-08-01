@@ -6,6 +6,9 @@ NPPORT=1234
 TMPDIR=/tmp/np
 mkdir -p $TMPDIR
 
+echo "start linter tests..."
+bash test/lint_test.sh
+
 echo "start unit tests..."
 PYTHONPATH=. python2 test/unit_tests.py
 
