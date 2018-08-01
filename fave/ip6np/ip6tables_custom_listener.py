@@ -10,7 +10,7 @@ class IP6TablesCustomListener(IP6TablesListener):
         self._ast = Tree("root")
 
     def exitEntry(self, ctx):
-        parser.ASTParser.writeAST(self._ast)
+        parser.ASTParser.write_ast(self._ast)
 
     # ip6tables :     IP6TABLES (SPACE command_t)? SPACE command;
     def enterIp6tables(self, ctx):

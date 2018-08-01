@@ -9,7 +9,13 @@ class ASTParser(object):
     _ast = None
 
     @staticmethod
-    def writeAST(ast_in):
+    def write_ast(ast_in):
+        """ Persists an AST.
+
+        Keyword arguments:
+        ast_in -- an AST to be persisted
+        """
+
         ASTParser._ast = ast_in
 
     @staticmethod
