@@ -1,16 +1,19 @@
 #!/usr/bin/env python2
 
+""" This script sends a stopping event to FaVe.
+"""
+
 import socket
 import json
 
-from aggregator import UDS_ADDR
+from fave.aggregator.aggregator import UDS_ADDR
 
-aggr = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-aggr.connect(UDS_ADDR)
+_AGGR = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+_AGGR.connect(UDS_ADDR)
 
-stop = {
+_STOP = {
     'type':'stop'
 }
 
-aggr.sendall(json.dumps(stop))
-aggr.close()
+_AGGR.sendall(json.dumps(_STOP))
+_AGGR.close()
