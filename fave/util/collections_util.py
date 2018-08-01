@@ -1,39 +1,104 @@
 #!/usr/bin/env python2
 
-def dict_sub(d1,d2):
-    assert(type(d1) == dict and type(d2) == dict)
-    common = [k for k in d1 if k in d2]
-    return {k:d1[k] for k in d1 if not k in common}        
+""" This module provides set operations for dicts and lists.
+"""
 
-def dict_diff(d1,d2):
-    assert(type(d1) == dict and type(d2) == dict)
-    return dict_sub(dict_union(d1,d2),dict_isect(d1,d2))
+def dict_sub(dct1, dct2):
+    """ Subtracts a dict from another.
 
-def dict_isect(d1,d2):
-    assert(type(d1) == dict and type(d2) == dict)
-    common = [k for k in d1 if k in d2]
-    return {k:d1[k] for k in common}
+    Keyword arguments:
+    dct1 -- a dictionary
+    dct2 -- a dictionary to be subtracted
+    """
 
-def dict_union(d1,d2):
-    assert(type(d1) == dict and type(d2) == dict)
-    keys = d1.keys() + d2.keys()
-    return {k:d1[k] if k in d1 else d2[k] for k in keys}
+    assert isinstance(dct1, dict) and isinstance(dct2, dict)
+    common = [k for k in dct1 if k in dct2]
+    return {k:dct1[k] for k in dct1 if k not in common}
 
 
-def list_sub(l1,l2):
-    assert(type(l1) == list and type(l2) == list)
-    return [e for e in l1 if not e in l2]
+def dict_diff(dct1, dct2):
+    """ Returns the diff of two dicts.
 
-def list_diff(l1,l2):
-    assert(type(l1) == list and type(l2) == list)
-    return list_sub(list_union(l1,l2),list_isect(l1,l2))
+    Keyword arguments:
+    dct1 -- a dictionary
+    dct2 -- a dictionary
+    """
 
-def list_isect(l1,l2):
-    assert(type(l1) == list and type(l2) == list)
-    return [e for e in l1 if e in l2]
+    assert isinstance(dct1, dict) and isinstance(dct2, dict)
+    return dict_sub(dict_union(dct1, dct2), dict_isect(dct1, dct2))
 
-def list_union(l1,l2):
-    assert(type(l1) == list and type(l2) == list)
-    lall = l1 + l2
-    isect = list_isect(l1,l2)
-    return isect + [e for e in lall if not e in isect]
+
+def dict_isect(dct1, dct2):
+    """ Intersects two dicts.
+
+    Keyword arguments:
+    dct1 -- a dictionary
+    dct2 -- a dictionary
+    """
+
+    assert isinstance(dct1, dict) and isinstance(dct2, dict)
+    common = [k for k in dct1 if k in dct2]
+    return {k:dct1[k] for k in common}
+
+
+def dict_union(dct1, dct2):
+    """ Unions two dicts.
+
+    Keyword arguments:
+    dct1 -- a dictionary
+    dct2 -- a dictionary
+    """
+
+    assert isinstance(dct1, dict) and isinstance(dct2, dict)
+    keys = dct1.keys() + dct2.keys()
+    return {k:dct1[k] if k in dct1 else dct2[k] for k in keys}
+
+
+def list_sub(lst1, lst2):
+    """ Subtracts a list from another.
+
+    Keyword arguments:
+    dct1 -- a list
+    dct2 -- a list to be subtracted
+    """
+
+    assert isinstance(lst1, list) and isinstance(lst2, list)
+    return [e for e in lst1 if e not in lst2]
+
+
+def list_diff(lst1, lst2):
+    """ Returns the diff of two lists.
+
+    Keyword arguments:
+    dct1 -- a list
+    dct2 -- a list
+    """
+
+    assert isinstance(lst1, list) and isinstance(lst2, list)
+    return list_sub(list_union(lst1, lst2), list_isect(lst1, lst2))
+
+
+def list_isect(lst1, lst2):
+    """ Intersects two lists.
+
+    Keyword arguments:
+    dct1 -- a list
+    dct2 -- a list
+    """
+
+    assert isinstance(lst1, list) and isinstance(lst2, list)
+    return [e for e in lst1 if e in lst2]
+
+
+def list_union(lst1, lst2):
+    """ Unions two lists.
+
+    Keyword arguments:
+    dct1 -- a list
+    dct2 -- a list
+    """
+
+    assert isinstance(lst1, list) and isinstance(lst2, list)
+    lall = lst1 + lst2
+    isect = list_isect(lst1, lst2)
+    return isect + [e for e in lall if e not in isect]
