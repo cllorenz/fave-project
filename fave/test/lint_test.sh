@@ -66,8 +66,14 @@ for PYFILE in $PYFILES; do
     fi
 
     PYTHONPATH=. pylint $PYFILE > $TMP 2>&1
-    [ $? -eq 0 ] && echo "ok" || ( echo "fail" && cat $TMP )
-
+    if [ $? -eq 0 ]; then
+        echo "ok"
+    else
+        SPY=`echo $PYFILE | cut -d/ -f2-`
+        REPORT="/tmp/lint_$SPY.log"
+        cp $TMP $REPORT
+        echo "fail (report at $REPORT)"
+    fi
 done
 
 [ -f $TMP ] && rm $TMP
