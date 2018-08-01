@@ -37,8 +37,8 @@ util/match_util.py \
 util/json_util.py \
 util/collections_util.py \
 aggregator/aggregator_mock.py \
-aggregator/stop.py
-
+aggregator/stop.py \
+netplumber/dump_np.py
 "
 
 #./aggregator/aggregator.py
@@ -48,7 +48,6 @@ aggregator/stop.py
 #./ip6np/ip6np.py
 #./ip6np/ip6tables_custom_listener.py
 #./ip6np/packet_filter.py
-#./netplumber/dump_np.py
 #./netplumber/print_np.py
 #./openflow/ofproxy.py
 #./openflow/switch.py
