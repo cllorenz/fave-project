@@ -36,13 +36,15 @@ util/packet_util.py \
 util/match_util.py \
 util/json_util.py \
 util/collections_util.py \
-aggregator/aggregator_mock.py
+aggregator/aggregator_mock.py \
+aggregator/stop.py
+
 "
 
 #./aggregator/aggregator.py
-#./aggregator/stop.py
 #./examples/example-traverse.py
 #./ip6np/generator.py
+#./ip6np/parser.py
 #./ip6np/ip6np.py
 #./ip6np/ip6tables_custom_listener.py
 #./ip6np/packet_filter.py
