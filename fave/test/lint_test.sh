@@ -49,11 +49,11 @@ ip6np/ip6tables_custom_listener.py \
 topology/generator.py \
 topology/host.py \
 topology/probe.py \
-openflow/switch.py
+openflow/switch.py \
+openflow/ofproxy.py
 "
 
 #./aggregator/aggregator.py
-#./openflow/ofproxy.py
 #./test/check_flows.py
 #./wl-ad6-full.py
 
