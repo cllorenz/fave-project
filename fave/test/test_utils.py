@@ -13,7 +13,7 @@ from util.match_util import oxm_field_to_match_field
 
 from util.packet_util import ETHER_TYPE_IPV6
 from util.packet_util import IPV6_ROUTE, IPV6_HOP, IPV6_HBH, IPV6_DST
-from util.packet_util import IPV6_FRAG, IPV6_AUTH, IPV6_ESP
+from util.packet_util import IPV6_FRAG, IPV6_AUTH, IPV6_ESP, IPV6_NONE, IPV6_PROT
 from util.packet_util import IP_PROTO_ICMPV6, IP_PROTO_TCP, IP_PROTO_UDP
 from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
 from util.packet_util import normalize_ipv6header_header, normalize_upper_port
@@ -169,6 +169,8 @@ class TestPacketUtil(unittest.TestCase):
         self.assertEqual(IPV6_FRAG, '00101100')
         self.assertEqual(IPV6_AUTH, '00110011')
         self.assertEqual(IPV6_ESP, '00110010')
+        self.assertEqual(IPV6_NONE, '00111011')
+        self.assertEqual(IPV6_PROT, '11111111')
 
 
     def test_normalize_ipv6header_hdr(self):

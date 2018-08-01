@@ -14,6 +14,8 @@ IPV6_DST = '00111100'        # 60
 IPV6_FRAG = '00101100'       # 44
 IPV6_AUTH = '00110011'       # 51
 IPV6_ESP = '00110010'        # 50
+IPV6_NONE = '00111011'       # 59
+IPV6_PROT = '11111111'       # 255
 
 
 def normalize_upper_port(port):
@@ -86,6 +88,6 @@ def normalize_ipv6header_header(header):
         "frag"          : IPV6_FRAG,
         "auth"          : IPV6_AUTH,
         "esp"           : IPV6_ESP,
-        #"none"          : "", # XXX implement
-        #"prot"          : ""  # XXX implement
+        "none"          : IPV6_NONE,
+        "prot"          : IPV6_PROT
     }[header]
