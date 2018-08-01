@@ -19,6 +19,7 @@ def profile_method(method):
         PROFILE.enable()
         method(*args, **kwargs)
         PROFILE.disable()
+
     return profile_wrapper
 
 
