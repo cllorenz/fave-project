@@ -1,37 +1,53 @@
-
-
+""" This module provides packet constants and utilities.
+"""
 
 ETHER_TYPE_IPV6 = '00000110' # 6
 
 IP_PROTO_ICMPV6 = '00111010' # 58
-IP_PROTO_TCP =    '00000110' # 6
-IP_PROTO_UDP =    '00010001' # 17
+IP_PROTO_TCP = '00000110'    # 6
+IP_PROTO_UDP = '00010001'    # 17
 
-IPV6_ROUTE = "00101011" # 43
-IPV6_HOP =   "00000000" # 0
-IPV6_HBH =   "00000000" # 0
-IPV6_DST =   "00111100" # 60
-IPV6_FRAG =  "00101100" # 44
-IPV6_AUTH =  "00110011" # 51
-IPV6_ESP =   "00110010" # 50
+IPV6_ROUTE = '00101011'      # 43
+IPV6_HOP = '00000000'        # 0
+IPV6_HBH = '00000000'        # 0
+IPV6_DST = '00111100'        # 60
+IPV6_FRAG = '00101100'       # 44
+IPV6_AUTH = '00110011'       # 51
+IPV6_ESP = '00110010'        # 50
 
 
 def normalize_upper_port(port):
-    return '{:016b}'.format(int(port))
+    """ Normalizes upper protocol port numbers.
+
+    Keyword arguments:
+    port -- a port number
+    """
+
+    portno = int(port)
+    assert portno > 0 and portno < 65536
+
+    return '{:016b}'.format(portno)
+
 
 def normalize_ipv6_address(address):
+    """ Normalizes an IPv6 address.
+
+    Keyword arguments:
+    address -- an IPv6 address in full, cidr, or short notation
+    """
+
     try:
-        addr,cidr = address.split("/")
+        addr, cidr = address.split("/")
     except ValueError:
         addr = address
         cidr = None
 
-    laddr,raddr = addr.split("::")
+    laddr, raddr = addr.split("::")
     laddr = laddr.split(":")
     if raddr:
         raddr = raddr.split(":")
         laddr += ["0" for _i in range(8-len(laddr)-len(raddr))] + raddr
-    addr = "".join(["{:016b}".format(int(block,16)) for block in laddr])
+    addr = "".join(["{:016b}".format(int(block, 16)) for block in laddr])
 
     if cidr and int(cidr) < 128:
         cidr = int(cidr)
@@ -39,7 +55,14 @@ def normalize_ipv6_address(address):
     else:
         return addr
 
+
 def normalize_ipv6_proto(proto):
+    """ Normalizes the IPv6 upper protocol field (last next header field in chain).
+
+    Keyword arguments:
+    proto -- the protocol field value
+    """
+
     return {
         "icmpv6"    : IP_PROTO_ICMPV6,
         "tcp"       : IP_PROTO_TCP,
@@ -48,6 +71,12 @@ def normalize_ipv6_proto(proto):
 
 
 def normalize_ipv6header_header(header):
+    """ Normalizes the IPv6 next header field.
+
+    Keyword arguments:
+    header -- the next header field value
+    """
+
     return {
         "ipv6-route"    : IPV6_ROUTE,
         "hop"           : IPV6_HOP,
@@ -60,4 +89,3 @@ def normalize_ipv6header_header(header):
         #"none"          : "", # XXX implement
         #"prot"          : ""  # XXX implement
     }[header]
-
