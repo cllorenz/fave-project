@@ -42,12 +42,12 @@ aggregator/stop.py \
 netplumber/dump_np.py \
 netplumber/print_np.py \
 ip6np/packet_filter.py \
-ip6np/generator.py
+ip6np/generator.py \
+ip6np/ip6np.py
 "
 
 #./aggregator/aggregator.py
 #./ip6np/parser.py
-#./ip6np/ip6np.py
 #./ip6np/ip6tables_custom_listener.py
 #./openflow/ofproxy.py
 #./openflow/switch.py
