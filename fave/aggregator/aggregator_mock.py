@@ -6,7 +6,7 @@
 import socket
 import os
 
-from fave.aggregator.aggregator import UDS_ADDR
+from fave.aggregator.aggregator_commons import UDS_ADDR
 
 def main():
     """ Starts mocking by accepting all incoming FaVe events.

@@ -13,6 +13,7 @@ import json
 import socket
 
 from util.print_util import eprint
+from aggregator.aggregator_commons import UDS_ADDR
 
 def print_help():
     eprint("ip6np -n <node> -p <ports> -f <file>",
@@ -69,8 +70,8 @@ def main(argv):
 #        td3 = t4-t3
 #        res = td1+td2+td3
 
-        aggr = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-        aggr.connect("/tmp/np_aggregator.socket")
+        aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        aggr.connect(UDS_ADDR)
 
         aggr.send(json.dumps(model.to_json()))
 
