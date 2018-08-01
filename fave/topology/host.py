@@ -1,18 +1,27 @@
+""" This module provides a combination of a flow generator and a probe to
+    represent a host.
+"""
+
 import json
 
-from util.packet_util import ETHER_TYPE_IPV6, normalize_ipv6_address, normalize_ipv6_proto, normalize_upper_port
+from util.packet_util import ETHER_TYPE_IPV6
+from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
+#from util.packet_util import normalize_upper_port
 from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
-from ip6np.generator import field_value_to_bitvector
-from ip6np.packet_filter import Field
+#from ip6np.generator import field_value_to_bitvector
+#from ip6np.packet_filter import Field
 
 class HostModel(object):
-    def __init__(self,node,address,ports=[]):
+    """ This class combines a flow generator and a probe to represent a host.
+    """
+
+    def __init__(self, node, address, ports=None):
         self.node = node
         self.type = "host"
         self.address = address
-        self.uports = ports
-        self.ports = { node+'_1' : 1 }
+        self.uports = ports if ports is not None else []
+        self.ports = {node+'_1' : 1}
 
         #incoming = []
         outgoing = []
@@ -25,34 +34,32 @@ class HostModel(object):
         #self.mapping.extend('packet.upper.sport')
         self.mapping.extend('packet.upper.dport')
 
-        for proto,no in ports:
-            """
-            vin = Vector(self.mapping.length)
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.ether.type',
-                ETHER_TYPE_IPV6
-            )
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.ipv6.destination',
-                normalize_ipv6_address(address)
-            )
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.upper.dport',
-                normalize_upper_port(int(no))
-            )
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.ipv6.proto',
-                normalize_ipv6_proto(proto)
-            )
-            """
+        for proto, portno in ports:
+            #vin = Vector(self.mapping.length)
+            #set_field_in_vector(
+            #    self.mapping,
+            #    vin,
+            #    'packet.ether.type',
+            #    ETHER_TYPE_IPV6
+            #)
+            #set_field_in_vector(
+            #    self.mapping,
+            #    vin,
+            #    'packet.ipv6.destination',
+            #    normalize_ipv6_address(address)
+            #)
+            #set_field_in_vector(
+            #    self.mapping,
+            #    vin,
+            #    'packet.upper.dport',
+            #    normalize_upper_port(int(no))
+            #)
+            #set_field_in_vector(
+            #    self.mapping,
+            #    vin,
+            #    'packet.ipv6.proto',
+            #    normalize_ipv6_proto(proto)
+            #)
 
             vout = Vector(self.mapping.length)
             set_field_in_vector(
@@ -71,7 +78,7 @@ class HostModel(object):
                 self.mapping,
                 vout,
                 'packet.upper.dport', #'packet.upper.sport',
-                '{:016b}'.format(int(no))
+                '{:016b}'.format(int(portno))
             )
             set_field_in_vector(
                 self.mapping,
@@ -83,23 +90,21 @@ class HostModel(object):
             #incoming.append(vin)
             outgoing.append(vout)
 
-        """
-        if incoming == []:
-            vin = Vector(self.mapping.length)
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.ether.type',
-                ETHER_TYPE_IPV6
-            )
-            set_field_in_vector(
-                self.mapping,
-                vin,
-                'packet.ipv6.destination',
-                normalize_ipv6_address(address)
-            )
-            incoming.append(vin)
-        """
+        #if incoming == []:
+        #    vin = Vector(self.mapping.length)
+        #    set_field_in_vector(
+        #        self.mapping,
+        #        vin,
+        #        'packet.ether.type',
+        #        ETHER_TYPE_IPV6
+        #    )
+        #    set_field_in_vector(
+        #        self.mapping,
+        #        vin,
+        #        'packet.ipv6.destination',
+        #        normalize_ipv6_address(address)
+        #    )
+        #    incoming.append(vin)
 
         if outgoing == []:
             vout = Vector(self.mapping.length)
@@ -118,10 +123,13 @@ class HostModel(object):
             outgoing.append(vout)
 
         #self.incoming = HeaderSpace(self.mapping.length,incoming)
-        self.outgoing = HeaderSpace(self.mapping.length,outgoing)
+        self.outgoing = HeaderSpace(self.mapping.length, outgoing)
 
 
     def to_json(self):
+        """ Converts the host to JSON.
+        """
+
         return {
             "node" : self.node,
             "type" : self.type,
@@ -131,14 +139,21 @@ class HostModel(object):
             "outgoing" : self.outgoing.to_json()
         }
 
+
     @staticmethod
     def from_json(j):
-        if type(j) == str:
+        """ Constructs host from JSON.
+
+        Keyword arguments:
+        j -- a JSON string or object
+        """
+
+        if isinstance(j, str):
             j = json.loads(j)
 
         model = HostModel(
             j["node"],
-            j["address"],
+            j["address"]
         )
         model.mapping = Mapping.from_json(j["mapping"])
         #model.incoming = HeaderSpace.from_json(j["incoming"])
