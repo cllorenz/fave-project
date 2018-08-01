@@ -97,9 +97,9 @@ class Rewrite(SwitchRuleAction):
     """ This class provides a rewrite action.
     """
 
-    def __init__(self, rw=None):
+    def __init__(self, rewrite=None):
         super(Rewrite, self).__init__("rewrite")
-        self.rw = rw if rw is not None else [] # type: [Field()]
+        self.rewrite = rewrite if rewrite is not None else [] # type: [Field()]
 
 
     def to_json(self):
@@ -108,7 +108,7 @@ class Rewrite(SwitchRuleAction):
 
         return {
             "name" : self.name,
-            "rw" : [field.to_json() for field in self.rw],
+            "rw" : [field.to_json() for field in self.rewrite],
         }
 
 
@@ -124,7 +124,7 @@ class Rewrite(SwitchRuleAction):
             j = json.loads(j)
 
         return Rewrite(
-            rw=[SwitchRuleField.from_json(field) for field in j["rw"]]
+            rewrite=[SwitchRuleField.from_json(field) for field in j["rw"]]
         )
 
 
