@@ -398,16 +398,18 @@ def main():
     LOGGER.info("creating hosts (pf + source) in dmz...")
     cnt = 2
     only_ha = lambda x: x[:2]
-    for  host, addr in [only_ha(x) for x in hosts]:
+    for host, addr in [only_ha(x) for x in hosts]:
+        hostnet = "%s.dmz" % host
+        nethost = "dmz-%s" % host
         measure(
-            lambda h=host, a=addr: topo.main(
+            lambda h=hostnet, a=addr: topo.main(
                 ["-a", "-t", "packet_filter", "-n", h, "-i", a, "-p", "1"]
             ),
             PF_LOGGER
         )
 
         measure(
-            lambda h=host: topo.main([
+            lambda h=hostnet: topo.main([
                 "-a",
                 "-l", "%s.2:dmz.%s,dmz.%s:%s.1" % (h, cnt, cnt, h)
             ]),
@@ -415,7 +417,7 @@ def main():
         )
 
         measure(
-            lambda h=host, a=addr: topo.main([
+            lambda h=hostnet, a=addr: topo.main([
                 "-a",
                 "-t", "generator",
                 "-n", "source.%s" % h,
@@ -425,14 +427,14 @@ def main():
         )
 
         measure(
-            lambda h=host, a=addr: ip6tables.main(
+            lambda h=nethost, a=addr: ip6tables.main(
                 ["-n", h, "-i", a, "-f", "rulesets/%s-ruleset" % h]
             ),
             PFR_LOGGER
         )
 
         measure(
-            lambda h=host: topo.main([
+            lambda h=hostnet: topo.main([
                 "-a",
                 "-l", "source.%s.1:%s_output_states_in" % (h, h)
             ]),
@@ -442,7 +444,7 @@ def main():
         # forwarding rule to switch
         LOGGER.debug("\tset rule: * -> fd=%s.%s", host, 1)
         measure(
-            lambda h=host: switch.main([
+            lambda h=hostnet: switch.main([
                 "-a",
                 "-i", "1",
                 "-n", h,
@@ -533,33 +535,7 @@ def main():
     LOGGER.info("  testing dmz... ")
     only_ha = lambda x: x[:2]
     for hname, addr in [only_ha(x) for x in hosts]:
-
-        # add probe that looks for incoming flows for tcp port 22 (ssh)
-        # originating from the internet
-        measure(
-            lambda hn=hname: topo.main([
-                "-a",
-                "-t", "probe",
-                "-n", "probe.%s" % hn,
-                "-q", "existential",
-                "-P", ".*(p=pgf.1);$",
-                "-F", "tcp_dst=22"
-            ]),
-            PROBE_LOGGER
-        )
-        # link probe to host input
-        measure(
-            lambda hn=hname: topo.main(
-                ["-a", "-l", "%s_input_states_accept:probe.%s.1" % (hn, hn)]
-            ),
-            PROBEL_LOGGER
-        )
-        measure(
-            lambda hn=hname: topo.main(
-                ["-a", "-l", "%s_input_rules_accept:probe.%s.1" % (hn, hn)]
-            ),
-            PROBEL_LOGGER
-        )
+        _test_host(hname, "dmz")
 
         # remove probe
         #PYTHONPATH=. $TIME -ao $PROBELOG python2 topology/topology.py -d -n $H
@@ -595,7 +571,7 @@ def _test_subnet(net, hosts=None):
 
 
 def _test_host(host, net):
-    hname = "%s.%s" % (host[0], net)
+    hname = "%s.%s" % (host[0] if isinstance(host, tuple) else host, net)
     server = "probe.%s" % hname
 
     # add probe that looks for incoming flows for tcp port 22 (ssh)

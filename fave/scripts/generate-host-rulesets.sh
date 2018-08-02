@@ -66,12 +66,12 @@ udp:143,udp:220,udp:22 \
 
 
 for HOST in $HOSTS; do
-    H="`echo $HOST | cut -d ',' -f 1`.dmz"
+    H=`echo $HOST | cut -d ',' -f 1`
     A=`echo $HOST | cut -d ',' -f 2`
     PUB=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 1`
     PRIV=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 2`
 
-    SCRIPT="rulesets/$H-ruleset"
+    SCRIPT="rulesets/dmz-$H-ruleset"
     echo -n "" > $SCRIPT
 
     # preamble
