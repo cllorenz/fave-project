@@ -52,10 +52,9 @@ topology/probe.py \
 openflow/switch.py \
 openflow/ofproxy.py \
 test/check_flows.py \
-aggregator/aggregator.py
+aggregator/aggregator.py \
+bench/wl-ad6-full.py
 "
-
-#./wl-ad6-full.py
 
 for PYFILE in $PYFILES; do
     echo -n "lint $PYFILE: "
