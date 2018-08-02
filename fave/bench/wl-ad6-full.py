@@ -20,6 +20,61 @@ LOGGER = logging.getLogger("ad6")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
 LOGGER.setLevel(logging.DEBUG)
 
+TMPDIR = "/tmp/np"
+os.system("mkdir -p %s" % TMPDIR)
+
+LOGGER.info("deleting old logs and measurements...")
+os.system("rm -f %s/*.log" % TMPDIR)
+LOGGER.info("deleted old logs and measurements.")
+
+logging.basicConfig(
+    format='%(asctime)s [%(name)s.%(levelname)s] - %(message)s',
+    level=logging.INFO,
+    filename="%s/fave.log" % TMPDIR,
+    filemode='w'
+)
+
+LOG_HANDLER = logging.FileHandler("%s/fave.log" % TMPDIR)
+#    LOG_HANDLER.setFormatter(
+#        logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+#    )
+
+PF_LOGGER = logging.getLogger("pf")
+PF_LOGGER.addHandler(LOG_HANDLER)
+PF_LOGGER.setLevel(logging.INFO)
+
+PFR_LOGGER = logging.getLogger("pfr")
+PFR_LOGGER.addHandler(LOG_HANDLER)
+PFR_LOGGER.setLevel(logging.INFO)
+
+SUB_LOGGER = logging.getLogger("sub")
+SUB_LOGGER.addHandler(LOG_HANDLER)
+SUB_LOGGER.setLevel(logging.INFO)
+
+SUBL_LOGGER = logging.getLogger("subl")
+SUBL_LOGGER.addHandler(LOG_HANDLER)
+SUBL_LOGGER.setLevel(logging.INFO)
+
+SW_LOGGER = logging.getLogger("sw")
+SW_LOGGER.addHandler(LOG_HANDLER)
+SW_LOGGER.setLevel(logging.INFO)
+
+SRC_LOGGER = logging.getLogger("src")
+SRC_LOGGER.addHandler(LOG_HANDLER)
+SRC_LOGGER.setLevel(logging.INFO)
+
+SRCL_LOGGER = logging.getLogger("srcl")
+SRCL_LOGGER.addHandler(LOG_HANDLER)
+SRCL_LOGGER.setLevel(logging.INFO)
+
+PROBE_LOGGER = logging.getLogger("probe")
+PROBE_LOGGER.addHandler(LOG_HANDLER)
+PROBE_LOGGER.setLevel(logging.INFO)
+
+PROBEL_LOGGER = logging.getLogger("probel")
+PROBEL_LOGGER.addHandler(LOG_HANDLER)
+PROBEL_LOGGER.setLevel(logging.INFO)
+
 
 def measure(function, logger=LOGGER):
     """ Measures the duration of a function call in milliseconds.
@@ -39,61 +94,6 @@ def measure(function, logger=LOGGER):
 def main():
     """ Benchmarks FaVe using the AD6 workload.
     """
-
-    tmpdir = "/tmp/np"
-    os.system("mkdir -p %s" % tmpdir)
-
-    LOGGER.info("deleting old logs and measurements...")
-    os.system("rm -f /tmp/np/*.log")
-    LOGGER.info("deleted old logs and measurements.")
-
-    logging.basicConfig(
-        format='%(asctime)s [%(name)s.%(levelname)s] - %(message)s',
-        level=logging.INFO,
-        filename="%s/fave.log" % tmpdir,
-        filemode='w'
-    )
-
-    log_handler = logging.FileHandler("%s/fave.log" % tmpdir)
-#    log_handler.setFormatter(
-#        logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-#    )
-
-    pf_logger = logging.getLogger("pf")
-    pf_logger.addHandler(log_handler)
-    pf_logger.setLevel(logging.INFO)
-
-    pfr_logger = logging.getLogger("pfr")
-    pfr_logger.addHandler(log_handler)
-    pfr_logger.setLevel(logging.INFO)
-
-    sub_logger = logging.getLogger("sub")
-    sub_logger.addHandler(log_handler)
-    sub_logger.setLevel(logging.INFO)
-
-    subl_logger = logging.getLogger("subl")
-    subl_logger.addHandler(log_handler)
-    subl_logger.setLevel(logging.INFO)
-
-    sw_logger = logging.getLogger("sw")
-    sw_logger.addHandler(log_handler)
-    sw_logger.setLevel(logging.INFO)
-
-    src_logger = logging.getLogger("src")
-    src_logger.addHandler(log_handler)
-    src_logger.setLevel(logging.INFO)
-
-    srcl_logger = logging.getLogger("srcl")
-    srcl_logger.addHandler(log_handler)
-    srcl_logger.setLevel(logging.INFO)
-
-    probe_logger = logging.getLogger("probe")
-    probe_logger.addHandler(log_handler)
-    probe_logger.setLevel(logging.INFO)
-
-    probel_logger = logging.getLogger("probel")
-    probel_logger.addHandler(log_handler)
-    probel_logger.setLevel(logging.INFO)
 
 #    PFLOG=$TMPDIR/pf.log
 #    PFRLOG=$TMPDIR/pfr.log
@@ -127,7 +127,7 @@ def main():
             "-i", "2001:db8:abc::1",
             "-p", "24"
         ]),
-        pf_logger
+        PF_LOGGER
     )
     LOGGER.info("created pgf.")
 
@@ -135,11 +135,11 @@ def main():
     LOGGER.info("creating dmz...")
     measure(
         lambda: topo.main(["-a", "-t", "switch", "-n", "dmz", "-p", "9"]),
-        sub_logger
+        SUB_LOGGER
     )
     measure(
         lambda: topo.main(["-a", "-l", "pgf.26:dmz.1,dmz.1:pgf.2"]),
-        subl_logger
+        SUBL_LOGGER
     )
     LOGGER.info("created dmz")
 
@@ -167,11 +167,11 @@ def main():
     LOGGER.info("creating wifi... ")
     measure(
         lambda: topo.main(["-a", "-t", "switch", "-n", "wifi", "-p", "2"]),
-        sub_logger
+        SUB_LOGGER
     )
     measure(
         lambda: topo.main(["-a", "-l", "pgf.3:wifi.1,wifi.1:pgf.27"]),
-        subl_logger
+        SUBL_LOGGER
     )
     LOGGER.info("created wifi.")
 
@@ -222,7 +222,7 @@ def main():
         # create switch for subnet
         measure(
             lambda n=net: topo.main(["-a", "-t", "switch", "-n", n, "-p", "7"]),
-            sub_logger
+            SUB_LOGGER
         )
 
         # link switch to firewall
@@ -231,7 +231,7 @@ def main():
                 "-a",
                 "-l", "pgf.%s:%s.1,%s.1:pgf.%s" % (cnt+24, n, n, cnt)
             ]),
-            subl_logger
+            SUBL_LOGGER
         )
 
         LOGGER.info("  created subnet %s.", net)
@@ -245,7 +245,7 @@ def main():
         lambda: ip6tables.main([
             "-n", "pgf", "-i", "2001:db8:abc::1", "-f", "rulesets/pgf-ruleset"
         ]),
-        pfr_logger
+        PFR_LOGGER
     )
 
     # dmz (route)
@@ -259,7 +259,7 @@ def main():
             "-f", "ipv6_dst=2001:db8:abc:0::0/64",
             "-c", "fd=pgf.2"
         ]),
-        sw_logger
+        SW_LOGGER
     )
 
     # wifi (route)
@@ -273,7 +273,7 @@ def main():
             "-f", "ipv6_dst=2001:db8:abc:1::0/64",
             "-c", "fd=pgf.3"
         ]),
-        sw_logger
+        SW_LOGGER
     )
 
     # subnets (routes)
@@ -288,7 +288,7 @@ def main():
                 "-f", "ipv6_dst=2001:db8:abc:%s::0/64" % cnt,
                 "-c", "fd=pgf.%s" % cnt
             ]),
-            sw_logger
+            SW_LOGGER
         )
 
         cnt += 1
@@ -313,7 +313,7 @@ def main():
                 "-f", "ipv6_dst=%s" % a,
                 "-c", "fd=dmz.%s" % cnt
             ]),
-            sw_logger
+            SW_LOGGER
         )
 
         cnt += 1
@@ -322,7 +322,7 @@ def main():
     LOGGER.debug("\tset rule: * -> fd=dmz.1")
     measure(
         lambda: switch.main(["-a", "-i", "10", "-n", "dmz", "-t", "1", "-c", "fd=dmz.1"]),
-        sw_logger
+        SW_LOGGER
     )
 
     # wifi
@@ -337,14 +337,14 @@ def main():
             "-f", "ipv6_dst=2001:db8:abc:1::0/64",
             "-c", "fd=wifi.2"
         ]),
-        sw_logger
+        SW_LOGGER
     )
 
     # forwarding rule to firewall (default rule)
     LOGGER.debug("\tset rule: * -> fd=wifi.1")
     measure(
         lambda: switch.main(["-a", "-i", "1", "-n", "wifi", "-t", "1", "-c", "fd=wifi.1"]),
-        sw_logger
+        SW_LOGGER
     )
 
     # subnets
@@ -371,7 +371,7 @@ def main():
                     "-f", "ipv6_dst=%s" % a,
                     "-c", "fd=%s.%s" % (n, p)
                 ]),
-                sw_logger
+                SW_LOGGER
             )
 
         # forwarding rule to firewall (default rule)
@@ -380,18 +380,18 @@ def main():
             lambda n=net: switch.main([
                 "-a", "-i", "1", "-n", n, "-t", "1", "-c", "fd=%s.1" % n
             ]),
-            sw_logger
+            SW_LOGGER
         )
     LOGGER.info("populated switches")
 
     LOGGER.info("creating internet (source)...")
     measure(
         lambda: topo.main(["-a", "-t", "generator", "-n", "internet"]),
-        src_logger
+        SRC_LOGGER
     )
     measure(
         lambda: topo.main(["-a", "-l", "internet.1:pgf.1,pgf.25:internet.1"]),
-        srcl_logger
+        SRCL_LOGGER
     )
     LOGGER.info("created internet.")
 
@@ -403,7 +403,7 @@ def main():
             lambda h=host, a=addr: topo.main(
                 ["-a", "-t", "packet_filter", "-n", h, "-i", a, "-p", "1"]
             ),
-            pf_logger
+            PF_LOGGER
         )
 
         measure(
@@ -411,7 +411,7 @@ def main():
                 "-a",
                 "-l", "%s.2:dmz.%s,dmz.%s:%s.1" % (h, cnt, cnt, h)
             ]),
-            subl_logger
+            SUBL_LOGGER
         )
 
         measure(
@@ -421,14 +421,14 @@ def main():
                 "-n", "source.%s" % h,
                 "-f", "ipv6_src=%s" % a
             ]),
-            src_logger
+            SRC_LOGGER
         )
 
         measure(
             lambda h=host, a=addr: ip6tables.main(
                 ["-n", h, "-i", a, "-f", "rulesets/%s-ruleset" % h]
             ),
-            pfr_logger
+            PFR_LOGGER
         )
 
         measure(
@@ -436,7 +436,7 @@ def main():
                 "-a",
                 "-l", "source.%s.1:%s_output_states_in" % (h, h)
             ]),
-            srcl_logger
+            SRCL_LOGGER
         )
 
         # forwarding rule to switch
@@ -449,7 +449,7 @@ def main():
                 "-t", "1",
                 "-c", "fd=%s.%s" % (h, 1)
             ]),
-            pfr_logger
+            PFR_LOGGER
         )
 
         cnt += 1
@@ -478,7 +478,7 @@ def main():
                     "-i", addr,
                     "-p", "1"
                 ]),
-                pf_logger
+                PF_LOGGER
             )
 
             measure(
@@ -486,28 +486,28 @@ def main():
                     "-a",
                     "-l", "%s.2:%s.%s,%s.%s:%s.1" % (hn, n, port, n, port, hn)
                 ]),
-                subl_logger
+                SUBL_LOGGER
             )
 
             measure(
                 lambda: topo.main([
                     "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
                 ]),
-                src_logger
+                SRC_LOGGER
             )
 
             measure(
                 lambda hn=hostnet, nh=nethost: ip6tables.main(
                     ["-n", hn, "-i", addr, "-f", "rulesets/%s-ruleset" % nh]
                 ),
-                pfr_logger
+                PFR_LOGGER
             )
 
             measure(
                 lambda hn=hostnet: topo.main(
                     ["-a", "-l", "%s.1:%s_output_states_in" % (server, hn)]
                 ),
-                srcl_logger
+                SRCL_LOGGER
             )
 
             LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
@@ -519,7 +519,7 @@ def main():
                     "-t", "1",
                     "-c", "fd=%s.%s" % (hn, 1)
                 ]),
-                src_logger
+                SRC_LOGGER
             )
 
             srv += 1
@@ -527,10 +527,10 @@ def main():
         LOGGER.info("created host %s.", net)
 
         cnt += 1
+
     LOGGER.info("testing ssh reachability from the internet...")
 
     LOGGER.info("  testing dmz... ")
-    cnt = 2
     only_ha = lambda x: x[:2]
     for hname, addr in [only_ha(x) for x in hosts]:
 
@@ -545,20 +545,20 @@ def main():
                 "-P", ".*(p=pgf.1);$",
                 "-F", "tcp_dst=22"
             ]),
-            probe_logger
+            PROBE_LOGGER
         )
         # link probe to host input
         measure(
             lambda hn=hname: topo.main(
                 ["-a", "-l", "%s_input_states_accept:probe.%s.1" % (hn, hn)]
             ),
-            probel_logger
+            PROBEL_LOGGER
         )
         measure(
             lambda hn=hname: topo.main(
                 ["-a", "-l", "%s_input_rules_accept:probe.%s.1" % (hn, hn)]
             ),
-            probel_logger
+            PROBEL_LOGGER
         )
 
         # remove probe
@@ -566,58 +566,65 @@ def main():
         # ... and link
         #PYTHONPATH=. $TIME -ao $PROBELLOG python2 topology/topology.py -d -l $H.1:dmz.$cnt
 
-        cnt += 1
     LOGGER.info("tested dmz.")
 
     LOGGER.info("  testing subnets...")
-    cnt = 4
     for net in subnets:
-        srv = 1
+        _test_subnet(net, hosts=subhosts)
 
-        LOGGER.info("    testing %s... ", net)
-
-        for host in subhosts:
-            port = srv + 1
-            hname = "%s.%s" % (host[0], net)
-            server = "probe.%s" % hname
-            addr = "2001:db8:abc:%s::%s" % (cnt, srv)
-
-            # add probe that looks for incoming flows for tcp port 22 (ssh)
-            # originating from the internet
-            measure(
-                lambda: topo.main([
-                    "-a",
-                    "-t", "probe",
-                    "-n", server,
-                    "-q", "existential",
-                    "-P", ".*(p=pgf.1);$",
-                    "-F", "tcp_dst=22"
-                ]),
-                probe_logger
-            )
-            # link probe to switch
-            measure(
-                lambda: topo.main([
-                    "-a", "-l", "%s_input_states_accept:%s.1" % (hname, server)
-                ]),
-                probel_logger
-            )
-            measure(
-                lambda: topo.main([
-                    "-a", "-l", "%s_input_rules_accept:%s.1" % (hname, server)
-                ]),
-                probel_logger
-            )
-
-        LOGGER.info("tested %s.", net)
-
-        cnt += 1
-
+    LOGGER.info("dumping fave and netplumber...")
     dumper.main(["-anpf"])
+    LOGGER.info("dumped fave and netplumber.")
 
     LOGGER.info("stopping fave and netplumber...")
     os.system("scripts/stop_fave.sh")
     LOGGER.info("stopped fave and netplumber.")
+
+    return
+
+
+def _test_subnet(net, hosts=None):
+    hosts = hosts if hosts is not None else []
+
+    LOGGER.info("    testing %s... ", net)
+
+    for host in hosts:
+        _test_host(host, net)
+
+    LOGGER.info("tested %s.", net)
+
+
+def _test_host(host, net):
+    hname = "%s.%s" % (host[0], net)
+    server = "probe.%s" % hname
+
+    # add probe that looks for incoming flows for tcp port 22 (ssh)
+    # originating from the internet
+    measure(
+        lambda: topo.main([
+            "-a",
+            "-t", "probe",
+            "-n", server,
+            "-q", "existential",
+            "-P", ".*(p=pgf.1);$",
+            "-F", "tcp_dst=22"
+        ]),
+        PROBE_LOGGER
+    )
+    # link probe to switch
+    measure(
+        lambda: topo.main([
+            "-a", "-l", "%s_input_states_accept:%s.1" % (hname, server)
+        ]),
+        PROBEL_LOGGER
+    )
+    measure(
+        lambda: topo.main([
+            "-a", "-l", "%s_input_rules_accept:%s.1" % (hname, server)
+        ]),
+        PROBEL_LOGGER
+    )
+
 
 if __name__ == "__main__":
     main()
