@@ -14,6 +14,10 @@ import time
 import netplumber.dump_np as dumper
 import netplumber.print_np as printer
 
+LOGGER = logging.getLogger("ad6")
+LOGGER.addHandler(logging.StreamHandler(sys.stdout))
+LOGGER.setLevel(logging.DEBUG)
+
 def measure(function,logger):
     t_start = time.time()
     function()
@@ -26,9 +30,9 @@ def main():
     TMPDIR="/tmp/np"
     os.system("mkdir -p %s" % TMPDIR)
 
-    print "delete old logs and measurements... ",
+    LOGGER.info("deleting old logs and measurements...")
     os.system("rm -f /tmp/np/*.log")
-    print "ok"
+    LOGGER.info("deleted old logs and measurements.")
 
     logging.basicConfig(
         format='%(asctime)s [%(name)s.%(levelname)s] - %(message)s',
@@ -90,17 +94,17 @@ def main():
 
 #TIME='/usr/bin/time -f %e'
 
-    print "start netplumber",
+    LOGGER.info("starting netplumber...")
     os.system("scripts/start_np.sh test-workload-ad6.conf")
-    print "ok"
+    LOGGER.info("started netplumber.")
 
-    print "start aggregator... ",
+    LOGGER.info("starting aggregator...")
     os.system("scripts/start_aggr.sh")
-    print "ok"
+    LOGGER.info("started aggregator.")
 
     # build topology
-    print "read topology..."
-    print "create pgf... ",
+    LOGGER.info("reading topology...")
+    LOGGER.info("creating pgf... ")
 
     measure(
         lambda: topo.main([
@@ -112,10 +116,10 @@ def main():
         ]),
         pf_logger
     )
-    print "ok"
+    LOGGER.info("created pgf.")
 
     # create dmz
-    print "create dmz... ",
+    LOGGER.info("creating dmz... ")
     measure(
         lambda: topo.main(["-a","-t","switch","-n","dmz","-p","9"]),
         sub_logger
@@ -124,7 +128,7 @@ def main():
         lambda: topo.main(["-a","-l","pgf.26:dmz.1,dmz.1:pgf.2"]),
         subl_logger
     )
-    print "ok"
+    LOGGER.info("created dmz")
 
     hosts = [
         ("file","2001:db8:abc:0::1",["tcp:21","tcp:115","tcp:22","udp:22"]),
@@ -147,7 +151,7 @@ def main():
     ]
 
     # create wifi
-    print "create wifi... ",
+    LOGGER.info("creating wifi... ")
     measure(
         lambda: topo.main(["-a","-t","switch","-n","wifi","-p","2"]),
         sub_logger
@@ -156,10 +160,10 @@ def main():
         lambda: topo.main(["-a","-l","pgf.3:wifi.1,wifi.1:pgf.27"]),
         subl_logger
     )
-    print "ok"
+    LOGGER.info("created wifi.")
 
     # create subnets
-    print "create subnets..."
+    LOGGER.info("creating subnets...")
     subnets = [
         "api",
         "asta",
@@ -200,7 +204,7 @@ def main():
 
     cnt=4
     for net in subnets:
-        print "  create subnet %s... " % net,
+        LOGGER.info("  creating subnet %s...", net)
 
         # create switch for subnet
         measure(
@@ -217,12 +221,12 @@ def main():
             subl_logger
         )
 
-        print "ok"
+        LOGGER.info("  created subnet %s.", net)
 
         cnt += 1
 
     # populate firewall
-    print "populate firewall... ",
+    LOGGER.info("populating firewall...")
 
     measure(
         lambda: ip6tables.main([
@@ -232,6 +236,7 @@ def main():
     )
 
     # dmz (route)
+    LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:0::0/64 -> fd=pgf.2")
     measure(
         lambda: switch.main([
             "-a",
@@ -245,6 +250,7 @@ def main():
     )
 
     # wifi (route)
+    LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:1::0/64 -> fd=pgf.3")
     measure(
         lambda: switch.main([
             "-a",
@@ -260,6 +266,7 @@ def main():
     # subnets (routes)
     cnt = 4
     for net in subnets:
+        LOGGER.debug("set rule: ipv6_dst=2001:db8:abc:%s::0/64 -> fd=pgf.%s", cnt,cnt)
         measure(
             lambda: switch.main([
                 "-a",
@@ -273,9 +280,9 @@ def main():
 
         cnt += 1
 
-    print "ok"
+    LOGGER.info("populated firewall.")
 
-    print "populate switches... ",
+    LOGGER.info("populating switches...")
 
     # dmz
     cnt = 2
@@ -283,6 +290,7 @@ def main():
         addr = host[1]
 
         # forwarding rule to host
+        LOGGER.debug("\tset rule: ipv6_dst=%s -> fd=dmz.1", addr)
         measure(
             lambda: switch.main([
                 "-a",
@@ -298,6 +306,7 @@ def main():
         cnt += 1
 
     # forwarding rule to firewall (default rule)
+    LOGGER.debug("\tset rule: * -> fd=dmz.1")
     measure(
         lambda: switch.main(["-a","-i","10","-n","dmz","-t","1","-c","fd=dmz.1"]),
         sw_logger
@@ -305,6 +314,7 @@ def main():
 
     # wifi
     # forwarding rule to client
+    LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:1::0/64 -> fd=wifi.2")
     measure(
         lambda: switch.main([
             "-a",
@@ -318,6 +328,7 @@ def main():
     )
 
     # forwarding rule to firewall (default rule)
+    LOGGER.debug("\tset rule: * -> fd=wifi.1")
     measure(
         lambda: switch.main(["-a","-i","1","-n","wifi","-t","1","-c","fd=wifi.1"]),
         sw_logger
@@ -337,6 +348,7 @@ def main():
             addr = "2001:db8:abc:%s::%s" % (cnt,ident)
 
             # forwarding rule to server
+            LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr,net,port)
             measure(
                 lambda: switch.main([
                     "-a",
@@ -350,15 +362,16 @@ def main():
             )
 
         # forwarding rule to firewall (default rule)
+        LOGGER.debug("set rule: * -> fd=%s.1", net)
         measure(
             lambda: switch.main([
                 "-a","-i","1","-n",net,"-t","1","-c","fd=%s.1" % net
             ]),
             sw_logger
         )
-    print "ok"
+    LOGGER.info("populated switches")
 
-    print "create internet (source)... ",
+    LOGGER.info("creating internet (source)...")
     measure(
         lambda: topo.main(["-a","-t","generator","-n","internet"]),
         src_logger
@@ -367,9 +380,9 @@ def main():
         lambda: topo.main(["-a","-l","internet.1:pgf.1,pgf.25:internet.1"]),
         srcl_logger
     )
-    print "ok"
+    LOGGER.info("created internet.")
 
-    print "create hosts (pf + source) in dmz... ",
+    LOGGER.info("creating hosts (pf + source) in dmz...")
     cnt = 2
     for  h,a,p in hosts:
         measure(
@@ -409,6 +422,7 @@ def main():
         )
 
         # forwarding rule to switch
+        LOGGER.debug("\tset rule: * -> fd=%s.%s",h,1)
         measure(
             lambda: switch.main([
                 "-a",
@@ -422,12 +436,13 @@ def main():
 
         cnt += 1
 
-    print "ok"
+    LOGGER.info("created hosts (pf + source) in dmz.")
 
-    print "create hosts (pf + source) in subnets..."
+    LOGGER.info("creating hosts (pf + source) in subnets...")
     cnt = 4
 
     for net in subnets:
+        LOGGER.info("  creating host %s... ", net)
 
         srv = 0
         for host in subhosts:
@@ -473,6 +488,7 @@ def main():
                 srcl_logger
             )
 
+            LOGGER.debug("\tset rule: * -> fd=%s.%s",hn,1)
             measure(
                 lambda: switch.main([
                     "-a",
@@ -486,12 +502,12 @@ def main():
 
             srv += 1
 
-        print "ok"
+        LOGGER.info("created host %s.", net)
 
         cnt += 1
-    print "test ssh reachability from the internet..."
+    LOGGER.info("testing ssh reachability from the internet...")
 
-    print "  test dmz... ",
+    LOGGER.info("  testing dmz... ")
     cnt = 2
     for h,a,p in hosts:
 
@@ -523,14 +539,14 @@ def main():
         #PYTHONPATH=. $TIME -ao $PROBELLOG python2 topology/topology.py -d -l $H.1:dmz.$cnt
 
         cnt += 1
-    print "ok"
+    LOGGER.info("tested dmz.")
 
-    print "  test subnets..."
+    LOGGER.info("  testing subnets...")
     cnt = 4
     for net in subnets:
         srv = 1
 
-        print "    test %s... " % net,
+        LOGGER.info("    testing %s... ", net)
 
         for host in subhosts:
             port = srv + 1
@@ -564,15 +580,15 @@ def main():
                 probel_logger
             )
 
-        print "ok"
+        LOGGER.info("tested %s.", net)
 
         cnt += 1
 
     dumper.main(["-anpf"])
 
-    print "stop fave and netplumber",
+    LOGGER.info("stopping fave and netplumber...")
     os.system("scripts/stop_fave.sh")
-    print "ok"
+    LOGGER.info("stopped fave and netplumber.")
 
 if __name__ == "__main__":
     main()
