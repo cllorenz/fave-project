@@ -8,7 +8,6 @@ ip6np/ip6tables_lexer.py \
 ip6np/ip6tables_listener.py \
 ip6np/ip6tables_parser.py \
 test/antlr/ip6tables_lexer.py \
-test/antlr/ip6tables_lexer.py \
 test/antlr/ip6tables_listener.py \
 test/antlr/ip6tables_parser.py \
 test/antlr/parser.py \
@@ -53,7 +52,9 @@ openflow/switch.py \
 openflow/ofproxy.py \
 test/check_flows.py \
 aggregator/aggregator.py \
-bench/wl-ad6-full.py
+bench/wl-ad6-full.py \
+util/aggregator_utils.py \
+scripts/stop_np.py
 "
 
 for PYFILE in $PYFILES; do
