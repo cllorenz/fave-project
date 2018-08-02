@@ -15,52 +15,12 @@ test/antlr/test.py \
 examples/example-traverse.py
 "
 
-#PYFILES=`find . -name "*.py"`
-PYFILES="\
-test/test_rpc.py \
-netplumber/jsonrpc.py \
-__init__.py \
-test/test_netplumber.py \
-netplumber/mapping.py \
-netplumber/vector.py \
-netplumber/model.py \
-test/test_tree.py \
-ip6np/tree.py \
-test/test_topology.py \
-topology/topology.py \
-test/unit_tests.py \
-test/test_utils.py \
-util/print_util.py \
-util/path_util.py \
-util/packet_util.py \
-util/match_util.py \
-util/json_util.py \
-util/collections_util.py \
-aggregator/aggregator_mock.py \
-aggregator/stop.py \
-netplumber/dump_np.py \
-netplumber/print_np.py \
-ip6np/packet_filter.py \
-ip6np/generator.py \
-ip6np/ip6np.py \
-ip6np/parser.py \
-ip6np/ip6tables_custom_listener.py \
-topology/generator.py \
-topology/host.py \
-topology/probe.py \
-openflow/switch.py \
-openflow/ofproxy.py \
-test/check_flows.py \
-aggregator/aggregator.py \
-bench/wl-ad6-full.py \
-util/aggregator_utils.py \
-scripts/stop_np.py
-"
+PYFILES=`find . -name "*.py"`
 
 for PYFILE in $PYFILES; do
     echo -n "lint $PYFILE: "
 
-    if [[ $IGNORE =~ $(echo "./$PYFILE" | cut -d/ -f2-) ]]; then
+    if [[ $IGNORE =~ $(echo "$PYFILE" | cut -d/ -f2-) ]]; then
         echo "skip"
         continue
     fi
@@ -69,7 +29,7 @@ for PYFILE in $PYFILES; do
     if [ $? -eq 0 ]; then
         echo "ok"
     else
-        SPY=`echo $PYFILE | cut -d/ -f2-`
+        SPY=`echo $PYFILE | cut -d/ -f2- | tr '/' '_'`
         REPORT="/tmp/lint_$SPY.log"
         cp $TMP $REPORT
         echo "fail (report at $REPORT)"
