@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 
+""" This module provides FaVe's central aggregation service.
+"""
+
 import cProfile
 import signal
 import re
@@ -39,24 +42,44 @@ _AGGREGATOR = None
 
 PROFILE = cProfile.Profile()
 
+
 def profile_method(method):
+    """ Wraps a profiler around a method.
+
+    Keyword arguments:
+    method -- a method to be profiled
+    """
     def profile_wrapper(*args, **kwargs):
+        """ Collects profiling information while executing a method.
+        """
         PROFILE.enable()
         method(*args, **kwargs)
         PROFILE.disable()
     return profile_wrapper
 
+
 def dump_stats():
+    """ Dumps collected profiling stats to the file \"./aggregator.stats\".
+    """
     PROFILE.dump_stats("aggregator.stats")
 
+
 def handle_sigterm(signum, frame):
+    """ Handler for SIGTERM signals.
+    """
     if _AGGREGATOR:
         _AGGREGATOR.stop_aggr()
 
+
 def handle_sigint(signum, frame):
+    """ Handler for SIGINT signals.
+    """
     handle_sigterm(signum, frame)
 
+
 def print_help():
+    """ Prints a usage message to stderr.
+    """
     eprint(
         "aggregator -s <server> -p <port>",
         "\t-s <server> ip address of the instance",
@@ -66,6 +89,11 @@ def print_help():
 
 
 def is_ip(ips):
+    """ Checks if a string represents a valid IPv4 address.
+
+    Keyword arguments:
+    ips -- a string
+    """
     elems = ips.split(".")
     if len(elems) != 4:
         return False
@@ -81,19 +109,34 @@ def is_ip(ips):
 
 
 def is_domain(domains):
+    """ Checks if a string is a valid domain name.
+
+    Keyword arguments:
+    domains -- a string
+    """
     labels = domains.split(".")
     label = re.compile("^[a-zA-Z](([-a-zA-Z0-9]+)?[a-zA-Z0-9])?$") # cf. RFC1025
     return all([re.match(label, l) for l in labels])
 
 
 def is_unix(unixs):
+    """ Checks if a string is a valid unix domain socket address.
+
+    Keyword arguments:
+    unixs -- a string
+    """
     return '\0' not in unixs
 
 
 def is_port(ports):
+    """ Checks if a string is a valid port number.
+
+    Keyword arguments:
+    ports -- a string
+    """
     try:
         port = int(ports)
-        return port > 0 and port <= 0xffff
+        return port >= 0 and port <= 0xffff
     except ValueError:
         return False
 
@@ -101,16 +144,32 @@ def is_port(ports):
 
 
 def is_ext_port(ports):
+    """ Checks if a string is a valid interface number.
+
+    Keyword arguments:
+    ports -- a string
+    """
     return is_port(ports)
 
 
 # XXX: returns None when profiled... WTF!?
 #@profile_method
 def model_from_string(jsons):
+    """ Reconstructs a model from a JSON string.
+
+    Keyword arguments:
+    jsons -- a json string
+    """
     model_from_json(json.loads(jsons))
 
 
 def model_from_json(j):
+    """ Reconstructs a model from a JSON object.
+
+    Keyword arguments:
+    j -- a JSON object
+    """
+
     Aggregator.LOGGER.debug('reconstruct model')
     try:
         models = {
@@ -136,6 +195,13 @@ def model_from_json(j):
 
 
 def calc_port(tab, model, port):
+    """ Calculates a port number for a table.
+
+    Keyword arguments:
+    tab -- a table id
+    model -- the model inheriting the table
+    port -- the port index in the table
+    """
     try:
         return (tab<<16)+model.ports[port]
     except KeyError:
@@ -143,6 +209,12 @@ def calc_port(tab, model, port):
 
 
 def calc_rule_index(t_idx, r_idx):
+    """ Calculates the rule index within a table
+
+    Keyword arguments:
+    t_idx -- a table index
+    r_idx -- a rule index within the table
+    """
     return (t_idx<<16)+r_idx
 
 
@@ -158,6 +230,11 @@ def calc_rule_index(t_idx, r_idx):
 
 
 def normalize_port(port):
+    """ Normalizes a port's name
+
+    Keyword arguments:
+    port -- a port name
+    """
     return port.replace('.', '_')
 
     #if port.count('.') > 1:
@@ -183,6 +260,9 @@ def normalize_port(port):
 
 
 class Aggregator(object):
+    """ This class provides FaVe's central aggregation service.
+    """
+
     BUF_SIZE = 4096
     LOGGER = logging.getLogger('Aggregator')
 
@@ -203,20 +283,25 @@ class Aggregator(object):
 
 
     def print_aggregator(self):
-        print >> sys.stderr, "Aggregator:"
-        print >> sys.stderr, self.mapping
-        print >> sys.stderr, "tables:"
-        print >> sys.stderr, "\t", self.tables
-        print >> sys.stderr, "ports:"
-        print >> sys.stderr, "\t", self.ports
-        print >> sys.stderr, "rule ids:"
-        print >> sys.stderr, "\t", self.rule_ids
-        print >> sys.stderr, "links:"
-        print >> sys.stderr, "\t", self.links
-        print >> sys.stderr, "generators:"
-        print >> sys.stderr, "\t", self.generators
-        print >> sys.stderr, "probes:"
-        print >> sys.stderr, "\t", self.probes
+        """ Prints the state to stderr.
+        """
+        eprint(
+            "Aggregator:",
+            self.mapping,
+            "tables:",
+            "\t%s" % self.tables,
+            "ports:",
+            "\t%s" % self.ports,
+            "rule ids:",
+            "\t%s" % self.rule_ids,
+            "links:",
+            "\t%s" % self.links,
+            "generators:",
+            "\t%s" % self.generators,
+            "probes:",
+            "\t%s" % self.probes,
+            sep="\n"
+        )
 
 
     #@profile_method
@@ -262,6 +347,9 @@ class Aggregator(object):
 
 
     def run(self):
+        """ Operates FaVe's aggregation service.
+        """
+
         # open new unix domain socket
         Aggregator.LOGGER.info("open and bind uds socket")
         uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -333,6 +421,8 @@ class Aggregator(object):
 
 
     def stop_aggr(self):
+        """ Stops FaVe's aggregation service.
+        """
         Aggregator.LOGGER.info("initiate stopping")
         self.stop = True
 
