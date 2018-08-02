@@ -66,7 +66,7 @@ udp:143,udp:220,udp:22 \
 
 
 for HOST in $HOSTS; do
-    H=`echo $HOST | cut -d ',' -f 1`
+    H="`echo $HOST | cut -d ',' -f 1`.dmz"
     A=`echo $HOST | cut -d ',' -f 2`
     PUB=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 1`
     PRIV=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 2`
