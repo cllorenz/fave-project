@@ -619,10 +619,7 @@ class Aggregator(object):
                     rule = SwitchRule.from_json(r)
                 ri = rule.idx
 
-                mlength = self.mapping.length
-                self.mapping.expand(rule.mapping)
-                if mlength < self.mapping.length:
-                    jsonrpc.expand(self.sock,self.mapping.length)
+                self._absorb_mapping(rule.mapping)
 
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
@@ -676,10 +673,7 @@ class Aggregator(object):
                     rule = SwitchRule.from_json(r)
                 ri = rule.idx
 
-                mlength = self.mapping.length
-                self.mapping.expand(rule.mapping)
-                if mlength < self.mapping.length:
-                    jsonrpc.expand(self.sock,self.mapping.length)
+                self._absorb_mapping(rule.mapping)
 
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
@@ -745,10 +739,7 @@ class Aggregator(object):
                     rule = SwitchRule.from_json(r)
                 ri = rule.idx
 
-                mlength = self.mapping.length
-                self.mapping.expand(rule.mapping)
-                if mlength < self.mapping.length:
-                    jsonrpc.expand(self.sock,self.mapping.length)
+                self._absorb_mapping(rule.mapping)
 
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
@@ -795,10 +786,7 @@ class Aggregator(object):
             for rule in model.tables[table]:
                 ri = rule.idx
 
-                mlength = self.mapping.length
-                self.mapping.expand(rule.mapping)
-                if mlength < self.mapping.length:
-                    jsonrpc.expand(self.sock,self.mapping.length)
+                self._absorb_mapping(rule.mapping)
 
                 rv = Vector(length=self.mapping.length)
                 for f in rule.match:
@@ -988,6 +976,11 @@ class Aggregator(object):
         else:
             return self.tables[node+'.1']
 
+    def _absorb_mapping(self, mapping):
+        mlength = self.mapping.length
+        self.mapping.expand(mapping)
+        if mlength < self.mapping.length:
+            jsonrpc.expand(self.sock, self.mapping.length)
 
     def add_probe(self,model):
         name = model.node
@@ -1003,10 +996,7 @@ class Aggregator(object):
 
         self.ports[port] = portno
 
-        mlength = self.mapping.length
-        self.mapping.expand(model.mapping)
-        if mlength < self.mapping.length:
-            jsonrpc.expand(self.sock,self.mapping.length)
+        self._absorb_mapping(model.mapping)
 
         filter_fields = self.aligned_headerspace(model.filter_fields,model.mapping)
         test_fields = self.aligned_headerspace(model.test_fields,model.mapping)
