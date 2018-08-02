@@ -1007,46 +1007,51 @@ class Aggregator(object):
                 ] if filter_fields.hs_diff else None
             }
 
-        filter_expr = { "type" : "header", "header" : filter_hs }
+        filter_expr = {"type" : "header", "header" : filter_hs}
 
         test_path = []
         for pathlet in model.test_path.to_json()['pathlets']:
             ptype = pathlet['type']
-            if ptype in ['start','end','skip']:
-                test_path.append(pathlet)
-            elif ptype == 'port':
-                pathlet['port'] = self.global_port(pathlet['port'])
-                test_path.append(pathlet)
-            elif ptype == 'next_ports':
-                pathlet['ports'] = [self.global_port(port) for port in pathlet['ports']]
-                test_path.append(pathlet)
-            elif ptype == 'last_ports':
-                pathlet['ports'] = [self.global_port(port) for port in pathlet['ports']]
-                test_path.append(pathlet)
-            elif ptype == 'table':
-                pathlet['table'] = self.get_model_table(pathlet['table'])
-                test_path.append(pathlet)
-            elif ptype == 'next_table':
-                pathlet['tables'] = [self.get_model_table(table) for table in pathlet['tables']]
-                test_path.append(pathlet)
-            elif ptype == 'last_table':
-                pathlet['tables'] = [self.get_model_table(table) for table in pathlet['tables']]
-                test_path.append(pathlet)
+
+            if ptype not in ['start', 'end', 'skip', 'skip_next']:
+                key, val = {
+                    'port' : ('port', lambda pl: self._global_port(pl['port'])),
+                    'next_ports' : (
+                        'ports',
+                        lambda pl: [self._global_port(p) for p in pl['ports']]
+                    ),
+                    'last_ports' : (
+                        'ports',
+                        lambda pl: [self._global_port(p) for p in pl['ports']]
+                    ),
+                    'table' : ('table', lambda pl: self._get_model_table(pl['table'])),
+                    'next_tables' : (
+                        'tables',
+                        lambda pl: [self._get_model_table(t) for t in pl['tables']]
+                    ),
+                    'last_tables' : (
+                        'tables',
+                        lambda pl: [self._get_model_table(t) for t in pl['tables']]
+                    )
+                }[ptype]
+                pathlet[key] = val(pathlet)
+
+            test_path.append(pathlet)
+
+        if test_fields and not test_fields.hs_diff and len(test_fields.hs_list) == 1:
+            test_hs = test_fields.hs_list[0].vector
+        else:
+            test_hs = {
+                "hs_list" : [
+                    v.vector for v in test_fields.hs_list
+                ] if test_fields.hs_list else ["x"*self.mapping.length],
+                "hs_diff" : [
+                    v.vector for v in test_fields.hs_diff
+                ] if test_fields.hs_diff else None
+            }
 
 
         if test_fields and test_path:
-            if not test_fields.hs_diff and len(test_fields.hs_list) == 1:
-                test_hs = test_fields.hs_list[0].vector
-            else:
-                test_hs = {
-                    "hs_list" : [
-                        v.vector for v in test_fields.hs_list
-                    ] if test_fields.hs_list else ["x"*self.mapping.length],
-                    "hs_diff" : [
-                        v.vector for v in test_fields.hs_diff
-                    ] if test_fields.hs_diff else None
-                }
-
             test_expr = {
                 "type": "and",
                 "arg1" : {
@@ -1060,18 +1065,6 @@ class Aggregator(object):
             }
 
         elif test_fields:
-            if not test_fields.hs_diff and len(test_fields.hs_list) == 1:
-                test_hs = test_fields.hs_list[0].vector
-            else:
-                test_hs = {
-                    "hs_list" : [
-                        v.vector for v in test_fields.hs_list
-                    ] if test_fields.hs_list else ["x"*self.mapping.length],
-                    "hs_diff" : [
-                        v.vector for v in test_fields.hs_diff
-                    ] if test_fields.hs_diff else None
-                }
-
             test_expr = {
                 "type" : "header",
                 "header" : test_hs
