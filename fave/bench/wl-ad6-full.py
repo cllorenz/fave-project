@@ -160,14 +160,38 @@ def _add_generator(name, fields=None):
     )
 
 
+def _create_subnet_switches(cnt, subnets):
+    for net in subnets:
+        LOGGER.info("  creating subnet %s...", net)
+
+        # create switch for subnet
+        _add_switch(net, 7)
+
+        # link switch to firewall
+        _link_ports([
+            ("pgf.%s"%(cnt+24), "%s.1"%net),
+            ("%s.1"%net, "pgf.%s"%cnt)
+        ])
+        LOGGER.info("  created subnet %s.", net)
+        cnt += 1
+
+
+def _set_dmz_switch_rules(cnt, hosts):
+    for host in hosts:
+        addr = host[1]
+
+        # forwarding rule to host
+        LOGGER.debug("\tset rule: ipv6_dst=%s -> fd=dmz.1", addr)
+        _add_switch_rule("dmz", 1, 1, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % cnt])
+
+        cnt += 1
+
+
 def _set_subnet_switch_rules(cnt, subnets, subhosts):
     for net in subnets:
-        srv = 1
-
-        for host in subhosts:
+        for srv in range(1, len(subhosts)+1):
             ident = srv
-            srv += 1
-            port = srv
+            port = srv+1
 
             addr = "2001:db8:abc:%s::%s" % (cnt, ident)
 
@@ -182,6 +206,29 @@ def _set_subnet_switch_rules(cnt, subnets, subhosts):
         # forwarding rule to firewall (default rule)
         LOGGER.debug("set rule: * -> fd=%s.1", net)
         _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
+
+
+def _create_dmz_hosts(cnt, hosts):
+    only_ha = lambda x: x[:2]
+    for host, addr in [only_ha(x) for x in hosts]:
+        _add_host(cnt, host, "dmz", addr)
+        cnt += 1
+
+
+def _create_subnet_hosts(cnt, subnets, subhosts):
+    for net in subnets:
+        LOGGER.info("  creating host %s... ", net)
+
+        srv = 0
+        for host in subhosts:
+            port = srv + 2
+            addr = "2001:db8:abc:%s::%s" % (cnt, srv+1)
+            _add_host(port, host, net, addr)
+            srv += 1
+
+        LOGGER.info("  created host %s.", net)
+
+        cnt += 1
 
 
 def _add_host(port, host, net, addr):
@@ -331,27 +378,10 @@ def campus_network(config):
 
     # create subnets
     LOGGER.info("creating subnets...")
-
-    cnt = 4
-    for net in subnets:
-        LOGGER.info("  creating subnet %s...", net)
-
-        # create switch for subnet
-        _add_switch(net, 7)
-
-        # link switch to firewall
-        _link_ports([
-            ("pgf.%s"%(cnt+24), "%s.1"%net),
-            ("%s.1"%net, "pgf.%s"%cnt)
-        ])
-
-        LOGGER.info("  created subnet %s.", net)
-
-        cnt += 1
+    _create_subnet_switches(4, subnets)
 
     # populate firewall
     LOGGER.info("populating firewall...")
-
     _add_ruleset("pgf", "2001:db8:abc::1", "rulesets/pgf-ruleset")
 
     # dmz (route)
@@ -374,21 +404,11 @@ def campus_network(config):
         )
 
         cnt += 1
-
     LOGGER.info("populated firewall.")
 
     LOGGER.info("populating switches...")
-
     # dmz
-    cnt = 2
-    for host in hosts:
-        addr = host[1]
-
-        # forwarding rule to host
-        LOGGER.debug("\tset rule: ipv6_dst=%s -> fd=dmz.1", addr)
-        _add_switch_rule("dmz", 1, 1, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % cnt])
-
-        cnt += 1
+    _set_dmz_switch_rules(2, hosts)
 
     # forwarding rule to firewall (default rule)
     LOGGER.debug("\tset rule: * -> fd=dmz.1")
@@ -405,46 +425,25 @@ def campus_network(config):
 
     # subnets
     _set_subnet_switch_rules(4, subnets, subhosts)
-
     LOGGER.info("populated switches")
 
     LOGGER.info("creating internet (source)...")
     _add_generator("internet")
-
     _link_ports([("internet.1", "pgf.1"), ("pgf.25", "internet.1")])
     LOGGER.info("created internet.")
 
     LOGGER.info("creating hosts (pf + source) in dmz...")
-    cnt = 2
-    only_ha = lambda x: x[:2]
-    for host, addr in [only_ha(x) for x in hosts]:
-        _add_host(cnt, host, "dmz", addr)
-        cnt += 1
-
+    _create_dmz_hosts(2, hosts)
     LOGGER.info("created hosts (pf + source) in dmz.")
 
     LOGGER.info("creating hosts (pf + source) in subnets...")
-    cnt = 4
-
-    for net in subnets:
-        LOGGER.info("  creating host %s... ", net)
-
-        srv = 0
-        for host in subhosts:
-            port = srv + 2
-            addr = "2001:db8:abc:%s::%s" % (cnt, srv+1)
-            _add_host(port, host, net, addr)
-            srv += 1
-
-        LOGGER.info("  created host %s.", net)
-
-        cnt += 1
+    _create_subnet_hosts(4, subnets, subhosts)
 
     LOGGER.info("testing ssh reachability from the internet...")
 
     LOGGER.info("  testing dmz... ")
-    only_ha = lambda x: x[:2]
-    for hname, addr in [only_ha(x) for x in hosts]:
+    only_host = lambda x: x[0]
+    for hname in [only_host(x) for x in hosts]:
         _test_host(hname, "dmz")
 
     LOGGER.info("  tested dmz.")
