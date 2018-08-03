@@ -51,9 +51,9 @@ SUB_LOGGER = logging.getLogger("sub")
 SUB_LOGGER.addHandler(LOG_HANDLER)
 SUB_LOGGER.setLevel(logging.INFO)
 
-SUBL_LOGGER = logging.getLogger("subl")
-SUBL_LOGGER.addHandler(LOG_HANDLER)
-SUBL_LOGGER.setLevel(logging.INFO)
+LINK_LOGGER = logging.getLogger("link")
+LINK_LOGGER.addHandler(LOG_HANDLER)
+LINK_LOGGER.setLevel(logging.INFO)
 
 SW_LOGGER = logging.getLogger("sw")
 SW_LOGGER.addHandler(LOG_HANDLER)
@@ -63,17 +63,9 @@ SRC_LOGGER = logging.getLogger("src")
 SRC_LOGGER.addHandler(LOG_HANDLER)
 SRC_LOGGER.setLevel(logging.INFO)
 
-SRCL_LOGGER = logging.getLogger("srcl")
-SRCL_LOGGER.addHandler(LOG_HANDLER)
-SRCL_LOGGER.setLevel(logging.INFO)
-
 PROBE_LOGGER = logging.getLogger("probe")
 PROBE_LOGGER.addHandler(LOG_HANDLER)
 PROBE_LOGGER.setLevel(logging.INFO)
-
-PROBEL_LOGGER = logging.getLogger("probel")
-PROBEL_LOGGER.addHandler(LOG_HANDLER)
-PROBEL_LOGGER.setLevel(logging.INFO)
 
 
 def measure(function, logger=LOGGER):
@@ -111,6 +103,13 @@ def _add_switch(name, ports):
     )
 
 
+def _link_ports(ports):
+    measure(
+        lambda: topo.main(["-a", "-l", ','.join(["%s:%s" % (s, d) for s, d in ports])]),
+        LINK_LOGGER
+    )
+
+
 def main():
     """ Benchmarks FaVe using the AD6 workload.
     """
@@ -144,10 +143,7 @@ def main():
     # create dmz
     LOGGER.info("creating dmz...")
     _add_switch("dmz", 9)
-    measure(
-        lambda: topo.main(["-a", "-l", "pgf.26:dmz.1,dmz.1:pgf.2"]),
-        SUBL_LOGGER
-    )
+    _link_ports([("pgf.26", "dmz.1"), ["dmz.1", "pgf.2"]])
     LOGGER.info("created dmz")
 
     hosts = [
@@ -173,10 +169,7 @@ def main():
     # create wifi
     LOGGER.info("creating wifi... ")
     _add_switch("wifi", 2)
-    measure(
-        lambda: topo.main(["-a", "-l", "pgf.3:wifi.1,wifi.1:pgf.27"]),
-        SUBL_LOGGER
-    )
+    _link_ports([("pgf.3", "wifi.1"), ("wifi.1", "pgf.27")])
     LOGGER.info("created wifi.")
 
     # create subnets
@@ -227,13 +220,7 @@ def main():
         _add_switch(net, 7)
 
         # link switch to firewall
-        measure(
-            lambda n=net: topo.main([
-                "-a",
-                "-l", "pgf.%s:%s.1,%s.1:pgf.%s" % (cnt+24, n, n, cnt)
-            ]),
-            SUBL_LOGGER
-        )
+        _link_ports([("pgf.%s"%(cnt+24), "%s.1"%net), ("%s.1"%net, "pgf.%s"%cnt)])
 
         LOGGER.info("  created subnet %s.", net)
 
@@ -390,10 +377,7 @@ def main():
         lambda: topo.main(["-a", "-t", "generator", "-n", "internet"]),
         SRC_LOGGER
     )
-    measure(
-        lambda: topo.main(["-a", "-l", "internet.1:pgf.1,pgf.25:internet.1"]),
-        SRCL_LOGGER
-    )
+    _link_ports([("internet.1", "pgf.1"), ("pgf.25", "internet.1")])
     LOGGER.info("created internet.")
 
     LOGGER.info("creating hosts (pf + source) in dmz...")
@@ -459,13 +443,10 @@ def _add_host(port, host, net, addr):
 
     _add_packet_filter(hostnet, addr, 1)
 
-    measure(
-        lambda hn=hostnet, n=net: topo.main([
-            "-a",
-            "-l", "%s.2:%s.%s,%s.%s:%s.1" % (hn, n, port, n, port, hn)
-        ]),
-        SUBL_LOGGER
-    )
+    _link_ports([
+        ("%s.2"%hostnet, "%s.%s"%(net, port)),
+        ("%s.%s"%(net,port), "%s.1"%hostnet)
+    ])
 
     measure(
         lambda: topo.main([
@@ -481,12 +462,7 @@ def _add_host(port, host, net, addr):
         PFR_LOGGER
     )
 
-    measure(
-        lambda hn=hostnet: topo.main(
-            ["-a", "-l", "%s.1:%s_output_states_in" % (server, hn)]
-        ),
-        SRCL_LOGGER
-    )
+    _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
 
     LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
     measure(
@@ -509,7 +485,7 @@ def _test_subnet(net, hosts=None):
     for host in hosts:
         _test_host(host, net)
 
-    LOGGER.info("tested %s.", net)
+    LOGGER.info("    tested %s.", net)
 
 
 def _test_host(host, net):
@@ -529,19 +505,9 @@ def _test_host(host, net):
         ]),
         PROBE_LOGGER
     )
-    # link probe to switch
-    measure(
-        lambda: topo.main([
-            "-a", "-l", "%s_input_states_accept:%s.1" % (hname, server)
-        ]),
-        PROBEL_LOGGER
-    )
-    measure(
-        lambda: topo.main([
-            "-a", "-l", "%s_input_rules_accept:%s.1" % (hname, server)
-        ]),
-        PROBEL_LOGGER
-    )
+    # link probe to host packet filter
+    _link_ports([("%s_input_states_accept"%hname, "%s.1"%server)])
+    _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
 
 
 if __name__ == "__main__":
