@@ -134,6 +134,32 @@ def _add_switch_rule(name, table=None, idx=None, fields=None, commands=None):
     )
 
 
+def _add_probe(name, quantor, filter_fields=None, test_fields=None, test_path=None):
+    opts = []
+    if filter_fields:
+        opts.extend(["-F", ';'.join(filter_fields)])
+    if test_fields:
+        opts.extend(["-T", ';'.join(test_fields)])
+    if test_path:
+        opts.extend(["-P", ';'.join(test_path)])
+
+    measure(
+        lambda: topo.main(["-a", "-t", "probe", "-n", name, "-q", quantor] + opts),
+        PROBE_LOGGER
+    )
+
+
+def _add_generator(name, fields=None):
+    opts = []
+    if fields:
+        opts.extend(["-f", ';'.join(fields)])
+
+    measure(
+        lambda: topo.main(["-a", "-t", "generator", "-n", name] + opts),
+        SRC_LOGGER
+    )
+
+
 def _add_host(port, host, net, addr):
     hname = host[0] if isinstance(host, tuple) else host
     hostnet = "%s.%s" % (hname, net)
@@ -147,12 +173,7 @@ def _add_host(port, host, net, addr):
         ("%s.%s"%(net, port), "%s.1"%hostnet)
     ])
 
-    measure(
-        lambda: topo.main([
-            "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
-        ]),
-        SRC_LOGGER
-    )
+    _add_generator(server, ["ipv6_src=%s" % addr])
 
     _add_ruleset(hostnet, addr, "rulesets/%s-ruleset" % nethost)
 
@@ -179,17 +200,13 @@ def _test_host(host, net):
 
     # add probe that looks for incoming flows for tcp port 22 (ssh)
     # originating from the internet
-    measure(
-        lambda: topo.main([
-            "-a",
-            "-t", "probe",
-            "-n", server,
-            "-q", "existential",
-            "-P", ".*(p=pgf.1);$",
-            "-F", "tcp_dst=22"
-        ]),
-        PROBE_LOGGER
+    _add_probe(
+        server,
+        "existential",
+        filter_fields=["tcp_dst=22"],
+        test_path=[".*(p=pgf.1);$"]
     )
+
     # link probe to host packet filter
     _link_ports([("%s_input_states_accept"%hname, "%s.1"%server)])
     _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
@@ -395,10 +412,8 @@ def main():
     LOGGER.info("populated switches")
 
     LOGGER.info("creating internet (source)...")
-    measure(
-        lambda: topo.main(["-a", "-t", "generator", "-n", "internet"]),
-        SRC_LOGGER
-    )
+    _add_generator("internet")
+
     _link_ports([("internet.1", "pgf.1"), ("pgf.25", "internet.1")])
     LOGGER.info("created internet.")
 
