@@ -110,6 +110,30 @@ def _link_ports(ports):
     )
 
 
+def _add_ruleset(name, address, ruleset):
+    measure(
+        lambda: ip6tables.main(["-n", name, "-i", address, "-f", ruleset]),
+        PFR_LOGGER
+    )
+
+
+def _add_switch_rule(name, table=None, idx=None, fields=None, commands=None):
+    opts = []
+    if table:
+        opts.extend(["-t", str(table)])
+    if idx:
+        opts.extend(["-i", str(idx)])
+    if fields:
+        opts.extend(["-f", ';'.join(fields)])
+    if commands:
+        opts.extend(["-c", ','.join(commands)])
+
+    measure(
+        lambda: switch.main(["-a", "-n", name] + opts),
+        SW_LOGGER
+    )
+
+
 def main():
     """ Benchmarks FaVe using the AD6 workload.
     """
@@ -220,7 +244,10 @@ def main():
         _add_switch(net, 7)
 
         # link switch to firewall
-        _link_ports([("pgf.%s"%(cnt+24), "%s.1"%net), ("%s.1"%net, "pgf.%s"%cnt)])
+        _link_ports([
+            ("pgf.%s"%(cnt+24), "%s.1"%net),
+            ("%s.1"%net, "pgf.%s"%cnt)
+        ])
 
         LOGGER.info("  created subnet %s.", net)
 
@@ -229,54 +256,25 @@ def main():
     # populate firewall
     LOGGER.info("populating firewall...")
 
-    measure(
-        lambda: ip6tables.main([
-            "-n", "pgf", "-i", "2001:db8:abc::1", "-f", "rulesets/pgf-ruleset"
-        ]),
-        PFR_LOGGER
-    )
+    _add_ruleset("pgf", "2001:db8:abc::1", "rulesets/pgf-ruleset")
 
     # dmz (route)
     LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:0::0/64 -> fd=pgf.2")
-    measure(
-        lambda: switch.main([
-            "-a",
-            "-i", "1",
-            "-n", "pgf",
-            "-t", "1",
-            "-f", "ipv6_dst=2001:db8:abc:0::0/64",
-            "-c", "fd=pgf.2"
-        ]),
-        SW_LOGGER
-    )
+    _add_switch_rule("pgf", 1, 1, ["ipv6_dst=2001:db8:abc:0::0/64"], ["fd=pgf.2"])
 
     # wifi (route)
     LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:1::0/64 -> fd=pgf.3")
-    measure(
-        lambda: switch.main([
-            "-a",
-            "-i", "1",
-            "-n", "pgf",
-            "-t", "1",
-            "-f", "ipv6_dst=2001:db8:abc:1::0/64",
-            "-c", "fd=pgf.3"
-        ]),
-        SW_LOGGER
-    )
+    _add_switch_rule("pgf", 1, 1, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.3"])
 
     # subnets (routes)
     cnt = 4
     for net in subnets:
         LOGGER.debug("set rule: ipv6_dst=2001:db8:abc:%s::0/64 -> fd=pgf.%s", cnt, cnt)
-        measure(
-            lambda: switch.main([
-                "-a",
-                "-i", "1",
-                "-n", "pgf",
-                "-f", "ipv6_dst=2001:db8:abc:%s::0/64" % cnt,
-                "-c", "fd=pgf.%s" % cnt
-            ]),
-            SW_LOGGER
+        _add_switch_rule(
+            "pgf",
+            idx=1,
+            fields=["ipv6_dst=2001:db8:abc:%s::0/64" % cnt],
+            commands=["fd=pgf.%s" % cnt]
         )
 
         cnt += 1
@@ -292,48 +290,22 @@ def main():
 
         # forwarding rule to host
         LOGGER.debug("\tset rule: ipv6_dst=%s -> fd=dmz.1", addr)
-        measure(
-            lambda a=addr: switch.main([
-                "-a",
-                "-i", "1",
-                "-n", "dmz",
-                "-t", "1",
-                "-f", "ipv6_dst=%s" % a,
-                "-c", "fd=dmz.%s" % cnt
-            ]),
-            SW_LOGGER
-        )
+        _add_switch_rule("dmz", 1, 1, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % cnt])
 
         cnt += 1
 
     # forwarding rule to firewall (default rule)
     LOGGER.debug("\tset rule: * -> fd=dmz.1")
-    measure(
-        lambda: switch.main(["-a", "-i", "10", "-n", "dmz", "-t", "1", "-c", "fd=dmz.1"]),
-        SW_LOGGER
-    )
+    _add_switch_rule("dmz", 1, 65535, commands=["fd=dmz.1"])
 
     # wifi
     # forwarding rule to client
     LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:1::0/64 -> fd=wifi.2")
-    measure(
-        lambda: switch.main([
-            "-a",
-            "-i", "1",
-            "-n", "wifi",
-            "-t", "1",
-            "-f", "ipv6_dst=2001:db8:abc:1::0/64",
-            "-c", "fd=wifi.2"
-        ]),
-        SW_LOGGER
-    )
+    _add_switch_rule("wifi", 1, 1, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.2"])
 
     # forwarding rule to firewall (default rule)
     LOGGER.debug("\tset rule: * -> fd=wifi.1")
-    measure(
-        lambda: switch.main(["-a", "-i", "1", "-n", "wifi", "-t", "1", "-c", "fd=wifi.1"]),
-        SW_LOGGER
-    )
+    _add_switch_rule("wifi", 1, 65535, commands=["fd=wifi.1"])
 
     # subnets
     cnt = 4
@@ -345,31 +317,20 @@ def main():
             srv += 1
             port = srv
 
-            server = "%s.%s" % (host[0], net)
             addr = "2001:db8:abc:%s::%s" % (cnt, ident)
 
             # forwarding rule to server
             LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr, net, port)
-            measure(
-                lambda n=net, a=addr, p=port: switch.main([
-                    "-a",
-                    "-i", "1",
-                    "-n", n,
-                    "-t", "1",
-                    "-f", "ipv6_dst=%s" % a,
-                    "-c", "fd=%s.%s" % (n, p)
-                ]),
-                SW_LOGGER
+            _add_switch_rule(
+                net, 1, 1,
+                ["ipv6_dst=%s" % addr],
+                ["fd=%s.%s" % (net, port)]
             )
 
         # forwarding rule to firewall (default rule)
         LOGGER.debug("set rule: * -> fd=%s.1", net)
-        measure(
-            lambda n=net: switch.main([
-                "-a", "-i", "1", "-n", n, "-t", "1", "-c", "fd=%s.1" % n
-            ]),
-            SW_LOGGER
-        )
+        _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
+
     LOGGER.info("populated switches")
 
     LOGGER.info("creating internet (source)...")
@@ -445,7 +406,7 @@ def _add_host(port, host, net, addr):
 
     _link_ports([
         ("%s.2"%hostnet, "%s.%s"%(net, port)),
-        ("%s.%s"%(net,port), "%s.1"%hostnet)
+        ("%s.%s"%(net, port), "%s.1"%hostnet)
     ])
 
     measure(
@@ -455,26 +416,12 @@ def _add_host(port, host, net, addr):
         SRC_LOGGER
     )
 
-    measure(
-        lambda hn=hostnet, nh=nethost: ip6tables.main(
-            ["-n", hn, "-i", addr, "-f", "rulesets/%s-ruleset" % nh]
-        ),
-        PFR_LOGGER
-    )
+    _add_ruleset(hostnet, addr, "rulesets/%s-ruleset" % nethost)
 
     _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
 
     LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
-    measure(
-        lambda hn=hostnet: switch.main([
-            "-a",
-            "-i", "1",
-            "-n", hn,
-            "-t", "1",
-            "-c", "fd=%s.%s" % (hn, 1)
-        ]),
-        SRC_LOGGER
-    )
+    _add_switch_rule(hostnet, 1, 1, [], ["fd=%s.%s" % (hostnet, 1)])
 
 
 def _test_subnet(net, hosts=None):
