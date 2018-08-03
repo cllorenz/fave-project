@@ -160,6 +160,30 @@ def _add_generator(name, fields=None):
     )
 
 
+def _set_subnet_switch_rules(cnt, subnets, subhosts):
+    for net in subnets:
+        srv = 1
+
+        for host in subhosts:
+            ident = srv
+            srv += 1
+            port = srv
+
+            addr = "2001:db8:abc:%s::%s" % (cnt, ident)
+
+            # forwarding rule to server
+            LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr, net, port)
+            _add_switch_rule(
+                net, 1, 1,
+                ["ipv6_dst=%s" % addr],
+                ["fd=%s.%s" % (net, port)]
+            )
+
+        # forwarding rule to firewall (default rule)
+        LOGGER.debug("set rule: * -> fd=%s.1", net)
+        _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
+
+
 def _add_host(port, host, net, addr):
     hname = host[0] if isinstance(host, tuple) else host
     hostnet = "%s.%s" % (hname, net)
@@ -380,28 +404,7 @@ def campus_network(config):
     _add_switch_rule("wifi", 1, 65535, commands=["fd=wifi.1"])
 
     # subnets
-    cnt = 4
-    for net in subnets:
-        srv = 1
-
-        for host in subhosts:
-            ident = srv
-            srv += 1
-            port = srv
-
-            addr = "2001:db8:abc:%s::%s" % (cnt, ident)
-
-            # forwarding rule to server
-            LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr, net, port)
-            _add_switch_rule(
-                net, 1, 1,
-                ["ipv6_dst=%s" % addr],
-                ["fd=%s.%s" % (net, port)]
-            )
-
-        # forwarding rule to firewall (default rule)
-        LOGGER.debug("set rule: * -> fd=%s.1", net)
-        _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
+    _set_subnet_switch_rules(4, subnets, subhosts)
 
     LOGGER.info("populated switches")
 
