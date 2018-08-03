@@ -277,18 +277,6 @@ def campus_network(config):
         networks.
     """
 
-#    PFLOG=$TMPDIR/pf.log
-#    PFRLOG=$TMPDIR/pfr.log
-#    SUBLOG=$TMPDIR/sub.log
-#    SUBLLOG=$TMPDIR/subl.log
-#    SWLOG=$TMPDIR/sw.log
-#    SRCLOG=$TMPDIR/source.log
-#    SRCLLOG=$TMPDIR/sourcel.log
-#    PROBELOG=$TMPDIR/probe.log
-#    PROBELLOG=$TMPDIR/probel.log
-
-#TIME='/usr/bin/time -f %e'
-
     hosts, subnets, subhosts = config
 
     LOGGER.info("starting netplumber...")
@@ -455,11 +443,6 @@ def campus_network(config):
     only_ha = lambda x: x[:2]
     for hname, addr in [only_ha(x) for x in hosts]:
         _test_host(hname, "dmz")
-
-        # remove probe
-        #PYTHONPATH=. $TIME -ao $PROBELOG python2 topology/topology.py -d -n $H
-        # ... and link
-        #PYTHONPATH=. $TIME -ao $PROBELLOG python2 topology/topology.py -d -l $H.1:dmz.$cnt
 
     LOGGER.info("  tested dmz.")
 
