@@ -134,6 +134,67 @@ def _add_switch_rule(name, table=None, idx=None, fields=None, commands=None):
     )
 
 
+def _add_host(port, host, net, addr):
+    hname = host[0] if isinstance(host, tuple) else host
+    hostnet = "%s.%s" % (hname, net)
+    nethost = "%s-%s" % (net, hname)
+    server = "source.%s" % hostnet
+
+    _add_packet_filter(hostnet, addr, 1)
+
+    _link_ports([
+        ("%s.2"%hostnet, "%s.%s"%(net, port)),
+        ("%s.%s"%(net, port), "%s.1"%hostnet)
+    ])
+
+    measure(
+        lambda: topo.main([
+            "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
+        ]),
+        SRC_LOGGER
+    )
+
+    _add_ruleset(hostnet, addr, "rulesets/%s-ruleset" % nethost)
+
+    _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
+
+    LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
+    _add_switch_rule(hostnet, 1, 1, [], ["fd=%s.%s" % (hostnet, 1)])
+
+
+def _test_subnet(net, hosts=None):
+    hosts = hosts if hosts is not None else []
+
+    LOGGER.info("    testing %s... ", net)
+
+    for host in hosts:
+        _test_host(host, net)
+
+    LOGGER.info("    tested %s.", net)
+
+
+def _test_host(host, net):
+    hname = "%s.%s" % (host[0] if isinstance(host, tuple) else host, net)
+    server = "probe.%s" % hname
+
+    # add probe that looks for incoming flows for tcp port 22 (ssh)
+    # originating from the internet
+    measure(
+        lambda: topo.main([
+            "-a",
+            "-t", "probe",
+            "-n", server,
+            "-q", "existential",
+            "-P", ".*(p=pgf.1);$",
+            "-F", "tcp_dst=22"
+        ]),
+        PROBE_LOGGER
+    )
+    # link probe to host packet filter
+    _link_ports([("%s_input_states_accept"%hname, "%s.1"%server)])
+    _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
+
+
 def main():
     """ Benchmarks FaVe using the AD6 workload.
     """
@@ -392,69 +453,6 @@ def main():
     LOGGER.info("stopping fave and netplumber...")
     os.system("scripts/stop_fave.sh")
     LOGGER.info("stopped fave and netplumber.")
-
-    return
-
-
-def _add_host(port, host, net, addr):
-    hname = host[0] if isinstance(host, tuple) else host
-    hostnet = "%s.%s" % (hname, net)
-    nethost = "%s-%s" % (net, hname)
-    server = "source.%s" % hostnet
-
-    _add_packet_filter(hostnet, addr, 1)
-
-    _link_ports([
-        ("%s.2"%hostnet, "%s.%s"%(net, port)),
-        ("%s.%s"%(net, port), "%s.1"%hostnet)
-    ])
-
-    measure(
-        lambda: topo.main([
-            "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
-        ]),
-        SRC_LOGGER
-    )
-
-    _add_ruleset(hostnet, addr, "rulesets/%s-ruleset" % nethost)
-
-    _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
-
-    LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
-    _add_switch_rule(hostnet, 1, 1, [], ["fd=%s.%s" % (hostnet, 1)])
-
-
-def _test_subnet(net, hosts=None):
-    hosts = hosts if hosts is not None else []
-
-    LOGGER.info("    testing %s... ", net)
-
-    for host in hosts:
-        _test_host(host, net)
-
-    LOGGER.info("    tested %s.", net)
-
-
-def _test_host(host, net):
-    hname = "%s.%s" % (host[0] if isinstance(host, tuple) else host, net)
-    server = "probe.%s" % hname
-
-    # add probe that looks for incoming flows for tcp port 22 (ssh)
-    # originating from the internet
-    measure(
-        lambda: topo.main([
-            "-a",
-            "-t", "probe",
-            "-n", server,
-            "-q", "existential",
-            "-P", ".*(p=pgf.1);$",
-            "-F", "tcp_dst=22"
-        ]),
-        PROBE_LOGGER
-    )
-    # link probe to host packet filter
-    _link_ports([("%s_input_states_accept"%hname, "%s.1"%server)])
-    _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
 
 
 if __name__ == "__main__":
