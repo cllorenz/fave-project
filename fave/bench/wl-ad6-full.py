@@ -91,6 +91,26 @@ def measure(function, logger=LOGGER):
     logger.info("%fms", (t_end-t_start)*1000.0)
 
 
+def _add_packet_filter(name, address, ports):
+    measure(
+        lambda: topo.main([
+            "-a",
+            "-t", "packet_filter",
+            "-n", name,
+            "-i", address,
+            "-p", str(ports)
+        ]),
+        PF_LOGGER
+    )
+
+
+def _add_switch(name, ports):
+    measure(
+        lambda: topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports)]),
+        SUB_LOGGER
+    )
+
+
 def main():
     """ Benchmarks FaVe using the AD6 workload.
     """
@@ -118,25 +138,12 @@ def main():
     # build topology
     LOGGER.info("reading topology...")
     LOGGER.info("creating pgf... ")
-
-    measure(
-        lambda: topo.main([
-            "-a",
-            "-t", "packet_filter",
-            "-n", "pgf",
-            "-i", "2001:db8:abc::1",
-            "-p", "24"
-        ]),
-        PF_LOGGER
-    )
+    _add_packet_filter("pgf", "2001:db8:abc::1", 24)
     LOGGER.info("created pgf.")
 
     # create dmz
     LOGGER.info("creating dmz...")
-    measure(
-        lambda: topo.main(["-a", "-t", "switch", "-n", "dmz", "-p", "9"]),
-        SUB_LOGGER
-    )
+    _add_switch("dmz", 9)
     measure(
         lambda: topo.main(["-a", "-l", "pgf.26:dmz.1,dmz.1:pgf.2"]),
         SUBL_LOGGER
@@ -165,10 +172,7 @@ def main():
 
     # create wifi
     LOGGER.info("creating wifi... ")
-    measure(
-        lambda: topo.main(["-a", "-t", "switch", "-n", "wifi", "-p", "2"]),
-        SUB_LOGGER
-    )
+    _add_switch("wifi", 2)
     measure(
         lambda: topo.main(["-a", "-l", "pgf.3:wifi.1,wifi.1:pgf.27"]),
         SUBL_LOGGER
@@ -220,10 +224,7 @@ def main():
         LOGGER.info("  creating subnet %s...", net)
 
         # create switch for subnet
-        measure(
-            lambda n=net: topo.main(["-a", "-t", "switch", "-n", n, "-p", "7"]),
-            SUB_LOGGER
-        )
+        _add_switch(net, 7)
 
         # link switch to firewall
         measure(
@@ -417,7 +418,7 @@ def main():
             _add_host(port, host, net, addr)
             srv += 1
 
-        LOGGER.info("created host %s.", net)
+        LOGGER.info("  created host %s.", net)
 
         cnt += 1
 
@@ -433,7 +434,7 @@ def main():
         # ... and link
         #PYTHONPATH=. $TIME -ao $PROBELLOG python2 topology/topology.py -d -l $H.1:dmz.$cnt
 
-    LOGGER.info("tested dmz.")
+    LOGGER.info("  tested dmz.")
 
     LOGGER.info("  testing subnets...")
     for net in subnets:
@@ -456,16 +457,7 @@ def _add_host(port, host, net, addr):
     nethost = "%s-%s" % (net, hname)
     server = "source.%s" % hostnet
 
-    measure(
-        lambda hn=hostnet: topo.main([
-            "-a",
-            "-t", "packet_filter",
-            "-n", hn,
-            "-i", addr,
-            "-p", "1"
-        ]),
-        PF_LOGGER
-    )
+    _add_packet_filter(hostnet, addr, 1)
 
     measure(
         lambda hn=hostnet, n=net: topo.main([
