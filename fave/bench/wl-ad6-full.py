@@ -399,61 +399,7 @@ def main():
     cnt = 2
     only_ha = lambda x: x[:2]
     for host, addr in [only_ha(x) for x in hosts]:
-        hostnet = "%s.dmz" % host
-        nethost = "dmz-%s" % host
-        measure(
-            lambda h=hostnet, a=addr: topo.main(
-                ["-a", "-t", "packet_filter", "-n", h, "-i", a, "-p", "1"]
-            ),
-            PF_LOGGER
-        )
-
-        measure(
-            lambda h=hostnet: topo.main([
-                "-a",
-                "-l", "%s.2:dmz.%s,dmz.%s:%s.1" % (h, cnt, cnt, h)
-            ]),
-            SUBL_LOGGER
-        )
-
-        measure(
-            lambda h=hostnet, a=addr: topo.main([
-                "-a",
-                "-t", "generator",
-                "-n", "source.%s" % h,
-                "-f", "ipv6_src=%s" % a
-            ]),
-            SRC_LOGGER
-        )
-
-        measure(
-            lambda h=nethost, a=addr: ip6tables.main(
-                ["-n", h, "-i", a, "-f", "rulesets/%s-ruleset" % h]
-            ),
-            PFR_LOGGER
-        )
-
-        measure(
-            lambda h=hostnet: topo.main([
-                "-a",
-                "-l", "source.%s.1:%s_output_states_in" % (h, h)
-            ]),
-            SRCL_LOGGER
-        )
-
-        # forwarding rule to switch
-        LOGGER.debug("\tset rule: * -> fd=%s.%s", host, 1)
-        measure(
-            lambda h=hostnet: switch.main([
-                "-a",
-                "-i", "1",
-                "-n", h,
-                "-t", "1",
-                "-c", "fd=%s.%s" % (h, 1)
-            ]),
-            PFR_LOGGER
-        )
-
+        _add_host(cnt, host, "dmz", addr)
         cnt += 1
 
     LOGGER.info("created hosts (pf + source) in dmz.")
@@ -467,63 +413,8 @@ def main():
         srv = 0
         for host in subhosts:
             port = srv + 2
-            hostnet = "%s.%s" % (host[0], net)
-            nethost = "%s-%s" % (net, host[0])
-            server = "source.%s" % hostnet
             addr = "2001:db8:abc:%s::%s" % (cnt, srv+1)
-
-            measure(
-                lambda hn=hostnet: topo.main([
-                    "-a",
-                    "-t", "packet_filter",
-                    "-n", hn,
-                    "-i", addr,
-                    "-p", "1"
-                ]),
-                PF_LOGGER
-            )
-
-            measure(
-                lambda hn=hostnet, n=net: topo.main([
-                    "-a",
-                    "-l", "%s.2:%s.%s,%s.%s:%s.1" % (hn, n, port, n, port, hn)
-                ]),
-                SUBL_LOGGER
-            )
-
-            measure(
-                lambda: topo.main([
-                    "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
-                ]),
-                SRC_LOGGER
-            )
-
-            measure(
-                lambda hn=hostnet, nh=nethost: ip6tables.main(
-                    ["-n", hn, "-i", addr, "-f", "rulesets/%s-ruleset" % nh]
-                ),
-                PFR_LOGGER
-            )
-
-            measure(
-                lambda hn=hostnet: topo.main(
-                    ["-a", "-l", "%s.1:%s_output_states_in" % (server, hn)]
-                ),
-                SRCL_LOGGER
-            )
-
-            LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
-            measure(
-                lambda hn=hostnet: switch.main([
-                    "-a",
-                    "-i", "1",
-                    "-n", hn,
-                    "-t", "1",
-                    "-c", "fd=%s.%s" % (hn, 1)
-                ]),
-                SRC_LOGGER
-            )
-
+            _add_host(port, host, net, addr)
             srv += 1
 
         LOGGER.info("created host %s.", net)
@@ -557,6 +448,65 @@ def main():
     LOGGER.info("stopped fave and netplumber.")
 
     return
+
+
+def _add_host(port, host, net, addr):
+    hname = host[0] if isinstance(host, tuple) else host
+    hostnet = "%s.%s" % (hname, net)
+    nethost = "%s-%s" % (net, hname)
+    server = "source.%s" % hostnet
+
+    measure(
+        lambda hn=hostnet: topo.main([
+            "-a",
+            "-t", "packet_filter",
+            "-n", hn,
+            "-i", addr,
+            "-p", "1"
+        ]),
+        PF_LOGGER
+    )
+
+    measure(
+        lambda hn=hostnet, n=net: topo.main([
+            "-a",
+            "-l", "%s.2:%s.%s,%s.%s:%s.1" % (hn, n, port, n, port, hn)
+        ]),
+        SUBL_LOGGER
+    )
+
+    measure(
+        lambda: topo.main([
+            "-a", "-t", "generator", "-n", server, "-f", "ipv6_src=%s" % addr
+        ]),
+        SRC_LOGGER
+    )
+
+    measure(
+        lambda hn=hostnet, nh=nethost: ip6tables.main(
+            ["-n", hn, "-i", addr, "-f", "rulesets/%s-ruleset" % nh]
+        ),
+        PFR_LOGGER
+    )
+
+    measure(
+        lambda hn=hostnet: topo.main(
+            ["-a", "-l", "%s.1:%s_output_states_in" % (server, hn)]
+        ),
+        SRCL_LOGGER
+    )
+
+    LOGGER.debug("\tset rule: * -> fd=%s.%s", hostnet, 1)
+    measure(
+        lambda hn=hostnet: switch.main([
+            "-a",
+            "-i", "1",
+            "-n", hn,
+            "-t", "1",
+            "-c", "fd=%s.%s" % (hn, 1)
+        ]),
+        SRC_LOGGER
+    )
 
 
 def _test_subnet(net, hosts=None):
