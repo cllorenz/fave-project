@@ -212,43 +212,8 @@ def _test_host(host, net):
     _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
 
 
-def main():
-    """ Benchmarks FaVe using the AD6 workload.
-    """
-
-#    PFLOG=$TMPDIR/pf.log
-#    PFRLOG=$TMPDIR/pfr.log
-#    SUBLOG=$TMPDIR/sub.log
-#    SUBLLOG=$TMPDIR/subl.log
-#    SWLOG=$TMPDIR/sw.log
-#    SRCLOG=$TMPDIR/source.log
-#    SRCLLOG=$TMPDIR/sourcel.log
-#    PROBELOG=$TMPDIR/probe.log
-#    PROBELLOG=$TMPDIR/probel.log
-
-#TIME='/usr/bin/time -f %e'
-
-    LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh test-workload-ad6.conf")
-    LOGGER.info("started netplumber.")
-
-    LOGGER.info("starting aggregator...")
-    os.system("scripts/start_aggr.sh")
-    LOGGER.info("started aggregator.")
-
-    # build topology
-    LOGGER.info("reading topology...")
-    LOGGER.info("creating pgf... ")
-    _add_packet_filter("pgf", "2001:db8:abc::1", 24)
-    LOGGER.info("created pgf.")
-
-    # create dmz
-    LOGGER.info("creating dmz...")
-    _add_switch("dmz", 9)
-    _link_ports([("pgf.26", "dmz.1"), ["dmz.1", "pgf.2"]])
-    LOGGER.info("created dmz")
-
-    hosts = [
+AD6 = (
+    [
         ("file", "2001:db8:abc:0::1", ["tcp:21", "tcp:115", "tcp:22", "udp:22"]),
         ("mail", "2001:db8:abc:0::2", [
             "tcp:25", "tcp:587", "tcp:110", "tcp:143", "tcp:220", "tcp:465",
@@ -266,17 +231,8 @@ def main():
             "tcp:118", "tcp:156", "tcp:22", "udp:118", "udp:156", "udp:22"
         ]),
         ("adm", "2001:db8:abc:0::8", ["udp:161", "tcp:22", "udp:22"])
-    ]
-
-    # create wifi
-    LOGGER.info("creating wifi... ")
-    _add_switch("wifi", 2)
-    _link_ports([("pgf.3", "wifi.1"), ("wifi.1", "pgf.27")])
-    LOGGER.info("created wifi.")
-
-    # create subnets
-    LOGGER.info("creating subnets...")
-    subnets = [
+    ],
+    [
         "api",
         "asta",
         "botanischer-garten-potsdam.de",
@@ -298,9 +254,8 @@ def main():
         "sq-brandenburg.de",
         "ub",
         "welcome-center-potsdam.de"
-    ]
-
-    subhosts = [
+    ],
+    [
         ("web", ["tcp:80", "tcp:443", "tcp:22", "udp:22"]),
         ("voip", ["tcp:5060", "tcp:5061", "udp:5060", "tcp:22", "udp:22"]),
         ("print", ["tcp:631", "tcp:22", "udp:631", "udp:22"]),
@@ -313,6 +268,57 @@ def main():
             "udp:137", "udp:138", "udp:139", "udp:22"
         ])
     ]
+)
+
+
+def campus_network(config):
+    """ Benchmarks FaVe using the a campus network styled workload including a
+        central firewall, a DMZ, a campus wifi, and some generic branch
+        networks.
+    """
+
+#    PFLOG=$TMPDIR/pf.log
+#    PFRLOG=$TMPDIR/pfr.log
+#    SUBLOG=$TMPDIR/sub.log
+#    SUBLLOG=$TMPDIR/subl.log
+#    SWLOG=$TMPDIR/sw.log
+#    SRCLOG=$TMPDIR/source.log
+#    SRCLLOG=$TMPDIR/sourcel.log
+#    PROBELOG=$TMPDIR/probe.log
+#    PROBELLOG=$TMPDIR/probel.log
+
+#TIME='/usr/bin/time -f %e'
+
+    hosts, subnets, subhosts = config
+
+    LOGGER.info("starting netplumber...")
+    os.system("scripts/start_np.sh test-workload-ad6.conf")
+    LOGGER.info("started netplumber.")
+
+    LOGGER.info("starting aggregator...")
+    os.system("scripts/start_aggr.sh")
+    LOGGER.info("started aggregator.")
+
+    # build topology
+    LOGGER.info("reading topology...")
+    LOGGER.info("creating pgf... ")
+    _add_packet_filter("pgf", "2001:db8:abc::1", 24)
+    LOGGER.info("created pgf.")
+
+    # create dmz
+    LOGGER.info("creating dmz...")
+    _add_switch("dmz", 9)
+    _link_ports([("pgf.26", "dmz.1"), ["dmz.1", "pgf.2"]])
+    LOGGER.info("created dmz")
+
+    # create wifi
+    LOGGER.info("creating wifi... ")
+    _add_switch("wifi", 2)
+    _link_ports([("pgf.3", "wifi.1"), ("wifi.1", "pgf.27")])
+    LOGGER.info("created wifi.")
+
+    # create subnets
+    LOGGER.info("creating subnets...")
 
     cnt = 4
     for net in subnets:
@@ -471,4 +477,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    campus_network(AD6)
