@@ -257,7 +257,7 @@ def _add_host(port, host, net, addr):
 
     _add_generator(server, ["ipv6_src=%s" % addr])
 
-    _add_ruleset(hostnet, addr, "rulesets/%s-ruleset" % nethost)
+    _add_ruleset(hostnet, addr, "%s/%s-ruleset" % (RULESETS, nethost))
 
     _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
 
@@ -299,7 +299,7 @@ def _test_dmz(hosts):
     for hname in [only_host(x) for x in hosts]:
         _test_host(hname, "dmz")
 
-
+RULESETS = "bench/wl-ad6-rulesets"
 AD6 = (
     [
         ("file", "2001:db8:abc:0::1", ["tcp:21", "tcp:115", "tcp:22", "udp:22"]),
@@ -391,7 +391,7 @@ def campus_network(config):
 
     # populate firewall
     LOGGER.info("populating firewall...")
-    _add_ruleset("pgf", "2001:db8:abc::1", "rulesets/pgf-ruleset")
+    _add_ruleset("pgf", "2001:db8:abc::1", "%s/pgf-ruleset" % RULESETS)
 
     # dmz (route)
     LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:0::0/64 -> fd=pgf.2")
@@ -462,7 +462,7 @@ if __name__ == "__main__":
     campus_network(AD6)
 
     LOGGER.info("dumping fave and netplumber...")
-    dumper.main(["-anpf"])
+    #dumper.main(["-anpf"])
     LOGGER.info("dumped fave and netplumber.")
 
     LOGGER.info("stopping fave and netplumber...")
