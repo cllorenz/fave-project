@@ -452,7 +452,7 @@ def campus_network(config):
 
 if __name__ == "__main__":
     LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh test-workload-ad6.conf")
+    os.system("scripts/start_np.sh bench/wl-ad6-np.conf")
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
