@@ -208,6 +208,17 @@ def _set_subnet_switch_rules(cnt, subnets, subhosts):
         _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
 
 
+def _add_subnet_routing_rules(cnt, subnets):
+    for cnt in range(cnt, len(subnets)+1):
+        LOGGER.debug("set rule: ipv6_dst=2001:db8:abc:%s::0/64 -> fd=pgf.%s", cnt, cnt)
+        _add_switch_rule(
+            "pgf",
+            idx=1,
+            fields=["ipv6_dst=2001:db8:abc:%s::0/64" % cnt],
+            commands=["fd=pgf.%s" % cnt]
+        )
+
+
 def _create_dmz_hosts(cnt, hosts):
     only_ha = lambda x: x[:2]
     for host, addr in [only_ha(x) for x in hosts]:
@@ -283,6 +294,12 @@ def _test_host(host, net):
     _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
 
 
+def _test_dmz(hosts):
+    only_host = lambda x: x[0]
+    for hname in [only_host(x) for x in hosts]:
+        _test_host(hname, "dmz")
+
+
 AD6 = (
     [
         ("file", "2001:db8:abc:0::1", ["tcp:21", "tcp:115", "tcp:22", "udp:22"]),
@@ -350,14 +367,6 @@ def campus_network(config):
 
     hosts, subnets, subhosts = config
 
-    LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh test-workload-ad6.conf")
-    LOGGER.info("started netplumber.")
-
-    LOGGER.info("starting aggregator...")
-    os.system("scripts/start_aggr.sh")
-    LOGGER.info("started aggregator.")
-
     # build topology
     LOGGER.info("reading topology...")
     LOGGER.info("creating pgf... ")
@@ -393,17 +402,8 @@ def campus_network(config):
     _add_switch_rule("pgf", 1, 1, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.3"])
 
     # subnets (routes)
-    cnt = 4
-    for net in subnets:
-        LOGGER.debug("set rule: ipv6_dst=2001:db8:abc:%s::0/64 -> fd=pgf.%s", cnt, cnt)
-        _add_switch_rule(
-            "pgf",
-            idx=1,
-            fields=["ipv6_dst=2001:db8:abc:%s::0/64" % cnt],
-            commands=["fd=pgf.%s" % cnt]
-        )
+    _add_subnet_routing_rules(4, subnets)
 
-        cnt += 1
     LOGGER.info("populated firewall.")
 
     LOGGER.info("populating switches...")
@@ -439,18 +439,27 @@ def campus_network(config):
     LOGGER.info("creating hosts (pf + source) in subnets...")
     _create_subnet_hosts(4, subnets, subhosts)
 
+
     LOGGER.info("testing ssh reachability from the internet...")
-
     LOGGER.info("  testing dmz... ")
-    only_host = lambda x: x[0]
-    for hname in [only_host(x) for x in hosts]:
-        _test_host(hname, "dmz")
-
+    _test_dmz(hosts)
     LOGGER.info("  tested dmz.")
 
     LOGGER.info("  testing subnets...")
     for net in subnets:
         _test_subnet(net, hosts=subhosts)
+
+
+if __name__ == "__main__":
+    LOGGER.info("starting netplumber...")
+    os.system("scripts/start_np.sh test-workload-ad6.conf")
+    LOGGER.info("started netplumber.")
+
+    LOGGER.info("starting aggregator...")
+    os.system("scripts/start_aggr.sh")
+    LOGGER.info("started aggregator.")
+
+    campus_network(AD6)
 
     LOGGER.info("dumping fave and netplumber...")
     dumper.main(["-anpf"])
@@ -459,7 +468,3 @@ def campus_network(config):
     LOGGER.info("stopping fave and netplumber...")
     os.system("scripts/stop_fave.sh")
     LOGGER.info("stopped fave and netplumber.")
-
-
-if __name__ == "__main__":
-    campus_network(AD6)
