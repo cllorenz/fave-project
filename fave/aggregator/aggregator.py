@@ -1305,7 +1305,7 @@ def main(argv):
     try:
         sock.getpeername()
     except socket.error:
-        Aggregator.error("could not connect to net_plumber")
+        Aggregator.LOGGER.error("could not connect to net_plumber")
         sys.exit(1)
 
     global _AGGREGATOR
