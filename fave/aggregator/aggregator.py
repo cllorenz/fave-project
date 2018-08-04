@@ -12,6 +12,7 @@ import json
 import logging
 import sys
 import getopt
+import time
 
 from threading import Thread
 from Queue import Queue
@@ -1280,6 +1281,10 @@ def main(argv):
         elif opt == '-p':
             port = int(arg) if is_port(arg) else port
 
+    log_handler = logging.FileHandler('/tmp/np/aggregator.log')
+    Aggregator.LOGGER.addHandler(log_handler)
+    Aggregator.LOGGER.setLevel(logging.DEBUG)
+
     backend = server if port == 0 else (server, port)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else \
         socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1288,14 +1293,23 @@ def main(argv):
         print_help()
         sys.exit(1)
 
-    sock.connect(backend)
+    tries = 5
+    while tries > 0:
+        try:
+            sock.connect(backend)
+            break
+        except socket.error:
+            time.sleep(1)
+            tries -= 1
+
+    try:
+        sock.getpeername()
+    except socket.error:
+        Aggregator.error("could not connect to net_plumber")
+        sys.exit(1)
 
     global _AGGREGATOR
     _AGGREGATOR = Aggregator(sock)
-
-    log_handler = logging.FileHandler('/tmp/np/aggregator.log')
-    Aggregator.LOGGER.addHandler(log_handler)
-    Aggregator.LOGGER.setLevel(logging.DEBUG)
 
     try:
         os.unlink(UDS_ADDR)
