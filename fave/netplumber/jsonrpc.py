@@ -53,7 +53,7 @@ def _extract_node(msg):
 
     data = json.loads(msg)
     if "error" in data and data["error"]["code"] != 0:
-        raise Exception(data["error"]["message"])
+        raise RPCError(data["error"]["message"])
     return data["result"]
 
 
@@ -82,7 +82,7 @@ def connect_to_netplumber(server, port=0):
         socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     if not sock:
-        raise RPCException(
+        raise RPCError(
             "could not create socket from %s" % "address %s" % (
                 server if port == 0 else "address %s and port %s" % (server, port)
             )
@@ -100,7 +100,7 @@ def connect_to_netplumber(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
-        raise RPCException("could not connect to net_plumber")
+        raise RPCError("could not connect to net_plumber")
 
     return sock
 
