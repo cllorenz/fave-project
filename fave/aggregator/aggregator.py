@@ -1285,27 +1285,11 @@ def main(argv):
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(logging.DEBUG)
 
-    backend = server if port == 0 else (server, port)
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else \
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    if not sock:
-        print_help()
-        sys.exit(1)
-
-    tries = 5
-    while tries > 0:
-        try:
-            sock.connect(backend)
-            break
-        except socket.error:
-            time.sleep(1)
-            tries -= 1
-
     try:
-        sock.getpeername()
-    except socket.error:
-        Aggregator.LOGGER.error("could not connect to net_plumber")
+        sock = jsonrpc.connect_to_netplumber(server, port)
+    except jsonrpc.RPCError as err:
+        Aggregator.error(err.message)
+        print_help()
         sys.exit(1)
 
     global _AGGREGATOR
