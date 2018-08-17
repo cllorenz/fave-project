@@ -12,7 +12,6 @@ import json
 import logging
 import sys
 import getopt
-import time
 
 from threading import Thread
 from Queue import Queue
@@ -1061,10 +1060,9 @@ class Aggregator(object):
 
     def _get_model_table(self, node):
         mtype = self.models[node].type
-        if mtype == 'packet_filter':
-            return self.tables[node+'_post_routing']
-        else:
-            return self.tables[node+'.1']
+        return self.tables[
+            node+'_post_routing' if mtype == 'packet_filter' else node+'.1'
+        ]
 
 
     def _absorb_mapping(self, mapping):
@@ -1288,7 +1286,7 @@ def main(argv):
     try:
         sock = jsonrpc.connect_to_netplumber(server, port)
     except jsonrpc.RPCError as err:
-        Aggregator.error(err.message)
+        Aggregator.LOGGER.error(err.message)
         print_help()
         sys.exit(1)
 
