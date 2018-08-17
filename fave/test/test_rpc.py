@@ -6,7 +6,6 @@
 import unittest
 
 import os
-import socket
 import random
 
 from netplumber.jsonrpc import connect_to_netplumber
