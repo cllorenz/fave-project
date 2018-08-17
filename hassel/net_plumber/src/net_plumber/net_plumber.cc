@@ -236,9 +236,9 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       hs_add(&rule_hs,array_copy((*it)->match,this->length));
 
       if (hs_is_equal(&all_hs,&aggr_hs)) {
-        //this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
+        this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
       } else if (hs_is_sub(&rule_hs,&aggr_hs)) {
-        //this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
+        this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 
       hs_destroy(&rule_hs);
