@@ -75,6 +75,6 @@ PYTHONPATH=. python2 netplumber/print_np.py -utn
 #echo "start openflow proxy..."
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
-bash scripts/stop_fave.sh
+scripts/stop_fave.sh
 
 #kill -s KILL $RYU
