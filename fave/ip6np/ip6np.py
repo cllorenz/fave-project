@@ -12,7 +12,7 @@ import generator
 
 from parser import ASTParser
 from util.print_util import eprint
-from aggregator.aggregator_commons import UDS_ADDR
+from util.aggregator_utils import UDS_ADDR
 
 def print_help():
     """ Prints the usage on stderr.
