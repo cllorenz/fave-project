@@ -25,7 +25,7 @@ for PYFILE in $PYFILES; do
         continue
     fi
 
-    PYTHONPATH=. pylint $PYFILE > $TMP 2>&1
+    PYTHONPATH=. pylint2 $PYFILE > $TMP 2>&1
     if [ $? -eq 0 ]; then
         echo "ok"
     else

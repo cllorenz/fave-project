@@ -4,6 +4,8 @@
 """
 
 import json
+import time
+import socket
 import cProfile
 
 PROFILE = cProfile.Profile()
@@ -51,7 +53,8 @@ def _extract_node(msg):
 
     data = json.loads(msg)
     if "error" in data and data["error"]["code"] != 0:
-        raise Exception(data["error"]["message"])
+        raise RPCError(data["error"]["message"])
+
     return data["result"]
 
 
@@ -59,6 +62,48 @@ def _basic_rpc():
     """ Creates basic RPC structure.
     """
     return {"id":"0", "jsonrpc":"2.0"}
+
+
+class RPCError(Exception):
+    """ This class provides an exception type for RPC operations.
+    """
+    pass
+
+def connect_to_netplumber(server, port=0):
+    """ Creates a connected socket to NetPlumber.
+
+    Keyword arguements:
+    server - A server address to connect to. May be either an IPv4 address or a
+             UNIX domain socket.
+    port - An optional TCP port if IPv4 is used.
+    """
+
+    backend = server if port == 0 else (server, port)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else \
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    if not sock:
+        raise RPCError(
+            "could not create socket from %s" % "address %s" % (
+                server if port == 0 else "address %s and port %s" % (server, port)
+            )
+        )
+
+    tries = 5
+    while tries > 0:
+        try:
+            sock.connect(backend)
+            break
+        except socket.error:
+            time.sleep(1)
+            tries -= 1
+
+    try:
+        sock.getpeername()
+    except socket.error:
+        raise RPCError("could not connect to net_plumber")
+
+    return sock
 
 
 def stop(sock):

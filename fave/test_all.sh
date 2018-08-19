@@ -17,7 +17,7 @@ net_plumber --test
 echo "ok"
 
 echo -n "regressions... "
-PYTHONPATH=. test/test_rpc.py
+PYTHONPATH=. python2 test/test_rpc.py
 echo "ok"
 
 echo "example network..."

@@ -6,9 +6,9 @@
 import unittest
 
 import os
-import socket
 import random
 
+from netplumber.jsonrpc import connect_to_netplumber
 from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand
 from netplumber.jsonrpc import print_plumbing_network
 from netplumber.jsonrpc import add_table, add_link
@@ -51,8 +51,7 @@ class TestRPC(unittest.TestCase):
 
         os.system('scripts/start_np.sh')
         server = ('localhost', 1234)
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect(server)
+        self.sock = connect_to_netplumber(*server)
         init(self.sock, 1)
 
 

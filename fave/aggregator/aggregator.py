@@ -12,7 +12,6 @@ import json
 import logging
 import sys
 import getopt
-import time
 
 from threading import Thread
 from Queue import Queue
@@ -567,7 +566,6 @@ class Aggregator(object):
         elif model.type == "switch":
             self._add_switch(model)
 
-
     # XXX: deprecated?
     def _extend_mapping(self, mapping):
         assert isinstance(mapping, Mapping)
@@ -948,6 +946,7 @@ class Aggregator(object):
                 calc_port(idx2, model, port2)
             )
 
+
     def _delete_tables(self, model):
         for table in model.tables:
             name = '_'.join([model.node, table])
@@ -1061,10 +1060,9 @@ class Aggregator(object):
 
     def _get_model_table(self, node):
         mtype = self.models[node].type
-        if mtype == 'packet_filter':
-            return self.tables[node+'_post_routing']
-        else:
-            return self.tables[node+'.1']
+        return self.tables[
+            node+'_post_routing' if mtype == 'packet_filter' else node+'.1'
+        ]
 
 
     def _absorb_mapping(self, mapping):
@@ -1285,27 +1283,11 @@ def main(argv):
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(logging.DEBUG)
 
-    backend = server if port == 0 else (server, port)
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else \
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    if not sock:
-        print_help()
-        sys.exit(1)
-
-    tries = 5
-    while tries > 0:
-        try:
-            sock.connect(backend)
-            break
-        except socket.error:
-            time.sleep(1)
-            tries -= 1
-
     try:
-        sock.getpeername()
-    except socket.error:
-        Aggregator.LOGGER.error("could not connect to net_plumber")
+        sock = jsonrpc.connect_to_netplumber(server, port)
+    except jsonrpc.RPCError as err:
+        Aggregator.LOGGER.error(err.message)
+        print_help()
         sys.exit(1)
 
     global _AGGREGATOR
