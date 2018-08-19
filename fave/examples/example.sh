@@ -43,9 +43,13 @@ PYTHONPATH=. python2 topology/topology.py -a -l boz.1:foo.1
 
 echo -n ", probe"
 PYTHONPATH=. python2 topology/topology.py -a -t probe -n bla -q universal -P ".*;(table in (bar))"
+echo -n ", probe"
+PYTHONPATH=. python2 topology/topology.py -a -t probe -n blubb -q universal -P ".*;(table in (bar))"
 
-echo -n ", link (bar-->bla)... "
+echo -n ", link (bar-->bla)"
 PYTHONPATH=. python2 topology/topology.py -a -l bar.4:bla.1
+echo -n ", link (foo-->blubb)... "
+PYTHONPATH=. python2 topology/topology.py -a -l foo.1:blubb.1
 echo "ok"
 
 # test firewall
