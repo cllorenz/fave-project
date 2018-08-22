@@ -29,6 +29,8 @@ extern "C" {
   #include "../headerspace/hs.h"
 }
 
+#define PIPE_SLICING
+
 enum NODE_TYPE {
   BASE = 0,
   RULE,

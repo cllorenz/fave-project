@@ -114,23 +114,27 @@ void default_slice_leakage_callback(NetPlumber *N, Flow *f, void *data) {
 
 string get_event_name(EVENT_TYPE t) {
   switch (t) {
-    case(ADD_RULE)          : return "Add Rule";
-    case(REMOVE_RULE)       : return "Remove Rule";
-    case(ADD_LINK)          : return "Add Link";
-    case(REMOVE_LINK)       : return "Remove Link";
-    case(ADD_SOURCE)        : return "Add Source";
-    case(REMOVE_SOURCE)     : return "Remove Source";
-    case(ADD_SINK)          : return "Add Sink";
-    case(REMOVE_SINK)       : return "Remove Sink";
-    case(START_SOURCE_PROBE): return "Start Source Probe";
-    case(STOP_SOURCE_PROBE) : return "Stop Source Probe";
-    case(START_SINK_PROBE)  : return "Start Sink Probe";
-    case(STOP_SINK_PROBE)   : return "Stop Sink Probe";
-    case(ADD_TABLE)         : return "Add Table";
-    case(REMOVE_TABLE)      : return "Remove Table";
+    case(ADD_RULE)           : return "Add Rule";
+    case(REMOVE_RULE)        : return "Remove Rule";
+    case(ADD_LINK)           : return "Add Link";
+    case(REMOVE_LINK)        : return "Remove Link";
+    case(ADD_SOURCE)         : return "Add Source";
+    case(REMOVE_SOURCE)      : return "Remove Source";
+    case(ADD_SINK)           : return "Add Sink";
+    case(REMOVE_SINK)        : return "Remove Sink";
+    case(START_SOURCE_PROBE) : return "Start Source Probe";
+    case(STOP_SOURCE_PROBE)  : return "Stop Source Probe";
+    case(START_SINK_PROBE)   : return "Start Sink Probe";
+    case(STOP_SINK_PROBE)    : return "Stop Sink Probe";
+    case(ADD_TABLE)          : return "Add Table";
+    case(REMOVE_TABLE)       : return "Remove Table";
 #ifdef PIPE_SLICING
-    case(ADD_SLICE)         : return "Add Slice";
-    case(REMOVE_SLICE)      : return "Remove Slice";
+    case(ADD_SLICE)          : return "Add Slice";
+    case(REMOVE_SLICE)       : return "Remove Slice";
+    case(ADD_SLICE_MATRIX)   : return "Add Slice Matrix";
+    case(REMOVE_SLICE_MATRIX): return "Remove Slice Matrix";
+    case(ADD_SLICE_ALLOW)    : return "Add Slice Allow";
+    case(REMOVE_SLICE_ALLOW) : return "Remove Slice Allow";
 #endif
     case(EXPAND): return "Expand"; // not implemented but maybe needed?
     default: return "None";
@@ -1605,6 +1609,81 @@ void NetPlumber::remove_slice(uint64_t id) {
     free(s);
 }
 #endif
+
+#ifdef PIPE_SLICING
+bool NetPlumber::add_slice_matrix(std::string matrix) {
+    this->last_event.type = ADD_SLICE_MATRIX;
+
+    std::set<uint64_t> ids;
+    std::string line;
+    std::stringstream ss = std::stringstream(matrix);
+    std::string sub;
+    uint64_t id;
+    const char *x;
+    std::map<uint64_t, std::set<uint64_t>> m;
+
+    if (ss >> line) {
+      /* parse the first line of the matrix and
+	 extract all ids to add to set of ids */
+      std::stringstream sl = std::stringstream(line);
+      getline(sl, sub, ',');
+      while (getline(sl, sub, ',')) {
+	x = sub.c_str();
+	id = std::strtoul(x, NULL, 10);
+	ids.insert(id);
+      }
+
+      /* parse the remaining lines which take form
+	 id,<comma separated list of xs> */
+      while (ss >> line) {
+	// get the map id (first field)
+	std::stringstream sl = std::stringstream(line);
+	getline(sl, sub, ',');
+	x = sub.c_str();
+	id = std::strtoul(x, NULL, 10);
+	// get the mapping (remaining fields)
+	for (std::set<uint64_t>::iterator it=ids.begin();
+	     it!=ids.end(); ++it) {
+	  getline(sl, sub, ',');
+	  if (sub == "x") m[id].insert(*it);
+	}
+      }
+    }
+    return true;
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+void NetPlumber::remove_slice_matrix(void) {
+    this->last_event.type = REMOVE_SLICE_MATRIX;
+    for (std::map<uint64_t, std::set<uint64_t>>::iterator it=matrix.begin();
+    	 it!=matrix.end(); ++it) {
+      // TODO: check runtime behaviour
+      it->second.clear();
+      this->matrix.erase(it->first);
+    }
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
+    this->last_event.type = ADD_SLICE_ALLOW;
+    this->matrix[id1].insert(id2);
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
+    this->last_event.type = REMOVE_SLICE_ALLOW;
+    this->matrix[id1].erase(id2);
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+void NetPlumber::test_slice(void) {
+  LOG4CXX_FATAL(logger,"some test string");
+}
+#endif /* PIPE_SLICING */
 
 #ifdef POLICY_PROBES
 void NetPlumber::add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action) {
