@@ -6,17 +6,20 @@
 CC_SRCS += \
 ../src/net_plumber/test/conditions_unit.cc \
 ../src/net_plumber/test/net_plumber_basic_unit.cc \
-../src/net_plumber/test/net_plumber_plumbing_unit.cc 
+../src/net_plumber/test/net_plumber_plumbing_unit.cc \
+../src/net_plumber/test/net_plumber_slicing_unit.cc
 
 OBJS += \
 ./src/net_plumber/test/conditions_unit.o \
 ./src/net_plumber/test/net_plumber_basic_unit.o \
-./src/net_plumber/test/net_plumber_plumbing_unit.o 
+./src/net_plumber/test/net_plumber_plumbing_unit.o \
+./src/net_plumber/test/net_plumber_slicing_unit.o
 
 CC_DEPS += \
 ./src/net_plumber/test/conditions_unit.d \
 ./src/net_plumber/test/net_plumber_basic_unit.d \
-./src/net_plumber/test/net_plumber_plumbing_unit.d 
+./src/net_plumber/test/net_plumber_plumbing_unit.d \
+./src/net_plumber/test/net_plumber_slicing_unit.d
 
 
 # Each subdirectory must supply rules for building sources it contributes

@@ -18,6 +18,7 @@
 
 #include "test/net_plumber_basic_unit.h"
 #include "test/net_plumber_plumbing_unit.h"
+#include "test/net_plumber_slicing_unit.h"
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
 #include "../headerspace/test/hs_unit.h"
@@ -85,6 +86,7 @@ void run_server(string address, int port, NetPlumber *N) {
 void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberBasicTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberPlumbingTest );
+  CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberSlicingTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( ConditionsTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
