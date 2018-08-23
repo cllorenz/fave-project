@@ -53,6 +53,7 @@ private:
 #ifdef PIPE_SLICING
   FN(add_slice); FN(remove_slice);
   FN(add_slice_matrix); FN(remove_slice_matrix);
+  FN(add_slice_allow); FN(remove_slice_allow);
   FN(print_slice_matrix);
 #endif
 #ifdef FIREWALL_RULES

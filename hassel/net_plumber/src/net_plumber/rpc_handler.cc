@@ -138,6 +138,7 @@ void RpcHandler::initServer (Server *server) {
 #ifdef PIPE_SLICING
     FN(add_slice), FN(remove_slice),
     FN(add_slice_matrix), FN(remove_slice_matrix),
+    FN(add_slice_allow), FN(remove_slice_allow),
     FN(print_slice_matrix),
 #endif
 #ifdef FIREWALL_RULES
@@ -340,6 +341,25 @@ PROTO(remove_slice_matrix);
     RETURN(VOID);
 }
 #endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+PROTO(add_slice_allow);
+    uint64_t id1 = PARAM(id1).asUInt64();
+    uint64_t id2 = PARAM(id2).asUInt64();
+    bool ret = true;
+    ret = netPlumber->add_slice_allow(id1, id2);
+    RETURN(Json::Value(ret));
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+PROTO(remove_slice_allow);
+    uint64_t id1 = PARAM(id1).asUInt64();
+    uint64_t id2 = PARAM(id2).asUInt64();
+    netPlumber->remove_slice_allow(id1, id2);
+    RETURN(VOID);
+}
+#endif
 
 #ifdef PIPE_SLICING
 PROTO(print_slice_matrix);

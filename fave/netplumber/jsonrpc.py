@@ -391,7 +391,7 @@ def add_slice_matrix(sock, matrix):
     data["params"] = {"matrix":matrix}
     _sendrecv(sock, json.dumps(data))
 
-#@profile_metho
+#@profile_method
 def remove_slice_matrix(sock):
     """ Clears all contents from reachability matrix
         for network slices.
@@ -402,6 +402,40 @@ def remove_slice_matrix(sock):
 
     data = _basic_rpc()
     data["method"] = "remove_slice_matrix"
+    _sendrecv(sock, json.dumps(data))
+
+#@profile_method
+def add_slice_allow(sock, id1, id2):
+    """ Adds a specific (directional) allowed pair
+        id1->id2 between which reachability is allowed
+
+    Keyword arguments:
+    sock --- A socket connected to NetPlumber
+    id1  --- src slice id
+    id2  --- dst slice id
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_slice_allow"
+    data["params"] = {"id1": id1,
+                      "id2": id2}
+    _sendrecv(sock, json.dumps(data))
+
+#@profile_method
+def remove_slice_allow(sock, id1, id2):
+    """ Removes a specific (directional) allowed pair
+        id1->id2 between which reachability is allowed
+
+    Keyword arguments:
+    sock --- A socket connected to NetPlumber
+    id1  --- src slice id
+    id2  --- dst slice id
+    """
+
+    data = _basic_rpc()
+    data["method"] = "remove_slice_allow"
+    data["params"] = {"id1": id1,
+                      "id2": id2}
     _sendrecv(sock, json.dumps(data))
 
 #@profile_method
