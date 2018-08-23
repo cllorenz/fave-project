@@ -1681,6 +1681,7 @@ bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
 void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = REMOVE_SLICE_ALLOW;
     this->matrix[id1].erase(id2);
+    if (this->matrix[id1].empty()) this->matrix.erase(id1);
 }
 #endif /* PIPE_SLICING */
 
@@ -1706,6 +1707,12 @@ void NetPlumber::print_slice_matrix(void) {
   }
 
   LOG4CXX_INFO(slice_logger,ss.str());
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+std::map<uint64_t, std::set<uint64_t>> NetPlumber::get_slice_matrix(void) {
+  return this->matrix;
 }
 #endif /* PIPE_SLICING */
 

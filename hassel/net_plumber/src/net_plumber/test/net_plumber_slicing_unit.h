@@ -23,16 +23,29 @@
 #include "cppunit/TestCase.h"
 #include "cppunit/TestFixture.h"
 #include <cppunit/extensions/HelperMacros.h>
+#include "log4cxx/logger.h"
 
 class NetPlumberSlicingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(NetPlumberSlicingTest);
-  CPPUNIT_TEST(test_foobar);
+  CPPUNIT_TEST(test_add_slice_matrix);
+  CPPUNIT_TEST(test_remove_slice_matrix);
+  CPPUNIT_TEST(test_add_slice_allow);
+  CPPUNIT_TEST(test_remove_slice_allow);
+  CPPUNIT_TEST(test_add_slice);
+  CPPUNIT_TEST(test_remove_slice);
   CPPUNIT_TEST_SUITE_END();
 
  public:
   void setUp();
   void tearDown();
-  void test_foobar();
+  void test_add_slice_matrix();
+  void test_remove_slice_matrix();
+  void test_add_slice_allow();
+  void test_remove_slice_allow();
+  void test_add_slice();
+  void test_remove_slice();
+ private:
+  static log4cxx::LoggerPtr logger;
 };
 
 #endif  // NET_PLUMBER_SLICING_UNIT_H_
