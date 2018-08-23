@@ -374,7 +374,23 @@ def remove_slice(sock, nid):
     data["params"] = {"id":nid}
     _sendrecv(sock, json.dumps(data))
 
+#@profile_method
+def add_slice_matrix(sock, matrix):
+    """ Adds a reachability matrix to a network slice.
+    
+    The (directed) matrix represents pairs of slice ids
+    between which reachability is allowed.
 
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    matrix -- The reachability matrix as CSV
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_slice_matrix"
+    data["params"] = {"matrix":matrix}
+    _sendrecv(sock, json.dumps(data))
+    
 #@profile_method
 def add_fw_rule(sock, t_idx, r_idx, in_ports, out_ports, fw_match):
     """ Adds a firewall rule.

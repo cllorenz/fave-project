@@ -1611,8 +1611,10 @@ void NetPlumber::remove_slice(uint64_t id) {
 #endif
 
 #ifdef PIPE_SLICING
+// TODO(jan): add proper documentation header for function
 bool NetPlumber::add_slice_matrix(std::string matrix) {
     this->last_event.type = ADD_SLICE_MATRIX;
+    // TODO(jan): should a meaningful id be set here?
 
     std::set<uint64_t> ids;
     std::string line;
@@ -1629,6 +1631,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
       getline(sl, sub, ',');
       while (getline(sl, sub, ',')) {
 	x = sub.c_str();
+	// TODO(jan): revise error handling for parsing int value
 	id = std::strtoul(x, NULL, 10);
 	ids.insert(id);
       }
@@ -1640,6 +1643,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 	std::stringstream sl = std::stringstream(line);
 	getline(sl, sub, ',');
 	x = sub.c_str();
+	// TODO(jan): revise error handling for parsing int value
 	id = std::strtoul(x, NULL, 10);
 	// get the mapping (remaining fields)
 	for (std::set<uint64_t>::iterator it=ids.begin();
@@ -1658,7 +1662,7 @@ void NetPlumber::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
     for (std::map<uint64_t, std::set<uint64_t>>::iterator it=matrix.begin();
     	 it!=matrix.end(); ++it) {
-      // TODO: check runtime behaviour
+      // TODO(jan): check runtime behaviour, i.e. write a test case
       it->second.clear();
       this->matrix.erase(it->first);
     }
@@ -1669,6 +1673,7 @@ void NetPlumber::remove_slice_matrix(void) {
 bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = ADD_SLICE_ALLOW;
     this->matrix[id1].insert(id2);
+    return true;
 }
 #endif /* PIPE_SLICING */
 

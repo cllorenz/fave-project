@@ -140,7 +140,7 @@ namespace net_plumber {
     // net_space_id to slice
     std::map<uint64_t,struct Slice *> slices;
 
-    // policy matrix
+    // policy matrix, represents directed slice allow pairs
     std::map<uint64_t, std::set<uint64_t>> matrix;
 #endif
 

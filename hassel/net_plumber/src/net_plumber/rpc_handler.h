@@ -51,7 +51,7 @@ private:
   FN(add_source); FN(remove_source);
   FN(add_source_probe); FN(remove_source_probe);
 #ifdef PIPE_SLICING
-  FN(add_slice); FN(remove_slice);
+  FN(add_slice); FN(remove_slice); FN(add_slice_matrix);
 #endif
 #ifdef FIREWALL_RULES
   FN(add_fw_rule);

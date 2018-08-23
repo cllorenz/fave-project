@@ -136,7 +136,7 @@ void RpcHandler::initServer (Server *server) {
     FN(add_source), FN(remove_source),
     FN(add_source_probe), FN(remove_source_probe),
 #ifdef PIPE_SLICING
-    FN(add_slice), FN(remove_slice),
+    FN(add_slice), FN(remove_slice), FN(add_slice_matrix),
 #endif
 #ifdef FIREWALL_RULES
     FN(add_fw_rule), FN(remove_fw_rule),
@@ -322,6 +322,15 @@ PROTO(remove_slice)
     RETURN(VOID);
 }
 #endif
+
+#ifdef PIPE_SLICING
+PROTO(add_slice_matrix);
+    std::string m = PARAM(matrix).asString();
+    bool ret = true;
+    ret = netPlumber->add_slice_matrix(m);
+    RETURN(Json::Value(ret));
+}
+#endif /* PIPE_SLICING */
 
 #ifdef FIREWALL_RULES
 PROTO(add_fw_rule)
