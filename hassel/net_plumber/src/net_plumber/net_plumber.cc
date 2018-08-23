@@ -1741,7 +1741,7 @@ void NetPlumber::dump_slices_pipes(std::string dir) {
     pipes_wrapper["pipes"] = pipes;
     
     stringstream tmp_pipe_network;
-    tmp_pipe_network << dir << "/slices_pipes.json";
+    tmp_pipe_network << dir << "/slice.json";
     string pipe_network_file_name = tmp_pipe_network.str();
 
     ofstream pipe_network_file(pipe_network_file_name.c_str());

@@ -15,7 +15,7 @@ class MissingData(Exception):
         super(MissingData, self).__init__(message)
 
 class topologyRenderer(object):
-    def __init__(self, use_pipes, use_slice, use_topology, use_policy,
+    def __init__(self, use_pipes, use_topology, use_policy,
                  json_tables, json_policy, json_topology, json_pipes, **kwargs):
         """
         Class to build a graph of a netplumber topology and pipes
@@ -26,20 +26,26 @@ class topologyRenderer(object):
         json_*: required netplumber dump information to build the graphs
         """
         self.use_pipes = use_pipes
-        self.use_slice = use_slice
         self.use_topology = use_topology
         self.use_policy = use_policy
         self.json_tables = json_tables
         self.json_policy = json_policy
         self.json_topology = json_topology
         self.json_pipes = json_pipes
-        self.format = kwargs.get('type', 'pdf') 
+        """
+        optional parameters for slices
+        """
+        self.use_slices = kwargs.get('use_slices', False)
+        self.json_slices = kwargs.get('json_slices', None)
+        self.colors = kwargs.get('colors', 'set19')
+        self.format = kwargs.get('type', 'pdf')
         self.graph = Digraph(
             format=self.format,
             edge_attr= { 'arrowhead': 'open'}
         )
         self.tgraph = Digraph(name='cluster1')
         self.pgraph = Digraph(name='cluster2')
+        self.sgraph = Digraph(name='cluster3')
         self.graph.attr(rankdir='LR')
 
     def build(self):
@@ -48,13 +54,14 @@ class topologyRenderer(object):
         self.__build_tables()
         self.__build_topology()
         self.__build_pipes()
+        self.__build_slices()
 
+        self.graph.subgraph(self.sgraph)
         self.graph.subgraph(self.pgraph)            
         self.graph.subgraph(self.tgraph)
 
-
     def __build_policy(self):
-        if not use_policy:
+        if not (self.use_policy):
             return
         if not json_policy:
             raise MissingData('Missing Policies')
@@ -76,7 +83,7 @@ class topologyRenderer(object):
             i = i+1
         
     def __build_tables(self):
-        if not json_tables:
+        if not (self.json_tables):
             raise MissingData('Missing Tables')
 
         i=0
@@ -88,7 +95,7 @@ class topologyRenderer(object):
                 tgraph.node('port'+str(port), label=str(port), shape='circle')
 
             j=0
-            """ TODO: check whether to include rewrite as table row """ 
+            """ TODO(jan): check whether to include rewrite as table row """ 
             for rule in table['rules']:
                 tgraph.node('rule'+str(i)+str(j), '''<
                 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
@@ -112,7 +119,7 @@ class topologyRenderer(object):
             """
     
     def __build_topology(self):
-        if not use_topology:
+        if not (self.use_topology):
             return
         if not json_topology:
             raise MissingData('Missing Topology')
@@ -122,8 +129,10 @@ class topologyRenderer(object):
         
 
     def __build_pipes(self):
-        if not(use_pipes or use_slice):
+        if not(self.use_pipes):
             return
+        if not(self.json_pipes):
+            raise MissingData('Missing Pipes')
 
         nodes = set([])
         for pipe in self.json_pipes['pipes']:
@@ -140,6 +149,30 @@ class topologyRenderer(object):
                 self.pgraph.edge(
                     sid,tid,
                     color='red:invis:red',style='dashed', penwidth='1')
+
+    def __build_slices(self):
+        if not(self.use_slices):
+            return
+        if not(self.json_slices):
+            raise MissingData('Missing Slices')
+
+        nodes = set([])
+        for slice in self.json_slices['pipes']:
+            start  = slice[0]
+            sid = 'slice' + str(start)
+            if sid not in nodes:
+                self.sgraph.node(sid, label=str(start), shape='rectangle')
+                nodes.add(sid)
+            for target in slice[1:]:
+                tid = 'slice' + str(target['node_id'])
+                if tid not in nodes:
+                    self.sgraph.node(tid, label=str(target['node_id']), shape='rectangle')
+                    nodes.add(tid)
+                """ TODO(jan): treat overflow condition """
+                c = '/'+self.colors+'/'+str(target['slice_id']+1)
+                self.sgraph.edge(
+                    sid,tid,
+                    color=c+':invis:'+c,style='dashed', penwidth='1')
 
     def render(self, filename):
         """ outputs the rendered graph """
@@ -211,9 +244,11 @@ if __name__ == '__main__':
     json_pipes    = _read_files(use_dir, 'pipes')
     json_policy   = _read_files(use_dir, 'policy')
     json_topology = _read_files(use_dir, 'topology')
+    json_slices   = _read_files(use_dir, 'slice')
 
     gb = topologyRenderer(
-        use_pipes, use_slice, use_topology, use_policy,
-        json_tables, json_policy, json_topology, json_pipes)
+        use_pipes, use_topology, use_policy,
+        json_tables, json_policy, json_topology, json_pipes,
+        use_slices=use_slice, json_slices=json_slices)
     gb.build()
     gb.render('out')
