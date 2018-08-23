@@ -445,7 +445,7 @@ bool NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next)
 #endif
 
 #ifdef PIPE_SLICING
-/* returns whether the pipe is successfully to a slice (without leakage) */
+/* returns whether the pipe is successfully added to a slice (without leakage) */
 bool NetPlumber::add_pipe_to_slices(struct Pipeline *pipe, Node *next) {
     std::map<uint64_t,struct Slice*>::iterator s;
 
@@ -1715,6 +1715,40 @@ std::map<uint64_t, std::set<uint64_t>> NetPlumber::get_slice_matrix(void) {
   return this->matrix;
 }
 #endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+void NetPlumber::dump_slices_pipes(std::string dir) {
+    Json::Value pipes_wrapper(Json::objectValue);
+    Json::Value pipes(Json::arrayValue);
+
+    for (map<uint64_t,Node*>::iterator it=id_to_node.begin();
+	 it!=id_to_node.end(); it++) {
+      Json::Value pipe(Json::arrayValue);
+
+      list<struct Pipeline*> n_pipes = (*it).second->next_in_pipeline;
+      if (!n_pipes.empty()) pipe.append((Json::UInt64) (*it).first);
+
+      for (list<struct Pipeline*>::iterator p_it=n_pipes.begin();
+	   p_it!=n_pipes.end(); p_it++) {
+	Json::Value fpipe(Json::objectValue);
+	fpipe["node_id"] = (Json::UInt64) (*(*p_it)->r_pipeline)->node->node_id;
+	fpipe["slice_id"] = (Json::UInt64) (*p_it)->net_space_id;
+	pipe.append(fpipe);
+      }
+      if (!n_pipes.empty()) pipes.append(pipe);
+    }
+    
+    pipes_wrapper["pipes"] = pipes;
+    
+    stringstream tmp_pipe_network;
+    tmp_pipe_network << dir << "/slices_pipes.json";
+    string pipe_network_file_name = tmp_pipe_network.str();
+
+    ofstream pipe_network_file(pipe_network_file_name.c_str());
+    pipe_network_file << pipes_wrapper;
+    pipe_network_file.close();
+}
+#endif /*PIPE_SLICING */
 
 #ifdef POLICY_PROBES
 void NetPlumber::add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action) {

@@ -55,6 +55,7 @@ private:
   FN(add_slice_matrix); FN(remove_slice_matrix);
   FN(add_slice_allow); FN(remove_slice_allow);
   FN(print_slice_matrix);
+  FN(dump_slices_pipes);
 #endif
 #ifdef FIREWALL_RULES
   FN(add_fw_rule);

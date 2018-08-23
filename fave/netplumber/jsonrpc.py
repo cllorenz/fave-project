@@ -449,6 +449,20 @@ def print_slice_matrix(sock):
     data = _basic_rpc()
     data["method"] = "print_slice_matrix"
     _sendrecv(sock, json.dumps(data))
+
+#@profile_method
+def dump_slices_pipes(sock, odir):
+    """ Dumps NetPlumber's plumbing network including pipes with slice ids.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    odir -- The output directory for the JSON files
+    """
+
+    data = _basic_rpc()
+    data["method"] = "dump_slices_pipes"
+    data["params"] = {"dir" : odir}
+    _sendrecv(sock, json.dumps(data))
     
 #@profile_method
 def add_fw_rule(sock, t_idx, r_idx, in_ports, out_ports, fw_match):
@@ -603,7 +617,6 @@ def expand(sock, new_length):
     data["params"] = {"length":new_length}
     _sendrecv(sock, json.dumps(data))
 
-
 #@profile_method
 def dump_plumbing_network(sock, odir):
     """ Dumps NetPlumber's plumbing network as JSON including tables and rules.
@@ -617,7 +630,6 @@ def dump_plumbing_network(sock, odir):
     data["method"] = "dump_plumbing_network"
     data["params"] = {"dir" : odir}
     _sendrecv(sock, json.dumps(data))
-
 
 #@profile_method
 def dump_flows(sock, odir):
