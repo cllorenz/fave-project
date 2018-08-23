@@ -18,10 +18,15 @@
            kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
+#define PIPE_SLICING
+
 #ifndef SRC_NET_PLUMBER_H_
 #define SRC_NET_PLUMBER_H_
 #include <map>
+#ifdef PIPE_SLICING
 #include <set>
+#include <sstream>
+#endif
 #include <vector>
 #include <list>
 #include "rule_node.h"
@@ -35,8 +40,6 @@
 #ifdef POLICY_PROBES
 #include "policy_probe_node.h"
 #endif
-
-#define PIPE_SLICING
 
 enum EVENT_TYPE {
   None = 0,
@@ -61,6 +64,7 @@ enum EVENT_TYPE {
   REMOVE_SLICE_MATRIX,
   ADD_SLICE_ALLOW,
   REMOVE_SLICE_ALLOW,
+  PRINT_SLICE_MATRIX,
 #endif
 #ifdef FIREWALL_RULES
   ADD_FW_RULE,
@@ -288,7 +292,7 @@ namespace net_plumber {
     void remove_slice_matrix(void);
     bool add_slice_allow(uint64_t id1, uint64_t id2);
     void remove_slice_allow(uint64_t id1, uint64_t id2);
-    void test_slice(void);
+    void print_slice_matrix(void);
     void remove_pipe_from_slices(struct Pipeline *pipe);
     bool check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next);
 #endif

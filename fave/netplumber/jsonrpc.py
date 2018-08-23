@@ -390,6 +390,18 @@ def add_slice_matrix(sock, matrix):
     data["method"] = "add_slice_matrix"
     data["params"] = {"matrix":matrix}
     _sendrecv(sock, json.dumps(data))
+
+#@profile_method
+def print_slice_matrix(sock):
+    """ Prints the reachability matrix to slice logger.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    """
+
+    data = _basic_rpc()
+    data["method"] = "print_slice_matrix"
+    _sendrecv(sock, json.dumps(data))
     
 #@profile_method
 def add_fw_rule(sock, t_idx, r_idx, in_ports, out_ports, fw_match):

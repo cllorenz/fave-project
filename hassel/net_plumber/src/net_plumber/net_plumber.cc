@@ -135,6 +135,7 @@ string get_event_name(EVENT_TYPE t) {
     case(REMOVE_SLICE_MATRIX): return "Remove Slice Matrix";
     case(ADD_SLICE_ALLOW)    : return "Add Slice Allow";
     case(REMOVE_SLICE_ALLOW) : return "Remove Slice Allow";
+    case(PRINT_SLICE_MATRIX) : return "Print Slice Matrix";
 #endif
     case(EXPAND): return "Expand"; // not implemented but maybe needed?
     default: return "None";
@@ -1622,7 +1623,6 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
     std::string sub;
     uint64_t id;
     const char *x;
-    std::map<uint64_t, std::set<uint64_t>> m;
 
     if (ss >> line) {
       /* parse the first line of the matrix and
@@ -1649,7 +1649,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 	for (std::set<uint64_t>::iterator it=ids.begin();
 	     it!=ids.end(); ++it) {
 	  getline(sl, sub, ',');
-	  if (sub == "x") m[id].insert(*it);
+	  if (sub == "x") this->matrix[id].insert(*it);
 	}
       }
     }
@@ -1681,6 +1681,27 @@ bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
 void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = REMOVE_SLICE_ALLOW;
     this->matrix[id1].erase(id2);
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
+void NetPlumber::print_slice_matrix(void) {
+  this->last_event.type = PRINT_SLICE_MATRIX;
+  std::stringstream ss;
+
+  ss << std::endl;
+  for (std::map<uint64_t, std::set<uint64_t>>::iterator it = matrix.begin();
+       it!=matrix.end(); ++it) {
+    ss << it->first << ": ";
+    for (std::set<uint64_t>::iterator id = it->second.begin();
+	 id!=it->second.end(); ++id) {
+      ss << *id;
+      if (next(id)!=it->second.end()) ss << ",";
+    }
+    ss << std::endl;
+  }
+
+  LOG4CXX_INFO(slice_logger,ss.str());
 }
 #endif /* PIPE_SLICING */
 
