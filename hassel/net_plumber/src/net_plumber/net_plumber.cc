@@ -1679,12 +1679,6 @@ void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
 }
 #endif /* PIPE_SLICING */
 
-#ifdef PIPE_SLICING
-void NetPlumber::test_slice(void) {
-  LOG4CXX_FATAL(logger,"some test string");
-}
-#endif /* PIPE_SLICING */
-
 #ifdef POLICY_PROBES
 void NetPlumber::add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action) {
     policy_checker->add_policy_rule(index,match,action);

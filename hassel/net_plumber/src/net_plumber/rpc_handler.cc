@@ -136,7 +136,7 @@ void RpcHandler::initServer (Server *server) {
     FN(add_source), FN(remove_source),
     FN(add_source_probe), FN(remove_source_probe),
 #ifdef PIPE_SLICING
-    FN(add_slice), FN(remove_slice), FN(test_slice),
+    FN(add_slice), FN(remove_slice),
 #endif
 #ifdef FIREWALL_RULES
     FN(add_fw_rule), FN(remove_fw_rule),
@@ -319,13 +319,6 @@ PROTO(add_slice)
 PROTO(remove_slice)
     uint64_t id = PARAM(id).asUInt64();
     netPlumber->remove_slice(id);
-    RETURN(VOID);
-}
-#endif
-
-#ifdef PIPE_SLICING
-PROTO(test_slice)
-    netPlumber->test_slice();
     RETURN(VOID);
 }
 #endif
