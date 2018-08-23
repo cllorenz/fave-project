@@ -500,6 +500,15 @@ def print_plumbing_network(sock):
     data["params"] = None
     _sendrecv(sock, json.dumps(data))
 
+#@profile_method
+def test_slice(sock):
+    """ foo
+    """
+
+    data = _basic_rpc()
+    data["method"] = "test_slice"
+    data["params"] = None
+    _sendrecv(sock, json.dumps(data))
 
 #@profile_method
 def reset_plumbing_network(sock):
