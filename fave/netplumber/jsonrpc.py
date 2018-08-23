@@ -391,6 +391,19 @@ def add_slice_matrix(sock, matrix):
     data["params"] = {"matrix":matrix}
     _sendrecv(sock, json.dumps(data))
 
+#@profile_metho
+def remove_slice_matrix(sock):
+    """ Clears all contents from reachability matrix
+        for network slices.
+
+    Keyword arguments:
+    sock --- A socket connected to NetPlumber
+    """
+
+    data = _basic_rpc()
+    data["method"] = "remove_slice_matrix"
+    _sendrecv(sock, json.dumps(data))
+
 #@profile_method
 def print_slice_matrix(sock):
     """ Prints the reachability matrix to slice logger.

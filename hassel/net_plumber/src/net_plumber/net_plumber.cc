@@ -1689,7 +1689,11 @@ void NetPlumber::print_slice_matrix(void) {
   this->last_event.type = PRINT_SLICE_MATRIX;
   std::stringstream ss;
 
+  if (matrix.empty()) {
+    ss << "slice matrix is empty";
+  }
   ss << std::endl;
+  
   for (std::map<uint64_t, std::set<uint64_t>>::iterator it = matrix.begin();
        it!=matrix.end(); ++it) {
     ss << it->first << ": ";
