@@ -97,10 +97,13 @@ class topologyRenderer(object):
             j=0
             """ TODO(jan): check whether to include rewrite as table row """ 
             for rule in table['rules']:
+                rewrite = ''
+                if 'rewrite' in rule:
+                    rewrite = '<TR><TD align="right">rewrite:</TD><TD>'+rule['rewrite']+'</TD></TR>'
                 tgraph.node('rule'+str(i)+str(j), '''<
                 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
-                <TR><TD>match:</TD><TD>''' + rule['match'] + '''</TD></TR>
-                <TR><TD>mask:</TD><TD>''' + rule['mask'] + '''</TD></TR>
+                <TR><TD align="right">match:</TD><TD>''' + rule['match'] + '''</TD></TR>
+                <TR><TD align="right">mask:</TD><TD>''' + rule['mask'] + '''</TD></TR>'''+rewrite+'''
                 </TABLE>>''', shape = 'rectangle')
                 for ip in rule['in_ports']:
                     tgraph.edge('port'+str(ip), 'rule'+str(i)+str(j))
