@@ -37,6 +37,8 @@ class topologyRenderer(object):
         """
         self.use_slices = kwargs.get('use_slices', False)
         self.json_slices = kwargs.get('json_slices', None)
+        self.use_flows = kwargs.get('use_flows', False)
+        self.json_flows = kwargs.get('json_flows', None)
         self.colors = kwargs.get('colors', 'set19')
         self.format = kwargs.get('type', 'pdf')
         self.graph = Digraph(
@@ -46,6 +48,7 @@ class topologyRenderer(object):
         self.tgraph = Digraph(name='cluster1')
         self.pgraph = Digraph(name='cluster2')
         self.sgraph = Digraph(name='cluster3')
+        self.fgraph = Digraph(name='cluster4')
         self.graph.attr(rankdir='LR')
 
     def build(self):
@@ -55,7 +58,9 @@ class topologyRenderer(object):
         self.__build_topology()
         self.__build_pipes()
         self.__build_slices()
+        self.__build_flows()
 
+        self.graph.subgraph(self.fgraph)
         self.graph.subgraph(self.sgraph)
         self.graph.subgraph(self.pgraph)            
         self.graph.subgraph(self.tgraph)
@@ -177,6 +182,27 @@ class topologyRenderer(object):
                     sid,tid,
                     color=c+':invis:'+c,style='dashed', penwidth='1')
 
+    def __build_flows(self):
+        if not(self.use_flows):
+            return
+        if not(self.json_flows):
+            raise MissingData('Missing Flows')
+
+        nodes = set([])
+        for flow in self.json_flows['flows']:
+            start = flow[0]
+            color = '#%06x' % (hash(str(start)) & 0xffffff)
+
+            if 'flow'+str(start) not in nodes:
+                self.fgraph.node('flow'+str(start), label=str(start), shape='rectangle')
+                nodes.add('flow'+str(start))
+            for target in flow[1:]:
+                if 'flow'+str(target) not in nodes:
+                    self.fgraph.node('flow'+str(target), label=str(target), shape='rectangle')
+                    nodes.add('flow'+str(target))
+                self.fgraph.edge('flow'+str(start), 'flow'+str(target), color=color, style='bold')
+                start = target
+
     def render(self, filename):
         """ outputs the rendered graph """
         self.graph.render(filename, view=False)
@@ -185,6 +211,7 @@ def _print_help():
     print 'usage: python2 ' + os.path.basename(__file__) + ' [-hpst] [-d <dir]'
     print
     print '\t-h this help message'
+    print '\t-f include flows'
     print '\t-p include policy'
     print '\t-r include pipes'
     print '\t-s include slices'
@@ -211,7 +238,7 @@ def _read_files(ddir, name):
 
 if __name__ == '__main__':
     try:
-        opts = getopt.getopt(sys.argv[1:], 'hd:prst')[0]
+        opts = getopt.getopt(sys.argv[1:], 'hd:fprst')[0]
     except getopt.GetoptError:
         print 'Unable to parse options.'
         sys.exit(1)
@@ -221,11 +248,14 @@ if __name__ == '__main__':
     use_slice = False
     use_policy = False
     use_topology = False
+    use_flows = False
 
     for opt, arg in opts:
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        elif opt == '-f':
+            use_flows = True
         elif opt == '-p':
             use_policy = True
         elif opt == '-r':
@@ -248,10 +278,12 @@ if __name__ == '__main__':
     json_policy   = _read_files(use_dir, 'policy')
     json_topology = _read_files(use_dir, 'topology')
     json_slices   = _read_files(use_dir, 'slice')
+    json_flows    = _read_files(use_dir, 'flows')
 
     gb = topologyRenderer(
         use_pipes, use_topology, use_policy,
         json_tables, json_policy, json_topology, json_pipes,
-        use_slices=use_slice, json_slices=json_slices)
+        use_slices=use_slice, json_slices=json_slices,
+        use_flows=use_flows, json_flows=json_flows)
     gb.build()
     gb.render('out')
