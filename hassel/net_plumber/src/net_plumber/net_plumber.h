@@ -296,7 +296,6 @@ namespace net_plumber {
     std::map<uint64_t, std::set<uint64_t>> get_slice_matrix(void);
     void dump_slices_pipes(std::string dir);
     void remove_pipe_from_slices(struct Pipeline *pipe);
-    bool check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next);
 #endif
 
 #ifdef POLICY_PROBES
@@ -346,7 +345,10 @@ namespace net_plumber {
 
 #ifdef PIPE_SLICING
     // returns whether there were slice overlaps
-    bool add_pipe_to_slices(struct Pipeline *pipe, Node *next);
+    void add_pipe_to_slices(struct Pipeline *pipe);
+    std::list<struct Pipeline *> get_prev_pipes(Node *n);
+    void check_pipe_for_slice_leakage(Node *n);
+    void check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out);
 #endif
   };
 }

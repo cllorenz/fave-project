@@ -107,7 +107,7 @@ void default_slice_leakage_callback(NetPlumber *N, Flow *f, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Slice Leakage Detected: after event " << get_event_name(e.type) <<
-      " (ID1: " << e.id1 << ")";
+    " (ID1: " << e.id1 << "), " << *(std::string*)data;
   LOG4CXX_FATAL(slice_logger,error_msg.str());
 }
 #endif
@@ -369,8 +369,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->r_pipeline = n->add_fwd_pipeline(fp);
           fp->r_pipeline = (*it)->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-          if (!this->add_pipe_to_slices(fp,*it))
-            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+	  add_pipe_to_slices(fp);
 #endif
         }
       }
@@ -423,51 +422,107 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->r_pipeline = (*it)->add_fwd_pipeline(fp);
           fp->r_pipeline = n->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-          if (!this->add_pipe_to_slices(fp,n))
-            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+	  add_pipe_to_slices(fp);
 #endif
         }
       }
     }
   }
-}
-#ifdef PIPE_SLICING
-/* returns whether no leak is detected */
-bool NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next) {
-    std::list<struct Pipeline *> n = next->next_in_pipeline;
-    std::list<struct Pipeline *>::const_iterator p;
-    for (p = n.begin(); p != n.end(); p++)
-        if ((*p)->net_space_id != pipe->net_space_id) return false;
-
-    return true;
+  check_pipe_for_slice_leakage(n);
 }
 
-#endif
-
 #ifdef PIPE_SLICING
-/* returns whether the pipe is successfully added to a slice (without leakage) */
-bool NetPlumber::add_pipe_to_slices(struct Pipeline *pipe, Node *next) {
+void NetPlumber::add_pipe_to_slices(struct Pipeline *pipe) {
     std::map<uint64_t,struct Slice*>::iterator s;
 
+    // determine net_space of pipe
     struct hs *tmp = hs_create(this->length);
     hs_add(tmp,array_copy(pipe->pipe_array,this->length));
 
+    // find slice matching net_space
     for (s = this->slices.begin(); s != this->slices.end(); s++) {
         uint64_t net_space_id = s->first;
         struct Slice *slice = s->second;
 
-        // if the pipe belongs to a slice update the pipe and add it to the slice
+	// update slice and pipe information
         if (hs_is_sub_eq(tmp,slice->net_space)) {
             hs_free(tmp);
             pipe->net_space_id = net_space_id;
             slice->pipes->push_front(pipe);
             pipe->r_slice = slice->pipes->begin();
-            return check_pipe_for_slice_leakage(pipe, next);
+	    return;
         }
     }
     hs_free(tmp);
-    return false;
 }
+
+std::list<struct Pipeline *> NetPlumber::get_prev_pipes(Node *n) {
+  std::list<struct Pipeline *> result;
+  
+  for (uint32_t i=0; i < n->input_ports.size; i++) {
+    if (inv_topology[n->input_ports.list[i]]) {
+      for (std::vector<uint32_t>::iterator oport=inv_topology[n->input_ports.list[i]]->begin();
+	   oport!=inv_topology[n->input_ports.list[i]]->end(); oport++) {
+	// TODO(jan): some badly managed data structure here ?
+	// if (outport_to_nodes[*oport]) {
+	// }
+	// produced runtime errror!
+	std::map<uint32_t, std::list<Node*>*>::iterator nodes = outport_to_nodes.find(*oport);
+	if (nodes!=outport_to_nodes.end()) {
+	  for (std::list<Node*>::iterator node = nodes->second->begin();
+	       node!=nodes->second->end(); node++) {
+	    result.insert(result.end(),
+			    (*node)->next_in_pipeline.begin(), (*node)->next_in_pipeline.end());
+	  }
+	}
+      }
+    }
+  }
+  return result;
+}
+
+void NetPlumber::check_pipe_for_slice_leakage(Node *n) {
+  std::list<struct Pipeline*> in_pipes = get_prev_pipes(n);
+
+  // over all in pipes, make sure that previous pairs have not changed
+  for (std::list<struct Pipeline*>::iterator in=in_pipes.begin();
+       in!=in_pipes.end(); in++) {
+    std::list<struct Pipeline*> pin_pipes = get_prev_pipes((*in)->node);
+    for (std::list<struct Pipeline*>::iterator pin=pin_pipes.begin();
+	 pin!=pin_pipes.end(); pin++) {
+      check_pipe_for_slice_leakage((*pin), (*in));
+    }
+  }
+
+  for (std::list<struct Pipeline*>::iterator in=in_pipes.begin();
+       in!=in_pipes.end(); in++) {
+    for (std::list<struct Pipeline*>::iterator out=n->next_in_pipeline.begin();
+	 out!=n->next_in_pipeline.end(); out++) {
+      check_pipe_for_slice_leakage(*in, *out);
+    }
+  }
+
+  for (std::list<struct Pipeline*>::iterator out=n->next_in_pipeline.begin();
+       out!=n->next_in_pipeline.end(); out++) {
+    check_pipe_for_slice_leakage((*out), (*(*out)->r_pipeline));
+  }
+}
+
+void NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out) {
+  if (in->net_space_id != out->net_space_id) {
+    std::map<uint64_t, std::set<uint64_t>>::iterator id1 = matrix.find(in->net_space_id);
+    if (id1 != matrix.end()) {
+      std::set<uint64_t>::iterator id2 = id1->second.find(out->net_space_id);
+      if (id2 != id1->second.end()) return;
+    }
+    std::stringstream es;
+    es << "(node " << in->node->node_id << ", space " << in->net_space_id
+       << ", node " << out->node->node_id << ", space " << out->net_space_id << ")";
+    std::string *e = new std::string(es.str());
+    slice_leakage_callback(this, NULL, e);
+    delete e;
+  }
+};
 #endif
 
 #ifdef PIPE_SLICING
@@ -595,8 +650,8 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
           fp->r_pipeline = (*dst_it)->add_bck_pipeline(bp);
           (*src_it)->propagate_src_flows_on_pipe(bp->r_pipeline);
 #ifdef PIPE_SLICING
-          if (!this->add_pipe_to_slices(fp,*dst_it))
-            this->slice_leakage_callback(this,NULL,this->slice_leakage_callback_data);
+	  add_pipe_to_slices(fp);
+	  check_pipe_for_slice_leakage(fp->node);
 #endif
         }
       }
@@ -1564,8 +1619,10 @@ bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
         hs_free(tmp);
     }
 
-
+    
     std::list<std::list<struct Pipeline *>::iterator>::iterator p2;
+    // check changed pipes for slice leakage
+    for (p2=rem.begin(); p2!=rem.end(); p2++) check_pipe_for_slice_leakage((*(*p2))->node);
     for (p2= rem.begin(); p2 != rem.end(); p2++) pipes->erase(*p2);
 
     // TODO: is it necessary to destruct the pipeline list?
