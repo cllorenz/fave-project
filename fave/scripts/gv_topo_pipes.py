@@ -41,6 +41,7 @@ class topologyRenderer(object):
         self.json_flows = kwargs.get('json_flows', None)
         self.colors = kwargs.get('colors', 'set19')
         self.format = kwargs.get('type', 'pdf')
+        self.use_masks = kwargs.get('use_masks', False)
         self.graph = Digraph(
             format=self.format,
             edge_attr= { 'arrowhead': 'open'}
@@ -105,10 +106,13 @@ class topologyRenderer(object):
                 rewrite = ''
                 if 'rewrite' in rule:
                     rewrite = '<TR><TD align="right">rewrite:</TD><TD>'+rule['rewrite']+'</TD></TR>'
+                mask = ''
+                if self.use_masks: 
+                    mask = '<TR><TD align="right">mask:</TD><TD>' + rule['mask'] + '</TD></TR>'
                 tgraph.node('rule'+str(i)+str(j), '''<
                 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
-                <TR><TD align="right">match:</TD><TD>''' + rule['match'] + '''</TD></TR>
-                <TR><TD align="right">mask:</TD><TD>''' + rule['mask'] + '''</TD></TR>'''+rewrite+'''
+                <TR><TD align="right">match:</TD><TD>''' + rule['match'] + '''</TD></TR>'''+
+                mask+rewrite+'''
                 </TABLE>>''', shape = 'rectangle')
                 for ip in rule['in_ports']:
                     tgraph.edge('port'+str(ip), 'rule'+str(i)+str(j))
@@ -211,6 +215,7 @@ def _print_help():
     print 'usage: python2 ' + os.path.basename(__file__) + ' [-hpst] [-d <dir]'
     print
     print '\t-h this help message'
+    print '\t-m includes masks'
     print '\t-f include flows'
     print '\t-p include policy'
     print '\t-r include pipes'
@@ -244,6 +249,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     use_dir = 'np_dump'
+    use_masks = False
     use_pipes = False
     use_slice = False
     use_policy = False
@@ -254,6 +260,8 @@ if __name__ == '__main__':
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        elif opt == '-m':
+            use_masks = True
         elif opt == '-f':
             use_flows = True
         elif opt == '-p':
@@ -284,6 +292,6 @@ if __name__ == '__main__':
         use_pipes, use_topology, use_policy,
         json_tables, json_policy, json_topology, json_pipes,
         use_slices=use_slice, json_slices=json_slices,
-        use_flows=use_flows, json_flows=json_flows)
+        use_flows=use_flows, json_flows=json_flows, use_masks=use_masks)
     gb.build()
     gb.render('out')
