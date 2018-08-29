@@ -428,11 +428,6 @@ void NetPlumber::set_node_pipelines(Node *n) {
       }
     }
   }
-  // part of the structure (the dumped part) is completely
-  // correct, part of the structure is completely incorrect
-  // slice ids cannot be mapped to something sensible at all
-  // so check the code if your pointers are correct
-  // maybe we can use id to node
   check_pipe_for_slice_leakage(n);
 }
 
@@ -451,7 +446,7 @@ void NetPlumber::add_pipe_to_slices(struct Pipeline *pipe) {
 
 	// update slice and pipe information
         if (hs_is_sub_eq(tmp,slice->net_space)) {
-	  std::cout << "adding pipe " << pipe->node->node_id << " to " << net_space_id << " with " << hs_to_str(tmp) << std::endl;
+	  // std::cout << "adding pipe " << pipe->node->node_id << " to " << net_space_id << " with " << hs_to_str(tmp) << std::endl;
             hs_free(tmp);
             pipe->net_space_id = net_space_id;
             slice->pipes->push_front(pipe);
