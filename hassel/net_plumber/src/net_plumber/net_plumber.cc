@@ -428,6 +428,11 @@ void NetPlumber::set_node_pipelines(Node *n) {
       }
     }
   }
+  // part of the structure (the dumped part) is completely
+  // correct, part of the structure is completely incorrect
+  // slice ids cannot be mapped to something sensible at all
+  // so check the code if your pointers are correct
+  // maybe we can use id to node
   check_pipe_for_slice_leakage(n);
 }
 
@@ -446,6 +451,7 @@ void NetPlumber::add_pipe_to_slices(struct Pipeline *pipe) {
 
 	// update slice and pipe information
         if (hs_is_sub_eq(tmp,slice->net_space)) {
+	  std::cout << "adding pipe " << pipe->node->node_id << " to " << net_space_id << " with " << hs_to_str(tmp) << std::endl;
             hs_free(tmp);
             pipe->net_space_id = net_space_id;
             slice->pipes->push_front(pipe);
@@ -509,15 +515,23 @@ void NetPlumber::check_pipe_for_slice_leakage(Node *n) {
 }
 
 void NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out) {
-  if (in->net_space_id != out->net_space_id) {
+  // lets try a different lookup here
+  // std::cout << "working on nodes " << in->node->node_id << " " << out->node->node_id << std::endl;
+  // std::cout << "in pipe assignment " << in->net_space_id << std::endl;
+  // std::cout << "out pipe assignment " << out->node->next_in_pipeline.front()->net_space_id << std::endl;
+
+  uint64_t inspace = in->net_space_id;
+  uint64_t outspace = out->node->next_in_pipeline.front()->net_space_id;
+  
+  if (inspace != outspace) {
     std::map<uint64_t, std::set<uint64_t>>::iterator id1 = matrix.find(in->net_space_id);
     if (id1 != matrix.end()) {
       std::set<uint64_t>::iterator id2 = id1->second.find(out->net_space_id);
       if (id2 != id1->second.end()) return;
     }
     std::stringstream es;
-    es << "(node " << in->node->node_id << ", space " << in->net_space_id
-       << ", node " << out->node->node_id << ", space " << out->net_space_id << ")";
+    es << "(node " << in->node->node_id << ", space " << inspace
+       << ", node " << out->node->node_id << ", space " << outspace << ")";
     std::string *e = new std::string(es.str());
     slice_leakage_callback(this, NULL, e);
     delete e;
