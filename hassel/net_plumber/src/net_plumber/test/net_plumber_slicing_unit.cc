@@ -1,5 +1,5 @@
 /*
-   Copyright 2012 Google Inc.
+   Copyright 2018 Jan Sohre
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+   Author: Jan Sohre (jan@sohre.eu)
 */
 
 #include "net_plumber_slicing_unit.h"
