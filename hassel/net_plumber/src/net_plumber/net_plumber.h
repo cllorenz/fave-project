@@ -18,8 +18,6 @@
            kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
 */
 
-#define PIPE_SLICING
-
 #ifndef SRC_NET_PLUMBER_H_
 #define SRC_NET_PLUMBER_H_
 #include <map>

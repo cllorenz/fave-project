@@ -16,6 +16,8 @@
    Author: Jan Sohre (jan@sohre.eu)
 */
 
+#ifdef PIPE_SLICING
+
 #include "net_plumber_slicing_unit.h"
 #include "../net_plumber.h"
 #include "../net_plumber_utils.h"
@@ -144,3 +146,5 @@ void NetPlumberSlicingTest::test_add_slice() {
 void NetPlumberSlicingTest::test_remove_slice() {
 
 }
+
+#endif //PIPE_SLICING

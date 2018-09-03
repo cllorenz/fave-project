@@ -428,7 +428,9 @@ void NetPlumber::set_node_pipelines(Node *n) {
       }
     }
   }
+#ifdef PIPE_SLICING
   check_pipe_for_slice_leakage(n);
+#endif
 }
 
 #ifdef PIPE_SLICING
@@ -456,7 +458,9 @@ void NetPlumber::add_pipe_to_slices(struct Pipeline *pipe) {
     }
     hs_free(tmp);
 }
+#endif
 
+#ifdef PIPE_SLICING
 std::list<struct Pipeline *> NetPlumber::get_prev_pipes(Node *n) {
   std::list<struct Pipeline *> result;
   
@@ -481,7 +485,9 @@ std::list<struct Pipeline *> NetPlumber::get_prev_pipes(Node *n) {
   }
   return result;
 }
+#endif
 
+#ifdef PIPE_SLICING
 void NetPlumber::check_pipe_for_slice_leakage(Node *n) {
   std::list<struct Pipeline*> in_pipes = get_prev_pipes(n);
 
@@ -508,7 +514,9 @@ void NetPlumber::check_pipe_for_slice_leakage(Node *n) {
     check_pipe_for_slice_leakage((*out), (*(*out)->r_pipeline));
   }
 }
+#endif
 
+#ifdef PIPE_SLICING
 void NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out) {
   // lets try a different lookup here
   // std::cout << "working on nodes " << in->node->node_id << " " << out->node->node_id << std::endl;
