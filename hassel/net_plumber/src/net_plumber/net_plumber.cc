@@ -527,7 +527,7 @@ void NetPlumber::check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeli
   uint64_t outspace = out->node->next_in_pipeline.front()->net_space_id;
   
   if (inspace != outspace) {
-    std::map<uint64_t, std::set<uint64_t>>::iterator id1 = matrix.find(in->net_space_id);
+    std::map<uint64_t, std::set<uint64_t> >::iterator id1 = matrix.find(in->net_space_id);
     if (id1 != matrix.end()) {
       std::set<uint64_t>::iterator id2 = id1->second.find(out->net_space_id);
       if (id2 != id1->second.end()) return;
@@ -1734,7 +1734,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 #ifdef PIPE_SLICING
 void NetPlumber::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
-    for (std::map<uint64_t, std::set<uint64_t>>::iterator it=matrix.begin();
+    for (std::map<uint64_t, std::set<uint64_t> >::iterator it=matrix.begin();
     	 it!=matrix.end(); ++it) {
       // TODO(jan): check runtime behaviour, i.e. write a test case
       it->second.clear();
@@ -1769,7 +1769,7 @@ void NetPlumber::print_slice_matrix(void) {
   }
   ss << std::endl;
   
-  for (std::map<uint64_t, std::set<uint64_t>>::iterator it = matrix.begin();
+  for (std::map<uint64_t, std::set<uint64_t> >::iterator it = matrix.begin();
        it!=matrix.end(); ++it) {
     ss << it->first << ": ";
     for (std::set<uint64_t>::iterator id = it->second.begin();
@@ -1785,7 +1785,7 @@ void NetPlumber::print_slice_matrix(void) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-std::map<uint64_t, std::set<uint64_t>> NetPlumber::get_slice_matrix(void) {
+std::map<uint64_t, std::set<uint64_t> > NetPlumber::get_slice_matrix(void) {
   return this->matrix;
 }
 #endif /* PIPE_SLICING */

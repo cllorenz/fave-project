@@ -37,9 +37,9 @@ void NetPlumberSlicingTest::tearDown() {
 
 void NetPlumberSlicingTest::test_add_slice_matrix() {
   NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t>>::iterator fk;
+  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
   std::set<uint64_t>::iterator fs;
-  std::map<uint64_t, std::set<uint64_t>> m;
+  std::map<uint64_t, std::set<uint64_t> > m;
 
   n->add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
   m = n->get_slice_matrix();
@@ -76,7 +76,7 @@ void NetPlumberSlicingTest::test_add_slice_matrix() {
 
 void NetPlumberSlicingTest::test_remove_slice_matrix() {
   NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t>> m;
+  std::map<uint64_t, std::set<uint64_t> > m;
 
   n->add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
   m = n->get_slice_matrix();
@@ -89,8 +89,8 @@ void NetPlumberSlicingTest::test_remove_slice_matrix() {
 
 void NetPlumberSlicingTest::test_add_slice_allow() {
   NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t>> m;
-  std::map<uint64_t, std::set<uint64_t>>::iterator fk;
+  std::map<uint64_t, std::set<uint64_t> > m;
+  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
   std::set<uint64_t>::iterator fs;
   
   m = n->get_slice_matrix();
@@ -108,8 +108,8 @@ void NetPlumberSlicingTest::test_add_slice_allow() {
 
 void NetPlumberSlicingTest::test_remove_slice_allow() {
   NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t>> m;
-  std::map<uint64_t, std::set<uint64_t>>::iterator fk;
+  std::map<uint64_t, std::set<uint64_t> > m;
+  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
   std::set<uint64_t>::iterator fs;
 
   m = n->get_slice_matrix();
