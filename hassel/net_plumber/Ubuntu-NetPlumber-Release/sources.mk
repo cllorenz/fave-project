@@ -21,6 +21,11 @@ EXECUTABLES :=
 CXX_DEPS := 
 C_UPPER_DEPS := 
 
+#USER_FLAGS :=-DPIPE_SLICING
+USER_FLAGS :=
+#-Wextra -Wpedantic
+GCFLAGS :=-g -Wall -O3 $(USER_FLAGS)
+
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 src/net_plumber/test \

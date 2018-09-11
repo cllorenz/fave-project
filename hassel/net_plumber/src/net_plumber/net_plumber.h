@@ -21,6 +21,10 @@
 #ifndef SRC_NET_PLUMBER_H_
 #define SRC_NET_PLUMBER_H_
 #include <map>
+#ifdef PIPE_SLICING
+#include <set>
+#include <sstream>
+#endif
 #include <vector>
 #include <list>
 #include "rule_node.h"
@@ -54,6 +58,11 @@ enum EVENT_TYPE {
 #ifdef PIPE_SLICING
   ADD_SLICE,
   REMOVE_SLICE,
+  ADD_SLICE_MATRIX,
+  REMOVE_SLICE_MATRIX,
+  ADD_SLICE_ALLOW,
+  REMOVE_SLICE_ALLOW,
+  PRINT_SLICE_MATRIX,
 #endif
 #ifdef FIREWALL_RULES
   ADD_FW_RULE,
@@ -132,6 +141,9 @@ namespace net_plumber {
 #ifdef PIPE_SLICING
     // net_space_id to slice
     std::map<uint64_t,struct Slice *> slices;
+
+    // policy matrix, represents directed slice allow pairs
+    std::map<uint64_t, std::set<uint64_t> > matrix;
 #endif
 
 #ifdef FIREWALL_RULES
@@ -274,8 +286,14 @@ namespace net_plumber {
      */
     bool add_slice(uint64_t id, hs *net_space);
     void remove_slice(uint64_t id);
+    bool add_slice_matrix(std::string matrix);
+    void remove_slice_matrix(void);
+    bool add_slice_allow(uint64_t id1, uint64_t id2);
+    void remove_slice_allow(uint64_t id1, uint64_t id2);
+    void print_slice_matrix(void);
+    std::map<uint64_t, std::set<uint64_t> > get_slice_matrix(void);
+    void dump_slices_pipes(std::string dir);
     void remove_pipe_from_slices(struct Pipeline *pipe);
-    bool check_pipe_for_slice_leakage(struct Pipeline *pipe, Node *next);
 #endif
 
 #ifdef POLICY_PROBES
@@ -325,7 +343,10 @@ namespace net_plumber {
 
 #ifdef PIPE_SLICING
     // returns whether there were slice overlaps
-    bool add_pipe_to_slices(struct Pipeline *pipe, Node *next);
+    void add_pipe_to_slices(struct Pipeline *pipe);
+    std::list<struct Pipeline *> get_prev_pipes(Node *n);
+    void check_pipe_for_slice_leakage(Node *n);
+    void check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out);
 #endif
   };
 }
