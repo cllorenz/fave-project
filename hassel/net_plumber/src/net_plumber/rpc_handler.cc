@@ -155,6 +155,7 @@ void RpcHandler::initServer (Server *server) {
     FN(reset_plumbing_network),
     FN(dump_plumbing_network),
     FN(dump_flows),
+    FN(dump_flow_trees),
     FN(dump_pipes),
     FN(stop),
     FN(expand)
@@ -474,6 +475,12 @@ PROTO(dump_flows)
   const std::string dir = PARAM(dir).asString();
   netPlumber->dump_flows(dir);
   RETURN(VOID);
+}
+
+PROTO(dump_flow_trees)
+    const std::string dir = PARAM(dir).asString();
+    netPlumber->dump_flow_trees(dir);
+    RETURN(VOID);
 }
 
 PROTO(dump_pipes)

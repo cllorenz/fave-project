@@ -1492,6 +1492,73 @@ void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
 }
 
 
+void traverse_flow_tree(
+    Json::Value& res,
+    list<list<struct Flow *>::iterator> *n_flows
+) {
+    for (
+        list<list<struct Flow *>::iterator>::iterator it = n_flows->begin();
+        it != n_flows->end();
+        it++
+    ) {
+        Json::Value node(Json::objectValue);
+
+        node["node"] = (Json::Value::UInt64) (*(*it))->node->node_id;
+
+        if ((*(*it))->n_flows) {
+            Json::Value children(Json::arrayValue);
+
+            traverse_flow_tree(children, (*(*it))->n_flows);
+            node["children"] = children;
+        }
+        res.append(node);
+    }
+}
+
+
+void NetPlumber::dump_flow_trees(string dir) {
+    Json::Value flows_wrapper(Json::objectValue);
+    Json::Value flows(Json::arrayValue);
+
+    for (
+        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        it != this->flow_nodes.end();
+        it++
+    ) {
+
+        for (
+            list<Flow *>::iterator f_it = (*it)->source_flow.begin();
+            f_it != (*it)->source_flow.end();
+            f_it++
+        ) {
+            Json::Value flow_tree(Json::objectValue);
+
+            flow_tree["node"] = (Json::Value::UInt64) (*it)->node_id;
+
+            if ((*f_it)->n_flows) {
+                Json::Value children(Json::arrayValue);
+
+                traverse_flow_tree(children, (*f_it)->n_flows);
+
+                flow_tree["children"] = children;
+            }
+
+            flows.append(flow_tree);
+        }
+    }
+
+    flows_wrapper["flows"] = flows;
+
+    stringstream tmp_flows;
+    tmp_flows << dir << "/flow_trees.json";
+    string flow_trees_file_name = tmp_flows.str();
+
+    ofstream flow_file(flow_trees_file_name.c_str());
+    flow_file << flows_wrapper;
+    flow_file.close();
+}
+
+
 void NetPlumber::dump_flows(string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);

@@ -329,6 +329,7 @@ namespace net_plumber {
 
     void save_dependency_graph(std::string file_name);
     void dump_plumbing_network(const std::string);
+    void dump_flow_trees(const std::string);
     void dump_flows(const std::string);
     void dump_pipes(const std::string);
 
