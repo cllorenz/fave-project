@@ -1,0 +1,7 @@
+-A INPUT -i eth1 -j handle_eth1
+-A handle_eth1 -s 1.2.3.4 -j ACCEPT
+-A handle_eth1 -s 1.2.3.5 -j handle_bar
+-A handle_eth1 -d 4.3.2.0/24 -j handle_foo
+-A handle_foo -j DROP
+-A handle_bar -d 1.1.1.1 -j RETURN
+-A handle_bar -p tcp --dport 80 -j DROP
