@@ -338,6 +338,8 @@ class Aggregator(object):
                     jsonrpc.dump_plumbing_network(self.sock, odir)
                 if dump['pipes']:
                     jsonrpc.dump_pipes(self.sock, odir)
+                if dump['trees']:
+                    jsonrpc.dump_flow_trees(self.sock, odir)
 
             else:
                 model = model_from_json(j)

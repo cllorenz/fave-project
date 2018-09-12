@@ -25,6 +25,7 @@ def print_help():
         "\t-n dump plumbing network (tables, links, rules, policy)",
         "\t-o <dir> output directory (default: np_dump)",
         "\t-p dump pipes",
+        "\t-t dump flow trees",
         sep="\n"
     )
 
@@ -36,7 +37,7 @@ def main(argv):
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "ahfno:p"))
+        opts = only_opts(getopt.getopt(argv, "ahfno:pt"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -45,6 +46,7 @@ def main(argv):
     use_flows = False
     use_network = False
     use_pipes = False
+    use_trees = False
 
     odir = "np_dump"
 
@@ -69,6 +71,9 @@ def main(argv):
         elif opt == '-o':
             odir = arg
 
+        elif opt == '-t':
+            use_trees = True
+
         else:
             eprint("unknown option: %s, usage:" % opt)
             print_help()
@@ -83,10 +88,11 @@ def main(argv):
         'fave':use_fave,
         'flows':use_flows,
         'network':use_network,
-        'pipes':use_pipes
+        'pipes':use_pipes,
+        'trees':use_trees
     }
 
-    if any([use_fave, use_flows, use_network, use_pipes]):
+    if any([use_fave, use_flows, use_network, use_pipes, use_trees]):
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
 

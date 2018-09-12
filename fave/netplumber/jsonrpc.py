@@ -646,6 +646,20 @@ def dump_flows(sock, odir):
 
 
 #@profile_method
+def dump_flow_trees(sock, odir):
+    """ Dumps the flows residing in NetPlumber as trees.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    odir -- The output directory for the JSON file
+    """
+    data = _basic_rcp()
+    data["method"] = "dump_flow_trees"
+    data["params"] = {"dir" : odir}
+    _sendrecv(sock, json.dumps(data))
+
+
+#@profile_method
 def dump_pipes(sock, odir):
     """ Dumps the pipelines residing in NetPlumber.
 
