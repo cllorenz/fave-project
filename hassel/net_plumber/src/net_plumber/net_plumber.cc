@@ -1505,7 +1505,7 @@ void traverse_flow_tree(
 
         node["node"] = (Json::Value::UInt64) (*(*it))->node->node_id;
 
-        if ((*(*it))->n_flows) {
+        if ((*(*it))->n_flows && !(*(*it))->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
 
             traverse_flow_tree(children, (*(*it))->n_flows);
