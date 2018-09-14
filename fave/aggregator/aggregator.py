@@ -1246,9 +1246,9 @@ class Aggregator(object):
                     j["id_to_rule"][elem] = key >> 16
 
             j["id_to_generator"] = {
-                self.generators[k][0]:k for k in self.generators
+                self.generators[k][1]:k for k in self.generators
             }
-            j["id_to_probe"] = {self.probes[k][0]:k for k in self.probes}
+            j["id_to_probe"] = {self.probes[k][1]:k for k in self.probes}
             j["id_to_port"] = {self.ports[k]:k for k in self.ports}
 
             ofile.write(
