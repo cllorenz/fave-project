@@ -71,6 +71,27 @@ PYTHONPATH=. python2 netplumber/dump_np.py -anpft
 
 PYTHONPATH=. python2 netplumber/print_np.py -utn
 
+# test flow propagation
+echo -n "check flow propagation... "
+
+#[ 1, 34359738372, 30064771074 ],
+#[ 1, 34359738372, 30064771073, 38654705665, 8589934594, 4294967297, 4 ],
+#[ 1, 34359738372, 30064771073, 38654705666, 8589934593, 3 ],
+#[ 1, 34359738372, 30064771073, 38654705667 ],
+F1='["baz","t=bar_pre_routing","t=bar_forward_states"]'
+F2='["baz","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules","t=bar_post_routing","t=foo_1","blubb"]'
+F3='["baz","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules","t=bar_post_routing","bla"]'
+F4='["baz","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules"]'
+
+#[ 2, 4294967298, 34359738371, 30064771073, 38654705665, 8589934594, 4294967297, 4 ],
+#[ 2, 4294967298, 34359738371, 30064771073, 38654705667 ],
+#[ 2, 4294967298, 34359738371, 30064771074 ]
+F5='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules","t=bar_post_routing","t=foo_1","blubb"]'
+F6='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules"]'
+F7='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states"]'
+
+PYTHONPATH=. python2 test/check_flows.py np_dump/ "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
+
 # test openflow
 #echo -n "start ryu... "
 #ryu-manager --ofp-tcp-listen-port 6653 ryu.app.simple_switch_13.py &
