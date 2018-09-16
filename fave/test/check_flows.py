@@ -4,54 +4,61 @@
 """
 
 import sys
+import getopt
 import json
 
-DUMP = sys.argv[1]
-CFLOWS = sys.argv[2]
+from util.print_util import eprint
 
-def check_tree(cflow, tree, d=0):
+def check_tree(flow, tree, depth=0):
+    """ Checks whether a specified flow equals a branch in a flow tree.
+
+    Keyword arguments:
+    flow -- a flow specification to be checked
+    tree -- a flow tree
+    """
+
     # if the end of the suspect flow has been reached
-    if not cflow:
-#        print "  "*d, "reached eof"
+    if not flow:
+#        print "  "*depth, "reached eof"
         return True
 
     # if a tree leaf has been reached but suspect flow is not done yet
-    if not tree:
-#        print "  "*d, "reached eot"
+    elif not tree:
+#        print "  "*depth, "reached eot"
         return False
 
     # if the tree node and the suspect flow mismatch
-    elif tree["node"] not in cflow[0]:
-#        print "  "*d, "unmatching nodes: %s not in %s" % (tree["node"], cflow[0])
+    elif tree["node"] not in flow[0]:
+#        print "  "*depth, "unmatching nodes: %s not in %s" % (tree["node"], flow[0])
         return False
 
     # if the tree has no children to try
     elif not "children" in tree:
-        if  not cflow[1:]:
-#            print "  "*d, "reached eof and eot"
-            return True
-        else:
-#            print "  "*d, "reached eot but not eof"
-            return False
+#        print (
+#            "  "*depth, "reached eof and eot"
+#        ) if not flow[1:] else (
+#            "  "*depth, "reached eot but not eof"
+#        )
+        return not flow[1:]
 
     # if the tree's children are empty (should never happen)
     elif not tree["children"]:
-#        print "  "*d, "reached eot"
+#        print "  "*depth, "reached eot"
         return False
 
     # otherwise try the next node with a subtree
     else:
         for subtree in tree["children"]:
-#            print "  "*d, "try subtree %s for %s" % (subtree["node"], cflow[1:])
-            if check_tree(cflow[1:], subtree, d+1):
-#                print "  "*d, "subtree %s matched flow %s" % (subtree["node"], cflow[1:])
+#            print "  "*depth, "try subtree %s for %s" % (subtree["node"], flow[1:])
+            if check_tree(flow[1:], subtree, depth+1):
+#                print "  "*depth, "subtree %s matched flow %s" % (subtree["node"], flow[1:])
                 return True
-#        print "  "*d, "no subtree matched flow"
+#        print "  "*depth, "no subtree matched flow"
         return False
 
 
-def check_flow(cflow, pflows, inv_fave):
-    """ Checks flows .
+def check_flow(cflow, ftree, inv_fave):
+    """ Checks if a flow tree satisfies a flow path specification.
 
     Keyword arguments:
     cflow -- path to be checked
@@ -74,52 +81,98 @@ def check_flow(cflow, pflows, inv_fave):
         else:
             raise Exception("no such generator or probe: %s" % node)
 
-#    print "\nnflow:", nflow
-#    print "pflow:", pflow
-
-    return check_tree(nflow, pflow)
+    return check_tree(nflow, ftree)
 
 
-with open(DUMP+"/fave.json", "r") as ifile:
-    fave = json.loads(ifile.read())
+def _get_inverse_fave(dump):
+    with open(dump+"/fave.json", "r") as ifile:
+        fave = json.loads(ifile.read())
 
-    id_to_rule = fave["id_to_rule"]
-    table_id_to_rules = {}
-    for rid in id_to_rule:
-        tid = id_to_rule[rid]
-        if tid in table_id_to_rules:
-            table_id_to_rules[tid].append(int(rid))
-        else:
-            table_id_to_rules[tid] = [int(rid)]
+        id_to_rule = fave["id_to_rule"]
+        table_id_to_rules = {}
+        for rid in id_to_rule:
+            tid = id_to_rule[rid]
+            if tid in table_id_to_rules:
+                table_id_to_rules[tid].append(int(rid))
+            else:
+                table_id_to_rules[tid] = [int(rid)]
 
-    inv_fave = {
-        "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
-        "table_id_to_rules" : table_id_to_rules,
-        "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
-        "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()])
-    }
+        return {
+            "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
+            "table_id_to_rules" : table_id_to_rules,
+            "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
+            "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()])
+        }
 
-with open(DUMP+"/flow_trees.json") as ifile:
-    pflows = json.loads(ifile.read())["flows"]
 
-CFLOWS = [json.loads(flow) for flow in CFLOWS.split(';')]
+def _get_flow_trees(dump):
+    with open(dump+"/flow_trees.json") as ifile:
+        return json.loads(ifile.read())["flows"]
 
-all_flows = True
-any_flow = False
-for cflow in CFLOWS:
-    for pflow in pflows:
 
-        if check_flow(cflow, pflow, inv_fave):
-            any_flow = True
-            break
+def _print_help():
+    eprint(
+        "usage: python2 " + sys.argv[0] + " [-h]" + " [-d <path>]"  " -c <path specs>",
+        "\t-h - this help text",
+        "\t-d <path> - path to a net_plumber dump",
+        "\t-c <path specs> - specifications of paths divided by semicola",
+        sep="\n"
+    )
 
-    all_flows = all_flows and any_flow
 
-#    if any_flow:
-#        print " true",
-#    else:
-#        print " false",
+def _main(argv):
+    try:
+        only_opts = lambda x: x[0]
+        opts = only_opts(getopt.getopt(argv, "hd:c:"))
+    except getopt.GetoptError as err:
+        eprint("error while fetching arguments: %s" % err)
+        _print_help()
+        sys.exit(1)
 
-    any_flow = False
+    dump = "np_dump"
+    cflows = ""
 
-print "all checked flows matched" if all_flows else "some checked flow mismatched"
+    for opt, arg in opts:
+        if opt == '-h':
+            _print_help()
+            sys.exit(0)
+        elif opt == '-d':
+            dump = arg
+        elif opt == '-c':
+            cflows = arg
+
+    if not cflows:
+        eprint("missing flow check specifications")
+        _print_help()
+        sys.exit(2)
+
+    cflows = [json.loads(flow) for flow in cflows.split(';')]
+
+    inv_fave = _get_inverse_fave(dump)
+    ftrees = _get_flow_trees(dump)
+
+    all_flows = True
+    any_tree = False
+    failed = []
+    for cflow in cflows:
+        for ftree in ftrees:
+
+            if check_flow(cflow, ftree, inv_fave):
+                any_tree = True
+                break
+
+        all_flows = all_flows and any_tree
+        if not any_tree:
+            failed.append(','.join(cflow))
+        any_tree = False
+
+    if all_flows:
+        print "success: all checked flows matched"
+        return 0
+    else:
+        print "failure: some flows mismatched:\n\t%s" % ';\n\t'.join(failed)
+        return 3
+
+
+if __name__ == "__main__":
+    sys.exit(_main(sys.argv[1:]))
