@@ -90,7 +90,7 @@ F5='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_r
 F6='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states","t=bar_forward_rules"]'
 F7='["boz","t=foo_1","t=bar_pre_routing","t=bar_forward_states"]'
 
-PYTHONPATH=. python2 test/check_flows.py np_dump/ "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
+PYTHONPATH=. python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
 
 # test openflow
 #echo -n "start ryu... "
