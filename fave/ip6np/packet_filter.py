@@ -17,6 +17,7 @@ from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField
 
 from util.collections_util import list_sub
 
+from ip6np_util import field_value_to_bitvector
 
 def expand_field(field):
     """ Expands a negated field to a set of vectors.
@@ -106,6 +107,10 @@ class Rule(list):
         self.chain = chain
 
 
+    def enlarge(self, length):
+        self.enlarge_vector_to_length(length)
+
+
     def enlarge_vector_to_length(self, length):
         """ Enlarges the rule's vector to a certain length.
 
@@ -113,6 +118,13 @@ class Rule(list):
         length -- the target length
         """
         self.vector.enlarge(length - self.vector.length)
+
+
+    def calc_vector(self, mapping):
+        self.vector.enlarge(mapping.length)
+        for field in self:
+            offset = mapping[field.name]
+            self.vector[offset:offset+field.size] = field_value_to_bitvector(field).vector
 
 
     def __str__(self):
