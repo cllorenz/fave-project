@@ -466,5 +466,5 @@ if __name__ == "__main__":
     LOGGER.info("dumped fave and netplumber.")
 
     LOGGER.info("stopping fave and netplumber...")
-    os.system("scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh")
     LOGGER.info("stopped fave and netplumber.")
