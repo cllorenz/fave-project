@@ -128,6 +128,6 @@ python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
 #echo "start openflow proxy..."
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
-scripts/stop_fave.sh
+bash scripts/stop_fave.sh
 
 #kill -s KILL $RYU
