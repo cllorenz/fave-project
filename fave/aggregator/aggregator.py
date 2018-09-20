@@ -429,6 +429,7 @@ class Aggregator(object):
         self.stop = True
 
 
+
     #@profile_method
     def _sync_diff(self, model):
         Aggregator.LOGGER.debug('worker: synchronize model')
@@ -1073,6 +1074,8 @@ class Aggregator(object):
 
 
     def _absorb_mapping(self, mapping):
+        assert isinstance(mapping, Mapping)
+
         mlength = self.mapping.length
         self.mapping.expand(mapping)
         if mlength < self.mapping.length:
