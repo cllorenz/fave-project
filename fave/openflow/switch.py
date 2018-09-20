@@ -9,7 +9,7 @@ import getopt
 import socket
 import json
 
-from netplumber.mapping import Mapping
+from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.model import Model
 from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
@@ -24,6 +24,14 @@ class SwitchRuleField(object):
     def __init__(self, name, value):
         self.name = name
         self.value = value
+
+
+    def enlarge(self, nlength):
+        self.value.enlarge(nlength)
+
+
+    def unleash(self):
+        return self.name, FIELD_SIZES[self.name], self.value
 
 
     def to_json(self):
@@ -136,6 +144,11 @@ class Match(list):
         super(Match, self).__init__(fields if fields is not None else [])
 
 
+    def enlarge(self, length):
+        for field in self:
+            field.enlarge(length)
+
+
     def to_json(self):
         """ Converts the match to JSON.
         """
@@ -189,6 +202,10 @@ class SwitchRule(Model):
             mapping.extend(field.name)
 
         return mapping
+
+
+    def enlarge(self, length):
+        self.match.enlarge(length)
 
 
     def to_json(self):

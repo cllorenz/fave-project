@@ -437,17 +437,17 @@ class Aggregator(object):
         mlength = self.mapping.length
 
         if model.type == "packet_filter":
-            self.mapping.expand(model.mapping)
-            #self._extend_mapping(model.mapping)
+            #self.mapping.expand(model.mapping)
+            self._extend_mapping(model.mapping)
         elif model.type == "switch_command" and model.command == "add_rule":
-            self.mapping.expand(model.rule.mapping)
-            #self._extend_mapping(model.rule.mapping)
+            #self.mapping.expand(model.rule.mapping)
+            self._extend_mapping(model.rule.mapping)
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
                 model.model.type in ['probe', 'host', 'generator']:
 
-            self.mapping.expand(model.model.mapping)
-            #self._extend_mapping(model.model.mapping)
+            #self.mapping.expand(model.model.mapping)
+            self._extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
             jsonrpc.expand(self.sock, self.mapping.length) # XXX: +1 necessary?
@@ -568,12 +568,13 @@ class Aggregator(object):
         elif model.type == "switch":
             self._add_switch(model)
 
-    # XXX: deprecated?
+
     def _extend_mapping(self, mapping):
         assert isinstance(mapping, Mapping)
-        for fld in mapping:
-            if fld not in self.mapping:
-                self.mapping.extend(fld)
+
+        self.mapping.expand(mapping)
+        for model in self.models:
+            self.models[model].expand(self.mapping)
 
 
     def _add_packet_filter(self, model):
@@ -672,7 +673,11 @@ class Aggregator(object):
 
             Aggregator.LOGGER.debug("worker: add rules to %s", tname)
 
-            for rid, vec, act in model.tables[table]:
+            #for rid, vec, act in model.tables[table]:
+            for rid, rule in enumerate(model.tables[table]):
+                act = rule.action
+                rule.calc_vector(model.mapping)
+                vec = rule.vector.vector
                 rvec = Vector(length=self.mapping.length)
                 for fld in model.mapping:
                     g_offset = self.mapping[fld]

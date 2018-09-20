@@ -43,6 +43,21 @@ class Model(object):
         )
 
 
+    def expand(self, mapping):
+        """ Expands the models mapping as well as its vectors
+
+        Keyword arguments:
+        mapping - the extension mapping
+        """
+        assert isinstance(mapping, Mapping)
+
+        self.mapping.expand(mapping)
+
+        for table in self.tables:
+            for rule in self.tables[table]:
+                rule.enlarge(self.mapping.length)
+
+
     def to_json(self):
         """ Converts the model to a JSON object.
         """

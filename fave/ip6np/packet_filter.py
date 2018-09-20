@@ -95,6 +95,27 @@ class Field(object):
         )
 
 
+    def unleash(self):
+        return self.name, self.size, self.value
+
+
+    def to_json(self):
+        return {
+            "name" : self.name,
+            "size" : self.size,
+            "value" : self.value,
+            "vector" : self.vector.vector if self.vector else None,
+            "negated" : self.negated
+        }
+
+    @staticmethod
+    def from_json(j):
+        if isinstance(j, str):
+            j = json.loads(j)
+
+        return Field(j["name"], j["size"], j["value"], negated=j["negated"])
+
+
 # TODO: replace with SwitchRule
 class Rule(list):
     """ This class stores packet filter rules.
@@ -133,6 +154,26 @@ class Rule(list):
             self.action,
             str(self.vector)
         )
+
+    def to_json(self):
+        return {
+            "chain" : self.chain,
+            "action" : self.action,
+            "vector" : self.vector.vector,
+            "fields" : [field.to_json() for field in self]
+        }
+
+    @staticmethod
+    def from_json(j):
+        if isinstance(j, str):
+            j = json.loads(j)
+
+        rule = Rule(
+            j["chain"],
+            j["action"],
+            fields=[Field.from_json(field) for field in j["fields"]]
+        )
+        return rule
 
 
 class PacketFilterModel(Model):
@@ -249,13 +290,13 @@ class PacketFilterModel(Model):
 
         #prefix = lambda x: "_".join(x.split("_")[:2])
 
-        chain_to_json = lambda k: \
-            [(i if r.action != 'MISS' else 65535, r.vector.vector, r.action) \
-                for i, r in enumerate(self.chains[k])
-            ]
+        #chain_to_json = lambda k: \
+        #    [(i if r.action != 'MISS' else 65535, r.vector.vector, r.action) \
+        #        for i, r in enumerate(self.chains[k])
+        #    ]
 
         self.tables = {
-            k:chain_to_json(k) for k in self.chains if k not in [
+            k:[r.to_json() for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
                 "post_routing",
                 "input_states",
@@ -460,7 +501,20 @@ class PacketFilterModel(Model):
             j = json.loads(j)
 
         npf = PacketFilterModel(j["node"])
-        npf.tables = j["tables"]
+        npf.tables = {}
+        tables = j["tables"]
+        for table in tables:
+            if table in [
+                "pre_routing",
+                "post_routing",
+                "input_states",
+                "output_states",
+                "forward_states"
+            ]:
+                npf.tables[table] = [SwitchRule.from_json(r) for r in tables[table]]
+            else:
+                npf.tables[table] = [Rule.from_json(r) for r in tables[table]]
+
         npf.ports = j["ports"]
         npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]
         npf.mapping = Mapping.from_json(j["mapping"])
