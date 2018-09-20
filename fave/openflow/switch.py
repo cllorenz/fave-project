@@ -78,6 +78,10 @@ class Forward(SwitchRuleAction):
         self.ports = ports if ports is not None else []
 
 
+    def __str__(self):
+        return "forward:[%s]" % ",".join([str(p) for p in self.ports])
+
+
     def to_json(self):
         """ Converts the action to JSON.
         """
@@ -108,6 +112,10 @@ class Rewrite(SwitchRuleAction):
     def __init__(self, rewrite=None):
         super(Rewrite, self).__init__("rewrite")
         self.rewrite = rewrite if rewrite is not None else [] # type: [Field()]
+
+
+    def __str__(self):
+        return "rewrite:%s" % ",".join(["%s->%s" % (f.name, f.value) for f in self.rewrite])
 
 
     def to_json(self):
@@ -158,6 +166,10 @@ class Match(list):
         }
 
 
+    def __str__(self):
+        return ",".join(["%s=%s" % (f.name, f.value) for f in self.fields])
+
+
     @staticmethod
     def from_json(j):
         """ Construct a match from JSON.
@@ -190,6 +202,13 @@ class SwitchRule(Model):
         self.match = match
         self.actions = actions if actions is not None else []
 
+
+    def __hash__(self):
+        return hash(
+            "%s.%s" % (self.tid, self.idx) +
+            str(self.match) +
+            ",".join(str(a) for a in self.actions)
+        )
 
     @staticmethod
     def _match_to_mapping(match):

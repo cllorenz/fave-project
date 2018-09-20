@@ -46,7 +46,7 @@ def expand_field(field):
     return nfields
 
 
-def expand_rule(rule):
+def expand_rule(rule, negated):
     """ Expands a rule with negated fields to a set of rules.
 
     Keyword arguments:
@@ -55,21 +55,19 @@ def expand_rule(rule):
 
     assert isinstance(rule, Rule)
 
-    if any([x.negated for x in rule]):
-        rules = []
-        for idx, field in enumerate(rule):
-            if field.negated:
-                fields = expand_field(field)
-                rules.extend(
-                    [Rule(
-                        rule.chain,
-                        rule.action,
-                        dc(rule[:idx])+[f]+dc(rule[idx+1:])
-                    ) for f in fields]
-                )
-        return rules
-    else:
-        return rule
+    rules = []
+    for idx, field in enumerate(rule):
+        if field.name in negated:
+            nfields = expand_field(field)
+            rules.extend(
+                [Rule(
+                    rule.chain,
+                    rule.action,
+                    dc(rule[:idx])+[f]+dc(rule[idx+1:])
+                ) for f in nfields]
+            )
+
+    return rules
 
 
 # TODO: replace with SwitchRuleField
@@ -77,12 +75,11 @@ class Field(object):
     """ This class stores a packet filter rule field.
     """
 
-    def __init__(self, name, size, value, negated=False):
+    def __init__(self, name, size, value):
         self.name = name
         self.size = size
         self.value = value
         self.vector = None
-        self.negated = negated
 
 
     def __str__(self):
@@ -105,7 +102,6 @@ class Field(object):
             "size" : self.size,
             "value" : self.value,
             "vector" : self.vector.vector if self.vector else None,
-            "negated" : self.negated
         }
 
     @staticmethod
@@ -113,7 +109,7 @@ class Field(object):
         if isinstance(j, str):
             j = json.loads(j)
 
-        return Field(j["name"], j["size"], j["value"], negated=j["negated"])
+        return Field(j["name"], j["size"], j["value"])
 
 
 # TODO: replace with SwitchRule
@@ -126,6 +122,14 @@ class Rule(list):
         self.action = action
         self.vector = Vector(0)
         self.chain = chain
+
+
+    def __hash__(self):
+        return hash(
+            self.chain +
+            self.action +
+            "".join(["%s=%s" % (f.name, f.value) for f in self])
+        )
 
 
     def enlarge(self, length):
@@ -180,7 +184,7 @@ class PacketFilterModel(Model):
     """ This class stores packet filter models.
     """
 
-    def __init__(self, node, ports=None):
+    def __init__(self, node, ports=None, negated=None):
         super(PacketFilterModel, self).__init__(node, "packet_filter")
 
         ports = ports if ports is not None else [1, 2]
@@ -245,6 +249,7 @@ class PacketFilterModel(Model):
             ("output_rules_accept", "post_routing_in") # output rules accept to post routing
         ]
         self.mapping = Mapping(length=0)
+        self.negated = negated if negated else {}
 
 
     def __sub__(self, other):
@@ -375,19 +380,19 @@ class PacketFilterModel(Model):
 
 
     def expand_rules(self):
-        """ Expands all rules in this model to a common length.
+        """ Expands all negated rule fields in this model.
         """
 
         nrules = []
         for rule in self.rules:
             assert isinstance(rule, Rule)
-            erule = expand_rule(rule)
-            if isinstance(erule, Rule):
-                nrules.append(erule)
+            if rule in self.negated:
+                nrules.extend(expand_rule(rule, self.negated[rule]))
             else:
-                nrules.extend(erule)
+                nrules.append(rule)
 
         self.rules = nrules
+        self.negated = {}
 
 
     def normalize(self):
@@ -409,6 +414,7 @@ class PacketFilterModel(Model):
                 default = chn[0]
                 chn.remove(default)
                 chn.append(default)
+
 
     def finalize(self):
         """ Finalize model by fill chains and reorder defaults.

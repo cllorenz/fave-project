@@ -9,6 +9,7 @@ from netplumber.mapping import FIELD_SIZES
 from packet_filter import PacketFilterModel, Field, Rule
 from openflow.switch import SwitchRuleField
 
+from util.collections_util import dict_union
 
 def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
@@ -66,6 +67,7 @@ def _ast_to_rule(ast):
     tag = lambda k: tags[k]
 
     is_field = lambda f: tags.has_key(f.value)
+    is_negated = lambda f: f.is_negated()
 
     size = lambda k: FIELD_SIZES[tag(k)]
 
@@ -77,7 +79,7 @@ def _ast_to_rule(ast):
         ast = ast.get_child("-P")
 
     if not ast:
-        return
+        return ([], {})
 
     body = [
         Field(tag(f.value), size(f.value), value(f)) for f in ast if is_field(f)
@@ -86,22 +88,25 @@ def _ast_to_rule(ast):
     for field in body:
         field.vector = field_value_to_bitvector(field)
 
+    negated = [tag(f.value) for f in ast if is_field(f) and is_negated(f)]
+
     action = get_action_from_ast(ast)
 
     chain = get_chain_from_ast(ast)
     rule = Rule(chain, action, body)
 
-    return rule
+    return ([rule], {rule : negated}) if negated else ([rule], {})
 
 
 def _get_rules_from_ast(ast):
     if _is_rule(ast):
-        return [_ast_to_rule(ast)]
+        return _ast_to_rule(ast)
     elif not ast.has_children():
-        return []
+        return ([], {})
     else:
+        merge = lambda l, r: (l[0]+r[0], dict_union(l[1], r[1]))
         return reduce(
-            lambda l, r: l+r, [_get_rules_from_ast(st) for st in ast]
+            merge, [_get_rules_from_ast(st) for st in ast]
         )
 
 
@@ -135,7 +140,7 @@ def get_action_from_ast(ast):
 
 def _transform_ast_to_model(ast, node, ports):
     model = PacketFilterModel(node, ports=ports)
-    model.rules = _get_rules_from_ast(ast)
+    model.rules, model.negated = _get_rules_from_ast(ast)
 
     return model
 
