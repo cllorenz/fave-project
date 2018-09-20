@@ -2,7 +2,6 @@
 
 ### FaVe
 
- - remove MISS duplicates from state tables -> expand() vectors in FaVe as well to make diff() work properly again
  - replace FirewallRule with SwitchRule
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls
