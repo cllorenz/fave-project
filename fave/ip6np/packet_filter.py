@@ -304,6 +304,7 @@ class PacketFilterModel(Model):
                 "forward_states"
             ] #if k in active
         }
+
         self.tables["pre_routing"] = [
             r.to_json() for r in self.chains["pre_routing"]
         ]
