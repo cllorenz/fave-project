@@ -22,7 +22,8 @@ def _read_tables(graph, n_map, table_files, fave_tables, fave_ports, use_topolog
             # add table and ports to graph
             t_id = table['id'] << 32
 
-            g_t = Digraph(name=fave_tables[str(table['id'])])
+            t_name = fave_tables[str(table['id'])]
+            g_t = Digraph(name=t_name)
 
             if use_topology:
                 for p_id in table['ports']:
@@ -37,16 +38,24 @@ def _read_tables(graph, n_map, table_files, fave_tables, fave_ports, use_topolog
                     )
 
             if table['rules']:
-                l_id = t_id + 1
-                g_t.node(str(l_id), label=str(l_id), shape='rectangle')
+                l_id = table['rules'][0]['id']
+                g_t.node(
+                    str(l_id),
+                    label="%s_%s\n(%s)" % (t_name, 1, l_id),
+                    shape='rectangle'
+                )
                 n_map[l_id] = _POSITION(graph)
 
                 g_t.edge(str(l_id), fave_tables[str(table['id'])], style='invis')
 
 
-            for idx in range(len(table['rules'][1:])):
-                r_id = t_id + idx + 2
-                g_t.node(str(r_id), label=str(r_id), shape='rectangle')
+            for idx, rule in enumerate(table['rules'][1:]):
+                r_id = rule['id']
+                g_t.node(
+                    str(r_id),
+                    label="%s_%s\n(%s)" % (t_name, idx+2, r_id),
+                    shape='rectangle'
+                )
                 n_map[r_id] = _POSITION(graph)
 
                 g_t.edge(str(r_id), str(l_id), style='invis')
