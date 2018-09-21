@@ -132,32 +132,44 @@ def _read_pipes(graph, n_map, fdir, use_pipes):
                 )
 
 
+def _traverse_flow(graph, n_map, flow, color):
+    if not flow:
+        return
+
+    start = flow['node']
+    if start not in n_map:
+        print 'flows: unknown node: %s' % start
+        graph.node(str(start), label=str(start), shape='rectangle')
+        n_map[start] = _POSITION(graph)
+
+    if 'children' not in flow:
+        return
+
+    for child in flow['children']:
+        target = child['node']
+
+        if target not in n_map:
+            print 'flows: unknown node: %s' % target
+
+            graph.node(str(target), label=str(target), shape='rectangle')
+            n_map[target] = _POSITION(graph)
+
+        graph.edge(str(start), str(target), color=color, style='bold')
+
+        _traverse_flow(graph, n_map, child, color)
+
+
 def _read_flows(graph, n_map, fdir, use_flows):
     if not use_flows:
         return
 
-    with open(fdir + '/flows.json') as ifile:
+
+    with open(fdir + '/flow_trees.json') as ifile:
         flows = json.loads(ifile.read())
 
         for flow in flows['flows']:
-            start = flow[0]
-            color = '#%06x' % (hash(str(start)) & 0xffffff)
-
-            if start not in n_map:
-                print 'flows: unknown node: %s' % start
-                graph.node(str(start), label=str(start), shape='rectangle')
-                n_map[start] = _POSITION(graph)
-
-            for target in flow[1:]:
-                if target not in n_map:
-                    print 'flows: unknown node: %s' % target
-
-                    graph.node(str(target), label=str(target), shape='rectangle')
-                    n_map[target] = _POSITION(graph)
-
-                graph.edge(str(start), str(target), color=color, style='bold')
-
-                start = target
+            color = '#%06x' % (hash(str(flow['node'])) & 0xffffff)
+            _traverse_flow(graph, n_map, flow, color)
 
 
 def _print_help():
