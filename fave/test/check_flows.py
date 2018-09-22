@@ -227,12 +227,12 @@ def _main(argv):
     failed = []
     for flow_spec in flow_specs:
         if not _check_flow_trees(flow_spec, flow_trees, inv_fave):
-            failed.append(','.join([e for e in flow_spec if e != ' ']))
+            failed.append(' '.join([e for e in flow_spec if e != ' ']))
 
     print (
         "success: all checked flows matched"
     ) if not failed else (
-        "failure: some flows mismatched:\n\t%s" % ';\n\t'.join(failed)
+        "failure: some flows mismatched:\n\t%s" % '\n\t'.join(failed)
     )
     return 0 if not failed else 3
 
