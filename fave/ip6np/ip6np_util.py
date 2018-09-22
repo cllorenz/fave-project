@@ -115,6 +115,9 @@ def field_value_to_bitvector(field):
 
     name, size, value = field.unleash()
 
+    if isinstance(value, Vector):
+        return value
+
     #if isinstance(field, Field):
     #    name, size, value = field.name, field.size, field.value
     #elif isinstance(field, SwitchRuleField):
