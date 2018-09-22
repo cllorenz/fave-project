@@ -70,6 +70,15 @@ class Vector(object):
         self.vector = preset*length
 
 
+    @staticmethod
+    def is_vector(vectors):
+        try:
+            int(vectors, 2)
+        except ValueError:
+            return False
+        return True
+
+
     def enlarge(self, size):
         """ Enlarges the vector.
 
