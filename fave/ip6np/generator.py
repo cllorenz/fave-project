@@ -3,19 +3,15 @@
 """
 
 from ip6np_util import field_value_to_bitvector
-
-from netplumber.vector import Vector
-from netplumber.mapping import FIELD_SIZES
-from packet_filter import PacketFilterModel, Field, Rule
-from openflow.switch import SwitchRuleField
-
+from packet_filter import PacketFilterModel
+from openflow.switch import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union
 
 def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
 
 
-def _ast_to_rule(ast):
+def _ast_to_rule(node, ast):
     tags = {
         "i" : "interface",
         "s" : "packet.ipv6.source",
@@ -69,8 +65,6 @@ def _ast_to_rule(ast):
     is_field = lambda f: tags.has_key(f.value)
     is_negated = lambda f: f.is_negated()
 
-    size = lambda k: FIELD_SIZES[tag(k)]
-
     value = lambda k: k.get_first().value if k.get_first() is not None else ""
 
     if ast.has_child("-A"):
@@ -82,7 +76,7 @@ def _ast_to_rule(ast):
         return ([], {})
 
     body = [
-        Field(tag(f.value), size(f.value), value(f)) for f in ast if is_field(f)
+        SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f)
     ]
 
     for field in body:
@@ -90,27 +84,28 @@ def _ast_to_rule(ast):
 
     negated = [tag(f.value) for f in ast if is_field(f) and is_negated(f)]
 
-    action = get_action_from_ast(ast)
+    action = _get_action_from_ast(ast)
+    action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
 
-    chain = get_chain_from_ast(ast)
-    rule = Rule(chain, action, body)
+    chain = _get_chain_from_ast(ast)
+    rule = SwitchRule(node, chain, 0, match=Match(body), actions=[action])
 
     return ([rule], {rule : negated}) if negated else ([rule], {})
 
 
-def _get_rules_from_ast(ast):
+def _get_rules_from_ast(node, ast):
     if _is_rule(ast):
-        return _ast_to_rule(ast)
+        return _ast_to_rule(node, ast)
     elif not ast.has_children():
         return ([], {})
     else:
         merge = lambda l, r: (l[0]+r[0], dict_union(l[1], r[1]))
         return reduce(
-            merge, [_get_rules_from_ast(st) for st in ast]
+            merge, [_get_rules_from_ast(node, st) for st in ast]
         )
 
 
-def get_chain_from_ast(ast):
+def _get_chain_from_ast(ast):
     """ Retrieves a chain from an AST.
 
     Keyword arguments:
@@ -125,7 +120,7 @@ def get_chain_from_ast(ast):
     }[chain.lower()]
 
 
-def get_action_from_ast(ast):
+def _get_action_from_ast(ast):
     """ Retrieves an action from an AST.
 
     Keyword arguments:
@@ -140,7 +135,7 @@ def get_action_from_ast(ast):
 
 def _transform_ast_to_model(ast, node, ports):
     model = PacketFilterModel(node, ports=ports)
-    model.rules, model.negated = _get_rules_from_ast(ast)
+    model.rules, model.negated = _get_rules_from_ast(node, ast)
 
     return model
 

@@ -13,11 +13,10 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 
 from netplumber.model import Model
 
-from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField
+from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss
 
 from util.collections_util import list_sub
 
-from ip6np_util import field_value_to_bitvector
 
 def expand_field(field):
     """ Expands a negated field to a set of vectors.
@@ -26,19 +25,19 @@ def expand_field(field):
     field -- a negated field to be expanded
     """
 
-    assert isinstance(field, Field)
+    assert isinstance(field, SwitchRuleField)
 
     pfield = dc(field)
     pfield.negated = False
     nfields = []
-    for idx, bit in enumerate(field.vector.vector):
+    for idx, bit in enumerate(field.value):
         if bit == '0':
             nfield = dc(pfield)
-            nfield.vector.vector = "x"*idx + "1" + "x"*(pfield.vector.length-idx-1)
+            nfield.value.vector = "x"*idx + "1" + "x"*(pfield.value.length-idx-1)
             nfields.append(nfield)
         elif bit == '1':
             nfield = dc(pfield)
-            nfield.vector.vector = "x"*idx + "0" + "x"*(pfield.vector.length-idx-1)
+            nfield.value.vector = "x"*idx + "0" + "x"*(pfield.value.length-idx-1)
             nfields.append(nfield)
         else: # 'x'
             continue
@@ -53,131 +52,23 @@ def expand_rule(rule, negated):
     rule -- a rule to be expanded
     """
 
-    assert isinstance(rule, Rule)
+    assert isinstance(rule, SwitchRule)
 
     rules = []
     for idx, field in enumerate(rule):
         if field.name in negated:
             nfields = expand_field(field)
             rules.extend(
-                [Rule(
-                    rule.chain,
+                [SwitchRule(
+                    rule.node,
+                    rule.tid,
+                    rule.rid,
                     rule.action,
-                    dc(rule[:idx])+[f]+dc(rule[idx+1:])
+                    dc(rule.match[:idx])+[f]+dc(rule.match[idx+1:])
                 ) for f in nfields]
             )
 
     return rules
-
-
-# TODO: replace with SwitchRuleField
-class Field(object):
-    """ This class stores a packet filter rule field.
-    """
-
-    def __init__(self, name, size, value):
-        self.name = name
-        self.size = size
-        self.value = value
-        self.vector = None
-
-
-    def __str__(self):
-        return "name: %s, size: %i, value: %s, negated: %s, \n%s" % (
-            self.name,
-            self.size,
-            self.value,
-            str(self.negated),
-            self.vector if self.vector else "no vector"
-        )
-
-
-    def unleash(self):
-        return self.name, self.size, self.value
-
-
-    def to_json(self):
-        return {
-            "name" : self.name,
-            "size" : self.size,
-            "value" : self.value,
-            "vector" : self.vector.vector if self.vector else None,
-        }
-
-    @staticmethod
-    def from_json(j):
-        if isinstance(j, str):
-            j = json.loads(j)
-
-        return Field(j["name"], j["size"], j["value"])
-
-
-# TODO: replace with SwitchRule
-class Rule(list):
-    """ This class stores packet filter rules.
-    """
-
-    def __init__(self, chain, action, fields=None):
-        super(Rule, self).__init__(fields if fields else [])
-        self.action = action
-        self.vector = Vector(0)
-        self.chain = chain
-
-
-    def __hash__(self):
-        return hash(
-            self.chain +
-            self.action +
-            "".join(["%s=%s" % (f.name, f.value) for f in self])
-        )
-
-
-    def enlarge(self, length):
-        self.enlarge_vector_to_length(length)
-
-
-    def enlarge_vector_to_length(self, length):
-        """ Enlarges the rule's vector to a certain length.
-
-        Keyword arguments:
-        length -- the target length
-        """
-        self.vector.enlarge(length - self.vector.length)
-
-
-    def calc_vector(self, mapping):
-        self.vector.enlarge(mapping.length)
-        for field in self:
-            offset = mapping[field.name]
-            self.vector[offset:offset+field.size] = field_value_to_bitvector(field).vector
-
-
-    def __str__(self):
-        return "fields:\n\t%s\naction: %s\nvector:\n\t%s" % (
-            super(Rule, self).__str__(),
-            self.action,
-            str(self.vector)
-        )
-
-    def to_json(self):
-        return {
-            "chain" : self.chain,
-            "action" : self.action,
-            "vector" : self.vector.vector,
-            "fields" : [field.to_json() for field in self]
-        }
-
-    @staticmethod
-    def from_json(j):
-        if isinstance(j, str):
-            j = json.loads(j)
-
-        rule = Rule(
-            j["chain"],
-            j["action"],
-            fields=[Field.from_json(field) for field in j["fields"]]
-        )
-        return rule
 
 
 class PacketFilterModel(Model):
@@ -193,11 +84,11 @@ class PacketFilterModel(Model):
         self.chains = {
             "pre_routing" : [],
             "input_rules" : [],
-            "input_states" : [Rule("input_states", 'MISS')],
+            "input_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
             "output_rules" : [],
-            "output_states" : [Rule("output_states", 'MISS')],
+            "output_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
             "forward_rules" : [],
-            "forward_states" : [Rule("forward_states", 'MISS')],
+            "forward_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
             "post_routing" : [],
             "internals" : [],
         }
@@ -295,11 +186,6 @@ class PacketFilterModel(Model):
 
         #prefix = lambda x: "_".join(x.split("_")[:2])
 
-        #chain_to_json = lambda k: \
-        #    [(i if r.action != 'MISS' else 65535, r.vector.vector, r.action) \
-        #        for i, r in enumerate(self.chains[k])
-        #    ]
-
         self.tables = {
             k:[r.to_json() for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
@@ -317,20 +203,21 @@ class PacketFilterModel(Model):
             r.to_json() for r in self.chains["post_routing"]
         ]
         for table in ["input_states", "output_states", "forward_states"]:
+            chain = self.chains[table]
             self.tables[table] = [
                 SwitchRule(
                     self.node,
                     "%s_%s" % (self.node, table),
-                    i if r.action != 'MISS' else 65535,
-                    Match([SwitchRuleField(f.name, f.value) for f in r]),
-                    [Forward(ports=[
+                    r.idx if r.idx else i,
+                    match=Match([SwitchRuleField(f.name, f.value) for f in r.match]),
+                    actions=[Forward(ports=[
                         "%s_%s_%s" % (
                             self.node,
                             table,
-                            'accept' if r.action != 'MISS' else 'miss'
+                            'miss' if isinstance(r.actions[0], Miss) else 'accept'
                         )
                     ])]
-                ).to_json() for i, r in enumerate(self.chains[table])
+                ).to_json() for i, r in enumerate(chain)
             ]
 
         self.ports = {
@@ -354,7 +241,7 @@ class PacketFilterModel(Model):
         """
 
         for rule in self.rules:
-            assert isinstance(rule, Rule)
+            assert isinstance(rule, SwitchRule)
             rule.vector = self._generate_rule_vector(rule)
 
 
@@ -366,7 +253,7 @@ class PacketFilterModel(Model):
         vector = Vector(length=mapping.length, preset="x")
 
         # handle all fields of the rule
-        for field in rule:
+        for field in rule.match:
             # unknown field
             if field.name not in mapping:
                 mapping.extend(field.name)
@@ -374,7 +261,8 @@ class PacketFilterModel(Model):
 
             # known field
             offset = mapping[field.name]
-            vector[offset:offset+field.size] = field.vector.vector
+            size = FIELD_SIZES[field.name]
+            vector[offset:offset+size] = field.vector.vector
 
         return vector
 
@@ -385,7 +273,7 @@ class PacketFilterModel(Model):
 
         nrules = []
         for rule in self.rules:
-            assert isinstance(rule, Rule)
+            assert isinstance(rule, SwitchRule)
             if rule in self.negated:
                 nrules.extend(expand_rule(rule, self.negated[rule]))
             else:
@@ -399,7 +287,7 @@ class PacketFilterModel(Model):
         """ Normalizes model by enlarging all stored rules.
         """
         for rule in self.rules:
-            assert isinstance(rule, Rule)
+            assert isinstance(rule, SwitchRule)
             rule.enlarge_vector_to_length(self.mapping.length)
 
 
@@ -410,7 +298,7 @@ class PacketFilterModel(Model):
             if not chn:
                 continue
 
-            if not chn[0]:
+            if len(chn) >= 1:
                 default = chn[0]
                 chn.remove(default)
                 chn.append(default)
@@ -421,8 +309,8 @@ class PacketFilterModel(Model):
         """
 
         for rule in self.rules:
-            assert isinstance(rule, Rule)
-            self.chains[rule.chain].append(rule)
+            assert isinstance(rule, SwitchRule)
+            self.chains[rule.tid].append(rule)
         self._reorder_defaults()
 
 
@@ -511,16 +399,7 @@ class PacketFilterModel(Model):
         npf.tables = {}
         tables = j["tables"]
         for table in tables:
-            if table in [
-                "pre_routing",
-                "post_routing",
-                "input_states",
-                "output_states",
-                "forward_states"
-            ]:
-                npf.tables[table] = [SwitchRule.from_json(r) for r in tables[table]]
-            else:
-                npf.tables[table] = [Rule.from_json(r) for r in tables[table]]
+            npf.tables[table] = [SwitchRule.from_json(r) for r in tables[table]]
 
         npf.ports = j["ports"]
         npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]

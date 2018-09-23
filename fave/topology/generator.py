@@ -4,10 +4,10 @@
 import json
 import itertools
 
-from netplumber.mapping import Mapping, FIELD_SIZES
+from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
-from ip6np.generator import field_value_to_bitvector
-from ip6np.packet_filter import Field
+from ip6np.ip6np_util import field_value_to_bitvector
+from openflow.switch import SwitchRuleField
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 class GeneratorModel(object):
@@ -40,7 +40,7 @@ class GeneratorModel(object):
                     vector,
                     field,
                     field_value_to_bitvector(
-                        Field(field, FIELD_SIZES[field], comb[i])
+                        SwitchRuleField(field, comb[i])
                     ).vector
                 )
             outgoing.append(vector)

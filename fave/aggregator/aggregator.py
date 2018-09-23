@@ -30,7 +30,7 @@ from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
 from ip6np.packet_filter import PacketFilterModel
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.switch import SwitchModel, SwitchCommand, SwitchRule
+from openflow.switch import SwitchModel, SwitchCommand, SwitchRule, Forward, Miss
 
 from topology.topology import TopologyCommand, LinksModel
 from topology.host import HostModel
@@ -676,9 +676,9 @@ class Aggregator(object):
 
             #for rid, vec, act in model.tables[table]:
             for rid, rule in enumerate(model.tables[table]):
-                act = rule.action
+                act = rule.actions
                 rule.calc_vector(model.mapping)
-                vec = rule.vector.vector
+                vec = rule.match.vector.vector
                 rvec = Vector(length=self.mapping.length)
                 for fld in model.mapping:
                     g_offset = self.mapping[fld]
@@ -686,9 +686,18 @@ class Aggregator(object):
                     size = FIELD_SIZES[fld]
                     rvec[g_offset:g_offset+size] = vec[m_offset:m_offset+size]
 
-                ports = [self._global_port(
-                    '_'.join([model.node, table, act.lower()])
-                )] if act in ['ACCEPT', 'MISS'] else []
+                ports = []
+                for action in rule.actions:
+                    if isinstance(action, Forward):
+                        ports.extend(
+                            [self._global_port(
+                                '%s_%s_%s' %(model.node, table, port.lower())
+                            ) for port in action.ports]
+                        )
+                    elif isinstance(action, Miss):
+                        ports.append(
+                            self._global_port('%s_%s_miss' % (model.node, table))
+                        )
 
                 Aggregator.LOGGER.debug(
                     "worker: add rule %s to %s:\n\t(%s -> %s)",

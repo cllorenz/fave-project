@@ -6,10 +6,10 @@ import itertools
 
 from util.path_util import Path
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from netplumber.mapping import Mapping, FIELD_SIZES
+from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
-from ip6np.generator import field_value_to_bitvector
-from ip6np.packet_filter import Field
+from ip6np.ip6np_util import field_value_to_bitvector
+from openflow.switch import SwitchRuleField
 
 class ProbeModel(object):
     """ This class provides a probe model.
@@ -49,7 +49,7 @@ class ProbeModel(object):
                         vector,
                         field,
                         field_value_to_bitvector(
-                            Field(field, FIELD_SIZES[field], comb[idx])
+                            SwitchRuleField(field, comb[idx])
                         ).vector
                     )
                 vectors.append(vector)

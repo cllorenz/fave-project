@@ -9,13 +9,21 @@ import getopt
 import socket
 import json
 
+try:
+    from ip6np.ip6np_util import field_value_to_bitvector
+except ImportError:
+    from ip6np_util import field_value_to_bitvector
+
+from netplumber.vector import Vector, set_field_in_vector
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.model import Model
+
 from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
 from util.aggregator_utils import UDS_ADDR
+
 
 class SwitchRuleField(object):
     """ This class provides a model for switch rules.
@@ -26,11 +34,25 @@ class SwitchRuleField(object):
         self.value = value
 
 
+    def vectorize(self):
+        """ Transforms value into a vector representation.
+        """
+        if not isinstance(self.value, Vector):
+            self.value = field_value_to_bitvector(self)
+
+
     def enlarge(self, nlength):
+        """ Enlarges value in vector representation by length.
+
+        Keyword arguments:
+        nlength -- the length to be added
+        """
         self.value.enlarge(nlength)
 
 
     def unleash(self):
+        """ Returns a tuple representation.
+        """
         return self.name, FIELD_SIZES[self.name], self.value
 
 
@@ -40,7 +62,7 @@ class SwitchRuleField(object):
 
         return {
             "name" : self.name,
-            "value" : self.value
+            "value" : self.value.vector if isinstance(self.value, Vector) else self.value
         }
 
 
@@ -55,9 +77,16 @@ class SwitchRuleField(object):
         if isinstance(j, str):
             j = json.loads(j)
 
+        value = j["value"]
+
+        if Vector.is_vector(value):
+            vec = Vector(len(value))
+            vec.vector = value
+            value = vec
+
         return SwitchRuleField(
             j["name"],
-            j["value"]
+            value
         )
 
 
@@ -128,6 +157,15 @@ class Rewrite(SwitchRuleAction):
         }
 
 
+    def enlarge(self, length):
+        """ Enlarges all vectors by length.
+
+        Keyword arguments:
+        length -- the length to be added
+        """
+        self.rewrite.enlarge(length)
+
+
     @staticmethod
     def from_json(j):
         """ Constructs a rewrite action from JSON.
@@ -144,17 +182,54 @@ class Rewrite(SwitchRuleAction):
         )
 
 
+class Miss(SwitchRuleAction):
+    """ This class provides a miss action.
+    """
+
+    def __init__(self):
+        super(Miss, self).__init__("miss")
+
+
+    def __str__(self):
+        return self.name
+
+
+    def to_json(self):
+        """ Converts the action to JSON.
+        """
+
+        return {
+            "name" : self.name
+        }
+
+
+    @staticmethod
+    def from_json(_j):
+        """ Constructs a miss action from JSON.
+        """
+        return Miss()
+
+
 class Match(list):
     """ This class provides models for switch rule matches.
     """
 
     def __init__(self, fields=None):
         super(Match, self).__init__(fields if fields is not None else [])
+        for field in self:
+            field.vectorize()
+        self.vector = Vector(
+            sum([f.value.length for f in self])
+        ) if fields else Vector(0)
 
 
     def enlarge(self, length):
-        for field in self:
-            field.enlarge(length)
+        """ Enlarges all vectors by length.
+
+        Keyword arguments:
+        length -- the length to be added
+        """
+        self.vector.enlarge(length)
 
 
     def to_json(self):
@@ -165,9 +240,25 @@ class Match(list):
             "fields" : [field.to_json() for field in self],
         }
 
+    def calc_vector(self, mapping):
+        """ Aligns all vectors according to a mapping.
+
+        Keyword arguments:
+        mapping -- the mapping
+        """
+
+        assert isinstance(mapping, Mapping)
+
+        vector = Vector(mapping.length)
+        for field in self:
+            field.vectorize()
+            set_field_in_vector(mapping, vector, field.name, field.value.vector)
+
+        self.vector = vector
+
 
     def __str__(self):
-        return ",".join(["%s=%s" % (f.name, f.value) for f in self.fields])
+        return ",".join(["%s=%s" % (f.name, f.value) for f in self])
 
 
     @staticmethod
@@ -199,7 +290,7 @@ class SwitchRule(Model):
         super(SwitchRule, self).__init__(node, mtype="switch_rule", mapping=mapping)
         self.tid = tid
         self.idx = idx
-        self.match = match
+        self.match = match if match else Match()
         self.actions = actions if actions is not None else []
 
 
@@ -223,8 +314,35 @@ class SwitchRule(Model):
         return mapping
 
 
+    def calc_vector(self, mapping):
+        """ Aligns all vectors according to a mapping.
+
+        Keyword arguments:
+        mapping -- the mapping
+        """
+        self.match.calc_vector(mapping)
+
+
     def enlarge(self, length):
+        """ Enlarges all vectors to length.
+
+        Keyword arguments:
+        length -- the new length
+        """
+
         self.match.enlarge(length)
+        for action in self.actions:
+            if isinstance(action, Rewrite):
+                action.enlarge(length)
+
+
+    def enlarge_vector_to_length(self, length):
+        """ Enlarges the rule's vector to a certain length.
+
+        Keyword arguments:
+        length -- the target length
+        """
+        self.match.enlarge(length - self.mapping.length)
 
 
     def to_json(self):
@@ -254,7 +372,8 @@ class SwitchRule(Model):
 
         actions = {
             "forward" : Forward,
-            "rewrite" : Rewrite
+            "rewrite" : Rewrite,
+            "miss" : Miss
         }
 
         return SwitchRule(
@@ -527,4 +646,3 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
