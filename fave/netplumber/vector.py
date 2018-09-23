@@ -72,6 +72,9 @@ class Vector(object):
 
     @staticmethod
     def is_vector(vectors):
+        if isinstance(vectors, Vector):
+            return True
+
         for bit in vectors:
             if bit not in ['0', '1', 'x']:
                 return False
