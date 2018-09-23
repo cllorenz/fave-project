@@ -254,15 +254,20 @@ class PacketFilterModel(Model):
 
         # handle all fields of the rule
         for field in rule.match:
+            size = FIELD_SIZES[field.name]
+
             # unknown field
             if field.name not in mapping:
                 mapping.extend(field.name)
-                vector.enlarge(FIELD_SIZES[field.name])
+                vector.enlarge(size)
 
             # known field
             offset = mapping[field.name]
-            size = FIELD_SIZES[field.name]
-            vector[offset:offset+size] = field.vector.vector
+
+            if not isinstance(field.value, Vector):
+                field.vectorize()
+
+            vector[offset:offset+size] = field.value.vector
 
         return vector
 
