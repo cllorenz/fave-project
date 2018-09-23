@@ -72,10 +72,9 @@ class Vector(object):
 
     @staticmethod
     def is_vector(vectors):
-        try:
-            int(vectors, 2)
-        except ValueError:
-            return False
+        for bit in vectors:
+            if bit not in ['0', '1', 'x']:
+                return False
         return True
 
 
