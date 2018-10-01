@@ -20,7 +20,13 @@ and then compile NetPlumber using
 
     $> make all
 
-Then, it is quite convenient to link the `net_plumber` binary to some `$PATH` directory like `/usr/bin`.
+Then, one can use NetPlumber from the compilation directory or
+
+    #> make install
+
+to install it permanently.
+
+For developers it might be more convenient to link the `net_plumber` binary to some `$PATH` directory like `/usr/bin`.
 
 
 To set up FaVe one can use the script
