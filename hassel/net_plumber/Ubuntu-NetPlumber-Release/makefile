@@ -57,7 +57,13 @@ clean:
 	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(CPP_DEPS)$(EXECUTABLES)$(CXX_DEPS)$(C_UPPER_DEPS) net_plumber
 	-@echo ' '
 
-.PHONY: all clean dependents
+install: all
+	-cp net_plumber /usr/bin/
+
+uninstall:
+	-rm -f /usr/bin/net_plumber
+
+.PHONY: all clean dependents install uninstall
 .SECONDARY:
 
 -include ../makefile.targets
