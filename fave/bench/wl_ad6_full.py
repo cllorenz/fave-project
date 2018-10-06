@@ -9,6 +9,7 @@ import logging
 import time
 
 import netplumber.dump_np as dumper
+import test.check_flows as checker
 #import netplumber.print_np as printer
 
 from topology import topology as topo
@@ -450,6 +451,139 @@ def campus_network(config):
         _test_subnet(net, hosts=subhosts)
 
 
+def _generate_reachability_tests(config):
+    """ XXX flow tests:
+    Internet <--> PublicHosts - ok
+    Internet ---> PublicSubHosts
+    Internet !--> PrivateSubHosts - (ok)
+    PublicHost ---> PublicHosts - ok
+    PublicSubHosts ---> PublicSubHosts
+    PrivateSubHosts(X) <->> PrivateSubHosts(X)
+    PrivateSubHosts(X) !--> PrivateSubHosts(Y) - (ok)
+    SubClients <->> Internet - (ok)
+    SubClients <->> PublicHosts - (ok)
+    SubClients <->> PublicSubHosts (ok)
+    SubClients <->> PrivateSubHosts (ok)
+    SubClients(X) !--> SubClients(Y) - ok
+    """
+
+    tests = []
+    hosts, subnets, subhosts = config
+
+    label = lambda x: x[0]
+
+    for host in hosts:
+        hlabel = label(host)
+        # public servers may be reached from the internet
+        tests.append("s=internet && EF p=%s" % hlabel)
+        # public servers may reach the internet, TODO: make stateful
+        tests.append("s=%s && EF p=internet" % hlabel)
+        # public servers may reach each other
+        tests.extend([
+            "s=%s && EF p=%s" % (
+                hlabel,
+                label(h)
+            ) for h in hosts if label(h) != hlabel
+        ])
+
+    for subnet in subnets:
+        # clients may reach the internet
+        tests.append("s=client.%s && EF p=internet" % subnet)
+
+        # clients may not be reached from the internet, TODO: allow stateful
+        tests.append("! s=internet && EF p=clients.%s" % subnet)
+
+        # clients may reach public servers
+        tests.extend([
+            "s=clients.%s && EF p=%s" % (
+                subnet,
+                label(h)
+            ) for h in hosts
+        ])
+
+        # public hosts may not reach internal clients, TODO: allow stateful
+        tests.extend([
+            "! s=%s && EF p=clients.%s" % (label(h), subnet) for h in hosts
+        ])
+
+        # internal clients may reach internal servers
+        tests.extend([
+            "s=clients.%s && EF p=%s.%s" % (
+                subnet,
+                subhost,
+                subnet
+            ) for subhost in subhosts
+        ])
+
+        # internal servers may not reach internal clients, TODO: allow stateful
+        tests.extend([
+            "! s=%s.%s && EF p=clients.%s" % (
+                label(subhost),
+                subnet,
+                subnet
+            ) for subhost in subhosts
+        ])
+
+        # internal clients may not reach other subnet's internal clients
+        tests.extend([
+            "! s=clients.%s %% EF p=clients.%s" % (
+                osn,
+                subnet
+            ) for osn in subnets if osn != subnet
+        ])
+
+        # other subnet's internal clients may not reach internal clients
+        tests.extend([
+            "! s=clients.%s && EF p=clients.%s" % (
+                osn,
+                subnet
+            ) for osn in subnets if osn != subnet
+        ])
+
+        # the internet may not reach internal servers
+        tests.extend([
+            "! s=internet && EF p=%s.%s" % (
+                label(subhost),
+                subnet
+            ) for subhost in subhosts
+        ])
+        # internal servers may not reach the internet
+        tests.extend([
+            "! s=%s.%s && EF p=internet" % (
+                label(subhost),
+                subnet
+            ) for subhost in subhosts
+        ])
+
+        # internal servers may not reach other subnet's internal servers
+        tests.extend([
+            "! s=%s.%s && EF p=%s.%s" % (
+                subhost,
+                subnet,
+                osh,
+                osn
+            ) for subhost, osh, osn in [(
+                label(x),
+                label(y),
+                z
+            ) for x in subhosts for y in subhosts for z in subnets if label(x) != label(y)]
+        ])
+
+
+
+    stests = iter(sorted(tests))
+    prev = stests.next()
+    cnt = 0
+    for next in stests:
+        if prev == next:
+            cnt += 1
+            print "  duplicate: %s" % prev
+        prev = next
+    print "number of tests:\t%s\nduplicates:\t%s" % (len(tests), cnt)
+
+    return tests
+
+
 if __name__ == "__main__":
     LOGGER.info("starting netplumber...")
     os.system("scripts/start_np.sh bench/wl-ad6-np.conf")
@@ -462,8 +596,13 @@ if __name__ == "__main__":
     campus_network(AD6)
 
     LOGGER.info("dumping fave and netplumber...")
-    #dumper.main(["-anpf"])
+    dumper.main(["-anpt"])
     LOGGER.info("dumped fave and netplumber.")
+
+    LOGGER.info("checking flow trees...")
+    tests = _generate_reachability_tests(AD6)
+    checker.main(["-c", ";".join(tests)])
+    LOGGER.info("checked flow trees.")
 
     LOGGER.info("stopping fave and netplumber...")
     os.system("bash scripts/stop_fave.sh")
