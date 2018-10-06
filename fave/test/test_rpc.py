@@ -6,6 +6,7 @@
 import unittest
 
 import os
+import re
 import random
 
 from netplumber.jsonrpc import connect_to_netplumber
@@ -41,6 +42,75 @@ def generate_random_rule(idx, in_ports, out_ports, length):
     return (idx, iports, oports, match, mask, rewrite)
 
 
+def _check_probe_log_line(line, probe_id, state):
+    p1 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Started in True State" % probe_id
+    p2 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Met Probe Condition" % probe_id
+    p3 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*More Flows Met Probe Condition" % probe_id
+    p4 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Fewer Flows Met Probe Condition" % probe_id
+
+    n1 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Started in False State" % probe_id
+    n2 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Failed Probe Condition" % probe_id
+    n3 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*More Flows Failed Probe Condition" % probe_id
+    n4 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Fewer Flows Failed Probe Condition" % probe_id
+
+    # probe match and positive state
+    positives = [
+        re.match(p1, line) is not None,
+        re.match(p2, line) is not None,
+        re.match(p3, line) is not None,
+        re.match(p4, line) is not None
+    ]
+    negatives = [
+        re.match(n1, line) is not None,
+        re.match(n2, line) is not None,
+        re.match(n3, line) is not None,
+        re.match(n4, line) is not None,
+    ]
+
+    if (state and any(positives)) or (not state and any(negatives)):
+        return "match"
+    elif (not state and any(positives)) or (state and any(negatives)):
+        return "mismatch"
+    elif re.match(r".*DefaultProbeLogger", line) is not None:
+        return "wrong_probe"
+    else:
+        return "skip"
+
+
+def check_log(sequence, logfile="/tmp/np/stdout.log"):
+    """ Checks probe output in log file.
+
+    Keyword parameters:
+    sequence - a list of tuples (probe id, state)
+    logfile - path to a net_plumber log file
+    """
+
+    with open(logfile, 'r') as lf:
+        log = iter(lf.read().split('\n'))
+        line = log.next()
+
+        for probe_id, state in sequence:
+            while True:
+                result = _check_probe_log_line(line, probe_id, state)
+
+                if result == "match":
+                    line = log.next()
+                    break
+                elif result == "mismatch":
+                    return False
+                elif result == "wrong_probe":
+                    pass
+                elif result == "skip_line":
+                    pass
+
+                try:
+                    line = log.next()
+                except StopIteration:
+                    return False
+
+    return True
+
+
 class TestRPC(unittest.TestCase):
     """ Test class for RPC tests.
     """
@@ -69,24 +139,30 @@ class TestRPC(unittest.TestCase):
             links, sources, and probes.
         """
 
-        nodes = []
+        nodes = {
+            'tables' : [],
+            'sources' : [],
+            'probes' : []
+        }
 
         for t_idx, t_ports, table in tables:
-            nodes.append([])
+            nodes['tables'].append([])
             add_table(self.sock, t_idx, t_ports)
 
             for rule in table:
                 result = add_rule(self.sock, t_idx, *rule)
-                nodes[t_idx-1].append(result)
+                nodes['tables'][t_idx-1].append(result)
 
         for link in links:
             add_link(self.sock, *link)
 
         for source in sources:
-            add_source(self.sock, *source)
+            result = add_source(self.sock, *source)
+            nodes['sources'].append(result)
 
         for probe in probes:
-            add_source_probe(self.sock, *probe)
+            result = add_source_probe(self.sock, *probe)
+            nodes['probes'].append(result)
 
         return nodes
 
@@ -136,12 +212,23 @@ class TestRPC(unittest.TestCase):
 
         nodes = self.prepare_network(tables, links, [source], [probe])
 
+        # initial false probe condition
+        probe_id = nodes["probes"][0]
+        self.assertTrue(check_log([(probe_id, False)]))
+
         # results in true probe condition
-        remove_rule(self.sock, nodes[0][1])
+        remove_rule(self.sock, nodes['tables'][0][1])
+
+        self.assertTrue(check_log([(probe_id, False), (probe_id, True)]))
+
         # results in false probe condition
         add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", "x"*8, None)
 
-        print_plumbing_network(self.sock)
+        self.assertTrue(check_log([
+            (probe_id, False),
+            (probe_id, True),
+            (probe_id, False)
+        ]))
 
 
     def test_advanced(self):
@@ -248,15 +335,23 @@ class TestRPC(unittest.TestCase):
 
         nodes = self.prepare_network(tables, links, sources, [probe])
 
+        # initial true probe condition
+        probe_id = nodes["probes"][0]
+        check_log([(probe_id, True)])
+
         # results in false probe condition
-        remove_rule(self.sock, nodes[2][2])
+        remove_rule(self.sock, nodes['tables'][2][2])
         result = add_rule(
             self.sock, 3, 3, [31], [33], "xxxx1001xxxxxx11", "x"*16, "xxxx1000xxxxxx11"
         )
 
+        check_log([(probe_id, True), (probe_id, False)])
+
         # results in true probe condition
         remove_rule(self.sock, result)
         add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "x"*16, None)
+
+        check_log([(probe_id, True), (probe_id, False), (probe_id, True)])
 
 
     def test_cycle(self):
