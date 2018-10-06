@@ -199,7 +199,10 @@ def _print_help():
     )
 
 
-def _main(argv):
+def main(argv):
+    """ Main method.
+    """
+
     try:
         only_opts = lambda opts, args: opts
         opts = only_opts(*getopt.getopt(argv, "hd:c:"))
