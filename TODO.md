@@ -22,7 +22,11 @@
 
  - fix memory leak in Pipeline setup (shows up in the NetPlumber destructor)
  - improve test coverage
- - bring NetPlumber to C++11 (or higher)
+ - bring NetPlumber to C++11 (or higher) to improve readability:
+    - deduce iterator types using auto
+    - use range based iteration where suitable
+    - replace NULL by nullptr where suitable
+    - use lambdas where suitable
  - improve code readability
  - use -Wextra and -Wpedantic
  - integrate test coverage tools: gcov
