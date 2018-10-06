@@ -2,11 +2,12 @@
 
 ### FaVe
 
- - replace FirewallRule with SwitchRule
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls
  - improve integration and system tests by checking log output
  - improve integration and system tests by using reachability tree analysis
+ - improve reachability tree analysis by using more generic flow specifications
+ - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
  - create benchmark with IFI network
  - create benchmark with TUM-i8 network
@@ -24,5 +25,6 @@
  - bring NetPlumber to C++11 (or higher)
  - improve code readability
  - use -Wextra and -Wpedantic
+ - integrate test coverage tools: gcov
  - libnetplumber? (C++ plus Python)
  - BDDs instead of Header Spaces?
