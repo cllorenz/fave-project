@@ -224,21 +224,20 @@ class TestRPC(unittest.TestCase):
 
         # initial false probe condition
         probe_id = nodes["probes"][0]
-        self.assertTrue(check_log([(probe_id, False)]))
+        plogs = [(probe_id, False)]
+        self.assertTrue(check_log(plogs))
 
         # results in true probe condition
         remove_rule(self.sock, nodes['tables'][0][1])
 
-        self.assertTrue(check_log([(probe_id, False), (probe_id, True)]))
+        plogs.append((probe_id, True))
+        self.assertTrue(check_log(plogs))
 
         # results in false probe condition
         add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", "x"*8, None)
 
-        self.assertTrue(check_log([
-            (probe_id, False),
-            (probe_id, True),
-            (probe_id, False)
-        ]))
+        plogs.append((probe_id, False))
+        self.assertTrue(check_log(plogs))
 
 
     def test_advanced(self):
@@ -347,7 +346,8 @@ class TestRPC(unittest.TestCase):
 
         # initial true probe condition
         probe_id = nodes["probes"][0]
-        check_log([(probe_id, True)])
+        plogs = [(probe_id, True)]
+        check_log(plogs)
 
         # results in false probe condition
         remove_rule(self.sock, nodes['tables'][2][2])
@@ -355,13 +355,15 @@ class TestRPC(unittest.TestCase):
             self.sock, 3, 3, [31], [33], "xxxx1001xxxxxx11", "x"*16, "xxxx1000xxxxxx11"
         )
 
-        check_log([(probe_id, True), (probe_id, False)])
+        plogs.append((probe_id, False))
+        check_log(plogs)
 
         # results in true probe condition
         remove_rule(self.sock, result)
         add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "x"*16, None)
 
-        check_log([(probe_id, True), (probe_id, False), (probe_id, True)])
+        plogs.append((probe_id, True))
+        check_log(plogs)
 
 
     def test_cycle(self):
