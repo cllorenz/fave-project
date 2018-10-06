@@ -77,7 +77,7 @@ def _check_probe_log_line(line, probe_id, state):
         return "skip"
 
 
-def check_log(sequence, logfile="/tmp/np/stdout.log"):
+def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
     """ Checks probe output in log file.
 
     Keyword parameters:
@@ -225,19 +225,19 @@ class TestRPC(unittest.TestCase):
         # initial false probe condition
         probe_id = nodes["probes"][0]
         plogs = [(probe_id, False)]
-        self.assertTrue(check_log(plogs))
+        self.assertTrue(check_probe_log(plogs))
 
         # results in true probe condition
         remove_rule(self.sock, nodes['tables'][0][1])
 
         plogs.append((probe_id, True))
-        self.assertTrue(check_log(plogs))
+        self.assertTrue(check_probe_log(plogs))
 
         # results in false probe condition
         add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", "x"*8, None)
 
         plogs.append((probe_id, False))
-        self.assertTrue(check_log(plogs))
+        self.assertTrue(check_probe_log(plogs))
 
 
     def test_advanced(self):
@@ -347,7 +347,7 @@ class TestRPC(unittest.TestCase):
         # initial true probe condition
         probe_id = nodes["probes"][0]
         plogs = [(probe_id, True)]
-        check_log(plogs)
+        check_probe_log(plogs)
 
         # results in false probe condition
         remove_rule(self.sock, nodes['tables'][2][2])
@@ -356,14 +356,14 @@ class TestRPC(unittest.TestCase):
         )
 
         plogs.append((probe_id, False))
-        check_log(plogs)
+        check_probe_log(plogs)
 
         # results in true probe condition
         remove_rule(self.sock, result)
         add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "x"*16, None)
 
         plogs.append((probe_id, True))
-        check_log(plogs)
+        check_probe_log(plogs)
 
 
     def test_cycle(self):
