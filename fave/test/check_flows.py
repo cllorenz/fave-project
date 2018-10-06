@@ -78,10 +78,13 @@ def check_flow(flow_spec, flow_tree, inv_fave):
     """
 
     nflow = []
+    negated = False
     flow_spec_iter = iter(flow_spec)
     for tok in flow_spec_iter:
         if tok in ['(', ')', ' ', '&&']:
             continue
+        elif tok == '!':
+            negated = True
         elif tok.startswith('s='):
             _, tname = tok.split('=')
             crule = ('START', [inv_fave["generator_to_id"][tname]])
@@ -99,7 +102,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
         else:
             raise Exception("cannot handle token: %s" % tok)
 
-    return check_tree(nflow, flow_tree)
+    return negated != check_tree(nflow, flow_tree)
 
 
 def _get_inverse_fave(dump):
@@ -135,6 +138,7 @@ def _parse_flow_spec(flow):
     tok_source = pp.Combine(pp.CaselessLiteral("s=") + ident)
     tok_probe = pp.Combine(pp.CaselessLiteral("p=") + ident)
     tok_table = pp.Combine(pp.CaselessLiteral("t=") + ident)
+    tok_oper_neg = pp.CaselessLiteral("!")
     tok_oper_and = pp.CaselessLiteral("&&")
     tok_oper_ex = pp.CaselessLiteral("EX")
     tok_oper_ef = pp.CaselessLiteral("EF")
@@ -168,7 +172,7 @@ def _parse_flow_spec(flow):
 #    and_test = "%s && %s" % (par_ex_test, par_ef_test)
 #    print and_test, "->", expr_and.parseString(and_test)
 
-    expr = expr_and + pp.ZeroOrMore(pp.White() + tok_oper_and + pp.White() + expr_and) ^ expr_and
+    expr = pp.ZeroOrMore(tok_oper_neg + pp.White()) + expr_and + pp.ZeroOrMore(pp.White() + tok_oper_and + pp.White() + expr_and) ^ expr_and
 #    expr_test = "%s && %s" % (par_atom_test, and_test)
 #    print expr_test, "->", expr.parseString(expr_test)
 
