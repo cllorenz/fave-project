@@ -111,6 +111,16 @@ def check_log(sequence, logfile="/tmp/np/stdout.log"):
     return True
 
 
+def check_cycle_log(logfile="/tmp/np/stdout.log"):
+    with open(logfile, 'r') as lf:
+        log = lf.read().split("\n")
+        for line in log:
+            if re.match(r".*DefaultLoopDetectionLogger", line) is not None:
+                return True
+
+        return False
+
+
 class TestRPC(unittest.TestCase):
     """ Test class for RPC tests.
     """
@@ -373,8 +383,12 @@ class TestRPC(unittest.TestCase):
 
         self.prepare_network(tables, links, sources, probes)
 
+        self.assertFalse(check_cycle_log())
+
         # add new rule to close the cycle
         add_rule(self.sock, *(2, 1, [3], [4], "x"*8, "x"*8, None))
+
+        self.assertTrue(check_cycle_log())
 
 
     def _test_slicing(self):
