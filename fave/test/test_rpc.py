@@ -111,14 +111,38 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
     return True
 
 
-def check_cycle_log(logfile="/tmp/np/stdout.log"):
+def _check_generic_log(logger, logfile="/tmp/np/stdout.log"):
     with open(logfile, 'r') as lf:
         log = lf.read().split("\n")
         for line in log:
-            if re.match(r".*DefaultLoopDetectionLogger", line) is not None:
+            if re.match(r".*%s" % logger, line) is not None:
                 return True
 
         return False
+
+
+def check_cycle_log(logfile="/tmp/np/stdout.log"):
+    """ Check log output for loop.
+    """
+    return _check_generic_log("DefaultLoopDetectionLogger", logfile=logfile)
+
+
+def check_unreach_log(logfile="/tmp/np/stdout.log"):
+    """ Check log output for unreachable rule.
+    """
+    return _check_generic_log("DefaultUnreachDetectionLogger", logfile=logfile)
+
+
+def check_shadow_log(logfile="/tmp/np/stdout.log"):
+    """ Check log output for shadowed rule.
+    """
+    return _check_generic_log("DefaultShadowDetectionLogger", logfile=logfile)
+
+
+def check_blackhole_log(logfile="/tmp/np/stdout.log"):
+    """ Check log output for black hole.
+    """
+    return _check_generic_log("DefaultBlackholeDetectionLogger", logfile=logfile)
 
 
 class TestRPC(unittest.TestCase):
@@ -544,10 +568,12 @@ class TestRPC(unittest.TestCase):
         # add rule that completes the matching
         add_rule(self.sock, *(1, 4, [], [2], "11xxxxxx", "x"*8, None))
 
+        self.assertFalse(check_unreach_log())
+
         # add unreachable rule
         add_rule(self.sock, *(1, 5, [], [2], "xx1xxxxx", "x"*8, None))
 
-        print_plumbing_network(self.sock)
+        self.assertTrue(check_unreach_log())
 
 
     def test_rule_shadowing(self):
@@ -566,11 +592,17 @@ class TestRPC(unittest.TestCase):
         init(self.sock, 1)
         self.prepare_network(tables, [], [], [])
 
+        self.assertFalse(check_shadow_log())
+
         # add shadowed rule
         add_rule(self.sock, *(1, 4, [], [2], "011xxxxx", "x"*8, None))
 
+        self.assertTrue(check_shadow_log())
+
         # add unshadowed rule
         add_rule(self.sock, *(1, 5, [], [2], "11xxxxxx", "x"*8, None))
+
+        self.assertTrue(check_shadow_log())
 
 
     def test_expand(self):
