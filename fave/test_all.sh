@@ -10,7 +10,8 @@ echo "start linter tests..."
 bash test/lint_test.sh
 
 echo "start unit tests..."
-PYTHONPATH=. python2 test/unit_tests.py
+PYTHONPATH=. python2-coverage run test/unit_tests.py
+python2-coverage report
 
 echo -n "start netplumber tests..."
 net_plumber --test

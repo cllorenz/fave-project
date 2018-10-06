@@ -1,2 +1,3 @@
 *.pyc
 np_dump
+.coverage
