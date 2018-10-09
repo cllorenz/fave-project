@@ -5,7 +5,7 @@
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls
  - improve integration and system tests by checking log output
- - improve integration and system tests by using reachability tree analysis
+ - fix reachability tree analysis of ad6 by introducing client dummies
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
