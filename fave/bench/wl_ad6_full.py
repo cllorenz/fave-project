@@ -166,7 +166,7 @@ def _create_subnet_switches(cnt, subnets):
         LOGGER.info("  creating subnet %s...", net)
 
         # create switch for subnet
-        _add_switch(net, 7)
+        _add_switch(net, 8)
 
         # link switch to firewall
         _link_ports([
@@ -203,6 +203,16 @@ def _set_subnet_switch_rules(cnt, subnets, subhosts):
                 ["ipv6_dst=%s" % addr],
                 ["fd=%s.%s" % (net, port)]
             )
+
+        # forwarding rule to clients
+        addr = "2001:db8:abc:%s::100/120" % cnt
+        port = len(subhosts)+1
+        LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr, net, port)
+        _add_switch_rule(
+            net, 1, 1,
+            ["ipv6_dst=%s" % addr],
+            ["fd=%s.%s" % (net, port)]
+        )
 
         # forwarding rule to firewall (default rule)
         LOGGER.debug("set rule: * -> fd=%s.1", net)
