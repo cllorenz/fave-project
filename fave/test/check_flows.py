@@ -95,7 +95,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             crules = (
                 tok,
                 [inv_fave["probe_to_id"][tname]] if ttype == 'p' else \
-                inv_fave["table_id_to_rules"][inv_fave["table_to_id"][tname]]
+                inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
             )
             nflow.append(crules)
 
