@@ -253,6 +253,19 @@ def _create_subnet_hosts(cnt, subnets, subhosts):
         cnt += 1
 
 
+def _create_subnet_clients(cnt, subnets):
+    for net in subnets:
+        LOGGER.info("  creating client %s... ", net)
+
+        port = 8
+        addr = "2001:db8:abc:%s::100/120" % cnt
+        _add_host(port, "clients", net, addr)
+
+        LOGGER.info("  created client %s.", net)
+
+        cnt += 1
+
+
 def _add_host(port, host, net, addr):
     hname = host[0] if isinstance(host, tuple) else host
     hostnet = "%s.%s" % (hname, net)
@@ -450,6 +463,8 @@ def campus_network(config):
     LOGGER.info("creating hosts (pf + source) in subnets...")
     _create_subnet_hosts(4, subnets, subhosts)
 
+    LOGGER.info("creating clients (pf + source) in subnets...")
+    _create_subnet_clients(4, subnets)
 
     LOGGER.info("testing ssh reachability from the internet...")
     LOGGER.info("  testing dmz... ")
