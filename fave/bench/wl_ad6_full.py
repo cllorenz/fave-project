@@ -436,6 +436,7 @@ def campus_network(config):
     # populate firewall
     LOGGER.info("populating firewall...")
     _add_ruleset("pgf", "2001:db8:abc::1", "%s/pgf-ruleset" % RULESETS)
+    #_add_ruleset("pgf", "2001:db8:abc::1", "%s/simple-ruleset" % RULESETS)
 
     # dmz (route)
     LOGGER.debug("\tset rule: ipv6_dst=2001:db8:abc:0::0/64 -> fd=pgf.2")
