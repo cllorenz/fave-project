@@ -540,9 +540,9 @@ def _generate_reachability_tests(config):
     for host in hosts:
         hlabel = label(host)
         # public servers may be reached from the internet
-        tests.append("s=internet && EF p=probe.%s.dmz" % hlabel)
+        tests.append("s=source.internet && EF p=probe.%s.dmz" % hlabel)
         # public servers may reach the internet, TODO: allow stateful
-        tests.append("! s=source.%s.dmz && EF s=internet" % hlabel)
+        tests.append("! s=source.%s.dmz && EF p=probe.internet" % hlabel)
         # public servers may reach each other
         tests.extend([
             "s=source.%s.dmz && EF p=probe.%s.dmz" % (
@@ -553,68 +553,71 @@ def _generate_reachability_tests(config):
 
     for subnet in subnets:
         # clients may reach the internet
-#        tests.append("s=client.%s && EF p=internet" % subnet)
+        tests.append("s=source.clients.%s && EF p=probe.internet" % subnet)
 
         # clients may not be reached from the internet, TODO: allow stateful
-#        tests.append("! s=internet && EF p=clients.%s" % subnet)
+        tests.append("! s=source.internet && EF p=probe.clients.%s" % subnet)
 
         # clients may reach public servers
-#        tests.extend([
-#            "s=clients.%s && EF p=%s" % (
-#                subnet,
-#                label(h)
-#            ) for h in hosts
-#        ])
+        tests.extend([
+            "s=source.clients.%s && EF p=probe.%s.dmz" % (
+                subnet,
+                label(h)
+            ) for h in hosts
+        ])
 
         # public hosts may not reach internal clients, TODO: allow stateful
-#        tests.extend([
-#            "! s=%s && EF p=clients.%s" % (label(h), subnet) for h in hosts
-#        ])
+        tests.extend([
+            "! s=source.%s.dmz && EF p=probe.clients.%s" % (
+                label(h),
+                subnet
+            ) for h in hosts
+        ])
 
         # internal clients may reach internal servers
-#        tests.extend([
-#            "s=clients.%s && EF p=%s.%s" % (
-#                subnet,
-#                subhost,
-#                subnet
-#            ) for subhost in subhosts
-#        ])
+        tests.extend([
+            "s=source.clients.%s && EF p=probe.%s.%s" % (
+                subnet,
+                label(subhost),
+                subnet
+            ) for subhost in subhosts
+        ])
 
         # internal servers may not reach internal clients, TODO: allow stateful
-#        tests.extend([
-#            "! s=%s.%s && EF p=clients.%s" % (
-#                label(subhost),
-#                subnet,
-#                subnet
-#            ) for subhost in subhosts
-#        ])
+        tests.extend([
+            "! s=source.%s.%s && EF p=probe.clients.%s" % (
+                label(subhost),
+                subnet,
+                subnet
+            ) for subhost in subhosts
+        ])
 
         # internal clients may not reach other subnet's internal clients
-#        tests.extend([
-#            "! s=clients.%s %% EF p=clients.%s" % (
-#                osn,
-#                subnet
-#            ) for osn in subnets if osn != subnet
-#        ])
+        tests.extend([
+            "! s=source.clients.%s %% EF p=probe.clients.%s" % (
+                osn,
+                subnet
+            ) for osn in subnets if osn != subnet
+        ])
 
         # other subnet's internal clients may not reach internal clients
-#        tests.extend([
-#            "! s=clients.%s && EF p=clients.%s" % (
-#                osn,
-#                subnet
-#            ) for osn in subnets if osn != subnet
-#        ])
+        tests.extend([
+            "! s=source.clients.%s && EF p=probe.clients.%s" % (
+                osn,
+                subnet
+            ) for osn in subnets if osn != subnet
+        ])
 
         # the internet may not reach internal servers
         tests.extend([
-            "! s=internet && EF p=probe.%s.%s" % (
+            "! s=source.internet && EF p=probe.%s.%s" % (
                 label(subhost),
                 subnet
             ) for subhost in subhosts
         ])
         # internal servers may not reach the internet
         tests.extend([
-            "! s=source.%s.%s && EF s=internet" % (
+            "! s=source.%s.%s && EF p=probe.internet" % (
                 label(subhost),
                 subnet
             ) for subhost in subhosts
