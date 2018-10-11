@@ -291,6 +291,17 @@ def _add_host(port, host, net, addr):
     _add_switch_rule(hostnet, 1, 1, [], ["fd=%s.%s" % (hostnet, 1)])
 
 
+def _test_internet():
+
+    # add probes that looks for incoming flows coming via the central firewall
+    _add_probe(
+        "probe.internet",
+        "universal",
+        test_path=["(p in (pgf.25))"]
+    )
+    _link_ports([("pgf.25", "probe.internet.1")])
+
+
 def _test_subnet(net, hosts=None):
     hosts = hosts if hosts is not None else []
 
@@ -478,8 +489,8 @@ def campus_network(config):
     LOGGER.info("populated switches")
 
     LOGGER.info("creating internet (source)...")
-    _add_generator("internet")
-    _link_ports([("internet.1", "pgf.1"), ("pgf.25", "internet.1")])
+    _add_generator("source.internet")
+    _link_ports([("source.internet.1", "pgf.1")])
     LOGGER.info("created internet.")
 
     LOGGER.info("creating hosts (pf + source) in dmz...")
@@ -491,6 +502,9 @@ def campus_network(config):
 
     LOGGER.info("creating clients (pf + source) in subnets...")
     _create_subnet_clients(4, subnets, subhosts)
+
+    LOGGER.info("testing reachability of the internet...")
+    _test_internet()
 
     LOGGER.info("testing ssh reachability from the internet...")
     LOGGER.info("  testing dmz... ")
