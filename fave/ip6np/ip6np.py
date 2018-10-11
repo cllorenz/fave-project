@@ -52,7 +52,7 @@ def main(argv):
         elif opt == '-i':
             address = arg
         elif opt == '-p':
-            ports = range(1, int(arg))
+            ports = range(1, int(arg)+1)
         elif opt == '-f':
             ifile = arg
 
