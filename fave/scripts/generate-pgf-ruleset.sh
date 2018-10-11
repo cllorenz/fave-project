@@ -19,7 +19,7 @@ function private {
         PROTO=`echo $PORT | cut -d ':' -f 1`
         NO=`echo $PORT | cut -d ':' -f 2`
 
-        echo "ip6tables -A FORWARD ! -i 0 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A FORWARD ! -i 1 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
     done
 }
 
@@ -70,7 +70,7 @@ echo "ip6tables -P FORWARD DROP" >> $SCRIPT
 echo "ip6tables -P OUTPUT DROP" >> $SCRIPT
 
 # deny access on the firewall from the internet
-echo "ip6tables -A INPUT -i 0 -j DROP" >> $SCRIPT
+echo "ip6tables -A INPUT -i 1 -j DROP" >> $SCRIPT
 
 # handle incoming icmpv6
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
@@ -83,10 +83,10 @@ echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEP
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
 # accept ssh access from internal hosts
-echo "ip6tables -A INPUT ! -i 0 -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
+echo "ip6tables -A INPUT ! -i 1 -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
 
 # allow outgoing flows
-echo "ip6tables -A FORWARD ! -i 0 -s 2001:db8:abc::0/48 -j ACCEPT" >> $SCRIPT
+echo "ip6tables -A FORWARD ! -i 1 -s 2001:db8:abc::0/48 -j ACCEPT" >> $SCRIPT
 
 # handle forwarding of icmpv6
 echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT

@@ -1,7 +1,7 @@
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
-ip6tables -A INPUT -i 0 -j DROP
+ip6tables -A INPUT -i 1 -j DROP
 ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT
@@ -10,8 +10,8 @@ ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min
 ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT
-ip6tables -A INPUT ! -i 0 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -s 2001:db8:abc::0/48 -j ACCEPT
+ip6tables -A INPUT ! -i 1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -s 2001:db8:abc::0/48 -j ACCEPT
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT
@@ -26,8 +26,8 @@ ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-se
 ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP
 ip6tables -A FORWARD -d 2001:db8:abc:0::1 -p tcp --dport 21 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::1 -p tcp --dport 115 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::1 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::1 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p tcp --dport 25 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p tcp --dport 587 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p tcp --dport 110 -j ACCEPT
@@ -38,37 +38,37 @@ ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p tcp --dport 993 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p tcp --dport 995 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p udp --dport 143 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::2 -p udp --dport 220 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::2 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::2 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::3 -p tcp --dport 80 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::3 -p tcp --dport 443 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::3 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::3 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::3 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::3 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::4 -p tcp --dport 389 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::4 -p tcp --dport 636 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::4 -p udp --dport 389 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::4 -p udp --dport 123 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::4 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::4 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::5 -p tcp --dport 1194 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::5 -p tcp --dport 1723 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::5 -p udp --dport 1194 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::5 -p udp --dport 1723 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::5 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::5 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::5 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::5 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::6 -p tcp --dport 53 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:0::6 -p udp --dport 53 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::6 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::6 -p udp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p tcp --dport 118 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p tcp --dport 156 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p udp --dport 118 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p udp --dport 156 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::7 -p udp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::8 -p udp --dport 161 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::8 -p tcp --dport 22 -j ACCEPT
-ip6tables -A FORWARD ! -i 0 -d 2001:db8:abc:0::8 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::6 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::6 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p tcp --dport 118 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p tcp --dport 156 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p udp --dport 118 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p udp --dport 156 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::7 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::8 -p udp --dport 161 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::8 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD ! -i 1 -d 2001:db8:abc:0::8 -p udp --dport 22 -j ACCEPT
 ip6tables -A FORWARD ! -i 1 -s 2001:db8:abc:1::1/64 -j DROP
 ip6tables -A FORWARD -s 2001:db8:abc:1::0/64 ! -d 2001:db8:abc::0/48 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8:abc:1::0/64 -j ACCEPT
