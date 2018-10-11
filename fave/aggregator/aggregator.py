@@ -739,11 +739,14 @@ class Aggregator(object):
                     rvec[offset:offset+size] = field_value_to_bitvector(fld).vector
 
                 rewrite = None
+                mask = None
                 if 'interface' in self.mapping:
                     rewrite = dc(rvec)
+                    mask = Vector(length=rewrite.length, preset="0")
                     offset = self.mapping["interface"]
                     size = FIELD_SIZES["interface"]
                     rewrite[offset:offset+size] = "x"*size
+                    mask[offset:offset+size] = "1"*size
 
                 ports = []
                 for act in rule.actions:
@@ -762,7 +765,7 @@ class Aggregator(object):
                     [],
                     ports,
                     rvec.vector,
-                    None,
+                    mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
                 if calc_rule_index(tid, rid) in self.rule_ids:
@@ -797,6 +800,7 @@ class Aggregator(object):
                     ports.extend([self._global_port(p) for p in act.ports])
 
                 rewrite = None
+                mask = None
                 if "interface" not in self.mapping:
                     self.mapping.extend("interface")
                     rvec.enlarge(FIELD_SIZES["interface"])
@@ -804,6 +808,8 @@ class Aggregator(object):
                 rewrite = dc(rvec)
                 offset = self.mapping["interface"]
                 size = FIELD_SIZES["interface"]
+                mask = Vector(length=rewrite.length, preset='0')
+                mask[offset:offset+size] = '1'*size
 
                 for port in range(1, 1+(len(self.models[model.node].ports)-19)/2):
                     rewrite[offset:offset+size] = '{:016b}'.format(port)
@@ -824,7 +830,7 @@ class Aggregator(object):
                         [self._global_port("%s_%s" % (model.node, str(port)))],
                         ports,
                         rvec.vector,
-                        None,
+                        mask.vector,
                         rewrite.vector
                     )
                     if calc_rule_index(tid, rid) in self.rule_ids:
