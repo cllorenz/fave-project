@@ -449,6 +449,11 @@ def campus_network(config):
     # subnets (routes)
     _add_subnet_routing_rules(4, subnets)
 
+    # internet (route)
+    LOGGER.debug("\tset rule: * -> fd=pgf.1")
+    _add_switch_rule("pgf", 1, 65535, [], ["fd=pgf.1"])
+
+
     LOGGER.info("populated firewall.")
 
     LOGGER.info("populating switches...")
