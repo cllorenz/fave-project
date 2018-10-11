@@ -111,9 +111,9 @@ def _link_ports(ports):
     )
 
 
-def _add_ruleset(name, address, ruleset):
+def _add_ruleset(name, ports, address, ruleset):
     measure(
-        lambda: ip6tables.main(["-n", name, "-i", address, "-f", ruleset]),
+        lambda: ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset]),
         PFR_LOGGER
     )
 
@@ -283,7 +283,7 @@ def _add_host(port, host, net, addr):
 
     _add_generator(server, ["ipv6_src=%s" % addr])
 
-    _add_ruleset(hostnet, addr, "%s/%s-ruleset" % (RULESETS, nethost))
+    _add_ruleset(hostnet, 1, addr, "%s/%s-ruleset" % (RULESETS, nethost))
 
     _link_ports([("%s.1"%server, "%s_output_states_in"%hostnet)])
 
@@ -435,7 +435,7 @@ def campus_network(config):
 
     # populate firewall
     LOGGER.info("populating firewall...")
-    _add_ruleset("pgf", "2001:db8:abc::1", "%s/pgf-ruleset" % RULESETS)
+    _add_ruleset("pgf", 24, "2001:db8:abc::1", "%s/pgf-ruleset" % RULESETS)
     #_add_ruleset("pgf", "2001:db8:abc::1", "%s/simple-ruleset" % RULESETS)
 
     # dmz (route)
