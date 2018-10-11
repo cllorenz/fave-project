@@ -299,6 +299,8 @@ def _test_subnet(net, hosts=None):
     for host in hosts:
         _test_host(host, net)
 
+    _test_clients(net)
+
     LOGGER.info("    tested %s.", net)
 
 
@@ -318,6 +320,22 @@ def _test_host(host, net):
     # link probe to host packet filter
     _link_ports([("%s_input_states_accept"%hname, "%s.1"%server)])
     _link_ports([("%s_input_rules_accept"%hname, "%s.1"%server)])
+
+
+def _test_clients(net):
+    cname = "clients.%s" % net
+    clients = "probe.%s" % cname
+
+    # add probe that looks for incoming flows originating from the internet
+    _add_probe(
+        clients,
+        "existential",
+        test_path=[".*(p=pgf.1);$"]
+    )
+
+    # link probe to host packet filter
+    _link_ports([("%s_input_states_accept"%cname, "%s.1"%clients)])
+    _link_ports([("%s_input_rules_accept"%cname, "%s.1"%clients)])
 
 
 def _test_dmz(hosts):
