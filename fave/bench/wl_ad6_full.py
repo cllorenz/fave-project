@@ -161,12 +161,12 @@ def _add_generator(name, fields=None):
     )
 
 
-def _create_subnet_switches(cnt, subnets):
+def _create_subnet_switches(cnt, subnets, subhosts):
     for net in subnets:
         LOGGER.info("  creating subnet %s...", net)
 
         # create switch for subnet
-        _add_switch(net, 8)
+        _add_switch(net, len(subhosts)+2)
 
         # link switch to firewall
         _link_ports([
@@ -206,10 +206,10 @@ def _set_subnet_switch_rules(cnt, subnets, subhosts):
 
         # forwarding rule to clients
         addr = "2001:db8:abc:%s::100/120" % cnt
-        port = len(subhosts)+1
+        port = len(subhosts)+2
         LOGGER.debug("set rule: ipv6_dst=%s -> fd=%s.%s", addr, net, port)
         _add_switch_rule(
-            net, 1, 1,
+            net, 1, len(subhosts)+1,
             ["ipv6_dst=%s" % addr],
             ["fd=%s.%s" % (net, port)]
         )
@@ -217,6 +217,8 @@ def _set_subnet_switch_rules(cnt, subnets, subhosts):
         # forwarding rule to firewall (default rule)
         LOGGER.debug("set rule: * -> fd=%s.1", net)
         _add_switch_rule(net, 1, 65535, commands=["fd=%s.1" % net])
+
+        cnt += 1
 
 
 def _add_subnet_routing_rules(cnt, subnets):
@@ -253,11 +255,11 @@ def _create_subnet_hosts(cnt, subnets, subhosts):
         cnt += 1
 
 
-def _create_subnet_clients(cnt, subnets):
+def _create_subnet_clients(cnt, subnets, subhosts):
     for net in subnets:
         LOGGER.info("  creating client %s... ", net)
 
-        port = 8
+        port = len(subhosts)+2
         addr = "2001:db8:abc:%s::100/120" % cnt
         _add_host(port, "clients", net, addr)
 
@@ -411,7 +413,7 @@ def campus_network(config):
 
     # create subnets
     LOGGER.info("creating subnets...")
-    _create_subnet_switches(4, subnets)
+    _create_subnet_switches(4, subnets, subhosts)
 
     # populate firewall
     LOGGER.info("populating firewall...")
@@ -464,7 +466,7 @@ def campus_network(config):
     _create_subnet_hosts(4, subnets, subhosts)
 
     LOGGER.info("creating clients (pf + source) in subnets...")
-    _create_subnet_clients(4, subnets)
+    _create_subnet_clients(4, subnets, subhosts)
 
     LOGGER.info("testing ssh reachability from the internet...")
     LOGGER.info("  testing dmz... ")
