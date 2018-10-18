@@ -122,6 +122,8 @@ class Mapping(dict):
         Keyword arguments:
         field -- the field identifier to extend the mapping
         """
+        if field in self:
+            return
 
         self[field] = self.length
         self.length += FIELD_SIZES[field]
