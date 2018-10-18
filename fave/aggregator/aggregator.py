@@ -916,11 +916,17 @@ class Aggregator(object):
                     rule.idx, tid, rvec.vector if rvec else "*", ports
                 )
 
+                in_ports = []
+                if rule.in_ports:
+                    in_ports = [self._global_port(
+                            "%s_%s" % (model.node, p)
+                        ) for p in rule.in_ports]
+
                 r_id = jsonrpc.add_rule(
                     self.sock,
                     tid,
                     rule.idx,
-                    [],
+                    in_ports,
                     ports,
                     rvec.vector,
                     None,

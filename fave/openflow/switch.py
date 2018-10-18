@@ -284,12 +284,13 @@ class SwitchRule(Model):
     """ This class provides a model for switch rules.
     """
 
-    def __init__(self, node, tid, idx, match=None, actions=None, mapping=None):
+    def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None, mapping=None):
         if not mapping:
             mapping = SwitchRule._match_to_mapping(match)
         super(SwitchRule, self).__init__(node, mtype="switch_rule", mapping=mapping)
         self.tid = tid
         self.idx = idx
+        self.in_ports = in_ports if in_ports is not None else []
         self.match = match if match else Match()
         self.actions = actions if actions is not None else []
 
@@ -353,6 +354,7 @@ class SwitchRule(Model):
             "node" : self.node,
             "tid" : self.tid,
             "idx" : self.idx,
+            "in_ports" : self.in_ports,
             "match" : self.match.to_json() if self.match else None,
             "actions" : [action.to_json() for action in self.actions],
             "mapping" : self.mapping.to_json()
@@ -380,6 +382,7 @@ class SwitchRule(Model):
             node=j["node"],
             tid=int(j["tid"]) if isinstance(j["tid"], str) and j["tid"].isdigit() else j["tid"],
             idx=int(j["idx"]),
+            in_ports = j["in_ports"],
             match=Match.from_json(j["match"]),
             actions=[actions[action["name"]].from_json(action) for action in j["actions"]],
             mapping=Mapping.from_json(j["mapping"])
