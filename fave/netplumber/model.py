@@ -29,7 +29,7 @@ class Model(object):
         self.tables = tables if tables is not None else []
         self.ports = ports if ports is not None else {}
         self.wiring = wiring if wiring is not None else []
-        self.mapping = mapping
+        self.mapping = mapping if mapping is not None else Mapping()
 
 
     def __str__(self):
