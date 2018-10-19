@@ -23,7 +23,8 @@ C_UPPER_DEPS :=
 
 #USER_FLAGS :=-DPIPE_SLICING
 USER_FLAGS :=
-DEBUG_FLAGS :=-g -fprofile-arcs -ftest-coverage
+# -fprofile-arcs -ftest-coverage
+DEBUG_FLAGS :=-g
 #-Wextra -Wpedantic
 GCFLAGS :=-Wall -O3 $(DEBUG_FLAGS) $(USER_FLAGS)
 
