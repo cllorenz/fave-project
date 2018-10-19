@@ -23,9 +23,10 @@ C_UPPER_DEPS :=
 
 #USER_FLAGS :=-DPIPE_SLICING
 USER_FLAGS :=
-DEBUG_FLAGS :=-g -fprofile-arcs -ftest-coverage
+# -fprofile-arcs -ftest-coverage
+DEBUG_FLAGS :=-g
 #-Wextra -Wpedantic
-GCFLAGS :=-Wall -O3 $(DEBUG_FLAGS) $(USER_FLAGS)
+GCFLAGS :=-Wall -O3 -std=c++11 $(DEBUG_FLAGS) $(USER_FLAGS)
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
