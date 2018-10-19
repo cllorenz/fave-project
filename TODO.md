@@ -3,9 +3,10 @@
 ### FaVe
 
  - fix removal of firewall rules
- - automate in-/out-port mappings for firewalls
+ - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
- - fix reachability tree analysis of ad6 by introducing client dummies
+ - fix infinite loop in netplumber seen with ad6
+ - improve reachibility tree analysis featuring stateful connections
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
