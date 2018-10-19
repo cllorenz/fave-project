@@ -11,6 +11,10 @@
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
  - create benchmark with IFI network
+    - integrate router model into aggregator
+    - define inventory
+    - define topology
+    - build network from inventory and topology
  - create benchmark with TUM-i8 network
  - create benchmark with Stanford network
  - create benchmark with Internet2 network
