@@ -19,7 +19,7 @@ from openflow import switch
 
 LOGGER = logging.getLogger("ad6")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
-LOGGER.setLevel(logging.DEBUG)
+#LOGGER.setLevel(logging.DEBUG)
 
 TMPDIR = "/tmp/np"
 os.system("mkdir -p %s" % TMPDIR)
@@ -508,12 +508,12 @@ def campus_network(config):
 
     LOGGER.info("testing ssh reachability from the internet...")
     LOGGER.info("  testing dmz... ")
-    _test_dmz(hosts)
+#    _test_dmz(hosts)
     LOGGER.info("  tested dmz.")
 
     LOGGER.info("  testing subnets...")
-    for net in subnets:
-        _test_subnet(net, hosts=subhosts)
+#    for net in subnets:
+#        _test_subnet(net, hosts=subhosts)
 
 
 def _generate_reachability_tests(config):
