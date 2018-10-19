@@ -5,6 +5,7 @@
 
 import unittest
 
+from netplumber.model import Model
 from topology.router import Router
 
 
@@ -80,6 +81,7 @@ class TestRouterModel(unittest.TestCase):
     def test_from_json(self):
         """ Tests the creation of a router model from JSON.
         """
+
         self.assertEqual(
             Router.from_json({
                 'mapping': {'interface': 0, 'length': 16},
@@ -150,9 +152,79 @@ class TestRouterModel(unittest.TestCase):
             vlan_to_ports=vlan_to_ports,
             vlan_to_acls=vlan_to_acls
         )
+
         router2 = Router.from_json(router1.to_json())
 
         self.assertEqual(router1, router2)
+
+
+class TestGenericModel(unittest.TestCase):
+    """ This class provides tests for the generic model.
+    """
+
+    def setUp(self):
+        """ Creates a clean test environment.
+        """
+        self.model = Model("foo")
+
+
+    def tearDown(self):
+        """ Destroys the test environment.
+        """
+        del self.model
+
+
+    def test_to_json(self):
+        """ Tests the conversion of a generic model to JSON.
+        """
+
+        self.assertEqual(
+            self.model.to_json(),
+            {
+                'mapping': {'length':0},
+                'node': 'foo',
+                'ports': {},
+                'tables': [],
+                'type': 'model',
+                'wiring': []
+            }
+        )
+
+
+    def test_from_json(self):
+        """ Tests the creation of a generic model from JSON.
+        """
+
+        self.assertEqual(
+            Model.from_json({
+                'mapping': {'length':0},
+                'node': 'foo',
+                'ports': {},
+                'tables': [],
+                'type': 'model',
+                'wiring': []
+            }),
+            self.model
+        )
+
+    def test_complex(self):
+        """ Tests the a more complex model.
+        """
+
+        tables = {"t1":[], "t2":[]}
+        ports = {'1' : 3, '2' : 4, 't1_out' : 1, 't2_in' : 2}
+        wiring = [('t1_out', 't2_in')]
+
+        model1 = Model(
+            "foo",
+            tables=tables,
+            ports=ports,
+            wiring=wiring
+        )
+
+        model2 = Model.from_json(model1.to_json())
+
+        self.assertEqual(model1, model2)
 
 
 if __name__ == '__main__':
