@@ -88,7 +88,10 @@ class Router(Model):
         # [ ([rule_body], rule_action) ]
         self.routes = routes if routes is not None else []
 
+        self.persist()
 
+
+    # is idempotent
     def persist(self):
         """ Persists ACLs and routes.
         """
