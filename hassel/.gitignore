@@ -3,3 +3,14 @@
 *.pyc
 *.so
 net_plumber/Ubuntu-NetPlumber-Release/net_plumber
+*.gcno
+*.gcda
+*.json
+*.tf
+hsa-python/examples/stanford/net_plumber
+hassel-c/data/test.dat
+hassel-c/gen
+hassel-c/hs-test
+hassel-c/i2
+hassel-c/stanford
+hassel-c/test
