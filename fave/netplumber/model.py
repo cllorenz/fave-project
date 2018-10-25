@@ -26,7 +26,7 @@ class Model(object):
 
         self.node = node
         self.type = mtype
-        self.tables = tables if tables is not None else []
+        self.tables = tables if tables is not None else {}
         self.ports = ports if ports is not None else {}
         self.wiring = wiring if wiring is not None else []
         self.mapping = mapping if mapping is not None else Mapping()
@@ -65,7 +65,11 @@ class Model(object):
         return {
             "node" : self.node,
             "type" : self.type,
-            "tables" : self.tables,
+            "tables" : {
+                tk:[
+                    r.to_json() for r in t
+                ]  for tk, t in self.tables.iteritems()
+            },
             "ports" : self.ports,
             "wiring" : self.wiring,
             "mapping" : self.mapping.to_json()
@@ -137,6 +141,7 @@ class Model(object):
 
     def __eq__(self, other):
         assert isinstance(other, Model)
+
         return all([
             self.node == other.node,
             self.type == other.type,
