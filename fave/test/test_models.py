@@ -184,7 +184,7 @@ class TestGenericModel(unittest.TestCase):
                 'mapping': {'length':0},
                 'node': 'foo',
                 'ports': {},
-                'tables': [],
+                'tables': {},
                 'type': 'model',
                 'wiring': []
             }
@@ -200,7 +200,7 @@ class TestGenericModel(unittest.TestCase):
                 'mapping': {'length':0},
                 'node': 'foo',
                 'ports': {},
-                'tables': [],
+                'tables': {},
                 'type': 'model',
                 'wiring': []
             }),
