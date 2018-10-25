@@ -188,7 +188,7 @@ class PacketFilterModel(Model):
         #prefix = lambda x: "_".join(x.split("_")[:2])
 
         self.tables = {
-            k:[r.to_json() for r in self.chains[k]] for k in self.chains if k not in [
+            k:[r for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
                 "post_routing",
                 "input_states",
@@ -197,12 +197,8 @@ class PacketFilterModel(Model):
             ] #if k in active
         }
 
-        self.tables["pre_routing"] = [
-            r.to_json() for r in self.chains["pre_routing"]
-        ]
-        self.tables["post_routing"] = [
-            r.to_json() for r in self.chains["post_routing"]
-        ]
+        self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
+        self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
         for table in ["input_states", "output_states", "forward_states"]:
             chain = self.chains[table]
             self.tables[table] = [
