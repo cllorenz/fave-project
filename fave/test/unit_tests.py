@@ -9,7 +9,7 @@ from test.test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
 from test.test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil, TestJsonUtil
 from test.test_netplumber import TestMapping, TestVector, TestHeaderSpace, TestModel
 from test.test_topology import TestLinksModel, TestTopologyCommand
-from test.test_models import TestGenericModel, TestRouterModel
+from test.test_models import TestGenericModel, TestRouterModel, TestPacketFilterModel
 from test.test_tree import TestTree
 
 if __name__ == '__main__':
@@ -57,6 +57,10 @@ if __name__ == '__main__':
 
     SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestRouterModel)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestPacketFilterModel)
     )
 
     SUITE.addTests(
