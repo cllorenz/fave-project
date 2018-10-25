@@ -142,6 +142,8 @@ class PacketFilterModel(Model):
         self.mapping = Mapping(length=0)
         self.negated = negated if negated else {}
 
+        self._persist()
+
 
     def __sub__(self, other):
         assert self.node == other.node
@@ -161,9 +163,8 @@ class PacketFilterModel(Model):
         return npf
 
 
-    def to_json(self):
-        """ Converts the packet filter model to JSON.
-        """
+
+    def _persist(self):
 
         constraint = lambda k, m: \
             k == "input_rules" and m[k] != [] or \
@@ -217,12 +218,19 @@ class PacketFilterModel(Model):
                             'miss' if isinstance(r.actions[0], Miss) else 'accept'
                         )
                     ])]
-                ).to_json() for i, r in enumerate(chain)
+                ) for i, r in enumerate(chain)
             ]
 
         self.ports = {
             k:v for k, v in self.ports.iteritems() #if prefix(k) in active
         }
+
+
+    def to_json(self):
+        """ Converts the packet filter model to JSON.
+        """
+
+        self._persist()
 
         return super(PacketFilterModel, self).to_json()
 
