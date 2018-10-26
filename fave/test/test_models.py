@@ -7,7 +7,7 @@ import unittest
 
 from netplumber.model import Model
 from netplumber.mapping import Mapping
-from topology.router import Router
+from topology.router import RouterModel
 from ip6np.packet_filter import PacketFilterModel
 from openflow.switch import SwitchModel, Forward, Rewrite, SwitchRule
 from openflow.switch import Match, SwitchRuleField
@@ -21,7 +21,7 @@ class TestRouterModel(unittest.TestCase):
     def setUp(self):
         """ Creates a clean test environment.
         """
-        self.model = Router("foo")
+        self.model = RouterModel("foo")
 
 
     def tearDown(self):
@@ -88,7 +88,7 @@ class TestRouterModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            Router.from_json({
+            RouterModel.from_json({
                 'mapping': {'interface': 0, 'length': 16},
                 'node': 'foo',
                 'ports': {
@@ -149,7 +149,7 @@ class TestRouterModel(unittest.TestCase):
         vlan_to_ports = {"2" : [1, 2], "1" : []}
         vlan_to_acls = {"2" : ['in_acl_2'], "1" : ['out_acl_deny']}
 
-        router1 = Router(
+        router1 = RouterModel(
             "foo",
             ports=ports,
             acls=acls,
@@ -158,7 +158,7 @@ class TestRouterModel(unittest.TestCase):
             vlan_to_acls=vlan_to_acls
         )
 
-        router2 = Router.from_json(router1.to_json())
+        router2 = RouterModel.from_json(router1.to_json())
 
         self.assertEqual(router1, router2)
 

@@ -11,7 +11,7 @@ from netplumber.mapping import Mapping
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
-class Router(Model):
+class RouterModel(Model):
     """ This class provides a model for routers.
     """
 
@@ -25,7 +25,7 @@ class Router(Model):
             mapping=None,
             vlan_to_acls=None
     ):
-        super(Router, self).__init__(node, "router", mapping=mapping)
+        super(RouterModel, self).__init__(node, "router", mapping=mapping)
 
         ports = ports if ports is not None else {"1" : 1, "2" : 1}
 
@@ -175,7 +175,7 @@ class Router(Model):
         """
 
         self.persist()
-        j = super(Router, self).to_json()
+        j = super(RouterModel, self).to_json()
         j["mapping"] = self.mapping.to_json()
         j["ports"] = self.ports
         j["tables"] = {
@@ -192,7 +192,7 @@ class Router(Model):
         if isinstance(j, str):
             j = json.loads(j)
 
-        router = Router(j["node"])
+        router = RouterModel(j["node"])
         router.mapping = Mapping.from_json(j["mapping"]) if "mapping" in j else Mapping()
         router.tables = {t:[SwitchRule.from_json(r) for r in j["tables"][t]] for t in j["tables"]}
         router.ports = j["ports"]
@@ -325,7 +325,7 @@ if __name__ == '__main__':
         if not RVPORTS:
             RVLAN_TO_PORTS[RVLAN] = RPORTS.values()
 
-    R3 = Router(
+    R3 = RouterModel(
         "bar",
         ports=RPORTS,
         acls=RACLS,
@@ -336,6 +336,6 @@ if __name__ == '__main__':
 
     print R3.to_json()
 
-    R4 = Router.from_json(R3.to_json())
+    R4 = RouterModel.from_json(R3.to_json())
 
     assert R3 == R4
