@@ -449,7 +449,7 @@ class SwitchModel(Model):
         super(SwitchModel, self).__init__(node, "switch")
         self.mapping = Mapping(length=0)
         self.ports = {str(p) : p for p in ports}
-        self.tables = {1 : []}
+        self.tables = {"1" : []}
         self.rules = rules if rules is not None else []
 
 
