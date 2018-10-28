@@ -264,7 +264,10 @@ hs_to_str (const struct hs *hs)
 
 void
 hs_add (struct hs *hs, array_t *a)
-{ vec_append (&hs->list, a, false); }
+{
+  if (!a) return;
+  vec_append (&hs->list, a, false);
+}
 
 void
 hs_diff (struct hs *hs, const array_t *a)
