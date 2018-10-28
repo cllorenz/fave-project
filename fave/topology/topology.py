@@ -15,6 +15,7 @@ from ip6np.packet_filter import PacketFilterModel
 from host import HostModel
 from generator import GeneratorModel
 from probe import ProbeModel
+from router import RouterModel
 
 
 class LinksModel(object):
@@ -156,7 +157,7 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|links|host|generator|probe\" apply command" +
+        "\t-t \"switch|packet_filter|links|host|generator|probe|router\" apply command" +
         "for a device of type <type> (default: switch)",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
@@ -205,7 +206,15 @@ def main(argv):
         elif opt == '-d':
             command = 'del'
         elif opt == '-t':
-            if arg in ['switch', 'packet_filter', 'links', 'host', 'generator', 'probe']:
+            if arg in [
+                'switch',
+                'packet_filter',
+                'links',
+                'host',
+                'generator',
+                'probe',
+                'router'
+            ]:
                 dtype = arg
             else:
                 eprint("No such type: "+arg, sep="\n")
@@ -278,6 +287,10 @@ def main(argv):
                 quantor,
                 filter_expr={'filter_fields' : filter_fields},
                 test_expr={'test_fields' : test_fields, 'test_path' : test_path}
+            ),
+            'router' : lambda: RouterModel(
+                dev,
+                ports=range(1, len(ports)*2+1)
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
