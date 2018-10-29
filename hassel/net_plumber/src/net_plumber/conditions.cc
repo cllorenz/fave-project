@@ -103,8 +103,6 @@ bool HeaderCondition::check(Flow *f) {
   bool result = false;
   if (tmp) {
     hs_comp_diff(tmp);
-    char *c = hs_to_str(tmp);
-    free(c);
     if (tmp->list.used > 0) result = true;
     hs_free(tmp);
   }
