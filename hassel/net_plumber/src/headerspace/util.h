@@ -49,7 +49,7 @@
 #define ARR_ALLOC(X, N) \
   do { (X).n = (N); if ((X).n > ARR_LEN ((X).e.a)) (X).e.p = xmalloc ((N) * sizeof *(X).e.p); } while (0)
 #define ARR_FREE(X) \
-  do { if ((X).n > ARR_LEN ((X).e.a)) free ((X).e.p); } while (0)
+  do { if ((X).n > ARR_LEN ((X).e.a)) array_free ((X).e.p); } while (0)
 
 static inline int
 int_cmp (const void *a, const void *b)
