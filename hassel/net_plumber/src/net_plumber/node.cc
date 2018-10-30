@@ -105,8 +105,8 @@ Node::~Node() {
   this->remove_pipes();
   if (!input_ports.shared) free(input_ports.list);
   if (!output_ports.shared) free(output_ports.list);
-  free(this->match);
-  free(this->inv_match);
+  array_free(this->match);
+  array_free(this->inv_match);
 }
 
 NODE_TYPE Node::get_type() {
@@ -185,7 +185,7 @@ void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
     if ((*it)->local_port == local_port && (*r)->local_port == remote_port) {
       (*r)->node->remove_src_flows_from_pipe(*it);
       (*it)->node->remove_sink_flow_from_pipe(*r);
-      free((*it)->pipe_array);
+      array_free((*it)->pipe_array);
       tmp = r;
       struct Pipeline *pipe = *r;
       (*r)->node->prev_in_pipeline.erase(r);
@@ -387,7 +387,7 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
         if (piped) {
           hs_diff(next_flow->hs_object, piped);
           next_flow->node->process_src_flow_at_location(*nit,piped);
-          free(piped);
+          array_free(piped);
         }
         next_flow->node->process_src_flow_at_location(*nit,change);
         nit++;
@@ -433,7 +433,7 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
       h = NULL;
     }
   }
-  free(h);
+  free(h); // must not be hs_free()! leads to memory corruption
 }
 
 void Node::absorb_src_flow(list<struct Flow*>::iterator s_flow, bool first) {
