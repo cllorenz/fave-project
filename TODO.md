@@ -2,6 +2,7 @@
 
 ### FaVe
 
+ - refactor ad6 benchmark to generate json files for unified benchmark setups
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
