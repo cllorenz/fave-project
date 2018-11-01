@@ -20,8 +20,8 @@ SUBNETS="api \
     psych \
     sq-brandenburg.de \
     ub \
-    welcome-center-potsdam.de"
-
+    welcome-center-potsdam.de \
+    wifi"
 
 cnt=4
 for SUB in $SUBNETS; do
