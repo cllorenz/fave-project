@@ -16,6 +16,7 @@ import getopt
 from threading import Thread
 from Queue import Queue
 from copy import deepcopy as dc
+from filelock import FileLock
 
 #import daemon
 
@@ -340,6 +341,9 @@ class Aggregator(object):
                     jsonrpc.dump_pipes(self.sock, odir)
                 if dump['trees']:
                     jsonrpc.dump_flow_trees(self.sock, odir)
+
+                lock = FileLock("%s/.lock" % odir)
+                lock.release()
 
             else:
                 model = model_from_json(j)

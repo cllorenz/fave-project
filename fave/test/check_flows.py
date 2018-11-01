@@ -8,6 +8,8 @@ import getopt
 import json
 import pyparsing as pp
 
+from filelock import FileLock
+
 from util.print_util import eprint
 
 
@@ -228,8 +230,9 @@ def main(argv):
         _print_help()
         sys.exit(2)
 
-    inv_fave = _get_inverse_fave(dump)
-    flow_trees = _get_flow_trees(dump)
+    with FileLock("%s/.lock" % dump):
+        inv_fave = _get_inverse_fave(dump)
+        flow_trees = _get_flow_trees(dump)
 
     failed = []
     for flow_spec in flow_specs:

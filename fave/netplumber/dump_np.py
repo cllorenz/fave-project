@@ -9,6 +9,8 @@ import getopt
 import socket
 import json
 
+from filelock import FileLock
+
 from aggregator.aggregator import UDS_ADDR
 
 from util.print_util import eprint
@@ -95,6 +97,9 @@ def main(argv):
     if any([use_fave, use_flows, use_network, use_pipes, use_trees]):
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
+
+    lock = FileLock("%s/.lock" % odir)
+    lock.acquire()
 
     aggr.sendall(json.dumps(dump))
     aggr.close()
