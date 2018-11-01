@@ -21,3 +21,4 @@ fi
 
 sudo pip2 install antlr4-python2-runtime
 sudo pip2 install graphviz
+sudo pip2 install filelock
