@@ -242,7 +242,7 @@ def main(argv):
     print (
         "success: all checked flows matched"
     ) if not failed else (
-        "failure: some flows mismatched:\n\t%s" % '\n\t'.join(failed)
+        "failure: %s flows mismatched:\n\t%s" % (len(failed), '\n\t'.join(failed))
     )
     return 0 if not failed else 3
 
