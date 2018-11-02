@@ -16,12 +16,12 @@ import getopt
 from threading import Thread
 from Queue import Queue
 from copy import deepcopy as dc
-from filelock import FileLock
 
 #import daemon
 
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
+from util.lock_util import PreLockedFileLock
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.model import Model
@@ -342,7 +342,7 @@ class Aggregator(object):
                 if dump['trees']:
                     jsonrpc.dump_flow_trees(self.sock, odir)
 
-                lock = FileLock("%s/.lock" % odir)
+                lock = PreLockedFileLock("%s/.lock" % odir)
                 lock.release()
 
             else:

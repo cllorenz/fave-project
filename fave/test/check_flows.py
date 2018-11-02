@@ -8,7 +8,7 @@ import getopt
 import json
 import pyparsing as pp
 
-from filelock import FileLock
+from filelock import SoftFileLock
 
 from util.print_util import eprint
 
@@ -230,7 +230,7 @@ def main(argv):
         _print_help()
         sys.exit(2)
 
-    with FileLock("%s/.lock" % dump):
+    with SoftFileLock("%s/.lock" % dump, timeout=-1):
         inv_fave = _get_inverse_fave(dump)
         flow_trees = _get_flow_trees(dump)
 

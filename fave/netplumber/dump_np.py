@@ -9,11 +9,11 @@ import getopt
 import socket
 import json
 
-from filelock import FileLock
-
 from aggregator.aggregator import UDS_ADDR
 
 from util.print_util import eprint
+from util.lock_util import PersistentFileLock
+
 
 def print_help():
     """ Prints usage message to stderr.
@@ -97,8 +97,9 @@ def main(argv):
     if any([use_fave, use_flows, use_network, use_pipes, use_trees]):
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
+        os.system("rm -f %s/.lock" % odir)
 
-    lock = FileLock("%s/.lock" % odir)
+    lock = PersistentFileLock("%s/.lock" % odir, timeout=-1)
     lock.acquire()
 
     aggr.sendall(json.dumps(dump))
