@@ -1,0 +1,77 @@
+html {
+	font-family: sans-serif;
+	font-size: 12pt;
+}
+
+table {
+	border-spacing: 0px;
+}
+
+td {
+	border: 1px solid black;
+	padding: 7px;
+	width: 20px;
+}
+
+td:empty {
+	border: 0px;
+}
+
+td+td {
+	width: auto;
+	transform: none;
+}
+
+.label {
+	border: 0px;
+	text-align: center;
+}
+
+.allowed {
+	background-color: #c2cfb2;
+	text-align: center;
+	font-size: 15pt;
+}
+
+.cond_allowed {
+	background-color: #eff4a2;
+	text-align: center;
+	font-size: 15pt;
+}
+
+.disallowed {
+	background-color: #ef8275;
+	text-align: center;
+	font-size: 15pt;
+}
+
+.role {
+	font-weight: bold;
+	min-width: 125px;
+}
+
+.tooltip {
+	position: relative;
+	display: inline-block;
+	border-bottom: 1px dotted black;
+}
+
+.tooltip .tooltiptext {
+	visibility: hidden;
+	width: 400px;
+	background-color: gray;
+	color: #fff;
+	text-align: center;
+	border-radius: 6px;
+	padding: 5px 0;
+
+	position: absolute;
+	z-index: 1;
+	top: 100%;
+	left: 50%;
+	margin-left: -200px;
+}
+
+.tooltip:hover .tooltiptext {
+	visibility: visible;
+}
