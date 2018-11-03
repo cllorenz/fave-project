@@ -2,11 +2,13 @@
 
 ### FaVe
 
+ - investigate on detected loops seen with ad6
+ - investigate on memory explosion seen with ad6
+ - fix infinite loop in netplumber seen with ad6
  - refactor ad6 benchmark to generate json files for unified benchmark setups
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
- - fix infinite loop in netplumber seen with ad6
  - improve reachibility tree analysis featuring stateful connections
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
