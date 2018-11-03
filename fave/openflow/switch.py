@@ -477,8 +477,19 @@ class SwitchModel(Model):
         ofm = SwitchModel(j["node"])
         ofm.mapping = Mapping.from_json(j["mapping"]) if j["mapping"] else Mapping()
         ofm.ports = j["ports"]
-        ofm.tables = {t:[SwitchRule.from_json(r) for r in j["tables"][t]] for t in j["tables"]}
-        ofm.rules = [SwitchRule.from_json(rj) for rj in j["rules"]]
+
+        ofm.tables = {}
+        for table in j["tables"]:
+            ntable = []
+            for rule in j["tables"][table]:
+                rule = SwitchRule.from_json(rule)
+                ntable.insert(rule.idx, rule)
+            ofm.tables[table] = ntable
+
+        for rule in j["rules"]:
+            rule = SwitchRule.from_json(rule)
+            ofm.rules.insert(rule.idx, rule)
+
         return ofm
 
 
