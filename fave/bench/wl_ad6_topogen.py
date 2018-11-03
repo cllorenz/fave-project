@@ -19,7 +19,7 @@ if __name__ == '__main__':
         ("wifi", "switch", 2),
         (
             "clients.wifi",
-            "packet_filter",
+            "host",
             1,
             "2001:db8:abc:2::100/120",
             "%s/wifi-clients-ruleset" % RULESETS
@@ -43,14 +43,14 @@ if __name__ == '__main__':
 
         devices.append((
             "%s.dmz" % name,
-            "packet_filter",
+            "host",
             1,
             addr,
             "%s/dmz-%s-ruleset" % (RULESETS, name)
         ))
         links.extend([
-            ("%s.dmz.1"%name, "dmz.%s"%port),
-            ("dmz.%s"%port, "%s.dmz.2"%name)
+            ("%s.dmz.2" % name, "dmz.%s" % port),
+            ("dmz.%s" % port, "%s.dmz.1" % name)
         ])
 
     for cnt, subnet in enumerate(subnets):
@@ -75,20 +75,20 @@ if __name__ == '__main__':
 
             devices.append((
                 hostnet,
-                "packet_filter",
+                "host",
                 1,
                 addr,
                 "%s/%s-ruleset" % (RULESETS, nethost)
             ))
             links.extend([
-                ("%s.%s"%(subnet, sport), "%s.1"%hostnet),
-                ("%s.2"%hostnet, "%s.%s"%(subnet, sport))
+                ("%s.%s" % (subnet, sport), "%s.1" % hostnet),
+                ("%s.2" % hostnet, "%s.%s" % (subnet, sport))
             ])
 
         # subnet clients
         devices.append((
             "clients.%s" % subnet,
-            "packet_filter",
+            "host",
             1,
             "2001:db8:abc:%s::100/120" % netident,
             "%s/%s-clients-ruleset" % (RULESETS, subnet)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             ("clients.%s.2"%subnet, "%s.%s"%(subnet, len(subhosts)+2))
         ])
 
-    devices.append(("source.internet", "generator", []))#["ipv6_src=0::1/0"]))
+    devices.append(("source.internet", "generator", ["ipv6_src=0::1/0"]))
     links.append(("source.internet.1", "pgf.1"))
 
     for cnt, host in enumerate(hosts):
