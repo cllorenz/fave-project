@@ -1,0 +1,85 @@
+def role AdminNetz
+	hosts = ['admin.cs.uni-potsdam.de']
+	vlan = 1
+end
+
+def role Sekretariate
+	hosts = ['secretary.cs.uni-potsdam.de']
+	vlan = 2
+end
+
+def role TrustedClients
+	hosts = ['office.cs.uni-potsdam.de']
+	vlan = 3
+end
+
+def role UntrustedClients
+	hosts = ['pool.cs.uni-potsdam.de']
+	vlan = 4
+end
+
+def service HTTP
+	protocol = 'tcp'
+	port = 80
+end
+
+def service HTTPS
+	protocol = 'tcp'
+	port = 443
+end
+
+def role Webserver
+	hosts = ['webserver.cs.uni-potsdam.de']
+	offers HTTP
+	offers HTTPS
+end
+
+def role Server
+	vlan = 5
+	includes Webserver
+end
+
+def role Intern
+	hosts = ['cluster.cs.uni-potsdam.de', 'printer.cs.uni-potsdam.de']
+	vlan = 6
+end
+
+def role MitInternetzugriff
+	includes AdminNetz
+	includes Sekretariate
+	includes UntrustedClients
+	includes TrustedClients
+	includes Intern
+	includes Server
+end
+
+def role All
+	includes AdminNetz
+	includes Sekretariate
+	includes TrustedClients
+	includes UntrustedClients
+	includes Intern
+	includes Server
+end
+
+def policies(default: deny)
+	# Rechner im Adminnetz können alle Rechner erreichen und Antworten erhalten.
+	AdminNetz       	<->> All
+
+	# Alle Rechner können den Webserver mit HTTP und HTTPS erreichen und Antworten erhalten.
+	All					<->> Server.*
+
+	# Trusted Clients können Trusted Clients erreichen.
+	TrustedClients		---> TrustedClients
+
+	# Sekretariatsrechner, Trusted Clients und Untrusted Clients können die internen Rechner erreichen und Antworten erhalten.
+	Sekretariate		<->> Intern
+	TrustedClients		<->> Intern
+	UntrustedClients	<->> Intern
+
+	# Rechner im Adminnetz, Sekretariate, Untrusted Clients, Trusted Clients, interne Rechner und Server können das Internet erreichen und Antworten erhalten.
+	MitInternetzugriff	<->> Internet
+
+	# Alle Rechner im Internet können die Server erreichen.
+	Internet			---> Server.*
+end

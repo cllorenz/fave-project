@@ -1,0 +1,132 @@
+# Teil 1: Rollen
+
+def role Printers
+	hosts = ['printer.example.com']
+end
+
+def role Servers
+	hosts = ['server.example.com']
+end
+
+def role Gateways
+	hosts = ['gateway.example.com']
+	offers DHCP
+end
+
+def role NonTestingComputers
+	hosts = ['computer1']
+end
+
+def role Laptops
+	hosts = ['laptop1']
+end
+
+def role MobileDevices
+	hosts = ['mobile1']
+end
+
+def role badwater
+	hosts = ['badwater']
+	offers Prot1616
+	offers Prot1717
+	offers Prot1818
+end
+
+def role TestingNonComputers
+	hosts = ['testing1']
+end
+
+def role TestingComputers
+	hosts = ['testingcomputer1']
+end
+
+# Teil 2: Services
+
+def service DHCP
+	protocol = 'udp'
+	port = '67'
+end
+
+def service ARP
+	protocol = 'arp'
+end
+
+def service Prot1616
+	protocol = 1616
+end
+
+def service Prot1717
+	protocol = 1717
+end
+
+def service Prot1818
+	protocol = 1818
+end
+
+def service SSH
+	port = 22
+end
+
+# Teil 3: Superrollen
+
+# Known devices
+def role All
+	includes NonTestingComputers
+	includes Laptops
+	includes MobileDevices
+	includes Printers
+	includes Servers
+	includes Gateways
+	includes badwater
+	includes TestingNonComputers
+	includes TestingComputers
+	includes Internet
+	offers ARP
+	offers SSH
+	offers Prot1616
+	offers Prot1717
+	offers Prot1818
+end
+
+def role InboundAllowed
+	includes NonTestingComputers
+	includes Printers
+	includes Servers
+	includes Gateways
+	includes badwater
+end
+
+def role OutboundAllowed
+	includes NonTestingComputers
+	includes Laptops
+	includes MobileDevices
+	includes Gateways
+	includes badwater
+end
+
+def role Computers
+	includes TestingComputers
+	includes NonTestingComputers
+end
+
+# Teil 4: Policies
+
+def policies(default: deny)
+	# allow ARP and DHCP
+	All				---> All.ARP
+	All				---> Gateways.DHCP
+
+	# allow computers to ssh anywhere
+	Computers		---> All.SSH
+
+	# allow internal monitoring flows using proprietary protocols registered with the system
+	badwater		<--> All.Prot1616
+	badwater		<--> All.Prot1717
+	badwater		<--> All.Prot1818
+
+	# disallow external communications for testing machines
+	# servers and printers should be inbound-only
+	# laptops and mobile devices should be outbound-only
+	# allow known devices to communicate as long as they abide by the previous rules
+	OutboundAllowed	---> InboundAllowed
+end
