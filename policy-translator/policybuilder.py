@@ -32,9 +32,9 @@ class PolicyBuilder(object):
     (\n | %s)*
     def [ ] role [ ] (?P<role_name> [A-Za-z][A-Za-z0-9_]*) [\n]+
     (?P<role_content>
-        ((\t [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,]* [\n]+)
-        | (\t includes [ ] %s(. (\* | %s) )? [\n]+)
-        | (\t offers [ ] [A-Za-z][A-Za-z0-9_]* [\n]+))*
+        (((\t | [ ]{4}) [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,]* [\n]+)
+        | ((\t | [ ]{4}) includes [ ] %s(. (\* | %s) )? [\n]+)
+        | ((\t | [ ]{4}) offers [ ] [A-Za-z][A-Za-z0-9_]* [\n]+))*
         | (%s)
     )
     end [\n]+
@@ -43,7 +43,7 @@ class PolicyBuilder(object):
     (\n | %s)*
     def [ ] service [ ] (?P<service_name> [A-Za-z][A-Za-z0-9_]*) [\n]+
     (?P<service_content>
-        (\t [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,\*]* [\n]+)*
+        ((\t | [ ]{4}) [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,\*]* [\n]+)*
         | (%s)
     )
     end [\n]+
@@ -53,14 +53,14 @@ class PolicyBuilder(object):
     role_regex = re.compile(role_pattern, re.X)
     service_regex = re.compile(service_pattern, re.X)
 
-    role_attr_regex = re.compile(r"\t(?P<key> %s) [ \t]* = [ \t]* (?P<value>[A-Za-z0-9 _=\-\[\]'\".,]* | \*) [\n]+" % name_pattern, re.X)
-    role_incl_regex = re.compile(r"\t includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? [\n]+" % (name_pattern, name_pattern), re.X)
-    role_offers_regex = re.compile(r"\t offers [ ] (?P<service> %s) [\n]+" % name_pattern, re.X)
+    role_attr_regex = re.compile(r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value>[A-Za-z0-9 _=\-\[\]'\".,]* | \*) [\n]+" % name_pattern, re.X)
+    role_incl_regex = re.compile(r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? [\n]+" % (name_pattern, name_pattern), re.X)
+    role_offers_regex = re.compile(r"(\t | [ ]{4}) offers [ ] (?P<service> %s) [\n]+" % name_pattern, re.X)
 
     policies_regex = re.compile(r"""
     (\n | %s)*
     def [ ] policies\(default: [ ] (?P<default> allow | deny)\) [\n]+
-        [ \t]* (?P<policies> (%s | (\t)? \n | \t %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? [\n]+)*)
+        [ \t]* (?P<policies> (%s | (\t)? \n | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? [\n]+)*)
     end [\n]+
     """ % (comment_pattern, comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
 
