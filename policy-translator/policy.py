@@ -231,7 +231,7 @@ class Policy(object):
             "\t\t\t\t\t\t<span class='tooltiptext'>"))
             for key, value in self.roles[role].attributes.iteritems():
                 html_list.append("%s = %s<br/>" % (key, value))
-             html_list.append(("</span>\n"
+                html_list.append(("</span>\n"
             "\t\t\t\t\t</div>\n"
             "\t\t\t\t</td>\n"))
 
@@ -262,7 +262,7 @@ class Policy(object):
                                 html_list.append("%s = %s<br/>" % (key, value))
                         if self.default_policy:
                             html_list.append(")")
-                         html_list.append(("</span>\n"
+                            html_list.append(("</span>\n"
                         "\t\t\t\t\t</div>\n"
                         "\t\t\t\t</td>\n"))
                 elif (self.default_policy ^ ((role_from, role_to) in self.policies)):
