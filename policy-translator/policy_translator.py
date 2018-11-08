@@ -21,8 +21,10 @@
 from policy import Policy
 from policybuilder import PolicyBuilder
 from policy_exceptions import PolicyException
+from policy_logger import PT_LOGGER
 import sys
 import argparse
+import logging
 
 def main():
     """Builds a Policy object out of an inventory and policy file and optionally
@@ -32,7 +34,11 @@ def main():
     parser.add_argument('files', metavar='FILE', nargs='+', help='Either an inventory file followed by a policy file, or a single file that combines both.')
     parser.add_argument('--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
     parser.add_argument('--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
+    parser.add_argument('-d', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
     args = parser.parse_args()
+
+    if args.debug:
+        PT_LOGGER.setLevel(logging.DEBUG)
 
     files = []
     try:
@@ -42,22 +48,29 @@ def main():
         print("Fehler: Datei(en) konnte(n) nicht gelesen werden.")
         sys.exit(1)
 
+    PT_LOGGER.debug("fetch data from files")
     policy_chars = "".join([file.read() for file in files])
+    for file in files:
+        file.close()
+    PT_LOGGER.debug("create policy object")
     policy = Policy()
     try:
+        PT_LOGGER.debug("build policy")
         PolicyBuilder.build(policy_chars, policy)
 
         prefix = args.files[-1].rsplit('.', 1)[0]
 
         if args.generate_html:
-            html_file = open(prefix + '-reachability.html', 'w')
-            html_file.write(policy.to_html())
+            with open(prefix + '-reachability.html', 'w') as html_file:
+                PT_LOGGER.debug("create and write html output")
+                html_file.write(policy.to_html())
 
         if args.generate_csv:
-            csv_file = open(prefix + '-reachability.csv', 'w')
-            csv_file.write(policy.vlans_to_csv())
+            with open(prefix + '-reachability.csv', 'w') as csv_file:
+                PT_LOGGER.debug("create and write csv output")
+                csv_file.write(policy.vlans_to_csv())
     except PolicyException, exception:
         print("Fehler: %s" % exception)
 
 if __name__ == "__main__":
-	main()
+    main()
