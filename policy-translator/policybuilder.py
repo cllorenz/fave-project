@@ -26,7 +26,7 @@ class PolicyBuilder(object):
     file."""
 
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
-    value_pattern = "[A-Za-z0-9 _=\-\[\]'\".,\*/]+"
+    value_pattern = "[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
     comment_pattern = r"[ \t]* \# [ \t]* .* [\n]"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""
