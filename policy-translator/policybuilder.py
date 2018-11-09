@@ -26,28 +26,32 @@ class PolicyBuilder(object):
     file."""
 
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
+    value_pattern = "[A-Za-z0-9 _=\-\[\]'\".,\*/]+"
     comment_pattern = r"[ \t]* \# [ \t]* .* [\n]"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""
     (\n | %s)*
-    def [ ] role [ ] (?P<role_name> [A-Za-z][A-Za-z0-9_]*) [\n]+
+    def [ ] role [ ] (?P<role_name> %s) [\n]+
     (?P<role_content>
-        (((\t | [ ]{4}) [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,]* [\n]+)
+        (((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)
         | ((\t | [ ]{4}) includes [ ] %s(. (\* | %s) )? [\n]+)
-        | ((\t | [ ]{4}) offers [ ] [A-Za-z][A-Za-z0-9_]* [\n]+))*
+        | ((\t | [ ]{4}) offers [ ] %s [\n]+))*
         | (%s)
     )
     end [\n]+
-    """ % (comment_pattern, name_pattern, name_pattern, comment_pattern_nl)
+    """ % (
+        comment_pattern, name_pattern, name_pattern, value_pattern,
+        name_pattern, name_pattern, name_pattern, comment_pattern_nl
+    )
     service_pattern = r"""
     (\n | %s)*
-    def [ ] service [ ] (?P<service_name> [A-Za-z][A-Za-z0-9_]*) [\n]+
+    def [ ] service [ ] (?P<service_name> %s) [\n]+
     (?P<service_content>
-        ((\t | [ ]{4}) [A-Za-z]* [ \t]* = [ \t]* [A-Za-z0-9 _=\-\[\]'\".,\*]* [\n]+)*
+        ((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)*
         | (%s)
     )
     end [\n]+
-    """ % (comment_pattern, comment_pattern_nl)
+    """ % (comment_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
 
     role_service_regex = re.compile("(%s | %s | %s)+" % (comment_pattern, role_pattern, service_pattern), re.X)
     role_regex = re.compile(role_pattern, re.X)
