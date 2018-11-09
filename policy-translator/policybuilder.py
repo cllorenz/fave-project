@@ -53,13 +53,25 @@ class PolicyBuilder(object):
     end [\n]+
     """ % (comment_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
 
-    role_service_regex = re.compile("(%s | %s | %s)+" % (comment_pattern, role_pattern, service_pattern), re.X)
+    role_service_regex = re.compile(
+        "(%s | %s | %s)+" % (comment_pattern, role_pattern, service_pattern),
+        re.X
+    )
     role_regex = re.compile(role_pattern, re.X)
     service_regex = re.compile(service_pattern, re.X)
 
-    role_attr_regex = re.compile(r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value>[A-Za-z0-9 _=\-\[\]'\".,]* | \*) [\n]+" % name_pattern, re.X)
-    role_incl_regex = re.compile(r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? [\n]+" % (name_pattern, name_pattern), re.X)
-    role_offers_regex = re.compile(r"(\t | [ ]{4}) offers [ ] (?P<service> %s) [\n]+" % name_pattern, re.X)
+    role_attr_regex = re.compile(
+        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value> %s | \*) [\n]+" % (name_pattern, value_pattern),
+        re.X
+    )
+    role_incl_regex = re.compile(
+        r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? [\n]+" % (name_pattern, name_pattern),
+        re.X
+    )
+    role_offers_regex = re.compile(
+        r"(\t | [ ]{4}) offers [ ] (?P<service> %s) [\n]+" % name_pattern,
+        re.X
+    )
 
     policies_regex = re.compile(r"""
     (\n | %s)*
@@ -134,7 +146,11 @@ class PolicyBuilder(object):
             policy.add_service(service)
 
             PT_LOGGER.debug("fetch service attributes")
-            service_attr_matches = cls.match(cls.role_attr_regex, match.group("service_content"), cls.role_attr_regex.search)
+            service_attr_matches = cls.match(
+                cls.role_attr_regex,
+                match.group("service_content"),
+                cls.role_attr_regex.search
+            )
             if service_attr_matches:
                 for match in service_attr_matches:
                     PT_LOGGER.debug("service attribute: %s" , match.groupdict())
@@ -148,19 +164,31 @@ class PolicyBuilder(object):
             PT_LOGGER.debug("role name: %s", role)
 
             PT_LOGGER.debug("match role attributes")
-            role_attr_matches = cls.match(cls.role_attr_regex, match.group("role_content"), cls.role_attr_regex.search)
+            role_attr_matches = cls.match(
+                cls.role_attr_regex,
+                match.group("role_content"),
+                cls.role_attr_regex.search
+            )
             if role_attr_matches:
                 for role_attr_match in role_attr_matches:
                     PT_LOGGER.debug("role attribute: %s", role_attr_match.groupdict())
 
             PT_LOGGER.debug("match role includes")
-            role_incl_matches = cls.match(cls.role_incl_regex, match.group("role_content"), cls.role_incl_regex.search)
+            role_incl_matches = cls.match(
+                cls.role_incl_regex,
+                match.group("role_content"),
+                cls.role_incl_regex.search
+            )
             if role_incl_matches:
                 for role_incl_match in role_incl_matches:
                     PT_LOGGER.debug("role includes: %s", role_incl_match.groupdict())
 
             PT_LOGGER.debug("match role offers")
-            role_offers_matches = cls.match(cls.role_offers_regex, match.group("role_content"), cls.role_offers_regex.search)
+            role_offers_matches = cls.match(
+                cls.role_offers_regex,
+                match.group("role_content"),
+                cls.role_offers_regex.search
+            )
             if role_offers_matches:
                 for role_offers_match in role_offers_matches:
                     PT_LOGGER.debug("role offers: %s", role_offers_match.groupdict())
@@ -181,7 +209,9 @@ class PolicyBuilder(object):
 
             for match in role_attr_matches:
                 policy.roles[role].add_attribute(match.group("key"), match.group("value"))
-                PT_LOGGER.debug("%s: added attribute %s:%s", role, match.group("key"), match.group("value"))
+                PT_LOGGER.debug(
+                    "%s: added attribute %s:%s", role, match.group("key"), match.group("value")
+                )
 
         return role_service_match[0].end()
 
