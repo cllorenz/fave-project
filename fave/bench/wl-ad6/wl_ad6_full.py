@@ -357,7 +357,7 @@ def _test_dmz(hosts):
         _test_host(hname, "dmz")
 
 
-RULESETS = "bench/wl-ad6-rulesets"
+RULESETS = "bench/wl-ad6/rulesets"
 
 
 def campus_network(config):

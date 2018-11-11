@@ -5,7 +5,7 @@ import json
 from bench.wl_ad6_inventory import AD6
 
 OFILE="bench/wl-ad6-topology.json"
-RULESETS="bench/wl-ad6-rulesets"
+RULESETS="bench/wl-ad6/rulesets"
 
 PGF_ADDR="2001:db8:abc::1"
 
