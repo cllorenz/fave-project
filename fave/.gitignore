@@ -2,4 +2,5 @@
 np_dump
 .coverage
 .lock
-bench/*.json
+bench/wl-ad6/*.json
+bench/wl-ifi/*.json
