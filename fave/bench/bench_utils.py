@@ -111,21 +111,21 @@ def add_policies(probes, links):
         _add_link(*link)
 
 
-TOPOLOGY="bench/wl-ad6-topology.json"
-ROUTES="bench/wl-ad6-routes.json"
-POLICIES="bench/wl-ad6-policies.json"
-CHECKS="bench/wl-ad6-checks.json"
+TOPOLOGY="bench/wl-ad6/topology.json"
+ROUTES="bench/wl-ad6/routes.json"
+POLICIES="bench/wl-ad6/policies.json"
+CHECKS="bench/wl-ad6/checks.json"
 
 if __name__ == '__main__':
     import json
     import os
 
-    os.system("python2 bench/wl_ad6_topogen.py")
-    os.system("python2 bench/wl_ad6_routegen.py")
-    os.system("python2 bench/wl_ad6_policygen.py")
-    os.system("python2 bench/wl_ad6_checkgen.py")
+    os.system("python2 bench/wl-ad6/topogen.py")
+    os.system("python2 bench/wl-ad6/routegen.py")
+    os.system("python2 bench/wl-ad6/policygen.py")
+    os.system("python2 bench/wl-ad6/checkgen.py")
 
-    os.system("bash scripts/start_np.sh bench/wl-ad6-np.conf")
+    os.system("bash scripts/start_np.sh bench/wl-ad6/np.conf")
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:
