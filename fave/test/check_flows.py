@@ -223,12 +223,12 @@ def main(argv):
         elif opt == '-d':
             dump = arg
         elif opt == '-c':
-            flow_specs = [_parse_flow_spec(flow) for flow in arg.split(';')]
+            flow_specs = [_parse_flow_spec(flow) for flow in arg.split(';') if flow]
 
     if not flow_specs:
         eprint("missing flow check specifications")
         _print_help()
-        sys.exit(2)
+        return 2
 
     with SoftFileLock("%s/.lock" % dump, timeout=-1):
         inv_fave = _get_inverse_fave(dump)
