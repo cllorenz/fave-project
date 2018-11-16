@@ -12,6 +12,7 @@ import json
 import logging
 import sys
 import getopt
+import time
 
 from threading import Thread
 from Queue import Queue
@@ -307,6 +308,8 @@ class Aggregator(object):
 
     #@profile_method
     def _handler(self):
+        t_start = time.time()
+
         while not self.stop:
             data = self.queue.get()
             Aggregator.LOGGER.debug('worker: fetched data from queue')
@@ -350,6 +353,9 @@ class Aggregator(object):
                 self._sync_diff(model)
 
             self.queue.task_done()
+
+        t_stop = time.time()
+        Aggregator.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
 
 
     def run(self):
@@ -441,7 +447,7 @@ class Aggregator(object):
         # extend global mapping
         mlength = self.mapping.length
 
-        if model.type == "packet_filter":
+        if model.type in ["packet_filter", "router"]:
             #self.mapping.expand(model.mapping)
             self._extend_mapping(model.mapping)
         elif model.type == "switch_command" and model.command == "add_rule":
@@ -509,7 +515,7 @@ class Aggregator(object):
                     self._add_packet_filter(cmd.model)
                     self.models[cmd.model.node] = cmd.model
                 elif cmd.command == "del":
-                    self._delete_switch(cmd.node)
+                    self._delete_packet_filter(cmd.node)
                     del self.models[cmd.model.node]
 
             elif cmd.mtype == "switch":
@@ -518,6 +524,14 @@ class Aggregator(object):
                     self.models[cmd.model.node] = cmd.model
                 elif cmd.command == "del":
                     self._delete_switch(cmd.node)
+                    del self.models[cmd.model.node]
+
+            elif cmd.mtype == "router":
+                if cmd.command == "add":
+                    self._add_router(cmd.model)
+                    self.models[cmd.model.node] = cmd.model
+                elif cmd.command == "del":
+                    self._delete_router(cmd.node)
                     del self.models[cmd.model.node]
 
             elif cmd.mtype == "host":
@@ -562,7 +576,7 @@ class Aggregator(object):
 
 
     def _delete_model(self, model):
-        if model.type == "packet_filter":
+        if model.type in ["packet_filter", "router"]:
             self._delete_packet_filter(model)
         elif model.type == "switch":
             self._delete_switch(model)
@@ -570,6 +584,9 @@ class Aggregator(object):
     def _add_model(self, model):
         if model.type == "packet_filter":
             self._add_packet_filter(model)
+        elif model.type == "router":
+            eprint("foo")
+            self._add_router(model)
         elif model.type == "switch":
             self._add_switch(model)
 
@@ -597,6 +614,13 @@ class Aggregator(object):
         self._add_switch_rules(model)
 
 
+    def _add_router(self, model):
+        Aggregator.LOGGER.debug("worker: apply router: %s", model.node)
+        self._add_tables(model, prefixed=True)
+        self._add_wiring(model)
+        self._add_rules(model)
+
+
     def _add_tables(self, model, prefixed=False):
         for table in model.tables:
             name = '_'.join([model.node, table])
@@ -608,7 +632,9 @@ class Aggregator(object):
 
                 ports = []
                 for port in model.ports:
-                    if prefixed and port.startswith("in_") and table.startswith("pre_routing"):
+                    if prefixed and port.startswith("in_") and (
+                        table.startswith("pre_routing") or table.startswith("acl_in")
+                    ):
                         portno = calc_port(idx, model, port)
                         portname = normalize_port('.'.join([model.node, port[3:]]))
 
@@ -668,7 +694,9 @@ class Aggregator(object):
                     "post_routing",
                     "input_states",
                     "output_states",
-                    "forward_states"
+                    "forward_states",
+                    "acl_in",
+                    "acl_out"
             ]:
                 Aggregator.LOGGER.debug("worker: skip adding rules to table %s", table)
                 continue
@@ -756,6 +784,7 @@ class Aggregator(object):
                 for act in rule.actions:
                     if act.name != "forward":
                         continue
+
                     ports.extend([self._global_port(p) for p in act.ports])
 
                 Aggregator.LOGGER.debug(
@@ -949,6 +978,10 @@ class Aggregator(object):
 
 
     def _delete_switch(self, model):
+        self._delete_packet_filter(model)
+
+
+    def _delete_router(self, model):
         self._delete_packet_filter(model)
 
 
