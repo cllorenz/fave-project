@@ -202,6 +202,55 @@ class RouterModel(Model):
         return router
 
 
+    def add_rule(self, idx, rule):
+        """ Add a rule to the routing table
+
+        Keyword arguments:
+        idx -- a rule index
+        rule -- new rule
+        """
+
+        assert isinstance(rule, SwitchRule)
+
+        offset = (len(self.ports)-6)/2
+        for action in rule.actions:
+            ports = []
+            for port in action.ports:
+                labels = port.split('.')
+                prefix, rno = ('_'.join(lables[:len(labels)-1]), labels[len(labels)-1])
+                ports.append("%s_%s" % (prefix, int(rno)+offset))
+            action.ports = ports
+
+        self.tables['routing'].insert(idx, rule)
+        self.rules.append(rule)
+
+
+    def remove_rule(self, idx):
+        """ Remove a rule from the post_routing chain.
+
+        Keyword arguments:
+        idx -- a rule index
+        """
+        rule = self.chains["routing"][idx]
+
+        del self.tables["routing"][idx]
+        del self.rules[rule]
+
+
+    def update_rule(self, idx, rule):
+        """ Update a rule in the post_routing chain.
+
+        Keyword arguments:
+        idx -- a rule index
+        rule -- a rule substitute
+        """
+
+        assert isinstance(rule, SwitchRule)
+
+        self.remove_rule(idx)
+        self.add_rule(idx, rule)
+
+
 def _build_cidr(address, netmask=None, proto='6'):
     if proto == '6':
         return "%s/128" % address if '/' not in address else address
