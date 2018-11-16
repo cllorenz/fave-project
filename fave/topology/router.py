@@ -38,13 +38,16 @@ class RouterModel(Model):
             "post_routing_in" : 6
         }
 
+        plen = len(ports)
+        iplen = len(internal_ports)
         input_ports = {
-            "in_"+i : (len(internal_ports)+len(ports)+ports[i]) \
-                for i in ports.keys()[:len(ports)/2]
+            "in_"+str(i) : (iplen+ports[str(i)]) \
+                for i in range(1, plen/2+1)
         }
+
         output_ports = {
-            "out_"+str(i) : (len(internal_ports)+2*len(ports)+ports[i]) \
-                for i in ports.keys()[len(ports)/2:]
+            "out_"+str(i) : (iplen+plen+ports[str(i-plen/2)]) \
+                for i in range(plen/2+1, plen+1)
         }
 
         self.ports = dict(
