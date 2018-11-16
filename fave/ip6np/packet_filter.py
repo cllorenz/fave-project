@@ -389,6 +389,10 @@ class PacketFilterModel(Model):
         idx -- a rule index
         rule -- a rule substitute
         """
+
+        assert isinstance(rule, SwitchRule)
+
+
         self.remove_rule(idx)
         self.add_rule(idx, rule)
 
