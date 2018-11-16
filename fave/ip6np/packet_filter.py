@@ -217,9 +217,10 @@ class PacketFilterModel(Model):
                 ) for i, r in enumerate(chain)
             ]
 
-        self.ports = {
-            k:v for k, v in self.ports.iteritems() #if prefix(k) in active
-        }
+        # XXX: remove
+        #self.ports = {
+        #    k:v for k, v in self.ports.iteritems() #if prefix(k) in active
+        #}
 
 
     def to_json(self):
