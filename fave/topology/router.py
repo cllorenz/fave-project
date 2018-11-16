@@ -60,7 +60,7 @@ class RouterModel(Model):
             ("acl_out_out", "post_routing_in")
         ]
 
-        get_name = lambda x: x[0]
+        get_name = lambda x: "%s_%s" % (node, x[0][4:])
         get_port = lambda x: x[1]
         post_routing = [
             SwitchRule(
