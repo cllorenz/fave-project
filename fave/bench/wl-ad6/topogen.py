@@ -12,7 +12,7 @@ PGF_ADDR="2001:db8:abc::1"
 if __name__ == '__main__':
     hosts, subnets, subhosts = AD6
 
-    # device: (name, type, no_ports, address)
+    # device: (name, type, no_ports, address, ruleset)
     devices = [
         ("pgf", "packet_filter", 24, PGF_ADDR, "%s/pgf-ruleset" % RULESETS),
         ("dmz", "switch", 9),
