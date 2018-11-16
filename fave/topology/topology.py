@@ -126,7 +126,8 @@ class TopologyCommand(object):
                 "links" : LinksModel,
                 "host" : HostModel,
                 "generator" : GeneratorModel,
-                "probe" : ProbeModel
+                "probe" : ProbeModel,
+                "router" : RouterModel
             }[j["model"]["type"]].from_json(j["model"])
 
         mtype = ""
@@ -290,7 +291,7 @@ def main(argv):
             ),
             'router' : lambda: RouterModel(
                 dev,
-                ports=range(1, len(ports)*2+1)
+                ports={str(p):p for p in range(1, len(ports)*2+1)}
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
