@@ -43,8 +43,8 @@ class TestRouterModel(unittest.TestCase):
                     'acl_in_out': 1,
                     'acl_out_in': 4,
                     'acl_out_out': 5,
-                    'in_1': 9,
-                    'out_2': 11,
+                    'in_1': 7,
+                    'out_2': 9,
                     'post_routing_in': 6,
                     'routing_in': 2,
                     'routing_out': 3
@@ -57,7 +57,7 @@ class TestRouterModel(unittest.TestCase):
                             {'name': 'rewrite', 'rw': [
                                 {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxx'}
                             ]},
-                            {'name': 'forward', 'ports': ['out_2']}
+                            {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
                         'in_ports': [],
@@ -65,7 +65,7 @@ class TestRouterModel(unittest.TestCase):
                         'match': {
                             'fields': [{
                                 'name': 'interface',
-                                'value': '0000000000001011'
+                                'value': '0000000000001001'
                             }]
                         },
                         'node': 'foo',
@@ -88,15 +88,15 @@ class TestRouterModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            RouterModel.from_json({
+            RouterModel.from_json(            {
                 'mapping': {'interface': 0, 'length': 16},
                 'node': 'foo',
                 'ports': {
                     'acl_in_out': 1,
                     'acl_out_in': 4,
                     'acl_out_out': 5,
-                    'in_1': 9,
-                    'out_2': 11,
+                    'in_1': 7,
+                    'out_2': 9,
                     'post_routing_in': 6,
                     'routing_in': 2,
                     'routing_out': 3
@@ -109,7 +109,7 @@ class TestRouterModel(unittest.TestCase):
                             {'name': 'rewrite', 'rw': [
                                 {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxx'}
                             ]},
-                            {'name': 'forward', 'ports': ['out_2']}
+                            {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
                         'in_ports': [],
@@ -117,7 +117,7 @@ class TestRouterModel(unittest.TestCase):
                         'match': {
                             'fields': [{
                                 'name': 'interface',
-                                'value': '0000000000001011'
+                                'value': '0000000000001001'
                             }]
                         },
                         'node': 'foo',
