@@ -585,7 +585,6 @@ class Aggregator(object):
         if model.type == "packet_filter":
             self._add_packet_filter(model)
         elif model.type == "router":
-            eprint("foo")
             self._add_router(model)
         elif model.type == "switch":
             self._add_switch(model)
