@@ -281,6 +281,9 @@ def parse_cisco_acls(acl_file):
     acl_file - path to ACl file.
     """
 
+    if not acl_file:
+        return None
+
     acls = {}
 
     with open(acl_file, 'r') as aclf:
