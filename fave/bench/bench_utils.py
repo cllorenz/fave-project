@@ -19,8 +19,8 @@ def _add_switch(name, _type, ports):
     topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports)])
 
 
-def _add_router(name, _type, ports, _acls):
-    topo.main(["-a", "-t", "router", "-n", name, "-p", str(ports)])
+def _add_router(name, _type, ports, acls):
+    topo.main(["-a", "-t", "router", "-n", name, "-p", str(ports), "-r", acls])
 
 
 def _add_generator(name, _type, fields=None):
