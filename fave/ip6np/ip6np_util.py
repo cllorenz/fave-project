@@ -1,6 +1,7 @@
 """ This module provides utilities for packet filter models.
 """
 
+from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_upper_port
 from util.packet_util import normalize_ipv6_proto, normalize_ipv6header_header
 from netplumber.vector import Vector
@@ -128,6 +129,8 @@ def field_value_to_bitvector(field):
     vector = Vector(length=size)
     try:
         vector[:] = {
+            "packet.ipv4.source" : normalize_ipv4_address,
+            "packet.ipv4.destination" : normalize_ipv4_address,
             "packet.ipv6.source" : normalize_ipv6_address,
             "packet.ipv6.destination" : normalize_ipv6_address,
             "packet.upper.sport" : normalize_upper_port,

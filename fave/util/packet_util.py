@@ -1,6 +1,7 @@
 """ This module provides packet constants and utilities.
 """
 
+ETHER_TYPE_IPV4 = '00000100' # 4
 ETHER_TYPE_IPV6 = '00000110' # 6
 
 IP_PROTO_ICMPV6 = '00111010' # 58
@@ -29,6 +30,28 @@ def normalize_upper_port(port):
     assert portno > 0 and portno < 65536
 
     return '{:016b}'.format(portno)
+
+
+def normalize_ipv4_address(address):
+    """ Normalizes an IPv4 address.
+
+    Keyword arguments:
+    address -- an IPv4 address in dotted or cidr notation
+    """
+
+    try:
+        addr, cidr = address.split('/')
+    except ValueError:
+        addr = address
+        cidr = None
+
+    addr = ''.join(["{:08b}".format(int(x)) for x in addr.split('.')])
+
+    if cidr and int(cidr) < 32:
+        cidr = int(cidr)
+        return addr[:cidr] + 'x'*(32-cidr)
+    else:
+        return addr
 
 
 def normalize_ipv6_address(address):

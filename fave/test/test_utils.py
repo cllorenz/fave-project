@@ -11,10 +11,11 @@ from util.collections_util import list_diff, list_isect, list_sub, list_union
 
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
-from util.packet_util import ETHER_TYPE_IPV6
+from util.packet_util import ETHER_TYPE_IPV6, ETHER_TYPE_IPV4
 from util.packet_util import IPV6_ROUTE, IPV6_HOP, IPV6_HBH, IPV6_DST
 from util.packet_util import IPV6_FRAG, IPV6_AUTH, IPV6_ESP, IPV6_NONE, IPV6_PROT
 from util.packet_util import IP_PROTO_ICMPV6, IP_PROTO_TCP, IP_PROTO_UDP
+from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
 from util.packet_util import normalize_ipv6header_header, normalize_upper_port
 
@@ -158,6 +159,7 @@ class TestPacketUtil(unittest.TestCase):
         """ Tests packet constants.
         """
 
+        self.assertEqual(ETHER_TYPE_IPV4, '00000100')
         self.assertEqual(ETHER_TYPE_IPV6, '00000110')
         self.assertEqual(IP_PROTO_ICMPV6, '00111010')
         self.assertEqual(IP_PROTO_TCP, '00000110')
@@ -194,6 +196,31 @@ class TestPacketUtil(unittest.TestCase):
         self.assertEqual(normalize_ipv6_proto('icmpv6'), IP_PROTO_ICMPV6)
         self.assertEqual(normalize_ipv6_proto('tcp'), IP_PROTO_TCP)
         self.assertEqual(normalize_ipv6_proto('udp'), IP_PROTO_UDP)
+
+
+    def test_normalize_ipv4_address(self):
+        """ Tests IPv4 address normalization.
+        """
+
+        self.assertEqual(
+            normalize_ipv4_address('1.2.3.4'),
+            "%s%s%s%s" % (
+                '00000001',
+                '00000010',
+                '00000011',
+                '00000100'
+            )
+        )
+
+        self.assertEqual(
+            normalize_ipv4_address('1.2.3.4/23'),
+            "%s%s%s%s" % (
+                '00000001',
+                '00000010',
+                '0000001x',
+                'xxxxxxxx'
+            )
+        )
 
 
     def test_normalize_ipv6_address(self):
