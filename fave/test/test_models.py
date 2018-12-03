@@ -37,7 +37,7 @@ class TestRouterModel(unittest.TestCase):
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {'interface': 0, 'length': 16},
+                'mapping': {'interface': 0, 'length': 32},
                 'node': 'foo',
                 'ports': {
                     'acl_in_out': 1,
@@ -55,17 +55,17 @@ class TestRouterModel(unittest.TestCase):
                     'post_routing': [{
                         'actions': [
                             {'name': 'rewrite', 'rw': [
-                                {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxx'}
+                                {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
                             ]},
                             {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
                         'in_ports': [],
-                        'mapping': {'interface': 0, 'length': 16},
+                        'mapping': {'interface': 0, 'length': 32},
                         'match': {
                             'fields': [{
                                 'name': 'interface',
-                                'value': '0000000000001001'
+                                'value': '00000000000000000000000000001001'
                             }]
                         },
                         'node': 'foo',
@@ -89,7 +89,7 @@ class TestRouterModel(unittest.TestCase):
 
         self.assertEqual(
             RouterModel.from_json(            {
-                'mapping': {'interface': 0, 'length': 16},
+                'mapping': {'interface': 0, 'length': 32},
                 'node': 'foo',
                 'ports': {
                     'acl_in_out': 1,
@@ -107,17 +107,17 @@ class TestRouterModel(unittest.TestCase):
                     'post_routing': [{
                         'actions': [
                             {'name': 'rewrite', 'rw': [
-                                {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxx'}
+                                {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
                             ]},
                             {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
                         'in_ports': [],
-                        'mapping': {'interface': 0, 'length': 16},
+                        'mapping': {'interface': 0, 'length': 32},
                         'match': {
                             'fields': [{
                                 'name': 'interface',
-                                'value': '0000000000001001'
+                                'value': '00000000000000000000000000001001'
                             }]
                         },
                         'node': 'foo',

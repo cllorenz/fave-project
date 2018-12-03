@@ -69,7 +69,7 @@ class RouterModel(Model):
                     fields=[SwitchRuleField("interface", get_port(port))]
                 ),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("interface", "x"*16)]),
+                    Rewrite(rewrite=[SwitchRuleField("interface", "x"*32)]),
                     Forward(ports=[get_name(port)])
                 ]
             ) for idx, port in enumerate(output_ports.items())
@@ -161,7 +161,7 @@ class RouterModel(Model):
                     match=Match(fields=rule_body),
                     actions=[
                         Rewrite(rewrite=[
-                            SwitchRuleField("interface", "{:016b}".format(port))
+                            SwitchRuleField("interface", "{:032b}".format(port))
                         ]),
                         Forward(ports=["routing_out"])
                     ]

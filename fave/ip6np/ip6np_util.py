@@ -9,9 +9,9 @@ from netplumber.mapping import FIELD_SIZES
 
 def _normalize_interface(interface):
     if interface == "lo": # XXX: deprecated... no lo in rule set allowed
-        return "0000000000000000"
+        return "0"*32
     else:
-        return '{:016b}'.format(int(interface))
+        return '{:032b}'.format(int(interface))
 
 
 def _normalize_module(module):

@@ -873,7 +873,7 @@ class Aggregator(object):
                 mask[offset:offset+size] = '1'*size
 
                 for port in range(1, 1+(len(self.models[model.node].ports)-19)/2):
-                    rewrite[offset:offset+size] = '{:016b}'.format(port)
+                    rewrite[offset:offset+size] = '{:032b}'.format(port)
 
                     Aggregator.LOGGER.debug(
                         "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
