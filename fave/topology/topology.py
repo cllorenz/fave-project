@@ -15,7 +15,7 @@ from ip6np.packet_filter import PacketFilterModel
 from host import HostModel
 from generator import GeneratorModel
 from probe import ProbeModel
-from router import RouterModel
+from router import RouterModel, parse_cisco_acls
 
 
 class LinksModel(object):
@@ -172,6 +172,7 @@ def print_help():
         "\t-F <fields> add filter fields for a probe",
         "\t-P <test_path> add a test path for a probe",
         "\t-T <fields> add test fields for a probe",
+        "\t-r <ruleset> use a router acls ruleset with filename <ruleset>",
         sep="\n"
     )
 
@@ -191,9 +192,10 @@ def main(argv):
     filter_fields = {}
     test_fields = {}
     test_path = []
+    ruleset = ""
 
     try:
-        opts, args = getopt.getopt(argv, "hadt:n:p:l:u:i:f:q:F:P:T:")
+        opts, args = getopt.getopt(argv, "hadt:n:p:l:u:i:f:q:F:P:T:r:")
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -269,6 +271,9 @@ def main(argv):
                 print_help()
                 sys.exit(2)
 
+        elif opt == '-r':
+            ruleset = arg
+
     if command == 'add':
         model = {
             'switch' : lambda: SwitchModel(dev, ports=ports),
@@ -291,7 +296,8 @@ def main(argv):
             ),
             'router' : lambda: RouterModel(
                 dev,
-                ports={str(p):p for p in range(1, len(ports)*2+1)}
+                ports={str(p):p for p in range(1, len(ports)*2+1)},
+                acls=parse_cisco_acls(ruleset)
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
