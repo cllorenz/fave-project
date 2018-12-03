@@ -226,7 +226,6 @@ class RouterModel(Model):
         rule.actions.extend(rewrites)
 
         self.tables['routing'].insert(idx, rule)
-        self.rules.append(rule)
 
 
     def remove_rule(self, idx):
@@ -238,7 +237,6 @@ class RouterModel(Model):
         rule = self.chains["routing"][idx]
 
         del self.tables["routing"][idx]
-        del self.rules[rule]
 
 
     def update_rule(self, idx, rule):
