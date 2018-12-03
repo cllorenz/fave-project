@@ -163,7 +163,8 @@ class Rewrite(SwitchRuleAction):
         Keyword arguments:
         length -- the length to be added
         """
-        self.rewrite.enlarge(length)
+        for field in self.rewrite:
+            field.enlarge(length)
 
 
     @staticmethod
