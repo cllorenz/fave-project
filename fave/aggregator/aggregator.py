@@ -27,12 +27,14 @@ from util.lock_util import PreLockedFileLock
 import netplumber.jsonrpc as jsonrpc
 from netplumber.model import Model
 from netplumber.mapping import Mapping, FIELD_SIZES
-from netplumber.vector import copy_field_between_vectors, Vector, HeaderSpace
+from netplumber.vector import copy_field_between_vectors, set_field_in_vector
+from netplumber.vector import Vector, HeaderSpace
 
 from ip6np.packet_filter import PacketFilterModel
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.switch import SwitchModel, SwitchCommand, SwitchRule, Forward, Miss
+from openflow.switch import SwitchModel, SwitchCommand
+from openflow.switch import SwitchRule, Forward, Miss, Rewrite
 
 from topology.topology import TopologyCommand, LinksModel
 from topology.host import HostModel
@@ -718,6 +720,8 @@ class Aggregator(object):
                     rvec[g_offset:g_offset+size] = vec[m_offset:m_offset+size]
 
                 ports = []
+                mask = None
+                rewrite = None
                 for action in rule.actions:
                     if isinstance(action, Forward):
                         ports.extend(
@@ -725,9 +729,33 @@ class Aggregator(object):
                                 '%s_%s_%s' %(model.node, table, port.lower())
                             ) for port in action.ports]
                         )
+
                     elif isinstance(action, Miss):
                         ports.append(
                             self._global_port('%s_%s_miss' % (model.node, table))
+                        )
+
+                    elif isinstance(action, Rewrite):
+                        rewrite = Vector(self.mapping.length)
+                        mask = Vector(self.mapping.length, preset='0')
+                        for field in action.rewrite:
+                            set_field_in_vector(
+                                self.mapping,
+                                rewrite,
+                                field.name,
+                                '{:032b}'.format(self._global_port(field.value))
+                            )
+                            set_field_in_vector(
+                                self.mapping,
+                                mask,
+                                field.name,
+                                '1'*FIELD_SIZES[field.name]
+                            )
+
+                    else:
+                        Aggregator.LOGGER.warn(
+                            "worker: ignore unknown action while adding rule\n%s",
+                            json.dumps(action.to_json(), indent=2)
                         )
 
                 Aggregator.LOGGER.debug(
@@ -741,8 +769,8 @@ class Aggregator(object):
                     [],
                     ports,
                     rvec.vector if rvec.vector else 'x'*8,
-                    None,
-                    None
+                    mask.vector if mask else None,
+                    rewrite.vector if rewrite else None
                 )
                 if calc_rule_index(tid, rid) in self.rule_ids:
                     self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
@@ -772,10 +800,11 @@ class Aggregator(object):
                 rewrite = None
                 mask = None
                 if 'interface' in self.mapping:
+                    size = FIELD_SIZES["interface"]
                     rewrite = dc(rvec)
                     mask = Vector(length=rewrite.length, preset="0")
                     offset = self.mapping["interface"]
-                    size = FIELD_SIZES["interface"]
+
                     rewrite[offset:offset+size] = "x"*size
                     mask[offset:offset+size] = "1"*size
 
