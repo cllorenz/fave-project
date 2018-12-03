@@ -803,10 +803,18 @@ class Aggregator(object):
                     size = FIELD_SIZES["interface"]
                     rewrite = dc(rvec)
                     mask = Vector(length=rewrite.length, preset="0")
-                    offset = self.mapping["interface"]
 
-                    rewrite[offset:offset+size] = "x"*size
-                    mask[offset:offset+size] = "1"*size
+                    set_field_in_vector(
+                        self.mapping, rewrite, 'interface', 'x'*size
+                    )
+                    set_field_in_vector(
+                        self.mapping, mask, 'interface', '1'*size
+                    )
+
+                    # XXX: remove when safe
+                    #offset = self.mapping["interface"]
+                    #rewrite[offset:offset+size] = "x"*size
+                    #mask[offset:offset+size] = "1"*size
 
                 ports = []
                 for act in rule.actions:
