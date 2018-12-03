@@ -714,10 +714,9 @@ class Aggregator(object):
                 vec = rule.match.vector.vector
                 rvec = Vector(length=self.mapping.length)
                 for fld in model.mapping:
-                    g_offset = self.mapping[fld]
-                    m_offset = model.mapping[fld]
-                    size = FIELD_SIZES[fld]
-                    rvec[g_offset:g_offset+size] = vec[m_offset:m_offset+size]
+                    copy_field_between_vectors(
+                        model.mapping, self.mapping, vec, rvec, fld
+                    )
 
                 ports = []
                 mask = None
@@ -793,9 +792,12 @@ class Aggregator(object):
 
                 rvec = Vector(length=self.mapping.length)
                 for fld in rule.match:
-                    offset = self.mapping[fld.name]
-                    size = FIELD_SIZES[fld.name]
-                    rvec[offset:offset+size] = field_value_to_bitvector(fld).vector
+                    set_field_in_vector(
+                        self.mapping,
+                        rvec,
+                        fld.name,
+                        field_value_to_bitvector(fld).vector
+                    )
 
                 rewrite = None
                 mask = None
@@ -810,11 +812,6 @@ class Aggregator(object):
                     set_field_in_vector(
                         self.mapping, mask, 'interface', '1'*size
                     )
-
-                    # XXX: remove when safe
-                    #offset = self.mapping["interface"]
-                    #rewrite[offset:offset+size] = "x"*size
-                    #mask[offset:offset+size] = "1"*size
 
                 ports = []
                 for act in rule.actions:
@@ -858,9 +855,13 @@ class Aggregator(object):
 
                 rvec = Vector(length=self.mapping.length)
                 for fld in rule.match:
-                    offset = self.mapping[fld.name]
                     size = FIELD_SIZES[fld.name]
-                    rvec[offset:offset+size] = field_value_to_bitvector(fld).vector
+                    set_field_in_vector(
+                        self.mapping,
+                        rvec,
+                        fld.name,
+                        field_value_to_bitvector(fld).vector
+                    )
 
                 ports = []
                 for act in rule.actions:
@@ -875,13 +876,16 @@ class Aggregator(object):
                     rvec.enlarge(FIELD_SIZES["interface"])
 
                 rewrite = dc(rvec)
-                offset = self.mapping["interface"]
                 size = FIELD_SIZES["interface"]
                 mask = Vector(length=rewrite.length, preset='0')
-                mask[offset:offset+size] = '1'*size
+                set_field_in_vector(
+                    self.mapping, mask, 'interface', '1'*size
+                )
 
                 for port in range(1, 1+(len(self.models[model.node].ports)-19)/2):
-                    rewrite[offset:offset+size] = '{:032b}'.format(port)
+                    set_field_in_vector(
+                        self.mapping, rewrite, 'interface', '{:032b}'.format(port)
+                    )
 
                     Aggregator.LOGGER.debug(
                         "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
@@ -923,9 +927,12 @@ class Aggregator(object):
 
                 rvec = Vector(length=self.mapping.length)
                 for fld in rule.match:
-                    offset = self.mapping[fld.name]
-                    size = FIELD_SIZES[fld.name]
-                    rvec[offset:offset+size] = field_value_to_bitvector(fld).vector
+                    set_field_in_vector(
+                        self.mapping,
+                        rvec,
+                        fld.name,
+                        field_value_to_bitvector(fld).vector
+                    )
 
                 port = self._global_port(
                     "%s_%s" % (tname, 'miss' if rid == 65535 else 'accept')
@@ -968,9 +975,12 @@ class Aggregator(object):
 
                 rvec = Vector(length=self.mapping.length)
                 for fld in rule.match:
-                    offset = self.mapping[fld.name]
-                    size = FIELD_SIZES[fld.name]
-                    rvec[offset:offset+size] = field_value_to_bitvector(fld).vector
+                    set_field_in_vector(
+                        self.mapping,
+                        rvec,
+                        fld.name,
+                        field_value_to_bitvector(fld).vector
+                    )
 
                 ports = []
                 for act in rule.actions:
