@@ -212,14 +212,18 @@ class RouterModel(Model):
 
         assert isinstance(rule, SwitchRule)
 
+        rewrites = []
         offset = (len(self.ports)-6)/2
         for action in rule.actions:
+
             ports = []
             for port in action.ports:
-                labels = port.split('.')
-                prefix, rno = ('_'.join(lables[:len(labels)-1]), labels[len(labels)-1])
-                ports.append("%s_%s" % (prefix, int(rno)+offset))
+                ports.append("out")
             action.ports = ports
+
+            rewrites.append(Rewrite(rewrite=[SwitchRuleField("interface", port)]))
+
+        rule.actions.extend(rewrites)
 
         self.tables['routing'].insert(idx, rule)
         self.rules.append(rule)
