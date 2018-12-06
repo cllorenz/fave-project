@@ -12,7 +12,6 @@ from util.print_util import eprint
 from openflow.switch import SwitchModel
 from ip6np.packet_filter import PacketFilterModel
 
-from host import HostModel
 from generator import GeneratorModel
 from probe import ProbeModel
 from router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
@@ -124,7 +123,6 @@ class TopologyCommand(object):
                 "switch" : SwitchModel,
                 "packet_filter" : PacketFilterModel,
                 "links" : LinksModel,
-                "host" : HostModel,
                 "generator" : GeneratorModel,
                 "probe" : ProbeModel,
                 "router" : RouterModel
@@ -158,15 +156,13 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|links|host|generator|probe|router\" apply command" +
+        "\t-t \"switch|packet_filter|links|generator|probe|router\" apply command" +
         "for a device of type <type> (default: switch)",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
         "\t-l <links> add links between port pi of device dj and port pk of" +
         "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
-        "\t-u <uports> add device with a list of upper layer ports of the form" +
-        "proto1:no1[, proto2:no2...] (implies -a)",
-        "\t-i <ip> add device with ip address <ip> (host only)",
+        "\t-i <ip> add device with ip address <ip>",
         "\t-f <fields> add device with fields f1=[v1, v2, v3, ...];f2=[v4, v5, v6...];...",
         "\t-q \"universal, existential\" add a quantor for a probe",
         "\t-F <fields> add filter fields for a probe",
@@ -213,7 +209,6 @@ def main(argv):
                 'switch',
                 'packet_filter',
                 'links',
-                'host',
                 'generator',
                 'probe',
                 'router'
@@ -232,10 +227,6 @@ def main(argv):
             dtype = 'links'
             dev = 'links'
             links = [link.split(':') for link in arg.split(',')]
-        elif opt == '-u':
-            dtype = 'host'
-            command = 'add'
-            ports = [port.split(':') for port in arg.split(',')]
         elif opt == '-i':
             address = arg
         elif opt == '-f':
@@ -277,11 +268,6 @@ def main(argv):
     if command == 'add':
         model = {
             'switch' : lambda: SwitchModel(dev, ports=ports),
-            'host' : lambda: HostModel(
-                dev,
-                address,
-                ports=ports if ports != 0 else []
-            ),
             'packet_filter' : lambda: PacketFilterModel(
                 dev,
                 ports=range(1, len(ports)*2+1)

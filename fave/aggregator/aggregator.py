@@ -36,7 +36,6 @@ from openflow.switch import SwitchModel, SwitchCommand
 from openflow.switch import SwitchRule, Forward, Miss, Rewrite
 
 from topology.topology import TopologyCommand, LinksModel
-from topology.host import HostModel
 from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
 
@@ -80,7 +79,6 @@ def model_from_json(j):
             #"topology" : TopologyModel,
             "topology_command" : TopologyCommand,
             "links" : LinksModel,
-            "host" : HostModel,
             "generator" : GeneratorModel,
             "probe" : ProbeModel
         }
@@ -309,7 +307,7 @@ class Aggregator(object):
 
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
-                model.model.type in ['probe', 'host', 'generator', 'router', 'packet_filter']:
+                model.model.type in ['probe', 'generator', 'router', 'packet_filter']:
             self._extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
@@ -381,12 +379,6 @@ class Aggregator(object):
                 elif cmd.command == "del":
                     self._delete_router(cmd.node)
                     del self.models[cmd.model.node]
-
-            elif cmd.mtype == "host":
-                if cmd.command == "add":
-                    self._add_host(cmd.model)
-                elif cmd.command == "del":
-                    self._delete_host(cmd.node)
 
             elif cmd.mtype == "generator":
                 if cmd.command == "add":
@@ -908,52 +900,6 @@ class Aggregator(object):
             if not self.models[model.node].tables[table]:
                 jsonrpc.remove_table(self.sock, self.tables[name])
                 del self.tables[name]
-
-
-    def _add_host(self, model):
-        name = model.node
-        if name in self.tables:
-            self._delete_host(name)
-
-        idx = self.fresh_table_index
-        self.tables[name] = idx
-        self.fresh_table_index += 1
-
-        port = normalize_port(name + '.1')
-        portno = calc_port(idx, model, port)
-
-        self.ports[port] = portno
-
-        outgoing = self._aligned_headerspace(model.outgoing, model.mapping)
-
-        sid = jsonrpc.add_source(
-            self.sock,
-            [v.vector for v in outgoing.hs_list],
-            [v.vector for v in outgoing.hs_diff],
-            [portno]
-        )
-
-        self.generators[name] = (idx, sid, model)
-
-
-    def _delete_host(self, node):
-        only_sid = lambda x: x[1]
-        sid = only_sid(self.generators[node])
-
-        # delete links
-        port1 = self._global_port(node+'.1')
-        port2 = self.links[port1]
-        jsonrpc.remove_link(self.sock, port1, port2)
-        jsonrpc.remove_link(self.sock, port2, port1)
-
-        del self.links[port1]
-        del self.links[port2]
-
-        # delete source and probe
-        jsonrpc.remove_source(self.sock, sid)
-        #jsonrpc.remove_source_probe(pid)
-
-        del self.tables[node]
 
 
     def _add_generator(self, model):
