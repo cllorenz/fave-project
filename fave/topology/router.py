@@ -122,7 +122,7 @@ class RouterModel(Model):
                     acl_rule, acl_action = rule
                     is_in = acl.startswith("in_")
                     acl_table = "acl_in" if is_in else "acl_out"
-                    acl_port = "acl_in_out" if is_in else "acl_out_out"
+                    acl_port = "out"
                     acl_in_ports = in_ports if is_in else []
 
                     for field, _value in acl_rule:
