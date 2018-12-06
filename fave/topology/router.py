@@ -100,11 +100,11 @@ class RouterModel(Model):
         """
 
         acl_name = lambda x: '_'.join(x.split('_')[1:])
-        acl_body = lambda x: x[0]
-        acl_permit = lambda x: x[1] == "permit"
+        acl_body = lambda x: x
+        acl_permit = lambda x: x == "permit"
 
         for table in ['acl_in', 'acl_out', 'routing']:
-            self.tables[table] = []
+            self.tables.setdefault(table, [])
 
         if not self.mapping:
             self.mapping = Mapping()
@@ -121,7 +121,7 @@ class RouterModel(Model):
                 acl_rules = self.acls[acl_name(acl)]
 
                 for rid, rule in enumerate(acl_rules):
-                    acl_rule, _acl_action = rule
+                    acl_rule, acl_action = rule
                     is_in = acl.startswith("in_")
                     acl_table = "acl_in" if is_in else "acl_out"
                     acl_port = "acl_in_out" if is_in else "acl_out_out"
@@ -138,7 +138,7 @@ class RouterModel(Model):
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
                             ) for k, v in acl_body(acl_rule)
                         ]),
-                        actions=[Forward(ports=[acl_port] if acl_permit(acl_rule) else [])]
+                        actions=[Forward(ports=[acl_port] if acl_permit(acl_action) else [])]
                     )
 
                     self.tables[acl_table].append(rule)
@@ -167,11 +167,13 @@ class RouterModel(Model):
                     ]
                 )
 
-                self.tables["routing"].append(rule)
+                if not rule in self.tables["routing"]:
+                    self.tables["routing"].append(rule)
 
         for rules in self.tables.values():
             for rule in rules:
                 rule.calc_vector(self.mapping)
+
 
     def to_json(self):
         """ Converts router model to JSON.
