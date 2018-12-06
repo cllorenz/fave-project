@@ -5,7 +5,7 @@
 
 import signal
 
-AGGREGATOR = None
+from aggregator_singleton import AGGREGATOR
 
 def handle_sigterm(_signum, _frame):
     """ Handler for SIGTERM signals.
