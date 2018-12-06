@@ -17,13 +17,13 @@ from copy import deepcopy as dc
 
 #import daemon
 
-from aggregator_profiler import profile_method
+#from aggregator_profiler import profile_method
 from aggregator_signals import AGGREGATOR, register_signals
 
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
 from util.lock_util import PreLockedFileLock
-from util.packet_util import is_ip, is_domain, is_unix, is_port, is_ext_port
+from util.packet_util import is_ip, is_domain, is_unix, is_port
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.model import Model
@@ -518,7 +518,7 @@ class Aggregator(object):
                 ports = []
                 for port in model.ports:
                     if prefixed and port.startswith("in_") and (
-                        table.startswith("pre_routing") or table.startswith("acl_in")
+                            table.startswith("pre_routing") or table.startswith("acl_in")
                     ):
                         portno = calc_port(idx, model, port)
                         portname = normalize_port('.'.join([model.node, port[3:]]))
@@ -880,8 +880,8 @@ class Aggregator(object):
                 in_ports = []
                 if rule.in_ports:
                     in_ports = [self._global_port(
-                            "%s_%s" % (model.node, p)
-                        ) for p in rule.in_ports]
+                        "%s_%s" % (model.node, p)
+                    ) for p in rule.in_ports]
 
                 r_id = jsonrpc.add_rule(
                     self.sock,
