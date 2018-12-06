@@ -142,7 +142,8 @@ class RouterModel(Model):
                         actions=[Forward(ports=[acl_port] if acl_permit(acl_action) else [])]
                     )
 
-                    self.tables[acl_table].append(rule)
+                    if not rule in self.tables[acl_table]:
+                        self.tables[acl_table].append(rule)
 
 
         for idx, route in enumerate(self.routes):
