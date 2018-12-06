@@ -72,6 +72,12 @@ class Vector(object):
 
     @staticmethod
     def is_vector(vectors):
+        """ Checks whether a string represents a vector.
+
+        Keyword arguments:
+        vectors - a string to be checked
+        """
+
         if isinstance(vectors, Vector):
             return True
 
