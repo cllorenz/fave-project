@@ -76,7 +76,6 @@ def model_from_json(j):
             "packet_filter" : PacketFilterModel,
             "switch" : SwitchModel,
             "switch_command" : SwitchCommand,
-            #"topology" : TopologyModel,
             "topology_command" : TopologyCommand,
             "links" : LinksModel,
             "generator" : GeneratorModel,
