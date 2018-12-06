@@ -16,7 +16,11 @@ from Queue import Queue
 from copy import deepcopy as dc
 
 #from aggregator_profiler import profile_method
-from aggregator_signals import AGGREGATOR, register_signals
+from aggregator_abstract import AbstractAggregator
+from aggregator_singleton import AGGREGATOR
+from aggregator_signals import register_signals
+from aggregator_util import model_from_json, normalize_port
+from aggregator_util import calc_port, calc_rule_index
 
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
@@ -24,20 +28,14 @@ from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port
 
 import netplumber.jsonrpc as jsonrpc
-from netplumber.model import Model
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, set_field_in_vector
 from netplumber.vector import Vector, HeaderSpace
 
-from ip6np.packet_filter import PacketFilterModel
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.switch import SwitchModel, SwitchCommand
 from openflow.switch import SwitchRule, Forward, Miss, Rewrite
 
-from topology.topology import TopologyCommand, LinksModel
-from topology.generator import GeneratorModel
-from topology.probe import ProbeModel
 
 def _print_help():
     """ Prints a usage message to stderr.
@@ -50,86 +48,9 @@ def _print_help():
     )
 
 
-# XXX: returns None when profiled... WTF!?
-#@profile_method
-def model_from_string(jsons):
-    """ Reconstructs a model from a JSON string.
-
-    Keyword arguments:
-    jsons -- a json string
-    """
-    model_from_json(json.loads(jsons))
-
-
-def model_from_json(j):
-    """ Reconstructs a model from a JSON object.
-
-    Keyword arguments:
-    j -- a JSON object
-    """
-
-    Aggregator.LOGGER.debug('reconstruct model')
-    try:
-        models = {
-            "model" : Model,
-            "packet_filter" : PacketFilterModel,
-            "switch" : SwitchModel,
-            "switch_command" : SwitchCommand,
-            "topology_command" : TopologyCommand,
-            "links" : LinksModel,
-            "generator" : GeneratorModel,
-            "probe" : ProbeModel
-        }
-        model = models[j["type"]]
-
-    except KeyError:
-        Aggregator.LOGGER.error("model type not implemented: %s", j["type"])
-        raise Exception("model type not implemented: %s" % j["type"])
-
-    else:
-        return model.from_json(j)
-
-
-def calc_port(tab, model, port):
-    """ Calculates a port number for a table.
-
-    Keyword arguments:
-    tab -- a table id
-    model -- the model inheriting the table
-    port -- the port index in the table
-    """
-    try:
-        return (tab<<16)+model.ports[port]
-    except KeyError:
-        return (tab<<16)+1
-
-
-def calc_rule_index(t_idx, r_idx):
-    """ Calculates the rule index within a table
-
-    Keyword arguments:
-    t_idx -- a table index
-    r_idx -- a rule index within the table
-    """
-    return (t_idx<<16)+r_idx
-
-
-def normalize_port(port):
-    """ Normalizes a port's name
-
-    Keyword arguments:
-    port -- a port name
-    """
-    return port.replace('.', '_')
-
-
-class Aggregator(object):
+class Aggregator(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
-
-    BUF_SIZE = 4096
-    LOGGER = logging.getLogger('Aggregator')
-
 
     def __init__(self, sock):
         self.sock = sock
