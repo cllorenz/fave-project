@@ -166,7 +166,7 @@ class RouterModel(Model):
                     ]
                 )
 
-                if not rule in self.tables["routing"]:
+                if rule not in self.tables["routing"]:
                     self.tables["routing"].append(rule)
 
         for rules in self.tables.values():
@@ -220,15 +220,12 @@ class RouterModel(Model):
         assert isinstance(rule, SwitchRule)
 
         rewrites = []
-        offset = (len(self.ports)-6)/2
         for action in rule.actions:
 
-            ports = []
             for port in action.ports:
-                ports.append("out")
-            action.ports = ports
+                rewrites.append(Rewrite(rewrite=[SwitchRuleField("interface", port)]))
 
-            rewrites.append(Rewrite(rewrite=[SwitchRuleField("interface", port)]))
+            action.ports = ["out"]
 
         rule.actions.extend(rewrites)
 
@@ -241,7 +238,6 @@ class RouterModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
-        rule = self.chains["routing"][idx]
 
         del self.tables["routing"][idx]
 
