@@ -6,12 +6,15 @@
 import json
 
 def _ordered(obj):
+    res = obj
+
     if isinstance(obj, dict):
-        return sorted({k:_ordered(v) for k, v in obj.items()})
+        res = sorted({k:_ordered(v) for k, v in obj.items()})
     elif isinstance(obj, list):
-        return [_ordered(x) for x in obj]
-    else:
-        return obj
+        res = [_ordered(x) for x in obj]
+
+    return res
+
 
 def equal(obj1, obj2):
     """ Checks whether two JSON objects are equal.
