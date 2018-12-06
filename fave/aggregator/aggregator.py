@@ -457,9 +457,7 @@ class Aggregator(object):
 
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
-                model.model.type in ['probe', 'host', 'generator']:
-
-            #self.mapping.expand(model.model.mapping)
+                model.model.type in ['probe', 'host', 'generator', 'router', 'packet_filter']:
             self._extend_mapping(model.model.mapping)
 
         if mlength < self.mapping.length:
@@ -695,9 +693,7 @@ class Aggregator(object):
                     "post_routing",
                     "input_states",
                     "output_states",
-                    "forward_states",
-                    "acl_in",
-                    "acl_out"
+                    "forward_states"
             ]:
                 Aggregator.LOGGER.debug("worker: skip adding rules to table %s", table)
                 continue
