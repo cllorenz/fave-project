@@ -5,8 +5,8 @@ from util.packet_util import normalize_vlan_tag
 from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_upper_port
 from util.packet_util import normalize_ipv6_proto, normalize_ipv6header_header
+
 from netplumber.vector import Vector
-from netplumber.mapping import FIELD_SIZES
 
 
 def _normalize_interface(interface):
@@ -119,13 +119,6 @@ def field_value_to_bitvector(field):
 
     if isinstance(value, Vector):
         return value
-
-    #if isinstance(field, Field):
-    #    name, size, value = field.name, field.size, field.value
-    #elif isinstance(field, SwitchRuleField):
-    #    name, size, value = field.name, FIELD_SIZES[field.name], field.value
-    #else:
-    #    raise "field type not implemented:", type(field)
 
     vector = Vector(length=size)
     try:
