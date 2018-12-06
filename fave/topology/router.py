@@ -115,10 +115,7 @@ class RouterModel(Model):
             vlan_match = [SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)]
             self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
-            for aid, acl in enumerate(self.vlan_to_acls):
-                if vlan not in self.acls:
-                    continue
-
+            for aid, acl in enumerate(self.vlan_to_acls[vlan]):
                 acl_rules = self.acls[acl_name(acl)]
 
                 for rid, rule in enumerate(acl_rules):
