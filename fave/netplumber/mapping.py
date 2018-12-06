@@ -160,4 +160,3 @@ class Mapping(dict):
         for k in uncommon:
             self[k] = self.length
             self.length += FIELD_SIZES[k]
-
