@@ -3,7 +3,6 @@
 """ This module provides FaVe's central aggregation service.
 """
 
-import signal
 import re
 import socket
 import os
@@ -20,6 +19,7 @@ from copy import deepcopy as dc
 #import daemon
 
 from aggregator_profiler import profile_method
+from aggregator_signals import AGGREGATOR, register_signals
 
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
@@ -41,22 +41,6 @@ from topology.topology import TopologyCommand, LinksModel
 from topology.host import HostModel
 from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
-
-
-_AGGREGATOR = None
-
-
-def handle_sigterm(signum, frame):
-    """ Handler for SIGTERM signals.
-    """
-    if _AGGREGATOR:
-        _AGGREGATOR.stop_aggr()
-
-
-def handle_sigint(signum, frame):
-    """ Handler for SIGINT signals.
-    """
-    handle_sigterm(signum, frame)
 
 
 def print_help():
@@ -1366,8 +1350,8 @@ def main(argv):
         print_help()
         sys.exit(1)
 
-    global _AGGREGATOR
-    _AGGREGATOR = Aggregator(sock)
+    global AGGREGATOR
+    AGGREGATOR = Aggregator(sock)
 
     try:
         os.unlink(UDS_ADDR)
@@ -1375,10 +1359,9 @@ def main(argv):
         if os.path.exists(UDS_ADDR):
             raise
 
-    signal.signal(signal.SIGTERM, handle_sigterm)
-    signal.signal(signal.SIGINT, handle_sigint)
+    register_signals()
 
-    _AGGREGATOR.run()
+    AGGREGATOR.run()
 
 
 if __name__ == "__main__":
