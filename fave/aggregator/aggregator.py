@@ -3,7 +3,6 @@
 """ This module provides FaVe's central aggregation service.
 """
 
-import cProfile
 import signal
 import re
 import socket
@@ -43,29 +42,6 @@ from topology.probe import ProbeModel
 
 
 _AGGREGATOR = None
-
-PROFILE = cProfile.Profile()
-
-
-def profile_method(method):
-    """ Wraps a profiler around a method.
-
-    Keyword arguments:
-    method -- a method to be profiled
-    """
-    def profile_wrapper(*args, **kwargs):
-        """ Collects profiling information while executing a method.
-        """
-        PROFILE.enable()
-        method(*args, **kwargs)
-        PROFILE.disable()
-    return profile_wrapper
-
-
-def dump_stats():
-    """ Dumps collected profiling stats to the file \"./aggregator.stats\".
-    """
-    PROFILE.dump_stats("aggregator.stats")
 
 
 def handle_sigterm(signum, frame):
