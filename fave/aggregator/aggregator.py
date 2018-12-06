@@ -15,8 +15,6 @@ from threading import Thread
 from Queue import Queue
 from copy import deepcopy as dc
 
-#import daemon
-
 #from aggregator_profiler import profile_method
 from aggregator_signals import AGGREGATOR, register_signals
 
@@ -120,17 +118,6 @@ def calc_rule_index(t_idx, r_idx):
     return (t_idx<<16)+r_idx
 
 
-#def has_dot_but_is_not_post_int_port(port):
-#    labels = port.rsplit('.')
-#    if len(labels) != 2:
-#        return False
-#    try:
-#        int(labels[1])
-#        return False
-#    except ValueError:
-#        return True
-
-
 def normalize_port(port):
     """ Normalizes a port's name
 
@@ -138,15 +125,6 @@ def normalize_port(port):
     port -- a port name
     """
     return port.replace('.', '_')
-
-    #if port.count('.') > 1:
-    #    labels = port.split('.')
-    #    length = len(labels)
-    #    return '.'.join(labels[:length-1])+'_'+labels[length-1]
-    #elif has_dot_but_is_not_post_int_port(port):
-    #    return port
-    #else:
-    #    return port.replace('.', '_')
 
 
 class Aggregator(object):
@@ -282,15 +260,6 @@ class Aggregator(object):
             Aggregator.LOGGER.debug("master: accepted connection")
 
             # receive data from unix domain socket
-            #nbytes = Aggregator.BUF_SIZE
-            #data = ""
-            #while nbytes == Aggregator.BUF_SIZE:
-            #    tmp = conn.recv(Aggregator.BUF_SIZE)
-            #    nbytes = len(tmp)
-            #    data += tmp
-            #if not data:
-            #    break
-
             data = ""
             while True:
                 part = conn.recv(Aggregator.BUF_SIZE)
@@ -309,9 +278,6 @@ class Aggregator(object):
         # wait for the config event handler to finish
         Aggregator.LOGGER.info("master: join queue")
         self.queue.join()
-
-        #jsonrpc.dump_stats()
-        #dump_stats()
 
         # join thread
         Aggregator.LOGGER.info("master: join handler thread")
@@ -374,10 +340,6 @@ class Aggregator(object):
                     sep=" "
                 )
                 return
-                #ports = self.query_ports(model.node)
-                #test_command = lambda x: x in ["add_rule", "update_rule"]
-                #rules = [model.rule] if test_command(model.command) else []
-                #model = SwitchModel(model.node, ports=ports, rules=rules)
 
         # handle topology changes (e.g. by the network management)
         if model.type == "topology_command":
@@ -446,8 +408,6 @@ class Aggregator(object):
             #sub = self.models[model.node] - model
 
 # TODO: fix deletion... needs exclusion of pre-, post-routing, state tables
-#            print sub
-
             # remove unecessary items
 #            self._delete_model(sub)
 
@@ -973,18 +933,6 @@ class Aggregator(object):
             [portno]
         )
 
-        #incoming = self._aligned_headerspace(model.incoming, model.mapping)
-        #pid = jsonrpc.add_source_probe(
-        #    self.sock,
-        #    [portno],
-        #    'universal',
-        #    {
-        #        "type" : "header",
-        #        "hs_list" : [v.vector for v in incoming.hs_list],
-        #        "hs_diff" : [v.vector for v in incoming.hs_diff]
-        #    },
-        #    None
-        #)
         self.generators[name] = (idx, sid, model)
 
 
