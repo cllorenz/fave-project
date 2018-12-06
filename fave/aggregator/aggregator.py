@@ -39,8 +39,7 @@ from topology.topology import TopologyCommand, LinksModel
 from topology.generator import GeneratorModel
 from topology.probe import ProbeModel
 
-
-def print_help():
+def _print_help():
     """ Prints a usage message to stderr.
     """
     eprint(
@@ -1156,12 +1155,12 @@ def main(argv):
             getopt.getopt(argv, "hs:p:", ["help", "server=", "port="])
         )
     except getopt.GetoptError:
-        print_help()
+        _print_help()
         sys.exit(2)
 
     for opt, arg in opts:
         if opt == '-h':
-            print_help()
+            _print_help()
             sys.exit(0)
         elif opt == '-s' and (is_ip(arg) or is_domain(arg) or is_unix(arg)):
             server = arg
@@ -1176,7 +1175,7 @@ def main(argv):
         sock = jsonrpc.connect_to_netplumber(server, port)
     except jsonrpc.RPCError as err:
         Aggregator.LOGGER.error(err.message)
-        print_help()
+        _print_help()
         sys.exit(1)
 
     global AGGREGATOR
