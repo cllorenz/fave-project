@@ -88,7 +88,7 @@ class TestRouterModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            RouterModel.from_json(            {
+            RouterModel.from_json({
                 'mapping': {'interface': 0, 'length': 32},
                 'node': 'foo',
                 'ports': {
@@ -529,16 +529,16 @@ class TestSwitchModel(unittest.TestCase):
 
         model1.add_rule(65535, SwitchRule("foo", 1, 65535, actions=[]))
 
-        match1=Match(fields=[SwitchRuleField(
+        match1 = Match(fields=[SwitchRuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"
         )])
-        actions1=[Forward([3])]
-        mapping=Mapping()
+        actions1 = [Forward([3])]
+        mapping = Mapping()
         mapping.extend(OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"])
         model1.add_rule(
             0,
             SwitchRule(
-                "foo",1, 0,
+                "foo", 1, 0,
                 in_ports=[1, 2],
                 match=match1,
                 actions=actions1,
@@ -546,10 +546,10 @@ class TestSwitchModel(unittest.TestCase):
             )
         )
 
-        match2=Match(fields=[SwitchRuleField(
+        match2 = Match(fields=[SwitchRuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:2::0/48"
         )])
-        actions2=[
+        actions2 = [
             Rewrite([SwitchRuleField(
                 OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:3::0/48"
             )]),
@@ -558,7 +558,7 @@ class TestSwitchModel(unittest.TestCase):
         model1.add_rule(
             1,
             SwitchRule(
-                "foo",1, 1,
+                "foo", 1, 1,
                 in_ports=[1, 2, 3],
                 match=match2,
                 actions=actions2,
