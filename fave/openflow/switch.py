@@ -383,7 +383,7 @@ class SwitchRule(Model):
             node=j["node"],
             tid=int(j["tid"]) if isinstance(j["tid"], str) and j["tid"].isdigit() else j["tid"],
             idx=int(j["idx"]),
-            in_ports = j["in_ports"],
+            in_ports=j["in_ports"],
             match=Match.from_json(j["match"]),
             actions=[actions[action["name"]].from_json(action) for action in j["actions"]],
             mapping=Mapping.from_json(j["mapping"])
