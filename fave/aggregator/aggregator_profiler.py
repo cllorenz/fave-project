@@ -27,3 +27,19 @@ def dump_stats():
     """
     PROFILE.dump_stats("aggregator.stats")
 
+
+class ProfiledThread(Thread):
+    """ A thread which profiles its run method.
+    """
+
+    def run(self):
+        """ A profiled version of the run method.
+            Dumps stats to the file \"aggr_handler.profile\".
+        """
+
+        profiler = cProfile.Profile()
+        try:
+            return profiler.runcall(Thread.run, self)
+            #profiler.print_stats()
+        finally:
+            profiler.dump_stats('aggr_handler.profile')

@@ -19,6 +19,8 @@ from copy import deepcopy as dc
 
 #import daemon
 
+from aggregator_profiler import profile_method
+
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
 from util.lock_util import PreLockedFileLock
@@ -225,18 +227,6 @@ def normalize_port(port):
     #    return port
     #else:
     #    return port.replace('.', '_')
-
-
-#class ProfiledThread(Thread):
-#    def run(self):
-#        print "run thread"
-#        profiler = cProfile.Profile()
-#        try:
-#            return profiler.runcall(Thread.run, self)
-#            #profiler.print_stats()
-#        finally:
-#            print "dump profile"
-#            profiler.dump_stats('aggr_handler.profile')
 
 
 class Aggregator(object):
