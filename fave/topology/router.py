@@ -273,7 +273,7 @@ def _build_cidr(address, netmask=None, proto='6'):
                 num_nm += (int(elem) << (8*(3-idx)))
 
             try:
-                prefix = 31-int(round(math.log(num_nm, 2)))
+                prefix = 32-int(round(math.log(num_nm, 2)))
             except ValueError:
                 prefix = 32
 
