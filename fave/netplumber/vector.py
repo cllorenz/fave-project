@@ -8,6 +8,42 @@ import json
 from netplumber.mapping import FIELD_SIZES
 
 
+def align_headerspace(smapping, tmapping, hspace):
+    """ Aligns a headerspace to conform a target mapping.
+
+    Keyword arguments:
+    dmapping - the destination mapping
+    smapping - the source mapping
+    hspace - the headerspace to be aligned
+    """
+
+    hs_list = []
+    for vector in hspace.hs_list:
+        hs_list.append(align_vector(smapping, tmapping, vector))
+
+    hs_diff = []
+    for vector in hspace.hs_diff:
+        hs_diff.append(align_vector(smapping, tmapping, vector))
+
+    return HeaderSpace(tmapping.length, hs_list, hs_diff)
+
+
+def align_vector(smapping, tmapping, vector):
+    """ Aligns a vector to conform a target mapping.
+
+    Keyword arguments:
+    dmapping - the destination mapping
+    smapping - the source mapping
+    hspace - the headerspace to be aligned
+    """
+
+    vec = Vector(tmapping.length)
+    for fld in smapping:
+        copy_field_between_vectors(smapping, tmapping, vector, vec, fld)
+
+    return vec
+
+
 def copy_field_between_vectors(s_map, t_map, s_vec, t_vec, field):
     """ Copies a field from one vector to another respecting their mappings.
 

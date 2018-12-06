@@ -30,6 +30,7 @@ from util.packet_util import is_ip, is_domain, is_unix, is_port
 import netplumber.jsonrpc as jsonrpc
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, set_field_in_vector
+from netplumber.vector import align_headerspace
 from netplumber.vector import Vector, HeaderSpace
 
 from ip6np.generator import field_value_to_bitvector
@@ -835,7 +836,9 @@ class Aggregator(AbstractAggregator):
 
         self.ports[port] = portno
 
-        outgoing = self._aligned_headerspace(model.outgoing, model.mapping)
+        outgoing = align_headerspace(
+            model.mapping, self.mapping, model.outgoing
+        )
 
         sid = jsonrpc.add_source(
             self.sock,
@@ -897,8 +900,12 @@ class Aggregator(AbstractAggregator):
 
         self._absorb_mapping(model.mapping)
 
-        filter_fields = self._aligned_headerspace(model.filter_fields, model.mapping)
-        test_fields = self._aligned_headerspace(model.test_fields, model.mapping)
+        filter_fields = align_headerspace(
+            model.mapping, self.mapping, model.filter_fields
+        )
+        test_fields = align_headerspace(
+            model.mapping, self.mapping, model.test_fields
+        )
 
         if not filter_fields.hs_diff and len(filter_fields.hs_list) == 1:
             filter_hs = filter_fields.hs_list[0].vector
@@ -1012,26 +1019,6 @@ class Aggregator(AbstractAggregator):
         jsonrpc.remove_source_probe(self.sock, sid)
 
         del self.tables[node]
-
-
-    def _aligned_headerspace(self, hspace, mapping):
-        hs_list = []
-        for vector in hspace.hs_list:
-            hs_list.append(self._aligned_vector(vector, mapping))
-
-        hs_diff = []
-        for vector in hspace.hs_diff:
-            hs_diff.append(self._aligned_vector(vector, mapping))
-
-        return HeaderSpace(self.mapping.length, hs_list, hs_diff)
-
-
-    def _aligned_vector(self, vector, mapping):
-        vec = Vector(self.mapping.length)
-        for fld in mapping:
-            copy_field_between_vectors(mapping, self.mapping, vector, vec, fld)
-
-        return vec
 
 
     def _global_port(self, port):
