@@ -197,8 +197,14 @@ class RouterModel(Model):
             j = json.loads(j)
 
         router = RouterModel(j["node"])
-        router.mapping = Mapping.from_json(j["mapping"]) if "mapping" in j else Mapping()
-        router.tables = {t:[SwitchRule.from_json(r) for r in j["tables"][t]] for t in j["tables"]}
+        router.mapping = Mapping.from_json(
+            j["mapping"]
+        ) if "mapping" in j else Mapping()
+        router.tables = {
+            t:[
+                SwitchRule.from_json(r) for r in j["tables"][t]
+            ] for t in j["tables"]
+        }
         router.ports = j["ports"]
         return router
 
