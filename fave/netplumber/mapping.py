@@ -9,6 +9,7 @@ FIELD_SIZES = {
     "packet.ether.source" : 48,
     "packet.ether.destination" : 48,
     "packet.ether.type" : 8,
+    "packet.ether.vlan" : 16,
     "packet.ipv4.source" : 32,
     "packet.ipv4.destination" : 32,
     "packet.ipv6.source" : 128,

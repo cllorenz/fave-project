@@ -5,6 +5,7 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'eth_src' : "packet.ether.source",
     'eth_dst' : "packet.ether.destination",
     'eth_type' : "packet.ether.type",
+    'vlan' : "packet.ether.vlan",
     'ipv4_src' : "packet.ipv4.source",
     'ipv4_dst' : "packet.ipv4.destination",
     'ipv6_src' : "packet.ipv6.source",

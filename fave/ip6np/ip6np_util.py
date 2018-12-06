@@ -1,6 +1,7 @@
 """ This module provides utilities for packet filter models.
 """
 
+from util.packet_util import normalize_vlan_tag
 from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_upper_port
 from util.packet_util import normalize_ipv6_proto, normalize_ipv6header_header
@@ -129,6 +130,7 @@ def field_value_to_bitvector(field):
     vector = Vector(length=size)
     try:
         vector[:] = {
+            "packet.ether.vlan" : normalize_vlan_tag,
             "packet.ipv4.source" : normalize_ipv4_address,
             "packet.ipv4.destination" : normalize_ipv4_address,
             "packet.ipv6.source" : normalize_ipv6_address,

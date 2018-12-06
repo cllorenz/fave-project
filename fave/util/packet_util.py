@@ -19,6 +19,19 @@ IPV6_NONE = '00111011'       # 59
 IPV6_PROT = '11111111'       # 255
 
 
+def normalize_vlan_tag(vlan):
+    """ Normalizes vlan tags.
+
+    Keyword arguments:
+    vlan -- a vlan tag
+    """
+
+    vlan_tag = int(vlan)
+    assert vlan_tag >= 0 and vlan_tag < 4096
+
+    return '{:016b}'.format(vlan_tag)
+
+
 def normalize_upper_port(port):
     """ Normalizes upper protocol port numbers.
 
