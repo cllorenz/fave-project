@@ -3,7 +3,6 @@
 """ This module provides FaVe's central aggregation service.
 """
 
-import re
 import socket
 import os
 import json
@@ -24,6 +23,7 @@ from aggregator_signals import AGGREGATOR, register_signals
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
 from util.lock_util import PreLockedFileLock
+from util.packet_util import is_ip, is_domain, is_unix, is_port, is_ext_port
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.model import Model
@@ -52,70 +52,6 @@ def print_help():
         "\t-p <port> the port number of the netplumber instance",
         sep="\n"
     )
-
-
-def is_ip(ips):
-    """ Checks if a string represents a valid IPv4 address.
-
-    Keyword arguments:
-    ips -- a string
-    """
-    elems = ips.split(".")
-    if len(elems) != 4:
-        return False
-    try:
-        for elem in elems:
-            i = int(elem)
-            if i < 0 or i > 255:
-                return False
-    except ValueError:
-        return False
-
-    return True
-
-
-def is_domain(domains):
-    """ Checks if a string is a valid domain name.
-
-    Keyword arguments:
-    domains -- a string
-    """
-    labels = domains.split(".")
-    label = re.compile("^[a-zA-Z](([-a-zA-Z0-9]+)?[a-zA-Z0-9])?$") # cf. RFC1025
-    return all([re.match(label, l) for l in labels])
-
-
-def is_unix(unixs):
-    """ Checks if a string is a valid unix domain socket address.
-
-    Keyword arguments:
-    unixs -- a string
-    """
-    return '\0' not in unixs
-
-
-def is_port(ports):
-    """ Checks if a string is a valid port number.
-
-    Keyword arguments:
-    ports -- a string
-    """
-    try:
-        port = int(ports)
-        return port >= 0 and port <= 0xffff
-    except ValueError:
-        return False
-
-    return False
-
-
-def is_ext_port(ports):
-    """ Checks if a string is a valid interface number.
-
-    Keyword arguments:
-    ports -- a string
-    """
-    return is_port(ports)
 
 
 # XXX: returns None when profiled... WTF!?

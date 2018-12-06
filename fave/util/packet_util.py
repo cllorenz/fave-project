@@ -1,6 +1,8 @@
 """ This module provides packet constants and utilities.
 """
 
+import re
+
 ETHER_TYPE_IPV4 = '00000100' # 4
 ETHER_TYPE_IPV6 = '00000110' # 6
 
@@ -17,6 +19,70 @@ IPV6_AUTH = '00110011'       # 51
 IPV6_ESP = '00110010'        # 50
 IPV6_NONE = '00111011'       # 59
 IPV6_PROT = '11111111'       # 255
+
+
+def is_ip(ips):
+    """ Checks if a string represents a valid IPv4 address.
+
+    Keyword arguments:
+    ips -- a string
+    """
+    elems = ips.split(".")
+    if len(elems) != 4:
+        return False
+    try:
+        for elem in elems:
+            i = int(elem)
+            if i < 0 or i > 255:
+                return False
+    except ValueError:
+        return False
+
+    return True
+
+
+def is_domain(domains):
+    """ Checks if a string is a valid domain name.
+
+    Keyword arguments:
+    domains -- a string
+    """
+    labels = domains.split(".")
+    label = re.compile("^[a-zA-Z](([-a-zA-Z0-9]+)?[a-zA-Z0-9])?$") # cf. RFC1025
+    return all([re.match(label, l) for l in labels])
+
+
+def is_unix(unixs):
+    """ Checks if a string is a valid unix domain socket address.
+
+    Keyword arguments:
+    unixs -- a string
+    """
+    return '\0' not in unixs
+
+
+def is_port(ports):
+    """ Checks if a string is a valid port number.
+
+    Keyword arguments:
+    ports -- a string
+    """
+    try:
+        port = int(ports)
+        return port >= 0 and port <= 0xffff
+    except ValueError:
+        return False
+
+    return False
+
+
+def is_ext_port(ports):
+    """ Checks if a string is a valid interface number.
+
+    Keyword arguments:
+    ports -- a string
+    """
+    return is_port(ports)
 
 
 def normalize_vlan_tag(vlan):
