@@ -15,7 +15,7 @@ from ip6np.packet_filter import PacketFilterModel
 from host import HostModel
 from generator import GeneratorModel
 from probe import ProbeModel
-from router import RouterModel, parse_cisco_acls
+from router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
 
 
 class LinksModel(object):
@@ -297,7 +297,9 @@ def main(argv):
             'router' : lambda: RouterModel(
                 dev,
                 ports={str(p):p for p in range(1, len(ports)*2+1)},
-                acls=parse_cisco_acls(ruleset)
+                acls=parse_cisco_acls(ruleset),
+                vlan_to_ports=parse_cisco_interfaces(ruleset)[0],
+                vlan_to_acls=parse_cisco_interfaces(ruleset)[1]
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
