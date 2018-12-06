@@ -374,10 +374,11 @@ def remove_slice(sock, nid):
     data["params"] = {"id":nid}
     _sendrecv(sock, json.dumps(data))
 
+
 #@profile_method
 def add_slice_matrix(sock, matrix):
     """ Adds a reachability matrix to a network slice.
-    
+
     The (directed) matrix represents pairs of slice ids
     between which reachability is allowed.
 
@@ -391,6 +392,7 @@ def add_slice_matrix(sock, matrix):
     data["params"] = {"matrix":matrix}
     _sendrecv(sock, json.dumps(data))
 
+
 #@profile_method
 def remove_slice_matrix(sock):
     """ Clears all contents from reachability matrix
@@ -403,6 +405,7 @@ def remove_slice_matrix(sock):
     data = _basic_rpc()
     data["method"] = "remove_slice_matrix"
     _sendrecv(sock, json.dumps(data))
+
 
 #@profile_method
 def add_slice_allow(sock, id1, id2):
@@ -421,6 +424,7 @@ def add_slice_allow(sock, id1, id2):
                       "id2": id2}
     _sendrecv(sock, json.dumps(data))
 
+
 #@profile_method
 def remove_slice_allow(sock, id1, id2):
     """ Removes a specific (directional) allowed pair
@@ -438,6 +442,7 @@ def remove_slice_allow(sock, id1, id2):
                       "id2": id2}
     _sendrecv(sock, json.dumps(data))
 
+
 #@profile_method
 def print_slice_matrix(sock):
     """ Prints the reachability matrix to slice logger.
@@ -449,6 +454,7 @@ def print_slice_matrix(sock):
     data = _basic_rpc()
     data["method"] = "print_slice_matrix"
     _sendrecv(sock, json.dumps(data))
+
 
 #@profile_method
 def dump_slices_pipes(sock, odir):
@@ -463,7 +469,8 @@ def dump_slices_pipes(sock, odir):
     data["method"] = "dump_slices_pipes"
     data["params"] = {"dir" : odir}
     _sendrecv(sock, json.dumps(data))
-    
+
+
 #@profile_method
 def add_fw_rule(sock, t_idx, r_idx, in_ports, out_ports, fw_match):
     """ Adds a firewall rule.
@@ -617,6 +624,7 @@ def expand(sock, new_length):
     data["params"] = {"length":new_length}
     _sendrecv(sock, json.dumps(data))
 
+
 #@profile_method
 def dump_plumbing_network(sock, odir):
     """ Dumps NetPlumber's plumbing network as JSON including tables and rules.
@@ -630,6 +638,7 @@ def dump_plumbing_network(sock, odir):
     data["method"] = "dump_plumbing_network"
     data["params"] = {"dir" : odir}
     _sendrecv(sock, json.dumps(data))
+
 
 #@profile_method
 def dump_flows(sock, odir):
