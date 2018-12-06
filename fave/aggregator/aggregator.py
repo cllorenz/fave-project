@@ -450,11 +450,11 @@ class Aggregator(object):
         mlength = self.mapping.length
 
         if model.type in ["packet_filter", "router"]:
-            #self.mapping.expand(model.mapping)
             self._extend_mapping(model.mapping)
+
         elif model.type == "switch_command" and model.command == "add_rule":
-            #self.mapping.expand(model.rule.mapping)
             self._extend_mapping(model.rule.mapping)
+
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
                 model.model.type in ['probe', 'host', 'generator']:
