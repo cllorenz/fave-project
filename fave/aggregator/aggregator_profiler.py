@@ -4,6 +4,7 @@
 """
 
 import cProfile
+from threading import Thread
 
 PROFILE = cProfile.Profile()
 
