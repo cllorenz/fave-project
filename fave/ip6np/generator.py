@@ -11,7 +11,7 @@ def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
 
 
-def _ast_to_rule(node, ast):
+def _ast_to_rule(node, ast, idx=0):
     tags = {
         "i" : "interface",
         "s" : "packet.ipv6.source",
@@ -88,20 +88,20 @@ def _ast_to_rule(node, ast):
     action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
 
     chain = _get_chain_from_ast(ast)
-    rule = SwitchRule(node, chain, 0, match=Match(body), actions=[action])
+    rule = SwitchRule(node, chain, idx, match=Match(body), actions=[action])
 
     return ([rule], {rule : negated}) if negated else ([rule], {})
 
 
-def _get_rules_from_ast(node, ast):
+def _get_rules_from_ast(node, ast, idx=0):
     if _is_rule(ast):
-        return _ast_to_rule(node, ast)
+        return _ast_to_rule(node, ast, idx)
     elif not ast.has_children():
         return ([], {})
     else:
         merge = lambda l, r: (l[0]+r[0], dict_union(l[1], r[1]))
         return reduce(
-            merge, [_get_rules_from_ast(node, st) for st in ast]
+            merge, [_get_rules_from_ast(node, st, idx+i+1) for i, st in enumerate(ast)]
         )
 
 
