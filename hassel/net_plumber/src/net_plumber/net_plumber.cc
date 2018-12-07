@@ -1507,6 +1507,7 @@ void traverse_flow_tree(
         Json::Value node(Json::objectValue);
 
         node["node"] = (Json::Value::UInt64) (*(*it))->node->node_id;
+        node["flow"] = (Json::StaticString) hs_to_str((*(*it))->hs_object);
 
         if ((*(*it))->n_flows && !(*(*it))->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
@@ -1514,6 +1515,7 @@ void traverse_flow_tree(
             traverse_flow_tree(children, (*(*it))->n_flows);
             node["children"] = children;
         }
+
         res.append(node);
     }
 }
@@ -1537,6 +1539,7 @@ void NetPlumber::dump_flow_trees(string dir) {
             Json::Value flow_tree(Json::objectValue);
 
             flow_tree["node"] = (Json::Value::UInt64) (*it)->node_id;
+            flow_tree["flow"] = (Json::StaticString) hs_to_str((*f_it)->hs_object);
 
             if ((*f_it)->n_flows) {
                 Json::Value children(Json::arrayValue);
