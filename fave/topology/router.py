@@ -223,7 +223,9 @@ class RouterModel(Model):
         for action in rule.actions:
 
             for port in action.ports:
-                rewrites.append(Rewrite(rewrite=[SwitchRuleField("interface", port)]))
+                rewrites.append(
+                    Rewrite(rewrite=[SwitchRuleField("interface", port)])
+                )
 
             action.ports = ["out"]
 
