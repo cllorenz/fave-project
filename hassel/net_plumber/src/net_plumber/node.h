@@ -45,7 +45,7 @@ class Node;
 struct Pipeline;
 
 struct Flow {
-  Node *node;
+  Node *node; //pointer to next node
   struct hs *hs_object; //input hs
   struct hs *processed_hs; //output hs. could be the same as hs_object
   uint32_t in_port;  //input port this flow is received on
