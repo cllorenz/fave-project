@@ -573,6 +573,15 @@ class Aggregator(AbstractAggregator):
                         continue
 
                     ports.extend([self._global_port(p) for p in act.ports])
+                    # XXX: ugly workaround
+                    if model.type == 'router':
+                        for port in act.ports:
+                            set_field_in_vector(
+                                self.mapping,
+                                rvec,
+                                "interface",
+                                "{:032b}".format(self._global_port(port))
+                            )
 
                 Aggregator.LOGGER.debug(
                     "worker: add rule %s to %s:\n\t(%s -> %s)",
