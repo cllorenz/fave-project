@@ -479,13 +479,13 @@ class Aggregator(AbstractAggregator):
                     if isinstance(action, Forward):
                         ports.extend(
                             [self._global_port(
-                                '%s_%s_%s' %(model.node, table, port.lower())
+                                '%s_%s' %(tname, port.lower())
                             ) for port in action.ports]
                         )
 
                     elif isinstance(action, Miss):
                         ports.append(
-                            self._global_port('%s_%s_miss' % (model.node, table))
+                            self._global_port('%s_miss' % tname)
                         )
 
                     elif isinstance(action, Rewrite):
