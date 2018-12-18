@@ -138,7 +138,9 @@ class RouterModel(Model):
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
                             ) for k, v in acl_body(acl_rule)
                         ]),
-                        actions=[Forward(ports=[acl_port] if acl_permit(acl_action) else [])]
+                        actions=[
+                            Forward(ports=[acl_port] if acl_permit(acl_action) else [])
+                        ]
                     )
 
                     if not rule in self.tables[acl_table]:
