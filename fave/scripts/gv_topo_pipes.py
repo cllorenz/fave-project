@@ -54,6 +54,8 @@ class TopologyRenderer(object):
         self.json_slices = kwargs.get('json_slices', None)
         self.use_flows = kwargs.get('use_flows', False)
         self.json_flows = kwargs.get('json_flows', None)
+        self.use_flow_trees = kwargs.get('use_flow_trees', False)
+        self.json_flow_trees = kwargs.get('json_flow_trees', None)
         self.colors = kwargs.get('colors', 'set19')
         self.format = kwargs.get('type', 'pdf')
         self.use_masks = kwargs.get('use_masks', False)
@@ -65,6 +67,7 @@ class TopologyRenderer(object):
         self.pgraph = Digraph(name='cluster2')
         self.sgraph = Digraph(name='cluster3')
         self.fgraph = Digraph(name='cluster4')
+        self.ftgraph = Digraph(name='cluster5')
         self.graph.attr(rankdir='LR')
 
     def build(self):
@@ -75,11 +78,13 @@ class TopologyRenderer(object):
         self.__build_pipes()
         self.__build_slices()
         self.__build_flows()
+        self.__build_flow_trees()
 
         self.graph.subgraph(self.fgraph)
         self.graph.subgraph(self.sgraph)
         self.graph.subgraph(self.pgraph)
         self.graph.subgraph(self.tgraph)
+        self.graph.subgraph(self.ftgraph)
 
     def __build_policy(self):
         if not self.use_policy:
@@ -238,16 +243,60 @@ class TopologyRenderer(object):
                 self.fgraph.edge('flow'+str(start), 'flow'+str(target), color=color, style='bold')
                 start = target
 
+
+    def _traverse_flow(self, n_map, flow, color):
+        _POSITION = lambda g: len(g.body) - 1
+
+        if not flow:
+            return
+
+        start = flow['node']
+        if start not in n_map:
+            #print 'flows: unknown node: %s' % start
+            self.ftgraph.node(str(start), label=str(start), shape='rectangle')
+            n_map[start] = _POSITION(self.ftgraph)
+
+        if 'children' not in flow:
+            return
+
+        for child in flow['children']:
+            target = child['node']
+
+            if target not in n_map:
+                #print 'flows: unknown node: %s' % target
+
+                self.ftgraph.node(str(target), label=str(target), shape='rectangle')
+                n_map[target] = _POSITION(self.ftgraph)
+
+            self.ftgraph.edge(str(start), str(target), color=color, style='bold')
+
+            self._traverse_flow(n_map, child, color)
+
+
+    def __build_flow_trees(self):
+        if not self.use_flow_trees:
+            return
+        if not self.json_flow_trees:
+            raise MissingData('Missing Flow Trees')
+
+        for flow in self.json_flow_trees['flows']:
+            color = '#%06x' % (hash(str(flow['node'])) & 0xffffff)
+            self._traverse_flow({}, flow, color)
+
+
+
     def render(self, filename):
         """ outputs the rendered graph """
         self.graph.render(filename, view=False)
+
 
 def _print_help():
     print 'usage: python2 ' + os.path.basename(__file__) + ' [-hfmprst] [-d <dir]'
     print
     print '\t-h this help message'
+    print '\t-b include flow trees (disables flows)'
     print '\t-m includes masks'
-    print '\t-f include flows'
+    print '\t-f include flows (disables flow trees)'
     print '\t-p include policy'
     print '\t-r include pipes'
     print '\t-s include slices'
@@ -274,7 +323,7 @@ def _read_files(ddir, name):
 
 if __name__ == '__main__':
     try:
-        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:fmprst')
+        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bfmprst')
     except getopt.GetoptError:
         print 'Unable to parse options.'
         sys.exit(1)
@@ -286,15 +335,21 @@ if __name__ == '__main__':
     USE_POLICY = False
     USE_TOPOLOGY = False
     USE_FLOWS = False
+    USE_FLOW_TREES = False
 
     for opt, arg in OPTS:
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        elif opt == '-b':
+            USE_FLOW_TREES = True
+            USE_FLOWS = False
+            """ b wie baum """
         elif opt == '-m':
             USE_MASKS = True
         elif opt == '-f':
             USE_FLOWS = True
+            USE_FLOW_TREES = False
         elif opt == '-p':
             USE_POLICY = True
         elif opt == '-r':
@@ -313,16 +368,21 @@ if __name__ == '__main__':
 
     # read required data
     JSON_TABLES = _read_tables(USE_DIR)
-    JSON_PIPES = _read_files(USE_DIR, 'pipes')
-    JSON_POLICY = _read_files(USE_DIR, 'policy')
-    JSON_TOPOLOGY = _read_files(USE_DIR, 'topology')
-    JSON_SLICES = _read_files(USE_DIR, 'slice')
-    JSON_FLOWS = _read_files(USE_DIR, 'flows')
+
+    JSON_PIPES = _read_files(USE_DIR, 'pipes') if USE_PIPES else None
+    JSON_POLICY = _read_files(USE_DIR, 'policy') if USE_POLICY else None
+    JSON_TOPOLOGY = _read_files(USE_DIR, 'topology') if USE_TOPOLOGY else None
+    JSON_SLICES = _read_files(USE_DIR, 'slice') if USE_SLICE else None
+    JSON_FLOWS = _read_files(USE_DIR, 'flows') if USE_FLOWS else None
+    JSON_FLOW_TREES = _read_files(USE_DIR, 'flow_trees') if USE_FLOW_TREES else None
 
     GB = TopologyRenderer(
         USE_PIPES, USE_TOPOLOGY, USE_POLICY,
         JSON_TABLES, JSON_POLICY, JSON_TOPOLOGY, JSON_PIPES,
         use_slices=USE_SLICE, json_slices=JSON_SLICES,
-        use_flows=USE_FLOWS, json_flows=JSON_FLOWS, use_masks=USE_MASKS)
+        use_flows=USE_FLOWS, json_flows=JSON_FLOWS,
+        use_flow_trees=USE_FLOW_TREES, json_flow_trees=JSON_FLOW_TREES,
+        use_masks=USE_MASKS
+    )
     GB.build()
     GB.render('out')
