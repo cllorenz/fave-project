@@ -95,7 +95,7 @@ def normalize_vlan_tag(vlan):
     vlan_tag = int(vlan)
     assert vlan_tag >= 0 and vlan_tag < 4096
 
-    return '{:016b}'.format(vlan_tag)
+    return '{:016b}'.format(vlan_tag) if vlan_tag != 0 else 'x'*16
 
 
 def normalize_upper_port(port):
