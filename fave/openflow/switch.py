@@ -68,7 +68,7 @@ class SwitchRuleField(object):
 
     @staticmethod
     def from_json(j):
-        """ Creates a switch rule from JSON.
+        """ Creates a switch rule field from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
