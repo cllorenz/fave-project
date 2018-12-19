@@ -90,6 +90,15 @@ class SwitchRuleField(object):
         )
 
 
+    def __eq__(self, other):
+        assert isinstance(other, SwitchRuleField)
+
+        return all([
+            self.name == other.name,
+            self.value == other.value
+        ])
+
+
 class SwitchRuleAction(object):
     """ Abstract class for switch rule action models.
     """
@@ -132,6 +141,13 @@ class Forward(SwitchRuleAction):
             j = json.loads(j)
 
         return Forward(ports=j["ports"])
+
+
+    def __eq__(self, other):
+        if not isinstance(other, Forward):
+            return False
+
+        return self.ports == other.ports
 
 
 class Rewrite(SwitchRuleAction):
@@ -183,6 +199,14 @@ class Rewrite(SwitchRuleAction):
         )
 
 
+    def __eq__(self, other):
+        if not isinstance(other, Rewrite):
+            return False
+
+        return self.rewrite == other.rewrite
+
+
+
 class Miss(SwitchRuleAction):
     """ This class provides a miss action.
     """
@@ -209,6 +233,10 @@ class Miss(SwitchRuleAction):
         """ Constructs a miss action from JSON.
         """
         return Miss()
+
+
+    def __eq__(self, other):
+        return isinstance(other, Miss)
 
 
 class Match(list):
@@ -397,6 +425,19 @@ class SwitchRule(Model):
             self.match,
             self.actions
         )
+
+
+    def __eq__(self, other):
+        assert isinstance(other, SwitchRule)
+
+        return all([
+            self.node == other.node,
+            self.tid == other.tid,
+            self.in_ports == other.in_ports,
+            self.match == other.match,
+            self.actions == other.actions,
+            self.mapping == other.mapping
+        ])
 
 
 class SwitchCommand(object):
