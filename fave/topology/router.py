@@ -144,7 +144,7 @@ class RouterModel(Model):
                         ]
                     )
 
-                    if not rule in self.tables[acl_table]:
+                    if rule not in self.tables[acl_table]:
                         self.tables[acl_table].append(rule)
 
 
