@@ -65,6 +65,7 @@ class RouterModel(Model):
         post_routing = [
             SwitchRule(
                 node, "post_routing", idx,
+                in_ports=["post_routing_in"],
                 match=Match(
                     fields=[SwitchRuleField("interface", get_port(port))]
                 ),

@@ -568,12 +568,14 @@ class Aggregator(AbstractAggregator):
                         self.mapping, mask, 'interface', '1'*size
                     )
 
-                ports = []
+                in_ports = [calc_port(tid, model, p) for p in rule.in_ports]
+
+                out_ports = []
                 for act in rule.actions:
                     if act.name != "forward":
                         continue
 
-                    ports.extend([self._global_port(p) for p in act.ports])
+                    out_ports.extend([self._global_port(p) for p in act.ports])
                     # XXX: ugly workaround
                     if model.type == 'router':
                         for port in act.ports:
@@ -592,8 +594,8 @@ class Aggregator(AbstractAggregator):
                     self.sock,
                     tid,
                     rule.idx,
-                    [],
-                    ports,
+                    in_ports,
+                    out_ports,
                     rvec.vector,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
