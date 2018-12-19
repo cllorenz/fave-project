@@ -588,7 +588,7 @@ class Aggregator(AbstractAggregator):
 
                 Aggregator.LOGGER.debug(
                     "worker: add rule %s to %s:\n\t(%s -> %s)",
-                    rule.idx, tid, rvec.vector if rvec else "*", ports
+                    rule.idx, tid, rvec.vector if rvec else "*", out_ports
                 )
                 r_id = jsonrpc.add_rule(
                     self.sock,
