@@ -12,6 +12,8 @@ from test.test_topology import TestLinksModel, TestTopologyCommand
 from test.test_models import TestGenericModel, TestRouterModel, TestPacketFilterModel
 from test.test_models import TestSwitchModel
 from test.test_tree import TestTree
+from test.test_switch_rules import TestSwitchRuleField, TestMatch, TestSwitchRule
+from test.test_switch_rules import TestForward, TestRewrite, TestMiss
 
 if __name__ == '__main__':
     SUITE = unittest.TestSuite()
@@ -70,6 +72,30 @@ if __name__ == '__main__':
 
     SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestTree)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestForward)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestRewrite)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestMiss)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestMatch)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
     )
 
     unittest.TextTestRunner(verbosity=2).run(SUITE)
