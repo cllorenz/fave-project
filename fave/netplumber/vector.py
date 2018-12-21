@@ -123,6 +123,23 @@ class Vector(object):
         return True
 
 
+    @staticmethod
+    def from_vector_str(vectors):
+        """ Creates a vector from a vector string.
+
+        Keyword arguments:
+        vectors - a vector string
+        """
+
+        assert Vector.is_vector(vectors)
+
+        vlen = len(vectors)
+        vec = Vector(vlen)
+        vec.vector = vectors
+
+        return vec
+
+
     def enlarge(self, size):
         """ Enlarges the vector.
 
