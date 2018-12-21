@@ -10,9 +10,9 @@ import socket
 import json
 
 try:
-    from ip6np.ip6np_util import field_value_to_bitvector
+    from ip6np.ip6np_util import field_value_to_bitvector, VectorConstructionError
 except ImportError:
-    from ip6np_util import field_value_to_bitvector
+    from ip6np_util import field_value_to_bitvector, VectorConstructionError
 
 from netplumber.vector import Vector, set_field_in_vector
 from netplumber.mapping import Mapping, FIELD_SIZES
@@ -39,9 +39,12 @@ class SwitchRuleField(object):
         """
 
         if not isinstance(self.value, Vector):
-            self.vectorize()
+            try:
+                self.vectorize()
+                self.value = self.value.vector
+            except VectorConstructionError:
+                pass
 
-        self.value = self.value.vector
 
 
     def vectorize(self):
@@ -58,7 +61,17 @@ class SwitchRuleField(object):
         Keyword arguments:
         nlength -- the length to be added
         """
-        self.value.enlarge(nlength)
+        if isinstance(self.value, Vector):
+            self.value.enlarge(nlength)
+
+        else:
+            try:
+                self.vectorize()
+                self.value.enlarge(nlength)
+                self.value_to_vector_str()
+            except ConstructionError:
+                pass
+
 
 
     def unleash(self):
