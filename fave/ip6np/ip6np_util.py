@@ -10,10 +10,7 @@ from netplumber.vector import Vector
 
 
 def _normalize_interface(interface):
-    if interface == "lo": # XXX: deprecated... no lo in rule set allowed
-        return "0"*32
-    else:
-        return '{:032b}'.format(int(interface))
+    return '{:032b}'.format(int(interface)) if interface != 'lo' else '0'*32
 
 
 def _normalize_module(module):
