@@ -34,9 +34,17 @@ class SwitchRuleField(object):
         self.value = value
 
 
+    def value_to_vector_str(self):
+        if not isinstance(self.value, Vector):
+            self.vectorize()
+
+        self.value = self.value.vector
+
+
     def vectorize(self):
         """ Transforms value into a vector representation.
         """
+
         if not isinstance(self.value, Vector):
             self.value = field_value_to_bitvector(self)
 
@@ -103,6 +111,10 @@ class SwitchRuleAction(object):
 
     def __init__(self, name):
         self.name = name
+
+
+    def values_to_vector_str(self):
+        pass
 
 
 class Forward(SwitchRuleAction):
@@ -203,6 +215,10 @@ class Rewrite(SwitchRuleAction):
 
         return self.rewrite == other.rewrite
 
+
+    def values_to_vector_str(self):
+        for field in self.rewrite:
+            field.value_to_vector_str()
 
 
 class Miss(SwitchRuleAction):
@@ -349,6 +365,8 @@ class SwitchRule(Model):
         mapping -- the mapping
         """
         self.match.calc_vector(mapping)
+        for action in self.actions:
+            action.values_to_vector_str()
 
 
     def enlarge(self, length):
