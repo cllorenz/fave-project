@@ -213,7 +213,8 @@ class Rewrite(SwitchRuleAction):
         if not isinstance(other, Rewrite):
             return False
 
-        return self.rewrite == other.rewrite
+        return len(self.rewrite) == len(other.rewrite) or \
+            all([a == b for a, b in zip(self.rewrite, other.rewrite)])
 
 
     def values_to_vector_str(self):
