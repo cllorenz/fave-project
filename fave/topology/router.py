@@ -211,6 +211,10 @@ class RouterModel(Model):
             ] for t in j["tables"]
         }
         router.ports = j["ports"]
+        for rules in router.tables.values():
+            for rule in rules:
+                rule.calc_vector(router.mapping)
+
         return router
 
 
