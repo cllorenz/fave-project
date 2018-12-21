@@ -43,6 +43,6 @@ for PYFILE in $PYFILES; do
     fi
 done
 
-echo -e "\nLinting Summary: skipped $SKIPS, succeeded $OKS, and failed $FAILS"
+echo -e "\nLinting Summary: skipped $SKIPS, succeeded $OKS, and failed $FAILS\n"
 
 [ -f $TMP ] && rm $TMP
