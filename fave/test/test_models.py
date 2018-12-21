@@ -60,7 +60,7 @@ class TestRouterModel(unittest.TestCase):
                             {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
-                        'in_ports': [],
+                        'in_ports': ['post_routing_in'],
                         'mapping': {'interface': 0, 'length': 32},
                         'match': {
                             'fields': [{
@@ -87,8 +87,7 @@ class TestRouterModel(unittest.TestCase):
         """ Tests the creation of a router model from JSON.
         """
 
-        self.assertEqual(
-            RouterModel.from_json({
+        router = RouterModel.from_json({
                 'mapping': {'interface': 0, 'length': 32},
                 'node': 'foo',
                 'ports': {
@@ -112,7 +111,7 @@ class TestRouterModel(unittest.TestCase):
                             {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
-                        'in_ports': [],
+                        'in_ports': ['post_routing_in'],
                         'mapping': {'interface': 0, 'length': 32},
                         'match': {
                             'fields': [{
@@ -131,7 +130,11 @@ class TestRouterModel(unittest.TestCase):
                     ('routing_out', 'acl_out_in'),
                     ('acl_out_out', 'post_routing_in')
                 ]
-            }),
+            }
+        )
+
+        self.assertEqual(
+            router,
             self.model
         )
 
