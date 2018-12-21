@@ -433,6 +433,7 @@ class SwitchRule(Model):
         return all([
             self.node == other.node,
             self.tid == other.tid,
+            self.idx == other.idx,
             self.in_ports == other.in_ports,
             self.match == other.match,
             self.actions == other.actions,
