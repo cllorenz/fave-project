@@ -9,6 +9,33 @@ from util.packet_util import normalize_ipv6_proto, normalize_ipv6header_header
 from netplumber.vector import Vector
 
 
+class FieldNotImplementedError(Exception):
+    """ This exception indicates a missing implementation for a field.
+    """
+
+    def __init__(self, name):
+        super(FieldNotImplementedError, self).__init__()
+        self.name = name
+
+
+    def __str__(self):
+        return "Field %s is not implemented." % self.name
+
+
+class VectorConstructionError(Exception):
+    """ This exception indicates that no vector could be constructed for a field's value.
+    """
+
+    def __init__(self, name, value):
+        super(VectorConstructionError, self).__init__()
+        self.name = name
+        self.value = value
+
+
+    def __str__(self):
+        return "Could not construct vector for field %s from %s" % (self.name, self.value)
+
+
 def _normalize_interface(interface):
     return '{:032b}'.format(int(interface)) if interface != 'lo' else '0'*32
 
@@ -152,9 +179,9 @@ def field_value_to_bitvector(field):
         if Vector.is_vector(value):
             vector = Vector.from_vector_str(value)
         else:
-            raise Exception("Could not construct field %n from %s" % (name, value))
+            raise VectorConstructionError(name, value)
 
     except KeyError:
-        raise Exception("Field not implemented: %s" % name)
+        raise FieldNotImplementedError(name)
 
     return vector
