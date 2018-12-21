@@ -88,55 +88,55 @@ class TestRouterModel(unittest.TestCase):
         """
 
         router = RouterModel.from_json({
-                'mapping': {'interface': 0, 'length': 32},
-                'node': 'foo',
-                'ports': {
-                    'acl_in_out': 1,
-                    'acl_out_in': 4,
-                    'acl_out_out': 5,
-                    'in_1': 7,
-                    'out_2': 9,
-                    'post_routing_in': 6,
-                    'routing_in': 2,
-                    'routing_out': 3
-                },
-                'tables': {
-                    'acl_in': [],
-                    'acl_out': [],
-                    'post_routing': [{
-                        'actions': [
-                            {'name': 'rewrite', 'rw': [
-                                {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-                            ]},
-                            {'name': 'forward', 'ports': ['foo_2']}
-                        ],
-                        'idx': 0,
-                        'in_ports': ['post_routing_in'],
-                        'mapping': {'interface': 0, 'length': 32},
-                        'match': {
-                            'fields': [{
-                                'name': 'interface',
-                                'value': '00000000000000000000000000001001'
-                            }]
-                        },
-                        'node': 'foo',
-                        'tid': 'post_routing'
-                    }],
-                    'routing': []
-                },
-                'type': 'router',
-                'wiring': [
-                    ('acl_in_out', 'routing_in'),
-                    ('routing_out', 'acl_out_in'),
-                    ('acl_out_out', 'post_routing_in')
-                ]
-            }
-        )
+            'mapping': {'interface': 0, 'length': 32},
+            'node': 'foo',
+            'ports': {
+                'acl_in_out': 1,
+                'acl_out_in': 4,
+                'acl_out_out': 5,
+                'in_1': 7,
+                'out_2': 9,
+                'post_routing_in': 6,
+                'routing_in': 2,
+                'routing_out': 3
+            },
+            'tables': {
+                'acl_in': [],
+                'acl_out': [],
+                'post_routing': [{
+                    'actions': [
+                        {'name': 'rewrite', 'rw': [
+                            {'name': 'interface', 'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+                        ]},
+                        {'name': 'forward', 'ports': ['foo_2']}
+                    ],
+                    'idx': 0,
+                    'in_ports': ['post_routing_in'],
+                    'mapping': {'interface': 0, 'length': 32},
+                    'match': {
+                        'fields': [{
+                            'name': 'interface',
+                            'value': '00000000000000000000000000001001'
+                        }]
+                    },
+                    'node': 'foo',
+                    'tid': 'post_routing'
+                }],
+                'routing': []
+            },
+            'type': 'router',
+            'wiring': [
+                ('acl_in_out', 'routing_in'),
+                ('routing_out', 'acl_out_in'),
+                ('acl_out_out', 'post_routing_in')
+            ]
+        })
 
         self.assertEqual(
             router,
             self.model
         )
+
 
     def test_complex(self):
         """ Tests the a more complex model.
