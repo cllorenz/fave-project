@@ -93,10 +93,7 @@ class SwitchRuleField(object):
     def __eq__(self, other):
         assert isinstance(other, SwitchRuleField)
 
-        return all([
-            self.name == other.name,
-            self.value == other.value
-        ])
+        return self.name == other.name and self.value == other.value
 
 
 class SwitchRuleAction(object):
