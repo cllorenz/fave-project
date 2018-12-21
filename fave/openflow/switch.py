@@ -35,6 +35,9 @@ class SwitchRuleField(object):
 
 
     def value_to_vector_str(self):
+        """ Transforms the value into a vector string.
+        """
+
         if not isinstance(self.value, Vector):
             self.vectorize()
 
@@ -114,6 +117,8 @@ class SwitchRuleAction(object):
 
 
     def values_to_vector_str(self):
+        """ Transforms all field values into vector strings.
+        """
         pass
 
 
