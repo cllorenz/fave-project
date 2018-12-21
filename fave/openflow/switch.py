@@ -77,15 +77,16 @@ class SwitchRuleField(object):
         if isinstance(j, str):
             j = json.loads(j)
 
+        name = j["name"]
         value = j["value"]
 
         if Vector.is_vector(value):
-            vec = Vector(len(value))
-            vec.vector = value
-            value = vec
+            value = Vector.from_vector_str(value)
+            assert value.length == FIELD_SIZES[name]
+
 
         return SwitchRuleField(
-            j["name"],
+            name,
             value
         )
 
