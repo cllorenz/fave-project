@@ -150,6 +150,13 @@ def field_value_to_bitvector(field):
             "module.ipv6header.ah.spi" : _normalize_ah_spi,
             "module.ipv6header.mh.type" : _normalize_mh_type
         }[name](value)
+
+    except ValueError:
+        if Vector.is_vector(value):
+            vector = Vector.from_vector_str(value)
+        else:
+            raise Exception("Could not construct field %n from %s" % (name, value))
+
     except KeyError:
         raise Exception("Field not implemented: %s" % name)
 
