@@ -1,0 +1,6 @@
+access-list 110 permit ip any any
+
+interface vlan 0
+    no ip address
+    ip access-group 110 out
+    ip access-group 110 in
