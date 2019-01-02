@@ -493,12 +493,22 @@ class Aggregator(AbstractAggregator):
                         rewrite = Vector(self.mapping.length)
                         mask = Vector(self.mapping.length, preset='0')
                         for field in action.rewrite:
-                            set_field_in_vector(
-                                self.mapping,
-                                rewrite,
-                                field.name,
-                                '{:032b}'.format(self._global_port(field.value))
-                            )
+                            if field.name == 'interface':
+                                set_field_in_vector(
+                                    self.mapping,
+                                    rewrite,
+                                    field.name,
+                                    '{:032b}'.format(self._global_port(field.value))
+                                )
+
+                            else:
+                                set_field_in_vector(
+                                    self.mapping,
+                                    rewrite,
+                                    field.name,
+                                    field.value.vector
+                                )
+
                             set_field_in_vector(
                                 self.mapping,
                                 mask,
