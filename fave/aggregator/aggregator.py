@@ -473,9 +473,20 @@ class Aggregator(AbstractAggregator):
                         model.mapping, self.mapping, vec, rvec, fld
                     )
 
-                in_ports = [
-                    self._global_port("%s_%s" % (tname, pname)) for pname in rule.in_ports
-                ]
+                in_ports = []
+
+                if table in ['acl_in']:
+                    in_ports = [
+                        self._global_port(
+                            "%s_%s" % (model.node, pno)
+                        ) for pno in rule.in_ports
+                    ]
+                else:
+                    in_ports = [
+                        self._global_port(
+                            "%s_%s" % (tname, pname)
+                        ) for pname in rule.in_ports
+                    ]
 
                 out_ports = []
                 mask = None
