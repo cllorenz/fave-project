@@ -131,7 +131,14 @@ class RouterModel(Model):
                     is_out = acl.startswith("out_")
                     acl_table = "acl_in" if is_in else "acl_out"
                     acl_port = "out"
-                    acl_in_ports = in_ports if is_in else ["in"] if is_out else []
+                    acl_in_ports = []
+
+                    if is_in and in_ports:
+                        acl_in_ports = in_ports
+                    elif is_in:
+                        acl_in_ports = [p[3:] for p in self.ports if p.startswith('in_')]
+                    elif is_out:
+                        acl_in_ports = ["in"]
 
                     for field, _value in acl_rule:
                         if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
@@ -158,7 +165,12 @@ class RouterModel(Model):
             direction, acl = self.vlan_to_acls[nat]
             _netmask, pub_ips = self.vlan_to_ports[nat]
 
-            acl_table = 'acl_in' if direction == 'inside' else 'acl_out'
+            is_in = direction == 'inside'
+            acl_table = 'acl_in' if is_in else 'acl_out'
+            acl_in_ports = []
+            if is_in:
+                acl_in_ports = [p[3:] for p in self.ports if p.startswith('in_')]
+
             acl_port = 'out'
             acl_rules = self.acls[acl]
 
@@ -169,7 +181,7 @@ class RouterModel(Model):
                 for pub_ip in pub_ips:
                     rule = SwitchRule(
                         self.node, acl_table, offset+idx,
-                        in_ports=[],
+                        in_ports=acl_in_ports,
                         match=Match(fields=[
                             SwitchRuleField(
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
