@@ -473,19 +473,23 @@ class Aggregator(AbstractAggregator):
                         model.mapping, self.mapping, vec, rvec, fld
                     )
 
-                ports = []
+                in_ports = [
+                    self._global_port("%s_%s" % (tname, pname)) for pname in rule.in_ports
+                ]
+
+                out_ports = []
                 mask = None
                 rewrite = None
                 for action in rule.actions:
                     if isinstance(action, Forward):
-                        ports.extend(
+                        out_ports.extend(
                             [self._global_port(
                                 '%s_%s' %(tname, port.lower())
                             ) for port in action.ports]
                         )
 
                     elif isinstance(action, Miss):
-                        ports.append(
+                        out_ports.append(
                             self._global_port('%s_miss' % tname)
                         )
 
@@ -523,15 +527,15 @@ class Aggregator(AbstractAggregator):
                         )
 
                 Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t(%s -> %s)",
-                    rid, tid, rvec.vector if rvec else "*", ports
+                    "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
+                    rid, tid, in_ports, rvec.vector if rvec else "*", out_ports
                 )
                 r_id = jsonrpc.add_rule(
                     self.sock,
                     tid,
                     rid,
-                    [],
-                    ports,
+                    in_ports,
+                    out_ports,
                     rvec.vector if rvec.vector else 'x'*8,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
