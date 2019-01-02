@@ -3,9 +3,9 @@ np_dump
 .coverage
 .lock
 bench/wl_ad6/*.json
-bench/wl-ifi/*.json
+bench/wl_ifi/*.json
 
-bench/wl-ifi/convert.sh
-bench/wl-ifi/*.css
-bench/wl-ifi/*.html
-bench/wl-ifi/*.orig.*
+bench/wl_ifi/convert.sh
+bench/wl_ifi/*.css
+bench/wl_ifi/*.html
+bench/wl_ifi/*.orig.*

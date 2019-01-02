@@ -2,12 +2,12 @@
 
 import json
 
-OFILE="bench/wl-ifi/topology.json"
+OFILE="bench/wl_ifi/topology.json"
 
 if __name__ == '__main__':
     # device: (name, type, no_ports, acls)
     devices = [
-        ("ifi", "router", 12, "bench/wl-ifi/acls.txt"),
+        ("ifi", "router", 12, "bench/wl_ifi/acls.txt"),
         ("source.internet", "generator", ["ipv4_src=0.0.0.0/0"]),
         ("source.ifi", "generator", ["vlan=463", "ipv4_src=10.0.13.0/23"])
     ]

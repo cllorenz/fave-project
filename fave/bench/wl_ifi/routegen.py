@@ -2,7 +2,7 @@
 
 import json
 
-OFILE="bench/wl-ifi/routes.json"
+OFILE="bench/wl_ifi/routes.json"
 
 if __name__ == '__main__':
     routes = [

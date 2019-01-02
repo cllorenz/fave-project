@@ -2,7 +2,7 @@
 
 import json
 
-OFILE="bench/wl-ifi/policies.json"
+OFILE="bench/wl_ifi/policies.json"
 
 if __name__ == '__main__':
     probes = [

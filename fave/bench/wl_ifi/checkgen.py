@@ -2,7 +2,7 @@
 
 import json
 
-OFILE="bench/wl-ifi/checks.json"
+OFILE="bench/wl_ifi/checks.json"
 
 def _generate_reachability_tests():
     tests = [

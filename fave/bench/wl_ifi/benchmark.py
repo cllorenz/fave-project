@@ -11,10 +11,10 @@ IFI={
     "routes" : []
 }
 
-TOPOLOGY="bench/wl-ifi/topology.json"
-ROUTES="bench/wl-ifi/routes.json"
-POLICIES="bench/wl-ifi/policies.json"
-CHECKS="bench/wl-ifi/checks.json"
+TOPOLOGY="bench/wl_ifi/topology.json"
+ROUTES="bench/wl_ifi/routes.json"
+POLICIES="bench/wl_ifi/policies.json"
+CHECKS="bench/wl_ifi/checks.json"
 
 
 def campus_network(config):
@@ -28,12 +28,12 @@ if __name__ == '__main__':
     import json
     import os
 
-    os.system("python2 bench/wl-ifi/topogen.py")
-    os.system("python2 bench/wl-ifi/routegen.py")
-    os.system("python2 bench/wl-ifi/policygen.py")
-    os.system("python2 bench/wl-ifi/checkgen.py")
+    os.system("python2 bench/wl_ifi/topogen.py")
+    os.system("python2 bench/wl_ifi/routegen.py")
+    os.system("python2 bench/wl_ifi/policygen.py")
+    os.system("python2 bench/wl_ifi/checkgen.py")
 
-    os.system("bash scripts/start_np.sh bench/wl-ifi/np.conf")
+    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:

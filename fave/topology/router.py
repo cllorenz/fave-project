@@ -444,9 +444,9 @@ def parse_cisco_interfaces(interface_file):
 
 
 if __name__ == '__main__':
-    RACLS = parse_cisco_acls("bench/wl-ifi/acls.txt")
+    RACLS = parse_cisco_acls("bench/wl_ifi/acls.txt")
 
-    RVLAN_TO_PORTS, RVLAN_TO_ACLS = parse_cisco_interfaces("bench/wl-ifi/interfaces.txt")
+    RVLAN_TO_PORTS, RVLAN_TO_ACLS = parse_cisco_interfaces("bench/wl_ifi/interfaces.txt")
 
     RPORTS = {str(p):p for p in range(1, 17)}
     for RVLAN, RVPORTS in RVLAN_TO_PORTS.items():
