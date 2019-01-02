@@ -2,9 +2,9 @@
 
 import json
 
-from bench.wl-ad6.inventory import AD6
+from bench.wl_ad6.inventory import AD6
 
-OFILE="bench/wl-ad6/routes.json"
+OFILE="bench/wl_ad6/routes.json"
 
 PGF_ADDR="2001:db8:abc::1"
 

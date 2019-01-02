@@ -2,9 +2,9 @@
 
 import json
 
-from bench.wl-ad6.inventory import AD6
+from bench.wl_ad6.inventory import AD6
 
-OFILE="bench/wl-ad6/checks.json"
+OFILE="bench/wl_ad6/checks.json"
 
 def _generate_reachability_tests(config):
     """ XXX flow tests:
