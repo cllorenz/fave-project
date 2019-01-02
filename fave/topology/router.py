@@ -267,6 +267,8 @@ class RouterModel(Model):
 
         assert isinstance(rule, SwitchRule)
 
+        rule.in_ports = ['in']
+
         rewrites = []
         for action in rule.actions:
 
