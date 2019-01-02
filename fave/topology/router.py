@@ -113,10 +113,14 @@ class RouterModel(Model):
         self.mapping.extend("interface")
 
         for vlan, in_ports in self.vlan_to_ports.items():
-            vlan_match = [
-                SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)
-            ]
-            self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
+            if vlan.startswith('nat_'):
+                continue
+
+            else:
+                vlan_match = [
+                    SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)
+                ]
+                self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
             for aid, acl in enumerate(self.vlan_to_acls[vlan]):
                 acl_rules = self.acls[acl_name(acl)]
@@ -140,6 +144,39 @@ class RouterModel(Model):
                             ) for k, v in acl_body(acl_rule)
                         ]),
                         actions=[
+                            Forward(ports=[acl_port] if acl_permit(acl_action) else [])
+                        ]
+                    )
+
+                    if rule not in self.tables[acl_table]:
+                        self.tables[acl_table].append(rule)
+
+
+        for nat in [n for n in self.vlan_to_acls if n.startswith('nat_')]:
+            direction, acl = self.vlan_to_acls[nat]
+            _netmask, pub_ips = self.vlan_to_ports[nat]
+
+            acl_table = 'acl_in' if direction == 'inside' else 'acl_out'
+            acl_port = 'out'
+            acl_rules = self.acls[acl]
+
+            for idx, acl_rule in enumerate(acl_rules):
+                offset = len(self.tables[acl_table])
+                acl_body, acl_action = acl_rule
+
+                for pub_ip in pub_ips:
+                    rule = SwitchRule(
+                        self.node, acl_table, offset+idx,
+                        in_ports=[],
+                        match=Match(fields=[
+                            SwitchRuleField(
+                                OXM_FIELD_TO_MATCH_FIELD[k], v
+                            ) for k, v in acl_body
+                        ]),
+                        actions=[
+                            Rewrite(rewrite=[
+                                SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD['ipv4_src'], pub_ip)
+                            ]),
                             Forward(ports=[acl_port] if acl_permit(acl_action) else [])
                         ]
                     )
@@ -372,9 +409,13 @@ def parse_cisco_interfaces(interface_file):
             elif nline.startswith('no ip address'):
                 pass
 
-            # XXX: implement
-            elif nline.startswith("ip nat"):
-                pass
+            elif nline.startswith("ip nat pool"):
+                _proto, _nat, _pool, ident, ext_ip1, ext_ip2, _label, netmask = nline.split(' ')
+                vlan_to_ports.setdefault('nat_'+ident, (netmask, [ext_ip1, ext_ip2]))
+
+            elif nline.startswith("ip nat inside"):
+                _proto, _nat, _inside, _source, _list, acl, _pool, ident = nline.split(' ')
+                vlan_to_acls.setdefault('nat_'+ident, ('inside', acl))
 
             elif nline.startswith('ip access-group'):
                 _proto, _label, acl, direction = nline.split(' ')
