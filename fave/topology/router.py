@@ -128,16 +128,18 @@ class RouterModel(Model):
                 for rid, rule in enumerate(acl_rules):
                     acl_rule, acl_action = rule
                     is_in = acl.startswith("in_")
+                    is_out = acl.startswith("out_")
                     acl_table = "acl_in" if is_in else "acl_out"
                     acl_port = "out"
-                    acl_in_ports = in_ports if is_in else []
+                    acl_in_ports = in_ports if is_in else ["in"] if is_out else []
 
                     for field, _value in acl_rule:
                         if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
                             self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
 
                     rule = SwitchRule(
-                        self.node, acl_table, aid+rid, acl_in_ports,
+                        self.node, acl_table, aid+rid,
+                        in_ports=acl_in_ports,
                         match=Match(fields=vlan_match + [
                             SwitchRuleField(
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
