@@ -31,7 +31,7 @@ import netplumber.jsonrpc as jsonrpc
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, set_field_in_vector
 from netplumber.vector import align_headerspace
-from netplumber.vector import Vector, HeaderSpace
+from netplumber.vector import Vector
 
 from ip6np.generator import field_value_to_bitvector
 
