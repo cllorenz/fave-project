@@ -16,7 +16,7 @@ from topology import topology as topo
 from ip6np import ip6np as ip6tables
 from openflow import switch
 
-from bench.wl-ad6.inventory import AD6
+from bench.wl_ad6.inventory import AD6
 
 
 LOGGER = logging.getLogger("ad6")
@@ -357,7 +357,7 @@ def _test_dmz(hosts):
         _test_host(hname, "dmz")
 
 
-RULESETS = "bench/wl-ad6/rulesets"
+RULESETS = "bench/wl_ad6/rulesets"
 
 
 def campus_network(config):
@@ -598,7 +598,7 @@ def _generate_reachability_tests(config):
 
 if __name__ == "__main__":
     LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh bench/wl-ad6/np.conf")
+    os.system("scripts/start_np.sh bench/wl_ad6/np.conf")
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
