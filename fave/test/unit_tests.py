@@ -75,6 +75,10 @@ if __name__ == '__main__':
     )
 
     SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRuleField)
+    )
+
+    SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
     )
 
