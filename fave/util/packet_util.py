@@ -118,6 +118,10 @@ def normalize_ipv4_address(address):
     address -- an IPv4 address in dotted or cidr notation
     """
 
+    match = re.match("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$", address)
+    if not match:
+        raise ValueError("%s is not an ipv4 address" % address)
+
     try:
         addr, cidr = address.split('/')
     except ValueError:
