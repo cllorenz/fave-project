@@ -591,7 +591,9 @@ class Aggregator(AbstractAggregator):
                         self.mapping, mask, 'interface', '1'*size
                     )
 
-                in_ports = [calc_port(tid, model, p) for p in rule.in_ports]
+                in_ports = [
+                    self._global_port("%s_%s" % (tname, p)) for p in rule.in_ports
+                ]
 
                 out_ports = []
                 for act in rule.actions:
