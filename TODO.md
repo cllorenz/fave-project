@@ -2,8 +2,8 @@
 
 ### FaVe
 
- - investigate on detected loops seen with ad6
- - investigate on memory explosion seen with ad6
+ - investigate on detected loops seen with ad6 (maybe just unnaturally long rpc calls?)
+ - investigate on memory explosion seen with ad6 and ifi
  - fix infinite loop in netplumber seen with ad6
  - refactor ad6 benchmark to generate json files for unified benchmark setups
  - fix removal of firewall rules
@@ -14,7 +14,6 @@
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
  - create benchmark with IFI network
-    - integrate router model into aggregator
     - define inventory
     - define topology
     - build network from inventory and topology
