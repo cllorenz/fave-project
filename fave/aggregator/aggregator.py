@@ -461,7 +461,6 @@ class Aggregator(AbstractAggregator):
 
             Aggregator.LOGGER.debug("worker: add rules to %s", tname)
 
-            #for rid, vec, act in model.tables[table]:
             for rule in model.tables[table]:
                 rid = rule.idx
                 act = rule.actions
