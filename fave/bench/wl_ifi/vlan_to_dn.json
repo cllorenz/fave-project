@@ -1,0 +1,19 @@
+{
+    "1" : "up",
+#    "48" : ".ifi",
+    "463" : "internal.ifi",
+    "464" : "admin.ifi",
+    "465" : "office.ifi",
+    "466" : "staff-1.ifi",
+    "467" : "staff-2.ifi",
+    "468" : "pool.ifi",
+    "469" : "lab.ifi",
+    "470" : "hpc-mgt.ifi",
+    "471" : "hpc-ic.ifi",
+    "472" : "slb.ifi",
+    "473" : "mgt.ifi",
+    "474" : "san.ifi",
+    "475" : "vmo.ifi",
+    "476" : "prt.ifi",
+    "477" : "cam.ifi"
+}
