@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
     parser.add_argument('--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
     parser.add_argument('-d', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
+    parser.add_argument('--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
     args = parser.parse_args()
 
     if args.debug:
@@ -61,14 +62,15 @@ def main():
         prefix = args.files[-1].rsplit('.', 1)[0]
 
         if args.generate_html:
-            with open(prefix + '-reachability.html', 'w') as html_file:
+            with open(args.out_file, 'w') as html_file:
                 PT_LOGGER.debug("create and write html output")
                 html_file.write(policy.to_html())
 
         if args.generate_csv:
-            with open(prefix + '-reachability.csv', 'w') as csv_file:
+            with open(args.out_file, 'w') as csv_file:
                 PT_LOGGER.debug("create and write csv output")
                 csv_file.write(policy.vlans_to_csv())
+
     except PolicyException, exception:
         print("Fehler: %s" % exception)
 
