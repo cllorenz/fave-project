@@ -473,7 +473,6 @@ class Aggregator(AbstractAggregator):
                     )
 
                 in_ports = []
-
                 if table in ['acl_in']:
                     in_ports = [
                         self._global_port(
