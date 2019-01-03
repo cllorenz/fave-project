@@ -88,7 +88,7 @@ def _ast_to_rule(node, ast, idx=0):
     action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
 
     chain = _get_chain_from_ast(ast)
-    rule = SwitchRule(node, chain, idx, match=Match(body), actions=[action])
+    rule = SwitchRule(node, chain, idx, in_ports=['in'], match=Match(body), actions=[action])
 
     return ([rule], {rule : negated}) if negated else ([rule], {})
 

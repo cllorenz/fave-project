@@ -331,11 +331,13 @@ class PacketFilterModel(Model):
         self.chains["pre_routing"] = [
             SwitchRule(
                 node, 1, 1,
+                in_ports=[p[3:] for p in self.ports if p.startswith('in_')],
                 match=Match(fields=[SwitchRuleField("packet.ipv6.destination", address)]),
                 actions=[Forward(["_".join([node, "pre_routing_input"])])]
             ),
             SwitchRule(
                 node, 1, 2,
+                in_ports=[p[3:] for p in self.ports if p.startswith('in_')],
                 match=Match(),
                 actions=[Forward(["_".join([node, "pre_routing_forward"])])]
             )
@@ -352,6 +354,8 @@ class PacketFilterModel(Model):
         """
 
         assert isinstance(rule, SwitchRule)
+
+        rule.in_ports = ['in']
 
         offset = (len(self.ports)-19)/2
         for action in rule.actions:
