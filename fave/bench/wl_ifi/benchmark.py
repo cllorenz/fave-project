@@ -31,7 +31,19 @@ if __name__ == '__main__':
     os.system("python2 bench/wl_ifi/topogen.py")
     os.system("python2 bench/wl_ifi/routegen.py")
     os.system("python2 bench/wl_ifi/policygen.py")
-    os.system("python2 bench/wl_ifi/checkgen.py")
+    #os.system("python2 bench/wl_ifi/checkgen.py")
+    os.system(
+        "python2 ../policy-translator/policy_translator.py " +
+        "--csv --out bench/wl_ifi/reachability.csv " +
+        "bench/wl_ifi/roles_and_services.orig.txt " +
+        "bench/wl_ifi/policy.orig.txt"
+    )
+    os.system(
+        "python2 bench/wl_ifi/reach_csv_to_checks.py " +
+        "-p bench/wl_ifi/reachability.csv " +
+        "-m bench/wl_ifi/vlan_to_dn.json " +
+        "-c %s" % CHECKS
+    )
 
     os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
