@@ -240,9 +240,11 @@ def main(argv):
             failed.append(' '.join([e for e in flow_spec if e != ' ']))
 
     print (
-        "success: all checked flows matched"
+        "success: all %s checked flows matched" % len(flow_specs)
     ) if not failed else (
-        "failure: %s flows mismatched:\n\t%s" % (len(failed), '\n\t'.join(failed))
+        "failure: %s of %s flows mismatched:\n\t%s" % (
+            len(failed), len(flow_specs), '\n\t'.join(failed)
+        )
     )
     return 0 if not failed else 3
 
