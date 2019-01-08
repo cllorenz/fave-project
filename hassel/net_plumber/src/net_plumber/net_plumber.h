@@ -82,9 +82,9 @@ struct Event {
 };
 
 struct Slice {
-  uint64_t net_space_id;
+  //uint64_t net_space_id;
   struct hs *net_space;
-  std::list<struct Pipeline *> *pipes;
+  std::list<struct Pipeline*> pipes;
 };
 
 std::string get_event_name(EVENT_TYPE t);
@@ -140,7 +140,7 @@ namespace net_plumber {
 
 #ifdef PIPE_SLICING
     // net_space_id to slice
-    std::map<uint64_t,struct Slice *> slices;
+    std::map<uint64_t, Slice> slices;
 
     // policy matrix, represents directed slice allow pairs
     std::map<uint64_t, std::set<uint64_t> > matrix;
@@ -343,11 +343,10 @@ namespace net_plumber {
     void set_node_pipelines(Node *n);
 
 #ifdef PIPE_SLICING
-    // returns whether there were slice overlaps
     void add_pipe_to_slices(struct Pipeline *pipe);
-    std::list<struct Pipeline *> get_prev_pipes(Node *n);
-    void check_pipe_for_slice_leakage(Node *n);
-    void check_pipe_for_slice_leakage(struct Pipeline *in, struct Pipeline *out);
+    void check_node_for_slice_leakage(Node *node);
+    void check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out);
+    bool check_leak_exception(uint64_t in, uint64_t out);
 #endif
   };
 }
