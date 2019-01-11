@@ -369,8 +369,8 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->r_pipeline = n->add_fwd_pipeline(fp);
           fp->r_pipeline = (*it)->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-	  add_pipe_to_slices(fp);
-	  add_pipe_to_slices(bp);
+    add_pipe_to_slices(fp);
+    add_pipe_to_slices(bp);
 #endif
         }
       }
@@ -423,8 +423,8 @@ void NetPlumber::set_node_pipelines(Node *n) {
           bp->r_pipeline = (*it)->add_fwd_pipeline(fp);
           fp->r_pipeline = n->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-	  add_pipe_to_slices(fp);
-	  add_pipe_to_slices(bp);
+    add_pipe_to_slices(fp);
+    add_pipe_to_slices(bp);
 #endif
         }
       }
@@ -477,7 +477,7 @@ void NetPlumber::check_node_for_slice_leakage(Node *node) {
   if (node->prev_in_pipeline.empty()) {
     for (auto const &prev: node->next_in_pipeline) {
       for (auto const &next: (*prev->r_pipeline)->node->next_in_pipeline) {
-	check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
+  check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
       }
     }
   }
@@ -486,7 +486,7 @@ void NetPlumber::check_node_for_slice_leakage(Node *node) {
   if (node->next_in_pipeline.empty()) {
     for (auto const &next: node->prev_in_pipeline) {
       for (auto const &prev: (*next->r_pipeline)->node->prev_in_pipeline) {
-	check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
+  check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
       }
     }
   }
@@ -523,9 +523,9 @@ void NetPlumber::check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out) {
     if (!check_leak_exception(inspace, outspace)) {
       std::stringstream es;
       es << "(node " << std::hex << in->node->node_id
-	 << std::dec << ", space " << inspace
-	 << ", node " << std::hex << out->node->node_id
-	 << std::dec << ", space " << outspace << ")";
+   << std::dec << ", space " << inspace
+   << ", node " << std::hex << out->node->node_id
+   << std::dec << ", space " << outspace << ")";
       std::string *e = new std::string(es.str());
       slice_leakage_callback(this, NULL, e);
     }
@@ -675,9 +675,9 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
           fp->r_pipeline = (*dst_it)->add_bck_pipeline(bp);
           (*src_it)->propagate_src_flows_on_pipe(bp->r_pipeline);
 #ifdef PIPE_SLICING
-	  add_pipe_to_slices(fp);
-	  add_pipe_to_slices(bp);
-	  check_node_for_slice_leakage(fp->node);
+    add_pipe_to_slices(fp);
+    add_pipe_to_slices(bp);
+    check_node_for_slice_leakage(fp->node);
 #endif
         }
       }
@@ -1039,17 +1039,17 @@ uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
 //|| z=00 1=10 0=01 x=11
 //length of n equals 2n bytes of memory
 size_t NetPlumber::expand(size_t length) {
-	if (length > this->length) {
-		for (
-            std::map<uint64_t,Node*>::iterator it_nodes = id_to_node.begin() ;
-            it_nodes != id_to_node.end();
-            ++it_nodes
-        ) {//should contain all flows, probes and rules
-            it_nodes->second->enlarge(length);
-		}
-		this->length = length;
-	}
-	return this->length;
+  if (length > this->length) {
+    for (
+      std::map<uint64_t,Node*>::iterator it_nodes = id_to_node.begin() ;
+      it_nodes != id_to_node.end();
+      ++it_nodes
+    ) {//should contain all flows, probes and rules
+      it_nodes->second->enlarge(length);
+    }
+    this->length = length;
+  }
+  return this->length;
 }
 
 void NetPlumber::remove_rule(uint64_t rule_id) {
@@ -1761,31 +1761,34 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 
     if (ss >> line) {
       /* parse the first line of the matrix and
-	 extract all ids to add to set of ids */
+        extract all ids to add to set of ids */
       std::stringstream sl = std::stringstream(line);
       getline(sl, sub, ',');
       while (getline(sl, sub, ',')) {
-	x = sub.c_str();
-	// TODO(jan): revise error handling for parsing int value
-	id = std::strtoul(x, NULL, 10);
-	ids.insert(id);
+        x = sub.c_str();
+        // TODO(jan): revise error handling for parsing int value
+        id = std::strtoul(x, NULL, 10);
+        ids.insert(id);
       }
 
       /* parse the remaining lines which take form
-	 id,<comma separated list of xs> */
+        id,<comma separated list of xs> */
       while (ss >> line) {
-	// get the map id (first field)
-	std::stringstream sl = std::stringstream(line);
-	getline(sl, sub, ',');
-	x = sub.c_str();
-	// TODO(jan): revise error handling for parsing int value
-	id = std::strtoul(x, NULL, 10);
-	// get the mapping (remaining fields)
-	for (std::set<uint64_t>::iterator it=ids.begin();
-	     it!=ids.end(); ++it) {
-	  getline(sl, sub, ',');
-	  if (sub == "x") this->matrix[id].insert(*it);
-	}
+        // get the map id (first field)
+        std::stringstream sl = std::stringstream(line);
+        getline(sl, sub, ',');
+        x = sub.c_str();
+        // TODO(jan): revise error handling for parsing int value
+        id = std::strtoul(x, NULL, 10);
+        // get the mapping (remaining fields)
+        for (
+          std::set<uint64_t>::iterator it=ids.begin();
+          it!=ids.end();
+          ++it
+        ) {
+          getline(sl, sub, ',');
+          if (sub == "x") this->matrix[id].insert(*it);
+        }
       }
     }
     return true;
@@ -1795,8 +1798,11 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 #ifdef PIPE_SLICING
 void NetPlumber::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
-    for (std::map<uint64_t, std::set<uint64_t> >::iterator it=matrix.begin();
-    	 it!=matrix.end(); ++it) {
+    for (
+      std::map<uint64_t, std::set<uint64_t> >::iterator it=matrix.begin();
+      it!=matrix.end();
+      ++it
+    ) {
       // TODO(jan): check runtime behaviour, i.e. write a test case
       it->second.clear();
       this->matrix.erase(it->first);
@@ -1830,11 +1836,17 @@ void NetPlumber::print_slice_matrix(void) {
   }
   ss << std::endl;
   
-  for (std::map<uint64_t, std::set<uint64_t> >::iterator it = matrix.begin();
-       it!=matrix.end(); ++it) {
+  for (
+    std::map<uint64_t, std::set<uint64_t> >::iterator it = matrix.begin();
+    it!=matrix.end();
+    ++it
+  ) {
     ss << it->first << ": ";
-    for (std::set<uint64_t>::iterator id = it->second.begin();
-	 id!=it->second.end(); ++id) {
+    for (
+      std::set<uint64_t>::iterator id = it->second.begin();
+      id!=it->second.end();
+      ++id
+    ) {
       ss << *id;
       if (next(id)!=it->second.end()) ss << ",";
     }
@@ -1856,19 +1868,25 @@ void NetPlumber::dump_slices_pipes(std::string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
-    for (map<uint64_t,Node*>::iterator it=id_to_node.begin();
-	 it!=id_to_node.end(); it++) {
+    for (
+      map<uint64_t,Node*>::iterator it=id_to_node.begin();
+      it!=id_to_node.end();
+      it++
+    ) {
       Json::Value pipe(Json::arrayValue);
 
       list<struct Pipeline*> n_pipes = (*it).second->next_in_pipeline;
       if (!n_pipes.empty()) pipe.append((Json::UInt64) (*it).first);
 
-      for (list<struct Pipeline*>::iterator p_it=n_pipes.begin();
-	   p_it!=n_pipes.end(); p_it++) {
-	Json::Value fpipe(Json::objectValue);
-	fpipe["node_id"] = (Json::UInt64) (*(*p_it)->r_pipeline)->node->node_id;
-	fpipe["slice_id"] = (Json::UInt64) (*p_it)->net_space_id;
-	pipe.append(fpipe);
+      for (
+        list<struct Pipeline*>::iterator p_it=n_pipes.begin();
+        p_it!=n_pipes.end();
+        p_it++
+      ) {
+        Json::Value fpipe(Json::objectValue);
+        fpipe["node_id"] = (Json::UInt64) (*(*p_it)->r_pipeline)->node->node_id;
+        fpipe["slice_id"] = (Json::UInt64) (*p_it)->net_space_id;
+        pipe.append(fpipe);
       }
       if (!n_pipes.empty()) pipes.append(pipe);
     }
