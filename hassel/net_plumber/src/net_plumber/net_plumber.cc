@@ -1047,6 +1047,13 @@ size_t NetPlumber::expand(size_t length) {
     ) {//should contain all flows, probes and rules
       it_nodes->second->enlarge(length);
     }
+
+#ifdef PIPE_SLICING
+    for (auto slice: slices) {
+      hs_enlarge(slice.second.net_space, length);
+    }
+#endif //PIPE_SLICING
+
     this->length = length;
   }
   return this->length;
