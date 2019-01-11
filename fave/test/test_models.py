@@ -60,7 +60,7 @@ class TestRouterModel(unittest.TestCase):
                             {'name': 'forward', 'ports': ['foo_2']}
                         ],
                         'idx': 0,
-                        'in_ports': ['post_routing_in'],
+                        'in_ports': ['in'],
                         'mapping': {'interface': 0, 'length': 32},
                         'match': {
                             'fields': [{
@@ -111,7 +111,7 @@ class TestRouterModel(unittest.TestCase):
                         {'name': 'forward', 'ports': ['foo_2']}
                     ],
                     'idx': 0,
-                    'in_ports': ['post_routing_in'],
+                    'in_ports': ['in'],
                     'mapping': {'interface': 0, 'length': 32},
                     'match': {
                         'fields': [{
