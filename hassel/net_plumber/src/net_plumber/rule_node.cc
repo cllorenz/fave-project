@@ -56,7 +56,7 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
     this->inv_rw = array_not_a(this->mask,length);
     array_and(this->inv_rw,this->match,length,this->inv_rw);
   } else {
-    this->inv_rw = NULL;
+    this->inv_rw = nullptr;
     this->inv_match = array_copy(this->match, length);
   }
   effect_on = new list<struct Effect*>();
@@ -80,7 +80,7 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
     this->inv_rw = array_not_a(this->mask,length);
     array_and(this->inv_rw,this->match,length,this->inv_rw);
   } else {
-    this->inv_rw = NULL;
+    this->inv_rw = nullptr;
     this->inv_match = array_copy(this->match, length);
   }
   if (group == node_id) {
@@ -96,9 +96,9 @@ RuleNode::~RuleNode() {
   // remove itself from all rules influencing on it and free its
   // influenced_by struct. In case of group rules, only o this for the lead.
   if (group == 0 || group == node_id) {
-    list<struct Influence*>::iterator inf_it;
-    for (inf_it = influenced_by->begin(); inf_it != influenced_by->end(); inf_it++){
-      list<struct Effect*>::iterator effect = (*inf_it)->effect;
+    auto inf_it = influenced_by->begin();
+    for (; inf_it != influenced_by->end(); inf_it++){
+      auto effect = (*inf_it)->effect;
       Effect *f = *effect;
       (*effect)->node->effect_on->erase(effect);
       array_free((*inf_it)->comm_arr);
@@ -107,19 +107,19 @@ RuleNode::~RuleNode() {
       free(f);
     }
     // remove itself from all rules influenced by this rule and their flows
-    list<Effect *>::iterator eff_it;
-    list<Flow*>::iterator src_it;
-    for (eff_it = effect_on->begin(); eff_it != effect_on->end(); eff_it++) {
+    auto eff_it = effect_on->begin();
+    for (; eff_it != effect_on->end(); eff_it++) {
       list<struct Influence*>::iterator influence = (*eff_it)->influence;
       RuleNode *n = (*influence)->node;
       array_t *comm_arr = (*influence)->comm_arr;
       List_t ports = (*influence)->ports;
       free(*influence);
       n->influenced_by->erase(influence);
-      for (src_it = n->source_flow.begin(); src_it != n->source_flow.end();
+      auto src_it = n->source_flow.begin();
+      for (; src_it != n->source_flow.end();
           src_it++) {
         if (elem_in_sorted_list((*src_it)->in_port, ports)) {
-          n->process_src_flow_at_location(src_it,NULL);
+          n->process_src_flow_at_location(src_it, nullptr);
         }
       }
       array_free(comm_arr);
@@ -165,16 +165,16 @@ string RuleNode::influence_to_str() {
   char buf[70];
   char *s;
   result << "Effect On:\n";
-  list<Effect *>::iterator eff_it;
-  for (eff_it = effect_on->begin(); eff_it != effect_on->end(); eff_it++) {
-    list<struct Influence*>::iterator influence = (*eff_it)->influence;
+  auto eff_it = effect_on->begin();
+  for (; eff_it != effect_on->end(); eff_it++) {
+    auto influence = (*eff_it)->influence;
     sprintf(buf,"0x%lx",(*influence)->node->node_id);
     result << "\tRule " << buf << "\n";
   }
   result << "Influenced By:\n";
-  list<Influence *>::iterator inf_it;
-  for (inf_it = influenced_by->begin(); inf_it != influenced_by->end(); inf_it++) {
-    list<struct Effect*>::iterator effect = (*inf_it)->effect;
+  auto inf_it = influenced_by->begin();
+  for (; inf_it != influenced_by->end(); inf_it++) {
+    auto effect = (*inf_it)->effect;
     sprintf(buf,"0x%lx",(*effect)->node->node_id);
     s = array_to_str((*inf_it)->comm_arr,this->length,false);
     result << "\tRule " << buf << " (h,p) = [" << s << " , " <<
@@ -234,20 +234,22 @@ void RuleNode::process_src_flow(Flow *f) {
       return;
     }
     // diff higher priority rules
-    list<struct Influence*>::iterator it;
     f->processed_hs = hs_copy_a(f->hs_object);
-    for (it = influenced_by->begin(); it != influenced_by->end(); it++) {
+
+    auto it = influenced_by->begin();
+    for (; it != influenced_by->end(); it++) {
       if (!elem_in_sorted_list(f->in_port, (*it)->ports)) continue;
       hs_diff(f->processed_hs, (*it)->comm_arr);
     }
+
     // compress h.
     // if compress to empty, free f. else process it.
     if (!hs_compact_m(f->processed_hs,mask)) {
       hs_free(f->processed_hs);
-      f->processed_hs = NULL;
+      f->processed_hs = nullptr;
     } else {
       f->n_flows = new list< list<struct Flow*>::iterator >();
-      if (mask == NULL || rewrite == NULL) {
+      if (mask == nullptr || rewrite == nullptr) {
         propagate_src_flow_on_pipes(f_it);
       } else {
         hs_rewrite(f->processed_hs, mask, rewrite);
@@ -256,25 +258,27 @@ void RuleNode::process_src_flow(Flow *f) {
     }
 
   } else { // fresh start case
-    list<struct Pipeline*>::iterator it;
-    for (it = prev_in_pipeline.begin(); it != prev_in_pipeline.end(); it++) {
+    auto it = prev_in_pipeline.begin();
+    for (; it != prev_in_pipeline.end(); it++) {
       (*(*it)->r_pipeline)->node->
           propagate_src_flows_on_pipe((*it)->r_pipeline);
     }
   }
 }
+
+
 void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
                                             array_t *change) {
   Flow *f = *loc;
-  if (change && (mask == NULL || rewrite == NULL)) {
-    if (f->processed_hs == NULL) return;
+  if (change && (mask == nullptr || rewrite == nullptr)) {
+    if (f->processed_hs == nullptr) return;
     hs_diff(f->processed_hs, change);
   } else {
     if (f->processed_hs) hs_free(f->processed_hs);
     // diff higher priority rules
-    list<struct Influence*>::iterator it;
     f->processed_hs = hs_copy_a(f->hs_object);
-    for (it = influenced_by->begin(); it != influenced_by->end(); it++) {
+    auto it = influenced_by->begin();
+    for (; it != influenced_by->end(); it++) {
       if (!elem_in_sorted_list(f->in_port, (*it)->ports)) continue;
       hs_diff(f->processed_hs, (*it)->comm_arr);
     }
@@ -282,16 +286,16 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
   // compress h.
   // if compress to empty, free f. else process it.
   if (!hs_compact_m(f->processed_hs,mask)) {
-    f->node->absorb_src_flow(loc,true);
+    f->node->absorb_src_flow(loc, true);
     hs_free(f->processed_hs);
-    f->processed_hs = NULL;
+    f->processed_hs = nullptr;
   } else {
     if (!f->n_flows) f->n_flows = new list< list<struct Flow*>::iterator >();
-    if (mask == NULL || rewrite == NULL) {
-      repropagate_src_flow_on_pipes(loc,change);
+    if (mask == nullptr || rewrite == nullptr) {
+      repropagate_src_flow_on_pipes(loc, change);
     } else {
       hs_rewrite(f->processed_hs, mask, rewrite);
-      repropagate_src_flow_on_pipes(loc,NULL);
+      repropagate_src_flow_on_pipes(loc, nullptr);
     }
   }
 }
@@ -302,16 +306,18 @@ void RuleNode::subtract_infuences_from_flows() {
    * when a new rule is added, this function is called to updat the lower
    * priority flows.
    */
-  list<Effect*>::iterator eff_it;
-  list<Flow*>::iterator src_it;
-  for (eff_it = effect_on->begin(); eff_it != effect_on->end(); eff_it++) {
+  auto eff_it = effect_on->begin();
+  for (; eff_it != effect_on->end(); eff_it++) {
     RuleNode *n = (RuleNode *)(*(*eff_it)->influence)->node;
-    for (src_it = n->source_flow.begin(); src_it != n->source_flow.end();
-        src_it++) {
-      if (elem_in_sorted_list((*src_it)->in_port,
-                              (*(*eff_it)->influence)->ports)) {
-        n->process_src_flow_at_location(src_it,
-                                        (*(*eff_it)->influence)->comm_arr);
+
+    auto src_it = n->source_flow.begin();
+    for (; src_it != n->source_flow.end(); src_it++) {
+      if (elem_in_sorted_list(
+        (*src_it)->in_port, (*(*eff_it)->influence)->ports
+      )) {
+        n->process_src_flow_at_location(
+            src_it, (*(*eff_it)->influence)->comm_arr
+        );
       }
     }
   }
@@ -346,11 +352,8 @@ void RuleNode::enlarge(uint32_t length) {
 	if (this->inv_rw)
 		this->inv_rw = array_resize(this->inv_rw,this->length, length);
 	//Effect should not matter
-	for (
-        std::list<struct Influence*>::iterator it_influence = (*influenced_by).begin() ;
-        it_influence != (*influenced_by).end();
-        ++it_influence
-    ) {
+    auto it_influence = (*influenced_by).begin();
+	for (; it_influence != (*influenced_by).end(); ++it_influence) {
         struct Influence *inf = *it_influence;
 		if (inf->comm_arr && (length > inf->len)) {
             inf->comm_arr = array_resize(inf->comm_arr, inf->len, length);
