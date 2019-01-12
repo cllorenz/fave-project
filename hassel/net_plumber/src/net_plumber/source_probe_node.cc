@@ -67,7 +67,7 @@ SourceProbeNode::SourceProbeNode(void *n, int length, uint64_t node_id,
 {
   this->node_type = SOURCE_PROBE;
   this->match = array_create(length, BIT_X);
-  this->inv_match = NULL;
+  this->inv_match = nullptr;
   this->input_ports = ports;
   this->output_ports = make_sorted_list(0);
   if (probe_callback) this->probe_callback = probe_callback;
@@ -81,16 +81,15 @@ SourceProbeNode::~SourceProbeNode() {
 
 void SourceProbeNode::process_src_flow(Flow *f) {
   if (f) {
-    list<struct Flow*>::iterator f_it;
     source_flow.push_front(f);
-    f_it = source_flow.begin();
+    auto f_it = source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
     f->processed_hs = hs_copy_a(f->hs_object);
     hs_comp_diff(f->processed_hs);
     if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
-    list<struct Pipeline*>::iterator it;
-    for (it = prev_in_pipeline.begin(); it != prev_in_pipeline.end(); it++) {
+    auto it = prev_in_pipeline.begin();
+    for (; it != prev_in_pipeline.end(); it++) {
       (*(*it)->r_pipeline)->node->
           propagate_src_flows_on_pipe((*it)->r_pipeline);
     }
@@ -216,8 +215,8 @@ void SourceProbeNode::start_probe() {
   Event e = {START_SOURCE_PROBE,node_id,0};
   n->set_last_event(e);
   this->state = STARTED;
-  list<Flow*>::iterator it;
-  for (it = source_flow.begin(); it != source_flow.end(); it++) {
+  auto it = source_flow.begin();
+  for (; it != source_flow.end(); it++) {
     if (!filter->check(*it)) continue;
     bool c = test->check(*it);
     check_results[*it] = c;
@@ -230,9 +229,13 @@ void SourceProbeNode::start_probe() {
     }
   }
   if (mode == EXISTENTIAL && cond_count == 0)
-    probe_callback(this->plumber,this,NULL,probe_callback_data,STARTED_FALSE);
+    probe_callback(
+      this->plumber, this, nullptr, probe_callback_data, STARTED_FALSE
+    );
   else if (mode == UNIVERSAL && cond_count == 0)
-    probe_callback(this->plumber,this,NULL,probe_callback_data,STARTED_TRUE);
+    probe_callback(
+      this->plumber, this, nullptr, probe_callback_data, STARTED_TRUE
+    );
   this->state = RUNNING;
 }
 
