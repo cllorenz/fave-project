@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
   int hdr_len = 1;
   string server_address;
   int server_port = 0;
-  array_t *filter = NULL;
+  array_t *filter = nullptr;
 
   for (int i = 1; i < argc; i++) {
     if ( strcmp(argv[i] , "--help") == 0 ) {
