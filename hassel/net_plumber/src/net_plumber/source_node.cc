@@ -30,7 +30,7 @@ SourceNode::SourceNode(void *n, int length, uint64_t node_id, hs *hs_object,
                        List_t ports)
   : Node(n,length,node_id) {
   this->node_type = SOURCE;
-  this->match = NULL;
+  this->match = nullptr;
   this->inv_match = array_create(length, BIT_X);
   this->output_ports = ports;
   this->input_ports = make_sorted_list(0);
