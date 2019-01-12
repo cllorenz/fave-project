@@ -82,7 +82,6 @@ struct Event {
 };
 
 struct Slice {
-  //uint64_t net_space_id;
   struct hs *net_space;
   std::list<struct Pipeline*> pipes;
 };
