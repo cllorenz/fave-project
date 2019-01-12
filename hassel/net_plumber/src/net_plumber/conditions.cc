@@ -24,9 +24,8 @@
 using namespace std;
 
 PathCondition::~PathCondition() {
-  list<PathSpecifier*>::iterator it;
-  for (it = pathlets.begin(); it != pathlets.end(); it++) {
-    delete *it;
+  for (auto &it: pathlets) {
+    delete it;
   }
 }
 
@@ -42,8 +41,8 @@ bool PathCondition::check(Flow *f) {
   }
   return true;
 */
-  stack<pair<list<PathSpecifier*>::iterator,Flow*> >decision_points;
-  list<PathSpecifier*>::iterator it = pathlets.begin();
+  stack<pair<list<PathSpecifier*>::iterator, Flow*> >decision_points;
+  auto it = pathlets.begin();
   while (it != pathlets.end()) {
     // case 1: end of flow and no alternatives -> path does not meet spec, final decline
     if (!f && decision_points.empty()) {
@@ -51,7 +50,7 @@ bool PathCondition::check(Flow *f) {
 
     // case 2: end of flow but still alternatives open -> jump to decision point and continue with next alternative
     } else if (!f && !decision_points.empty()) {
-      pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
+      auto dp = decision_points.top();
       decision_points.pop();
       it = dp.first;
       f = dp.second;
@@ -70,7 +69,7 @@ bool PathCondition::check(Flow *f) {
 
         // case: path does not meet spec but still alternatives open -> jump to decision point, do one step, and retry
         } else if (!c && !decision_points.empty()) {
-          pair<list<PathSpecifier*>::iterator,Flow*> dp = decision_points.top();
+          auto dp = decision_points.top();
           decision_points.pop();
           it = dp.first;
           f = dp.second;
@@ -90,8 +89,8 @@ bool PathCondition::check(Flow *f) {
 string PathCondition::to_string() {
   stringstream res;
   res << "path ~ \"";
-  list<PathSpecifier*>::iterator it;
-  for (it = pathlets.begin(); it != pathlets.end(); it++) {
+  auto it = pathlets.begin();
+  for (; it != pathlets.end(); it++) {
     res << (*it)->to_string();
   }
   res << "\"";
@@ -193,7 +192,7 @@ string NextTablesSpecifier::to_string() {
 
 
 bool LastPortsSpecifier::check_and_move(Flow* &f) {
-  Flow *prev = NULL;
+  Flow *prev = nullptr;
   while (f->p_flow != f->node->get_EOSFI()) {
     prev = f;
     f = *f->p_flow;
@@ -213,7 +212,7 @@ string LastPortsSpecifier::to_string() {
 }
 
 bool LastTablesSpecifier::check_and_move(Flow* &f) {
-  Flow *prev = NULL;
+  Flow *prev = nullptr;
   while (f->p_flow != f->node->get_EOSFI()) {
     prev = f;
     f = *f->p_flow;
@@ -300,11 +299,8 @@ void PathCondition::to_json(Json::Value& res) {
   res["type"] = "path";
 
   Json::Value pathlets(Json::arrayValue);
-  for (
-    std::list<PathSpecifier*>::iterator it = this->pathlets.begin();
-    it != this->pathlets.end();
-    it++
-  ) {
+  auto it = this->pathlets.begin();
+  for (; it != this->pathlets.end(); it++) {
     Json::Value pathlet(Json::objectValue);
     (*it)->to_json(pathlet);
     pathlets.append(pathlet);
