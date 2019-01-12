@@ -41,7 +41,7 @@ List_t make_unsorted_list(uint32_t count,...) {
     result.list = (uint32_t *)malloc(count * sizeof(uint32_t));
   else
     result.list = NULL;
-  for (uint32_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     result.list[i] = va_arg(ports,uint32_t);
   }
   va_end(ports);
@@ -56,7 +56,7 @@ List_t make_sorted_list_from_array (uint32_t count, uint32_t elems[]) {
     result.list = (uint32_t *)malloc(count * sizeof(uint32_t));
   else
     result.list = NULL;
-  for (uint32_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     result.list[i] = elems[i];
   }
   qsort(result.list, result.size, sizeof(uint32_t), compare);
@@ -73,7 +73,7 @@ List_t make_sorted_list(uint32_t count,...) {
     result.list = (uint32_t *)malloc(count * sizeof(uint32_t));
   else
     result.list = NULL;
-  for (uint32_t i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     result.list[i] = va_arg(ports,uint32_t);
   }
   va_end(ports);
@@ -116,7 +116,7 @@ List_t intersect_sorted_lists(List_t a, List_t b) {
 std::string list_to_string(List_t p) {
   stringstream result;
   result << "( ";
-  for (uint32_t i = 0; i < p.size; i++) {
+  for (size_t i = 0; i < p.size; i++) {
     result << p.list[i] << " ";
   }
   result << ")";
@@ -150,7 +150,7 @@ bool elem_in_sorted_list(uint32_t elem, List_t list) {
 }
 
 bool elem_in_unsorted_list(uint32_t elem, List_t list) {
-  for (uint32_t i = 0; i < list.size; i++) {
+  for (size_t i = 0; i < list.size; i++) {
     if (elem == list.list[i]) return true;
   }
   return false;
@@ -159,7 +159,7 @@ bool elem_in_unsorted_list(uint32_t elem, List_t list) {
 Json::Value list_to_json(List_t list) {
     Json::Value res(Json::arrayValue);
 
-    for (uint32_t i = 0; i < list.size; i++) {
+    for (size_t i = 0; i < list.size; i++) {
         Json::Value elem(Json::uintValue);
         elem = list.list[i];
         res.append(elem);
@@ -174,17 +174,17 @@ void hs_to_json(Json::Value& res, hs *h) {
     Json::Value diff(Json::arrayValue);
 
     hs_vec vec = h->list;
-    int list_used = 0;
+    size_t list_used = 0;
     if (vec.used) list_used = vec.used;
-    for (int i = 0; i < list_used; i++) {
+    for (size_t i = 0; i < list_used; i++) {
         char *elem = array_to_str(vec.elems[i],h->len,false);
         list.append( (Json::StaticString)elem );
         free(elem);
     }
 
-    int diff_used = 0;
+    size_t diff_used = 0;
     if (vec.diff && vec.diff->used) diff_used = vec.diff->used;
-    for (int i = 0; i < diff_used; i++) {
+    for (size_t i = 0; i < diff_used; i++) {
         char *elem = array_to_str(vec.diff->elems[i],h->len,false);
         diff.append( (Json::StaticString)elem );
         free(elem);
