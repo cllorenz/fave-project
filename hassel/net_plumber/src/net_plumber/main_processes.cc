@@ -56,8 +56,8 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
   //read every json file.
   struct dirent *ent;
   DIR *dir = opendir(json_file_path.c_str());
-  if (dir != NULL) {
-    while ((ent = readdir(dir)) != NULL ) {
+  if (dir != nullptr) {
+    while ((ent = readdir(dir)) != nullptr ) {
       file_name = string(ent->d_name);
       if (file_name.find(".rules.json") != string::npos ||
           file_name.find(".tf.json") != string::npos) {
@@ -134,7 +134,7 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
 }
 
 void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
-  printf("Loading policy file %s\n",json_policy_file.c_str());
+  printf("Loading policy file %s\n", json_policy_file.c_str());
   time_t start, end;
   ifstream jsfile;
   Json::Value root;
@@ -149,7 +149,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   reader.parse(jsfile,root,false);
   Json::Value commands = root["commands"];
   start = clock();
-  for (int i = 0; i < (int)commands.size(); i++) {
+  for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
       hs *tmp = val_to_hs(commands[i]["params"]["hs"], N->get_length());
@@ -169,7 +169,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
           ? UNIVERSAL : EXISTENTIAL;
       Condition *filter = val_to_cond(commands[i]["params"]["filter"], N->get_length());
       Condition *test = val_to_cond(commands[i]["params"]["test"], N->get_length());
-      N->add_source_probe(ports, mode, filter, test, NULL, NULL);
+      N->add_source_probe(ports, mode, filter, test, nullptr, nullptr);
     } else if (type == "add_link") {
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
       uint32_t to_port = commands[i]["params"]["to_port"].asUInt();
