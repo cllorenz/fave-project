@@ -89,9 +89,8 @@ bool PathCondition::check(Flow *f) {
 string PathCondition::to_string() {
   stringstream res;
   res << "path ~ \"";
-  auto it = pathlets.begin();
-  for (; it != pathlets.end(); it++) {
-    res << (*it)->to_string();
+  for (auto const &it: pathlets) {
+    res << (*it).to_string();
   }
   res << "\"";
   return res.str();
@@ -299,10 +298,9 @@ void PathCondition::to_json(Json::Value& res) {
   res["type"] = "path";
 
   Json::Value pathlets(Json::arrayValue);
-  auto it = this->pathlets.begin();
-  for (; it != this->pathlets.end(); it++) {
+  for (auto const it: this->pathlets) {
     Json::Value pathlet(Json::objectValue);
-    (*it)->to_json(pathlet);
+    (*it).to_json(pathlet);
     pathlets.append(pathlet);
   }
   res["pathlets"] = pathlets;
