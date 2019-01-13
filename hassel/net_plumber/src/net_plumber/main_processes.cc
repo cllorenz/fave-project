@@ -47,7 +47,7 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
   }
   reader.parse(jsfile,root,false);
   Json::Value topology = root["topology"];
-  for (unsigned i = 0; i < topology.size(); i++) {
+  for (Json::ArrayIndex i = 0; i < topology.size(); i++) {
     N->add_link(topology[i]["src"].asInt(),topology[i]["dst"].asInt());
   }
   N->print_topology();
@@ -76,7 +76,7 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
         N->add_table(table_id,val_to_list(ports));
 
         // add the rules
-        for (unsigned i = 0; i < rules.size(); i++) {
+        for (Json::ArrayIndex i = 0; i < rules.size(); i++) {
           long run_time = 0;
           rule_counter++;
           string action = rules[i]["action"].asString();
@@ -104,7 +104,7 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
           } else if (action == "multipath") {
             Json::Value mp_rules = rules[i]["rules"];
             uint64_t group = 0;
-            for (unsigned i = 0; i < mp_rules.size(); i++) {
+            for (Json::ArrayIndex i = 0; i < mp_rules.size(); i++) {
               string action = mp_rules[i]["action"].asString();
               if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
                 uint64_t id = N->add_rule_to_group(
