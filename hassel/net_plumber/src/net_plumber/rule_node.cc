@@ -96,8 +96,11 @@ RuleNode::~RuleNode() {
   // remove itself from all rules influencing on it and free its
   // influenced_by struct. In case of group rules, only o this for the lead.
   if (group == 0 || group == node_id) {
-    auto inf_it = influenced_by->begin();
-    for (; inf_it != influenced_by->end(); inf_it++){
+    for (
+        auto inf_it = influenced_by->begin();
+        inf_it != influenced_by->end();
+        inf_it++
+    ){
       auto effect = (*inf_it)->effect;
       Effect *f = *effect;
       (*effect)->node->effect_on->erase(effect);
@@ -107,17 +110,22 @@ RuleNode::~RuleNode() {
       free(f);
     }
     // remove itself from all rules influenced by this rule and their flows
-    auto eff_it = effect_on->begin();
-    for (; eff_it != effect_on->end(); eff_it++) {
+    for (
+        auto eff_it = effect_on->begin();
+        eff_it != effect_on->end();
+        eff_it++
+    ) {
       list<struct Influence*>::iterator influence = (*eff_it)->influence;
       RuleNode *n = (*influence)->node;
       array_t *comm_arr = (*influence)->comm_arr;
       List_t ports = (*influence)->ports;
       free(*influence);
       n->influenced_by->erase(influence);
-      auto src_it = n->source_flow.begin();
-      for (; src_it != n->source_flow.end();
-          src_it++) {
+      for (
+        auto src_it = n->source_flow.begin();
+        src_it != n->source_flow.end();
+        src_it++
+      ) {
         if (elem_in_sorted_list((*src_it)->in_port, ports)) {
           n->process_src_flow_at_location(src_it, nullptr);
         }
@@ -236,8 +244,7 @@ void RuleNode::process_src_flow(Flow *f) {
     // diff higher priority rules
     f->processed_hs = hs_copy_a(f->hs_object);
 
-    auto it = influenced_by->begin();
-    for (; it != influenced_by->end(); it++) {
+    for (auto it = influenced_by->begin(); it != influenced_by->end(); it++) {
       if (!elem_in_sorted_list(f->in_port, (*it)->ports)) continue;
       hs_diff(f->processed_hs, (*it)->comm_arr);
     }
@@ -258,8 +265,11 @@ void RuleNode::process_src_flow(Flow *f) {
     }
 
   } else { // fresh start case
-    auto it = prev_in_pipeline.begin();
-    for (; it != prev_in_pipeline.end(); it++) {
+    for (
+        auto it = prev_in_pipeline.begin();
+        it != prev_in_pipeline.end();
+        it++
+    ) {
       (*(*it)->r_pipeline)->node->
           propagate_src_flows_on_pipe((*it)->r_pipeline);
     }
@@ -277,8 +287,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
     if (f->processed_hs) hs_free(f->processed_hs);
     // diff higher priority rules
     f->processed_hs = hs_copy_a(f->hs_object);
-    auto it = influenced_by->begin();
-    for (; it != influenced_by->end(); it++) {
+    for (auto it = influenced_by->begin(); it != influenced_by->end(); it++) {
       if (!elem_in_sorted_list(f->in_port, (*it)->ports)) continue;
       hs_diff(f->processed_hs, (*it)->comm_arr);
     }
@@ -306,12 +315,14 @@ void RuleNode::subtract_infuences_from_flows() {
    * when a new rule is added, this function is called to updat the lower
    * priority flows.
    */
-  auto eff_it = effect_on->begin();
-  for (; eff_it != effect_on->end(); eff_it++) {
+  for (auto eff_it = effect_on->begin(); eff_it != effect_on->end(); eff_it++) {
     RuleNode *n = (RuleNode *)(*(*eff_it)->influence)->node;
 
-    auto src_it = n->source_flow.begin();
-    for (; src_it != n->source_flow.end(); src_it++) {
+    for (
+        auto src_it = n->source_flow.begin();
+        src_it != n->source_flow.end();
+        src_it++
+    ) {
       if (elem_in_sorted_list(
         (*src_it)->in_port, (*(*eff_it)->influence)->ports
       )) {
@@ -352,8 +363,11 @@ void RuleNode::enlarge(uint32_t length) {
 	if (this->inv_rw)
 		this->inv_rw = array_resize(this->inv_rw,this->length, length);
 	//Effect should not matter
-    auto it_influence = (*influenced_by).begin();
-	for (; it_influence != (*influenced_by).end(); ++it_influence) {
+	for (
+        auto it_influence = (*influenced_by).begin();
+        it_influence != (*influenced_by).end();
+        ++it_influence
+    ) {
         struct Influence *inf = *it_influence;
 		if (inf->comm_arr && (length > inf->len)) {
             inf->comm_arr = array_resize(inf->comm_arr, inf->len, length);
