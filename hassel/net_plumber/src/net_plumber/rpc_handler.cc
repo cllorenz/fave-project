@@ -40,12 +40,12 @@ LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
 array_t *val_to_array(const Json::Value &val) {
   if (val.isNull()) {
-    return NULL;
+    return nullptr;
   }
   const char *v = val.asCString();
 
   if (strlen(v) == 0) {
-        return NULL;
+        return nullptr;
   }
 
   return array_from_str(v);
@@ -72,7 +72,7 @@ hs *val_to_hs(const Json::Value &val, int len) {
 
 List_t val_to_list(const Json::Value &val) {
   uint32_t elems[val.size()];
-  for (unsigned i = 0; i < val.size(); i++)
+  for (Json::Value::ArrayIndex i = 0; i < val.size(); i++)
     elems[i] = val[i].asUInt();
   return make_sorted_list_from_array(val.size(),elems);
 }
@@ -82,7 +82,7 @@ Condition *val_to_path(const Json::Value &pathlets) {
   for (Json::Value::ArrayIndex i = 0; i < pathlets.size(); i++) {
     const Json::Value &val = pathlets[i];
     const char *type = val["type"].asCString();
-    PathSpecifier *p = NULL;
+    PathSpecifier *p = nullptr;
     if (!strcasecmp(type, "port")) p = new PortSpecifier(val["port"].asUInt());
     else if (!strcasecmp(type, "table")) p = new TableSpecifier(val["table"].asUInt());
     else if (!strncasecmp(type, "next", 4) || !strncasecmp(type, "last", 4)) {
@@ -102,7 +102,7 @@ Condition *val_to_path(const Json::Value &pathlets) {
 }
 
 Condition *val_to_cond(const Json::Value &val, int length) {
-  if (val.isNull()) return NULL;
+  if (val.isNull()) return nullptr;
   const char *type = val["type"].asCString();
   if (!strcasecmp(type, "true")) return new TrueCondition();
   if (!strcasecmp(type, "false")) return new FalseCondition();
@@ -115,7 +115,7 @@ Condition *val_to_cond(const Json::Value &val, int length) {
     if (!strcasecmp(type, "and")) return new AndCondition(c1, c2);
     else return new OrCondition(c1, c2);
   }
-  return NULL;
+  return nullptr;
 }
 
 ACTION_TYPE val_to_action(const char *action) {
@@ -160,8 +160,8 @@ void RpcHandler::initServer (Server *server) {
     FN(stop),
     FN(expand)
   };
-  int n = sizeof methods / sizeof *methods;
-  for (int i = 0; i < n; i++)
+  size_t n = sizeof methods / sizeof *methods;
+  for (size_t i = 0; i < n; i++)
     server->AddMethod (new RpcMethod<RpcHandler> (*this, methods[i].fn, methods[i].name));
 #undef FN
 }
@@ -216,13 +216,13 @@ PROTO(init)
 
 PROTO(destroy)
   delete netPlumber;
-  netPlumber = NULL;
+  netPlumber = nullptr;
   RETURN(VOID);
 }
 
 PROTO(stop)
   delete netPlumber;
-  netPlumber = NULL;
+  netPlumber = nullptr;
   raise(SIGTERM);
   RETURN(VOID);
 }
@@ -298,7 +298,9 @@ PROTO(add_source_probe)
   PROBE_MODE mode = !strcasecmp(PARAM(mode).asCString(), "universal") ? UNIVERSAL : EXISTENTIAL;
   Condition *filter = val_to_cond(PARAM(filter), length);
   Condition *test = val_to_cond(PARAM(test), length);
-  uint64_t ret = netPlumber->add_source_probe(ports, mode, filter, test, NULL, NULL);
+  uint64_t ret = netPlumber->add_source_probe(
+    ports, mode, filter, test, nullptr, nullptr
+  );
   RETURN((Json::UInt64) ret);
 }
 
@@ -420,7 +422,7 @@ PROTO(remove_policy_rule)
 #ifdef POLICY_PROBES
 PROTO(add_policy_probe)
     List_t ports = val_to_list(PARAM(ports));
-    uint64_t ret = netPlumber->add_policy_probe_node(ports,NULL,NULL);
+    uint64_t ret = netPlumber->add_policy_probe_node(ports, nullptr, nullptr);
     RETURN((Json::Value::UInt64) ret);
 }
 #endif
