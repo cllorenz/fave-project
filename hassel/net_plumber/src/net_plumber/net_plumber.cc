@@ -150,11 +150,10 @@ string get_event_name(EVENT_TYPE t) {
 
 void NetPlumber::free_group_memory(uint32_t table, uint64_t group) {
   list<RuleNode*>* rules_list = table_to_nodes[table];
-  list<RuleNode*>::iterator it,tmp;
-  for ( it=rules_list->begin() ; it != rules_list->end(); ) {
+  for (auto it=rules_list->begin() ; it != rules_list->end(); ) {
     if ((*it)->group == group) {
       free_rule_memory(*it,false);
-      tmp = it; it++;
+      auto tmp = it; it++;
       rules_list->erase(tmp);
     } else it++;
   }
@@ -171,8 +170,7 @@ void NetPlumber::free_table_memory(uint32_t table) {
   if (table_to_nodes.count(table) > 0) {
     table_to_last_id.erase(table);
     list<RuleNode*>* rules_list = table_to_nodes[table];
-    list<RuleNode*>::iterator it;
-    for ( it=rules_list->begin() ; it != rules_list->end(); it++ ) {
+    for (auto it = rules_list->begin() ; it != rules_list->end(); it++ ) {
       free_rule_memory(*it,false);
     }
     table_to_nodes.erase(table);
@@ -224,7 +222,6 @@ void NetPlumber::clear_port_to_node_maps(Node *n) {
 void NetPlumber::set_table_dependency(RuleNode *r) {
   if (r->group != 0 && r->group != r->node_id) return; //escape non-group-lead
   list<RuleNode*>* rules_list = table_to_nodes[r->table];
-  list<RuleNode*>::iterator it;
   bool seen_rule = false;
   bool checked_rs = false;
 
@@ -233,7 +230,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 
   struct hs aggr_hs = {this->length,{0}};
 
-  for (it=rules_list->begin() ; it != rules_list->end(); it++) {
+  for (auto it = rules_list->begin() ; it != rules_list->end(); it++) {
     if ((*it)->node_id == r->node_id) {
 
       // check reachability and shadowing
@@ -331,8 +328,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*> *potential_next_rules =
           get_nodes_with_inport(end_ports->at(j));
       if (!potential_next_rules) continue;
-      list<Node*>::iterator it;
-      for (it = potential_next_rules->begin();
+      for (auto it = potential_next_rules->begin();
            it != potential_next_rules->end(); it++) {
         array_t *pipe_arr;
 #ifdef FIREWALL_RULES
@@ -384,8 +380,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*> *potential_prev_rules =
           get_nodes_with_outport(orig_ports->at(j));
       if (!potential_prev_rules) continue;
-      list<Node*>::iterator it;
-      for (it = potential_prev_rules->begin();
+      for (auto it = potential_prev_rules->begin();
            it != potential_prev_rules->end(); it++) {
         array_t *pipe_arr;
 #ifdef FIREWALL_RULES
@@ -587,8 +582,7 @@ NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
 }
 
 NetPlumber::~NetPlumber() {
-  list<Node*>::iterator p_it;
-  for (p_it = probes.begin(); p_it != probes.end(); p_it++) {
+  for (auto p_it = probes.begin(); p_it != probes.end(); p_it++) {
     if ((*p_it)->get_type() == SOURCE_PROBE) {
       ((SourceProbeNode*)(*p_it))->stop_probe();
     } else if ((*p_it)->get_type() == POLICY_PROBE) {
@@ -597,22 +591,19 @@ NetPlumber::~NetPlumber() {
     clear_port_to_node_maps(*p_it);
     delete *p_it;
   }
-  map< uint32_t, std::vector<uint32_t>* >::iterator it;
-  for (it = topology.begin(); it != topology.end(); it++ ){
+  for (auto it = topology.begin(); it != topology.end(); it++ ){
     delete (*it).second;
   }
-  for (it = inv_topology.begin(); it != inv_topology.end(); it++ ){
+  for (auto it = inv_topology.begin(); it != inv_topology.end(); it++ ){
     delete (*it).second;
   }
-  map< uint32_t,std::list<RuleNode*>* >::iterator it2,tmp2;
-  for (it2 = table_to_nodes.begin(); it2 != table_to_nodes.end(); ){
-    tmp2 = it2;
-    tmp2++;
-    free_table_memory((*it2).first);
-    it2 = tmp2;
+  for (auto it = table_to_nodes.begin(); it != table_to_nodes.end(); ){
+    auto tmp = it;
+    tmp++;
+    free_table_memory((*it).first);
+    it = tmp;
   }
-  list<Node*>::iterator s_it;
-  for (s_it = flow_nodes.begin(); s_it != flow_nodes.end(); s_it++) {
+  for (auto s_it = flow_nodes.begin(); s_it != flow_nodes.end(); s_it++) {
     clear_port_to_node_maps(*s_it);
     delete *s_it;
   }
@@ -653,10 +644,17 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
   // pipeline update
   list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
   list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
-  list<Node*>::iterator src_it,dst_it;
   if (src_rules && dst_rules) {
-    for (src_it = src_rules->begin(); src_it != src_rules->end(); src_it++) {
-      for (dst_it = dst_rules->begin(); dst_it != dst_rules->end(); dst_it++) {
+    for (
+        auto src_it = src_rules->begin();
+        src_it != src_rules->end();
+        src_it++
+    ) {
+      for (
+          auto dst_it = dst_rules->begin();
+          dst_it != dst_rules->end();
+          dst_it++
+      ) {
         array_t *pipe_arr = array_isect_a((*src_it)->inv_match,
                                          (*dst_it)->match,
                                          length);
@@ -698,24 +696,24 @@ void NetPlumber::remove_link(uint32_t from_port, uint32_t to_port) {
     // remove plumbing
     list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
     list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
-    list<Node*>::iterator src_it;
     if (src_rules && dst_rules) {
-      for (src_it = src_rules->begin(); src_it != src_rules->end(); src_it++) {
+      for (
+        auto src_it = src_rules->begin(); src_it != src_rules->end(); src_it++
+      ) {
         (*src_it)->remove_link_pipes(from_port,to_port);
       }
     }
 
     // update topology and inv_topology
-    vector<uint32_t>::iterator it;
     vector<uint32_t> *v = topology[from_port];
     vector<uint32_t> *v_inv = inv_topology[to_port];
-    for (it = v->begin(); it != v->end(); it++) {
+    for (auto it = v->begin(); it != v->end(); it++) {
       if ((*it) == to_port) {
         v->erase(it);
         break;
       }
     }
-    for (it = v_inv->begin(); it != v_inv->end(); it++) {
+    for (auto it = v_inv->begin(); it != v_inv->end(); it++) {
       if ((*it) == to_port) {
         v->erase(it);
         break;
@@ -741,8 +739,7 @@ vector<uint32_t> *NetPlumber::get_src_ports(uint32_t dst_port) {
 }
 
 void NetPlumber::print_topology() {
-  map< uint32_t, std::vector<uint32_t>* >::iterator it;
-  for (it = topology.begin(); it != topology.end(); it++ ){
+  for (auto it = topology.begin(); it != topology.end(); it++ ){
     printf("%u --> ( ",(*it).first);
     for (size_t i = 0; i < (*it).second->size(); i++) {
       printf("%u ",(*it).second->at(i));
@@ -787,11 +784,10 @@ void NetPlumber::print_table(uint32_t id) {
   printf("%sTable: 0x%x\n",string(4, ' ').c_str(),id);
   printf("%s\n",string(40,'@').c_str());
   list<RuleNode*>* rules_list = table_to_nodes[id];
-  list<RuleNode*>::iterator it;
   List_t ports = this->table_to_ports[id];
   printf("Ports: %s\n",list_to_string(ports).c_str());
   printf("Rules:\n");
-  for ( it=rules_list->begin() ; it != rules_list->end(); it++ ) {
+  for (auto it=rules_list->begin() ; it != rules_list->end(); it++ ) {
     printf("%s\n",(*it)->to_string().c_str());
   }
 }
@@ -814,7 +810,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
       if (index < 0 || index >= (int)this->table_to_nodes[table]->size()) {
         this->table_to_nodes[table]->push_back(r);
       } else {
-        list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+        auto it = table_to_nodes[table]->begin();
         for (int i=0; i < index; i++, it++);
         this->table_to_nodes[table]->insert(it,r);
       }
@@ -835,7 +831,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
                        match, mask, rw);
       this->id_to_node[id] = r;
       // insert rule after its lead group rule
-      list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+      auto it = table_to_nodes[table]->begin();
       for (; (*it)->node_id != gid; it++);
       this->table_to_nodes[table]->insert(++it,r);
       this->last_event.type = ADD_RULE;
@@ -887,7 +883,7 @@ uint64_t NetPlumber::_add_fw_rule(uint32_t table,int index,
       if (index < 0 || index >= (int)this->table_to_nodes[table]->size()) {
         this->table_to_nodes[table]->push_back(r);
       } else {
-        list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+        auto it = table_to_nodes[table]->begin();
         for (int i=0; i < index; i++, it++);
         this->table_to_nodes[table]->insert(it,r);
       }
@@ -908,7 +904,7 @@ uint64_t NetPlumber::_add_fw_rule(uint32_t table,int index,
                        fw_match);
       this->id_to_node[id] = r;
       // insert rule after its lead group rule
-      list<RuleNode*>::iterator it = table_to_nodes[table]->begin();
+      auto it = table_to_nodes[table]->begin();
       for (; (*it)->node_id != gid; it++);
       this->table_to_nodes[table]->insert(++it,r);
       this->last_event.type = ADD_FW_RULE;
@@ -979,7 +975,8 @@ uint64_t NetPlumber::add_fw_rule_to_group(uint32_t table,int index, List_t in_po
 }
 
 void NetPlumber::remove_fw_rule(uint64_t rule_id) {
-  if (id_to_node.count(rule_id) > 0 && id_to_node[rule_id]->get_type() == FIREWALL_RULE){
+  if (id_to_node.count(rule_id) > 0 && id_t../src/net_plumber/net_plumber.cc:597:8: Fehler: »it« wurde in diesem Gültigkeitsbereich nicht definiert
+o_node[rule_id]->get_type() == FIREWALL_RULE){
     this->last_event.type = REMOVE_FW_RULE;
     this->last_event.id1 = rule_id;
     FirewallRuleNode *r = (FirewallRuleNode *)id_to_node[rule_id];
@@ -1041,7 +1038,7 @@ uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
 size_t NetPlumber::expand(size_t length) {
   if (length > this->length) {
     for (
-      std::map<uint64_t,Node*>::iterator it_nodes = id_to_node.begin() ;
+      auto it_nodes = id_to_node.begin() ;
       it_nodes != id_to_node.end();
       ++it_nodes
     ) {//should contain all flows, probes and rules
@@ -1082,7 +1079,7 @@ uint64_t NetPlumber::add_source(hs *hs_object, List_t ports) {
   this->last_event.id1 = node_id;
   this->set_port_to_node_maps(s);
   this->set_node_pipelines(s);
-  s->process_src_flow(NULL);
+  s->process_src_flow(nullptr);
   return node_id;
 }
 
@@ -1165,22 +1162,20 @@ list<Node*>* NetPlumber::get_nodes_with_inport(uint32_t inport) {
 }
 
 void NetPlumber::print_plumbing_network() {
-  map<uint32_t,std::list<RuleNode*>* >::iterator it;
-  for (it = table_to_nodes.begin(); it != table_to_nodes.end(); it++) {
+  for (auto it = table_to_nodes.begin(); it != table_to_nodes.end(); it++) {
     this->print_table((*it).first);
   }
   printf("%s\n",string(40,'@').c_str());
   printf("%sSources and Sinks\n",string(4, ' ').c_str());
   printf("%s\n",string(40,'@').c_str());
-  list<Node *>::iterator it2;
-  for (it2 = flow_nodes.begin(); it2 != flow_nodes.end(); it2++) {
-    printf("%s\n",(*it2)->to_string().c_str());
+  for (auto it = flow_nodes.begin(); it != flow_nodes.end(); it++) {
+    printf("%s\n",(*it)->to_string().c_str());
   }
   printf("%s\n",string(40,'@').c_str());
   printf("%sProbes\n",string(4, ' ').c_str());
   printf("%s\n",string(40,'@').c_str());
-  for (it2 = probes.begin(); it2 != probes.end(); it2++) {
-    printf("%s\n",(*it2)->to_string().c_str());
+  for (auto it = probes.begin(); it != probes.end(); it++) {
+    printf("%s\n",(*it)->to_string().c_str());
   }
 }
 
@@ -1240,7 +1235,6 @@ void NetPlumber::get_source_flow_stats(uint64_t node_id, int &inc, int &exc) {
 }
 
 void NetPlumber::save_dependency_graph(string file_name) {
-  map<uint64_t,Node*>::iterator it;
   Json::Value root(Json::objectValue);
   Json::Value nodes(Json::arrayValue);
   Json::Value links(Json::arrayValue);
@@ -1248,7 +1242,7 @@ void NetPlumber::save_dependency_graph(string file_name) {
   int count = 0;
   root["nodes"] = nodes;
   root["links"] = links;
-  for (it = id_to_node.begin(); it != id_to_node.end(); it++) {
+  for (auto it = id_to_node.begin(); it != id_to_node.end(); it++) {
     stringstream s;
     s << (*it).first;
     Json::Value node(Json::objectValue);
@@ -1259,13 +1253,15 @@ void NetPlumber::save_dependency_graph(string file_name) {
     ordering[(*it).first] = count;
     count++;
   }
-  for (it = id_to_node.begin(); it != id_to_node.end(); it++) {
+  for (auto it = id_to_node.begin(); it != id_to_node.end(); it++) {
     stringstream s1,s2;
     s1 << (*it).first;
     Node *n = (*it).second;
-    list<struct Pipeline*>::iterator pit;
-    for (pit = n->next_in_pipeline.begin(); pit != n->next_in_pipeline.end();
-         pit++){
+    for (
+        auto pit = n->next_in_pipeline.begin();
+        pit != n->next_in_pipeline.end();
+        pit++
+    ){
       Node *other_n = (*(*pit)->r_pipeline)->node;
       s2 << other_n->node_id;
       Json::Value link(Json::objectValue);
@@ -1295,12 +1291,12 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     Json::Value topology(Json::arrayValue);
 
     for (
-            std::map< uint32_t, std::vector<uint32_t>* >::iterator s_it = this->topology.begin();
+            auto s_it = this->topology.begin();
             s_it != this->topology.end();
             s_it++
     ) {
         for (
-                std::vector<uint32_t>::iterator d_it = (*s_it).second->begin();
+                auto d_it = (*s_it).second->begin();
                 d_it != (*s_it).second->end();
                 d_it++
         ) {
@@ -1326,7 +1322,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     topo_file.close();
 
     for (
-        std::map<uint32_t,std::list<RuleNode*>* >::iterator t_it = this->table_to_nodes.begin();
+        auto t_it = this->table_to_nodes.begin();
         t_it != this->table_to_nodes.end();
         t_it++
     ) {
@@ -1349,7 +1345,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
         Json::Value rules(Json::arrayValue);
         uint64_t rule_index = 1;
         for (
-            list<RuleNode*>::iterator r_it = (*t_it).second->begin();
+            auto r_it = (*t_it).second->begin();
             r_it != (*t_it).second->end();
             r_it++
         ) {
@@ -1408,7 +1404,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     Json::Value commands(Json::arrayValue);
 
     for (
-        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        auto it = this->flow_nodes.begin();
         it != this->flow_nodes.end();
         it++
     ) {
@@ -1436,7 +1432,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     }
 
     for (
-        std::list<Node *>::iterator it = this->probes.begin();
+        auto it = this->probes.begin();
         it != this->probes.end();
         it++
     ) {
@@ -1492,7 +1488,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
     if (flow->n_flows && !flow->n_flows->empty()) { // traverse flows to their end
         for (
-            list<list<struct Flow*>::iterator>::iterator n_flow = flow->n_flows->begin();
+            auto n_flow = flow->n_flows->begin();
             n_flow != flow->n_flows->end();
             n_flow++
         ) {
@@ -1516,7 +1512,7 @@ void traverse_flow_tree(
     list<list<struct Flow *>::iterator> *n_flows
 ) {
     for (
-        list<list<struct Flow *>::iterator>::iterator it = n_flows->begin();
+        auto it = n_flows->begin();
         it != n_flows->end();
         it++
     ) {
@@ -1542,13 +1538,13 @@ void NetPlumber::dump_flow_trees(string dir) {
     Json::Value flows(Json::arrayValue);
 
     for (
-        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        auto it = this->flow_nodes.begin();
         it != this->flow_nodes.end();
         it++
     ) {
 
         for (
-            list<Flow *>::iterator f_it = (*it)->source_flow.begin();
+            auto f_it = (*it)->source_flow.begin();
             f_it != (*it)->source_flow.end();
             f_it++
         ) {
@@ -1586,7 +1582,7 @@ void NetPlumber::dump_flows(string dir) {
     Json::Value flows(Json::arrayValue);
 
     for (
-        std::list<Node *>::iterator it = this->flow_nodes.begin();
+        auto it = this->flow_nodes.begin();
         it != this->flow_nodes.end();
         it++
     ) {
@@ -1599,7 +1595,7 @@ void NetPlumber::dump_flows(string dir) {
         list<list<uint64_t>*> *path = new list<list<uint64_t>*>();
 
         for (
-            list<Flow *>::iterator f_it = (*it)->source_flow.begin();
+            auto f_it = (*it)->source_flow.begin();
             f_it != (*it)->source_flow.end();
             f_it++
         ) {
@@ -1607,13 +1603,13 @@ void NetPlumber::dump_flows(string dir) {
         }
 
         for (
-            list<list<uint64_t>*>::iterator p_it = path->begin();
+            auto p_it = path->begin();
             p_it != path->end();
             p_it++
         ) {
             Json::Value flow(Json::arrayValue);
             for (
-                list<uint64_t>::iterator f_it = (*p_it)->begin();
+                auto f_it = (*p_it)->begin();
                 f_it != (*p_it)->end();
                 f_it++
             ) {
@@ -1647,7 +1643,7 @@ void NetPlumber::dump_pipes(string dir) {
     Json::Value pipes(Json::arrayValue);
 
     for (
-            map<uint64_t,Node*>::iterator n_it = id_to_node.begin();
+            auto n_it = id_to_node.begin();
             n_it != id_to_node.end();
             n_it++
         ) {
@@ -1658,7 +1654,7 @@ void NetPlumber::dump_pipes(string dir) {
         if (!n_pipes.empty()) pipe.append((Json::UInt64) (*n_it).first);
 
         for (
-            list<struct Pipeline*>::iterator p_it = n_pipes.begin();
+            auto p_it = n_pipes.begin();
             p_it != n_pipes.end();
             p_it++
         ) {
@@ -1789,8 +1785,8 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
         id = std::strtoul(x, NULL, 10);
         // get the mapping (remaining fields)
         for (
-          std::set<uint64_t>::iterator it=ids.begin();
-          it!=ids.end();
+          auto it = ids.begin();
+          it != ids.end();
           ++it
         ) {
           getline(sl, sub, ',');
@@ -1806,8 +1802,8 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 void NetPlumber::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
     for (
-      std::map<uint64_t, std::set<uint64_t> >::iterator it=matrix.begin();
-      it!=matrix.end();
+      auto it = matrix.begin();
+      it != matrix.end();
       ++it
     ) {
       // TODO(jan): check runtime behaviour, i.e. write a test case
@@ -1844,18 +1840,18 @@ void NetPlumber::print_slice_matrix(void) {
   ss << std::endl;
   
   for (
-    std::map<uint64_t, std::set<uint64_t> >::iterator it = matrix.begin();
+    auto it = matrix.begin();
     it!=matrix.end();
     ++it
   ) {
     ss << it->first << ": ";
     for (
-      std::set<uint64_t>::iterator id = it->second.begin();
-      id!=it->second.end();
+      auto id = it->second.begin();
+      id != it->second.end();
       ++id
     ) {
       ss << *id;
-      if (next(id)!=it->second.end()) ss << ",";
+      if (next(id) != it->second.end()) ss << ",";
     }
     ss << std::endl;
   }
@@ -1876,8 +1872,8 @@ void NetPlumber::dump_slices_pipes(std::string dir) {
     Json::Value pipes(Json::arrayValue);
 
     for (
-      map<uint64_t,Node*>::iterator it=id_to_node.begin();
-      it!=id_to_node.end();
+      auto it = id_to_node.begin();
+      it != id_to_node.end();
       it++
     ) {
       Json::Value pipe(Json::arrayValue);
@@ -1886,8 +1882,8 @@ void NetPlumber::dump_slices_pipes(std::string dir) {
       if (!n_pipes.empty()) pipe.append((Json::UInt64) (*it).first);
 
       for (
-        list<struct Pipeline*>::iterator p_it=n_pipes.begin();
-        p_it!=n_pipes.end();
+        auto p_it = n_pipes.begin();
+        p_it != n_pipes.end();
         p_it++
       ) {
         Json::Value fpipe(Json::objectValue);
