@@ -1770,24 +1770,16 @@ void NetPlumber::print_slice_matrix(void) {
     ss << "slice matrix is empty";
   }
   ss << std::endl;
-  
-  for (
-    auto it = matrix.begin();
-    it!=matrix.end();
-    ++it
-  ) {
-    ss << it->first << ": ";
-    for (
-      auto id = it->second.begin();
-      id != it->second.end();
-      ++id
-    ) {
-      ss << *id;
-      if (next(id) != it->second.end()) ss << ",";
+
+  for (auto const &line: matrix) {
+    ss << line.first << ": ";
+    auto &last = *(--line.second.end());
+    for (auto const &id: line.second) {
+      ss << id;
+      if (&id != &last) ss << ",";
     }
     ss << std::endl;
   }
-
   LOG4CXX_INFO(slice_logger,ss.str());
 }
 #endif /* PIPE_SLICING */
