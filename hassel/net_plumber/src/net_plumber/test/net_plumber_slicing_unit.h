@@ -39,6 +39,12 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
  public:
   void setUp();
   void tearDown();
+  /* void test_add_pipe_to_slices(); */
+  /* void test_check_node_for_slice_leakage(); */
+  /* void test_check_pipe_for_slice_leakage(); */
+  /* void test_check_leak_exception(); */
+  /* void test_remove_pipe_from_slices(); */
+
   void test_add_slice_matrix();
   void test_remove_slice_matrix();
   void test_add_slice_allow();
