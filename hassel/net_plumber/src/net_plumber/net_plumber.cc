@@ -1754,7 +1754,7 @@ void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = REMOVE_SLICE_ALLOW;
 
     try {
-      auto set = matrix.at(id1);
+      auto &set = matrix.at(id1);
       set.erase(id2);
       if (set.empty()) matrix.erase(id1);
     } catch (const std::out_of_range& oor) { return; }
