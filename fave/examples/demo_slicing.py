@@ -8,6 +8,39 @@ def connect(HOST='127.0.0.1', PORT=1234):
     s.connect((HOST,PORT))
     return s
 
+def minimal(s):
+    reset_plumbing_network(s)
+
+    # add slices
+    add_slice(s, 1, ['100xxxxx'], None)
+    add_slice(s, 2, ['101xxxxx'], None)
+
+    # add forwarding tables
+    add_table(s, 1, [101, 102])
+    add_table(s, 2, [201, 202])
+    add_table(s, 3, [301, 302])
+
+    # add links
+    add_link(s, 0, 101)
+    add_link(s, 0, 201)
+    add_link(s, 0, 301)
+    add_link(s, 102, 103)
+    add_link(s, 202, 203)
+    add_link(s, 302, 303)
+
+    # add rules
+    add_rule(s, 1, 1, [101], [102], '100xxxxx', 'xxxxxxxx', None)
+    add_rule(s, 2, 1, [201], [202], '101xxxxx', 'xxxxxxxx', None)
+    add_rule(s, 3, 1, [301], [302], 'xxxxxxxx', 'xxxxxxxx', None)
+
+    # add universal source and source probe
+    add_source(s, ['xxxxxxxx'], None, [0])
+
+    # add probes
+    add_source_probe(s, [103], 'existential', {'type':'false'}, {'type':'true'})
+    add_source_probe(s, [203], 'existential', {'type':'false'}, {'type':'true'})
+    add_source_probe(s, [303], 'existential', {'type':'false'}, {'type':'true'})
+
 def demo_overlap(s):
     reset_plumbing_network(s)
 
