@@ -91,68 +91,68 @@ void NetPlumberSlicingTest::test_add_slice_matrix() {
 }
 
 void NetPlumberSlicingTest::test_remove_slice_matrix() {
-  NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t> > m;
+  auto np = NetPlumber(1);
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,")
+		 == true);
+  CPPUNIT_ASSERT(np.matrix.size() != 0);
 
-  n->add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
-  m = n->get_slice_matrix();
-  CPPUNIT_ASSERT(m.size() != 0);
-
-  n->remove_slice_matrix();
-  m = n->get_slice_matrix();
-  CPPUNIT_ASSERT(m.size() == 0);
+  np.remove_slice_matrix();
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
 }
 
 void NetPlumberSlicingTest::test_add_slice_allow() {
-  NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t> > m;
-  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
-  std::set<uint64_t>::iterator fs;
-  
-  m = n->get_slice_matrix();
-  CPPUNIT_ASSERT(m.empty());
+  auto np = NetPlumber(1);
+  CPPUNIT_ASSERT(np.matrix.empty());
 
-  n->add_slice_allow(1,1);
-  m = n->get_slice_matrix();
-  CPPUNIT_ASSERT(m.size()==1);
-  fk = m.find(1);
-  CPPUNIT_ASSERT(fk != m.end());
-  fs = m[1].find(1);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  CPPUNIT_ASSERT(m[1].size() == 1);
+  np.add_slice_allow(1,1);
+  CPPUNIT_ASSERT(np.matrix.size() == 1);
+
+  auto fk = np.matrix.find(1);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  auto fs = fk->second.find(1);
+  CPPUNIT_ASSERT(fs != fk->second.end());
+  CPPUNIT_ASSERT(fk->second.size() == 1);
 }
 
 void NetPlumberSlicingTest::test_remove_slice_allow() {
-  NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t> > m;
-  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
-  std::set<uint64_t>::iterator fs;
+  auto np = NetPlumber(1);
+  CPPUNIT_ASSERT(np.matrix.empty());
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,")
+		 == true);
+  CPPUNIT_ASSERT(!np.matrix.empty());
 
-  m = n->get_slice_matrix();
-  CPPUNIT_ASSERT(m.empty());
+  // check that all key-id mappings are present
+  auto fk = np.matrix.find(2);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  auto fs = fk->second.find(1);
+  CPPUNIT_ASSERT(fs != fk->second.end());
+  fs = fk->second.find(5);
+  CPPUNIT_ASSERT(fs != fk->second.end());
 
-  n->add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
-  m = n->get_slice_matrix();
-  fk = m.find(2);
-  CPPUNIT_ASSERT(fk != m.end());
-  fs = m[2].find(1);
-  CPPUNIT_ASSERT(fs != m[2].end());
-  fs = m[2].find(5);
-  CPPUNIT_ASSERT(fs != m[2].end());
-  
-  n->remove_slice_allow(2,1);
-  m = n->get_slice_matrix();
-  fk = m.find(2);
-  CPPUNIT_ASSERT(fk != m.end());
-  fs = m[2].find(1);
-  CPPUNIT_ASSERT(fs == m[2].end());
-  fs = m[2].find(5);
-  CPPUNIT_ASSERT(fs != m[2].end());
+  // should remove id 1 from set 2
+  np.remove_slice_allow(2,1);
+  np.print_slice_matrix();
+  fk = np.matrix.find(2);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  fs = fk->second.find(1);
+  CPPUNIT_ASSERT(fs == fk->second.end());
+  fs = fk->second.find(5);
+  CPPUNIT_ASSERT(fs != fk->second.end());
 
-  n->remove_slice_allow(2,5);
-  m = n->get_slice_matrix();
-  fk = m.find(2);
-  CPPUNIT_ASSERT(fk == m.end());
+  // should remove entire key from map
+  np.remove_slice_allow(2,5);
+  fk = np.matrix.find(2);
+  CPPUNIT_ASSERT(fk == np.matrix.end());
 }
 
 void NetPlumberSlicingTest::test_add_slice() {
