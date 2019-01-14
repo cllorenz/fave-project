@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <fstream>
+#include <climits>
 #include "net_plumber_utils.h"
 #include "../jsoncpp/json/json.h"
 #include "policy_checker.h"
@@ -1685,7 +1686,8 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
     std::string sub;
     uint64_t id;
     const char *x;
-
+    char *end;
+    
     if (ss >> line) {
       /* parse the first line of the matrix and
         extract all ids to add to set of ids */
@@ -1693,8 +1695,13 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
       getline(sl, sub, ',');
       while (getline(sl, sub, ',')) {
         x = sub.c_str();
-        // TODO(jan): revise error handling for parsing int value
-        id = std::strtoul(x, NULL, 10);
+
+        id = std::strtoul(x, &end, 10);
+	if ((id == 0 && end == x) ||
+	    (id == ULLONG_MAX && errno) ||
+	    (*end)) {
+	  return false;
+	}
         ids.insert(id);
       }
 
@@ -1703,19 +1710,24 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
       while (ss >> line) {
         // get the map id (first field)
         std::stringstream sl = std::stringstream(line);
+	unsigned int count = 0;
+	
         getline(sl, sub, ',');
         x = sub.c_str();
-        // TODO(jan): revise error handling for parsing int value
-        id = std::strtoul(x, NULL, 10);
-        // get the mapping (remaining fields)
-        for (
-          auto it = ids.begin();
-          it != ids.end();
-          ++it
-        ) {
+        id = std::strtoul(x, &end, 10);
+	if ((id == 0 && end == x) ||
+	    (id == ULLONG_MAX && errno) ||
+	    (*end)) {
+	  return false;
+	}
+	// get the mapping (remaining fields)
+        for (auto const &sid: ids) {
           getline(sl, sub, ',');
-          if (sub == "x") this->matrix[id].insert(*it);
-        }
+          if (sub == "x") this->matrix[id].insert(sid);
+	  else if (sub != "") return false;
+	  count++;
+	}
+	if (count != ids.size()) return false;
       }
     }
     return true;
@@ -1725,15 +1737,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 #ifdef PIPE_SLICING
 void NetPlumber::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
-    for (
-      auto it = matrix.begin();
-      it != matrix.end();
-      ++it
-    ) {
-      // TODO(jan): check runtime behaviour, i.e. write a test case
-      it->second.clear();
-      this->matrix.erase(it->first);
-    }
+    this->matrix.clear();
 }
 #endif /* PIPE_SLICING */
 
