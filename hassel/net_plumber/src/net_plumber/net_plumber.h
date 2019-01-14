@@ -24,7 +24,8 @@
 #ifdef PIPE_SLICING
 #include <set>
 #include <sstream>
-#endif
+#include "test/net_plumber_slicing_unit.h"
+#endif /* PIPE_SLICING */
 #include <vector>
 #include <list>
 #include "rule_node.h"
@@ -346,6 +347,7 @@ namespace net_plumber {
     void check_node_for_slice_leakage(Node *node);
     void check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out);
     bool check_leak_exception(uint64_t in, uint64_t out);
+    friend class ::NetPlumberSlicingTest;
 #endif
   };
 }

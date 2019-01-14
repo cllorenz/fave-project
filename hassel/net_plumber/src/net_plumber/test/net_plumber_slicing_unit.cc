@@ -36,42 +36,58 @@ void NetPlumberSlicingTest::tearDown() {
 }
 
 void NetPlumberSlicingTest::test_add_slice_matrix() {
-  NetPlumber *n = new NetPlumber(1);
-  std::map<uint64_t, std::set<uint64_t> >::iterator fk;
-  std::set<uint64_t>::iterator fs;
-  std::map<uint64_t, std::set<uint64_t> > m;
+  auto np = NetPlumber(1);
+  np.add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
 
-  n->add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
-  m = n->get_slice_matrix();
+  auto fk = np.matrix.find(1);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  fk = np.matrix.find(2);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  fk = np.matrix.find(3);
+  CPPUNIT_ASSERT(fk == np.matrix.end());
+  fk = np.matrix.find(4);
+  CPPUNIT_ASSERT(fk != np.matrix.end());
+  fk = np.matrix.find(5);
+  CPPUNIT_ASSERT(fk == np.matrix.end());
 
-  fk = m.find(1);
-  CPPUNIT_ASSERT(fk != m.end());
-  fk = m.find(2);
-  CPPUNIT_ASSERT(fk != m.end());
-  fk = m.find(3);
-  CPPUNIT_ASSERT(fk == m.end());
-  fk = m.find(4);
-  CPPUNIT_ASSERT(fk != m.end());
-  fk = m.find(5);
-  CPPUNIT_ASSERT(fk == m.end());
+  auto fs = np.matrix.find(1);
+  auto fe = fs->second.find(1);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(2);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  fe = fs->second.find(3);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  fe = fs->second.find(4);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  fe = fs->second.find(5);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  CPPUNIT_ASSERT(fs->second.size() == 3);
 
-  fs = m[1].find(2);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  fs = m[1].find(3);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  fs = m[1].find(4);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  CPPUNIT_ASSERT(m[1].size() == 3);
+  fs = np.matrix.find(2);
+  fe = fs->second.find(1);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  fe = fs->second.find(2);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(3);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(4);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(5);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  CPPUNIT_ASSERT(fs->second.size() == 2);
 
-  fs = m[2].find(1);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  fs = m[2].find(5);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  CPPUNIT_ASSERT(m[2].size() == 2);
-
-  fs = m[4].find(3);
-  CPPUNIT_ASSERT(fs != m[1].end());
-  CPPUNIT_ASSERT(m[4].size() == 1);
+  fs = np.matrix.find(4);
+  fe = fs->second.find(1);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(2);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(3);
+  CPPUNIT_ASSERT(fe != fs->second.end());
+  fe = fs->second.find(4);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  fe = fs->second.find(5);
+  CPPUNIT_ASSERT(fe == fs->second.end());
+  CPPUNIT_ASSERT(fs->second.size() == 1);
 }
 
 void NetPlumberSlicingTest::test_remove_slice_matrix() {
@@ -147,4 +163,4 @@ void NetPlumberSlicingTest::test_remove_slice() {
 
 }
 
-#endif //PIPE_SLICING
+#endif /* PIPE_SLICING */
