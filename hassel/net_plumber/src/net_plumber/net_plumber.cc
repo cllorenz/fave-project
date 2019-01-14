@@ -1785,12 +1785,6 @@ void NetPlumber::print_slice_matrix(void) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-std::map<uint64_t, std::set<uint64_t> > NetPlumber::get_slice_matrix(void) {
-  return this->matrix;
-}
-#endif /* PIPE_SLICING */
-
-#ifdef PIPE_SLICING
 void NetPlumber::dump_slices_pipes(std::string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);

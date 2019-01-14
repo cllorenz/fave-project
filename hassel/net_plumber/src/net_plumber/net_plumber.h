@@ -291,7 +291,6 @@ namespace net_plumber {
     bool add_slice_allow(uint64_t id1, uint64_t id2);
     void remove_slice_allow(uint64_t id1, uint64_t id2);
     void print_slice_matrix(void);
-    std::map<uint64_t, std::set<uint64_t> > get_slice_matrix(void);
     void dump_slices_pipes(std::string dir);
     void remove_pipe_from_slices(struct Pipeline *pipe);
 #endif
