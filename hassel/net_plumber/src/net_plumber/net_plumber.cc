@@ -1752,8 +1752,12 @@ bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
 #ifdef PIPE_SLICING
 void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = REMOVE_SLICE_ALLOW;
-    this->matrix[id1].erase(id2);
-    if (this->matrix[id1].empty()) this->matrix.erase(id1);
+
+    try {
+      auto set = matrix.at(id1);
+      set.erase(id2);
+      if (set.empty()) matrix.erase(id1);
+    } catch (const std::out_of_range& oor) { return; }
 }
 #endif /* PIPE_SLICING */
 
