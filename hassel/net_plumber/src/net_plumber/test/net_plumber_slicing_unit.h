@@ -47,5 +47,4 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
  private:
   static log4cxx::LoggerPtr logger;
 };
-
 #endif  // NET_PLUMBER_SLICING_UNIT_H_

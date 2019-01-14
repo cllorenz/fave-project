@@ -1676,7 +1676,6 @@ void NetPlumber::remove_slice(uint64_t id) {
 #endif
 
 #ifdef PIPE_SLICING
-// TODO(jan): add proper documentation header for function
 bool NetPlumber::add_slice_matrix(std::string matrix) {
     this->last_event.type = ADD_SLICE_MATRIX;
 

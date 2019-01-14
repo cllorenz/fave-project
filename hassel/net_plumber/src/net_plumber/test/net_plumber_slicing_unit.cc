@@ -26,6 +26,11 @@
 using namespace net_plumber;
 using namespace log4cxx;
 
+bool overlap_called = false;
+void overlap_callback(NetPlumber *N, Flow *f, void *data) {
+  overlap_called = true;
+}
+
 LoggerPtr NetPlumberSlicingTest::logger(
     Logger::getLogger("NetPlumber-SlicingUnitTest"));
 
@@ -141,7 +146,6 @@ void NetPlumberSlicingTest::test_remove_slice_allow() {
 
   // should remove id 1 from set 2
   np.remove_slice_allow(2,1);
-  np.print_slice_matrix();
   fk = np.matrix.find(2);
   CPPUNIT_ASSERT(fk != np.matrix.end());
   fs = fk->second.find(1);
@@ -156,7 +160,73 @@ void NetPlumberSlicingTest::test_remove_slice_allow() {
 }
 
 void NetPlumberSlicingTest::test_add_slice() {
+  auto np = NetPlumber(1);
+  np.slice_overlap_callback = overlap_callback;
+  char *hstr;
 
+  CPPUNIT_ASSERT(np.slices.size() == 1);
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "DX");
+  free(hstr);
+  
+  struct hs *net_space = hs_create(1);
+  hs_add(net_space, array_from_str("1000xxxx"));
+
+  CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  free(hstr);
+  hstr = hs_to_str(np.slices[1].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  free(hstr);
+
+  CPPUNIT_ASSERT(np.add_slice(2, net_space) == false);
+  CPPUNIT_ASSERT(overlap_called == true);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  free(hstr);
+  hstr = hs_to_str(np.slices[1].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  free(hstr);
+
+  overlap_called = false;
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("1001xxxx"));
+  CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 3);
+  //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  free(hstr);
+  hstr = hs_to_str(np.slices[1].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  free(hstr);
+  hstr = hs_to_str(np.slices[2].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1001xxxx");
+  free(hstr);
+
+  // currently would cause double free or corruption, due double assign
+  // because of broken hs-unit
+  //
+  // overlap_called = false;
+  // CPPUNIT_ASSERT(np.add_slice(3, net_space) == false);
+  // CPPUNIT_ASSERT(overlap_called == true);
+  // CPPUNIT_ASSERT(np.slices.size() == 3);
+  // hstr = hs_to_str(np.slices[0].net_space);
+  // CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  // free(hstr);
+  // hstr = hs_to_str(np.slices[1].net_space);
+  // CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  // free(hstr);
+  // hstr = hs_to_str(np.slices[2].net_space);
+  // CPPUNIT_ASSERT(std::string(hstr) == "1001xxxx");
+  // free(hstr);
 }
 
 void NetPlumberSlicingTest::test_remove_slice() {
