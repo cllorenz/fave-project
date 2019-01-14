@@ -32,6 +32,7 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_add_slice_allow);
   CPPUNIT_TEST(test_remove_slice_allow);
   CPPUNIT_TEST(test_add_slice);
+  CPPUNIT_TEST(test_add_remove_slice_pipes);
   CPPUNIT_TEST(test_remove_slice);
   CPPUNIT_TEST_SUITE_END();
 
@@ -43,6 +44,7 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
   void test_add_slice_allow();
   void test_remove_slice_allow();
   void test_add_slice();
+  void test_add_remove_slice_pipes();
   void test_remove_slice();
  private:
   static log4cxx::LoggerPtr logger;
