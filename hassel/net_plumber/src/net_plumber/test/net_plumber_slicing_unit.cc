@@ -211,6 +211,8 @@ void NetPlumberSlicingTest::test_add_slice() {
   CPPUNIT_ASSERT(std::string(hstr) == "1001xxxx");
   free(hstr);
 
+  overlap_called = false;
+  
   // currently would cause double free or corruption, due double assign
   // because of broken hs-unit
   //
@@ -230,7 +232,43 @@ void NetPlumberSlicingTest::test_add_slice() {
 }
 
 void NetPlumberSlicingTest::test_remove_slice() {
+  auto np = NetPlumber(1);
+  np.slice_overlap_callback = overlap_callback;
+  char *hstr;
 
+  CPPUNIT_ASSERT(np.slices.size() == 1);
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "DX");
+  free(hstr);
+  
+  struct hs *net_space = hs_create(1);
+  hs_add(net_space, array_from_str("1000xxxx"));
+
+  CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  free(hstr);
+  hstr = hs_to_str(np.slices[1].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  free(hstr);
+
+  np.remove_slice(0);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
+  hstr = hs_to_str(np.slices[0].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) != "DX");
+  free(hstr);
+  hstr = hs_to_str(np.slices[1].net_space);
+  CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
+  free(hstr);
+
+  np.remove_slice(1);
+  CPPUNIT_ASSERT(np.slices.size() == 1);
+  hstr = hs_to_str(np.slices[0].net_space);
+  //CPPUNIT_ASSERT(std::string(hstr) == "DX"); -- would work with proper compact
+  free(hstr);
 }
-
 #endif /* PIPE_SLICING */
