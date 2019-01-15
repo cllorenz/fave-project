@@ -26,9 +26,15 @@
 using namespace net_plumber;
 using namespace log4cxx;
 
+// override standard callbacks for testing
 bool overlap_called = false;
 void overlap_callback(NetPlumber *N, Flow *f, void *data) {
   overlap_called = true;
+}
+bool leakage_called = false;
+void leakage_callback(NetPlumber *N, Flow *f, void *data) {
+  std::cout << "I was called " << std::endl;
+  leakage_called = true;
 }
 
 LoggerPtr NetPlumberSlicingTest::logger(
@@ -238,6 +244,7 @@ void NetPlumberSlicingTest::test_add_slice() {
 // S0   /________  T2: 101xxxxx _______  S2
 //      \  
 //       \_______  T3: default  _______  S3
+//
 void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   auto np = NetPlumber(1);
   np.slice_overlap_callback = overlap_callback;
@@ -413,5 +420,36 @@ void NetPlumberSlicingTest::test_remove_slice() {
   hstr = hs_to_str(np.slices[0].net_space);
   //CPPUNIT_ASSERT(std::string(hstr) == "DX"); -- would work with proper compact
   free(hstr);
+}
+
+// Unit tests checks on Pipeline pairs, structure is not completely initialized
+void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_no_exception() {
+  auto np = NetPlumber(1);
+  auto pipe1 = Pipeline();
+  auto pipe2 = Pipeline();
+
+  array_t *mask = array_from_str("xxxxxxxx");
+  struct hs *space = hs_create(1);
+  hs_add(space, array_copy(mask, 1));
+
+  uint32_t nports[1] = { 0 };
+  List_t lnports = make_sorted_list_from_array(1, nports);
+
+  auto nid = np.add_source(space, lnports);
+  auto node = np.id_to_node[nid];
+  pipe1.node = node;
+  pipe2.node = node;
+  pipe1.net_space_id = 0;
+  pipe2.net_space_id = 1;
+
+  np.slice_leakage_callback = leakage_callback;
+  leakage_called = false;
+  
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.check_pipe_for_slice_leakage(&pipe1, &pipe1);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  np.check_pipe_for_slice_leakage(&pipe1, &pipe2);
+  CPPUNIT_ASSERT(leakage_called == true);
 }
 #endif /* PIPE_SLICING */
