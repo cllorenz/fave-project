@@ -545,7 +545,7 @@ bool NetPlumber::check_leak_exception(uint64_t in, uint64_t out) {
 #ifdef PIPE_SLICING
 void NetPlumber::remove_pipe_from_slices(struct Pipeline *pipe) {
   try {
-    auto slice = slices.at(pipe->net_space_id);
+    auto &slice = slices.at(pipe->net_space_id);
     slice.pipes.erase(pipe->r_slice);
   } catch (const std::out_of_range& oor) { return; }
 }
