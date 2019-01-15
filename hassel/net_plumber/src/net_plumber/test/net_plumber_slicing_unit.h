@@ -36,6 +36,7 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_remove_slice);
   CPPUNIT_TEST(test_check_pipe_for_slice_leakage_no_exception);
   CPPUNIT_TEST(test_check_pipe_for_slice_leakage_with_exception);
+  CPPUNIT_TEST(test_end_to_end);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -54,6 +55,7 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
   void test_remove_slice();
   void test_check_pipe_for_slice_leakage_no_exception();
   void test_check_pipe_for_slice_leakage_with_exception();
+  void test_end_to_end();
  private:
   static log4cxx::LoggerPtr logger;
 };

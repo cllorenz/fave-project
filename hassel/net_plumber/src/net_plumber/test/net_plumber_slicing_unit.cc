@@ -33,7 +33,6 @@ void overlap_callback(NetPlumber *N, Flow *f, void *data) {
 }
 bool leakage_called = false;
 void leakage_callback(NetPlumber *N, Flow *f, void *data) {
-  std::cout << "I was called " << std::endl;
   leakage_called = true;
 }
 
@@ -238,13 +237,14 @@ void NetPlumberSlicingTest::test_add_slice() {
 }
 
 // represents small example with 6 pipes
-//
-//        _______  T1: 100xxxxx _______  S1
-//       /
-// S0   /________  T2: 101xxxxx _______  S2
-//      \  
-//       \_______  T3: default  _______  S3
-//
+/*
+       _______  T1: 100xxxxx _______  S1
+      /
+S0   /________  T2: 101xxxxx _______  S2
+     \ 
+      \_______  T3: default  _______  S3
+
+*/
 void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   auto np = NetPlumber(1);
   np.slice_overlap_callback = overlap_callback;
@@ -508,4 +508,262 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_with_exception() {
   leakage_called = false;
 }
 
+// represents demo_leak1 example
+void NetPlumberSlicingTest::test_end_to_end() {
+  auto np = NetPlumber(1);
+  np.slice_overlap_callback = overlap_callback;
+  np.slice_leakage_callback = leakage_callback;
+  overlap_called = false;
+  leakage_called = false;
+
+  // add slices
+  CPPUNIT_ASSERT(np.slices.size() == 1);
+  struct hs *net_space = hs_create(1);
+  hs_add(net_space, array_from_str("000xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("001xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 3);
+
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("010xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(3, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 4);
+
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("011xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(4, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 5);
+
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("100xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(5, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 6);
+  
+  net_space = hs_create(1);
+  hs_add(net_space, array_from_str("101xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(6, net_space) == true);
+  CPPUNIT_ASSERT(overlap_called == false);
+  CPPUNIT_ASSERT(np.slices.size() == 7);
+
+  // add slice matrix
+  CPPUNIT_ASSERT(np.matrix.empty());
+  CPPUNIT_ASSERT(np.add_slice_matrix(",0,1,2,3,4,5,6\n"
+				     "0,x,x,x,x,x,x,x\n"
+				     "1,x,,,,,,\n"
+				     "2,x,,,,,,\n"
+				     "3,x,,,,,,\n"
+				     "4,x,,,,,,\n"
+				     "5,x,,,,,,\n"
+				     "6,x,,,,,,\n")
+		 == true);
+  CPPUNIT_ASSERT(!np.matrix.empty());
+  CPPUNIT_ASSERT(np.matrix.size() == 7);
+  CPPUNIT_ASSERT(np.matrix[0].size() == 7);
+
+  // add forwarding tables
+  uint32_t t1ports[2] = { 101, 102 };
+  List_t lt1ports = make_sorted_list_from_array(2, t1ports);
+  np.add_table(1, lt1ports);
+
+  uint32_t t2ports[2] = { 201, 202 };
+  List_t lt2ports = make_sorted_list_from_array(2, t2ports);
+  np.add_table(2, lt2ports);
+
+  uint32_t t3ports[2] = { 301, 302 };
+  List_t lt3ports = make_sorted_list_from_array(2, t3ports);
+  np.add_table(3, lt3ports);
+
+  uint32_t t4ports[2] = { 401, 402 };
+  List_t lt4ports = make_sorted_list_from_array(2, t4ports);
+  np.add_table(4, lt4ports);
+
+  uint32_t t5ports[2] = { 501, 502 };
+  List_t lt5ports = make_sorted_list_from_array(2, t5ports);
+  np.add_table(5, lt5ports);
+
+  uint32_t t6ports[4] = { 601, 602, 603, 604 };
+  List_t lt6ports = make_sorted_list_from_array(4, t6ports);
+  np.add_table(6, lt6ports);
+
+  uint32_t t7ports[7] = { 1, 11, 12, 13, 14, 15, 16 };
+  List_t lt7ports = make_sorted_list_from_array(7, t7ports);
+  np.add_table(7, lt7ports);
+
+  // add links
+  np.add_link(0, 1);
+  np.add_link(11, 101);
+  np.add_link(12, 201);
+  np.add_link(13, 301);
+  np.add_link(14, 401);
+  np.add_link(15, 501);
+  np.add_link(16, 601);
+  np.add_link(2, 603);
+  np.add_link(604, 501);
+
+  np.add_link(102, 103);
+  np.add_link(202, 203);
+  np.add_link(302, 303);
+  np.add_link(402, 403);
+  np.add_link(502, 503);
+  np.add_link(602, 605);
+
+  // add rules
+  array_t *m1 = array_from_str("000xxxxx");
+  array_t *m2 = array_from_str("001xxxxx");
+  array_t *m3 = array_from_str("010xxxxx");
+  array_t *m4 = array_from_str("011xxxxx");
+  array_t *m5 = array_from_str("100xxxxx");
+  array_t *m6 = array_from_str("101xxxxx");
+  array_t *mask = array_from_str("xxxxxxxx");
+  array_t *rwd = NULL;
+  array_t *mska = array_from_str("000xxxxx");
+  array_t *rwa = array_from_str("100xxxxx");
+
+  uint32_t r1in[1] = { 1 };
+  uint32_t r1out[1] = { 11 };
+  uint32_t r2in[1] = { 1 };
+  uint32_t r2out[1] = { 12 };
+  uint32_t r3in[1] = { 1 };
+  uint32_t r3out[1] = { 13 };
+  uint32_t r4in[1] = { 1 };
+  uint32_t r4out[1] = { 14 };
+  uint32_t r5in[1] = { 1 };
+  uint32_t r5out[1] = { 15 };
+  uint32_t r6in[1] = { 1 };
+  uint32_t r6out[1] = { 16 };
+  
+  List_t tr1in = make_sorted_list_from_array(1, r1in);
+  List_t tr1out = make_sorted_list_from_array(1, r1out);
+  List_t tr2in = make_sorted_list_from_array(1, r2in);
+  List_t tr2out = make_sorted_list_from_array(1, r2out);
+  List_t tr3in = make_sorted_list_from_array(1, r3in);
+  List_t tr3out = make_sorted_list_from_array(1, r3out);
+  List_t tr4in = make_sorted_list_from_array(1, r4in);
+  List_t tr4out = make_sorted_list_from_array(1, r4out);
+  List_t tr5in = make_sorted_list_from_array(1, r5in);
+  List_t tr5out = make_sorted_list_from_array(1, r5out);
+  List_t tr6in = make_sorted_list_from_array(1, r6in);
+  List_t tr6out = make_sorted_list_from_array(1, r6out);
+  
+  np.add_rule(7, 1, tr1in, tr1out, array_copy(m1,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 2, tr2in, tr2out, array_copy(m2,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 3, tr3in, tr3out, array_copy(m3,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 4, tr4in, tr4out, array_copy(m4,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 5, tr5in, tr5out, array_copy(m5,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 6, tr6in, tr6out, array_copy(m6,1), array_copy(mask,1), rwd);
+
+  // add dummy rules
+  uint32_t rd1in[1] = { 101 };
+  uint32_t rd1out[1] = { 102 };
+  uint32_t rd2in[1] = { 201 };
+  uint32_t rd2out[1] = { 202 };
+  uint32_t rd3in[1] = { 301 };
+  uint32_t rd3out[1] = { 302 };
+  uint32_t rd4in[1] = { 401 };
+  uint32_t rd4out[1] = { 402 };
+  uint32_t rd5in[1] = { 501 };
+  uint32_t rd5out[1] = { 502 };
+  uint32_t rd6in[1] = { 601 };
+  uint32_t rd6out[1] = { 602 };
+  uint32_t rd7in[1] = { 603 };
+  uint32_t rd7out[1] = { 604 };
+
+  List_t trd1in = make_sorted_list_from_array(1, rd1in);
+  List_t trd1out = make_sorted_list_from_array(1, rd1out);
+  List_t trd2in = make_sorted_list_from_array(1, rd2in);
+  List_t trd2out = make_sorted_list_from_array(1, rd2out);
+  List_t trd3in = make_sorted_list_from_array(1, rd3in);
+  List_t trd3out = make_sorted_list_from_array(1, rd3out);
+  List_t trd4in = make_sorted_list_from_array(1, rd4in);
+  List_t trd4out = make_sorted_list_from_array(1, rd4out);
+  List_t trd5in = make_sorted_list_from_array(1, rd5in);
+  List_t trd5out = make_sorted_list_from_array(1, rd5out);
+  List_t trd6in = make_sorted_list_from_array(1, rd6in);
+  List_t trd6out = make_sorted_list_from_array(1, rd6out);
+  List_t trd7in = make_sorted_list_from_array(1, rd7in);
+  List_t trd7out = make_sorted_list_from_array(1, rd7out);
+
+  np.add_rule(1, 1, trd1in, trd1out, array_copy(m1,1), array_copy(mask,1), rwd);
+  np.add_rule(2, 1, trd2in, trd2out, array_copy(m2,1), array_copy(mask,1), rwd);
+  np.add_rule(3, 1, trd3in, trd3out, array_copy(m3,1), array_copy(mask,1), rwd);
+  np.add_rule(4, 1, trd4in, trd4out, array_copy(m4,1), array_copy(mask,1), rwd);
+  np.add_rule(5, 1, trd5in, trd5out, array_copy(m5,1), array_copy(mask,1), rwd);
+  np.add_rule(6, 1, trd6in, trd6out, array_copy(m6,1), array_copy(mask,1), rwd);
+  np.add_rule(6, 2, trd7in, trd7out, array_copy(m6,1), array_copy(mska,1), array_copy(rwa,1));
+
+  // add source probes
+  uint32_t s1[1] = { 103 };
+  uint32_t s2[1] = { 203 };
+  uint32_t s3[1] = { 303 };
+  uint32_t s4[1] = { 403 };
+  uint32_t s5[1] = { 503 };
+  uint32_t s6[1] = { 605 };
+  List_t ss1 = make_sorted_list_from_array(1, s1);
+  List_t ss2 = make_sorted_list_from_array(1, s2);
+  List_t ss3 = make_sorted_list_from_array(1, s3);
+  List_t ss4 = make_sorted_list_from_array(1, s4);
+  List_t ss5 = make_sorted_list_from_array(1, s5);
+  List_t ss6 = make_sorted_list_from_array(1, s6);
+  PROBE_MODE mode = EXISTENTIAL;
+  Condition *f1 = new FalseCondition();
+  Condition *t1 = new TrueCondition();
+  Condition *f2 = new FalseCondition();
+  Condition *t2 = new TrueCondition();
+  Condition *f3 = new FalseCondition();
+  Condition *t3 = new TrueCondition();
+  Condition *f4 = new FalseCondition();
+  Condition *t4 = new TrueCondition();
+  Condition *f5 = new FalseCondition();
+  Condition *t5 = new TrueCondition();
+  Condition *f6 = new FalseCondition();
+  Condition *t6 = new TrueCondition();
+  np.add_source_probe(ss1, mode, f1, t1, NULL, NULL);
+  np.add_source_probe(ss2, mode, f2, t2, NULL, NULL);
+  np.add_source_probe(ss3, mode, f3, t3, NULL, NULL);
+  np.add_source_probe(ss4, mode, f4, t4, NULL, NULL);
+  np.add_source_probe(ss5, mode, f5, t5, NULL, NULL);
+  np.add_source_probe(ss6, mode, f6, t6, NULL, NULL);
+
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  // add sources
+  uint32_t sa0[1] = { 0 };
+  uint32_t sa1[1] = { 2 };
+  List_t lsa0 = make_sorted_list_from_array(1, sa0);
+  List_t lsa1 = make_sorted_list_from_array(1, sa1);
+
+  net_space = hs_create(1);
+  hs_add(net_space, array_copy(mask,1));
+  np.add_source(net_space, lsa0);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  // finally creates the leaking pipe from 604 to 501 via 603-604 rule
+  net_space = hs_create(1);
+  hs_add(net_space, array_copy(m6,1));
+  np.add_source(net_space, lsa1);
+  CPPUNIT_ASSERT(leakage_called == true);
+
+  // cleanup
+  free(m1);
+  free(m2);
+  free(m3);
+  free(m4);
+  free(m5);
+  free(m6);
+  free(mask);
+  free(mska);
+  free(rwa);
+  
+  overlap_called = false;
+  leakage_called = false;
+}
 #endif /* PIPE_SLICING */
