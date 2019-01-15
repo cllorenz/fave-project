@@ -452,4 +452,60 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_no_exception() {
   np.check_pipe_for_slice_leakage(&pipe1, &pipe2);
   CPPUNIT_ASSERT(leakage_called == true);
 }
+
+void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_with_exception() {
+  auto np = NetPlumber(1);
+  auto pipe1 = Pipeline();
+  auto pipe2 = Pipeline();
+  auto pipe3 = Pipeline();
+  
+  array_t *mask = array_from_str("xxxxxxxx");
+  struct hs *space = hs_create(1);
+  hs_add(space, array_copy(mask, 1));
+
+  uint32_t nports[1] = { 0 };
+  List_t lnports = make_sorted_list_from_array(1, nports);
+
+  auto nid = np.add_source(space, lnports);
+  auto node = np.id_to_node[nid];
+  pipe1.node = node;
+  pipe2.node = node;
+  pipe3.node = node;
+  pipe1.net_space_id = 0;
+  pipe2.net_space_id = 1;
+  pipe3.net_space_id = 2;
+
+  np.slice_leakage_callback = leakage_callback;
+  leakage_called = false;
+
+  CPPUNIT_ASSERT(np.add_slice_allow(0, 1) == true);
+  CPPUNIT_ASSERT(np.add_slice_allow(0, 2) == true);
+  CPPUNIT_ASSERT(np.add_slice_allow(1, 0) == true);
+  CPPUNIT_ASSERT(np.add_slice_allow(2, 0) == true);
+  
+  CPPUNIT_ASSERT(np.matrix.size() == 3);
+  np.check_pipe_for_slice_leakage(&pipe1, &pipe1);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  np.check_pipe_for_slice_leakage(&pipe1, &pipe2);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  np.check_pipe_for_slice_leakage(&pipe2, &pipe1);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  np.check_pipe_for_slice_leakage(&pipe1, &pipe3);
+  CPPUNIT_ASSERT(leakage_called == false);
+
+  np.check_pipe_for_slice_leakage(&pipe3, &pipe1);
+  CPPUNIT_ASSERT(leakage_called == false);
+  
+  np.check_pipe_for_slice_leakage(&pipe2, &pipe3);
+  CPPUNIT_ASSERT(leakage_called == true);
+  leakage_called = false;
+
+  np.check_pipe_for_slice_leakage(&pipe3, &pipe2);
+  CPPUNIT_ASSERT(leakage_called == true);
+  leakage_called = false;
+}
+
 #endif /* PIPE_SLICING */
