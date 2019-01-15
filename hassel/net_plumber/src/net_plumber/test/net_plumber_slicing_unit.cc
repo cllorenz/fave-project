@@ -456,6 +456,42 @@ void NetPlumberSlicingTest::test_add_pipe_to_slices_matching() {
   free(pipe1.pipe_array);
   free(mask);
 }
+
+void NetPlumberSlicingTest::test_add_pipe_to_slices_not_matching() {
+  auto np = NetPlumber(1);
+  auto pipe1 = Pipeline();
+
+  array_t *mask = array_from_str("xxxxxxxx");
+  struct hs *space = hs_create(1);
+  hs_add(space, array_copy(mask, 1));
+
+  uint32_t nports[1] = { 0 };
+  List_t lnports = make_sorted_list_from_array(1, nports);
+
+  auto nid = np.add_source(space, lnports);
+  auto node = np.id_to_node[nid];
+  pipe1.node = node;
+  pipe1.net_space_id = 0;
+  pipe1.pipe_array = array_from_str("101xxxxx");
+
+  space = hs_create(1);
+  hs_add(space, array_from_str("100xxxxx"));
+  CPPUNIT_ASSERT(np.add_slice(1, space) == true);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  CPPUNIT_ASSERT(np.slices[0].pipes.size() == 0);
+  CPPUNIT_ASSERT(np.slices[1].pipes.size() == 0);
+
+  np.add_pipe_to_slices(&pipe1);
+  CPPUNIT_ASSERT(np.slices.size() == 2);
+  CPPUNIT_ASSERT(np.slices[0].pipes.size() == 1);
+  CPPUNIT_ASSERT(np.slices[1].pipes.size() == 0);
+  CPPUNIT_ASSERT(pipe1.net_space_id == 0);
+
+  // cleanup
+  free(pipe1.pipe_array);
+  free(mask);
+}
+
 // Unit tests checks on Pipeline pairs, structure is not completely initialized
 void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_no_exception() {
   auto np = NetPlumber(1);
