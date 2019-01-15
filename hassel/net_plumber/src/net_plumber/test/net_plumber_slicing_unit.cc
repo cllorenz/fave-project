@@ -47,7 +47,12 @@ void NetPlumberSlicingTest::tearDown() {
 
 void NetPlumberSlicingTest::test_add_slice_matrix() {
   auto np = NetPlumber(1);
-  np.add_slice_matrix(",1,2,3,4,5\n1,,x,x,x,\n2,x,,,,x\n3,,,,,\n4,,,x,,\n5,,,,,");
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == true);
 
   auto fk = np.matrix.find(1);
   CPPUNIT_ASSERT(fk != np.matrix.end());
@@ -98,6 +103,128 @@ void NetPlumberSlicingTest::test_add_slice_matrix() {
   fe = fs->second.find(5);
   CPPUNIT_ASSERT(fe == fs->second.end());
   CPPUNIT_ASSERT(fs->second.size() == 1);
+}
+
+void NetPlumberSlicingTest::test_add_slice_matrix_errors() {
+  auto np = NetPlumber(1);
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == true);
+  // 3 == number of lines where some exception is set
+  CPPUNIT_ASSERT(np.matrix.size() == 3);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix("a,1,2,3,4,5,\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix("aaa,1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(" ,1,2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5,\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,18446744073709551616,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2abc,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,abc2,3,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,,,,,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+  
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "1,,x,x,x,,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "abc,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "18446744073709551616,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
+				     "18449551616,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
 }
 
 void NetPlumberSlicingTest::test_remove_slice_matrix() {

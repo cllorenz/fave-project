@@ -28,6 +28,7 @@
 class NetPlumberSlicingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(NetPlumberSlicingTest);
   CPPUNIT_TEST(test_add_slice_matrix);
+  CPPUNIT_TEST(test_add_slice_matrix_errors);
   CPPUNIT_TEST(test_remove_slice_matrix);
   CPPUNIT_TEST(test_add_slice_allow);
   CPPUNIT_TEST(test_remove_slice_allow);
@@ -50,6 +51,7 @@ class NetPlumberSlicingTest : public CppUnit::TestFixture {
   /* void test_check_leak_exception(); */
 
   void test_add_slice_matrix();
+  void test_add_slice_matrix_errors();
   void test_remove_slice_matrix();
   void test_add_slice_allow();
   void test_remove_slice_allow();

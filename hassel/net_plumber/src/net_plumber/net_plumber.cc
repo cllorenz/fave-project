@@ -1677,59 +1677,60 @@ void NetPlumber::remove_slice(uint64_t id) {
 
 #ifdef PIPE_SLICING
 bool NetPlumber::add_slice_matrix(std::string matrix) {
-    this->last_event.type = ADD_SLICE_MATRIX;
+  this->last_event.type = ADD_SLICE_MATRIX;
 
-    std::set<uint64_t> ids;
-    std::string line;
-    std::stringstream ss = std::stringstream(matrix);
-    std::string sub;
-    uint64_t id;
-    const char *x;
-    char *end;
+  std::set<uint64_t> ids;
+  std::string line;
+  std::string sub;
+  const char *x;
+  char *end;
+  uint64_t id;
     
-    if (ss >> line) {
-      /* parse the first line of the matrix and
-        extract all ids to add to set of ids */
-      std::stringstream sl = std::stringstream(line);
-      getline(sl, sub, ',');
-      while (getline(sl, sub, ',')) {
-        x = sub.c_str();
+  if (matrix.empty()) { return false; }
 
-        id = std::strtoul(x, &end, 10);
-	if ((id == 0 && end == x) ||
-	    (id == ULLONG_MAX && errno) ||
-	    (*end)) {
-	  return false;
-	}
-        ids.insert(id);
+  errno = 0;
+
+  auto ss = std::stringstream(matrix);
+  if (getline(ss, line)) {
+    if (line.back() == ',') { return false; }
+    auto sl = std::stringstream(line);
+    getline(sl, sub, ',');
+    if (!sub.empty()) { return false; }
+    while (getline(sl, sub, ',')) {
+      x = sub.c_str();
+      id = std::strtoul(x, &end, 10);
+      if ((id == 0 && end == x) ||
+	  (id == ULLONG_MAX && errno) ||
+	  (*end)) { 
+	return false;
+      }
+      ids.insert(id);
+    }
+
+    while (getline(ss, line)) {
+      if (((size_t)std::count(line.begin(), line.end(), ',')) != ids.size()) {
+	this->matrix.clear();
+	return false;
       }
 
-      /* parse the remaining lines which take form
-        id,<comma separated list of xs> */
-      while (ss >> line) {
-        // get the map id (first field)
-        std::stringstream sl = std::stringstream(line);
-	unsigned int count = 0;
-	
-        getline(sl, sub, ',');
-        x = sub.c_str();
-        id = std::strtoul(x, &end, 10);
-	if ((id == 0 && end == x) ||
-	    (id == ULLONG_MAX && errno) ||
-	    (*end)) {
-	  return false;
-	}
-	// get the mapping (remaining fields)
-        for (auto const &sid: ids) {
-          getline(sl, sub, ',');
-          if (sub == "x") this->matrix[id].insert(sid);
-	  else if (sub != "") return false;
-	  count++;
-	}
-	if (count != ids.size()) return false;
+      auto sl = std::stringstream(line);
+
+      getline(sl, sub, ',');
+      x = sub.c_str();
+      id = std::strtoul(x, &end, 10);
+      if ((id == 0 && end == x) ||
+	  (id == ULLONG_MAX && errno) ||
+	  (*end)) {
+	return false;
+      }
+
+      for (auto const &sid: ids) {
+	getline(sl, sub, ',');
+	if (sub == "x") { this->matrix[id].insert(sid); }
       }
     }
-    return true;
+  }
+  return true;
 }
 #endif /* PIPE_SLICING */
 

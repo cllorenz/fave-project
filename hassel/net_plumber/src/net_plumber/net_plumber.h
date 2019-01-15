@@ -25,6 +25,7 @@
 #ifdef PIPE_SLICING
 #include <set>
 #include <sstream>
+#include <algorithm>
 #include "test/net_plumber_slicing_unit.h"
 #endif /* PIPE_SLICING */
 #include <vector>
