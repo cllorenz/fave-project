@@ -245,6 +245,15 @@ void NetPlumberSlicingTest::test_add_slice_matrix_errors() {
 				     "4,,,,,") == false);
   CPPUNIT_ASSERT(np.matrix.size() == 0);
   np.remove_slice_matrix();
+
+  CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,2,4,5\n"
+				     "1,,x,x,x,\n"
+				     "2,x,,,,x\n"
+				     "3,,,,,\n"
+				     "4,,,x,,\n"
+				     "5,,,,,") == false);
+  CPPUNIT_ASSERT(np.matrix.size() == 0);
+  np.remove_slice_matrix();
 }
 
 void NetPlumberSlicingTest::test_remove_slice_matrix() {

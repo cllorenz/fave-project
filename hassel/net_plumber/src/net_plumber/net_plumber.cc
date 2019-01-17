@@ -1703,7 +1703,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 	  (*end)) { 
 	return false;
       }
-      ids.insert(id);
+      if (!ids.insert(id).second) return false;
     }
 
     while (getline(ss, line)) {
