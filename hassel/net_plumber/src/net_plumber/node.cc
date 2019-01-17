@@ -74,30 +74,25 @@ void Node::remove_flows() {
 }
 
 void Node::remove_pipes() {
-  for (
-      auto it = this->next_in_pipeline.begin();
-      it != this->next_in_pipeline.end();
-      it++
-  ) {
-    auto r = (*it)->r_pipeline;
-    array_free((*it)->pipe_array);
+  for (auto &next: this->next_in_pipeline) {
+    auto r = next->r_pipeline;
+    array_free(next->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->prev_in_pipeline.erase(r);
 #ifdef PIPE_SLICING
-    ((NetPlumber *)plumber)->remove_pipe_from_slices(*it);
+    ((NetPlumber *)plumber)->remove_pipe_from_slices(next);
 #endif
-    free(*it);
+    free(next);
   }
   next_in_pipeline.clear();
-  for (auto it = this->prev_in_pipeline.begin();
-       it != this->prev_in_pipeline.end(); it++ ) {
-    auto r = (*it)->r_pipeline;
-    array_free((*it)->pipe_array);
+  for (auto &prev: this->prev_in_pipeline) {
+    auto r = prev->r_pipeline;
+    array_free(prev->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->next_in_pipeline.erase(r);
-    free(*it);
+    free(prev);
   }
   prev_in_pipeline.clear();
 }
@@ -130,21 +125,21 @@ string Node::pipeline_to_string() {
   char buf[70];
   char *s;
   result << "Pipelined TO:\n";
-  for (auto it = next_in_pipeline.begin(); it != next_in_pipeline.end(); it++) {
-    auto r = (*it)->r_pipeline;
-    sprintf(buf,"0x%lx",(*r)->node->node_id);
-    s = array_to_str((*it)->pipe_array,length,false);
+  for (auto const &next: next_in_pipeline) {
+    auto r = next->r_pipeline;
+    sprintf(buf, "0x%lx", (*r)->node->node_id);
+    s = array_to_str(next->pipe_array, length, false);
     result << "\tNode " << buf << " Pipe HS: " << s << " [" <<
-        (*it)->local_port << "-->" << (*r)->local_port << "]\n";
+        next->local_port << "-->" << (*r)->local_port << "]\n";
     free(s);
   }
   result << "Pipelined FROM:\n";
-  for (auto it = prev_in_pipeline.begin(); it != prev_in_pipeline.end(); it++) {
-    auto r = (*it)->r_pipeline;
-    sprintf(buf,"0x%lx",(*r)->node->node_id);
-    s = array_to_str((*it)->pipe_array,length,false);
+  for (auto const &prev: prev_in_pipeline) {
+    auto r = prev->r_pipeline;
+    sprintf(buf, "0x%lx", (*r)->node->node_id);
+    s = array_to_str(prev->pipe_array, length, false);
     result << "\tNode " << buf << " Pipe HS: " << s << " [" << (*r)->local_port
-        << "-->" << (*it)->local_port << "]\n";
+        << "-->" << prev->local_port << "]\n";
     free(s);
   }
   return result.str();
@@ -154,23 +149,23 @@ string Node::src_flow_to_string() {
   stringstream result;
   result << "Source Flow:\n";
   char *s;
-  for (auto it = source_flow.begin(); it != source_flow.end(); it++) {
-    s = hs_to_str((*it)->hs_object);
+  for (auto const &flow: source_flow) {
+    s = hs_to_str(flow->hs_object);
     result << "\tHS: " <<  s << " --> ";
     free(s);
-    if ((*it)->processed_hs) {
-      s = hs_to_str((*it)->processed_hs);
+    if (flow->processed_hs) {
+      s = hs_to_str((flow)->processed_hs);
       result << s;
       free(s);
     } else {
-      if (is_flow_looped(*it)) {
+      if (is_flow_looped(flow)) {
         result << "LOOPED";
       } else {
         result << "DEAD";
       }
     }
-    if ((*it)->node->get_type() == RULE) {
-      result << "; From Port: " << (*it)->in_port;
+    if (flow->node->get_type() == RULE) {
+      result << "; From Port: " << flow->in_port;
     }
     result << "\n";
   }
@@ -223,35 +218,21 @@ void Node::enlarge(uint32_t length) {
 		this->match = array_resize(this->match,this->length, length);
 	if (this->inv_match)
 		this->inv_match = array_resize(this->inv_match,this->length, length);
-	for (
-        auto it_pipenext = next_in_pipeline.begin();
-        it_pipenext != next_in_pipeline.end();
-        ++it_pipenext
-    ) {
-        struct Pipeline *pipe = *it_pipenext;
-		if (length > pipe->len) {
-            pipe->pipe_array = array_resize(pipe->pipe_array,this->length,length);
-            pipe->len = length;
+	for (auto const &next: next_in_pipeline) {
+		if (length > next->len) {
+            next->pipe_array = array_resize(next->pipe_array,this->length,length);
+            next->len = length;
         }
 	}
-	for (
-        auto it_pipeprev = prev_in_pipeline.begin();
-        it_pipeprev != prev_in_pipeline.end();
-        ++it_pipeprev
-    ) {
-        struct Pipeline *pipe = *it_pipeprev;
-        if (length > pipe->len) {
-            pipe->pipe_array = array_resize(pipe->pipe_array,this->length,length);
-            pipe->len = length;
+	for (auto const &prev: prev_in_pipeline) {
+        if (length > prev->len) {
+            prev->pipe_array = array_resize(prev->pipe_array,this->length,length);
+            prev->len = length;
         }
 	}
-	for (
-        auto it_flow = source_flow.begin() ;
-        it_flow != source_flow.end();
-        ++it_flow
-    ) {//Flow already covored in net_plumber.cc?
-		hs_enlarge((*it_flow)->hs_object, length);
-		hs_enlarge((*it_flow)->processed_hs, length);//no pipe because every pipe already covered?
+	for (auto const &flow: source_flow) {
+		hs_enlarge(flow->hs_object, length);
+		hs_enlarge(flow->processed_hs, length);
 	}
 
 	this->length = length;
@@ -272,10 +253,10 @@ int Node::count_bck_pipeline() {
 void Node::count_src_flow(int &inc, int &exc) {
   inc = 0;
   exc = 0;
-  for (auto it = source_flow.begin(); it != source_flow.end(); it++) {
-    if ((*it)->processed_hs) {
-      inc += hs_count((*it)->processed_hs);
-      exc += hs_count_diff((*it)->processed_hs);
+  for (auto const &flow: source_flow) {
+    if (flow->processed_hs) {
+      inc += hs_count(flow->processed_hs);
+      exc += hs_count_diff(flow->processed_hs);
     }
   }
 }
@@ -291,11 +272,11 @@ bool Node::should_block_flow(Flow *f, uint32_t out_port) {
 
 void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
   hs *h = NULL;
-  for (auto it = next_in_pipeline.begin(); it != next_in_pipeline.end(); it++) {
-    if (is_output_layer && should_block_flow(*s_flow,(*it)->local_port))
+  for (auto const &next: next_in_pipeline) {
+    if (is_output_layer && should_block_flow(*s_flow, next->local_port))
       continue;
     if (!h) h = (hs *)malloc(sizeof *h);
-    if (hs_isect_arr(h, (*s_flow)->processed_hs, (*it)->pipe_array)) {
+    if (hs_isect_arr(h, (*s_flow)->processed_hs, next->pipe_array)) {
 
       // TODO: fix blackhole check
       if (hs_is_sub(h,(*s_flow)->processed_hs) && ((NetPlumber*)plumber)->blackhole_callback) {
@@ -310,15 +291,15 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
 
       // create a new flow struct to pass to next node in pipeline
       Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
-      next_flow->node = (*(*it)->r_pipeline)->node;
+      next_flow->node = (*next->r_pipeline)->node;
       next_flow->hs_object = h;
-      next_flow->in_port = (*(*it)->r_pipeline)->local_port;
-      next_flow->pipe = *it;
+      next_flow->in_port = (*next->r_pipeline)->local_port;
+      next_flow->pipe = next;
       next_flow->p_flow = s_flow;
       next_flow->n_flows = nullptr;
       next_flow->processed_hs = nullptr;
       // request next node to process this flow
-      (*(*it)->r_pipeline)->node->process_src_flow(next_flow);
+      (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
     }
   }
@@ -406,22 +387,22 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
   }
   if (change) return;
 
-  for (auto it = next_in_pipeline.begin(); it != next_in_pipeline.end(); it++) {
-    if (pipe_hash_set.count(*it) > 0) continue;  //skip pipes visited above.
-    if (is_output_layer && should_block_flow(*s_flow,(*it)->local_port))
+  for (auto const &next: next_in_pipeline) {
+    if (pipe_hash_set.count(next) > 0) continue;  //skip pipes visited above.
+    if (is_output_layer && should_block_flow(*s_flow, next->local_port))
       continue;
     if (!h) h = (hs *)malloc(sizeof *h);
-    if (hs_isect_arr(h, (*s_flow)->processed_hs, (*it)->pipe_array)) {
+    if (hs_isect_arr(h, (*s_flow)->processed_hs, next->pipe_array)) {
       // create a new flow struct to pass to next node in pipeline
       Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
-      next_flow->node = (*(*it)->r_pipeline)->node;
+      next_flow->node = (*next->r_pipeline)->node;
       next_flow->hs_object = h;
-      next_flow->in_port = (*(*it)->r_pipeline)->local_port;
-      next_flow->pipe = *it;
+      next_flow->in_port = (*next->r_pipeline)->local_port;
+      next_flow->pipe = next;
       next_flow->p_flow = s_flow;
       next_flow->n_flows = nullptr;
       // request next node to process this flow
-      (*(*it)->r_pipeline)->node->process_src_flow(next_flow);
+      (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
     }
   }
@@ -430,9 +411,8 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
 
 void Node::absorb_src_flow(list<struct Flow*>::iterator s_flow, bool first) {
   if ((*s_flow)->n_flows) {
-    for (auto it = (*s_flow)->n_flows->begin();
-        it != (*s_flow)->n_flows->end(); it++) {
-      (**it)->node->absorb_src_flow(*it,false);
+    for (auto const &flow: *(*s_flow)->n_flows) {
+      (*flow)->node->absorb_src_flow(flow, false);
     }
     delete (*s_flow)->n_flows;
     (*s_flow)->n_flows = nullptr;
