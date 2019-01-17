@@ -88,10 +88,8 @@ void SourceProbeNode::process_src_flow(Flow *f) {
     hs_comp_diff(f->processed_hs);
     if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
-    auto it = prev_in_pipeline.begin();
-    for (; it != prev_in_pipeline.end(); it++) {
-      (*(*it)->r_pipeline)->node->
-          propagate_src_flows_on_pipe((*it)->r_pipeline);
+    for (auto const &prev: prev_in_pipeline) {
+      (*prev->r_pipeline)->node->propagate_src_flows_on_pipe(prev->r_pipeline);
     }
   }
 }
@@ -215,17 +213,18 @@ void SourceProbeNode::start_probe() {
   Event e = {START_SOURCE_PROBE,node_id,0};
   n->set_last_event(e);
   this->state = STARTED;
-  auto it = source_flow.begin();
-  for (; it != source_flow.end(); it++) {
-    if (!filter->check(*it)) continue;
-    bool c = test->check(*it);
-    check_results[*it] = c;
+//  auto it = source_flow.begin();
+//  for (; it != source_flow.end(); it++) {
+  for (auto const &flow: source_flow) {
+    if (!filter->check(flow)) continue;
+    bool c = test->check(flow);
+    check_results[flow] = c;
     if (mode == EXISTENTIAL && c) {
       cond_count++;
-      probe_callback(this->plumber,this,*it,probe_callback_data,STARTED_TRUE);
+      probe_callback(this->plumber,this,flow,probe_callback_data,STARTED_TRUE);
     } else if (mode == UNIVERSAL && !c) {
       cond_count++;
-      probe_callback(this->plumber,this,*it,probe_callback_data,STARTED_FALSE);
+      probe_callback(this->plumber,this,flow,probe_callback_data,STARTED_FALSE);
     }
   }
   if (mode == EXISTENTIAL && cond_count == 0)
