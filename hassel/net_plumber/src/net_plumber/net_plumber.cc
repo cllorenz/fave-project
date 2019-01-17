@@ -1678,6 +1678,7 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
   this->last_event.type = ADD_SLICE_MATRIX;
 
   std::set<uint64_t> ids;
+  std::set<uint64_t> row_ids;
   std::string line;
   std::string sub;
   const char *x;
@@ -1719,6 +1720,11 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
       if ((id == 0 && end == x) ||
 	  (id == ULLONG_MAX && errno) ||
 	  (*end)) {
+	this->matrix.clear();
+	return false;
+      }
+      if (!row_ids.insert(id).second) {
+	this->matrix.clear();
 	return false;
       }
 
@@ -1726,6 +1732,10 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 	getline(sl, sub, ',');
 	if (sub == "x") { this->matrix[id].insert(sid); }
       }
+    }
+    if (ids != row_ids) {
+      this->matrix.clear();
+      return false;
     }
   }
   return true;
