@@ -24,7 +24,7 @@
 using namespace std;
 
 PathCondition::~PathCondition() {
-  for (auto &it: pathlets) {
+  for (auto& it: pathlets) {
     delete it;
   }
 }
@@ -298,7 +298,7 @@ void PathCondition::to_json(Json::Value& res) {
   res["type"] = "path";
 
   Json::Value pathlets(Json::arrayValue);
-  for (auto const it: this->pathlets) {
+  for (const auto& it: this->pathlets) {
     Json::Value pathlet(Json::objectValue);
     (*it).to_json(pathlet);
     pathlets.append(pathlet);
