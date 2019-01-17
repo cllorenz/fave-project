@@ -152,7 +152,7 @@ string get_event_name(EVENT_TYPE t) {
 
 void NetPlumber::free_group_memory(uint32_t table, uint64_t group) {
   auto rules_list = table_to_nodes[table];
-  for (auto it=rules_list->begin() ; it != rules_list->end(); ) {
+  for (auto it = rules_list->begin() ; it != rules_list->end(); ) {
     if ((*it)->group == group) {
       free_rule_memory(*it, false);
       auto tmp = it; it++;
@@ -172,7 +172,7 @@ void NetPlumber::free_table_memory(uint32_t table) {
   if (table_to_nodes.count(table) > 0) {
     table_to_last_id.erase(table);
     list<RuleNode*>* rules_list = table_to_nodes[table];
-    for (auto rule: *rules_list) {
+    for (auto &rule: *rules_list) {
       free_rule_memory(rule, false);
     }
     table_to_nodes.erase(table);
@@ -232,7 +232,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 
   struct hs aggr_hs = {this->length,{0}};
 
-  for (auto rule: *rules_list) {
+  for (auto const &rule: *rules_list) {
     if (rule->node_id == r->node_id) {
 
       // check reachability and shadowing
@@ -330,7 +330,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*> *potential_next_rules =
           get_nodes_with_inport(end_ports->at(j));
       if (!potential_next_rules) continue;
-      for (auto n_rule: *potential_next_rules) {
+      for (auto const &n_rule: *potential_next_rules) {
         array_t *pipe_arr;
 #ifdef FIREWALL_RULES
         if (n->get_type() == FIREWALL_RULE) {
@@ -381,7 +381,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       list<Node*> *potential_prev_rules =
           get_nodes_with_outport(orig_ports->at(j));
       if (!potential_prev_rules) continue;
-      for (auto p_rule: *potential_prev_rules) {
+      for (auto const &p_rule: *potential_prev_rules) {
         array_t *pipe_arr;
 #ifdef FIREWALL_RULES
         if (n->get_type() == FIREWALL_RULE) {
@@ -645,8 +645,8 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
   list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
   list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
   if (src_rules && dst_rules) {
-    for (auto src_rule: *src_rules) {
-      for (auto dst_rule: *dst_rules) {
+    for (auto const &src_rule: *src_rules) {
+      for (auto const &dst_rule: *dst_rules) {
         array_t *pipe_arr = array_isect_a(
           src_rule->inv_match,
           dst_rule->match,
@@ -691,7 +691,7 @@ void NetPlumber::remove_link(uint32_t from_port, uint32_t to_port) {
     list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
     list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
     if (src_rules && dst_rules) {
-      for (auto src_rule: *src_rules) {
+      for (auto const &src_rule: *src_rules) {
         src_rule->remove_link_pipes(from_port, to_port);
       }
     }
@@ -731,10 +731,11 @@ vector<uint32_t> *NetPlumber::get_src_ports(uint32_t dst_port) {
 }
 
 void NetPlumber::print_topology() {
-  for (auto it = topology.begin(); it != topology.end(); it++ ){
-    printf("%u --> ( ",(*it).first);
-    for (size_t i = 0; i < (*it).second->size(); i++) {
-      printf("%u ",(*it).second->at(i));
+  for (auto const &link: topology) {
+//  for (auto it = topology.begin(); it != topology.end(); it++ ){
+    printf("%u --> ( ", link.first);
+    for (size_t i = 0; i < link.second->size(); i++) {
+      printf("%u ", link.second->at(i));
     }
     printf(")\n");
   }
@@ -772,15 +773,15 @@ List_t NetPlumber::get_table_ports(uint32_t id) {
 }
 
 void NetPlumber::print_table(uint32_t id) {
-  printf("%s\n",string(40,'@').c_str());
-  printf("%sTable: 0x%x\n",string(4, ' ').c_str(),id);
-  printf("%s\n",string(40,'@').c_str());
+  printf("%s\n", string(40,'@').c_str());
+  printf("%sTable: 0x%x\n", string(4, ' ').c_str(),id);
+  printf("%s\n", string(40,'@').c_str());
   list<RuleNode*>* rules_list = table_to_nodes[id];
   List_t ports = this->table_to_ports[id];
-  printf("Ports: %s\n",list_to_string(ports).c_str());
+  printf("Ports: %s\n", list_to_string(ports).c_str());
   printf("Rules:\n");
-  for (auto const rule: *rules_list) {
-    printf("%s\n",rule->to_string().c_str());
+  for (auto const &rule: *rules_list) {
+    printf("%s\n", rule->to_string().c_str());
   }
 }
 
@@ -1029,12 +1030,12 @@ uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
 //length of n equals 2n bytes of memory
 size_t NetPlumber::expand(size_t length) {
   if (length > this->length) {
-    for (auto node: id_to_node) {//should contain all flows, probes and rules
+    for (auto const &node: id_to_node) {//should contain all flows, probes and rules
       node.second->enlarge(length);
     }
 
 #ifdef PIPE_SLICING
-    for (auto slice: slices) {
+    for (auto const &slice: slices) {
       hs_enlarge(slice.second.net_space, length);
     }
 #endif //PIPE_SLICING
@@ -1150,13 +1151,13 @@ list<Node*>* NetPlumber::get_nodes_with_inport(uint32_t inport) {
 }
 
 void NetPlumber::print_plumbing_network() {
-  for (auto const node: table_to_nodes) {
+  for (auto const &node: table_to_nodes) {
     this->print_table(node.first);
   }
   printf("%s\n", string(40,'@').c_str());
   printf("%sSources and Sinks\n", string(4, ' ').c_str());
   printf("%s\n", string(40,'@').c_str());
-  for (auto const flow_node: flow_nodes) {
+  for (auto const &flow_node: flow_nodes) {
     printf("%s\n", flow_node->to_string().c_str());
   }
   printf("%s\n", string(40,'@').c_str());
@@ -1230,18 +1231,18 @@ void NetPlumber::save_dependency_graph(string file_name) {
   int count = 0;
   root["nodes"] = nodes;
   root["links"] = links;
-  for (auto const node_it: id_to_node) {
+  for (auto const &node: id_to_node) {
     stringstream s;
-    s << node_it.first;
-    Json::Value node(Json::objectValue);
+    s << node.first;
+    Json::Value jnode(Json::objectValue);
     Json::Value name(Json::stringValue);
     name = s.str();
-    node["name"] = name;
-    root["nodes"].append(node);
-    ordering[node_it.first] = count;
+    jnode["name"] = name;
+    root["nodes"].append(jnode);
+    ordering[node.first] = count;
     count++;
   }
-  for (auto const s_node: id_to_node) {// = id_to_node.begin(); it != id_to_node.end(); it++) {
+  for (auto const &s_node: id_to_node) {// = id_to_node.begin(); it != id_to_node.end(); it++) {
     stringstream s1,s2;
     s1 << s_node.first;
     Node *n = s_node.second;
@@ -1299,7 +1300,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     topo_file.close();
 
     for (
-        auto const node: this->table_to_nodes) {
+        auto const &node: this->table_to_nodes) {
         /*
          *  {
          *      "id" : 1,
@@ -1318,7 +1319,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 
         Json::Value rules(Json::arrayValue);
         uint64_t rule_index = 1;
-        for (auto const r_node: *node.second) {
+        for (auto const &r_node: *node.second) {
             /*
              *  {
              *      "action" : "fwd"|"rw",
@@ -1374,10 +1375,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
     Json::Value commands(Json::arrayValue);
 
     for (
-        auto const flow_node: this->flow_nodes) {// = this->flow_nodes.begin();
-//        it != this->flow_nodes.end();
-//        it++
-//    ) {
+        auto const &flow_node: this->flow_nodes) {
         /*
          *  {
          *      "method" : "add_source",
@@ -1401,7 +1399,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
         commands.append(command);
     }
 
-    for (auto const probe: this->probes) {
+    for (auto const &probe: this->probes) {
         /*
          *  {
          *      "method" : "add_source_probe",
@@ -1453,7 +1451,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 
 void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
     if (flow->n_flows && !flow->n_flows->empty()) { // traverse flows to their end
-        for (auto const n_flow: *flow->n_flows) {
+        for (auto const &n_flow: *flow->n_flows) {
             traverse_flow(flows, *n_flow);
         }
     } else { // reached eof: create a list and go back to source collecting all nodes
@@ -1473,7 +1471,7 @@ void traverse_flow_tree(
     Json::Value& res,
     list<list<struct Flow *>::iterator> *n_flows
 ) {
-    for (auto const n_flow: *n_flows) {
+    for (auto const &n_flow: *n_flows) {
         Json::Value node(Json::objectValue);
 
         node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
@@ -1495,8 +1493,8 @@ void NetPlumber::dump_flow_trees(string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
-    for (auto const flow_node: flow_nodes) {
-        for (auto const s_flow: flow_node->source_flow) {
+    for (auto const &flow_node: flow_nodes) {
+        for (auto const &s_flow: flow_node->source_flow) {
             Json::Value flow_tree(Json::objectValue);
 
             flow_tree["node"] = (Json::Value::UInt64) flow_node->node_id;
@@ -1530,7 +1528,7 @@ void NetPlumber::dump_flows(string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
-    for (auto const flow_node: this->flow_nodes) {
+    for (auto const &flow_node: this->flow_nodes) {
         /*
          *  [
          *      [1,3,4] <- flow
@@ -1539,13 +1537,13 @@ void NetPlumber::dump_flows(string dir) {
 
         list<list<uint64_t>*> *path = new list<list<uint64_t>*>();
 
-        for (auto const s_flow: flow_node->source_flow) {
+        for (auto const &s_flow: flow_node->source_flow) {
             traverse_flow(path, s_flow);
         }
 
-        for (auto const p_node: *path) {
+        for (auto const &p_node: *path) {
             Json::Value flow(Json::arrayValue);
-            for (auto const p_flow: *p_node) {
+            for (auto const &p_flow: *p_node) {
                 flow.append((Json::UInt64) p_flow);
             }
 
@@ -1575,14 +1573,14 @@ void NetPlumber::dump_pipes(string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
-    for (auto const node: id_to_node) {
+    for (auto const &node: id_to_node) {
         Json::Value pipe(Json::arrayValue);
 
         list<struct Pipeline*> n_pipes = node.second->next_in_pipeline;
 
         if (!n_pipes.empty()) pipe.append((Json::UInt64) node.first);
 
-        for (auto const n_pipe: n_pipes) {
+        for (auto const &n_pipe: n_pipes) {
             pipe.append((Json::UInt64) (*n_pipe->r_pipeline)->node->node_id);
         }
 
@@ -1789,24 +1787,16 @@ void NetPlumber::dump_slices_pipes(std::string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
-    for (
-      auto it = id_to_node.begin();
-      it != id_to_node.end();
-      it++
-    ) {
+    for (auto const &node: id_to_node) {
       Json::Value pipe(Json::arrayValue);
 
-      list<struct Pipeline*> n_pipes = (*it).second->next_in_pipeline;
-      if (!n_pipes.empty()) pipe.append((Json::UInt64) (*it).first);
+      list<struct Pipeline*> n_pipes = node.second->next_in_pipeline;
+      if (!n_pipes.empty()) pipe.append((Json::UInt64) node.first);
 
-      for (
-        auto p_it = n_pipes.begin();
-        p_it != n_pipes.end();
-        p_it++
-      ) {
+      for (auto const &prev: n_pipes) {
         Json::Value fpipe(Json::objectValue);
-        fpipe["node_id"] = (Json::UInt64) (*(*p_it)->r_pipeline)->node->node_id;
-        fpipe["slice_id"] = (Json::UInt64) (*p_it)->net_space_id;
+        fpipe["node_id"] = (Json::UInt64) (*prev->r_pipeline)->node->node_id;
+        fpipe["slice_id"] = (Json::UInt64) prev->net_space_id;
         pipe.append(fpipe);
       }
       if (!n_pipes.empty()) pipes.append(pipe);
