@@ -181,21 +181,37 @@ array_has_z (const array_t *a, size_t len)
 bool
 array_is_eq (const array_t *a, const array_t *b, size_t len)
 {
+    // trivial case where both operands are NULL
+    if (!a && !b) return true;
+    // trivial case where one operand is NULL
     if (!a || !b) return false;
+
     return !memcmp (a, b, SIZE (len) * sizeof *a);
 }
 
 bool
 array_is_sub (const array_t *a, const array_t *b, size_t len)
 {
-    if (!a || !b) return false;
+
+    // trivial case where both operands are NULL
+    if (!a && !b) return false;
+    // trivial case where only the second operand is NULL
+    else if (a && !b) return false;
+    // trivial case where only the first operand is NULL
+    else if (!a && b) return true;
+
     return !array_is_eq(a,b,len) && array_is_sub_eq(a,b,len);
 }
 
 bool
 array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
 {
-    if (!a || !b) return false;
+    // trivial case where both operands are NULL
+    if (!a && !b) return true;
+    // trivial case where only the second operand is NULL
+    else if (a && !b) return false;
+    // trivial case where only the first operand is NULL
+    else if (!a && b) return true;
 
     for (size_t i = 0; i < SIZE(len); i++) {
         // a^b -> shows differences between a and b
