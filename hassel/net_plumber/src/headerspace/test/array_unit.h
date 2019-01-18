@@ -32,6 +32,7 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_is_sub_eq);
         CPPUNIT_TEST(test_array_is_equal);
         CPPUNIT_TEST(test_array_is_sub);
+        CPPUNIT_TEST(test_array_combine);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -39,6 +40,7 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_is_sub_eq();
         void test_array_is_equal();
         void test_array_is_sub();
+        void test_array_combine();
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_ARRAY_UNIT_H_

@@ -110,3 +110,22 @@ void ArrayTest::test_array_is_sub() {
     array_free(b);
     array_free(c);
 }
+
+void ArrayTest::test_array_combine() {
+    printf("\n");
+
+    array_t *a = array_from_str("1xxxxxx0");
+    array_t *b = array_from_str("1xxxxxx1");
+
+    array_t *res = array_from_str("1xxxxxxx");
+    array_t *tmp;
+
+    array_combine(&a, &b, &tmp, NULL, 1);
+
+    CPPUNIT_ASSERT(array_is_eq(res, tmp, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(res);
+    array_free(tmp);
+}
