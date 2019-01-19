@@ -111,6 +111,62 @@ void ArrayTest::test_array_is_sub() {
     array_free(c);
 }
 
+// Successful cases for array_combine
+// 1. A \subset B -> return B
+// 2. B \subset A -> return A
+// 3. A = B -> return either A or B: convention -> return A
+// 4. A, B differ in exactly one bit position
+//    ex. 1, 0 -> X
+//    greater differences can not be combined,
+//    result set would be greater than A \cup B
+//    ex. (a) { 0010, 0011, 1010, 1011 } \in x01x = A
+//            { 0000, 0001, 1000, 1001 } \in x00x = B
+//            -> result = A \cup B = x0xx
+//    ex. (b) { 0010, 0011, 1010, 1011 } \in x01x = A
+//            { 0100, 0101, 1100, 1101 } \in x10x = B
+//            -> if combining differences naively
+//            -> xxxx which encompasses 2^3 more elements than A \cup B
+// 5. A, B differ in more bit positions
+//    combinations possible, iff
+//    - prefix(A) \subset prefix(B) \land
+//    - suffix(A), suffix(B) differ in one bit position
+//    ex. 1001 = A
+//        1xx0 = B
+//        -> prefix(A) = 100, prefix(B) = 1xx
+//        -> prefix(A) \subset prefix(B)
+//        -> suffix(A) = 1, suffix(B) = 0, differ in one bit position
+//    -> return B and prefix(A)+combination(suffix(A),suffix(B))
+//    -> reverse case analogous
+//    -> combination results in A encompassing more elements, B remains the same
+//
+// Observations:
+// 1. \0 \subset A, \forall sets A
+//    -> If either array contains Z -> return other array
+// ...
+//
+// Unsuccessful combinations:
+// 1. A \cap B = \0 and bit difference > 1, but mind (5)
+// ...
+//
+// Combinations derived from original implementation (cases from last):
+// 1. 10x0 \cup 10x1 -> 10xx (4a)
+// 2. 1001 \cup 1xx0 -> 100x \cup 1xx0 (5)
+// 3. 1xx0 \cup 1001 -> 1xx0 \cup 100x
+//
+// 10x1 \cup 1x00
+// { 1001, 1011 }
+// { 1000, 1100 }
+// 10x1 = { 1001, 1011 }
+// 1x00 = { 1000, 1100 }
+// 100x = { 1000, 1001 }
+// -> extra contains elements from A, B --> useful to have extra?
+//
+// 1001 = { 1001 }
+// 1xx0 = { 1000, 1010, 1100, 1110 }
+// no intersection
+// 100x = { 1001, 1000 }
+// 1xx0 = { 1000, 1010, 1100, 1111 }
+// -> A grows larger --> useful?
 void ArrayTest::test_array_combine() {
     printf("\n");
 
