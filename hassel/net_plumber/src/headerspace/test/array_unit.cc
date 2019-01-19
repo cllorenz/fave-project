@@ -125,7 +125,7 @@ void ArrayTest::test_array_is_sub() {
 //    ex. (b) { 0010, 0011, 1010, 1011 } \in x01x = A
 //            { 0100, 0101, 1100, 1101 } \in x10x = B
 //            -> if combining differences naively
-//            -> xxxx which encompasses 2^3 more elements than A \cup B
+//            -> xxxx which would encompasses 2^3 more elements than A \cup B
 // 5. A, B differ in more bit positions
 //    combinations possible, iff
 //    - prefix(A) \subset prefix(B) \land
@@ -150,8 +150,8 @@ void ArrayTest::test_array_is_sub() {
 //
 // Combinations derived from original implementation (cases from last):
 // 1. 10x0 \cup 10x1 -> 10xx (4a)
-// 2. 1001 \cup 1xx0 -> 100x \cup 1xx0 (5)
-// 3. 1xx0 \cup 1001 -> 1xx0 \cup 100x
+// 2. 1001 \cup 1xx0 -> 100x \cup 1xx0 (5a)
+// 3. 1xx0 \cup 1001 -> 1xx0 \cup 100x (5b)
 //
 // 10x1 \cup 1x00
 // { 1001, 1011 }
@@ -167,21 +167,281 @@ void ArrayTest::test_array_is_sub() {
 // 100x = { 1001, 1000 }
 // 1xx0 = { 1000, 1010, 1100, 1111 }
 // -> A grows larger --> useful?
+//
+// --> Preserve originally intended semanatics as much as possible
+// --> usefulness can only be determined in usage of extra
+// --> masked tests should be done as well
 void ArrayTest::test_array_combine() {
-    printf("\n");
+  printf("\n");
 
-    array_t *a = array_from_str("1xxxxxx0");
-    array_t *b = array_from_str("1xxxxxx1");
+  // subset test (1a)
+  // \0 \subset B, \forall sets B
+  array_t *a = array_from_str("zxxxxxxx");
+  array_t *b = array_from_str("1xxxxxxx");
+  array_t *e = NULL;
+  array_t *r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
 
-    array_t *res = array_from_str("1xxxxxxx");
-    array_t *tmp;
+  // subset test (2a)
+  // \0 \subset B, \forall sets B
+  a = array_from_str("zzzzzzzz");
+  b = array_from_str("1xxxxxxx");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+    
+  // subset test (3a)
+  a = array_from_str("11xxxxxx");
+  b = array_from_str("1xxxxxxx");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
 
-    array_combine(&a, &b, &tmp, NULL, 1);
+  // subset test (4a)
+  a = array_from_str("11111111");
+  b = array_from_str("1xxxxxxx");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
 
-    CPPUNIT_ASSERT(array_is_eq(res, tmp, 1));
+  // subset test (5a)
+  a = array_from_str("11111111");
+  b = array_from_str("xxxxxxxx");
+  e = NULL;
+  r = array_from_str("xxxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
 
-    array_free(a);
-    array_free(b);
-    array_free(res);
-    array_free(tmp);
+  // reverse subset cases
+  // subset test (1b)
+  // \0 \subset B, \forall sets B
+  a = array_from_str("1xxxxxxx");
+  b = array_from_str("zxxxxxxx");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // subset test (2b)
+  // \0 \subset B, \forall sets B
+  a = array_from_str("1xxxxxxx");
+  b = array_from_str("zzzzzzzz");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+    
+  // subset test (3b)
+  a = array_from_str("1xxxxxxx");
+  b = array_from_str("11xxxxxx");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // subset test (4b)
+  a = array_from_str("1xxxxxxx");
+  b = array_from_str("11111111");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // subset test (5b)
+  a = array_from_str("xxxxxxxx");
+  b = array_from_str("11111111");
+  e = NULL;
+  r = array_from_str("xxxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // A = B
+  // equality test (1)
+  a = array_from_str("11111111");
+  b = array_from_str("11111111");
+  e = NULL;
+  r = array_from_str("11111111");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // equality test (2)
+  a = array_from_str("zxxxxxxx");
+  b = array_from_str("zxxxxxxx");
+  e = NULL;
+  r = array_from_str("zxxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  CPPUNIT_ASSERT(e == NULL);
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // equality test (3)
+  // since any z in a set makes it empty, a should be the result
+  // TODO: currently fails
+  // a = array_from_str("zxxxxxxx");
+  // b = array_from_str("xxxxxxxz");
+  // e = NULL;
+  // r = array_from_str("zxxxxxxx");
+  // array_combine(&a, &b, &e, NULL, 1);
+  // CPPUNIT_ASSERT(b == NULL);
+  // CPPUNIT_ASSERT(array_is_eq(a, r, 1));
+  // CPPUNIT_ASSERT(e == NULL);
+  // array_free(a);
+  // array_free(b);
+  // array_free(e);
+  // array_free(r);
+
+  // difference in one bit position (1)
+  a = array_from_str("1000xxxx");
+  b = array_from_str("1001xxxx");
+  e = NULL;
+  r = array_from_str("100xxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(e, r, 1));
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // difference in one bit position (2)
+  a = array_from_str("1xxxxxx0");
+  b = array_from_str("1xxxxxx1");
+  e = NULL;
+  r = array_from_str("1xxxxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(e, r, 1));
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r);
+
+  // difference in more than one bit position (1)
+  // (behaviour as expected from comments)
+  a = array_from_str("1001xxxx");
+  b = array_from_str("1xx0xxxx");
+  e = NULL;
+  array_t *r1 = array_from_str("100xxxxx");
+  array_t *r2 = array_from_str("1xx0xxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(a == NULL);
+  CPPUNIT_ASSERT(array_is_eq(b, r2, 1));
+  CPPUNIT_ASSERT(array_is_eq(e, r1, 1));
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r1);
+  array_free(r2);
+
+  // difference in more than one bit position (2)
+  // (behaviour as expected from comments)
+  a = array_from_str("1xx0xxxx");
+  b = array_from_str("1001xxxx");
+  e = NULL;
+  r1 = array_from_str("100xxxxx");
+  r2 = array_from_str("1xx0xxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(b == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r2, 1));
+  CPPUNIT_ASSERT(array_is_eq(e, r1, 1));
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r1);
+  array_free(r2);
+
+  // difference in more than one bit position (3)
+  // (behaviour as expected from comments)
+  a = array_from_str("10x1xxxx");
+  b = array_from_str("1x00xxxx");
+  e = NULL;
+  r1 = array_from_str("10x1xxxx");
+  r2 = array_from_str("1x00xxxx");
+  array_t *r3 = array_from_str("100xxxxx");
+  array_combine(&a, &b, &e, NULL, 1);
+  CPPUNIT_ASSERT(array_is_eq(a, r1, 1));
+  CPPUNIT_ASSERT(array_is_eq(b, r2, 1));
+  CPPUNIT_ASSERT(array_is_eq(e, r3, 1));
+  array_free(a);
+  array_free(b);
+  array_free(e);
+  array_free(r1);
+  array_free(r2);
+  array_free(r3);
 }
