@@ -259,6 +259,66 @@ array_one_bit_subtract (array_t *a, array_t *b, size_t len ) {
   return total_diff;
 }
 
+#if 0
+
+void
+array_combine(array_t **_a, array_t **_b, array_t **extra,
+              const array_t *mask, size_t len) {
+  array_t *a = *_a;
+  array_t *b = *_b;
+
+  //printf("array_combine: %s %s\n", array_to_str(a, len, false), array_to_str(b, len, false));
+
+  if (array_is_eq(a, b, len) || array_is_sub(b, a, len)) {
+    array_free(b);
+    _b = NULL; extra = NULL;
+    return;
+  } else if (array_is_sub(a, b, len)) {
+    array_free(a);
+    _a = NULL; extra = NULL;
+    return;
+  }
+
+  size_t diff_count = 0;
+  array_t tmp[SIZE (len)];
+  for (size_t i = 0; i < SIZE (len); i++) {
+    array_t isect = a[i] & b[i];
+    array_t diffs = ((isect | (isect >> 1)) & ODD_MASK) |
+        ((isect | (isect << 1)) & EVEN_MASK);
+    diffs = ~diffs;
+    if (mask && (diffs & mask[i] & EVEN_MASK)) {*extra = NULL; return;}
+    size_t count = __builtin_popcountll(diffs) / 2;
+    if (count == 0) tmp[i] = isect;
+    else {
+      diff_count += count;
+      if (diff_count == 1) tmp[i] = isect | diffs;
+    }
+  }
+
+  if (diff_count == 0 || diff_count > 1) {
+    *extra = NULL;
+    return;
+  }
+
+  bool b1 = array_is_sub(tmp, a, len);
+  bool b2 = array_is_sub(tmp, b, len);
+  // e.g. 10x0 U 10x1 --> 10xx
+  if (b1 && b2) {
+    array_free(a);
+    array_free(b);
+    *_a = NULL; *_b = NULL;
+    *extra = array_copy(tmp,len);
+  }
+  // e.g. 1001 U 1xx0 --> 100x U 1xx0
+  else if (b1) { array_free(a); *_a = NULL; *extra = array_copy(tmp,len); }
+    // e.g. 1xx0 U 1001 --> 1xx0 U 100x
+  else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len); }
+    // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
+  else {*extra = array_copy(tmp,len);}
+}
+
+#else
+
 void
 array_combine(array_t **_a, array_t **_b, array_t **extra,
               const array_t *mask, size_t len) {
@@ -315,6 +375,8 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
     else {*extra = array_copy(tmp,len);}
   }
 }
+
+#endif
 
 enum bit_val
 array_get_bit (const array_t *a, size_t byte, size_t bit)
