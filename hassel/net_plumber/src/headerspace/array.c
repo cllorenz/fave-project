@@ -184,7 +184,7 @@ array_is_eq (const array_t *a, const array_t *b, size_t len)
     // trivial case where both operands are NULL
     if (!a && !b) return true;
     // trivial case where one operand is NULL
-    if (!a || !b) return false;
+    else if (!a || !b) return false;
 
     return !memcmp (a, b, SIZE (len) * sizeof *a);
 }
