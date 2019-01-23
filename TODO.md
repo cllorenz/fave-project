@@ -33,7 +33,6 @@
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - deduce iterator types using auto
     - use range based iteration where suitable
-    - replace NULL by nullptr where suitable
     - use lambdas where suitable
  - improve code readability
  - use -Wextra and -Wpedantic
@@ -41,3 +40,7 @@
  - libnetplumber? (C++ plus Python)
  - BDDs instead of Header Spaces?
  - Remove or fix experiments: FirewallRuleNode, PolicyProbe
+ - Unify the empty set for arrays by a NULL representation, i.e., whenever a
+'z' is found remove the array. Pros: makes checks for the empty set more
+efficient and the memory footprint might be lowered. Cons: might break stuff at
+funny places... which leads to the question: why is that code even there?
