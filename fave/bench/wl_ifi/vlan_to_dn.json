@@ -1,6 +1,6 @@
 {
-    "1" : "up",
-#    "48" : ".ifi",
+    "1" : "proxy.uni-potsdam.de",
+#    "48" : "ifi",
     "463" : "internal.ifi",
     "464" : "admin.ifi",
     "465" : "office.ifi",

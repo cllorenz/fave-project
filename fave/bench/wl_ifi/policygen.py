@@ -6,7 +6,7 @@ OFILE="bench/wl_ifi/policies.json"
 
 if __name__ == '__main__':
     probes = [
-        ("probe.up", "probe", "universal", None, None, ["(p in (ifi.17))"]),
+        ("probe.proxy.uni-potsdam.de", "probe", "universal", None, None, ["(p in (ifi.17))"]),
         ("probe.internal.ifi", "probe", "existential", None, None, [".*(p=ifi.18);$"]),
         ("probe.admin.ifi", "probe", "existential", None, None, [".*(p=ifi.19);$"]),
         ("probe.office.ifi", "probe", "existential", None, None, [".*(p=ifi.20);$"]),
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         ("probe.cam.ifi", "probe", "existential", None, None, [".*(p=ifi.32);$"])
     ]
     links = [
-        ("ifi.17", "probe.up.1"),
+        ("ifi.17", "probe.proxy.uni-potsdam.de.1"),
         ("ifi.18", "probe.internal.ifi.1"),
         ("ifi.19", "probe.admin.ifi.1"),
         ("ifi.20", "probe.office.ifi.1"),

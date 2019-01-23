@@ -8,7 +8,7 @@ if __name__ == '__main__':
     # device: (name, type, no_ports, acls)
     devices = [
         ("ifi", "router", 16, "bench/wl_ifi/acls.txt"),
-        ("source.up", "generator", ["ipv4_src=123.123.0.0/16"]),
+        ("source.proxy.uni-potsdam.de", "generator", ["ipv4_src=123.123.0.0/16"]),
         ("source.internal.ifi", "generator", ["vlan=463", "ipv4_src=10.0.13.0/23"]),
         ("source.admin.ifi", "generator", ["vlan=464", "ipv4_src=10.0.15.0/23"]),
         ("source.office.ifi", "generator", ["vlan=465", "ipv4_src=10.0.17.0/23"]),
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     ]
 
     links = [
-        ("source.up.1", "ifi.1"),
+        ("source.proxy.uni-potsdam.de.1", "ifi.1"),
         ("source.internal.ifi.1", "ifi.2"),
         ("source.admin.ifi.1", "ifi.3"),
         ("source.office.ifi.1", "ifi.4"),
