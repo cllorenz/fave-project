@@ -259,7 +259,7 @@ array_one_bit_subtract (array_t *a, array_t *b, size_t len ) {
   return total_diff;
 }
 
-#if 0
+#ifdef WITH_EXTRA_NEW
 
 void
 array_combine(array_t **_a, array_t **_b, array_t **extra,
@@ -315,6 +315,70 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len); }
     // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
   else {*extra = array_copy(tmp,len);}
+}
+
+#elif defined WITHOUT_EXTRA
+
+void
+array_combine(array_t **_a, array_t **_b, array_t **extra,
+              const array_t *mask, size_t len) {
+  array_t *a = *_a;
+  array_t *b = *_b;
+  bool equal = true;
+  bool aSubb = true;
+  bool bSuba = true;
+  size_t diff_count = 0;
+  array_t tmp[SIZE (len)];
+  for (size_t i = 0; i < SIZE (len); i++) {
+    if (equal && a[i] != b[i]) equal = false;
+    if (!equal && bSuba && (b[i] & ~a[i])) bSuba = false;
+    if (!equal && aSubb && (a[i] & ~b[i])) aSubb = false;
+    if (mask && diff_count <= 1) {
+      if (bSuba) tmp[i] = b[i];
+      else if (aSubb) tmp[i] = a[i];
+      else {
+
+        array_t isect = a[i] & b[i];
+        array_t diffs = ((isect | (isect >> 1)) & ODD_MASK) |
+            ((isect | (isect << 1)) & EVEN_MASK);
+        diffs = ~diffs;
+        if (diffs & mask[i] & EVEN_MASK) {*extra = NULL; return;}
+        size_t count = __builtin_popcountll(diffs) / 2;
+        if (count == 0) tmp[i] = isect;
+        else {
+          diff_count += count;
+          if (diff_count == 1) tmp[i] = isect | diffs;
+        }
+      }
+    // in case of no combine, if no subset detected, return.
+    } else if (!mask && !bSuba && !aSubb) {*extra = NULL; return;}
+    // more than one non-intersecting bits - no combine.
+    if (diff_count > 1) {*extra = NULL; return;}
+  }
+  // keep a if equal or b is subset of a
+  if (equal || bSuba) { array_free(b); *_b = NULL; *extra = NULL;}
+  // keep b if a is subset of b
+  else if (aSubb) { array_free(a); *_a = NULL; *extra = NULL; }
+  // keep b and a untouched if there is no merge. e.g. 100x u 1xx0
+  else if (diff_count == 0) {*extra = NULL;}
+  // or we will have a combine:
+  else {
+    extra = NULL;
+    return;
+/*
+    bool b1 = array_is_sub(tmp,a,len);
+    bool b2 = array_is_sub(tmp,b,len);
+    // e.g. 10x0 U 10x1 --> 10xx
+    if (b1 && b2) { array_free(a); array_free(b); *_a = NULL; *_b = NULL;
+      *extra = array_copy(tmp,len); }
+    // e.g. 1001 U 1xx0 --> 100x U 1xx0
+    else if (b1) { array_free(a); *_a = NULL; *extra = array_copy(tmp,len);}
+    // e.g. 1xx0 U 1001 --> 1xx0 U 100x
+    else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len);}
+    // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
+    else {*extra = array_copy(tmp,len);}
+*/
+  }
 }
 
 #else

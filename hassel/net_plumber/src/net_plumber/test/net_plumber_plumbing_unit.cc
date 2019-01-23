@@ -482,8 +482,13 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
       {0,0},
       {2,0},
       {0,0},
+#ifdef WITHOUT_EXTRA
+      {3,0},
+      {1,0}
+#else
       {2,0},
       {1,1}
+#endif // WITHOUT_EXTRA
   };
   //N->print_plumbing_network();
   this->verify_source_flow_stats(stats);
