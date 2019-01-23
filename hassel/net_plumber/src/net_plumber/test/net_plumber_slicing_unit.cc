@@ -417,7 +417,7 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   np.add_table(2, lt2ports);
 
   uint32_t t3ports[2] = { 301, 302 };
-  List_t lt3ports = make_sorted_list_from_array(3, t3ports);
+  List_t lt3ports = make_sorted_list_from_array(2, t3ports);
   np.add_table(3, lt3ports);
 
   // add links
