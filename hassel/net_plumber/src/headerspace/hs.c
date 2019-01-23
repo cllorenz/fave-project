@@ -142,7 +142,7 @@ vec_compact (struct hs_vec *v, const array_t* mask, size_t len)
 {
   for (size_t i = 0; i < v->used; i++) {
     for (size_t j = i + 1; j < v->used; j++) {
-      array_t *extra;
+      array_t *extra = NULL;
       array_combine(&(v->elems[i]), &(v->elems[j]), &extra, mask, len);
       if (extra) {
         vec_append(v,extra,true);
