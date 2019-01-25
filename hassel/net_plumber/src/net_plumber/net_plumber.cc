@@ -790,9 +790,19 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
                                List_t in_ports, List_t out_ports,
                                array_t* match, array_t *mask, array_t* rw) {
   if (table_to_nodes.count(table) > 0) {
+    List_t table_ports = table_to_ports[table];
+
+    for (uint32_t i = 0; i < in_ports.size; ++i) // sanity check
+        if (!elem_in_sorted_list(in_ports.list[i], table_ports)) return 0;
+
+    for (uint32_t i = 0; i < out_ports.size; ++i) // sanity check
+        if (!elem_in_sorted_list(out_ports.list[i], table_ports)) return 0;
+
+    if (in_ports.size == 0) in_ports = table_ports;
+
     table_to_last_id[table] += 1;
     uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
-    if (in_ports.size == 0) in_ports = table_to_ports[table];
+
     RuleNode *r;
     if (!group || !gid) { //first rule in group or no group
       if (!group) r = new RuleNode(this, length, id, table, in_ports, out_ports,
