@@ -1581,7 +1581,12 @@ void NetPlumber::dump_pipes(const string dir) {
         if (!n_pipes.empty()) pipe.append((Json::UInt64) node.first);
 
         for (auto const &n_pipe: n_pipes) {
-            pipe.append((Json::UInt64) (*n_pipe->r_pipeline)->node->node_id);
+            Json::Value dest(Json::objectValue);
+            dest["node"] = (Json::UInt64) (*n_pipe->r_pipeline)->node->node_id;
+            dest["filter"] = array_to_str((
+                *n_pipe->r_pipeline)->pipe_array, length, false
+            );
+            pipe.append(dest);
         }
 
         if (!n_pipes.empty()) pipes.append(pipe);
