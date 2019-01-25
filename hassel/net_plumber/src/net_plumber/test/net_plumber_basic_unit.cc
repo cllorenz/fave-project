@@ -70,7 +70,7 @@ void NetPlumberBasicTest::test_create_topology() {
 void NetPlumberBasicTest::test_create_rule_id() {
   printf("\n");
   NetPlumber *n = new NetPlumber(1);
-  n->add_table(1,make_sorted_list(1,1));
+  n->add_table(1,make_sorted_list(3,1,2,3));
   // two conseq. rules
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
