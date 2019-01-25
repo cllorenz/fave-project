@@ -1223,7 +1223,7 @@ void NetPlumber::get_source_flow_stats(uint64_t node_id, int &inc, int &exc) {
   }
 }
 
-void NetPlumber::save_dependency_graph(string file_name) {
+void NetPlumber::save_dependency_graph(const string file_name) {
   Json::Value root(Json::objectValue);
   Json::Value nodes(Json::arrayValue);
   Json::Value links(Json::arrayValue);
@@ -1489,7 +1489,7 @@ void traverse_flow_tree(
 }
 
 
-void NetPlumber::dump_flow_trees(string dir) {
+void NetPlumber::dump_flow_trees(const string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
@@ -1569,7 +1569,7 @@ void NetPlumber::dump_flows(string dir) {
 }
 
 
-void NetPlumber::dump_pipes(string dir) {
+void NetPlumber::dump_pipes(const string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
@@ -1793,7 +1793,7 @@ void NetPlumber::print_slice_matrix(void) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::dump_slices_pipes(std::string dir) {
+void NetPlumber::dump_slices_pipes(const std::string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
