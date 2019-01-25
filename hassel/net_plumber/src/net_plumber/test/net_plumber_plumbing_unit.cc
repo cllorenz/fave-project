@@ -1002,15 +1002,32 @@ void NetPlumberPlumbingTest::verify_source_flow_stats(int stats[][2]) {
   }
 }
 
+void NetPlumberPlumbingTest::log_probe_counter(
+    std::string counter, size_t result, size_t expected
+) {
+  stringstream error_msg;
+  error_msg << counter << " obtained:\t" << result << " , " << expected;
+  LOG4CXX_DEBUG(logger,error_msg.str());
+}
+
 void NetPlumberPlumbingTest::check_probe_counter(
     probe_counter_t result, probe_counter_t expected) {
+
+  log_probe_counter("start_true", result.start_true, expected.start_true);
   CPPUNIT_ASSERT(result.start_true == expected.start_true);
+  log_probe_counter("start_false", result.start_false, expected.start_false);
   CPPUNIT_ASSERT(result.start_false == expected.start_false);
+  log_probe_counter("true_to_false", result.true_to_false, expected.true_to_false);
   CPPUNIT_ASSERT(result.true_to_false == expected.true_to_false);
+  log_probe_counter("false_to_true", result.false_to_true, expected.false_to_true);
   CPPUNIT_ASSERT(result.false_to_true == expected.false_to_true);
+  log_probe_counter("more_true", result.more_true, expected.more_true);
   CPPUNIT_ASSERT(result.more_true == expected.more_true);
+  log_probe_counter("more_false", result.more_false, expected.more_false);
   CPPUNIT_ASSERT(result.more_false == expected.more_false);
+  log_probe_counter("less_false", result.less_false, expected.less_false);
   CPPUNIT_ASSERT(result.less_false == expected.less_false);
+  log_probe_counter("less_true", result.less_true, expected.less_true);
   CPPUNIT_ASSERT(result.less_true == expected.less_true);
 }
 
