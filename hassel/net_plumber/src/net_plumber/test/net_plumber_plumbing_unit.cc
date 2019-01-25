@@ -470,7 +470,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
   this->test_routing_add_source();
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
-              make_sorted_list(1,5),
+              make_sorted_list(1,7),
               array_from_str ("1xxxxxxx"),
               array_from_str ("11011111"),
               array_from_str ("00000000")
@@ -864,11 +864,16 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule1() {
          c, probe_fire_counter, &A);
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
-              make_sorted_list(1,5),
+              make_sorted_list(1,7),
               array_from_str ("1xxxxxxx"),
               array_from_str ("11100111"),
               array_from_str ("00001000")
               ));
+  node_ids.push_back(N->add_rule(4, -1,
+    make_sorted_list(1,9),
+    make_sorted_list(1,13),
+    array_from_str ("xxxxxxxx"), NULL, NULL
+  ));
   //N->print_plumbing_network();
   this->check_probe_counter(A,r);
 }
@@ -885,7 +890,7 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule2() {
          c, probe_fire_counter, &A);
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
-              make_sorted_list(1,50),
+              make_sorted_list(1,15),
               array_from_str ("10xxxxxx"),
               NULL,
               NULL));
