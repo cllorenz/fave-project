@@ -37,10 +37,10 @@ void NetPlumberPlumbingTest::setUp() {
   N->add_link(8,5);
   N->add_link(7,9);
   N->add_link(9,7);
-  N->add_table(1, make_sorted_list(3,1,2,3));
+  N->add_table(1, make_sorted_list(4,1,2,3,15));
   N->add_table(2, make_sorted_list(3,4,5,11));
-  N->add_table(3, make_sorted_list(2,6,12));
-  N->add_table(4, make_sorted_list(2,8,13));
+  N->add_table(3, make_sorted_list(4,6,7,12,14));
+  N->add_table(4, make_sorted_list(3,8,9,13));
   node_ids.push_back(N->add_rule(1,-1,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
@@ -72,7 +72,7 @@ void NetPlumberPlumbingTest::setUp() {
               array_from_str ("10011111"),
               array_from_str ("01100000")));
   node_ids.push_back(N->add_rule(3,-1,
-              make_sorted_list(2,6,12),
+              make_sorted_list(3,6,7,12),
               make_sorted_list(1,7),
               array_from_str ("101xxxxx"),
               array_from_str ("11111000"),
