@@ -449,8 +449,8 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   List_t tr3out = make_sorted_list_from_array(1, r3out);
 
   np.add_rule(1, 1, tr1in, tr1out, array_copy(m1,1), array_copy(mask,1), rw);
-  np.add_rule(1, 1, tr2in, tr2out, array_copy(m2,1), array_copy(mask,1), rw);
-  np.add_rule(1, 1, tr3in, tr3out, array_copy(mask,1), array_copy(mask,1), rw);
+  np.add_rule(2, 1, tr2in, tr2out, array_copy(m2,1), array_copy(mask,1), rw);
+  np.add_rule(3, 1, tr3in, tr3out, array_copy(mask,1), array_copy(mask,1), rw);
 
   // add source
   uint32_t sl[1] = { 0 };
