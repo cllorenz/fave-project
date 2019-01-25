@@ -118,14 +118,16 @@ def _read_pipes(graph, n_map, fdir, use_pipes):
                 n_map[str(start)] = _POSITION(graph)
 
             for target in pipe[1:]:
-                if target not in n_map:
-                    print 'pipes: unknown node: %s'  % target
-                    graph.node(str(target), label=str(target), shape='rectangle')
-                    n_map[str(target)] = _POSITION(graph)
+                node = target['node']
+                if node not in n_map:
+                    print 'pipes: unknown node: %s'  % node
+                    graph.node(str(node), label=str(node), shape='rectangle')
+                    n_map[str(node)] = _POSITION(graph)
 
                 graph.edge(
                     str(start),
-                    str(target),
+                    str(node),
+                    label=target['filter'],
                     color='red:invis:red',
                     style='dashed',
                     penwidth='1'
@@ -154,7 +156,13 @@ def _traverse_flow(graph, n_map, flow, color):
             graph.node(str(target), label=str(target), shape='rectangle')
             n_map[target] = _POSITION(graph)
 
-        graph.edge(str(start), str(target), color=color, style='bold')
+        graph.edge(
+            str(start),
+            str(target),
+            label=child['flow'],
+            color=color,
+            style='bold'
+        )
 
         _traverse_flow(graph, n_map, child, color)
 

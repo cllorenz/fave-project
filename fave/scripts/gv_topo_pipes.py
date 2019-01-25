@@ -126,6 +126,8 @@ class TopologyRenderer(object):
 
             # TODO(jan): check whether to include rewrite as table row
             for j, rule in enumerate(table['rules']):
+                row_id = build_row('id:', rule['id'])
+
                 row_match = build_row('match:', rule['match'])
 
                 row_rewrite = build_row(
@@ -138,8 +140,8 @@ class TopologyRenderer(object):
 
                 tgraph.node(
                     'rule'+str(i)+str(j),
-                    "<%s%s%s%s%s>" % (
-                        table_start, row_match, row_mask, row_rewrite, table_end
+                    "<%s%s%s%s%s%s>" % (
+                        table_start, row_id, row_match, row_mask, row_rewrite, table_end
                     ),
                     shape='rectangle'
                 )
@@ -182,13 +184,15 @@ class TopologyRenderer(object):
                 self.pgraph.node(sid, label=str(start), shape='rectangle')
                 nodes.add(sid)
             for target in pipe[1:]:
-                tid = 'pipe' + str(target)
+                node = target['node']
+                tid = 'pipe' + str(node)
                 if tid not in nodes:
-                    self.pgraph.node(tid, label=str(target), shape='rectangle')
+                    self.pgraph.node(tid, label=str(node), shape='rectangle')
                     nodes.add(tid)
                 self.pgraph.edge(
                     sid,
                     tid,
+                    label=target['filter'],
                     color='red:invis:red',
                     style='dashed',
                     penwidth='1'
@@ -268,7 +272,13 @@ class TopologyRenderer(object):
                 self.ftgraph.node(str(target), label=str(target), shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
-            self.ftgraph.edge(str(start), str(target), color=color, style='bold')
+            self.ftgraph.edge(
+                str(start),
+                str(target),
+                label=child['flow'],
+                color=color,
+                style='bold'
+            )
 
             self._traverse_flow(n_map, child, color)
 
