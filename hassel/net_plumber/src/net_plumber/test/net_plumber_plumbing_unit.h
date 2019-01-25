@@ -27,14 +27,14 @@
 #include <vector>
 
 struct probe_counter_t {
-  int start_true;
-  int start_false;
-  int true_to_false;
-  int false_to_true;
-  int more_true;
-  int more_false;
-  int less_false;
-  int less_true;
+  size_t start_true;
+  size_t start_false;
+  size_t true_to_false;
+  size_t false_to_true;
+  size_t more_true;
+  size_t more_false;
+  size_t less_false;
+  size_t less_true;
 };
 
 class NetPlumberPlumbingTest : public CppUnit::TestFixture {
