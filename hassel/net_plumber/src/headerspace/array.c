@@ -321,42 +321,24 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
     return;
   }
 
-  size_t diff_count = 0;
-  array_t tmp[SIZE (len)];
-  for (size_t i = 0; i < SIZE (len); i++) {
-    array_t isect = a[i] & b[i];
-    array_t diffs = ((isect | (isect >> 1)) & ODD_MASK) |
-        ((isect | (isect << 1)) & EVEN_MASK);
-    diffs = ~diffs;
-    if (mask && (diffs & mask[i] & EVEN_MASK)) {*extra = NULL; return;}
-    size_t count = __builtin_popcountll(diffs) / 2;
-    if (count == 0) tmp[i] = isect;
-    else {
-      diff_count += count;
-      if (diff_count == 1) tmp[i] = isect | diffs;
-    }
-  }
+  array_t *tmp = array_merge(a, b, len);
+  if (!tmp) { *extra = NULL; return; }
 
-  if (diff_count == 0 || diff_count > 1) {
-    *extra = NULL;
-    return;
-  }
-
-  bool b1 = array_is_sub(tmp, a, len);
-  bool b2 = array_is_sub(tmp, b, len);
+  bool b1 = array_is_sub(a, tmp, len);
+  bool b2 = array_is_sub(b, tmp, len);
   // e.g. 10x0 U 10x1 --> 10xx
   if (b1 && b2) {
     array_free(a);
     array_free(b);
     *_a = NULL; *_b = NULL;
-    *extra = array_copy(tmp,len);
+    *extra = tmp;
   }
   // e.g. 1001 U 1xx0 --> 100x U 1xx0
-  else if (b1) { array_free(a); *_a = NULL; *extra = array_copy(tmp,len); }
+  else if (b1) { array_free(a); *_a = NULL; *extra = tmp; }
     // e.g. 1xx0 U 1001 --> 1xx0 U 100x
-  else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len); }
+  else if (b2) { array_free(b); *_b = NULL; *extra = tmp; }
     // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
-  else {*extra = array_copy(tmp,len);}
+  else {*extra = tmp;}
 }
 
 #elif defined WITHOUT_EXTRA
