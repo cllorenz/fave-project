@@ -123,6 +123,48 @@ void ArrayTest::test_array_is_sub() {
     array_free(a);
     array_free(b);
     array_free(c);
+    array_free(d);
+
+    array_t *la = array_from_str(
+        "1xxxxxx0,xxxxxxxx,xxxxxxxx,1xxxxxxx,xxxxxxxx,xxxxxxx0,xxxxxxxx"
+    );
+    array_t *lb = array_from_str(
+        "1xxxxxx0,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxx0,xxxxxxxx"
+    );
+
+    CPPUNIT_ASSERT(array_is_sub(la, lb, 6));
+
+    array_free(la);
+    array_free(lb);
+}
+
+
+void ArrayTest::test_array_merge() {
+    printf("\n");
+
+    array_t *a = array_from_str("10xxxxx1");
+    array_t *b = array_from_str("11xxxxx1");
+    array_t *c = array_from_str("1xxxxxx1");
+
+    array_t *r = array_merge(a, b, 1);
+
+    CPPUNIT_ASSERT(array_is_eq(r, c, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(c);
+    array_free(r);
+
+    a = array_from_str("1001xxxx");
+    b = array_from_str("1xx0xxxx");
+
+    r = array_merge(a, b, 1);
+
+    CPPUNIT_ASSERT(array_is_eq(r, NULL, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
 }
 
 
