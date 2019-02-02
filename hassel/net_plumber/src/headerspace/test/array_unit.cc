@@ -99,14 +99,26 @@ void ArrayTest::test_array_is_equal() {
 void ArrayTest::test_array_is_sub() {
     printf("\n");
 
+    CPPUNIT_ASSERT(!array_is_sub(NULL, NULL, 1));
+
     array_t *a = array_from_str("1xxxxxx0");
     CPPUNIT_ASSERT(!array_is_sub(a,a,1));
+    CPPUNIT_ASSERT(array_is_sub(NULL, a, 1));
 
     array_t *b = array_from_str("1xxxxxx0");
     CPPUNIT_ASSERT(!array_is_sub(a,b,1));
 
     array_t *c = array_from_str("1xxxxx10");
     CPPUNIT_ASSERT(array_is_sub(c,a,1));
+
+    array_t *d = array_from_str("zxxxxxxx");
+    CPPUNIT_ASSERT(!array_is_sub(d, d, 1));
+    CPPUNIT_ASSERT(array_is_sub(d, a, 1));
+    CPPUNIT_ASSERT(array_is_sub(d, c, 1));
+    CPPUNIT_ASSERT(!array_is_sub(a, d, 1));
+    CPPUNIT_ASSERT(!array_is_sub(c, d, 1));
+    CPPUNIT_ASSERT(!array_is_sub(NULL, d, 1));
+    CPPUNIT_ASSERT(!array_is_sub(d, NULL, 1));
 
     array_free(a);
     array_free(b);
