@@ -25,6 +25,24 @@ static inline bool
 has_z (array_t x)
 { return has_x (~x); }
 
+static inline bool
+has_zero (array_t x)
+{
+    // 11100100 x10z
+    // 01000100 0z0z <- x & ODD_MASK
+
+    // 01110010 0xz1 <- x >> 1
+    // 01010000 00zz <- (x >> 1) & ODD_MASK
+    // 10101111 11xx <- ~((x >> 1) & ODD_MASK)
+
+    // 00000100 zz0z  <- (x & ODD_MASK) & ~((x >> 1) & ODD_MASK)
+    return (x & ODD_MASK) & ~((x >> 1) & ODD_MASK);
+}
+
+static inline bool
+has_one (array_t x)
+{ return has_zero (~x); }
+
 /* Convert X from two-bit representation to integer and writes string to OUT.
    X must contain only 0s and 1s (no x or z) or be all x. OUT must have space
    for 5 chars. Returns number of chars written. */
