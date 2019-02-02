@@ -210,13 +210,22 @@ array_is_eq (const array_t *a, const array_t *b, size_t len)
 bool
 array_is_sub (const array_t *a, const array_t *b, size_t len)
 {
+    bool a_z = !a;
+    bool b_z = !b;
 
-    // trivial case where both operands are NULL
-    if (!a && !b) return false;
-    // trivial case where only the second operand is NULL
-    else if (a && !b) return false;
-    // trivial case where only the first operand is NULL
-    else if (!a && b) return true;
+    // trivial case where both operands are NULL (fast check)
+    if (a_z && b_z) return false;
+
+    if (a) a_z |= array_has_z(a, len);
+    if (b) b_z |= array_has_z(b, len);
+
+    // trivial case where both operands are empty (slower check)
+    if (a_z && b_z) return false;
+
+    // trivial case where only the second operand is empty
+    else if (!a_z && b_z) return false;
+    // trivial case where only the first operand is empty
+    else if (a_z && !b_z) return true;
 
     return !array_is_eq(a,b,len) && array_is_sub_eq(a,b,len);
 }
