@@ -294,7 +294,22 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   array_t *a = *_a;
   array_t *b = *_b;
 
-  //printf("array_combine: %s %s\n", array_to_str(a, len, false), array_to_str(b, len, false));
+  bool a_z = array_has_z(a, len);
+  bool b_z = array_has_z(b, len);
+
+  if (a_z && b_z) {
+    array_free(a); array_free(b);
+    *_a = NULL; *_b = NULL; *extra = NULL;
+    return;
+  } else if (a_z) {
+    array_free(a);
+    *_a = NULL; *extra = NULL;
+    return;
+  } else if (b_z) {
+    array_free(b);
+    *_b = NULL; *extra = NULL;
+    return;
+  }
 
   if (array_is_eq(a, b, len) || array_is_sub(b, a, len)) {
     array_free(b);
