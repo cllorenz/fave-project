@@ -659,21 +659,32 @@ array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_
   memset (p + start / 4, 0x55 * val, shift / 4);
 }
 
+
 array_t *
 array_merge(const array_t *a, const array_t *b, size_t len) {
-    if (array_has_z(a,len) || array_has_z(b,len)) return NULL;
+    if (!a || !b || array_has_z(a,len) || array_has_z(b,len)) return NULL;
 
-    array_t *res = array_create(len,BIT_UNDEF);
-
+    array_t res[SIZE(len)];
     size_t cnt = 0;
-    for (size_t i=0; i<SIZE(len);i++) {
-        res[i] = a[i] | (a[i] ^ b[i]);
-        cnt += x_count(a[i] ^ b[i],-1);
+    for (size_t i = 0; i < SIZE(len); i++) {
+        // e.g., 1001 ^ 1000 -> zzzx
+        array_t diff = a[i] ^ b[i];
+        // if x or z differ (indicated by 0 or 1) abort merge
+        if (has_zero(diff) || has_one(diff)) return NULL;
+
+        // e.g., 1001 & 1000 -> 100z
+        array_t isect = a[i] & b[i];
+
+        // e.g., zzzx | 100z -> 100x
+        res[i] = isect | diff;
+        // count the number of different 0 and 1
+        // e.g., 1001 ^ 1000 -> zzzx -> 1
+        cnt += x_count(diff, -1);
+        if (cnt > 1) break;
     }
 
-    if (array_has_z(res,len)) { array_free(res); return NULL; }
-    if (cnt == 1) return res;
+    if (array_has_z(res, len)) return NULL;
+    if (cnt <= 1) return array_copy(res, len);
 
-    array_free(res);
     return NULL;
 }
