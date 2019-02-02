@@ -77,6 +77,7 @@ void ArrayTest::test_array_is_sub_eq() {
     array_free(c);
 }
 
+
 void ArrayTest::test_array_is_equal() {
     printf("\n");
 
@@ -94,6 +95,7 @@ void ArrayTest::test_array_is_equal() {
     array_free(c);
 }
 
+
 void ArrayTest::test_array_is_sub() {
     printf("\n");
 
@@ -110,6 +112,7 @@ void ArrayTest::test_array_is_sub() {
     array_free(b);
     array_free(c);
 }
+
 
 // Successful cases for array_combine
 // 1. A \subset B -> return B
