@@ -79,7 +79,7 @@ vec_elem_free (struct hs_vec *v, size_t i)
 {
   assert(i < v->used);
 
-  array_free (v->elems[i]);
+  if (v->elems[i]) array_free (v->elems[i]);
   vec_elem_remove(v,i);
   if (v->diff && i < v->diff->used) {
     vec_destroy (&v->diff[i]);
