@@ -313,11 +313,11 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
 
   if (array_is_eq(a, b, len) || array_is_sub(b, a, len)) {
     array_free(b);
-    _b = NULL; extra = NULL;
+    *_b = NULL; *extra = NULL;
     return;
   } else if (array_is_sub(a, b, len)) {
     array_free(a);
-    _a = NULL; extra = NULL;
+    *_a = NULL; *extra = NULL;
     return;
   }
 
