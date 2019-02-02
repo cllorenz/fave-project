@@ -389,19 +389,6 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   else {
     extra = NULL;
     return;
-/*
-    bool b1 = array_is_sub(tmp,a,len);
-    bool b2 = array_is_sub(tmp,b,len);
-    // e.g. 10x0 U 10x1 --> 10xx
-    if (b1 && b2) { array_free(a); array_free(b); *_a = NULL; *_b = NULL;
-      *extra = array_copy(tmp,len); }
-    // e.g. 1001 U 1xx0 --> 100x U 1xx0
-    else if (b1) { array_free(a); *_a = NULL; *extra = array_copy(tmp,len);}
-    // e.g. 1xx0 U 1001 --> 1xx0 U 100x
-    else if (b2) { array_free(b); *_b = NULL; *extra = array_copy(tmp,len);}
-    // e.g. 10x1 U 1x00 --> 10x1 U 1x00 U 100X
-    else {*extra = array_copy(tmp,len);}
-*/
   }
 }
 
