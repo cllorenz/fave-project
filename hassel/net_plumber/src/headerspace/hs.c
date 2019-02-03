@@ -148,8 +148,8 @@ vec_compact (struct hs_vec *v, const array_t* mask, size_t len)
         vec_append(v,extra,true);
       }
       if (v->elems[i] == NULL) {
-        vec_elem_free (v, i);
         if (v->elems[j] == NULL) vec_elem_free (v, j);
+        vec_elem_free (v, i);
         i--;
         break;
       }
