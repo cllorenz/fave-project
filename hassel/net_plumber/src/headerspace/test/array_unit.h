@@ -29,6 +29,8 @@ extern "C" {
 class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST_SUITE(ArrayTest);
 
+        CPPUNIT_TEST(test_array_has_x);
+        CPPUNIT_TEST(test_array_has_z);
         CPPUNIT_TEST(test_array_is_sub_eq);
         CPPUNIT_TEST(test_array_is_equal);
         CPPUNIT_TEST(test_array_is_sub);
@@ -38,6 +40,8 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST_SUITE_END();
 
     public:
+        void test_array_has_x();
+        void test_array_has_z();
         void test_array_is_sub_eq();
         void test_array_is_equal();
         void test_array_is_sub();
