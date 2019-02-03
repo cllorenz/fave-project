@@ -182,8 +182,9 @@ array_has_x (const array_t *a, size_t len)
 {
   for (size_t i = 0; i < SIZE (len); i++) {
     array_t tmp = a[i];
-    if (i == SIZE (len) - 1) tmp &= ~((1ull << (len % (sizeof *a / 2))) - 1);
-    if (has_x (a[i])) return true;
+    // for the last round mask incomplete bits in array_t
+    if (i == SIZE (len) - 1) tmp &= (-1ull >> ((len % (sizeof *a / 2)*16)));
+    if (has_x (tmp)) return true;
   }
   return false;
 }
