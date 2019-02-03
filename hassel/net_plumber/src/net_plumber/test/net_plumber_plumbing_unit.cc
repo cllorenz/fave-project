@@ -88,6 +88,7 @@ void NetPlumberPlumbingTest::setUp() {
 
 void NetPlumberPlumbingTest::tearDown() {
   delete N;
+  node_ids.clear();
 }
 
 void NetPlumberPlumbingTest::test_setup() {
