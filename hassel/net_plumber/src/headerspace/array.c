@@ -192,8 +192,12 @@ array_has_x (const array_t *a, size_t len)
 bool
 array_has_z (const array_t *a, size_t len)
 {
-  for (size_t i = 0; i < SIZE (len); i++)
-    if (has_z (a[i])) return true;
+  for (size_t i = 0; i < SIZE (len); i++) {
+    array_t tmp = a[i];
+    // for the last round mask incomplete bits in array_t
+    //if (i == SIZE (len) - 1) tmp &= (-1ull >> ((len % (sizeof *a / 2)*16)));
+    if (has_z (tmp)) return true;
+  }
   return false;
 }
 
