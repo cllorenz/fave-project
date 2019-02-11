@@ -14,3 +14,4 @@ hassel-c/hs-test
 hassel-c/i2
 hassel-c/stanford
 hassel-c/test
+*.save
