@@ -273,14 +273,20 @@ array_one_bit_subtract (array_t *a, array_t *b, size_t len ) {
   size_t total_diff = 0;
   array_t diffs[len];
   for (size_t i = 0; i < SIZE (len); i++) {
+    // store bitwise difference into temporary array
+    // (trinary: z -> z, x -> z, 0 -> 1, 1 -> 0)
     array_t c = b[i] & ~a[i];
     diffs[i] = c;
+    // count set bits (from trinary zeroes and ones)
     total_diff += __builtin_popcountll(c);
     if (total_diff > 1) return total_diff;
   }
+  // if only one bit differs -> subtract one from b
   if (total_diff == 1) {
     for (size_t i = 0; i < SIZE (len); i++) {
       if (diffs[i]) {
+        // if bit is in array segment and one or x -> bit is set to one
+        // else bit is set to zero
         if (diffs[i] & EVEN_MASK)
           b[i] = b[i] & ~(diffs[i] >> 1);
         else
