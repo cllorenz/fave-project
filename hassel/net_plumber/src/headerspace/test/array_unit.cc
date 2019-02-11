@@ -177,6 +177,150 @@ void ArrayTest::test_array_is_sub() {
 }
 
 
+void ArrayTest::test_array_one_bit_subtract() {
+    printf("\n");
+
+    array_t *a = array_from_str("10xxxxx0");
+    array_t *b = array_from_str("10xxxxx1");
+    array_t *r = array_from_str("10xxxxx1");
+
+    size_t diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("10xxxx10");
+    b = array_from_str("10xxxxx1");
+    r = array_from_str("10xxxxx1");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 2);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("10xxxx10");
+    b = array_from_str("10xxxx01");
+    r = array_from_str("10xxxx01");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 2);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("10xxxxx1");
+    b = array_from_str("10xxxxx0");
+    r = array_from_str("10xxxxx0");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("11111101");
+    b = array_from_str("11111111");
+    r = array_from_str("11111111");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("11111111");
+    b = array_from_str("111111x1");
+    r = array_from_str("11111101");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("11111101");
+    b = array_from_str("111111x1");
+    r = array_from_str("11111111");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("00000010");
+    b = array_from_str("00000000");
+    r = array_from_str("00000000");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 1);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("000000x0");
+    b = array_from_str("00000000");
+    r = array_from_str("00000000");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 0);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+
+
+    a = array_from_str("00000000");
+    b = array_from_str("11111111");
+    r = array_from_str("11111111");
+
+    diffs = array_one_bit_subtract(a, b, 1);
+
+    CPPUNIT_ASSERT(diffs == 8);
+    CPPUNIT_ASSERT(array_is_eq(b, r, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+}
+
+
 void ArrayTest::test_array_merge() {
     printf("\n");
 
@@ -554,4 +698,121 @@ void ArrayTest::test_array_combine() {
   array_free(r1);
   array_free(r2);
   //array_free(r3); // XXX
+}
+
+
+void ArrayTest::test_array_cmpl() {
+  printf("\n");
+
+  array_t *a = array_from_str("10000000");
+  size_t n;
+  array_t **res = (array_t **)malloc(8 * sizeof a);
+
+  CPPUNIT_ASSERT(array_cmpl(a, 1, &n, res));
+  CPPUNIT_ASSERT(8 == n);
+
+  array_t **r = (array_t **)malloc(8 * sizeof a);
+
+  r[0] = array_from_str("xxx1xxxx");
+  r[1] = array_from_str("xx1xxxxx");
+  r[2] = array_from_str("x1xxxxxx");
+  r[3] = array_from_str("0xxxxxxx");
+  r[4] = array_from_str("xxxxxxx1");
+  r[5] = array_from_str("xxxxxx1x");
+  r[6] = array_from_str("xxxxx1xx");
+  r[7] = array_from_str("xxxx1xxx");
+
+  for (size_t i = 0; i < n; i++)
+    CPPUNIT_ASSERT(array_is_eq(res[i], r[i], 1));
+
+  array_free(a);
+
+  for (size_t i = 0; i < n; i++)
+    array_free(res[i]);
+  free(res);
+
+  for (size_t i = 0; i < 8; i++)
+    array_free(r[i]);
+  free(r);
+
+
+  a = array_from_str("xxxx1010");
+  n = 0;
+  res = (array_t **)malloc(4 * sizeof a);
+
+  CPPUNIT_ASSERT(array_cmpl(a, 1, &n, res));
+  CPPUNIT_ASSERT(4 == n);
+
+  r = (array_t **)malloc(4 * sizeof a);
+
+  r[0] = array_from_str("xxxxxxx1");
+  r[1] = array_from_str("xxxxxx0x");
+  r[2] = array_from_str("xxxxx1xx");
+  r[3] = array_from_str("xxxx0xxx");
+
+  for (size_t i = 0; i < n; i++)
+    CPPUNIT_ASSERT(array_is_eq(res[i], r[i], 1));
+
+  array_free(a);
+
+  for (size_t i = 0; i < n; i++)
+    array_free(res[i]);
+  free(res);
+
+  for (size_t i = 0; i < 4; i++)
+    array_free(r[i]);
+  free(r);
+
+
+  a = array_from_str("xxxxzzzz");
+  n = 0;
+
+/*
+  // XXX: original behaviour
+  res = (array_t **)malloc(8 * sizeof a);
+
+  CPPUNIT_ASSERT(array_cmpl(a, 1, &n, res));
+  CPPUNIT_ASSERT(8 == n);
+
+  r = (array_t **)malloc(8 * sizeof a);
+
+  r[0] = array_from_str("xxxxxxx0");
+  r[1] = array_from_str("xxxxxxx1");
+  r[2] = array_from_str("xxxxxx0x");
+  r[3] = array_from_str("xxxxxx1x");
+  r[4] = array_from_str("xxxxx0xx");
+  r[5] = array_from_str("xxxxx1xx");
+  r[6] = array_from_str("xxxx0xxx");
+  r[7] = array_from_str("xxxx1xxx");
+
+  for (size_t i = 0; i < n; i++)
+    CPPUNIT_ASSERT(array_is_eq(res[i], r[i], 1));
+
+  array_free(a);
+
+  for (size_t i = 0; i < n; i++)
+    array_free(res[i]);
+  free(res);
+
+  for (size_t i = 0; i < 8; i++)
+    array_free(r[i]);
+  free(r);
+*/
+
+  res = (array_t **)malloc(1 * sizeof a);
+
+  CPPUNIT_ASSERT(array_cmpl(a, 1, &n, res));
+  CPPUNIT_ASSERT(1 == n);
+
+  r = (array_t **)malloc(1 * sizeof a);
+
+  r[0] = array_from_str("xxxxxxxx");
+
+  CPPUNIT_ASSERT(array_is_eq(res[0], r[0], 1));
+
+  array_free(a);
+  array_free(res[0]);
+  free(res);
+  array_free(r[0]);
+  free(r);
 }

@@ -36,6 +36,8 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_is_sub);
         CPPUNIT_TEST(test_array_combine);
         CPPUNIT_TEST(test_array_merge);
+        CPPUNIT_TEST(test_array_one_bit_subtract);
+        CPPUNIT_TEST(test_array_cmpl);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -47,6 +49,8 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_is_sub();
         void test_array_combine();
         void test_array_merge();
+        void test_array_one_bit_subtract();
+        void test_array_cmpl();
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_ARRAY_UNIT_H_
