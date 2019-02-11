@@ -508,6 +508,12 @@ array_and (const array_t *a, const array_t *b, size_t len, array_t *res)
 bool
 array_cmpl (const array_t *a, size_t len, size_t *n, array_t **res)
 {
+  if (!a || array_has_z(a, len)) {
+    res[0] = array_create(len, BIT_X);
+    *n = 1;
+    return *n;
+  }
+
   *n = 0;
   for (size_t i = 0; i < SIZE (len); i++) {
     array_t cur = ~a[i];
