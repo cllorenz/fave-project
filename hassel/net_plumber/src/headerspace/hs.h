@@ -59,8 +59,10 @@ void hs_enlarge	  (struct hs *hs, size_t length);
  * the following condition is met: "If diff_hs was diff'ed from orig_hs and then
  * rewritten by mask/rewrite, it appears in final result"
  */
+#ifdef USE_DEPRECATED
 bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite);
+#endif
 
 bool hs_is_empty(const struct hs *hs);
 bool hs_is_equal(const struct hs *a, const struct hs *b);
