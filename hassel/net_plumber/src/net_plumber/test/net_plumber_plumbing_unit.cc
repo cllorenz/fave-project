@@ -483,10 +483,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
       {0,0},
       {2,0},
       {0,0},
-#ifdef WITHOUT_EXTRA
-      {2,0},
-      {1,0}
-#elif defined WITH_EXTRA_NEW
+#ifdef WITH_EXTRA_NEW
       {2,0},
       {1,0}
 #else
