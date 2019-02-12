@@ -21,9 +21,10 @@ EXECUTABLES :=
 CXX_DEPS :=
 C_UPPER_DEPS :=
 
-USER_FLAGS :=-DPIPE_SLICING
+USER_FLAGS :=-DPIPE_SLICING -DWITH_EXTRA_NEW
 #USER_FLAGS :=
 # -fprofile-arcs -ftest-coverage
+
 DEBUG_FLAGS :=-g
 #-Wextra -Wpedantic
 GCFLAGS :=-Wall -O3 -std=c++11 $(DEBUG_FLAGS) $(USER_FLAGS)
