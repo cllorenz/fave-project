@@ -358,10 +358,14 @@ void HeaderspaceTest::test_enlarge() {
     hs_destroy(&a);
 }
 
+
+#ifdef USE_DEPRECATED
 void HeaderspaceTest::test_potponed_diff_and_rewrite() {
     printf("\n -> No tests implemented since this function is never used by \
 net_plumber.\n");
 }
+#endif
+
 
 void HeaderspaceTest::test_is_empty() {
     printf("\n");

@@ -47,7 +47,9 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_rewrite);
         CPPUNIT_TEST(test_vec_append);
         CPPUNIT_TEST(test_enlarge);
+#ifdef USE_DEPRECATED
         CPPUNIT_TEST(test_potponed_diff_and_rewrite);
+#endif
         CPPUNIT_TEST(test_is_empty);
         CPPUNIT_TEST(test_is_equal);
         CPPUNIT_TEST(test_is_equal_regression);
@@ -79,7 +81,9 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         void test_rewrite();
         void test_vec_append();
         void test_enlarge();
+#ifdef USE_DEPRECATED
         void test_potponed_diff_and_rewrite();
+#endif
         void test_is_empty();
         void test_is_equal();
         void test_is_equal_regression();
