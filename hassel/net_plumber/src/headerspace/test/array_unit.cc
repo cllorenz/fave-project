@@ -701,6 +701,74 @@ void ArrayTest::test_array_combine() {
 }
 
 
+void ArrayTest::test_array_and() {
+    printf("\n");
+
+    array_t *a = array_from_str("10xxxx01");
+    array_t *b = array_from_str("10xxxx01");
+    array_t *r = array_from_str("10xxxx01");
+
+    array_t *res = array_create(1, BIT_UNDEF);
+
+    array_and(a, b, 1, res);
+
+    CPPUNIT_ASSERT(array_is_eq(r, res, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+    array_free(res);
+
+
+    a = array_from_str("10xxxx01");
+    b = array_from_str("10xxxx10");
+    r = array_from_str("10xxxx00");
+
+    res = array_create(1, BIT_UNDEF);
+
+    array_and(a, b, 1, res);
+
+    CPPUNIT_ASSERT(array_is_eq(r, res, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+    array_free(res);
+
+
+    a = array_from_str("10xxx101");
+    b = array_from_str("10xxxx01");
+    r = array_from_str("10xxxx01");
+
+    res = array_create(1, BIT_UNDEF);
+
+    array_and(a, b, 1, res);
+
+    CPPUNIT_ASSERT(array_is_eq(r, res, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+    array_free(res);
+
+
+    a = array_from_str("10zxzx01");
+    b = array_from_str("10zzxxzz");
+    r = array_from_str("10z00x0z");
+
+    res = array_create(1, BIT_UNDEF);
+
+    array_and(a, b, 1, res);
+
+    CPPUNIT_ASSERT(array_is_eq(r, res, 1));
+
+    array_free(a);
+    array_free(b);
+    array_free(r);
+    array_free(res);
+}
+
+
 void ArrayTest::test_array_cmpl() {
   printf("\n");
 
@@ -815,4 +883,61 @@ void ArrayTest::test_array_cmpl() {
   free(res);
   array_free(r[0]);
   free(r);
+}
+
+
+void ArrayTest::test_array_isect() {
+  printf("\n");
+
+  array_t *a = array_from_str("10xz10xz,10xz10xz");
+  array_t *b = array_from_str("10xz0xz1,xz10z10x");
+  array_t *r = array_from_str("10xzz0zz,1z1zzz0z");
+
+  array_t *res = array_create(2, BIT_UNDEF);
+
+  array_isect(a, b, 2, res);
+
+  CPPUNIT_ASSERT(array_is_eq(r, res, 2));
+
+  array_free(a);
+  array_free(b);
+  array_free(r);
+  array_free(res);
+}
+
+
+void ArrayTest::test_array_not() {
+  printf("\n");
+
+  array_t *a = array_from_str("10xz10xz");
+  array_t *r = array_from_str("01xz01xz");
+
+  array_t *res = array_create(1, BIT_UNDEF);
+
+  array_not(a, 1, res);
+
+  CPPUNIT_ASSERT(array_is_eq(r, res, 1));
+
+  array_free(a);
+  array_free(r);
+  array_free(res);
+}
+
+
+void ArrayTest::test_array_rewrite() {
+  printf("\n");
+
+  array_t *a  = array_from_str("10xz10xz");
+  array_t *m  = array_from_str("10xx1100");
+  array_t *rw = array_from_str("01xxx10x");
+  array_t *r  = array_from_str("11xx110x");
+
+  array_rewrite(a, m, rw, 1);
+
+  CPPUNIT_ASSERT(array_is_eq(r, a, 1));
+
+  array_free(a);
+  array_free(m);
+  array_free(rw);
+  array_free(r);
 }
