@@ -38,29 +38,43 @@ bool array_is_eq  (const array_t *a, const array_t *b, size_t len);
 bool array_is_sub (const array_t *a, const array_t *b, size_t len);
 bool array_is_sub_eq(const array_t *a, const array_t *b, size_t len);
 
+#ifdef USE_DEPRECATED
 enum bit_val array_get_bit  (const array_t *a, size_t byte, size_t bit);
 uint16_t     array_get_byte (const array_t *a, size_t byte);
 void         array_set_bit  (array_t *a, enum bit_val val, size_t byte, size_t bit);
 void         array_set_byte (array_t *a, uint16_t val, size_t byte);
+#endif
 
 void array_and     (const array_t *a, const array_t *b, size_t len, array_t *res);
 bool array_cmpl    (const array_t *a, size_t len, size_t *n, array_t **res);
+#ifdef USE_DEPRECATED
 bool array_diff    (const array_t *a, const array_t *b, size_t len, size_t *n, array_t **res);
+#endif
 bool array_isect   (const array_t *a, const array_t *b, size_t len, array_t *res);
 void array_not     (const array_t *a, size_t len, array_t *res);
+#ifdef USE_DEPRECATED
 void array_or      (const array_t *a, const array_t *b, size_t len, array_t *res);
+#endif
 size_t  array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, size_t len);
 size_t  array_x_count (const array_t *a, const array_t *mask, size_t len);  // counts number of X bits in positions masked by a 0
 
+#ifdef USE_DEPRECATED
 array_t  *array_and_a   (const array_t *a, const array_t *b, size_t len);
+#endif
 array_t **array_cmpl_a  (const array_t *a, size_t len, size_t *n);
+#ifdef USE_DEPRECATED
 array_t **array_diff_a  (const array_t *a, const array_t *b, size_t len, size_t *n);
+#endif
 array_t  *array_isect_a (const array_t *a, const array_t *b, size_t len);
 array_t  *array_not_a   (const array_t *a, size_t len);
+#ifdef USE_DEPRECATED
 array_t  *array_or_a    (const array_t *a, const array_t *b, size_t len);
+#endif
 
+#ifdef USE_DEPRECATED
 void array_shift_left  (array_t *a, size_t len, size_t start, size_t shift, enum bit_val val);
 void array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_val val);
+#endif
 
 /*
  * combines a and b into 1, 2 or 3 wc expressions.

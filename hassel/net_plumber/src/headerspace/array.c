@@ -464,6 +464,7 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
 
 #endif
 
+#ifdef USE_DEPRECATED
 enum bit_val
 array_get_bit (const array_t *a, size_t byte, size_t bit)
 {
@@ -472,14 +473,20 @@ array_get_bit (const array_t *a, size_t byte, size_t bit)
   size_t shift = 2 * (CHAR_BIT / 2 - (bit % (CHAR_BIT / 2)) - 1);
   return x >> shift;
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 uint16_t
 array_get_byte (const array_t *a, size_t byte)
 {
   const uint8_t *p = (const uint8_t *) a;
   return (p[2 * byte] << CHAR_BIT) | p[2 * byte + 1];
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 void
 array_set_bit (array_t *a, enum bit_val val, size_t byte, size_t bit)
 {
@@ -489,7 +496,10 @@ array_set_bit (array_t *a, enum bit_val val, size_t byte, size_t bit)
   uint8_t mask = BIT_X >> shift;
   p[idx] = (p[idx] & ~mask) | (val << shift);
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 void
 array_set_byte (array_t *a, uint16_t val, size_t byte)
 {
@@ -497,6 +507,8 @@ array_set_byte (array_t *a, uint16_t val, size_t byte)
   p[2 * byte] = val >> CHAR_BIT;
   a[2 * byte + 1] = val & 0xff;
 }
+#endif
+
 
 void
 array_and (const array_t *a, const array_t *b, size_t len, array_t *res)
@@ -504,6 +516,7 @@ array_and (const array_t *a, const array_t *b, size_t len, array_t *res)
   for (size_t i = 0; i < SIZE (len); i++)
     res[i] = ((a[i] | b[i]) & ODD_MASK) | (a[i] & b[i] & EVEN_MASK);
 }
+
 
 bool
 array_cmpl (const array_t *a, size_t len, size_t *n, array_t **res)
@@ -531,6 +544,8 @@ array_cmpl (const array_t *a, size_t len, size_t *n, array_t **res)
   return *n;
 }
 
+
+#ifdef USE_DEPRECATED
 bool
 array_diff (const array_t *a, const array_t *b, size_t len, size_t *n, array_t **res)
 {
@@ -544,6 +559,8 @@ array_diff (const array_t *a, const array_t *b, size_t len, size_t *n, array_t *
     array_free (res[i]);
   return *n;
 }
+#endif
+
 
 bool
 array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
@@ -562,12 +579,16 @@ array_not (const array_t *a, size_t len, array_t *res)
     res[i] = ((a[i] >> 1) & ODD_MASK) | ((a[i] << 1) & EVEN_MASK);
 }
 
+
+#ifdef USE_DEPRECATED
 void
 array_or (const array_t *a, const array_t *b, size_t len, array_t *res)
 {
   for (size_t i = 0; i < SIZE (len); i++)
     res[i] = (a[i] & b[i] & ODD_MASK) | ((a[i] | b[i]) & EVEN_MASK);
 }
+#endif
+
 
 /* Rewrite A using MASK and REWRITE. Returns number of x's in result. */
 size_t
@@ -582,6 +603,8 @@ array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, size_t l
   return n;
 }
 
+
+#ifdef USE_DEPRECATED
 size_t
 array_x_count (const array_t *a, const array_t *mask, size_t len)
 {
@@ -590,7 +613,10 @@ array_x_count (const array_t *a, const array_t *mask, size_t len)
     n += x_count (a[i], mask[i]);
   return n;
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 array_t *
 array_and_a (const array_t *a, const array_t *b, size_t len)
 {
@@ -598,6 +624,8 @@ array_and_a (const array_t *a, const array_t *b, size_t len)
   array_and (a, b, len, res);
   return res;
 }
+#endif
+
 
 array_t **
 array_cmpl_a (const array_t *a, size_t len, size_t *n)
@@ -608,6 +636,8 @@ array_cmpl_a (const array_t *a, size_t len, size_t *n)
   return res;
 }
 
+
+#ifdef USE_DEPRECATED
 array_t **
 array_diff_a (const array_t *a, const array_t *b, size_t len, size_t *n)
 {
@@ -616,6 +646,8 @@ array_diff_a (const array_t *a, const array_t *b, size_t len, size_t *n)
   array_t **res = xmemdup (tmp, *n * sizeof *res);
   return res;
 }
+#endif
+
 
 //TODO: Move HS optimization here
 array_t *
@@ -639,6 +671,8 @@ array_not_a (const array_t *a, size_t len)
   return res;
 }
 
+
+#ifdef USE_DEPRECATED
 array_t *
 array_or_a (const array_t *a, const array_t *b, size_t len)
 {
@@ -646,7 +680,10 @@ array_or_a (const array_t *a, const array_t *b, size_t len)
   array_or (a, b, len, res);
   return res;
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 void
 array_shift_left (array_t *a, size_t len, size_t start, size_t shift, enum bit_val val)
 {
@@ -657,7 +694,10 @@ array_shift_left (array_t *a, size_t len, size_t start, size_t shift, enum bit_v
   memmove (p + start / 4, p + start / 4 + shift / 4, bytes);
   memset (p + 2 * len - shift / 4, 0x55 * val, shift / 4);
 }
+#endif
 
+
+#ifdef USE_DEPRECATED
 void
 array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_val val)
 {
@@ -668,6 +708,7 @@ array_shift_right (array_t *a, size_t len, size_t start, size_t shift, enum bit_
   memmove (p + start / 4 + shift / 4, p + start / 4, bytes);
   memset (p + start / 4, 0x55 * val, shift / 4);
 }
+#endif
 
 
 array_t *
