@@ -15,8 +15,6 @@ from netplumber.jsonrpc import print_plumbing_network
 from netplumber.jsonrpc import add_table, add_link
 from netplumber.jsonrpc import add_rule, remove_rule
 from netplumber.jsonrpc import add_source, add_source_probe
-from netplumber.jsonrpc import add_fw_rule, remove_fw_rule
-from netplumber.jsonrpc import add_policy_rule, add_policy_probe
 from netplumber.jsonrpc import add_slice, remove_slice
 
 
