@@ -905,6 +905,7 @@ void NetPlumber::remove_source_probe(uint64_t id) {
   }
 }
 
+#ifdef USE_DEPRECATED
 SourceProbeNode *NetPlumber::get_source_probe(uint64_t id) {
   if (id_to_node.count(id) > 0) {
     Node *n = id_to_node[id];
@@ -914,6 +915,7 @@ SourceProbeNode *NetPlumber::get_source_probe(uint64_t id) {
   }
   return NULL;
 }
+#endif
 
 list<Node*>* NetPlumber::get_nodes_with_outport(uint32_t outport) {
   if (outport_to_nodes.count(outport) == 0) {

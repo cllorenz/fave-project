@@ -241,7 +241,9 @@ namespace net_plumber {
                               src_probe_callback_t probe_callback,
                               void *callback_data);
     void remove_source_probe(uint64_t id);
+#ifdef USE_DEPRECATED
     SourceProbeNode *get_source_probe(uint64_t);
+#endif
 
 #ifdef PIPE_SLICING
     /*
