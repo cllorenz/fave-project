@@ -472,49 +472,6 @@ def dump_slices_pipes(sock, odir):
 
 
 #@profile_method
-def add_policy_rule(sock, r_idx, match, action):
-    """ Deprecated: Adds a policy rule.
-    """
-
-    data = _basic_rpc()
-    data["method"] = "add_policy_rule"
-    data["params"] = {"index":r_idx, "match":match, "action":action}
-    _sendrecv(sock, json.dumps(data))
-
-
-#@profile_method
-def remove_policy_rule(sock, r_idx):
-    """ Deprecated: Removes a policy rule.
-    """
-
-    data = _basic_rpc()
-    data["method"] = "remove_policy_rule"
-    data["params"] = {"index":r_idx}
-    _sendrecv(sock, json.dumps(data))
-
-
-#@profile_method
-def add_policy_probe(sock, ports):
-    """ Deprecated: Adds a policy probe
-    """
-
-    data = _basic_rpc()
-    data["method"] = "add_policy_probe"
-    data["params"] = {"ports":ports}
-    return _extract_node(_sendrecv(sock, json.dumps(data)))
-
-
-#@profile_method
-def remove_policy_probe(sock, pp_idx):
-    """ Deprecated: Removes a policy probe.
-    """
-    data = _basic_rpc()
-    data["method"] = "remove_policy_probe"
-    data["params"] = {"node":pp_idx}
-    _sendrecv(sock, json.dumps(data))
-
-
-#@profile_method
 def print_table(sock, t_idx):
     """ Prints a table using NetPlumber's default logger.
 
