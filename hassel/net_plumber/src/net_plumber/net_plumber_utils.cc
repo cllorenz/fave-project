@@ -138,23 +138,27 @@ bool lists_has_intersection(List_t a, List_t b) {
   return false;
 }
 
+#ifdef USE_DEPRECATED
 List_t copy_list(List_t l) {
   List_t result = l;
   result.list = (uint32_t *)malloc(l.size * sizeof(uint32_t));
   memcpy(result.list, l.list, l.size * sizeof(uint32_t));
   return result;
 }
+#endif
 
 bool elem_in_sorted_list(uint32_t elem, List_t list) {
   return bsearch(&elem, list.list, list.size, sizeof(uint32_t), compare);
 }
 
+#ifdef USE_DEPRECATED
 bool elem_in_unsorted_list(uint32_t elem, List_t list) {
   for (size_t i = 0; i < list.size; i++) {
     if (elem == list.list[i]) return true;
   }
   return false;
 }
+#endif
 
 Json::Value list_to_json(List_t list) {
     Json::Value res(Json::arrayValue);

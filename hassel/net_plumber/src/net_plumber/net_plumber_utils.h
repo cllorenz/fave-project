@@ -38,9 +38,13 @@ List_t      make_unsorted_list (uint32_t count,...);
 List_t      intersect_sorted_lists (List_t a, List_t b);
 std::string list_to_string (List_t p);
 bool        elem_in_sorted_list (uint32_t elem, List_t list);
+#ifdef USE_DEPRECATED
 bool        elem_in_unsorted_list (uint32_t elem, List_t list);
+#endif
 bool        lists_has_intersection(List_t a, List_t b);
+#ifdef USE_DEPRECATED
 List_t      copy_list (List_t l);
+#endif
 Json::Value list_to_json(List_t l);
 void hs_to_json(Json::Value& res, hs *h);
 
