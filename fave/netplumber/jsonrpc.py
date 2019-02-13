@@ -472,46 +472,6 @@ def dump_slices_pipes(sock, odir):
 
 
 #@profile_method
-def add_fw_rule(sock, t_idx, r_idx, in_ports, out_ports, fw_match):
-    """ Adds a firewall rule.
-
-    Keyword arguments:
-    sock -- A socket connected to NetPlumber
-    t_idx -- The firewall table's ID
-    r_idx -- The firewall rule's ID
-    in_ports -- The rule's matching ingress ports
-    out_ports -- The rule's forwarding ports
-    fw_match -- The rule's match expression
-    """
-
-    data = _basic_rpc()
-    data["method"] = "add_fw_rule"
-    data["params"] = {
-        "table":t_idx,
-        "index":r_idx,
-        "in_ports":in_ports,
-        "out_ports":out_ports,
-        "fw_match":fw_match
-    }
-    return _extract_node(_sendrecv(sock, json.dumps(data)))
-
-
-#@profile_method
-def remove_fw_rule(sock, r_idx):
-    """ Removes a firewall rule.
-
-    Keyword arguments:
-    sock -- A socket connected to NetPlumber
-    r_idx -- The firewall rule's ID as returned by its previous add call
-    """
-
-    data = _basic_rpc()
-    data["method"] = "remove_fw_rule"
-    data["params"] = {"node":r_idx}
-    _sendrecv(sock, json.dumps(data))
-
-
-#@profile_method
 def add_policy_rule(sock, r_idx, match, action):
     """ Deprecated: Adds a policy rule.
     """
