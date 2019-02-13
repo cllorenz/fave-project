@@ -258,28 +258,6 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
                                                   rule->input_ports);
       if (common_ports.size == 0) continue;
       // find common headerspace
-#ifdef FIREWALL_RULES
-      hs *common_hs;
-      array_t *common_arr;
-      bool is_fw = r->get_type() == FIREWALL_RULE;
-
-      if (is_fw)
-        common_hs = hs_isect_a(
-          ((FirewallRuleNode *)r)->fw_match,
-          ((FirewallRuleNode *)rule)->fw_match
-        );
-      else
-        common_arr = array_isect_a(r->match,rule->match,this->length);
-
-      if (!checked_rs && is_fw)
-        hs_add_hs(&aggr_hs,hs_copy_a(((FirewallRuleNode *)rule)->fw_match));
-      else if (!checked_rs && !is_fw) hs_add(&aggr_hs,array_copy(rule->match,this->length));
-
-      if ((is_fw && common_hs == NULL) || (!is_fw && common_arr == NULL)) {
-        if (!common_ports.shared) free(common_ports.list);
-        continue;
-      }
-#else
       array_t *common_hs = array_isect_a(r->match,rule->match,this->length);
 
       if (!checked_rs) hs_add(&aggr_hs,array_copy(rule->match,this->length));
@@ -288,19 +266,11 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
         if (!common_ports.shared) free(common_ports.list);
         continue;
       }
-#endif
       // add influence
       Influence *inf = (Influence *)malloc(sizeof *inf);
       inf->len = this->length;
       Effect *eff = (Effect *)malloc(sizeof *eff);
-#ifdef FIREWALL_RULES
-      if (is_fw)
-        inf->comm_hs = common_hs;
-      else
-        inf->comm_arr = common_arr;
-#else
       inf->comm_arr = common_hs;
-#endif
       inf->ports = common_ports;
 
       if (seen_rule) {
@@ -332,26 +302,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       if (!potential_next_rules) continue;
       for (auto const &n_rule: *potential_next_rules) {
         array_t *pipe_arr;
-#ifdef FIREWALL_RULES
-        if (n->get_type() == FIREWALL_RULE) {
-            hs tmp = {length,{0}};
-            if (n_rule->get_type() == FIREWALL_RULE)
-                hs_add_hs(&tmp,((FirewallRuleNode *)n_rule)->fw_match);
-            else
-                hs_add(&tmp,array_copy(n_rule->match,length));
-
-            hs_isect(&tmp,((FirewallRuleNode *)n)->fw_match);
-
-            if (tmp.list.used == 1)
-                pipe_arr = array_copy(tmp.list.elems[0],length);
-            else
-                pipe_arr = array_create(length,BIT_Z);
-            hs_destroy(&tmp);
-        }
-        else pipe_arr = array_isect_a(n_rule->match, n->inv_match, length);
-#else
         pipe_arr = array_isect_a(n_rule->match,n->inv_match,length);
-#endif
         if (pipe_arr) {
           Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
           Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
@@ -383,26 +334,7 @@ void NetPlumber::set_node_pipelines(Node *n) {
       if (!potential_prev_rules) continue;
       for (auto const &p_rule: *potential_prev_rules) {
         array_t *pipe_arr;
-#ifdef FIREWALL_RULES
-        if (n->get_type() == FIREWALL_RULE) {
-            hs tmp = {length,{0}};
-            if (p_rule->get_type() == FIREWALL_RULE)
-                hs_add_hs(&tmp,((FirewallRuleNode *)p_rule)->fw_match);
-            else
-                hs_add(&tmp,array_copy(p_rule->match,length));
-
-            hs_isect(&tmp,((FirewallRuleNode *)n)->fw_match);
-
-            if (tmp.list.used == 1)
-                pipe_arr = array_copy(tmp.list.elems[0],length);
-            else
-                pipe_arr = array_create(length,BIT_Z);
-            hs_destroy(&tmp);
-        }
-        else pipe_arr = array_isect_a(p_rule->inv_match, n->match, length);
-#else
         pipe_arr = array_isect_a(p_rule->inv_match,n->match,length);
-#endif
 
         if (pipe_arr) {
           Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
@@ -867,148 +799,9 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
   }
 }
 
-#ifdef FIREWALL_RULES
-uint64_t NetPlumber::_add_fw_rule(uint32_t table,int index,
-                               bool group, uint64_t gid,
-                               List_t in_ports, List_t out_ports,
-                               hs *fw_match) {
-  if (table_to_nodes.count(table) > 0) {
-    table_to_last_id[table] += 1;
-    uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
-    if (in_ports.size == 0) in_ports = table_to_ports[table];
-    FirewallRuleNode *r;
-    if (!group || !gid) { //first rule in group or no group
-      if (!group) r = new FirewallRuleNode(this, length, id, table, in_ports, out_ports,
-                                   fw_match);
-      else r = new FirewallRuleNode(this, length, id, table, id, in_ports, out_ports,
-                            fw_match);
-      this->id_to_node[id] = r;
-      if (index < 0 || index >= (int)this->table_to_nodes[table]->size()) {
-        this->table_to_nodes[table]->push_back(r);
-      } else {
-        auto it = table_to_nodes[table]->begin();
-        for (int i=0; i < index; i++, it++);
-        this->table_to_nodes[table]->insert(it,r);
-      }
-      this->last_event.type = ADD_FW_RULE;
-      this->last_event.id1 = id;
-      this->set_port_to_node_maps(r);
-      this->set_table_dependency(r);
-      this->set_node_pipelines(r);
-      r->subtract_infuences_from_flows();
-      r->process_src_flow(NULL);
-
-    } else if (id_to_node.count(gid) > 0 &&
-          ((FirewallRuleNode*)id_to_node[gid])->group == gid) {
-
-      FirewallRuleNode *rg = (FirewallRuleNode*)this->id_to_node[gid];
-      table = rg->table;
-      r = new FirewallRuleNode(this, length, id, table, gid, in_ports, out_ports,
-                       fw_match);
-      this->id_to_node[id] = r;
-      // insert rule after its lead group rule
-      auto it = table_to_nodes[table]->begin();
-      for (; (*it)->node_id != gid; it++);
-      this->table_to_nodes[table]->insert(++it,r);
-      this->last_event.type = ADD_FW_RULE;
-      this->last_event.id1 = id;
-      // set port maps
-      this->set_port_to_node_maps(r);
-      //The influences of this rule is the same as lead rule in the group.
-      r->effect_on = rg->effect_on;
-      r->influenced_by = rg->influenced_by;
-      this->set_node_pipelines(r);
-      // no need to subtract influences. it has already taken care of
-      r->process_src_flow(NULL);
-
-    } else {
-      free(in_ports.list);free(out_ports.list);free(fw_match);
-      stringstream error_msg;
-      error_msg << "Group " << group << " does not exist. Can't add rule to it."
-          << "Ignoring add new rule request.";
-      LOG4CXX_WARN(logger,error_msg.str());
-      return 0;
-    }
-    return id;
-  } else {
-    free(in_ports.list);free(out_ports.list);free(fw_match);
-    stringstream error_msg;
-    error_msg << "trying to add a rule to a non-existing table (id: " << table
-        << "). Ignored.";
-    LOG4CXX_ERROR(logger,error_msg.str());
-    return 0;
-  }
-}
-
-uint64_t NetPlumber::add_fw_rule(uint32_t table,int index, List_t in_ports,
-            List_t out_ports, hs *fw_match) {
-
-  if (table_is_firewall.find(table) != table_is_firewall.end() &&
-      !table_is_firewall[table] &&
-      table_to_nodes[table]->size() > 0)
-  {
-      stringstream error_msg;
-      error_msg << "trying to add a firewall rule to a non-firewall table (id: "
-        << table << "). Ignored.";
-      LOG4CXX_ERROR(logger,error_msg.str());
-      return 0;
-  }
-
-  table_is_firewall[table] = true;
-
-  return _add_fw_rule(table,index,false,0,in_ports,out_ports,fw_match);
-}
-
-uint64_t NetPlumber::add_fw_rule_to_group(uint32_t table,int index, List_t in_ports
-                           ,List_t out_ports,hs *fw_match, uint64_t group) {
-  if (table_is_firewall.find(table) != table_is_firewall.end() &&
-      !table_is_firewall[table] &&
-      table_to_nodes[table]->size() > 0)
-  {
-      stringstream error_msg;
-      error_msg << "trying to add a firewall rule to a non-firewall table (id: "
-        << table << "). Ignored.";
-      LOG4CXX_ERROR(logger,error_msg.str());
-      return 0;
-  }
-
-  table_is_firewall[table] = true;
-
-  return _add_fw_rule(table,index,true,group,in_ports,out_ports,fw_match);
-}
-
-void NetPlumber::remove_fw_rule(uint64_t rule_id) {
-  if (id_to_node.count(rule_id) > 0 && id_t../src/net_plumber/net_plumber.cc:597:8: Fehler: »it« wurde in diesem Gültigkeitsbereich nicht definiert
-o_node[rule_id]->get_type() == FIREWALL_RULE){
-    this->last_event.type = REMOVE_FW_RULE;
-    this->last_event.id1 = rule_id;
-    FirewallRuleNode *r = (FirewallRuleNode *)id_to_node[rule_id];
-    if (r->group == 0) free_rule_memory(r);
-    else free_group_memory(r->table,r->group);
-  } else {
-    stringstream error_msg;
-    error_msg << "Rule " << rule_id << " does not exist. Can't delete it.";
-    LOG4CXX_WARN(logger,error_msg.str());
-  }
-}
-#endif
 
 uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
             List_t out_ports, array_t* match, array_t *mask, array_t* rw) {
-#ifdef FIREWALL_RULES
-  if (table_is_firewall.find(table) != table_is_firewall.end() &&
-      table_is_firewall[table] &&
-      table_to_nodes[table]->size() > 0)
-  {
-      stringstream error_msg;
-      error_msg << "trying to add a non-firewall rule to a firewall table (id: "
-        << table << "). Ignored.";
-      LOG4CXX_ERROR(logger,error_msg.str());
-      return 0;
-  }
-
-  table_is_firewall[table] = false;
-#endif
 
   return _add_rule(table,index,false,0,in_ports,out_ports,match,mask,rw);
 }
@@ -1016,20 +809,7 @@ uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
 uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
                            ,List_t out_ports, array_t* match, array_t *mask,
                            array_t* rw, uint64_t group) {
-#ifdef FIREWALL_RULES
-  if (table_is_firewall.find(table) != table_is_firewall.end() &&
-      table_is_firewall[table] &&
-      table_to_nodes[table]->size() > 0)
-  {
-      stringstream error_msg;
-      error_msg << "trying to add a non-firewall rule to a firewall table (id: "
-        << table << "). Ignored.";
-      LOG4CXX_ERROR(logger,error_msg.str());
-      return 0;
-  }
 
-  table_is_firewall[table] = false;
-#endif
   return _add_rule(table,index,true,group,in_ports,out_ports,match,mask,rw);
 }
 

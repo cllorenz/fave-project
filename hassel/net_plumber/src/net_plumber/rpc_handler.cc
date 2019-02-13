@@ -142,9 +142,6 @@ void RpcHandler::initServer (Server *server) {
     FN(print_slice_matrix),
     FN(dump_slices_pipes),
 #endif
-#ifdef FIREWALL_RULES
-    FN(add_fw_rule), FN(remove_fw_rule),
-#endif
 #ifdef POLICY_PROBES
     FN(add_policy_rule), FN(remove_policy_rule),
     FN(add_policy_probe), FN(remove_policy_probe),
@@ -379,26 +376,6 @@ PROTO(dump_slices_pipes);
     RETURN(VOID);
 }
 #endif /* PIPE_SLICING */
-
-#ifdef FIREWALL_RULES
-PROTO(add_fw_rule)
-    uint32_t table = PARAM(table).asUInt();
-    int index = PARAM(index).asInt();
-    List_t in_ports = val_to_list(PARAM(in_ports));
-    List_t out_ports = val_to_list(PARAM(out_ports));
-    hs *fw_match = val_to_hs(PARAM(fw_match),length);
-    uint64_t ret = netPlumber->add_fw_rule(table,index,in_ports,out_ports,fw_match);
-    RETURN((Json::Value::UInt64) ret);
-}
-#endif
-
-#ifdef FIREWALL_RULES
-PROTO(remove_fw_rule)
-    uint64_t id = PARAM(node).asUInt64();
-    netPlumber->remove_fw_rule(id);
-    RETURN(VOID);
-}
-#endif
 
 #ifdef POLICY_PROBES
 PROTO(add_policy_rule)

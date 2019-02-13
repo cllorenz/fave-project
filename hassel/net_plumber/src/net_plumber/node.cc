@@ -44,7 +44,7 @@ bool is_flow_looped(Flow *flow) {
     } else {
       return true;
     }
-    if (f->node->get_type() == RULE || f->node->get_type() == FIREWALL_RULE) {
+    if (f->node->get_type() == RULE) {
       f = *f->p_flow;
     } else {
       return false;

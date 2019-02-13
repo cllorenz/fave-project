@@ -57,10 +57,6 @@ private:
   FN(print_slice_matrix);
   FN(dump_slices_pipes);
 #endif
-#ifdef FIREWALL_RULES
-  FN(add_fw_rule);
-  FN(remove_fw_rule);
-#endif
 #ifdef POLICY_PROBES
   FN(add_policy_rule); FN(remove_policy_rule);
   FN(add_policy_probe); FN(remove_policy_probe);

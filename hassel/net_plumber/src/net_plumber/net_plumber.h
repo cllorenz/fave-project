@@ -32,9 +32,6 @@
 #include <list>
 #include "rule_node.h"
 #include "../jsoncpp/json/json.h"
-#ifdef FIREWALL_RULES
-#include "firewall_rule_node.h"
-#endif
 #include "source_node.h"
 #include "log4cxx/logger.h"
 #include "source_probe_node.h"
@@ -66,10 +63,6 @@ enum EVENT_TYPE {
   ADD_SLICE_ALLOW,
   REMOVE_SLICE_ALLOW,
   PRINT_SLICE_MATRIX,
-#endif
-#ifdef FIREWALL_RULES
-  ADD_FW_RULE,
-  REMOVE_FW_RULE,
 #endif
 #ifdef POLICY_PROBES
   START_POLICY_PROBE,
@@ -148,11 +141,6 @@ namespace net_plumber {
     std::map<uint64_t, std::set<uint64_t> > matrix;
 #endif
 
-#ifdef FIREWALL_RULES
-    // table id to firewall
-    std::map<uint32_t,bool> table_is_firewall;
-#endif
-
 #ifdef POLICY_PROBES
     PolicyChecker *policy_checker;
 #endif
@@ -160,11 +148,6 @@ namespace net_plumber {
     uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
                        List_t in_ports, List_t out_ports,
                        array_t* match, array_t *mask, array_t* rw);
-
-#ifdef FIREWALL_RULES
-    uint64_t _add_fw_rule(uint32_t table,int index, bool group, uint64_t gid,
-                       List_t in_ports, List_t out_ports, hs *fw_match);
-#endif
 
    public:
     //call back function in case of a loop
@@ -250,17 +233,6 @@ namespace net_plumber {
                                List_t out_ports, array_t* match, array_t *mask,
                                array_t* rw, uint64_t group);
     void remove_rule(uint64_t node_id);
-
-#ifdef FIREWALL_RULES
-    /*
-     * Firewall Rule Management
-     */
-    uint64_t add_fw_rule(uint32_t table,int index, List_t in_ports, List_t out_ports,
-                  hs *fw_match);
-    uint64_t add_fw_rule_to_group(uint32_t table,int index, List_t in_ports,
-                               List_t out_ports, hs *fw_match, uint64_t group);
-    void remove_fw_rule(uint64_t node_id);
-#endif
 
     /*
      * Source Flow Node Management
