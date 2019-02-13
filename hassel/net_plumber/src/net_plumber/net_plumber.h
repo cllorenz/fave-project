@@ -35,9 +35,6 @@
 #include "source_node.h"
 #include "log4cxx/logger.h"
 #include "source_probe_node.h"
-#ifdef POLICY_PROBES
-#include "policy_probe_node.h"
-#endif
 
 enum EVENT_TYPE {
   None = 0,
@@ -63,10 +60,6 @@ enum EVENT_TYPE {
   ADD_SLICE_ALLOW,
   REMOVE_SLICE_ALLOW,
   PRINT_SLICE_MATRIX,
-#endif
-#ifdef POLICY_PROBES
-  START_POLICY_PROBE,
-  STOP_POLICY_PROBE,
 #endif
   EXPAND
 };
@@ -139,10 +132,6 @@ namespace net_plumber {
 
     // policy matrix, represents directed slice allow pairs
     std::map<uint64_t, std::set<uint64_t> > matrix;
-#endif
-
-#ifdef POLICY_PROBES
-    PolicyChecker *policy_checker;
 #endif
 
     uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
@@ -267,18 +256,6 @@ namespace net_plumber {
     void print_slice_matrix(void);
     void dump_slices_pipes(std::string dir);
     void remove_pipe_from_slices(struct Pipeline *pipe);
-#endif
-
-#ifdef POLICY_PROBES
-    /*
-     * Global Policy Management
-     */
-    void add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action);
-    void remove_policy_rule(uint32_t index);
-    uint64_t add_policy_probe_node(List_t ports,
-                                   policy_probe_callback_t probe_callback,
-                                   void *probe_callback_data);
-    void remove_policy_probe_node(uint64_t id);
 #endif
 
     /*
