@@ -31,9 +31,6 @@ hs *val_to_hs(const Json::Value &val, int len);
 List_t val_to_list(const Json::Value &val);
 Condition *val_to_path(const Json::Value &pathlets);
 Condition *val_to_cond(const Json::Value &val, int length);
-#ifdef POLICY_PROBES
-ACTION_TYPE val_to_action(const char *action);
-#endif
 
 class RpcHandler {
   NetPlumber *netPlumber;
@@ -56,10 +53,6 @@ private:
   FN(add_slice_allow); FN(remove_slice_allow);
   FN(print_slice_matrix);
   FN(dump_slices_pipes);
-#endif
-#ifdef POLICY_PROBES
-  FN(add_policy_rule); FN(remove_policy_rule);
-  FN(add_policy_probe); FN(remove_policy_probe);
 #endif
   FN(print_table);
   FN(print_topology);

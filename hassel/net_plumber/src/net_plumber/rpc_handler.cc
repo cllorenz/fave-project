@@ -28,8 +28,6 @@ extern "C" {
 
 #include "net_plumber_utils.h"
 
-#include "policy_checker.h"
-
 using namespace log4cxx;
 using namespace Json::Rpc;
 using namespace std;
@@ -118,12 +116,6 @@ Condition *val_to_cond(const Json::Value &val, int length) {
   return nullptr;
 }
 
-ACTION_TYPE val_to_action(const char *action) {
-  if (strcmp(action,"allow")) return ACTION_ALLOW;
-  if (strcmp(action,"deny")) return ACTION_DENY;
-  return ACTION_UNKNOWN;
-}
-
 typedef bool (RpcHandler::*RpcFn) (const Json::Value &, Json::Value &);
 
 void RpcHandler::initServer (Server *server) {
@@ -141,10 +133,6 @@ void RpcHandler::initServer (Server *server) {
     FN(add_slice_allow), FN(remove_slice_allow),
     FN(print_slice_matrix),
     FN(dump_slices_pipes),
-#endif
-#ifdef POLICY_PROBES
-    FN(add_policy_rule), FN(remove_policy_rule),
-    FN(add_policy_probe), FN(remove_policy_probe),
 #endif
     FN(print_table),
     FN(print_topology),
@@ -377,40 +365,6 @@ PROTO(dump_slices_pipes);
 }
 #endif /* PIPE_SLICING */
 
-#ifdef POLICY_PROBES
-PROTO(add_policy_rule)
-    uint32_t index = PARAM(index).asUInt();
-    hs *match = val_to_hs(PARAM(match),length);
-    ACTION_TYPE action = val_to_action(PARAM(action).asCString());
-    if (action == ACTION_UNKNOWN) ERROR("No such action type. Use allow or deny.");
-    netPlumber->add_policy_rule(index,match,action);
-    RETURN(VOID);
-}
-#endif
-
-#ifdef POLICY_PROBES
-PROTO(remove_policy_rule)
-    uint32_t index = PARAM(index).asUInt();
-    netPlumber->remove_policy_rule(index);
-    RETURN(VOID);
-}
-#endif
-
-#ifdef POLICY_PROBES
-PROTO(add_policy_probe)
-    List_t ports = val_to_list(PARAM(ports));
-    uint64_t ret = netPlumber->add_policy_probe_node(ports, nullptr, nullptr);
-    RETURN((Json::Value::UInt64) ret);
-}
-#endif
-
-#ifdef POLICY_PROBES
-PROTO(remove_policy_probe)
-    uint64_t node = PARAM(node).asUInt64();
-    netPlumber->remove_policy_probe_node(node);
-    RETURN(VOID);
-}
-#endif
 
 PROTO(print_table)
   uint64_t id = PARAM(id).asUInt();

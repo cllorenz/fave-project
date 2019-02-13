@@ -13,9 +13,7 @@ CC_SRCS += \
 ../src/net_plumber/rpc_handler.cc \
 ../src/net_plumber/rule_node.cc \
 ../src/net_plumber/source_node.cc \
-../src/net_plumber/source_probe_node.cc \
-../src/net_plumber/policy_checker.cc \
-../src/net_plumber/policy_probe_node.cc
+../src/net_plumber/source_probe_node.cc
 
 OBJS += \
 ./src/net_plumber/conditions.o \
@@ -27,9 +25,7 @@ OBJS += \
 ./src/net_plumber/rpc_handler.o \
 ./src/net_plumber/rule_node.o \
 ./src/net_plumber/source_node.o \
-./src/net_plumber/source_probe_node.o \
-./src/net_plumber/policy_checker.o \
-./src/net_plumber/policy_probe_node.o
+./src/net_plumber/source_probe_node.o
 
 CC_DEPS += \
 ./src/net_plumber/conditions.d \
@@ -41,9 +37,7 @@ CC_DEPS += \
 ./src/net_plumber/rpc_handler.d \
 ./src/net_plumber/rule_node.d \
 ./src/net_plumber/source_node.d \
-./src/net_plumber/source_probe_node.d \
-./src/net_plumber/policy_checker.d \
-./src/net_plumber/policy_probe_node.d
+./src/net_plumber/source_probe_node.d
 
 
 # Each subdirectory must supply rules for building sources it contributes

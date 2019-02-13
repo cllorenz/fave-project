@@ -28,7 +28,6 @@
 #include <climits>
 #include "net_plumber_utils.h"
 #include "../jsoncpp/json/json.h"
-#include "policy_checker.h"
 extern "C" {
   #include "../headerspace/array.h"
 }
@@ -508,17 +507,12 @@ NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
   this->slice_leakage_callback = default_slice_leakage_callback;
   this->slice_leakage_callback_data = NULL;
 #endif
-#ifdef POLICY_PROBES
-  this->policy_checker = new PolicyChecker(length);
-#endif
 }
 
 NetPlumber::~NetPlumber() {
   for (auto &probe: this->probes) {
     if (probe->get_type() == SOURCE_PROBE) {
       ((SourceProbeNode*)probe)->stop_probe();
-    } else if (probe->get_type() == POLICY_PROBE) {
-      ((PolicyProbeNode*)probe)->stop_probe();
     }
     clear_port_to_node_maps(probe);
     delete probe;
@@ -539,9 +533,6 @@ NetPlumber::~NetPlumber() {
     clear_port_to_node_maps(flow_node);
     delete flow_node;
   }
-#ifdef POLICY_PROBES
-  delete policy_checker;
-#endif
 #ifdef PIPE_SLICING
   for (auto const &slice: slices) {
     hs_free(slice.second.net_space);
@@ -1618,54 +1609,3 @@ void NetPlumber::dump_slices_pipes(const std::string dir) {
     pipe_network_file.close();
 }
 #endif /*PIPE_SLICING */
-
-#ifdef POLICY_PROBES
-void NetPlumber::add_policy_rule(uint32_t index, hs *match, ACTION_TYPE action) {
-    policy_checker->add_policy_rule(index,match,action);
-}
-#endif
-
-#ifdef POLICY_PROBES
-void NetPlumber::remove_policy_rule(uint32_t index) {
-    policy_checker->remove_policy_rule(index);
-}
-#endif
-
-#ifdef POLICY_PROBES
-uint64_t NetPlumber::add_policy_probe_node(List_t ports,
-                               policy_probe_callback_t probe_callback,
-                               void *probe_callback_data) {
-  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
-  PolicyProbeNode* p = new PolicyProbeNode(this, length, node_id,
-                                           ports, policy_checker,
-                                           probe_callback, probe_callback_data);
-  this->id_to_node[node_id] = p;
-  this->probes.push_back(p);
-  this->last_event.type = START_POLICY_PROBE;
-  this->last_event.id1 = node_id;
-  this->set_port_to_node_maps(p);
-  this->set_node_pipelines(p);
-  p->process_src_flow(NULL);
-  p->start_probe();
-  return node_id;
-}
-#endif
-
-#ifdef POLICY_PROBES
-void NetPlumber::remove_policy_probe_node(uint64_t id) {
-  if (id_to_node.count(id) > 0 && id_to_node[id]->get_type() == POLICY_PROBE) {
-    this->last_event.type = STOP_POLICY_PROBE;
-    this->last_event.id1 = id;
-    PolicyProbeNode *p = (PolicyProbeNode *)id_to_node[id];
-    p->stop_probe();
-    id_to_node.erase(p->node_id);
-    probes.remove(p);
-    clear_port_to_node_maps(p);
-    delete p;
-  } else {
-    stringstream error_msg;
-    error_msg << "Probe Node " << id << " does not exist. Can't delete it.";
-    LOG4CXX_WARN(logger,error_msg.str());
-  }
-}
-#endif

@@ -37,7 +37,6 @@ enum NODE_TYPE {
   SINK,
   SOURCE_PROBE,
   SINK_PROBE,
-  POLICY_PROBE
 };
 
 class Node;
