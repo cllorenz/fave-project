@@ -17,6 +17,7 @@
  - create benchmark with TUM-i8 network
  - create benchmark with Stanford network
  - create benchmark with Internet2 network
+    - include by using FaVe instead of a direct read
  - replace slow ip6tables parser
  - Gitlab-CI
  - integrate policy translator
