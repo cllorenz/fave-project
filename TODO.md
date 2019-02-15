@@ -2,10 +2,6 @@
 
 ### FaVe
 
- - investigate on detected loops seen with ad6 (maybe just unnaturally long rpc calls?)
- - investigate on memory explosion seen with ad6 and ifi
- - fix infinite loop in netplumber seen with ad6
- - refactor ad6 benchmark to generate json files for unified benchmark setups
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
