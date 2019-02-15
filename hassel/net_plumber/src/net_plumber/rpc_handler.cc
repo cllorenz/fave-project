@@ -21,7 +21,6 @@
 #include <csignal>
 
 #include "rpc_handler.h"
-#include <ctime>
 extern "C" {
   #include "../headerspace/hs.h"
 }
