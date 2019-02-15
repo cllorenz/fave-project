@@ -21,7 +21,6 @@
 #include "../jsoncpp/json/json.h"
 #include <fstream>
 #include <dirent.h>
-#include <sys/time.h>
 extern "C" {
   #include "../headerspace/array.h"
 }
@@ -35,15 +34,15 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
   ifstream jsfile;
   Json::Value root;
   Json::Reader reader;
-  list<long> t_list;
-  long total_run_time = 0;
+  list<double> t_list;
+  double total_run_time = 0;
 
   // read topology
   string file_name = json_file_path + "/" + "topology.json";
   jsfile.open (file_name.c_str());
   if (!jsfile.good()) {
     printf("Error opening the file %s\n",file_name.c_str());
-    return t_list;
+    return;
   }
   reader.parse(jsfile,root,false);
   Json::Value topology = root["topology"];
@@ -85,7 +84,7 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
             if (filter && !array_isect(match,filter,N->get_length(),match)) {
               run_time = 0;
             } else {
-              gettimeofday(&start, NULL);
+              start = get_cpu_time_us();
               N->add_rule(table_id,
                           0,
                           val_to_list(rules[i]["in_ports"]),
@@ -93,11 +92,8 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
                           match,
                           val_to_array(rules[i]["mask"]),
                           val_to_array(rules[i]["rewrite"]));
-              gettimeofday(&end, NULL);
-              run_time = end.tv_usec - start.tv_usec;
-              if (run_time < 0) {
-                run_time = 1000000 * (end.tv_sec - start.tv_sec);
-              }
+              end = get_cpu_time_us();
+              run_time = end - start;
               total_run_time += run_time;
             }
             t_list.push_back(run_time);
@@ -128,29 +124,29 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
     }
     //N->print_plumbing_network();
   }
-  long avg = total_run_time / rule_counter;
-  std::list<long> t_list_sorted(t_list);
+  double avg = total_run_time / rule_counter;
+  std::list<double> t_list_sorted(t_list);
   t_list_sorted.sort();
 
   auto it = t_list_sorted.begin();
   size_t pos = t_list_sorted.size()/2;
   for (size_t i = 0; i <= pos; i++) it++;
-  long median = *it;
+  double median = *it;
 
-  long min = t_list_sorted.front();
-  long max = t_list_sorted.back();
+  double min = t_list_sorted.front();
+  double max = t_list_sorted.back();
 
   printf(
-    "total run time is %ld us. rules: %d, average: %ld us, median: %ld us, min: %ld us, max: %ld us\n",
-    total_run_time, rule_counter, avg, median, min, max);
+    "total run time: %.2lf us, no rules: %d, average: %.2lf us, median: %.2lf us, min: %.2lf us, max: %.2lf us\n",
+    total_run_time, rule_counter, avg, median, min, max
+  );
 
   closedir(dir);
-  return t_list;
 }
 
 void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   printf("Loading policy file %s\n", json_policy_file.c_str());
-  time_t start, end;
+  double start, end;
   ifstream jsfile;
   Json::Value root;
   Json::Reader reader;
@@ -163,7 +159,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   }
   reader.parse(jsfile,root,false);
   Json::Value commands = root["commands"];
-  start = clock();
+  start = get_cpu_time_s();
   for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
@@ -191,10 +187,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
       N->add_link(from_port,to_port);
     }
   }
-  end = clock();
-  printf("Loaded policy file in %2lf seconds\n",(double(end - start) / CLOCKS_PER_SEC));
+  end = get_cpu_time_s();
+  printf("Loaded policy file in %.2lf seconds\n", end - start);
   jsfile.close();
 }
-
-
-
