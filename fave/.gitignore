@@ -10,3 +10,7 @@ bench/wl_ifi/*.css
 bench/wl_ifi/*.html
 bench/wl_ifi/*.orig.*
 bench/wl_ifi/*.csv
+
+*.pdf
+out
+*.svg
