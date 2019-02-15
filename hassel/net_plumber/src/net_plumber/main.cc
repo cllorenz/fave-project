@@ -222,16 +222,7 @@ int main(int argc, char* argv[]) {
   NetPlumber *N = new NetPlumber(hdr_len);
 
   if (do_load_json_files) {
-    //list<long> l =
     load_netplumber_from_dir(json_files_path, N, NULL);
-    /*ofstream myfile;
-    char buf[70];
-    myfile.open ("tmp.txt",ios::app);
-    list<long>::iterator it;
-    for (it = l.begin(); it != l.end(); it++) {
-      myfile << *it <<  ", ";
-    }
-    myfile << endl;*/
   }
 
   if (do_load_policy) {

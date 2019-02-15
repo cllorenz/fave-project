@@ -29,8 +29,8 @@ extern "C" {
 using namespace net_plumber;
 using namespace std;
 
-list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *filter) {
-  struct timeval start, end;
+void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *filter) {
+  double start, end;
   int rule_counter = 0;
   ifstream jsfile;
   Json::Value root;
