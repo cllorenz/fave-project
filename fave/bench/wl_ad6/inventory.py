@@ -14,11 +14,10 @@ AD6 = (
         ("vpn", "2001:db8:abc:0::5", [
             "tcp:1194", "tcp:1723", "udp:1194", "udp:1723", "tcp:22", "udp:22"
         ]),
-        # XXX: uncommenting leads to memory explosion
-#        ("dns", "2001:db8:abc:0::6", ["tcp:53", "udp:53", "tcp:22", "udp:22"]),
-#        ("data", "2001:db8:abc:0::7", [
-#            "tcp:118", "tcp:156", "tcp:22", "udp:118", "udp:156", "udp:22"
-#        ]),
+        ("dns", "2001:db8:abc:0::6", ["tcp:53", "udp:53", "tcp:22", "udp:22"]),
+        ("data", "2001:db8:abc:0::7", [
+            "tcp:118", "tcp:156", "tcp:22", "udp:118", "udp:156", "udp:22"
+        ]),
         ("adm", "2001:db8:abc:0::8", ["udp:161", "tcp:22", "udp:22"])
     ],
     [
