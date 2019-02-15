@@ -128,7 +128,22 @@ list<long> load_netplumber_from_dir(string json_file_path, NetPlumber * N, array
     }
     //N->print_plumbing_network();
   }
-  printf("total run time is %ld us. rules: %d average: %ld us\n",total_run_time,rule_counter,total_run_time/rule_counter);
+  long avg = total_run_time / rule_counter;
+  std::list<long> t_list_sorted(t_list);
+  t_list_sorted.sort();
+
+  auto it = t_list_sorted.begin();
+  size_t pos = t_list_sorted.size()/2;
+  for (size_t i = 0; i <= pos; i++) it++;
+  long median = *it;
+
+  long min = t_list_sorted.front();
+  long max = t_list_sorted.back();
+
+  printf(
+    "total run time is %ld us. rules: %d, average: %ld us, median: %ld us, min: %ld us, max: %ld us\n",
+    total_run_time, rule_counter, avg, median, min, max);
+
   closedir(dir);
   return t_list;
 }
