@@ -705,7 +705,7 @@ def main(argv):
                     actions.append(Forward([p for p in body.split(';')]))
 
                 elif cmd == 'rw':
-                    fields = [fieldify(f.split('=')) for f in body.split(';')]
+                    fields = [fieldify(f.split(':')) for f in body.split(';')]
                     actions.append(Rewrite(fields))
 
     if command == 'add':
