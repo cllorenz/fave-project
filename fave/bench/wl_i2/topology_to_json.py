@@ -27,4 +27,4 @@ with open(sys.argv[1], 'r') as f:
 
 
     with open('topology.json', 'w') as of:
-        of.write(json.dumps(topology))
+        of.write(json.dumps(topology, indent=2)+'\n')
