@@ -1,6 +1,5 @@
 #!/usr/bin/env python2
 
-from topology import router
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
 IFI={
