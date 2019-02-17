@@ -4,6 +4,7 @@ np_dump
 .lock
 bench/wl_ad6/*.json
 bench/wl_ifi/*.json
+bench/wl_i2/*.json
 
 bench/wl_ifi/convert.sh
 bench/wl_ifi/*.css
