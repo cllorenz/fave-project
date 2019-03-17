@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 
-TMPDIR=/tmp/np
-mkdir -p $TMPDIR
-
-echo -n "clean log files... "
-rm -f $TMPDIR/*.log
-[ $? -eq 0 ] && echo "ok" || echo "fail"
+TMP=$(mktemp -d -p /tmp "np.XXXXXX")
+TMPESC=$(echo $TMP | sed 's/\//\\\//g')
+sed -i "s/\/tmp\/np\......./$TMPESC/g" examples/example.conf
 
 echo -n "start netplumber... "
 scripts/start_np.sh examples/example.conf
@@ -129,5 +126,7 @@ python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
 bash scripts/stop_fave.sh
+
+rm -rf $TMP
 
 #kill -s KILL $RYU
