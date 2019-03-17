@@ -1,10 +1,9 @@
-
 #!/usr/bin/env bash
 
-export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
+TMP=/tmp/pylint.log
 
 # to be ignored (generated code):
-export IGNORE="\
+IGNORE="\
 ip6np/ip6tables_lexer.py \
 ip6np/ip6tables_listener.py \
 ip6np/ip6tables_parser.py \
@@ -15,53 +14,35 @@ test/antlr/parser.py \
 test/antlr/test.py \
 examples/example-traverse.py
 "
-export OKS="$TMP/ok_files"
-touch $OKS
-export SKIPS="$TMP/skipped_files"
-touch $SKIPS
-export FAILS="$TMP/failed_files"
-touch $FAILS
 
-lint_file() {
-    PYFILE=$1
-    SPY=`echo $PYFILE | cut -d/ -f2- | tr '/' '_'`
-    LOG=$TMP/lint_$SPY.log
-
-    PRE="lint $PYFILE:"
-
-    if [[ $IGNORE =~ $(echo "$PYFILE" | cut -d/ -f2-) ]]; then
-        echo "$PRE skip"
-        echo $PYFILE >> $SKIPS
-        #SKIPS=$(( $SKIPS + 1 ))
-        return 0
-    fi
-
-    PYTHONPATH=. pylint2 $PYFILE > $LOG 2>&1
-    if [ $? -eq 0 ]; then
-        echo "$PRE ok"
-        echo $PYFILE >> $OKS
-        #OKS=$(( $OKS + 1 ))
-    else
-        REPORT=/tmp/lint_$SPY.log
-        cp $LOG $REPORT
-        echo "$PRE fail (report at $REPORT)"
-        echo $PYFILE >> $FAILS
-        #FAILS=$(( $FAILS + 1 ))
-    fi
-}
-export -f lint_file
-
+OKS=0
+SKIPS=0
+FAILS=0
 
 PYFILES=`find . -name "*.py"`
 
-MAX_PROCS=$(nproc)
-echo $PYFILES | xargs --max-procs $MAX_PROCS -n 1 bash -c 'lint_file "$@"' _
+for PYFILE in $PYFILES; do
+    echo -n "lint $PYFILE: "
 
-echo -e "\n\
-Linting Summary: \
-skipped $(wc -l < $SKIPS), \
-succeeded $(wc -l < $OKS), \
-and failed $(wc -l < $FAILS)\
-\n"
+    if [[ $IGNORE =~ $(echo "$PYFILE" | cut -d/ -f2-) ]]; then
+        echo "skip"
+        SKIPS=$(( $SKIPS + 1 ))
+        continue
+    fi
 
-rm -rf $TMP
+    PYTHONPATH=. pylint2 $PYFILE > $TMP 2>&1
+    if [ $? -eq 0 ]; then
+        echo "ok"
+        OKS=$(( $OKS + 1 ))
+    else
+        SPY=`echo $PYFILE | cut -d/ -f2- | tr '/' '_'`
+        REPORT="/tmp/lint_$SPY.log"
+        cp $TMP $REPORT
+        echo "fail (report at $REPORT)"
+        FAILS=$(( $FAILS + 1 ))
+    fi
+done
+
+echo -e "\nLinting Summary: skipped $SKIPS, succeeded $OKS, and failed $FAILS\n"
+
+[ -f $TMP ] && rm $TMP
