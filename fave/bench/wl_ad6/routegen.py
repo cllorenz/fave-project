@@ -13,12 +13,12 @@ if __name__ == '__main__':
 
     # route: (name, table, idx, [fields], [commands])
     routes = [
-        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:0::0/64"], ["fd=pgf.2"]),
-        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.3"]),
-        ("pgf", 1, 65535, [], ["fd=pgf.1"]),
-        ("dmz", 1, 65535, [], ["fd=dmz.1"]),
-        ("wifi", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.2"]),
-        ("wifi", 1, 65535, [], ["fd=wifi.1"])
+        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:0::0/64"], ["fd=pgf.2"], []),
+        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.3"], []),
+        ("pgf", 1, 65535, [], ["fd=pgf.1"], []),
+        ("dmz", 1, 65535, [], ["fd=dmz.1"], []),
+        ("wifi", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.2"], []),
+        ("wifi", 1, 65535, [], ["fd=wifi.1"], [])
     ]
 
     # dmz hosts
@@ -26,8 +26,8 @@ if __name__ == '__main__':
         name, addr, _services = host
         port = cnt + 2
         routes.extend([
-            ("dmz", 1, 0, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % port]),
-            ("%s.dmz" % name, 1, 65535, [], ["fd=%s.dmz.1" % name])
+            ("dmz", 1, 0, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % port], []),
+            ("%s.dmz" % name, 1, 65535, [], ["fd=%s.dmz.1" % name], [])
         ])
 
     # subnets
@@ -40,7 +40,8 @@ if __name__ == '__main__':
             1,
             0,
             ["ipv6_dst=2001:db8:abc:%s::0/64" % netident],
-            ["fd=pgf.%s" % port]
+            ["fd=pgf.%s" % port],
+            []
         ))
 
         # subnet hosts
@@ -54,10 +55,11 @@ if __name__ == '__main__':
             routes.append((
                 subnet, 1, 0,
                 ["ipv6_dst=%s" % addr],
-                ["fd=%s.%s" % (subnet, sport)]
+                ["fd=%s.%s" % (subnet, sport)],
+                []
             ))
 
-            routes.append((hostnet, 1, 0, [], ["fd=%s.%s" % (hostnet, 1)]))
+            routes.append((hostnet, 1, 0, [], ["fd=%s.%s" % (hostnet, 1)], []))
 
         # subnet clients
         caddr = "2001:db8:abc:%s::100/120" % port
@@ -66,13 +68,13 @@ if __name__ == '__main__':
             (
                 subnet, 1, len(subhosts)+1,
                 ["ipv6_dst=%s" % caddr],
-                ["fd=%s.%s" % (subnet, sport)]
+                ["fd=%s.%s" % (subnet, sport)], []
             ),
-            ("clients.%s" % subnet, 1, 65535, [], ["fd=clients.%s.1" % subnet])
+            ("clients.%s" % subnet, 1, 65535, [], ["fd=clients.%s.1" % subnet], [])
         ])
 
         # default rule
-        routes.append((subnet, 1, 65535, [], ["fd=%s.1" % subnet]))
+        routes.append((subnet, 1, 65535, [], ["fd=%s.1" % subnet], []))
 
 
     with open(OFILE, 'w') as of:

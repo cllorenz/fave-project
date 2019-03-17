@@ -47,7 +47,7 @@ def _add_link(src, dst):
     topo.main(["-a", "-l", "%s:%s" % (src, dst)])
 
 
-def _add_rule(name, table=None, idx=None, fields=None, commands=None):
+def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=None):
     opts = []
     if table:
         opts.extend(["-t", str(table)])
@@ -57,6 +57,8 @@ def _add_rule(name, table=None, idx=None, fields=None, commands=None):
         opts.extend(["-f", ';'.join(fields)])
     if commands:
         opts.extend(["-c", ','.join(commands)])
+    if in_ports:
+        opts.extend(["-p", ','.join([str(p) for p in in_ports])])
 
     switch.main(["-a", "-n", name] + opts)
 

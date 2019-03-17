@@ -87,6 +87,9 @@ if __name__ == '__main__':
             for rule in table['rules']:
                 rid = int(rule['id']) & 0xffff
 
+                in_ports = rule['in_ports']
+                out_ports = rule['out_ports']
+
                 match = rule['match']
                 start = MAPPING['packet.ipv4.destination']
                 end = start + FIELD_SIZES['packet.ipv4.destination']
@@ -118,9 +121,12 @@ if __name__ == '__main__':
 
                     actions.append("rw=%s" % ';'.join(fields))
 
-                actions.extend(["fd=%s" % port_to_name[p] for p in rule['out_ports']])
+                actions.extend(["fd=%s" % port_to_name[p] for p in out_ports])
 
-                routes.append((name, 1, rid, [dst, vlan], actions))
+                routes.append((
+                    name, 1, rid, [dst, vlan], actions,
+                    [port_to_name[p] for p in in_ports]
+                ))
 
 
     with open (ROUTES, 'w') as rf:
