@@ -650,6 +650,7 @@ def print_help():
         "\t-i <index> apply command for the rule <index> (default: 0)",
         "\t-f <fields> add a rule matching a list of fields: k1=v1, k2=v2, ...",
         "\t-c <commands> add a rule with applying a list of actions: c1=a1;c2=a2;...",
+        "\t-p <ports> add a rule with applying a list of ports: p1,p2,p3, ...",
         sep="\n"
     )
 
@@ -665,10 +666,11 @@ def main(argv):
     idx = 0
     fields = []
     actions = []
+    in_ports = []
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hadun:t:i:f:c:"))
+        opts = only_opts(getopt.getopt(argv, "hadun:t:i:f:c:p:"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -708,18 +710,36 @@ def main(argv):
                     fields = [fieldify(f.split(':')) for f in body.split(';')]
                     actions.append(Rewrite(fields))
 
+        elif opt == '-p':
+            in_ports = [p[len(node)+1:] for p in arg.split(',')]
+
     if command == 'add':
-        rule = SwitchRule(node, table, idx, match=Match(fields), actions=actions)
+        rule = SwitchRule(
+            node, table, idx,
+            in_ports=in_ports,
+            match=Match(fields),
+            actions=actions
+        )
         cmd = SwitchCommand(node, 'add_rule', rule)
 
 
     elif command == 'del':
-        rule = SwitchRule(table, table, idx, match=Match([]), actions=[])
+        rule = SwitchRule(
+            table, table, idx,
+            in_ports=in_ports,
+            match=Match([]),
+            actions=[]
+        )
         cmd = SwitchCommand(node, 'remove_rule', rule)
 
 
     elif command == 'upd':
-        rule = SwitchRule(table, table, idx, match=Match(fields), actions=actions)
+        rule = SwitchRule(
+            table, table, idx,
+            in_ports=in_ports,
+            match=Match(fields),
+            actions=actions
+        )
         cmd = SwitchCommand(node, 'update_rule', rule)
 
 
