@@ -230,6 +230,9 @@ class Aggregator(AbstractAggregator):
                 model.model.type in ['probe', 'generator', 'router', 'packet_filter']:
             self._extend_mapping(model.model.mapping)
 
+        elif model.type == "slicing_command" and model.command == 'add_slice':
+            self._extend_mapping(model.slice.mapping)
+
         if mlength < self.mapping.length:
             jsonrpc.expand(self.sock, self.mapping.length) # XXX: +1 necessary?
 
@@ -314,6 +317,17 @@ class Aggregator(AbstractAggregator):
 
             return
 
+
+        if model.type == "slicing_command":
+            cmd = model
+            if cmd.command == 'add_slice':
+                self._add_slice(cmd.slice)
+            elif cmd.command == 'del_slice':
+                self._del_slice(cmd.slice)
+
+            return
+
+
         if model.node in self.models:
             # calculate items to remove and items to add
             add = model - self.models[model.node]
@@ -354,6 +368,41 @@ class Aggregator(AbstractAggregator):
         self.mapping.expand(mapping)
         for model in self.models:
             self.models[model].expand(self.mapping)
+
+
+    def _add_slice(self, slicem):
+        sid = slicem.sid
+
+        ns_list = []
+        for ns in slicem.ns_list:
+            vec = Vector(length=self.mapping.length)
+            for field in ns:
+                set_field_in_vector(
+                    self.mapping,
+                    vec,
+                    field.name,
+                    field_value_to_bitvector(field).vector
+                )
+
+            ns_list.append(vec)
+
+        for ns in slicem.ns_diff:
+            vec = Vector(length=self.mapping.length)
+            for field in ns:
+                set_field_in_vector(
+                    self.mapping,
+                    vec,
+                    field.name,
+                    field_value_to_bitvector(field).vector
+                )
+
+            ns_diff.append(vec)
+
+        jsonrpc.add_slice(self.sock, sid, ns_list, ns_diff if ns_diff else None)
+
+
+    def _del_slice(self, sid):
+        jsonrpc.remove_slice(self.sock, sid)
 
 
     def _add_packet_filter(self, model):
