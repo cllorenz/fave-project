@@ -13,7 +13,6 @@
     - define inventory
     - define topology
     - build network from inventory and topology
-    - enable partial self deny for subnets in policy (change default self reachability?)
  - create benchmark with TUM-i8 network
  - create benchmark with Stanford network
  - create benchmark with Internet2 network
