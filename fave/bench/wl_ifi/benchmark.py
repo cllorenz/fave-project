@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 
+""" This module benchmarks FaVe using the IFI workload.
+"""
+
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
 IFI={

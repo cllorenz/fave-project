@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 
+""" This module generates FaVe checks from the PolicyTranslator's CSV.
+"""
+
 import json
 
 OFILE="bench/wl_ifi/checks.json"
