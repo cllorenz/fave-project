@@ -20,6 +20,13 @@
  - replace slow ip6tables parser
  - Gitlab-CI
  - integrate policy translator
+ - use asynchronous rpc calls to improve performance
+    - introduce counter for FaVe events
+    - save mapping generations marked by event counters
+    - extend dumping with mapping generations
+    - enhance rpc calls with event counter as identifyer
+    - use rpc calls asynchonously
+    - support asynchronous handling of rpc return values
 
 
 ### NetPlumber
@@ -37,3 +44,6 @@
 'z' is found remove the array. Pros: makes checks for the empty set more
 efficient and the memory footprint might be lowered. Cons: might break stuff at
 funny places... which leads to the question: why is that code even there?
+ - support asynchronous rpc calls
+    - extend callbacks with rpc identifyer
+    - extend logs with rpc identifyer
