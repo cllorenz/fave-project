@@ -119,10 +119,12 @@ int main(int argc, char* argv[]) {
   bool do_run_server = false;
   bool do_run_test = false;
   bool do_load_json_files = false;
+  bool do_dump_json_files = false;
   bool do_load_policy = false;
 
   string log_config_file = "";
   string json_files_path = "";
+  string dump_files_path = "";
   string policy_json_file = "";
   int hdr_len = 1;
   string server_address;
@@ -136,6 +138,7 @@ int main(int argc, char* argv[]) {
       printf("\t --test  runs all the unit tests.\n");
       printf("\t --server <ip> <port> : runs net_plumber as a server listening for updates on address <ip> and port <port>.\n");
       printf("\t --load <path> : load the rules from json files in the <path>.\n");
+      printf("\t --dump <path> : dump the dependency graph to json files in the <path>.\n");
       printf("\t --policy <file> : loads the source and probe nodes from a json policy <file>.\n");
       printf("\t --filter <filter-wc> : cluster based on <wc-filter>.\n");
 
@@ -182,6 +185,15 @@ int main(int argc, char* argv[]) {
       }
       do_load_json_files = true;
       json_files_path = string(argv[++i]);
+    }
+
+    if ( strcmp(argv[i],"--dump") == 0)  {
+      if (i+1 >= argc) {
+        printf("Please specify path after --load.\n");
+        return -1;
+      }
+      do_dump_json_files = true;
+      dump_files_path = string(argv[++i]);
     }
 
     if ( strcmp(argv[i],"--filter") == 0)  {
@@ -231,10 +243,17 @@ int main(int argc, char* argv[]) {
 
   if (do_run_server) {
     run_server(server_address, server_port,N);
-  } else {
+  }
+
+  if (do_dump_json_files) {
+    N->dump_plumbing_network(dump_files_path);
+  }
+
+  if (!do_run_server) {
     printf("Done! Cleaning up the NetPlumber\n");
     delete N;
   }
+
   // XXX: this fixes some valgrind memcheck issues but not all :-/ also it does
   // not cover the PropertyConfigurator case
   //BasicConfigurator::resetConfiguration();
