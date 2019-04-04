@@ -284,6 +284,9 @@ namespace net_plumber {
     void dump_flow_trees(const std::string);
     void dump_flows(const std::string);
     void dump_pipes(const std::string);
+#ifdef PIPE_SLICING
+    void dump_slices(const std::string);
+#endif
 
    private:
     void free_group_memory(uint32_t table, uint64_t group);

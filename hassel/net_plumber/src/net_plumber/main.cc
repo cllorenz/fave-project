@@ -222,7 +222,7 @@ int main(int argc, char* argv[]) {
   NetPlumber *N = new NetPlumber(hdr_len);
 
   if (do_load_json_files) {
-    load_netplumber_from_dir(json_files_path, N, NULL);
+    load_netplumber_from_dir(json_files_path, N, NULL, hdr_len);
   }
 
   if (do_load_policy) {

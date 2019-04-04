@@ -536,4 +536,5 @@ def dump(s):
     dump_plumbing_network(s, '.')
     dump_flows(s, '.')
     dump_pipes(s, '.')
+    dump_slices(s, '.')
     dump_slices_pipes(s, '.')

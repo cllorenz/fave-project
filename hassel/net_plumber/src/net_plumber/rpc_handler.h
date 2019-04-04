@@ -53,6 +53,7 @@ private:
   FN(add_slice_allow); FN(remove_slice_allow);
   FN(print_slice_matrix);
   FN(dump_slices_pipes);
+  FN(dump_slices);
 #endif
   FN(print_table);
   FN(print_topology);

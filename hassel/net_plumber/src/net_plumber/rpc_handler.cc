@@ -55,6 +55,7 @@ hs *val_to_hs(const Json::Value &val, int len) {
     const Json::Value &list = val["list"];
     const Json::Value &diff = val["diff"];
     hs_vec *v = &res->list;
+
     for (Json::Value::ArrayIndex i = 0; i < list.size(); i++) {
       hs_vec_append(v, val_to_array(list[i]), false);
 
@@ -132,6 +133,7 @@ void RpcHandler::initServer (Server *server) {
     FN(add_slice_allow), FN(remove_slice_allow),
     FN(print_slice_matrix),
     FN(dump_slices_pipes),
+    FN(dump_slices),
 #endif
     FN(print_table),
     FN(print_topology),
@@ -420,5 +422,13 @@ PROTO(dump_pipes)
   netPlumber->dump_pipes(dir);
   RETURN(VOID);
 }
+
+#ifdef PIPE_SLICING
+PROTO(dump_slices)
+  const std::string dir = PARAM(dir).asString();
+  netPlumber->dump_slices(dir);
+  RETURN(VOID);
+}
+#endif /* PIPE_SLICING */
 }
 

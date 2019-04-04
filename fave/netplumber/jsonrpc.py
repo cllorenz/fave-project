@@ -598,3 +598,31 @@ def dump_pipes(sock, odir):
     data["method"] = "dump_pipes"
     data["params"] = {"dir" : odir}
     _sendrecv(sock, json.dumps(data))
+
+#@profile_method
+def dump_slices_pipes(sock, odir):
+    """ Dumps the pipelines with slice information residing in NetPlumber.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    odir -- The output directory for the JSON file
+    """
+
+    data = _basic_rpc()
+    data["method"] = "dump_slices_pipes"
+    data["params"] = {"dir" : odir}
+    _sendrecv(sock, json.dumps(data))
+    
+#@profile_method
+def dump_slices(sock, odir):
+    """ Dumps the slices residing in NetPlumber.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    odir -- The output directory for the JSON file
+    """
+
+    data = _basic_rpc()
+    data["method"] = "dump_slices"
+    data["params"] = {"dir" : odir}
+    _sendrecv(sock, json.dumps(data))

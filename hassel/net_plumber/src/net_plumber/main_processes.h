@@ -22,7 +22,7 @@
 #include "net_plumber.h"
 
 void load_netplumber_from_dir(std::string json_file_path,
-                              net_plumber::NetPlumber *N, array_t *filter);
+                              net_plumber::NetPlumber *N, array_t *filter, size_t hdr_len);
 void load_policy_file(std::string json_policy_file,
                       net_plumber::NetPlumber *N, array_t *filter);
 

@@ -1387,6 +1387,55 @@ void NetPlumber::dump_pipes(const string dir) {
 }
 
 #ifdef PIPE_SLICING
+void NetPlumber::dump_slices(const string dir) {
+  Json::Value slices_wrapper(Json::objectValue);
+  Json::Value jslices(Json::arrayValue);
+  
+  for (auto const &s: slices) {
+    // skips the default slice
+    if (!s.first) continue;
+    Json::Value slice(Json::objectValue);
+    slice["id"] = (Json::UInt64) s.first;
+
+    size_t len = s.second.net_space->len;
+    const struct hs_vec *v = &s.second.net_space->list;
+    if (v->used==1 && !v->diff[0].used) {
+      slice["space"] = (Json::StaticString)array_to_str(v->elems[0], len, false);
+    } else {
+      Json::Value space(Json::objectValue);
+      Json::Value lpos(Json::arrayValue);
+      Json::Value lneg(Json::arrayValue);
+      for (size_t i=0; i<v->used; i++) {
+	bool diff = v->diff && v->diff[i].used;
+	Json::Value arr = std::string(array_to_str(v->elems[i], len, false));
+	lpos.append(arr);
+	if (diff) {
+	  for (size_t j=0; j<v->diff->used; j++) {
+	    arr = std::string(array_to_str(v->diff->elems[i], len, false));
+	    lneg.append(arr);
+	  }
+	}
+	space["list"] = lpos;
+	space["diff"] = lneg;
+        slice["space"] = space;
+      }
+    }
+    jslices.append(slice);
+  }
+
+  slices_wrapper["slices"] = jslices;
+
+  stringstream tmp_slices;
+  tmp_slices << dir << "/slices.json";
+  string slice_file_name = tmp_slices.str();
+
+  ofstream slice_file(slice_file_name.c_str());
+  slice_file << slices_wrapper;
+  slice_file.close();
+}
+#endif /* PIPE_SLICING */
+
+#ifdef PIPE_SLICING
 bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
   this->last_event.type = ADD_SLICE;
   this->last_event.id1 = id;
@@ -1603,7 +1652,7 @@ void NetPlumber::dump_slices_pipes(const std::string dir) {
     pipes_wrapper["pipes"] = pipes;
     
     stringstream tmp_pipe_network;
-    tmp_pipe_network << dir << "/slice.json";
+    tmp_pipe_network << dir << "/pipes_slices.json";
     string pipe_network_file_name = tmp_pipe_network.str();
 
     ofstream pipe_network_file(pipe_network_file_name.c_str());
