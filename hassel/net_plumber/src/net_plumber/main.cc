@@ -247,6 +247,7 @@ int main(int argc, char* argv[]) {
 
   if (do_dump_json_files) {
     N->dump_plumbing_network(dump_files_path);
+    printf("Dumped the plumbing network to %s/\n", dump_files_path.c_str());
   }
 
   if (!do_run_server) {
