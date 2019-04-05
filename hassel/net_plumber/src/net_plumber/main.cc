@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
       printf("\t --hdr-len <length> : <length> of packet header (default is 1 byte).\n");
       break;
     }
-    if ( strncmp(argv[i],"--unix",6) == 0 ) {
+    if ( strncmp(argv[i], "--unix", 6) == 0 ) {
       if (i + 1 >= argc) {
         printf("Please specify a file path.\n");
         return -1;
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
       server_port = 0;
       do_run_server = true;
     }
-    if ( strncmp(argv[i],"--server",8) == 0 ) {
+    if ( strncmp(argv[i], "--server", 8) == 0 ) {
       if (i + 2 >= argc) {
         printf("Please specify IP and port for server.\n");
         return -1;
@@ -165,11 +165,11 @@ int main(int argc, char* argv[]) {
       server_port = atoi(argv[++i]);
       do_run_server = true;
     }
-    if ( strcmp(argv[i],"--test") == 0 ) {
+    if ( strncmp(argv[i], "--test", 6) == 0 ) {
       do_run_test = true;
     }
 
-    if ( strcmp(argv[i],"--policy") == 0)  {
+    if ( strncmp(argv[i], "--policy", 8) == 0)  {
       if (i+1 >= argc) {
         printf("Please specify policy file after --policy.\n");
         return -1;
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
       policy_json_file = string(argv[++i]);
     }
 
-    if ( strcmp(argv[i],"--load") == 0)  {
+    if ( strncmp(argv[i], "--load", 6) == 0)  {
       if (i+1 >= argc) {
         printf("Please specify path to json files after --load.\n");
         return -1;
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
       json_files_path = string(argv[++i]);
     }
 
-    if ( strcmp(argv[i],"--dump") == 0)  {
+    if ( strncmp(argv[i], "--dump", 6) == 0)  {
       if (i+1 >= argc) {
         printf("Please specify path after --load.\n");
         return -1;
@@ -196,7 +196,7 @@ int main(int argc, char* argv[]) {
       dump_files_path = string(argv[++i]);
     }
 
-    if ( strcmp(argv[i],"--filter") == 0)  {
+    if ( strncmp(argv[i], "--filter", 8) == 0)  {
       if (i+1 >= argc) {
         printf("Please specify a header after --filter.\n");
         return -1;
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
       filter = array_from_str(argv[++i]);
     }
 
-    if ( strcmp(argv[i],"--log4j-config") == 0 ) {
+    if ( strncmp(argv[i], "--log4j-config", 14) == 0 ) {
       if (i+1 >= argc) {
         printf("Please specify config file name after --log4j-config.\n");
         return -1;
@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
       log_config_file = string(argv[++i]);
     }
 
-    if ( strcmp(argv[i],"--hdr-len") == 0 ) {
+    if ( strncmp(argv[i], "--hdr-len", 9) == 0 ) {
       if (i+1 >= argc) {
         printf("Please specify length of header after --hdr-len.\n");
         return -1;
