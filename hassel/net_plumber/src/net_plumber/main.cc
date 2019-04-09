@@ -247,6 +247,11 @@ int main(int argc, char* argv[]) {
 
   if (do_dump_json_files) {
     N->dump_plumbing_network(dump_files_path);
+    N->dump_pipes(dump_files_path);
+    N->dump_flow_trees(dump_files_path);
+#ifdef PIPE_SLICING
+    N->dump_slices(dump_files_path);
+#endif
     printf("Dumped the plumbing network to %s/\n", dump_files_path.c_str());
   }
 
