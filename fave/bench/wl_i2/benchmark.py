@@ -51,6 +51,12 @@ def array_vlan_to_number(array):
         raise "array not a vlan number: %s" % array
 
 
+def get_start_end(field):
+    start = MAPPING[field]
+    end = start + FIELD_SIZES[field]
+    return start, end
+
+
 if __name__ == '__main__':
     routes = []
     portmap = {}
@@ -91,12 +97,10 @@ if __name__ == '__main__':
                 out_ports = rule['out_ports']
 
                 match = rule['match']
-                start = MAPPING['packet.ipv4.destination']
-                end = start + FIELD_SIZES['packet.ipv4.destination']
+                start, end = get_start_end('packet.ipv4.destination')
                 dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
 
-                start = MAPPING['packet.ether.vlan']
-                end = start + FIELD_SIZES['packet.ether.vlan']
+                start, end = get_start_end('packet.ether.vlan')
                 vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
 
                 actions = []
@@ -107,14 +111,12 @@ if __name__ == '__main__':
 
                     fields = []
 
-                    start = MAPPING['packet.ipv4.destination']
-                    end = start + FIELD_SIZES['packet.ipv4.destination']
+                    start, end = get_start_end('packet.ipv4.destination')
                     field_mask = mask[start:end]
                     if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination']:
                         fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
 
-                    start = MAPPING['packet.ether.vlan']
-                    end = start + FIELD_SIZES['packet.ether.vlan']
+                    start, end = get_start_end('packet.ether.vlan')
                     field_mask = mask[start:end]
                     if field_mask == '1'*FIELD_SIZES['packet.ether.vlan']:
                         fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
