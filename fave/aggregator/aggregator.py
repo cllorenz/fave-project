@@ -822,17 +822,45 @@ class Aggregator(AbstractAggregator):
                         field_value_to_bitvector(fld).vector
                     )
 
-                ports = []
-                for act in rule.actions:
-                    if act.name != "forward":
-                        continue
-                    ports.extend([
-                        self._global_port(p) for p in act.ports
-                    ])
+                out_ports = []
+                mask = None
+                rewrite = None
+                for action in rule.actions:
+                    if isinstance(action, Forward):
+                        out_ports.extend(
+                            [self._global_port(port) for port in action.ports]
+                        )
+
+                    elif isinstance(action, Rewrite):
+                        rewrite = Vector(self.mapping.length)
+                        mask = Vector(self.mapping.length, preset='0')
+                        for field in action.rewrite:
+                            if field.name == 'interface':
+                                set_field_in_vector(
+                                    self.mapping,
+                                    rewrite,
+                                    field.name,
+                                    '{:032b}'.format(self._global_port(field.value))
+                                )
+
+                            else:
+                                set_field_in_vector(
+                                    self.mapping,
+                                    rewrite,
+                                    field.name,
+                                    field_value_to_bitvector(field).vector
+                                )
+
+                            set_field_in_vector(
+                                self.mapping,
+                                mask,
+                                field.name,
+                                '1'*FIELD_SIZES[field.name]
+                            )
 
                 Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t(%s -> %s)",
-                    rule.idx, tid, rvec.vector if rvec else "*", ports
+                    "worker: add rule %s to %s:\n\t(%s & %s -> %s, %s)",
+                    rule.idx, tid, rvec.vector if rvec else "*", mask.vector if mask else "*", out_ports, rewrite.vector if rewrite else "*"
                 )
 
                 in_ports = []
@@ -846,10 +874,10 @@ class Aggregator(AbstractAggregator):
                     tid,
                     rule.idx,
                     in_ports,
-                    ports,
+                    out_ports,
                     rvec.vector,
-                    None,
-                    None
+                    mask.vector if mask else None,
+                    rewrite.vector if rewrite else None
                 )
                 if calc_rule_index(tid, rid) in self.rule_ids:
                     self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
