@@ -91,7 +91,7 @@ if __name__ == '__main__':
                     portno += 1
 
             for rule in table['rules']:
-                rid = int(rule['id']) & 0xffff
+                rid = 0 #int(rule['id']) & 0xffff
 
                 in_ports = rule['in_ports']
                 out_ports = rule['out_ports']
