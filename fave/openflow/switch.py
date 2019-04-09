@@ -707,8 +707,8 @@ def main(argv):
                     actions.append(Forward([p for p in body.split(';')]))
 
                 elif cmd == 'rw':
-                    fields = [fieldify(f.split(':')) for f in body.split(';')]
-                    actions.append(Rewrite(fields))
+                    rwfields = [fieldify(f.split(':')) for f in body.split(';')]
+                    actions.append(Rewrite(rwfields))
 
         elif opt == '-p':
             in_ports = [p[len(node)+1:] for p in arg.split(',')]
