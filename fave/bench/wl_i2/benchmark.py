@@ -84,10 +84,10 @@ if __name__ == '__main__':
                 portmap[name].update(rule['in_ports'])
                 portmap[name].update(rule['out_ports'])
 
-            for name, ports in portmap.iteritems():
+            for tname, ports in portmap.iteritems():
                 portno = 1
                 for port in ports:
-                    port_to_name[port] = "%s.%s" % (name, portno)
+                    port_to_name[port] = "%s.%s" % (tname, portno)
                     portno += 1
 
             for rule in table['rules']:
