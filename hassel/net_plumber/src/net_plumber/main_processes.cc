@@ -97,6 +97,7 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
           long run_time = 0;
           rule_counter++;
           string action = rules[i]["action"].asString();
+          uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffff;
           if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
             array_t *match = val_to_array(rules[i]["match"]);
             if (filter && !array_isect(match,filter,N->get_length(),match)) {
@@ -104,7 +105,7 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
             } else {
               start = get_cpu_time_us();
               N->add_rule(table_id,
-                          0,
+                          rule_id,
                           val_to_list(rules[i]["in_ports"]),
                           val_to_list(rules[i]["out_ports"]),
                           match,
@@ -119,11 +120,12 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
             Json::Value mp_rules = rules[i]["rules"];
             uint64_t group = 0;
             for (Json::ArrayIndex i = 0; i < mp_rules.size(); i++) {
+              uint32_t rule_id = mp_rules[i]["id"].asUInt64() & 0xffff;
               string action = mp_rules[i]["action"].asString();
               if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
                 uint64_t id = N->add_rule_to_group(
                                 table_id,
-                                0,
+                                rule_id,
                                 val_to_list(mp_rules[i]["in_ports"]),
                                 val_to_list(mp_rules[i]["out_ports"]),
                                 val_to_array(mp_rules[i]["match"]),
