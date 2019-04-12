@@ -16,6 +16,7 @@
  - create benchmark with TUM-i8 network
  - create benchmark with Stanford network
  - create benchmark with Internet2 network
+    - create benchmark from originial config instead of TF format
     - include by using FaVe instead of a direct read
  - replace slow ip6tables parser
  - Gitlab-CI
@@ -27,6 +28,7 @@
     - enhance rpc calls with event counter as identifyer
     - use rpc calls asynchonously
     - support asynchronous handling of rpc return values
+ - Upgrade code to Python3
 
 
 ### NetPlumber
