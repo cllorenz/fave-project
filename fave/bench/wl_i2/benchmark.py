@@ -144,28 +144,50 @@ if __name__ == '__main__':
 
     links = []
     with open('bench/wl_i2/i2/topology.tf', 'r') as tf:
+        active_ports = set()
 
         cnt = 1
         for line in tf.read().split('\n'):
+            is_src = is_dst = False
+
             try:
                 _, src, _, _, _, _, _, dst, _, _, _, _, _, _ = line.split('$')
             except:
                 continue
 
-
             src = int(src.strip('[]'))
             dst = int(dst.strip('[]'))
+
             if src not in port_to_name:
-                continue #XXX
-                port_to_name[src] = 'unknown.%s' % cnt
-                cnt += 1
+                port_to_name[src] = 'source.external.%s.1' % cnt
+                is_src = True
             if dst not in port_to_name:
-                continue #XXX
-                port_to_name[dst] = 'unknown.%s' % cnt
+                port_to_name[dst] = 'probe.external.%s.1' % cnt
+                is_dst = True
+                continue # XXX
+
+            if not is_src:
+                active_ports.add(src)
+            if not is_dst:
+                active_ports.add(dst)
+
+            if is_src:
+                devices.append(
+                    ("source.external.%s" % cnt, "generator", ["ipv4_dst=0.0.0.0/0"])
+                )
+                cnt += 1
+            elif is_dst:
+#                devices.append(("probe.external.%s" % cnt, "probe", "universal", None, None, []))
                 cnt += 1
 
             links.append((port_to_name[src], port_to_name[dst]))
 
+        for port in active_ports:
+            pname = port_to_name[port]
+            devices.append((
+                "source.%s" % pname, "generator", ["ipv4_dst=0.0.0.0/0"]
+            ))
+            links.append(("source.%s.1" % pname, pname))
 
     with open('bench/wl_i2/topology.json', 'w') as tf:
         tf.write(
