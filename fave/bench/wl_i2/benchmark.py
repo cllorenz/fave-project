@@ -57,6 +57,47 @@ def get_start_end(field):
     return start, end
 
 
+def rule_to_route(rule):
+    rid = int(rule['id']) & 0xffff
+
+    in_ports = rule['in_ports']
+    out_ports = rule['out_ports']
+
+    match = rule['match']
+    start, end = get_start_end('packet.ipv4.destination')
+    dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
+
+    start, end = get_start_end('packet.ether.vlan')
+    vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
+
+    actions = []
+
+    if rule['action'] == 'rw':
+        mask = rule['mask']
+        rewrite = rule['rewrite']
+
+        fields = []
+
+        start, end = get_start_end('packet.ipv4.destination')
+        field_mask = mask[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination']:
+            fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
+
+        start, end = get_start_end('packet.ether.vlan')
+        field_mask = mask[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ether.vlan']:
+            fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
+
+        actions.append("rw=%s" % ';'.join(fields))
+
+    actions.extend(["fd=%s" % port_to_name[p] for p in out_ports])
+
+    return (
+        name, 1, rid, [dst, vlan], actions,
+        [port_to_name[p] for p in in_ports]
+    )
+
+
 if __name__ == '__main__':
     routes = []
     portmap = {}
@@ -91,44 +132,7 @@ if __name__ == '__main__':
                     portno += 1
 
             for rule in table['rules']:
-                rid = int(rule['id']) & 0xffff
-
-                in_ports = rule['in_ports']
-                out_ports = rule['out_ports']
-
-                match = rule['match']
-                start, end = get_start_end('packet.ipv4.destination')
-                dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
-
-                start, end = get_start_end('packet.ether.vlan')
-                vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
-
-                actions = []
-
-                if rule['action'] == 'rw':
-                    mask = rule['mask']
-                    rewrite = rule['rewrite']
-
-                    fields = []
-
-                    start, end = get_start_end('packet.ipv4.destination')
-                    field_mask = mask[start:end]
-                    if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination']:
-                        fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
-
-                    start, end = get_start_end('packet.ether.vlan')
-                    field_mask = mask[start:end]
-                    if field_mask == '1'*FIELD_SIZES['packet.ether.vlan']:
-                        fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
-
-                    actions.append("rw=%s" % ';'.join(fields))
-
-                actions.extend(["fd=%s" % port_to_name[p] for p in out_ports])
-
-                routes.append((
-                    name, 1, rid, [dst, vlan], actions,
-                    [port_to_name[p] for p in in_ports]
-                ))
+                routes.append(rule_to_route(rule))
 
 
     with open (ROUTES, 'w') as rf:
