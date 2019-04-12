@@ -143,7 +143,7 @@ if __name__ == '__main__':
     devices.extend([(n, 'switch', 64) for n in portmap])
 
     links = []
-    with open('bench/wl_i2/i2/topology.tf', 'r') as tf:
+    with open('bench/wl_i2/i2-hassel/topology.tf', 'r') as tf:
         active_ports = set()
 
         cnt = 1
