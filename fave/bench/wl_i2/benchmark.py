@@ -195,7 +195,7 @@ if __name__ == '__main__':
         )
 
 
-    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
+    os.system("bash scripts/start_np.sh bench/wl_i2/np.conf")
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:
