@@ -17,6 +17,9 @@ with open(sys.argv[1], 'r') as f:
         'rules' : rules
     }
 
+    is_default = True
+    default_rule = None
+
     cnt = 1
     for line in tf:
         if line == "" or line.startswith('#'):
@@ -52,8 +55,15 @@ with open(sys.argv[1], 'r') as f:
         if rewrite != 'None':
             rule['rewrite'] = rewrite
 
-        rules.append(rule)
+        if is_default:
+            rule['id'] = (tid << 32) + len(tf) - 1
+            default_rule = rule
+            is_default = False
+        else:
+            rules.append(rule)
         cnt += 1
+
+    rules.append(default_rule)
 
     table['ports'] = list(ports)
 
