@@ -74,196 +74,225 @@ with open("seat-show_route_forwarding-table_table_default.xml", "r") as f:
 #m3 = re.match(row_match, test_line3)
 #assert m3 is not None
 
+router_files = [
+    "atla-show_route_forwarding-table_table_default.xml",
+    "chic-show_route_forwarding-table_table_default.xml",
+    "hous-show_route_forwarding-table_table_default.xml",
+    "kans-show_route_forwarding-table_table_default.xml",
+    "losa-show_route_forwarding-table_table_default.xml",
+    "newy32aoa-show_route_forwarding-table_table_default.xml",
+    "salt-show_route_forwarding-table_table_default.xml",
+    "seat-show_route_forwarding-table_table_default.xml",
+    "wash-show_route_forwarding-table_table_default.xml"
+]
 
-root = minidom.parse("seat-show_route_forwarding-table_table_default.xml")
+total = 0
+for router_file in router_files:
+    root = minidom.parse(router_file)
 
-routers = root.getElementsByTagName("router")
-for router in routers:
-    router_name = router.getAttribute("name")
+    routers = root.getElementsByTagName("router")
+    for router in routers:
+        router_name = router.getAttribute("name")
 
-    routing_table = []
+        routing_table = []
 
-    table = iter([l for l in router.childNodes[0].data.split("\n") if l])
-    while True:
-        line = table.next()
-
-        if line.startswith("Routing table: default.mpls"):
-            break
-
-        elif line.startswith("Destination") or line.startswith("Routing") or line.startswith("Internet"):
-            continue
-
-        elif line.startswith("ISO"):
-            for _ in range(5): table.next()
-
-        tokens = line.split()
-
-        if len(tokens) == 0:
-            continue
-
-        elif len(tokens) == 1:
-            dst = tokens[0]
+        table = iter([l for l in router.childNodes[0].data.split("\n") if l])
+        while True:
             line = table.next()
 
+            if line.startswith("Routing table: default.mpls"):
+                break
+
+            elif line.startswith("Destination") or line.startswith("Routing") or line.startswith("Internet"):
+                continue
+
+            elif line.startswith("ISO"):
+                for _ in range(5): table.next()
+
             tokens = line.split()
-            if len(tokens) == 3:
-                _type, _rtref, _next_hop = tokens
 
+            if len(tokens) == 0:
+                continue
+
+            elif len(tokens) == 1:
+                dst = tokens[0]
                 line = table.next()
-                tokens = line.split()
 
+                tokens = line.split()
                 if len(tokens) == 3:
+                    _type, _rtref, _next_hop = tokens
+
+                    line = table.next()
+                    tokens = line.split()
+
+                    if len(tokens) == 3:
+                        _type, _index, _nhref = tokens
+                        # XXX
+
+                elif len(tokens) < 7:
+                    pass
+                    # XXX
+
+                elif tokens[3] == 'ucst':
+                    _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+
+                else:
+                    print "unknown action", len(tokens), tokens
+                    break
+
+            elif len(tokens) == 3:
+                if tokens[0] == 'locl':
+                    _type, _nhref, _nhref = tokens
+
+                if tokens[0] == 'mcrt':
                     _type, _index, _nhref = tokens
                     # XXX
 
-            elif len(tokens) < 7:
-                pass
-                # XXX
+                else:
+                    print "unknown action", len(tokens), tokens
 
-            elif tokens[3] == 'ucst':
-                _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                routing_table.append((int(dst.split('/')[1]), dst, [interface]))
-
-            else:
-                print "unknown action", len(tokens), tokens
-                break
-
-        elif len(tokens) == 3:
-            if tokens[0] == 'locl':
-                _type, _nhref, _nhref = tokens
-
-            if tokens[0] == 'mcrt':
-                _type, _index, _nhref = tokens
-                # XXX
-
-            else:
-                print "unknown action", len(tokens), tokens
-
-        elif len(tokens) == 4:
-            dst, _type, _rtref, _next_hop = tokens
-            line = table.next()
-            tokens = line.split()
-
-            if len(tokens) == 4:
-                _type, _index, _nhref, interface = tokens
-                routing_table.append((int(dst.split('/')[1]), dst, [interface]))
-
-            else:
-                print tokens
-                break
-
-
-        elif len(tokens) == 6:
-            action = tokens[3]
-            if action == 'ucst':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                line = table.next()
-                _next_hop, _type, _index, _nhref, interface = line.split()
-
-                routing_table.append((int(dst.split('/')), dst, [interface]))
-
-            elif action == 'indr':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
+            elif len(tokens) == 4:
+                dst, _type, _rtref, _next_hop = tokens
                 line = table.next()
                 tokens = line.split()
-                if len(tokens) == 1:
-                    _next_hop = tokens[0]
+
+                if len(tokens) == 4:
+                    _type, _index, _nhref, interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+
+                else:
+                    print tokens
+                    break
+
+
+            elif len(tokens) == 6:
+                action = tokens[3]
+                if action == 'ucst':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+                    line = table.next()
+                    _next_hop, _type, _index, _nhref, interface = line.split()
+
+                    routing_table.append((int(dst.split('/')), dst, [interface]))
+
+                elif action == 'indr':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
                     line = table.next()
                     tokens = line.split()
-                    _type, _index, _nhref, interface = tokens
+                    if len(tokens) == 1:
+                        _next_hop = tokens[0]
+                        line = table.next()
+                        tokens = line.split()
+                        _type, _index, _nhref, interface = tokens
 
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                        routing_table.append((int(dst.split('/')[1]), dst, [interface]))
 
-                elif len(tokens) == 5:
-                    _next_hop, _type, _index, _nhref, interface = tokens
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                    elif len(tokens) == 5:
+                        _next_hop, _type, _index, _nhref, interface = tokens
+                        routing_table.append((int(dst.split('/')[1]), dst, [interface]))
 
 
-            elif action == 'dscd':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                routing_table.append((int(dst.split('/')[1]), dst, []))
-
-            elif action == 'ulst':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                table.next()
-                line = table.next()
-                _next_hop, _type, _index, _nhref, if_1 = line.split()
-                table.next()
-                line = table.next()
-                _next_hop, _type, _index, _nhref, if_2 = line.split()
-                # XXX
-
-            elif action == 'rslv':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-
-            elif action == 'mdsc':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                routing_table.append((int(dst.split('/')[1]), dst, []))
-
-            elif action == 'bcst':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                # XXX
-
-            elif action == 'rjct':
-                dst, _type, _rtref, _type, _index, _nhref = tokens
-                if dst == 'default':
-                    routing_table.append((0, '0.0.0.0/0', []))
-                else:
+                elif action == 'dscd':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
+                elif action == 'ulst':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+                    table.next()
+                    line = table.next()
+                    _next_hop, _type, _index, _nhref, if_1 = line.split()
+                    table.next()
+                    line = table.next()
+                    _next_hop, _type, _index, _nhref, if_2 = line.split()
+                    # XXX
+
+                elif action == 'rslv':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+
+                elif action == 'mdsc':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, []))
+
+                elif action == 'bcst':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+                    # XXX
+
+                elif action == 'rjct':
+                    dst, _type, _rtref, _type, _index, _nhref = tokens
+                    if dst == 'default':
+                        routing_table.append((0, '0.0.0.0/0', []))
+                    else:
+                        routing_table.append((int(dst.split('/')[1]), dst, []))
+
+                else:
+                    print "unknown action:", action, len(tokens), tokens
+                    break
+
+
+            elif len(tokens) == 7:
+                if tokens[3] == 'rslv':
+                    dst, _type, _rtref, _type, _index, _nhref, interface = tokens
+                    # XXX
+
+                elif tokens[3] == 'ucst':
+                    dst, _type, _rtref, _type, _index, _nhref, interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+
+
+                elif tokens[4] == 'locl':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref = tokens
+                    # XXX
+
+                elif tokens[4] == 'mcst':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref = tokens
+                    # XXX
+
+
+                else:
+                    print "unknown action", len(tokens), tokens
+                    break
+
+
+            elif len(tokens) == 8:
+                action = tokens[4]
+                if action == 'ucst':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+
+                elif action == 'recv':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    # XXX
+
+                elif action == 'bcst':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    # XXX
+
+                elif action == 'dscd':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, _interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, []))
+
+                elif action == 'hold':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    # XXX
+
+                elif action == 'rjct':
+                    dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    routing_table.append((int(dst.split('/')[1]), dst, []))
+
+                else:
+                    print "unknown action", action, len(tokens), tokens
+                    break
+
             else:
-                print "unknown action:", action, len(tokens), tokens
-                break
+                print "could not parse:", tokens
 
+        print router_file, len(routing_table)
+        total += len(routing_table)
 
-        elif len(tokens) == 7:
-            if tokens[3] == 'rslv':
-                dst, _type, _rtref, _type, _index, _nhref, interface = tokens
-                # XXX
+print "total:", total
 
-            elif tokens[4] == 'locl':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref = tokens
-                # XXX
-
-            elif tokens[4] == 'mcst':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref = tokens
-                # XXX
-
-
-            else:
-                print "unknown action", len(tokens), tokens
-                break
-
-
-        elif len(tokens) == 8:
-            action = tokens[4]
-            if action == 'ucst':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                routing_table.append((int(dst.split('/')[1]), dst, interface))
-
-            elif action == 'recv':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                # XXX
-
-            elif action == 'bcst':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                # XXX
-
-            elif action == 'hold':
-                dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                # XXX
-
-
-            else:
-                print "unknown action", action, len(tokens), tokens
-                break
-
-        else:
-            print "could not parse:", tokens
-
-
-    from pprint import pprint
-    pprint(sorted(routing_table, reverse=True))
+    #from pprint import pprint
+    #pprint(sorted(routing_table, reverse=True))
 
 
 #    for line in table:
