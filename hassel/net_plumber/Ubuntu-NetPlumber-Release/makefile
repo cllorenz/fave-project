@@ -16,6 +16,9 @@ RM := rm -rf
 -include subdir.mk
 -include objects.mk
 
+# All Target
+all: net_plumber
+
 MAKECMDGOALS := $(MAKECMDGOALS)
 ifeq ($(MAKECMDGOALS),coverage)
 	COV_FLAGS :=-fprofile-arcs -ftest-coverage
@@ -48,9 +51,6 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
-
-# All Target
-all: net_plumber
 
 # Tool invocations
 net_plumber: $(OBJS) $(USER_OBJS)
