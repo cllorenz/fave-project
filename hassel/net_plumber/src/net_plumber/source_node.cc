@@ -72,7 +72,7 @@ string SourceNode::to_string() {
 }
 
 void SourceNode::process_src_flow_at_location(
-    list<struct Flow*>::iterator loc, array_t* change) {
+    list<struct Flow*>::iterator /*loc*/, array_t* /*change*/) {
   // do nothing
   stringstream error_msg;
   error_msg << "Called process_src_flow_at_location on SourceNode " <<
@@ -81,7 +81,7 @@ void SourceNode::process_src_flow_at_location(
 
 }
 
-void SourceNode::process_src_flow(Flow *f) {
+void SourceNode::process_src_flow(Flow* /*f*/) {
   propagate_src_flow_on_pipes(source_flow.begin());
 }
 
