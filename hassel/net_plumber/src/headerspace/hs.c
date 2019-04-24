@@ -414,13 +414,13 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
 {
   const struct hs_vec *v = &hs->list;
   array_t tmp[ARRAY_BYTES (hs->len) / sizeof (array_t)];
-  size_t pos = -1;
+  size_t pos = SIZE_MAX;
 
   for (size_t i = 0; i < v->used; i++) {
     if (!array_isect (v->elems[i], a, hs->len, tmp)) continue;
     pos = i; break;
   }
-  if (pos == -1) return false;
+  if (pos == SIZE_MAX) return false;
 
   memset (res, 0, sizeof *res);
   res->len = hs->len;
