@@ -38,7 +38,6 @@
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
  - improve code readability
- - integrate test coverage tools: gcov
  - libnetplumber? (C++ plus Python)
  - BDDs instead of Header Spaces?
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
