@@ -61,6 +61,9 @@ clean:
 	-rm -rf net_plumber_coverage.info /tmp/net_plumber_coverage/
 	-@echo ' '
 
+test: all
+	./net_plumber --test
+
 $(info the variable $$cov for a coverage build is set to [${cov}])
 ifeq ($(cov), y)
 	COV_FLAGS :=-fprofile-arcs -ftest-coverage
@@ -81,7 +84,7 @@ install: all
 uninstall:
 	-rm -f /usr/bin/net_plumber
 
-.PHONY: all clean dependents install uninstall coverage
+.PHONY: all clean dependents install uninstall coverage test
 .SECONDARY:
 
 -include ../makefile.targets
