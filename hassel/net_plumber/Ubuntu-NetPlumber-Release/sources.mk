@@ -25,9 +25,9 @@ USER_FLAGS :=-DPIPE_SLICING -DWITH_EXTRA_NEW
 #USER_FLAGS :=-DCHECK_REACH_SHADOW
 # -fprofile-arcs -ftest-coverage
 
-DEBUG_FLAGS :=-g -Wextra -Wpedantic
+DEBUG_FLAGS :=-g
 
-GCFLAGS :=-Wall -O3 -std=c++11 $(DEBUG_FLAGS) $(USER_FLAGS)
+GCFLAGS :=-Wall -Wextra -Wpedantic -O3 -std=c++11 $(DEBUG_FLAGS) $(USER_FLAGS)
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
