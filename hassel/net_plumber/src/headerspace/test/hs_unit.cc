@@ -52,7 +52,7 @@ void HeaderspaceTest::test_add() {
 
     hs_add(h,array_from_str("1xxxxxxx"));
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_add(&a,array_from_str("1xxxxxxx"));
 
     CPPUNIT_ASSERT(hs_is_equal(h,&a));
@@ -63,10 +63,10 @@ void HeaderspaceTest::test_add() {
 void HeaderspaceTest::test_add_hs() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_add(&a,array_from_str("0xxxxxxx"));
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_add(&b,array_from_str("0xxxxxxx"));
     hs_add(&b,array_from_str("1xxxxxxx"));
 
@@ -141,7 +141,7 @@ void HeaderspaceTest::test_compact_m() {
 void HeaderspaceTest::test_comp_diff() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
 
     hs_vec_append(&h->list,array_from_str("01xxxxxx"),false);
     hs_vec_append(&h->list.diff[0],array_from_str("11xxxxx1"),true);
@@ -162,7 +162,7 @@ void HeaderspaceTest::test_comp_diff() {
 void HeaderspaceTest::test_cmpl() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("0xxxxxxx"),false);
 
     hs_cmpl(h);
@@ -173,7 +173,7 @@ void HeaderspaceTest::test_cmpl() {
     hs_vec_append(&h->list.diff[0],array_from_str("0xxxxxx1"),true);
     hs_vec_append(&h->list,array_from_str("11xxxxxx"),false);
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("10xxxxxx"),false);
     hs_vec_append(&b.list,array_from_str("00xxxxx1"),false);
     hs_vec_append(&b.list,array_from_str("0xxxxxx1"),false);
@@ -188,11 +188,11 @@ void HeaderspaceTest::test_isect() {
     test_add();
     hs_vec_append(&h->list,array_from_str("01xxxxx0"),false);
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("0xxxxxx0"),false);
     hs_vec_append(&a.list,array_from_str("0xxxxxx1"),false);
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("01xxxxx0"),false);
 
     hs_isect(h,&a);
@@ -201,7 +201,7 @@ void HeaderspaceTest::test_isect() {
     hs_destroy(&a);
     hs_destroy(&b);
 
-    struct hs c = {h->len,{0}};
+    struct hs c = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&c.list,array_from_str("10xxxxxx"),false);
 
     hs_isect(h,&c);
@@ -214,11 +214,11 @@ void HeaderspaceTest::test_isect_a() {
     test_add();
     hs_vec_append(&h->list,array_from_str("01xxxxx0"),false);
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("0xxxxxx0"),false);
     hs_vec_append(&a.list,array_from_str("0xxxxxx1"),false);
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("01xxxxx0"),false);
 
     struct hs *c = hs_isect_a(h,&a);
@@ -227,7 +227,7 @@ void HeaderspaceTest::test_isect_a() {
     hs_destroy(&a);
     hs_destroy(&b);
 
-    struct hs d = {h->len,{0}};
+    struct hs d = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&d.list,array_from_str("10xxxxxx"),false);
 
     struct hs *e = hs_isect_a(c,&d);
@@ -242,11 +242,11 @@ void HeaderspaceTest::test_isect_a() {
 void HeaderspaceTest::test_isect_arr() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
 
     array_t *v1 = array_from_str("1xxxxxx1");
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("1xxxxxx1"),false);
 
     bool res = hs_isect_arr(&a,h,v1);
@@ -258,7 +258,7 @@ void HeaderspaceTest::test_isect_arr() {
     hs_destroy(&b);
     array_free(v1);
 
-    struct hs c = {h->len,{0}};
+    struct hs c = {h->len, {0, 0, 0, 0}};
 
     array_t *v2 = array_from_str("0xxxxxxx");
 
@@ -278,11 +278,11 @@ void HeaderspaceTest::test_minus() {
     hs_vec_append(&h->list.diff[0],array_from_str("1xxxxxx1"),true);
     hs_vec_append(&h->list.diff[1],array_from_str("01xxxxx1"),true);
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("01xxxxxx"),false);
     hs_vec_append(&a.list.diff[0],array_from_str("01xxxxx1"),true);
 
-    struct hs b = {h->len,{0}};
+    struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("10xxxxx0"),false);
     hs_vec_append(&b.list,array_from_str("1xxxxxx0"),false);
 
@@ -296,7 +296,7 @@ void HeaderspaceTest::test_minus() {
 void HeaderspaceTest::test_rewrite() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xx110x1"),false); // XXX: why not 0xx1xxx1?
 
     array_t *m  = array_from_str("11110011");
@@ -316,11 +316,11 @@ void HeaderspaceTest::test_vec_append() {
     hs_vec_append(&h->list,array_from_str("1xxxxxxx"),false);
     hs_vec_append(&h->list.diff[0],array_from_str("1xxxxxx1"),true);
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     array_t *b = array_from_str("1xxxxxxx");
     array_t *c = array_from_str("1xxxxxx1");
 
-    struct hs_vec d = {0};
+    struct hs_vec d = {0, 0, 0, 0};
 
     a.list.elems = (array_t **)xcalloc(1,sizeof *a.list.elems);
     a.list.alloc = 1;
@@ -348,7 +348,7 @@ void HeaderspaceTest::test_vec_append() {
 void HeaderspaceTest::test_enlarge() {
     test_vec_append();
 
-    struct hs a = {2,{0}};
+    struct hs a = {2, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xxxxxxxxxxxxxxx"),false);
     hs_vec_append(&a.list.diff[0],array_from_str("1xxxxxx1xxxxxxxx"),true);
 
@@ -370,7 +370,7 @@ net_plumber.\n");
 void HeaderspaceTest::test_is_empty() {
     printf("\n");
 
-    struct hs a = {1,{0}};
+    struct hs a = {1, {0, 0, 0, 0}};
 
     CPPUNIT_ASSERT(hs_is_empty(&a));
 
@@ -386,7 +386,7 @@ void HeaderspaceTest::test_is_equal() {
     hs_vec_append(&h->list,array_from_str("10xxxxxx"),false);
     hs_vec_append(&h->list,array_from_str("11xxxxxx"),false);
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xxxxxxx"),false);
 
     CPPUNIT_ASSERT(hs_is_equal(h,&a));
@@ -405,7 +405,7 @@ void HeaderspaceTest::test_is_equal() {
 void HeaderspaceTest::test_is_equal_regression() {
     printf("\n");
 
-    struct hs a = {47,{0}};
+    struct hs a = {47, {0, 0, 0, 0}};
     hs_vec_append(
         &a.list,array_from_str("\
 xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,\
@@ -418,7 +418,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
         false
     );
 
-    struct hs b = {47,{0}};
+    struct hs b = {47, {0, 0, 0, 0}};
     hs_vec_append(
         &b.list,
         array_from_str("\
@@ -487,7 +487,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
 
 void HeaderspaceTest::test_is_equal_and_is_sub_eq_regression() {
 
-    struct hs a = {47,{0}};
+    struct hs a = {47, {0, 0, 0, 0}};
 
     hs_vec_append(
         &a.list,
@@ -502,7 +502,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
         false
     );
 
-    struct hs b = {47,{0}};
+    struct hs b = {47, {0, 0, 0, 0}};
 
     hs_vec_append(
         &b.list,
@@ -686,7 +686,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
         false
     );
 
-    struct hs c = {47,{0}};
+    struct hs c = {47, {0, 0, 0, 0}};
 
     hs_vec_append(
         &c.list,
@@ -703,7 +703,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00100000,\
 }
 
 void HeaderspaceTest::test_is_sub_regression() {
-    struct hs a = {47,{0}};
+    struct hs a = {47, {0, 0, 0, 0}};
 
     hs_vec_append(
         &a.list,
@@ -783,7 +783,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
         true
     );
 
-    struct hs b = {47,{0}};
+    struct hs b = {47, {0, 0, 0, 0}};
 
     hs_vec_append(
         &b.list,
@@ -951,7 +951,7 @@ xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx\
 void HeaderspaceTest::test_is_sub() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xxxxxx1"),false);
     CPPUNIT_ASSERT(hs_is_sub(&a,h));
 
@@ -975,7 +975,7 @@ void HeaderspaceTest::test_is_sub() {
 void HeaderspaceTest::test_is_sub_eq() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xxxxxx1"),false);
     CPPUNIT_ASSERT(hs_is_sub_eq(&a,h));
 
@@ -1006,7 +1006,7 @@ void HeaderspaceTest::test_is_sub_eq() {
 void HeaderspaceTest::test_merge() {
     test_add();
 
-    struct hs a = {h->len,{0}};
+    struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("1xxxxxx1"),false);
     CPPUNIT_ASSERT(hs_is_sub(&a,h));
 
