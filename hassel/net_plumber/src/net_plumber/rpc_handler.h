@@ -24,6 +24,8 @@
 #include "net_plumber.h"
 #include "../jsoncpp/jsonrpc.h"
 
+#define LIST_MAX 1024
+
 namespace net_plumber {
 
 array_t *val_to_array(const Json::Value &val);

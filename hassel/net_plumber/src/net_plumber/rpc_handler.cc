@@ -69,10 +69,15 @@ hs *val_to_hs(const Json::Value &val, int len) {
 }
 
 List_t val_to_list(const Json::Value &val) {
-  uint32_t elems[val.size()];
-  for (Json::Value::ArrayIndex i = 0; i < val.size(); i++)
+  const size_t val_size = val.size();
+  uint32_t *elems = (uint32_t *)malloc(val_size * sizeof(uint32_t));
+
+  for (Json::Value::ArrayIndex i = 0; i < val_size; i++)
     elems[i] = val[i].asUInt();
-  return make_sorted_list_from_array(val.size(),elems);
+  List_t ret = make_sorted_list_from_array(val_size, elems);
+
+  free(elems);
+  return ret;
 }
 
 Condition *val_to_path(const Json::Value &pathlets) {
