@@ -28,11 +28,11 @@ using namespace log4cxx;
 
 // override standard callbacks for testing
 bool overlap_called = false;
-void overlap_callback(NetPlumber *N, Flow *f, void *data) {
+void overlap_callback(NetPlumber* /*N*/, Flow* /*f*/, void* /*data*/) {
   overlap_called = true;
 }
 bool leakage_called = false;
-void leakage_callback(NetPlumber *N, Flow *f, void *data) {
+void leakage_callback(NetPlumber* /*N*/, Flow* /*f*/, void* /*data*/) {
   leakage_called = true;
 }
 
