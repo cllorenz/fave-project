@@ -298,10 +298,13 @@ array_one_bit_subtract (array_t *a, array_t *b, size_t len ) {
 }
 
 #ifdef WITH_EXTRA_NEW
+#define UNUSED(x) (void)(x)
 
 void
 array_combine(array_t **_a, array_t **_b, array_t **extra,
-              const array_t *mask, size_t len) {
+              const array_t* mask, size_t len) {
+  UNUSED(mask);
+
   array_t *a = *_a;
   array_t *b = *_b;
 
