@@ -81,7 +81,7 @@ class TrueCondition : public Condition {
  public:
   TrueCondition() {};
   virtual ~TrueCondition() {};
-  bool check(Flow *f) { return true; }
+  bool check(Flow* /*f*/) { return true; }
   std::string to_string() { return "Always True"; }
   virtual void to_json(Json::Value&);
 };
@@ -93,7 +93,7 @@ class FalseCondition : public Condition {
  public:
   FalseCondition() {};
   virtual ~FalseCondition() {};
-  bool check(Flow *f) { return false; }
+  bool check(Flow* /*f*/) { return false; }
   std::string to_string() { return "Always False"; }
   virtual void to_json(Json::Value&);
 };

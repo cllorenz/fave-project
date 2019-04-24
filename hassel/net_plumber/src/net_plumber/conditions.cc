@@ -242,7 +242,7 @@ bool SkipNextSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-bool SkipNextArbSpecifier::check_and_move(Flow* &f) {
+bool SkipNextArbSpecifier::check_and_move(Flow* &/*f*/) {
   return true;
 }
 
