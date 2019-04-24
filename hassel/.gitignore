@@ -3,8 +3,10 @@
 *.pyc
 *.so
 net_plumber/Ubuntu-NetPlumber-Release/net_plumber
+net_plumber/Ubuntu-NetPlumber-Release/net_plumber_coverage.info
 *.gcno
 *.gcda
+*.gcov
 *.json
 *.tf
 hsa-python/examples/stanford/net_plumber
