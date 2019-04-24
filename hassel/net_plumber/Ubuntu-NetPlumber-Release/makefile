@@ -55,7 +55,25 @@ net_plumber: $(OBJS) $(USER_OBJS)
 # Other Targets
 clean:
 	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(CPP_DEPS)$(EXECUTABLES)$(CXX_DEPS)$(C_UPPER_DEPS) net_plumber
+	-find ../ -name "*.gcov" -delete
+	-find ../ -name "*.gcno" -delete
+	-find ../ -name "*.gcda" -delete
+	-rm -rf net_plumber_coverage.info /tmp/net_plumber_coverage/
 	-@echo ' '
+
+$(info the variable $$cov for a coverage build is set to [${cov}])
+ifeq ($(cov), y)
+	COV_FLAGS :=-fprofile-arcs -ftest-coverage
+	LIBS += -lgcov
+else
+	COV_FLAGS :=
+endif
+
+coverage: all
+	./net_plumber --test
+	gcov -o ./src/net_plumber/ ../src/net_plumber/main.cc
+	lcov --base-directory ../src --directory src/ --capture --output-file net_plumber_coverage.info
+	genhtml -o /tmp/net_plumber_coverage/ net_plumber_coverage.info
 
 install: all
 	-cp net_plumber /usr/bin/
@@ -63,7 +81,7 @@ install: all
 uninstall:
 	-rm -f /usr/bin/net_plumber
 
-.PHONY: all clean dependents install uninstall
+.PHONY: all clean dependents install uninstall coverage
 .SECONDARY:
 
 -include ../makefile.targets
