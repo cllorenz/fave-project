@@ -38,7 +38,6 @@
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
  - improve code readability
- - use -Wextra and -Wpedantic
  - integrate test coverage tools: gcov
  - libnetplumber? (C++ plus Python)
  - BDDs instead of Header Spaces?
