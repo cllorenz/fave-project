@@ -63,7 +63,7 @@ string flow_to_str(Flow *f) {
   return str.str();
 }
 
-void default_loop_callback(NetPlumber *N, Flow *f, void *data) {
+void default_loop_callback(NetPlumber *N, Flow *f, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Loop Detected: after event " << get_event_name(e.type) <<
@@ -71,7 +71,7 @@ void default_loop_callback(NetPlumber *N, Flow *f, void *data) {
   LOG4CXX_FATAL(loop_logger,error_msg.str());
 }
 
-void default_blackhole_callback(NetPlumber *N, Flow *f, void *data) {
+void default_blackhole_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Black Hole Detected: after event " << get_event_name(e.type) <<
@@ -100,7 +100,7 @@ void default_rule_shadow_callback(NetPlumber *N, Flow *f, void *data) {
 #endif
 
 #ifdef PIPE_SLICING
-void default_slice_overlap_callback(NetPlumber *N, Flow *f, void *data) {
+void default_slice_overlap_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Slice Overlap Detected: after event " << get_event_name(e.type) <<
@@ -110,7 +110,7 @@ void default_slice_overlap_callback(NetPlumber *N, Flow *f, void *data) {
 #endif
 
 #ifdef PIPE_SLICING
-void default_slice_leakage_callback(NetPlumber *N, Flow *f, void *data) {
+void default_slice_leakage_callback(NetPlumber *N, Flow* /*f*/, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Slice Leakage Detected: after event " << get_event_name(e.type) <<
