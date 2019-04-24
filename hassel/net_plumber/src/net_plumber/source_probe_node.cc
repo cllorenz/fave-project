@@ -46,7 +46,7 @@ string probe_transition(PROBE_TRANSITION t) {
   }
 }
 
-void default_probe_callback(void *caller, SourceProbeNode *p, Flow *f,void *data,
+void default_probe_callback(void *caller, SourceProbeNode *p, Flow* /*f*/,void* /*data*/,
                             PROBE_TRANSITION t) {
   NetPlumber *N = (NetPlumber *)caller;
   Event e = N->get_last_event();
