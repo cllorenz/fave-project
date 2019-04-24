@@ -16,6 +16,14 @@ RM := rm -rf
 -include subdir.mk
 -include objects.mk
 
+MAKECMDGOALS := $(MAKECMDGOALS)
+ifeq ($(MAKECMDGOALS),coverage)
+	COV_FLAGS :=-fprofile-arcs -ftest-coverage
+	LIBS += -lgcov
+else
+	COV_FLAGS :=
+endif
+
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(strip $(C++_DEPS)),)
 -include $(C++_DEPS)
@@ -63,14 +71,6 @@ clean:
 
 test: all
 	./net_plumber --test
-
-$(info the variable $$cov for a coverage build is set to [${cov}])
-ifeq ($(cov), y)
-	COV_FLAGS :=-fprofile-arcs -ftest-coverage
-	LIBS += -lgcov
-else
-	COV_FLAGS :=
-endif
 
 coverage: all
 	./net_plumber --test
