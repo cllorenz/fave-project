@@ -354,7 +354,7 @@ void NetPlumberPlumbingTest::test_routing_remove_source() {
   N->add_link(100,1);
   hs *h = hs_create(1);
   hs_add(h, array_from_str ("1xxxxxxx"));
-  uint64_t id1 = N->add_source(h, make_sorted_list(1,100));
+  /*uint64_t id1 = */N->add_source(h, make_sorted_list(1,100));
   h = hs_create(1);
   hs_add(h, array_from_str ("xxxxxxxx"));
   uint64_t id2 = N->add_source(h, make_sorted_list(1,100));
@@ -703,7 +703,7 @@ void NetPlumberPlumbingTest::test_routing_remove_link() {
   this->verify_source_flow_stats(stats2);
 }
 
-void loop_detected(NetPlumber *N, Flow *f, void* data) {
+void loop_detected(NetPlumber* /*N*/, Flow* f, void* data) {
   bool *is_looped = (bool *)(data);
   *is_looped = true;
   return;
@@ -739,7 +739,7 @@ void NetPlumberPlumbingTest::test_detect_loop() {
   CPPUNIT_ASSERT(is_looped);
 }
 
-void probe_fire_counter(void *caller, SourceProbeNode *p, Flow *f,
+void probe_fire_counter(void* /*caller*/, SourceProbeNode* /*p*/, Flow* /*f*/,
                    void *data, PROBE_TRANSITION t) {
   probe_counter_t *a = (probe_counter_t*)data;
   switch (t) {
@@ -758,7 +758,7 @@ void probe_fire_counter(void *caller, SourceProbeNode *p, Flow *f,
 void NetPlumberPlumbingTest::test_false_probe() {
   this->test_routing_add_source();
   N->add_link(13,200);
-  probe_counter_t a = {0};
+  probe_counter_t a = {0,0,0,0,0,0,0,0};
   probe_counter_t r = {0,3,0,0,0,0,0,0};
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), EXISTENTIAL, new TrueCondition(),
@@ -773,7 +773,7 @@ void NetPlumberPlumbingTest::test_false_probe() {
 void NetPlumberPlumbingTest::test_true_probe() {
   this->test_routing_add_source();
   N->add_link(13,200);
-  probe_counter_t a = {0};
+  probe_counter_t a = {0,0,0,0,0,0,0,0};
   probe_counter_t r = {3,0,0,0,0,0,0,0};
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), EXISTENTIAL, new TrueCondition(),
@@ -787,7 +787,7 @@ void NetPlumberPlumbingTest::test_true_probe() {
 void NetPlumberPlumbingTest::test_port_probe() {
   this->test_routing_add_source();
   N->add_link(13,200);
-  probe_counter_t a = {0};
+  probe_counter_t a = {0,0,0,0,0,0,0,0};
   probe_counter_t r = {1,0,0,0,0,0,0,0};
   PathCondition *c = new PathCondition();
   c->add_pathlet(new PortSpecifier(4));
@@ -800,7 +800,7 @@ void NetPlumberPlumbingTest::test_port_probe() {
 void NetPlumberPlumbingTest::test_table_probe() {
   this->test_routing_add_source();
   N->add_link(13,200);
-  probe_counter_t a = {0};
+  probe_counter_t a = {0,0,0,0,0,0,0,0};
   probe_counter_t r = {2,0,0,0,0,0,0,0};
   PathCondition *c = new PathCondition();
   c->add_pathlet(new TableSpecifier(2));
@@ -815,7 +815,7 @@ void NetPlumberPlumbingTest::test_table_probe() {
 void NetPlumberPlumbingTest::test_reachability() {
   this->test_routing_add_source();
   N->add_link(13,200);
-  probe_counter_t a = {0};
+  probe_counter_t a = {0,0,0,0,0,0,0,0};
   probe_counter_t r = {2,0,0,0,0,0,0,0};
   PathCondition *c = new PathCondition();
   c->add_pathlet(new LastPortsSpecifier(make_sorted_list(1,1)));
