@@ -238,7 +238,7 @@ void Node::enlarge(uint32_t length) {
 	this->length = length;
 }
 
-void Node::remove_sink_flow_from_pipe(Pipeline *bck_p) {
+void Node::remove_sink_flow_from_pipe(Pipeline* /*bck_p*/) {
 
 }
 
@@ -316,7 +316,7 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
 
     if (hs_isect_arr(h, (*it)->processed_hs, (*pipe)->pipe_array)) {
 
-      struct hs p_arr = {this->length,{0}};
+      struct hs p_arr = {this->length, {0, 0, 0, 0}};
       hs_add(&p_arr,array_copy((*pipe)->pipe_array,this->length));
 
       // TODO: fix blackhole check
