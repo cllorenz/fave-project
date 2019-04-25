@@ -100,7 +100,10 @@ class Tree(list):
 
 
     def __equals__(self, obj):
-        return self.value == str(obj)
+        return all(
+            [self.value == obj.value, self._negated == obj._negated] +
+            [a == b for a, b in zip(self, obj)
+        ])
 
 
     def __str__(self):
