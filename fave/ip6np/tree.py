@@ -27,7 +27,7 @@ class Tree(list):
         """
 
         for tree in self:
-            if value == str(tree):
+            if value == tree.value:
                 return True
         return False
 
@@ -60,7 +60,7 @@ class Tree(list):
         """
 
         for tree in self:
-            if value == str(tree):
+            if value == tree.value:
                 return tree
         return None
 
