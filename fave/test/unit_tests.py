@@ -14,6 +14,7 @@ from test.test_models import TestSwitchModel
 from test.test_tree import TestTree
 from test.test_switch_rules import TestSwitchRuleField, TestMatch, TestSwitchRule
 from test.test_switch_rules import TestForward, TestRewrite, TestMiss
+from test.test_iptables_parser import TestParser
 
 if __name__ == '__main__':
     SUITE = unittest.TestSuite()
@@ -100,6 +101,10 @@ if __name__ == '__main__':
 
     SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestParser)
     )
 
     unittest.TextTestRunner(verbosity=2).run(SUITE)
