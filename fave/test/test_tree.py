@@ -78,7 +78,7 @@ class TestTree(unittest.TestCase):
         other = Tree(value="foo")
         other.set_negated()
 
-        self.assertEqual(self.tree, Tree(value="foo"), other)
+        self.assertEqual(self.tree, Tree(value="foo").set_negated(True), other)
 
 
     def test_get_first(self):
@@ -104,7 +104,7 @@ class TestTree(unittest.TestCase):
         self.tree.add_child("bar")
         self.tree.add_child("baz")
 
-        self.assertEqual(self.tree.get_last(), Tree("bar"))
+        self.assertEqual(self.tree.get_last(), Tree("baz"))
 
 
 if __name__ == '__main__':
