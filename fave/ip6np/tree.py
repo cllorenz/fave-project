@@ -132,10 +132,10 @@ class Tree(list):
         """
 
         if len(self) == 0:
-            return "\t"*depth + str(self.value)
+            return "\t"*depth + ("! " if self._negated else "") + str(self.value)
         else:
             return "\t"*depth + \
-                str(self.value) + \
+                ("! " if self._negated else "") + str(self.value) + \
                 ":\n" + \
                 reduce(
                     lambda x, y: x+"\n"+y,
