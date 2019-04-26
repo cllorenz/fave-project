@@ -13,6 +13,7 @@ class IP6TablesCustomListener(IP6TablesListener):
     """
 
     _ast = None
+    _negated = False
 
     # entry :         (SPACE? ip6tables? NL)+ EOF;
     def enterEntry(self, ctx):
@@ -32,10 +33,10 @@ class IP6TablesCustomListener(IP6TablesListener):
 
     # command_t :     ARGTYPE_t SPACE table;
     def enterCommand_t(self, ctx):
-        self._ast = self._ast.get_child("-t")
+        self._ast = self._ast.add_child("-t")
 
-#    def exitCommand_t(self, ctx):
-#        self._ast = self._ast.parent
+    def exitCommand_t(self, ctx):
+        self._ast = self._ast.parent
 
     # command_A :     ARGTYPE_A SPACE identifier SPACE rule_spec;
     def enterCommand_A(self, ctx):
@@ -64,15 +65,14 @@ class IP6TablesCustomListener(IP6TablesListener):
         self._ast.get_last().add_child(ctx.getText())
 
     def enterIdentifier(self, ctx):
-        self._ast = self._ast.add_child(ctx.getText())
-
-    def exitIdentifier(self, ctx):
-        self._ast = self._ast.parent
+        self._ast.add_child(ctx.getText())
 
     def enterValue(self, ctx):
-        self._ast.get_last().add_child(ctx.getText())
+        val = self._ast.get_last().add_child(ctx.getText())
+        if self._negated:
+            val.set_negated(True)
+            self._negated = False
 
     # arg :           negation? DASH (DASH)? identifier SPACE value;
     def enterNegation(self, ctx):
-        self._ast.set_negated(True)
-
+        self._negated = True
