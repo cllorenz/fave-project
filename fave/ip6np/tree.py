@@ -81,6 +81,8 @@ class Tree(list):
         assert isinstance(neg, bool)
         self._negated = neg
 
+        return self
+
 
     def get_first(self):
         """ Fetches the tree's first child.
