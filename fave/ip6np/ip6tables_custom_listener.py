@@ -5,7 +5,7 @@
 import parser
 
 from ip6tables_listener import IP6TablesListener
-from tree import Tree
+from util.tree_util import Tree
 
 class IP6TablesCustomListener(IP6TablesListener):
     """ This class implements a parse tree listener for ip6tables rule set token
