@@ -1,52 +1,154 @@
 #!/usr/bin/env python2
 
-from bison import BisonParser, BisonNode
-import pyparsing as pp
+from bison import BisonParser
+from util.tree_util import Tree
 
 class IP6TablesParser(BisonParser):
     bisonEngineLibName = "ip6tables-parser"
     interactive = False
 
-    tokens = ['IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'JUMP_SHORT', 'JUMP_LONG', 'NEGATION', 'ARG_SHORT', 'ARG_LONG', 'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG', 'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG', 'DST_SHORT', 'DST_LONG', 'PORTNO', 'IPV6_CIDR', 'IDENT', 'WORD', 'NEWLINE', 'WS']
+    tokens = [
+        'IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'TABLE',
+        'JUMP_SHORT', 'JUMP_LONG', 'NEGATION', 'ARG_SHORT', 'ARG_LONG',
+        'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG',
+        'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG',
+        'DST_SHORT', 'DST_LONG', 'PORTNO', 'IPV6_CIDR', 'IDENT', 'WORD',
+        'NEWLINE', 'WS'
+    ]
 
+    _ast = None
     precedences = ()
 
     start = 'ruleset'
 
-    def on_ruleset(self, **kw):
+    def on_ruleset(self, target, option, names, values):
         """
         ruleset :
                 | ruleset line
         """
-        return
+
+        if option == 0:
+            return []
+        elif option == 1:
+            if values[1] is not None:
+                self._ast.add_child(values[1])
+            return self._ast
+        else:
+            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_line(self, **kw):
+    def on_line(self, target, option, names, values):
         """
         line : NEWLINE
-             | IPT WS APPEND_CMD WS IDENT body WS jump WS action NEWLINE
-             | IPT WS POLICY_CMD WS IDENT WS action NEWLINE
+             | IPT WS table APPEND_CMD WS IDENT body WS jump NEWLINE
+             | IPT WS table POLICY_CMD WS IDENT WS action NEWLINE
         """
-        return
+
+        if option == 0:
+            return None
+
+        elif option == 1:
+            ipt, _ws, table, append_cmd, _ws, ident, body, _ws, jump, _nl = values
+
+            flat_table = [" %s %s" % (table.value, table.get_last().value)] if table else []
+
+            flat_body = []
+            for arg in body:
+                if arg.get_last().is_negated():
+                    flat_body.append("! %s %s " % (arg.value, arg.get_last().value))
+                else:
+                    flat_body.append("%s %s " % (arg.value, arg.get_last().value))
+
+            flat_jump = [jump.value, ' ', jump.get_last().value]
+
+            line = Tree("".join([ipt] + flat_table + [' '] + values[3:6] + [' '] + flat_body + flat_jump))
+
+            tmp = line.add_child(append_cmd)
+            tmp.add_child(ident)
+            tmp.add_children(body)
+            tmp.add_child(jump)
+
+            if table:
+                line.add_child(table)
+            else:
+                line.add_child('-t').add_child('filter')
+
+            return line
+
+        elif option == 2:
+            _ipt, _ws, table, policy_cmd, _ws, ident, _ws, action, _nl = values
+
+            flat_table = ["%s %s " % (table.value, table.get_last().value)] if table else []
+            flat_action = [action.value]
+
+            line = Tree("".join(values[:2] + flat_table + values[3:7] + flat_action))
+            if table:
+                line.add_child(table)
+
+            tmp = line.add_child(policy_cmd)
+            tmp = tmp.add_child(ident)
+            tmp.add_child(action)
+
+            if table:
+                line.add_child(table)
+            else:
+                line.add_child('-t').add_child('filter')
+
+            return line
+        else:
+            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_body(self, **kw):
+    def on_table(self, target, option, names, values):
+        """
+        table :
+              | TABLE WS IDENT WS
+        """
+
+        if option == 0:
+            return None
+        elif option == 1:
+            arg, _ws, val, _ws = values
+            ret = Tree(arg)
+            ret.add_child(val)
+            return ret
+        else:
+            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+
+
+    def on_body(self, target, option, names, values):
         """
         body :
-             | body neg_argument
+             | body WS neg_argument
         """
-        return
+
+        if option == 0:
+            return []
+        elif option == 1:
+            body = values[0]
+            body.append(values[2])
+            return body
+        else:
+            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_neg_argument(self, **kw):
+    def on_neg_argument(self, target, option, names, values):
         """
-        neg_argument : WS NEGATION WS argument
-                     | WS argument
+        neg_argument : NEGATION WS argument
+                     | argument
         """
-        return
+
+        if option == 0:
+            _neg, _ws, arg = values
+            arg.get_last().set_negated(True)
+            return arg
+        elif option == 1:
+            return values[0]
+        else:
+            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_argument(self, **kw):
+    def on_argument(self, target, option, names, values):
         """
         argument : saddr
                  | daddr
@@ -58,105 +160,132 @@ class IP6TablesParser(BisonParser):
                  | module
                  | module_body
         """
-        return
+        return values[0]
 
 
-    def on_saddr(self, **kw):
+    def on_saddr(self, target, option, names, values):
         """
         saddr : SRC_SHORT WS IPV6_CIDR
               | SRC_LONG WS IPV6_CIDR
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_daddr(self, **kw):
+    def on_daddr(self, target, option, names, values):
         """
         daddr : DST_SHORT WS IPV6_CIDR
               | DST_LONG WS IPV6_CIDR
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_sport(self, **kw):
+    def on_sport(self, target, option, names, values):
         """
         sport : SPORT WS PORTNO
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_dport(self, **kw):
+    def on_dport(self, target, option, names, values):
         """
         dport : DPORT WS PORTNO
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_proto(self, **kw):
+    def on_proto(self, target, option, names, values):
         """
         proto : PROTO_SHORT WS IDENT
               | PROTO_LONG WS IDENT
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_sinf(self, **kw):
+    def on_sinf(self, target, option, names, values):
         """
-        sinf : IN_SHORT WS interface
-             | IN_LONG WS interface
+        sinf : IN_SHORT WS PORTNO
+             | IN_LONG WS PORTNO
+             | IN_SHORT WS IDENT
+             | IN_LONG WS IDENT
         """
-        return
+        _arg, _ws, val = values
+        ret = Tree('-i')
+        ret.add_child(val)
+        return ret
 
 
-    def on_oinf(self, **kw):
+    def on_oinf(self, target, option, names, values):
         """
-        oinf : OUT_SHORT WS interface
-             | OUT_LONG WS interface
+        oinf : OUT_SHORT WS PORTNO
+             | OUT_LONG WS PORTNO
+             | OUT_SHORT WS IDENT
+             | OUT_LONG WS IDENT
         """
-        return
+        _arg, _ws, val = values
+        ret = Tree('-o')
+        ret.add_child(val)
+        return ret
 
 
-    def on_interface(self, **kw):
-        """
-        interface : PORTNO
-                  | IDENT
-        """
-        return
-
-
-    def on_module(self, **kw):
+    def on_module(self, target, option, names, values):
         """
         module : MOD_SHORT WS IDENT
                | MOD_LONG WS IDENT
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_module_body(self, **kw):
+    def on_module_body(self, target, option, names, values):
         """
         module_body : ARG_SHORT WS WORD
                     | ARG_SHORT WS IDENT
                     | ARG_SHORT WS PORTNO
+                    | ARG_SHORT WS IPV6_CIDR
                     | ARG_LONG WS WORD
                     | ARG_LONG WS IDENT
                     | ARG_LONG WS PORTNO
+                    | ARG_LONG WS IPV6_CIDR
         """
-        return
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
 
 
-    def on_jump(self, **kw):
+    def on_jump(self, target, option, names, values):
         """
-        jump : JUMP_SHORT
-             | JUMP_LONG
+        jump : JUMP_SHORT WS action
+             | JUMP_LONG WS action
         """
-        return
+        jump = Tree('-j')
+        jump.add_child(values[2])
+        return jump
 
 
-    def on_action(self, **kw):
+    def on_action(self, target, option, names, values):
         """
         action : ACCEPT
                | DROP
         """
-        return
+        return Tree(values[0])
 
 
     _ipv6_seg = '[[:xdigit:]]{1,4}'
@@ -193,6 +322,7 @@ class IP6TablesParser(BisonParser):
     "ACCEPT"                { returntoken(ACCEPT); }
     "DROP"                  { returntoken(DROP); }
     "!"                     { returntoken(NEGATION); }
+    "-t"                    { returntoken(TABLE); }
     "-j"                    { returntoken(JUMP_SHORT); }
     "--jump"                { returntoken(JUMP_LONG); }
     "-m"                    { returntoken(MOD_SHORT); }
@@ -225,13 +355,11 @@ class IP6TablesParser(BisonParser):
     """
 
 
-if __name__ == '__main__':
-    import time
-    t1 = time.time()
-    p = IP6TablesParser(verbose=0)
-    t2 = time.time()
-    ret = p.run(file="bench/wl_ad6/rulesets/pgf-ruleset", debug=0)
-    t3 = time.time()
-    print(ret)
+    def parse(self, ruleset):
+        self._ast = Tree('root')
+        ast = self.run(file=ruleset)
+        return ast
 
-    print("create parser: %s, parse file: %s" % (t2-t1, t3-t2))
+
+if __name__ == '__main__':
+    IP6TablesParser.parse("bench/wl_ad6/rulesets/pgf-ruleset").print_tree()
