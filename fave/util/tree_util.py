@@ -52,6 +52,16 @@ class Tree(list):
             return self.add_child(Tree(value=elem))
 
 
+    def add_children(self, elems):
+        """ Appends a list of children to the tree.
+
+        Keyword arguments:
+        elems -- the list of children to be added (may be values or trees)
+        """
+        for elem in elems:
+            self.add_child(elem)
+
+
     def get_child(self, value):
         """ Fetches a child from the tree.
 
