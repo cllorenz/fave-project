@@ -18,7 +18,6 @@
  - create benchmark with Internet2 network
     - create benchmark from originial config instead of TF format
     - include by using FaVe instead of a direct read
- - replace slow ip6tables parser
  - Gitlab-CI
  - integrate policy translator
  - use asynchronous rpc calls to improve performance
