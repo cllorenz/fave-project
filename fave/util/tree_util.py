@@ -39,7 +39,7 @@ class Tree(list):
 
 
     def add_child(self, elem):
-        """ Appends a child leaf or tree to the tree
+        """ Appends a child leaf or tree to the tree.
 
         Keyword arguments:
         elem -- the child to be added (may be value or tree)
