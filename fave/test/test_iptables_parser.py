@@ -4,14 +4,24 @@
 """
 
 import unittest
+import os
 
-from ip6np.parser import ASTParser
-from ip6np.tree import Tree
+from misc.pybison_test import IP6TablesParser as ASTParser
+from util.tree_util import Tree
 
 
 class TestParser(unittest.TestCase):
     """ This class provides tests for the AST parser.
     """
+
+
+    def setUp(self):
+        self.parser = ASTParser()
+
+
+    def tearDown(self):
+        del self.parser
+
 
     @staticmethod
     def _build_tree_from_tuples(tpls):
@@ -50,16 +60,22 @@ class TestParser(unittest.TestCase):
 
         ruleset = "ip6tables -P FORWARD ACCEPT"
 
-        res = ASTParser.parse(ruleset + '\n')
+        name = "/tmp/ruleset-minimal"
+        try:
+            with open(name, 'w') as rfile:
+                rfile.write(ruleset + '\n')
+
+        finally:
+            res = self.parser.parse(name)
+            os.remove(name)
 
         exp = TestParser._build_tree_from_tuples((
             "root", (
                 ruleset, (
                     "-P", (
                         "FORWARD", ("ACCEPT",)
-                    ), (
-                        "-t", ("filter",)
-                    )
+                    ),
+                    "-t", ("filter",)
                 )
             )
         ))
@@ -77,7 +93,14 @@ ip6tables -t filter -A FORWARD -d 2001:db8::1 -j ACCEPT
 ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
 """
 
-        res = ASTParser.parse(ruleset)
+        name = "/tmp/ruleset-small"
+        try:
+            with open(name, 'w') as rfile:
+                rfile.write(ruleset)
+
+        finally:
+            res = self.parser.parse(name)
+            os.remove(name)
 
         exp = Tree("root")
         command = TestParser._build_tree_from_tuples((
@@ -94,13 +117,13 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
         command = TestParser._build_tree_from_tuples((
             "ip6tables -t filter -A FORWARD -d 2001:db8::1 -j ACCEPT", (
                 (
-                    "-t", ("filter",)
-                ), (
                     "-A",
                     ("FORWARD",),
-                    ("d", ("2001:db8::1",)),
+                    ("-d", ("2001:db8::1",)),
                     ("-j", ("ACCEPT",))
-                ),
+                ), (
+                    "-t", ("filter",)
+                )
             )
         ))
         exp.add_child(command)
@@ -110,9 +133,9 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                 (
                     "-A",
                     ("FORWARD",),
-                    ("d", ("2001:db8::2",)),
-                    ("m", ("tcp",)),
-                    ("dport", ("80",)),
+                    ("-d", ("2001:db8::2",)),
+                    ("-m", ("tcp",)),
+                    ("--dport", ("80",)),
                     ("-j", ("ACCEPT",))
                 ), (
                     "-t", ("filter",)
@@ -159,7 +182,7 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                 (
                     "-A",
                     ("INPUT",),
-                    ("i", "lo"),
+                    ("-i", "lo"),
                     ("-j", ("ACCEPT",))
                 ),
                 ("-t", ("filter",))
@@ -178,8 +201,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("INPUT",),
-                        ("p", "icmpv6"),
-                        ("icmpv6-type", icmpv6_type),
+                        ("-p", "icmpv6"),
+                        ("--icmpv6-type", icmpv6_type),
                         ("-j", ("ACCEPT",))
                     ),
                     ("-t", ("filter",))
@@ -197,10 +220,10 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                         (
                             "-A",
                             ("INPUT",),
-                            ("p", "icmpv6"),
-                            ("icmpv6-type", icmpv6_type),
-                            ("m", ("limit",)),
-                            ("limit", ("900/min",)),
+                            ("-p", "icmpv6"),
+                            ("--icmpv6-type", icmpv6_type),
+                            ("-m", ("limit",)),
+                            ("--limit", ("900/min",)),
                             ("-j", ("ACCEPT",))
                         ), (
                             "-t", ("filter",)
@@ -216,8 +239,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("INPUT",),
-                        ("p", "icmpv6"),
-                        ("icmpv6-type", icmpv6_type),
+                        ("-p", "icmpv6"),
+                        ("--icmpv6-type", icmpv6_type),
                         ("-j", ("ACCEPT",))
                     ),
                     ("-t", ("filter",))
@@ -230,9 +253,9 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                 (
                     "-A",
                     ("INPUT",),
-                    ("d", ("2001:db8::1",)),
-                    ("p", "tcp"),
-                    ("dport", ("22",)),
+                    ("-d", ("2001:db8::1",)),
+                    ("-p", "tcp"),
+                    ("--dport", ("22",)),
                     ("-j", ("ACCEPT",))
                 ),
                 ("-t", ("filter",))
@@ -245,8 +268,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                 (
                     "-A",
                     ("INPUT",),
-                    ("p", "tcp"),
-                    ("dport", ("80",)),
+                    ("-p", "tcp"),
+                    ("--dport", ("80",)),
                     ("-j", ("ACCEPT",))
                 ),
                 ("-t", ("filter",))
@@ -262,7 +285,7 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                 (
                     "-A",
                     ("OUTPUT",),
-                    ("o", ("lo",)),
+                    ("-o", ("lo",)),
                     ("-j", ("ACCEPT",))
                 ),
                 ("-t", ("filter",))
@@ -279,8 +302,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("FORWARD",),
-                        ("p", ("icmpv6",)),
-                        ("icmpv6-type", (icmpv6_type,)),
+                        ("-p", ("icmpv6",)),
+                        ("--icmpv6-type", (icmpv6_type,)),
                         ("-j", ("ACCEPT",))
                     ),
                     ("-t", ("filter",))
@@ -297,10 +320,10 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                         (
                             "-A",
                             ("FORWARD",),
-                            ("p", ("icmpv6",)),
-                            ("icmpv6-type", (icmpv6_type,)),
-                            ("m", ("limit",)),
-                            ("limit", ("900/min",)),
+                            ("-p", ("icmpv6",)),
+                            ("--icmpv6-type", (icmpv6_type,)),
+                            ("-m", ("limit",)),
+                            ("--limit", ("900/min",)),
                             ("-j", ("ACCEPT",))
                         ), (
                             "-t", ("filter",)
@@ -321,8 +344,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("FORWARD",),
-                        ("p", ("icmpv6",)),
-                        ("icmpv6-type", (icmpv6_type,)),
+                        ("-p", ("icmpv6",)),
+                        ("--icmpv6-type", (icmpv6_type,)),
                         ("-j", ("ACCEPT",))
                     ),
                     ("-t", ("filter",))
@@ -346,11 +369,11 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                         (
                             "-A",
                             ("FORWARD",),
-                            ("m", ("ipv6header",)),
-                            ("header", ("ipv6-route",)),
-                            ("m", ("rt",)),
-                            ("rt-type", (rt_type,)),
-                            ("rt-segsleft", (segs_left,)),
+                            ("-m", ("ipv6header",)),
+                            ("--header", ("ipv6-route",)),
+                            ("-m", ("rt",)),
+                            ("--rt-type", (rt_type,)),
+                            ("--rt-segsleft", (segs_left,)),
                             ("-j", ("DROP",))
                         ), (
                             "-t", ("filter",)
@@ -368,10 +391,10 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("FORWARD",),
-                        ("m", ("ipv6header",)),
-                        ("header", ("ipv6-route",)),
-                        ("m", ("rt",)),
-                        ("rt-segsleft", ("! 0",)),
+                        ("-m", ("ipv6header",)),
+                        ("--header", ("ipv6-route",)),
+                        ("-m", ("rt",)),
+                        ("--rt-segsleft", ("! 0",)),
                         ("-j", ("DROP",))
                     ), (
                         "-t", ("filter",)
@@ -387,8 +410,8 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
                     (
                         "-A",
                         ("FORWARD",),
-                        ("p", (proto,)),
-                        ("dport", ("80",)),
+                        ("-p", (proto,)),
+                        ("--dport", ("80",)),
                         ("-j", ("ACCEPT",))
                     ),
                     ("-t", ("filter",))
@@ -439,7 +462,14 @@ ip6tables -A FORWARD -p tcp --dport 80 -j ACCEPT
 ip6tables -A FORWARD -p udp --dport 80 -j ACCEPT
 """
 
-        res = ASTParser.parse(ruleset)
+        name = "/tmp/ruleset-complex"
+        try:
+            with open(name, 'w') as rfile:
+                rfile.write(ruleset)
+
+        finally:
+            res = self.parser.parse(name)
+            os.remove(name)
 
         exp = Tree("root")
         TestParser._build_policies(exp)
@@ -448,6 +478,7 @@ ip6tables -A FORWARD -p udp --dport 80 -j ACCEPT
         TestParser._build_forward(exp)
 
         self.assertEqual(res, exp)
+
 
 if __name__ == '__main__':
     unittest.main()
