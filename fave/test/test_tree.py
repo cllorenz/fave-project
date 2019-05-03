@@ -5,7 +5,7 @@
 
 import unittest
 
-from ip6np.tree import Tree
+from util.tree_util import Tree
 
 class TestTree(unittest.TestCase):
     """ This class provides tests for ip6np AST trees.
