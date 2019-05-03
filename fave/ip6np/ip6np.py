@@ -10,7 +10,7 @@ import socket
 
 import generator
 
-from misc.pybison_test import IP6TablesParser as ASTParser
+from misc.pybison_test import IP6TablesParser
 from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
 
@@ -56,7 +56,7 @@ def main(argv):
         elif opt == '-f':
             ifile = arg
 
-    parser = ASTParser()
+    parser = IP6TablesParser()
     ast = parser.parse(ifile)
 
     model = generator.generate(ast, node, address, ports)
