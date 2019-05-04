@@ -1,9 +1,16 @@
 #!/usr/bin/env python2
 
+""" This module provides a fast parser for ip6tables rule sets based on GNU Flex
+    and Bison.
+"""
+
 from bison import BisonParser
 from util.tree_util import Tree
 
 class IP6TablesParser(BisonParser):
+    """ This class provides a fast ip6tables parser.
+    """
+
     bisonEngineLibName = "ip6tables-parser"
     interactive = False
 
@@ -61,7 +68,9 @@ class IP6TablesParser(BisonParser):
 
             flat_jump = [jump.value, ' ', jump.get_last().value]
 
-            line = Tree("".join([ipt] + flat_table + [' '] + values[3:6] + [' '] + flat_body + flat_jump))
+            line = Tree("".join(
+                [ipt] + flat_table + [' '] + values[3:6] + [' '] + flat_body + flat_jump
+            ))
 
             tmp = line.add_child(append_cmd)
             tmp.add_child(ident)
@@ -95,6 +104,7 @@ class IP6TablesParser(BisonParser):
                 line.add_child('-t').add_child('filter')
 
             return line
+
         else:
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
@@ -148,7 +158,7 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_argument(self, target, option, names, values):
+    def on_argument(self, _target, _option, _names, values):
         """
         argument : saddr
                  | daddr
@@ -163,7 +173,7 @@ class IP6TablesParser(BisonParser):
         return values[0]
 
 
-    def on_saddr(self, target, option, names, values):
+    def on_saddr(self, _target, _option, _names, values):
         """
         saddr : SRC_SHORT WS IPV6_CIDR
               | SRC_LONG WS IPV6_CIDR
@@ -174,7 +184,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_daddr(self, target, option, names, values):
+    def on_daddr(self, _target, _option, _names, values):
         """
         daddr : DST_SHORT WS IPV6_CIDR
               | DST_LONG WS IPV6_CIDR
@@ -185,7 +195,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_sport(self, target, option, names, values):
+    def on_sport(self, _target, _option, _names, values):
         """
         sport : SPORT WS PORTNO
         """
@@ -195,7 +205,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_dport(self, target, option, names, values):
+    def on_dport(self, _target, _option, _names, values):
         """
         dport : DPORT WS PORTNO
         """
@@ -205,7 +215,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_proto(self, target, option, names, values):
+    def on_proto(self, _target, _option, _names, values):
         """
         proto : PROTO_SHORT WS IDENT
               | PROTO_LONG WS IDENT
@@ -216,7 +226,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_sinf(self, target, option, names, values):
+    def on_sinf(self, _target, _option, _names, values):
         """
         sinf : IN_SHORT WS PORTNO
              | IN_LONG WS PORTNO
@@ -229,7 +239,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_oinf(self, target, option, names, values):
+    def on_oinf(self, _target, _option, _names, values):
         """
         oinf : OUT_SHORT WS PORTNO
              | OUT_LONG WS PORTNO
@@ -242,7 +252,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_module(self, target, option, names, values):
+    def on_module(self, _target, _option, _names, values):
         """
         module : MOD_SHORT WS IDENT
                | MOD_LONG WS IDENT
@@ -253,7 +263,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_module_body(self, target, option, names, values):
+    def on_module_body(self, _target, _option, _names, values):
         """
         module_body : ARG_SHORT WS WORD
                     | ARG_SHORT WS IDENT
@@ -270,7 +280,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_jump(self, target, option, names, values):
+    def on_jump(self, _target, _option, _names, values):
         """
         jump : JUMP_SHORT WS action
              | JUMP_LONG WS action
@@ -280,7 +290,7 @@ class IP6TablesParser(BisonParser):
         return jump
 
 
-    def on_action(self, target, option, names, values):
+    def on_action(self, _target, _option, _names, values):
         """
         action : ACCEPT
                | DROP
@@ -356,10 +366,16 @@ class IP6TablesParser(BisonParser):
 
 
     def parse(self, ruleset):
+        """ Retrieve an AST for an ip6tables rule set.
+
+        Keyword arguments:
+        ruleset - a file name containing an ip6tables rule set
+        """
+
         self._ast = Tree('root')
         ast = self.run(file=ruleset)
         return ast
 
 
 if __name__ == '__main__':
-    IP6TablesParser.parse("bench/wl_ad6/rulesets/pgf-ruleset").print_tree()
+    IP6TablesParser().parse("bench/wl_ad6/rulesets/pgf-ruleset").print_tree()
