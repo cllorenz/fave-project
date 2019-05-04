@@ -112,14 +112,8 @@ class Tree(list):
 
 
     def __eq__(self, obj):
-        if not self.value == obj.value:
-            print "value:", self.value, obj.value
-        if not self._negated == obj._negated:
-            print self.value,
-            print "_negated", self._negated, obj._negated
-
         return all(
-            [self.value == obj.value, self._negated == obj._negated] +
+            [self.value == obj.value, self._negated == obj.is_negated()] +
             [a == b for a, b in zip(self, obj)]
         )
 
