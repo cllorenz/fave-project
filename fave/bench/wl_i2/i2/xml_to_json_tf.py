@@ -1,90 +1,73 @@
 #!/usr/bin/env python2
 
-import re
 import json
 from xml.dom import minidom
 
-ip4_regex = '(\d{1,3}(\.\d{1,3}){3}(/\d{1,5})?)'
-m1 = re.match(ip4_regex, '1.2.3.4/5')
-print m1.groups()
-assert m1 is not None
-ip6_regex = '([0-9a-f]{1,4}(::?[0-9a-f]{1,4}){1,7}(/\d{1,5})?)'
-m2 = re.match(ip6_regex, '2001:db8::1/67')
-print m2.groups()
-assert m2 is not None
-dst_regex = '(?P<dst>(%s|%s))?' % (ip4_regex, ip6_regex)
-m3 = re.match(dst_regex, "123.123.231.1")
-print m3.groups()
-assert m3 is not None
-m4 = re.match(dst_regex, "2001:db8:abc::def:1/123")
-print m4.groups()
-assert m4 is not None
+from util.packet_util import normalize_ipv4_address, normalize_ipv6_address
+from netplumber.vector import Vector, set_field_in_vector
 
-type_regex = '(?P<type>\w+)?'
-rtref_regex = '(?P<rtref>\d+)?'
-next_hop_regex = '(?P<next_hop>(%s|%s))?' % (ip4_regex, ip6_regex)
-action_regex = '(?P<action>\w+)?'
-index_regex = '(?P<index>\d+)?'
-nhref_regex = '(?P<nhref>\d+)?'
-interface_regex = '(?P<interface>\w+)?'
+def make_rule(mapping, ports, is_ipv4, tid, rid, _len, address, out_ports):
+    match = Vector(mapping['length'])
+    field = 'packet.ipv4.destination' if is_ipv4 else 'packet.ipv6.destination'
 
-row_regex = '^' + '\s+'.join([
-    dst_regex,
-    type_regex,
-    rtref_regex,
-    next_hop_regex,
-    action_regex,
-    index_regex,
-    nhref_regex,
-    interface_regex
-]) + '$'
+    if is_ipv4:
+        fvec = normalize_ipv4_address(address)
+    else:
+        try:
+            fvec = normalize_ipv6_address(address)
+        except ValueError:
+            print address
+            raise
 
-row_match = re.compile(row_regex)
+    set_field_in_vector(mapping, match, field, fvec)
 
-with open("seat-show_route_forwarding-table_table_default.xml", "r") as f:
-    lines = f.read().split("\n")
-    maximum = 0
-    minimum = 65535
-    cnt = 0
-    for line in lines:
-        t = line.split()
-        if line == '' or t == [] or line.startswith("<vn>") or line.startswith("Internet") or line.startswith("Destination") or line.startswith("Routing"):
-            continue
-        if len(t) > maximum:
-            print "new maximum", len(t), t
-        if len(t) < minimum:
-            print "new minimum", len(t), t
-        maximum = max(maximum, len(t))
-        minimum = min(minimum, len(t))
-        cnt += 1
+    return {
+        'action' : 'fwd',
+        'id' : tid + rid,
+        'in_ports' : [],
+        'out_ports' : [ports[p] for p in out_ports],
+        'match' : match.vector
+    }
 
-    print "maximum:", maximum
-    print "minimum:", minimum
-    print "loc:", cnt
-
-#test_line1 = '1.8.1.0/24         user     0                    indr 1048599  3789'
-#m1 = re.match(row_match, test_line1)
-#print m1.groupdict()
-#assert m1 is not None
-#test_line2 = '200.23.60.120/30              '
-##test_line2 = '200.23.60.120/30   user     0 64.57.28.38        ucst  1210    62 ae8.10'
-#m2 = re.match(row_match, test_line2)
-#assert m2 is not None
-#test_line3 = '                              64.57.28.38        ucst  1210    62 ae8.10'
-#m3 = re.match(row_match, test_line3)
-#assert m3 is not None
 
 router_files = [
-    "atla-show_route_forwarding-table_table_default.xml",
-    "chic-show_route_forwarding-table_table_default.xml",
-    "hous-show_route_forwarding-table_table_default.xml",
-    "kans-show_route_forwarding-table_table_default.xml",
-    "losa-show_route_forwarding-table_table_default.xml",
-    "newy32aoa-show_route_forwarding-table_table_default.xml",
-    "salt-show_route_forwarding-table_table_default.xml",
-    "seat-show_route_forwarding-table_table_default.xml",
-    "wash-show_route_forwarding-table_table_default.xml"
+    "bench/wl_i2/i2/atla-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/chic-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/hous-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/kans-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/losa-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/newy32aoa-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/salt-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/seat-show_route_forwarding-table_table_default.xml",
+    "bench/wl_i2/i2/wash-show_route_forwarding-table_table_default.xml"
 ]
+
+mapping = json.load(open("bench/wl_i2/mapping.json", 'r'))
+vec_length = mapping['length']
+
+topology_names = json.load(open("bench/wl_i2/i2/topology_names.json", "r"))
+
+tables = {
+    'atla' : (1, 0),
+    'chic' : (2, 0),
+    'hous' : (3, 0),
+    'kans' : (4, 0),
+    'losa' : (5, 0),
+    'newy32aoa' : (6, 0),
+    'salt' : (7, 0),
+    'seat' : (8, 0),
+    'wash' : (9, 0)
+}
+
+ports = {}
+for pair in topology_names['topology']:
+    for port in pair.values():
+        if port not in ports:
+            router, _interface = port.split(':')
+            tid, pid = tables[router]
+            tables[router] = (tid, pid+1)
+
+            ports[port] = (tid << 16) + pid + 1
 
 total = 0
 for router_file in router_files:
@@ -94,7 +77,15 @@ for router_file in router_files:
     for router in routers:
         router_name = router.getAttribute("name")
 
-        routing_table = []
+        tid, _pid = tables[router_name]
+
+        routing_table_ipv6 = []
+        routing_table_ipv4 = []
+        routing_table = None
+        default_rule = None
+        dst_proto = None
+        default_addr = None
+        default_rules = []
 
         table = iter([l for l in router.childNodes[0].data.split("\n") if l])
         while True:
@@ -103,11 +94,23 @@ for router_file in router_files:
             if line.startswith("Routing table: default.mpls"):
                 break
 
+            elif line.startswith("Routing table: default.inet6"):
+                routing_table = routing_table_ipv6
+                dst_proto = 'packet.ipv6.destination'
+                default_addr = '0::0/0'
+                continue
+
+            elif line.startswith("Routing table: default.inet"):
+                routing_table = routing_table_ipv4
+                dst_proto = 'packet.ipv4.destination'
+                default_addr = '0.0.0.0/0'
+                continue
+
             elif line.startswith("Destination") or line.startswith("Routing") or line.startswith("Internet"):
                 continue
 
             elif line.startswith("ISO"):
-                for _ in range(5): table.next()
+                for _ in range(3): table.next()
 
             tokens = line.split()
 
@@ -135,7 +138,12 @@ for router_file in router_files:
 
                 elif tokens[3] == 'ucst':
                     _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
+                    routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
                     print "unknown action", len(tokens), tokens
@@ -159,7 +167,12 @@ for router_file in router_files:
 
                 if len(tokens) == 4:
                     _type, _index, _nhref, interface = tokens
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
+                    routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
                     print tokens
@@ -172,8 +185,12 @@ for router_file in router_files:
                     dst, _type, _rtref, _type, _index, _nhref = tokens
                     line = table.next()
                     _next_hop, _type, _index, _nhref, interface = line.split()
-
-                    routing_table.append((int(dst.split('/')), dst, [interface]))
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
+                    routing_table.append((int(dst.split('/')), dst, [if_name]))
 
                 elif action == 'indr':
                     dst, _type, _rtref, _type, _index, _nhref = tokens
@@ -184,12 +201,21 @@ for router_file in router_files:
                         line = table.next()
                         tokens = line.split()
                         _type, _index, _nhref, interface = tokens
-
-                        routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                        if_name = router_name + interface
+                        if if_name not in ports:
+                            _tid, pid = tables[router_name]
+                            tables[router_name] = (tid, pid+1)
+                            ports[if_name] = (tid << 16) + pid + 1
+                        routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                     elif len(tokens) == 5:
                         _next_hop, _type, _index, _nhref, interface = tokens
-                        routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                        if_name = router_name + interface
+                        if if_name not in ports:
+                            _tid, pid = tables[router_name]
+                            tables[router_name] = (tid, pid+1)
+                            ports[if_name] = (tid << 16) + pid + 1
+                        routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
 
                 elif action == 'dscd':
@@ -220,7 +246,7 @@ for router_file in router_files:
                 elif action == 'rjct':
                     dst, _type, _rtref, _type, _index, _nhref = tokens
                     if dst == 'default':
-                        routing_table.append((0, '0.0.0.0/0', []))
+                        default_rules.append((0, default_addr, []))
                     else:
                         routing_table.append((int(dst.split('/')[1]), dst, []))
 
@@ -232,11 +258,21 @@ for router_file in router_files:
             elif len(tokens) == 7:
                 if tokens[3] == 'rslv':
                     dst, _type, _rtref, _type, _index, _nhref, interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif tokens[3] == 'ucst':
                     dst, _type, _rtref, _type, _index, _nhref, interface = tokens
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
+                    routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
 
                 elif tokens[4] == 'locl':
@@ -257,26 +293,56 @@ for router_file in router_files:
                 action = tokens[4]
                 if action == 'ucst':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    routing_table.append((int(dst.split('/')[1]), dst, [interface]))
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
+                    routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 elif action == 'recv':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'bcst':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'dscd':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, _interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 elif action == 'hold':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'rjct':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
+                    if_name = router_name + interface
+                    if if_name not in ports:
+                        _tid, pid = tables[router_name]
+                        tables[router_name] = (tid, pid+1)
+                        ports[if_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
@@ -286,22 +352,51 @@ for router_file in router_files:
             else:
                 print "could not parse:", tokens
 
-        print router_file, len(routing_table)
-        total += len(routing_table)
+        table_ipv4 = [make_rule(
+            mapping, ports, True, tid, rid, *items
+        ) for rid, items  in enumerate(sorted(routing_table_ipv4, reverse=True))]
+        len_ipv4 = len(table_ipv4)
+
+        table_ipv6 = [make_rule(
+            mapping, ports, False, tid, rid + len_ipv4, *items
+        ) for rid, items  in enumerate(sorted(routing_table_ipv6, reverse=True))]
+
+        default_ipv4 = [default_rules[0]]
+        default_ipv4 = [make_rule(
+            mapping, ports, True, tid, 65533, *items
+        ) for items in default_ipv4]
+
+        default_ipv6 = [default_rules[1]]
+        default_ipv6 = [make_rule(
+            mapping, ports, False, tid, 65534, *items
+        ) for items in default_ipv6]
+
+        default_rules = default_ipv4 + default_ipv6
+
+        _tid, pid = tables[router_name]
+        table = {
+            'rules' : table_ipv4 + table_ipv6 + default_rules,
+            'id' : tid,
+            'ports' : [(tid << 16) + i for i in range(1, pid+1)]
+        }
+
+        json.dump(
+            table,
+            open('bench/wl_i2/i2_tfs/' + router_name + '.tf.json', 'w'),
+            indent=2
+        )
+
+        print router_file, len(table_ipv4 + table_ipv6 + default_rules)
+        total += len(table_ipv4 + table_ipv6 + default_rules)
 
 print "total:", total
 
-    #from pprint import pprint
-    #pprint(sorted(routing_table, reverse=True))
+topology_numbers = []
+for pair in topology_names['topology']:
+    topology_numbers.append({'src' : ports[pair['src']], 'dst' : ports[pair['dst']]})
 
-
-#    for line in table:
-        #row_regex = '^(?P<dst>((%s)|(%s)))?\s+(?P<type>\w+)?\s+(?P<rtref>\d?)?\s+(?P<next_hop>((%s)|(%s)))?\s+(?P<action>\w+)?\s+(?P<index>\d+)?\s+(?P<nhref>\d+)?\s+(?P<interface>\w+)?$' % (ip4_regex, ip6_regex, ip4_regex, ip6_regex)
-#        row = re.match(row_match, line)
-#        if row:
-#            pass
-#            #(row.group('dst'), row.group('next_hop'), row.group('interface'), row.group('action'))
-#        else:
-#            print "could not parse", line
-#
-#            #dst, _type, _rtref, next_hop, _action, _index, _nhref, interface = fields
+json.dump(
+    {'topology' : topology_numbers},
+    open("bench/wl_i2/i2_tfs/topology.json", 'w'),
+    indent=2
+)
