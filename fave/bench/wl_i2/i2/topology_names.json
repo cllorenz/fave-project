@@ -1,0 +1,228 @@
+{
+  "topology": [
+    {
+      "src": "chic:xe-0/1/0", 
+      "dst": "newy32aoa:xe-0/1/3"
+    }, 
+    {
+      "src": "newy32aoa:xe-0/1/3", 
+      "dst": "chic:xe-0/1/0"
+    }, 
+    {
+      "src": "chic:xe-1/0/1", 
+      "dst": "kans:xe-0/1/0"
+    }, 
+    {
+      "src": "kans:xe-0/1/0", 
+      "dst": "chic:xe-1/0/1"
+    }, 
+    {
+      "src": "chic:xe-1/1/3", 
+      "dst": "wash:xe-6/3/0"
+    }, 
+    {
+      "src": "wash:xe-6/3/0", 
+      "dst": "chic:xe-1/1/3"
+    }, 
+    {
+      "src": "hous:xe-3/1/0", 
+      "dst": "losa:ge-6/0/0"
+    }, 
+    {
+      "src": "losa:ge-6/0/0", 
+      "dst": "hous:xe-3/1/0"
+    }, 
+    {
+      "src": "kans:ge-6/0/0", 
+      "dst": "salt:ge-6/1/0"
+    }, 
+    {
+      "src": "salt:ge-6/1/0", 
+      "dst": "kans:ge-6/0/0"
+    }, 
+    {
+      "src": "chic:xe-1/1/2", 
+      "dst": "atla:xe-0/1/3"
+    }, 
+    {
+      "src": "atla:xe-0/1/3", 
+      "dst": "chic:xe-1/1/2"
+    }, 
+    {
+      "src": "seat:xe-0/0/0", 
+      "dst": "salt:xe-0/1/1"
+    }, 
+    {
+      "src": "salt:xe-0/1/1", 
+      "dst": "seat:xe-0/0/0"
+    }, 
+    {
+      "src": "chic:xe-1/0/2", 
+      "dst": "kans:xe-0/0/3"
+    }, 
+    {
+      "src": "kans:xe-0/0/3", 
+      "dst": "chic:xe-1/0/2"
+    }, 
+    {
+      "src": "hous:xe-1/1/0", 
+      "dst": "kans:xe-1/0/0"
+    }, 
+    {
+      "src": "kans:xe-1/0/0", 
+      "dst": "hous:xe-1/1/0"
+    }, 
+    {
+      "src": "seat:xe-0/1/0", 
+      "dst": "losa:xe-0/0/0"
+    }, 
+    {
+      "src": "losa:xe-0/0/0", 
+      "dst": "seat:xe-0/1/0"
+    }, 
+    {
+      "src": "salt:xe-0/0/1", 
+      "dst": "losa:xe-0/1/3"
+    }, 
+    {
+      "src": "losa:xe-0/1/3", 
+      "dst": "salt:xe-0/0/1"
+    }, 
+    {
+      "src": "seat:xe-1/0/0", 
+      "dst": "salt:xe-0/1/3"
+    }, 
+    {
+      "src": "salt:xe-0/1/3", 
+      "dst": "seat:xe-1/0/0"
+    }, 
+    {
+      "src": "newy32aoa:et-3/0/0-0", 
+      "dst": "wash:et-3/0/0-0"
+    }, 
+    {
+      "src": "wash:et-3/0/0-0", 
+      "dst": "newy32aoa:et-3/0/0-0"
+    }, 
+    {
+      "src": "newy32aoa:et-3/0/0-1", 
+      "dst": "wash:et-3/0/0-1"
+    }, 
+    {
+      "src": "wash:et-3/0/0-1", 
+      "dst": "newy32aoa:et-3/0/0-1"
+    }, 
+    {
+      "src": "chic:xe-1/1/1", 
+      "dst": "atla:xe-0/0/0"
+    }, 
+    {
+      "src": "atla:xe-0/0/0", 
+      "dst": "chic:xe-1/1/1"
+    }, 
+    {
+      "src": "losa:xe-0/1/0", 
+      "dst": "seat:xe-2/1/0"
+    }, 
+    {
+      "src": "seat:xe-2/1/0", 
+      "dst": "losa:xe-0/1/0"
+    }, 
+    {
+      "src": "hous:xe-0/1/0", 
+      "dst": "losa:ge-6/1/0"
+    }, 
+    {
+      "src": "losa:ge-6/1/0", 
+      "dst": "hous:xe-0/1/0"
+    }, 
+    {
+      "src": "atla:xe-0/0/3", 
+      "dst": "wash:xe-1/1/3"
+    }, 
+    {
+      "src": "wash:xe-1/1/3", 
+      "dst": "atla:xe-0/0/3"
+    }, 
+    {
+      "src": "hous:xe-3/1/0", 
+      "dst": "kans:ge-6/2/0"
+    }, 
+    {
+      "src": "kans:ge-6/2/0", 
+      "dst": "hous:xe-3/1/0"
+    }, 
+    {
+      "src": "atla:ge-6/0/0", 
+      "dst": "hous:xe-0/0/0"
+    }, 
+    {
+      "src": "hous:xe-0/0/0", 
+      "dst": "atla:ge-6/0/0"
+    }, 
+    {
+      "src": "chic:xe-1/0/3", 
+      "dst": "kans:xe-1/0/3"
+    }, 
+    {
+      "src": "kans:xe-1/0/3", 
+      "dst": "chic:xe-1/0/3"
+    }, 
+    {
+      "src": "losa:xe-0/0/3", 
+      "dst": "salt:xe-0/1/0"
+    }, 
+    {
+      "src": "salt:xe-0/1/0", 
+      "dst": "losa:xe-0/0/3"
+    }, 
+    {
+      "src": "atla:ge-6/1/0", 
+      "dst": "hous:xe-1/0/0"
+    }, 
+    {
+      "src": "hous:xe-1/0/0", 
+      "dst": "atla:ge-6/1/0"
+    }, 
+    {
+      "src": "atla:xe-1/0/3", 
+      "dst": "wash:xe-0/0/0"
+    }, 
+    {
+      "src": "wash:xe-0/0/0", 
+      "dst": "atla:xe-1/0/3"
+    }, 
+    {
+      "src": "chic:xe-2/1/3", 
+      "dst": "wash:xe-0/1/3"
+    }, 
+    {
+      "src": "wash:xe-0/1/3", 
+      "dst": "chic:xe-2/1/3"
+    }, 
+    {
+      "src": "atla:xe-1/0/1", 
+      "dst": "wash:xe-0/0/3"
+    }, 
+    {
+      "src": "wash:xe-0/0/3", 
+      "dst": "atla:xe-1/0/1"
+    }, 
+    {
+      "src": "kans:xe-0/1/1", 
+      "dst": "salt:ge-6/0/0"
+    }, 
+    {
+      "src": "salt:ge-6/0/0", 
+      "dst": "kans:xe-0/1/1"
+    }, 
+    {
+      "src": "chic:xe-1/1/0", 
+      "dst": "newy32aoa:xe-0/0/0"
+    }, 
+    {
+      "src": "newy32aoa:xe-0/0/0", 
+      "dst": "chic:xe-1/1/0"
+    }
+  ]
+}
