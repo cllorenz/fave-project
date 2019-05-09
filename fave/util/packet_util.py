@@ -150,11 +150,23 @@ def normalize_ipv6_address(address):
         addr = address
         cidr = None
 
-    laddr, raddr = addr.split("::")
-    laddr = laddr.split(":")
+    try:
+        laddr, raddr = addr.split("::")
+    except ValueError:
+        laddr = addr
+        raddr = ''
+
+    if laddr:
+        laddr = laddr.split(":")
+    else:
+        laddr = []
+
     if raddr:
         raddr = raddr.split(":")
-        laddr += ["0"] * len(range(8-len(laddr)-len(raddr))) + raddr
+    else:
+        raddr = []
+
+    laddr += ["0"] * (8-len(laddr)-len(raddr)) + raddr
     addr = "".join(["{:016b}".format(int(block, 16)) for block in laddr])
 
     if cidr and int(cidr) < 128:
