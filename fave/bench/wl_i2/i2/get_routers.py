@@ -3,7 +3,7 @@
 import json
 from xml.dom import minidom
 
-root = minidom.parse("show_interfaces.xml")
+root = minidom.parse("bench/wl_i2/i2/show_interfaces.xml")
 
 routers = {}
 xrouters = root.getElementsByTagName("router")
@@ -19,12 +19,12 @@ for xrouter in xrouters:
             if if_name not in routers[router_name]:
                 routers[router_name].append(if_name)
 
-with open("routers.json", "w") as pf:
+with open("bench/wl_i2/i2_tfs/routers.json", "w") as pf:
     jrouters = [{'name' : n, 'ports' : p} for n, p in routers.iteritems()]
     pf.write(json.dumps({'routers' : jrouters}, indent=2))
 
 rev_port_map = {}
-with open("port_map.txt", "r") as pf:
+with open("bench/wl_i2/i2/port_map.txt", "r") as pf:
     lines = pf.read().split("\n")
     router_name = ""
     for line in lines:
@@ -37,7 +37,7 @@ with open("port_map.txt", "r") as pf:
             rev_port_map[no] = "%s:%s" % (router_name, port)
 
 topology = []
-with open("backbone_topology.tf", "r") as tf:
+with open("bench/wl_i2/i2/backbone_topology.tf", "r") as tf:
     lines = tf.read().split("\n")
 
     for line in lines:
