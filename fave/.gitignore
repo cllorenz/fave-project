@@ -5,6 +5,7 @@ np_dump
 bench/wl_ad6/*.json
 bench/wl_ifi/*.json
 bench/wl_i2/*.json
+bench/wl_i2/i2_tfs/*.json
 
 bench/wl_ifi/convert.sh
 bench/wl_ifi/*.css
