@@ -54,5 +54,5 @@ with open("bench/wl_i2/i2/backbone_topology.tf", "r") as tf:
         topology.append({'src' : src, 'dst' : dst})
 
 
-with open("topology_names.json", "w") as tf:
+with open("bench/wl_i2/i2/topology_names.json", "w") as tf:
     tf.write(json.dumps({'topology' : topology}, indent=2))
