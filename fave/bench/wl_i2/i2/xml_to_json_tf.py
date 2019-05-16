@@ -3,10 +3,10 @@
 import json
 from xml.dom import minidom
 
-from util.packet_util import normalize_ipv4_address, normalize_ipv6_address
+from util.packet_util import normalize_ipv4_address, normalize_ipv6_address, normalize_vlan_tag
 from netplumber.vector import Vector, set_field_in_vector
 
-def make_rule(mapping, ports, is_ipv4, tid, rid, _len, address, out_ports):
+def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_ports):
     match = Vector(mapping['length'])
     field = 'packet.ipv4.destination' if is_ipv4 else 'packet.ipv6.destination'
 
@@ -21,13 +21,64 @@ def make_rule(mapping, ports, is_ipv4, tid, rid, _len, address, out_ports):
 
     set_field_in_vector(mapping, match, field, fvec)
 
-    return {
-        'action' : 'fwd',
-        'id' : tid + rid,
-        'in_ports' : [],
-        'out_ports' : [ports[p] for p in out_ports if 'dsc' not in p],
-        'match' : match.vector
-    }
+    rules = []
+    for port in out_ports:
+        if "ae" in port:
+            router, ae_name = port.split(':')
+            ae_ports = ae_bundles[router][ae_name]
+
+            for ae_port in ae_ports:
+                out_port, vlan = ae_port.split('.')
+
+                mask = Vector(length=mapping['length'])
+                set_field_in_vector(mapping, mask, 'packet.ether.vlan', '1'*16)
+
+                rewrite = Vector(length=mapping['length'])
+                set_field_in_vector(mapping, mask, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+
+                rules.append({
+                    'action' : 'rw',
+                    'id' : tid + rid,
+                    'in_ports' : [],
+                    'out_ports' : [ports[router + ':' + out_port]],
+                    'match' : match.vector,
+                    'mask' : mask.vector,
+                    'rewrite' : rewrite.vector
+                })
+
+        elif 'dsc' in port:
+            continue
+
+
+        elif '.' in port:
+            out_port, vlan = port.split('.')
+
+            mask = Vector(length=mapping['length'])
+            set_field_in_vector(mapping, mask, 'packet.ether.vlan', '1'*16)
+
+            rewrite = Vector(length=mapping['length'])
+            set_field_in_vector(mapping, mask, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+
+            rules.append({
+                'action' : 'rw',
+                'id' : tid + rid,
+                'in_ports' : [],
+                'out_ports' : [ports[out_port]],
+                'match' : match.vector,
+                'mask' : mask.vector,
+                'rewrite' : rewrite.vector
+            })
+
+        else:
+            rules.append({
+                'action' : 'fwd',
+                'id' : tid + rid,
+                'in_ports' : [],
+                'out_ports' : [ports[port]],
+                'match' : match.vector
+            })
+
+    return rules
 
 
 router_files = [
@@ -47,6 +98,8 @@ vec_length = mapping['length']
 
 topology_names = json.load(open("bench/wl_i2/i2/topology_names.json", "r"))
 
+ae_bundles = json.load(open("bench/wl_i2/i2_tfs/bundles.json", "r"))
+
 tables = {
     'atla' : (1, 0),
     'chic' : (2, 0),
@@ -64,6 +117,16 @@ for pair in topology_names['topology']:
     for port in pair.values():
         if port not in ports:
             router, _interface = port.split(':')
+            tid, pid = tables[router]
+            tables[router] = (tid, pid+1)
+
+            ports[port] = (tid << 16) + pid + 1
+
+
+for router, bundle in ae_bundles.iteritems():
+    for _ae_name, ae_ports in bundle.iteritems():
+        for ae_port in ae_ports:
+            port = router + ':' + ae_port.split('.')[0]
             tid, pid = tables[router]
             tables[router] = (tid, pid+1)
 
@@ -138,11 +201,12 @@ for router_file in router_files:
 
                 elif tokens[3] == 'ucst':
                     _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
@@ -167,15 +231,15 @@ for router_file in router_files:
 
                 if len(tokens) == 4:
                     _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
-                    print tokens
                     break
 
 
@@ -185,11 +249,12 @@ for router_file in router_files:
                     dst, _type, _rtref, _type, _index, _nhref = tokens
                     line = table.next()
                     _next_hop, _type, _index, _nhref, interface = line.split()
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')), dst, [if_name]))
 
                 elif action == 'indr':
@@ -201,20 +266,22 @@ for router_file in router_files:
                         line = table.next()
                         tokens = line.split()
                         _type, _index, _nhref, interface = tokens
-                        if_name = router_name + ':' + interface.split('.')[0]
-                        if if_name not in ports:
+                        if_name = router_name + ':' + interface
+                        pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                        if pif_name not in ports:
                             _tid, pid = tables[router_name]
                             tables[router_name] = (tid, pid+1)
-                            ports[if_name] = (tid << 16) + pid + 1
+                            ports[pif_name] = (tid << 16) + pid + 1
                         routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                     elif len(tokens) == 5:
                         _next_hop, _type, _index, _nhref, interface = tokens
-                        if_name = router_name + ':' + interface.split('.')[0]
-                        if if_name not in ports:
+                        if_name = router_name + ':' + interface
+                        pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                        if pif_name not in ports:
                             _tid, pid = tables[router_name]
                             tables[router_name] = (tid, pid+1)
-                            ports[if_name] = (tid << 16) + pid + 1
+                            ports[pif_name] = (tid << 16) + pid + 1
                         routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
 
@@ -258,20 +325,22 @@ for router_file in router_files:
             elif len(tokens) == 7:
                 if tokens[3] == 'rslv':
                     dst, _type, _rtref, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif tokens[3] == 'ucst':
                     dst, _type, _rtref, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
 
@@ -293,56 +362,62 @@ for router_file in router_files:
                 action = tokens[4]
                 if action == 'ucst':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 elif action == 'recv':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'bcst':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'dscd':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, _interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 elif action == 'hold':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0].split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface.split('.')[0]
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     # XXX
 
                 elif action == 'rjct':
                     dst, _type, _rtref, _next_hop, _type, _index, _nhref, interface = tokens
-                    if_name = router_name + ':' + interface.split('.')[0]
-                    if if_name not in ports:
+                    if_name = router_name + ':' + interface
+                    pif_name = if_name.split('.')[0] if '.' in if_name else if_name
+                    if pif_name not in ports:
                         _tid, pid = tables[router_name]
                         tables[router_name] = (tid, pid+1)
-                        ports[if_name] = (tid << 16) + pid + 1
+                        ports[pif_name] = (tid << 16) + pid + 1
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
@@ -352,24 +427,24 @@ for router_file in router_files:
             else:
                 print "could not parse:", tokens
 
-        table_ipv4 = [make_rule(
-            mapping, ports, True, tid, rid, *items
-        ) for rid, items  in enumerate(sorted(routing_table_ipv4, reverse=True))]
+        table_ipv4 = reduce(lambda x, y: x + y, [make_rule(
+            mapping, ports, ae_bundles, True, tid, rid, *items
+        ) for rid, items  in enumerate(sorted(routing_table_ipv4, reverse=True))])
         len_ipv4 = len(table_ipv4)
 
-        table_ipv6 = [make_rule(
-            mapping, ports, False, tid, rid + len_ipv4, *items
-        ) for rid, items  in enumerate(sorted(routing_table_ipv6, reverse=True))]
+        table_ipv6 = reduce(lambda x, y: x + y, [make_rule(
+            mapping, ports, ae_bundles, False, tid, rid + len_ipv4, *items
+        ) for rid, items  in enumerate(sorted(routing_table_ipv6, reverse=True))])
 
         default_ipv4 = [default_rules[0]]
-        default_ipv4 = [make_rule(
-            mapping, ports, True, tid, 65533, *items
-        ) for items in default_ipv4]
+        default_ipv4 = reduce(lambda x, y: x + y, [make_rule(
+            mapping, ports, ae_bundles, True, tid, 65533, *items
+        ) for items in default_ipv4])
 
         default_ipv6 = [default_rules[1]]
-        default_ipv6 = [make_rule(
-            mapping, ports, False, tid, 65534, *items
-        ) for items in default_ipv6]
+        default_ipv6 = reduce(lambda x, y: x + y, [make_rule(
+            mapping, ports, ae_bundles, False, tid, 65534, *items
+        ) for items in default_ipv6])
 
         default_rules = default_ipv4 + default_ipv6
 
