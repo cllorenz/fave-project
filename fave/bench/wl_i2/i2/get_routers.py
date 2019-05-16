@@ -6,6 +6,7 @@ from xml.dom import minidom
 root = minidom.parse("bench/wl_i2/i2/show_interfaces.xml")
 
 routers = {}
+aenets = {}
 xrouters = root.getElementsByTagName("router")
 
 for xrouter in xrouters:
@@ -19,9 +20,27 @@ for xrouter in xrouters:
             if if_name not in routers[router_name]:
                 routers[router_name].append(if_name)
 
+        xlogical_interfaces = xinterface.getElementsByTagName("logical-interface")
+        for xlogical_interface in xlogical_interfaces:
+            xlif_names = xlogical_interface.getElementsByTagName("name")
+            for xlif_name in xlif_names:
+                lif_name = xlif_name.childNodes[0].data
+                xaddr_fams = xlogical_interface.getElementsByTagName("address-family")
+                for xaddr_fam in xaddr_fams:
+                    addr_fam_name = xaddr_fam.getElementsByTagName("address-family-name")[0].childNodes[0].data
+                    if addr_fam_name == 'aenet':
+                        bundle_name = xaddr_fam.getElementsByTagName("ae-bundle-name")[0].childNodes[0].data
+                        aenets.setdefault(router_name, {})
+                        aenets[router_name].setdefault(bundle_name, [])
+                        aenets[router_name][bundle_name].append(lif_name)
+
+
 with open("bench/wl_i2/i2_tfs/routers.json", "w") as pf:
     jrouters = [{'name' : n, 'ports' : p} for n, p in routers.iteritems()]
     pf.write(json.dumps({'routers' : jrouters}, indent=2))
+
+with open("bench/wl_i2/i2_tfs/bundles.json", "w") as bf:
+    bf.write(json.dumps(aenets, indent=2))
 
 rev_port_map = {}
 with open("bench/wl_i2/i2/port_map.txt", "r") as pf:
