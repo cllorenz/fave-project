@@ -1,5 +1,15 @@
 #!/usr/bin/env python2
 
+""" This module provides utility functionality to build benchmarks for FaVe and
+    NetPlumber.
+"""
+
+import json
+import os
+
+import netplumber.dump_np as dumper
+import test.check_flows as checker
+
 from topology import topology as topo
 from ip6np import ip6np as ip6tables
 from openflow import switch
@@ -40,7 +50,7 @@ def _add_probe(name, _type, quantor, filter_fields=None, test_fields=None, test_
     if test_path:
         opts.extend(["-P", ';'.join(test_path)])
 
-    topo.main(["-a", "-t", "probe", "-n", name, "-q", quantor] + opts),
+    topo.main(["-a", "-t", "probe", "-n", name, "-q", quantor] + opts)
 
 
 def _add_link(src, dst):
@@ -66,8 +76,7 @@ def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=N
 def _add_ruleset(name, _type, ports, address, ruleset):
     ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset])
 
-
-_DEVICES={
+_DEVICES = {
     "packet_filter" : _add_packet_filter,
     "switch" : _add_switch,
     "router" : _add_router,
@@ -76,8 +85,14 @@ _DEVICES={
     "host" : _add_packet_filter
 }
 
-
 def create_topology(devices, links):
+    """ Builds a topology from devices and links.
+
+    Keyword arguments:
+    devices - a set of devices
+    links - a set of links between the devices
+    """
+
     get_type = lambda x: x[1]
 
     for device in devices:
@@ -92,11 +107,22 @@ def create_topology(devices, links):
 
 
 def add_routes(routes):
+    """ Add routing rules.
+
+    Keyword arguments:
+    routes - a set of routing rules
+    """
     for route in routes:
         _add_rule(*route)
 
 
 def add_rulesets(devices):
+    """ Add rulesets to a set of devices.
+
+    Keyword arguments:
+    devices - a set of devices
+    """
+
     get_type = lambda x: x[1]
     for device in devices:
         if get_type(device) in ["packet_filter", "host"]:
@@ -104,6 +130,13 @@ def add_rulesets(devices):
 
 
 def add_policies(probes, links):
+    """ Add probe nodes to the topology.
+
+    Keyword arguments:
+    probes - a set of probe nodes
+    links - a set of links
+    """
+
     get_type = lambda x: x[1]
     for probe in probes:
         if get_type(probe) == 'probe':
@@ -113,14 +146,12 @@ def add_policies(probes, links):
         _add_link(*link)
 
 
-TOPOLOGY="bench/wl_ad6/topology.json"
-ROUTES="bench/wl_ad6/routes.json"
-POLICIES="bench/wl_ad6/policies.json"
-CHECKS="bench/wl_ad6/checks.json"
+TOPOLOGY = "bench/wl_ad6/topology.json"
+ROUTES = "bench/wl_ad6/routes.json"
+POLICIES = "bench/wl_ad6/policies.json"
+CHECKS = "bench/wl_ad6/checks.json"
 
 if __name__ == '__main__':
-    import json
-    import os
 
     os.system("python2 bench/wl_ad6/topogen.py")
     os.system("python2 bench/wl_ad6/routegen.py")
@@ -131,29 +162,26 @@ if __name__ == '__main__':
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:
-        devices, links = json.loads(raw_topology.read()).values()
+        DEVICES, LINKS = json.loads(raw_topology.read()).values()
 
-        create_topology(devices, links)
-        add_rulesets(devices)
+        create_topology(DEVICES, LINKS)
+        add_rulesets(DEVICES)
 
     with open(ROUTES, 'r') as raw_routes:
-        routes = json.loads(raw_routes.read())
+        ROUTES = json.loads(raw_routes.read())
 
-        add_routes(routes)
+        add_routes(ROUTES)
 
     with open(POLICIES, 'r') as raw_policies:
-        links, probes = json.loads(raw_policies.read()).values()
+        LINKS, PROBES = json.loads(raw_policies.read()).values()
 
-        add_policies(probes, links)
+        add_policies(PROBES, LINKS)
 
     with open(CHECKS, 'r') as raw_checks:
-        checks = json.loads(raw_checks.read())
-
-    import netplumber.dump_np as dumper
-    import test.check_flows as checker
+        CHECKS = json.loads(raw_checks.read())
 
     dumper.main(["-anpt"])
-    checker.main(["-c", ";".join(checks)])
+    checker.main(["-c", ";".join(CHECKS)])
 
     os.system("bash scripts/stop_fave.sh")
     os.system("rm -f np_dump/.lock")
