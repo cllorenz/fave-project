@@ -80,6 +80,9 @@ void Node::remove_pipes() {
     Node* other_n = (*r)->node;
     free(*r);
     other_n->prev_in_pipeline.erase(r);
+    auto r_pipeline = next->r_pipeline;
+    array_free((*r_pipeline)->pipe_array);
+    other_n->prev_in_pipeline.erase(r_pipeline);
 #ifdef PIPE_SLICING
     ((NetPlumber *)plumber)->remove_pipe_from_slices(next);
 #endif
@@ -92,6 +95,9 @@ void Node::remove_pipes() {
     Node* other_n = (*r)->node;
     free(*r);
     other_n->next_in_pipeline.erase(r);
+    auto r_pipeline = prev->r_pipeline;
+    array_free((*r_pipeline)->pipe_array);
+    other_n->next_in_pipeline.erase(r_pipeline);
     free(prev);
   }
   prev_in_pipeline.clear();
