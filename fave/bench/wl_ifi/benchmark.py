@@ -5,7 +5,7 @@
 
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
-IFI={
+IFI = {
     "topology" : [],
     "hosts" : [],
     "routers" : [],
@@ -13,10 +13,10 @@ IFI={
     "routes" : []
 }
 
-TOPOLOGY="bench/wl_ifi/topology.json"
-ROUTES="bench/wl_ifi/routes.json"
-POLICIES="bench/wl_ifi/policies.json"
-CHECKS="bench/wl_ifi/checks.json"
+TOPOLOGY = "bench/wl_ifi/topology.json"
+ROUTES = "bench/wl_ifi/routes.json"
+POLICIES = "bench/wl_ifi/policies.json"
+CHECKS = "bench/wl_ifi/checks.json"
 
 
 def campus_network(config):
