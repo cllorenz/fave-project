@@ -271,22 +271,23 @@ void HeaderspaceTest::test_isect_arr() {
     array_free(v2);
 }
 
-// XXX: fix mysterius memory leak found by valgrind
 void HeaderspaceTest::test_minus() {
     test_add();
     hs_vec_append(&h->list,array_from_str("01xxxxxx"),false);
-    hs_vec_append(&h->list.diff[0],array_from_str("1xxxxxx1"),true);
-    hs_vec_append(&h->list.diff[1],array_from_str("01xxxxx1"),true);
+    hs_vec_append(h->list.diff,array_from_str("1xxxxxx1"),true);
+    hs_vec_append(h->list.diff,array_from_str("01xxxxx1"),true);
 
     struct hs a = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&a.list,array_from_str("01xxxxxx"),false);
-    hs_vec_append(&a.list.diff[0],array_from_str("01xxxxx1"),true);
+    hs_vec_append(a.list.diff,array_from_str("01xxxxx1"),true);
 
     struct hs b = {h->len, {0, 0, 0, 0}};
     hs_vec_append(&b.list,array_from_str("10xxxxx0"),false);
     hs_vec_append(&b.list,array_from_str("1xxxxxx0"),false);
+    hs_vec_append(&b.list,array_from_str("01xxxxx1"),false);
 
     hs_minus(h,&a);
+
     CPPUNIT_ASSERT(hs_is_equal(h,&b));
 
     hs_destroy(&a);
