@@ -98,7 +98,7 @@ vec_elem_replace_and_delete (struct hs_vec *v, size_t i, size_t j)
 struct hs_vec
 vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
-  struct hs_vec new_list = {0};
+  struct hs_vec new_list = {0, 0, 0, 0};
   for (size_t i = 0; i < a->used; i++) {
     for (size_t j = 0; j < b->used; j++) {
       array_t *isect = array_isect_a (a->elems[i], b->elems[j], len);
