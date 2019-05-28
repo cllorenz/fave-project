@@ -32,7 +32,6 @@
 
 ### NetPlumber
 
- - fix memory leak in Pipeline setup (shows up in the NetPlumber destructor)
  - improve test coverage
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
