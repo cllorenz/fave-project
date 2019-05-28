@@ -77,12 +77,10 @@ void Node::remove_pipes() {
   for (auto &next: this->next_in_pipeline) {
     auto r = next->r_pipeline;
     array_free(next->pipe_array);
+    array_free((*r)->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->prev_in_pipeline.erase(r);
-    auto r_pipeline = next->r_pipeline;
-    array_free((*r_pipeline)->pipe_array);
-    other_n->prev_in_pipeline.erase(r_pipeline);
 #ifdef PIPE_SLICING
     ((NetPlumber *)plumber)->remove_pipe_from_slices(next);
 #endif
@@ -92,12 +90,10 @@ void Node::remove_pipes() {
   for (auto &prev: this->prev_in_pipeline) {
     auto r = prev->r_pipeline;
     array_free(prev->pipe_array);
+    array_free((*r)->pipe_array);
     Node* other_n = (*r)->node;
     free(*r);
     other_n->next_in_pipeline.erase(r);
-    auto r_pipeline = prev->r_pipeline;
-    array_free((*r_pipeline)->pipe_array);
-    other_n->next_in_pipeline.erase(r_pipeline);
     free(prev);
   }
   prev_in_pipeline.clear();
@@ -187,6 +183,7 @@ void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
       array_free((*it)->pipe_array);
       auto tmp = r;
       struct Pipeline *pipe = *r;
+      array_free(pipe->pipe_array);
       (*r)->node->prev_in_pipeline.erase(r);
       free(pipe);
       free(*it);
