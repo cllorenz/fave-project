@@ -269,7 +269,7 @@ array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
 }
 
 size_t
-array_one_bit_subtract (array_t *a, array_t *b, size_t len ) {
+array_one_bit_subtract (const array_t *a, array_t *b, size_t len ) {
   size_t total_diff = 0;
   array_t diffs[len];
   for (size_t i = 0; i < SIZE (len); i++) {
