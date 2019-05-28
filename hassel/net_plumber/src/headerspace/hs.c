@@ -107,6 +107,7 @@ struct hs_vec
 vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
   struct hs_vec new_list = {0, 0, 0, 0};
+
   for (size_t i = 0; i < a->used; i++) {
     for (size_t j = 0; j < b->used; j++) {
       array_t *isect = array_isect_a (a->elems[i], b->elems[j], len);
@@ -365,10 +366,11 @@ hs_cmpl (struct hs *hs)
     return;
   }
 
-  struct hs_vec *v = &hs->list, new_list = {0};
+  struct hs_vec *v = &hs->list;
+  struct hs_vec new_list = {0, 0, 0, 0};
 
   for (size_t i = 0; i < v->used; i++) {
-    struct hs_vec tmp = {0};
+    struct hs_vec tmp = {0, 0, 0, 0};
     tmp.elems = array_cmpl_a (v->elems[i], hs->len, &tmp.used);
     tmp.alloc = tmp.used;
 
@@ -395,6 +397,7 @@ hs_cmpl (struct hs *hs)
   }
 
   vec_destroy (v);
+
   hs->list = new_list;
 }
 
@@ -602,11 +605,11 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
         return true;
     }
 
-    struct hs tmp_a = {a->len,{0}};
+    struct hs tmp_a = {a->len,{0, 0, 0, 0}};
     hs_copy(&tmp_a,a);
     hs_compact(&tmp_a);
 
-    struct hs tmp_b = {b->len,{0}};
+    struct hs tmp_b = {b->len,{0, 0, 0, 0}};
     hs_copy(&tmp_b,b);
     hs_compact(&tmp_b);
 
@@ -633,7 +636,7 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     hs_destroy(&tmp_isect);
 
     // A - B != emptyset
-    struct hs tmp_minus = {tmp_a.len,{0}};
+    struct hs tmp_minus = {tmp_a.len, {0, 0, 0, 0}};
     hs_copy(&tmp_minus,&tmp_a);
     hs_minus(&tmp_minus,&tmp_b);
     if (!hs_is_empty(&tmp_minus)) {
