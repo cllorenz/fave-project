@@ -28,11 +28,15 @@ class IP6TablesParser(BisonParser):
 
     start = 'ruleset'
 
-    def on_ruleset(self, target, option, names, values):
+    def on_ruleset(self, *_args, **kwargs):
         """
         ruleset :
                 | ruleset line
         """
+        target = kwargs["target"]
+        option = kwargs["option"]
+        names = kwargs["names"]
+        values = kwargs["values"]
 
         if option == 0:
             return []
@@ -44,12 +48,16 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_line(self, target, option, names, values):
+    def on_line(self, *_args, **kwargs):
         """
         line : NEWLINE
              | IPT WS table APPEND_CMD WS IDENT body WS jump NEWLINE
              | IPT WS table POLICY_CMD WS IDENT WS action NEWLINE
         """
+        target = kwargs["target"]
+        option = kwargs["option"]
+        names = kwargs["names"]
+        values = kwargs["values"]
 
         if option == 0:
             return None
@@ -109,11 +117,15 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_table(self, target, option, names, values):
+    def on_table(self, *_args, **kwargs):
         """
         table :
               | TABLE WS IDENT WS
         """
+        target = kwargs["target"]
+        option = kwargs["option"]
+        names = kwargs["names"]
+        values = kwargs["values"]
 
         if option == 0:
             return None
@@ -126,11 +138,15 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_body(self, target, option, names, values):
+    def on_body(self, *_args, **kwargs):
         """
         body :
              | body WS neg_argument
         """
+        target = kwargs["target"]
+        option = kwargs["option"]
+        names = kwargs["names"]
+        values = kwargs["values"]
 
         if option == 0:
             return []
@@ -142,11 +158,15 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_neg_argument(self, target, option, names, values):
+    def on_neg_argument(self, *_args, **kwargs):
         """
         neg_argument : NEGATION WS argument
                      | argument
         """
+        target = kwargs["target"]
+        option = kwargs["option"]
+        names = kwargs["names"]
+        values = kwargs["values"]
 
         if option == 0:
             _neg, _ws, arg = values
@@ -158,7 +178,7 @@ class IP6TablesParser(BisonParser):
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
 
 
-    def on_argument(self, _target, _option, _names, values):
+    def on_argument(self, *_args, **kwargs):
         """
         argument : saddr
                  | daddr
@@ -170,100 +190,116 @@ class IP6TablesParser(BisonParser):
                  | module
                  | module_body
         """
-        return values[0]
+        return kwargs["values"][0]
 
 
-    def on_saddr(self, _target, _option, _names, values):
+    def on_saddr(self, *_args, **kwargs):
         """
         saddr : SRC_SHORT WS IPV6_CIDR
               | SRC_LONG WS IPV6_CIDR
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_daddr(self, _target, _option, _names, values):
+    def on_daddr(self, *_args, **kwargs):
         """
         daddr : DST_SHORT WS IPV6_CIDR
               | DST_LONG WS IPV6_CIDR
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_sport(self, _target, _option, _names, values):
+    def on_sport(self, *_args, **kwargs):
         """
         sport : SPORT WS PORTNO
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_dport(self, _target, _option, _names, values):
+    def on_dport(self, *_args, **kwargs):
         """
         dport : DPORT WS PORTNO
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_proto(self, _target, _option, _names, values):
+    def on_proto(self, *_args, **kwargs):
         """
         proto : PROTO_SHORT WS IDENT
               | PROTO_LONG WS IDENT
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_sinf(self, _target, _option, _names, values):
+    def on_sinf(self, *_args, **kwargs):
         """
         sinf : IN_SHORT WS PORTNO
              | IN_LONG WS PORTNO
              | IN_SHORT WS IDENT
              | IN_LONG WS IDENT
         """
+        values = kwargs["values"]
+
         _arg, _ws, val = values
         ret = Tree('-i')
         ret.add_child(val)
         return ret
 
 
-    def on_oinf(self, _target, _option, _names, values):
+    def on_oinf(self, *_args, **kwargs):
         """
         oinf : OUT_SHORT WS PORTNO
              | OUT_LONG WS PORTNO
              | OUT_SHORT WS IDENT
              | OUT_LONG WS IDENT
         """
+        values = kwargs["values"]
+
         _arg, _ws, val = values
         ret = Tree('-o')
         ret.add_child(val)
         return ret
 
 
-    def on_module(self, _target, _option, _names, values):
+    def on_module(self, *_args, **kwargs):
         """
         module : MOD_SHORT WS IDENT
                | MOD_LONG WS IDENT
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_module_body(self, _target, _option, _names, values):
+    def on_module_body(self, *_args, **kwargs):
         """
         module_body : ARG_SHORT WS WORD
                     | ARG_SHORT WS IDENT
@@ -274,28 +310,32 @@ class IP6TablesParser(BisonParser):
                     | ARG_LONG WS PORTNO
                     | ARG_LONG WS IPV6_CIDR
         """
+        values = kwargs["values"]
+
         arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
 
 
-    def on_jump(self, _target, _option, _names, values):
+    def on_jump(self, *_args, **kwargs):
         """
         jump : JUMP_SHORT WS action
              | JUMP_LONG WS action
         """
+        values = kwargs["values"]
+
         jump = Tree('-j')
         jump.add_child(values[2])
         return jump
 
 
-    def on_action(self, _target, _option, _names, values):
+    def on_action(self, *_args, **kwargs):
         """
         action : ACCEPT
                | DROP
         """
-        return Tree(values[0])
+        return Tree(kwargs["values"][0])
 
 
     _ipv6_seg = '[[:xdigit:]]{1,4}'
