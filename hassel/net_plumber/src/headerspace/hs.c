@@ -531,9 +531,8 @@ bool hs_is_empty(const struct hs *hs) {
 bool hs_is_sub(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
-    return hs_is_sub_eq(a,b) && !hs_is_equal(a,b);
-
     if (hs_is_empty(b)) return false;
+    return hs_is_sub_eq(a,b) && !hs_is_sub_eq(b,a);
 }
 
 bool hs_is_equal(const struct hs *a, const struct hs *b) {
