@@ -57,6 +57,10 @@ vec_destroy (struct hs_vec *v)
   if (v->diff) free (v->diff);
 }
 
+/*
+ * Traverses diff lists of SRC and checks for overlaps with ISECT to be added to
+ * the diff list DST.
+ */
 static void
 vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, size_t len)
 {
@@ -95,6 +99,10 @@ vec_elem_replace_and_delete (struct hs_vec *v, size_t i, size_t j)
   vec_elem_remove(v,j);
 }
 
+/*
+ * Compares all elements of A and B to create a new intersection vector. Also
+ * checks a diffs for overlaps and adds them accordingly.
+ */
 struct hs_vec
 vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
 {
@@ -345,6 +353,10 @@ hs_comp_diff (struct hs *hs)
   hs->list = new_list;
 }
 
+/*
+ * Complements HS by combining all array complements plus diff arrays.
+   If HS is empty then the all set represented as an all X vector is returned.
+ */
 void
 hs_cmpl (struct hs *hs)
 {
