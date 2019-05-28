@@ -417,7 +417,7 @@ void NetPlumber::check_node_for_slice_leakage(Node *node) {
   if (node->prev_in_pipeline.empty()) {
     for (auto const &prev: node->next_in_pipeline) {
       for (auto const &next: (*prev->r_pipeline)->node->next_in_pipeline) {
-	check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
+        check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
       }
     }
   }
@@ -426,7 +426,7 @@ void NetPlumber::check_node_for_slice_leakage(Node *node) {
   if (node->next_in_pipeline.empty()) {
     for (auto const &next: node->prev_in_pipeline) {
       for (auto const &prev: (*next->r_pipeline)->node->prev_in_pipeline) {
-	check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
+        check_pipe_for_slice_leakage((*prev->r_pipeline), (*next->r_pipeline));
       }
     }
   }
