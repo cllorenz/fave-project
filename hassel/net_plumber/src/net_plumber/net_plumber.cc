@@ -468,6 +468,7 @@ void NetPlumber::check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out) {
 	 << std::dec << ", space " << outspace << ")";
       std::string *e = new std::string(es.str());
       slice_leakage_callback(this, NULL, e);
+      delete e;
     }
   }
 }
