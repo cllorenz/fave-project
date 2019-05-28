@@ -710,7 +710,7 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_no_exception() {
 
   array_t *mask = array_from_str("xxxxxxxx");
   struct hs *space = hs_create(1);
-  hs_add(space, array_copy(mask, 1));
+  hs_add(space, mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -741,7 +741,7 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_with_exception() {
   
   array_t *mask = array_from_str("xxxxxxxx");
   struct hs *space = hs_create(1);
-  hs_add(space, array_copy(mask, 1));
+  hs_add(space, mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
