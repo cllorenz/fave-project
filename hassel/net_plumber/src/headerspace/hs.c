@@ -66,7 +66,8 @@ vec_diff (struct hs_vec *dst, const array_t *isect, const struct hs_vec *src, si
 {
   for (size_t i = 0; i < src->used; i++) {
     array_t *tmp = array_isect_a (isect, src->elems[i], len);
-    if (tmp) vec_append (dst, tmp, true);
+    if (tmp && !array_has_z(tmp, len)) vec_append (dst, tmp, true);
+    else if (tmp) array_free(tmp);
   }
 }
 
