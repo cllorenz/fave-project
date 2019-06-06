@@ -2,6 +2,7 @@
 
 import json
 from xml.dom import minidom
+from copy import deepcopy
 
 from util.packet_util import normalize_ipv4_address, normalize_ipv6_address, normalize_vlan_tag
 from netplumber.vector import Vector, set_field_in_vector
@@ -30,20 +31,26 @@ def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_
             for ae_port in ae_ports:
                 out_port, vlan = ae_port.split('.')
 
-                mask = Vector(length=mapping['length'])
-                set_field_in_vector(mapping, mask, 'packet.ether.vlan', '1'*16)
+#                mask = Vector(length=mapping['length'])
+#                set_field_in_vector(mapping, mask, 'packet.ether.vlan', '1'*16)
 
-                rewrite = Vector(length=mapping['length'])
-                set_field_in_vector(mapping, mask, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+#                rewrite = Vector(length=mapping['length'])
+#                set_field_in_vector(mapping, rewrite, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+
+                in_ports = [
+                    ae_in.split('.')[0] for ae_in in ae_ports if ae_in != ae_port
+                ]
+
+                set_field_in_vector(mapping, match, 'packet.ether.vlan', normalize_vlan_tag(vlan))
 
                 rules.append({
-                    'action' : 'rw',
+                    'action' : 'fwd',
                     'id' : tid + rid,
-                    'in_ports' : [],
+                    'in_ports' : [ports[router + ':' + in_port] for in_port in in_ports],
                     'out_ports' : [ports[router + ':' + out_port]],
-                    'match' : match.vector,
-                    'mask' : mask.vector,
-                    'rewrite' : rewrite.vector
+                    'match' : deepcopy(match.vector)
+#                    'mask' : mask.vector,
+#                    'rewrite' : rewrite.vector
                 })
 
         elif 'dsc' in port:
@@ -57,14 +64,16 @@ def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_
             set_field_in_vector(mapping, mask, 'packet.ether.vlan', '1'*16)
 
             rewrite = Vector(length=mapping['length'])
-            set_field_in_vector(mapping, mask, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+            set_field_in_vector(mapping, rewrite, 'packet.ether.vlan', normalize_vlan_tag(vlan))
+
+            set_field_in_vector(mapping, match, 'packet.ether.vlan', normalize_vlan_tag(vlan))
 
             rules.append({
-                'action' : 'rw',
+                'action' : 'fwd',
                 'id' : tid + rid,
                 'in_ports' : [],
                 'out_ports' : [ports[out_port]],
-                'match' : match.vector,
+                'match' : deepcopy(match.vector),
                 'mask' : mask.vector,
                 'rewrite' : rewrite.vector
             })
@@ -75,7 +84,7 @@ def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_
                 'id' : tid + rid,
                 'in_ports' : [],
                 'out_ports' : [ports[port]],
-                'match' : match.vector
+                'match' : deepcopy(match.vector)
             })
 
     return rules
