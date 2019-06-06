@@ -429,22 +429,22 @@ for router_file in router_files:
 
         table_ipv4 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, True, tid, rid, *items
-        ) for rid, items  in enumerate(sorted(routing_table_ipv4, reverse=True))])
+        ) for rid, items  in enumerate(sorted(routing_table_ipv4, reverse=True))], [])
         len_ipv4 = len(table_ipv4)
 
         table_ipv6 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, False, tid, rid + len_ipv4, *items
-        ) for rid, items  in enumerate(sorted(routing_table_ipv6, reverse=True))])
+        ) for rid, items  in enumerate(sorted(routing_table_ipv6, reverse=True))], [])
 
-        default_ipv4 = [default_rules[0]]
+        default_ipv4 = [default_rules[0]] if len(default_rules) > 0 else []
         default_ipv4 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, True, tid, 65533, *items
-        ) for items in default_ipv4])
+        ) for items in default_ipv4], [])
 
-        default_ipv6 = [default_rules[1]]
+        default_ipv6 = [default_rules[1]] if len(default_rules) > 1 else []
         default_ipv6 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, False, tid, 65534, *items
-        ) for items in default_ipv6])
+        ) for items in default_ipv6], [])
 
         default_rules = default_ipv4 + default_ipv6
 
