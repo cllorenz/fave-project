@@ -7,12 +7,15 @@ from copy import deepcopy
 from util.packet_util import normalize_ipv4_address, normalize_ipv6_address, normalize_vlan_tag
 from netplumber.vector import Vector, set_field_in_vector
 
+ipv6_prefix = normalize_ipv6_address('64:ff9b::/96')[:96]
+
 def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_ports):
     match = Vector(mapping['length'])
     field = 'packet.ipv4.destination' if is_ipv4 else 'packet.ipv6.destination'
 
     if is_ipv4:
-        fvec = normalize_ipv4_address(address)
+        fvec = ipv6_prefix + normalize_ipv4_address(address)
+        #fvec = normalize_ipv4_address(address)
     else:
         try:
             fvec = normalize_ipv6_address(address)
@@ -20,7 +23,8 @@ def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_
             print address
             raise
 
-    set_field_in_vector(mapping, match, field, fvec)
+#    set_field_in_vector(mapping, match, field, fvec)
+    set_field_in_vector(mapping, match, 'packet.ipv6.destination', fvec)
 
     rules = []
     for port in out_ports:
