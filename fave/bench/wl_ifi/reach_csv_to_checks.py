@@ -9,7 +9,7 @@ def print_help():
     print "synopsis: %s [-h][-c <checkfile>][-m <mapfile>][-p <policyfile>]" % sys.argv[0]
     print "-h - prints help message and exits"
     print "-c <checkfile> - specifies the json file to write the checks (default: checks.json)."
-    print "-m <mapfile> - specifies the json file containing a mapping between vlan tags and domain names (default: mapping.json)."
+    print "-m <mapfile> - specifies the json file containing a mapping between vlan tags and domain names (default: inventory.json)."
     print "-p <policyfile> - specifies the csv file containing the policy (default: policy.csv)."
 
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     checks = []
 
     checks_file = 'checks.json'
-    map_file = 'mapping.json'
+    inventory_file = 'inventory.json'
     policy_file = 'policy.csv'
 
     try:
@@ -37,7 +37,7 @@ if __name__ == '__main__':
             checks_file = opt
 
         elif arg == '-m':
-            map_file = opt
+            inventory_file = opt
 
         elif arg == '-p':
             policy_file = opt
@@ -48,8 +48,8 @@ if __name__ == '__main__':
             sys.exit(2)
 
 
-    with open(map_file, 'r') as map_file:
-        mapping = json.loads('\n'.join([line for line in map_file.read().split('\n') if not line.startswith('#')]))
+    with open(inventory_file, 'r') as inventory_file:
+        mapping = json.load(inventory_file)['vlan_to_domain']
 
     checks = []
     with open(policy_file, 'r') as csv_file:

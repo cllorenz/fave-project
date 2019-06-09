@@ -13,6 +13,7 @@ IFI = {
     "routes" : []
 }
 
+INVENTORY = "bench/wl_ifi/inventory.json"
 TOPOLOGY = "bench/wl_ifi/topology.json"
 ROUTES = "bench/wl_ifi/routes.json"
 POLICIES = "bench/wl_ifi/policies.json"
@@ -30,6 +31,7 @@ if __name__ == '__main__':
     import json
     import os
 
+    os.system("python2 bench/wl_ifi/inventorygen.py")
     os.system("python2 bench/wl_ifi/topogen.py")
     os.system("python2 bench/wl_ifi/routegen.py")
     os.system("python2 bench/wl_ifi/policygen.py")
@@ -43,7 +45,7 @@ if __name__ == '__main__':
     os.system(
         "python2 bench/wl_ifi/reach_csv_to_checks.py " +
         "-p bench/wl_ifi/reachability.csv " +
-        "-m bench/wl_ifi/vlan_to_dn.json " +
+        "-m %s " % INVENTORY +
         "-c %s" % CHECKS
     )
 
