@@ -32,6 +32,8 @@
 
 ### NetPlumber
 
+ - Fix Rule Reachability and Shadowing detection which slows down rule insertion
+in large tables tremendously
  - improve test coverage
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
