@@ -9,10 +9,7 @@
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
- - create benchmark with IFI network
-    - define inventory
-    - define topology
-    - build network from inventory and topology
+ - add hosts as packet filters to IFI benchmark (optional)
  - create benchmark with TUM-i8 network
  - create benchmark with Stanford network
  - create benchmark with Internet2 network
