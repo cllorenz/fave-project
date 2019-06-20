@@ -19,6 +19,7 @@ PARSERS = {
 
 with open(RULESET_FILE, 'r') as rsf:
     ruleset = rsf.read()
+    csv = []
 
     for pname in ['antlr', 'pyparsing', 'pybison']:
         parser = PARSERS[pname]
@@ -47,6 +48,15 @@ with open(RULESET_FILE, 'r') as rsf:
         mean = ROUND(reduce(lambda x, y: x + y, meas)/len(meas))
         median = ROUND(sorted(meas)[len(meas)/2])
 
+        minimum = ROUND(min(meas))
+        maximum = ROUND(max(meas))
+
         print '%10s - mean: %ss, median: %ss, min: %ss, max: %ss' % (
-            pname, mean, median, ROUND(min(meas)), ROUND(max(meas))
+            pname, mean, median, minimum, maximum
+        )
+        csv.append((pname, mean, median, minimum, maximum))
+
+    with open('parsers.csv', 'w') as csvf:
+        csvf.write(
+            '\n'.join([','.join([str(i) for i in line]) for line in csv]) + '\n'
         )
