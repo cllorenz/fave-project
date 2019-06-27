@@ -1,5 +1,11 @@
 ## TODOs
 
+### Policy Translator
+
+ - introduce waypoint policies
+ - generate virtual network reachability matrix
+
+
 ### FaVe
 
  - fix removal of firewall rules
