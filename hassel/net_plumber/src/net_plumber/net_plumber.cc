@@ -38,7 +38,9 @@ using namespace net_plumber;
 
 LoggerPtr NetPlumber::logger(Logger::getLogger("NetPlumber"));
 LoggerPtr loop_logger(Logger::getLogger("DefaultLoopDetectionLogger"));
+#ifdef CHECK_BLACKHOLES
 LoggerPtr blackhole_logger(Logger::getLogger("DefaultBlackholeDetectionLogger"));
+#endif
 #ifdef CHECK_REACH_SHADOW
 LoggerPtr unreach_logger(Logger::getLogger("DefaultUnreachDetectionLogger"));
 LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
@@ -71,6 +73,7 @@ void default_loop_callback(NetPlumber *N, Flow *f, void* /*data*/) {
   LOG4CXX_FATAL(loop_logger,error_msg.str());
 }
 
+#ifdef CHECK_BLACKHOLES
 void default_blackhole_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
@@ -78,6 +81,7 @@ void default_blackhole_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
       " (ID1: " << e.id1 << ")";
   LOG4CXX_FATAL(blackhole_logger,error_msg.str());
 }
+#endif
 
 #ifdef CHECK_REACH_SHADOW
 void default_rule_unreach_callback(NetPlumber *N, Flow *f, void *data) {
@@ -507,8 +511,10 @@ NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
   this->last_event.type = None;
   this->loop_callback = default_loop_callback;
   this->loop_callback_data = NULL;
+#ifdef CHECK_BLACKHOLES
   this->blackhole_callback = default_blackhole_callback;
   this->blackhole_callback_data = NULL;
+#endif
 #ifdef CHECK_REACH_SHADOW
   this->rule_unreach_callback = default_rule_unreach_callback;
   this->rule_unreach_callback_data = NULL;

@@ -142,16 +142,22 @@ namespace net_plumber {
     //call back function in case of a loop
     global_error_callback_t loop_callback;
     void *loop_callback_data;
+#ifdef CHECK_BLACKHOLES
     global_error_callback_t blackhole_callback;
     void *blackhole_callback_data;
+#endif
+#ifdef CHECK_REACH_SHADOW
     global_error_callback_t rule_unreach_callback;
     void *rule_unreach_callback_data;
     global_error_callback_t rule_shadow_callback;
     void *rule_shadow_callback_data;
+#endif
+#ifdef PIPE_SLICING
     global_error_callback_t slice_overlap_callback;
     void *slice_overlap_callback_data;
     global_error_callback_t slice_leakage_callback;
     void *slice_leakage_callback_data;
+#endif
 
     /*
      * constructor.
