@@ -28,6 +28,29 @@ extern "C" {
 using namespace net_plumber;
 using namespace std;
 
+#ifdef PIPE_SLICING
+void _load_slices_from_file(string json_file_path, NetPlumber * N, size_t hdr_len) {
+  ifstream jsfile;
+  Json::Value root;
+  Json::Reader reader;
+
+  // read slice definition
+  string fname = json_file_path + "/" + "slices.json";
+  jsfile.open(fname.c_str());
+  if (!jsfile.good()) {
+    printf("No such file: %s. Use empty default instead.\n",fname.c_str());
+    return;
+  }
+  reader.parse(jsfile,root,false);
+  Json::Value slices = root["slices"];
+  for (Json::ArrayIndex i=0; i<slices.size(); i++) {
+    hs *h = val_to_hs(slices[i]["space"],hdr_len);
+    N->add_slice(slices[i]["id"].asInt(), h);
+  }
+  jsfile.close();
+}
+#endif /* PIPE_SLICING */
+
 void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *filter, size_t hdr_len) {
   double start, end;
   int rule_counter = 0;
@@ -38,23 +61,9 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
   double total_run_time = 0;
 
 #ifdef PIPE_SLICING
-  // read slice definition
-  string fname = json_file_path + "/" + "slices.json";
-  jsfile.open(fname.c_str());
-  if (!jsfile.good()) {
-    printf("Error opening the file %s\n",fname.c_str());
-    return;
-  }
-  reader.parse(jsfile,root,false);
-  Json::Value slices = root["slices"];
-  for (Json::ArrayIndex i=0; i<slices.size(); i++) {
-    hs *h = val_to_hs(slices[i]["space"],hdr_len);
-    N->add_slice(slices[i]["id"].asInt(), h);
-  }
-  jsfile.close();
-    
-#endif /* PIPE_SLICING */
-  
+  _load_slices_from_file(json_file_path, N, hdr_len);
+#endif
+
   // read topology
   string file_name = json_file_path + "/" + "topology.json";
   jsfile.open (file_name.c_str());
