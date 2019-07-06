@@ -25,33 +25,34 @@ class PolicyBuilder(object):
     """Offers class methods to build a policy object from a policy and/or role
     file."""
 
+    define_pattern = "(def | define | describe)"
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
     value_pattern = "[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
     comment_pattern = r"[ \t]* \# [ \t]* .* [\n]"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""
     (\n | %s)*
-    def [ ] role [ ] (?P<role_name> %s) [\n]+
+    %s [ ] role [ ] (?P<role_name> %s) [\n]+
     (?P<role_content>
         (((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)
-        | ((\t | [ ]{4}) includes [ ] %s(. (\* | %s) )? [\n]+)
+        | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? [\n]+)
         | ((\t | [ ]{4}) offers [ ] %s [\n]+))*
         | (%s)
     )
     end [\n]+
     """ % (
-        comment_pattern, name_pattern, name_pattern, value_pattern,
+        comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern,
         name_pattern, name_pattern, name_pattern, comment_pattern_nl
     )
     service_pattern = r"""
     (\n | %s)*
-    def [ ] service [ ] (?P<service_name> %s) [\n]+
+    %s [ ] service [ ] (?P<service_name> %s) [\n]+
     (?P<service_content>
         ((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)*
         | (%s)
     )
     end [\n]+
-    """ % (comment_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
+    """ % (comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
 
     role_service_regex = re.compile(
         "(%s | %s | %s)+" % (comment_pattern, role_pattern, service_pattern),
@@ -75,10 +76,10 @@ class PolicyBuilder(object):
 
     policies_regex = re.compile(r"""
     (\n | %s)*
-    def [ ] policies\(default: [ ] (?P<default> allow | deny)\) [\n]+
+    %s [ ] policies\(default: [ ] (?P<default> allow | deny)\) [\n]+
         [ \t]* (?P<policies> (%s | (\t)? \n | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? [\n]+)*)
     end [\n]+
-    """ % (comment_pattern, comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
+    """ % (comment_pattern, define_pattern, comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
 
     policy_regex = re.compile(r"""
     (\n | %s)*
