@@ -31,6 +31,8 @@ array_t *array_from_str (const char *s);
 char    *array_to_str   (const array_t *a, size_t len, bool decimal);
 void     array_print    (const array_t *a, size_t len, bool decimal);
 
+bool array_all_x  (const array_t *a, size_t len);
+
 bool array_has_x  (const array_t *a, size_t len);
 bool array_has_z  (const array_t *a, size_t len);
 bool array_is_eq  (const array_t *a, const array_t *b, size_t len);

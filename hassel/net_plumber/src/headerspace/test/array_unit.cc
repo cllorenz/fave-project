@@ -19,6 +19,34 @@
 #include "array_unit.h"
 
 
+void ArrayTest::test_array_all_x() {
+    printf("\n");
+
+    array_t *a = array_from_str("xxxxxxxx");
+    CPPUNIT_ASSERT(array_all_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("xxxxxxx0");
+    CPPUNIT_ASSERT(!array_all_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("xxxxxx1x");
+    CPPUNIT_ASSERT(!array_all_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("xxxxxxxz");
+    CPPUNIT_ASSERT(!array_all_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx");
+    CPPUNIT_ASSERT(array_all_x(a, 6));
+    array_free(a);
+
+    a = array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxx0,xxxxxxxx");
+    CPPUNIT_ASSERT(!array_all_x(a, 6));
+    array_free(a);
+}
+
 void ArrayTest::test_array_has_x() {
     printf("\n");
 

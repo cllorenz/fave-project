@@ -17,6 +17,8 @@
 #define EVEN_MASK ( (array_t) 0xaaaaaaaaaaaaaaaaull )
 #define ODD_MASK  ( (array_t) 0x5555555555555555ull )
 
+#define ALL_X ((array_t) 0xffffffffffffffffull)
+
 static inline bool
 has_x (array_t x)
 { return x & (x >> 1) & ODD_MASK; }
@@ -175,6 +177,13 @@ void array_print(const array_t *a, size_t len, bool decimal) {
     char *a_s = array_to_str(a,len,decimal);
     fprintf(stdout,"%s\n",a_s);
     free(a_s);
+}
+
+bool array_all_x  (const array_t *a, size_t len)
+{
+  for (size_t i = 0; i < SIZE (len); i++)
+    if (a[i] != ALL_X) return false;
+  return true;
 }
 
 bool
