@@ -61,9 +61,11 @@ def _ast_to_rule(node, ast, idx=0):
         "mh-type" : "module.ipv6header.mh.type", # type[:type...]
     }
 
-    tag = lambda k: tags[k]
+    strip_ap = lambda x: x.lstrip('-')
 
-    is_field = lambda f: tags.has_key(f.value)
+    tag = lambda k: tags[strip_ap(k)]
+
+    is_field = lambda f: tags.has_key(strip_ap(f.value))
     is_negated = lambda f: f.is_negated()
 
     value = lambda k: k.get_first().value if k.get_first() is not None else ""
