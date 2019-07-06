@@ -7,6 +7,7 @@ import sys
 import getopt
 import json
 import socket
+import pprint
 
 import generator
 
@@ -20,9 +21,10 @@ def print_help():
 
     eprint(
         "ip6np -n <node> -p <ports> -f <file>",
+        "\t-d dump model",
         "\t-n <node> node identifier",
         "\t-i <ip> ip address",
-        "\t-p <ports> number of ports"
+        "\t-p <ports> number of ports",
         "\t-f <file> ip6tables ruleset",
         sep="\n"
     )
@@ -35,10 +37,11 @@ def main(argv):
     ifile = ''
     node = ''
     ports = [1, 2]
+    dump = False
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hn:i:p:f:", ["node=", "file="]))
+        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:", ["node=", "file="]))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -55,18 +58,24 @@ def main(argv):
             ports = range(1, int(arg)+1)
         elif opt == '-f':
             ifile = arg
+        elif opt == '-d':
+            dump = True
 
     parser = IP6TablesParser()
     ast = parser.parse(ifile)
 
     model = generator.generate(ast, node, address, ports)
 
-    aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    aggr.connect(UDS_ADDR)
+    if dump:
+        pprint.pprint(model.to_json())
 
-    aggr.send(json.dumps(model.to_json()))
+    else:
+        aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        aggr.connect(UDS_ADDR)
 
-    aggr.close()
+        aggr.send(json.dumps(model.to_json()))
+
+        aggr.close()
 
 
 if __name__ == "__main__":
