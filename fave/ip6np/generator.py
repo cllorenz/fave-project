@@ -12,6 +12,7 @@ def _is_rule(ast):
 
 
 def _ast_to_rule(node, ast, idx=0):
+    is_default = False
     tags = {
         "i" : "interface",
         "s" : "packet.ipv6.source",
@@ -71,6 +72,7 @@ def _ast_to_rule(node, ast, idx=0):
         ast = ast.get_child("-A")
     elif ast.has_child("-P"):
         ast = ast.get_child("-P")
+        is_default = True
 
     if not ast:
         return ([], {})
@@ -79,16 +81,20 @@ def _ast_to_rule(node, ast, idx=0):
         SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f)
     ]
 
-    for field in body:
-        field.vector = field_value_to_bitvector(field)
-
     negated = [tag(f.value) for f in ast if is_field(f) and is_negated(f)]
 
     action = _get_action_from_ast(ast)
     action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
 
     chain = _get_chain_from_ast(ast)
-    rule = SwitchRule(node, chain, idx, in_ports=['in'], match=Match(body), actions=[action])
+    rule = SwitchRule(
+        node,
+        chain,
+        idx if not is_default else 65535,
+        in_ports=['in'],
+        match=Match(body),
+        actions=[action]
+    )
 
     return ([rule], {rule : negated}) if negated else ([rule], {})
 
