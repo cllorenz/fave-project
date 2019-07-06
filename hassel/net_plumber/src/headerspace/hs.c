@@ -593,6 +593,17 @@ bool hs_has_diff(const struct hs *a) {
 bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     assert (a->len == b->len);
 
+    // trivial case (A is empty)
+    const bool a_empty = hs_is_empty(a);
+    if (a_empty) return true;
+
+    // trivial case (B is empty but A is not)
+    const bool b_empty = hs_is_empty(b);
+    if (b_empty && !a_empty) return false;
+
+    // trivial case (B is All set)
+    if (b->list.used == 1 && array_all_x(b->list.elems[0], b->len)) return true;
+
     // simple case (no diffs)
     if (!hs_has_diff(a) && !hs_has_diff(b)) {
 
