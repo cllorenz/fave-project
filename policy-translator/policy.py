@@ -626,7 +626,7 @@ class Service(object):
         attributes: A dictionary containing attributes and their values.
     """
 
-    valid_role_attr = ["protocol", "port"]
+    valid_service_attr = ["protocol", "port"]
 
     def __init__(self, name, policy, attributes=None):
         """Initialises a Service object with the given name, policy, attributes
@@ -664,7 +664,7 @@ class Service(object):
                 valid attributes.
         """
 
-        if key in self.valid_role_attr:
+        if key in self.valid_service_attr:
             try:
                 self.attributes[key] = ast.literal_eval(value)
             except Exception:
