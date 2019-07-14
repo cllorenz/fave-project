@@ -470,13 +470,22 @@ class Superrole(Role):
         self.subroles = subroles if subroles is not None else {}
         self.subservices = subservices if subservices is not None else {}
 
+    def __eq__(self, other):
+        assert isinstance(other, Superrole)
+
+        return all([
+            self.name == other.name,
+            self.subroles == other.subroles,
+            self.subservices == other.subservices
+        ])
+
     def add_attribute(self, key, value):
         """Sets an attribute value for all subroles. See base class."""
 
         for subrole in self.subroles.values():
             subrole.add_attribute(key, value)
 
-    def add_subrole(self, name, service):
+    def add_subrole(self, name, service=None):
         """Adds a subrole along with a service as subservice (optional).
 
         If the subrole added is a superrole, all of its subroles will be added
@@ -487,7 +496,7 @@ class Superrole(Role):
 
         Args:
             name: A string.
-            service: A string.
+            service: A string (default: None).
 
         Raises:
             RoleUnknownException: Role name is not known to the Policy object.
@@ -502,7 +511,7 @@ class Superrole(Role):
                         self.subroles[subrole] = self.policy.roles[subrole]
                         self.subservices[subrole] = new_subrole.subservices[subrole]
                     else:
-                        self.add_subrole(subrole, service)
+                        self.add_subrole(subrole, service=service)
             else:
                 self.subroles[name] = new_subrole
                 if name not in self.subservices.keys():
