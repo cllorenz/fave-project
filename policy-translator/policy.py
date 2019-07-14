@@ -376,6 +376,15 @@ class Role(object):
         self.attributes = attributes if attributes is not None else {}
         self.services = services if services is not None else {}
 
+    def __eq__(self, other):
+        assert isinstance(other, Role)
+
+        return all([
+            self.name == other.name,
+            self.attributes == other.attributes,
+            self.services == other.services
+        ])
+
     def add_attribute(self, key, value):
         """Sets an attribute value. If already set, it will be overwritten.
 
@@ -633,6 +642,14 @@ class Service(object):
         self.policy = policy
         self.attributes = attributes if attributes is not None else {}
 
+    def __eq__(self, other):
+        assert isinstance(other, Service)
+
+        return all([
+            self.name == other.name,
+            self.attributes == other.attributes
+        ])
+
     def add_attribute(self, key, value):
         """Sets an attribute value. If already set, it will be overwritten.
 
@@ -687,6 +704,15 @@ class ReachabilityPolicy(object):
         self.role_to = role_to
         self.policy = policy
         self.conditions = copy.deepcopy(conditions) if conditions is not None else []
+
+    def __eq__(self, other):
+        assert isinstance(other, ReachabilityPolicy)
+
+        return all([
+            self.role_from == other.role_from,
+            self.role_to == other.role_to,
+            self.conditions == other.conditions
+        ])
 
     def update_conditions(self, new_conditions):
         """Adds or removes conditions.
