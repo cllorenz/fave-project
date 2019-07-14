@@ -76,7 +76,7 @@ class PolicyBuilder(object):
 
     policies_regex = re.compile(r"""
     (\n | %s)*
-    %s [ ] policies\(default: [ ] (?P<default> allow | deny)\) [\n]+
+    %s [ ] policies [ \t]* \(default: [ \t]+ (?P<default> allow | deny)\) [\n]+
         [ \t]* (?P<policies> (%s | (\t)? \n | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? [\n]+)*)
     end [\n]+
     """ % (comment_pattern, define_pattern, comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
