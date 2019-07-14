@@ -46,4 +46,4 @@ class InvalidAttributeException(PolicyException):
 
 class InvalidValueException(PolicyException):
     def __init__(self, attribute, value):
-        self.message = "Attributwert %s  = %s ist ungültig." % (attribute, value)
+        self.message = "Attributwert %s = %s ist ungültig." % (attribute, value)
