@@ -37,6 +37,8 @@ class Policy(object):
             is "deny" (False) or "allow" (True).
     """
 
+    default_roles = ["Internet"]
+
     def __init__(self):
         """Initialises a Policy object with role "Internet", no services, no
         policies and default policy "deny"."""
@@ -45,7 +47,17 @@ class Policy(object):
         self.services = {}
         self.policies = {}
         self.default_policy = False
-        self.add_role("Internet")
+        for role in self.default_roles:
+            self.add_role(role)
+
+    def __eq__(self, other):
+        assert isinstance(other, Policy)
+
+        return all([
+            self.roles == other.roles,
+            self.services == other.services,
+            self.default_policy == other.default_policy
+        ])
 
     def add_role(self, name):
         """Adds a role.
@@ -56,8 +68,9 @@ class Policy(object):
         Raises:
             NameTakenException: A role or service with this name already exists.
         """
-
-        if (self.role_exists(name)) or (self.service_exists(name)):
+        if not name in self.default_roles and (
+            self.role_exists(name) or self.service_exists(name)
+        ):
             raise NameTakenException(name)
 
         self.roles[name] = Role(name, self)
