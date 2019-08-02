@@ -23,7 +23,7 @@
     - include by using FaVe instead of a direct read
  - Gitlab-CI
  - integrate policy translator
- - use asynchronous rpc calls to improve performance
+ - use asynchronous rpc calls to improve performance? -> complex, better use libnetplumber instead?
     - introduce counter for FaVe events
     - save mapping generations marked by event counters
     - extend dumping with mapping generations
@@ -31,7 +31,8 @@
     - use rpc calls asynchonously
     - support asynchronous handling of rpc return values
  - Upgrade code to Python3
-
+ - libnetplumber
+    - replace rpc calls with library calls
 
 ### NetPlumber
 
@@ -41,12 +42,28 @@ in large tables tremendously
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
  - improve code readability
- - libnetplumber? (C++ plus Python)
- - BDDs instead of Header Spaces?
+ - libnetplumber (C++ plus Python)
+    - wrapper around net_plumber.cc
+    - native json data format instead of json string parsing
+ - BDDs instead of Header Spaces
+    - generic interface for set representations and operations
+    - benchmarks: IFI, AD6
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
 'z' is found remove the array. Pros: makes checks for the empty set more
 efficient and the memory footprint might be lowered. Cons: might break stuff at
 funny places... which leads to the question: why is that code even there?
- - support asynchronous rpc calls
+ - Replace strange hs representation by simpler $A - A_d$ data structure
+    - pass unit tests
+    - meaningful debug output for unit tests
+    - pass integration tests
+    - pass benchmarks
+    - optimization: in-situ (less copying)
+    - optimization: cosequent reduction to NULL
+    - optimization: function inlining
+    - optimization: cover trivial cases
+ - documentation
+   - abstract (and static) doc
+   - generated low level docs from code
+ - support asynchronous rpc calls? -> complex, better use libnetplumber instead?
     - extend callbacks with rpc identifyer
     - extend logs with rpc identifyer
