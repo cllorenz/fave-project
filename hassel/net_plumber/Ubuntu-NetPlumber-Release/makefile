@@ -15,6 +15,8 @@ RM := rm -rf
 -include src/headerspace/subdir.mk
 -include subdir.mk
 -include objects.mk
+#-include docs.mk
+#-include docs/subdir.mk
 
 # All Target
 all: net_plumber
@@ -46,6 +48,9 @@ endif
 ifneq ($(strip $(C_UPPER_DEPS)),)
 -include $(C_UPPER_DEPS)
 endif
+ifneq ($(strip $(DOCS_DEPS)),)
+-include $(DOCS_DEPS)
+endif
 endif
 
 -include ../makefile.defs
@@ -66,11 +71,15 @@ clean:
 	-find ../ -name "*.gcov" -delete
 	-find ../ -name "*.gcno" -delete
 	-find ../ -name "*.gcda" -delete
-	-rm -rf net_plumber_coverage.info /tmp/net_plumber_coverage/
+	-$(RM) net_plumber_coverage.info /tmp/net_plumber_coverage/
+	-$(RM) $(DOCS_OBJS)
 	-@echo ' '
 
 test: all
 	./net_plumber --test
+
+docs: $(DOCS_OBJS)
+	-@echo 'Built documentation.'
 
 coverage: all
 	./net_plumber --test
