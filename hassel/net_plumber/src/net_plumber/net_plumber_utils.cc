@@ -187,12 +187,21 @@ void hs_to_json(Json::Value& res, hs *h) {
     }
 
     size_t diff_used = 0;
+#ifdef NEW_HS
+    if (!hs_vec_is_empty(&h->diff)) diff_used = h->diff.used;
+    for (size_t i = 0; i < diff_used; ++i) {
+        char *elem = array_to_str(h->diff.elems[i], h->len, false);
+        diff.append( (Json::StaticString)elem );
+        free(elem);
+    }
+#else
     if (vec.diff && vec.diff->used) diff_used = vec.diff->used;
     for (size_t i = 0; i < diff_used; i++) {
         char *elem = array_to_str(vec.diff->elems[i],h->len,false);
         diff.append( (Json::StaticString)elem );
         free(elem);
     }
+#endif
 
     res["list"] = list;
     res["diff"] = (!diff.empty()) ? diff : Json::Value(Json::nullValue);

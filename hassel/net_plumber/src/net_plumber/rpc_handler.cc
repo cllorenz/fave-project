@@ -54,7 +54,17 @@ hs *val_to_hs(const Json::Value &val, int len) {
   else if (val.isObject()) {
     const Json::Value &list = val["list"];
     const Json::Value &diff = val["diff"];
+#ifdef NEW_HS
+    hs_vec *v_list = &res->list;
+    for (Json::Value::ArrayIndex i = 0; i < list.size(); i++)
+      hs_vec_append(v_list, val_to_array(list[i]));
+
+    hs_vec *v_diff = &res->diff;
+    for (Json::Value::ArrayIndex i = 0; i < diff.size(); i++)
+      hs_vec_append(v_diff, val_to_array(diff[i]));
+#else
     hs_vec *v = &res->list;
+
 
     for (Json::Value::ArrayIndex i = 0; i < list.size(); i++) {
       hs_vec_append(v, val_to_array(list[i]), false);
@@ -64,6 +74,7 @@ hs *val_to_hs(const Json::Value &val, int len) {
       for (Json::Value::ArrayIndex j = 0; j < d.size(); j++)
         hs_vec_append(v_diff, val_to_array(d[j]), true);
     }
+#endif
   }
   return res;
 }
