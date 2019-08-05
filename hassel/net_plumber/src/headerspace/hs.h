@@ -13,6 +13,18 @@
 
 #include "array.h"
 
+#ifdef NEW_HS
+struct hs_vec {
+  array_t **elems;
+  size_t used, alloc;
+};
+
+struct hs {
+  size_t len;
+  struct hs_vec list;
+  struct hs_vec diff;
+};
+#else
 struct hs_vec {
   array_t **elems;
   struct hs_vec *diff;
@@ -23,6 +35,7 @@ struct hs {
   size_t len;
   struct hs_vec list;
 };
+#endif
 
 struct hs *hs_create  (size_t len);
 void       hs_destroy (struct hs *hs);
@@ -50,7 +63,11 @@ struct hs* hs_isect_a (const struct hs *a, const struct hs *b);
 bool hs_isect_arr (struct hs *dst, const struct hs *src, const array_t *arr);
 void hs_minus     (struct hs *a, const struct hs *b);
 void hs_rewrite   (struct hs *hs, const array_t *mask, const array_t *rewrite);
+#ifdef NEW_HS
+void hs_vec_append (struct hs_vec *v, array_t *a);
+#else
 void hs_vec_append (struct hs_vec *v, array_t *a, bool diff);
+#endif
 
 void hs_enlarge	  (struct hs *hs, size_t length);
 
@@ -64,6 +81,7 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
     const array_t *diff, const array_t *mask, const array_t *rewrite);
 #endif
 
+bool hs_vec_is_empty(const struct hs_vec *vec);
 bool hs_is_empty(const struct hs *hs);
 bool hs_is_equal(const struct hs *a, const struct hs *b);
 bool hs_is_sub(const struct hs *a, const struct hs *b);
