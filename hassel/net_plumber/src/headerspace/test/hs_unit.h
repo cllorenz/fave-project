@@ -25,6 +25,9 @@
 extern "C" {
   #include "../hs.h"
 }
+#include "log4cxx/logger.h"
+
+#include <sstream>
 
 #define HS_TEST_LEN 1
 
@@ -94,7 +97,25 @@ class HeaderspaceTest : public CppUnit::TestFixture {
         void test_merge();
 
     private:
+        static log4cxx::LoggerPtr logger;
         hs *h;
+        std::stringstream debug_msg;
+
+        void debug(const char *msg, hs *h) {
+            debug_msg << msg;
+            char *s = NULL;
+            if (h) {
+                s = hs_to_str(h);
+                debug_msg << s;
+            }
+
+            LOG4CXX_DEBUG(logger, debug_msg.str());
+
+            if (s) free(s);
+
+            debug_msg.str("");
+            debug_msg.clear();
+        }
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_HS_UNIT_H_
