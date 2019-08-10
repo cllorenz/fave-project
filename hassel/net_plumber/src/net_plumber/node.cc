@@ -343,7 +343,9 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
       next_flow->processed_hs = nullptr;
       (*(*pipe)->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
+#ifdef CHECK_BLACKHOLES
       hs_destroy(&p_arr);
+#endif
     }
   }
   if (h) free(h);
