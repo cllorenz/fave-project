@@ -103,7 +103,7 @@ void NetPlumberPlumbingTest::test_setup() {
       {0,2,0,0}
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_setup", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_add_rule() {
@@ -125,7 +125,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_rule() {
       {3,0,1,0} //new rule
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_rule", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_remove_rule() {
@@ -141,7 +141,7 @@ void NetPlumberPlumbingTest::test_pipeline_remove_rule() {
       {0,1,0,0}
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_remove_rule", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_add_group_rule() {
@@ -170,7 +170,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_group_rule() {
       {1,0,2,1}  //new rule 2
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_group_rule", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_add_group_rule_mix() {
@@ -195,7 +195,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_group_rule_mix() {
       {3,0,1,1}  //new rule 3
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_group_rule_mix", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_remove_group_rule() {
@@ -220,7 +220,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_link() {
       {0,2,0,0}
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_link", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_remove_link() {
@@ -249,7 +249,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_source() {
       {3,0,0,0}
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_source", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_remove_source() {
@@ -280,7 +280,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_probe() {
       {0,1,0,0},
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_add_probe", stats);
 }
 
 void NetPlumberPlumbingTest::test_pipeline_remove_probe() {
@@ -327,7 +327,7 @@ void NetPlumberPlumbingTest::test_pipeline_shared_ports() {
       {1,1,0,1}
   };
   //N->print_plumbing_network();
-  this->verify_pipe_stats(stats);
+  this->verify_pipe_stats("test_pipeline_shared_ports", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_source() {
@@ -352,7 +352,7 @@ void NetPlumberPlumbingTest::test_routing_add_source() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_source", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_source() {
@@ -382,7 +382,7 @@ void NetPlumberPlumbingTest::test_routing_remove_source() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_source", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_fwd_rule_lower_priority() {
@@ -416,7 +416,7 @@ void NetPlumberPlumbingTest::test_routing_add_fwd_rule_lower_priority() {
 #endif
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_fwd_rule_lower_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_rw_rule_lower_priority() {
@@ -448,7 +448,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_lower_priority() {
 #endif
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_rw_rule_lower_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_fwd_rule_higher_priority() {
@@ -482,7 +482,7 @@ void NetPlumberPlumbingTest::test_routing_add_fwd_rule_higher_priority() {
       {1,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_fwd_rule_higher_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority() {
@@ -512,7 +512,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_rw_rule_higher_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
@@ -551,7 +551,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
 #endif
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_rw_rule_higher_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_group_rule_mid_priority() {
@@ -597,7 +597,7 @@ void NetPlumberPlumbingTest::test_routing_add_group_rule_mid_priority() {
       {1,1}  // new rule 2
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_group_rule_mid_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_rule_block_bounce() {
@@ -638,7 +638,7 @@ void NetPlumberPlumbingTest::test_routing_add_rule_block_bounce() {
       {1,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_rule_block_bounce", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_group_rule_mid_priority() {
@@ -662,7 +662,7 @@ void NetPlumberPlumbingTest::test_routing_remove_group_rule_mid_priority() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_group_rule_mid_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_fwd_rule_lower_priority() {
@@ -686,7 +686,7 @@ void NetPlumberPlumbingTest::test_routing_remove_fwd_rule_lower_priority() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_fwd_rule_lower_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_rw_rule_lower_priority() {
@@ -710,7 +710,7 @@ void NetPlumberPlumbingTest::test_routing_remove_rw_rule_lower_priority() {
       {0,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_rw_rule_lower_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_fwd_rule_higher_priority() {
@@ -733,7 +733,7 @@ void NetPlumberPlumbingTest::test_routing_remove_fwd_rule_higher_priority() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_fwd_rule_higher_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_rw_rule_higher_priority() {
@@ -756,7 +756,7 @@ void NetPlumberPlumbingTest::test_routing_remove_rw_rule_higher_priority() {
       {2,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_remove_rw_rule_higher_priority", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_add_link() {
@@ -792,7 +792,7 @@ void NetPlumberPlumbingTest::test_routing_add_link() {
       {1,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats);
+  this->verify_source_flow_stats("test_routing_add_link", stats);
 }
 
 void NetPlumberPlumbingTest::test_routing_remove_link() {
@@ -822,7 +822,7 @@ void NetPlumberPlumbingTest::test_routing_remove_link() {
       {1,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats1);
+  this->verify_source_flow_stats("test_routing_remove_link", stats1);
   N->remove_link(11,12);
   int stats2[9][2] = {
         {1,1},
@@ -847,7 +847,7 @@ void NetPlumberPlumbingTest::test_routing_remove_link() {
         {0,0}
     };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats(stats2);
+  this->verify_source_flow_stats("test_routing_remove_link", stats2);
 }
 
 void loop_detected(NetPlumber* /*N*/, Flow* f, void* data) {
@@ -913,7 +913,7 @@ void NetPlumberPlumbingTest::test_false_probe() {
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), UNIVERSAL, new TrueCondition(),
        new FalseCondition(), probe_fire_counter, &a));
-  this->check_probe_counter(a,r);
+  this->check_probe_counter("test_false_probe", a, r);
   //N->print_plumbing_network();
 }
 
@@ -928,7 +928,7 @@ void NetPlumberPlumbingTest::test_true_probe() {
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), UNIVERSAL, new TrueCondition(),
        new TrueCondition(), probe_fire_counter, &a));
-  this->check_probe_counter(a,r);
+  this->check_probe_counter("test_true_probe", a, r);
 }
 
 void NetPlumberPlumbingTest::test_port_probe() {
@@ -941,7 +941,7 @@ void NetPlumberPlumbingTest::test_port_probe() {
   N->add_source_probe(
          make_sorted_list(1,200), UNIVERSAL, new TrueCondition(),
          c, probe_fire_counter, &a);
-  this->check_probe_counter(a,r);
+  this->check_probe_counter("test_port_probe", a, r);
 }
 
 void NetPlumberPlumbingTest::test_table_probe() {
@@ -956,7 +956,7 @@ void NetPlumberPlumbingTest::test_table_probe() {
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, f,
          c, probe_fire_counter, &a);
-  this->check_probe_counter(a,r);
+  this->check_probe_counter("test_table_probe",  a, r);
 }
 
 void NetPlumberPlumbingTest::test_reachability() {
@@ -969,7 +969,7 @@ void NetPlumberPlumbingTest::test_reachability() {
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, new TrueCondition(),
          c, probe_fire_counter, &a);
-  this->check_probe_counter(a,r);
+  this->check_probe_counter("test_reachability", a, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_no_update_add_rule() {
@@ -989,7 +989,7 @@ void NetPlumberPlumbingTest::test_probe_transition_no_update_add_rule() {
               NULL,
               NULL));
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_no_update_add_rule", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_no_update_remove_rule() {
@@ -1028,7 +1028,7 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule1() {
     array_from_str ("xxxxxxxx"), NULL, NULL
   ));
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_with_update_add_rule1", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule2() {
@@ -1048,7 +1048,7 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule2() {
               NULL,
               NULL));
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_with_update_add_rule2", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_with_update_remove_rule() {
@@ -1056,7 +1056,7 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_remove_rule() {
   memset(&A,0,sizeof A);
   N->remove_rule(node_ids[node_ids.size()-1]);
   probe_counter_t r = {0,0,0,1,1,0,0,0};
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_with_update_remove_rule", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_add_link() {
@@ -1071,7 +1071,7 @@ void NetPlumberPlumbingTest::test_probe_transition_add_link() {
          c, probe_fire_counter, &A);
   this->test_routing_add_link();
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_add_link", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_remove_link() {
@@ -1086,7 +1086,7 @@ void NetPlumberPlumbingTest::test_probe_transition_remove_link() {
          c, probe_fire_counter, &A);
   this->test_routing_remove_link();
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_remove_link", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_add_source() {
@@ -1108,7 +1108,7 @@ void NetPlumberPlumbingTest::test_probe_transition_add_source() {
       );
 
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_add_source", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_remove_source() {
@@ -1118,7 +1118,7 @@ void NetPlumberPlumbingTest::test_probe_transition_remove_source() {
   probe_counter_t r = {0,0,1,0,0,0,0,1};
   N->remove_source(node_ids[node_ids.size()-1]);
   //N->print_plumbing_network();
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_remove_source", A, r);
 }
 
 /* * * * * * * * * * *
@@ -1126,7 +1126,10 @@ void NetPlumberPlumbingTest::test_probe_transition_remove_source() {
  * * * * * * * * * * *
  */
 
-void NetPlumberPlumbingTest::verify_pipe_stats(int stats[][4]) {
+void NetPlumberPlumbingTest::verify_pipe_stats(const char *test_case, const int stats[][4]) {
+  stringstream intro_msg;
+  intro_msg << "========== pipelines: " << test_case << " ==========";
+  LOG4CXX_DEBUG(logger, intro_msg.str());
   for (unsigned i = 0; i < node_ids.size(); i++) {
       int fwd_pipeline;
       int bck_pipeline;
@@ -1147,7 +1150,11 @@ void NetPlumberPlumbingTest::verify_pipe_stats(int stats[][4]) {
   }
 }
 
-void NetPlumberPlumbingTest::verify_source_flow_stats(int stats[][2]) {
+void NetPlumberPlumbingTest::verify_source_flow_stats(const char *test_case, const int stats[][2]) {
+  stringstream intro_msg;
+  intro_msg << "========== source flows: " << test_case << " ==========";
+  LOG4CXX_DEBUG(logger, intro_msg.str());
+
   for (unsigned i = 0; i < node_ids.size(); i++) {
     int inc, exc;
     N->get_source_flow_stats(node_ids[i], inc, exc);
@@ -1169,7 +1176,13 @@ void NetPlumberPlumbingTest::log_probe_counter(
 }
 
 void NetPlumberPlumbingTest::check_probe_counter(
-    probe_counter_t result, probe_counter_t expected) {
+    const char *test_case,
+    const probe_counter_t result,
+    const probe_counter_t expected
+) {
+  stringstream intro_msg;
+  intro_msg << "========== probe counter: " << test_case << " ==========";
+  LOG4CXX_DEBUG(logger, intro_msg.str());
 
   log_probe_counter("start_true", result.start_true, expected.start_true);
   CPPUNIT_ASSERT(result.start_true == expected.start_true);

@@ -143,10 +143,10 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   net_plumber::NetPlumber *N;
   probe_counter_t A;
   std::vector<uint64_t> node_ids;
-  void verify_pipe_stats(int stats[][4]);
-  void verify_source_flow_stats(int stats[][2]);
+  void verify_pipe_stats(const char *test_case, const int stats[][4]);
+  void verify_source_flow_stats(const char *test_case, const int stats[][2]);
   void log_probe_counter(std::string counter, size_t result, size_t expected);
-  void check_probe_counter(probe_counter_t result, probe_counter_t expected);
+  void check_probe_counter(const char *test_case, const probe_counter_t result, const probe_counter_t expected);
 };
 
 
