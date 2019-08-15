@@ -718,7 +718,15 @@ List_t NetPlumber::get_table_ports(uint32_t id) {
   return this->table_to_ports[id];
 }
 
-void NetPlumber::print_table(uint32_t id) {
+void NetPlumber::print_node(Node *node) {
+    printf("%s\n", node->to_string().c_str());
+}
+
+void NetPlumber::print_node(const uint64_t id) {
+    print_node(id_to_node[id]);
+}
+
+void NetPlumber::print_table(const uint32_t id) {
   printf("%s\n", string(40,'@').c_str());
   printf("%sTable: 0x%x\n", string(4, ' ').c_str(),id);
   printf("%s\n", string(40,'@').c_str());
@@ -727,7 +735,7 @@ void NetPlumber::print_table(uint32_t id) {
   printf("Ports: %s\n", list_to_string(ports).c_str());
   printf("Rules:\n");
   for (auto const &rule: *rules_list) {
-    printf("%s\n", rule->to_string().c_str());
+    print_node(rule);
   }
 }
 

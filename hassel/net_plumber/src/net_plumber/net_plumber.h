@@ -202,7 +202,9 @@ namespace net_plumber {
     void add_table(uint32_t id, List_t ports);
     void remove_table(uint32_t id);
     List_t get_table_ports(uint32_t id);
-    void print_table(uint32_t id);
+    void print_node(const uint64_t id);
+    void print_node(Node *node);
+    void print_table(const uint32_t id);
     size_t expand(size_t length);
 
     /*
