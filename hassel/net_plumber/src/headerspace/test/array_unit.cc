@@ -50,7 +50,31 @@ void ArrayTest::test_array_all_x() {
 void ArrayTest::test_array_has_x() {
     printf("\n");
 
-    array_t *a = array_from_str(
+    array_t *a = array_from_str("11001110");
+    CPPUNIT_ASSERT(!array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("11111111");
+    CPPUNIT_ASSERT(!array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("00000000");
+    CPPUNIT_ASSERT(!array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("zzzzzzzz");
+    CPPUNIT_ASSERT(!array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("110x1110");
+    CPPUNIT_ASSERT(array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str("110x11z0");
+    CPPUNIT_ASSERT(array_has_x(a, 1));
+    array_free(a);
+
+    a = array_from_str(
         "11001110,11111111,00000000,10101010,01010101,1x000111"
     );
     CPPUNIT_ASSERT(array_has_x(a, 6));
@@ -68,7 +92,31 @@ void ArrayTest::test_array_has_x() {
 void ArrayTest::test_array_has_z() {
     printf("\n");
 
-    array_t *a = array_from_str(
+    array_t *a = array_from_str("11001x10");
+    CPPUNIT_ASSERT(!array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str("11111111");
+    CPPUNIT_ASSERT(!array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str("00000000");
+    CPPUNIT_ASSERT(!array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str("xxxxxxxx");
+    CPPUNIT_ASSERT(!array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str("1z0x0111");
+    CPPUNIT_ASSERT(array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str("zzzzzzzz");
+    CPPUNIT_ASSERT(array_has_z(a, 1));
+    array_free(a);
+
+    a = array_from_str(
         "11001110,11111111,00000000,10101010,01010101,1z000111"
     );
     CPPUNIT_ASSERT(array_has_z(a, 6));

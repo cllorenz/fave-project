@@ -192,7 +192,11 @@ array_has_x (const array_t *a, size_t len)
   for (size_t i = 0; i < SIZE (len); i++) {
     array_t tmp = a[i];
     // for the last round mask incomplete bits in array_t
-    if (i == SIZE (len) - 1) tmp &= (-1ull >> ((len % (sizeof *a / 2)*16)));
+    if (i == SIZE (len) - 1) {
+      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
+      // unset leading bits while keeping originally set bits
+      tmp &= (-1ull >> ((sizeof *a * 8) - set_bits));
+    }
     if (has_x (tmp)) return true;
   }
   return false;
@@ -204,7 +208,11 @@ array_has_z (const array_t *a, size_t len)
   for (size_t i = 0; i < SIZE (len); i++) {
     array_t tmp = a[i];
     // for the last round mask incomplete bits in array_t
-    //if (i == SIZE (len) - 1) tmp &= (-1ull >> ((len % (sizeof *a / 2)*16)));
+    if (i == SIZE (len) - 1) {
+      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
+      // set leading bits while keeping originally set bits
+      tmp |= ((-1ull >> set_bits) << set_bits);
+    }
     if (has_z (tmp)) return true;
   }
   return false;
