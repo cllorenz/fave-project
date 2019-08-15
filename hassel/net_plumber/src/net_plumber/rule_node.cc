@@ -75,8 +75,10 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
   this->input_ports = in_ports;
   this->output_ports = out_ports;
   if (this->mask && this->rewrite) {
+    // inv_match = rw(mask(match))
     this->inv_match = array_copy(this->match, length);
     array_rewrite( this->inv_match, this->mask, this->rewrite, length);
+    // inv_rw = not_mask(match)
     this->inv_rw = array_not_a(this->mask,length);
     array_and(this->inv_rw,this->match,length,this->inv_rw);
   } else {
