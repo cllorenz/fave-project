@@ -840,7 +840,7 @@ hs_minus (struct hs *a, const struct hs *b)
 #ifdef NEW_HS
   struct hs cmpl = {b->len,{0, 0, 0}, {0, 0, 0}};
 #else
-  struct hs tmp = {b->len,{0, 0, 0, 0}};
+  struct hs cmpl = {b->len,{0, 0, 0, 0}};
 #endif
 
   hs_copy (&cmpl, b);
