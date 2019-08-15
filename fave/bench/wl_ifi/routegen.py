@@ -10,10 +10,12 @@ from bench.wl_ifi.inventory import SUBNETS
 OFILE="bench/wl_ifi/routes.json"
 
 if __name__ == '__main__':
+    # default route to ifi.17 (external network)
     routes = [
         ("ifi", 1, 65535, [], ["fd=ifi.17"], [])
     ]
 
+    # one route per subnet to ports with subnets
     routes.extend([
         (
             "ifi", 1, idx,
@@ -23,7 +25,7 @@ if __name__ == '__main__':
         ) for idx, sub in enumerate(SUBNETS)
     ])
 
-
+    # one route per subnet sending all traffic to port 3 (internal network)
     routes.extend([
         (
             "%s.ifi" % sub, 1, 0,
@@ -33,6 +35,7 @@ if __name__ == '__main__':
         ) for idx, sub in enumerate(SUBNETS)
     ])
 
+    # one default route per subnet directing towards the router
     routes.extend([
         (
             "%s.ifi" % sub, 1, 65535, [], ["fd=%s.ifi.1" % sub], []
