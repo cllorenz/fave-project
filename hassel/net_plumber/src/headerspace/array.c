@@ -329,8 +329,8 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   array_t *a = *_a;
   array_t *b = *_b;
 
-  bool a_z = array_has_z(a, len);
-  bool b_z = array_has_z(b, len);
+  const bool a_z = array_has_z(a, len);
+  const bool b_z = array_has_z(b, len);
 
   if (a_z && b_z) {
     array_free(a); array_free(b);
