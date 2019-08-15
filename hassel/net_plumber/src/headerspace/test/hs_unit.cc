@@ -298,7 +298,7 @@ void HeaderspaceTest::test_rewrite() {
     test_add();
 
     struct hs a = {h->len, {0, 0, 0, 0}};
-    hs_vec_append(&a.list,array_from_str("1xx110x1"),false); // XXX: why not 0xx1xxx1?
+    hs_vec_append(&a.list,array_from_str("0xx1xxx1"),false);
 
     array_t *m  = array_from_str("11110011");
     array_t *rw = array_from_str("0xx110x1");
