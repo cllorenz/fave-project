@@ -226,7 +226,11 @@ array_is_eq (const array_t *a, const array_t *b, size_t len)
     // trivial case where one operand is NULL
     else if (!a || !b) return false;
 
+#ifdef STRICT_RW
+    return !memcmp (a, b, len * 2);
+#else
     return !memcmp (a, b, SIZE (len) * sizeof *a);
+#endif
 }
 
 bool
