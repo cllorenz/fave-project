@@ -57,7 +57,7 @@ void array_not     (const array_t *a, size_t len, array_t *res);
 #ifdef USE_DEPRECATED
 void array_or      (const array_t *a, const array_t *b, size_t len, array_t *res);
 #endif
-size_t  array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, size_t len);
+size_t  array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const size_t len);
 size_t  array_x_count (const array_t *a, const array_t *mask, size_t len);  // counts number of X bits in positions masked by a 0
 
 #ifdef USE_DEPRECATED

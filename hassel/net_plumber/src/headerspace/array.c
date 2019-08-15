@@ -553,7 +553,7 @@ array_or (const array_t *a, const array_t *b, size_t len, array_t *res)
 
 /* Rewrite A using MASK and REWRITE. Returns number of x's in result. */
 size_t
-array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, size_t len)
+array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const size_t len)
 {
   size_t n = 0;
   for (size_t i = 0; i < SIZE (len); i++) {
