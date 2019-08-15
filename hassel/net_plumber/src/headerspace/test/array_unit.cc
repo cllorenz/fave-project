@@ -650,37 +650,29 @@ void ArrayTest::test_array_combine() {
   array_free(r);
 
   // equality test (2)
-  // TODO: originally fails, change comments on X'ed lines to remove workaround
   a = array_from_str("zxxxxxxx");
   b = array_from_str("zxxxxxxx");
   e = NULL;
-  //r = array_from_str("zxxxxxxx");     // XXX
   array_combine(&a, &b, &e, NULL, 1);
   CPPUNIT_ASSERT(b == NULL);
   CPPUNIT_ASSERT(a == NULL);
-  //1CPPUNIT_ASSERT(array_is_eq(a, r, 1));  // XXX
-  CPPUNIT_ASSERT(e == NULL);                // XXX
+  CPPUNIT_ASSERT(e == NULL);
   array_free(a);
   array_free(b);
   array_free(e);
-  //array_free(r);  // XXX
 
   // equality test (3)
   // since any z in a set makes it empty, a should be the result
-  // TODO: originally fails, change comments on X'ed lines to remove workaround
   a = array_from_str("zxxxxxxx");
   b = array_from_str("xxxxxxxz");
   e = NULL;
-  //r1 = array_from_str("zxxxxxxx");    // XXX
   array_combine(&a, &b, &e, NULL, 1);
   CPPUNIT_ASSERT(b == NULL);
   CPPUNIT_ASSERT(a == NULL);
-  //CPPUNIT_ASSERT(array_is_eq(a, r, 1));   // XXX
-  CPPUNIT_ASSERT(e == NULL);                // XXX
+  CPPUNIT_ASSERT(e == NULL);
   array_free(a);
   array_free(b);
   array_free(e);
-  //array_free(r);  // XXX
 
   // difference in one bit position (1)
   a = array_from_str("1000xxxx");
@@ -712,20 +704,15 @@ void ArrayTest::test_array_combine() {
 
   // difference in more than one bit position (1)
   // (behaviour as expected from comments)
-  // TODO: originally fails, change comments on X'ed lines to remove workaround
   a = array_from_str("1001xxxx");
   b = array_from_str("1xx0xxxx");
   e = NULL;
-  //array_t *r1 = array_from_str("100xxxxx");   // XXX
-  array_t *r1 = array_from_str("1001xxxx");     // XXX
+  array_t *r1 = array_from_str("1001xxxx");
   array_t *r2 = array_from_str("1xx0xxxx");
   array_combine(&a, &b, &e, NULL, 1);
-  //CPPUNIT_ASSERT(a == NULL);              // XXX
-  //CPPUNIT_ASSERT(array_is_eq(b, r2, 1));  // XXX
-  //CPPUNIT_ASSERT(array_is_eq(e, r1, 1));  // XXX
-  CPPUNIT_ASSERT(e == NULL);                // XXX
-  CPPUNIT_ASSERT(array_is_eq(a, r1, 1));    // XXX
-  CPPUNIT_ASSERT(array_is_eq(b, r2, 1));    // XXX
+  CPPUNIT_ASSERT(e == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r1, 1));
+  CPPUNIT_ASSERT(array_is_eq(b, r2, 1));
   array_free(a);
   array_free(b);
   array_free(e);
@@ -734,20 +721,15 @@ void ArrayTest::test_array_combine() {
 
   // difference in more than one bit position (2)
   // (behaviour as expected from comments)
-  // TODO: originally fails, change comments on X'ed lines to remove workaround
   a = array_from_str("1xx0xxxx");
   b = array_from_str("1001xxxx");
   e = NULL;
-  //r1 = array_from_str("100xxxxx"); // XXX
-  r1 = array_from_str("1001xxxx");   // XXX
+  r1 = array_from_str("1001xxxx");
   r2 = array_from_str("1xx0xxxx");
   array_combine(&a, &b, &e, NULL, 1);
-  //CPPUNIT_ASSERT(b == NULL);              // XXX
-  //CPPUNIT_ASSERT(array_is_eq(a, r2, 1));  // XXX
-  //CPPUNIT_ASSERT(array_is_eq(e, r1, 1));  // XXX
-  CPPUNIT_ASSERT(e == NULL);                // XXX
-  CPPUNIT_ASSERT(array_is_eq(a, r2, 1));    // XXX
-  CPPUNIT_ASSERT(array_is_eq(b, r1, 1));    // XXX
+  CPPUNIT_ASSERT(e == NULL);
+  CPPUNIT_ASSERT(array_is_eq(a, r2, 1));
+  CPPUNIT_ASSERT(array_is_eq(b, r1, 1));
   array_free(a);
   array_free(b);
   array_free(e);
@@ -756,24 +738,20 @@ void ArrayTest::test_array_combine() {
 
   // difference in more than one bit position (3)
   // (behaviour as expected from comments)
-  // TODO: originally fails, change comments on X'ed lines to remove workaround
   a = array_from_str("10x1xxxx");
   b = array_from_str("1x00xxxx");
   e = NULL;
   r1 = array_from_str("10x1xxxx");
   r2 = array_from_str("1x00xxxx");
-  //array_t *r3 = array_from_str("100xxxxx");   // XXX
   array_combine(&a, &b, &e, NULL, 1);
   CPPUNIT_ASSERT(array_is_eq(a, r1, 1));
   CPPUNIT_ASSERT(array_is_eq(b, r2, 1));
-  //CPPUNIT_ASSERT(array_is_eq(e, r3, 1));  // XXX
-  CPPUNIT_ASSERT(e == NULL);                // XXX
+  CPPUNIT_ASSERT(e == NULL);
   array_free(a);
   array_free(b);
   array_free(e);
   array_free(r1);
   array_free(r2);
-  //array_free(r3); // XXX
 }
 
 
