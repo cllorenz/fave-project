@@ -63,19 +63,19 @@ void NetPlumberPlumbingTest::setUp() {
               make_sorted_list(1,4),
               make_sorted_list(2,5,11),
               array_from_str ("1011xxxx"),
-              array_from_str ("11100111"),
+              array_from_str ("00011000"), //("11100111"),
               array_from_str ("00001000")));
   node_ids.push_back(N->add_rule(2,-1,
               make_sorted_list(1,4),
               make_sorted_list(1,5),
               array_from_str ("10xxxxxx"),
-              array_from_str ("10011111"),
+              array_from_str ("01100000"), //("10011111"),
               array_from_str ("01100000")));
   node_ids.push_back(N->add_rule(3,-1,
               make_sorted_list(3,6,7,12),
               make_sorted_list(1,7),
               array_from_str ("101xxxxx"),
-              array_from_str ("11111000"),
+              array_from_str ("00000111"), //("11111000"),
               array_from_str ("00000111")));
   node_ids.push_back(N->add_rule(4,-1,
               make_sorted_list(1,8),
@@ -150,7 +150,7 @@ void NetPlumberPlumbingTest::test_pipeline_add_group_rule() {
               make_sorted_list(1,1),
               make_sorted_list(1,2),
               array_from_str ("xxxx11xx"),
-              array_from_str ("11001111"),
+              array_from_str ("00110000"), //("11001111"),
               array_from_str ("00000000"),0));
   node_ids.push_back(N->add_rule_to_group(1,0,
               make_sorted_list(1,1),
@@ -300,7 +300,7 @@ void NetPlumberPlumbingTest::test_pipeline_shared_ports() {
               make_sorted_list(0),
               make_sorted_list(1,15),
               array_from_str ("10xxxxxx"),
-              array_from_str ("10011111"),
+              array_from_str ("01100000"), //("10011111"),
               array_from_str ("01100000")));
   node_ids.push_back(N->add_rule(5,-1,
               make_sorted_list(0),
@@ -312,7 +312,7 @@ void NetPlumberPlumbingTest::test_pipeline_shared_ports() {
               make_sorted_list(0),
               make_sorted_list(1,15),
               array_from_str ("1010xxxx"),
-              array_from_str ("10011111"),
+              array_from_str ("01100000"), //("10011111"),
               array_from_str ("01000000")));
   int stats[10][4]={
       {1,0,1,0},
@@ -403,7 +403,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_lower_priority() {
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
               array_from_str ("xxx11xxx"),
-              array_from_str ("10111111"),
+              array_from_str ("01000000"), //("10111111"),
               array_from_str ("00000000")));
   int stats[8][2] = {
       {1,0},
@@ -449,7 +449,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority() {
               make_sorted_list(1,4),
               make_sorted_list(1,5),
               array_from_str ("10xx1xxx"),
-              array_from_str ("00111111"),
+              array_from_str ("11000000"), //("00111111"),
               array_from_str ("01000000")
               ));
   int stats[8][2] = {
@@ -473,7 +473,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
               make_sorted_list(1,6),
               make_sorted_list(1,7),
               array_from_str ("1xxxxxxx"),
-              array_from_str ("11011111"),
+              array_from_str ("00100000"), //("11011111"),
               array_from_str ("00000000")
               ));
   int stats[8][2] = {
@@ -502,7 +502,7 @@ void NetPlumberPlumbingTest::test_routing_add_group_rule_mid_priority() {
               make_sorted_list(1,1),
               make_sorted_list(1,2),
               array_from_str ("xxxx11xx"),
-              array_from_str ("11100111"),
+              array_from_str ("00011000"), //("11100111"),
               array_from_str ("00000000"),0));
   node_ids.push_back(N->add_rule_to_group(1,0,
               make_sorted_list(1,1),
@@ -651,7 +651,7 @@ void NetPlumberPlumbingTest::test_routing_add_link() {
               make_sorted_list(1,12),
               make_sorted_list(1,7),
               array_from_str ("10xxxxx1"),
-              array_from_str ("00011000"),
+              array_from_str ("11100111"), //("00011000"),
               array_from_str ("00000000")));
   N->add_link(11,12);
   N->add_link(7,8);
@@ -867,7 +867,7 @@ void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule1() {
               make_sorted_list(1,6),
               make_sorted_list(1,7),
               array_from_str ("1xxxxxxx"),
-              array_from_str ("11100111"),
+              array_from_str ("00011000"), //("11100111"),
               array_from_str ("00001000")
               ));
   node_ids.push_back(N->add_rule(4, -1,
