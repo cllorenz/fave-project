@@ -596,11 +596,71 @@ array_or (const array_t *a, const array_t *b, size_t len, array_t *res)
 size_t
 array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const size_t len)
 {
+#ifdef STRICT_RW
+  assert (!array_has_x(mask, len) && !array_has_z(mask, len));
+#endif
+
   size_t n = 0;
   for (size_t i = 0; i < SIZE (len); i++) {
     n += x_count (a[i], mask[i]);
+#ifdef STRICT_RW
+
+/*
+ A 0 in the mask means that the bit should be kept whereas a 1 means it should
+ be rewritten.
+
+ Example:
+
+ OM = 1111
+ EM = 0000
+
+ a      = z01x
+ m      = 1100
+ rw     = x1z0
+
+ result = x11x
+
+ a &             = z01x
+ m << 1 &        = 0z11
+ OM              = 1111
+ -> first_bit_a  = zz11
+
+
+ a &             = z01x
+ m &             = 1100
+ EM              = 0000
+ -> second_bit_a = zzz0
+
+ -> masked_a     = zz1x
+
+
+ rw &             = x1z0
+ m &              = 1100
+ OM               = 1111
+ -> first_bit_rw  = 11zz
+
+ rw &             = x1z0
+ m >> 1 &         = 00z1
+ EM               = 0000
+ -> second_bit_rw = 0zzz
+
+ -> masked_rw     = x1zz
+
+ -> masked_a | masked_rw = x11x
+ */
+    const array_t first_bit_a  = a[i] & mask[i] & ODD_MASK;
+    const array_t second_bit_a = a[i] & (mask[i] << 1) & EVEN_MASK;
+    const array_t masked_a = first_bit_a | second_bit_a;
+
+    const array_t first_bit_rw  = rewrite[i] & (mask[i] >> 1) & ODD_MASK;
+    const array_t second_bit_rw = rewrite[i] & mask[i] & EVEN_MASK;
+    const array_t masked_rw = first_bit_rw | second_bit_rw;
+
+    a[i] = masked_a | masked_rw;
+#else
     a[i] = (((a[i] | mask[i]) & rewrite[i]) & ODD_MASK) |
            (((a[i] & mask[i]) | rewrite[i]) & EVEN_MASK);
+#endif
   }
   return n;
 }

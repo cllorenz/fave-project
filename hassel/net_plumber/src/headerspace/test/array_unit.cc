@@ -1008,16 +1008,25 @@ void ArrayTest::test_array_rewrite() {
   printf("\n");
 
   array_t *a  = array_from_str("10xz10xz");
+#ifdef STRICT_RW
+  array_t *m  = array_from_str("10111100");
+#else
   array_t *m  = array_from_str("10xx1100");
+#endif
   array_t *rw = array_from_str("01xxx10x");
-  array_t *r  = array_from_str("11xx110x");
+
+#ifdef STRICT_RW
+  array_t *res  = array_from_str("00xxx1xz");
+#else
+  array_t *res  = array_from_str("11xx110x");
+#endif
 
   array_rewrite(a, m, rw, 1);
 
-  CPPUNIT_ASSERT(array_is_eq(r, a, 1));
+  CPPUNIT_ASSERT(array_is_eq(res, a, 1));
 
   array_free(a);
   array_free(m);
   array_free(rw);
-  array_free(r);
+  array_free(res);
 }
