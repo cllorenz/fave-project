@@ -40,10 +40,10 @@ void NetPlumberBasicTest::test_rule_node_create() {
   List_t in_ports = make_sorted_list(2,2,3);
   List_t out_ports = make_sorted_list(2,1,4);
   array_t *match = array_create(2,BIT_X);
-  array_t *mask = array_from_str ("11111111,10000000");
+  array_t *mask = array_from_str ("00000000,01111111");
   array_t *rewrite = array_from_str ("00000000,00000011");
   array_t *inv_match = array_from_str ("xxxxxxxx,x0000011");
-  array_t *inv_rw = array_from_str ("00000000,0xxxxxxx");
+  array_t *inv_rw = array_from_str ("xxxxxxxx,x0000000");
   RuleNode *r = new RuleNode(NULL,2,1,1,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
   CPPUNIT_ASSERT(array_is_eq(r->inv_match,inv_match,2));
