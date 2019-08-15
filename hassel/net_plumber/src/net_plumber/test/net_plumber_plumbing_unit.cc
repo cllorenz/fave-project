@@ -997,7 +997,7 @@ void NetPlumberPlumbingTest::test_probe_transition_no_update_remove_rule() {
   memset(&A,0,sizeof A);
   probe_counter_t r = {0,0,0,0,0,0,0,0};
   N->remove_rule(node_ids[node_ids.size()-1]);
-  this->check_probe_counter(A,r);
+  this->check_probe_counter("test_probe_transition_no_update_remove_rule", A, r);
 }
 
 void NetPlumberPlumbingTest::test_probe_transition_with_update_add_rule1() {
@@ -1162,7 +1162,10 @@ void NetPlumberPlumbingTest::verify_source_flow_stats(const char *test_case, con
     error_msg << "(included wc, excluded_wc) - Obtained: " << inc <<
         " , " << exc << " Expected " << stats[i][0] << " , " << stats[i][1];
     LOG4CXX_DEBUG(logger,error_msg.str());
+
+    if (inc != stats[i][0]) N->print_node(node_ids[i]);
     CPPUNIT_ASSERT(inc == stats[i][0]);
+    if (exc != stats[i][1]) N->print_node(node_ids[i]);
     CPPUNIT_ASSERT(exc == stats[i][1]);
   }
 }
