@@ -548,8 +548,37 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 void
 array_not (const array_t *a, size_t len, array_t *res)
 {
-  for (size_t i = 0; i < SIZE (len); i++)
+/*
+ a  = z01x
+
+b00011011
+b00001101 -> zzx0
+
+ a >> 1    = zzx0
+ OM        = 1111
+ first_bit = zz1z
+
+b00011011
+b00110110 -> zx01
+
+ a << 1     = zx01
+ EM         = 0000
+ second_bit = z00z
+
+ first_bit | second_bit = z0xz XXX: wtf!!!
+ */
+
+  for (size_t i = 0; i < SIZE (len); i++) {
+#ifdef STRICT_RW
+    res[i] = ~a[i];
+
+    //const array_t equals   = (a[i] ^ (a[i] >> 1)) & EVEN_MASK;
+    //const array_t differs  = ~(a[i] ^ (a[i] >> 1)) & EVEN_MASK;
+    //res[i] = (equals | a[i]) | (differs | ~a[i]);
+#else
     res[i] = ((a[i] >> 1) & ODD_MASK) | ((a[i] << 1) & EVEN_MASK);
+#endif
+  }
 }
 
 

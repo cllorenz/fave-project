@@ -986,7 +986,11 @@ void ArrayTest::test_array_not() {
   printf("\n");
 
   array_t *a = array_from_str("10xz10xz");
+#ifdef STRICT_RW
+  array_t *r = array_from_str("01zx01zx");
+#else
   array_t *r = array_from_str("01xz01xz");
+#endif
 
   array_t *res = array_create(1, BIT_UNDEF);
 
