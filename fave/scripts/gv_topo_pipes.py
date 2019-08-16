@@ -119,14 +119,14 @@ class TopologyRenderer(object):
 
         for i, table in enumerate(self.json_tables):
             tgraph = Digraph(name='cluster1_' + str(i))
-            tgraph.attr(rankdir='TD', label='Table '+str(table['id']),
+            tgraph.attr(rankdir='TD', label='Table '+hex(table['id']),
                         labelloc='t', labeljust='l')
             for port in table['ports']:
                 tgraph.node('port'+str(port), label=str(port), shape='circle')
 
             # TODO(jan): check whether to include rewrite as table row
             for j, rule in enumerate(table['rules']):
-                row_id = build_row('id:', rule['id'])
+                row_id = build_row('id:', hex(rule['id']))
 
                 row_match = build_row('match:', rule['match'])
 
@@ -181,13 +181,13 @@ class TopologyRenderer(object):
             start = pipe[0]
             sid = 'pipe' + str(start)
             if sid not in nodes:
-                self.pgraph.node(sid, label=str(start), shape='rectangle')
+                self.pgraph.node(sid, label=hex(start), shape='rectangle')
                 nodes.add(sid)
             for target in pipe[1:]:
                 node = target['node']
                 tid = 'pipe' + str(node)
                 if tid not in nodes:
-                    self.pgraph.node(tid, label=str(node), shape='rectangle')
+                    self.pgraph.node(tid, label=hex(node), shape='rectangle')
                     nodes.add(tid)
                 self.pgraph.edge(
                     sid,
@@ -209,12 +209,12 @@ class TopologyRenderer(object):
             start = np_slice[0]
             sid = 'slice' + str(start)
             if sid not in nodes:
-                self.sgraph.node(sid, label=str(start), shape='rectangle')
+                self.sgraph.node(sid, label=hex(start), shape='rectangle')
                 nodes.add(sid)
             for target in np_slice[1:]:
                 tid = 'slice' + str(target['node_id'])
                 if tid not in nodes:
-                    self.sgraph.node(tid, label=str(target['node_id']), shape='rectangle')
+                    self.sgraph.node(tid, label=hex(target['node_id']), shape='rectangle')
                     nodes.add(tid)
                 # TODO(jan): treat overflow condition
                 col = '/'+self.colors+'/'+str(target['slice_id']+1)
@@ -238,11 +238,11 @@ class TopologyRenderer(object):
             color = '#%06x' % (hash(str(start)) & 0xffffff)
 
             if 'flow'+str(start) not in nodes:
-                self.fgraph.node('flow'+str(start), label=str(start), shape='rectangle')
+                self.fgraph.node('flow'+str(start), label=hex(start), shape='rectangle')
                 nodes.add('flow'+str(start))
             for target in flow[1:]:
                 if 'flow'+str(target) not in nodes:
-                    self.fgraph.node('flow'+str(target), label=str(target), shape='rectangle')
+                    self.fgraph.node('flow'+str(target), label=hex(target), shape='rectangle')
                     nodes.add('flow'+str(target))
                 self.fgraph.edge('flow'+str(start), 'flow'+str(target), color=color, style='bold')
                 start = target
@@ -257,7 +257,7 @@ class TopologyRenderer(object):
         start = flow['node']
         if start not in n_map:
             #print 'flows: unknown node: %s' % start
-            self.ftgraph.node(str(start), label=str(start), shape='rectangle')
+            self.ftgraph.node(str(start), label=hex(start), shape='rectangle')
             n_map[start] = _POSITION(self.ftgraph)
 
         if 'children' not in flow:
@@ -269,7 +269,7 @@ class TopologyRenderer(object):
             if target not in n_map:
                 #print 'flows: unknown node: %s' % target
 
-                self.ftgraph.node(str(target), label=str(target), shape='rectangle')
+                self.ftgraph.node(str(target), label=hex(target), shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
             self.ftgraph.edge(
