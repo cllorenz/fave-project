@@ -1080,6 +1080,16 @@ void NetPlumber::save_dependency_graph(const string file_name) {
   jsfile.close();
 }
 
+void NetPlumber::dump_net_plumber(const string dir) {
+    dump_plumbing_network(dir);
+    dump_flow_trees(dir);
+    dump_pipes(dir);
+#ifdef PIPE_SLICING
+    dump_slices(dir);
+    dump_slices_pipes(dir);
+#endif
+}
+
 void NetPlumber::dump_plumbing_network(const string dir) {
 
     /*

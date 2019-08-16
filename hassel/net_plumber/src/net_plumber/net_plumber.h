@@ -288,6 +288,7 @@ namespace net_plumber {
     void get_source_flow_stats(uint64_t node_id, int &inc, int &exc);
 
     void save_dependency_graph(std::string file_name);
+    void dump_net_plumber(const std::string);
     void dump_plumbing_network(const std::string);
     void dump_flow_trees(const std::string);
     void dump_flows(const std::string);
