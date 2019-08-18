@@ -284,7 +284,6 @@ class TopologyRenderer(object):
 
         start = flow['node']
         if start not in n_map:
-            #print 'flows: unknown node: %s' % start
             slabel = self.rule_labels.get(start, hex(start))
             self.ftgraph.node(str(start), label=slabel, shape='rectangle')
             n_map[start] = _POSITION(self.ftgraph)
@@ -296,8 +295,6 @@ class TopologyRenderer(object):
             target = child['node']
 
             if target not in n_map:
-                #print 'flows: unknown node: %s' % target
-
                 tlabel = self.rule_labels[target] if target in self.rule_labels else hex(target)
                 self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
