@@ -59,6 +59,8 @@ class TopologyRenderer(object):
         self.colors = kwargs.get('colors', 'set19')
         self.format = kwargs.get('type', 'pdf')
         self.use_masks = kwargs.get('use_masks', False)
+
+        self.rule_labels = {}
         self.graph = Digraph(
             format=self.format,
             edge_attr={'arrowhead': 'open'}
@@ -108,14 +110,46 @@ class TopologyRenderer(object):
 
             i = i+1
 
+
+    def _build_rule_label(self, rule):
+
+        TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
+        TABLE_END = '</TABLE>'
+        build_row = lambda x, y: \
+            '<TR><TD align="right">%s</TD><TD>%s</TD></TR>' % (x, y)
+
+        rule_id = rule['id']
+        row_id = build_row('id:', hex(rule_id))
+
+        row_match = build_row('match:', rule['match'])
+
+        row_rewrite = build_row(
+            'rewrite:', rule['rewrite']
+        ) if 'rewrite' in rule else ''
+
+        row_mask = build_row(
+            'mask:', rule['mask']
+        ) if 'mask' in rule else ''
+
+        row_label = "<%s%s%s%s%s%s>" % (
+            TABLE_START,
+            row_id,
+            row_match,
+            row_mask,
+            row_rewrite,
+            TABLE_END
+        )
+
+        if rule_id not in self.rule_labels:
+            self.rule_labels[rule_id] = row_label
+
+        return row_label
+
+
     def __build_tables(self):
         if not self.json_tables:
             raise MissingData('Missing Tables')
 
-        table_start = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
-        table_end = '</TABLE>'
-        build_row = lambda x, y: \
-            '<TR><TD align="right">%s</TD><TD>%s</TD></TR>' % (x, y)
 
         for i, table in enumerate(self.json_tables):
             tgraph = Digraph(name='cluster1_' + str(i))
@@ -126,23 +160,11 @@ class TopologyRenderer(object):
 
             # TODO(jan): check whether to include rewrite as table row
             for j, rule in enumerate(table['rules']):
-                row_id = build_row('id:', hex(rule['id']))
-
-                row_match = build_row('match:', rule['match'])
-
-                row_rewrite = build_row(
-                    'rewrite:', rule['rewrite']
-                ) if 'rewrite' in rule else ''
-
-                row_mask = build_row(
-                    'mask:', rule['mask']
-                ) if 'mask' in rule else ''
+                label = self._build_rule_label(rule)
 
                 tgraph.node(
                     'rule'+str(i)+str(j),
-                    "<%s%s%s%s%s%s>" % (
-                        table_start, row_id, row_match, row_mask, row_rewrite, table_end
-                    ),
+                    label=label,
                     shape='rectangle'
                 )
 
@@ -181,13 +203,15 @@ class TopologyRenderer(object):
             start = pipe[0]
             sid = 'pipe' + str(start)
             if sid not in nodes:
-                self.pgraph.node(sid, label=hex(start), shape='rectangle')
+                slabel = self.rule_labels.get(start, hex(start))
+                self.pgraph.node(sid, label=slabel, shape='rectangle')
                 nodes.add(sid)
             for target in pipe[1:]:
                 node = target['node']
                 tid = 'pipe' + str(node)
                 if tid not in nodes:
-                    self.pgraph.node(tid, label=hex(node), shape='rectangle')
+                    tlabel = self.rule_labels.get(node, hex(node))
+                    self.pgraph.node(tid, label=tlabel, shape='rectangle')
                     nodes.add(tid)
                 self.pgraph.edge(
                     sid,
@@ -209,12 +233,14 @@ class TopologyRenderer(object):
             start = np_slice[0]
             sid = 'slice' + str(start)
             if sid not in nodes:
-                self.sgraph.node(sid, label=hex(start), shape='rectangle')
+                slabel = self.rule_labels.get(start, hex(start))
+                self.sgraph.node(sid, label=slabel, shape='rectangle')
                 nodes.add(sid)
             for target in np_slice[1:]:
                 tid = 'slice' + str(target['node_id'])
                 if tid not in nodes:
-                    self.sgraph.node(tid, label=hex(target['node_id']), shape='rectangle')
+                    tlabel = self.rule_labels.get(target['node_id'], hex(target['node_id']))
+                    self.sgraph.node(tid, label=tlabel, shape='rectangle')
                     nodes.add(tid)
                 # TODO(jan): treat overflow condition
                 col = '/'+self.colors+'/'+str(target['slice_id']+1)
@@ -238,11 +264,13 @@ class TopologyRenderer(object):
             color = '#%06x' % (hash(str(start)) & 0xffffff)
 
             if 'flow'+str(start) not in nodes:
-                self.fgraph.node('flow'+str(start), label=hex(start), shape='rectangle')
+                slabel = self.rule_labels.get(start, hex(start))
+                self.fgraph.node('flow'+str(start), label=slabel, shape='rectangle')
                 nodes.add('flow'+str(start))
             for target in flow[1:]:
                 if 'flow'+str(target) not in nodes:
-                    self.fgraph.node('flow'+str(target), label=hex(target), shape='rectangle')
+                    tlabel = self.rule_labels.get(target, hex(target))
+                    self.fgraph.node('flow'+str(target), label=tlabel, shape='rectangle')
                     nodes.add('flow'+str(target))
                 self.fgraph.edge('flow'+str(start), 'flow'+str(target), color=color, style='bold')
                 start = target
@@ -257,7 +285,8 @@ class TopologyRenderer(object):
         start = flow['node']
         if start not in n_map:
             #print 'flows: unknown node: %s' % start
-            self.ftgraph.node(str(start), label=hex(start), shape='rectangle')
+            slabel = self.rule_labels.get(start, hex(start))
+            self.ftgraph.node(str(start), label=slabel, shape='rectangle')
             n_map[start] = _POSITION(self.ftgraph)
 
         if 'children' not in flow:
@@ -269,7 +298,8 @@ class TopologyRenderer(object):
             if target not in n_map:
                 #print 'flows: unknown node: %s' % target
 
-                self.ftgraph.node(str(target), label=hex(target), shape='rectangle')
+                tlabel = self.rule_labels[target] if target in self.rule_labels else hex(target)
+                self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
             self.ftgraph.edge(
