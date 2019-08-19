@@ -121,6 +121,8 @@ class TopologyRenderer(object):
         rule_id = rule['id']
         row_id = build_row('id:', hex(rule_id))
 
+        row_position = build_row('position', rule['position'])
+
         row_match = build_row('match:', rule['match'])
 
         row_rewrite = build_row(
@@ -135,9 +137,10 @@ class TopologyRenderer(object):
             'influences', rule['influences']
         ) if 'influences' in rule else ''
 
-        row_label = "<%s%s%s%s%s%s%s>" % (
+        row_label = "<%s%s%s%s%s%s%s%s>" % (
             TABLE_START,
             row_id,
+            row_position,
             row_match,
             row_mask,
             row_rewrite,
