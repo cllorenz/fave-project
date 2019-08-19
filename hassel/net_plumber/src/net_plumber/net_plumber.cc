@@ -1152,6 +1152,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
              *      "match" : "01x1...",
              *      "mask" : "01x1...",
              *      "rewrite" : "01x1..."
+             *      "influences" : "01x1... + 111x... + ..."
              *  }
              */
             Json::Value rule(Json::objectValue);
@@ -1176,6 +1177,22 @@ void NetPlumber::dump_plumbing_network(const string dir) {
                 rule["rewrite"] = (Json::StaticString)rw;
                 free(rw);
             }
+
+#ifdef NEW_HS
+            hs tmp = {this->length, {0, 0, 0}, {0, 0, 0}};
+#else
+            hs tmp = {this->length, {0, 0, 0, 0}};
+#endif
+            for (auto const &influence: *r_node->influenced_by) {
+                hs_add(&tmp, array_copy(influence->comm_arr, this->length));
+            }
+
+            if (!hs_is_empty(&tmp)) {
+                char *influences = hs_to_str(&tmp);
+                rule["influences"] = (Json::StaticString)influences;
+                free(influences);
+            }
+            hs_destroy(&tmp);
 
             rules.append(rule);
         }
