@@ -1141,6 +1141,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 
         table["ports"] = ports;
 
+        uint32_t position = 0;
         Json::Value rules(Json::arrayValue);
         for (auto const &r_node: *node.second) {
             /*
@@ -1158,6 +1159,7 @@ void NetPlumber::dump_plumbing_network(const string dir) {
             Json::Value rule(Json::objectValue);
 
             rule["id"] = (Json::UInt64)r_node->node_id;
+            rule["position"] = (Json::UInt64)position++;
             rule["action"] = r_node->rewrite ? "rw" : "fwd";
             rule["in_ports"] = list_to_json(r_node->input_ports);
             rule["out_ports"] = list_to_json(r_node->output_ports);
