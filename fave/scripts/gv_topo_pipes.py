@@ -131,12 +131,17 @@ class TopologyRenderer(object):
             'mask:', rule['mask']
         ) if 'mask' in rule else ''
 
-        row_label = "<%s%s%s%s%s%s>" % (
+        row_influences = build_row(
+            'influences', rule['influences']
+        ) if 'influences' in rule else ''
+
+        row_label = "<%s%s%s%s%s%s%s>" % (
             TABLE_START,
             row_id,
             row_match,
             row_mask,
             row_rewrite,
+            row_influences,
             TABLE_END
         )
 
