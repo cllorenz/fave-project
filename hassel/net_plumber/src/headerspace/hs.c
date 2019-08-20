@@ -474,16 +474,22 @@ char *
 hs_to_str (const struct hs *hs)
 {
   char s[MAX_STR];
+
+  if (!hs) {
+    size_t pos = sprintf(s, "(nil)");
+    s[pos] = 0;
+  } else {
 #ifdef NEW_HS
-  size_t pos = 0;
-  vec_to_str (&hs->list, hs->len, &pos, s);
-  if (hs->diff.used) {
-    pos += sprintf(s + pos, " - ");
-    vec_to_str (&hs->diff, hs->len, &pos, s+pos);
-  }
+    size_t pos = 0;
+    vec_to_str (&hs->list, hs->len, &pos, s);
+    if (hs->diff.used) {
+      pos += sprintf(s + pos, " - ");
+      vec_to_str (&hs->diff, hs->len, &pos, s+pos);
+    }
 #else
-  vec_to_str (&hs->list, hs->len, s);
+    vec_to_str (&hs->list, hs->len, s);
 #endif
+  }
   return xstrdup (s);
 } 
 
