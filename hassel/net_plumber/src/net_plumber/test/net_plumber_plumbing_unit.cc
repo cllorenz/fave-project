@@ -1146,9 +1146,13 @@ void NetPlumberPlumbingTest::verify_pipe_stats(const char *test_case, const int 
           influenced_by << " Expected " << stats[i][0] << " , " << stats[i][1]
           << " , " << stats[i][2] << " , " << stats[i][3];
       LOG4CXX_DEBUG(logger,error_msg.str());
+      if (fwd_pipeline != stats[i][0]) N->print_node(node_ids[i]);
       CPPUNIT_ASSERT(fwd_pipeline == stats[i][0]);
+      if (bck_pipeline != stats[i][1]) N->print_node(node_ids[i]);
       CPPUNIT_ASSERT(bck_pipeline == stats[i][1]);
+      if (influence_on != stats[i][2]) N->print_node(node_ids[i]);
       CPPUNIT_ASSERT(influence_on == stats[i][2]);
+      if (influenced_by != stats[i][3]) N->print_node(node_ids[i]);
       CPPUNIT_ASSERT(influenced_by == stats[i][3]);
   }
 }
