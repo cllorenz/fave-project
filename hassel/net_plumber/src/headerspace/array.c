@@ -62,7 +62,38 @@ int_str (uint16_t x, char *out)
 static inline size_t
 x_count (array_t a, array_t mask)
 {
+#ifdef STRICT_RW
+/*
+ b00011011 <- a = z01x
+ b00110110 <- (a << 1) = zx01
+ b10101010 <- m = 1111
+ b10101010 <- EVEN_MASK
+ b00000010 <- zzz1
+
+ b00011011 <- a = z01x
+ b00110110 <- (a << 1) = zx01
+ b01010101 <- m = 0000
+ b10101010 <- EVEN_MASK
+ b00000000 <- zzzz
+ */
+
+  const array_t tmp = a & (a << 1) & mask & EVEN_MASK;
+#else
+/*
+ b00011011 <- a = z01x
+ b00001101 <- (a >> 1) = zzx0
+ b10101010 <- m = 1111
+ b01010101 <- ODD_MASK
+ b00000000 <- zzzz
+
+ b00011011 <- a = z01x
+ b00001101 <- (a >> 1) = zzx0
+ b01010101 <- m = 0000
+ b01010101 <- ODD_MASK
+ b00000001 <- zzz0
+ */
   array_t tmp = a & (a >> 1) & mask & ODD_MASK;
+#endif
   return __builtin_popcountll (tmp);
 }
 
