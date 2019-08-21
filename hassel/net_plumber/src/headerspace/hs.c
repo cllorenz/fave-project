@@ -871,14 +871,17 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 #else
   struct hs_vec *v = &hs->list;
   for (size_t i = 0; i < v->used; i++) {
+    // n stores the number of rewritten wildcards
     size_t n = array_rewrite (v->elems[i], mask, rewrite, hs->len);
 
     struct hs_vec *diff = &v->diff[i];
     for (size_t j = 0; j < diff->used; j++) {
       if (n == array_rewrite (diff->elems[j], mask, rewrite, hs->len)) continue;
-      array_free (diff->elems[j]);
-      diff->elems[j] = diff->elems[--diff->used];
-      j--;
+      else {
+        array_free (diff->elems[j]);
+        diff->elems[j] = diff->elems[--diff->used];
+        j--;
+      }
     }
   }
 #endif
