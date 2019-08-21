@@ -1291,10 +1291,10 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 }
 
 
-void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
+void NetPlumber::_traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
     if (flow->n_flows && !flow->n_flows->empty()) { // traverse flows to their end
         for (auto const &n_flow: *flow->n_flows) {
-            traverse_flow(flows, *n_flow);
+            _traverse_flow(flows, *n_flow);
         }
     } else { // reached eof: create a list and go back to source collecting all nodes
         list<uint64_t> *f_list = new list<uint64_t>();
@@ -1309,9 +1309,10 @@ void traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
 }
 
 
-void traverse_flow_tree(
+void NetPlumber::_traverse_flow_tree(
     Json::Value& res,
-    list<list<struct Flow *>::iterator> *n_flows
+    list<list<struct Flow *>::iterator> *n_flows,
+    size_t depth
 ) {
     for (auto const &n_flow: *n_flows) {
         Json::Value node(Json::objectValue);
@@ -1322,12 +1323,17 @@ void traverse_flow_tree(
         if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
 
-            traverse_flow_tree(children, (*n_flow)->n_flows);
+            _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1);
             node["children"] = children;
         }
 
         res.append(node);
     }
+}
+
+
+void NetPlumber::_traverse_flow_tree(Json::Value& res, list<list<struct Flow *>::iterator> *n_flows) {
+    NetPlumber::_traverse_flow_tree(res, n_flows, 0);
 }
 
 
@@ -1345,7 +1351,7 @@ void NetPlumber::dump_flow_trees(const string dir) {
             if (s_flow->n_flows) {
                 Json::Value children(Json::arrayValue);
 
-                traverse_flow_tree(children, s_flow->n_flows);
+                _traverse_flow_tree(children, s_flow->n_flows);
 
                 flow_tree["children"] = children;
             }
@@ -1380,7 +1386,7 @@ void NetPlumber::dump_flows(string dir) {
         list<list<uint64_t>*> *path = new list<list<uint64_t>*>();
 
         for (auto const &s_flow: flow_node->source_flow) {
-            traverse_flow(path, s_flow);
+            _traverse_flow(path, s_flow);
         }
 
         for (auto const &p_node: *path) {

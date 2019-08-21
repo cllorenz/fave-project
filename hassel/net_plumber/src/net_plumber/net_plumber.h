@@ -305,6 +305,16 @@ namespace net_plumber {
     void clear_port_to_node_maps(Node *n);
     void set_table_dependency(RuleNode *r);
     void set_node_pipelines(Node *n);
+    void _traverse_flow(std::list<std::list<uint64_t>*> *flows, struct Flow *flow);
+    void _traverse_flow_tree(
+        Json::Value& res,
+        std::list<std::list<struct Flow *>::iterator> *n_flows,
+        size_t depth
+    );
+    void _traverse_flow_tree(
+        Json::Value& res,
+        std::list<std::list<struct Flow *>::iterator> *n_flows
+    );
 
 #ifdef PIPE_SLICING
     void add_pipe_to_slices(struct Pipeline *pipe);
