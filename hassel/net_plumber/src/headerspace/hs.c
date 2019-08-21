@@ -868,6 +868,8 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
   struct hs_vec *diff = &hs->diff;
   for (size_t i = 0; i < diff->used; i++)
     array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+
+  hs_compact(hs);
 #else
   struct hs_vec *v = &hs->list;
   for (size_t i = 0; i < v->used; i++) {
