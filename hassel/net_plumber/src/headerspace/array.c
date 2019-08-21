@@ -631,7 +631,7 @@ array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const si
   assert (!array_has_x(mask, len) && !array_has_z(mask, len));
 #endif
 
-  size_t n = 0;
+  size_t n = 0; // counts the number of overwritten wildcards
   for (size_t i = 0; i < SIZE (len); i++) {
     n += x_count (a[i], mask[i]);
 #ifdef STRICT_RW
@@ -689,8 +689,36 @@ array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const si
 
     a[i] = masked_a | masked_rw;
 #else
-    a[i] = (((a[i] | mask[i]) & rewrite[i]) & ODD_MASK) |
-           (((a[i] & mask[i]) | rewrite[i]) & EVEN_MASK);
+/*
+ a1 = 101011xx
+ a2 = 101011x1
+ m  = 11111000
+ rw = 00000111
+
+ a1 | m = 1x1x1xxx
+ (a1 | m) & rw = z0z0z111
+ ((a1 | m) & rw) & OM = zzzzz111
+
+ a1 & m = 1z1z1z00
+ (a1 & m) | rw = x0x0x1xx
+ ((a1 & m) | rw) & EM = 00000100
+
+ zzzzz111 | 00000100 = 000001xx
+
+ a2 | m = 1x1x1xxx
+ (a2 | m) & rw = z0z0z111
+ ((a2 | m) & rw) & OM = zzzzz111
+
+ a2 & m = 1z1z1z0z
+ (a2 & m) | rw = x0x0x1x1
+ ((a2 & m) | rw) & EM = 00000z0z
+
+ zzzzz111 | 00000z0z = 000001x1
+ */
+    const array_t first_bit  = (((a[i] | mask[i]) & rewrite[i]) & ODD_MASK);
+    const array_t second_bit = (((a[i] & mask[i]) | rewrite[i]) & EVEN_MASK);
+
+    a[i] = first_bit | second_bit;
 #endif
   }
   return n;
