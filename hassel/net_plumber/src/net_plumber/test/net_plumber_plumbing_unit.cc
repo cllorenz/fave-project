@@ -482,7 +482,10 @@ void NetPlumberPlumbingTest::test_routing_add_fwd_rule_higher_priority() {
       {1,0}
   };
   //N->print_plumbing_network();
-  this->verify_source_flow_stats("test_routing_add_fwd_rule_higher_priority", stats);
+  this->verify_source_flow_stats(
+    "test_routing_add_fwd_rule_higher_priority",
+    stats
+  );
 }
 
 void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority() {
