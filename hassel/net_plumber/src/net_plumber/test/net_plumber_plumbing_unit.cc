@@ -1130,9 +1130,13 @@ void NetPlumberPlumbingTest::test_probe_transition_remove_source() {
  */
 
 void NetPlumberPlumbingTest::verify_pipe_stats(const char *test_case, const int stats[][4]) {
-  stringstream intro_msg;
-  intro_msg << "========== pipelines: " << test_case << " ==========";
-  LOG4CXX_DEBUG(logger, intro_msg.str());
+
+  if (logger->isDebugEnabled()) {
+    stringstream intro_msg;
+    intro_msg << "========== pipelines: " << test_case << " ==========";
+    LOG4CXX_DEBUG(logger, intro_msg.str());
+  }
+
   for (unsigned i = 0; i < node_ids.size(); i++) {
       int fwd_pipeline;
       int bck_pipeline;
@@ -1140,12 +1144,16 @@ void NetPlumberPlumbingTest::verify_pipe_stats(const char *test_case, const int 
       int influenced_by;
       N->get_pipe_stats(node_ids[i],fwd_pipeline,bck_pipeline,
           influence_on,influenced_by);
-      stringstream error_msg;
-      error_msg << "(fwd, bck, inf_on, inf_by) - Obtained: " << fwd_pipeline <<
-          " , " << bck_pipeline << " , " << influence_on << " , " <<
-          influenced_by << " Expected " << stats[i][0] << " , " << stats[i][1]
-          << " , " << stats[i][2] << " , " << stats[i][3];
-      LOG4CXX_DEBUG(logger,error_msg.str());
+
+      if (logger->isDebugEnabled()) {
+        stringstream error_msg;
+        error_msg << "(fwd, bck, inf_on, inf_by) - Obtained: " << fwd_pipeline <<
+            " , " << bck_pipeline << " , " << influence_on << " , " <<
+            influenced_by << " Expected " << stats[i][0] << " , " << stats[i][1]
+            << " , " << stats[i][2] << " , " << stats[i][3];
+        LOG4CXX_DEBUG(logger,error_msg.str());
+      }
+
       if (fwd_pipeline != stats[i][0]) N->print_node(node_ids[i]);
       CPPUNIT_ASSERT(fwd_pipeline == stats[i][0]);
       if (bck_pipeline != stats[i][1]) N->print_node(node_ids[i]);
@@ -1158,17 +1166,25 @@ void NetPlumberPlumbingTest::verify_pipe_stats(const char *test_case, const int 
 }
 
 void NetPlumberPlumbingTest::verify_source_flow_stats(const char *test_case, const int stats[][2]) {
-  stringstream intro_msg;
-  intro_msg << "========== source flows: " << test_case << " ==========";
-  LOG4CXX_DEBUG(logger, intro_msg.str());
+  if (logger->isDebugEnabled()) {
+    stringstream intro_msg;
+    intro_msg << "========== source flows: " << test_case << " ==========";
+    LOG4CXX_DEBUG(logger, intro_msg.str());
+  }
+
+  stringstream dir;
+  dir << "np_dump/" << test_case;
+  N->dump_net_plumber(dir.str());
 
   for (unsigned i = 0; i < node_ids.size(); i++) {
     int inc, exc;
     N->get_source_flow_stats(node_ids[i], inc, exc);
-    stringstream error_msg;
-    error_msg << "(included wc, excluded_wc) - Obtained: " << inc <<
-        " , " << exc << " Expected " << stats[i][0] << " , " << stats[i][1];
-    LOG4CXX_DEBUG(logger,error_msg.str());
+    if (logger->isDebugEnabled()) {
+      stringstream error_msg;
+      error_msg << "(included wc, excluded_wc) - Obtained: " << inc <<
+          " , " << exc << " Expected " << stats[i][0] << " , " << stats[i][1];
+      LOG4CXX_DEBUG(logger,error_msg.str());
+    }
 
     if (inc != stats[i][0]) N->print_node(node_ids[i]);
     CPPUNIT_ASSERT(inc == stats[i][0]);
@@ -1180,9 +1196,11 @@ void NetPlumberPlumbingTest::verify_source_flow_stats(const char *test_case, con
 void NetPlumberPlumbingTest::log_probe_counter(
     std::string counter, size_t result, size_t expected
 ) {
-  stringstream error_msg;
-  error_msg << counter << " obtained:\t" << result << " , " << expected;
-  LOG4CXX_DEBUG(logger,error_msg.str());
+  if (logger->isDebugEnabled()) {
+    stringstream error_msg;
+    error_msg << counter << " obtained:\t" << result << " , " << expected;
+    LOG4CXX_DEBUG(logger,error_msg.str());
+  }
 }
 
 void NetPlumberPlumbingTest::check_probe_counter(
@@ -1190,9 +1208,11 @@ void NetPlumberPlumbingTest::check_probe_counter(
     const probe_counter_t result,
     const probe_counter_t expected
 ) {
-  stringstream intro_msg;
-  intro_msg << "========== probe counter: " << test_case << " ==========";
-  LOG4CXX_DEBUG(logger, intro_msg.str());
+  if (logger->isDebugEnabled()) {
+    stringstream intro_msg;
+    intro_msg << "========== probe counter: " << test_case << " ==========";
+    LOG4CXX_DEBUG(logger, intro_msg.str());
+  }
 
   log_probe_counter("start_true", result.start_true, expected.start_true);
   CPPUNIT_ASSERT(result.start_true == expected.start_true);
