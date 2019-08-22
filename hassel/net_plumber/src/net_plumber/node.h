@@ -28,6 +28,7 @@ extern "C" {
   #include "../headerspace/array.h"
   #include "../headerspace/hs.h"
 }
+#include "log4cxx/logger.h"
 
 
 enum NODE_TYPE {
@@ -69,6 +70,8 @@ struct Pipeline {
 class Node {
  protected:
   NODE_TYPE node_type;
+
+  static log4cxx::LoggerPtr logger;
 
   void remove_src_flows_from_pipe(Pipeline *fwd_p);
   void remove_sink_flow_from_pipe(Pipeline *bck_p);

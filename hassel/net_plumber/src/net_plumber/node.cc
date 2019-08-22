@@ -32,7 +32,9 @@ using namespace net_plumber;
 //#endif
 
 using namespace std;
+using namespace log4cxx;
 
+LoggerPtr Node::logger(Logger::getLogger("NetPlumber"));
 
 bool is_flow_looped(Flow *flow) {
   Flow *f = flow;
