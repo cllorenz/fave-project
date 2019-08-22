@@ -236,9 +236,34 @@ void RuleNode::process_src_flow(Flow *f) {
     // diff higher priority rules
     f->processed_hs = hs_copy_a(f->hs_object);
 
+
+    if (logger->isTraceEnabled()) {
+      stringstream pre;
+      pre << "RuleNode::process_src_flow(): id " << this->node_id;
+      pre << " with " << hs_to_str(f->processed_hs);
+      pre << " before processing";
+      LOG4CXX_TRACE(logger, pre.str());
+    }
+
     for (auto const &inf: *influenced_by) {
       if (!elem_in_sorted_list(f->in_port, inf->ports)) continue;
       hs_diff(f->processed_hs, inf->comm_arr);
+
+      if (logger->isTraceEnabled()) {
+        stringstream inter;
+        inter << "RuleNode::process_src_flow():   id " << this->node_id;
+        inter << " with " << hs_to_str(f->processed_hs);
+        inter << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
+        LOG4CXX_TRACE(logger, inter.str());
+      }
+    }
+
+    if (logger->isTraceEnabled()) {
+      stringstream after;
+      after << "RuleNode::process_src_flow(): id " << this->node_id;
+      after << " with " << hs_to_str(f->processed_hs);
+      after << " after processing";
+      LOG4CXX_TRACE(logger, after.str());
     }
 
     // compress h.
@@ -252,6 +277,16 @@ void RuleNode::process_src_flow(Flow *f) {
         propagate_src_flow_on_pipes(f_it);
       } else {
         hs_rewrite(f->processed_hs, mask, rewrite);
+
+        if (logger->isTraceEnabled()) {
+          stringstream rw;
+          rw << "RuleNode::process_src_flow(): id " << this->node_id;
+          rw << " with " << hs_to_str(f->processed_hs);
+          rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
+          rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
+          LOG4CXX_TRACE(logger, rw.str());
+        }
+
         propagate_src_flow_on_pipes(f_it);
       }
     }
@@ -267,18 +302,62 @@ void RuleNode::process_src_flow(Flow *f) {
 void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
                                             array_t *change) {
   Flow *f = *loc;
+
+  if (logger->isTraceEnabled()) {
+    stringstream pre;
+    pre << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+    pre << " with " << hs_to_str(f->processed_hs);
+    pre << " before processing";
+    LOG4CXX_TRACE(logger, pre.str());
+  }
+
   if (change && (mask == nullptr || rewrite == nullptr)) {
     if (f->processed_hs == nullptr) return;
     hs_diff(f->processed_hs, change);
+
+  if (logger->isTraceEnabled()) {
+    stringstream after;
+    after << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+    after << " with " << hs_to_str(f->processed_hs);
+    after << " after processing";
+    LOG4CXX_TRACE(logger, after.str());
+  }
+
   } else {
     if (f->processed_hs) hs_free(f->processed_hs);
     // diff higher priority rules
     f->processed_hs = hs_copy_a(f->hs_object);
+
+    if (logger->isTraceEnabled()) {
+      stringstream inter;
+      inter << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+      inter << " with " << hs_to_str(f->processed_hs);
+      inter << " after (re)allocation";
+      LOG4CXX_TRACE(logger, inter.str());
+    }
+
     for (auto const inf: *influenced_by) {
       if (!elem_in_sorted_list(f->in_port, inf->ports)) continue;
       hs_diff(f->processed_hs, inf->comm_arr);
+
+      if (logger->isTraceEnabled()) {
+        stringstream loop;
+        loop << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+        loop << " with " << hs_to_str(f->processed_hs);
+        loop << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
+        LOG4CXX_TRACE(logger, loop.str());
+      }
     }
   }
+
+  if (logger->isTraceEnabled()) {
+    stringstream after;
+    after << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+    after << " with " << hs_to_str(f->processed_hs);
+    after << " after processing";
+    LOG4CXX_TRACE(logger, after.str());
+  }
+
   // compress h.
   // if compress to empty, free f. else process it.
   if (!hs_compact_m(f->processed_hs,mask)) {
@@ -291,6 +370,16 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
       repropagate_src_flow_on_pipes(loc, change);
     } else {
       hs_rewrite(f->processed_hs, mask, rewrite);
+
+      if (logger->isTraceEnabled()) {
+        stringstream rw;
+        rw << "RuleNode::process_src_flow(): id " << this->node_id;
+        rw << " with " << hs_to_str(f->processed_hs);
+        rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
+        rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
+        LOG4CXX_TRACE(logger, rw.str());
+      }
+
       repropagate_src_flow_on_pipes(loc, nullptr);
     }
   }
