@@ -1346,7 +1346,9 @@ void NetPlumber::dump_flow_trees(const string dir) {
             Json::Value flow_tree(Json::objectValue);
 
             flow_tree["node"] = (Json::Value::UInt64) flow_node->node_id;
-            flow_tree["flow"] = (Json::StaticString) hs_to_str(s_flow->hs_object);
+            char *flow = hs_to_str(s_flow->hs_object);
+            flow_tree["flow"] = (Json::StaticString) flow;
+            free(flow);
 
             if (s_flow->n_flows) {
                 Json::Value children(Json::arrayValue);
@@ -1430,10 +1432,14 @@ void NetPlumber::dump_pipes(const string dir) {
 
         for (auto const &n_pipe: n_pipes) {
             Json::Value dest(Json::objectValue);
+
             dest["node"] = (Json::UInt64) (*n_pipe->r_pipeline)->node->node_id;
-            dest["filter"] = array_to_str((
+            char *filter = array_to_str((
                 *n_pipe->r_pipeline)->pipe_array, length, false
             );
+            dest["filter"] = (Json::StaticString) filter;
+            free(filter);
+
             pipe.append(dest);
         }
 
