@@ -1318,7 +1318,25 @@ void NetPlumber::_traverse_flow_tree(
         Json::Value node(Json::objectValue);
 
         node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
-        node["flow"] = (Json::StaticString) hs_to_str((*n_flow)->hs_object);
+
+        char *flow = hs_to_str((*n_flow)->hs_object);
+        node["flow"] = (Json::StaticString) flow;
+
+        if (logger->isTraceEnabled()) {
+            stringstream trace_msg;
+            trace_msg << "traverse_flow_tree(): pass ";
+            for (size_t i = 0; i < depth; i++) trace_msg << "  ";
+            trace_msg << (*n_flow)->node->node_id;
+            trace_msg << " with " << flow;
+            trace_msg << "; children at " << (*n_flow)->n_flows;
+            if ((*n_flow)->n_flows) {
+                trace_msg << "; size: " << (*n_flow)->n_flows->size();
+                trace_msg << "; is empty: " << ((*n_flow)->n_flows->empty() ? "true" : "false");
+            }
+            LOG4CXX_TRACE(logger, trace_msg.str());
+        }
+
+        free (flow);
 
         if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
