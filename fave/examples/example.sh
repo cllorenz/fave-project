@@ -13,12 +13,20 @@ scripts/start_aggr.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
-## switch foo
-## packet filter bar
-## generator baz
-## generator boz
-## probe bla
+## switch $SWITCH
+## packet filter $FIREWALL
+## generator $HOST1
+## generator $HOST2
+## probe $PROBE1
+## probe $PROBE2
 ##
+
+SWITCH=sw
+FIREWALL=fw
+HOST1=hs1
+HOST2=hs2
+PROBE1=hp1
+PROBE2=hp2
 
 PYTHONPATH="${PYTHONPATH}:`pwd`/"
 export PYTHONPATH
@@ -27,66 +35,66 @@ CNT=0
 
 # test topology
 echo -n "read topology... "
-# switch foo
-python2 topology/topology.py -a -t switch -n foo -p 2
+# switch
+python2 topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
-# packet filter bar
-python2 topology/topology.py -a -t packet_filter -n bar -i 2001:db8::3 -p 2
+# packet filter
+python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p 2
 CNT=$(( $? + CNT ))
 # links: foo<->bar
-python2 topology/topology.py -a -l foo.2:bar.1,bar.3:foo.2
+python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.1,$FIREWALL.3:$SWITCH.2
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 echo -n "add generators... "
-# generator baz
-python2 topology/topology.py -a -t generator -n baz -f "ipv6_dst=2001:db8::1"
+# generator $HOST1
+python2 topology/topology.py -a -t generator -n $HOST1 -f "ipv6_dst=2001:db8::1"
 CNT=$(( $? + CNT ))
-# generator boz
-python2 topology/topology.py -a -t generator -n boz -f "ipv6_dst=2001:db8::2;tcp_dst=80"
+# generator $HOST2
+python2 topology/topology.py -a -t generator -n $HOST2 -f "ipv6_dst=2001:db8::2;tcp_dst=80"
 CNT=$(( $? + CNT ))
 
-#link: baz-->bar
-python2 topology/topology.py -a -l baz.1:bar.2
+#link: $HOST1-->bar
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2
 CNT=$(( $? + CNT ))
-#link: boz-->foo
-python2 topology/topology.py -a -l boz.1:foo.1
+#link: $HOST2-->foo
+python2 topology/topology.py -a -l $HOST2.1:$SWITCH.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
-echo -n "add probes... "
-# probe bla
-python2 topology/topology.py -a -t probe -n bla -q universal -P ".*;(table in (bar))"
+echo -n "add PROBE1s... "
+# PROBE1 $PROBE1
+python2 topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
-python2 topology/topology.py -a -t probe -n blubb -q universal -P ".*;(table in (bar))"
+python2 topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 
-# link: bar-->bla
-python2 topology/topology.py -a -l bar.4:bla.1
+# link: bar-->$PROBE1
+python2 topology/topology.py -a -l $FIREWALL.4:$PROBE1.1
 CNT=$(( $? + CNT ))
-# link: foo-->blubb
-python2 topology/topology.py -a -l foo.1:blubb.1
+# link: foo-->PROBE2
+python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test firewall
 echo -n "add firewall rules... "
-#python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f ip6np/iptables_ruleset_reduced.sh
-python2 ip6np/ip6np.py -n bar -i 2001:db8::3 -f rulesets/simple_ruleset.sh
+#python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -f ip6np/iptables_ruleset_reduced.sh
+python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -f rulesets/simple_ruleset.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test rule setting
 echo -n "add switch rules... "
-python2 openflow/switch.py -a -i 1 -n foo -t 1 -f ipv6_dst=2001:db8::1 -c fd=foo.1
+python2 openflow/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
-python2 openflow/switch.py -a -i 2 -n foo -t 1 -f ipv6_dst=2001:db8::2 -c fd=foo.2
-CNT=$(( $? + CNT ))
-
-python2 openflow/switch.py -a -i 1 -n bar -f ipv6_dst=2001:db8::2 -c fd=bar.2
+python2 openflow/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python2 openflow/switch.py -a -i 2 -n bar -f ipv6_dst=2001:db8::1 -c fd=bar.1
+python2 openflow/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.2
+CNT=$(( $? + CNT ))
+
+python2 openflow/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
@@ -101,17 +109,17 @@ echo -n "check flow propagation... "
 #[ 1, 34359738372, 30064771073, 38654705665, 8589934594, 4294967297, 4 ],
 #[ 1, 34359738372, 30064771073, 38654705666, 8589934593, 3 ],
 #[ 1, 34359738372, 30064771073, 38654705667 ],
-F1='s=baz && EX t=bar_pre_routing && (EX t=bar_forward_states)'
-F2='s=baz && EX t=bar_pre_routing && EF t=foo_1 && EX p=blubb'
-F3='s=baz && EX t=bar_pre_routing && EF p=bla'
-F4='s=baz && EX t=bar_pre_routing && EX t=bar_forward_states && EX t=bar_forward_rules'
+F1='s='$HOST1' && EX t='$FIREWALL'_pre_routing && (EX t='$FIREWALL'_forward_states)'
+F2='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EF t='$SWITCH'_1 && EX p='$PROBE2
+F3='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EF p='$PROBE1
+F4='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states && EX t='$FIREWALL'_forward_rules'
 
 #[ 2, 4294967298, 34359738371, 30064771073, 38654705665, 8589934594, 4294967297, 4 ],
 #[ 2, 4294967298, 34359738371, 30064771073, 38654705667 ],
 #[ 2, 4294967298, 34359738371, 30064771074 ]
-F5='s=boz && EX t=foo_1 && EX t=bar_pre_routing && EF t=foo_1 && EX p=blubb'
-F6='s=boz && EX t=foo_1 && EX t=bar_pre_routing && EX t=bar_forward_states && EX t=bar_forward_rules'
-F7='s=boz && EX t=foo_1 && EX t=bar_pre_routing && EX t=bar_forward_states'
+F5='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EF t='$SWITCH'_1 && EX p='$PROBE2
+F6='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states && EX t='$FIREWALL'_forward_rules'
+F7='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states'
 
 python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
