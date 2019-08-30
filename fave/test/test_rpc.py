@@ -23,6 +23,7 @@ def generate_random_rule(idx, in_ports, out_ports, length):
     """
 
     gen_wc = lambda x: "".join(["01x"[random.randint(0, 2)] for _i in range(x)])
+    gen_01 = lambda x: "".join(["01"[random.randint(0, 1)] for _i in range(x)])
     gen_ports = lambda ports: [p for p in ports if random.randint(0, 1) == 1]
 
     iports = []
@@ -34,7 +35,7 @@ def generate_random_rule(idx, in_ports, out_ports, length):
     oports = gen_ports(out_ports)
 
     match = gen_wc(length)
-    mask = gen_wc(length)
+    mask = gen_01(length)
     rewrite = gen_wc(length)
 
     return (idx, iports, oports, match, mask, rewrite)
@@ -207,12 +208,12 @@ class TestRPC(unittest.TestCase):
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
             (1, [1, 2, 3], [
-                (1, [1], [2], "xxxxxxx0", "x"*8, None),
-                (2, [1], [3], "xxxxxxx1", "x"*8, None)
+                (1, [1], [2], "xxxxxxx0", None, None),
+                (2, [1], [3], "xxxxxxx1", None, None)
             ]),
-            (2, [4, 5], [(1, [4], [5], "x"*8, "x"*8, None)]),
-            (3, [6, 7], [(1, [6], [7], "x"*8, "x"*8, None)]),
-            (4, [8, 9, 10], [(1, [8, 9], [10], "x"*8, "x"*8, None)])
+            (2, [4, 5], [(1, [4], [5], "x"*8, None, None)]),
+            (3, [6, 7], [(1, [6], [7], "x"*8, None, None)]),
+            (4, [8, 9, 10], [(1, [8, 9], [10], "x"*8, None, None)])
         ]
 
         # (from_port, to_port)
@@ -256,7 +257,7 @@ class TestRPC(unittest.TestCase):
         self.assertTrue(check_probe_log(plogs))
 
         # results in false probe condition
-        add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", "x"*8, None)
+        add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", None, None)
 
         plogs.append((probe_id, False))
         self.assertTrue(check_probe_log(plogs))
@@ -269,40 +270,40 @@ class TestRPC(unittest.TestCase):
 
         tables = [
             (1, [11, 12, 13, 14, 19], [
-                (1, [12, 13, 19], [11], "xxxx0110xxxxxx11", "x"*16, None),
-                (2, [14], [12], "xxxx1001xxxxxxxx", "x"*16, None),
-                (3, [14], [13], "xxxx1010xxxxxxxx", "x"*16, None)
+                (1, [12, 13, 19], [11], "xxxx0110xxxxxx11", None, None),
+                (2, [14], [12], "xxxx1001xxxxxxxx", None, None),
+                (3, [14], [13], "xxxx1010xxxxxxxx", None, None)
             ]),
             (2, [21, 22, 23, 24, 29], [
-                (1, [21, 23, 24, 29], [22], "xxxx0110xxxxxx11", "x"*16, None),
-                (2, [21], [24], "xxxx1010xxxxxxxx", "x"*16, None)
+                (1, [21, 23, 24, 29], [22], "xxxx0110xxxxxx11", None, None),
+                (2, [21], [24], "xxxx1010xxxxxxxx", None, None)
             ]),
             (3, [31, 32, 33, 34, 35, 36, 39], [
-                (1, [32, 34], [33], "xxxx1000xxxxxx11", "x"*16, None),
-                (2, [31, 33, 34, 35, 36, 39], [32], "xxxx0110xxxxxx11", "x"*16, None),
-                #(3, [31], [33], "xxxx1001xxxxxx11", "x"*16, "xxxx1000xxxxxx11"),
-                (4, [31], [34], "xxxx1001xxxxxxxx", "x"*16, None)
+                (1, [32, 34], [33], "xxxx1000xxxxxx11", None, None),
+                (2, [31, 33, 34, 35, 36, 39], [32], "xxxx0110xxxxxx11", None, None),
+                #(3, [31], [33], "xxxx1001xxxxxx11", "1"*16, "xxxx1000xxxxxx11"),
+                (4, [31], [34], "xxxx1001xxxxxxxx", None, None)
             ]),
             (4, [41, 42, 43, 44, 45, 49], [
-                (1, [41, 42, 44, 49], [43], "xxxx0111xxxxxx11", "x"*16, None),
-                (2, [41], [45], "xxxx1010xxxxxxxx", "x"*16, None)
+                (1, [41, 42, 44, 49], [43], "xxxx0111xxxxxx11", None, None),
+                (2, [41], [45], "xxxx1010xxxxxxxx", None, None)
             ]),
             (5, [51, 52, 54, 53, 59], [
-                (1, [52], [51], "xxxx1000xxxxxx11", "x"*16, None),
-                (2, [51, 53, 59], [52], "xxxx0111xxxxxx11", "x"*16, None),
-                (3, [51], [54], "xxxx1001xxxxxxxx", "x"*16, None)
+                (1, [52], [51], "xxxx1000xxxxxx11", None, None),
+                (2, [51, 53, 59], [52], "xxxx0111xxxxxx11", None, None),
+                (3, [51], [54], "xxxx1001xxxxxxxx", None, None)
             ]),
             (6, [61, 62, 63], [
-                (1, [61, 62, 63], [63], "xxxx0110xxxxxx11", "x"*16, "01101000xxxxxx11"),
-                (2, [61, 62, 63], [], "x"*16, "x"*16, None)
+                (1, [61, 62, 63], [63], "xxxx0110xxxxxx11", "1"*16, "01101000xxxxxx11"),
+                (2, [61, 62, 63], [], "x"*16, None, None)
             ]),
             (7, [71, 72], [
-                (1, [71, 72], [72], "xxxx0111xxxxxx11", "x"*16, "01111000xxxxxx11"),
-                (2, [71, 72], [], "x"*16, "x"*16, None)
+                (1, [71, 72], [72], "xxxx0111xxxxxx11", "1"*16, "01111000xxxxxx11"),
+                (2, [71, 72], [], "x"*16, None, None)
             ]),
             (8, [81, 89], [
-                (1, [81], [89], "xxxx1000xxxxxx11", "x"*16, None),
-                (2, [89], [81], "1000xxxxxxxxxxxx", "x"*16, None)
+                (1, [81], [89], "xxxx1000xxxxxx11", None, None),
+                (2, [89], [81], "1000xxxxxxxxxxxx", None, None)
             ]),
         ]
 
@@ -374,7 +375,7 @@ class TestRPC(unittest.TestCase):
         # results in false probe condition
         remove_rule(self.sock, nodes['tables'][2][2])
         result = add_rule(
-            self.sock, 3, 3, [31], [33], "xxxx1001xxxxxx11", "x"*16, "xxxx1000xxxxxx11"
+            self.sock, 3, 3, [31], [33], "xxxx1001xxxxxx11", "1"*16, "xxxx1000xxxxxx11"
         )
 
         plogs.append((probe_id, False))
@@ -382,7 +383,7 @@ class TestRPC(unittest.TestCase):
 
         # results in true probe condition
         remove_rule(self.sock, result)
-        add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "x"*16, None)
+        add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "1"*16, None)
 
         plogs.append((probe_id, True))
         check_probe_log(plogs)
@@ -394,7 +395,7 @@ class TestRPC(unittest.TestCase):
 
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "x"*8, "x"*8, None)]),
+            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
             (2, [3, 4], []),
         ]
 
@@ -410,7 +411,7 @@ class TestRPC(unittest.TestCase):
         self.assertFalse(check_cycle_log())
 
         # add new rule to close the cycle
-        add_rule(self.sock, *(2, 1, [3], [4], "x"*8, "x"*8, None))
+        add_rule(self.sock, *(2, 1, [3], [4], "x"*8, None, None))
 
         self.assertTrue(check_cycle_log())
 
@@ -421,9 +422,9 @@ class TestRPC(unittest.TestCase):
 
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "xxxxx110", "x"*8, None)]),
-            (2, [3, 4], [(1, [3], [4], "xxxxxx10", "x"*8, None)]),
-            (3, [5, 6], [(1, [5], [6], "xxxxxxx0", "x"*8, None)])
+            (1, [1, 2], [(1, [1], [2], "xxxxx110", None, None)]),
+            (2, [3, 4], [(1, [3], [4], "xxxxxx10", None, None)]),
+            (3, [5, 6], [(1, [5], [6], "xxxxxxx0", None, None)])
         ]
 
         # (from_port, to_port)
@@ -437,7 +438,7 @@ class TestRPC(unittest.TestCase):
         self.prepare_network(tables, links, sources, probes)
 
         # add new rule which will be put in new slice
-        add_rule(self.sock, *(1, 2, [1], [2], "xxxxx111", "x"*8, None))
+        add_rule(self.sock, *(1, 2, [1], [2], "xxxxx111", None, None))
 
         # setup slice
         add_slice(self.sock, 1, *(["xxxxx1x1"], None))
@@ -446,11 +447,11 @@ class TestRPC(unittest.TestCase):
         add_slice(self.sock, 2, *(["xxxxx111"], None))
         remove_slice(self.sock, 2)
 
-        result = add_rule(self.sock, *(1, 3, [1], [2], "xxxxxx1x", "x"*8, None))
+        result = add_rule(self.sock, *(1, 3, [1], [2], "xxxxxx1x", None, None))
         remove_rule(self.sock, result)
 
         # add rule to introduce leakage
-        result = add_rule(self.sock, *(2, 2, [3], [4], "xxxxx111", "x"*8, "xxxxx110"))
+        result = add_rule(self.sock, *(2, 2, [3], [4], "xxxxx111", "1"*8, "xxxxx110"))
         remove_rule(self.sock, result)
 
         # remove slice
@@ -463,9 +464,9 @@ class TestRPC(unittest.TestCase):
 
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "x"*8, "x"*8, None)]),
+            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
             (2, [3, 4], []),
-            (3, [5, 6], [(1, [5], [6], "x"*8, "x"*8, None)])
+            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
         ]
 
         # (from_port, to_port)
@@ -487,7 +488,7 @@ class TestRPC(unittest.TestCase):
         self.assertTrue(rule1 != 0)
 
         # try to add normal rule to firewall,  should fail
-        rule3 = add_rule(self.sock, *(2, 3, [3], [4], "x"*8, "x"*8, None))
+        rule3 = add_rule(self.sock, *(2, 3, [3], [4], "x"*8, None, None))
         self.assertEqual(rule3, 0)
 
         # try to add firewall rule to normal table,  should fail
@@ -504,7 +505,7 @@ class TestRPC(unittest.TestCase):
         remove_fw_rule(self.sock, rule2)
 
         # try to add normal rule to former firewall table,  should succeed
-        rule6 = add_rule(self.sock, 2, 1, [3], [4], "x"*8, "x"*8, None)
+        rule6 = add_rule(self.sock, 2, 1, [3], [4], "x"*8, None, None)
         self.assertTrue(rule6 != 0)
 
 
@@ -514,9 +515,9 @@ class TestRPC(unittest.TestCase):
 
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "x"*8, "x"*8, None)]),
+            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
             (2, [3, 4], []),
-            (3, [5, 6], [(1, [5], [6], "x"*8, "x"*8, None)])
+            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
         ]
 
         # (from_port, to_port)
@@ -539,10 +540,10 @@ class TestRPC(unittest.TestCase):
         add_policy_rule(self.sock, 2, {"list":["x"*8], "diff":None}, "deny")
 
         # add uncritical rule
-        add_rule(self.sock, *(2, 1, [3], [4], "xxxxx111", "x"*8, None))
+        add_rule(self.sock, *(2, 1, [3], [4], "xxxxx111", None, None))
 
         # add critical rule
-        add_rule(self.sock, *(2, 2, [3], [4], "xxxxxx11", "x"*8, "xxxxxx10"))
+        add_rule(self.sock, *(2, 2, [3], [4], "xxxxxx11", "1"*8, "xxxxxx10"))
 
         print_plumbing_network(self.sock)
 
@@ -554,9 +555,9 @@ class TestRPC(unittest.TestCase):
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
             (1, [1, 2], [
-                (1, [], [2], "10xxxxxx", "x"*8, None),
-                (2, [], [2], "01xxxxxx", "x"*8, None),
-                (3, [], [2], "00xxxxxx", "x"*8, None)
+                (1, [], [2], "10xxxxxx", None, None),
+                (2, [], [2], "01xxxxxx", None, None),
+                (3, [], [2], "00xxxxxx", None, None)
             ])
         ]
 
@@ -564,12 +565,12 @@ class TestRPC(unittest.TestCase):
         self.prepare_network(tables, [], [], [])
 
         # add rule that completes the matching
-        add_rule(self.sock, *(1, 4, [], [2], "11xxxxxx", "x"*8, None))
+        add_rule(self.sock, *(1, 4, [], [2], "11xxxxxx", None, None))
 
         self.assertFalse(check_unreach_log())
 
         # add unreachable rule
-        add_rule(self.sock, *(1, 5, [], [2], "xx1xxxxx", "x"*8, None))
+        add_rule(self.sock, *(1, 5, [], [2], "xx1xxxxx", None, None))
 
         self.assertTrue(check_unreach_log())
 
@@ -581,9 +582,9 @@ class TestRPC(unittest.TestCase):
         tables = [
             # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
             (1, [1, 2], [
-                (1, [], [2], "10xxxxxx", "x"*8, None),
-                (2, [], [2], "01xxxxxx", "x"*8, None),
-                (3, [], [2], "00xxxxxx", "x"*8, None)
+                (1, [], [2], "10xxxxxx", None, None),
+                (2, [], [2], "01xxxxxx", None, None),
+                (3, [], [2], "00xxxxxx", None, None)
             ])
         ]
 
@@ -593,12 +594,12 @@ class TestRPC(unittest.TestCase):
         self.assertFalse(check_shadow_log())
 
         # add shadowed rule
-        add_rule(self.sock, *(1, 4, [], [2], "011xxxxx", "x"*8, None))
+        add_rule(self.sock, *(1, 4, [], [2], "011xxxxx", None, None))
 
         self.assertTrue(check_shadow_log())
 
         # add unshadowed rule
-        add_rule(self.sock, *(1, 5, [], [2], "11xxxxxx", "x"*8, None))
+        add_rule(self.sock, *(1, 5, [], [2], "11xxxxxx", None, None))
 
         self.assertTrue(check_shadow_log())
 
