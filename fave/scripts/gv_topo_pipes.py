@@ -58,7 +58,7 @@ class TopologyRenderer(object):
         self.json_flow_trees = kwargs.get('json_flow_trees', None)
         self.colors = kwargs.get('colors', 'set19')
         self.format = kwargs.get('type', 'pdf')
-        self.use_masks = kwargs.get('use_masks', False)
+        self.use_verbose = kwargs.get('use_verbose', False)
 
         self.rule_labels = {}
         self.graph = Digraph(
@@ -123,19 +123,21 @@ class TopologyRenderer(object):
 
         row_position = build_row('position', rule['position'])
 
-        row_match = build_row('match:', rule['match'])
+        row_match = build_row(
+            'match:', rule['match']
+        ) if self.use_verbose else ''
 
         row_rewrite = build_row(
             'rewrite:', rule['rewrite']
-        ) if 'rewrite' in rule else ''
+        ) if 'rewrite' in rule and self.use_verbose else ''
 
         row_mask = build_row(
             'mask:', rule['mask']
-        ) if 'mask' in rule else ''
+        ) if 'mask' in rule and self.use_verbose else ''
 
         row_influences = build_row(
             'influences', rule['influences']
-        ) if 'influences' in rule else ''
+        ) if 'influences' in rule and self.use_verbose else ''
 
         row_label = "<%s%s%s%s%s%s%s%s>" % (
             TABLE_START,
@@ -224,7 +226,7 @@ class TopologyRenderer(object):
                 self.pgraph.edge(
                     sid,
                     tid,
-                    label=target['filter'],
+                    label=target['filter'] if self.use_verbose else '',
                     color='red:invis:red',
                     style='dashed',
                     penwidth='1'
@@ -310,7 +312,7 @@ class TopologyRenderer(object):
             self.ftgraph.edge(
                 str(start),
                 str(target),
-                label=child['flow'],
+                label=child['flow'] if self.use_verbose else '',
                 color=color,
                 style='bold'
             )
@@ -340,12 +342,12 @@ def _print_help():
     print
     print '\t-h this help message'
     print '\t-b include flow trees (disables flows)'
-    print '\t-m includes masks'
     print '\t-f include flows (disables flow trees)'
     print '\t-p include policy'
     print '\t-r include pipes'
     print '\t-s include slices'
     print '\t-t include topology'
+    print '\t-v verbose mode'
     print '\t-d <dir> directory of a netplumber dump'
     print
 
@@ -368,19 +370,19 @@ def _read_files(ddir, name):
 
 if __name__ == '__main__':
     try:
-        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bfmprst')
+        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bfprstv')
     except getopt.GetoptError:
         print 'Unable to parse options.'
         sys.exit(1)
 
     USE_DIR = 'np_dump'
-    USE_MASKS = False
     USE_PIPES = False
     USE_SLICE = False
     USE_POLICY = False
     USE_TOPOLOGY = False
     USE_FLOWS = False
     USE_FLOW_TREES = False
+    USE_VERBOSE = False
 
     for opt, arg in OPTS:
         if opt == '-h':
@@ -390,8 +392,6 @@ if __name__ == '__main__':
             USE_FLOW_TREES = True
             USE_FLOWS = False
             """ b wie baum """
-        elif opt == '-m':
-            USE_MASKS = True
         elif opt == '-f':
             USE_FLOWS = True
             USE_FLOW_TREES = False
@@ -404,6 +404,8 @@ if __name__ == '__main__':
             USE_SLICE = True
         elif opt == '-t':
             USE_TOPOLOGY = True
+        elif opt == '-v':
+            USE_VERBOSE = True
         elif opt == '-d':
             USE_DIR = arg.rstrip('/')
         else:
@@ -427,7 +429,7 @@ if __name__ == '__main__':
         use_slices=USE_SLICE, json_slices=JSON_SLICES,
         use_flows=USE_FLOWS, json_flows=JSON_FLOWS,
         use_flow_trees=USE_FLOW_TREES, json_flow_trees=JSON_FLOW_TREES,
-        use_masks=USE_MASKS
+        use_verbose=USE_VERBOSE
     )
     GB.build()
     GB.render('out')
