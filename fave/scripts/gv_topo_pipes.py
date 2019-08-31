@@ -351,6 +351,7 @@ def _print_help():
     print '\t-d <dir> directory of a netplumber dump'
     print
 
+
 def _break_vector_inline(vector, row_func):
     elems = vector.split(',')
     res = []
