@@ -137,4 +137,6 @@ bash scripts/stop_fave.sh
 
 rm -rf $TMP
 
+git checkout examples/example.conf
+
 #kill -s KILL $RYU
