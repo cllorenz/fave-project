@@ -124,19 +124,19 @@ class TopologyRenderer(object):
         row_position = build_row('position', rule['position'])
 
         row_match = build_row(
-            'match:', rule['match']
+            'match:', _break_vector_table(rule['match'])
         ) if self.use_verbose else ''
 
         row_rewrite = build_row(
-            'rewrite:', rule['rewrite']
+            'rewrite:', _break_vector_table(rule['rewrite'])
         ) if 'rewrite' in rule and self.use_verbose else ''
 
         row_mask = build_row(
-            'mask:', rule['mask']
+            'mask:', _break_vector_table(rule['mask'])
         ) if 'mask' in rule and self.use_verbose else ''
 
         row_influences = build_row(
-            'influences', rule['influences']
+            'influences', _break_vector_table(rule['influences'])
         ) if 'influences' in rule and self.use_verbose else ''
 
         row_label = "<%s%s%s%s%s%s%s%s>" % (
@@ -226,7 +226,7 @@ class TopologyRenderer(object):
                 self.pgraph.edge(
                     sid,
                     tid,
-                    label=target['filter'] if self.use_verbose else '',
+                    label=_break_vector_nl(target['filter']) if self.use_verbose else '',
                     color='red:invis:red',
                     style='dashed',
                     penwidth='1'
@@ -312,7 +312,7 @@ class TopologyRenderer(object):
             self.ftgraph.edge(
                 str(start),
                 str(target),
-                label=child['flow'] if self.use_verbose else '',
+                label=_break_vector_nl(child['flow']) if self.use_verbose else '',
                 color=color,
                 style='bold'
             )
@@ -350,6 +350,31 @@ def _print_help():
     print '\t-v verbose mode'
     print '\t-d <dir> directory of a netplumber dump'
     print
+
+def _break_vector_inline(vector, row_func):
+    elems = vector.split(',')
+    res = []
+
+    for i in range(len(elems) / 4):
+        res.append(row_func(','.join(elems[i*4:i*4+4])))
+
+    res.append(row_func(','.join(elems[(len(elems) / 4)*4:])))
+
+    return ''.join(res)
+
+
+def _break_vector_nl(vector):
+    return _break_vector_inline(vector, lambda x: x + '\n')
+
+
+def _break_vector_table(vector):
+    TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
+    TABLE_END = '</TABLE>'
+
+    build_row = lambda x: \
+        '<TR><TD align="right">%s</TD></TR>' % x
+
+    return TABLE_START + _break_vector_inline(vector, build_row) + TABLE_END
 
 def _read_tables(ddir):
     """ reads a collection of json files and provides their contents
