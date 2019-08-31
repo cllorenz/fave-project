@@ -265,7 +265,6 @@ PROTO(add_rule)
   // TODO: fix error handling properly
   if (!match) match = array_create(length,BIT_X);// ERROR("empty match");
   array_t *mask = val_to_array(PARAM(mask));
-  if (!mask) mask = array_create(length,BIT_X);
   array_t *rw = val_to_array(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
   RETURN((Json::Value::UInt64) ret);
