@@ -35,13 +35,13 @@ CNT=0
 
 # test topology
 echo -n "read topology... "
-# switch
+# $SWITCH
 python2 topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
-# packet filter
+# packet filter $FIREWALL
 python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p 2
 CNT=$(( $? + CNT ))
-# links: foo<->bar
+# links: $SWITCH <-> $FIREWALL
 python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.1,$FIREWALL.3:$SWITCH.2
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
@@ -54,10 +54,10 @@ CNT=$(( $? + CNT ))
 python2 topology/topology.py -a -t generator -n $HOST2 -f "ipv6_dst=2001:db8::2;tcp_dst=80"
 CNT=$(( $? + CNT ))
 
-#link: $HOST1-->bar
+#link: $HOST1 --> $FIREWALL
 python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2
 CNT=$(( $? + CNT ))
-#link: $HOST2-->foo
+#link: $HOST2 --> $SWITCH
 python2 topology/topology.py -a -l $HOST2.1:$SWITCH.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
@@ -69,10 +69,10 @@ CNT=$(( $? + CNT ))
 python2 topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 
-# link: bar-->$PROBE1
+# link: $FIREWALL --> $PROBE1
 python2 topology/topology.py -a -l $FIREWALL.4:$PROBE1.1
 CNT=$(( $? + CNT ))
-# link: foo-->PROBE2
+# link: $SWITCH --> PROBE2
 python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
