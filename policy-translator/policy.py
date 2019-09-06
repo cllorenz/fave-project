@@ -255,11 +255,11 @@ class Policy(object):
         "\t\t\t\t<td></td>\n",
         "\t\t\t\t<td></td>\n"]
 
-        for role in roles:
-            html_list.append(("\t\t\t\t<td class='role'>\n"
-            "\t\t\t\t\t<div class='tooltip'>\n"
+        for role in sorted(roles):
+            html_list.append(("\t\t\t\t<td class='role_rotate'>\n"
+            "\t\t\t\t\t<div class='tooltip_rotated'>\n"
             "\t\t\t\t\t\t" + role + "\n"
-            "\t\t\t\t\t\t<span class='tooltiptext'>"))
+            "\t\t\t\t\t\t<span class='tooltiptext_unrotated'>"))
             for key, value in self.roles[role].attributes.iteritems():
                 html_list.append("%s = %s<br/>" % (key, value))
             html_list.append(("</span>\n"
@@ -268,7 +268,7 @@ class Policy(object):
 
         html_list.append("\t\t\t</tr>\n")
 
-        for counter, role_from in enumerate(roles):
+        for counter, role_from in enumerate(sorted(roles)):
             html_list.append("\t\t\t<tr>\n")
 
             if counter == 0:
@@ -276,7 +276,7 @@ class Policy(object):
 
             html_list.append("\t\t\t\t<td class='role'>%s</td>\n" % role_from)
 
-            for role_to in roles:
+            for role_to in sorted(roles):
                 if role_from == "Internet" and role_to == "Internet":
                     html_list.append("\t\t\t\t<td>&nbsp;</td>\n")
                 elif (role_from, role_to) in self.policies and len(self.policies[(role_from, role_to)].conditions) > 0:
@@ -348,14 +348,14 @@ class Policy(object):
                 vlan_to = self.roles[policy[1]].attributes["vlan"]
                 reachable.add((vlan_from, vlan_to))
 
-        for vlan in vlans:
+        for vlan in sorted(vlans):
             csv_list.append(",%d" % vlan)
 
         csv_list.append("\n")
 
-        for vlan_from in vlans:
+        for vlan_from in sorted(vlans):
             csv_list.append("%d" % vlan_from)
-            for vlan_to in vlans:
+            for vlan_to in sorted(vlans, reverse=False):
                 if (vlan_from, vlan_to) in reachable:
                     csv_list.append(",X")
                 else:
@@ -376,7 +376,7 @@ class Role(object):
             objects as values.
     """
 
-    valid_role_attr = ["hosts", "vlan", "ipv4", "ipv6"]
+    valid_role_attr = ["description", "hosts", "vlan", "ipv4", "ipv6", "gateway"]
 
     def __init__(self, name, policy, attributes=None, services=None):
         """Initialises a Role object with the given name, policy, attributes and

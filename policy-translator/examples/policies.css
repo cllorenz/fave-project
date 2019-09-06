@@ -10,7 +10,7 @@ table {
 td {
 	border: 1px solid black;
 	padding: 7px;
-	width: 20px;
+	width: 25px;
 }
 
 td:empty {
@@ -23,7 +23,8 @@ td+td {
 }
 
 .label {
-	border: 0px;
+	border: 1px solid black;
+    font-weight: bold;
 	text-align: center;
 }
 
@@ -46,14 +47,47 @@ td+td {
 }
 
 .role {
-	font-weight: bold;
 	min-width: 125px;
+    height: 20px;
+	max-height: 25px;
+}
+
+.role_rotate {
+	width: 25px;
+	max-width: 25px;
+  height: 125px;
 }
 
 .tooltip {
 	position: relative;
 	display: inline-block;
 	border-bottom: 1px dotted black;
+}
+
+.tooltip_rotated {
+	bottom: -40px;
+	position: relative;
+	display: inline-block;
+	border-bottom: 1px dotted black;
+  max-width: 25px;
+	transform: rotate(-90deg);
+}
+
+.tooltip_rotated .tooltiptext_unrotated {
+    transform: rotate(90deg);
+	visibility: hidden;
+	width: 400px;
+	background-color: gray;
+	color: #fff;
+	text-align: center;
+	border-radius: 6px;
+	padding: 5px 0;
+
+	position: absolute;
+	z-index: 1;
+	top: 100%;
+	left: 50%;
+	margin-left: -200px;
 }
 
 .tooltip .tooltiptext {
@@ -70,6 +104,10 @@ td+td {
 	top: 100%;
 	left: 50%;
 	margin-left: -200px;
+}
+
+.tooltip_rotated:hover .tooltiptext_unrotated {
+	visibility: visible;
 }
 
 .tooltip:hover .tooltiptext {
