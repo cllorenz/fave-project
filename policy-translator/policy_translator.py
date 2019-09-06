@@ -32,10 +32,12 @@ def main():
 
     parser = argparse.ArgumentParser(description='Liest Policies aus einer Datei und übersetzt sie wahlweise in HTML oder CSV.')
     parser.add_argument('files', metavar='FILE', nargs='+', help='Either an inventory file followed by a policy file, or a single file that combines both.')
-    parser.add_argument('--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
-    parser.add_argument('--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
-    parser.add_argument('-d', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
-    parser.add_argument('--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
+    parser.add_argument('-c', '--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
+    parser.add_argument('-d', '--debug', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
+    parser.add_argument('-o', '--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
+    parser.add_argument('-s', '--strict', dest='strict', action='store_const', const=True, default=False, help='Use strict mode.')
+    parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
+    parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
     args = parser.parse_args()
 
     if args.trace:
