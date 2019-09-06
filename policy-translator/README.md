@@ -17,7 +17,7 @@ or
 (if inventory and policies are in separate files).
 
 
-### Modes
+### Strictness
 
 Currently, there are two modes for specifying strictness for policies.
 The default is a relaxed mode where networks may reach themselves without an explicit policy rule.
