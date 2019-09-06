@@ -121,7 +121,7 @@ class PolicyBuilder(object):
         role_service_match = cls.match(cls.role_service_regex, policy_chars)
         if role_service_match:
             for role_service in role_service_match:
-                PT_LOGGER.debug(role_service.groupdict())
+                PT_LOGGER.trace(role_service.groupdict())
 
         if len(role_service_match) != 1:
             PT_LOGGER.debug("error while matching: %s\n[...]", policy_chars.split("\n")[0])
@@ -131,13 +131,13 @@ class PolicyBuilder(object):
         role_matches = cls.match(cls.role_regex, policy_chars, cls.role_regex.search)
         if role_matches:
             for role_match in role_matches:
-                PT_LOGGER.debug(role_match.groupdict())
+                PT_LOGGER.trace(role_match.groupdict())
 
         PT_LOGGER.debug("match services")
         service_matches = cls.match(cls.service_regex, policy_chars, cls.service_regex.search)
         if service_matches:
             for service_match in service_matches:
-                PT_LOGGER.debug(service_match.groupdict())
+                PT_LOGGER.trace(service_match.groupdict())
 
         for match in service_matches:
             PT_LOGGER.debug("fetch service name")
@@ -230,12 +230,12 @@ class PolicyBuilder(object):
         policy_matches = cls.match(cls.policies_regex, policy_chars)
         if policy_matches:
             for policy_match in policy_matches:
-                PT_LOGGER.debug(policy_match.groupdict())
+                PT_LOGGER.trace(policy_match.groupdict())
 
         if len(policy_matches) > 0:
             PT_LOGGER.debug("fetch first match")
             match = policy_matches[0]
-            PT_LOGGER.debug("first match: %s", match.groupdict())
+            PT_LOGGER.trace("first match: %s", match.groupdict())
 
             PT_LOGGER.debug("fetch policies body")
             policies_chars = match.group("policies")

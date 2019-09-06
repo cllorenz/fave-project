@@ -38,7 +38,9 @@ def main():
     parser.add_argument('--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
     args = parser.parse_args()
 
-    if args.debug:
+    if args.trace:
+        PT_LOGGER.setLevel(logging.TRACE)
+    elif args.debug:
         PT_LOGGER.setLevel(logging.DEBUG)
 
     files = []
