@@ -39,7 +39,7 @@ class Policy(object):
 
     default_roles = ["Internet"]
 
-    def __init__(self):
+    def __init__(self, strict=False):
         """Initialises a Policy object with role "Internet", no services, no
         policies and default policy "deny"."""
 
@@ -49,6 +49,7 @@ class Policy(object):
         self.default_policy = False
         for role in self.default_roles:
             self.add_role(role)
+        self.strict = strict
 
     def __eq__(self, other):
         assert isinstance(other, Policy)
@@ -205,6 +206,23 @@ class Policy(object):
             self.default_policy = False
         elif default == "allow":
             self.default_policy = True
+
+
+    def get_atomic_roles_rec(self, roles):
+        res = set([])
+        for role in roles:
+            r = self.roles[role]
+            if isinstance(r, Superrole):
+                res.update(self.get_atomic_roles_rec(r.subroles))
+            else:
+                res.add(role)
+
+        return res
+
+
+    def get_atomic_roles(self):
+        return self.get_atomic_roles_rec(self.roles)
+
 
     def to_html(self):
         """Creates a reachability table in HTML format using roles (not

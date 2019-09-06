@@ -56,7 +56,7 @@ def main():
     for file in files:
         file.close()
     PT_LOGGER.debug("create policy object")
-    policy = Policy()
+    policy = Policy(strict=args.strict)
     try:
         PT_LOGGER.debug("build policy")
         PolicyBuilder.build(policy_chars, policy)

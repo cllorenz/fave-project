@@ -278,6 +278,14 @@ class PolicyBuilder(object):
                     else:
                         PT_LOGGER.debug("operator %s not permitted with default %s", op, policy.default_policy)
 
+        if not policy.strict:
+            PT_LOGGER.debug("add default self reachability policies")
+            for role in policy.get_atomic_roles():
+                if not policy.policy_exists(role, role):
+                    policy.add_reachability_policy(role, role)
+                    PT_LOGGER.debug("self policy: %s ---> %s", role, role)
+
+
     @classmethod
     def match(self, regex, chars, function=None):
         """Returns all matches of a regular expression in a character string.
