@@ -16,7 +16,18 @@ or
 
 (if inventory and policies are in separate files).
 
+
+### Modes
+
+Currently, there are two modes for specifying strictness for policies.
+The default is a relaxed mode where networks may reach themselves without an explicit policy rule.
+This behaviour can be disabled by using the ``--strict`` option.
+
+### Options
+
 Export of reachability tables in HTML or CSV format can be toggled using the command-line options ``--html`` and ``--csv``.
+
+Debug or trace output can be obtained by using ``--debug`` or ``--trace``.
 
 ## Example files
 
