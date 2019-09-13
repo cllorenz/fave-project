@@ -26,6 +26,7 @@ class TopologyRenderer(object):
             use_pipes,
             use_topology,
             use_policy,
+            use_fave,
             json_tables,
             json_policy,
             json_topology,
@@ -43,6 +44,7 @@ class TopologyRenderer(object):
         self.use_pipes = use_pipes
         self.use_topology = use_topology
         self.use_policy = use_policy
+        self.use_fave = use_fave
         self.json_tables = json_tables
         self.json_policy = json_policy
         self.json_topology = json_topology
@@ -71,6 +73,10 @@ class TopologyRenderer(object):
         self.fgraph = Digraph(name='cluster4')
         self.ftgraph = Digraph(name='cluster5')
         self.graph.attr(rankdir='LR')
+
+        if use_fave:
+            self.fave = kwargs.get('json_fave', None)
+
 
     def build(self):
         """ render subgraph with pipes and slices """
@@ -102,7 +108,7 @@ class TopologyRenderer(object):
             ports = probe['params']['ports']
             self.tgraph.node('s'+str(i), label='S'+str(i), shape=shape)
             for port in ports:
-                self.tgraph.node('port'+str(port), label=str(port))
+                self.tgraph.node('port'+str(port), label=self._build_port_label(str(port)))
                 if source:
                     self.tgraph.edge('s'+str(i), 'port'+str(port))
                 else:
@@ -155,6 +161,19 @@ class TopologyRenderer(object):
 
         return row_label
 
+    def _build_table_label(self, tid):
+        if not self.use_fave:
+            return 'Table ' + hex(tid)
+        else:
+            return 'Table ' + self.fave['id_to_table'][str(tid)]
+
+
+    def _build_port_label(self, port):
+        if not self.use_fave:
+            return str(port)
+        else:
+            label = self.fave['id_to_port'][str(port)].split('_')
+            return label[len(label)-1]
 
     def __build_tables(self):
         if not self.json_tables:
@@ -163,10 +182,12 @@ class TopologyRenderer(object):
 
         for i, table in enumerate(self.json_tables):
             tgraph = Digraph(name='cluster1_' + str(i))
-            tgraph.attr(rankdir='TD', label='Table '+hex(table['id']),
+            tlabel = self._build_table_label(table['id'])
+            tgraph.attr(rankdir='TD', label=tlabel,
                         labelloc='t', labeljust='l')
             for port in table['ports']:
-                tgraph.node('port'+str(port), label=str(port), shape='circle')
+                plabel = self._build_port_label(port)
+                tgraph.node('port'+str(port), label=plabel, shape='circle')
 
             # TODO(jan): check whether to include rewrite as table row
             for j, rule in enumerate(table['rules']):
@@ -343,6 +364,7 @@ def _print_help():
     print '\t-h this help message'
     print '\t-b include flow trees (disables flows)'
     print '\t-f include flows (disables flow trees)'
+    print '\t-l show fave labels instead of netplumber identifiers'
     print '\t-p include policy'
     print '\t-r include pipes'
     print '\t-s include slices'
@@ -396,7 +418,7 @@ def _read_files(ddir, name):
 
 if __name__ == '__main__':
     try:
-        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bfprstv')
+        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bflprstv')
     except getopt.GetoptError:
         print 'Unable to parse options.'
         sys.exit(1)
@@ -406,6 +428,7 @@ if __name__ == '__main__':
     USE_SLICE = False
     USE_POLICY = False
     USE_TOPOLOGY = False
+    USE_FAVE = False
     USE_FLOWS = False
     USE_FLOW_TREES = False
     USE_VERBOSE = False
@@ -421,6 +444,8 @@ if __name__ == '__main__':
         elif opt == '-f':
             USE_FLOWS = True
             USE_FLOW_TREES = False
+        elif opt == '-l':
+            USE_FAVE = True
         elif opt == '-p':
             USE_POLICY = True
         elif opt == '-r':
@@ -448,12 +473,13 @@ if __name__ == '__main__':
     JSON_SLICES = _read_files(USE_DIR, 'slice') if USE_SLICE else None
     JSON_FLOWS = _read_files(USE_DIR, 'flows') if USE_FLOWS else None
     JSON_FLOW_TREES = _read_files(USE_DIR, 'flow_trees') if USE_FLOW_TREES else None
+    JSON_FAVE = _read_files(USE_DIR, 'fave') if USE_FAVE else None
 
     GB = TopologyRenderer(
-        USE_PIPES, USE_TOPOLOGY, USE_POLICY,
+        USE_PIPES, USE_TOPOLOGY, USE_POLICY, USE_FAVE,
         JSON_TABLES, JSON_POLICY, JSON_TOPOLOGY, JSON_PIPES,
         use_slices=USE_SLICE, json_slices=JSON_SLICES,
-        use_flows=USE_FLOWS, json_flows=JSON_FLOWS,
+        use_flows=USE_FLOWS, json_flows=JSON_FLOWS, json_fave=JSON_FAVE,
         use_flow_trees=USE_FLOW_TREES, json_flow_trees=JSON_FLOW_TREES,
         use_verbose=USE_VERBOSE
     )
