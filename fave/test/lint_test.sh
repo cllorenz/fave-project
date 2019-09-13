@@ -35,7 +35,7 @@ lint_file() {
         return 0
     fi
 
-    PYTHONPATH=. pylint2 $PYFILE > $LOG 2>&1
+    PYTHONPATH=. pylint $PYFILE > $LOG 2>&1
     if [ $? -eq 0 ]; then
         echo "$PRE ok"
         echo $PYFILE >> $OKS
