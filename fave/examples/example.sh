@@ -21,8 +21,8 @@ scripts/start_aggr.sh
 ## probe $PROBE2
 ##
 
-SWITCH=sw
-FIREWALL=fw
+SWITCH=sw0
+FIREWALL=fw0
 HOST1=hs1
 HOST2=hs2
 PROBE1=hp1
