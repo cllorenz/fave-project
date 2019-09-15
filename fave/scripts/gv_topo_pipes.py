@@ -165,7 +165,7 @@ class TopologyRenderer(object):
         if not self.use_fave:
             return 'Table ' + hex(tid)
         else:
-            return 'Table ' + self.fave['id_to_table'][str(tid)]
+            return 'Table %s (%s)' % (self.fave['id_to_table'][str(tid)], hex(tid))
 
 
     def _build_port_label(self, port):
