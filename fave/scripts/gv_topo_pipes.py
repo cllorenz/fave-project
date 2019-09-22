@@ -347,10 +347,38 @@ class TopologyRenderer(object):
         if not self.json_flow_trees:
             raise MissingData('Missing Flow Trees')
 
-        for flow in self.json_flow_trees['flows']:
-            color = '#%06x' % (hash(str(flow['node'])) & 0xffffff)
-            self._traverse_flow({}, flow, color)
+        _POSITION = lambda g: len(g.body) - 1
 
+        n_map = {}
+        for flow in self.json_flow_trees['flows']:
+            start = flow['node']
+            if start not in n_map:
+                slabel = self.rule_labels.get(start, hex(start))
+                self.ftgraph.node(str(start), label=slabel, shape='rectangle')
+                n_map[start] = _POSITION(self.ftgraph)
+
+
+#            color = '#%06x' % (hash(str(flow['node'])) & 0xffffff)
+#            self._traverse_flow({}, flow, color)
+            for idx, child in enumerate(flow['children']):
+                color = '#%06x' % (hash(str(child['node'] * idx)) & 0xffffff)
+
+                target = child['node']
+
+                if target not in n_map:
+                    tlabel = self.rule_labels[target] if target in self.rule_labels else hex(target)
+                    self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
+                    n_map[target] = _POSITION(self.ftgraph)
+
+                self.ftgraph.edge(
+                    str(start),
+                    str(target),
+                    label=_break_vector_nl(child['flow']) if self.use_verbose else '',
+                    color=color,
+                    style='bold'
+                )
+
+                self._traverse_flow(n_map, child, color)
 
 
     def render(self, filename):
