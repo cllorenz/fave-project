@@ -279,7 +279,41 @@ void RuleNode::process_src_flow(Flow *f) {
       after << " after processing";
       LOG4CXX_TRACE(logger, after.str());
     }
+#ifdef NEW_HS
+    if (mask && rewrite) {
+        hs_rewrite(f->processed_hs, mask, rewrite);
 
+        if (logger->isTraceEnabled()) {
+          stringstream rw;
+          rw << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
+          rw << " with " << hs_to_str(f->processed_hs);
+          rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
+          rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
+          LOG4CXX_TRACE(logger, rw.str());
+        }
+    }
+
+    const bool dead = hs_compact(f->processed_hs);
+
+    if (logger->isTraceEnabled()) {
+      stringstream comp;
+      comp << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
+      comp << " compressed to " << hs_to_str(f->processed_hs);
+      comp << " which is " << (dead ? "dead" : "alive");
+      LOG4CXX_TRACE(logger, comp.str());
+    }
+
+    if (dead) {
+      LOG4CXX_TRACE(logger, "RuleNode::process_src_flow(): drop dead flow");
+      hs_free(f->processed_hs);
+      f->processed_hs = nullptr;
+    } else {
+      LOG4CXX_TRACE(logger, "RuleNode::process_src_flow(): propagate alive flow");
+      f->n_flows = new list< list<struct Flow*>::iterator >();
+      propagate_src_flow_on_pipes(f_it);
+    }
+
+#else
     // compress h.
     // if compress to empty, free f. else process it.
     if (!hs_compact_m(f->processed_hs,mask)) {
@@ -304,6 +338,7 @@ void RuleNode::process_src_flow(Flow *f) {
         propagate_src_flow_on_pipes(f_it);
       }
     }
+#endif
 
   } else { // fresh start case
     for (auto const &prev: prev_in_pipeline) {
@@ -372,6 +407,43 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
     LOG4CXX_TRACE(logger, after.str());
   }
 
+#ifdef NEW_HS
+
+  if (mask && rewrite) {
+      hs_rewrite(f->processed_hs, mask, rewrite);
+
+      if (logger->isTraceEnabled()) {
+        stringstream rw;
+        rw << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+        rw << " with " << hs_to_str(f->processed_hs);
+        rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
+        rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
+        LOG4CXX_TRACE(logger, rw.str());
+      }
+  }
+
+  const bool dead = hs_compact(f->processed_hs);
+
+  if (logger->isTraceEnabled()) {
+    stringstream comp;
+    comp << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+    comp << " compressed to " << hs_to_str(f->processed_hs);
+    comp << " which is " << (dead ? "dead" : "alive");
+    LOG4CXX_TRACE(logger, comp.str());
+  }
+
+  if (dead) {
+    LOG4CXX_TRACE(logger, "RuleNode::process_src_flow_at_location(): drop dead flow");
+    f->node->absorb_src_flow(loc, true);
+    hs_free(f->processed_hs);
+    f->processed_hs = nullptr;
+  } else {
+    LOG4CXX_TRACE(logger, "RuleNode::process_src_flow_at_location(): propagate alive flow");
+    if (!f->n_flows) f->n_flows = new list< list<struct Flow*>::iterator >();
+    repropagate_src_flow_on_pipes(loc, nullptr);
+  }
+
+#else
   // compress h.
   // if compress to empty, free f. else process it.
   if (!hs_compact_m(f->processed_hs,mask)) {
@@ -397,6 +469,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
       repropagate_src_flow_on_pipes(loc, nullptr);
     }
   }
+#endif
 }
 
 
