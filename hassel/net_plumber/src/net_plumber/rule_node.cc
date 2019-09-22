@@ -274,7 +274,7 @@ void RuleNode::process_src_flow(Flow *f) {
 
     if (logger->isTraceEnabled()) {
       stringstream after;
-      after << "RuleNode::process_src_flow(): id " << this->node_id;
+      after << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
       after << " with " << hs_to_str(f->processed_hs);
       after << " after processing";
       LOG4CXX_TRACE(logger, after.str());
