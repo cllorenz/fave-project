@@ -1181,7 +1181,7 @@ void NetPlumberPlumbingTest::verify_source_flow_stats(const char *test_case, con
     N->get_source_flow_stats(node_ids[i], inc, exc);
     if (logger->isDebugEnabled()) {
       stringstream error_msg;
-      error_msg << "(included wc, excluded_wc) - Obtained: " << inc <<
+      error_msg << "For node 0x" << std::hex << node_ids[i] <<  " (included wc, excluded_wc) - Obtained: " << inc <<
           " , " << exc << " Expected " << stats[i][0] << " , " << stats[i][1];
       LOG4CXX_DEBUG(logger,error_msg.str());
     }
