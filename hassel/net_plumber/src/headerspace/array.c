@@ -250,6 +250,12 @@ array_has_z (const array_t *a, size_t len)
 }
 
 bool
+array_has_isect(const array_t *a, const array_t *b, size_t len) {
+    array_t tmp[SIZE(len)];
+    return array_isect(a, b, len, &tmp);
+}
+
+bool
 array_is_eq (const array_t *a, const array_t *b, size_t len)
 {
     // trivial case where both operands are NULL
