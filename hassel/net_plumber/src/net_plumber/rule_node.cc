@@ -401,7 +401,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 
   if (logger->isTraceEnabled()) {
     stringstream after;
-    after << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+    after << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
     after << " with " << hs_to_str(f->processed_hs);
     after << " after processing";
     LOG4CXX_TRACE(logger, after.str());
