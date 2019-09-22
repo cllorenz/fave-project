@@ -509,7 +509,13 @@ hs_diff (struct hs *hs, const array_t *a)
 {
 #ifdef NEW_HS
   if (!a) return;
-  vec_append(&hs->diff, array_copy(a, hs->len));
+  for (size_t i = 0; i < hs->list.used; i++) {
+    array_t *tmp = array_isect_a (hs->list.elems[i], a, hs->len);
+    if (tmp) {
+      vec_append(&hs->diff, tmp);
+      break;
+    }
+  }
 #else
   struct hs_vec *v = &hs->list;
   for (size_t i = 0; i < v->used; i++) {
@@ -559,9 +565,9 @@ hs_compact_m (struct hs *hs, const array_t *mask)
     return false;
   }
 
-  vec_compact_m (&hs->list, mask, hs->len);
   vec_compact_m (&hs->diff, mask, hs->len);
 
+  // remove list elements which are negated by the diff set
   for (size_t i = 0; i < hs->list.used; i++) {
     for (size_t j = 0; j < hs->diff.used; j++) {
       const bool superset = array_is_sub_eq(
@@ -577,7 +583,22 @@ hs_compact_m (struct hs *hs, const array_t *mask)
     }
   }
 
-  return hs->list.used;
+  // remove diff elements which have no overlap with the list set anymore
+  for (size_t i = 0; i < hs->diff.used; i++) {
+    bool overlaps = false;
+
+    for (size_t j = 0; j < hs->list.used; j++) {
+      overlaps |= array_has_isect(hs->diff.elems[i], hs->list.elems[j], hs->len);
+      if (overlaps) break;
+    }
+
+    if (!overlaps) {
+      vec_elem_free (&hs->diff, i); i--;
+      continue;
+    }
+  }
+
+  return hs_is_empty(hs);
 
 #else
   struct hs_vec *v = &hs->list;
@@ -801,9 +822,10 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
     if (!isect) continue;
 
     vec_append(&res->diff, isect);
+//    vec_append(&res->diff, array_copy(hs->diff.elems[i], hs->len));
   }
 
-  return res->list.used;
+  return !hs_compact(res);
 
 #else
   const struct hs_vec *v = &hs->list;
@@ -861,15 +883,26 @@ void
 hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 {
 #ifdef NEW_HS
+  size_t n[hs->list.used];
+
   struct hs_vec *list = &hs->list;
   for (size_t i = 0; i < list->used; i++)
-    array_rewrite(list->elems[i], mask, rewrite, hs->len);
+    n[i] = array_rewrite(list->elems[i], mask, rewrite, hs->len);
 
   struct hs_vec *diff = &hs->diff;
-  for (size_t i = 0; i < diff->used; i++)
-    array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+  for (size_t i = 0; i < diff->used; i++) {
+    size_t m = array_rewrite(diff->elems[i], mask, rewrite, hs->len);
 
-  hs_compact(hs);
+    for (size_t j = 0; j < list->used; j++) {
+      if (m != n[j] && array_has_isect(diff->elems[i], list->elems[j], hs->len)) {
+        vec_elem_free(diff, i); i--;
+        break;
+      }
+    }
+  }
+
+//  hs_compact(hs);
+
 #else
   struct hs_vec *v = &hs->list;
   for (size_t i = 0; i < v->used; i++) {
