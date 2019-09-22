@@ -239,7 +239,7 @@ void RuleNode::process_src_flow(Flow *f) {
 
     if (logger->isTraceEnabled()) {
       stringstream pre;
-      pre << "RuleNode::process_src_flow(): id " << this->node_id;
+      pre << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
       pre << " with " << hs_to_str(f->processed_hs);
       pre << " before processing";
       LOG4CXX_TRACE(logger, pre.str());
@@ -251,7 +251,7 @@ void RuleNode::process_src_flow(Flow *f) {
 
       if (logger->isTraceEnabled()) {
         stringstream inter;
-        inter << "RuleNode::process_src_flow():   id " << this->node_id;
+        inter << "RuleNode::process_src_flow():   id 0x" << std::hex << this->node_id;
         inter << " with " << hs_to_str(f->processed_hs);
         inter << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
         LOG4CXX_TRACE(logger, inter.str());
@@ -280,7 +280,7 @@ void RuleNode::process_src_flow(Flow *f) {
 
         if (logger->isTraceEnabled()) {
           stringstream rw;
-          rw << "RuleNode::process_src_flow(): id " << this->node_id;
+          rw << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
           rw << " with " << hs_to_str(f->processed_hs);
           rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
           rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
@@ -305,7 +305,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 
   if (logger->isTraceEnabled()) {
     stringstream pre;
-    pre << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+    pre << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
     pre << " with " << hs_to_str(f->processed_hs);
     pre << " before processing";
     LOG4CXX_TRACE(logger, pre.str());
@@ -315,13 +315,13 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
     if (f->processed_hs == nullptr) return;
     hs_diff(f->processed_hs, change);
 
-  if (logger->isTraceEnabled()) {
-    stringstream after;
-    after << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
-    after << " with " << hs_to_str(f->processed_hs);
-    after << " after processing";
-    LOG4CXX_TRACE(logger, after.str());
-  }
+    if (logger->isTraceEnabled()) {
+      stringstream after;
+      after << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+      after << " with " << hs_to_str(f->processed_hs);
+      after << " after processing";
+      LOG4CXX_TRACE(logger, after.str());
+    }
 
   } else {
     if (f->processed_hs) hs_free(f->processed_hs);
@@ -330,7 +330,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 
     if (logger->isTraceEnabled()) {
       stringstream inter;
-      inter << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+      inter << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
       inter << " with " << hs_to_str(f->processed_hs);
       inter << " after (re)allocation";
       LOG4CXX_TRACE(logger, inter.str());
@@ -342,7 +342,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 
       if (logger->isTraceEnabled()) {
         stringstream loop;
-        loop << "RuleNode::process_src_flow_at_location(): id " << this->node_id;
+        loop << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
         loop << " with " << hs_to_str(f->processed_hs);
         loop << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
         LOG4CXX_TRACE(logger, loop.str());
@@ -373,7 +373,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 
       if (logger->isTraceEnabled()) {
         stringstream rw;
-        rw << "RuleNode::process_src_flow(): id " << this->node_id;
+        rw << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
         rw << " with " << hs_to_str(f->processed_hs);
         rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
         rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
