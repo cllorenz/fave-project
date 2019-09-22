@@ -506,8 +506,11 @@ void HeaderspaceTest::test_rewrite() {
 
 #ifdef NEW_HS
     struct hs a = {h->len, {0, 0, 0}, {0, 0, 0}};
-
+#ifdef STRICT_RW
+    hs_vec_append(&a.list,array_from_str("0xx1xxx1"));
+#else
     hs_vec_append(&a.list,array_from_str("1xx110x1")); // XXX: why not 0xx1xxx1?
+#endif
 #else
     struct hs a = {h->len, {0, 0, 0, 0}};
 #ifdef STRICT_RW
