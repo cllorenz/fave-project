@@ -217,6 +217,20 @@ string flow_to_str2(Flow *f) {
 }
 
 void RuleNode::process_src_flow(Flow *f) {
+  /**
+    Process an incoming flow by applying the following steps:
+
+    (Rule processing)
+    1. Subtract all influencing rules from the flow
+    2. Rewrite the flow (if applying)
+    3. Clear flow's diff from overfitting flows
+
+    (Forward processing, cf. Node::propagate_src_flow_on_pipes())
+    4. Filter and forward flow on outgoing pipelines
+    5. Process flow in next nodes
+   */
+
+
   if (f) { // flow routing case
     //printf("at node %lx, processing flow: %s\n",node_id,flow_to_str2(f).c_str());
     // add f to source_flow and add it to n_flows of previous flow
