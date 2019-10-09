@@ -598,7 +598,7 @@ hs_compact_m (struct hs *hs, const array_t *mask)
     }
   }
 
-  return hs_is_empty(hs);
+  return !hs_is_empty(hs);
 
 #else
   struct hs_vec *v = &hs->list;
@@ -825,7 +825,7 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
 //    vec_append(&res->diff, array_copy(hs->diff.elems[i], hs->len));
   }
 
-  return !hs_compact(res);
+  return hs_compact(res);
 
 #else
   const struct hs_vec *v = &hs->list;
