@@ -64,6 +64,7 @@ bool hs_isect_arr (struct hs *dst, const struct hs *src, const array_t *arr);
 void hs_minus     (struct hs *a, const struct hs *b);
 void hs_rewrite   (struct hs *hs, const array_t *mask, const array_t *rewrite);
 #ifdef NEW_HS
+void hs_unroll_superset(struct hs *hs, const struct hs *influences);
 void hs_vec_append (struct hs_vec *v, array_t *a);
 #else
 void hs_vec_append (struct hs_vec *v, array_t *a, bool diff);

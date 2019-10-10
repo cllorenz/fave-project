@@ -928,6 +928,40 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 #endif
 }
 
+#ifdef NEW_HS
+void
+hs_unroll_superset(struct hs *hs, const struct hs *influences)
+{
+  const size_t len = hs->len;
+  bool any = false;
+
+  struct hs_vec tmp = {0, 0, 0};
+
+  for (size_t i = 0; i < influences->list.used; i++) {
+    for (size_t j = 0; j < hs->list.used; j++) {
+      array_t *inf = influences->list[i];
+      array_t *elem = hs->list[j];
+      if (array_is_sub(inf, elem, len)) {
+        any = true;
+        size_t cnt;
+        array_t **unrolled = array_unroll_superset(elem, inf, len, &cnt);
+        vec_elem_free(hs->list, j); j--;
+        for (size_t k = 0; k < cnt; k++) {
+          vec_append(&tmp, unrolled[k]);
+        }
+        free(unrolled);
+      }
+    }
+  }
+
+  for (size_t i = 0; i < tmp.used; i++) {
+    vec_append(hs->list, tmp.list[i]);
+  }
+  vec_clear(&tmp);
+
+  if (any) hs_cross_compact(hs);
+}
+#endif
 
 #ifdef USE_DEPRECATED
 bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
