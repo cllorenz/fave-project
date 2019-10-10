@@ -846,12 +846,12 @@ array_merge(const array_t *a, const array_t *b, size_t len) {
     size_t cnt = 0;
     for (size_t i = 0; i < SIZE(len); i++) {
         // e.g., 1001 ^ 1000 -> zzzx
-        array_t diff = a[i] ^ b[i];
+        const array_t diff = a[i] ^ b[i];
         // if x or z differ (indicated by 0 or 1) abort merge
         if (has_zero(diff) || has_one(diff)) return NULL;
 
         // e.g., 1001 & 1000 -> 100z
-        array_t isect = a[i] & b[i];
+        const array_t isect = a[i] & b[i];
 
         // e.g., zzzx | 100z -> 100x
         res[i] = isect | diff;
