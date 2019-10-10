@@ -554,19 +554,8 @@ hs_compact (struct hs *hs) {
   return hs_compact_m(hs, NULL);
 }
 
-bool
-hs_compact_m (struct hs *hs, const array_t *mask)
-{
-#ifdef NEW_HS
-  vec_compact_m (&hs->list, mask, hs->len);
-
-  if (hs_is_empty(hs)) {
-    hs_destroy(hs);
-    return false;
-  }
-
-  vec_compact_m (&hs->diff, mask, hs->len);
-
+void
+hs_cross_compact (hs *hs) {
   // remove list elements which are negated by the diff set
   for (size_t i = 0; i < hs->list.used; i++) {
     for (size_t j = 0; j < hs->diff.used; j++) {
@@ -597,6 +586,23 @@ hs_compact_m (struct hs *hs, const array_t *mask)
       continue;
     }
   }
+
+}
+
+bool
+hs_compact_m (struct hs *hs, const array_t *mask)
+{
+#ifdef NEW_HS
+  vec_compact_m (&hs->list, mask, hs->len);
+
+  if (hs_is_empty(hs)) {
+    hs_destroy(hs);
+    return false;
+  }
+
+  vec_compact_m (&hs->diff, mask, hs->len);
+
+  hs_cross_compact(hs);
 
   return !hs_is_empty(hs);
 
