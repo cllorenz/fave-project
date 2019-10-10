@@ -868,3 +868,68 @@ array_merge(const array_t *a, const array_t *b, size_t len) {
 
     return NULL;
 }
+
+#ifdef NEW_HS
+void
+array_set_bitmask(array_t *res, uint64_t bitmask, const array_t *positions, size_t len)
+{
+  for (size_t i = SIZE(len)-1; i >= 0; i--) {
+    size_t one_cnt = __builtin_popcountll(positions[i]); // fetch amount of bits to set in this array segment
+    for (size_t j = one_cnt-1; j >= 0; j--) {
+      pos = __builtin_ctz(positions[i]) / 2; // get position of last set bit in position array
+      set_bit(res[i], pos, (bitmask & 0x1) ? BIT_1 : BIT_0); // set 
+      bitmask >>= 1;
+    }
+  }
+}
+
+
+array_t **
+array_unroll_superset(const array_t *subset, const array_t *superset, size_t len, size_t *count)
+{
+
+  /*
+    empty sub set -> ignore
+    empty super set -> impossible, would not be super set then
+
+    subset   = 0b011011 <- 01x
+    superset = 0b111111 <- xxx
+    result   = 0b011011 ^ 0b111111 = 0b100100 <- 10z
+     -> one_count = 2
+
+    0b011011
+    0b111111
+    -> (11x + 01x + 10x + 11x)
+   */
+
+  *count = 1;
+  array_t **res;
+
+  if (array_has_z(subset, len)) {
+    res = (array_t **)malloc(sizeof(array_t *));
+    *count = 1;
+    res[0] = superset;
+    return res;
+  }
+
+  size_t exp = 0;
+  array_t tmp[SIZE(len)];
+  for (size_t i = 0; i < SIZE(len); i++) {
+    const array_t superpositions = subset[i] ^ superset[i];
+    tmp[i] = superpositions;
+    exp += __builtin_popcountll(superpositions);
+  }
+
+  res = (array_t **)malloc(sizeof(array_t **) * (2 ** exp));
+
+  for (size_t i = 0; i < 2 ** exp; i++) {
+    array_t *r = array_copy_a (subset, len);
+    // set bits at superset positions using current counter as bitmask
+    array_set_bitmask(r, i, &tmp, len);
+    res[i] = r;
+  }
+
+  *count = 2 ** exp;
+  return res;
+}
+#endif
