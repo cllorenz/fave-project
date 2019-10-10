@@ -886,24 +886,43 @@ hs_minus (struct hs *a, const struct hs *b)
 }
 
 void
+#ifdef NEW_HS
+hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite, array_t **exceptions, const size_t exp_len)
+#else
 hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
+#endif
 {
 #ifdef NEW_HS
-  size_t n[hs->list.used];
+//  size_t n[hs->list.used];
 
   struct hs_vec *list = &hs->list;
   for (size_t i = 0; i < list->used; i++)
-    n[i] = array_rewrite(list->elems[i], mask, rewrite, hs->len);
+//    n[i] = 
+    array_rewrite(list->elems[i], mask, rewrite, hs->len);
 
   struct hs_vec *diff = &hs->diff;
   for (size_t i = 0; i < diff->used; i++) {
-    size_t m = array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+//    size_t m = array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+//
+//    for (size_t j = 0; j < list->used; j++) {
+//      if (m != n[j] && array_has_isect(diff->elems[i], list->elems[j], hs->len)) {
+//        vec_elem_free(diff, i); i--;
+//        break;
+//      }
+//    }
+    array_t *elem = diff->elems[i];
 
-    for (size_t j = 0; j < list->used; j++) {
-      if (m != n[j] && array_has_isect(diff->elems[i], list->elems[j], hs->len)) {
-        vec_elem_free(diff, i); i--;
+    bool except = false;
+    for (size_t j = 0; j < exp_len; j++)
+      if (array_is_eq(elem, exceptions[j], hs->len)) {
+        except = true;
         break;
       }
+
+    if (except) {
+        vec_elem_free(diff, i); i--;
+    } else {
+        array_rewrite(elem, mask, rewrite, hs->len);
     }
   }
 

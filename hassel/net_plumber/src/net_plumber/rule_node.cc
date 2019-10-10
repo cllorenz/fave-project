@@ -228,8 +228,20 @@ void RuleNode::process_src_flow(Flow *f) {
     (Forward processing, cf. Node::propagate_src_flow_on_pipes())
     4. Filter and forward flow on outgoing pipelines
     5. Process flow in next nodes
-   */
 
+    Example:
+    rule.match     = 1xx11xxx
+    rule.mask      = 11000000
+    rule.rewrite   = 10xxxxxx
+    rule.influnces = (10x11xxx)
+
+    flow = (1xx11xxx)
+
+    (1xx11xxx) - (10x11xxx) // apply diffs
+    (11x11xxx + 10x11xxx) - (10x11xxx) // expand superset wildcards
+    (11x11xxx) // compact flow
+    (10x11xxx) // rewrite flow
+   */
 
   if (f) { // flow routing case
     //printf("at node %lx, processing flow: %s\n",node_id,flow_to_str2(f).c_str());
@@ -281,6 +293,14 @@ void RuleNode::process_src_flow(Flow *f) {
     }
 #ifdef NEW_HS
     if (mask && rewrite) {
+        hs influences = {{0, 0, 0}, {0, 0, 0}, 0};
+
+        for (auto const &inf: *influenced_by) {
+            hs_vec_append(&influences, inf->comm_arr);
+        }
+
+        hs_unroll_superset(f->processed_hs, &influences);
+
         hs_rewrite(f->processed_hs, mask, rewrite);
 
         if (logger->isTraceEnabled()) {
@@ -410,7 +430,13 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 #ifdef NEW_HS
 
   if (mask && rewrite) {
-      hs_rewrite(f->processed_hs, mask, rewrite);
+      array_t *influences[influenced_by->size()];
+      size_t i = 0;
+      for (auto const &inf: *influenced_by) {
+        influences[i] = inf->comm_arr; i++;
+      }
+
+      hs_rewrite(f->processed_hs, mask, rewrite, influences, influenced_by->size());
 
       if (logger->isTraceEnabled()) {
         stringstream rw;
