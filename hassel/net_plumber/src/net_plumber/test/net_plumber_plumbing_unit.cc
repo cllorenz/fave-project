@@ -611,11 +611,12 @@ void NetPlumberPlumbingTest::test_routing_add_rule_block_bounce() {
 #ifdef NEW_HS
       {3,3},
       {2,3},
+      {2,2},
 #else
       {3,1},
       {2,0},
+      {2,0},
 #endif
-      {2,2},
       {1,0},
       {1,0}
   };
