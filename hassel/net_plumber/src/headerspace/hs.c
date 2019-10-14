@@ -554,8 +554,9 @@ hs_compact (struct hs *hs) {
   return hs_compact_m(hs, NULL);
 }
 
+#ifdef NEW_HS
 void
-hs_cross_compact (hs *hs) {
+hs_cross_compact (struct hs *hs) {
   // remove list elements which are negated by the diff set
   for (size_t i = 0; i < hs->list.used; i++) {
     for (size_t j = 0; j < hs->diff.used; j++) {
@@ -586,8 +587,8 @@ hs_cross_compact (hs *hs) {
       continue;
     }
   }
-
 }
+#endif
 
 bool
 hs_compact_m (struct hs *hs, const array_t *mask)
@@ -886,11 +887,7 @@ hs_minus (struct hs *a, const struct hs *b)
 }
 
 void
-#ifdef NEW_HS
-hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite, array_t **exceptions, const size_t exp_len)
-#else
 hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
-#endif
 {
 #ifdef NEW_HS
 //  size_t n[hs->list.used];
@@ -902,7 +899,8 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 
   struct hs_vec *diff = &hs->diff;
   for (size_t i = 0; i < diff->used; i++) {
-//    size_t m = array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+    array_rewrite(diff->elems[i], mask, rewrite, hs->len);
+//    size_t m = 
 //
 //    for (size_t j = 0; j < list->used; j++) {
 //      if (m != n[j] && array_has_isect(diff->elems[i], list->elems[j], hs->len)) {
@@ -910,20 +908,20 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 //        break;
 //      }
 //    }
-    array_t *elem = diff->elems[i];
-
-    bool except = false;
-    for (size_t j = 0; j < exp_len; j++)
-      if (array_is_eq(elem, exceptions[j], hs->len)) {
-        except = true;
-        break;
-      }
-
-    if (except) {
-        vec_elem_free(diff, i); i--;
-    } else {
-        array_rewrite(elem, mask, rewrite, hs->len);
-    }
+//    array_t *elem = diff->elems[i];
+//
+//    bool except = false;
+//    for (size_t j = 0; j < exp_len; j++)
+//      if (array_is_eq(elem, exceptions[j], hs->len)) {
+//        except = true;
+//        break;
+//      }
+//
+//    if (except) {
+//        vec_elem_free(diff, i); i--;
+//    } else {
+//        array_rewrite(elem, mask, rewrite, hs->len);
+//    }
   }
 
 //  hs_compact(hs);
@@ -958,13 +956,13 @@ hs_unroll_superset(struct hs *hs, const struct hs *influences)
 
   for (size_t i = 0; i < influences->list.used; i++) {
     for (size_t j = 0; j < hs->list.used; j++) {
-      array_t *inf = influences->list[i];
-      array_t *elem = hs->list[j];
+      array_t *inf = influences->list.elems[i];
+      array_t *elem = hs->list.elems[j];
       if (array_is_sub(inf, elem, len)) {
         any = true;
         size_t cnt;
         array_t **unrolled = array_unroll_superset(elem, inf, len, &cnt);
-        vec_elem_free(hs->list, j); j--;
+        vec_elem_free(&hs->list, j); j--;
         for (size_t k = 0; k < cnt; k++) {
           vec_append(&tmp, unrolled[k]);
         }
@@ -974,7 +972,7 @@ hs_unroll_superset(struct hs *hs, const struct hs *influences)
   }
 
   for (size_t i = 0; i < tmp.used; i++) {
-    vec_append(hs->list, tmp.list[i]);
+    vec_append(&hs->list, tmp.elems[i]);
   }
   vec_clear(&tmp);
 

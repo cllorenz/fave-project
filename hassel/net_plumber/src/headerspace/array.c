@@ -496,7 +496,7 @@ array_get_byte (const array_t *a, size_t byte)
 #endif
 
 
-#ifdef USE_DEPRECATED
+#if defined(USE_DEPRECATED) || defined(NEW_HS)
 void
 array_set_bit (array_t *a, enum bit_val val, size_t byte, size_t bit)
 {
@@ -873,19 +873,27 @@ array_merge(const array_t *a, const array_t *b, size_t len) {
 void
 array_set_bitmask(array_t *res, uint64_t bitmask, const array_t *positions, size_t len)
 {
-  for (size_t i = SIZE(len)-1; i >= 0; i--) {
-    size_t one_cnt = __builtin_popcountll(positions[i]); // fetch amount of bits to set in this array segment
-    for (size_t j = one_cnt-1; j >= 0; j--) {
-      pos = __builtin_ctz(positions[i]) / 2; // get position of last set bit in position array
-      set_bit(res[i], pos, (bitmask & 0x1) ? BIT_1 : BIT_0); // set 
+
+  for (size_t i = SIZE(len); i > 0; i--) {
+    size_t one_cnt = __builtin_popcountll(positions[i]); // fetch amount of bits to set in this segment
+    for (size_t j = one_cnt; j > 0; j--) {
+      const size_t pos = __builtin_ctz(positions[i-1]) / 2; // get position of last set bit in position array
+
+      const size_t byte = (i*8 + pos) / 8; // get byte position within the array
+      const size_t bit = pos % 8;
+
+      array_set_bit (res, (bitmask & 0x1) ? BIT_1 : BIT_0, byte, bit);
+
       bitmask >>= 1;
     }
   }
 }
+#endif
 
 
+#ifdef NEW_HS
 array_t **
-array_unroll_superset(const array_t *subset, const array_t *superset, size_t len, size_t *count)
+array_unroll_superset(const array_t *subset, array_t *superset, size_t len, size_t *count)
 {
 
   /*
@@ -906,7 +914,7 @@ array_unroll_superset(const array_t *subset, const array_t *superset, size_t len
   array_t **res;
 
   if (array_has_z(subset, len)) {
-    res = (array_t **)malloc(sizeof(array_t *));
+    res = (array_t **)malloc(sizeof(array_t **));
     *count = 1;
     res[0] = superset;
     return res;
@@ -920,16 +928,16 @@ array_unroll_superset(const array_t *subset, const array_t *superset, size_t len
     exp += __builtin_popcountll(superpositions);
   }
 
-  res = (array_t **)malloc(sizeof(array_t **) * (2 ** exp));
+  res = (array_t **)malloc(sizeof(array_t **) * (1 << exp));
 
-  for (size_t i = 0; i < 2 ** exp; i++) {
-    array_t *r = array_copy_a (subset, len);
+  for (size_t i = 0; i < (1 << exp); i++) {
+    array_t *r = array_copy (subset, len);
     // set bits at superset positions using current counter as bitmask
     array_set_bitmask(r, i, &tmp, len);
     res[i] = r;
   }
 
-  *count = 2 ** exp;
+  *count = 1 << exp;
   return res;
 }
 #endif

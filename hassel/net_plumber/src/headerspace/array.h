@@ -94,7 +94,7 @@ array_one_bit_subtract (const array_t *a, array_t *b, size_t len );
 array_t *array_merge(const array_t *a, const array_t *b, size_t len);
 
 #ifdef NEW_HS
-array_t **array_unroll_superset(const array_t *a, const array_t *b, size_t len, size_t *count);
+array_t **array_unroll_superset(const array_t *a, array_t *b, size_t len, size_t *count);
 #endif
 
 #endif

@@ -293,10 +293,10 @@ void RuleNode::process_src_flow(Flow *f) {
     }
 #ifdef NEW_HS
     if (mask && rewrite) {
-        hs influences = {{0, 0, 0}, {0, 0, 0}, 0};
+        hs influences = {0, {0, 0, 0}, {0, 0, 0}};
 
         for (auto const &inf: *influenced_by) {
-            hs_vec_append(&influences, inf->comm_arr);
+            hs_vec_append(&influences.list, inf->comm_arr);
         }
 
         hs_unroll_superset(f->processed_hs, &influences);
@@ -430,13 +430,8 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 #ifdef NEW_HS
 
   if (mask && rewrite) {
-      array_t *influences[influenced_by->size()];
-      size_t i = 0;
-      for (auto const &inf: *influenced_by) {
-        influences[i] = inf->comm_arr; i++;
-      }
 
-      hs_rewrite(f->processed_hs, mask, rewrite, influences, influenced_by->size());
+      hs_rewrite(f->processed_hs, mask, rewrite);
 
       if (logger->isTraceEnabled()) {
         stringstream rw;
