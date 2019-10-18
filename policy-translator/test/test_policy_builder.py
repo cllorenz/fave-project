@@ -6,7 +6,7 @@
 import unittest
 
 from policy import Policy
-from policybuilder import PolicyBuilder
+from policy_builder import PolicyBuilder
 
 class TestPolicyBuilder(unittest.TestCase):
 

@@ -19,7 +19,7 @@
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
 from policy import Policy
-from policybuilder import PolicyBuilder
+from policy_builder import PolicyBuilder
 from policy_exceptions import PolicyException
 from policy_logger import PT_LOGGER
 import sys
