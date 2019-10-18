@@ -364,6 +364,32 @@ class Policy(object):
 
         return "".join(csv_list)
 
+    def roles_to_csv(self):
+        """Creates a reachability table in CSV format using role names as table
+        headings.
+
+        Returns:
+            A string that is a CSV file containing a reachability table.
+        """
+
+        roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
+        csv_list = ['']
+        csv_list.extend([',' + r for r in sorted(roles)])
+        csv_list.append('\n')
+
+        for role_from in sorted(roles):
+            csv_list.append(role_from + ',')
+            for role_to in sorted(roles):
+                if self.policy_exists(role_from, role_to):
+                    csv_list.append('X,')
+                else:
+                    csv_list.append(',')
+
+            csv_list.append('\n')
+
+        return ''.join(csv_list)
+
+
 class Role(object):
     """Represents a set of hosts that have certain attributes and offer certain
     services.

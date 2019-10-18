@@ -73,7 +73,8 @@ def main():
         if args.generate_csv:
             with open(args.out_file, 'w') as csv_file:
                 PT_LOGGER.debug("create and write csv output")
-                csv_file.write(policy.vlans_to_csv())
+#                csv_file.write(policy.vlans_to_csv())
+                csv_file.write(policy.roles_to_csv())
 
     except PolicyException, exception:
         print("Fehler: %s" % exception)
