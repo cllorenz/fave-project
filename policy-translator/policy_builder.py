@@ -287,6 +287,28 @@ class PolicyBuilder(object):
 
 
     @classmethod
+    def replace_policy_with_csv(cls, csv, policy):
+        """Replaces reachability policies of a Policy object as specified by a
+        policy csv file.
+
+        Args:
+            csv: A list of string lists corresponding to the csv of the policy file.
+            policy: A Policy object.
+        """
+
+        policy.clear_reachability()
+
+        header = csv[0]
+
+        for row in csv[1:]:
+            role_from = row[0]
+
+            for idx, role_to in enumerate(header[1:]):
+                if row[idx+1] == 'X':
+                    policy.add_reachability_policy(role_from, role_to)
+
+
+    @classmethod
     def match(self, regex, chars, function=None):
         """Returns all matches of a regular expression in a character string.
 

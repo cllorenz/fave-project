@@ -25,6 +25,7 @@ from policy_logger import PT_LOGGER
 import sys
 import argparse
 import logging
+import csv
 
 def main():
     """Builds a Policy object out of an inventory and policy file and optionally
@@ -35,6 +36,7 @@ def main():
     parser.add_argument('-c', '--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
     parser.add_argument('-d', '--debug', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
     parser.add_argument('-o', '--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
+    parser.add_argument('-r', '--report', dest='report_csv', default=None, help='Read report input from a csv file.')
     parser.add_argument('-s', '--strict', dest='strict', action='store_const', const=True, default=False, help='Use strict mode.')
     parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
     parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
@@ -57,11 +59,18 @@ def main():
     policy_chars = "".join([file.read() for file in files])
     for file in files:
         file.close()
+    if args.report_csv:
+        with open(args.report_csv, 'rb') as csv_file:
+            r = csv.reader(csv_file, delimiter=' ', quotechar='|')
+            report_csv = [row[0].split(',') for row in r]
+
     PT_LOGGER.debug("create policy object")
     policy = Policy(strict=args.strict)
     try:
         PT_LOGGER.debug("build policy")
         PolicyBuilder.build(policy_chars, policy)
+        if args.report_csv:
+            PolicyBuilder.replace_policy_with_csv(report_csv, policy)
 
         prefix = args.files[-1].rsplit('.', 1)[0]
 

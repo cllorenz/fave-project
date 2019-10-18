@@ -195,6 +195,13 @@ class Policy(object):
                 else:
                     self.policies[(role_from, role_to)].update_conditions(conditions)
 
+
+    def clear_reachability(self):
+        """ Resets the reachability policy while keeping the roles and inventory.
+        """
+        self.policies = {}
+
+
     def set_default_policy(self, default):
         """Sets the default policy.
 
