@@ -491,7 +491,7 @@ hs_to_str (const struct hs *hs)
 #endif
   }
   return xstrdup (s);
-} 
+}
 
 void
 hs_add (struct hs *hs, array_t *a)
@@ -796,7 +796,7 @@ hs_isect_a (const struct hs *a, const struct hs *b)
   struct hs h = {a->len, {0, 0, 0}, {0, 0, 0}};
 #else
   struct hs h = {a->len, {0, 0, 0, 0}};
-#endif  
+#endif
 
   hs_copy(&h, a);
 
