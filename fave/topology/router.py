@@ -326,7 +326,9 @@ def _build_cidr(address, netmask=None, proto='6'):
 
     elif proto == '4':
         prefix = 32
-        if netmask:
+        if netmask and netmask == '0.0.0.0':
+            prefix = 0
+        elif netmask:
             elems = netmask.split('.')
             num_nm = 0
             for idx, elem in enumerate(elems):
