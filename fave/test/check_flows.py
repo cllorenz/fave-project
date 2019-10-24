@@ -89,16 +89,24 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             negated = True
         elif tok.startswith('s='):
             _, tname = tok.split('=')
-            crule = ('START', [inv_fave["generator_to_id"][tname]])
+            try:
+                crule = ('START', [inv_fave["generator_to_id"][tname]])
+            except KeyError as ke:
+                eprint("skip unknown generator: %s" % ke.message)
+                return True
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
             flow_spec_iter.next()
             ttype, tname = flow_spec_iter.next().split('=')
-            crules = (
-                tok,
-                [inv_fave["probe_to_id"][tname]] if ttype == 'p' else \
-                inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
-            )
+            try:
+                crules = (
+                    tok,
+                    [inv_fave["probe_to_id"][tname]] if ttype == 'p' else \
+                    inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
+                )
+            except KeyError as ke:
+                eprint("skip unknown entity: %s" % ke.message)
+                return True
             nflow.append(crules)
 
         else:
