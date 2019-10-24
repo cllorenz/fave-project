@@ -100,13 +100,13 @@ class TopologyRenderer(object):
         if not self.json_policy:
             raise MissingData('Missing Policies')
 
-        i = 0
-        for probe in self.json_policy['commands']:
+        for i, probe in enumerate(self.json_policy['commands'], 1):
             source = probe['method'] == 'add_source'
             shape = 'triangle' if source else 'invtriangle'
+            label = ('S' if source else 'P')+str(i)
 
             ports = probe['params']['ports']
-            self.tgraph.node('s'+str(i), label='S'+str(i), shape=shape)
+            self.tgraph.node('s'+str(i), label=label, shape=shape)
             for port in ports:
                 self.tgraph.node('port'+str(port), label=self._build_port_label(str(port)))
                 if source:
@@ -114,11 +114,8 @@ class TopologyRenderer(object):
                 else:
                     self.tgraph.edge('port'+str(port), 's'+str(i))
 
-            i = i+1
-
 
     def _build_rule_label(self, rule):
-
         TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
         TABLE_END = '</TABLE>'
         build_row = lambda x, y: \
