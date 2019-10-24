@@ -209,3 +209,32 @@ def normalize_ipv6header_header(header):
         "none"          : IPV6_NONE,
         "prot"          : IPV6_PROT
     }[header]
+
+
+
+def denormalize_ip_address(vector, alen, blen, bform, delim):
+    baddr = ""
+    for bit in vector:
+        if bit == 'x':
+            break
+        baddr += bit
+
+    cidr = len(baddr)
+    if cidr < alen:
+        baddr += '0'*(alen-cidr)
+
+    res = []
+    for i in range(0, alen, blen):
+        res.append(bform(int(baddr[i:i+blen], 2)))
+
+    return delim.join(res) + ("/%s"%cidr) if cidr != alen else ""
+
+
+def denormalize_ipv4_address(vector):
+    assert len(vector) == 32
+    return denormalize_ip_address(vector, 32, 8, str, '.')
+
+
+def denormalize_ipv6_address(vector):
+    assert len(vector) == 128
+    return denormalize_ip_address(vector, 128, 16, lambda x: hex(x)[2:], ':')

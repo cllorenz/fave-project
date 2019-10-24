@@ -5,7 +5,9 @@ from util.packet_util import normalize_vlan_tag
 from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_upper_port
 from util.packet_util import normalize_ipv6_proto, normalize_ipv6header_header
+from util.packet_util import denormalize_ipv4_address, denormalize_ipv6_address
 
+from netplumber.mapping import FIELD_SIZES
 from netplumber.vector import Vector
 
 
@@ -185,3 +187,25 @@ def field_value_to_bitvector(field):
         raise FieldNotImplementedError(name)
 
     return vector
+
+
+def bitvector_to_field_value(vector, field):
+    assert len(vector) == FIELD_SIZES[field]
+
+    if ('x' * FIELD_SIZES[field] == vector):
+        return None
+
+    try:
+        return {
+            "packet.ipv4.source" : denormalize_ipv4_address,
+            "packet.ipv4.destination" : denormalize_ipv4_address,
+            "packet.ipv6.source" : denormalize_ipv6_address,
+            "packet.ipv6.destination" : denormalize_ipv6_address
+        }[field](vector)
+    except KeyError:
+        pass
+
+    if all([bit in ['0', '1'] for bit in vector]):
+        return str(int(vector, 2))
+    else:
+        return None
