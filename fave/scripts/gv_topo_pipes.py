@@ -9,6 +9,10 @@ import json
 import glob
 import getopt
 
+from ip6np.ip6np_util import bitvector_to_field_value
+from netplumber.vector import get_field_from_vector
+from netplumber.mapping import Mapping
+
 from graphviz import Digraph
 
 class MissingData(Exception):
@@ -76,6 +80,7 @@ class TopologyRenderer(object):
 
         if use_fave:
             self.fave = kwargs.get('json_fave', None)
+            self.fave_mapping = Mapping.from_json(self.fave['mapping'])
 
 
     def build(self):
@@ -127,19 +132,21 @@ class TopologyRenderer(object):
         row_position = build_row('position', rule['position'])
 
         row_match = build_row(
-            'match:', _break_vector_table(rule['match'])
+            'match:', self._readable_vector(rule['match'])
         ) if self.use_verbose else ''
 
-        row_rewrite = build_row(
-            'rewrite:', _break_vector_table(rule['rewrite'])
-        ) if 'rewrite' in rule and self.use_verbose else ''
-
         row_mask = build_row(
-            'mask:', _break_vector_table(rule['mask'])
+            'mask:', self._readable_vector(rule['mask'])
         ) if 'mask' in rule and self.use_verbose else ''
 
+        row_rewrite = build_row(
+            'rewrite:', self._readable_vector(rule['rewrite'])
+        ) if 'rewrite' in rule and self.use_verbose else ''
+
         row_influences = build_row(
-            'influences', _break_vector_table(rule['influences'])
+            'influences', _break_list_table(
+                map(self._readable_vector, rule['influences'].split(' + '))
+            )
         ) if 'influences' in rule and self.use_verbose else ''
 
         row_label = "<%s%s%s%s%s%s%s%s>" % (
@@ -378,6 +385,19 @@ class TopologyRenderer(object):
                 self._traverse_flow(n_map, child, color)
 
 
+    def _readable_vector(self, vector):
+        res = []
+        vec = ''.join(vector.split(','))
+
+        for field, offset in self.fave_mapping.iteritems():
+            binary = get_field_from_vector(self.fave_mapping, vec, field)
+            readable = bitvector_to_field_value(binary, field)
+            if readable:
+                res.append("%s=%s" % (field, readable))
+
+        return ', '.join(res)
+
+
     def render(self, filename):
         """ outputs the rendered graph """
         self.graph.render(filename, view=False)
@@ -423,6 +443,19 @@ def _break_vector_table(vector):
         '<TR><TD align="right">%s</TD></TR>' % x
 
     return TABLE_START + _break_vector_inline(vector, build_row) + TABLE_END
+
+def _break_list_table(rows):
+    TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
+    TABLE_END = '</TABLE>'
+
+    build_row = lambda prefix, x: \
+        '<TR><TD align="right">%s%s</TD></TR>' % (prefix, x)
+
+    res = [build_row('', rows[0])]
+    res += [build_row('+ ', row) for row in rows[1:]]
+
+    return TABLE_START + ''.join(res) + TABLE_END
+
 
 def _read_tables(ddir):
     """ reads a collection of json files and provides their contents
