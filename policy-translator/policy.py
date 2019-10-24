@@ -385,10 +385,10 @@ class Policy(object):
         csv_list.append('\n')
 
         for role_from in sorted(roles):
-            csv_list.append(role_from + ',')
+            csv_list.append(role_from)
             for role_to in sorted(roles):
                 if self.policy_exists(role_from, role_to):
-                    csv_list.append('X,')
+                    csv_list.append(',X')
                 else:
                     csv_list.append(',')
 
