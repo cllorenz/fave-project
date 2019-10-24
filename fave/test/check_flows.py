@@ -7,6 +7,7 @@ import sys
 import getopt
 import json
 import pyparsing as pp
+import csv
 
 from filelock import SoftFileLock
 
@@ -209,6 +210,25 @@ def _print_help():
     )
 
 
+def _update_reachability_matrix(matrix, spec, success):
+    if spec[0] == '!':
+        spec = spec[2:]
+        positive = False
+    else:
+        positive = True
+
+    source = spec[0][9:] #skip s=source.
+    source = source[:source.rfind('.ifi')] if source != 'Internet' else source
+    dest = spec[-1][8:] # skip p=probe.
+    dest = dest[:dest.rfind('.ifi')] if dest != 'Internet' else dest
+
+    symbol = 'X' if not success ^ positive else ''
+
+    matrix.setdefault(source, {'' : source})
+    matrix[source][dest] = symbol
+
+
+
 def main(argv):
     """ Main method.
     """
@@ -243,9 +263,13 @@ def main(argv):
         flow_trees = _get_flow_trees(dump)
 
     failed = []
+    reach = {'' : {'' : ''}}
     for flow_spec in flow_specs:
         if not _check_flow_trees(flow_spec, flow_trees, inv_fave):
             failed.append(' '.join([e for e in flow_spec if e != ' ']))
+            _update_reachability_matrix(reach, flow_spec, False)
+        else:
+            _update_reachability_matrix(reach, flow_spec, True)
 
     print (
         "success: all %s checked flows matched" % len(flow_specs)
@@ -254,6 +278,16 @@ def main(argv):
             len(failed), len(flow_specs), '\n\t'.join(failed)
         )
     )
+
+
+    with open(dump+'/reach.csv', 'w') as csvf:
+        header = sorted(reach)
+        csv_writer = csv.DictWriter(csvf, header)
+
+        csv_writer.writeheader()
+        for source in header:
+            csv_writer.writerow(reach[source])
+
     return 0 if not failed else 3
 
 
