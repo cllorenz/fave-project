@@ -284,8 +284,8 @@ def main(argv):
                 dev,
                 ports={str(p):p for p in range(1, len(ports)*2+1)},
                 acls=parse_cisco_acls(ruleset),
-                vlan_to_ports=parse_cisco_interfaces(ruleset)[0],
-                vlan_to_acls=parse_cisco_interfaces(ruleset)[1]
+                vlan_to_ports=parse_cisco_interfaces(ruleset)[1],
+                vlan_to_acls=parse_cisco_interfaces(ruleset)[3]
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
