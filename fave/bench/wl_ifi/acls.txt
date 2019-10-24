@@ -1,6 +1,11 @@
-access-list 10 permit 10.0.16.0 0.0.1.255
-access-list 10 permit 10.0.18.0 0.0.1.255
-access-list 10 permit 10.0.20.0 0.0.1.255
+access-list 100 permit ip 10.0.14.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.16.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.18.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.20.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.22.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.24.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 permit ip 10.0.30.0 0.0.1.255 123.123.48.0 0.0.0.255
+access-list 100 deny ip any any
 access-list 101 permit ip 10.0.14.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.16.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.18.0 0.0.1.255 10.0.12.0 0.0.1.255
@@ -8,11 +13,6 @@ access-list 101 permit ip 10.0.20.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.22.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.24.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.30.0 0.0.1.255 10.0.12.0 0.0.1.255
-access-list 101 permit ip 123.123.48.0 0.0.0.255 10.0.12.0 0.0.1.255
-access-list 101 permit ip 123.123.52.0 0.0.0.255 10.0.12.0 0.0.1.255
-access-list 101 permit ip 123.123.53.0 0.0.0.255 10.0.12.0 0.0.1.255
-access-list 101 permit ip 123.123.54.0 0.0.0.255 10.0.12.0 0.0.1.255
-access-list 101 permit ip 123.123.59.0 0.0.0.255 10.0.12.0 0.0.1.255
 access-list 101 deny ip any any
 access-list 102 permit ip 10.0.12.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.16.0 0.0.1.255 10.0.14.0 0.0.1.255
@@ -21,106 +21,129 @@ access-list 102 permit ip 10.0.20.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.22.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.24.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.30.0 0.0.1.255 10.0.14.0 0.0.1.255
+access-list 102 permit ip 123.123.48.0 0.0.0.255 10.0.14.0 0.0.1.255
 access-list 102 deny ip any any
 access-list 103 permit ip 10.0.12.0 0.0.1.255 10.0.16.0 0.0.1.255
 access-list 103 permit ip 10.0.14.0 0.0.1.255 10.0.16.0 0.0.1.255
-access-list 103 permit ip 123.123.251.245 0.0.0.0 10.0.16.0 0.0.1.255
+access-list 103 permit ip 123.123.48.0 0.0.0.255 10.0.16.0 0.0.1.255
 access-list 103 deny ip any any
 access-list 104 permit ip 10.0.12.0 0.0.1.255 10.0.18.0 0.0.1.255
 access-list 104 permit ip 10.0.14.0 0.0.1.255 10.0.18.0 0.0.1.255
-access-list 104 permit ip 123.123.251.245 0.0.0.0 10.0.18.0 0.0.1.255
+access-list 104 permit ip 123.123.48.0 0.0.0.255 10.0.18.0 0.0.1.255
 access-list 104 deny ip any any
 access-list 105 permit ip 10.0.12.0 0.0.1.255 10.0.20.0 0.0.1.255
 access-list 105 permit ip 10.0.14.0 0.0.1.255 10.0.20.0 0.0.1.255
-access-list 105 permit ip 123.123.251.245 0.0.0.0 10.0.20.0 0.0.1.255
+access-list 105 permit ip 123.123.48.0 0.0.0.255 10.0.20.0 0.0.1.255
 access-list 105 deny ip any any
 access-list 106 permit ip 10.0.12.0 0.0.1.255 10.0.22.0 0.0.1.255
 access-list 106 permit ip 10.0.14.0 0.0.1.255 10.0.22.0 0.0.1.255
-access-list 106 permit ip 123.123.251.245 0.0.0.0 10.0.22.0 0.0.1.255
+access-list 106 permit ip 123.123.48.0 0.0.0.255 10.0.22.0 0.0.1.255
 access-list 106 deny ip any any
 access-list 107 permit ip 10.0.12.0 0.0.1.255 10.0.24.0 0.0.1.255
 access-list 107 permit ip 10.0.14.0 0.0.1.255 10.0.24.0 0.0.1.255
-access-list 107 permit ip 123.123.251.245 0.0.0.0 10.0.24.0 0.0.1.255
+access-list 107 permit ip 123.123.48.0 0.0.0.255 10.0.24.0 0.0.1.255
 access-list 107 deny ip any any
 access-list 108 permit ip 10.0.12.0 0.0.1.255 10.0.30.0 0.0.1.255
 access-list 108 permit ip 10.0.14.0 0.0.1.255 10.0.30.0 0.0.1.255
+access-list 108 permit ip 123.123.48.0 0.0.0.255 10.0.30.0 0.0.1.255
 access-list 108 deny ip any any
+access-list 112 deny ip 10.0.0.0 0.255.255.255 0.0.0.0 0.0.0.0
+access-list 112 deny ip 123.123.48.0 0.0.255.255 0.0.0.0 0.0.0.0
+access-list 112 permit ip any any
+access-list 113 permit ip 123.123.48.0 0.0.0.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.14.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.16.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.18.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.20.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.22.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 permit ip 10.0.24.0 0.0.1.255 0.0.0.0 0.0.0.0
+access-list 113 deny ip any any
 access-list 110 permit ip any any
 access-list 111 deny ip any any
+interface vlan 0
+  description Internet
+  ip address 0.0.0.0 0.0.0.0
+  ip access-group 112 out
+  ip access-group 113 in
+interface vlan 48
+  description external
+  ip address 123.123.48.0 255.255.255.0
+  ip access-group 100 out
+  ip access-group 110 in
 interface vlan 463
-  description eg_internal
+  description internal
   ip address 10.0.13.254 255.255.254.0
   ip access-group 101 out
+  #ip access-group 110 out
   ip access-group 110 in
 interface vlan 464
-  description eg_admin
+  description admin
   ip address 10.0.15.254 255.255.254.0
-  ip access-group 102 out
+  #ip access-group 102 out
+  ip access-group 110 out
   ip access-group 110 in
 interface vlan 465
-  description eg_office
+  description office
   ip address 10.0.17.254 255.255.254.0
   ip access-group 103 out
   ip access-group 110 in
 interface vlan 466
-  description eg_staff_1
+  description staff_1
   ip address 10.0.19.254 255.255.254.0
   ip access-group 104 out
   ip access-group 110 in
 interface vlan 467
-  description eg_staff_2
+  description staff_2
   ip address 10.0.21.254 255.255.254.0
   ip access-group 105 out
   ip access-group 110 in
 interface vlan 468
-  description eg_pool
+  description pool
   ip address 10.0.23.254 255.255.254.0
   ip access-group 106 out
   ip access-group 110 in
 interface vlan 469
-  description eg_lab
+  description lab
   ip address 10.0.25.254 255.255.254.0
   ip access-group 107 out
   ip access-group 110 in
 interface vlan 470
-  description eg_hpc_mgt
+  description hpc_mgt
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 471
-  description eg_hpc_ic
+  description hpc_ic
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 472
-  description eg_slb
+  description slb
   ip address 10.0.31.254 255.255.254.0
   ip access-group 108 out
   ip access-group 110 in
 interface vlan 473
-  description eg_mgt
+  description mgt
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 474
-  description eg_san
+  description san
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 475
-  description eg_vmo
+  description vmo
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 476
-  description eg_prt
+  description prt
   no ip address
   ip access-group 111 out
   ip access-group 111 in
 interface vlan 477
-  description eg_cam
+  description cam
   no ip address
   ip access-group 111 out
   ip access-group 111 in
-ip nat pool cs 123.123.48.251 123.123.48.252 netmask 255.255.255.0
-ip nat inside source list 10 pool cs
