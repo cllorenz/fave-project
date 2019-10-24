@@ -6,8 +6,9 @@
 import json
 import math
 
+from netplumber.vector import Vector
 from netplumber.model import Model
-from netplumber.mapping import Mapping
+from netplumber.mapping import Mapping, FIELD_SIZES
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
@@ -403,6 +404,8 @@ def parse_cisco_interfaces(interface_file):
     """
     vlan_to_ports = {}
     vlan_to_acls = {}
+    vlan_to_ips = {}
+    vlan_to_domain = {}
 
     with open(interface_file, 'r') as inf:
         raw = inf.read().split('\n')
@@ -416,16 +419,19 @@ def parse_cisco_interfaces(interface_file):
                 vlan_to_acls.setdefault(vlan, [])
 
             # comments, descriptions and empty line
-            elif nline.startswith("#") or nline.startswith("description") or nline == "":
+            elif nline.startswith("#") or nline == "":
                 pass
 
-            # XXX: fix
+            elif nline.startswith("description"):
+                _desc, domain = nline.split(' ')
+                vlan_to_domain[vlan] = domain
+
             elif nline.startswith('ip address'):
-                _proto, _label, _daddr, _dmask = nline.split(' ')
+                _proto, _label, daddr, dmask = nline.split(' ')
+                vlan_to_ips[vlan] = _build_cidr(daddr, dmask, '4') #XXX: not protocol agnostic
 
-            # XXX: fix
             elif nline.startswith('no ip address'):
-                pass
+                vlan_to_ips[vlan] = None
 
             elif nline.startswith("ip nat pool"):
                 _proto, _nat, _pool, ident, ext_ip1, ext_ip2, _label, netmask = nline.split(' ')
@@ -442,13 +448,13 @@ def parse_cisco_interfaces(interface_file):
             else:
                 continue
 
-    return vlan_to_ports, vlan_to_acls
+    return vlan_to_domain, vlan_to_ports, vlan_to_ips, vlan_to_acls
 
 
 if __name__ == '__main__':
     RACLS = parse_cisco_acls("bench/wl_ifi/acls.txt")
 
-    RVLAN_TO_PORTS, RVLAN_TO_ACLS = parse_cisco_interfaces("bench/wl_ifi/interfaces.txt")
+    _RVTD, RVLAN_TO_PORTS, _RVTI, RVLAN_TO_ACLS = parse_cisco_interfaces("bench/wl_ifi/interfaces.txt")
 
     RPORTS = {str(p):p for p in range(1, 17)}
     for RVLAN, RVPORTS in RVLAN_TO_PORTS.items():
