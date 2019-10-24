@@ -221,7 +221,7 @@ vec_to_str (const struct hs_vec *v, size_t len, char *res)
       res += sprintf (res, " + ");
       *pos += 3;
     }
-    char *s = array_to_str (v->elems[i], len, true);
+    char *s = array_to_str (v->elems[i], len, false);
     const size_t offset = sprintf (res, "%s", s);
     res += offset;
     *pos += offset;
@@ -237,7 +237,7 @@ vec_to_str (const struct hs_vec *v, size_t len, char *res)
   for (size_t i = 0; i < v->used; i++) {
     const bool diff = v->diff && v->diff[i].used;
     if (i) res += sprintf (res, " + ");
-    char *s = array_to_str (v->elems[i], len, true);
+    char *s = array_to_str (v->elems[i], len, false);
     if (diff) *res++ = '(';
     res += sprintf (res, "%s", s);
     free (s);
