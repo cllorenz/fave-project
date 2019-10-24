@@ -340,7 +340,7 @@ def _build_cidr(address, netmask=None, proto='6'):
         return "%s/%s" % (address if not address == 'any' else '0.0.0.0', prefix)
 
     else:
-        raise "No such protocol: %s", proto
+        raise Exception("No such protocol: %s" % proto)
 
 
 def parse_cisco_acls(acl_file):
@@ -374,7 +374,7 @@ def parse_cisco_acls(acl_file):
             elif len(rule) == 8:
                 _al, ident, action, proto, saddr, smask, daddr, dmask = rule
             else:
-                raise "Unknown rule format: %s", line
+                raise Exception("Unknown rule format: %s" % line)
 
             acls.setdefault(ident, [])
 
