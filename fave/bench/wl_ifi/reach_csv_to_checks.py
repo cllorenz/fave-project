@@ -48,30 +48,32 @@ if __name__ == '__main__':
             sys.exit(2)
 
 
-    with open(inventory_file, 'r') as inventory_file:
-        mapping = json.load(inventory_file)['vlan_to_domain']
-
     checks = []
     with open(policy_file, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter=',')
 
-        header = reader.next()
+        header = reader.next()[1:]
 
         for row in reader:
 
             row_iter = iter(row)
 
             source = row_iter.next()
+            if source != 'Internet': source += '.ifi'
 
             for idx, flag in enumerate(row_iter):
-                target = header[idx+1]
+                target = header[idx]
+
+                if source == 'Internet' and source == target: continue
+
+                if target != 'Internet': target += '.ifi'
 
                 fstr = 's=source.%s && EF p=probe.%s'
                 if flag != 'X':
                     fstr = '! ' + fstr
 
                 try:
-                    checks.append(fstr % (mapping[source], mapping[target]))
+                    checks.append(fstr % (source, target))
                 except KeyError:
                     continue
 

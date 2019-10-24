@@ -19,6 +19,8 @@ ROUTES = "bench/wl_ifi/routes.json"
 POLICIES = "bench/wl_ifi/policies.json"
 CHECKS = "bench/wl_ifi/checks.json"
 
+REACH = "bench/wl_ifi/reachability.csv"
+
 
 def campus_network(config):
     topology, hosts, routers, vlans, routes = config.viewvalues()
@@ -31,6 +33,7 @@ if __name__ == '__main__':
     import json
     import os
 
+    os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
     os.system("python2 bench/wl_ifi/inventorygen.py")
     os.system("python2 bench/wl_ifi/topogen.py")
     os.system("python2 bench/wl_ifi/routegen.py")
@@ -38,13 +41,13 @@ if __name__ == '__main__':
     #os.system("python2 bench/wl_ifi/checkgen.py")
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
-        "--csv --out bench/wl_ifi/reachability.csv " +
+        "--csv --out %s " % REACH +
         "bench/wl_ifi/roles_and_services.orig.txt " +
         "bench/wl_ifi/policy.orig.txt"
     )
     os.system(
         "python2 bench/wl_ifi/reach_csv_to_checks.py " +
-        "-p bench/wl_ifi/reachability.csv " +
+        "-p %s " % REACH +
         "-m %s " % INVENTORY +
         "-c %s" % CHECKS
     )

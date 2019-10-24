@@ -3,11 +3,18 @@
 """ This module provides the inventory for the IFI workload.
 """
 
-WITH_IP = [
-    "internal", "admin", "office", "staff-1", "staff-2", "pool", "lab",
-    "hpc-mgt", "hpc-ic", "slb"
-]
+import json
 
-WITHOUT_IP = ["mgt", "san", "vmo", "prt", "cam"]
+INVENTORY='bench/wl_ifi/cisco_to_inventory.json'
+
+WITH_IP = []
+WITHOUT_IP = []
+
+with open(INVENTORY, 'r') as invf:
+    exception = lambda x: x in ['Internet', 'external.ifi']
+    inv = json.load(invf)
+    has_ip = lambda _vlan, ip: ip is not None
+    WITH_IP = [d for d, v in inv.iteritems() if has_ip(*v) if not exception(d)]
+    WITHOUT_IP = [d for d, v in inv.iteritems() if not has_ip(*v)]
 
 SUBNETS = WITH_IP + WITHOUT_IP

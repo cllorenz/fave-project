@@ -11,26 +11,28 @@ OFILE="bench/wl_ifi/policies.json"
 
 if __name__ == '__main__':
     probes = [
-        ("probe.proxy.uni-potsdam.de", "probe", "universal", None, None, ["(p in (ifi.17))"])
+        ("probe.Internet", "probe", "universal", None, None, ["(p in (ifi.18))"]),
+        ("probe.external.ifi", "probe", "universal", None, None, [".*(p=ifi.19);$"])
     ]
 
     probes.extend([
         (
-            "probe.%s.ifi" % sub,
+            "probe.%s" % sub,
             "probe",
             "existential",
             None,
             None,
-            [".*(p=ifi.%s);$" % str(idx+18)]
+            [".*(p=ifi.%s);$" % str(idx+20)]
         ) for idx, sub in enumerate(SUBNETS)
     ])
 
     links = [
-        ("ifi.17", "probe.proxy.uni-potsdam.de.1")
+        ("ifi.18", "probe.Internet.1"),
+        ("external.ifi.3", "probe.external.ifi.1")
     ]
 
     links.extend([
-        ("%s.ifi.3" % sub, "probe.%s.ifi.1" % sub) for sub in SUBNETS
+        ("%s.3" % sub, "probe.%s.1" % sub) for sub in SUBNETS
     ])
 
     policies = {

@@ -5,40 +5,65 @@
 
 import json
 
-from bench.wl_ifi.inventory import SUBNETS
+from bench.wl_ifi.inventory import SUBNETS, WITH_IP, WITHOUT_IP
 
+IFILE="bench/wl_ifi/inventory.json"
 OFILE="bench/wl_ifi/routes.json"
 
 if __name__ == '__main__':
-    # default route to ifi.17 (external network)
+    with open(IFILE, 'r') as inv_file:
+        inventory = json.load(inv_file)
+
+    domain_to_ips = inventory["domain_to_ip"]
+
     routes = [
-        ("ifi", 1, 65535, [], ["fd=ifi.17"], [])
+        # default route to ifi.17 (Internet)
+        ("ifi", 1, 65535, [], ["fd=ifi.18"], []),
+        # route to ifi.18 (external)
+        ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["fd=ifi.19"], [])
     ]
 
     # one route per subnet to ports with subnets
     routes.extend([
         (
             "ifi", 1, idx,
-            ["ipv4_dst=10.0.%s.0/23" % str((idx+6)*2+1)],
-            ["fd=ifi.%s" % str(idx+18)],
+            ["ipv4_dst=%s" % domain_to_ips[sub]],
+            ["fd=ifi.%s" % str(idx+19)],
             []
-        ) for idx, sub in enumerate(SUBNETS)
+        ) for idx, sub in enumerate(WITH_IP, start=1)
     ])
 
     # one route per subnet sending all traffic to port 3 (internal network)
+    routes.append((
+        "external.ifi", 1, 0,
+        ["ipv4_dst=123.123.48.0/24"],
+        ["fd=external.ifi.3"],
+        []
+    ))
+    # routed networks
     routes.extend([
         (
-            "%s.ifi" % sub, 1, 0,
-            ["ipv4_dst=10.0.%s.0/23" % str((idx+6)*2+1)],
-            ["fd=%s.ifi.3" % sub],
+            sub, 1, 0,
+            ["ipv4_dst=%s" % domain_to_ips[sub]],
+            ["fd=%s.3" % sub],
             []
-        ) for idx, sub in enumerate(SUBNETS)
+        ) for sub in WITH_IP
+    ])
+    # unrouted networks
+    routes.extend([
+        (
+            sub, 1, 0,
+            ["ipv4_dst=%s" % "192.168.%s.0/24" % idx],
+            ["fd=%s.3" % sub],
+            []
+        ) for idx, sub in enumerate(WITHOUT_IP)
     ])
 
     # one default route per subnet directing towards the router
+    routes.append(("external.ifi", 1, 65535, [], ["fd=external.ifi.1"], []))
     routes.extend([
         (
-            "%s.ifi" % sub, 1, 65535, [], ["fd=%s.ifi.1" % sub], []
+            sub, 1, 65535, [], ["fd=%s.1" % sub], []
         ) for sub in SUBNETS
     ])
 
