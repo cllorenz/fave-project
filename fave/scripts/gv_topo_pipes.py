@@ -193,7 +193,6 @@ class TopologyRenderer(object):
                 plabel = self._build_port_label(port)
                 tgraph.node('port'+str(port), label=plabel, shape='circle')
 
-            # TODO(jan): check whether to include rewrite as table row
             for j, rule in enumerate(table['rules']):
                 label = self._build_rule_label(rule)
 
