@@ -1,10 +1,25 @@
 ## TODOs
 
+### Benchmarks
+
+ - IFI:
+    - fix fallout after acl update
+    - generate all flow in subnets instead of subnet specific traffic
+    - add hosts as packet filters (optional)
+ - AD6:
+    - investigate memory exhaustion
+    - include policy translator
+    - check state table traversal
+ - Internet2:
+    - create benchmark from originial config instead of TF format
+    - construct by using FaVe instead of a direct read
+ - Stanford: create benchmark from original configuration
+ - TUM-i8: create benchmark
+
 ### Policy Translator
 
  - introduce waypoint policies
  - generate virtual network reachability matrix
-
 
 ### FaVe
 
@@ -15,12 +30,6 @@
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
- - add hosts as packet filters to IFI benchmark (optional)
- - create benchmark with TUM-i8 network
- - create benchmark with Stanford network
- - create benchmark with Internet2 network
-    - create benchmark from originial config instead of TF format
-    - include by using FaVe instead of a direct read
  - Gitlab-CI
  - integrate policy translator
  - use asynchronous rpc calls to improve performance? -> complex, better use libnetplumber instead?
@@ -67,3 +76,13 @@ funny places... which leads to the question: why is that code even there?
  - support asynchronous rpc calls? -> complex, better use libnetplumber instead?
     - extend callbacks with rpc identifyer
     - extend logs with rpc identifyer
+
+### AP-Verifyer
+
+ - better integration with IFI benchmark
+ - better reporting: check reachability trees against policy-matrix
+
+### AD6
+
+ - read topology and config from benchmark input files
+ - better reporting
