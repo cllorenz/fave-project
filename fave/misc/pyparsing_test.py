@@ -100,7 +100,7 @@ class ASTParser:
 
 
 if __name__ == '__main__':
-    with open('bench/wl_ad6/rulesets/pgf-ruleset', 'r') as rsf:
+    with open('bench/wl_up/rulesets/pgf-ruleset', 'r') as rsf:
         raw = rsf.read()
         parser = ASTParser()
         rs = parser.parse(raw)

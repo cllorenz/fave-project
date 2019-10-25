@@ -8,7 +8,7 @@ from ip6np import ip6np as ip6tables
 import netplumber.dump_np as dumper
 
 
-RULESET='bench/wl_ad6/rulesets/pgf-ruleset'
+RULESET='bench/wl_up/rulesets/pgf-ruleset'
 TMPFILE='/tmp/pgf-ruleset'
 
 LOGGER = logging.getLogger("ad6")
@@ -25,7 +25,7 @@ for no_rules in [len(ruleset)]: #range(3, len(ruleset), 10):
     rules = '\n'.join(ruleset[:no_rules])
 
 
-    os.system("scripts/start_np.sh bench/wl_ad6/np.conf")
+    os.system("scripts/start_np.sh bench/wl_up/np.conf")
     os.system("scripts/start_aggr.sh")
 
     os.system('rm -f %s' % TMPFILE)

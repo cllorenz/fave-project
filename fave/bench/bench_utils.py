@@ -146,19 +146,21 @@ def add_policies(probes, links):
         _add_link(*link)
 
 
-TOPOLOGY = "bench/wl_ad6/topology.json"
-ROUTES = "bench/wl_ad6/routes.json"
-POLICIES = "bench/wl_ad6/policies.json"
-CHECKS = "bench/wl_ad6/checks.json"
+# XXX: deprecated and to be deleted!
+
+TOPOLOGY = "bench/wl_up/topology.json"
+ROUTES = "bench/wl_up/routes.json"
+POLICIES = "bench/wl_up/policies.json"
+CHECKS = "bench/wl_up/checks.json"
 
 if __name__ == '__main__':
 
-    os.system("python2 bench/wl_ad6/topogen.py")
-    os.system("python2 bench/wl_ad6/routegen.py")
-    os.system("python2 bench/wl_ad6/policygen.py")
-    os.system("python2 bench/wl_ad6/checkgen.py")
+    os.system("python2 bench/wl_up/topogen.py")
+    os.system("python2 bench/wl_up/routegen.py")
+    os.system("python2 bench/wl_up/policygen.py")
+    os.system("python2 bench/wl_up/checkgen.py")
 
-    os.system("bash scripts/start_np.sh bench/wl_ad6/np.conf")
+    os.system("bash scripts/start_np.sh bench/wl_up/np.conf")
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:

@@ -2,9 +2,9 @@
 
 import json
 
-from bench.wl_ad6.inventory import AD6
+from bench.wl_up.inventory import AD6
 
-POLICIES="bench/wl_ad6/policies.json"
+POLICIES="bench/wl_up/policies.json"
 
 if __name__ == '__main__':
     hosts, subnets, subhosts = AD6

@@ -418,4 +418,4 @@ class IP6TablesParser(BisonParser):
 
 
 if __name__ == '__main__':
-    IP6TablesParser().parse("bench/wl_ad6/rulesets/pgf-ruleset").print_tree()
+    IP6TablesParser().parse("bench/wl_up/rulesets/pgf-ruleset").print_tree()

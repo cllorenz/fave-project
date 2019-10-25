@@ -2,10 +2,10 @@
 
 import json
 
-from bench.wl_ad6.inventory import AD6
+from bench.wl_up.inventory import AD6
 
-OFILE="bench/wl_ad6/topology.json"
-RULESETS="bench/wl_ad6/rulesets"
+OFILE="bench/wl_up/topology.json"
+RULESETS="bench/wl_up/rulesets"
 
 PGF_ADDR="2001:db8:abc::1"
 
