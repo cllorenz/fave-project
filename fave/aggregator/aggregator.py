@@ -234,7 +234,7 @@ class Aggregator(AbstractAggregator):
             self._extend_mapping(model.slice.mapping)
 
         if mlength < self.mapping.length:
-            jsonrpc.expand(self.sock, self.mapping.length) # XXX: +1 necessary?
+            jsonrpc.expand(self.sock, self.mapping.length)
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
