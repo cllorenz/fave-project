@@ -206,6 +206,9 @@ def bitvector_to_field_value(vector, field):
         pass
 
     if all([bit in ['0', '1'] for bit in vector]):
-        return str(int(vector, 2))
+        if field in ['interface']:
+            return hex(int(vector, 2))
+        else:
+            return str(int(vector, 2))
     else:
         return None
