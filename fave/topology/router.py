@@ -321,7 +321,7 @@ class RouterModel(Model):
         self.add_rule(idx, rule)
 
 
-def _build_cidr(address, netmask=None, proto='6'):
+def _build_cidr(address, netmask=None, proto='6', inverse_netmask=False):
     if proto == '6':
         return "%s/128" % address if '/' not in address else address
 
@@ -330,10 +330,14 @@ def _build_cidr(address, netmask=None, proto='6'):
         if netmask and netmask == '0.0.0.0':
             prefix = 0
         elif netmask:
-            elems = netmask.split('.')
+            elems = map(int, netmask.split('.'))
+
+            if inverse_netmask:
+                elems = [255 - elem for elem in elems]
+
             num_nm = 0
             for idx, elem in enumerate(elems):
-                num_nm += (int(elem) << (8*(3-idx)))
+                num_nm += (elem << (8*(3-idx)))
 
             try:
                 prefix = 32-int(round(math.log(num_nm, 2)))
@@ -428,7 +432,7 @@ def parse_cisco_interfaces(interface_file):
 
             elif nline.startswith('ip address'):
                 _proto, _label, daddr, dmask = nline.split(' ')
-                vlan_to_ips[vlan] = _build_cidr(daddr, dmask, '4') #XXX: not protocol agnostic
+                vlan_to_ips[vlan] = _build_cidr(daddr, dmask, '4', inverse_netmask=True) #XXX: not protocol agnostic
 
             elif nline.startswith('no ip address'):
                 vlan_to_ips[vlan] = None
