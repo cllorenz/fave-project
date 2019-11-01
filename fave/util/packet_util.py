@@ -220,6 +220,10 @@ def denormalize_ip_address(vector, alen, blen, bform, delim):
         baddr += bit
 
     cidr = len(baddr)
+
+    if not all([bit == 'x' for bit in vector[cidr:]]):
+        return vector
+
     if cidr < alen:
         baddr += '0'*(alen-cidr)
 
