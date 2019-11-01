@@ -121,10 +121,10 @@ class TopologyRenderer(object):
 
 
     def _build_rule_label(self, rule):
-        TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
+        TABLE_START = '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">'
         TABLE_END = '</TABLE>'
         build_row = lambda x, y: \
-            '<TR><TD align="right">%s</TD><TD>%s</TD></TR>' % (x, y)
+            '<TR><TD ALIGN="RIGHT">%s</TD><TD ALIGN="LEFT">%s</TD></TR>' % (x, y)
 
         rule_id = rule['id']
         row_id = build_row('id:', hex(rule_id))
