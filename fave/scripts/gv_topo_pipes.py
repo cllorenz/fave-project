@@ -247,10 +247,15 @@ class TopologyRenderer(object):
                     tlabel = self.rule_labels.get(node, hex(node))
                     self.pgraph.node(tid, label=tlabel, shape='rectangle')
                     nodes.add(tid)
+
+                label = _break_list_table(
+                    map(self._readable_vector, target['filter'].split(' + '))
+                ) if self.use_verbose else ''
+
                 self.pgraph.edge(
                     sid,
                     tid,
-                    label=_break_vector_nl(target['filter']) if self.use_verbose else '',
+                    label=label,
                     color='red:invis:red',
                     style='dashed',
                     penwidth='1'
@@ -333,10 +338,14 @@ class TopologyRenderer(object):
                 self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
+            label = _break_list_nl(
+                map(self._readable_vector, child['flow'].split(' + '))
+            ) if self.use_verbose else ''
+
             self.ftgraph.edge(
                 str(start),
                 str(target),
-                label=_break_vector_nl(child['flow']) if self.use_verbose else '',
+                label=label,
                 color=color,
                 style='bold'
             )
@@ -373,10 +382,14 @@ class TopologyRenderer(object):
                     self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                     n_map[target] = _POSITION(self.ftgraph)
 
+                label = _break_list_nl(
+                    map(self._readable_vector, child['flow'].split(' + '))
+                ) if self.use_verbose else ''
+
                 self.ftgraph.edge(
                     str(start),
                     str(target),
-                    label=_break_vector_nl(child['flow']) if self.use_verbose else '',
+                    label=label,
                     color=color,
                     style='bold'
                 )
@@ -443,6 +456,14 @@ def _break_vector_table(vector):
 
     return TABLE_START + _break_vector_inline(vector, build_row) + TABLE_END
 
+
+def _break_list_inline(rows, row_func):
+    res = [row_func('', rows[0])]
+    res += [row_func('+ ', row) for row in rows[1:]]
+
+    return res
+
+
 def _break_list_table(rows):
     TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
     TABLE_END = '</TABLE>'
@@ -450,10 +471,11 @@ def _break_list_table(rows):
     build_row = lambda prefix, x: \
         '<TR><TD align="right">%s%s</TD></TR>' % (prefix, x)
 
-    res = [build_row('', rows[0])]
-    res += [build_row('+ ', row) for row in rows[1:]]
+    return TABLE_START + ''.join(_break_list_inline(rows, build_row)) + TABLE_END
 
-    return TABLE_START + ''.join(res) + TABLE_END
+
+def _break_list_nl(rows):
+    return ''.join(_break_list_inline(rows, lambda prefix, x: prefix + x + '\n'))
 
 
 def _read_tables(ddir):
