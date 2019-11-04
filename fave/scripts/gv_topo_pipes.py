@@ -379,7 +379,7 @@ class TopologyRenderer(object):
 #            color = '#%06x' % (hash(str(flow['node'])) & 0xffffff)
 #            self._traverse_flow({}, flow, color)
             for idx, child in enumerate(flow['children']):
-                color = '#%06x' % (hash(str(child['node'] * idx)) & 0xffffff)
+                color = '#%06x' % (hash(str(child['node'] * child['node'] * (idx+1))) & 0xffffff)
 
                 target = child['node']
 
