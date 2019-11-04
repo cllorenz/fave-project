@@ -552,8 +552,10 @@ class Aggregator(AbstractAggregator):
                         )
 
                     elif isinstance(action, Rewrite):
-                        rewrite = Vector(self.mapping.length)
-                        mask = Vector(self.mapping.length, preset='0')
+                        if not rewrite:
+                            rewrite = Vector(self.mapping.length)
+                        if not mask:
+                            mask = Vector(self.mapping.length, preset='0')
                         for field in action.rewrite:
                             if field.name == 'interface':
                                 set_field_in_vector(
@@ -568,7 +570,11 @@ class Aggregator(AbstractAggregator):
                                     self.mapping,
                                     rewrite,
                                     field.name,
-                                    field.value.vector
+                                    (
+                                        field.value.vector
+                                    ) if isinstance(field.value, Vector) else (
+                                        field.value
+                                    )
                                 )
 
                             set_field_in_vector(
