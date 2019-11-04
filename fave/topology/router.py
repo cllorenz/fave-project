@@ -283,7 +283,7 @@ class RouterModel(Model):
         rule.in_ports = ['in']
 
         rewrites = []
-        for action in rule.actions:
+        for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
             for port in action.ports:
                 rewrites.append(
