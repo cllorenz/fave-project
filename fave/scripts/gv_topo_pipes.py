@@ -136,7 +136,7 @@ class TopologyRenderer(object):
         ) if self.use_verbose else ''
 
         row_mask = build_row(
-            'mask:', self._readable_vector(rule['mask'])
+            'mask:', self._readable_vector(rule['mask'], ignore_bit='0')
         ) if 'mask' in rule and self.use_verbose else ''
 
         row_rewrite = build_row(
@@ -338,9 +338,15 @@ class TopologyRenderer(object):
                 self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
-            label = _break_list_nl(
-                map(self._readable_vector, child['flow'].split(' + '))
-            ) if self.use_verbose else ''
+            if self.use_verbose:
+                hs_list, hs_diff = self._readable_vectors(child['flow'])
+
+                label = _break_list_nl(hs_list)
+                if hs_diff:
+                    label += '\n - (%s)' % _break_list_nl(hs_diff)
+
+            else:
+                label = ''
 
             self.ftgraph.edge(
                 str(start),
@@ -382,9 +388,16 @@ class TopologyRenderer(object):
                     self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                     n_map[target] = _POSITION(self.ftgraph)
 
-                label = _break_list_nl(
-                    map(self._readable_vector, child['flow'].split(' + '))
-                ) if self.use_verbose else ''
+
+                if self.use_verbose:
+                    hs_list, hs_diff = self._readable_vectors(child['flow'])
+
+                    label = _break_list_nl(hs_list)
+                    if hs_diff:
+                        label += '\n - (%s)' % _break_list_nl(hs_diff)
+
+                else:
+                    label = ''
 
                 self.ftgraph.edge(
                     str(start),
@@ -397,13 +410,31 @@ class TopologyRenderer(object):
                 self._traverse_flow(n_map, child, color)
 
 
-    def _readable_vector(self, vector):
+    def _readable_vectors(self, hs):
+        hs_diff = None
+        try:
+            hs_list, hs_diff = hs.split(' - ')
+            hs_list = hs_list.strip('()')
+            hs_diff = hs_diff.strip('()')
+        except:
+            hs_list = hs
+
+        res_list = map(self._readable_vector, hs_list.split(' + '))
+
+        res_diff = []
+        if hs_diff:
+            res_diff = map(self._readable_vector, hs_diff.split(' + '))
+
+        return res_list, res_diff
+
+
+    def _readable_vector(self, vector, **kwargs):
         res = []
         vec = ''.join(vector.split(','))
 
         for field, offset in self.fave_mapping.iteritems():
             binary = get_field_from_vector(self.fave_mapping, vec, field)
-            readable = bitvector_to_field_value(binary, field)
+            readable = bitvector_to_field_value(binary, field, **kwargs)
             if readable:
                 res.append("%s=%s" % (field, readable))
 
@@ -456,10 +487,17 @@ def _break_vector_table(vector):
 
     return TABLE_START + _break_vector_inline(vector, build_row) + TABLE_END
 
+def _break_list_inline(rows, row_func, lrow_func):
+    if len(rows) == 1:
+        res = [lrow_func('', rows[0])]
+    else:
+        res = [row_func('', rows[0])]
 
-def _break_list_inline(rows, row_func):
-    res = [row_func('', rows[0])]
-    res += [row_func('+ ', row) for row in rows[1:]]
+    if len(rows) > 2:
+        res += [row_func('+ ', row) for row in rows[1:-2]]
+
+    if len(rows) > 1:
+        res += [lrow_func('+ ', rows[-1])]
 
     return res
 
@@ -471,11 +509,14 @@ def _break_list_table(rows):
     build_row = lambda prefix, x: \
         '<TR><TD align="right">%s%s</TD></TR>' % (prefix, x)
 
-    return TABLE_START + ''.join(_break_list_inline(rows, build_row)) + TABLE_END
+    return TABLE_START + ''.join(_break_list_inline(rows, build_row, build_row)) + TABLE_END
 
 
 def _break_list_nl(rows):
-    return ''.join(_break_list_inline(rows, lambda prefix, x: prefix + x + '\n'))
+    row_func = lambda prefix, x: prefix + x + '\n'
+    lrow_func = lambda prefix, x: prefix + x
+
+    return ''.join(_break_list_inline(rows, row_func, lrow_func))
 
 
 def _read_tables(ddir):
