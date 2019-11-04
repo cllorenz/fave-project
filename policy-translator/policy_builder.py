@@ -303,9 +303,11 @@ class PolicyBuilder(object):
         for row in csv[1:]:
             role_from = row[0]
 
-            for idx, role_to in enumerate(header[1:]):
-                if row[idx+1] == 'X':
+            for idx, role_to in enumerate(header[1:], start=1):
+                if row[idx] == 'X':
                     policy.add_reachability_policy(role_from, role_to)
+                elif row[idx] == '_':
+                    policy.add_ignore_policy(role_from, role_to)
 
 
     @classmethod

@@ -196,6 +196,16 @@ class Policy(object):
                     self.policies[(role_from, role_to)].update_conditions(conditions)
 
 
+    def add_ignore_policy(self, role_from, role_to):
+
+        if not self.role_exists(role_from):
+            raise RoleUnknownException(role_from)
+        if not self.role_exists(role_to):
+            raise RoleUnknownException(role_to)
+
+        self.policies[(role_from, role_to)] = IgnorePolicy(role_from, role_to, self)
+
+
     def clear_reachability(self):
         """ Resets the reachability policy while keeping the roles and inventory.
         """
@@ -303,8 +313,10 @@ class Policy(object):
                         html_list.append(("</span>\n"
                         "\t\t\t\t\t</div>\n"
                         "\t\t\t\t</td>\n"))
-                elif (self.default_policy ^ ((role_from, role_to) in self.policies)):
+                elif (self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], ReachabilityPolicy))):
                     html_list.append("\t\t\t\t<td class='allowed'>&#x2705;</td>\n")
+                elif (self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], IgnorePolicy))):
+                    html_list.append("\t\t\t\t<td>&nbsp;</td>\n")
                 else:
                     html_list.append("\t\t\t\t<td class='disallowed'>&#x274c;</td>\n")
 
@@ -764,6 +776,61 @@ class ReachabilityPolicy(object):
             self.role_to == other.role_to,
             self.conditions == other.conditions
         ])
+
+    def update_conditions(self, new_conditions):
+        """Adds or removes conditions.
+
+        Each new condition is considered separately.
+        If it is a superset of some condition that already exists (= more strict),
+        it will be discarded.
+        If it is a subset of some condition that already exists (= less strict),
+        the already existing condition will be replaced by it.
+        If it is neither, it will be added as an additional "OR" operand.
+
+        An empty list of conditions means that reachability is allowed or denied
+        (depending on the default policy) unconditionally. Therefore, the empty
+        list overpowers all other lists of conditions.
+
+        Args:
+            new_conditions: A list of dictionaries.
+        """
+        if self.conditions == []:
+            return
+        elif new_conditions == []:
+            self.conditions = []
+            return
+
+        for new_condition in new_conditions:
+            append = True
+            for condition in self.conditions:
+                if condition.viewitems() <= new_condition.viewitems():
+                    append = False
+                    break
+                elif new_condition.viewitems() < condition.viewitems():
+                    self.conditions.remove(condition)
+                    break
+            if append:
+                self.conditions.append(new_condition)
+
+
+class IgnorePolicy(object):
+
+    def __init__(self, role_from, role_to, policy, conditions=None):
+        self.role_from = role_from
+        self.role_to = role_to
+        self.policy = policy
+        self.conditions = copy.deepcopy(conditions) if conditions is not None else []
+
+
+    def __eq__(self, other):
+        assert isinstance(other, IgnorePolicy)
+
+        return all([
+            self.role_from == other.role_from,
+            self.role_to == other.role_to,
+            self.conditions == other.conditions
+        ])
+
 
     def update_conditions(self, new_conditions):
         """Adds or removes conditions.
