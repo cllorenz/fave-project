@@ -189,10 +189,10 @@ def field_value_to_bitvector(field):
     return vector
 
 
-def bitvector_to_field_value(vector, field):
+def bitvector_to_field_value(vector, field, ignore_bit='x'):
     assert len(vector) == FIELD_SIZES[field]
 
-    if ('x' * FIELD_SIZES[field] == vector):
+    if (ignore_bit * FIELD_SIZES[field] == vector):
         return None
 
     try:
