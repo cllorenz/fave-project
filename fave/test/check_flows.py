@@ -94,7 +94,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                 crule = ('START', [inv_fave["generator_to_id"][tname]])
             except KeyError as ke:
                 eprint("skip unknown generator: %s" % ke.message)
-                return True
+                raise
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
             flow_spec_iter.next()
@@ -107,7 +107,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                 )
             except KeyError as ke:
                 eprint("skip unknown entity: %s" % ke.message)
-                return True
+                raise
             nflow.append(crules)
 
         else:
@@ -210,7 +210,7 @@ def _print_help():
     )
 
 
-def _update_reachability_matrix(matrix, spec, success):
+def _update_reachability_matrix(matrix, spec, success, exception=False):
     if spec[0] == '!':
         spec = spec[2:]
         positive = False
@@ -222,7 +222,10 @@ def _update_reachability_matrix(matrix, spec, success):
     dest = spec[-1][8:] # skip p=probe.
     dest = dest[:dest.rfind('.ifi')] if dest != 'Internet' else dest
 
-    symbol = 'X' if not success ^ positive else ''
+    if exception:
+        symbol = '_'
+    else:
+        symbol = 'X' if not success ^ positive else ''
 
     matrix.setdefault(source, {'' : source})
     matrix[source][dest] = symbol
@@ -265,7 +268,13 @@ def main(argv):
     failed = []
     reach = {'' : {'' : ''}}
     for flow_spec in flow_specs:
-        if not _check_flow_trees(flow_spec, flow_trees, inv_fave):
+        try:
+            successful = _check_flow_trees(flow_spec, flow_trees, inv_fave)
+        except KeyError as ke:
+            _update_reachability_matrix(reach, flow_spec, False, exception=True)
+            continue
+
+        if not successful:
             failed.append(' '.join([e for e in flow_spec if e != ' ']))
             _update_reachability_matrix(reach, flow_spec, False)
         else:
