@@ -74,13 +74,11 @@ interface vlan 463
   description internal
   ip address 10.0.13.254 255.255.254.0
   ip access-group 101 out
-  #ip access-group 110 out
   ip access-group 110 in
 interface vlan 464
   description admin
   ip address 10.0.15.254 255.255.254.0
-  #ip access-group 102 out
-  ip access-group 110 out
+  ip access-group 102 out
   ip access-group 110 in
 interface vlan 465
   description office
