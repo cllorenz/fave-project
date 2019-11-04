@@ -248,7 +248,7 @@ class TopologyRenderer(object):
                     self.pgraph.node(tid, label=tlabel, shape='rectangle')
                     nodes.add(tid)
 
-                label = _break_list_table(
+                label = "<%s>" % _break_list_table(
                     map(self._readable_vector, target['filter'].split(' + '))
                 ) if self.use_verbose else ''
 
