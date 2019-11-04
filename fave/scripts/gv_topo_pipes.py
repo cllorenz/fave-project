@@ -462,30 +462,6 @@ def _print_help():
     print
 
 
-def _break_vector_inline(vector, row_func):
-    elems = vector.split(',')
-    res = []
-
-    for i in range(len(elems) / 4):
-        res.append(row_func(','.join(elems[i*4:i*4+4])))
-
-    res.append(row_func(','.join(elems[(len(elems) / 4)*4:])))
-
-    return ''.join(res)
-
-
-def _break_vector_nl(vector):
-    return _break_vector_inline(vector, lambda x: x + '\n')
-
-
-def _break_vector_table(vector):
-    TABLE_START = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
-    TABLE_END = '</TABLE>'
-
-    build_row = lambda x: \
-        '<TR><TD align="right">%s</TD></TR>' % x
-
-    return TABLE_START + _break_vector_inline(vector, build_row) + TABLE_END
 
 def _break_list_inline(rows, row_func, lrow_func):
     if len(rows) == 1:
