@@ -30,7 +30,7 @@ if __name__ == '__main__':
             ["ipv4_dst=%s" % domain_to_ips[sub]],
             ["fd=ifi.%s" % str(idx+19)],
             []
-        ) for idx, sub in enumerate(WITH_IP, start=1)
+        ) for idx, sub in enumerate(WITH_IP, start=0) # XXX: starting with 0 is important since a 1 would lead to the default rule being on the first place (-> unpleasant NP behaviour)
     ])
 
     # one route per subnet sending all traffic to port 3 (internal network)
