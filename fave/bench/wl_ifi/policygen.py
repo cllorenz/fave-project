@@ -7,14 +7,21 @@ import json
 
 from bench.wl_ifi.inventory import SUBNETS
 
+IFILE="bench/wl_ifi/inventory.json"
 OFILE="bench/wl_ifi/policies.json"
 
 if __name__ == '__main__':
+    with open(IFILE, 'r') as inv_file:
+        inventory = json.load(inv_file)
+
+    domain_to_ports = inventory["domain_to_ports"]
+
     probes = [
         ("probe.Internet", "probe", "universal", None, None, ["(p in (ifi.18))"]),
         ("probe.external.ifi", "probe", "universal", None, None, [".*(p=ifi.19);$"])
     ]
 
+    out_port = lambda _ip, op: op
     probes.extend([
         (
             "probe.%s" % sub,
@@ -22,8 +29,8 @@ if __name__ == '__main__':
             "existential",
             None,
             None,
-            [".*(p=ifi.%s);$" % str(idx+20)]
-        ) for idx, sub in enumerate(SUBNETS)
+            [".*(p=ifi.%s);$" % out_port(*domain_to_ports[sub])]
+        ) for sub in SUBNETS
     ])
 
     links = [

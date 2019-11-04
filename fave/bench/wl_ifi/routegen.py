@@ -15,20 +15,26 @@ if __name__ == '__main__':
         inventory = json.load(inv_file)
 
     domain_to_ips = inventory["domain_to_ip"]
+    domain_to_vlan = inventory["domain_to_vlan"]
+    domain_to_ports = inventory["domain_to_ports"]
 
     routes = [
         # default route to ifi.17 (Internet)
-        ("ifi", 1, 65535, [], ["fd=ifi.18"], []),
+        ("ifi", 1, 65535, [], ["rw=vlan:"+'x'*16, "fd=ifi.18"], []),
         # route to ifi.18 (external)
-        ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["fd=ifi.19"], [])
+        ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["rw=vlan:48", "fd=ifi.19"], [])
     ]
 
     # one route per subnet to ports with subnets
+    out_port = lambda _ip, op: op
     routes.extend([
         (
             "ifi", 1, idx,
             ["ipv4_dst=%s" % domain_to_ips[sub]],
-            ["fd=ifi.%s" % str(idx+19)],
+            [
+                "rw=vlan:%s" % domain_to_vlan[sub],
+                "fd=ifi.%s" % out_port(*domain_to_ports[sub])
+            ],
             []
         ) for idx, sub in enumerate(WITH_IP, start=0) # XXX: starting with 0 is important since a 1 would lead to the default rule being on the first place (-> unpleasant NP behaviour)
     ])
@@ -56,7 +62,7 @@ if __name__ == '__main__':
             ["ipv4_dst=%s" % "192.168.%s.0/24" % idx],
             ["fd=%s.3" % sub],
             []
-        ) for idx, sub in enumerate(WITHOUT_IP)
+        ) for idx, sub in enumerate(WITHOUT_IP, start=0)
     ])
 
     # one default route per subnet directing towards the router
