@@ -231,11 +231,13 @@ class RouterModel(Model):
                 rule.calc_vector(self.mapping)
 
 
-    def to_json(self):
+
+    def to_json(self, persist=True):
         """ Converts router model to JSON.
         """
 
-        self.persist()
+        if persist:
+            self.persist()
         j = super(RouterModel, self).to_json()
         j["mapping"] = self.mapping.to_json()
         j["ports"] = self.ports
