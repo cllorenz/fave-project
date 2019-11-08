@@ -128,10 +128,11 @@ class RouterModel(Model):
 
                 acl_rules = self.acls[acl_name(acl)]
 
-                for rid, rule in enumerate(acl_rules):
-                    acl_rule, acl_action = rule
-                    is_in = acl.startswith("in_")
-                    is_out = acl.startswith("out_")
+                is_in = acl.startswith("in_")
+                is_out = acl.startswith("out_")
+
+                for rid, acl_rule in enumerate(acl_rules):
+                    acl_match, acl_action = acl_rule
                     acl_table = "acl_in" if is_in else "acl_out"
                     acl_port = "out"
                     acl_in_ports = []
@@ -143,7 +144,7 @@ class RouterModel(Model):
                     elif is_out:
                         acl_in_ports = ["in"]
 
-                    for field, _value in acl_rule:
+                    for field, _value in acl_match:
                         if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
                             self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
 
@@ -153,7 +154,7 @@ class RouterModel(Model):
                         match=Match(fields=vlan_match + [
                             SwitchRuleField(
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
-                            ) for k, v in acl_body(acl_rule)
+                            ) for k, v in acl_body(acl_match)
                         ]),
                         actions=[
                             Forward(ports=[acl_port] if acl_permit(acl_action) else [])
