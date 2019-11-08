@@ -113,7 +113,7 @@ class RouterModel(Model):
 
         self.mapping.extend("interface")
 
-        for vlan, in_ports in self.vlan_to_ports.items():
+        for vlan, in_ports in self.vlan_to_ports.iteritems():
             if vlan.startswith('nat_'):
                 continue
 
@@ -123,7 +123,9 @@ class RouterModel(Model):
                 ]
                 self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
-            for aid, acl in enumerate(self.vlan_to_acls[vlan]):
+            for acl in self.vlan_to_acls[vlan]:
+                aid = int(vlan) if vlan != "0" else 2**15 # XXX: ugly workaround
+
                 acl_rules = self.acls[acl_name(acl)]
 
                 for rid, rule in enumerate(acl_rules):
