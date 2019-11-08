@@ -103,7 +103,7 @@ namespace net_plumber {
     std::map<uint32_t,uint64_t> table_to_last_id;
 
     //list of nodes for table id
-    std::map<uint32_t,std::list<RuleNode*>* > table_to_nodes;
+    std::map<uint32_t,std::map<uint32_t, RuleNode*>* > table_to_nodes;
 
     //list of ports for table id
     std::map<uint32_t,List_t > table_to_ports;
@@ -134,9 +134,16 @@ namespace net_plumber {
     std::map<uint64_t, std::set<uint64_t> > matrix;
 #endif
 
+#ifdef USE_GROUPS
     uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
                        List_t in_ports, List_t out_ports,
                        array_t* match, array_t *mask, array_t* rw);
+#else
+    uint64_t _add_rule(uint32_t table,int index,
+                       List_t in_ports, List_t out_ports,
+                       array_t* match, array_t *mask, array_t* rw);
+#endif
+
 
    public:
     //call back function in case of a loop
@@ -226,9 +233,11 @@ namespace net_plumber {
      */
     uint64_t add_rule(uint32_t table,int index, List_t in_ports, List_t out_ports,
                   array_t* match, array_t *mask, array_t* rw);
+#ifdef USE_GROUPS
     uint64_t add_rule_to_group(uint32_t table,int index, List_t in_ports,
                                List_t out_ports, array_t* match, array_t *mask,
                                array_t* rw, uint64_t group);
+#endif
     void remove_rule(uint64_t node_id);
 
     /*
@@ -298,7 +307,9 @@ namespace net_plumber {
 #endif
 
    private:
+#ifdef USE_GROUPS
     void free_group_memory(uint32_t table, uint64_t group);
+#endif
     void free_rule_memory(RuleNode *r, bool remove_from_table=true);
     void free_table_memory(uint32_t table);
     void set_port_to_node_maps(Node *n);

@@ -40,7 +40,10 @@ struct Effect {
 class RuleNode : public Node {
  public:
   const uint32_t table;
+  const uint32_t index;
+#ifdef USE_GROUPS
   uint64_t group;
+#endif
   array_t *mask;
   array_t *rewrite;
   array_t *inv_rw;
@@ -50,13 +53,15 @@ class RuleNode : public Node {
   /*
    * constructor
    */
-  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
-           List_t in_ports ,List_t out_ports,
-           array_t* match, array_t *mask, array_t* rw);
-
-  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table,
+#ifdef USE_GROUPS
+  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
            uint64_t group, List_t in_ports ,List_t out_ports,
            array_t* match, array_t *mask, array_t* rw);
+#else
+  RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
+           List_t in_ports ,List_t out_ports,
+           array_t* match, array_t *mask, array_t* rw);
+#endif
 
   /*
    * destructor

@@ -40,10 +40,17 @@ void RuleNode::set_layer_flags() {
   }
 }
 
-RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
+#ifdef USE_GROUPS
+RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
                    array_t* match, array_t *mask, array_t* rewrite) :
-                   Node(n,length,node_id), table(table), group(0) {
+                   Node(n,length,node_id), table(table), index(index), group(0) {
+#else
+RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
+                   List_t in_ports, List_t out_ports,
+                   array_t* match, array_t *mask, array_t* rewrite) :
+                   Node(n,length,node_id), table(table), index(index) {
+#endif
   this->node_type = RULE;
   this->match = match;
   this->mask = mask;
@@ -64,10 +71,11 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
   set_layer_flags();
 }
 
-RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
+#ifdef USE_GROUPS
+RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    uint64_t group, List_t in_ports, List_t out_ports,
                    array_t* match, array_t *mask, array_t* rewrite) :
-                   Node(n,length,node_id), table(table), group(group) {
+                   Node(n,length,node_id), table(table), index(index), group(group) {
   this->node_type = RULE;
   this->match = match;
   this->mask = mask;
@@ -91,13 +99,16 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table,
   }
   set_layer_flags();
 }
+#endif
 
 RuleNode::~RuleNode() {
   this->remove_flows();
   this->remove_pipes();
   // remove itself from all rules influencing on it and free its
   // influenced_by struct. In case of group rules, only o this for the lead.
+#ifdef USE_GROUPS
   if (group == 0 || group == node_id) {
+#endif
     for (auto &inf: *influenced_by) {
       auto effect = inf->effect;
       Effect *f = *effect;
@@ -130,7 +141,9 @@ RuleNode::~RuleNode() {
     }
     delete effect_on;
     delete influenced_by;
+#ifdef USE_GROUPS
   }
+#endif
   array_free(this->mask);
   array_free(this->rewrite);
   array_free(this->inv_rw);
@@ -154,11 +167,13 @@ string RuleNode::rule_to_str() {
   }
   result << ", iPorts: " << list_to_string(input_ports);
   result << ", oPorts: " << list_to_string(output_ports);
+#ifdef USE_GROUPS
   if (group != 0) {
     char buf[70];
     sprintf(buf,"0x%lx",group);
     result << " (group with " << buf << ")";
   }
+#endif
   return result.str();
 }
 

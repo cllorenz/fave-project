@@ -159,19 +159,19 @@ string get_event_name(EVENT_TYPE t) {
  * * * * * * * * * * * * * *
  */
 
+#ifdef USE_GROUPS
 void NetPlumber::free_group_memory(uint32_t table, uint64_t group) {
   auto rules_list = table_to_nodes[table];
-  for (auto it = rules_list->begin() ; it != rules_list->end(); ) {
-    if ((*it)->group == group) {
-      free_rule_memory(*it, false);
-      auto tmp = it; it++;
-      rules_list->erase(tmp);
-    } else it++;
+  for (auto &it: *rules_list) {
+    if ((it.second)->group == group) {
+      free_rule_memory(it.second, false);
+    }
   }
 }
+#endif
 
 void NetPlumber::free_rule_memory(RuleNode *r, bool remove_from_table) {
-  if (remove_from_table) table_to_nodes[r->table]->remove(r);
+  if (remove_from_table) table_to_nodes[r->table]->erase(r->index);
   id_to_node.erase(r->node_id);
   clear_port_to_node_maps(r);
   delete r;
@@ -180,10 +180,11 @@ void NetPlumber::free_rule_memory(RuleNode *r, bool remove_from_table) {
 void NetPlumber::free_table_memory(uint32_t table) {
   if (table_to_nodes.count(table) > 0) {
     table_to_last_id.erase(table);
-    list<RuleNode*>* rules_list = table_to_nodes[table];
+    auto rules_list = table_to_nodes[table];
     for (auto &rule: *rules_list) {
-      free_rule_memory(rule, false);
+      free_rule_memory(rule.second, false);
     }
+    rules_list->clear();
     table_to_nodes.erase(table);
     delete rules_list;
     free(table_to_ports[table].list);
@@ -231,9 +232,10 @@ void NetPlumber::clear_port_to_node_maps(Node *n) {
 }
 
 void NetPlumber::set_table_dependency(RuleNode *r) {
+#ifdef USE_GROUPS
   if (r->group != 0 && r->group != r->node_id) return; //escape non-group-lead
-  list<RuleNode*>* rules_list = table_to_nodes[r->table];
-  bool seen_rule = false;
+#endif
+  auto rules_list = table_to_nodes[r->table];
 #ifdef CHECK_REACH_SHADOW
   bool checked_rs = false;
 
@@ -243,7 +245,9 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
   struct hs aggr_hs = {this->length,{0}};
 #endif
 
-  for (auto const &rule: *rules_list) {
+  for (auto const &rule_pair: *rules_list) {
+    auto rule = rule_pair.second;
+
     if (rule->node_id == r->node_id) {
 
 #ifdef CHECK_REACH_SHADOW
@@ -261,10 +265,11 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       checked_rs = true;
 #endif
 
-      seen_rule = true;
+#ifdef USE_GROUPS
     } else if (rule->group != 0 && rule->node_id != rule->group){
       // escape rule, if rule belongs to a group and is not the lead of the group.
       continue;
+#endif
     } else {
       // find common input ports
       List_t common_ports = intersect_sorted_lists(r->input_ports,
@@ -288,7 +293,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
       inf->comm_arr = common_hs;
       inf->ports = common_ports;
 
-      if (seen_rule) {
+      if (r->index < rule->index) {
         inf->node = rule;
         eff->node = r;
         eff->influence = rule->set_influence_by(inf);
@@ -678,7 +683,6 @@ vector<uint32_t> *NetPlumber::get_src_ports(uint32_t dst_port) {
 
 void NetPlumber::print_topology() {
   for (auto const &link: topology) {
-//  for (auto it = topology.begin(); it != topology.end(); it++ ){
     printf("%u --> ( ", link.first);
     for (size_t i = 0; i < link.second->size(); i++) {
       printf("%u ", link.second->at(i));
@@ -694,7 +698,7 @@ void NetPlumber::add_table(uint32_t id, List_t ports) {
   if (table_to_nodes.count(id) == 0 && id > 0) {
     ports.shared = true;
 
-    table_to_nodes[id] = new list<RuleNode*>();
+    table_to_nodes[id] = new map<uint32_t, RuleNode*>();
     table_to_ports[id] = ports;
     table_to_last_id[id] = 0l;
     return;
@@ -730,17 +734,19 @@ void NetPlumber::print_table(const uint32_t id) {
   printf("%s\n", string(40,'@').c_str());
   printf("%sTable: 0x%x\n", string(4, ' ').c_str(),id);
   printf("%s\n", string(40,'@').c_str());
-  list<RuleNode*>* rules_list = table_to_nodes[id];
+  auto rules_list = table_to_nodes[id];
   List_t ports = this->table_to_ports[id];
   printf("Ports: %s\n", list_to_string(ports).c_str());
   printf("Rules:\n");
   for (auto const &rule: *rules_list) {
-    print_node(rule);
+    print_node(rule.second);
   }
 }
 
 uint64_t NetPlumber::_add_rule(uint32_t table,int index,
+#ifdef USE_GROUPS
                                bool group, uint64_t gid,
+#endif
                                List_t in_ports, List_t out_ports,
                                array_t* match, array_t *mask, array_t* rw) {
   if (table_to_nodes.count(table) > 0) {
@@ -758,19 +764,24 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
     uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
 
     RuleNode *r;
+#ifdef USE_GROUPS
     if (!group || !gid) { //first rule in group or no group
-      if (!group) r = new RuleNode(this, length, id, table, in_ports, out_ports,
+      if (!group) r = new RuleNode(this, length, id, table, index, in_ports, out_ports,
                                    match, mask, rw);
-      else r = new RuleNode(this, length, id, table, id, in_ports, out_ports,
+      else r = new RuleNode(this, length, id, table, index, id, in_ports, out_ports,
                             match, mask, rw);
+#else
+      r = new RuleNode(this, length, id, table, index, in_ports, out_ports,
+                        match, mask, rw);
+#endif
+
       this->id_to_node[id] = r;
-      if (index < 0 || index >= (int)this->table_to_nodes[table]->size()) {
-        this->table_to_nodes[table]->push_back(r);
-      } else {
-        auto it = table_to_nodes[table]->begin();
-        for (int i=0; i < index; i++, it++);
-        this->table_to_nodes[table]->insert(it,r);
+
+      auto tmp = this->table_to_nodes[table]->find(index);
+      if (tmp != this->table_to_nodes[table]->end()) {
+        free_rule_memory(tmp->second, false);
       }
+      (*this->table_to_nodes[table])[index] = r;
       this->last_event.type = ADD_RULE;
       this->last_event.id1 = id;
       this->set_port_to_node_maps(r);
@@ -779,6 +790,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
       r->subtract_infuences_from_flows();
       r->process_src_flow(NULL);
 
+#ifdef USE_GROUPS
     } else if (id_to_node.count(gid) > 0 &&
           ((RuleNode*)id_to_node[gid])->group == gid) {
 
@@ -788,9 +800,8 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
                        match, mask, rw);
       this->id_to_node[id] = r;
       // insert rule after its lead group rule
-      auto node_it = table_to_nodes[table]->begin();
-      for (; (*node_it)->node_id != gid; node_it++);
-      this->table_to_nodes[table]->insert(++node_it,r);
+
+      (*this->table_to_nodes[table])[index] = r;
       this->last_event.type = ADD_RULE;
       this->last_event.id1 = id;
       // set port maps
@@ -810,6 +821,7 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
       LOG4CXX_WARN(logger,error_msg.str());
       return 0;
     }
+#endif
     return id;
   } else {
     free(in_ports.list);free(out_ports.list);array_free(match);array_free(mask);array_free(rw);
@@ -825,15 +837,21 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
 uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
             List_t out_ports, array_t* match, array_t *mask, array_t* rw) {
 
+#ifdef USE_GROUPS
   return _add_rule(table,index,false,0,in_ports,out_ports,match,mask,rw);
+#else
+  return _add_rule(table,index,in_ports,out_ports,match,mask,rw);
+#endif
 }
 
+#ifdef USE_GROUPS
 uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
                            ,List_t out_ports, array_t* match, array_t *mask,
                            array_t* rw, uint64_t group) {
 
   return _add_rule(table,index,true,group,in_ports,out_ports,match,mask,rw);
 }
+#endif
 
 //expand(int length); length is the number if octets of the vector.
 //"xxxxxxxx" is length 1
@@ -862,8 +880,12 @@ void NetPlumber::remove_rule(uint64_t rule_id) {
     this->last_event.type = REMOVE_RULE;
     this->last_event.id1 = rule_id;
     RuleNode *r = (RuleNode *)id_to_node[rule_id];
+#ifdef USE_GROUPS
     if (r->group == 0) free_rule_memory(r);
     else free_group_memory(r->table,r->group);
+#else
+    free_rule_memory(r);
+#endif
   } else {
     stringstream error_msg;
     error_msg << "Rule " << rule_id << " does not exist. Can't delete it.";
@@ -1143,7 +1165,8 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 
         uint32_t position = 0;
         Json::Value rules(Json::arrayValue);
-        for (auto const &r_node: *node.second) {
+        for (auto const &r_node_pair: *node.second) {
+            auto const &r_node = r_node_pair.second;
             /*
              *  {
              *      "id" : 123...

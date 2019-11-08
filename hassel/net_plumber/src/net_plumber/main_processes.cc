@@ -125,7 +125,9 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
               total_run_time += run_time;
             }
             t_list.push_back(run_time);
-          } else if (action == "multipath") {
+          }
+#ifdef USE_GROUPS
+          else if (action == "multipath") {
             Json::Value mp_rules = rules[i]["rules"];
             uint64_t group = 0;
             for (Json::ArrayIndex i = 0; i < mp_rules.size(); i++) {
@@ -145,6 +147,7 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
               }
             }
           }
+#endif
         }
 
         // clean up
