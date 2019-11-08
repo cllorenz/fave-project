@@ -41,43 +41,43 @@ void NetPlumberPlumbingTest::setUp() {
   N->add_table(2, make_sorted_list(3,4,5,11));
   N->add_table(3, make_sorted_list(4,6,7,12,14));
   N->add_table(4, make_sorted_list(3,8,9,13));
-  node_ids.push_back(N->add_rule(1,-1,
+  node_ids.push_back(N->add_rule(1,10,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
               array_from_str ("1010xxxx"),
               NULL,
               NULL));
-  node_ids.push_back(N->add_rule(1,-1,
+  node_ids.push_back(N->add_rule(1,20,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
               array_from_str ("10001xxx"),
               NULL,
               NULL));
-  node_ids.push_back(N->add_rule(1,-1,
+  node_ids.push_back(N->add_rule(1,30,
               make_sorted_list(2,1,2),
               make_sorted_list(1,3),
               array_from_str ("10xxxxxx"),
               NULL,
               NULL));
-  node_ids.push_back(N->add_rule(2,-1,
+  node_ids.push_back(N->add_rule(2,10,
               make_sorted_list(1,4),
               make_sorted_list(2,5,11),
               array_from_str ("1011xxxx"),
               array_from_str ("00011000"), //("11100111"),
               array_from_str ("00001000")));
-  node_ids.push_back(N->add_rule(2,-1,
+  node_ids.push_back(N->add_rule(2,20,
               make_sorted_list(1,4),
               make_sorted_list(1,5),
               array_from_str ("10xxxxxx"),
               array_from_str ("01100000"), //("10011111"),
               array_from_str ("01100000")));
-  node_ids.push_back(N->add_rule(3,-1,
+  node_ids.push_back(N->add_rule(3,10,
               make_sorted_list(3,6,7,12),
               make_sorted_list(1,7),
               array_from_str ("101xxxxx"),
               array_from_str ("00000111"), //("11111000"),
               array_from_str ("00000111")));
-  node_ids.push_back(N->add_rule(4,-1,
+  node_ids.push_back(N->add_rule(4,10,
               make_sorted_list(1,8),
               make_sorted_list(1,13),
               array_from_str ("xxx010xx"),
@@ -144,6 +144,7 @@ void NetPlumberPlumbingTest::test_pipeline_remove_rule() {
   this->verify_pipe_stats("test_pipeline_remove_rule", stats);
 }
 
+#ifdef USE_GROUPS
 void NetPlumberPlumbingTest::test_pipeline_add_group_rule() {
   printf("\n");
   node_ids.push_back(N->add_rule_to_group(1,1,
@@ -206,6 +207,7 @@ void NetPlumberPlumbingTest::test_pipeline_remove_group_rule() {
   node_ids.pop_back();
   this->test_setup();
 }
+#endif
 
 void NetPlumberPlumbingTest::test_pipeline_add_link() {
   printf("\n");
@@ -296,19 +298,19 @@ void NetPlumberPlumbingTest::test_pipeline_shared_ports() {
   N->add_table(5,make_sorted_list(3,14,15,16));
   N->add_link(11,14);
   N->add_link(15,8);
-  node_ids.push_back(N->add_rule(5,-1,
+  node_ids.push_back(N->add_rule(5,10,
               make_sorted_list(0),
               make_sorted_list(1,15),
               array_from_str ("10xxxxxx"),
               array_from_str ("01100000"), //("10011111"),
               array_from_str ("01100000")));
-  node_ids.push_back(N->add_rule(5,-1,
+  node_ids.push_back(N->add_rule(5,20,
               make_sorted_list(0),
               make_sorted_list(1,16),
               array_from_str ("1000xxxx"),
               NULL,
               NULL));
-  node_ids.push_back(N->add_rule(5,-1,
+  node_ids.push_back(N->add_rule(5,30,
               make_sorted_list(0),
               make_sorted_list(1,15),
               array_from_str ("1010xxxx"),
@@ -542,6 +544,7 @@ void NetPlumberPlumbingTest::test_routing_add_rw_rule_higher_priority2() {
   this->verify_source_flow_stats("test_routing_add_rw_rule_higher_priority2", stats);
 }
 
+#ifdef USE_GROUPS
 void NetPlumberPlumbingTest::test_routing_add_group_rule_mid_priority() {
   printf("\n");
   this->test_routing_add_source();
@@ -583,6 +586,7 @@ void NetPlumberPlumbingTest::test_routing_add_group_rule_mid_priority() {
   //N->print_plumbing_network();
   this->verify_source_flow_stats("test_routing_add_group_rule_mid_priority", stats);
 }
+#endif
 
 void NetPlumberPlumbingTest::test_routing_add_rule_block_bounce() {
   printf("\n");
@@ -624,6 +628,7 @@ void NetPlumberPlumbingTest::test_routing_add_rule_block_bounce() {
   this->verify_source_flow_stats("test_routing_add_rule_block_bounce", stats);
 }
 
+#ifdef USE_GROUPS
 void NetPlumberPlumbingTest::test_routing_remove_group_rule_mid_priority() {
   this->test_routing_add_group_rule_mid_priority();
   N->remove_rule(node_ids[node_ids.size()-1]);
@@ -645,6 +650,7 @@ void NetPlumberPlumbingTest::test_routing_remove_group_rule_mid_priority() {
   //N->print_plumbing_network();
   this->verify_source_flow_stats("test_routing_remove_group_rule_mid_priority", stats);
 }
+#endif
 
 void NetPlumberPlumbingTest::test_routing_remove_fwd_rule_lower_priority() {
   printf("\n");

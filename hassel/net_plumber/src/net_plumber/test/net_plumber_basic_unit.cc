@@ -44,7 +44,7 @@ void NetPlumberBasicTest::test_rule_node_create() {
   array_t *rewrite = array_from_str ("00000000,00000011");
   array_t *inv_match = array_from_str ("xxxxxxxx,x0000011");
   array_t *inv_rw = array_from_str ("xxxxxxxx,x0000000");
-  RuleNode *r = new RuleNode(NULL,2,1,1,in_ports,out_ports,match,mask,rewrite);
+  RuleNode *r = new RuleNode(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
   CPPUNIT_ASSERT(array_is_eq(r->inv_match,inv_match,2));
   CPPUNIT_ASSERT(array_is_eq(r->inv_rw,inv_rw,2));
@@ -75,24 +75,24 @@ void NetPlumberBasicTest::test_create_rule_id() {
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
   array_t *match = array_create(1,BIT_X);
-  uint64_t id1 = n->add_rule(1,-1,in_ports,out_ports,match,NULL,NULL);
+  uint64_t id1 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
   match = array_create(1,BIT_X);
-  uint64_t id2 = n->add_rule(1,-1,in_ports,out_ports,match,NULL,NULL);
+  uint64_t id2 = n->add_rule(1,20,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id2-id1==1);
   // add to an invalid table
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
   match = array_create(1,BIT_X);
-  uint64_t id3 = n->add_rule(2,-1,in_ports,out_ports,match,NULL,NULL);
+  uint64_t id3 = n->add_rule(2,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id3==0);
   // add to a removed table
   n->remove_table(1);
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
   match = array_create(1,BIT_X);
-  uint64_t id4 = n->add_rule(1,-1,in_ports,out_ports,match,NULL,NULL);
+  uint64_t id4 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id4==0);
   delete n;
 }

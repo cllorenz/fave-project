@@ -43,9 +43,11 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_setup);
   CPPUNIT_TEST(test_pipeline_add_rule);
   CPPUNIT_TEST(test_pipeline_remove_rule);
+#ifdef USE_GROUPS
   CPPUNIT_TEST(test_pipeline_add_group_rule);
   CPPUNIT_TEST(test_pipeline_add_group_rule_mix);
   CPPUNIT_TEST(test_pipeline_remove_group_rule);
+#endif
   CPPUNIT_TEST(test_pipeline_add_link);
   CPPUNIT_TEST(test_pipeline_remove_link);
   CPPUNIT_TEST(test_pipeline_add_source);
@@ -60,13 +62,17 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_routing_add_fwd_rule_higher_priority);
   CPPUNIT_TEST(test_routing_add_rw_rule_higher_priority);
   CPPUNIT_TEST(test_routing_add_rw_rule_higher_priority2);
+#ifdef USE_GROUPS
   CPPUNIT_TEST(test_routing_add_group_rule_mid_priority);
+#endif
   CPPUNIT_TEST(test_routing_add_rule_block_bounce);
   CPPUNIT_TEST(test_routing_remove_fwd_rule_lower_priority);
   CPPUNIT_TEST(test_routing_remove_rw_rule_lower_priority);
   CPPUNIT_TEST(test_routing_remove_fwd_rule_higher_priority);
   CPPUNIT_TEST(test_routing_remove_rw_rule_higher_priority);
+#ifdef USE_GROUPS
   CPPUNIT_TEST(test_routing_remove_group_rule_mid_priority);
+#endif
   CPPUNIT_TEST(test_routing_add_link);
   CPPUNIT_TEST(test_routing_remove_link);
   CPPUNIT_TEST(test_detect_loop);
@@ -84,6 +90,7 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_probe_transition_remove_link);
   CPPUNIT_TEST(test_probe_transition_add_source);
   CPPUNIT_TEST(test_probe_transition_remove_source);
+
   CPPUNIT_TEST_SUITE_END();
 
  public:

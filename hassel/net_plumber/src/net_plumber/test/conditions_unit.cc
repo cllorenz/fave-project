@@ -171,12 +171,13 @@ list<Flow*>* ConditionsTest::create_flow(List_t ports, List_t tables) {
   prev->p_flow = s->get_EOSFI();
   result->push_front(prev);
   for (uint32_t i = 0; i< ports.size; i++) {
-    RuleNode *r = new RuleNode(NULL, 1, 0, tables.list[i],
+    RuleNode *r = new RuleNode(NULL, 1, 0, tables.list[i], 0,
                            make_sorted_list(1,ports.list[i]),
                            make_sorted_list(1,ports.list[i]),
                            array_create(1,BIT_X),
                            NULL,
                            NULL);
+
     r->is_input_layer = true;
     r->is_output_layer = true;
     f = (Flow *)malloc(sizeof *f);
