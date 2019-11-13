@@ -231,7 +231,7 @@ def denormalize_ip_address(vector, alen, blen, bform, delim):
     for i in range(0, alen, blen):
         res.append(bform(int(baddr[i:i+blen], 2)))
 
-    return delim.join(res) + ("/%s"%cidr) if cidr != alen else ""
+    return delim.join(res) + (("/%s"%cidr) if cidr != alen else "")
 
 
 def denormalize_ipv4_address(vector):
