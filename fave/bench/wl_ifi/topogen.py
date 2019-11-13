@@ -19,10 +19,10 @@ if __name__ == '__main__':
 
     # device: (name, type, no_ports, acls)
     devices = [
-        # central IFI router with 16 ports
+        # central IFI router with 17 ports
         ("ifi", "router", 17, "bench/wl_ifi/acls.txt"),
         # a generator representing the Internet
-#        ("source.Internet", "generator", ["ipv4_src=%s" % domain_to_ip["Internet"]]),
+        ("source.Internet", "generator", ["ipv4_src=%s" % domain_to_ip["Internet"]]),
         # a switch and generator representing the subnet for external services
         ("external.ifi", "switch", 3),
         ("source.external.ifi", "generator", [
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     # connect the university proxy to port 1 of the central router
     # connect the Internet to port 1 of the central router
     links = [
-#        ("source.Internet.1", "ifi.1"),
+        ("source.Internet.1", "ifi.1"),
         ("external.ifi.1", "ifi.2"),
         ("ifi.19", "external.ifi.1"),
         ("source.external.ifi.1", "external.ifi.2")
