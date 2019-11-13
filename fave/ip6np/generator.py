@@ -14,7 +14,7 @@ def _is_rule(ast):
 def _ast_to_rule(node, ast, idx=0):
     is_default = False
     tags = {
-        "i" : "interface",
+        "i" : "in_port",
         "s" : "packet.ipv6.source",
         "source" : "packet.ipv6.source",
         "d" : "packet.ipv6.destination",
