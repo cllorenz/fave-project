@@ -99,8 +99,8 @@ def create_topology(devices, links):
         dtype = get_type(device)
         try:
             _DEVICES[dtype](*device)
-        except KeyError:
-            raise Exception("No such device type: %s" % dtype)
+        except KeyError as e:
+            raise Exception("No such device type: %s" % e.message)
 
     for link in links:
         _add_link(*link)
