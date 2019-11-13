@@ -12,6 +12,10 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
+
+CAPACITY=50 # XXX: ugly workaround
+
+
 class RouterModel(Model):
     """ This class provides a model for routers.
     """
@@ -66,27 +70,80 @@ class RouterModel(Model):
             ("acl_out_out", "post_routing_in")
         ]
 
-        get_name = lambda x: "%s_%s" % (node, x[0][4:])
+        get_iname = lambda x: "%s_%s" % (node, x[0][3:])
+        get_iport = lambda x: int(x[0][3:])
+        get_oname = lambda x: "%s_%s" % (node, x[0][4:])
+        get_oport = lambda x: int(x[0][4:])
         get_port = lambda x: x[1]
-        post_routing = [
+
+        pre_routing = [
+            SwitchRule(
+                node, "pre_routing", 0,
+                actions=[
+                    Forward(ports=["%s_pre_routing_out" % node])
+                ]
+            )
+        ]
+
+        post_routing = [ # low priority: forward packets according to out port
+                         #               field set by the routing table
             SwitchRule(
                 node, "post_routing", idx,
                 in_ports=["in"],
                 match=Match(
-                    fields=[SwitchRuleField("interface", get_port(port))]
+                    fields=[SwitchRuleField("out_port", "%s.%s" % (node, get_oport(port)))]
                 ),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("interface", "x"*32)]),
-                    Forward(ports=[get_name(port)])
+                    Rewrite(rewrite=[
+                        SwitchRuleField("in_port", "x"*32)
+                    ]),
+                    Rewrite(rewrite=[
+                        SwitchRuleField("out_port", "x"*32)
+                    ]),
+                    Forward(ports=[get_oname(port)])
                 ]
-            ) for idx, port in enumerate(output_ports.items())
+            ) for idx, port in enumerate(output_ports.items(), start=plen)
+        ] + [ # high priority: filter packets with equal input and output port
+            SwitchRule(
+                node, "post_routing", idx,
+                in_ports=["in"],
+                match=Match(
+                    fields=[
+                        SwitchRuleField("in_port", "%s.%s" % (node, get_iport(port))),
+                        SwitchRuleField("out_port", "%s.%s" % (node, int(get_iport(port))+plen/2))
+                    ]
+                ),
+                actions=[]
+            ) for idx, port in enumerate(input_ports.items())
+        ]
+
+        acl_in = [
+            SwitchRule(node, "acl_in", 2**16-3,
+                in_ports=['in'],
+                match=Match(
+                    fields=[
+                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "192.168.0.0/16")
+                    ]
+                ),
+                actions=[]
+            ),
+            SwitchRule(node, "routing", 2**16-2,
+                in_ports=['in'],
+                match=Match(
+                    fields=[
+                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "10.0.0.0/8")
+                    ]
+                ),
+                actions=[]
+            )
         ]
 
         self.tables = {
-            "acl_in" : [],
-            "acl_out" : [],
+            "pre_routing" : pre_routing,
+            "acl_in" : acl_in,
             "routing" : [],
-            "post_routing" : post_routing,
+            "acl_out" : [],
+            "post_routing" : post_routing
         }
 
         # { vlan_id : [acls] }
@@ -130,7 +187,7 @@ class RouterModel(Model):
                 self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
             for acl in self.vlan_to_acls[vlan]:
-                aid = int(vlan) if vlan != "0" else 2**15 # XXX: ugly workaround
+                aid = int(vlan)*CAPACITY if vlan != "0" else 2**15 # XXX: ugly workaround
 
                 acl_rules = self.acls[acl_name(acl)]
 
@@ -145,10 +202,8 @@ class RouterModel(Model):
 
                     if is_in and in_ports:
                         acl_in_ports = in_ports
-                    elif is_in:
-                        acl_in_ports = [p[3:] for p in self.ports if p.startswith('in_')]
-                    elif is_out:
-                        acl_in_ports = ["in"]
+                    elif is_in or is_out:
+                        acl_in_ports = ['in']
 
                     for field, _value in acl_match:
                         if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
@@ -179,7 +234,7 @@ class RouterModel(Model):
             acl_table = 'acl_in' if is_in else 'acl_out'
             acl_in_ports = []
             if is_in:
-                acl_in_ports = [p[3:] for p in self.ports if p.startswith('in_')]
+                acl_in_ports = ['in']
 
             acl_port = 'out'
             acl_rules = self.acls[acl]
@@ -226,7 +281,7 @@ class RouterModel(Model):
                     match=Match(fields=rule_body),
                     actions=[
                         Rewrite(rewrite=[
-                            SwitchRuleField("interface", "{:032b}".format(port))
+                            SwitchRuleField("out_port", "%s_post_routing.%s" % (self.node, port))
                         ]),
                         Forward(ports=["routing_out"])
                     ]
@@ -234,11 +289,6 @@ class RouterModel(Model):
 
                 if rule not in self.tables["routing"]:
                     self.tables["routing"].append(rule)
-
-        for rules in self.tables.values():
-            for rule in rules:
-                rule.calc_vector(self.mapping)
-
 
 
     def to_json(self, persist=True):
@@ -274,9 +324,6 @@ class RouterModel(Model):
             ] for t in j["tables"]
         }
         router.ports = j["ports"]
-        for rules in router.tables.values():
-            for rule in rules:
-                rule.calc_vector(router.mapping)
 
         return router
 
@@ -298,7 +345,7 @@ class RouterModel(Model):
 
             for port in action.ports:
                 rewrites.append(
-                    Rewrite(rewrite=[SwitchRuleField("interface", port)])
+                    Rewrite(rewrite=[SwitchRuleField("out_port", port)])
                 )
 
             action.ports = ["out"]
