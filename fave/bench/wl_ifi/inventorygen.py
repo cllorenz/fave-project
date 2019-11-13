@@ -35,7 +35,7 @@ with open("bench/wl_ifi/cisco_to_inventory.json", "r") as vdf:
         get_ip(*v) : d for d, v in mapping.iteritems() if has_ip(*v)
     }
     inventory["domain_to_ports"] = {
-        sub : (2+idx, 20+idx) for idx, sub in enumerate(SUBNETS, start=0)
+        sub : (3+idx, 20+idx) for idx, sub in enumerate(SUBNETS, start=0)
     }
 
 with open("bench/wl_ifi/inventory.json", "w") as ivf:
