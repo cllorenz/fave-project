@@ -32,6 +32,7 @@ class SwitchRuleField(object):
     def __init__(self, name, value):
         self.name = name
         self.value = value
+        self.vector = None
 
 
     def value_to_vector_str(self):
@@ -41,10 +42,8 @@ class SwitchRuleField(object):
         if not isinstance(self.value, Vector):
             try:
                 self.vectorize()
-                self.value = self.value.vector
             except VectorConstructionError:
                 pass
-
 
 
     def vectorize(self):
@@ -52,7 +51,7 @@ class SwitchRuleField(object):
         """
 
         if not isinstance(self.value, Vector):
-            self.value = field_value_to_bitvector(self)
+            self.vector = field_value_to_bitvector(self)
 
 
     def enlarge(self, nlength):
@@ -104,7 +103,7 @@ class SwitchRuleField(object):
         name = j["name"]
         value = j["value"]
 
-        if Vector.is_vector(value):
+        if Vector.is_vector(value, name=name):
             value = Vector.from_vector_str(value)
             assert value.length == FIELD_SIZES[name]
 
@@ -276,13 +275,18 @@ class Match(list):
     """ This class provides models for switch rule matches.
     """
 
-    def __init__(self, fields=None):
+    def __init__(self, fields=None, vectorize=False):
         super(Match, self).__init__(fields if fields is not None else [])
+        self.vector = self.vectorize() if vectorize else None
+
+
+    def vectorize(self):
         for field in self:
             field.vectorize()
-        self.vector = Vector(
+
+        return Vector(
             sum([f.value.length for f in self])
-        ) if fields else Vector(0)
+        ) if self != [] else Vector(0)
 
 
     def enlarge(self, length):
@@ -291,7 +295,9 @@ class Match(list):
         Keyword arguments:
         length -- the length to be added
         """
-        self.vector.enlarge(length)
+
+        if self.vector:
+            self.vector.enlarge(length)
 
 
     def to_json(self):
@@ -314,7 +320,7 @@ class Match(list):
         vector = Vector(mapping.length)
         for field in self:
             field.vectorize()
-            set_field_in_vector(mapping, vector, field.name, field.value.vector)
+            set_field_in_vector(mapping, vector, field.name, field.vector.vector)
 
         self.vector = vector
 
