@@ -864,7 +864,7 @@ class Aggregator(AbstractAggregator):
                         rewrite = Vector(self.mapping.length)
                         mask = Vector(self.mapping.length, preset='0')
                         for field in action.rewrite:
-                            if field.name == 'interface':
+                            if field.name in ['interface', 'in_port', 'out_port']:
                                 set_field_in_vector(
                                     self.mapping,
                                     rewrite,
