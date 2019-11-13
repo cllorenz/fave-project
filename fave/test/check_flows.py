@@ -238,7 +238,7 @@ def main(argv):
 
     try:
         only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hd:c:"))
+        opts = only_opts(*getopt.getopt(argv, "hd:c:r"))
     except getopt.GetoptError as err:
         eprint("error while fetching arguments: %s" % err)
         _print_help()
@@ -246,6 +246,7 @@ def main(argv):
 
     dump = "np_dump"
     flow_specs = []
+    dump_matrix = False
 
     for opt, arg in opts:
         if opt == '-h':
@@ -255,6 +256,8 @@ def main(argv):
             dump = arg
         elif opt == '-c':
             flow_specs = [_parse_flow_spec(flow) for flow in arg.split(';') if flow]
+        elif opt == '-r':
+            dump_matrix = True
 
     if not flow_specs:
         eprint("missing flow check specifications")
@@ -288,14 +291,14 @@ def main(argv):
         )
     )
 
+    if dump_matrix:
+        with open(dump+'/reach.csv', 'w') as csvf:
+            header = sorted(reach)
+            csv_writer = csv.DictWriter(csvf, header)
+            csv_writer.writeheader()
 
-    with open(dump+'/reach.csv', 'w') as csvf:
-        header = sorted(reach)
-        csv_writer = csv.DictWriter(csvf, header)
-
-        csv_writer.writeheader()
-        for source in header:
-            csv_writer.writerow(reach[source])
+            for source in header:
+                csv_writer.writerow(reach[source])
 
     return 0 if not failed else 3
 

@@ -78,7 +78,7 @@ if __name__ == '__main__':
     import test.check_flows as checker
 
     dumper.main(["-anpft"])
-    checker.main(["-c", ";".join(checks)])
+    checker.main(["-r", "-c", ";".join(checks)])
 
     os.system("bash scripts/stop_fave.sh")
     os.system("rm -f np_dump/.lock")
