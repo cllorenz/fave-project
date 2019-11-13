@@ -84,11 +84,11 @@ class PacketFilterModel(Model):
         self.chains = {
             "pre_routing" : [],
             "input_rules" : [],
-            "input_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
+            "input_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
             "output_rules" : [],
-            "output_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
+            "output_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
             "forward_rules" : [],
-            "forward_states" : [SwitchRule(node, 0, 65535, actions=[Miss()])],
+            "forward_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
             "post_routing" : [],
             "internals" : [],
         }
@@ -206,6 +206,7 @@ class PacketFilterModel(Model):
                     self.node,
                     "%s_%s" % (self.node, table),
                     r.idx if r.idx else i,
+                    in_ports=["%s_%s_in" % (self.node, table)],
                     match=Match([SwitchRuleField(f.name, f.value) for f in r.match]),
                     actions=[Forward(ports=[
                         "%s_%s_%s" % (
