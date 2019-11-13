@@ -148,7 +148,9 @@ class TestMatchUtil(unittest.TestCase):
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['tcp_src'], 'packet.upper.sport')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['udp_dst'], 'packet.upper.dport')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['upd_src'], 'packet.upper.sport')
-        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['in_port'], 'interface')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['in_port'], 'in_port')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['out_port'], 'out_port')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['interface'], 'interface')
 
 
 class TestPacketUtil(unittest.TestCase):
