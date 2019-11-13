@@ -80,7 +80,7 @@ CNT=0
 # test firewall
 echo -n "add firewall rules... "
 #python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -f ip6np/iptables_ruleset_reduced.sh
-python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -f rulesets/simple_ruleset.sh
+python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f rulesets/simple_ruleset.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
