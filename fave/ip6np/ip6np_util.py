@@ -145,6 +145,10 @@ def field_value_to_bitvector(field):
 
     if isinstance(value, Vector):
         return value
+    elif Vector.is_vector(str(value), name=name):
+        vec = Vector(length=size)
+        vec[:] = value
+        return vec
 
     vector = Vector(length=size)
     try:
