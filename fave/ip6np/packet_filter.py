@@ -114,6 +114,7 @@ class PacketFilterModel(Model):
             "internals_out" : 19,
             "post_routing_in" : 20,
         }
+        self.private_ports = len(internal_ports)
         input_ports = {
             "in_"+str(i) : (len(internal_ports)+len(ports)+i) \
                 for i in ports[:len(ports)/2]
@@ -343,6 +344,7 @@ class PacketFilterModel(Model):
                 actions=[Forward(["_".join([node, "pre_routing_forward"])])]
             )
         ]
+
         self.normalize()
 
 
