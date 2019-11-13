@@ -31,13 +31,17 @@ class RouterModel(Model):
         ports = ports if ports is not None else {"1" : 1, "2" : 1}
 
         internal_ports = {
-            "acl_in_out" : 1,
-            "routing_in" : 2,
-            "routing_out" : 3,
-            "acl_out_in" : 4,
-            "acl_out_out" : 5,
-            "post_routing_in" : 6
+            "pre_routing_out" : 1,
+            "acl_in_in" : 2,
+            "acl_in_out" : 3,
+            "routing_in" : 4,
+            "routing_out" : 5,
+            "acl_out_in" : 6,
+            "acl_out_out" : 7,
+            "post_routing_in" : 8
         }
+
+        self.private_ports = len(internal_ports)
 
         plen = len(ports)
         iplen = len(internal_ports)
@@ -56,6 +60,7 @@ class RouterModel(Model):
         )
 
         self.wiring = [
+            ("pre_routing_out", "acl_in_in"),
             ("acl_in_out", "routing_in"),
             ("routing_out", "acl_out_in"),
             ("acl_out_out", "post_routing_in")
@@ -111,7 +116,8 @@ class RouterModel(Model):
         if not self.mapping:
             self.mapping = Mapping()
 
-        self.mapping.extend("interface")
+        self.mapping.extend("in_port")
+        self.mapping.extend("out_port")
 
         for vlan, in_ports in self.vlan_to_ports.iteritems():
             if vlan.startswith('nat_'):
