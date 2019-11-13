@@ -28,6 +28,7 @@ class Model(object):
         self.type = mtype
         self.tables = tables if tables is not None else {}
         self.ports = ports if ports is not None else {}
+        self.private_ports = 0
         self.wiring = wiring if wiring is not None else []
         self.mapping = mapping if mapping is not None else Mapping()
 
@@ -72,7 +73,8 @@ class Model(object):
             },
             "ports" : self.ports,
             "wiring" : self.wiring,
-            "mapping" : self.mapping.to_json()
+            "mapping" : self.mapping.to_json(),
+            "private_ports" : self.private_ports
         }
 
 
@@ -104,7 +106,7 @@ class Model(object):
         j -- a JSON object
         """
 
-        return Model(
+        model = Model(
             j["node"],
             j["type"],
             tables=j["tables"],
@@ -112,7 +114,9 @@ class Model(object):
             wiring=[(p1, p2) for p1, p2 in j["wiring"]],
             mapping=Mapping(j["mapping"])
         )
+        model.private_ports = j.get("private_ports", 0)
 
+        return res
 
     def __sub__(self, other):
         assert self.node == other.node
