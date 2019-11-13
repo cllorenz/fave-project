@@ -439,7 +439,7 @@ class Aggregator(AbstractAggregator):
                 ports = []
                 for port in model.ports:
                     if prefixed and port.startswith("in_") and (
-                            table.startswith("pre_routing") or table.startswith("acl_in")
+                            table.startswith("pre_routing")
                     ):
                         portno = calc_port(idx, model, port)
                         portname = normalize_port('.'.join([model.node, port[3:]]))
@@ -492,6 +492,319 @@ class Aggregator(AbstractAggregator):
                 self.links[gport1] = gport2
 
 
+    def _add_state_table(self, model, table):
+        if table not in model.tables:
+            return
+
+        tname = '_'.join([model.node, table])
+        tid = self.tables[tname]
+
+        for rule in model.tables[table]:
+            if not isinstance(rule, SwitchRule):
+                rule = SwitchRule.from_json(rule)
+            rid = rule.idx
+
+            self._absorb_mapping(rule.mapping)
+
+            rvec = Vector(length=self.mapping.length)
+            for fld in rule.match:
+                set_field_in_vector(
+                    self.mapping,
+                    rvec,
+                    fld.name,
+                    field_value_to_bitvector(fld).vector
+                )
+
+            port = self._global_port(
+                "%s_%s" % (tname, 'miss' if rid == 65535 else 'accept')
+            )
+
+            Aggregator.LOGGER.debug(
+                "worker: add rule %s to %s:\n\t(%s -> %s)",
+                rule.idx,
+                self.tables["%s_%s" % (model.node, table)],
+                rvec.vector if rvec else "*",
+                port
+            )
+
+            r_id = jsonrpc.add_rule(
+                self.sock,
+                self.tables["%s_%s" % (model.node, table)],
+                rule.idx,
+                [self._global_port(p) for p in rule.in_ports],
+                [port],
+                rvec.vector,
+                None,
+                None
+            )
+            if calc_rule_index(tid, rid) in self.rule_ids:
+                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
+            else:
+                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+
+
+    def _add_pre_routing_rules(self, model):
+        table = 'pre_routing'
+
+        if table not in model.tables:
+            return
+
+        tname = '_'.join([model.node, table])
+        tid = self.tables[tname]
+
+
+        port_len = len(self.models.get(model.node, model).ports)
+        priv_len = self.models.get(model.node, model).private_ports
+        in_ports_len = (port_len - priv_len) / 2
+
+        for rule in model.tables[table]:
+            if not isinstance(rule, SwitchRule):
+                rule = SwitchRule.from_json(rule)
+            rid = rule.idx
+
+            self._absorb_mapping(rule.mapping)
+
+            rvec = Vector(length=self.mapping.length)
+            for fld in rule.match:
+                size = FIELD_SIZES[fld.name]
+                set_field_in_vector(
+                    self.mapping,
+                    rvec,
+                    fld.name,
+                    field_value_to_bitvector(fld).vector
+                )
+
+            ports = []
+            for act in rule.actions:
+                if act.name != "forward":
+                    continue
+                ports.extend([self._global_port(p) for p in act.ports])
+
+            rewrite = None
+            mask = None
+            if "in_port" not in self.mapping:
+                self.mapping.extend("in_port")
+                rvec.enlarge(FIELD_SIZES["in_port"])
+
+            rewrite = dc(rvec)
+            size = FIELD_SIZES["in_port"]
+            mask = Vector(length=rewrite.length, preset='0')
+            set_field_in_vector(
+                self.mapping, mask, 'in_port', '1'*size
+            )
+
+            for port_index, port in enumerate(range(1, 1 + in_ports_len)):
+                set_field_in_vector(
+                    self.mapping, rewrite, 'in_port', '{:032b}'.format(self._global_port("%s.%s" % (model.node, port)))
+                )
+
+                rule_index = rule.idx * port * in_ports_len + port_index
+
+                Aggregator.LOGGER.debug(
+                    "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
+                    rule_index,
+                    self.tables["%s_%s" % (model.node, table)],
+                    self._global_port("%s_%s" % (model.node, str(port))),
+                    rvec.vector if rvec else "*",
+                    rewrite.vector if rewrite else "*",
+                    ports
+                )
+                r_id = jsonrpc.add_rule(
+                    self.sock,
+                    self.tables["%s_%s" % (model.node, table)],
+                    rule_index,
+                    [self._global_port("%s_%s" % (model.node, str(port)))],
+                    ports,
+                    rvec.vector,
+                    mask.vector,
+                    rewrite.vector
+                )
+                if calc_rule_index(tid, rid) in self.rule_ids:
+                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
+                else:
+                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+
+
+    def _add_post_routing_rules(self, model):
+        table = 'post_routing'
+
+        if table not in model.tables:
+            return
+
+        tname = '_'.join([model.node, table])
+        tid = self.tables[tname]
+
+        for rule in model.tables[table]:
+            if not isinstance(rule, SwitchRule):
+                rule = SwitchRule.from_json(rule)
+            rid = rule.idx
+
+            self._absorb_mapping(rule.mapping)
+
+            rvec = Vector(length=self.mapping.length)
+            for fld in rule.match:
+                if fld.name in ['in_port', 'out_port', 'interface'] and not Vector.is_vector(fld.value, name=fld.name):
+                    fld.value = self._global_port(fld.value)
+
+                fvec = field_value_to_bitvector(fld)
+                set_field_in_vector(
+                    self.mapping,
+                    rvec,
+                    fld.name,
+                    fvec.vector
+                )
+
+            rewrite = None
+            mask = None
+            for port in [p for p in ['in_port', 'out_port'] if p in self.mapping]:
+                size = FIELD_SIZES[port]
+                rewrite = Vector(length=rvec.length, preset="x")
+                mask = Vector(length=rewrite.length, preset="0")
+
+                set_field_in_vector(
+                    self.mapping, mask, port, '1'*size
+                )
+
+            in_ports = [
+                self._global_port("%s_%s" % (tname, p)) for p in rule.in_ports
+            ]
+
+            out_ports = []
+            for act in [a for a in rule.actions if a.name == "forward"]:
+
+                out_ports.extend([self._global_port(p) for p in act.ports])
+                # XXX: ugly workaround
+                if model.type == 'router':
+                    for port in act.ports:
+                        set_field_in_vector(
+                            self.mapping,
+                            rvec,
+                            "out_port",
+                            "{:032b}".format(self._global_port(port))
+                        )
+
+            Aggregator.LOGGER.debug(
+                "worker: add rule %s to %s:\n\t(%s -> %s)",
+                rule.idx, tid, rvec.vector if rvec else "*", out_ports
+            )
+            r_id = jsonrpc.add_rule(
+                self.sock,
+                tid,
+                rule.idx,
+                in_ports,
+                out_ports,
+                rvec.vector,
+                mask.vector if mask else None,
+                rewrite.vector if rewrite else None
+            )
+            if calc_rule_index(tid, rid) in self.rule_ids:
+                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
+            else:
+                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+
+
+    def _add_rule_table(self, model, table):
+        tname = '_'.join([model.node, table])
+        tid = self.tables[tname]
+
+        Aggregator.LOGGER.debug("worker: add rules to %s", tname)
+
+        for rule in model.tables[table]:
+            rid = rule.idx
+            act = rule.actions
+
+            for field in [f for f in rule.match if f.name in ['in_port', 'out_port', 'interface']]:
+                if not Vector.is_vector(field.value, name=field.name):
+                    field.value = "{:032b}".format(self._global_port(field.value))
+                    field.vectorize()
+
+            for action in [a for a in act if isinstance(a, Rewrite)]:
+                for field in action.rewrite:
+                    if field.name in ['in_port', 'out_port', 'interface'] and not Vector.is_vector(field.value, name=field.name):
+                        field.value = "{:032b}".format(self._global_port(field.value))
+
+                    field.vectorize()
+
+            rule.calc_vector(model.mapping)
+            vec = rule.match.vector.vector
+            rvec = Vector(length=self.mapping.length)
+            for fld in model.mapping:
+                copy_field_between_vectors(
+                    model.mapping, self.mapping, vec, rvec, fld
+                )
+
+            in_ports = [
+                self._global_port(
+                    "%s_%s" % (tname, pname)
+                ) for pname in rule.in_ports
+            ]
+
+            out_ports = []
+            mask = None
+            rewrite = None
+            for action in rule.actions:
+                if isinstance(action, Forward):
+                    out_ports.extend(
+                        [self._global_port(
+                            '%s_%s' %(tname, port.lower())
+                        ) for port in action.ports]
+                    )
+
+                elif isinstance(action, Miss):
+                    out_ports.append(
+                        self._global_port('%s_miss' % tname)
+                    )
+
+                elif isinstance(action, Rewrite):
+                    if not rewrite:
+                        rewrite = Vector(self.mapping.length)
+                    if not mask:
+                        mask = Vector(self.mapping.length, preset='0')
+                    for field in action.rewrite:
+                        set_field_in_vector(
+                            self.mapping,
+                            rewrite,
+                            field.name,
+                            (
+                                field.value.vector
+                            ) if isinstance(field.value, Vector) else (
+                                field.vector.vector
+                            )
+                        )
+
+                        set_field_in_vector(
+                            self.mapping,
+                            mask,
+                            field.name,
+                            '1'*FIELD_SIZES[field.name]
+                        )
+
+                else:
+                    Aggregator.LOGGER.warn(
+                        "worker: ignore unknown action while adding rule\n%s",
+                        json.dumps(action.to_json(), indent=2)
+                    )
+
+            Aggregator.LOGGER.debug(
+                "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
+                rid, tid, in_ports, rvec.vector if rvec else "*", out_ports
+            )
+            r_id = jsonrpc.add_rule(
+                self.sock,
+                tid,
+                rid,
+                in_ports,
+                out_ports,
+                rvec.vector if rvec.vector else 'x'*8,
+                mask.vector if mask else None,
+                rewrite.vector if rewrite else None
+            )
+            if calc_rule_index(tid, rid) in self.rule_ids:
+                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
+            else:
+                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+
+
     def _add_rules(self, model):
         for table in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
@@ -505,307 +818,17 @@ class Aggregator(AbstractAggregator):
                 Aggregator.LOGGER.debug("worker: skip adding rules to table %s", table)
                 continue
 
-            tname = '_'.join([model.node, table])
-            tid = self.tables[tname]
-
-            Aggregator.LOGGER.debug("worker: add rules to %s", tname)
-
-            for rule in model.tables[table]:
-                rid = rule.idx
-                act = rule.actions
-                rule.calc_vector(model.mapping)
-                vec = rule.match.vector.vector
-                rvec = Vector(length=self.mapping.length)
-                for fld in model.mapping:
-                    copy_field_between_vectors(
-                        model.mapping, self.mapping, vec, rvec, fld
-                    )
-
-                in_ports = []
-                if table in ['acl_in']:
-                    in_ports = [
-                        self._global_port(
-                            "%s_%s" % (model.node, pno)
-                        ) for pno in rule.in_ports
-                    ]
-                else:
-                    in_ports = [
-                        self._global_port(
-                            "%s_%s" % (tname, pname)
-                        ) for pname in rule.in_ports
-                    ]
-
-                out_ports = []
-                mask = None
-                rewrite = None
-                for action in rule.actions:
-                    if isinstance(action, Forward):
-                        out_ports.extend(
-                            [self._global_port(
-                                '%s_%s' %(tname, port.lower())
-                            ) for port in action.ports]
-                        )
-
-                    elif isinstance(action, Miss):
-                        out_ports.append(
-                            self._global_port('%s_miss' % tname)
-                        )
-
-                    elif isinstance(action, Rewrite):
-                        if not rewrite:
-                            rewrite = Vector(self.mapping.length)
-                        if not mask:
-                            mask = Vector(self.mapping.length, preset='0')
-                        for field in action.rewrite:
-                            if field.name == 'interface':
-                                set_field_in_vector(
-                                    self.mapping,
-                                    rewrite,
-                                    field.name,
-                                    '{:032b}'.format(self._global_port(field.value))
-                                )
-
-                            else:
-                                set_field_in_vector(
-                                    self.mapping,
-                                    rewrite,
-                                    field.name,
-                                    (
-                                        field.value.vector
-                                    ) if isinstance(field.value, Vector) else (
-                                        field.value
-                                    )
-                                )
-
-                            set_field_in_vector(
-                                self.mapping,
-                                mask,
-                                field.name,
-                                '1'*FIELD_SIZES[field.name]
-                            )
-
-                    else:
-                        Aggregator.LOGGER.warn(
-                            "worker: ignore unknown action while adding rule\n%s",
-                            json.dumps(action.to_json(), indent=2)
-                        )
-
-                Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
-                    rid, tid, in_ports, rvec.vector if rvec else "*", out_ports
-                )
-                r_id = jsonrpc.add_rule(
-                    self.sock,
-                    tid,
-                    rid,
-                    in_ports,
-                    out_ports,
-                    rvec.vector if rvec.vector else 'x'*8,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
-                )
-                if calc_rule_index(tid, rid) in self.rule_ids:
-                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                else:
-                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            self._add_rule_table(model, table)
 
         for table in ["post_routing"]:
-            if table not in model.tables:
-                continue
-
-            tname = '_'.join([model.node, table])
-            tid = self.tables[tname]
-
-            for rule in model.tables[table]:
-                if not isinstance(rule, SwitchRule):
-                    rule = SwitchRule.from_json(rule)
-                rid = rule.idx
-
-                self._absorb_mapping(rule.mapping)
-
-                rvec = Vector(length=self.mapping.length)
-                for fld in rule.match:
-                    set_field_in_vector(
-                        self.mapping,
-                        rvec,
-                        fld.name,
-                        field_value_to_bitvector(fld).vector
-                    )
-
-                rewrite = None
-                mask = None
-                if 'interface' in self.mapping:
-                    size = FIELD_SIZES["interface"]
-                    rewrite = dc(rvec)
-                    mask = Vector(length=rewrite.length, preset="0")
-
-                    set_field_in_vector(
-                        self.mapping, rewrite, 'interface', 'x'*size
-                    )
-                    set_field_in_vector(
-                        self.mapping, mask, 'interface', '1'*size
-                    )
-
-                in_ports = [
-                    self._global_port("%s_%s" % (tname, p)) for p in rule.in_ports
-                ]
-
-                out_ports = []
-                for act in rule.actions:
-                    if act.name != "forward":
-                        continue
-
-                    out_ports.extend([self._global_port(p) for p in act.ports])
-                    # XXX: ugly workaround
-                    if model.type == 'router':
-                        for port in act.ports:
-                            set_field_in_vector(
-                                self.mapping,
-                                rvec,
-                                "interface",
-                                "{:032b}".format(self._global_port(port))
-                            )
-
-                Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t(%s -> %s)",
-                    rule.idx, tid, rvec.vector if rvec else "*", out_ports
-                )
-                r_id = jsonrpc.add_rule(
-                    self.sock,
-                    tid,
-                    rule.idx,
-                    in_ports,
-                    out_ports,
-                    rvec.vector,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
-                )
-                if calc_rule_index(tid, rid) in self.rule_ids:
-                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                else:
-                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            self._add_post_routing_rules(model)
 
         for table in ["pre_routing"]:
-            if table not in model.tables:
-                continue
-
-            tname = '_'.join([model.node, table])
-            tid = self.tables[tname]
-
-            for rule in model.tables[table]:
-                if not isinstance(rule, SwitchRule):
-                    rule = SwitchRule.from_json(rule)
-                rid = rule.idx
-
-                self._absorb_mapping(rule.mapping)
-
-                rvec = Vector(length=self.mapping.length)
-                for fld in rule.match:
-                    size = FIELD_SIZES[fld.name]
-                    set_field_in_vector(
-                        self.mapping,
-                        rvec,
-                        fld.name,
-                        field_value_to_bitvector(fld).vector
-                    )
-
-                ports = []
-                for act in rule.actions:
-                    if act.name != "forward":
-                        continue
-                    ports.extend([self._global_port(p) for p in act.ports])
-
-                rewrite = None
-                mask = None
-                if "interface" not in self.mapping:
-                    self.mapping.extend("interface")
-                    rvec.enlarge(FIELD_SIZES["interface"])
-
-                rewrite = dc(rvec)
-                size = FIELD_SIZES["interface"]
-                mask = Vector(length=rewrite.length, preset='0')
-                set_field_in_vector(
-                    self.mapping, mask, 'interface', '1'*size
-                )
-
-                for port in range(1, 1+(len(self.models[model.node].ports)-19)/2):
-                    set_field_in_vector(
-                        self.mapping, rewrite, 'interface', '{:032b}'.format(port)
-                    )
-
-                    Aggregator.LOGGER.debug(
-                        "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
-                        rule.idx,
-                        self.tables["%s_%s" % (model.node, table)],
-                        self._global_port("%s_%s" % (model.node, str(port))),
-                        rvec.vector if rvec else "*",
-                        rewrite.vector if rewrite else "*",
-                        ports
-                    )
-                    r_id = jsonrpc.add_rule(
-                        self.sock,
-                        self.tables["%s_%s" % (model.node, table)],
-                        rule.idx,
-                        [self._global_port("%s_%s" % (model.node, str(port)))],
-                        ports,
-                        rvec.vector,
-                        mask.vector,
-                        rewrite.vector
-                    )
-                    if calc_rule_index(tid, rid) in self.rule_ids:
-                        self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                    else:
-                        self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            self._add_pre_routing_rules(model)
 
         for table in ["input_states", "output_states", "forward_states"]:
-            if table not in model.tables:
-                continue
+            self._add_state_table(model, table)
 
-            tname = '_'.join([model.node, table])
-            tid = self.tables[tname]
-
-            for rule in model.tables[table]:
-                if not isinstance(rule, SwitchRule):
-                    rule = SwitchRule.from_json(rule)
-                rid = rule.idx
-
-                self._absorb_mapping(rule.mapping)
-
-                rvec = Vector(length=self.mapping.length)
-                for fld in rule.match:
-                    set_field_in_vector(
-                        self.mapping,
-                        rvec,
-                        fld.name,
-                        field_value_to_bitvector(fld).vector
-                    )
-
-                port = self._global_port(
-                    "%s_%s" % (tname, 'miss' if rid == 65535 else 'accept')
-                )
-
-                Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t(%s -> %s)",
-                    rule.idx,
-                    self.tables["%s_%s" % (model.node, table)],
-                    rvec.vector if rvec else "*",
-                    port
-                )
-
-                r_id = jsonrpc.add_rule(
-                    self.sock,
-                    self.tables["%s_%s" % (model.node, table)],
-                    rule.idx,
-                    [],
-                    [port],
-                    rvec.vector,
-                    None,
-                    None
-                )
-                if calc_rule_index(tid, rid) in self.rule_ids:
-                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                else:
-                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
 
     # XXX: merge with pre- post-routing handling above?
     def _add_switch_rules(self, model):
