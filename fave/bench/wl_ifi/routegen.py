@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     routes = [
         # default route to ifi.17 (Internet)
-        ("ifi", 1, 65535, [], ["rw=vlan:"+'x'*16, "fd=ifi.18"], []),
+        ("ifi", 1, 65535, [], ["rw=vlan:%s"%(2**12-1), "fd=ifi.18"], []),
         # route to ifi.18 (external)
         ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["rw=vlan:48", "fd=ifi.19"], [])
     ]
