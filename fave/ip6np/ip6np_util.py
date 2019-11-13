@@ -157,6 +157,8 @@ def field_value_to_bitvector(field):
             "packet.upper.sport" : normalize_upper_port,
             "packet.upper.dport" : normalize_upper_port,
             "interface" : _normalize_interface,
+            "in_port" : _normalize_interface,
+            "out_port" : _normalize_interface,
             "module" : _normalize_module,
             "module.ipv6header.header" : normalize_ipv6header_header,
             "module.limit" : _normalize_limit,
@@ -206,7 +208,7 @@ def bitvector_to_field_value(vector, field, ignore_bit='x'):
         pass
 
     if all([bit in ['0', '1'] for bit in vector]):
-        if field in ['interface']:
+        if field in ['interface', 'in_port', 'out_port']:
             return hex(int(vector, 2))
         else:
             return str(int(vector, 2))
