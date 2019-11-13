@@ -25,6 +25,8 @@ FIELD_SIZES = {
     "module.limit" : 32,
     "module.state" : 8,
     "module.ipv6header.header" : 8,
+    "in_port" : 32,
+    "out_port" : 32,
     "interface" : 32,
     "module.rt" : 8,
     "module.ipv6header.rt.type" : 8,
