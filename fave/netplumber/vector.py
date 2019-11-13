@@ -107,7 +107,7 @@ class Vector(object):
 
 
     @staticmethod
-    def is_vector(vectors):
+    def is_vector(vectors, name=None):
         """ Checks whether a string represents a vector.
 
         Keyword arguments:
@@ -116,6 +116,9 @@ class Vector(object):
 
         if isinstance(vectors, Vector):
             return True
+
+        if name and len(vectors) != FIELD_SIZES[name]:
+            return False
 
         for bit in vectors:
             if bit not in ['0', '1', 'x']:
