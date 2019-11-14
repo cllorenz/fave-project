@@ -53,6 +53,7 @@ class SwitchRuleField(object):
             self.vector = field_value_to_bitvector(self)
 
 
+    # XXX: deprecated
     def enlarge(self, nlength):
         """ Enlarges value in vector representation by length.
 
@@ -65,9 +66,9 @@ class SwitchRuleField(object):
         else:
             try:
                 self.vectorize()
-                self.value.enlarge(nlength)
+                self.vector.enlarge(nlength)
                 self.value_to_vector_str()
-            except ConstructionError:
+            except VectorConstructionError:
                 pass
 
 
@@ -199,6 +200,7 @@ class Rewrite(SwitchRuleAction):
         }
 
 
+    # XXX: deprecated
     def enlarge(self, length):
         """ Enlarges all vectors by length.
 
