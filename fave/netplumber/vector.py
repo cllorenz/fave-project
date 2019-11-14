@@ -117,6 +117,9 @@ class Vector(object):
         if isinstance(vectors, Vector):
             return True
 
+        if not isinstance(vectors, str):
+            return False
+
         if name and len(vectors) != FIELD_SIZES[name]:
             return False
 
