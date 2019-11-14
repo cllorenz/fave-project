@@ -7,7 +7,7 @@ from topology.router import parse_cisco_interfaces
 CISCO_CONF="bench/wl_ifi/acls.txt"
 OFILE="bench/wl_ifi/cisco_to_inventory.json"
 
-vlan_to_domain, _vtp, vlan_to_ips, _vta = parse_cisco_interfaces(CISCO_CONF)
+vlan_to_domain, _vtp, vlan_to_ips, _vta, _itv = parse_cisco_interfaces(CISCO_CONF)
 
 res = {}
 

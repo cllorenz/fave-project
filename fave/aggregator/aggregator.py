@@ -574,11 +574,11 @@ class Aggregator(AbstractAggregator):
                     field_value_to_bitvector(fld).vector
                 )
 
-            ports = []
-            for act in rule.actions:
-                if act.name != "forward":
-                    continue
-                ports.extend([self._global_port(p) for p in act.ports])
+            in_ports = [self._global_port(p) for p in rule.in_ports]
+
+            out_ports = []
+            for act in [a for a in rule.actions if isinstance(a, Forward)]:
+                out_ports.extend([self._global_port(p) for p in act.ports])
 
             rewrite = None
             mask = None
@@ -586,43 +586,47 @@ class Aggregator(AbstractAggregator):
                 self.mapping.extend("in_port")
                 rvec.enlarge(FIELD_SIZES["in_port"])
 
-            rewrite = dc(rvec)
-            size = FIELD_SIZES["in_port"]
+            rewrite = Vector(length=self.mapping.length)
             mask = Vector(length=rewrite.length, preset='0')
-            set_field_in_vector(
-                self.mapping, mask, 'in_port', '1'*size
+
+            for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
+                for field in action.rewrite:
+                    fvec = '{:032b}'.format(
+                        self._global_port(field.value)
+                    ) if field.name in [
+                        'in_port', 'out_port', 'interface'
+                    ] else field_value_to_bitvector(field).vector
+
+                    set_field_in_vector(
+                        self.mapping, rewrite, field.name, fvec
+                    )
+                    set_field_in_vector(
+                        self.mapping, mask, field.name, "1"*FIELD_SIZES[field.name]
+                    )
+
+            Aggregator.LOGGER.debug(
+                "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
+                rid,
+                self.tables["%s_%s" % (model.node, table)],
+                (self._global_port(p) for p in rule.in_ports),
+                rvec.vector if rvec else "*",
+                rewrite.vector if rewrite else "*",
+                out_ports
             )
-
-            for port_index, port in enumerate(range(1, 1 + in_ports_len)):
-                set_field_in_vector(
-                    self.mapping, rewrite, 'in_port', '{:032b}'.format(self._global_port("%s.%s" % (model.node, port)))
-                )
-
-                rule_index = rule.idx * port * in_ports_len + port_index
-
-                Aggregator.LOGGER.debug(
-                    "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
-                    rule_index,
-                    self.tables["%s_%s" % (model.node, table)],
-                    self._global_port("%s_%s" % (model.node, str(port))),
-                    rvec.vector if rvec else "*",
-                    rewrite.vector if rewrite else "*",
-                    ports
-                )
-                r_id = jsonrpc.add_rule(
-                    self.sock,
-                    self.tables["%s_%s" % (model.node, table)],
-                    rule_index,
-                    [self._global_port("%s_%s" % (model.node, str(port)))],
-                    ports,
-                    rvec.vector,
-                    mask.vector,
-                    rewrite.vector
-                )
-                if calc_rule_index(tid, rid) in self.rule_ids:
-                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                else:
-                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            r_id = jsonrpc.add_rule(
+                self.sock,
+                self.tables["%s_%s" % (model.node, table)],
+                rid,
+                in_ports,
+                out_ports,
+                rvec.vector,
+                mask.vector,
+                rewrite.vector
+            )
+            if calc_rule_index(tid, rid) in self.rule_ids:
+                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
+            else:
+                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
 
 
     def _add_post_routing_rules(self, model):

@@ -13,7 +13,7 @@ from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
 
-CAPACITY=50 # XXX: ugly workaround
+CAPACITY=2**16/2**12 # XXX: ugly workaround
 
 
 class RouterModel(Model):
@@ -28,9 +28,13 @@ class RouterModel(Model):
             vlan_to_ports=None,
             routes=None,
             mapping=None,
-            vlan_to_acls=None
+            vlan_to_acls=None,
+            if_to_vlans=None
     ):
         super(RouterModel, self).__init__(node, "router", mapping=mapping)
+
+        # { port_id : [vlans] }
+        self.if_to_vlans = if_to_vlans if if_to_vlans else {}
 
         ports = ports if ports is not None else {"1" : 1, "2" : 1}
 
@@ -76,13 +80,34 @@ class RouterModel(Model):
         get_oport = lambda x: int(x[0][4:])
         get_port = lambda x: x[1]
 
-        pre_routing = [
+        get_if = lambda interface, _vlans: interface
+        get_vlans = lambda _interface, vlans: vlans
+
+        pre_routing = [ # bind vlans explicitly configured to ports
             SwitchRule(
-                node, "pre_routing", 0,
+                node, "pre_routing", idx,
+                in_ports=[get_if(*item)],
+                match=Match(),
                 actions=[
+                    Rewrite(rewrite=[
+                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], str(get_vlans(*item)[0])),
+                        SwitchRuleField("in_port", get_if(*item))
+                    ]),
                     Forward(ports=["%s_pre_routing_out" % node])
                 ]
-            )
+            ) for idx, item in enumerate(self.if_to_vlans.iteritems()) if get_vlans(*item) != []
+        ] + [ # allow all vlans on other ports
+            SwitchRule(
+                node, "pre_routing", idx,
+                in_ports=[interface],
+                match=Match(),
+                actions=[
+                    Rewrite(rewrite=[SwitchRuleField("in_port", interface)]),
+                    Forward(ports=["%s_pre_routing_out" % node])
+                ]
+            ) for idx, interface in enumerate([
+                "%s.%s" % (node, p) for p in range(1, plen/2+1) if "%s.%s" % (node, p) not in self.if_to_vlans
+            ], start=len(self.if_to_vlans))
         ]
 
         post_routing = [ # low priority: forward packets according to out port
@@ -122,6 +147,7 @@ class RouterModel(Model):
                 in_ports=['in'],
                 match=Match(
                     fields=[
+                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
                         SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "192.168.0.0/16")
                     ]
                 ),
@@ -131,6 +157,7 @@ class RouterModel(Model):
                 in_ports=['in'],
                 match=Match(
                     fields=[
+                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
                         SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "10.0.0.0/8")
                     ]
                 ),
@@ -187,7 +214,7 @@ class RouterModel(Model):
                 self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
             for acl in self.vlan_to_acls[vlan]:
-                aid = int(vlan)*CAPACITY if vlan != "0" else 2**15 # XXX: ugly workaround
+                aid = int(vlan)*CAPACITY # if vlan != "0" else 2**15 # XXX: ugly workaround
 
                 acl_rules = self.acls[acl_name(acl)]
 
@@ -323,6 +350,7 @@ class RouterModel(Model):
                 SwitchRule.from_json(r) for r in j["tables"][t]
             ] for t in j["tables"]
         }
+
         router.ports = j["ports"]
 
         return router
@@ -468,17 +496,26 @@ def parse_cisco_interfaces(interface_file):
     vlan_to_acls = {}
     vlan_to_ips = {}
     vlan_to_domain = {}
+    if_to_vlans = {}
 
     with open(interface_file, 'r') as inf:
         raw = inf.read().split('\n')
 
         vlan = None
+        interface = None
         for line in raw:
             nline = line.lstrip(' ')
             if nline.startswith('interface'):
-                _if, _label, vlan = nline.split(' ')
-                vlan_to_ports.setdefault(vlan, [])
-                vlan_to_acls.setdefault(vlan, [])
+                tokens = nline.split(' ')
+
+                if len(tokens) == 3:
+                    _if, _label, vlan = tokens
+                    vlan_to_ports.setdefault(vlan, [])
+                    vlan_to_acls.setdefault(vlan, [])
+
+                elif len(tokens) == 2:
+                    _if, interface = tokens
+                    if_to_vlans.setdefault(interface, [])
 
             # comments, descriptions and empty line
             elif nline.startswith("#") or nline == "":
@@ -507,10 +544,29 @@ def parse_cisco_interfaces(interface_file):
                 _proto, _label, acl, direction = nline.split(' ')
                 vlan_to_acls[vlan].append("%s_%s" % (direction, acl))
 
+            elif nline.startswith("switchport"):
+                tokens = nline.split(' ')
+                if len(tokens) < 3:
+                    continue
+                elif tokens[1] == 'access':
+                    _sp, _ac, _vl, vlan = tokens
+                    if_to_vlans[interface].append(int(vlan))
+
+                elif tokens[1] == 'mode' and tokens[2] == 'trunk':
+                    continue
+
+                elif tokens[1] == 'trunk' and tokens[2] == 'encapsulation':
+                    continue
+
+                elif tokens[1] == 'trunk':
+                    _sp, _tr, _al, _vl, vlans = tokens
+                    vlans = map(int, vlans.split(','))
+                    if_to_vlans[interface].extend(vlans)
+
             else:
                 continue
 
-    return vlan_to_domain, vlan_to_ports, vlan_to_ips, vlan_to_acls
+    return vlan_to_domain, vlan_to_ports, vlan_to_ips, vlan_to_acls, if_to_vlans
 
 
 if __name__ == '__main__':
