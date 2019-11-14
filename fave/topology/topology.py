@@ -4,10 +4,9 @@
 
 import sys
 import getopt
-import socket
 import json
 
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import connect_to_fave
 from util.print_util import eprint
 from openflow.switch import SwitchModel
 from ip6np.packet_filter import PacketFilterModel
@@ -285,7 +284,8 @@ def main(argv):
                 ports={str(p):p for p in range(1, len(ports)*2+1)},
                 acls=parse_cisco_acls(ruleset),
                 vlan_to_ports=parse_cisco_interfaces(ruleset)[1],
-                vlan_to_acls=parse_cisco_interfaces(ruleset)[3]
+                vlan_to_acls=parse_cisco_interfaces(ruleset)[3],
+                if_to_vlans=parse_cisco_interfaces(ruleset)[4],
             )}[dtype]()
 
         topo = TopologyCommand(dev, command, model=model)
@@ -301,12 +301,9 @@ def main(argv):
         print_help()
         return
 
-    aggregator = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    aggregator.connect(UDS_ADDR)
-
-    aggregator.send(json.dumps(topo.to_json()))
-
-    aggregator.close()
+    fave = connect_to_fave()
+    fave.send(json.dumps(topo.to_json()))
+    fave.close()
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ import generator
 
 from misc.pybison_test import IP6TablesParser
 from util.print_util import eprint
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import connect_to_fave
 
 def print_help():
     """ Prints the usage on stderr.
@@ -70,12 +70,9 @@ def main(argv):
         pprint.pprint(model.to_json())
 
     else:
-        aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        aggr.connect(UDS_ADDR)
-
-        aggr.send(json.dumps(model.to_json()))
-
-        aggr.close()
+        fave = connect_to_fave()
+        fave.send(json.dumps(model.to_json()))
+        fave.close()
 
 
 if __name__ == "__main__":

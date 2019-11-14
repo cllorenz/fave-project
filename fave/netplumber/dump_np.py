@@ -6,10 +6,9 @@
 import os
 import sys
 import getopt
-import socket
 import json
 
-from aggregator.aggregator import UDS_ADDR
+from util.aggregator_utils import connect_to_fave
 
 from util.print_util import eprint
 from util.lock_util import PersistentFileLock
@@ -81,8 +80,8 @@ def main(argv):
             print_help()
             sys.exit(1)
 
-    aggr = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    aggr.connect(UDS_ADDR)
+
+    fave = connect_to_fave()
 
     dump = {
         'type':'dump',
@@ -102,8 +101,8 @@ def main(argv):
     lock = PersistentFileLock("%s/.lock" % odir, timeout=-1)
     lock.acquire()
 
-    aggr.sendall(json.dumps(dump))
-    aggr.close()
+    fave.sendall(json.dumps(dump))
+    fave.close()
 
 
 if __name__ == '__main__':

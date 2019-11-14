@@ -6,7 +6,6 @@
 
 import sys
 import getopt
-import socket
 import json
 
 try:
@@ -22,7 +21,7 @@ from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import connect_to_fave
 
 
 class SwitchRuleField(object):
@@ -754,12 +753,9 @@ def main(argv):
         sys.exit(2)
 
 
-    aggregator = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    aggregator.connect(UDS_ADDR)
-
-    aggregator.send(json.dumps(cmd.to_json()))
-
-    aggregator.close()
+    fave = connect_to_fave()
+    fave.send(json.dumps(cmd.to_json()))
+    fave.close()
 
 
 if __name__ == "__main__":
