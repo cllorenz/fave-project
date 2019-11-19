@@ -46,9 +46,10 @@ string probe_transition(PROBE_TRANSITION t) {
   }
 }
 
-void default_probe_callback(void *caller, SourceProbeNode *p, Flow* /*f*/,void* /*data*/,
+template<typename T1, typename T2>
+void default_probe_callback(void *caller, SourceProbeNode<T1, T2> *p, Flow<T1, T2>* /*f*/,void* /*data*/,
                             PROBE_TRANSITION t) {
-  NetPlumber *N = (NetPlumber *)caller;
+  NetPlumber<T1, T2> *N = (NetPlumber<T1, T2> *)caller;
   Event e = N->get_last_event();
   stringstream error_msg;
   if (p->get_mode() == EXISTENTIAL) error_msg << "Existential ";
@@ -58,11 +59,12 @@ void default_probe_callback(void *caller, SourceProbeNode *p, Flow* /*f*/,void* 
   LOG4CXX_WARN(probe_def_logger,error_msg.str());
 }
 
-SourceProbeNode::SourceProbeNode(void *n, int length, uint64_t node_id,
+template<class T1, class T2>
+SourceProbeNode<T1, T2>::SourceProbeNode(void *n, int length, uint64_t node_id,
                                  PROBE_MODE mode, List_t ports,
-                                 Condition *filter, Condition *test,
-                                 src_probe_callback_t probe_callback, void* d)
-: Node(n,length,node_id), state(STOPPED), mode(mode),
+                                 Condition<T1, T2> *filter, Condition<T1, T2> *test,
+                                 src_probe_callback_t<T1, T2> probe_callback, void* d)
+: Node<T1, T2>(n,length,node_id), state(STOPPED), mode(mode),
   filter(filter), test(test), cond_count(0), probe_callback_data(d)
 {
   this->node_type = SOURCE_PROBE;
@@ -74,30 +76,33 @@ SourceProbeNode::SourceProbeNode(void *n, int length, uint64_t node_id,
   else this->probe_callback = default_probe_callback;
 }
 
-SourceProbeNode::~SourceProbeNode() {
+template<class T1, class T2>
+SourceProbeNode<T1, T2>::~SourceProbeNode() {
   delete test;
   delete filter;
 }
 
-void SourceProbeNode::process_src_flow(Flow *f) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
   if (f) {
-    source_flow.push_front(f);
-    auto f_it = source_flow.begin();
+    this->source_flow.push_front(f);
+    auto f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
     f->processed_hs = hs_copy_a(f->hs_object);
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //hs_comp_diff(f->processed_hs);
     if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
-    for (auto const &prev: prev_in_pipeline) {
+    for (auto const &prev: this->prev_in_pipeline) {
       (*prev->r_pipeline)->node->propagate_src_flows_on_pipe(prev->r_pipeline);
     }
   }
 }
 
-void SourceProbeNode::process_src_flow_at_location(
-     list<struct Flow*>::iterator loc, array_t* change) {
-  Flow *f = *loc;
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::process_src_flow_at_location(
+     typename list< Flow<T1, T2> *>::iterator loc, T2* change) {
+  Flow<T1, T2> *f = *loc;
   if (change) {
     if (f->processed_hs->list.used == 0) return;
     hs_diff(f->processed_hs, change);
@@ -110,13 +115,15 @@ void SourceProbeNode::process_src_flow_at_location(
   if (state == RUNNING) update_check(f,FLOW_MODIFY);
 }
 
-void SourceProbeNode::absorb_src_flow(list<struct Flow*>::iterator s_flow,
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::absorb_src_flow(typename list< Flow<T1, T2> *>::iterator s_flow,
     bool first) {
   if (state == RUNNING) update_check(*s_flow,FLOW_DELETE);
-  Node::absorb_src_flow(s_flow, first);
+  Node<T1, T2>::absorb_src_flow(s_flow, first);
 }
 
-void SourceProbeNode::update_check(Flow *f, PROBE_FLOW_ACTION action) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION action) {
   /*
    * 0: add
    * 1: modified
@@ -210,9 +217,10 @@ void SourceProbeNode::update_check(Flow *f, PROBE_FLOW_ACTION action) {
   }
 }
 
-void SourceProbeNode::start_probe() {
-  NetPlumber* n = (NetPlumber*)this->plumber;
-  Event e = {START_SOURCE_PROBE,node_id,0};
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::start_probe() {
+  NetPlumber<T1, T2>* n = (NetPlumber<T1, T2> *)this->plumber;
+  Event e = {START_SOURCE_PROBE, this->node_id, 0};
   n->set_last_event(e);
   this->state = STARTED;
 //  auto it = source_flow.begin();
@@ -240,20 +248,23 @@ void SourceProbeNode::start_probe() {
   this->state = RUNNING;
 }
 
-void SourceProbeNode::stop_probe() {
-  NetPlumber* n = (NetPlumber*)this->plumber;
-  Event e = {STOP_SOURCE_PROBE,node_id,0};
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::stop_probe() {
+  NetPlumber<T1, T2>* n = (NetPlumber<T1, T2> *)this->plumber;
+  Event e = {STOP_SOURCE_PROBE, this->node_id, 0};
   n->set_last_event(e);
   this->state = STOPPED;
   check_results.clear();
   cond_count = 0;
 }
 
-list<Flow*>::iterator SourceProbeNode::get_source_flow_iterator() {
-  return source_flow.begin();
+template<class T1, class T2>
+typename list< Flow<T1, T2> *>::iterator SourceProbeNode<T1, T2>::get_source_flow_iterator() {
+  return this->source_flow.begin();
 }
 
-string SourceProbeNode::to_string() {
+template<class T1, class T2>
+string SourceProbeNode<T1, T2>::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
@@ -269,26 +280,32 @@ string SourceProbeNode::to_string() {
   return result.str();
 }
 
-void SourceProbeNode::enlarge(uint32_t length) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
 	if (length <= this->length) {
 		return;
 	}
 	filter->enlarge(length);
 	test->enlarge(length);
-	Node::enlarge(length);
+	Node<T1, T2>::enlarge(length);
 	this->length = length;
 }
 
-void SourceProbeNode::mode_to_json(Json::Value& res) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::mode_to_json(Json::Value& res) {
     res = (Json::StaticString)(
         (this->mode == UNIVERSAL) ? "universal" : "existential"
     );
 }
 
-void SourceProbeNode::filter_to_json(Json::Value& res) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::filter_to_json(Json::Value& res) {
     filter->to_json(res);
 }
 
-void SourceProbeNode::test_to_json(Json::Value& res) {
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::test_to_json(Json::Value& res) {
     test->to_json(res);
 }
+
+template class SourceProbeNode <struct hs, array_t>;

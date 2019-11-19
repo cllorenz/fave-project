@@ -93,44 +93,48 @@ enum PROBE_TRANSITION {
 
 std::string probe_transition(PROBE_TRANSITION t);
 
+template<class T1, class T2>
 class SourceProbeNode;
 
-typedef void (*src_probe_callback_t)
-    (void *caller, SourceProbeNode *p, Flow *f, void *data, PROBE_TRANSITION);
+template<typename T1, typename T2>
+using src_probe_callback_t = void (*)(void *caller, SourceProbeNode<T1, T2> *p, Flow<T1, T2> *f, void *data, PROBE_TRANSITION);
 
-void default_probe_callback(void *caller, SourceProbeNode *p, Flow *f,
+template<typename T1, typename T2>
+void default_probe_callback(void *caller, SourceProbeNode<T1, T2> *p, Flow<T1, T2> *f,
                             void *data, PROBE_TRANSITION t);
-class SourceProbeNode : public Node {
+
+template<class T1, class T2>
+class SourceProbeNode : public Node<T1, T2> {
  protected:
   PROBE_STATE state;
   PROBE_MODE mode;
-  Condition *filter;
-  Condition *test;
-  std::map< Flow*, bool >check_results;
+  Condition<T1, T2> *filter;
+  Condition<T1, T2> *test;
+  std::map< Flow<T1, T2> *, bool >check_results;
   int cond_count;
 
   /*
    * probe trigger callback
    */
-  src_probe_callback_t probe_callback;
+  src_probe_callback_t<T1, T2> probe_callback;
   void *probe_callback_data;
 
  public:
   SourceProbeNode(void *n, int length, uint64_t node_id,
                   PROBE_MODE mode, List_t ports,
-                  Condition *filter, Condition *condition,
-                  src_probe_callback_t probe_callback, void *callback_data);
+                  Condition<T1, T2> *filter, Condition<T1, T2> *condition,
+                  src_probe_callback_t<T1, T2> probe_callback, void *callback_data);
   virtual ~SourceProbeNode();
 
   /*
    * source flow management functions
    */
-  void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
-      array_t* change);
-  void process_src_flow(Flow *f);
-  void absorb_src_flow(std::list<struct Flow*>::iterator s_flow, bool first);
+  void process_src_flow_at_location(typename std::list<struct Flow<T1, T2> *>::iterator loc,
+      T2* change);
+  void process_src_flow(Flow<T1, T2> *f);
+  void absorb_src_flow(typename std::list<struct Flow<T1, T2> *>::iterator s_flow, bool first);
 
-  void update_check(Flow *f, PROBE_FLOW_ACTION action);
+  void update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION action);
   void start_probe();
   void stop_probe();
   void enlarge(uint32_t size);
@@ -144,7 +148,7 @@ class SourceProbeNode : public Node {
 
   PROBE_MODE get_mode() {return this->mode;}
 
-  std::list<Flow*>::iterator get_source_flow_iterator();
+  typename std::list<Flow<T1, T2> *>::iterator get_source_flow_iterator();
   std::string to_string();
 
   void mode_to_json(Json::Value&);
