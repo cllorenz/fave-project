@@ -799,6 +799,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
     table_to_last_id[table] += 1;
     uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
 
+    RuleNode<T1, T2> *r;
 #ifdef USE_GROUPS
     RuleNode<T1, T2> *r;
     if (!group || !gid) { //first rule in group or no group

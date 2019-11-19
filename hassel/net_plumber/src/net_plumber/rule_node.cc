@@ -41,8 +41,8 @@ void RuleNode<T1, T2>::set_layer_flags() {
   }
 }
 
-#ifdef USE_GROUPS
 template<class T1, class T2>
+#ifdef USE_GROUPS
 RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
                    T2 *match, T2 *mask, T2 *rewrite) :
@@ -53,7 +53,6 @@ RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table
                    T2 *match, T2 *mask, T2 *rewrite) :
                    Node<T1, T2>(n,length,node_id), table(table), index(index) {
 #endif
->>>>>>> Refactor rule nodes to be templated.
   this->node_type = RULE;
   this->match = match;
   this->mask = mask;
