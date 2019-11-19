@@ -29,7 +29,8 @@ using namespace net_plumber;
 using namespace std;
 
 #ifdef PIPE_SLICING
-void _load_slices_from_file(string json_file_path, NetPlumber * N, size_t hdr_len) {
+template<typename T1, typename T2>
+void _load_slices_from_file(string json_file_path, NetPlumber<T1, T2> * N, size_t hdr_len) {
   ifstream jsfile;
   Json::Value root;
   Json::Reader reader;
@@ -44,14 +45,24 @@ void _load_slices_from_file(string json_file_path, NetPlumber * N, size_t hdr_le
   reader.parse(jsfile,root,false);
   Json::Value slices = root["slices"];
   for (Json::ArrayIndex i=0; i<slices.size(); i++) {
-    hs *h = val_to_hs(slices[i]["space"],hdr_len);
+    T1 *h = val_to_hs<T1, T2>(slices[i]["space"],hdr_len);
     N->add_slice(slices[i]["id"].asInt(), h);
   }
   jsfile.close();
 }
+
+template void _load_slices_from_file<struct hs, array_t>(string, NetPlumber<struct hs, array_t>, size_t);
 #endif /* PIPE_SLICING */
 
-void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *filter, size_t hdr_len) {
+template<typename T1, typename T2>
+void load_netplumber_from_dir(
+    string json_file_path,
+    NetPlumber<T1, T2> * N,
+    T2 *filter
+#ifdef PIPE_SLICING
+    , size_t hdr_len
+#endif
+) {
   double start, end;
   int rule_counter = 0;
   ifstream jsfile;
@@ -108,7 +119,7 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
           string action = rules[i]["action"].asString();
           uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffff;
           if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
-            array_t *match = val_to_array(rules[i]["match"]);
+            T2 *match = val_to_array<T1, T2>(rules[i]["match"]);
             if (filter && !array_isect(match,filter,N->get_length(),match)) {
               run_time = 0;
             } else {
@@ -118,8 +129,8 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
                           val_to_list(rules[i]["in_ports"]),
                           val_to_list(rules[i]["out_ports"]),
                           match,
-                          val_to_array(rules[i]["mask"]),
-                          val_to_array(rules[i]["rewrite"]));
+                          val_to_array<T1, T2>(rules[i]["mask"]),
+                          val_to_array<T1, T2>(rules[i]["rewrite"]));
               end = get_cpu_time_us();
               run_time = end - start;
               total_run_time += run_time;
@@ -139,9 +150,9 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
                                 rule_id,
                                 val_to_list(mp_rules[i]["in_ports"]),
                                 val_to_list(mp_rules[i]["out_ports"]),
-                                val_to_array(mp_rules[i]["match"]),
-                                val_to_array(mp_rules[i]["mask"]),
-                                val_to_array(mp_rules[i]["rewrite"]),
+                                val_to_array<T1, T2>(mp_rules[i]["match"]),
+                                val_to_array<T1, T2>(mp_rules[i]["mask"]),
+                                val_to_array<T1, T2>(mp_rules[i]["rewrite"]),
                                 group);
                 if (i == 0) group = id;
               }
@@ -176,7 +187,8 @@ void load_netplumber_from_dir(string json_file_path, NetPlumber * N, array_t *fi
   closedir(dir);
 }
 
-void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
+template<typename T1, typename T2>
+void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter) {
   printf("Loading policy file %s\n", json_policy_file.c_str());
   double start, end;
   ifstream jsfile;
@@ -197,8 +209,8 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
-      hs *tmp = val_to_hs(commands[i]["params"]["hs"], N->get_length());
-      hs *h;
+      T1 *tmp = val_to_hs<T1, T2>(commands[i]["params"]["hs"], N->get_length());
+      T1 *h;
       if (filter) {
         h = hs_create(N->get_length());
         hs_isect_arr(h,tmp,filter);
@@ -212,8 +224,8 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       PROBE_MODE mode = !strcasecmp(commands[i]["params"]["mode"].asCString(), "universal")
           ? UNIVERSAL : EXISTENTIAL;
-      Condition *filter = val_to_cond(commands[i]["params"]["filter"], N->get_length());
-      Condition *test = val_to_cond(commands[i]["params"]["test"], N->get_length());
+      Condition<T1, T2> *filter = val_to_cond<T1, T2>(commands[i]["params"]["filter"], N->get_length());
+      Condition<T1, T2> *test = val_to_cond<T1, T2>(commands[i]["params"]["test"], N->get_length());
       N->add_source_probe(ports, mode, filter, test, nullptr, nullptr);
     } else if (type == "add_link") {
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
@@ -225,3 +237,13 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
   printf("Loaded policy file in %.2lf seconds (%.2lfus)\n", (end - start)/1000000.0, (end - start));
   jsfile.close();
 }
+
+template void load_netplumber_from_dir<struct hs, array_t>(
+    string,
+    NetPlumber<struct hs, array_t> *,
+    array_t *
+#ifdef PIPE_SLICING
+    , size_t
+#endif
+);
+template void load_policy_file<struct hs, array_t>(string, NetPlumber<struct hs, array_t> *, array_t *);
