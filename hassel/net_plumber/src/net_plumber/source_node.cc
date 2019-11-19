@@ -24,55 +24,61 @@
 using namespace std;
 using namespace log4cxx;
 
-LoggerPtr SourceNode::source_logger(Logger::getLogger("SourceNode"));
+template<class T1, class T2>
+LoggerPtr SourceNode<T1, T2>::source_logger(Logger::getLogger("SourceNode"));
 
-SourceNode::SourceNode(void *n, int length, uint64_t node_id, hs *hs_object,
+template<class T1, class T2>
+SourceNode<T1, T2>::SourceNode(void *n, int length, uint64_t node_id, T1 *hs_object,
                        List_t ports)
-  : Node(n,length,node_id) {
+  : Node<T1, T2>(n,length,node_id) {
   this->node_type = SOURCE;
   this->match = nullptr;
   this->inv_match = array_create(length, BIT_X);
   this->output_ports = ports;
   this->input_ports = make_sorted_list(0);
   // create the flow;
-  Flow *f = (Flow *)malloc(sizeof *f);
+  Flow<T1, T2> *f = (Flow<T1, T2> *)malloc(sizeof *f);
   f->node = this;
   f->hs_object = hs_object;
   f->processed_hs = hs_copy_a(hs_object);
   f->in_port = 0;
   f->p_flow = this->source_flow.end();
-  f->n_flows = new list< list<struct Flow*>::iterator >();
+  f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
   this->source_flow.push_back(f);
 }
 
-SourceNode::~SourceNode() {
+template<class T1, class T2>
+SourceNode<T1, T2>::~SourceNode() {
   // do nothing
 }
 
-string SourceNode::source_to_str() {
+template<class T1, class T2>
+string SourceNode<T1, T2>::source_to_str() {
   stringstream result;
-  char *s = hs_to_str((*source_flow.begin())->hs_object);
+  char *s = hs_to_str((*this->source_flow.begin())->hs_object);
   result << "Source: " << s;
   free(s);
-  result << " Ports: " << list_to_string(output_ports);
+  result << " Ports: " << list_to_string(this->output_ports);
   return result.str();
 }
 
-string SourceNode::to_string() {
+template<class T1, class T2>
+string SourceNode<T1, T2>::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%lx",node_id);
+  sprintf(buf,"0x%lx", this->node_id);
   result << " Source: " << buf << "\n";
   result << string(40, '=') << "\n";
   result << source_to_str() << "\n";
-  result << pipeline_to_string();
-  result << src_flow_to_string();
+  result << this->pipeline_to_string();
+  result << this->src_flow_to_string();
   return result.str();
 }
 
-void SourceNode::process_src_flow_at_location(
-    list<struct Flow*>::iterator /*loc*/, array_t* /*change*/) {
+template<class T1, class T2>
+void SourceNode<T1, T2>::process_src_flow_at_location(
+    typename list< Flow<T1, T2> *>::iterator /*loc*/, T2* /*change*/) {
   // do nothing
   stringstream error_msg;
   error_msg << "Called process_src_flow_at_location on SourceNode " <<
@@ -81,14 +87,18 @@ void SourceNode::process_src_flow_at_location(
 
 }
 
-void SourceNode::process_src_flow(Flow* /*f*/) {
-  propagate_src_flow_on_pipes(source_flow.begin());
+template<class T1, class T2>
+void SourceNode<T1, T2>::process_src_flow(Flow<T1, T2>* /*f*/) {
+  this->propagate_src_flow_on_pipes(this->source_flow.begin());
 }
 
-void SourceNode::enlarge(uint32_t length) {
+template<class T1, class T2>
+void SourceNode<T1, T2>::enlarge(uint32_t length) {
 	if (length <= this->length) {
 		return;
 	}
-	Node::enlarge(length);
+	Node<T1, T2>::enlarge(length);
 	this->length = length;
 }
+
+template class SourceNode <struct hs, array_t>;

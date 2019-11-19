@@ -22,19 +22,20 @@
 #include "node.h"
 #include "log4cxx/logger.h"
 
-class SourceNode : public Node {
+template<class T1, class T2>
+class SourceNode : public Node<T1, T2> {
  protected:
   static log4cxx::LoggerPtr source_logger;
 
  public:
-  SourceNode(void *n, int length, uint64_t node_id, hs *hs_object, List_t ports);
+  SourceNode(void *n, int length, uint64_t node_id, T1 *hs_object, List_t ports);
   virtual ~SourceNode();
 
   std::string source_to_str();
   std::string to_string();
-  void process_src_flow(Flow *f);
-  void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
-                                    array_t* change);
+  void process_src_flow(Flow<T1, T2> *f);
+  void process_src_flow_at_location(typename std::list<struct Flow<T1, T2> *>::iterator loc,
+                                    T2* change);
 
   void enlarge(uint32_t size);
 };
