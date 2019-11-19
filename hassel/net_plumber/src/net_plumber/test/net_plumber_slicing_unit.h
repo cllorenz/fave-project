@@ -25,6 +25,7 @@
 #include <cppunit/extensions/HelperMacros.h>
 #include "log4cxx/logger.h"
 
+template<class T1, class T2>
 class NetPlumberSlicingTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(NetPlumberSlicingTest);
   CPPUNIT_TEST(test_add_slice_matrix);
