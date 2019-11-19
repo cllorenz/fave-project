@@ -27,24 +27,27 @@ extern "C" {
 
 using namespace net_plumber;
 
-void NetPlumberBasicTest::setUp() {
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::setUp() {
 
 }
 
-void NetPlumberBasicTest::tearDown() {
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::tearDown() {
 
 }
 
-void NetPlumberBasicTest::test_rule_node_create() {
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_rule_node_create() {
   printf("\n");
   List_t in_ports = make_sorted_list(2,2,3);
   List_t out_ports = make_sorted_list(2,1,4);
-  array_t *match = array_create(2,BIT_X);
-  array_t *mask = array_from_str ("00000000,01111111");
-  array_t *rewrite = array_from_str ("00000000,00000011");
-  array_t *inv_match = array_from_str ("xxxxxxxx,x0000011");
-  array_t *inv_rw = array_from_str ("xxxxxxxx,x0000000");
-  RuleNode *r = new RuleNode(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
+  T2 *match = array_create(2,BIT_X);
+  T2 *mask = array_from_str ("00000000,01111111");
+  T2 *rewrite = array_from_str ("00000000,00000011");
+  T2 *inv_match = array_from_str ("xxxxxxxx,x0000011");
+  T2 *inv_rw = array_from_str ("xxxxxxxx,x0000000");
+  RuleNode<T1, T2> *r = new RuleNode<T1, T2>(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
   CPPUNIT_ASSERT(array_is_eq(r->inv_match,inv_match,2));
   CPPUNIT_ASSERT(array_is_eq(r->inv_rw,inv_rw,2));
@@ -54,9 +57,10 @@ void NetPlumberBasicTest::test_rule_node_create() {
   delete r;
 }
 
-void NetPlumberBasicTest::test_create_topology() {
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_create_topology() {
   printf("\n");
-  NetPlumber *n = new NetPlumber(1);
+  auto *n = new NetPlumber<T1, T2>(1);
   n->add_link(1,2);
   n->add_link(1,3);
   n->add_link(2,1);
@@ -67,14 +71,15 @@ void NetPlumberBasicTest::test_create_topology() {
   delete n;
 }
 
-void NetPlumberBasicTest::test_create_rule_id() {
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
   printf("\n");
-  NetPlumber *n = new NetPlumber(1);
+  auto *n = new NetPlumber<T1, T2>(1);
   n->add_table(1,make_sorted_list(3,1,2,3));
   // two conseq. rules
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
-  array_t *match = array_create(1,BIT_X);
+  T2 *match = array_create(1,BIT_X);
   uint64_t id1 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
@@ -97,5 +102,5 @@ void NetPlumberBasicTest::test_create_rule_id() {
   delete n;
 }
 
-
+template class NetPlumberBasicTest<struct hs, array_t>;
 

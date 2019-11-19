@@ -24,8 +24,15 @@
 #include "cppunit/TestFixture.h"
 #include <cppunit/extensions/HelperMacros.h>
 
+template<class T1, class T2>
+class NetPlumberBasicTest;
+
+template<class T1, class T2>
+NetPlumberBasicTest<T1, T2> t_npbt;
+
+template<class T1, class T2>
 class NetPlumberBasicTest : public CppUnit::TestFixture {
-  CPPUNIT_TEST_SUITE(NetPlumberBasicTest);
+  CPPUNIT_TEST_SUITE( decltype(t_npbt<T1, T2>) );
   CPPUNIT_TEST(test_rule_node_create);
   CPPUNIT_TEST(test_create_topology);
   CPPUNIT_TEST(test_create_rule_id);
@@ -38,7 +45,5 @@ class NetPlumberBasicTest : public CppUnit::TestFixture {
   void test_create_topology();
   void test_create_rule_id();
 };
-
-
 
 #endif  // NET_PLUMBER_BASIC_UNIT_H_
