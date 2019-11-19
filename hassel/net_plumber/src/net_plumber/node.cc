@@ -34,10 +34,12 @@ using namespace net_plumber;
 using namespace std;
 using namespace log4cxx;
 
-LoggerPtr Node::logger(Logger::getLogger("NetPlumber"));
+template<class T1, class T2>
+LoggerPtr Node<T1, T2>::logger(Logger::getLogger("NetPlumber"));
 
-bool is_flow_looped(Flow *flow) {
-  Flow *f = flow;
+template<typename T1, typename T2>
+bool is_flow_looped(Flow<T1, T2> *flow) {
+  Flow<T1, T2> *f = flow;
   set<uint64_t> seen_rules;
   while(1) {
     uint64_t rule_id = (f->node->node_id);
@@ -54,7 +56,8 @@ bool is_flow_looped(Flow *flow) {
   }
 }
 
-Node::Node(void *p, int l, uint64_t n) :
+template<class T1, class T2>
+Node<T1, T2>::Node(void *p, int l, uint64_t n) :
     node_type(BASE), node_id(n), length(l), plumber(p),
     match(nullptr), inv_match(nullptr),
     is_input_layer(false), is_output_layer(false)
@@ -62,7 +65,8 @@ Node::Node(void *p, int l, uint64_t n) :
   //do nothing
 }
 
-void Node::remove_flows() {
+template<class T1, class T2>
+void Node<T1, T2>::remove_flows() {
   for (auto f_it = source_flow.begin(); f_it != source_flow.end(); f_it++) {
     hs_free((*f_it)->hs_object);
     if ((*f_it)->processed_hs) hs_free((*f_it)->processed_hs);
@@ -75,7 +79,8 @@ void Node::remove_flows() {
   source_flow.clear();
 }
 
-void Node::remove_pipes() {
+template<class T1, class T2>
+void Node<T1, T2>::remove_pipes() {
   for (auto &next: this->next_in_pipeline) {
     auto r = next->r_pipeline;
     array_free(next->pipe_array);
@@ -101,7 +106,8 @@ void Node::remove_pipes() {
   prev_in_pipeline.clear();
 }
 
-Node::~Node() {
+template<class T1, class T2>
+Node<T1, T2>::~Node() {
   this->remove_flows();
   this->remove_pipes();
   if (!input_ports.shared) free(input_ports.list);
@@ -110,21 +116,25 @@ Node::~Node() {
   array_free(this->inv_match);
 }
 
-NODE_TYPE Node::get_type() {
+template<class T1, class T2>
+NODE_TYPE Node<T1, T2>::get_type() {
   return this->node_type;
 }
 
-list<struct Pipeline*>::iterator Node::add_fwd_pipeline(Pipeline *p) {
+template<class T1, class T2>
+typename list<Pipeline<T1, T2>*>::iterator Node<T1, T2>::add_fwd_pipeline(Pipeline<T1, T2> *p) {
   this->next_in_pipeline.push_front(p);
   return this->next_in_pipeline.begin();
 }
 
-list<struct Pipeline*>::iterator Node::add_bck_pipeline(Pipeline *p) {
+template<class T1, class T2>
+typename list<Pipeline<T1, T2> *>::iterator Node<T1, T2>::add_bck_pipeline(Pipeline<T1, T2> *p) {
   this->prev_in_pipeline.push_front(p);
   return this->prev_in_pipeline.begin();
 }
 
-string Node::pipeline_to_string() {
+template<class T1, class T2>
+string Node<T1, T2>::pipeline_to_string() {
   stringstream result;
   char buf[70];
   char *s;
@@ -149,7 +159,8 @@ string Node::pipeline_to_string() {
   return result.str();
 }
 
-string Node::src_flow_to_string() {
+template<class T1, class T2>
+string Node<T1, T2>::src_flow_to_string() {
   stringstream result;
   result << "Source Flow:\n";
   char *s;
@@ -176,7 +187,8 @@ string Node::src_flow_to_string() {
   return result.str();
 }
 
-void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
+template<class T1, class T2>
+void Node<T1, T2>::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
   for (auto it = next_in_pipeline.begin(); it != next_in_pipeline.end(); ) {
     auto r = (*it)->r_pipeline;
     if ((*it)->local_port == local_port && (*r)->local_port == remote_port) {
@@ -184,7 +196,7 @@ void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
       (*it)->node->remove_sink_flow_from_pipe(*r);
       array_free((*it)->pipe_array);
       auto tmp = r;
-      struct Pipeline *pipe = *r;
+      struct Pipeline<T1, T2> *pipe = *r;
       array_free(pipe->pipe_array);
       (*r)->node->prev_in_pipeline.erase(r);
       free(pipe);
@@ -198,7 +210,8 @@ void Node::remove_link_pipes(uint32_t local_port,uint32_t remote_port) {
   }
 }
 
-void Node::remove_src_flows_from_pipe(Pipeline *fwd_p) {
+template<class T1, class T2>
+void Node<T1, T2>::remove_src_flows_from_pipe(Pipeline<T1, T2> *fwd_p) {
   for (auto it = source_flow.begin(); it != source_flow.end(); /*none*/) {
     if ((*it)->pipe == fwd_p) {
       this->absorb_src_flow(it,true);
@@ -215,7 +228,8 @@ void Node::remove_src_flows_from_pipe(Pipeline *fwd_p) {
   }
 }
 
-void Node::enlarge(uint32_t length) {
+template<class T1, class T2>
+void Node<T1, T2>::enlarge(uint32_t length) {
 	if (length <= this->length) {
 		return;
 	}
@@ -243,19 +257,23 @@ void Node::enlarge(uint32_t length) {
 	this->length = length;
 }
 
-void Node::remove_sink_flow_from_pipe(Pipeline* /*bck_p*/) {
+template<class T1, class T2>
+void Node<T1, T2>::remove_sink_flow_from_pipe(Pipeline<T1, T2>* /*bck_p*/) {
 
 }
 
-int Node::count_fwd_pipeline() {
+template<class T1, class T2>
+int Node<T1, T2>::count_fwd_pipeline() {
   return this->next_in_pipeline.size();
 }
 
-int Node::count_bck_pipeline() {
+template<class T1, class T2>
+int Node<T1, T2>::count_bck_pipeline() {
   return this->prev_in_pipeline.size();
 }
 
-void Node::count_src_flow(int &inc, int &exc) {
+template<class T1, class T2>
+void Node<T1, T2>::count_src_flow(int &inc, int &exc) {
   inc = 0;
   exc = 0;
   for (auto const &flow: source_flow) {
@@ -266,7 +284,8 @@ void Node::count_src_flow(int &inc, int &exc) {
   }
 }
 
-bool Node::should_block_flow(Flow *f, uint32_t out_port) {
+template<class T1, class T2>
+bool Node<T1, T2>::should_block_flow(Flow<T1, T2> *f, uint32_t out_port) {
   if (is_input_layer) {
     return f->in_port == out_port;
   } else {
@@ -275,7 +294,8 @@ bool Node::should_block_flow(Flow *f, uint32_t out_port) {
 
 }
 
-void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
+template<class T1, class T2>
+void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::iterator s_flow) {
   hs *h = NULL;
   for (auto const &next: next_in_pipeline) {
     if (is_output_layer && should_block_flow(*s_flow, next->local_port))
@@ -295,7 +315,7 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
 #endif
 
       // create a new flow struct to pass to next node in pipeline
-      Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
+      Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*next->r_pipeline)->node;
       next_flow->hs_object = h;
       next_flow->in_port = (*next->r_pipeline)->local_port;
@@ -311,7 +331,8 @@ void Node::propagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow) {
   if (h) free(h);
 }
 
-void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
+template<class T1, class T2>
+void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>::iterator pipe) {
   hs *h = nullptr;
   for (auto it = source_flow.begin(); it != source_flow.end(); it++) {
     if (is_output_layer && should_block_flow(*it,(*pipe)->local_port))
@@ -335,7 +356,7 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
       }
 #endif
 
-      Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
+      Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*(*pipe)->r_pipeline)->node;
       next_flow->hs_object = h;
       next_flow->in_port = (*(*pipe)->r_pipeline)->local_port;
@@ -353,15 +374,16 @@ void Node::propagate_src_flows_on_pipe(list<Pipeline *>::iterator pipe) {
   if (h) free(h);
 }
 
-void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
-    array_t *change) {
+template<class T1, class T2>
+void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::iterator s_flow,
+    T2 *change) {
 
-  set<Pipeline*> pipe_hash_set;
+  set<Pipeline<T1, T2> *> pipe_hash_set;
   hs *h = nullptr;
   if ((*s_flow)->n_flows) {
     for (auto nit = (*s_flow)->n_flows->begin();
         nit != (*s_flow)->n_flows->end(); /*do nothing */) {
-      Flow *next_flow = **nit;
+      Flow<T1, T2> *next_flow = **nit;
       if (change) {
         array_t *piped = array_isect_a(  //change through pipe
               change,next_flow->pipe->pipe_array,length);
@@ -401,7 +423,7 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
     if (!h) h = (hs *)malloc(sizeof *h);
     if (hs_isect_arr(h, (*s_flow)->processed_hs, next->pipe_array)) {
       // create a new flow struct to pass to next node in pipeline
-      Flow *next_flow = (Flow *)malloc(sizeof *next_flow);
+      Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*next->r_pipeline)->node;
       next_flow->hs_object = h;
       next_flow->in_port = (*next->r_pipeline)->local_port;
@@ -416,7 +438,8 @@ void Node::repropagate_src_flow_on_pipes(list<struct Flow*>::iterator s_flow,
   free(h); // must not be hs_free()! leads to memory corruption
 }
 
-void Node::absorb_src_flow(list<struct Flow*>::iterator s_flow, bool first) {
+template<class T1, class T2>
+void Node<T1, T2>::absorb_src_flow(typename list<Flow<T1, T2> *>::iterator s_flow, bool first) {
   if ((*s_flow)->n_flows) {
     for (auto const &flow: *(*s_flow)->n_flows) {
       (*flow)->node->absorb_src_flow(flow, false);
@@ -432,3 +455,4 @@ void Node::absorb_src_flow(list<struct Flow*>::iterator s_flow, bool first) {
   }
 }
 
+template class Node<struct hs, array_t>;

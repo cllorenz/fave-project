@@ -40,42 +40,48 @@ enum NODE_TYPE {
   SINK_PROBE,
 };
 
+template<class T1, class T2>
 class Node;
+template<class T1, class T2>
 struct Pipeline;
 
+template<class T1, class T2>
 struct Flow {
-  Node *node; //pointer to next node
-  struct hs *hs_object; //input hs
-  struct hs *processed_hs; //output hs. could be the same as hs_object
+  Node<T1, T2> *node; //pointer to next node
+  T1 *hs_object; //input hs
+  T1 *processed_hs; //output hs. could be the same as hs_object
   uint32_t in_port;  //input port this flow is received on
-  Pipeline* pipe;  //the pipe it has gone through
-  std::list<struct Flow*>::iterator p_flow; // pointer to previous flow
-  std::list<std::list<struct Flow*>::iterator> *n_flows;  //pointer to next flow
+  Pipeline<T1, T2>* pipe;  //the pipe it has gone through
+  typename std::list< Flow<T1, T2>* >::iterator p_flow; // pointer to previous flow
+  typename std::list<typename std::list< Flow<T1, T2>* >::iterator> *n_flows;  //pointer to next flow
 };
 
-bool is_flow_looped(Flow *f);
+template<typename T1, typename T2>
+bool is_flow_looped(Flow<T1, T2> *f);
 
+template<class T1, class T2>
 struct Pipeline {
-  Node *node;
-  array_t *pipe_array;
+  Node<T1, T2> *node;
+  T2 *pipe_array;
   uint32_t local_port;
   uint32_t len;
 #ifdef PIPE_SLICING
   uint64_t net_space_id;
-  std::list<struct Pipeline*>::iterator r_slice;
+  typename std::list<Pipeline<T1, T2>*>::iterator r_slice;
 #endif
-  std::list<struct Pipeline*>::iterator r_pipeline;
+  typename std::list<Pipeline<T1, T2>*>::iterator r_pipeline;
 };
 
+template<class T1, class T2>
 class Node {
  protected:
   NODE_TYPE node_type;
 
   static log4cxx::LoggerPtr logger;
 
-  void remove_src_flows_from_pipe(Pipeline *fwd_p);
-  void remove_sink_flow_from_pipe(Pipeline *bck_p);
-  bool should_block_flow(Flow *f, uint32_t out_port);
+  void remove_src_flows_from_pipe(Pipeline<T1, T2> *fwd_p);
+  void remove_sink_flow_from_pipe(Pipeline<T1, T2> *bck_p);
+  bool should_block_flow(Flow<T1, T2> *f, uint32_t out_port);
   void remove_flows();
   void remove_pipes();
 
@@ -95,11 +101,11 @@ class Node {
   struct List_t output_ports;
 
   // Note: next_in_pipeline owns the array_t*.
-  std::list<struct Pipeline*> next_in_pipeline;
-  std::list<struct Pipeline*> prev_in_pipeline;
+  std::list< Pipeline<T1, T2> *> next_in_pipeline;
+  std::list< Pipeline<T1, T2> *> prev_in_pipeline;
 
   // source and sink flow
-  std::list<struct Flow*> source_flow;
+  std::list< Flow<T1, T2> *> source_flow;
 
   Node(void *plumber, int length, uint64_t node_id);
   virtual ~Node();
@@ -116,23 +122,23 @@ class Node {
    * its hs_object and processed_hs is freed.
    */
   // initial flow push
-  virtual void process_src_flow(Flow *f) = 0;
-  void propagate_src_flow_on_pipes(std::list<struct Flow*>::iterator s_flow);
-  void propagate_src_flows_on_pipe(std::list<Pipeline *>::iterator pipe);
+  virtual void process_src_flow(Flow<T1, T2> *f) = 0;
+  void propagate_src_flow_on_pipes(typename std::list< Flow<T1, T2> *>::iterator s_flow);
+  void propagate_src_flows_on_pipe(typename std::list< Pipeline<T1, T2> *>::iterator pipe);
   // updating flow push
-  virtual void process_src_flow_at_location(std::list<struct Flow*>::iterator
-                                            loc, array_t *change) = 0;
-  void repropagate_src_flow_on_pipes(std::list<struct Flow*>::iterator s_flow,
-                                            array_t *change);
+  virtual void process_src_flow_at_location(typename std::list< Flow<T1, T2> *>::iterator
+                                            loc, T2 *change) = 0;
+  void repropagate_src_flow_on_pipes(typename std::list< Flow<T1, T2> *>::iterator s_flow,
+                                            T2 *change);
   // removing flow push
-  virtual void absorb_src_flow(std::list<struct Flow*>::iterator s_flow,
+  virtual void absorb_src_flow(typename std::list< Flow<T1, T2> *>::iterator s_flow,
       bool first);
 
   /*
    * to add pipelines
    */
-  std::list<struct Pipeline*>::iterator add_fwd_pipeline(Pipeline *p);
-  std::list<struct Pipeline*>::iterator add_bck_pipeline(Pipeline *p);
+  typename std::list<Pipeline<T1, T2> *>::iterator add_fwd_pipeline(Pipeline<T1, T2> *p);
+  typename std::list<Pipeline<T1, T2> *>::iterator add_bck_pipeline(Pipeline<T1, T2> *p);
 
   /*
    * remove_link_pipes: to remove both fwd and bck pipelines and
@@ -163,7 +169,7 @@ class Node {
   /*
    * end of source flow iterator
    */
-  std::list<struct Flow*>::iterator get_EOSFI() {return source_flow.end();}
+  typename std::list<Flow<T1, T2> *>::iterator get_EOSFI() {return source_flow.end();}
 
 };
 
