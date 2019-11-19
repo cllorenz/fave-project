@@ -22,33 +22,40 @@
 
 #include "node.h"
 
+template<class T1, class T2>
 class RuleNode;
 
+template<class T1, class T2>
+struct Effect;
+
+template<class T1, class T2>
 struct Influence {
-  RuleNode *node;
+  RuleNode<T1, T2> *node;
   uint32_t len;
-  std::list<struct Effect*>::iterator effect;
-  union { array_t *comm_arr; hs *comm_hs; };
+  typename std::list<struct Effect<T1, T2> *>::iterator effect;
+  union { T2 *comm_arr; T1 *comm_hs; };
   List_t ports;
 };
 
+template<class T1, class T2>
 struct Effect {
-  RuleNode *node;
-  std::list<struct Influence*>::iterator influence;
+  RuleNode<T1, T2> *node;
+  typename std::list<struct Influence<T1, T2> *>::iterator influence;
 };
 
-class RuleNode : public Node {
+template<class T1, class T2>
+class RuleNode : public Node<T1, T2> {
  public:
   const uint32_t table;
   const uint32_t index;
 #ifdef USE_GROUPS
   uint64_t group;
 #endif
-  array_t *mask;
-  array_t *rewrite;
-  array_t *inv_rw;
-  std::list<struct Effect*> *effect_on;
-  std::list<struct Influence*> *influenced_by;
+  T2 *mask;
+  T2 *rewrite;
+  T2 *inv_rw;
+  std::list<struct Effect<T1, T2> *> *effect_on;
+  std::list<struct Influence<T1, T2> *> *influenced_by;
 
   /*
    * constructor
@@ -56,11 +63,11 @@ class RuleNode : public Node {
 #ifdef USE_GROUPS
   RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
            uint64_t group, List_t in_ports ,List_t out_ports,
-           array_t* match, array_t *mask, array_t* rw);
+           T2* match, T2 *mask, T2* rw);
 #else
   RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
            List_t in_ports ,List_t out_ports,
-           array_t* match, array_t *mask, array_t* rw);
+           T2* match, T2 *mask, T2* rw);
 #endif
 
   /*
@@ -93,16 +100,16 @@ class RuleNode : public Node {
    * - subtract_from_src_flow: subtracts @arr_sub from @s_flow and propagates
    * the result throughout the network.
    */
-  void process_src_flow(Flow *f);
-  void process_src_flow_at_location(std::list<struct Flow*>::iterator loc,
-                                    array_t* change);
+  void process_src_flow(Flow<T1, T2> *f);
+  void process_src_flow_at_location(typename std::list<struct Flow<T1, T2> *>::iterator loc,
+                                    T2* change);
   void subtract_infuences_from_flows();
 
   /*
    * Setting influences.
    */
-  std::list<struct Effect*>::iterator set_effect_on(Effect *eff);
-  std::list<struct Influence*>::iterator set_influence_by(Influence *inf);
+  typename std::list<struct Effect<T1, T2> *>::iterator set_effect_on(Effect<T1, T2> *eff);
+  typename std::list<struct Influence<T1, T2> *>::iterator set_influence_by(Influence<T1, T2> *inf);
 
   /*
    * stats reporting functions

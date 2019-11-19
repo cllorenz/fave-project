@@ -28,12 +28,13 @@
 using namespace std;
 using namespace net_plumber;
 
-void RuleNode::set_layer_flags() {
-  if (plumber) {
-    NetPlumber* n = (NetPlumber*)plumber;
-    List_t table_ports = n->get_table_ports(table);
-    this->is_input_layer = lists_has_intersection(table_ports,input_ports);
-    this->is_output_layer = lists_has_intersection(table_ports,output_ports);
+template<class T1, class T2>
+void RuleNode<T1, T2>::set_layer_flags() {
+  if (this->plumber) {
+    NetPlumber<T1, T2>* n = (NetPlumber<T1, T2> *)this->plumber;
+    List_t table_ports = n->get_table_ports(this->table);
+    this->is_input_layer = lists_has_intersection(table_ports, this->input_ports);
+    this->is_output_layer = lists_has_intersection(table_ports, this->output_ports);
   } else {
     this->is_input_layer = false;
     this->is_output_layer = false;
@@ -41,16 +42,18 @@ void RuleNode::set_layer_flags() {
 }
 
 #ifdef USE_GROUPS
-RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
+template<class T1, class T2>
+RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
-                   array_t* match, array_t *mask, array_t* rewrite) :
-                   Node(n,length,node_id), table(table), index(index), group(0) {
+                   T2 *match, T2 *mask, T2 *rewrite) :
+                   Node<T1, T2>(n,length,node_id), table(table), index(index), group(0) {
 #else
-RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
+RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
-                   array_t* match, array_t *mask, array_t* rewrite) :
-                   Node(n,length,node_id), table(table), index(index) {
+                   T2 *match, T2 *mask, T2 *rewrite) :
+                   Node<T1, T2>(n,length,node_id), table(table), index(index) {
 #endif
+>>>>>>> Refactor rule nodes to be templated.
   this->node_type = RULE;
   this->match = match;
   this->mask = mask;
@@ -66,16 +69,17 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32
     this->inv_rw = nullptr;
     this->inv_match = array_copy(this->match, length);
   }
-  effect_on = new list<struct Effect*>();
-  influenced_by = new list<struct Influence*>();
+  effect_on = new list<struct Effect<T1, T2> *>();
+  influenced_by = new list< Influence<T1, T2> *>();
   set_layer_flags();
 }
 
 #ifdef USE_GROUPS
-RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
+template<class T1, class T2>
+RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    uint64_t group, List_t in_ports, List_t out_ports,
-                   array_t* match, array_t *mask, array_t* rewrite) :
-                   Node(n,length,node_id), table(table), index(index), group(group) {
+                   T2 *match, T2 *mask, T2 *rewrite) :
+                   Node<T1, T2>(n,length,node_id), table(table), index(index), group(group) {
   this->node_type = RULE;
   this->match = match;
   this->mask = mask;
@@ -94,14 +98,15 @@ RuleNode::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32
     this->inv_match = array_copy(this->match, length);
   }
   if (group == node_id) {
-    effect_on = new list<struct Effect*>();
-    influenced_by = new list<struct Influence*>();
+    effect_on = new list<struct Effect<T1, T2> *>();
+    influenced_by = new list< Influence<T1, T2> *>();
   }
   set_layer_flags();
 }
 #endif
 
-RuleNode::~RuleNode() {
+template<class T1, class T2>
+RuleNode<T1, T2>::~RuleNode() {
   this->remove_flows();
   this->remove_pipes();
   // remove itself from all rules influencing on it and free its
@@ -111,7 +116,7 @@ RuleNode::~RuleNode() {
 #endif
     for (auto &inf: *influenced_by) {
       auto effect = inf->effect;
-      Effect *f = *effect;
+      Effect<T1, T2> *f = *effect;
       (*effect)->node->effect_on->erase(effect);
       array_free(inf->comm_arr);
       if (!inf->ports.shared) free(inf->ports.list);
@@ -120,9 +125,9 @@ RuleNode::~RuleNode() {
     }
     // remove itself from all rules influenced by this rule and their flows
     for (auto &eff: *effect_on) {
-      list<struct Influence*>::iterator influence = eff->influence;
-      RuleNode *n = (*influence)->node;
-      array_t *comm_arr = (*influence)->comm_arr;
+      typename list< Influence<T1, T2> *>::iterator influence = eff->influence;
+      RuleNode<T1, T2> *n = (*influence)->node;
+      T2 *comm_arr = (*influence)->comm_arr;
       List_t ports = (*influence)->ports;
       free(*influence);
       n->influenced_by->erase(influence);
@@ -149,7 +154,8 @@ RuleNode::~RuleNode() {
   array_free(this->inv_rw);
 }
 
-string RuleNode::rule_to_str() {
+template<class T1, class T2>
+string RuleNode<T1, T2>::rule_to_str() {
   stringstream result;
   char *s;
   s = array_to_str(match,length,false);
@@ -177,7 +183,8 @@ string RuleNode::rule_to_str() {
   return result.str();
 }
 
-string RuleNode::influence_to_str() {
+template<class T1, class T2>
+string RuleNode<T1, T2>::influence_to_str() {
   stringstream result;
   char buf[70];
   char *s;
@@ -199,7 +206,8 @@ string RuleNode::influence_to_str() {
   return result.str();
 }
 
-string RuleNode::to_string() {
+template<class T1, class T2>
+string RuleNode<T1, T2>::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
@@ -215,7 +223,8 @@ string RuleNode::to_string() {
   return result.str();
 }
 
-string flow_to_str2(Flow *f) {
+template<class T1, class T2>
+string flow_to_str2(Flow<T1, T2> *f) {
   stringstream str;
   char buf[50];
   while(f->p_flow != f->node->get_EOSFI()) {
@@ -231,7 +240,8 @@ string flow_to_str2(Flow *f) {
   return str.str();
 }
 
-void RuleNode::process_src_flow(Flow *f) {
+template<class T1, class T2>
+void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
   /**
     Process an incoming flow by applying the following steps:
 
@@ -261,7 +271,7 @@ void RuleNode::process_src_flow(Flow *f) {
   if (f) { // flow routing case
     //printf("at node %lx, processing flow: %s\n",node_id,flow_to_str2(f).c_str());
     // add f to source_flow and add it to n_flows of previous flow
-    list<struct Flow*>::iterator f_it;
+    typename list< Flow<T1, T2>* >::iterator f_it;
 
     source_flow.push_front(f);
     f_it = source_flow.begin();
@@ -269,9 +279,9 @@ void RuleNode::process_src_flow(Flow *f) {
 
     // if this flow is in loop, stop propagating and return an error.
     if (is_flow_looped(f)) {
-      if (((NetPlumber*)plumber)->loop_callback)
-        ((NetPlumber*)plumber)->loop_callback((NetPlumber*)plumber,
-                    f,((NetPlumber*)plumber)->loop_callback_data);
+      if (((NetPlumber<T1, T2> *)this->plumber)->loop_callback)
+        ((NetPlumber<T1, T2> *)this->plumber)->loop_callback((NetPlumber<T1, T2> *)this->plumber,
+                    f,((NetPlumber<T1, T2> *)this->plumber)->loop_callback_data);
       return;
     }
     // diff higher priority rules
@@ -343,9 +353,9 @@ void RuleNode::process_src_flow(Flow *f) {
       hs_free(f->processed_hs);
       f->processed_hs = nullptr;
     } else {
-      LOG4CXX_TRACE(logger, "RuleNode::process_src_flow(): propagate alive flow");
-      f->n_flows = new list< list<struct Flow*>::iterator >();
-      propagate_src_flow_on_pipes(f_it);
+      LOG4CXX_TRACE(this->logger, "RuleNode::process_src_flow(): propagate alive flow");
+      f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
+      this->propagate_src_flow_on_pipes(f_it);
     }
 
 #else
@@ -355,7 +365,7 @@ void RuleNode::process_src_flow(Flow *f) {
       hs_free(f->processed_hs);
       f->processed_hs = nullptr;
     } else {
-      f->n_flows = new list< list<struct Flow*>::iterator >();
+      f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
       if (mask == nullptr || rewrite == nullptr) {
         propagate_src_flow_on_pipes(f_it);
       } else {
@@ -383,9 +393,10 @@ void RuleNode::process_src_flow(Flow *f) {
 }
 
 
-void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
-                                            array_t *change) {
-  Flow *f = *loc;
+template<class T1, class T2>
+void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> *>::iterator loc,
+                                            T2 *change) {
+  Flow<T1, T2> *f = *loc;
 
   if (logger->isTraceEnabled()) {
     stringstream pre;
@@ -412,71 +423,70 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
     // diff higher priority rules
     f->processed_hs = hs_copy_a(f->hs_object);
 
-    if (logger->isTraceEnabled()) {
+    if (this->logger->isTraceEnabled()) {
       stringstream inter;
       inter << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
       inter << " with " << hs_to_str(f->processed_hs);
       inter << " after (re)allocation";
-      LOG4CXX_TRACE(logger, inter.str());
+      LOG4CXX_TRACE(this->logger, inter.str());
     }
 
     for (auto const inf: *influenced_by) {
       if (!elem_in_sorted_list(f->in_port, inf->ports)) continue;
       hs_diff(f->processed_hs, inf->comm_arr);
 
-      if (logger->isTraceEnabled()) {
+      if (this->logger->isTraceEnabled()) {
         stringstream loop;
         loop << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
         loop << " with " << hs_to_str(f->processed_hs);
         loop << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
-        LOG4CXX_TRACE(logger, loop.str());
+        LOG4CXX_TRACE(this->logger, loop.str());
       }
     }
   }
 
-  if (logger->isTraceEnabled()) {
+  if (this->logger->isTraceEnabled()) {
     stringstream after;
     after << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
     after << " with " << hs_to_str(f->processed_hs);
     after << " after processing";
-    LOG4CXX_TRACE(logger, after.str());
+    LOG4CXX_TRACE(this->logger, after.str());
   }
 
 #ifdef NEW_HS
 
   if (mask && rewrite) {
-
       hs_rewrite(f->processed_hs, mask, rewrite);
 
-      if (logger->isTraceEnabled()) {
+      if (this->logger->isTraceEnabled()) {
         stringstream rw;
         rw << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
         rw << " with " << hs_to_str(f->processed_hs);
         rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
         rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
-        LOG4CXX_TRACE(logger, rw.str());
+        LOG4CXX_TRACE(this->logger, rw.str());
       }
   }
 
   const bool dead = hs_compact(f->processed_hs);
 
-  if (logger->isTraceEnabled()) {
+  if (this->logger->isTraceEnabled()) {
     stringstream comp;
     comp << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
     comp << " compressed to " << hs_to_str(f->processed_hs);
     comp << " which is " << (dead ? "dead" : "alive");
-    LOG4CXX_TRACE(logger, comp.str());
+    LOG4CXX_TRACE(this->logger, comp.str());
   }
 
   if (dead) {
-    LOG4CXX_TRACE(logger, "RuleNode::process_src_flow_at_location(): drop dead flow");
+    LOG4CXX_TRACE(this->logger, "RuleNode::process_src_flow_at_location(): drop dead flow");
     f->node->absorb_src_flow(loc, true);
     hs_free(f->processed_hs);
     f->processed_hs = nullptr;
   } else {
-    LOG4CXX_TRACE(logger, "RuleNode::process_src_flow_at_location(): propagate alive flow");
-    if (!f->n_flows) f->n_flows = new list< list<struct Flow*>::iterator >();
-    repropagate_src_flow_on_pipes(loc, nullptr);
+    LOG4CXX_TRACE(this->logger, "RuleNode::process_src_flow_at_location(): propagate alive flow");
+    if (!f->n_flows) f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
+    this->repropagate_src_flow_on_pipes(loc, nullptr);
   }
 
 #else
@@ -487,7 +497,7 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
     hs_free(f->processed_hs);
     f->processed_hs = nullptr;
   } else {
-    if (!f->n_flows) f->n_flows = new list< list<struct Flow*>::iterator >();
+    if (!f->n_flows) f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
     if (mask == nullptr || rewrite == nullptr) {
       repropagate_src_flow_on_pipes(loc, change);
     } else {
@@ -509,7 +519,8 @@ void RuleNode::process_src_flow_at_location(list<struct Flow*>::iterator loc,
 }
 
 
-void RuleNode::subtract_infuences_from_flows() {
+template<class T1, class T2>
+void RuleNode<T1, T2>::subtract_infuences_from_flows() {
   /*
    * when a new rule is added, this function is called to updat the lower
    * priority flows.
@@ -534,25 +545,30 @@ void RuleNode::subtract_infuences_from_flows() {
   }
 }
 
-list<struct Influence*>::iterator RuleNode::set_influence_by(Influence *inf) {
+template<class T1, class T2>
+typename list< Influence<T1, T2> *>::iterator RuleNode<T1, T2>::set_influence_by(Influence<T1, T2> *inf) {
   this->influenced_by->push_front(inf);
   return this->influenced_by->begin();
 }
 
-list<struct Effect*>::iterator RuleNode::set_effect_on(Effect *eff) {
+template<class T1, class T2>
+typename list< Effect<T1, T2> *>::iterator RuleNode<T1, T2>::set_effect_on(Effect<T1, T2> *eff) {
   this->effect_on->push_front(eff);
   return this->effect_on->begin();
 }
 
-int RuleNode::count_effects() {
+template<class T1, class T2>
+int RuleNode<T1, T2>::count_effects() {
   return this->effect_on->size();
 }
 
-int RuleNode::count_influences() {
+template<class T1, class T2>
+int RuleNode<T1, T2>::count_influences() {
   return this->influenced_by->size();
 }
 
-void RuleNode::enlarge(uint32_t length) {
+template<class T1, class T2>
+void RuleNode<T1, T2>::enlarge(uint32_t length) {
 	if (length <= this->length) {
 		return;
 	}
@@ -570,6 +586,8 @@ void RuleNode::enlarge(uint32_t length) {
         }
 	}
 
-	Node::enlarge(length);
+	Node<T1, T2>::enlarge(length);
 	this->length = length;
 }
+
+template class RuleNode<struct hs, array_t>;
