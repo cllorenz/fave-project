@@ -112,7 +112,7 @@ RuleNode<T1, T2>::~RuleNode() {
   // remove itself from all rules influencing on it and free its
   // influenced_by struct. In case of group rules, only o this for the lead.
 #ifdef USE_GROUPS
-  if (group == 0 || group == node_id) {
+  if (group == 0 || group == this->node_id) {
 #endif
     for (auto &inf: *influenced_by) {
       auto effect = inf->effect;
@@ -158,25 +158,25 @@ template<class T1, class T2>
 string RuleNode<T1, T2>::rule_to_str() {
   stringstream result;
   char *s;
-  s = array_to_str(match,length,false);
+  s = array_to_str(this->match, this->length, false);
   result << "Match: " << s;
   free(s);
   if (mask) {
-    s = array_to_str(mask,length,false);
+    s = array_to_str(this->mask, this->length, false);
     result << ", Mask: " << s;
     free(s);
   }
   if (rewrite) {
-    s = array_to_str(rewrite,length,false);
+    s = array_to_str(this->rewrite, this->length, false);
     result << ", Rewrite: " << s;
     free(s);
   }
-  result << ", iPorts: " << list_to_string(input_ports);
-  result << ", oPorts: " << list_to_string(output_ports);
+  result << ", iPorts: " << list_to_string(this->input_ports);
+  result << ", oPorts: " << list_to_string(this->output_ports);
 #ifdef USE_GROUPS
   if (group != 0) {
     char buf[70];
-    sprintf(buf,"0x%lx",group);
+    sprintf(buf,"0x%lx", this->group);
     result << " (group with " << buf << ")";
   }
 #endif
@@ -211,15 +211,15 @@ string RuleNode<T1, T2>::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%x",table);
+  sprintf(buf,"0x%x", this->table);
   result << string(4, ' ') << "Table: " << buf;
-  sprintf(buf,"0x%lx",node_id);
+  sprintf(buf,"0x%lx", this->node_id);
   result << " Rule: " << buf << "\n";
   result << string(40, '=') << "\n";
-  result << rule_to_str() << "\n";
-  result << influence_to_str();
-  result << pipeline_to_string();
-  result << src_flow_to_string();
+  result << this->rule_to_str() << "\n";
+  result << this->influence_to_str();
+  result << this->pipeline_to_string();
+  result << this->src_flow_to_string();
   return result.str();
 }
 
@@ -273,8 +273,8 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     // add f to source_flow and add it to n_flows of previous flow
     typename list< Flow<T1, T2>* >::iterator f_it;
 
-    source_flow.push_front(f);
-    f_it = source_flow.begin();
+    this->source_flow.push_front(f);
+    f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
 
     // if this flow is in loop, stop propagating and return an error.
@@ -288,33 +288,33 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     f->processed_hs = hs_copy_a(f->hs_object);
 
 
-    if (logger->isTraceEnabled()) {
+    if (this->logger->isTraceEnabled()) {
       stringstream pre;
       pre << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
       pre << " with " << hs_to_str(f->processed_hs);
       pre << " before processing";
-      LOG4CXX_TRACE(logger, pre.str());
+      LOG4CXX_TRACE(this->logger, pre.str());
     }
 
     for (auto const &inf: *influenced_by) {
       if (!elem_in_sorted_list(f->in_port, inf->ports)) continue;
       hs_diff(f->processed_hs, inf->comm_arr);
 
-      if (logger->isTraceEnabled()) {
+      if (this->logger->isTraceEnabled()) {
         stringstream inter;
         inter << "RuleNode::process_src_flow():   id 0x" << std::hex << this->node_id;
         inter << " with " << hs_to_str(f->processed_hs);
         inter << " after diffing " << array_to_str(inf->comm_arr, f->processed_hs->len, false);
-        LOG4CXX_TRACE(logger, inter.str());
+        LOG4CXX_TRACE(this->logger, inter.str());
       }
     }
 
-    if (logger->isTraceEnabled()) {
+    if (this->logger->isTraceEnabled()) {
       stringstream after;
       after << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
       after << " with " << hs_to_str(f->processed_hs);
       after << " after processing";
-      LOG4CXX_TRACE(logger, after.str());
+      LOG4CXX_TRACE(this->logger, after.str());
     }
 #ifdef NEW_HS
     if (mask && rewrite) {
@@ -328,28 +328,28 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
 
         hs_rewrite(f->processed_hs, mask, rewrite);
 
-        if (logger->isTraceEnabled()) {
+        if (this->logger->isTraceEnabled()) {
           stringstream rw;
           rw << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
           rw << " with " << hs_to_str(f->processed_hs);
           rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
           rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
-          LOG4CXX_TRACE(logger, rw.str());
+          LOG4CXX_TRACE(this->logger, rw.str());
         }
     }
 
     const bool dead = hs_compact(f->processed_hs);
 
-    if (logger->isTraceEnabled()) {
+    if (this->logger->isTraceEnabled()) {
       stringstream comp;
       comp << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
       comp << " compressed to " << hs_to_str(f->processed_hs);
       comp << " which is " << (dead ? "dead" : "alive");
-      LOG4CXX_TRACE(logger, comp.str());
+      LOG4CXX_TRACE(this->logger, comp.str());
     }
 
     if (dead) {
-      LOG4CXX_TRACE(logger, "RuleNode::process_src_flow(): drop dead flow");
+      LOG4CXX_TRACE(this->logger, "RuleNode::process_src_flow(): drop dead flow");
       hs_free(f->processed_hs);
       f->processed_hs = nullptr;
     } else {
@@ -367,26 +367,26 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     } else {
       f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
       if (mask == nullptr || rewrite == nullptr) {
-        propagate_src_flow_on_pipes(f_it);
+        this->propagate_src_flow_on_pipes(f_it);
       } else {
         hs_rewrite(f->processed_hs, mask, rewrite);
 
-        if (logger->isTraceEnabled()) {
+        if (this->logger->isTraceEnabled()) {
           stringstream rw;
           rw << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
           rw << " with " << hs_to_str(f->processed_hs);
           rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
           rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
-          LOG4CXX_TRACE(logger, rw.str());
+          LOG4CXX_TRACE(this->logger, rw.str());
         }
 
-        propagate_src_flow_on_pipes(f_it);
+        this->propagate_src_flow_on_pipes(f_it);
       }
     }
 #endif
 
   } else { // fresh start case
-    for (auto const &prev: prev_in_pipeline) {
+    for (auto const &prev: this->prev_in_pipeline) {
       (*prev->r_pipeline)->node->propagate_src_flows_on_pipe(prev->r_pipeline);
     }
   }
@@ -398,24 +398,24 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
                                             T2 *change) {
   Flow<T1, T2> *f = *loc;
 
-  if (logger->isTraceEnabled()) {
+  if (this->logger->isTraceEnabled()) {
     stringstream pre;
     pre << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
     pre << " with " << hs_to_str(f->processed_hs);
     pre << " before processing";
-    LOG4CXX_TRACE(logger, pre.str());
+    LOG4CXX_TRACE(this->logger, pre.str());
   }
 
   if (change && (mask == nullptr || rewrite == nullptr)) {
     if (f->processed_hs == nullptr) return;
     hs_diff(f->processed_hs, change);
 
-    if (logger->isTraceEnabled()) {
+    if (this->logger->isTraceEnabled()) {
       stringstream after;
       after << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
       after << " with " << hs_to_str(f->processed_hs);
       after << " after processing";
-      LOG4CXX_TRACE(logger, after.str());
+      LOG4CXX_TRACE(this->logger, after.str());
     }
 
   } else {
@@ -499,20 +499,20 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
   } else {
     if (!f->n_flows) f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
     if (mask == nullptr || rewrite == nullptr) {
-      repropagate_src_flow_on_pipes(loc, change);
+      this->repropagate_src_flow_on_pipes(loc, change);
     } else {
       hs_rewrite(f->processed_hs, mask, rewrite);
 
-      if (logger->isTraceEnabled()) {
+      if (this->logger->isTraceEnabled()) {
         stringstream rw;
         rw << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
         rw << " with " << hs_to_str(f->processed_hs);
         rw << " after rewriting with mask " << array_to_str(mask, f->processed_hs->len, false);
         rw << " and rw " << array_to_str(rewrite, f->processed_hs->len, false);
-        LOG4CXX_TRACE(logger, rw.str());
+        LOG4CXX_TRACE(this->logger, rw.str());
       }
 
-      repropagate_src_flow_on_pipes(loc, nullptr);
+      this->repropagate_src_flow_on_pipes(loc, nullptr);
     }
   }
 #endif
