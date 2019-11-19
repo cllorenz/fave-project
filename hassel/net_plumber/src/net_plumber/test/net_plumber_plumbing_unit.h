@@ -37,8 +37,15 @@ struct probe_counter_t {
   size_t less_true;
 };
 
+template<class T1, class T2>
+class NetPlumberPlumbingTest;
+
+template<class T1, class T2>
+NetPlumberPlumbingTest<T1, T2> t_nppu;
+
+template<class T1, class T2>
 class NetPlumberPlumbingTest : public CppUnit::TestFixture {
-  CPPUNIT_TEST_SUITE(NetPlumberPlumbingTest);
+  CPPUNIT_TEST_SUITE( decltype(t_nppu<T1, T2>) );
 
   CPPUNIT_TEST(test_setup);
   CPPUNIT_TEST(test_pipeline_add_rule);
@@ -147,7 +154,7 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
 
  private:
   static log4cxx::LoggerPtr logger;
-  net_plumber::NetPlumber *N;
+  net_plumber::NetPlumber<T1, T2> *N;
   probe_counter_t A;
   std::vector<uint64_t> node_ids;
   void verify_pipe_stats(const char *test_case, const int stats[][4]);
@@ -155,8 +162,6 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   void log_probe_counter(std::string counter, size_t result, size_t expected);
   void check_probe_counter(const char *test_case, const probe_counter_t result, const probe_counter_t expected);
 };
-
-
 
 
 #endif  // NET_PLUMBER_PLUMBING_UNIT_H_
