@@ -25,84 +25,89 @@
 
 using namespace std;
 
-void ConditionsTest::test_port() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_port() {
   printf("\n");
-  list<Flow*>* flows = create_flow(make_unsorted_list(3,1,2,3),
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(3,1,2,3),
                                   make_unsorted_list(3,100,200,300));
-  PathCondition c;
-  c.add_pathlet(new PortSpecifier(2));
+  PathCondition<T1, T2> c;
+  c.add_pathlet(new PortSpecifier<T1, T2>(2));
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
-  c.add_pathlet(new PortSpecifier(1));
-  c.add_pathlet(new EndPathSpecifier());
+  c.add_pathlet(new PortSpecifier<T1, T2>(1));
+  c.add_pathlet(new EndPathSpecifier<T1, T2>());
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
   free_flow(flows);
 }
 
-void ConditionsTest::test_table() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_table() {
   printf("\n");
-  list<Flow*>* flows = create_flow(make_unsorted_list(3,1,2,3),
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(3,1,2,3),
                                   make_unsorted_list(3,100,200,300));
-  PathCondition c;
-  c.add_pathlet(new TableSpecifier(300));
+  PathCondition<T1, T2> c;
+  c.add_pathlet(new TableSpecifier<T1, T2>(300));
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
-  c.add_pathlet(new TableSpecifier(200));
-  c.add_pathlet(new EndPathSpecifier());
+  c.add_pathlet(new TableSpecifier<T1, T2>(200));
+  c.add_pathlet(new EndPathSpecifier<T1, T2>());
   CPPUNIT_ASSERT(!c.check(*(flows->begin())));
   free_flow(flows);
 }
 
-void ConditionsTest::test_port_sequence() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_port_sequence() {
   printf("\n");
-  list<Flow*>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
                                   make_unsorted_list(5,100,200,300,400,500));
-  PathCondition c;
-  c.add_pathlet(new PortSpecifier(4));
-  c.add_pathlet(new NextPortsSpecifier(make_sorted_list(1,3)));
+  PathCondition<T1, T2> c;
+  c.add_pathlet(new PortSpecifier<T1, T2>(4));
+  c.add_pathlet(new NextPortsSpecifier<T1, T2>(make_sorted_list(1,3)));
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
-  c.add_pathlet(new NextPortsSpecifier(make_sorted_list(1,1)));
+  c.add_pathlet(new NextPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   CPPUNIT_ASSERT(!c.check(*(flows->begin())));
   //printf("%s\n",c.to_string().c_str());
   free_flow(flows);
 }
 
-void ConditionsTest::test_sequence() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_sequence() {
   printf("\n");
-  list<Flow*>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
                                   make_unsorted_list(5,100,200,300,400,500));
-  PathCondition c;
-  c.add_pathlet(new PortSpecifier(4));
-  c.add_pathlet(new NextTablesSpecifier(make_sorted_list(1,300)));
+  PathCondition<T1, T2> c;
+  c.add_pathlet(new PortSpecifier<T1, T2>(4));
+  c.add_pathlet(new NextTablesSpecifier<T1, T2>(make_sorted_list(1,300)));
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
-  c.add_pathlet(new SkipNextSpecifier());
-  c.add_pathlet(new NextTablesSpecifier(make_sorted_list(1,100)));
+  c.add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c.add_pathlet(new NextTablesSpecifier<T1, T2>(make_sorted_list(1,100)));
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
   free_flow(flows);
 }
 
-void ConditionsTest::test_path_length() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_path_length() {
   printf("\n");
-  list<Flow*>* flows1 = create_flow(make_unsorted_list(4,1,2,3,4),
+  list<Flow<T1, T2> *>* flows1 = create_flow(make_unsorted_list(4,1,2,3,4),
                                   make_unsorted_list(4,100,200,300,400));
-  list<Flow*>* flows2 = create_flow(make_unsorted_list(2,1,2),
+  list<Flow<T1, T2> *>* flows2 = create_flow(make_unsorted_list(2,1,2),
                                   make_unsorted_list(2,100,200));
   // path of length 1
-  PathCondition *c1 = new PathCondition();
-  c1->add_pathlet(new SkipNextSpecifier());
-  c1->add_pathlet(new EndPathSpecifier());
+  PathCondition<T1, T2> *c1 = new PathCondition<T1, T2>();
+  c1->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c1->add_pathlet(new EndPathSpecifier<T1, T2>());
   // path of length 2
-  PathCondition *c2 = new PathCondition();
-  c2->add_pathlet(new SkipNextSpecifier());
-  c2->add_pathlet(new SkipNextSpecifier());
-  c2->add_pathlet(new EndPathSpecifier());
+  PathCondition<T1, T2> *c2 = new PathCondition<T1, T2>();
+  c2->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c2->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c2->add_pathlet(new EndPathSpecifier<T1, T2>());
   // path of length 3
-  PathCondition *c3 = new PathCondition();
-  c3->add_pathlet(new SkipNextSpecifier());
-  c3->add_pathlet(new SkipNextSpecifier());
-  c3->add_pathlet(new SkipNextSpecifier());
-  c3->add_pathlet(new EndPathSpecifier());
+  PathCondition<T1, T2> *c3 = new PathCondition<T1, T2>();
+  c3->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c3->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c3->add_pathlet(new SkipNextSpecifier<T1, T2>());
+  c3->add_pathlet(new EndPathSpecifier<T1, T2>());
   // OR the three cases
-  OrCondition *oc1 = new OrCondition(c1,c2);
-  OrCondition c(oc1,c3);
+  OrCondition<T1, T2> *oc1 = new OrCondition<T1, T2>(c1,c2);
+  OrCondition<T1, T2> c(oc1,c3);
   // flow 1 has length of 4 and doesn't pass
   CPPUNIT_ASSERT(!c.check(*(flows1->begin())));
   // flow 2 has length of 2 and does pass
@@ -112,16 +117,17 @@ void ConditionsTest::test_path_length() {
   free_flow(flows2);
 }
 
-void ConditionsTest::test_lasts() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_lasts() {
   printf("\n");
-  list<Flow*>* flows1 = create_flow(make_unsorted_list(4,10,2,3,4),
+  list<Flow<T1, T2> *>* flows1 = create_flow(make_unsorted_list(4,10,2,3,4),
                                   make_unsorted_list(4,100,200,300,400));
-  list<Flow*>* flows2 = create_flow(make_unsorted_list(4,11,2,3,4),
+  list<Flow<T1, T2> *>* flows2 = create_flow(make_unsorted_list(4,11,2,3,4),
                                   make_unsorted_list(4,101,200,300,400));
-  PathCondition c1;
-  c1.add_pathlet(new LastPortsSpecifier(make_sorted_list(2,10,11)));
-  PathCondition c2;
-  c2.add_pathlet(new LastTablesSpecifier(make_sorted_list(2,100,101)));
+  PathCondition<T1, T2> c1;
+  c1.add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(2,10,11)));
+  PathCondition<T1, T2> c2;
+  c2.add_pathlet(new LastTablesSpecifier<T1, T2>(make_sorted_list(2,100,101)));
   CPPUNIT_ASSERT(c1.check(*(flows1->begin())));
   CPPUNIT_ASSERT(c1.check(*(flows2->begin())));
   CPPUNIT_ASSERT(c2.check(*(flows1->begin())));
@@ -130,25 +136,26 @@ void ConditionsTest::test_lasts() {
   free_flow(flows2);
 }
 
-void ConditionsTest::test_header() {
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_header() {
   printf("\n");
-  list<Flow*>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
                                   make_unsorted_list(5,100,200,300,400,500));
-  Flow *f = *(flows->begin());
+  Flow<T1, T2> *f = *(flows->begin());
   f->processed_hs = hs_create(1);
   hs_add(f->processed_hs, array_from_str("10xxxxxx"));
-  array_t *d = array_from_str("1011xxxx");
+  T2 *d = array_from_str("1011xxxx");
   hs_diff(f->processed_hs,d);
   free(d);
 
-  hs *hc1_hs = hs_create(1);
+  T1 *hc1_hs = hs_create(1);
   hs_add(hc1_hs, array_from_str("100xxxxx"));
 
-  hs *hc2_hs = hs_create(1);
+  T1 *hc2_hs = hs_create(1);
   hs_add(hc2_hs, array_from_str("10111xxx"));
 
-  HeaderCondition *hc1 = new HeaderCondition(hc1_hs);
-  HeaderCondition *hc2 = new HeaderCondition(hc2_hs);
+  HeaderCondition<T1, T2> *hc1 = new HeaderCondition<T1, T2>(hc1_hs);
+  HeaderCondition<T1, T2> *hc2 = new HeaderCondition<T1, T2>(hc2_hs);
 
   CPPUNIT_ASSERT(hc1->check(f));
   CPPUNIT_ASSERT(!hc2->check(f));
@@ -159,19 +166,20 @@ void ConditionsTest::test_header() {
   free_flow(flows);
 }
 
-list<Flow*>* ConditionsTest::create_flow(List_t ports, List_t tables) {
+template<class T1, class T2>
+list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t tables) {
   assert(ports.size == tables.size);
 
-  list<Flow*> *result = new list<Flow*>();
-  Flow *f, *prev;
-  SourceNode *s = new SourceNode(NULL,1,0,hs_create(1),make_sorted_list(1,0));
-  prev = (Flow *)malloc(sizeof *prev);
+  list<Flow<T1, T2> *> *result = new list<Flow<T1, T2> *>();
+  Flow<T1, T2> *f, *prev;
+  auto *s = new SourceNode<T1, T2>(NULL,1,0,hs_create(1),make_sorted_list(1,0));
+  prev = (Flow<T1, T2> *)malloc(sizeof *prev);
   prev->node = s;
   prev->in_port = 0;
   prev->p_flow = s->get_EOSFI();
   result->push_front(prev);
   for (uint32_t i = 0; i< ports.size; i++) {
-    RuleNode *r = new RuleNode(NULL, 1, 0, tables.list[i], 0,
+    auto *r = new RuleNode<T1, T2>(NULL, 1, 0, tables.list[i], 0,
                            make_sorted_list(1,ports.list[i]),
                            make_sorted_list(1,ports.list[i]),
                            array_create(1,BIT_X),
@@ -180,7 +188,7 @@ list<Flow*>* ConditionsTest::create_flow(List_t ports, List_t tables) {
 
     r->is_input_layer = true;
     r->is_output_layer = true;
-    f = (Flow *)malloc(sizeof *f);
+    f = (Flow<T1, T2> *)malloc(sizeof *f);
     f->in_port = ports.list[i];
     f->node = r;
     f->p_flow = result->begin();
@@ -191,11 +199,14 @@ list<Flow*>* ConditionsTest::create_flow(List_t ports, List_t tables) {
   return result;
 }
 
-void ConditionsTest::free_flow(list<Flow*>* flows) {
-  list<Flow *>::iterator it;
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
+  typename list<Flow<T1, T2> *>::iterator it;
   for (it = flows->begin(); it != flows->end(); it++) {
     delete (*it)->node;
     free(*it);
   }
   delete flows;
 }
+
+template class ConditionsTest<struct hs, array_t>;

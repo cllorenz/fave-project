@@ -24,6 +24,7 @@
 #include <cppunit/extensions/HelperMacros.h>
 #include "../conditions.h"
 
+template<class T1, class T2>
 class ConditionsTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE(ConditionsTest);
   CPPUNIT_TEST(test_port);
@@ -44,8 +45,8 @@ class ConditionsTest : public CppUnit::TestFixture {
   void test_lasts();
   void test_header();
 
-  static std::list<Flow*>* create_flow(List_t ports, List_t tables);
-  static void free_flow(std::list<Flow*>* flows);
+  static std::list<Flow<T1, T2> *>* create_flow(List_t ports, List_t tables);
+  static void free_flow(std::list<Flow<T1, T2> *>* flows);
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_CONDITIONS_UNIT_H_
