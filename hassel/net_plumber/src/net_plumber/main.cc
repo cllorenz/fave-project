@@ -52,12 +52,13 @@ static void sig_stop(int) {
   server_stop = true;
 }
 
-void run_server(string address, int port, NetPlumber *N) {
+template<class T1, class T2>
+void run_server(string address, int port, NetPlumber<T1, T2> *N) {
   server_stop = false;
   signal(SIGINT, sig_stop);
   signal(SIGTERM, sig_stop);
 
-  net_plumber::RpcHandler handler(N);
+  net_plumber::RpcHandler<T1, T2> handler(N);
 
   Json::Rpc::Server *server;
   if (port) {
@@ -84,13 +85,18 @@ void run_server(string address, int port, NetPlumber *N) {
 
 }
 
+template<class T1, class T2>
 void run_tests() {
-  CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberBasicTest );
-  CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberPlumbingTest );
+  NetPlumberBasicTest<T1, T2> t1;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t1) );
+  NetPlumberPlumbingTest<T1, T2> t2;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t2) );
 #ifdef PIPE_SLICING
-  CPPUNIT_TEST_SUITE_REGISTRATION( NetPlumberSlicingTest );
+  NetPlumberSlicingTest<T1, T2> t3;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t3) );
 #endif
-  CPPUNIT_TEST_SUITE_REGISTRATION( ConditionsTest );
+  ConditionsTest<T1, T2> t4;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t4) );
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 
@@ -116,7 +122,8 @@ void run_tests() {
   compileroutputter.write ();
 }
 
-int main(int argc, char* argv[]) {
+template<class T1, class T2>
+int typed_main(int argc, char* argv[]) {
   bool do_run_server = false;
   bool do_run_test = false;
   bool do_load_json_files = false;
@@ -229,21 +236,28 @@ int main(int argc, char* argv[]) {
   }
 
   if (do_run_test) {
-    run_tests();
+    run_tests<T1, T2>();
   }
 
-  NetPlumber *N = new NetPlumber(hdr_len);
+  auto *N = new NetPlumber<T1, T2>(hdr_len);
 
   if (do_load_json_files) {
-    load_netplumber_from_dir(json_files_path, N, NULL, hdr_len);
+    load_netplumber_from_dir<T1, T2>(
+        json_files_path,
+        N,
+        NULL
+#ifdef PIPE_SLICING
+        , hdr_len
+#endif
+    );
   }
 
   if (do_load_policy) {
-    load_policy_file(policy_json_file,N,filter);
+    load_policy_file<T1, T2>(policy_json_file, N, filter);
   }
 
   if (do_run_server) {
-    run_server(server_address, server_port,N);
+    run_server<T1, T2>(server_address, server_port, N);
   }
 
   if (do_dump_json_files) {
@@ -270,6 +284,10 @@ int main(int argc, char* argv[]) {
   // not cover the PropertyConfigurator case
   //BasicConfigurator::resetConfiguration();
   return 0;
+}
 
+
+int main(int argc, char* argv[]) {
+  return typed_main<struct hs, array_t>(argc, argv);
 }
 
