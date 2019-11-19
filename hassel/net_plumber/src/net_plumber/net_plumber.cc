@@ -36,7 +36,8 @@ using namespace std;
 using namespace log4cxx;
 using namespace net_plumber;
 
-LoggerPtr NetPlumber::logger(Logger::getLogger("NetPlumber"));
+template<class T1, class T2>
+LoggerPtr NetPlumber<T1, T2>::logger(Logger::getLogger("NetPlumber"));
 LoggerPtr loop_logger(Logger::getLogger("DefaultLoopDetectionLogger"));
 #ifdef CHECK_BLACKHOLES
 LoggerPtr blackhole_logger(Logger::getLogger("DefaultBlackholeDetectionLogger"));
@@ -49,7 +50,8 @@ LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
 LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
 #endif
 
-string flow_to_str(Flow *f) {
+template<class T1, class T2>
+string flow_to_str(Flow<T1, T2> *f) {
   stringstream str;
   char buf[50];
   while(f->p_flow != f->node->get_EOSFI()) {
@@ -65,7 +67,8 @@ string flow_to_str(Flow *f) {
   return str.str();
 }
 
-void default_loop_callback(NetPlumber *N, Flow *f, void* /*data*/) {
+template<typename T1, typename T2>
+void default_loop_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Loop Detected: after event " << get_event_name(e.type) <<
@@ -74,7 +77,8 @@ void default_loop_callback(NetPlumber *N, Flow *f, void* /*data*/) {
 }
 
 #ifdef CHECK_BLACKHOLES
-void default_blackhole_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
+template<typename T1, typename T2>
+void default_blackhole_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Black Hole Detected: after event " << get_event_name(e.type) <<
@@ -84,7 +88,8 @@ void default_blackhole_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
 #endif
 
 #ifdef CHECK_REACH_SHADOW
-void default_rule_unreach_callback(NetPlumber *N, Flow *f, void *data) {
+template<typename T1, typename T2>
+void default_rule_unreach_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Unreachable Rule Detected: after event " <<
@@ -94,7 +99,8 @@ void default_rule_unreach_callback(NetPlumber *N, Flow *f, void *data) {
 #endif
 
 #ifdef CHECK_REACH_SHADOW
-void default_rule_shadow_callback(NetPlumber *N, Flow *f, void *data) {
+template<typename T1, typename T2>
+void default_rule_shadow_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Shadowed Rule Detected: after event " <<
@@ -104,7 +110,8 @@ void default_rule_shadow_callback(NetPlumber *N, Flow *f, void *data) {
 #endif
 
 #ifdef PIPE_SLICING
-void default_slice_overlap_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) {
+template<typename T1, typename T2>
+void default_slice_overlap_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, void* /*data*/) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Slice Overlap Detected: after event " << get_event_name(e.type) <<
@@ -114,7 +121,8 @@ void default_slice_overlap_callback(NetPlumber *N, Flow* /*f*/, void* /*data*/) 
 #endif
 
 #ifdef PIPE_SLICING
-void default_slice_leakage_callback(NetPlumber *N, Flow* /*f*/, void *data) {
+template<typename T1, typename T2>
+void default_slice_leakage_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Slice Leakage Detected: after event " << get_event_name(e.type) <<
@@ -160,7 +168,8 @@ string get_event_name(EVENT_TYPE t) {
  */
 
 #ifdef USE_GROUPS
-void NetPlumber::free_group_memory(uint32_t table, uint64_t group) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::free_group_memory(uint32_t table, uint64_t group) {
   auto rules_list = table_to_nodes[table];
   for (auto &it: *rules_list) {
     if ((it.second)->group == group) {
@@ -170,14 +179,16 @@ void NetPlumber::free_group_memory(uint32_t table, uint64_t group) {
 }
 #endif
 
-void NetPlumber::free_rule_memory(RuleNode *r, bool remove_from_table) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::free_rule_memory(RuleNode<T1, T2> *r, bool remove_from_table) {
   if (remove_from_table) table_to_nodes[r->table]->erase(r->index);
   id_to_node.erase(r->node_id);
   clear_port_to_node_maps(r);
   delete r;
 }
 
-void NetPlumber::free_table_memory(uint32_t table) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::free_table_memory(uint32_t table) {
   if (table_to_nodes.count(table) > 0) {
     table_to_last_id.erase(table);
     auto rules_list = table_to_nodes[table];
@@ -196,10 +207,11 @@ void NetPlumber::free_table_memory(uint32_t table) {
   }
 }
 
-void NetPlumber::set_port_to_node_maps(Node *n) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::set_port_to_node_maps(Node<T1, T2> *n) {
   for (uint32_t i = 0; i < n->input_ports.size; i++) {
     if (inport_to_nodes.count(n->input_ports.list[i]) == 0) {
-      inport_to_nodes[n->input_ports.list[i]] = new list<Node*>(1,n);
+      inport_to_nodes[n->input_ports.list[i]] = new list<Node<T1, T2>*>(1,n);
     } else {
       inport_to_nodes[n->input_ports.list[i]]->push_back(n);
     }
@@ -207,14 +219,15 @@ void NetPlumber::set_port_to_node_maps(Node *n) {
 
   for (uint32_t i = 0; i < n->output_ports.size; i++) {
     if (outport_to_nodes.count(n->output_ports.list[i]) == 0) {
-      outport_to_nodes[n->output_ports.list[i]] = new list<Node*>(1,n);
+      outport_to_nodes[n->output_ports.list[i]] = new list<Node<T1, T2> *>(1,n);
     } else {
       outport_to_nodes[n->output_ports.list[i]]->push_back(n);
     }
   }
 }
 
-void NetPlumber::clear_port_to_node_maps(Node *n) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::clear_port_to_node_maps(Node<T1, T2> *n) {
   for (uint32_t i = 0; i < n->input_ports.size; i++) {
     inport_to_nodes[n->input_ports.list[i]]->remove(n);
     if (inport_to_nodes[n->input_ports.list[i]]->size() == 0) {
@@ -231,7 +244,8 @@ void NetPlumber::clear_port_to_node_maps(Node *n) {
   }
 }
 
-void NetPlumber::set_table_dependency(RuleNode *r) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #ifdef USE_GROUPS
   if (r->group != 0 && r->group != r->node_id) return; //escape non-group-lead
 #endif
@@ -239,10 +253,10 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 #ifdef CHECK_REACH_SHADOW
   bool checked_rs = false;
 
-  struct hs all_hs = {this->length,{0}};
+  T1 all_hs = {this->length,{0}};
   hs_add(&all_hs,array_create(this->length,BIT_X));
 
-  struct hs aggr_hs = {this->length,{0}};
+  T1 aggr_hs = {this->length,{0}};
 #endif
 
   for (auto const &rule_pair: *rules_list) {
@@ -252,7 +266,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 
 #ifdef CHECK_REACH_SHADOW
       // check reachability and shadowing
-      struct hs rule_hs = {this->length,{0}};
+      T1 rule_hs = {this->length,{0}};
       hs_add(&rule_hs, array_copy(rule->match, this->length));
 
       if (hs_is_equal(&all_hs,&aggr_hs)) {
@@ -276,7 +290,7 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
                                                   rule->input_ports);
       if (common_ports.size == 0) continue;
       // find common headerspace
-      array_t *common_hs = array_isect_a(r->match,rule->match,this->length);
+      T2 *common_hs = array_isect_a(r->match,rule->match,this->length);
 
 #ifdef CHECK_REACH_SHADOW
       if (!checked_rs) hs_add(&aggr_hs,array_copy(rule->match,this->length));
@@ -287,9 +301,9 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
         continue;
       }
       // add influence
-      Influence *inf = (Influence *)malloc(sizeof *inf);
+      Influence<T1, T2> *inf = (Influence<T1, T2> *)malloc(sizeof *inf);
       inf->len = this->length;
-      Effect *eff = (Effect *)malloc(sizeof *eff);
+      Effect<T1, T2> *eff = (Effect<T1, T2> *)malloc(sizeof *eff);
       inf->comm_arr = common_hs;
       inf->ports = common_ports;
 
@@ -313,21 +327,22 @@ void NetPlumber::set_table_dependency(RuleNode *r) {
 #endif
 }
 
-void NetPlumber::set_node_pipelines(Node *n) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
   // set n's forward pipelines.
   for (size_t i = 0; i < n->output_ports.size; i++) {
     vector<uint32_t> *end_ports = get_dst_ports(n->output_ports.list[i]);
     if (!end_ports) continue;
     for (size_t j = 0; j < end_ports->size(); j++) {
-      list<Node*> *potential_next_rules =
+      list<Node<T1, T2> *> *potential_next_rules =
           get_nodes_with_inport(end_ports->at(j));
       if (!potential_next_rules) continue;
       for (auto const &n_rule: *potential_next_rules) {
-        array_t *pipe_arr;
+        T2 *pipe_arr;
         pipe_arr = array_isect_a(n_rule->match,n->inv_match,length);
         if (pipe_arr) {
-          Pipeline *fp = (Pipeline *)calloc(1, sizeof *fp);
-          Pipeline *bp = (Pipeline *)calloc(1, sizeof *bp);
+          Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
+          Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = n->output_ports.list[i];
           bp->local_port = end_ports->at(j);
           fp->pipe_array = pipe_arr;
@@ -351,16 +366,16 @@ void NetPlumber::set_node_pipelines(Node *n) {
     vector<uint32_t> *orig_ports = get_src_ports(n->input_ports.list[i]);
     if (!orig_ports) continue;
     for (size_t j = 0; j < orig_ports->size(); j++) {
-      list<Node*> *potential_prev_rules =
+      list<Node<T1, T2> *> *potential_prev_rules =
           get_nodes_with_outport(orig_ports->at(j));
       if (!potential_prev_rules) continue;
       for (auto const &p_rule: *potential_prev_rules) {
-        array_t *pipe_arr;
+        T2 *pipe_arr;
         pipe_arr = array_isect_a(p_rule->inv_match,n->match,length);
 
         if (pipe_arr) {
-          Pipeline *fp = (Pipeline *)calloc(1, sizeof *fp);
-          Pipeline *bp = (Pipeline *)calloc(1, sizeof *bp);
+          Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
+          Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = orig_ports->at(j);
           bp->local_port = n->input_ports.list[i];
           fp->pipe_array = pipe_arr;
@@ -385,9 +400,10 @@ void NetPlumber::set_node_pipelines(Node *n) {
 }
 
 #ifdef PIPE_SLICING
-void NetPlumber::add_pipe_to_slices(Pipeline *pipe) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
   /* determine net space of pipe */
-  struct hs *pipe_space = hs_create(this->length);
+  T1 *pipe_space = hs_create(this->length);
   hs_add(pipe_space, array_copy(pipe->pipe_array, this->length));
   bool match = false;
 
@@ -414,7 +430,8 @@ void NetPlumber::add_pipe_to_slices(Pipeline *pipe) {
 #endif
 
 #ifdef PIPE_SLICING
-void NetPlumber::check_node_for_slice_leakage(Node *node) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::check_node_for_slice_leakage(Node<T1, T2> *node) {
   /* base case: check prev pipes against next pipes */
   for (auto const &prev: node->prev_in_pipeline) {
     for (auto const &next: node->next_in_pipeline) {
@@ -463,7 +480,8 @@ void NetPlumber::check_node_for_slice_leakage(Node *node) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::check_pipe_for_slice_leakage(Pipeline<T1, T2> *in, Pipeline<T1, T2> *out) {
   if (in == out) return;
   uint64_t inspace = in->net_space_id;
   uint64_t outspace = out->net_space_id;
@@ -484,7 +502,8 @@ void NetPlumber::check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-bool NetPlumber::check_leak_exception(uint64_t in, uint64_t out) {
+template<class T1, class T2>
+bool NetPlumber<T1, T2>::check_leak_exception(uint64_t in, uint64_t out) {
   try {
     auto inref = matrix.at(in);
     auto outref = inref.find(out);
@@ -498,7 +517,8 @@ bool NetPlumber::check_leak_exception(uint64_t in, uint64_t out) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::remove_pipe_from_slices(struct Pipeline *pipe) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_pipe_from_slices(struct Pipeline<T1, T2> *pipe) {
   try {
     auto &slice = slices.at(pipe->net_space_id);
     slice.pipes.erase(pipe->r_slice);
@@ -512,7 +532,8 @@ void NetPlumber::remove_pipe_from_slices(struct Pipeline *pipe) {
  * * * * * * * * * * * * *
  */
 
-NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
+template<class T1, class T2>
+NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
   this->last_event.type = None;
   this->loop_callback = default_loop_callback;
   this->loop_callback_data = NULL;
@@ -527,7 +548,7 @@ NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
   this->rule_shadow_callback_data = NULL;
 #endif
 #ifdef PIPE_SLICING
-  struct hs *net_space = hs_create(this->length);
+  T1 *net_space = hs_create(this->length);
   hs_add(net_space, array_create(this->length, BIT_X));
   slices = { {0, {net_space, {}}} };
   this->slice_overlap_callback = default_slice_overlap_callback;
@@ -537,10 +558,11 @@ NetPlumber::NetPlumber(size_t length) : length(length), last_ssp_id_used(0) {
 #endif
 }
 
-NetPlumber::~NetPlumber() {
+template<class T1, class T2>
+NetPlumber<T1, T2>::~NetPlumber() {
   for (auto &probe: this->probes) {
     if (probe->get_type() == SOURCE_PROBE) {
-      ((SourceProbeNode*)probe)->stop_probe();
+      ((SourceProbeNode<T1, T2> *)probe)->stop_probe();
     }
     clear_port_to_node_maps(probe);
     delete probe;
@@ -568,15 +590,18 @@ NetPlumber::~NetPlumber() {
 #endif /* PIPE_SLICING */
 }
 
-Event NetPlumber::get_last_event() {
+template<class T1, class T2>
+Event NetPlumber<T1, T2>::get_last_event() {
   return this->last_event;
 }
 
-void NetPlumber::set_last_event(Event e) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::set_last_event(Event e) {
   this->last_event = e;
 }
 
-void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::add_link(uint32_t from_port, uint32_t to_port) {
   this->last_event.type = ADD_LINK;
   this->last_event.id1 = from_port;
   this->last_event.id2 = to_port;
@@ -593,19 +618,19 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
   }
 
   // pipeline update
-  list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
-  list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
+  list<Node<T1, T2> *> *src_rules = this->get_nodes_with_outport(from_port);
+  list<Node<T1, T2> *> *dst_rules = this->get_nodes_with_inport(to_port);
   if (src_rules && dst_rules) {
     for (auto const &src_rule: *src_rules) {
       for (auto const &dst_rule: *dst_rules) {
-        array_t *pipe_arr = array_isect_a(
+        T2 *pipe_arr = array_isect_a(
           src_rule->inv_match,
           dst_rule->match,
           length
         );
         if (pipe_arr) {
-          Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
-          Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
+          Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)malloc(sizeof *fp);
+          Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)malloc(sizeof *bp);
           fp->local_port = from_port;
           bp->local_port = to_port;
           fp->pipe_array = pipe_arr;
@@ -628,7 +653,8 @@ void NetPlumber::add_link(uint32_t from_port, uint32_t to_port) {
   }
 }
 
-void NetPlumber::remove_link(uint32_t from_port, uint32_t to_port) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_link(uint32_t from_port, uint32_t to_port) {
   this->last_event.type = REMOVE_LINK;
   this->last_event.id1 = from_port;
   this->last_event.id2 = to_port;
@@ -639,8 +665,8 @@ void NetPlumber::remove_link(uint32_t from_port, uint32_t to_port) {
     LOG4CXX_ERROR(logger,error_msg.str());
   } else {
     // remove plumbing
-    list<Node*> *src_rules = this->get_nodes_with_outport(from_port);
-    list<Node*> *dst_rules = this->get_nodes_with_inport(to_port);
+    list<Node<T1, T2> *> *src_rules = this->get_nodes_with_outport(from_port);
+    list<Node<T1, T2> *> *dst_rules = this->get_nodes_with_inport(to_port);
     if (src_rules && dst_rules) {
       for (auto const &src_rule: *src_rules) {
         src_rule->remove_link_pipes(from_port, to_port);
@@ -665,7 +691,8 @@ void NetPlumber::remove_link(uint32_t from_port, uint32_t to_port) {
   }
 }
 
-vector<uint32_t> *NetPlumber::get_dst_ports(uint32_t src_port) {
+template<class T1, class T2>
+vector<uint32_t> *NetPlumber<T1, T2>::get_dst_ports(uint32_t src_port) {
   if (topology.count(src_port) == 0) {
     return NULL;
   } else {
@@ -673,7 +700,8 @@ vector<uint32_t> *NetPlumber::get_dst_ports(uint32_t src_port) {
   }
 }
 
-vector<uint32_t> *NetPlumber::get_src_ports(uint32_t dst_port) {
+template<class T1, class T2>
+vector<uint32_t> *NetPlumber<T1, T2>::get_src_ports(uint32_t dst_port) {
   if (inv_topology.count(dst_port) == 0) {
     return NULL;
   } else {
@@ -681,7 +709,8 @@ vector<uint32_t> *NetPlumber::get_src_ports(uint32_t dst_port) {
   }
 }
 
-void NetPlumber::print_topology() {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_topology() {
   for (auto const &link: topology) {
     printf("%u --> ( ", link.first);
     for (size_t i = 0; i < link.second->size(); i++) {
@@ -691,14 +720,15 @@ void NetPlumber::print_topology() {
   }
 }
 
-void NetPlumber::add_table(uint32_t id, List_t ports) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::add_table(uint32_t id, List_t ports) {
   this->last_event.type = ADD_TABLE;
   this->last_event.id1 = id;
   assert(table_to_nodes.count(id) == table_to_last_id.count(id));
   if (table_to_nodes.count(id) == 0 && id > 0) {
     ports.shared = true;
 
-    table_to_nodes[id] = new map<uint32_t, RuleNode*>();
+    table_to_nodes[id] = new map<uint32_t, RuleNode<T1, T2> *>();
     table_to_ports[id] = ports;
     table_to_last_id[id] = 0l;
     return;
@@ -712,25 +742,30 @@ void NetPlumber::add_table(uint32_t id, List_t ports) {
   free(ports.list);
 }
 
-void NetPlumber::remove_table(uint32_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_table(uint32_t id) {
   this->last_event.type = REMOVE_TABLE;
   this->last_event.id1 = id;
   free_table_memory(id);
 }
 
-List_t NetPlumber::get_table_ports(uint32_t id) {
+template<class T1, class T2>
+List_t NetPlumber<T1, T2>::get_table_ports(uint32_t id) {
   return this->table_to_ports[id];
 }
 
-void NetPlumber::print_node(Node *node) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_node(Node<T1, T2> *node) {
     printf("%s\n", node->to_string().c_str());
 }
 
-void NetPlumber::print_node(const uint64_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_node(const uint64_t id) {
     print_node(id_to_node[id]);
 }
 
-void NetPlumber::print_table(const uint32_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_table(const uint32_t id) {
   printf("%s\n", string(40,'@').c_str());
   printf("%sTable: 0x%x\n", string(4, ' ').c_str(),id);
   printf("%s\n", string(40,'@').c_str());
@@ -743,12 +778,13 @@ void NetPlumber::print_table(const uint32_t id) {
   }
 }
 
-uint64_t NetPlumber::_add_rule(uint32_t table,int index,
+template<class T1, class T2>
+uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
 #ifdef USE_GROUPS
                                bool group, uint64_t gid,
 #endif
                                List_t in_ports, List_t out_ports,
-                               array_t* match, array_t *mask, array_t* rw) {
+                               T2* match, T2 *mask, T2* rw) {
   if (table_to_nodes.count(table) > 0) {
     List_t table_ports = table_to_ports[table];
 
@@ -763,15 +799,15 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
     table_to_last_id[table] += 1;
     uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
 
-    RuleNode *r;
 #ifdef USE_GROUPS
+    RuleNode<T1, T2> *r;
     if (!group || !gid) { //first rule in group or no group
-      if (!group) r = new RuleNode(this, length, id, table, index, in_ports, out_ports,
+      if (!group) r = new RuleNode<T1, T2>(this, length, id, table, in_ports, out_ports,
                                    match, mask, rw);
-      else r = new RuleNode(this, length, id, table, index, id, in_ports, out_ports,
+      else r = new RuleNode<T1, T2>(this, length, id, table, id, in_ports, out_ports,
                             match, mask, rw);
 #else
-      r = new RuleNode(this, length, id, table, index, in_ports, out_ports,
+      r = new RuleNode<T1, T2>(this, length, id, table, index, in_ports, out_ports,
                         match, mask, rw);
 #endif
 
@@ -792,11 +828,11 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
 
 #ifdef USE_GROUPS
     } else if (id_to_node.count(gid) > 0 &&
-          ((RuleNode*)id_to_node[gid])->group == gid) {
+          ((RuleNode<T1, T2> *)id_to_node[gid])->group == gid) {
 
-      RuleNode *rg = (RuleNode*)this->id_to_node[gid];
+      RuleNode<T1, T2> *rg = (RuleNode<T1, T2> *)this->id_to_node[gid];
       table = rg->table;
-      r = new RuleNode(this, length, id, table, gid, in_ports, out_ports,
+      r = new RuleNode<T1, T2>(this, length, id, table, gid, in_ports, out_ports,
                        match, mask, rw);
       this->id_to_node[id] = r;
       // insert rule after its lead group rule
@@ -834,8 +870,9 @@ uint64_t NetPlumber::_add_rule(uint32_t table,int index,
 }
 
 
-uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
-            List_t out_ports, array_t* match, array_t *mask, array_t* rw) {
+template<class T1, class T2>
+uint64_t NetPlumber<T1, T2>::add_rule(uint32_t table,int index, List_t in_ports,
+            List_t out_ports, T2* match, T2 *mask, T2* rw) {
 
 #ifdef USE_GROUPS
   return _add_rule(table,index,false,0,in_ports,out_ports,match,mask,rw);
@@ -845,9 +882,10 @@ uint64_t NetPlumber::add_rule(uint32_t table,int index, List_t in_ports,
 }
 
 #ifdef USE_GROUPS
-uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
-                           ,List_t out_ports, array_t* match, array_t *mask,
-                           array_t* rw, uint64_t group) {
+template<class T1, class T2>
+uint64_t NetPlumber<T1, T2>::add_rule_to_group(uint32_t table,int index, List_t in_ports
+                           ,List_t out_ports, T2* match, T2 *mask,
+                           T2* rw, uint64_t group) {
 
   return _add_rule(table,index,true,group,in_ports,out_ports,match,mask,rw);
 }
@@ -858,7 +896,8 @@ uint64_t NetPlumber::add_rule_to_group(uint32_t table,int index, List_t in_ports
 //"xxxxxxxx xxxxxxxx" is length 2 and so on
 //|| z=00 1=10 0=01 x=11
 //length of n equals 2n bytes of memory
-size_t NetPlumber::expand(size_t length) {
+template<class T1, class T2>
+size_t NetPlumber<T1, T2>::expand(size_t length) {
   if (length > this->length) {
     for (auto const &node: id_to_node) {//should contain all flows, probes and rules
       node.second->enlarge(length);
@@ -875,11 +914,12 @@ size_t NetPlumber::expand(size_t length) {
   return this->length;
 }
 
-void NetPlumber::remove_rule(uint64_t rule_id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_rule(uint64_t rule_id) {
   if (id_to_node.count(rule_id) > 0 && id_to_node[rule_id]->get_type() == RULE){
     this->last_event.type = REMOVE_RULE;
     this->last_event.id1 = rule_id;
-    RuleNode *r = (RuleNode *)id_to_node[rule_id];
+    RuleNode<T1, T2> *r = (RuleNode<T1, T2> *)id_to_node[rule_id];
 #ifdef USE_GROUPS
     if (r->group == 0) free_rule_memory(r);
     else free_group_memory(r->table,r->group);
@@ -893,9 +933,10 @@ void NetPlumber::remove_rule(uint64_t rule_id) {
   }
 }
 
-uint64_t NetPlumber::add_source(hs *hs_object, List_t ports) {
+template<class T1, class T2>
+uint64_t NetPlumber<T1, T2>::add_source(T1 *hs_object, List_t ports) {
   uint64_t node_id = (uint64_t)(++last_ssp_id_used);
-  SourceNode *s = new SourceNode(this, length, node_id, hs_object, ports);
+  SourceNode<T1, T2> *s = new SourceNode<T1, T2>(this, length, node_id, hs_object, ports);
   this->id_to_node[node_id] = s;
   this->flow_nodes.push_back(s);
   this->last_event.type = ADD_SOURCE;
@@ -906,11 +947,12 @@ uint64_t NetPlumber::add_source(hs *hs_object, List_t ports) {
   return node_id;
 }
 
-void NetPlumber::remove_source(uint64_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_source(uint64_t id) {
   if (id_to_node.count(id) > 0 && id_to_node[id]->get_type() == SOURCE) {
     this->last_event.type = REMOVE_SOURCE;
     this->last_event.id1 = id;
-    SourceNode *s = (SourceNode *)id_to_node[id];
+    SourceNode<T1, T2> *s = (SourceNode<T1, T2> *)id_to_node[id];
     id_to_node.erase(s->node_id);
     flow_nodes.remove(s);
     clear_port_to_node_maps(s);
@@ -922,12 +964,13 @@ void NetPlumber::remove_source(uint64_t id) {
   }
 }
 
-uint64_t NetPlumber::
-add_source_probe(List_t ports, PROBE_MODE mode, Condition *filter,
-                 Condition *condition, src_probe_callback_t probe_callback,
+template<class T1, class T2>
+uint64_t NetPlumber<T1, T2>::
+add_source_probe(List_t ports, PROBE_MODE mode, Condition<T1, T2> *filter,
+                 Condition<T1, T2> *condition, src_probe_callback_t<T1, T2> probe_callback,
                  void *callback_data){
   uint64_t node_id = (uint64_t)(++last_ssp_id_used);
-  SourceProbeNode* p = new SourceProbeNode(this, length, node_id, mode,ports,
+  SourceProbeNode<T1, T2>* p = new SourceProbeNode<T1, T2>(this, length, node_id, mode,ports,
                                            filter, condition,
                                            probe_callback, callback_data);
   this->id_to_node[node_id] = p;
@@ -941,11 +984,12 @@ add_source_probe(List_t ports, PROBE_MODE mode, Condition *filter,
   return node_id;
 }
 
-void NetPlumber::remove_source_probe(uint64_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_source_probe(uint64_t id) {
   if (id_to_node.count(id) > 0 && id_to_node[id]->get_type() == SOURCE_PROBE) {
     this->last_event.type = STOP_SOURCE_PROBE;
     this->last_event.id1 = id;
-    SourceProbeNode *p = (SourceProbeNode *)id_to_node[id];
+    SourceProbeNode<T1, T2> *p = (SourceProbeNode<T1, T2> *)id_to_node[id];
     p->stop_probe();
     id_to_node.erase(p->node_id);
     probes.remove(p);
@@ -959,18 +1003,20 @@ void NetPlumber::remove_source_probe(uint64_t id) {
 }
 
 #ifdef USE_DEPRECATED
-SourceProbeNode *NetPlumber::get_source_probe(uint64_t id) {
+template<class T1, class T2>
+SourceProbeNode<T1, T2> *NetPlumber<T1, T2>::get_source_probe(uint64_t id) {
   if (id_to_node.count(id) > 0) {
     Node *n = id_to_node[id];
     if (n->get_type() == SOURCE_PROBE) {
-      return (SourceProbeNode *)n;
+      return (SourceProbeNode<T1, T2> *)n;
     }
   }
   return NULL;
 }
 #endif
 
-list<Node*>* NetPlumber::get_nodes_with_outport(uint32_t outport) {
+template<class T1, class T2>
+list<Node<T1, T2> *>* NetPlumber<T1, T2>::get_nodes_with_outport(uint32_t outport) {
   if (outport_to_nodes.count(outport) == 0) {
     return NULL;
   } else {
@@ -978,7 +1024,8 @@ list<Node*>* NetPlumber::get_nodes_with_outport(uint32_t outport) {
   }
 }
 
-list<Node*>* NetPlumber::get_nodes_with_inport(uint32_t inport) {
+template<class T1, class T2>
+list<Node<T1, T2> *>* NetPlumber<T1, T2>::get_nodes_with_inport(uint32_t inport) {
   if (inport_to_nodes.count(inport) == 0) {
     return NULL;
   } else {
@@ -986,7 +1033,8 @@ list<Node*>* NetPlumber::get_nodes_with_inport(uint32_t inport) {
   }
 }
 
-void NetPlumber::print_plumbing_network() {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_plumbing_network() {
   for (auto const &node: table_to_nodes) {
     this->print_table(node.first);
   }
@@ -1004,7 +1052,8 @@ void NetPlumber::print_plumbing_network() {
   }
 }
 
-void NetPlumber::get_pipe_stats(uint64_t node_id,int &fwd_pipeline,
+template<class T1, class T2>
+void NetPlumber<T1, T2>::get_pipe_stats(uint64_t node_id,int &fwd_pipeline,
                 int &bck_pipeline,int &influence_on, int &influenced_by) {
   if (id_to_node.count(node_id) == 0){
     fwd_pipeline = 0;
@@ -1016,9 +1065,9 @@ void NetPlumber::get_pipe_stats(uint64_t node_id,int &fwd_pipeline,
         << ".";
     LOG4CXX_ERROR(logger,error_msg.str());
   } else {
-    Node *n = id_to_node[node_id];
+    Node<T1, T2> *n = id_to_node[node_id];
     if (n->get_type() == RULE) {
-      RuleNode *r = (RuleNode *)n;
+      RuleNode<T1, T2> *r = (RuleNode<T1, T2> *)n;
       fwd_pipeline = r->count_fwd_pipeline();
       bck_pipeline = r->count_bck_pipeline();
       influence_on = r->count_effects();
@@ -1045,7 +1094,8 @@ void NetPlumber::get_pipe_stats(uint64_t node_id,int &fwd_pipeline,
   }
 }
 
-void NetPlumber::get_source_flow_stats(uint64_t node_id, int &inc, int &exc) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::get_source_flow_stats(uint64_t node_id, int &inc, int &exc) {
   if (id_to_node.count(node_id) == 0){
     inc = 0;
     exc = 0;
@@ -1054,12 +1104,13 @@ void NetPlumber::get_source_flow_stats(uint64_t node_id, int &inc, int &exc) {
         node_id << ".";
     LOG4CXX_ERROR(logger,error_msg.str());
   } else {
-    Node *n = id_to_node[node_id];
+    Node<T1, T2> *n = id_to_node[node_id];
     n->count_src_flow(inc,exc);
   }
 }
 
-void NetPlumber::save_dependency_graph(const string file_name) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::save_dependency_graph(const string file_name) {
   Json::Value root(Json::objectValue);
   Json::Value nodes(Json::arrayValue);
   Json::Value links(Json::arrayValue);
@@ -1081,10 +1132,10 @@ void NetPlumber::save_dependency_graph(const string file_name) {
   for (auto const &s_node: id_to_node) {// = id_to_node.begin(); it != id_to_node.end(); it++) {
     stringstream s1,s2;
     s1 << s_node.first;
-    Node *n = s_node.second;
+    Node<T1, T2> *n = s_node.second;
     for (
         auto const d_node: n->next_in_pipeline) {
-      Node *other_n = (*d_node->r_pipeline)->node;
+      Node<T1, T2> *other_n = (*d_node->r_pipeline)->node;
       s2 << other_n->node_id;
       Json::Value link(Json::objectValue);
       Json::Value source(Json::intValue);
@@ -1102,7 +1153,8 @@ void NetPlumber::save_dependency_graph(const string file_name) {
   jsfile.close();
 }
 
-void NetPlumber::dump_net_plumber(const string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_net_plumber(const string dir) {
     dump_plumbing_network(dir);
     dump_flow_trees(dir);
     dump_pipes(dir);
@@ -1112,7 +1164,8 @@ void NetPlumber::dump_net_plumber(const string dir) {
 #endif
 }
 
-void NetPlumber::dump_plumbing_network(const string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
 
     /*
      *  {
@@ -1204,9 +1257,9 @@ void NetPlumber::dump_plumbing_network(const string dir) {
             }
 
 #ifdef NEW_HS
-            hs tmp = {this->length, {0, 0, 0}, {0, 0, 0}};
+            T1 tmp = {this->length, {0, 0, 0}, {0, 0, 0}};
 #else
-            hs tmp = {this->length, {0, 0, 0, 0}};
+            T1 tmp = {this->length, {0, 0, 0, 0}};
 #endif
             for (auto const &influence: *r_node->influenced_by) {
                 hs_add(&tmp, array_copy(influence->comm_arr, this->length));
@@ -1284,16 +1337,16 @@ void NetPlumber::dump_plumbing_network(const string dir) {
         params["ports"] = list_to_json(probe->input_ports);
 
         Json::Value mode;
-        ((SourceProbeNode *)probe)->mode_to_json(mode);
+        ((SourceProbeNode<T1, T2> *)probe)->mode_to_json(mode);
         params["mode"] = mode;
 
 
         Json::Value filter(Json::objectValue);
-        ((SourceProbeNode *)probe)->filter_to_json(filter);
+        ((SourceProbeNode<T1, T2> *)probe)->filter_to_json(filter);
         params["filter"] = filter;
 
         Json::Value test(Json::objectValue);
-        ((SourceProbeNode *)probe)->test_to_json(test);
+        ((SourceProbeNode<T1, T2> *)probe)->test_to_json(test);
         params["test"] = test;
 
         command["params"] = params;
@@ -1314,7 +1367,8 @@ void NetPlumber::dump_plumbing_network(const string dir) {
 }
 
 
-void NetPlumber::_traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::_traverse_flow(list<list<uint64_t>*> *flows, struct Flow<T1, T2> *flow) {
     if (flow->n_flows && !flow->n_flows->empty()) { // traverse flows to their end
         for (auto const &n_flow: *flow->n_flows) {
             _traverse_flow(flows, *n_flow);
@@ -1322,7 +1376,7 @@ void NetPlumber::_traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow)
     } else { // reached eof: create a list and go back to source collecting all nodes
         list<uint64_t> *f_list = new list<uint64_t>();
         flows->push_back(f_list);
-        struct Flow *f = flow;
+        struct Flow<T1, T2> *f = flow;
         while (f->p_flow != f->node->get_EOSFI()) {
             f_list->push_front(f->node->node_id);
             f = *f->p_flow;
@@ -1332,9 +1386,10 @@ void NetPlumber::_traverse_flow(list<list<uint64_t>*> *flows, struct Flow *flow)
 }
 
 
-void NetPlumber::_traverse_flow_tree(
+template<class T1, class T2>
+void NetPlumber<T1, T2>::_traverse_flow_tree(
     Json::Value& res,
-    list<list<struct Flow *>::iterator> *n_flows,
+    list<typename list< Flow<T1, T2> *>::iterator> *n_flows,
     size_t depth
 ) {
     for (auto const &n_flow: *n_flows) {
@@ -1373,12 +1428,14 @@ void NetPlumber::_traverse_flow_tree(
 }
 
 
-void NetPlumber::_traverse_flow_tree(Json::Value& res, list<list<struct Flow *>::iterator> *n_flows) {
-    NetPlumber::_traverse_flow_tree(res, n_flows, 0);
+template<class T1, class T2>
+void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename list<Flow<T1, T2> *>::iterator> *n_flows) {
+    NetPlumber<T1, T2>::_traverse_flow_tree(res, n_flows, 0);
 }
 
 
-void NetPlumber::dump_flow_trees(const string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
@@ -1415,7 +1472,8 @@ void NetPlumber::dump_flow_trees(const string dir) {
 }
 
 
-void NetPlumber::dump_flows(string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_flows(string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
@@ -1460,14 +1518,15 @@ void NetPlumber::dump_flows(string dir) {
 }
 
 
-void NetPlumber::dump_pipes(const string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_pipes(const string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
     for (auto const &node: id_to_node) {
         Json::Value pipe(Json::arrayValue);
 
-        list<struct Pipeline*> n_pipes = node.second->next_in_pipeline;
+        list<struct Pipeline<T1, T2> *> n_pipes = node.second->next_in_pipeline;
 
         if (!n_pipes.empty()) pipe.append((Json::UInt64) node.first);
 
@@ -1499,7 +1558,8 @@ void NetPlumber::dump_pipes(const string dir) {
 }
 
 #ifdef PIPE_SLICING
-void NetPlumber::dump_slices(const string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_slices(const string dir) {
   Json::Value slices_wrapper(Json::objectValue);
   Json::Value jslices(Json::arrayValue);
   
@@ -1548,7 +1608,8 @@ void NetPlumber::dump_slices(const string dir) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
+template<class T1, class T2>
+bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
   this->last_event.type = ADD_SLICE;
   this->last_event.id1 = id;
 
@@ -1570,8 +1631,8 @@ bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
   hs_minus(slices[0].net_space, net_space);
 
   /* add free pipelines to slice */
-  struct hs *pipe_space;
-  std::list<std::list<struct Pipeline*>::iterator> changed;
+  T1 *pipe_space;
+  std::list<typename std::list<Pipeline<T1, T2> *>::iterator> changed;
   auto it = slices[0].pipes.begin();
 
   for (auto const &pipe: slices[0].pipes) {
@@ -1599,7 +1660,8 @@ bool NetPlumber::add_slice(uint64_t id, struct hs *net_space) {
 #endif
 
 #ifdef PIPE_SLICING
-void NetPlumber::remove_slice(uint64_t id) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_slice(uint64_t id) {
   this->last_event.type = REMOVE_SLICE;
   this->last_event.id1 = id;
 
@@ -1623,7 +1685,8 @@ void NetPlumber::remove_slice(uint64_t id) {
 #endif
 
 #ifdef PIPE_SLICING
-bool NetPlumber::add_slice_matrix(std::string matrix) {
+template<class T1, class T2>
+bool NetPlumber<T1, T2>::add_slice_matrix(std::string matrix) {
   this->last_event.type = ADD_SLICE_MATRIX;
 
   std::set<uint64_t> ids;
@@ -1692,14 +1755,16 @@ bool NetPlumber::add_slice_matrix(std::string matrix) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::remove_slice_matrix(void) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_slice_matrix(void) {
     this->last_event.type = REMOVE_SLICE_MATRIX;
     this->matrix.clear();
 }
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
+template<class T1, class T2>
+bool NetPlumber<T1, T2>::add_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = ADD_SLICE_ALLOW;
     this->matrix[id1].insert(id2);
     return true;
@@ -1707,7 +1772,8 @@ bool NetPlumber::add_slice_allow(uint64_t id1, uint64_t id2) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::remove_slice_allow(uint64_t id1, uint64_t id2) {
     this->last_event.type = REMOVE_SLICE_ALLOW;
 
     try {
@@ -1719,7 +1785,8 @@ void NetPlumber::remove_slice_allow(uint64_t id1, uint64_t id2) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::print_slice_matrix(void) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::print_slice_matrix(void) {
   this->last_event.type = PRINT_SLICE_MATRIX;
   std::stringstream ss;
 
@@ -1742,14 +1809,15 @@ void NetPlumber::print_slice_matrix(void) {
 #endif /* PIPE_SLICING */
 
 #ifdef PIPE_SLICING
-void NetPlumber::dump_slices_pipes(const std::string dir) {
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_slices_pipes(const std::string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
     for (auto const &node: id_to_node) {
       Json::Value pipe(Json::arrayValue);
 
-      list<struct Pipeline*> n_pipes = node.second->next_in_pipeline;
+      list<struct Pipeline<T1, T2> *> n_pipes = node.second->next_in_pipeline;
       if (!n_pipes.empty()) pipe.append((Json::UInt64) node.first);
 
       for (auto const &prev: n_pipes) {
@@ -1772,3 +1840,5 @@ void NetPlumber::dump_slices_pipes(const std::string dir) {
     pipe_network_file.close();
 }
 #endif /*PIPE_SLICING */
+
+template class net_plumber::NetPlumber<struct hs, array_t>;

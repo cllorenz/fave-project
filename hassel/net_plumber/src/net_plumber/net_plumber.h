@@ -70,19 +70,23 @@ struct Event {
   uint64_t id2;  // destination port.
 };
 
+template<typename T1, typename T2>
 struct Slice {
-  struct hs *net_space;
-  std::list<struct Pipeline*> pipes;
+  T1 *net_space;
+  std::list<struct Pipeline<T1, T2> *> pipes;
 };
 
 std::string get_event_name(EVENT_TYPE t);
 
 namespace net_plumber {
 
+  template<class T1, class T2>
   class NetPlumber;
 
-  typedef void (*global_error_callback_t)(NetPlumber *N, Flow *f, void* data);
+  template<typename T1, typename T2>
+  using global_error_callback_t = void (*)(NetPlumber<T1, T2> *N, struct Flow<T1, T2> *f, void* data);
 
+  template<class T1, class T2>
   class NetPlumber {
    private:
     static log4cxx::LoggerPtr logger;
@@ -103,28 +107,28 @@ namespace net_plumber {
     std::map<uint32_t,uint64_t> table_to_last_id;
 
     //list of nodes for table id
-    std::map<uint32_t,std::map<uint32_t, RuleNode*>* > table_to_nodes;
+    std::map<uint32_t, std::map<uint32_t, RuleNode<T1, T2> *>* > table_to_nodes;
 
     //list of ports for table id
     std::map<uint32_t,List_t > table_to_ports;
 
     //node_id to node
-    std::map<uint64_t,Node*> id_to_node;
+    std::map<uint64_t,Node<T1, T2> *> id_to_node;
 
     //list of rules for input port
-    std::map<uint32_t, std::list<Node*>* > inport_to_nodes;
+    std::map<uint32_t, std::list<Node<T1, T2> *>* > inport_to_nodes;
 
     //list of rules for output port
-    std::map<uint32_t, std::list<Node*>* > outport_to_nodes;
+    std::map<uint32_t, std::list<Node<T1, T2> *>* > outport_to_nodes;
 
     // last id used for a source/sink/probe node
     uint32_t last_ssp_id_used;
 
     // list of source and sink nodes:
-    std::list<Node *> flow_nodes;
+    std::list<Node<T1, T2> *> flow_nodes;
 
     // list of probe nodes
-    std::list<Node *> probes;
+    std::list<Node<T1, T2> *> probes;
 
 #ifdef PIPE_SLICING
     // net_space_id to slice
@@ -137,17 +141,16 @@ namespace net_plumber {
 #ifdef USE_GROUPS
     uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
                        List_t in_ports, List_t out_ports,
-                       array_t* match, array_t *mask, array_t* rw);
+                       T2 *match, T2 *mask, T2 *rw);
 #else
     uint64_t _add_rule(uint32_t table,int index,
                        List_t in_ports, List_t out_ports,
-                       array_t* match, array_t *mask, array_t* rw);
+                       T2 *match, T2 *mask, T2 *rw);
 #endif
-
 
    public:
     //call back function in case of a loop
-    global_error_callback_t loop_callback;
+    global_error_callback_t<T1, T2> loop_callback;
     void *loop_callback_data;
 #ifdef CHECK_BLACKHOLES
     global_error_callback_t blackhole_callback;
@@ -210,7 +213,7 @@ namespace net_plumber {
     void remove_table(uint32_t id);
     List_t get_table_ports(uint32_t id);
     void print_node(const uint64_t id);
-    void print_node(Node *node);
+    void print_node(Node<T1, T2> *node);
     void print_table(const uint32_t id);
     size_t expand(size_t length);
 
@@ -232,11 +235,11 @@ namespace net_plumber {
      * remove_rule: removes a rule if exist
      */
     uint64_t add_rule(uint32_t table,int index, List_t in_ports, List_t out_ports,
-                  array_t* match, array_t *mask, array_t* rw);
+                  T2 *match, T2 *mask, T2 *rw);
 #ifdef USE_GROUPS
     uint64_t add_rule_to_group(uint32_t table,int index, List_t in_ports,
-                               List_t out_ports, array_t* match, array_t *mask,
-                               array_t* rw, uint64_t group);
+                               List_t out_ports, T2 *match, T2 *mask,
+                               T2 *rw, uint64_t group);
 #endif
     void remove_rule(uint64_t node_id);
 
@@ -246,7 +249,7 @@ namespace net_plumber {
      * @hs_object: the source flow
      * @ports: output ports
      */
-    uint64_t add_source(hs *hs_object,List_t ports);
+    uint64_t add_source(T1 *hs_object, List_t ports);
     void remove_source(uint64_t id);
 
     /*
@@ -254,19 +257,19 @@ namespace net_plumber {
      *
      */
     uint64_t add_source_probe(List_t ports, PROBE_MODE mode,
-                              Condition *filter, Condition *test,
-                              src_probe_callback_t probe_callback,
+                              Condition<T1, T2> *filter, Condition<T1, T2> *test,
+                              src_probe_callback_t<T1, T2> probe_callback,
                               void *callback_data);
     void remove_source_probe(uint64_t id);
 #ifdef USE_DEPRECATED
-    SourceProbeNode *get_source_probe(uint64_t);
+    SourceProbeNode<T1, T2> *get_source_probe(uint64_t);
 #endif
 
 #ifdef PIPE_SLICING
     /*
      * Slice Management
      */
-    bool add_slice(uint64_t id, hs *net_space);
+    bool add_slice(uint64_t id, T1 *net_space);
     void remove_slice(uint64_t id);
     bool add_slice_matrix(std::string matrix);
     void remove_slice_matrix(void);
@@ -274,14 +277,14 @@ namespace net_plumber {
     void remove_slice_allow(uint64_t id1, uint64_t id2);
     void print_slice_matrix(void);
     void dump_slices_pipes(std::string dir);
-    void remove_pipe_from_slices(struct Pipeline *pipe);
+    void remove_pipe_from_slices(struct Pipeline<T1, T2> *pipe);
 #endif
 
     /*
      * get list of nodes based on input port or output port.
      */
-    std::list<Node*>* get_nodes_with_outport(uint32_t outport);
-    std::list<Node*>* get_nodes_with_inport(uint32_t inport);
+    std::list<Node<T1, T2> *>* get_nodes_with_outport(uint32_t outport);
+    std::list<Node<T1, T2> *>* get_nodes_with_inport(uint32_t inport);
 
     /*
      * prints itself.
@@ -310,27 +313,27 @@ namespace net_plumber {
 #ifdef USE_GROUPS
     void free_group_memory(uint32_t table, uint64_t group);
 #endif
-    void free_rule_memory(RuleNode *r, bool remove_from_table=true);
+    void free_rule_memory(RuleNode<T1, T2> *r, bool remove_from_table=true);
     void free_table_memory(uint32_t table);
-    void set_port_to_node_maps(Node *n);
-    void clear_port_to_node_maps(Node *n);
-    void set_table_dependency(RuleNode *r);
-    void set_node_pipelines(Node *n);
-    void _traverse_flow(std::list<std::list<uint64_t>*> *flows, struct Flow *flow);
+    void set_port_to_node_maps(Node<T1, T2> *n);
+    void clear_port_to_node_maps(Node<T1, T2> *n);
+    void set_table_dependency(RuleNode<T1, T2> *r);
+    void set_node_pipelines(Node<T1, T2> *n);
+    void _traverse_flow(std::list<std::list<uint64_t>*> *flows, struct Flow<T1, T2> *flow);
     void _traverse_flow_tree(
         Json::Value& res,
-        std::list<std::list<struct Flow *>::iterator> *n_flows,
+        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
         size_t depth
     );
     void _traverse_flow_tree(
         Json::Value& res,
-        std::list<std::list<struct Flow *>::iterator> *n_flows
+        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows
     );
 
 #ifdef PIPE_SLICING
-    void add_pipe_to_slices(struct Pipeline *pipe);
-    void check_node_for_slice_leakage(Node *node);
-    void check_pipe_for_slice_leakage(Pipeline *in, Pipeline *out);
+    void add_pipe_to_slices(struct Pipeline<T1, T2> *pipe);
+    void check_node_for_slice_leakage(Node<T1, T2> *node);
+    void check_pipe_for_slice_leakage(Pipeline<T1, T2> *in, Pipeline<T1, T2> *out);
     bool check_leak_exception(uint64_t in, uint64_t out);
     friend class ::NetPlumberSlicingTest;
 #endif
