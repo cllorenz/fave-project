@@ -23,25 +23,28 @@
 
 using namespace std;
 
-PathCondition::~PathCondition() {
+template<class T1, class T2>
+PathCondition<T1, T2>::~PathCondition() {
   for (auto& it: pathlets) {
     delete it;
   }
 }
 
-void PathCondition::add_pathlet(PathSpecifier *pathlet) {
+template<class T1, class T2>
+void PathCondition<T1, T2>::add_pathlet(PathSpecifier<T1, T2> *pathlet) {
   pathlets.push_back(pathlet);
 }
 
-bool PathCondition::check(Flow *f) {
+template<class T1, class T2>
+bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
 /*
-  list<PathSpecifier*>::iterator it;
+  list<PathSpecifier<T1, T2>*>::iterator it;
   for (it = pathlets.begin(); it != pathlets.end(); it++) {
     if (!(*it)->check_and_move(f)) return false;
   }
   return true;
 */
-  stack<pair<list<PathSpecifier*>::iterator, Flow*> >decision_points;
+  stack<pair<typename list<PathSpecifier<T1, T2> * >::iterator, Flow<T1, T2> *> >decision_points;
   auto it = pathlets.begin();
   while (it != pathlets.end()) {
     // case 1: end of flow and no alternatives -> path does not meet spec, final decline
@@ -86,7 +89,8 @@ bool PathCondition::check(Flow *f) {
   return true;
 }
 
-string PathCondition::to_string() {
+template<class T1, class T2>
+string PathCondition<T1, T2>::to_string() {
   stringstream res;
   res << "path ~ \"";
   for (auto const &it: pathlets) {
@@ -96,8 +100,9 @@ string PathCondition::to_string() {
   return res.str();
 }
 
-bool HeaderCondition::check(Flow *f) {
-  hs *tmp = hs_isect_a(f->processed_hs, h);
+template<class T1, class T2>
+bool HeaderCondition<T1, T2>::check(Flow<T1, T2> *f) {
+  T1 *tmp = hs_isect_a(f->processed_hs, h);
   bool result = false;
   if (tmp) {
     hs_comp_diff(tmp);
@@ -107,11 +112,13 @@ bool HeaderCondition::check(Flow *f) {
   return result;
 }
 
-void HeaderCondition::enlarge(uint32_t length) {
+template<class T1, class T2>
+void HeaderCondition<T1, T2>::enlarge(uint32_t length) {
 	hs_enlarge(this->h,length);
 }
 
-string HeaderCondition::to_string() {
+template<class T1, class T2>
+string HeaderCondition<T1, T2>::to_string() {
   stringstream res;
   char *c = hs_to_str(h);
   res << "header ~ " << string(c);
@@ -119,7 +126,8 @@ string HeaderCondition::to_string() {
   return res.str();
 }
 
-bool PortSpecifier::check_and_move(Flow* &f) {
+template<class T1, class T2>
+bool PortSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
   while (f->p_flow != f->node->get_EOSFI()) {
     if (f->in_port == port && f->node->is_at_input_stage()) {
       f = *f->p_flow;
@@ -130,15 +138,17 @@ bool PortSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-string PortSpecifier::to_string() {
+template<class T1, class T2>
+string PortSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << ".*(p = " << this->port << ")";
   return res.str();
 }
 
-bool TableSpecifier::check_and_move(Flow* &f) {
+template<class T1, class T2>
+bool TableSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
   while (f->p_flow != f->node->get_EOSFI()) {
-    if (f->node->get_type() == RULE && ((RuleNode*)(f->node))->table == table
+    if (f->node->get_type() == RULE && ((RuleNode<T1, T2> *)(f->node))->table == table
         && f->node->is_at_input_stage()){
       f = *f->p_flow;
       return true;
@@ -148,13 +158,15 @@ bool TableSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-string TableSpecifier::to_string() {
+template<class T1, class T2>
+string TableSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << ".*(t = " << this->table << ")";
   return res.str();
 }
 
-bool NextPortsSpecifier::check_and_move(Flow* &f) {
+template<class T1, class T2>
+bool NextPortsSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
   while (f->p_flow != f->node->get_EOSFI() && !f->node->is_at_input_stage()) {
       f = *f->p_flow;
   }
@@ -165,33 +177,36 @@ bool NextPortsSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-string NextPortsSpecifier::to_string() {
+template<class T1, class T2>
+string NextPortsSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << "(p in " << list_to_string(this->ports) << ")";
   return res.str();
 }
 
-bool NextTablesSpecifier::check_and_move(Flow* &f) {
+template<class T1, class T2>
+bool NextTablesSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
   while (f->p_flow != f->node->get_EOSFI() && !f->node->is_at_input_stage()) {
       f = *f->p_flow;
   }
   if (f->p_flow != f->node->get_EOSFI() && f->node->get_type() == RULE &&
-      elem_in_sorted_list(((RuleNode*)(f->node))->table, tables)) {
+      elem_in_sorted_list(((RuleNode<T1, T2> *)(f->node))->table, tables)) {
     f = *f->p_flow;
     return true;
   }
   return false;
 }
 
-string NextTablesSpecifier::to_string() {
+template<class T1, class T2>
+string NextTablesSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << "(t in " << list_to_string(this->tables) << ")";
   return res.str();
 }
 
-
-bool LastPortsSpecifier::check_and_move(Flow* &f) {
-  Flow *prev = nullptr;
+template<class T1, class T2>
+bool LastPortsSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
+  Flow<T1, T2> *prev = nullptr;
   while (f->p_flow != f->node->get_EOSFI()) {
     prev = f;
     f = *f->p_flow;
@@ -204,33 +219,37 @@ bool LastPortsSpecifier::check_and_move(Flow* &f) {
   }
 }
 
-string LastPortsSpecifier::to_string() {
+template<class T1, class T2>
+string LastPortsSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << ".*(p in " << list_to_string(this->ports) << ")$";
   return res.str();
 }
 
-bool LastTablesSpecifier::check_and_move(Flow* &f) {
-  Flow *prev = nullptr;
+template<class T1, class T2>
+bool LastTablesSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
+  Flow<T1, T2> *prev = nullptr;
   while (f->p_flow != f->node->get_EOSFI()) {
     prev = f;
     f = *f->p_flow;
   }
   if (prev && prev->node->get_type() == RULE && prev->node->is_at_input_stage()
-      && elem_in_sorted_list(((RuleNode*)(prev->node))->table, tables)) {
+      && elem_in_sorted_list(((RuleNode<T1, T2> *)(prev->node))->table, tables)) {
     return true;
   } else {
     return false;
   }
 }
 
-string LastTablesSpecifier::to_string() {
+template<class T1, class T2>
+string LastTablesSpecifier<T1, T2>::to_string() {
   stringstream res;
   res << ".*(t in " << list_to_string(this->tables) << ")$";
   return res.str();
 }
 
-bool SkipNextSpecifier::check_and_move(Flow* &f) {
+template<class T1, class T2>
+bool SkipNextSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &f) {
   while (f->p_flow != f->node->get_EOSFI() && !f->node->is_at_input_stage()) {
       f = *f->p_flow;
   }
@@ -241,19 +260,23 @@ bool SkipNextSpecifier::check_and_move(Flow* &f) {
   return false;
 }
 
-bool SkipNextArbSpecifier::check_and_move(Flow* &/*f*/) {
+template<class T1, class T2>
+bool SkipNextArbSpecifier<T1, T2>::check_and_move(Flow<T1, T2>* &/*f*/) {
   return true;
 }
 
-void TrueCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void TrueCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "true";
 }
 
-void FalseCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void FalseCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "false";
 }
 
-void AndCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void AndCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "and";
 
   Json::Value arg1;
@@ -265,7 +288,8 @@ void AndCondition::to_json(Json::Value& res) {
   res["arg2"] = arg2;
 }
 
-void OrCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void OrCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "or";
 
   Json::Value arg1;
@@ -277,7 +301,8 @@ void OrCondition::to_json(Json::Value& res) {
   res["arg2"] = arg2;
 }
 
-void NotCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void NotCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "not";
 
   Json::Value arg;
@@ -286,14 +311,16 @@ void NotCondition::to_json(Json::Value& res) {
   res["arg"] = arg;
 }
 
-void HeaderCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void HeaderCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "header";
   Json::Value hs(Json::objectValue);
-  hs_to_json(hs,h);
+  hs_to_json(hs, h);
   res["header"] = hs;
 }
 
-void PathCondition::to_json(Json::Value& res) {
+template<class T1, class T2>
+void PathCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "path";
 
   Json::Value pathlets(Json::arrayValue);
@@ -305,45 +332,70 @@ void PathCondition::to_json(Json::Value& res) {
   res["pathlets"] = pathlets;
 }
 
-void PortSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void PortSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "port";
   res["port"] = this->port;
 }
 
-void TableSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void TableSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "table";
   res["table"] = this->table;
 }
 
-void NextPortsSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void NextPortsSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "next_ports";
   res["ports"] = list_to_json(ports);
 }
 
-void NextTablesSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void NextTablesSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "next_tables";
   res["tables"] = list_to_json(tables);
 }
 
-void LastPortsSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void LastPortsSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "last_ports";
   res["ports"] = list_to_json(ports);
 }
 
-void LastTablesSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void LastTablesSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "last_tables";
   res["tables"] = list_to_json(tables);
 }
 
-void SkipNextSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void SkipNextSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "skip";
 }
 
-void SkipNextArbSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void SkipNextArbSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "skip_next";
 }
 
-void EndPathSpecifier::to_json(Json::Value& res) {
+template<class T1, class T2>
+void EndPathSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "end";
 }
 
+template class TrueCondition<struct hs, array_t>;
+template class FalseCondition<struct hs, array_t>;
+template class AndCondition<struct hs, array_t>;
+template class OrCondition<struct hs, array_t>;
+template class NotCondition<struct hs, array_t>;
+template class HeaderCondition<struct hs, array_t>;
+template class PathCondition<struct hs, array_t>;
+template class PortSpecifier<struct hs, array_t>;
+template class TableSpecifier<struct hs, array_t>;
+template class NextPortsSpecifier<struct hs, array_t>;
+template class NextTablesSpecifier<struct hs, array_t>;
+template class LastPortsSpecifier<struct hs, array_t>;
+template class LastTablesSpecifier<struct hs, array_t>;
+template class SkipNextSpecifier<struct hs, array_t>;
+template class SkipNextArbSpecifier<struct hs, array_t>;
+template class EndPathSpecifier<struct hs, array_t>;
