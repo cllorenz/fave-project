@@ -225,7 +225,7 @@ void SourceProbeNode<T1, T2>::start_probe() {
   this->state = STARTED;
 //  auto it = source_flow.begin();
 //  for (; it != source_flow.end(); it++) {
-  for (auto const &flow: source_flow) {
+  for (auto const &flow: this->source_flow) {
     if (!filter->check(flow)) continue;
     bool c = test->check(flow);
     check_results[flow] = c;
@@ -268,15 +268,15 @@ string SourceProbeNode<T1, T2>::to_string() {
   stringstream result;
   char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%lx",node_id);
+  sprintf(buf,"0x%lx", this->node_id);
   if (mode == EXISTENTIAL) result << "  Existential ";
   else result << "  Universal ";
   result << "Probe: " << buf << "\n";
   result << string(40, '=') << "\n";
   result << "Filter: " << filter->to_string() << "\n";
   result << "Condition: " << test->to_string() << "\n";
-  result << pipeline_to_string();
-  result << src_flow_to_string();
+  result << this->pipeline_to_string();
+  result << this->src_flow_to_string();
   return result.str();
 }
 
