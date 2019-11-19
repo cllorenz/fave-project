@@ -22,7 +22,7 @@
 #include "../net_plumber_utils.h"
 extern "C" {
   #include "../../headerspace/array.h"
-#include "../../headerspace/hs.h"
+  #include "../../headerspace/hs.h"
 }
 
 using namespace net_plumber;
