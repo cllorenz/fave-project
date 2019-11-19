@@ -35,7 +35,8 @@ namespace net_plumber {
 
 LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
-array_t *val_to_array(const Json::Value &val) {
+template<typename T1, typename T2>
+T2 *val_to_array(const Json::Value &val) {
   if (val.isNull()) {
     return nullptr;
   }
@@ -48,31 +49,32 @@ array_t *val_to_array(const Json::Value &val) {
   return array_from_str(v);
 }
 
-hs *val_to_hs(const Json::Value &val, int len) {
-  hs *res = hs_create (len);
-  if (val.isString()) hs_add (res, val_to_array(val));
+template<typename T1, typename T2>
+T1 *val_to_hs(const Json::Value &val, int len) {
+  T1 *res = hs_create (len);
+  if (val.isString()) hs_add (res, val_to_array<T1, T2>(val));
   else if (val.isObject()) {
     const Json::Value &list = val["list"];
     const Json::Value &diff = val["diff"];
 #ifdef NEW_HS
     hs_vec *v_list = &res->list;
     for (Json::Value::ArrayIndex i = 0; i < list.size(); i++)
-      hs_vec_append(v_list, val_to_array(list[i]));
+      hs_vec_append(v_list, val_to_array<T1, T2>(list[i]));
 
     hs_vec *v_diff = &res->diff;
     for (Json::Value::ArrayIndex i = 0; i < diff.size(); i++)
-      hs_vec_append(v_diff, val_to_array(diff[i]));
+      hs_vec_append(v_diff, val_to_array<T1, T2>(diff[i]));
 #else
     hs_vec *v = &res->list;
 
 
     for (Json::Value::ArrayIndex i = 0; i < list.size(); i++) {
-      hs_vec_append(v, val_to_array(list[i]), false);
+      hs_vec_append(v, val_to_array<T1, T2>(list[i]), false);
 
       const Json::Value &d = diff[i];
       hs_vec *v_diff = &v->diff[i];
       for (Json::Value::ArrayIndex j = 0; j < d.size(); j++)
-        hs_vec_append(v_diff, val_to_array(d[j]), true);
+        hs_vec_append(v_diff, val_to_array<T1, T2>(d[j]), true);
     }
 #endif
   }
@@ -91,52 +93,59 @@ List_t val_to_list(const Json::Value &val) {
   return ret;
 }
 
-Condition *val_to_path(const Json::Value &pathlets) {
-  PathCondition *path = new PathCondition();
+template<typename T1, typename T2>
+Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
+  PathCondition<T1, T2> *path = new PathCondition<T1, T2>();
   for (Json::Value::ArrayIndex i = 0; i < pathlets.size(); i++) {
     const Json::Value &val = pathlets[i];
     const char *type = val["type"].asCString();
-    PathSpecifier *p = nullptr;
-    if (!strcasecmp(type, "port")) p = new PortSpecifier(val["port"].asUInt());
-    else if (!strcasecmp(type, "table")) p = new TableSpecifier(val["table"].asUInt());
+    PathSpecifier<T1, T2> *p = nullptr;
+    if (!strcasecmp(type, "port")) p = new PortSpecifier<T1, T2>(val["port"].asUInt());
+    else if (!strcasecmp(type, "table")) p = new TableSpecifier<T1, T2>(val["table"].asUInt());
     else if (!strncasecmp(type, "next", 4) || !strncasecmp(type, "last", 4)) {
       const Json::Value &arg = !strcasecmp(type + 5, "ports") ? val["ports"] : val["tables"];
       List_t l = val_to_list(arg);
-      if (!strcasecmp(type, "next_ports")) p = new NextPortsSpecifier(l);
-      else if (!strcasecmp(type, "next_tables")) p = new NextTablesSpecifier(l);
-      else if (!strcasecmp(type, "last_ports")) p = new LastPortsSpecifier(l);
-      else if (!strcasecmp(type, "last_tables")) p = new LastTablesSpecifier(l);
+      if (!strcasecmp(type, "next_ports")) p = new NextPortsSpecifier<T1, T2>(l);
+      else if (!strcasecmp(type, "next_tables")) p = new NextTablesSpecifier<T1, T2>(l);
+      else if (!strcasecmp(type, "last_ports")) p = new LastPortsSpecifier<T1, T2>(l);
+      else if (!strcasecmp(type, "last_tables")) p = new LastTablesSpecifier<T1, T2>(l);
     }
-    else if (!strcasecmp(type, "skip_next")) p = new SkipNextArbSpecifier();
-    else if (!strcasecmp(type, "skip")) p = new SkipNextSpecifier();
-    else if (!strcasecmp(type, "end")) p = new EndPathSpecifier();
+    else if (!strcasecmp(type, "skip_next")) p = new SkipNextArbSpecifier<T1, T2>();
+    else if (!strcasecmp(type, "skip")) p = new SkipNextSpecifier<T1, T2>();
+    else if (!strcasecmp(type, "end")) p = new EndPathSpecifier<T1, T2>();
     path->add_pathlet(p);
   }
   return path;
 }
 
-Condition *val_to_cond(const Json::Value &val, int length) {
+template<typename T1, typename T2>
+Condition<T1, T2> *val_to_cond(const Json::Value &val, int length) {
   if (val.isNull()) return nullptr;
   const char *type = val["type"].asCString();
-  if (!strcasecmp(type, "true")) return new TrueCondition();
-  if (!strcasecmp(type, "false")) return new FalseCondition();
-  if (!strcasecmp(type, "path")) return val_to_path(val["pathlets"]);
-  if (!strcasecmp(type, "header")) return new HeaderCondition(val_to_hs(val["header"], length));
-  if (!strcasecmp(type, "not")) return new NotCondition(val_to_cond(val["arg"], length));
+  if (!strcasecmp(type, "true")) return new TrueCondition<T1, T2>();
+  if (!strcasecmp(type, "false")) return new FalseCondition<T1, T2>();
+  if (!strcasecmp(type, "path")) return val_to_path<T1, T2>(val["pathlets"]);
+  if (!strcasecmp(type, "header")) return new HeaderCondition<T1, T2>(val_to_hs<T1, T2>(val["header"], length));
+  if (!strcasecmp(type, "not")) return new NotCondition<T1, T2>(val_to_cond<T1, T2>(val["arg"], length));
   if (!strcasecmp(type, "and") || !strcasecmp(type, "or")) {
-    Condition *c1 = val_to_cond(val["arg1"], length);
-    Condition *c2 = val_to_cond(val["arg2"], length);
-    if (!strcasecmp(type, "and")) return new AndCondition(c1, c2);
-    else return new OrCondition(c1, c2);
+    Condition<T1, T2> *c1 = val_to_cond<T1, T2>(val["arg1"], length);
+    Condition<T1, T2> *c2 = val_to_cond<T1, T2>(val["arg2"], length);
+    if (!strcasecmp(type, "and")) return new AndCondition<T1, T2>(c1, c2);
+    else return new OrCondition<T1, T2>(c1, c2);
   }
   return nullptr;
 }
 
-typedef bool (RpcHandler::*RpcFn) (const Json::Value &, Json::Value &);
+//typedef bool (RpcHandler<T1, T2>::*RpcFn) (const Json::Value &, Json::Value &);
 
-void RpcHandler::initServer (Server *server) {
-#define FN(NAME) {#NAME, &RpcHandler::NAME}
-  struct { string name; RpcFn fn; } methods[] = {
+template<class T1, class T2>
+using RpcFn = bool (RpcHandler<T1, T2>::*) (const Json::Value &, Json::Value &);
+
+template<class T1, class T2>
+void RpcHandler<T1, T2>::initServer (Server *server) {
+// FN(foo) -> {"foo", &RpcHandler<T1, T2>::foo}
+#define FN(NAME) {#NAME, &RpcHandler<T1, T2>::NAME}
+  struct { string name; RpcFn<T1, T2> fn; } methods[] = {
     FN(init), FN(destroy),
     FN(add_link), FN(remove_link),
     FN(add_table), FN(remove_table),
@@ -164,7 +173,7 @@ void RpcHandler::initServer (Server *server) {
   };
   size_t n = sizeof methods / sizeof *methods;
   for (size_t i = 0; i < n; i++)
-    server->AddMethod (new RpcMethod<RpcHandler> (*this, methods[i].fn, methods[i].name));
+    server->AddMethod (new RpcMethod<RpcHandler<T1, T2> > (*this, methods[i].fn, methods[i].name));
 #undef FN
 }
 
@@ -179,7 +188,8 @@ void RpcHandler::initServer (Server *server) {
     LOG_MSG_RESET; \
  */
 #define PROTO(NAME) \
-  bool RpcHandler::NAME (const Json::Value &req, Json::Value &resp) { \
+  template<class T1, class T2>\
+  bool RpcHandler<T1, T2>::NAME (const Json::Value &req, Json::Value &resp) { \
     stringstream log_msg; \
     resp["id"] = req["id"]; resp["jsonrpc"] = req["jsonrpc"]; \
     double start, end; start = get_cpu_time_ms();
@@ -212,7 +222,7 @@ void RpcHandler::initServer (Server *server) {
 PROTO(init)
   length = PARAM(length).asUInt64();
   if (netPlumber) ERROR ("Already initialized.");
-  netPlumber = new NetPlumber(length);
+  netPlumber = new NetPlumber<T1, T2>(length);
   RETURN(VOID);
 }
 
@@ -261,11 +271,11 @@ PROTO(add_rule)
   int index = PARAM(index).asInt();
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
-  array_t *match = val_to_array(PARAM(match));
+  T2 *match = val_to_array<T1, T2>(PARAM(match));
   // TODO: fix error handling properly
   if (!match) match = array_create(length,BIT_X);// ERROR("empty match");
-  array_t *mask = val_to_array(PARAM(mask));
-  array_t *rw = val_to_array(PARAM(rw));
+  T2 *mask = val_to_array<T1, T2>(PARAM(mask));
+  T2 *rw = val_to_array<T1, T2>(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
   RETURN((Json::Value::UInt64) ret);
 }
@@ -282,7 +292,7 @@ PROTO(remove_rule)
 }
 
 PROTO(add_source)
-  hs *h = val_to_hs(PARAM(hs), length);
+  T1 *h = val_to_hs<T1, T2>(PARAM(hs), length);
   List_t ports = val_to_list(PARAM(ports));
   uint64_t ret = netPlumber->add_source(h, ports);
   RETURN((Json::Value::UInt64) ret);
@@ -297,10 +307,10 @@ PROTO(remove_source)
 PROTO(add_source_probe)
   List_t ports = val_to_list(PARAM(ports));
   PROBE_MODE mode = !strcasecmp(PARAM(mode).asCString(), "universal") ? UNIVERSAL : EXISTENTIAL;
-  Condition *filter = val_to_cond(PARAM(filter), length);
-  if (!filter) filter = new TrueCondition();
-  Condition *test = val_to_cond(PARAM(test), length);
-  if (!test) test = new TrueCondition();
+  Condition<T1, T2> *filter = val_to_cond<T1, T2>(PARAM(filter), length);
+  if (!filter) filter = new TrueCondition<T1, T2>();
+  Condition<T1, T2> *test = val_to_cond<T1, T2>(PARAM(test), length);
+  if (!test) test = new TrueCondition<T1, T2>();
   uint64_t ret = netPlumber->add_source_probe(
     ports, mode, filter, test, nullptr, nullptr
   );
@@ -316,7 +326,7 @@ PROTO(remove_source_probe)
 #ifdef PIPE_SLICING
 PROTO(add_slice)
   uint64_t id = PARAM(id).asUInt64();
-  hs *net_space = val_to_hs(PARAM(net_space),length);
+  T1 *net_space = val_to_hs<T1, T2>(PARAM(net_space),length);
 
   bool ret = true;
   ret = netPlumber->add_slice(id,net_space);
@@ -402,7 +412,7 @@ PROTO(print_plumbing_network)
 
 PROTO(reset_plumbing_network)
   netPlumber->~NetPlumber();
-  netPlumber = new NetPlumber(length);
+  netPlumber = new NetPlumber<T1, T2>(length);
   RETURN(VOID);
 }
 
@@ -447,5 +457,12 @@ PROTO(dump_slices)
   RETURN(VOID);
 }
 #endif /* PIPE_SLICING */
-}
+
+template class RpcHandler<struct hs, array_t>;
+
+template array_t* val_to_array<struct hs, array_t>(const Json::Value&);
+template struct hs* val_to_hs<struct hs, array_t>(const Json::Value&, int);
+template Condition<struct hs, array_t>* val_to_path<struct hs, array_t>(const Json::Value&);
+template Condition<struct hs, array_t> *val_to_cond<struct hs, array_t>(const Json::Value&, int);
+} /* namespace net_plumber */
 

@@ -28,17 +28,22 @@
 
 namespace net_plumber {
 
-array_t *val_to_array(const Json::Value &val);
-hs *val_to_hs(const Json::Value &val, int len);
+template<class T1, class T2>
+T2 *val_to_array(const Json::Value &val);
+template<class T1, class T2>
+T1 *val_to_hs(const Json::Value &val, int len);
 List_t val_to_list(const Json::Value &val);
-Condition *val_to_path(const Json::Value &pathlets);
-Condition *val_to_cond(const Json::Value &val, int length);
+template<class T1, class T2>
+Condition<T1, T2> *val_to_path(const Json::Value &pathlets);
+template<class T1, class T2>
+Condition<T1, T2> *val_to_cond(const Json::Value &val, int length);
 
+template<class T1, class T2>
 class RpcHandler {
-  NetPlumber *netPlumber;
+  NetPlumber<T1, T2> *netPlumber;
   size_t length;
 public:
-  RpcHandler(NetPlumber *N): netPlumber(N), length(N->get_length()) { }
+  RpcHandler(NetPlumber<T1, T2> *N): netPlumber(N), length(N->get_length()) { }
   void initServer(Json::Rpc::Server *server);
 
 private:
