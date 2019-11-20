@@ -396,8 +396,8 @@ array_combine(array_t **_a, array_t **_b, array_t **extra,
   array_t *tmp = array_merge(a, b, len);
   if (!tmp) { *extra = NULL; return; }
 
-  bool b1 = array_is_sub(a, tmp, len);
-  bool b2 = array_is_sub(b, tmp, len);
+  const bool b1 = array_is_sub(a, tmp, len);
+  const bool b2 = array_is_sub(b, tmp, len);
   // e.g. 10x0 U 10x1 --> 10xx
   if (b1 && b2) {
     array_free(a);
