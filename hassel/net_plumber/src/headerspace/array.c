@@ -857,10 +857,11 @@ array_merge(const array_t *a, const array_t *b, size_t len) {
         res[i] = isect | diff;
         // count the number of different 0 and 1
         // e.g., 1001 ^ 1000 -> zzzx -> 1
+#ifdef STRICT_RW
+        cnt += x_count(diff, EVEN_MASK);
+#else
         cnt += x_count(diff, ODD_MASK);
-        // XXX: shortcut possibly leads to jump based on unitialized value
-        //      in array_has_z()
-        //if (cnt > 1) break;
+#endif
     }
 
     if (array_has_z(res, len)) return NULL;
