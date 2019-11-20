@@ -1008,3 +1008,25 @@ void ArrayTest::test_array_rewrite() {
   array_free(rw);
   array_free(res);
 }
+
+
+void ArrayTest::test_array_combine_regression() {
+  printf("\n");
+
+  array_t *a = array_from_str("0000110x");
+  array_t *b = array_from_str("0001010x");
+  array_t *extra = NULL;
+  array_t *res = array_from_str("000xx10x");
+
+  array_combine(&a, &b, &extra, NULL, 1);
+
+  CPPUNIT_ASSERT(a != NULL);
+  CPPUNIT_ASSERT(b != NULL);
+  CPPUNIT_ASSERT(!array_is_eq(extra, res, 1));
+  CPPUNIT_ASSERT(extra == NULL);
+
+  array_free(a);
+  array_free(b);
+  array_free(extra);
+  array_free(res);
+}

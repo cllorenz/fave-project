@@ -43,6 +43,7 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_isect);
         CPPUNIT_TEST(test_array_not);
         CPPUNIT_TEST(test_array_rewrite);
+        CPPUNIT_TEST(test_array_combine_regression);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -61,6 +62,7 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_isect();
         void test_array_not();
         void test_array_rewrite();
+        void test_array_combine_regression();
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_ARRAY_UNIT_H_
