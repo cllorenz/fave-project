@@ -256,6 +256,12 @@ array_has_isect(const array_t *a, const array_t *b, size_t len) {
 }
 
 bool
+array_is_empty (const array_t *a, size_t len)
+{
+    return !a || array_has_z(a, len);
+}
+
+bool
 array_is_eq (const array_t *a, const array_t *b, size_t len)
 {
     // trivial case where both operands are NULL

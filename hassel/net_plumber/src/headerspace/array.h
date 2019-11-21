@@ -36,6 +36,7 @@ bool array_all_x  (const array_t *a, size_t len);
 bool array_has_x  (const array_t *a, size_t len);
 bool array_has_z  (const array_t *a, size_t len);
 bool array_has_isect    (const array_t *a, const array_t *b, size_t len);
+bool array_is_empty (const array_t *a, size_t len);
 bool array_is_eq  (const array_t *a, const array_t *b, size_t len);
 /* True if B is a subset of A. */
 bool array_is_sub (const array_t *a, const array_t *b, size_t len);
