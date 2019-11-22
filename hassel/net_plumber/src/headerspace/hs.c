@@ -1135,9 +1135,6 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     const bool b_empty = hs_is_empty(b);
     if (b_empty && !a_empty) return false;
 
-    // trivial case (B is All set)
-    if (b->list.used == 1 && array_all_x(b->list.elems[0], b->len)) return true;
-
     // simple case (no diffs)
     if (!hs_has_diff(a) && !hs_has_diff(b)) {
 
