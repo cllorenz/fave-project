@@ -736,16 +736,20 @@ hs_cmpl (struct hs *hs)
     tmp.elems = array_cmpl_a (v->elems[i], hs->len, &tmp.used);
     tmp.alloc = tmp.used;
 
-    /* If complement is empty, result will be empty. */
-    if (!tmp.elems) {
-      vec_destroy (&new_list);
-      vec_destroy (&hs->list);
-      memset (&hs->list, 0, sizeof hs->list);
-      return;
+    const bool empty_cmpl = tmp.elems == NULL;
+
+    /* If complement is empty, use diff if existing. */
+    if (empty_cmpl && v->diff[i].used) {
+      struct hs_vec *d = &v->diff[i];
+      for (size_t j = 0; j < d->used; j++)
+        vec_append (&tmp, array_copy(d->elems[j],hs->len), false);
+    } else if (empty_cmpl) {
+        continue;
     }
 
-    tmp.diff = xcalloc (tmp.alloc, sizeof *tmp.diff);
-    if (v->diff) { /* NULL if called from comp_diff */
+    if (!empty_cmpl) tmp.diff = xcalloc (tmp.alloc, sizeof *tmp.diff);
+
+    if (!empty_cmpl && v->diff) { /* NULL if called from comp_diff */
       struct hs_vec *d = &v->diff[i];
       for (size_t j = 0; j < d->used; j++)
         vec_append (&tmp, array_copy(d->elems[j],hs->len), false);
@@ -1183,8 +1187,8 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
     struct hs tmp_isect = {tmp_a.len,{0, 0, 0, 0}};
     hs_copy(&tmp_isect,&tmp_a);
     hs_isect(&tmp_isect,&tmp_b);
-    if (hs_is_empty(&tmp_isect)) {
 
+    if (hs_is_empty(&tmp_isect)) {
         hs_destroy(&tmp_isect);
         hs_destroy(&tmp_a);
         hs_destroy(&tmp_b);
