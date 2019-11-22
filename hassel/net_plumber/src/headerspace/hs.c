@@ -9,7 +9,7 @@
 
 #include "hs.h"
 
-#define MAX_STR 65536
+#define MAX_STR 2<<18
 #define VEC_START_SIZE 1
 
 /* Add A to V. If DIFF, V is a diff list, else V is directly from an hs. */
