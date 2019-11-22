@@ -1891,3 +1891,71 @@ void HeaderspaceTest::test_merge() {
 
     hs_destroy(&a);
 }
+
+void HeaderspaceTest::test_compact_regression() {
+    struct hs a = {4, {0, 0, 0, 0}};
+    hs_vec_append(&a.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001001x,xxxxxxxx"), true); // dip = 10.0.18.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001100x,xxxxxxxx"), true); // dip = 10.0.24.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001011x,xxxxxxxx"), true); // dip = 10.0.22.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001111x,xxxxxxxx"), true); // dip = 10.0.30.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001001x,xxxxxxxx"), true); // dip = 10.0.18.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0000111x,xxxxxxxx"), true); // dip = 10.0.12.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001000x,xxxxxxxx"), true); // dip = 10.0.16.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0000110x,xxxxxxxx"), true); // dip = 10.0.14.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001010x,xxxxxxxx"), true); // dip = 10.0.20.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("01111011,01111011,00110000,xxxxxxxx"), true); // dip = 123.123.48.0/24
+
+    struct hs b = {4, {0, 0, 0, 0}};
+    hs_vec_append(&b.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
+    hs_vec_append(&b.list.diff[0], array_from_str("01111011,01111011,00110000,xxxxxxxx"), true); // dip = 123.123.48.0/24
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0001x0xx,xxxxxxxx"), true); // dip = 10.0.{16,18,24,26}.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0000111x,xxxxxxxx"), true); // dip = 10.0.14.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0001x11x,xxxxxxxx"), true); // dip = 10.0.{22,30}.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,000xx10x,xxxxxxxx"), true); // dip = 10.0.{4,12,20,28}.0/23 <- this is wrong
+
+    struct hs c = {4, {0, 0, 0, 0}};
+    hs_vec_append(&c.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
+    hs_vec_append(&c.list.diff[0], array_from_str("01111011,01111011,00110000,xxxxxxxx"), true); // dip = 123.123.48.0/24
+    hs_vec_append(&c.list.diff[0], array_from_str("00001010,00000000,0001010x,xxxxxxxx"), true); // dip = 10.0.20.0/23
+    hs_vec_append(&c.list.diff[0], array_from_str("00001010,00000000,00010x1x,xxxxxxxx"), true); // dip = 10.0.{18,22}.0/23
+    hs_vec_append(&c.list.diff[0], array_from_str("00001010,00000000,0001x00x,xxxxxxxx"), true); // dip = 10.0.{16,24}.0/23
+    hs_vec_append(&c.list.diff[0], array_from_str("00001010,00000000,0000110x,xxxxxxxx"), true); // dip = 10.0.12.0/23
+    hs_vec_append(&c.list.diff[0], array_from_str("00001010,00000000,000x111x,xxxxxxxx"), true); // dip = 10.0.{14,30}.0/23
+
+    hs_compact(&a);
+
+    CPPUNIT_ASSERT(!hs_is_equal(&a, &b));
+    CPPUNIT_ASSERT(hs_is_equal(&a, &c));
+
+    hs_destroy(&a);
+    hs_destroy(&b);
+    hs_destroy(&c);
+}
+
+
+void HeaderspaceTest::test_is_equal_regression2() {
+    printf("\n");
+
+    struct hs a = {4, {0, 0, 0, 0}};
+    hs_vec_append(&a.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
+    hs_vec_append(&a.list.diff[0], array_from_str("01111011,01111011,00110000,xxxxxxxx"), true); // dip = 123.123.48.0/24
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001x0xx,xxxxxxxx"), true); // dip = 10.0.{16,18,24,26}.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0000111x,xxxxxxxx"), true); // dip = 10.0.14.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001x11x,xxxxxxxx"), true); // dip = 10.0.{22,30}.0/23
+    hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,000xx10x,xxxxxxxx"), true); // dip = 10.0.{4,12,20,28}.0/23
+
+    struct hs b = {4, {0, 0, 0, 0}};
+    hs_vec_append(&b.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
+    hs_vec_append(&b.list.diff[0], array_from_str("01111011,01111011,00110000,xxxxxxxx"), true); // dip = 123.123.48.0/24
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0001010x,xxxxxxxx"), true); // dip = 10.0.20.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,00010x1x,xxxxxxxx"), true); // dip = 10.0.{18,22}.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0001x00x,xxxxxxxx"), true); // dip = 10.0.{16,24}.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,0000110x,xxxxxxxx"), true); // dip = 10.0.12.0/23
+    hs_vec_append(&b.list.diff[0], array_from_str("00001010,00000000,000x111x,xxxxxxxx"), true); // dip = 10.0.{14,30}.0/23
+
+    CPPUNIT_ASSERT(!hs_is_equal(&a, &b));
+
+    hs_destroy(&a);
+    hs_destroy(&b);
+}
