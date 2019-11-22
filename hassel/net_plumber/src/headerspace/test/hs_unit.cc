@@ -673,9 +673,6 @@ void HeaderspaceTest::test_is_equal() {
     hs_vec_append(a.list.diff,array_from_str("11xxxxx1"),true);
 #endif
 
-    hs_print(h);
-    hs_print(&a);
-
     CPPUNIT_ASSERT(hs_is_equal(h,&a));
 
     hs_destroy(&a);
