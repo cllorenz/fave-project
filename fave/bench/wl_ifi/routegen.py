@@ -44,7 +44,7 @@ if __name__ == '__main__':
         "external.ifi", 1, 0,
         ["ipv4_dst=123.123.48.0/24"],
         ["fd=external.ifi.3"],
-        []
+        ["external.ifi.1", "external.ifi.2"]
     ))
     # routed networks
     routes.extend([
@@ -52,7 +52,7 @@ if __name__ == '__main__':
             sub, 1, 0,
             ["ipv4_dst=%s" % domain_to_ips[sub]],
             ["fd=%s.3" % sub],
-            []
+            ["%s.1" % sub, "%s.2" % sub]
         ) for sub in WITH_IP
     ])
     # unrouted networks
@@ -61,15 +61,15 @@ if __name__ == '__main__':
             sub, 1, 0,
             ["ipv4_dst=%s" % "192.168.%s.0/24" % idx],
             ["fd=%s.3" % sub],
-            []
+            ["%s.1" % sub, "%s.2" % sub]
         ) for idx, sub in enumerate(WITHOUT_IP, start=0)
     ])
 
     # one default route per subnet directing towards the router
-    routes.append(("external.ifi", 1, 65535, [], ["fd=external.ifi.1"], []))
+    routes.append(("external.ifi", 1, 65535, [], ["fd=external.ifi.1"], ["external.ifi.1", "external.ifi.2"]))
     routes.extend([
         (
-            sub, 1, 65535, [], ["fd=%s.1" % sub], []
+            sub, 1, 65535, [], ["fd=%s.1" % sub], ["%s.1" % sub, "%s.2" % sub]
         ) for sub in SUBNETS
     ])
 
