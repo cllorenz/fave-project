@@ -140,7 +140,7 @@ class RouterModel(Model):
         ]
 
         acl_in = [
-            SwitchRule(node, "acl_in", 2**16-3,
+            SwitchRule(node, "acl_in", 1,
                 in_ports=['in'],
                 match=Match(
                     fields=[
@@ -150,7 +150,7 @@ class RouterModel(Model):
                 ),
                 actions=[]
             ),
-            SwitchRule(node, "routing", 2**16-2,
+            SwitchRule(node, "acl_in", 2,
                 in_ports=['in'],
                 match=Match(
                     fields=[
