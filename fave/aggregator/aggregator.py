@@ -660,13 +660,14 @@ class Aggregator(AbstractAggregator):
 
             rewrite = None
             mask = None
-            for port in [p for p in ['in_port', 'out_port'] if p in self.mapping]:
-                size = FIELD_SIZES[port]
+
+            if any([(p in self.mapping) for p in ['in_port', 'out_port']]):
                 rewrite = Vector(length=rvec.length, preset="x")
                 mask = Vector(length=rewrite.length, preset="0")
 
+            for port in [p for p in ['in_port', 'out_port'] if p in self.mapping]:
                 set_field_in_vector(
-                    self.mapping, mask, port, '1'*size
+                    self.mapping, mask, port, '1'*FIELD_SIZES[port]
                 )
 
             in_ports = [
