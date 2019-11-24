@@ -15,7 +15,6 @@ from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
 CAPACITY=2**16/2**12 # XXX: ugly workaround
 
-
 class RouterModel(Model):
     """ This class provides a model for routers.
     """
@@ -120,9 +119,7 @@ class RouterModel(Model):
                 ),
                 actions=[
                     Rewrite(rewrite=[
-                        SwitchRuleField("in_port", "x"*32)
-                    ]),
-                    Rewrite(rewrite=[
+                        SwitchRuleField("in_port", "x"*32),
                         SwitchRuleField("out_port", "x"*32)
                     ]),
                     Forward(ports=[get_oname(port)])
