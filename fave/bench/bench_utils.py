@@ -160,7 +160,7 @@ if __name__ == '__main__':
     os.system("python2 bench/wl_up/policygen.py")
     os.system("python2 bench/wl_up/checkgen.py")
 
-    os.system("bash scripts/start_np.sh bench/wl_up/np.conf")
+    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
 
     with open(TOPOLOGY, 'r') as raw_topology:
