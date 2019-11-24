@@ -27,10 +27,11 @@ class TopologyRenderer(object):
 
     def __init__(
             self,
-            use_pipes,
-            use_topology,
-            use_policy,
             use_fave,
+            use_pipes,
+            use_policy,
+            use_tables,
+            use_topology,
             json_tables,
             json_policy,
             json_topology,
@@ -45,10 +46,11 @@ class TopologyRenderer(object):
         use_topology: topology information is printed in a subgraph separate from pipes
         json_*: required netplumber dump information to build the graphs
         """
-        self.use_pipes = use_pipes
-        self.use_topology = use_topology
-        self.use_policy = use_policy
         self.use_fave = use_fave
+        self.use_pipes = use_pipes
+        self.use_policy = use_policy
+        self.use_tables = use_tables
+        self.use_topology = use_topology
         self.json_tables = json_tables
         self.json_policy = json_policy
         self.json_topology = json_topology
@@ -86,6 +88,7 @@ class TopologyRenderer(object):
     def build(self):
         """ render subgraph with pipes and slices """
         self.__build_policy()
+        self.__build_rule_labels()
         self.__build_tables()
         self.__build_topology()
         self.__build_pipes()
@@ -179,10 +182,21 @@ class TopologyRenderer(object):
             label = self.fave['id_to_port'][str(port)].split('_')
             return label[len(label)-1]
 
+
+    def __build_rule_labels(self):
+        for i, table in enumerate(self.json_tables):
+            for j, rule in enumerate(table['rules']):
+                rule_id = rule['id']
+                if rule_id not in self.rule_labels:
+                    label = self._build_rule_label(rule) if self.use_verbose else hex(rule_id)
+                    self.rule_labels[rule_id] = label
+
+
     def __build_tables(self):
+        if not self.use_tables:
+            return
         if not self.json_tables:
             raise MissingData('Missing Tables')
-
 
         for i, table in enumerate(self.json_tables):
             tgraph = Digraph(name='cluster1_' + str(i))
@@ -194,19 +208,20 @@ class TopologyRenderer(object):
                 tgraph.node('port'+str(port), label=plabel, shape='circle')
 
             for j, rule in enumerate(table['rules']):
-                label = self._build_rule_label(rule)
+                rule_id = rule['id']
+                label = self.rule_labels[rule_id]
 
                 tgraph.node(
-                    'rule'+str(i)+str(j),
+                    "rule_%s_%s" % (i, j),
                     label=label,
                     shape='rectangle'
                 )
 
                 for in_port in rule['in_ports']:
-                    tgraph.edge('port'+str(in_port), 'rule'+str(i)+str(j))
+                    tgraph.edge('port'+str(in_port), 'rule_%s_%s' % (i, j))
 
                 for out_port in rule['out_ports']:
-                    tgraph.edge('rule'+str(i)+str(j), 'port'+str(out_port))
+                    tgraph.edge('rule_%s_%s' % (i, j), 'port'+str(out_port))
 
 
             self.tgraph.subgraph(tgraph)
@@ -453,6 +468,7 @@ def _print_help():
     print '\t-b include flow trees (disables flows)'
     print '\t-f include flows (disables flow trees)'
     print '\t-l show fave labels instead of netplumber identifiers'
+    print '\t-n suppress tables (also ignores -p and -t)'
     print '\t-p include policy'
     print '\t-r include pipes'
     print '\t-s include slices'
@@ -470,7 +486,7 @@ def _break_list_inline(rows, row_func, lrow_func):
         res = [row_func('', rows[0])]
 
     if len(rows) > 2:
-        res += [row_func('+ ', row) for row in rows[1:-2]]
+        res += [row_func('+ ', row) for row in rows[1:-1]]
 
     if len(rows) > 1:
         res += [lrow_func('+ ', rows[-1])]
@@ -514,7 +530,7 @@ def _read_files(ddir, name):
 
 if __name__ == '__main__':
     try:
-        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bflprstv')
+        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bflnprstv')
     except getopt.GetoptError:
         print 'Unable to parse options.'
         sys.exit(1)
@@ -523,6 +539,7 @@ if __name__ == '__main__':
     USE_PIPES = False
     USE_SLICE = False
     USE_POLICY = False
+    USE_TABLES = True
     USE_TOPOLOGY = False
     USE_FAVE = False
     USE_FLOWS = False
@@ -540,6 +557,8 @@ if __name__ == '__main__':
         elif opt == '-f':
             USE_FLOWS = True
             USE_FLOW_TREES = False
+        elif opt == '-n':
+            USE_TABLES=False
         elif opt == '-l':
             USE_FAVE = True
         elif opt == '-p':
@@ -560,6 +579,10 @@ if __name__ == '__main__':
             _print_help()
             sys.exit(2)
 
+    if not USE_TABLES:
+        USE_POLICY = False
+        USE_TOPOLOGY = False
+
     # read required data
     JSON_TABLES = _read_tables(USE_DIR)
 
@@ -572,7 +595,7 @@ if __name__ == '__main__':
     JSON_FAVE = _read_files(USE_DIR, 'fave') if USE_FAVE else None
 
     GB = TopologyRenderer(
-        USE_PIPES, USE_TOPOLOGY, USE_POLICY, USE_FAVE,
+        USE_FAVE, USE_PIPES, USE_POLICY, USE_TABLES, USE_TOPOLOGY,
         JSON_TABLES, JSON_POLICY, JSON_TOPOLOGY, JSON_PIPES,
         use_slices=USE_SLICE, json_slices=JSON_SLICES,
         use_flows=USE_FLOWS, json_flows=JSON_FLOWS, json_fave=JSON_FAVE,
