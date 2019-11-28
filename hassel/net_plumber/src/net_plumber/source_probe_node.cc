@@ -85,7 +85,8 @@ void SourceProbeNode::process_src_flow(Flow *f) {
     auto f_it = source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
     f->processed_hs = hs_copy_a(f->hs_object);
-    hs_comp_diff(f->processed_hs);
+    // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
+    //hs_comp_diff(f->processed_hs);
     if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
     for (auto const &prev: prev_in_pipeline) {
@@ -103,7 +104,8 @@ void SourceProbeNode::process_src_flow_at_location(
   } else {
     hs_free(f->processed_hs);
     f->processed_hs = hs_copy_a(f->hs_object);
-    hs_comp_diff(f->processed_hs);
+    // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
+    //hs_comp_diff(f->processed_hs);
   }
   if (state == RUNNING) update_check(f,FLOW_MODIFY);
 }
