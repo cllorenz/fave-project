@@ -1067,7 +1067,9 @@ class Aggregator(AbstractAggregator):
                 ] if filter_fields.hs_diff else None
             }
 
-        filter_expr = {"type" : "header", "header" : filter_hs}
+        # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
+#        filter_expr = {"type" : "header", "header" : filter_hs}
+        filter_expr = None
 
         test_path = []
         for pathlet in model.test_path.to_json()['pathlets']:
@@ -1110,18 +1112,18 @@ class Aggregator(AbstractAggregator):
                 ] if test_fields.hs_diff else None
             }
 
-
+        # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
         if test_fields and test_path:
             test_expr = {
-                "type": "and",
-                "arg1" : {
-                    "type" : "header",
-                    "header" : test_hs
-                },
-                "arg2" : {
+#                "type": "and",
+#                "arg1" : {
+#                    "type" : "header",
+#                    "header" : test_hs
+#                },
+#                "arg2" : {
                     "type" : "path",
                     "pathlets" : test_path
-                }
+#                }
             }
 
         elif test_fields:
