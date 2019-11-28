@@ -174,3 +174,70 @@ interface vlan 477
   no ip address
   ip access-group 111 out
   ip access-group 111 in
+# binds upstream port to internet vlan
+interface ifi.1
+  switchport access vlan 4095
+#interface ifi.2
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.3
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.4
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.5
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.6
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.7
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.8
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.9
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.10
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.11
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.12
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.13
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.14
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.15
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.16
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
+#interface ifi.17
+#  switchport trunk encapsulation dot1q
+#  switchport trunk allowed vlan 48,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477
+#  switchport mode trunk
