@@ -5,7 +5,10 @@ access-list 100 permit ip 10.0.20.0 0.0.1.255 123.123.48.0 0.0.0.255
 access-list 100 permit ip 10.0.22.0 0.0.1.255 123.123.48.0 0.0.0.255
 access-list 100 permit ip 10.0.24.0 0.0.1.255 123.123.48.0 0.0.0.255
 access-list 100 permit ip 10.0.30.0 0.0.1.255 123.123.48.0 0.0.0.255
+# access from the internet
+access-list 100 permit ip 0.0.0.0 0.0.0.0 123.123.48.0 0.0.0.255
 access-list 100 deny ip any any
+
 access-list 101 permit ip 10.0.14.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.16.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.18.0 0.0.1.255 10.0.12.0 0.0.1.255
@@ -14,6 +17,7 @@ access-list 101 permit ip 10.0.22.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.24.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 permit ip 10.0.30.0 0.0.1.255 10.0.12.0 0.0.1.255
 access-list 101 deny ip any any
+
 access-list 102 permit ip 10.0.12.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.16.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.18.0 0.0.1.255 10.0.14.0 0.0.1.255
@@ -22,27 +26,45 @@ access-list 102 permit ip 10.0.22.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.24.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 10.0.30.0 0.0.1.255 10.0.14.0 0.0.1.255
 access-list 102 permit ip 123.123.48.0 0.0.0.255 10.0.14.0 0.0.1.255
+# access from the internet
+access-list 102 permit ip 0.0.0.0 0.0.0.0 10.0.14.0 0.0.1.255
 access-list 102 deny ip any any
+
 access-list 103 permit ip 10.0.12.0 0.0.1.255 10.0.16.0 0.0.1.255
 access-list 103 permit ip 10.0.14.0 0.0.1.255 10.0.16.0 0.0.1.255
 access-list 103 permit ip 123.123.48.0 0.0.0.255 10.0.16.0 0.0.1.255
+# access from the internet
+access-list 103 permit ip 0.0.0.0 0.0.0.0 10.0.16.0 0.0.1.255
 access-list 103 deny ip any any
+
 access-list 104 permit ip 10.0.12.0 0.0.1.255 10.0.18.0 0.0.1.255
 access-list 104 permit ip 10.0.14.0 0.0.1.255 10.0.18.0 0.0.1.255
 access-list 104 permit ip 123.123.48.0 0.0.0.255 10.0.18.0 0.0.1.255
+# access from the internet
+access-list 104 permit ip 0.0.0.0 0.0.0.0 10.0.18.0 0.0.1.255
 access-list 104 deny ip any any
+
 access-list 105 permit ip 10.0.12.0 0.0.1.255 10.0.20.0 0.0.1.255
 access-list 105 permit ip 10.0.14.0 0.0.1.255 10.0.20.0 0.0.1.255
 access-list 105 permit ip 123.123.48.0 0.0.0.255 10.0.20.0 0.0.1.255
+# access from the internet
+access-list 105 permit ip 0.0.0.0 0.0.0.0 10.0.20.0 0.0.1.255
 access-list 105 deny ip any any
+
 access-list 106 permit ip 10.0.12.0 0.0.1.255 10.0.22.0 0.0.1.255
 access-list 106 permit ip 10.0.14.0 0.0.1.255 10.0.22.0 0.0.1.255
 access-list 106 permit ip 123.123.48.0 0.0.0.255 10.0.22.0 0.0.1.255
+# access from the internet
+access-list 106 permit ip 0.0.0.0 0.0.0.0 10.0.22.0 0.0.1.255
 access-list 106 deny ip any any
+
 access-list 107 permit ip 10.0.12.0 0.0.1.255 10.0.24.0 0.0.1.255
 access-list 107 permit ip 10.0.14.0 0.0.1.255 10.0.24.0 0.0.1.255
 access-list 107 permit ip 123.123.48.0 0.0.0.255 10.0.24.0 0.0.1.255
+# access from the internet
+access-list 107 permit ip 0.0.0.0 0.0.0.0 10.0.24.0 0.0.1.255
 access-list 107 deny ip any any
+
 access-list 108 permit ip 10.0.12.0 0.0.1.255 10.0.30.0 0.0.1.255
 access-list 108 permit ip 10.0.14.0 0.0.1.255 10.0.30.0 0.0.1.255
 access-list 108 permit ip 123.123.48.0 0.0.0.255 10.0.30.0 0.0.1.255
