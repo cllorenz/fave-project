@@ -298,7 +298,9 @@ PROTO(add_source_probe)
   List_t ports = val_to_list(PARAM(ports));
   PROBE_MODE mode = !strcasecmp(PARAM(mode).asCString(), "universal") ? UNIVERSAL : EXISTENTIAL;
   Condition *filter = val_to_cond(PARAM(filter), length);
+  if (!filter) filter = new TrueCondition();
   Condition *test = val_to_cond(PARAM(test), length);
+  if (!test) test = new TrueCondition();
   uint64_t ret = netPlumber->add_source_probe(
     ports, mode, filter, test, nullptr, nullptr
   );
