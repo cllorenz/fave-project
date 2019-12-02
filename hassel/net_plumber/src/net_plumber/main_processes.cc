@@ -189,9 +189,11 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
     printf("Error opening the file %s\n",json_policy_file.c_str());
     return;
   }
+  printf("Parse policy file: %s...\n", json_policy_file.c_str());
   reader.parse(jsfile,root,false);
+  printf("Load policy...\n");
   Json::Value commands = root["commands"];
-  start = get_cpu_time_s();
+  start = get_cpu_time_us();
   for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
@@ -219,7 +221,7 @@ void load_policy_file(string json_policy_file, NetPlumber *N, array_t *filter) {
       N->add_link(from_port,to_port);
     }
   }
-  end = get_cpu_time_s();
-  printf("Loaded policy file in %.2lf seconds\n", end - start);
+  end = get_cpu_time_us();
+  printf("Loaded policy file in %.2lf seconds (%.2lfus)\n", (end - start)/1000000.0, (end - start));
   jsfile.close();
 }
