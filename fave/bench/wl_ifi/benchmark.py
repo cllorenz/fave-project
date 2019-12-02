@@ -33,6 +33,13 @@ def campus_network(config):
 if __name__ == '__main__':
     import json
     import os
+    import sys
+
+    verbose = False
+    if len(sys.argv) > 1:
+        verbose = sys.argv[1] == '-v'
+
+    if verbose: print "Generate benchmark... ",
 
     os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
     os.system("python2 bench/wl_ifi/inventorygen.py")
@@ -55,6 +62,10 @@ if __name__ == '__main__':
     )
 
     os.system("python2 bench/wl_ifi/policygen.py")
+
+    if verbose:
+        print "ok"
+        print "Run benchmark... ",
 
     os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
@@ -82,6 +93,10 @@ if __name__ == '__main__':
     dumper.main(["-anpft"])
 
     os.system("bash scripts/stop_fave.sh")
+
+    if verbose:
+        print "ok"
+        print "Check results... ",
 
     import test.check_flows as checker
     checker.main(["-r", "-c", ";".join(checks)])
