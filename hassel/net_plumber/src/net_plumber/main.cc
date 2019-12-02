@@ -39,6 +39,7 @@
 
 #include "rpc_handler.h"
 #include <csignal>
+#include <sys/resource.h>
 
 using namespace log4cxx;
 using namespace log4cxx::helpers;
@@ -256,6 +257,11 @@ int main(int argc, char* argv[]) {
   }
 
   if (!do_run_server) {
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+
+    printf("Maximum RSS Memory consumption before exiting: %ld KB\n", usage.ru_maxrss);
+
     printf("Done! Cleaning up the NetPlumber\n");
     delete N;
   }
