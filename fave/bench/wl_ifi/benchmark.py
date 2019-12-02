@@ -79,10 +79,11 @@ if __name__ == '__main__':
         checks = json.loads(raw_checks.read())
 
     import netplumber.dump_np as dumper
-    import test.check_flows as checker
-
     dumper.main(["-anpft"])
-    checker.main(["-r", "-c", ";".join(checks)])
 
     os.system("bash scripts/stop_fave.sh")
+
+    import test.check_flows as checker
+    checker.main(["-r", "-c", ";".join(checks)])
+
     os.system("rm -f np_dump/.lock")
