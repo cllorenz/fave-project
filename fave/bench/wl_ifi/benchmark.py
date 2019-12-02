@@ -18,6 +18,7 @@ TOPOLOGY = "bench/wl_ifi/topology.json"
 ROUTES = "bench/wl_ifi/routes.json"
 POLICIES = "bench/wl_ifi/policies.json"
 CHECKS = "bench/wl_ifi/checks.json"
+REACH_JSON = "bench/wl_ifi/reachable.json"
 
 REACH = "bench/wl_ifi/reachability.csv"
 
@@ -37,7 +38,6 @@ if __name__ == '__main__':
     os.system("python2 bench/wl_ifi/inventorygen.py")
     os.system("python2 bench/wl_ifi/topogen.py")
     os.system("python2 bench/wl_ifi/routegen.py")
-    os.system("python2 bench/wl_ifi/policygen.py")
     #os.system("python2 bench/wl_ifi/checkgen.py")
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
@@ -46,11 +46,15 @@ if __name__ == '__main__':
         "bench/wl_ifi/policy.orig.txt"
     )
     os.system(
-        "python2 bench/wl_ifi/reach_csv_to_checks.py " +
-        "-p %s " % REACH +
-        "-m %s " % INVENTORY +
-        "-c %s" % CHECKS
+        "python2 bench/wl_ifi/reach_csv_to_checks.py " + ' '.join([
+            '-p', REACH,
+            '-m', INVENTORY,
+            '-c', CHECKS,
+            '-j', REACH_JSON
+        ])
     )
+
+    os.system("python2 bench/wl_ifi/policygen.py")
 
     os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
