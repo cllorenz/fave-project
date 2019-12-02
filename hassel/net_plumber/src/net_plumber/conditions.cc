@@ -246,11 +246,11 @@ bool SkipNextArbSpecifier::check_and_move(Flow* &/*f*/) {
 }
 
 void TrueCondition::to_json(Json::Value& res) {
-  res = true;
+  res["type"] = "true";
 }
 
 void FalseCondition::to_json(Json::Value& res) {
-  res = false;
+  res["type"] = "false";
 }
 
 void AndCondition::to_json(Json::Value& res) {
