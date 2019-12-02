@@ -326,8 +326,8 @@ void NetPlumber::set_node_pipelines(Node *n) {
         array_t *pipe_arr;
         pipe_arr = array_isect_a(n_rule->match,n->inv_match,length);
         if (pipe_arr) {
-          Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
-          Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
+          Pipeline *fp = (Pipeline *)calloc(1, sizeof *fp);
+          Pipeline *bp = (Pipeline *)calloc(1, sizeof *bp);
           fp->local_port = n->output_ports.list[i];
           bp->local_port = end_ports->at(j);
           fp->pipe_array = pipe_arr;
@@ -359,8 +359,8 @@ void NetPlumber::set_node_pipelines(Node *n) {
         pipe_arr = array_isect_a(p_rule->inv_match,n->match,length);
 
         if (pipe_arr) {
-          Pipeline *fp = (Pipeline *)malloc(sizeof *fp);
-          Pipeline *bp = (Pipeline *)malloc(sizeof *bp);
+          Pipeline *fp = (Pipeline *)calloc(1, sizeof *fp);
+          Pipeline *bp = (Pipeline *)calloc(1, sizeof *bp);
           fp->local_port = orig_ports->at(j);
           bp->local_port = n->input_ports.list[i];
           fp->pipe_array = pipe_arr;
