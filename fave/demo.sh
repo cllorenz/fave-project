@@ -17,7 +17,7 @@ firefox --new-window file://$POLICY_HTML_URI 2> /dev/null &
 
 read -n1 -r -p "Calculate reachability with fave and net_plumber. Press any key to continue..."
 
-python2 bench/wl_ifi/benchmark.py
+python2 bench/wl_ifi/benchmark.py -v
 
 read -n1 -r -p "Generate reachability matrix from results. Press any key to continue..."
 
