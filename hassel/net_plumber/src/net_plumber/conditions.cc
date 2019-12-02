@@ -225,7 +225,6 @@ bool LastTablesSpecifier::check_and_move(Flow* &f) {
 }
 
 string LastTablesSpecifier::to_string() {
-  printf("next table specifier called\n");
   stringstream res;
   res << ".*(t in " << list_to_string(this->tables) << ")$";
   return res.str();
