@@ -67,7 +67,6 @@ class SwitchRuleField(object):
             try:
                 self.vectorize()
                 self.vector.enlarge(nlength)
-                self.value_to_vector_str()
             except VectorConstructionError:
                 pass
 
