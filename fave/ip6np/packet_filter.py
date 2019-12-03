@@ -273,8 +273,10 @@ class PacketFilterModel(Model):
 
             if not isinstance(field.value, Vector):
                 field.vectorize()
+            else:
+                field.vector = field.value
 
-            vector[offset:offset+size] = field.value.vector
+            vector[offset:offset+size] = field.vector.vector
 
         return vector
 
@@ -333,13 +335,13 @@ class PacketFilterModel(Model):
         self.chains["pre_routing"] = [
             SwitchRule(
                 node, 1, 1,
-                in_ports=[p[3:] for p in self.ports if p.startswith('in_')],
+                in_ports=["%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
                 match=Match(fields=[SwitchRuleField("packet.ipv6.destination", address)]),
                 actions=[Forward(["_".join([node, "pre_routing_input"])])]
             ),
             SwitchRule(
                 node, 1, 2,
-                in_ports=[p[3:] for p in self.ports if p.startswith('in_')],
+                in_ports=["%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
                 match=Match(),
                 actions=[Forward(["_".join([node, "pre_routing_forward"])])]
             )
