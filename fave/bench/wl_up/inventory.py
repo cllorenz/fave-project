@@ -44,13 +44,13 @@ AD6 = (
         "welcome-center-potsdam.de"
     ],
     [
-#        ("web", ["tcp:80", "tcp:443", "tcp:22", "udp:22"]),
-#        ("voip", ["tcp:5060", "tcp:5061", "udp:5060", "tcp:22", "udp:22"]),
-#        ("print", ["tcp:631", "tcp:22", "udp:631", "udp:22"]),
-#        ("mail", [
-#            "tcp:25", "tcp:587", "tcp:110", "tcp:143", "tcp:220", "tcp:465",
-#            "tcp:993", "tcp:995", "tcp:22", "udp:143", "udp:220", "udp:22"
-#        ]),
+        ("web", ["tcp:80", "tcp:443", "tcp:22", "udp:22"]),
+        ("voip", ["tcp:5060", "tcp:5061", "udp:5060", "tcp:22", "udp:22"]),
+        ("print", ["tcp:631", "tcp:22", "udp:631", "udp:22"]),
+        ("mail", [
+            "tcp:25", "tcp:587", "tcp:110", "tcp:143", "tcp:220", "tcp:465",
+            "tcp:993", "tcp:995", "tcp:22", "udp:143", "udp:220", "udp:22"
+        ]),
         ("file", [
             "tcp:137", "tcp:138", "tcp:139", "tcp:445", "tcp:2049", "tcp:22",
             "udp:137", "udp:138", "udp:139", "udp:22"
