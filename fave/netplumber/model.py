@@ -116,7 +116,7 @@ class Model(object):
         )
         model.private_ports = j.get("private_ports", 0)
 
-        return res
+        return model
 
     def __sub__(self, other):
         assert self.node == other.node
