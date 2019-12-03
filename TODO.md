@@ -3,11 +3,9 @@
 ### Benchmarks
 
  - IFI:
-    - fix fallout after acl update
     - generate all flow in subnets instead of subnet specific traffic
     - add hosts as packet filters (optional)
  - AD6:
-    - investigate memory exhaustion
     - include policy translator
     - check state table traversal
  - Internet2:
@@ -31,7 +29,6 @@
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
  - Gitlab-CI
- - integrate policy translator
  - use asynchronous rpc calls to improve performance? -> complex, better use libnetplumber instead?
     - introduce counter for FaVe events
     - save mapping generations marked by event counters
@@ -56,7 +53,7 @@ in large tables tremendously
     - native json data format instead of json string parsing
  - BDDs instead of Header Spaces
     - generic interface for set representations and operations
-    - benchmarks: IFI, AD6
+    - benchmarks: IFI, UP
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
 'z' is found remove the array. Pros: makes checks for the empty set more
 efficient and the memory footprint might be lowered. Cons: might break stuff at
@@ -85,4 +82,5 @@ funny places... which leads to the question: why is that code even there?
 ### AD6
 
  - read topology and config from benchmark input files
+ - use reachability matrix
  - better reporting
