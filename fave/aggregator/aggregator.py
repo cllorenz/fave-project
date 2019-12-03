@@ -720,7 +720,7 @@ class Aggregator(AbstractAggregator):
 
             for field in [f for f in rule.match if f.name in ['in_port', 'out_port', 'interface']]:
                 if not Vector.is_vector(field.value, name=field.name):
-                    field.value = "{:032b}".format(self._global_port(field.value))
+                    field.value = "{:032b}".format(self._global_port("%s_%s" % (model.node, field.value)))
                     field.vectorize()
 
             for action in [a for a in act if isinstance(a, Rewrite)]:
