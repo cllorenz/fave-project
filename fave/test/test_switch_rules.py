@@ -76,10 +76,10 @@ class TestSwitchRuleField(unittest.TestCase):
         """
 
         self.rule_field.vectorize()
-        vlen = self.rule_field.value.length
+        vlen = self.rule_field.vector.length
 
         self.rule_field.enlarge(10)
-        self.assertEqual(self.rule_field.value.length, vlen+10)
+        self.assertEqual(self.rule_field.vector.length, vlen+10)
 
 
     def test_vectorize(self):
@@ -98,7 +98,7 @@ class TestSwitchRuleField(unittest.TestCase):
 0000000000000000\
 0000000000000000\
 0000000000000001",
-            self.rule_field.value.vector
+            self.rule_field.vector.vector
         )
 
 
@@ -213,11 +213,11 @@ class TestRewrite(unittest.TestCase):
         """
 
         self.rewrite.rewrite[0].vectorize()
-        vlen = self.rewrite.rewrite[0].value.length
+        vlen = self.rewrite.rewrite[0].vector.length
 
         self.rewrite.enlarge(10)
 
-        self.assertEqual(self.rewrite.rewrite[0].value.length, vlen+10)
+        self.assertEqual(self.rewrite.rewrite[0].vector.length, vlen+10)
 
 
     def test_eq(self):
@@ -293,31 +293,17 @@ class TestMatch(unittest.TestCase):
         """ Tests conversion to json.
         """
 
+        self.maxDiff = None
+
         self.assertEqual(
             self.match.to_json(),
             {
                 "fields" : [{
                     "name" : "packet.ipv6.source",
-                    "value" : "\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000001"
+                    "value" : "2001:db8::1"
                 }, {
                     "name" : "packet.ipv6.destination",
-                    "value" : "\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000010"
+                    "value" : "2001:db8::2"
                 }]
             }
         )
@@ -417,26 +403,10 @@ class TestSwitchRule(unittest.TestCase):
                 "match" : {
                     "fields" : [{
                         "name" : "packet.ipv6.source",
-                        "value" : "\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000001"
+                        "value" : "2001:db8::1"
                     }, {
                         "name" : "packet.ipv6.destination",
-                        "value" : "\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000010"
+                        "value" : "2001:db8::2"
                     }]
                 },
                 "actions" : [{"name" : "forward", "ports" : [2]}],

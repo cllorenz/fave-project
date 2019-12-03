@@ -320,6 +320,7 @@ class TestModel(unittest.TestCase):
                 'type' : 'model',
                 'tables' : {'1' : []},
                 'ports' : {'foo.1' : 1, 'foo.2' : 2},
+                'private_ports' : 0,
                 'wiring' : [],
                 'mapping' : {'length' : 0}
             }
@@ -334,6 +335,7 @@ class TestModel(unittest.TestCase):
 '{\
 "node": "foo", \
 "tables": {"1": []}, \
+"private_ports": 0, \
 "wiring": [], \
 "mapping": {"length": 0}, \
 "type": "model", \
@@ -352,6 +354,7 @@ class TestModel(unittest.TestCase):
                 'type' : 'model',
                 'tables' : {'1' : []},
                 'ports' : {'foo.1' : 1, 'foo.2' : 2},
+                'private_ports' : 0,
                 'wiring' : [],
                 'mapping' : {'length' : 0}
             }),
@@ -369,6 +372,7 @@ class TestModel(unittest.TestCase):
                     "node":"foo", \
                     "type":"model", \
                     "tables":{"1":[]}, \
+                    "private_ports":0, \
                     "ports":{"foo.1":1, "foo.2":2}, \
                     "wiring":[], \
                     "mapping":{"length":0}\
