@@ -421,7 +421,7 @@ class Role(object):
             objects as values.
     """
 
-    valid_role_attr = ["description", "hosts", "vlan", "ipv4", "ipv6", "gateway"]
+    valid_role_attr = ["description", "hosts", "vlan", "ipv4", "ipv6", "gateway", "host_prefixes"]
 
     def __init__(self, name, policy, attributes=None, services=None):
         """Initialises a Role object with the given name, policy, attributes and
@@ -590,7 +590,7 @@ class Superrole(Role):
         if self.policy.role_exists(name):
             new_subrole = self.policy.roles[name]
 
-            if type(new_subrole) == Superrole:
+            if isinstance(new_subrole, Superrole):
                 for subrole in new_subrole.get_roles():
                     if service is None:
                         self.subroles[subrole] = self.policy.roles[subrole]
@@ -678,6 +678,7 @@ class Superrole(Role):
         """
 
         return False
+
 
 class Service(object):
     """Represents a service, i.e., a certain port and/or transport layer
