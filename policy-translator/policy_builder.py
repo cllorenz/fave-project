@@ -200,6 +200,14 @@ class PolicyBuilder(object):
                 for match in role_incl_matches:
                     policy.roles[role].add_subrole(match.group("role"), service=match.group("service"))
                     PT_LOGGER.debug("%s: added subrole %s", role, match.group("role"))
+
+#            if len(role_uses_matches) > 0:
+#                policy.add_abstract_role(role)
+#                PT_LOGGER.debug("policy: added superrole %s", role)
+#                for match in role_incl_matches:
+#                    policy.roles[role].add_subrole(match.group("role"), service=match.group("service"))
+#                    PT_LOGGER.debug("%s: added subrole %s", role, match.group("role"))
+
             else:
                 policy.add_role(role)
                 PT_LOGGER.debug("policy: added role %s", role)
