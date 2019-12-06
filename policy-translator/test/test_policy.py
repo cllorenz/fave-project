@@ -436,6 +436,37 @@ class TestSuperrole(unittest.TestCase):
         self.assertFalse(self.superrole.offers_service("HTTP"))
 
 
+class TestAbstractRole(unittest.TestCase):
+
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_add_attribute(self):
+        pass
+
+    def test_add_service(self):
+        pass
+
+    def test_add_subrole(self):
+        pass
+
+    def test_get_roles(self):
+        pass
+
+    def test_get_services(self):
+        pass
+
+    def test_offers_service(self):
+        pass
+
+    def test_offers_services(self):
+        pass
+
+
 class TestService(unittest.TestCase):
 
     """ This class provides unit tests for the Service class.
