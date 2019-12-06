@@ -1,0 +1,1016 @@
+def service FTP
+	protocol = 'tcp'
+	port = 21
+end
+
+
+def service SFTP
+	protocol = 'tcp'
+	port = 115
+end
+
+
+def abstract_role FileService
+    description = 'A file service.'
+    offers FTP
+    offers SFTP
+end
+
+
+def service SMTP
+	protocol = 'tcp'
+	port = 25
+end
+
+
+def service SMTPS
+	protocol = 'tcp'
+	port = 587
+end
+
+
+def service POP3
+	protocol = 'tcp'
+	port = 110
+end
+
+def service POP3S
+	protocol = 'tcp'
+	port = 995
+end
+
+
+
+def service SSMTP
+	protocol = 'tcp'
+	port = 465
+end
+
+
+def service IMAPS
+	protocol = 'tcp'
+	port = 993
+end
+
+def service IMAP
+	protocol = 'tcp'
+	port = 143
+end
+
+def service UIMAP
+	protocol = 'udp'
+	port = 143
+end
+
+
+def service IMAP3
+	protocol = 'tcp'
+	port = 220
+end
+
+
+def service UIMAP3
+	protocol = 'udp'
+	port = 220
+end
+
+
+def abstract_role MailService
+    description = 'A mail service.'
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def service HTTP
+	protocol = 'tcp'
+	port = 80
+end
+
+def service HTTPS
+	protocol = 'tcp'
+	port = 443
+end
+
+def abstract_role WebService
+    description = 'A web service.'
+    offers HTTP
+    offers HTTPS
+end
+
+def service LDAP
+	protocol = 'tcp'
+	port = 389
+end
+
+
+def service ULDAP
+	protocol = 'udp'
+	port = 389
+end
+
+
+def service LDAPS
+	protocol = 'tcp'
+	port = 636
+end
+
+
+def service NTP
+	protocol = 'udp'
+	port = 123
+end
+
+def abstract_role LdapService
+    description = 'An ldap service.'
+
+    offers LDAP
+    offers ULDAP
+    offers LDAPS
+    offers NTP
+end
+
+def service OpenVPN
+	protocol = 'tcp'
+	port = 1194
+end
+
+
+def service UOpenVPN
+	protocol = 'udp'
+	port = 1194
+end
+
+
+def service PPTP
+	protocol = 'tcp'
+	port = 1723
+end
+
+
+def service UPPTP
+	protocol = 'udp'
+	port = 1723
+end
+
+def abstract_role VPNService
+    description = 'A VPN service.'
+
+    offers OpenVPN
+    offers UOpenVPN
+    offers PPTP
+    offers UPPTP
+end
+
+
+def service DNS
+	protocol = 'udp'
+	port = 53
+end
+
+
+def service TDNS
+	protocol = 'tcp'
+	port = 53
+end
+
+
+def abstract_role DNSService
+    description = 'A DNS service.'
+
+    offers DNS
+    offers TDNS
+end
+
+
+def service SQL
+	protocol = 'tcp'
+	port = 118
+end
+
+def service USQL
+	protocol = 'udp'
+	port = 118
+end
+
+def service OSQL
+	protocol = 'tcp'
+	port = 156
+end
+
+def service UOSQL
+	protocol = 'udp'
+	port = 156
+end
+
+def abstract_role DataService
+    description = 'A data service.'
+
+    offers SQL
+    offers OSQL
+    offers USQL
+    offers UOSQL
+end
+
+
+def service CUPS
+    protocol = 'tcp'
+    port = 631
+end
+
+
+def service UCUPS
+    protocol = 'udp'
+    port = 631
+end
+
+
+def abstract_role PrintService
+    description = 'A printing service.'
+
+    offers CUPS
+    offers UCUPS
+end
+
+
+def service SIP
+    protocol = 'tcp'
+    port = 5060
+end
+
+
+def service USIP
+    protocol = 'udp'
+    port = 5060
+end
+
+
+def service SSIP
+    protocol = 'tcp'
+    port = 5061
+end
+
+
+def abstract_role VoipService
+    description = 'A voice over IP service.'
+
+    offers SIP
+    offers USIP
+    offers SSIP
+end
+
+
+def service SSH
+	protocol = 'tcp'
+	port = 22
+end
+
+
+def service USSH
+	protocol = 'udp'
+	port = 22
+end
+
+
+def abstract_role GenericServer
+    description = 'Template for a server'
+
+    offers SSH
+    offers USSH
+end
+
+
+def role DMZFileServer
+    description = 'The public file server in the DMZ.'
+    includes FileService
+    includes GenericServer
+
+    hosts = ['file.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::1'
+end
+
+
+def role DMZMailServer
+    description = 'The public mail server in the DMZ.'
+    includes MailService
+    includes GenericServer
+
+    hosts = ['mail.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::2'
+end
+
+
+def role DMZWebServer
+    description = 'The public web server in the DMZ.'
+    includes WebService
+    includes GenericServer
+
+    hosts = ['web.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::3'
+end
+
+
+def role DMZLdapServer
+    description = 'The public ldap server in the DMZ.'
+    includes LdapService
+    includes GenericServer
+
+    hosts = ['ldap.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::4'
+end
+
+
+def role DMZVPNServer
+    description = 'The public vpn server in the DMZ.'
+    includes VPNService
+    includes GenericServer
+
+    hosts = ['vpn.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::5'
+end
+
+
+def role DMZDNSServer
+    description = 'The public dns server in the DMZ.'
+    includes DNSService
+    includes GenericServer
+
+    hosts = ['dns.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::6'
+end
+
+
+def role DMZDataServer
+    description = 'The public data server in the DMZ.'
+    includes DataService
+    includes GenericServer
+
+    hosts = ['data.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::7'
+end
+
+
+def service SNMP
+    protocol = 'udp'
+    port = 161
+end
+
+
+def role DMZAdminConsole
+    description = 'The public admin console in the DMZ.'
+
+    includes GenericServer
+    offers SNMP
+
+    hosts = ['admin.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::8'
+end
+
+
+
+def abstract_role GenericSubnetPublicServers
+    description = 'Template for public servers of a subnet.'
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    includes WebService
+    includes VoipService
+    includes MailService
+end
+
+
+def abstract_role GenericSubnetPrivateServers
+    description = 'Template for private servers of a subnet.'
+    host_prefixes = ['print.', 'file.']
+
+    includes PrintService
+    includes FileService
+end
+
+
+def role DMZ
+    description = 'All DMZ servers.'
+
+    includes DMZFileServer
+    includes DMZMailServer
+    includes DMZWebServer
+    includes DMZLdapServer
+    includes DMZVPNServer
+    includes DMZDNSServer
+    includes DMZDataServer
+    includes DMZAdminConsole
+end
+
+
+def role ApiClients
+    description = 'Placeholder for the Api clients.'
+    ipv6 = '2001:db8:abc:4::100/120'
+    hosts = ['clients.api.uni-potsdam.de']
+end
+
+
+def role ApiPublicServers
+    description = 'The public servers of the psychotherapy institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubApi
+    description = 'The Api subnet.'
+    ipv6 = '2001:db8:abc:4::0/120'
+    hosts = ['api.uni-potsdam.de']
+
+    includes ApiClients
+    includes GenericSubnetPrivateServers
+    includes ApiPublicServers
+end
+
+
+def role AstaClients
+    description = 'Placeholder for the ASTA clients.'
+    ipv6 = '2001:db8:abc:5::100/120'
+    hosts = ['clients.asta.uni-potsdam.de']
+
+end
+
+
+def role AstaPublicServers
+    description = 'The public servers of the ASTA.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubAsta
+    description = 'The ASTA subnet.'
+    ipv6 = '2001:db8:abc:5::0/120'
+    hosts = ['asta.uni-potsdam.de']
+
+    includes AstaClients
+    includes GenericSubnetPrivateServers
+    includes AstaPublicServers
+end
+
+
+def role BotanClients
+    description = 'Placeholder for the botanical garden clients.'
+    ipv6 = '2001:db8:abc:6::100/120'
+    hosts = ['botanischer-garten-potsdam.de']
+end
+
+
+def role BotanPublicServers
+    description = 'The public servers of the botanical garden.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubBotan
+    description = 'The botanical garden subnet.'
+    ipv6 = '2001:db8:abc:6::0/120'
+
+    includes BotanClients
+    includes GenericSubnetPrivateServers
+    includes BotanPublicServers
+end
+
+
+def role ChemClients
+    description = 'Placeholder for the chemical institute clients.'
+    ipv6 = '2001:db8:abc:7::100/120'
+    hosts = ['clients.chem.uni-potsdam.de']
+
+end
+
+
+def role ChemPublicServers
+    description = 'The public servers of the chemical institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubChem
+    description = 'The chemical institute subnet.'
+    ipv6 = '2001:db8:abc:7::0/120'
+    hosts = ['chem.uni-potsdam.de']
+
+    includes ChemClients
+    includes GenericSubnetPrivateServers
+    includes ChemPublicServers
+end
+
+
+def role CsClients
+    description = 'Placeholder for the institute for computer and computational science clients.'
+    ipv6 = '2001:db8:abc:8::100/120'
+    hosts = ['clients.cs.uni-potsdam.de']
+
+end
+
+
+def role CsPublicServers
+    description = 'The public servers of the institute for computer and computational science.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubCs
+    description = 'The subnet of the institute for computer and computational science.'
+    ipv6 = '2001:db8:abc:8::0/120'
+    hosts = ['cs.uni-potsdam.de']
+
+    includes CsClients
+    includes GenericSubnetPrivateServers
+    includes CsPublicServers
+end
+
+
+def role GeolClients
+    description = 'Placeholder for the geological institute clients.'
+    ipv6 = '2001:db8:abc:a::100/120'
+    hosts = ['clients.geo.uni-potsdam.de']
+
+end
+
+
+def role GeolPublicServers
+    description = 'The public servers of the geological institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubGeol
+    description = 'The subnet for the geological institute.'
+    ipv6 = '2001:db8:abc:a::0/120'
+    hosts = ['geo.uni-potsdam.de']
+
+    includes GeolClients
+    includes GenericSubnetPrivateServers
+    includes GeolPublicServers
+end
+
+
+
+def role GeogClients
+    description = 'Placeholder for the geographical institute clients.'
+    ipv6 = '2001:db8:abc:b::100/120'
+    hosts = ['clients.geographie.uni-potsdam.de']
+
+end
+
+
+def role GeogPublicServers
+    description = 'The public servers of the geographical institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubGeog
+    description = 'The subnet for the geographical institute.'
+    ipv6 = '2001:db8:abc:b::0/120'
+    hosts = ['geographie.uni-potsdam.de']
+
+    includes GeogClients
+    includes GenericSubnetPrivateServers
+    includes GeogPublicServers
+end
+
+
+def role HgpClients
+    description = 'Placeholder for the university building service clients.'
+    ipv6 = '2001:db8:abc:c::100/120'
+    hosts = ['clients.geographie.uni-potsdam.de']
+
+end
+
+
+def role HgpPublicServers
+    description = 'The public servers of the university facility service.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubHgp
+    description = 'The subnet for the university facility service.'
+    ipv6 = '2001:db8:abc:c::0/120'
+    hosts = ['hgp-potsdam.de']
+
+    includes HgpClients
+    includes GenericSubnetPrivateServers
+    includes HgpPublicServers
+end
+
+
+def role HpiClients
+    description = 'Placeholder for the Hasso Plattner institute clients.'
+    ipv6 = '2001:db8:abc:d::100/120'
+    hosts = ['clients.hpi.uni-potsdam.de']
+
+end
+
+
+def role HpiPublicServers
+    description = 'The public servers of the Hasso Plattner institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubHpi
+    description = 'The subnet for the Hasso Plattner institute.'
+    ipv6 = '2001:db8:abc:d::0/120'
+    hosts = ['hpi.uni-potsdam.de']
+
+    includes HpiClients
+    includes GenericSubnetPrivateServers
+    includes HpiPublicServers
+end
+
+
+def role InternClients
+    description = 'Placeholder for the university administration clients.'
+    ipv6 = '2001:db8:abc:e::100/120'
+    hosts = ['clients.intern.uni-potsdam.de']
+
+end
+
+
+def role InternPublicServers
+    description = 'The public servers of the university administration.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubIntern
+    description = 'The subnet for the university administration.'
+    ipv6 = '2001:db8:abc:e::0/120'
+    hosts = ['intern.uni-potsdam.de']
+
+    includes InternClients
+    includes GenericSubnetPrivateServers
+    includes InternPublicServers
+end
+
+
+def role JuraClients
+    description = 'Placeholder for the institute of law clients.'
+    ipv6 = '2001:db8:abc:f::100/120'
+    hosts = ['clients.jura.uni-potsdam.de']
+
+end
+
+
+def role JuraPublicServers
+    description = 'The public servers of the institute of law.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubJura
+    description = 'The subnet for the institute of law.'
+    ipv6 = '2001:db8:abc:f::0/120'
+    hosts = ['jura.uni-potsdam.de']
+
+    includes JuraClients
+    includes GenericSubnetPrivateServers
+    includes JuraPublicServers
+end
+
+
+def role LingClients
+    description = 'Placeholder for the linguistic institute clients.'
+    ipv6 = '2001:db8:abc:10::100/120'
+    hosts = ['clients.ling.uni-potsdam.de']
+
+end
+
+
+def role LingPublicServers
+    description = 'The public servers of the linguistic institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubLing
+    description = 'The subnet for the linguistic institute.'
+    ipv6 = '2001:db8:abc:10::0/120'
+    hosts = ['ling.uni-potsdam.de']
+
+    includes LingClients
+    includes GenericSubnetPrivateServers
+    includes LingPublicServers
+end
+
+
+def role MathClients
+    description = 'Placeholder for the mathematical institute clients.'
+    ipv6 = '2001:db8:abc:11::100/120'
+    hosts = ['clients.math.uni-potsdam.de']
+
+end
+
+
+def role MathPublicServers
+    description = 'The public servers of the mathematical institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubMath
+    description = 'The subnet for the mathematical institute.'
+    ipv6 = '2001:db8:abc:11::0/120'
+    hosts = ['math.uni-potsdam.de']
+
+    includes MathClients
+    includes GenericSubnetPrivateServers
+    includes MathPublicServers
+end
+
+
+def role MmzClients
+    description = 'Placeholder for the Moses Mendelson center clients.'
+    ipv6 = '2001:db8:abc:12::100/120'
+    hosts = ['clients.mmz-potsdam.de']
+
+end
+
+
+def role MmzPublicServers
+    description = 'The public servers of the Moses Mendelson center.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubMmz
+    description = 'The subnet for the Moses Mendelson center.'
+    ipv6 = '2001:db8:abc:12::0/120'
+    hosts = ['mmz-potsdam.de']
+
+    includes MmzClients
+    includes GenericSubnetPrivateServers
+    includes MmzPublicServers
+end
+
+
+def role PhysikClients
+    description = 'Placeholder for the physical institute clients.'
+    ipv6 = '2001:db8:abc:13::100/120'
+    hosts = ['clients.physik.uni-potsdam.de']
+
+end
+
+
+def role PhysikPublicServers
+    description = 'The public servers of the physical institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubPhysik
+    description = 'The subnet for the physical institute.'
+    ipv6 = '2001:db8:abc:13::0/120'
+    hosts = ['physik.uni-potsdam.de']
+
+    includes PhysikClients
+    includes GenericSubnetPrivateServers
+    includes PhysikPublicServers
+end
+
+
+def role PogsClients
+    description = 'Placeholder for the Potsdam Graduate School clients.'
+    ipv6 = '2001:db8:abc:14::100/120'
+    hosts = ['clients.pogs.uni-potsdam.de']
+
+end
+
+
+def role PogsPublicServers
+    description = 'The public servers of the Potsdam Graduate School.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubPogs
+    description = 'The subnet for the Potsdam Graduate School.'
+    ipv6 = '2001:db8:abc:14::0/120'
+    hosts = ['pogs.uni-potsdam.de']
+
+    includes PogsClients
+    includes GenericSubnetPrivateServers
+    includes PogsPublicServers
+end
+
+
+def role PsychClients
+    description = 'Placeholder for the psychological institute clients.'
+    ipv6 = '2001:db8:abc:15::100/120'
+    hosts = ['clients.psych.uni-potsdam.de']
+
+end
+
+
+def role PsychPublicServers
+    description = 'The public servers of the psychological institute.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubPsych
+    description = 'The subnet for the psychological institute.'
+    ipv6 = '2001:db8:abc:15::0/120'
+    hosts = ['psych.uni-potsdam.de']
+
+    includes PsychClients
+    includes PsychPublicServers
+    includes GenericSubnetPrivateServers
+end
+
+
+def role SqClients
+    description = 'Placeholder for the didactical institute clients.'
+    ipv6 = '2001:db8:abc:16::100/120'
+    hosts = ['clients.sq-brandenburg.de']
+
+end
+
+
+def role SqPublicServers
+    description = 'The public servers of the university library.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubSq
+    description = 'The subnet for the didactical institute.'
+    ipv6 = '2001:db8:abc:16::0/120'
+    hosts = ['sq-brandenburg.de']
+
+    includes SqClients
+    includes GenericSubnetPrivateServers
+    includes SqPublicServers
+end
+
+
+def role UbClients
+    description = 'Placeholder for the university library clients.'
+    ipv6 = '2001:db8:abc:17::100/120'
+    hosts = ['clients.ub.uni-potsdam.de']
+
+end
+
+
+def role UbPublicServers
+    description = 'The public servers of the university library.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubUb
+    description = 'The subnet for the university library.'
+    ipv6 = '2001:db8:abc:17::0/120'
+    hosts = ['ub.uni-potsdam.de']
+
+    includes UbClients
+    includes GenericSubnetPrivateServers
+    includes UbPublicServers
+end
+
+
+def role WelcClients
+    description = 'Placeholder for the welcome center Potsdam clients.'
+    ipv6 = '2001:db8:abc:18::100/120'
+    hosts = ['clients.welcome-center-potsdam.de']
+
+end
+
+def role WelcPublicServers
+    description = 'The public servers of the welcome center Potsdam.'
+
+    includes GenericSubnetPublicServers
+end
+
+
+def role SubWelc
+    description = 'The subnet for the welcome center Potsdam.'
+    ipv6 = '2001:db8:abc:18::0/120'
+    hosts = ['welcome-center-potsdam.de']
+
+    includes WelcClients
+    includes GenericSubnetPrivateServers
+    includes WelcPublicServers
+end
+
+
+def role Subnets
+    description = 'All university subnets.'
+
+    includes SubApi
+    includes SubAsta
+    includes SubBotan
+    includes SubChem
+    includes SubCs
+    includes SubGeol
+    includes SubGeog
+    includes SubHgp
+    includes SubHpi
+    includes SubIntern
+    includes SubJura
+    includes SubLing
+    includes SubMath
+    includes SubMmz
+    includes SubPhysik
+    includes SubPogs
+    includes SubPsych
+    includes SubSq
+    includes SubUb
+    includes SubWelc
+end
+
+def role SubnetClients
+    description = 'All clients of all subnets.'
+
+    includes ApiClients
+    includes AstaClients
+    includes BotanClients
+    includes ChemClients
+    includes CsClients
+    includes GeolClients
+    includes GeogClients
+    includes HgpClients
+    includes HpiClients
+    includes InternClients
+    includes JuraClients
+    includes LingClients
+    includes MathClients
+    includes MmzClients
+    includes PhysikClients
+    includes PogsClients
+    includes PsychClients
+    includes SqClients
+    includes UbClients
+    includes WelcClients
+end
+
+
+def role SubnetsPublicServers
+    description = 'All public servers located in subnets.'
+
+    includes ApiPublicServers
+    includes AstaPublicServers
+    includes BotanPublicServers
+    includes ChemPublicServers
+    includes CsPublicServers
+    includes GeolPublicServers
+    includes GeogPublicServers
+    includes HgpPublicServers
+    includes HpiPublicServers
+    includes InternPublicServers
+    includes JuraPublicServers
+    includes LingPublicServers
+    includes MathPublicServers
+    includes MmzPublicServers
+    includes PhysikPublicServers
+    includes PogsPublicServers
+    includes PsychPublicServers
+    includes SqPublicServers
+    includes UbPublicServers
+    includes WelcPublicServers
+end
+
+
+def role Wifi
+    description = 'Subnet for the WIFI clients.'
+    ipv6 = '2001:db8:abc:1::0/64'
+end
+
+
+def role PGF
+    description = 'The central perimeter gateway firewall.'
+    hosts = ['pgf.uni-potsdam.de']
+    ipv6 = '2001:db8:abc::1'
+end

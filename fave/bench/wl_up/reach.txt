@@ -1,0 +1,34 @@
+describe policies(default: deny)
+    DMZAdminConsole <->> PGF
+
+    Internet <--> DMZ
+    Internet <->> SubnetsPublicServers
+    SubnetClients <->> Internet
+    SubnetClients <->> DMZ
+    SubnetClients <->> SubnetsPublicServers
+
+    Wifi <->> Internet
+    Wifi <->> DMZ
+    Wifi <->> SubnetsPublicServers
+
+    ApiClients <->> SubApi
+    AstaClients <->> SubAsta
+    BotanClients <->> SubBotan
+    ChemClients <->> SubChem
+    CsClients <->> SubCs
+    GeolClients <->> SubGeol
+    GeogClients <->> SubGeog
+    HgpClients <->> SubHgp
+    HpiClients <->> SubHpi
+    InternClients <->> SubIntern
+    JuraClients <->> SubJura
+    LingClients <->> SubLing
+    MathClients <->> SubMath
+    MmzClients <->> SubMmz
+    PhysikClients <->> SubPhysik
+    PogsClients <->> SubPogs
+    PsychClients <->> SubPsych
+    SqClients <->> SubSq
+    UbClients <->> SubUb
+    WelcClients <->> SubWelc
+end
