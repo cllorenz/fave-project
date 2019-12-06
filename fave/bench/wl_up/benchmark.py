@@ -465,7 +465,7 @@ def campus_network(config):
 def _generate_reachability_tests(config):
     """ XXX flow tests:
     Internet <--> PublicHosts - ok
-    Internet ---> PublicSubHosts
+    Internet <->> PublicSubHosts
     Internet !--> PrivateSubHosts - (ok)
     PublicHost ---> PublicHosts - ok
     PublicSubHosts ---> PublicSubHosts
@@ -476,6 +476,7 @@ def _generate_reachability_tests(config):
     SubClients <->> PublicSubHosts (ok)
     SubClients <->> PrivateSubHosts (ok)
     SubClients(X) !--> SubClients(Y) - ok
+    SubClients(X) <->> PrivateSubHosts(Y)
     """
 
     tests = []
