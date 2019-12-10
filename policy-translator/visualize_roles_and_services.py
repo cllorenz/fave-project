@@ -44,16 +44,16 @@ if __name__ == '__main__':
     seen = []
     for role in roles:
         if role not in seen:
-            g.node(role)
+            g.node(role, shape='rectangle')
             seen.append(role)
 
         if roles[role]:
             for subrole in roles[role]:
                 if subrole not in seen:
-                    g.node(subrole)
+                    g.node(subrole, shape='rectangle')
                     seen.append(role)
 
-                g.edge(role, subrole)
+                g.edge(role, subrole, dir='both', arrowhead='open', arrowtail='odiamond')
 
     seen = []
     for service in services:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     seen = []
     for offer in offers:
         for service in offers[offer]:
-            g.edge(offer, service)
+            g.edge(offer, service, arrowhead='open', style='dashed')
 
     g.render('roles_and_services', cleanup=True)
     os.popen('inkscape --export-pdf=roles_and_services.pdf roles_and_services.svg')
