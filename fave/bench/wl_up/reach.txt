@@ -1,5 +1,8 @@
 describe policies(default: deny)
+    All <->> DMZDNSServer
+
     DMZAdminConsole <->> PGF
+    DMZAdminConsole <->> DMZ
 
     Internet <--> DMZ
     Internet <->> SubnetsPublicServers
@@ -11,24 +14,24 @@ describe policies(default: deny)
     Wifi <->> DMZ
     Wifi <->> SubnetsPublicServers
 
-    ApiClients <->> SubApi
-    AstaClients <->> SubAsta
-    BotanClients <->> SubBotan
-    ChemClients <->> SubChem
-    CsClients <->> SubCs
-    GeolClients <->> SubGeol
-    GeogClients <->> SubGeog
-    HgpClients <->> SubHgp
-    HpiClients <->> SubHpi
-    InternClients <->> SubIntern
-    JuraClients <->> SubJura
-    LingClients <->> SubLing
-    MathClients <->> SubMath
-    MmzClients <->> SubMmz
-    PhysikClients <->> SubPhysik
-    PogsClients <->> SubPogs
-    PsychClients <->> SubPsych
-    SqClients <->> SubSq
-    UbClients <->> SubUb
-    WelcClients <->> SubWelc
+    ApiClients <->> ApiServers
+    AstaClients <->> AstaServers
+    BotanClients <->> BotanServers
+    ChemClients <->> ChemServers
+    CsClients <->> CsServers
+    GeolClients <->> GeolServers
+    GeogClients <->> GeogServers
+    HgpClients <->> HgpServers
+    HpiClients <->> HpiServers
+    InternClients <->> InternServers
+    JuraClients <->> JuraServers
+    LingClients <->> LingServers
+    MathClients <->> MathServers
+    MmzClients <->> MmzServers
+    PhysikClients <->> PhysikServers
+    PogsClients <->> PogsServers
+    PsychClients <->> PsychServers
+    SqClients <->> SqServers
+    UbClients <->> UbServers
+    WelcClients <->> WelcServers
 end
