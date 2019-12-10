@@ -350,7 +350,7 @@ end
 def role ApiPublicServers
     description = 'The public servers of the psychotherapy institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.api.uni-potsdam.de', 'voip.api.uni-potsdam.de', 'mail.api.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -373,7 +373,7 @@ end
 def role ApiPrivateServers
     description = 'The private servers of the psychotherapy institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.api.uni-potsdam.de', 'file.api.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -391,7 +391,6 @@ end
 def role SubApi
     description = 'The Api subnet.'
     ipv6 = '2001:db8:abc:4::0/120'
-    hosts = ['api.uni-potsdam.de']
 
     includes ApiClients
     includes ApiServers
@@ -409,7 +408,7 @@ end
 def role AstaPublicServers
     description = 'The public servers of the ASTA.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.asta.uni-potsdam.de', 'voip.asta.uni-potsdam.de', 'mail.asta.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -432,7 +431,7 @@ end
 def role AstaPrivateServers
     description = 'The private servers of the ASTA.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.asta.uni-potsdam.de', 'file.asta.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -450,7 +449,6 @@ end
 def role SubAsta
     description = 'The ASTA subnet.'
     ipv6 = '2001:db8:abc:5::0/120'
-    hosts = ['asta.uni-potsdam.de']
 
     includes AstaClients
     includes AstaServers
@@ -467,7 +465,7 @@ end
 def role BotanPublicServers
     description = 'The public servers of the botanical garden.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.botanischer-garten-potsdam.de', 'voip.botanischer-garten-potsdam.de', 'mail.botanischer-garten-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -490,7 +488,7 @@ end
 def role BotanPrivateServers
     description = 'The private servers of the botanical garden.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.botanischer-garten-potsdam.de', 'file.botanischer-garten-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -518,14 +516,13 @@ def role ChemClients
     description = 'Placeholder for the chemical institute clients.'
     ipv6 = '2001:db8:abc:7::100/120'
     hosts = ['clients.chem.uni-potsdam.de']
-
 end
 
 
 def role ChemPublicServers
     description = 'The public servers of the chemical institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.chem.uni-potsdam.de', 'voip.chem.uni-potsdam.de', 'mail.chem.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -548,7 +545,7 @@ end
 def role ChemPrivateServers
     description = 'The private servers of the chemical institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.chem.uni-potsdam.de', 'file.chem.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -566,7 +563,6 @@ end
 def role SubChem
     description = 'The chemical institute subnet.'
     ipv6 = '2001:db8:abc:7::0/120'
-    hosts = ['chem.uni-potsdam.de']
 
     includes ChemClients
     includes ChemServers
@@ -584,7 +580,7 @@ end
 def role CsPublicServers
     description = 'The public servers of the institute for computer and computational science.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.cs.uni-potsdam.de', 'voip.cs.uni-potsdam.de', 'mail.cs.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -607,7 +603,7 @@ end
 def role CsPrivateServers
     description = 'The private servers of the institute for computer and computational science.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.cs.uni-potsdam.de', 'file.cs.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -625,7 +621,6 @@ end
 def role SubCs
     description = 'The subnet of the institute for computer and computational science.'
     ipv6 = '2001:db8:abc:8::0/120'
-    hosts = ['cs.uni-potsdam.de']
 
     includes CsClients
     includes CsServers
@@ -643,7 +638,7 @@ end
 def role GeolPublicServers
     description = 'The public servers of the geological institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.geo.uni-potsdam.de', 'voip.geo.uni-potsdam.de', 'mail.geo.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -666,7 +661,7 @@ end
 def role GeolPrivateServers
     description = 'The private servers of the geological institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.geo.uni-potsdam.de', 'file.geo.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -684,7 +679,6 @@ end
 def role SubGeol
     description = 'The subnet for the geological institute.'
     ipv6 = '2001:db8:abc:a::0/120'
-    hosts = ['geo.uni-potsdam.de']
 
     includes GeolClients
     includes GeolServers
@@ -703,7 +697,7 @@ end
 def role GeogPublicServers
     description = 'The public servers of the geographical institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.geo.uni-potsdam.de', 'voip.geo.uni-potsdam.de', 'mail.geo.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -726,7 +720,7 @@ end
 def role GeogPrivateServers
     description = 'The private servers of the geographical institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.geo.uni-potsdam.de', 'file.geo.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -744,7 +738,6 @@ end
 def role SubGeog
     description = 'The subnet for the geographical institute.'
     ipv6 = '2001:db8:abc:b::0/120'
-    hosts = ['geographie.uni-potsdam.de']
 
     includes GeogClients
     includes GeogServers
@@ -754,7 +747,7 @@ end
 def role HgpClients
     description = 'Placeholder for the university building service clients.'
     ipv6 = '2001:db8:abc:c::100/120'
-    hosts = ['clients.geographie.uni-potsdam.de']
+    hosts = ['clients.hgp-potsdam.de']
 
 end
 
@@ -762,7 +755,7 @@ end
 def role HgpPublicServers
     description = 'The public servers of the university facility service.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.hgp-potsdam.de', 'voip.hgp-potsdam.de', 'mail.hgp-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -785,7 +778,7 @@ end
 def role HgpPrivateServers
     description = 'The private servers of the university facility service.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.hgp-potsdam.de', 'file.hgp-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -803,7 +796,6 @@ end
 def role SubHgp
     description = 'The subnet for the university facility service.'
     ipv6 = '2001:db8:abc:c::0/120'
-    hosts = ['hgp-potsdam.de']
 
     includes HgpClients
     includes HgpServers
@@ -821,7 +813,7 @@ end
 def role HpiPublicServers
     description = 'The public servers of the Hasso Plattner institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.hpi.uni-potsdam.de', 'voip.hpi.uni-potsdam.de', 'mail.hpi.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -844,7 +836,7 @@ end
 def role HpiPrivateServers
     description = 'The private servers of the Hasso Plattner institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.hpi.uni-potsdam.de', 'file.hpi.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -862,7 +854,6 @@ end
 def role SubHpi
     description = 'The subnet for the Hasso Plattner institute.'
     ipv6 = '2001:db8:abc:d::0/120'
-    hosts = ['hpi.uni-potsdam.de']
 
     includes HpiClients
     includes HpiServers
@@ -880,7 +871,7 @@ end
 def role InternPublicServers
     description = 'The public servers of the university administration.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.intern.uni-potsdam.de', 'voip.intern.uni-potsdam.de', 'mail.intern.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -903,7 +894,7 @@ end
 def role InternPrivateServers
     description = 'The private servers of the university administration.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.intern.uni-potsdam.de', 'file.intern.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -921,7 +912,6 @@ end
 def role SubIntern
     description = 'The subnet for the university administration.'
     ipv6 = '2001:db8:abc:e::0/120'
-    hosts = ['intern.uni-potsdam.de']
 
     includes InternClients
     includes InternServers
@@ -939,7 +929,7 @@ end
 def role JuraPublicServers
     description = 'The public servers of the institute of law.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.jura.uni-potsdam.de', 'voip.jura.uni-potsdam.de', 'mail.jura.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -962,7 +952,7 @@ end
 def role JuraPrivateServers
     description = 'The private servers of the institute of law.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.jura.uni-potsdam.de', 'file.jura.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -980,7 +970,6 @@ end
 def role SubJura
     description = 'The subnet for the institute of law.'
     ipv6 = '2001:db8:abc:f::0/120'
-    hosts = ['jura.uni-potsdam.de']
 
     includes JuraClients
     includes JuraServers
@@ -998,7 +987,7 @@ end
 def role LingPublicServers
     description = 'The public servers of the linguistic institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.ling.uni-potsdam.de', 'voip.ling.uni-potsdam.de', 'mail.ling.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1021,7 +1010,7 @@ end
 def role LingPrivateServers
     description = 'The private servers of the linguistic institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.ling.uni-potsdam.de', 'file.ling.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1039,7 +1028,6 @@ end
 def role SubLing
     description = 'The subnet for the linguistic institute.'
     ipv6 = '2001:db8:abc:10::0/120'
-    hosts = ['ling.uni-potsdam.de']
 
     includes LingClients
     includes LingServers
@@ -1057,7 +1045,7 @@ end
 def role MathPublicServers
     description = 'The public servers of the mathematical institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.math.uni-potsdam.de', 'voip.math.uni-potsdam.de', 'mail.math.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1080,7 +1068,7 @@ end
 def role MathPrivateServers
     description = 'The private servers of the mathematical institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.math.uni-potsdam.de', 'file.math.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1098,7 +1086,6 @@ end
 def role SubMath
     description = 'The subnet for the mathematical institute.'
     ipv6 = '2001:db8:abc:11::0/120'
-    hosts = ['math.uni-potsdam.de']
 
     includes MathClients
     includes MathServers
@@ -1116,7 +1103,7 @@ end
 def role MmzPublicServers
     description = 'The public servers of the Moses Mendelson center.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.mmz-potsdam.de', 'voip.mmz-potsdam.de', 'mail.mmz-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1139,7 +1126,7 @@ end
 def role MmzPrivateServers
     description = 'The private servers of the Moses Mendelson center.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.mmz-potsdam.de', 'file.mmz-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1157,7 +1144,6 @@ end
 def role SubMmz
     description = 'The subnet for the Moses Mendelson center.'
     ipv6 = '2001:db8:abc:12::0/120'
-    hosts = ['mmz-potsdam.de']
 
     includes MmzClients
     includes MmzServers
@@ -1175,7 +1161,7 @@ end
 def role PhysikPublicServers
     description = 'The public servers of the physical institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.physik.uni-potsdam.de', 'voip.physik.uni-potsdam.de', 'mail.physik.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1198,7 +1184,7 @@ end
 def role PhysikPrivateServers
     description = 'The private servers of the physical institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.physik.uni-potsdam.de', 'file.physik.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1216,7 +1202,6 @@ end
 def role SubPhysik
     description = 'The subnet for the physical institute.'
     ipv6 = '2001:db8:abc:13::0/120'
-    hosts = ['physik.uni-potsdam.de']
 
     includes PhysikClients
     includes PhysikServers
@@ -1234,7 +1219,7 @@ end
 def role PogsPublicServers
     description = 'The public servers of the Potsdam Graduate School.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.pogs.uni-potsdam.de', 'voip.pogs.uni-potsdam.de', 'mail.pogs.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1257,7 +1242,7 @@ end
 def role PogsPrivateServers
     description = 'The private servers of the Potsdam Graduate School.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.pogs.uni-potsdam.de', 'file.pogs.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1275,7 +1260,6 @@ end
 def role SubPogs
     description = 'The subnet for the Potsdam Graduate School.'
     ipv6 = '2001:db8:abc:14::0/120'
-    hosts = ['pogs.uni-potsdam.de']
 
     includes PogsClients
     includes PogsServers
@@ -1293,7 +1277,7 @@ end
 def role PsychPublicServers
     description = 'The public servers of the psychological institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.psych.uni-potsdam.de', 'voip.psych.uni-potsdam.de', 'mail.psych.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1316,7 +1300,7 @@ end
 def role PsychPrivateServers
     description = 'The private servers of the psychological institute.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.psych.uni-potsdam.de', 'file.psych.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1334,7 +1318,6 @@ end
 def role SubPsych
     description = 'The subnet for the psychological institute.'
     ipv6 = '2001:db8:abc:15::0/120'
-    hosts = ['psych.uni-potsdam.de']
 
     includes PsychClients
     includes PsychServers
@@ -1350,9 +1333,9 @@ end
 
 
 def role SqPublicServers
-    description = 'The public servers of the university library.'
+    description = 'The public servers of the didactical institute.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.sq-brandenburg.de', 'voip.sq-brandenburg.de', 'mail.sq-brandenburg.de']
 
     offers HTTP
     offers HTTPS
@@ -1375,7 +1358,7 @@ end
 def role SqPrivateServers
     description = 'The private servers of the university library.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.sq-brandenburg.de', 'file.sq-brandenburg.de']
 
     offers CUPS
     offers UCUPS
@@ -1393,7 +1376,6 @@ end
 def role SubSq
     description = 'The subnet for the didactical institute.'
     ipv6 = '2001:db8:abc:16::0/120'
-    hosts = ['sq-brandenburg.de']
 
     includes SqClients
     includes SqPrivateServers
@@ -1412,7 +1394,7 @@ end
 def role UbPublicServers
     description = 'The public servers of the university library.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.ub.uni-potsdam.de', 'voip.ub.uni-potsdam.de', 'mail.ub.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1435,7 +1417,7 @@ end
 def role UbPrivateServers
     description = 'The private servers of the university library.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.ub.uni-potsdam.de', 'file.ub.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1453,7 +1435,6 @@ end
 def role SubUb
     description = 'The subnet for the university library.'
     ipv6 = '2001:db8:abc:17::0/120'
-    hosts = ['ub.uni-potsdam.de']
 
     includes UbClients
     includes UbServers
@@ -1471,7 +1452,7 @@ end
 def role WelcPublicServers
     description = 'The public servers of the welcome center Potsdam.'
 
-    host_prefixes = ['web.', 'voip.', 'mail.']
+    hosts = ['web.welcome-center-potsdam.de', 'voip.welcome-center-potsdam.de', 'mail.welcome-center-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -1494,7 +1475,7 @@ end
 def role WelcPrivateServers
     description = 'The private servers of the welcome center Potsdam.'
 
-    host_prefixes = ['print.', 'file.']
+    hosts = ['print.welcome-center-potsdam.de', 'file.welcome-center-potsdam.de']
 
     offers CUPS
     offers UCUPS
@@ -1512,7 +1493,6 @@ end
 def role SubWelc
     description = 'The subnet for the welcome center Potsdam.'
     ipv6 = '2001:db8:abc:18::0/120'
-    hosts = ['welcome-center-potsdam.de']
 
     includes WelcClients
     includes WelcServers
