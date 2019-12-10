@@ -23,13 +23,6 @@ REACH_JSON = "bench/wl_ifi/reachable.json"
 REACH = "bench/wl_ifi/reachability.csv"
 
 
-def campus_network(config):
-    topology, hosts, routers, vlans, routes = config.viewvalues()
-
-    for router in routers:
-        pass
-
-
 if __name__ == '__main__':
     import json
     import os
