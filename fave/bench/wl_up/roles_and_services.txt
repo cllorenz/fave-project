@@ -10,13 +10,6 @@ def service SFTP
 end
 
 
-def abstract_role FileService
-    description = 'A file service.'
-    offers FTP
-    offers SFTP
-end
-
-
 def service SMTP
 	protocol = 'tcp'
 	port = 25
@@ -75,36 +68,17 @@ def service UIMAP3
 end
 
 
-def abstract_role MailService
-    description = 'A mail service.'
-    offers SMTP
-    offers SMTPS
-    offers POP3
-    offers POP3S
-    offers IMAP
-    offers UIMAP
-    offers SSMTP
-    offers IMAPS
-    offers IMAP3
-    offers UIMAP3
-end
-
-
 def service HTTP
 	protocol = 'tcp'
 	port = 80
 end
+
 
 def service HTTPS
 	protocol = 'tcp'
 	port = 443
 end
 
-def abstract_role WebService
-    description = 'A web service.'
-    offers HTTP
-    offers HTTPS
-end
 
 def service LDAP
 	protocol = 'tcp'
@@ -129,14 +103,6 @@ def service NTP
 	port = 123
 end
 
-def abstract_role LdapService
-    description = 'An ldap service.'
-
-    offers LDAP
-    offers ULDAP
-    offers LDAPS
-    offers NTP
-end
 
 def service OpenVPN
 	protocol = 'tcp'
@@ -161,15 +127,6 @@ def service UPPTP
 	port = 1723
 end
 
-def abstract_role VPNService
-    description = 'A VPN service.'
-
-    offers OpenVPN
-    offers UOpenVPN
-    offers PPTP
-    offers UPPTP
-end
-
 
 def service DNS
 	protocol = 'udp'
@@ -180,14 +137,6 @@ end
 def service TDNS
 	protocol = 'tcp'
 	port = 53
-end
-
-
-def abstract_role DNSService
-    description = 'A DNS service.'
-
-    offers DNS
-    offers TDNS
 end
 
 
@@ -211,15 +160,6 @@ def service UOSQL
 	port = 156
 end
 
-def abstract_role DataService
-    description = 'A data service.'
-
-    offers SQL
-    offers OSQL
-    offers USQL
-    offers UOSQL
-end
-
 
 def service CUPS
     protocol = 'tcp'
@@ -230,14 +170,6 @@ end
 def service UCUPS
     protocol = 'udp'
     port = 631
-end
-
-
-def abstract_role PrintService
-    description = 'A printing service.'
-
-    offers CUPS
-    offers UCUPS
 end
 
 
@@ -259,15 +191,6 @@ def service SSIP
 end
 
 
-def abstract_role VoipService
-    description = 'A voice over IP service.'
-
-    offers SIP
-    offers USIP
-    offers SSIP
-end
-
-
 def service SSH
 	protocol = 'tcp'
 	port = 22
@@ -280,81 +203,108 @@ def service USSH
 end
 
 
-def abstract_role GenericServer
-    description = 'Template for a server'
+def role DMZFileServer
+    description = 'The public file server in the DMZ.'
 
+    hosts = ['file.uni-potsdam.de']
+    ipv6 = '2001:db8:abc:0::1'
+
+    offers FTP
+    offers SFTP
     offers SSH
     offers USSH
 end
 
 
-def role DMZFileServer
-    description = 'The public file server in the DMZ.'
-    includes FileService
-    includes GenericServer
-
-    hosts = ['file.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::1'
-end
-
-
 def role DMZMailServer
     description = 'The public mail server in the DMZ.'
-    includes MailService
-    includes GenericServer
 
     hosts = ['mail.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::2'
+
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+    offers SSH
+    offers USSH
 end
 
 
 def role DMZWebServer
     description = 'The public web server in the DMZ.'
-    includes WebService
-    includes GenericServer
 
     hosts = ['web.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::3'
+
+    offers HTTP
+    offers HTTPS
+    offers SSH
+    offers USSH
 end
 
 
 def role DMZLdapServer
     description = 'The public ldap server in the DMZ.'
-    includes LdapService
-    includes GenericServer
 
     hosts = ['ldap.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::4'
+
+    offers LDAP
+    offers ULDAP
+    offers LDAPS
+    offers NTP
+    offers SSH
+    offers USSH
 end
 
 
 def role DMZVPNServer
     description = 'The public vpn server in the DMZ.'
-    includes VPNService
-    includes GenericServer
 
     hosts = ['vpn.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::5'
+
+    offers OpenVPN
+    offers UOpenVPN
+    offers PPTP
+    offers UPPTP
+    offers SSH
+    offers USSH
 end
 
 
 def role DMZDNSServer
     description = 'The public dns server in the DMZ.'
-    includes DNSService
-    includes GenericServer
 
     hosts = ['dns.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::6'
+
+    offers DNS
+    offers TDNS
+    offers SSH
+    offers USSH
 end
 
 
 def role DMZDataServer
     description = 'The public data server in the DMZ.'
-    includes DataService
-    includes GenericServer
 
     hosts = ['data.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::7'
+
+    offers SQL
+    offers OSQL
+    offers USQL
+    offers UOSQL
+    offers SSH
+    offers USSH
 end
 
 
@@ -367,31 +317,12 @@ end
 def role DMZAdminConsole
     description = 'The public admin console in the DMZ.'
 
-    includes GenericServer
-    offers SNMP
-
     hosts = ['admin.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::8'
-end
 
-
-
-def abstract_role GenericSubnetPublicServers
-    description = 'Template for public servers of a subnet.'
-    host_prefixes = ['web.', 'voip.', 'mail.']
-
-    includes WebService
-    includes VoipService
-    includes MailService
-end
-
-
-def abstract_role GenericSubnetPrivateServers
-    description = 'Template for private servers of a subnet.'
-    host_prefixes = ['print.', 'file.']
-
-    includes PrintService
-    includes FileService
+    offers SNMP
+    offers SSH
+    offers USSH
 end
 
 
@@ -419,7 +350,41 @@ end
 def role ApiPublicServers
     description = 'The public servers of the psychotherapy institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role ApiPrivateServers
+    description = 'The private servers of the psychotherapy institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role ApiServers
+    includes ApiPrivateServers
+    includes ApiPublicServers
 end
 
 
@@ -429,8 +394,7 @@ def role SubApi
     hosts = ['api.uni-potsdam.de']
 
     includes ApiClients
-    includes GenericSubnetPrivateServers
-    includes ApiPublicServers
+    includes ApiServers
 end
 
 
@@ -445,7 +409,41 @@ end
 def role AstaPublicServers
     description = 'The public servers of the ASTA.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role AstaPrivateServers
+    description = 'The private servers of the ASTA.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role AstaServers
+    includes AstaPrivateServers
+    includes AstaPublicServers
 end
 
 
@@ -455,8 +453,7 @@ def role SubAsta
     hosts = ['asta.uni-potsdam.de']
 
     includes AstaClients
-    includes GenericSubnetPrivateServers
-    includes AstaPublicServers
+    includes AstaServers
 end
 
 
@@ -470,7 +467,41 @@ end
 def role BotanPublicServers
     description = 'The public servers of the botanical garden.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role BotanPrivateServers
+    description = 'The private servers of the botanical garden.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role BotanServers
+    includes BotanPrivateServers
+    includes BotanPublicServers
 end
 
 
@@ -479,8 +510,7 @@ def role SubBotan
     ipv6 = '2001:db8:abc:6::0/120'
 
     includes BotanClients
-    includes GenericSubnetPrivateServers
-    includes BotanPublicServers
+    includes BotanServers
 end
 
 
@@ -495,7 +525,41 @@ end
 def role ChemPublicServers
     description = 'The public servers of the chemical institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role ChemPrivateServers
+    description = 'The private servers of the chemical institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role ChemServers
+    includes ChemPrivateServers
+    includes ChemPublicServers
 end
 
 
@@ -505,8 +569,7 @@ def role SubChem
     hosts = ['chem.uni-potsdam.de']
 
     includes ChemClients
-    includes GenericSubnetPrivateServers
-    includes ChemPublicServers
+    includes ChemServers
 end
 
 
@@ -521,7 +584,41 @@ end
 def role CsPublicServers
     description = 'The public servers of the institute for computer and computational science.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role CsPrivateServers
+    description = 'The private servers of the institute for computer and computational science.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role CsServers
+    includes CsPrivateServers
+    includes CsPublicServers
 end
 
 
@@ -531,8 +628,7 @@ def role SubCs
     hosts = ['cs.uni-potsdam.de']
 
     includes CsClients
-    includes GenericSubnetPrivateServers
-    includes CsPublicServers
+    includes CsServers
 end
 
 
@@ -547,7 +643,41 @@ end
 def role GeolPublicServers
     description = 'The public servers of the geological institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role GeolPrivateServers
+    description = 'The private servers of the geological institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role GeolServers
+    includes GeolPrivateServers
+    includes GeolPublicServers
 end
 
 
@@ -557,8 +687,7 @@ def role SubGeol
     hosts = ['geo.uni-potsdam.de']
 
     includes GeolClients
-    includes GenericSubnetPrivateServers
-    includes GeolPublicServers
+    includes GeolServers
 end
 
 
@@ -574,7 +703,41 @@ end
 def role GeogPublicServers
     description = 'The public servers of the geographical institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role GeogPrivateServers
+    description = 'The private servers of the geographical institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role GeogServers
+    includes GeogPrivateServers
+    includes GeogPublicServers
 end
 
 
@@ -584,8 +747,7 @@ def role SubGeog
     hosts = ['geographie.uni-potsdam.de']
 
     includes GeogClients
-    includes GenericSubnetPrivateServers
-    includes GeogPublicServers
+    includes GeogServers
 end
 
 
@@ -600,7 +762,41 @@ end
 def role HgpPublicServers
     description = 'The public servers of the university facility service.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role HgpPrivateServers
+    description = 'The private servers of the university facility service.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role HgpServers
+    includes HgpPrivateServers
+    includes HgpPublicServers
 end
 
 
@@ -610,8 +806,7 @@ def role SubHgp
     hosts = ['hgp-potsdam.de']
 
     includes HgpClients
-    includes GenericSubnetPrivateServers
-    includes HgpPublicServers
+    includes HgpServers
 end
 
 
@@ -626,7 +821,41 @@ end
 def role HpiPublicServers
     description = 'The public servers of the Hasso Plattner institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role HpiPrivateServers
+    description = 'The private servers of the Hasso Plattner institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role HpiServers
+    includes HpiPrivateServers
+    includes HpiPublicServers
 end
 
 
@@ -636,8 +865,7 @@ def role SubHpi
     hosts = ['hpi.uni-potsdam.de']
 
     includes HpiClients
-    includes GenericSubnetPrivateServers
-    includes HpiPublicServers
+    includes HpiServers
 end
 
 
@@ -652,7 +880,41 @@ end
 def role InternPublicServers
     description = 'The public servers of the university administration.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role InternPrivateServers
+    description = 'The private servers of the university administration.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role InternServers
+    includes InternPrivateServers
+    includes InternPublicServers
 end
 
 
@@ -662,8 +924,7 @@ def role SubIntern
     hosts = ['intern.uni-potsdam.de']
 
     includes InternClients
-    includes GenericSubnetPrivateServers
-    includes InternPublicServers
+    includes InternServers
 end
 
 
@@ -678,7 +939,41 @@ end
 def role JuraPublicServers
     description = 'The public servers of the institute of law.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role JuraPrivateServers
+    description = 'The private servers of the institute of law.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role JuraServers
+    includes JuraPrivateServers
+    includes JuraPublicServers
 end
 
 
@@ -688,8 +983,7 @@ def role SubJura
     hosts = ['jura.uni-potsdam.de']
 
     includes JuraClients
-    includes GenericSubnetPrivateServers
-    includes JuraPublicServers
+    includes JuraServers
 end
 
 
@@ -704,7 +998,41 @@ end
 def role LingPublicServers
     description = 'The public servers of the linguistic institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role LingPrivateServers
+    description = 'The private servers of the linguistic institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role LingServers
+    includes LingPrivateServers
+    includes LingPublicServers
 end
 
 
@@ -714,8 +1042,7 @@ def role SubLing
     hosts = ['ling.uni-potsdam.de']
 
     includes LingClients
-    includes GenericSubnetPrivateServers
-    includes LingPublicServers
+    includes LingServers
 end
 
 
@@ -730,7 +1057,41 @@ end
 def role MathPublicServers
     description = 'The public servers of the mathematical institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role MathPrivateServers
+    description = 'The private servers of the mathematical institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role MathServers
+    includes MathPrivateServers
+    includes MathPublicServers
 end
 
 
@@ -740,8 +1101,7 @@ def role SubMath
     hosts = ['math.uni-potsdam.de']
 
     includes MathClients
-    includes GenericSubnetPrivateServers
-    includes MathPublicServers
+    includes MathServers
 end
 
 
@@ -756,7 +1116,41 @@ end
 def role MmzPublicServers
     description = 'The public servers of the Moses Mendelson center.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role MmzPrivateServers
+    description = 'The private servers of the Moses Mendelson center.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role MmzServers
+    includes MmzPrivateServers
+    includes MmzPublicServers
 end
 
 
@@ -766,8 +1160,7 @@ def role SubMmz
     hosts = ['mmz-potsdam.de']
 
     includes MmzClients
-    includes GenericSubnetPrivateServers
-    includes MmzPublicServers
+    includes MmzServers
 end
 
 
@@ -782,7 +1175,41 @@ end
 def role PhysikPublicServers
     description = 'The public servers of the physical institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role PhysikPrivateServers
+    description = 'The private servers of the physical institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role PhysikServers
+    includes PhysikPrivateServers
+    includes PhysikPublicServers
 end
 
 
@@ -792,8 +1219,7 @@ def role SubPhysik
     hosts = ['physik.uni-potsdam.de']
 
     includes PhysikClients
-    includes GenericSubnetPrivateServers
-    includes PhysikPublicServers
+    includes PhysikServers
 end
 
 
@@ -808,7 +1234,41 @@ end
 def role PogsPublicServers
     description = 'The public servers of the Potsdam Graduate School.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role PogsPrivateServers
+    description = 'The private servers of the Potsdam Graduate School.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role PogsServers
+    includes PogsPrivateServers
+    includes PogsPublicServers
 end
 
 
@@ -818,8 +1278,7 @@ def role SubPogs
     hosts = ['pogs.uni-potsdam.de']
 
     includes PogsClients
-    includes GenericSubnetPrivateServers
-    includes PogsPublicServers
+    includes PogsServers
 end
 
 
@@ -834,7 +1293,41 @@ end
 def role PsychPublicServers
     description = 'The public servers of the psychological institute.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role PsychPrivateServers
+    description = 'The private servers of the psychological institute.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role PsychServers
+    includes PsychPublicServers
+    includes PsychPrivateServers
 end
 
 
@@ -844,8 +1337,7 @@ def role SubPsych
     hosts = ['psych.uni-potsdam.de']
 
     includes PsychClients
-    includes PsychPublicServers
-    includes GenericSubnetPrivateServers
+    includes PsychServers
 end
 
 
@@ -860,7 +1352,41 @@ end
 def role SqPublicServers
     description = 'The public servers of the university library.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role SqPrivateServers
+    description = 'The private servers of the university library.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role SqServers
+    includes SqPrivateServers
+    includes SqPublicServers
 end
 
 
@@ -870,7 +1396,7 @@ def role SubSq
     hosts = ['sq-brandenburg.de']
 
     includes SqClients
-    includes GenericSubnetPrivateServers
+    includes SqPrivateServers
     includes SqPublicServers
 end
 
@@ -886,7 +1412,41 @@ end
 def role UbPublicServers
     description = 'The public servers of the university library.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role UbPrivateServers
+    description = 'The private servers of the university library.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role UbServers
+    includes UbPrivateServers
+    includes UbPublicServers
 end
 
 
@@ -896,8 +1456,7 @@ def role SubUb
     hosts = ['ub.uni-potsdam.de']
 
     includes UbClients
-    includes GenericSubnetPrivateServers
-    includes UbPublicServers
+    includes UbServers
 end
 
 
@@ -908,10 +1467,45 @@ def role WelcClients
 
 end
 
+
 def role WelcPublicServers
     description = 'The public servers of the welcome center Potsdam.'
 
-    includes GenericSubnetPublicServers
+    host_prefixes = ['web.', 'voip.', 'mail.']
+
+    offers HTTP
+    offers HTTPS
+    offers SIP
+    offers USIP
+    offers SSIP
+    offers SMTP
+    offers SMTPS
+    offers POP3
+    offers POP3S
+    offers IMAP
+    offers UIMAP
+    offers SSMTP
+    offers IMAPS
+    offers IMAP3
+    offers UIMAP3
+end
+
+
+def role WelcPrivateServers
+    description = 'The private servers of the welcome center Potsdam.'
+
+    host_prefixes = ['print.', 'file.']
+
+    offers CUPS
+    offers UCUPS
+    offers FTP
+    offers SFTP
+end
+
+
+def role WelcServers
+    includes WelcPrivateServers
+    includes WelcPublicServers
 end
 
 
@@ -921,8 +1515,7 @@ def role SubWelc
     hosts = ['welcome-center-potsdam.de']
 
     includes WelcClients
-    includes GenericSubnetPrivateServers
-    includes WelcPublicServers
+    includes WelcServers
 end
 
 
@@ -1013,4 +1606,14 @@ def role PGF
     description = 'The central perimeter gateway firewall.'
     hosts = ['pgf.uni-potsdam.de']
     ipv6 = '2001:db8:abc::1'
+end
+
+
+def role All
+    description = 'All subnets and hosts of the UP network.'
+
+    includes PGF
+    includes Wifi
+    includes DMZ
+    includes Subnets
 end
