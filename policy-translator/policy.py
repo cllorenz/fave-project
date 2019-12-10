@@ -19,6 +19,7 @@
 
 import ast
 import copy
+import json
 from policy_exceptions import *
 
 class Policy(object):
@@ -407,6 +408,19 @@ class Policy(object):
             csv_list.append('\n')
 
         return ''.join(csv_list)
+
+
+    def to_mapping(self):
+        """ Creates a mapping between role names and technical attributes.
+
+        Returns:
+            A string that is JSON file containing a mapping between roles and attributes.
+        """
+
+        mapping = {
+            name : role.attributes for name, role in self.roles.iteritems() if type(role) == Role
+        }
+        return json.dumps(mapping, indent=2) + '\n'
 
 
 class Role(object):
