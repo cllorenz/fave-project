@@ -10,14 +10,10 @@ import time
 
 import netplumber.dump_np as dumper
 import test.check_flows as checker
-#import netplumber.print_np as printer
-
-from topology import topology as topo
-from ip6np import ip6np as ip6tables
-from openflow import switch
 
 from bench.wl_up.inventory import AD6
 
+from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
 LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
@@ -70,7 +66,6 @@ PROBE_LOGGER = logging.getLogger("probe")
 PROBE_LOGGER.addHandler(LOG_HANDLER)
 PROBE_LOGGER.setLevel(logging.INFO)
 
-
 def measure(function, logger=LOGGER):
     """ Measures the duration of a function call in milliseconds.
 
@@ -85,7 +80,7 @@ def measure(function, logger=LOGGER):
 
     logger.info("%fms", (t_end-t_start)*1000.0)
 
-
+"""
 def _add_packet_filter(name, address, ports):
     measure(
         lambda: topo.main([
@@ -361,11 +356,13 @@ RULESETS = "bench/wl_up/rulesets"
 
 
 def campus_network(config):
+"""
     """ Benchmarks FaVe using the a campus network styled workload including a
         central firewall, a DMZ, a campus wifi, and some generic branch
         networks.
     """
 
+"""
     hosts, subnets, subhosts = config
 
     # build topology
@@ -463,6 +460,7 @@ def campus_network(config):
 
 
 def _generate_reachability_tests(config):
+"""
     """ XXX flow tests:
     Internet <--> PublicHosts - ok
     Internet <->> PublicSubHosts
@@ -478,7 +476,7 @@ def _generate_reachability_tests(config):
     SubClients(X) !--> SubClients(Y) - ok
     SubClients(X) <->> PrivateSubHosts(Y)
     """
-
+"""
     tests = []
     hosts, subnets, subhosts = config
 
@@ -595,9 +593,40 @@ def _generate_reachability_tests(config):
     print "number of tests:\t%s\nduplicates:\t%s" % (len(tests), cnt)
 
     return tests
+"""
+
+
+INVENTORY = "bench/wl_up/inventory.json"
+TOPOLOGY = "bench/wl_up/topology.json"
+ROUTES = "bench/wl_up/routes.json"
+POLICIES = "bench/wl_up/policies.json"
+CHECKS = "bench/wl_up/checks.json"
+
+REACH = "bench/wl_up/reachability.csv"
 
 
 if __name__ == "__main__":
+    os.system("python2 bench/wl_up/inventorygen.py")
+    os.system("python2 bench/wl_up/topogen.py")
+    os.systen("python2 bench/wl_up/routegen.py")
+
+    os.system(
+        "python2 ../policy-translator/policy_translator.py " + ' '.join([
+            "--csv", "--out", REACH,
+            "bench/wl_up/roles_and_services-txt",
+            "bench/wl_up/reach.txt"
+        ])
+
+    os.system(
+        "python2 bench/wl_up/reach_csv_to_checks.py " + ' '.join([
+            '-p', REACH,
+            '-m', INVENTORY,
+            '-c', CHECKS
+        ])
+    )
+
+    os.system("python2 bench/wl_up/policygen.py")
+
     LOGGER.info("starting netplumber...")
     os.system("scripts/start_np.sh bench/wl_up/np.conf")
     LOGGER.info("started netplumber.")
@@ -606,17 +635,35 @@ if __name__ == "__main__":
     os.system("scripts/start_aggr.sh")
     LOGGER.info("started aggregator.")
 
-    campus_network(AD6)
+    with open(TOPOLOGY, 'r') as raw_topology:
+        devices, links = json.loads(raw_topology.read()).values()
+
+        create_topology(devices, links)
+        add_rulesets(devices)
+
+    with open(ROUTES, 'r') as raw_routes:
+        routes = json.loads(raw_routes.read())
+
+        add_routes(routes)
+
+    with open(POLICIES, 'r') as raw_policies:
+        links, probes = json.loads(raw_policies.read()).values()
+
+        add_policies(probes, links)
+
+    with open(CHECKS, 'r') as raw_checks:
+        checks = json.loads(raw_checks.read())
 
     LOGGER.info("dumping fave and netplumber...")
-    dumper.main(["-anpt"])
+    dumper.main(["-anpft"])
     LOGGER.info("dumped fave and netplumber.")
-
-    LOGGER.info("checking flow trees...")
-    tests = _generate_reachability_tests(AD6)
-    checker.main(["-c", ";".join(tests)])
-    LOGGER.info("checked flow trees.")
 
     LOGGER.info("stopping fave and netplumber...")
     os.system("bash scripts/stop_fave.sh")
     LOGGER.info("stopped fave and netplumber.")
+
+    LOGGER.info("checking flow trees...")
+    checker.main(["-r", "-c", ";".join(checks)])
+    LOGGER.info("checked flow trees.")
+
+    os.system("rm -f np_dump/.lock")

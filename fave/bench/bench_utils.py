@@ -145,7 +145,7 @@ def add_policies(probes, links):
     for link in links:
         _add_link(*link)
 
-
+"""
 # XXX: deprecated and to be deleted!
 
 TOPOLOGY = "bench/wl_up/topology.json"
@@ -187,3 +187,4 @@ if __name__ == '__main__':
 
     os.system("bash scripts/stop_fave.sh")
     os.system("rm -f np_dump/.lock")
+"""
