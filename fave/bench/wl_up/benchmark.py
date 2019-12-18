@@ -1,17 +1,16 @@
 #!/usr/bin/env python2
 
-""" This module benchmarks FaVe with the AD6 workload.
+""" This module benchmarks FaVe with the UP workload.
 """
 
 import os
 import sys
 import logging
 import time
+import json
 
 import netplumber.dump_np as dumper
 import test.check_flows as checker
-
-from bench.wl_up.inventory import AD6
 
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
@@ -39,28 +38,30 @@ ROUTES = "bench/wl_up/routes.json"
 POLICIES = "bench/wl_up/policies.json"
 CHECKS = "bench/wl_up/checks.json"
 
-REACH = "bench/wl_up/reachability.csv"
+REACH_CSV = "bench/wl_up/reachability.csv"
 
 
 if __name__ == "__main__":
-    os.system("python2 bench/wl_up/inventorygen.py")
-    os.system("python2 bench/wl_up/topogen.py")
-    os.systen("python2 bench/wl_up/routegen.py")
-
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
-            "--csv", "--out", REACH,
+            "--csv", "--out", REACH_CSV,
             "bench/wl_up/roles_and_services-txt",
             "bench/wl_up/reach.txt"
         ])
+    )
+
+    os.system("python2 bench/wl_up/inventorygen.py")
 
     os.system(
         "python2 bench/wl_up/reach_csv_to_checks.py " + ' '.join([
-            '-p', REACH,
+            '-p', REACH_CSV,
             '-m', INVENTORY,
             '-c', CHECKS
         ])
     )
+
+    os.system("python2 bench/wl_up/topogen.py")
+    os.system("python2 bench/wl_up/routegen.py")
 
     os.system("python2 bench/wl_up/policygen.py")
 
