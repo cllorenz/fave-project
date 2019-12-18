@@ -2,32 +2,34 @@
 
 import json
 
-from bench.wl_up.inventory import AD6
+from bench.wl_up.inventory import UP
 
 POLICIES="bench/wl_up/policies.json"
 
 if __name__ == '__main__':
-    hosts, subnets, subhosts = AD6
+    hosts = UP["dmz"]
+    subnets = UP["subnets"]
+    subhosts = UP["subhosts"]
 
     # probe: (name, type, quantor, [filter_fields], [test_fields], [test_path])
     probes = [
-        ("probe.internet", "probe", "universal", None, None, ["(p in (pgf.25))"]),
-        ("probe.clients.wifi", "probe", "existential", None, None, [".*(p=pgf.1);$"])
+        ("probe.internet", "probe", "universal", None, None, ["(p in (pgf.uni-potsdam.de.25))"]),
+        ("probe.clients.wifi.uni-potsdam.de", "probe", "existential", None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
     ]
     links = [
-        ("pgf.25", "probe.internet.1"),
-        ("clients.wifi_input_states_accept", "probe.clients.wifi.1"),
-        ("clients.wifi_input_rules_accept", "probe.clients.wifi.1")
+        ("pgf.uni-potsdam.de.25", "probe.internet.1"),
+        ("clients.wifi.uni-potsdam.de_input_states_accept", "probe.clients.wifi.uni-potsdam.de.1"),
+        ("clients.wifi.uni-potsdam.de_input_rules_accept", "probe.clients.wifi.uni-potsdam.de.1")
     ]
 
     # test dmz
     for name, _address, _services in hosts:
         probes.append(
-            ("probe.%s.dmz" % name, "probe", "existential", ["tcp_dst=22"], None, [".*(p=pgf.1);$"])
+            ("probe.%s.uni-potsdam.de" % name, "probe", "existential", ["tcp_dst=22"], None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
         links.extend([
-            ("%s.dmz_input_states_accept" % name, "probe.%s.dmz.1" % name),
-            ("%s.dmz_input_rules_accept" % name, "probe.%s.dmz.1" % name)
+            ("%s.uni-potsdam.de_input_states_accept" % name, "probe.%s.uni-potsdam.de.1" % name),
+            ("%s.uni-potsdam.de_input_rules_accept" % name, "probe.%s.uni-potsdam.de.1" % name)
         ])
 
     # test subnets
@@ -41,7 +43,7 @@ if __name__ == '__main__':
                 "existential",
                 ["tcp_dst=22"],
                 None,
-                [".*(p=pgf.1);$"]
+                [".*(p=pgf.uni-potsdam.de.1);$"]
             ))
 
             links.extend([
@@ -55,7 +57,7 @@ if __name__ == '__main__':
             "existential",
             ["tcp_dst=22"],
             None,
-            [".*(p=pgf.1);$"]
+            [".*(p=pgf.uni-potsdam.de.1);$"]
         ))
 
         links.extend([
