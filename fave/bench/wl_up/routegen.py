@@ -2,23 +2,23 @@
 
 import json
 
-from bench.wl_up.inventory import AD6
+from bench.wl_up.inventory import UP
 
 OFILE="bench/wl_up/routes.json"
 
-PGF_ADDR="2001:db8:abc::1"
-
 if __name__ == '__main__':
-    hosts, subnets, subhosts = AD6
+    hosts = UP["dmz"]
+    subnets = UP["subnets"]
+    subhosts = UP["subhosts"]
 
     # route: (name, table, idx, [fields], [commands])
     routes = [
-        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:0::0/64"], ["fd=pgf.2"], []),
-        ("pgf", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.3"], []),
-        ("pgf", 1, 65535, [], ["fd=pgf.1"], []),
-        ("dmz", 1, 65535, [], ["fd=dmz.1"], []),
-        ("wifi", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.2"], []),
-        ("wifi", 1, 65535, [], ["fd=wifi.1"], [])
+        ("pgf.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:0::0/64"], ["fd=pgf.uni-potsdam.de.2"], []),
+        ("pgf.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.uni-potsdam.de.3"], []),
+        ("pgf.uni-potsdam.de", 1, 65535, [], ["fd=pgf.uni-potsdam.de.1"], []),
+        ("dmz.uni-potsdam.de", 1, 65535, [], ["fd=dmz.uni-potsdam.de.1"], []),
+        ("wifi.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.uni-potsdam.de.2"], []),
+        ("wifi.uni-potsdam.de", 1, 65535, [], ["fd=wifi.1"], [])
     ]
 
     # dmz hosts
@@ -26,8 +26,8 @@ if __name__ == '__main__':
         name, addr, _services = host
         port = cnt + 2
         routes.extend([
-            ("dmz", 1, 0, ["ipv6_dst=%s" % addr], ["fd=dmz.%s" % port], []),
-            ("%s.dmz" % name, 1, 65535, [], ["fd=%s.dmz.1" % name], [])
+            ("dmz.uni-potsdam.de", 1, 0, ["ipv6_dst=%s" % addr], ["fd=dmz.uni-potsdam.de.%s" % port], []),
+            ("%s.uni-potsdam.de" % name, 1, 65535, [], ["fd=%s.dmz.uni-potsdam.de.1" % name], [])
         ])
 
     # subnets
@@ -36,11 +36,11 @@ if __name__ == '__main__':
         netident = port+1
 
         routes.append((
-            "pgf",
+            "pgf.uni-potsdam.de",
             1,
             0,
             ["ipv6_dst=2001:db8:abc:%s::0/64" % netident],
-            ["fd=pgf.%s" % port],
+            ["fd=pgf.uni-potsdam.de.%s" % port],
             []
         ))
 
