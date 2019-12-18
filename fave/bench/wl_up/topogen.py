@@ -2,73 +2,83 @@
 
 import json
 
-from bench.wl_up.inventory import AD6
+from bench.wl_up.inventory import UP
 
 OFILE="bench/wl_up/topology.json"
 RULESETS="bench/wl_up/rulesets"
 
-PGF_ADDR="2001:db8:abc::1"
-
 if __name__ == '__main__':
-    hosts, subnets, subhosts = AD6
+    get_domain = lambda domain, _addr, _services: domain
+    get_addr = lambda _domain, addr, _services: addr
+    get_services = lambda _domain, _addr, services: services
+
+    pgf = UP["pgf"][0]
+    wifi = UP["wifi"][0]
 
     # device: (name, type, no_ports, address, ruleset)
     devices = [
-        ("pgf", "packet_filter", 24, PGF_ADDR, "%s/pgf-ruleset" % RULESETS),
-        ("dmz", "switch", 9),
-        ("wifi", "switch", 2),
+        (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/pgf-ruleset" % RULESETS),
+        ("dmz.uni-potsdam.de", "switch", 9),
+        ("wifi.uni-potsdam.de", "switch", 2),
         (
-            "clients.wifi",
+            get_domain(*wifi),
             "host",
             1,
-            "2001:db8:abc:2::100/120",
+            get_addr(*wifi),
             "%s/wifi-clients-ruleset" % RULESETS
         )
     ]
 
     # link: (sname, dname)
     links = [
-        ("pgf.26", "dmz.1"),
-        ("dmz.1", "pgf.2"),
-        ("pgf.27", "wifi.1"),
-        ("wifi.1", "pgf.3"),
-        ("clients.wifi.2", "wifi.2"),
-        ("wifi.2", "clients.wifi.1")
+        ("pgf.uni-potsdam.de.26", "dmz.uni-potsdam.de.1"),
+        ("dmz.uni-potsdam.de.1", "pgf.uni-potsdam.de.2"),
+        ("pgf.uni-potsdam.de.27", "wifi.uni-potsdam.de.1"),
+        ("wifi.uni-potsdam.de.1", "pgf.uni-potsdam.de.3"),
+        ("clients.wifi.uni-potsdam.de.2", "wifi.uni-potsdam.de.2"),
+        ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1")
     ]
 
     # dmz hosts
-    for cnt, host in enumerate(hosts):
-        name, addr, _services = host
-        port = cnt+2
+    hosts = UP["dmz"]
+
+    for cnt, host in enumerate(hosts, start=2):
+        name = get_domain(*host)
+        addr = get_addr(*host)
+        port = cnt
 
         devices.append((
-            "%s.dmz" % name,
+            name,
             "host",
             1,
             addr,
             "%s/dmz-%s-ruleset" % (RULESETS, name)
         ))
         links.extend([
-            ("%s.dmz.2" % name, "dmz.%s" % port),
-            ("dmz.%s" % port, "%s.dmz.1" % name)
+            ("%s.2" % name, "dmz.uni-potsdam.de.%s" % port),
+            ("dmz.uni-potsdam.de.%s" % port, "%s.1" % name)
         ])
 
-    for cnt, subnet in enumerate(subnets):
-        port = cnt+4
+
+    subnets = UP["subnets"]
+    subhosts = UP["subhosts"]
+
+    for cnt, subnet in enumerate(subnets, start=4):
+        port = cnt
         netident = port
 
         # subnet switch
         devices.append((subnet, "switch", len(subhosts)+2))
         links.extend([
-            ("pgf.%s" % (port+24), "%s.1" % subnet),
-            ("%s.1" % subnet, "pgf.%s" % port)
+            ("pgf.uni-potsdam.de.%s" % (port+24), "%s.1" % subnet),
+            ("%s.1" % subnet, "pgf.uni-potsdam.de.%s" % port)
         ])
 
         # subnet hosts
-        for srv, host in enumerate(subhosts):
+        for srv, host in enumerate(subhosts, start=1):
             name, _services = host
-            ident = srv + 1
-            sport = srv + 2
+            ident = srv
+            sport = srv + 1
             addr = "2001:db8:abc:%s::%s" % (netident, ident)
             hostnet = "%s.%s" % (name, subnet)
             nethost = "%s-%s" % (subnet, name)
@@ -99,16 +109,17 @@ if __name__ == '__main__':
         ])
 
     devices.append(("source.internet", "generator", ["ipv6_src=0::1/0"]))
-    links.append(("source.internet.1", "pgf.1"))
+    links.append(("source.internet.1", "pgf.uni-potsdam.de.1"))
 
-    for cnt, host in enumerate(hosts):
-        hname, address, _services = host
-        server = "source.%s.dmz" % hname
+    for host in hosts:
+        hname = get_domain(*host)
+        address = get_addr(*host)
+        server = "source.%s" % hname
         devices.append((server, "generator", ["ipv6_src=%s" % address]))
-        links.append(("%s.1" % server, "%s.dmz_output_states_in" % hname))
+        links.append(("%s.1" % server, "%s_output_states_in" % hname))
 
-    for cnt, subnet in enumerate(subnets):
-        netident = cnt + 4
+    for cnt, subnet in enumerate(subnets, start=4):
+        netident = cnt
 
         for srv, host in enumerate(subhosts):
             ident = srv + 1
@@ -130,10 +141,10 @@ if __name__ == '__main__':
         )
 
 
-    ad6 = {
+    up = {
         'devices' : devices,
         'links' : links
     }
 
     with open(OFILE, 'w') as of:
-        of.write(json.dumps(ad6, indent=2))
+        of.write(json.dumps(up, indent=2))
