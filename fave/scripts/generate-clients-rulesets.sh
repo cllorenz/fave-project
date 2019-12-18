@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 
-SUBNETS="api \
-    asta \
+SUBNETS="api.uni-potsdam.de \
+    asta.uni-potsdam.de \
     botanischer-garten-potsdam.de \
-    chem \
-    cs \
-    geo \
-    geographie \
+    chem.uni-potsdam.de \
+    cs.uni-potsdam.de \
+    geo.uni-potsdam.de \
+    geographie.uni-potsdam.de \
     hgp-potsdam.de \
-    hpi \
-    hssport \
-    intern \
-    jura \
-    ling \
-    math \
+    hpi.uni-potsdam.de \
+    hssport.uni-potsdam.de \
+    intern.uni-potsdam.de \
+    jura.uni-potsdam.de \
+    ling.uni-potsdam.de \
+    math.uni-potsdam.de \
     mmz-potsdam.de \
-    physik \
-    pogs \
-    psych \
+    physik.uni-potsdam.de \
+    pogs.uni-potsdam.de \
+    psych.uni-potsdam.de \
     sq-brandenburg.de \
-    ub \
+    ub.uni-potsdam.de \
     welcome-center-potsdam.de \
-    wifi"
+    wifi.uni-potsdam.de"
 
 cnt=4
 for SUB in $SUBNETS; do

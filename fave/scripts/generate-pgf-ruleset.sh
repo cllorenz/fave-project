@@ -37,7 +37,7 @@ function private_sub {
 }
 
 
-SCRIPT="rulesets/pgf-ruleset"
+SCRIPT="rulesets/pgf.uni-potsdam.de-ruleset"
 echo -n "" > $SCRIPT
 
 
