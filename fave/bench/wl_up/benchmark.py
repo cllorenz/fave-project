@@ -72,21 +72,28 @@ if __name__ == "__main__":
     os.system("scripts/start_aggr.sh")
     LOGGER.info("started aggregator.")
 
+    LOGGER.info("initialize topology...")
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         create_topology(devices, links)
         add_rulesets(devices)
+    LOGGER.info("initialized topology.")
 
+
+    LOGGER.info("initialize routes...")
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
         add_routes(routes)
+    LOGGER.info("initialized routes...")
 
+    LOGGER.info("initialize probes...")
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         add_policies(probes, links)
+    LOGGER.info("initialized probes...")
 
     with open(CHECKS, 'r') as raw_checks:
         checks = json.loads(raw_checks.read())
