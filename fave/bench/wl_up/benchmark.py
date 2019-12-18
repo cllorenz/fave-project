@@ -45,7 +45,7 @@ if __name__ == "__main__":
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
             "--csv", "--out", REACH_CSV,
-            "bench/wl_up/roles_and_services-txt",
+            "bench/wl_up/roles_and_services.txt",
             "bench/wl_up/reach.txt"
         ])
     )
