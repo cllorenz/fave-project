@@ -77,7 +77,9 @@ if __name__ == "__main__":
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
+        LOGGER.info("  create topology")
         create_topology(devices, links)
+        LOGGER.info("  add rulesets")
         add_rulesets(devices)
     LOGGER.info("initialized topology.")
 
