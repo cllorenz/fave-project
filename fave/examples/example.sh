@@ -62,7 +62,7 @@ python2 topology/topology.py -a -l $HOST2.1:$SWITCH.1
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
-echo -n "add PROBE1s... "
+echo -n "add probess... "
 # PROBE1 $PROBE1
 python2 topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
