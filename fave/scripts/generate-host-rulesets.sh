@@ -24,7 +24,7 @@ function private {
     done
 }
 
-HOSTS="file,2001:db8:abc:0::1,tcp:21,tcp:115;tcp:22,udp:22 \
+HOSTS="file.uni-potsdam.de,2001:db8:abc:0::1,tcp:21,tcp:115;tcp:22,udp:22 \
     mail.uni-potsdam.de,2001:db8:abc:0::2,tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,\
 tcp:993,tcp:995,udp:143,udp:220;tcp:22,udp:22 \
     web.uni-potsdam.de,2001:db8:abc:0::3,tcp:80,tcp:443;tcp:22,udp:22 \
