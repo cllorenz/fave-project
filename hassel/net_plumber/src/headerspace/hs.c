@@ -850,8 +850,9 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
   }
   if (pos == SIZE_MAX) return false;
 
+  const size_t oldlen = hs->len;
   memset (res, 0, sizeof *res);
-  res->len = hs->len;
+  res->len = oldlen;
   struct hs_vec *resv = &res->list;
   for (size_t i = pos; i < v->used; i++) {
     if (i == pos) vec_append (resv, xmemdup (tmp, sizeof tmp), false);
