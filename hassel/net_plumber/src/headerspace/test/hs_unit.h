@@ -36,6 +36,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
 
         CPPUNIT_TEST(test_copy);
         CPPUNIT_TEST(test_copy_a);
+        CPPUNIT_TEST(test_from_str);
         CPPUNIT_TEST(test_add);
         CPPUNIT_TEST(test_add_hs);
         CPPUNIT_TEST(test_diff);
@@ -73,6 +74,7 @@ class HeaderspaceTest : public CppUnit::TestFixture {
 
         void test_copy();
         void test_copy_a();
+        void test_from_str();
         void test_add();
         void test_add_hs();
         void test_diff();

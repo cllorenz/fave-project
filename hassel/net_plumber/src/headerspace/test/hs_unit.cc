@@ -57,6 +57,29 @@ void HeaderspaceTest::test_copy_a() {
     hs_free(a);
 }
 
+
+void HeaderspaceTest::test_from_str() {
+    hs_enlarge(h, 2);
+    hs_vec_append(&h->list, array_from_str("xx10xx10,xxxxxxxx"), false);
+    hs_vec_append(&h->list, array_from_str("11xx110x,xxxxxxxx"), false);
+    hs_vec_append(&h->list.diff[1], array_from_str("1100110x,00000000"), true);
+    hs_vec_append(&h->list.diff[1], array_from_str("11xx1x00,xxxxxxxx"), true);
+    hs_vec_append(&h->list, array_from_str("010xxx10,10101010"), false);
+
+    hs_print(h);
+
+    struct hs *a = hs_from_str(
+        "(xx10xx10,xxxxxxxx + (11xx110x,xxxxxxxx - ( 1100110x,00000000 + 11xx1x00,xxxxxxxx))+010xxx10,10101010)"
+    );
+
+    hs_print(a);
+
+    CPPUNIT_ASSERT(hs_is_equal(h, a));
+
+    hs_free(a);
+}
+
+
 void HeaderspaceTest::test_add() {
     printf("\n");
 
