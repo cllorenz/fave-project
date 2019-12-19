@@ -1,18 +1,17 @@
 #ifndef SRC_NET_PLUMBER_PACKET_SET_H_
 #define SRC_NET_PLUMBER_PACKET_SET_H_
 
-#include "../jsoncpp/jsonrpc.h"
+#include "../jsoncpp/json/json.h"
 
 namespace net_plumber {
 
 class PacketSet {
   public:
-    static PacketSet* from_str(std::string);
     virtual std::string to_str(void) = 0;
-    static PacketSet* from_json(const Json::Value&);
+    virtual void to_json(Json::Value&) = 0;
 
     virtual void compact(void) = 0;
-    static PacketSet *copy(void);
+    virtual void unroll(void) = 0;
 
     virtual size_t count(void) = 0;
     virtual void enlarge(size_t len) = 0;
