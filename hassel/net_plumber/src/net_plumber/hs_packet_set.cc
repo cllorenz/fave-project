@@ -6,24 +6,34 @@ extern "C" {
 
 namespace net_plumber {
 
-HeaderspacePacketSet::HeaderspacePacketSet(struct hs *hs) : hs(hs) {
-    /* empty */
+HeaderspacePacketSet::HeaderspacePacketSet(struct hs *hs) {
+    this->hs.len = hs->len;
+    this->hs.list = hs->list;
 }
 
 
-HeaderspacePacketSet::HeaderspacePacketSet(size_t length) {
-    this->hs = hs_create(length);
+HeaderspacePacketSet::HeaderspacePacketSet(const size_t length) {
+    this->hs = {length, {0, 0, 0, 0}};
 }
 
 
 HeaderspacePacketSet::~HeaderspacePacketSet() {
-    hs_free(this->hs);
+    hs_destroy(&this->hs);
 }
 
 
 std::string
 HeaderspacePacketSet::to_str(void) {
-    return std::string(hs_to_str(this->hs));
+    char *tmp = hs_to_str(&this->hs);
+    std::string res = std::string(tmp);
+    free(tmp);
+    return res;
+}
+
+
+void
+HeaderspacePacketSet::to_json(Json::Value& res) {
+    hs_to_json(res, &this->hs);
 }
 
 
@@ -37,125 +47,155 @@ get_length_from_val(const Json::Value& val) {
     }
 }
 
-static HeaderspacePacketSet*
-from_json(const Json::Value& val) {
-    int len = get_length_from_val(val);
-    return new HeaderspacePacketSet(val_to_hs<struct hs, array_t>(val, len));
+HeaderspacePacketSet::HeaderspacePacketSet(const std::string s) {
+    struct hs *hs = hs_from_str(s.c_str());
+    this->hs.len = hs->len;
+    this->hs.list = hs->list;
+    free(hs);
 }
 
 
-HeaderspacePacketSet *
-HeaderspacePacketSet::copy(void) {
-    return new HeaderspacePacketSet(hs_copy_a(this->hs));
+HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, size_t length) {
+    HeaderspacePacketSet *tmp = val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(val, length);
+    this->hs.len = tmp->hs.len;
+    this->hs.list = tmp->hs.list;
+    free(tmp);
+}
+
+
+HeaderspacePacketSet::HeaderspacePacketSet(const HeaderspacePacketSet& hps) {
+    hs_copy(&this->hs, &hps.hs);
 }
 
 
 void
 HeaderspacePacketSet::enlarge(size_t len) {
-    hs_enlarge(this->hs, len);
+    hs_enlarge(&this->hs, len);
 }
 
 
 void
 HeaderspacePacketSet::intersect(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    hs_isect(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    hs_isect(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 
 void
-HeaderspacePacketSet::intersect(ArrayPacketSet *other) {
-    assert(this->hs->len == other->length);
-    hs_isect_arr(this->hs, this->hs, other->array);
+HeaderspacePacketSet::intersect2(ArrayPacketSet *other) {
+    assert(this->hs.len == other->length);
+    hs_isect_arr(&this->hs, &this->hs, other->array);
 }
 
 
 void
 HeaderspacePacketSet::psunion(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    hs_add_hs(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    hs_add_hs(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 
 void
-HeaderspacePacketSet::psunion(ArrayPacketSet *other) {
-    assert(this->hs->len == other->length);
-    hs_add(this->hs, other->array);
+HeaderspacePacketSet::psunion2(ArrayPacketSet *other) {
+    assert(this->hs.len == other->length);
+    hs_add(&this->hs, array_copy(other->array, other->length));
 }
 
 
 void
 HeaderspacePacketSet::diff(PacketSet *other) {
-    this->diff((ArrayPacketSet *)other);
+    this->diff2((ArrayPacketSet *)other);
 }
 
 
 void
-HeaderspacePacketSet::diff(ArrayPacketSet *other) {
-    assert(this->hs->len == other->length);
-    hs_diff(this->hs, other->array);
+HeaderspacePacketSet::diff2(ArrayPacketSet *other) {
+    assert(this->hs.len == other->length);
+    hs_diff(&this->hs, other->array);
 }
 
 
 void
 HeaderspacePacketSet::minus(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    hs_minus(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    hs_minus(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 
+void
+HeaderspacePacketSet::minus2(ArrayPacketSet *other, const size_t pos) {
+    assert(this->hs.len == other->length);
+    assert(this->hs.list.used > pos);
+    hs_vec_append(&this->hs.list.diff[pos], other->array, true);
+}
+
 bool
 HeaderspacePacketSet::is_empty(void) {
-    return hs_is_empty(this->hs);
+    return hs_is_empty(&this->hs);
 }
 
 
 bool
 HeaderspacePacketSet::is_equal(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    return hs_is_equal(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    return hs_is_equal(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 
 bool HeaderspacePacketSet::is_subset_equal(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    return hs_is_sub_eq(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    return hs_is_sub_eq(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 
 bool
 HeaderspacePacketSet::is_subset(PacketSet *other) {
-    assert(this->hs->len == ((HeaderspacePacketSet *)other)->hs->len);
-    return hs_is_sub(this->hs, ((HeaderspacePacketSet *)other)->hs);
+    assert(this->hs.len == ((HeaderspacePacketSet *)other)->hs.len);
+    return hs_is_sub(&this->hs, &((HeaderspacePacketSet *)other)->hs);
 }
 
 void
 HeaderspacePacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
-    this->rewrite((ArrayPacketSet *)mask, (ArrayPacketSet *)rewrite);
+    this->rewrite2((ArrayPacketSet *)mask, (ArrayPacketSet *)rewrite);
 }
 
 void
-HeaderspacePacketSet::rewrite(ArrayPacketSet *mask, ArrayPacketSet *rewrite) {
-    assert(this->hs->len == mask->length && this->hs->len ==rewrite->length);
-    hs_rewrite(this->hs, mask->array, rewrite->array);
+HeaderspacePacketSet::rewrite2(ArrayPacketSet *mask, ArrayPacketSet *rewrite) {
+    assert(this->hs.len == mask->length && this->hs.len == rewrite->length);
+    hs_rewrite(&this->hs, mask->array, rewrite->array);
 }
 
 
 void
 HeaderspacePacketSet::negate(void) {
-    hs_cmpl(this->hs);
+    hs_cmpl(&this->hs);
 }
 
 
 void
 HeaderspacePacketSet::compact(void) {
-    hs_compact(this->hs);
+    hs_compact(&this->hs);
+}
+
+
+void
+HeaderspacePacketSet::compact2(ArrayPacketSet *mask) {
+    if (!mask) this->compact();
+    else {
+        assert(this->hs.len == mask->length);
+        hs_compact_m(&this->hs, mask->array);
+    }
+}
+
+
+void HeaderspacePacketSet::unroll(void) {
+    hs_comp_diff(&this->hs);
 }
 
 
 size_t
 HeaderspacePacketSet::count(void) {
-    return hs_count(this->hs);
+    return hs_count(&this->hs);
 }
 
 } /* namespace net_plumber */
