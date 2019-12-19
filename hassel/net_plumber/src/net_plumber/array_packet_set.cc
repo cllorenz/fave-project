@@ -6,13 +6,13 @@ extern "C" {
 
 namespace net_plumber {
 
-ArrayPacketSet::ArrayPacketSet(array_t *array, size_t length) : array(array), length(length) {
+ArrayPacketSet::ArrayPacketSet(array_t *array, const size_t length) : array(array), length(length) {
     /* empty */
 }
 
 
-ArrayPacketSet::ArrayPacketSet(size_t length) : length(length) {
-    this->array = array_create(length, BIT_X);
+ArrayPacketSet::ArrayPacketSet(const size_t length) : array(nullptr), length(length) {
+    /* empty */
 }
 
 
@@ -21,57 +21,73 @@ ArrayPacketSet::~ArrayPacketSet() {
 }
 
 
-size_t
-length_from_array_cstr(const char *s) {
-    return strlen(s);
-}
-
-
-ArrayPacketSet *
-from_str(std::string s) {
-    return new ArrayPacketSet(
-        array_from_str(s.c_str()),
-        length_from_array_cstr(s.c_str())
-    );
+ArrayPacketSet::ArrayPacketSet(const std::string s) {
+    this->array = hs_get_array_from_string(s.c_str());
+    this->length = hs_get_length_from_string(s.c_str());
 }
 
 
 std::string
 ArrayPacketSet::to_str(void) {
-    return std::string(array_to_str(this->array, this->length, false));
+    char *tmp = array_to_str(this->array, this->length, false);
+    std::string res = std::string(tmp);
+    free(tmp);
+    return res;
 }
 
+void
+ArrayPacketSet::to_json(Json::Value& res) {
+    res = this->to_str();
+}
+
+size_t
+ArrayPacketSet::count(void) {
+    return (this->array) ? 1 : 0;
+}
 
 size_t
 length_from_array_val(const Json::Value& val) {
-    return length_from_array_cstr(val.asCString());
+    return hs_get_length_from_string(val.asCString());
 }
 
 
-static ArrayPacketSet*
-from_json(const Json::Value& val) {
-    return new ArrayPacketSet(val_to_array<struct hs, array_t>(val), length_from_array_val(val));
+ArrayPacketSet::ArrayPacketSet(const Json::Value& val, const size_t length) {
+    ArrayPacketSet *a = val_to_array<ArrayPacketSet>(val);
+    assert(length == a->length);
+
+    this->array = array_copy(a->array, a->length);
+    this->length = length;
+    delete a;
 }
 
 
-ArrayPacketSet *
-ArrayPacketSet::copy(void) {
-    return new ArrayPacketSet(array_copy(this->array, this->length), this->length);
+ArrayPacketSet::ArrayPacketSet(const ArrayPacketSet& aps) { // copy constructor
+    this->length = aps.length;
+    this->array = (aps.array) ? array_copy(aps.array, aps.length) : nullptr;
 }
 
 
 void
 ArrayPacketSet::enlarge(size_t len) {
-    const size_t olen = this->length;
-    this->length += len;
-    array_resize(this->array, olen, this->length);
+    if (this->length < len) {
+        const size_t olen = this->length;
+        this->length = len;
+        array_t * tmp = array_resize(this->array, olen, this->length);
+        this->array = tmp;
+    }
 }
 
 
 void
 ArrayPacketSet::intersect(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
-    array_isect_a(this->array, ((ArrayPacketSet *)other)->array, this->length);
+    array_t *tmp = array_create(this->length, BIT_UNDEF);
+    const bool not_empty = array_isect(this->array, ((ArrayPacketSet *)other)->array, this->length, tmp);
+
+    // XXX: inefficient memory handling -> use in-situ intersection instead
+    array_free(this->array);
+    if (not_empty) this->array = tmp;
+    else this->array = nullptr;
 }
 
 
@@ -124,7 +140,9 @@ ArrayPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
 
 void
 ArrayPacketSet::negate(void) {
-    array_not_a(this->array, this->length);
+    array_t *tmp = array_not_a(this->array, this->length);
+    array_free(this->array);
+    this->array = tmp;
 }
 
 } /* namespace net_plumber */

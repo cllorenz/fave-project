@@ -13,18 +13,19 @@ class ArrayPacketSet : public PacketSet {
     array_t *array;
     size_t length;
 
-    ArrayPacketSet(size_t);
-    ArrayPacketSet(array_t *, size_t);
+    ArrayPacketSet(const size_t);
+    ArrayPacketSet(array_t *, const size_t);
+    ArrayPacketSet(const std::string);
+    ArrayPacketSet(const Json::Value&, size_t);
+    ArrayPacketSet(const ArrayPacketSet&);
     virtual ~ArrayPacketSet();
 
-    static ArrayPacketSet *from_str(std::string);
     std::string to_str(void);
-    static ArrayPacketSet *from_json(const Json::Value&);
-
-    ArrayPacketSet *copy(void);
+    void to_json(Json::Value&);
 
     void compact(void) { /* empty */ }
-    size_t count(void) { return -1; }
+    void unroll(void) { /* empty */ }
+    size_t count(void);
     void enlarge(size_t len);
 
     void diff(PacketSet *) { /* empty */ }
