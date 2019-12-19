@@ -11,7 +11,7 @@
 #include "array.h"
 #include <limits.h>
 
-#define SIZE(L) ( DIV_ROUND_UP (2 * (L), sizeof (array_t)) )
+#define SIZE(L) ARRAY_BITS(L)
 
 /* If using anything larger than 64-bit, these need to be changed. */
 #define EVEN_MASK ( (array_t) 0xaaaaaaaaaaaaaaaaull )
