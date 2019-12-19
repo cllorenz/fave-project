@@ -16,6 +16,7 @@
    Author: peyman.kazemian@gmail.com (Peyman Kazemian)
 */
 
+#include "test/packet_set_unit.h"
 #include "test/net_plumber_basic_unit.h"
 #include "test/net_plumber_plumbing_unit.h"
 #include "test/net_plumber_slicing_unit.h"
@@ -99,6 +100,9 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t4) );
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
+
+  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<ArrayPacketSet> );
+  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<HeaderspacePacketSet> );
 
   // informs test-listener about testresults
   CPPUNIT_NS::TestResult testresult;
