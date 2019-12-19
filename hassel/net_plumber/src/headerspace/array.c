@@ -130,7 +130,7 @@ array_resize (array_t* ptr, size_t oldlen, size_t newlen)
 
 void
 array_free (array_t *a)
-{ if (!a) return; free (a); }
+{ if (a) free (a); }
 
 array_t *
 array_copy (const array_t *a, size_t len)
