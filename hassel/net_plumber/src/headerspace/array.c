@@ -581,6 +581,8 @@ array_diff (const array_t *a, const array_t *b, size_t len, size_t *n, array_t *
 bool
 array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 {
+  if (!a || !b) return false;
+
   for (size_t i = 0; i < SIZE (len); i++) {
     res[i] = a[i] & b[i];
     if (has_z (res[i])) return false;
