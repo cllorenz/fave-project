@@ -175,7 +175,7 @@ array_from_str (const char *s)
 char *
 array_to_str (const array_t *a, size_t len, bool decimal)
 {
-  if (!a) return NULL;
+  if (!a) return xstrdup("nil");
 
   size_t slen = len * (CHAR_BIT + 1);
   char buf[slen];
