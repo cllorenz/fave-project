@@ -48,6 +48,9 @@ size_t   hs_count      (const struct hs *hs);
 size_t   hs_count_diff (const struct hs *hs);
 void  hs_print      (const struct hs *hs);
 char *hs_to_str     (const struct hs *hs);
+struct hs *hs_from_str (const char *);
+array_t *hs_get_array_from_string(const char *);
+size_t hs_get_length_from_string(const char *);
 
 
 void hs_add  (struct hs *hs, array_t *a);

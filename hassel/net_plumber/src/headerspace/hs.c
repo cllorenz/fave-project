@@ -200,6 +200,120 @@ vec_isect_a (const struct hs_vec *a, const struct hs_vec *b, size_t len)
   return new_list;
 }
 
+
+size_t
+get_length_from_string(const char *s, size_t *commas) {
+    if (!strcmp(s, "(nil)")) return 0;
+
+    const char *c = s;
+    if (*c == '(') c++;
+    size_t l = 0;
+    *commas = 0;
+    while (! (
+        *(c+l) == '\0' ||
+        *(c+l) == ' ' ||
+        *(c+l) == '-' ||
+        *(c+l) == '+' ||
+        *(c+l) == '(' ||
+        *(c+l) == ')'
+    )) {
+        if (*(c+l) == ',') (*commas)++;
+        l++;
+    }
+    const size_t res = l - (*commas);
+    return res;
+}
+
+size_t
+hs_get_length_from_string(const char *s) {
+    size_t commas = 0;
+    const size_t len = get_length_from_string(s, &commas);
+    const size_t res = (len - commas + 7) / 8;
+    return res;
+}
+
+// example: (xx10xx10,xxxxxxxx + 11xx110x,xxxxxxxx - ( 1100110x,00000000 + 11xx1x00,xxxxxxxx)+010xxx10,10101010)
+struct hs*
+hs_from_str(const char *s) {
+    if (!strcmp(s, "(nil)")) return NULL;
+
+    const char *c = s;
+    if (*c == '(') c++; // skip optional leading bracket
+    while (*c == ' ') c++; // seek begin of array
+    size_t commas = 0;
+    size_t len = get_length_from_string(c, &commas);
+    len += commas;
+
+    // create result hs
+    struct hs *res = hs_create((len - commas + 7) / 8);
+
+    // parse hs string
+    while (*c) {
+        if (*c == '(') c++; // skip optional bracket
+        while (*c == ' ') c++; // skip optional spaces
+
+        char tmp[len+1];
+        strncpy(&tmp, c, len);
+        tmp[len] = '\0';
+        array_t *a = array_from_str(&tmp);
+
+        vec_append(&res->list, a, false);
+
+        c += len; // skip array
+        while (*c == ' ') c++; // skip optional space
+
+        if (*c == '-') { // optional parse diff vector
+            c++; // skip minus
+            while (*c == ' ') c++; // skip optional space
+            assert (*c == '('); // make sure diff vector is being parsed
+            c++; // skip opening bracket
+            while (*c == ' ') c++; // skip optional space
+            while (*c != ')') { // parse diff vector
+                char tmp2[len+1];
+                strncpy(&tmp2, c, len);
+                tmp2[len] = '\0';
+                a = array_from_str(&tmp2);
+
+                vec_append(&res->list.diff[res->list.used-1], a, true);
+                c += len; // skip array
+
+                while (*c == ' ') c++; // skip optional spaces
+                if (*c == '+') c++; // skip plus
+                while (*c == ' ') c++; //skip optional spaces
+                if (*c == ')') c++; // skip optional bracket
+                while (*c == ' ') c++; // skip optional spaces
+            }
+            c++; // skip closing bracket
+        }
+        if (*c == ')') c++; // skip optional closing bracket
+        if (*c == ' ') c++; // skip optional space
+        if (*c == '+') c++; // skip optional concatenation
+        while (*c == ' ') c++; // skip optional spaces
+    }
+
+    return res;
+}
+
+
+array_t *
+hs_get_array_from_string(const char *s) {
+    if (!strcmp(s, "(nil)")) return NULL;
+
+    const char *c = s;
+    if (*c == '(') c++; // skip optional leading bracket
+    while (*c == ' ') c++; // seek begin of array
+    size_t commas = 0;
+    size_t len = get_length_from_string(c, &commas);
+    len += commas;
+
+    char tmp[len+1];
+    strncpy(&tmp, c, len);
+    tmp[len] = '\0';
+
+    return array_from_str(&tmp);
+}
+
+
 #ifdef NEW_HS
 static void
 vec_to_str (const struct hs_vec *v, size_t len, size_t *pos, char *res)
