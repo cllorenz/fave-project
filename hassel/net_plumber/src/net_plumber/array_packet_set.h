@@ -15,6 +15,7 @@ class ArrayPacketSet : public PacketSet {
 
     ArrayPacketSet(const size_t);
     ArrayPacketSet(array_t *, const size_t);
+    ArrayPacketSet(const size_t, enum bit_val);
     ArrayPacketSet(const std::string);
     ArrayPacketSet(const Json::Value&, size_t);
     ArrayPacketSet(const ArrayPacketSet&);

@@ -15,6 +15,10 @@ ArrayPacketSet::ArrayPacketSet(const size_t length) : array(nullptr), length(len
     /* empty */
 }
 
+ArrayPacketSet::ArrayPacketSet(const size_t length, enum bit_val preset) : length(length) {
+    this->array = array_create(length, preset);
+}
+
 
 ArrayPacketSet::~ArrayPacketSet() {
     array_free(this->array);
