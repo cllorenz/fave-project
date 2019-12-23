@@ -20,9 +20,12 @@
 #include "net_plumber_utils.h"
 #include <sstream>
 #include <string>
+#include "array_packet_set.h"
+#include "hs_packet_set.h"
 
 using namespace std;
 using namespace log4cxx;
+using namespace net_plumber;
 
 template<class T1, class T2>
 LoggerPtr SourceNode<T1, T2>::source_logger(Logger::getLogger("SourceNode"));
@@ -33,14 +36,14 @@ SourceNode<T1, T2>::SourceNode(void *n, int length, uint64_t node_id, T1 *hs_obj
   : Node<T1, T2>(n,length,node_id) {
   this->node_type = SOURCE;
   this->match = nullptr;
-  this->inv_match = array_create(length, BIT_X);
+  this->inv_match = new T2(length, BIT_X);
   this->output_ports = ports;
   this->input_ports = make_sorted_list(0);
   // create the flow;
   Flow<T1, T2> *f = (Flow<T1, T2> *)malloc(sizeof *f);
   f->node = this;
   f->hs_object = hs_object;
-  f->processed_hs = hs_copy_a(hs_object);
+  f->processed_hs = new T1(*hs_object);
   f->in_port = 0;
   f->p_flow = this->source_flow.end();
   f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
@@ -55,9 +58,7 @@ SourceNode<T1, T2>::~SourceNode() {
 template<class T1, class T2>
 string SourceNode<T1, T2>::source_to_str() {
   stringstream result;
-  char *s = hs_to_str((*this->source_flow.begin())->hs_object);
-  result << "Source: " << s;
-  free(s);
+  result << "Source: " << (*this->source_flow.begin())->hs_object->to_str();
   result << " Ports: " << list_to_string(this->output_ports);
   return result.str();
 }
@@ -65,10 +66,8 @@ string SourceNode<T1, T2>::source_to_str() {
 template<class T1, class T2>
 string SourceNode<T1, T2>::to_string() {
   stringstream result;
-  char buf[70];
   result << string(40, '=') << "\n";
-  sprintf(buf,"0x%lx", this->node_id);
-  result << " Source: " << buf << "\n";
+  result << " Source: 0x" << std::hex << this->node_id << "\n";
   result << string(40, '=') << "\n";
   result << source_to_str() << "\n";
   result << this->pipeline_to_string();
@@ -101,4 +100,4 @@ void SourceNode<T1, T2>::enlarge(uint32_t length) {
 	this->length = length;
 }
 
-template class SourceNode <struct hs, array_t>;
+template class SourceNode <HeaderspacePacketSet, ArrayPacketSet>;
