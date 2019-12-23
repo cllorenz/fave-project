@@ -198,4 +198,9 @@ HeaderspacePacketSet::count(void) {
     return hs_count(&this->hs);
 }
 
+size_t
+HeaderspacePacketSet::count_diff(void) {
+    return hs_count_diff(&this->hs);
+}
+
 } /* namespace net_plumber */

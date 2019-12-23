@@ -48,6 +48,7 @@ class HeaderspacePacketSet : public PacketSet {
     void compact2(ArrayPacketSet * /*mask*/);
     void unroll(void);
     size_t count(void);
+    size_t count_diff(void);
 };
 
 } /* namespace net_plumber */
