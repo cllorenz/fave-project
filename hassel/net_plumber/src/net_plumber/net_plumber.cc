@@ -31,6 +31,8 @@
 extern "C" {
   #include "../headerspace/array.h"
 }
+#include "array_packet_set.h"
+#include "hs_packet_set.h"
 
 using namespace std;
 using namespace log4cxx;
@@ -53,17 +55,11 @@ LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
 template<class T1, class T2>
 string flow_to_str(Flow<T1, T2> *f) {
   stringstream str;
-  char buf[50];
   while(f->p_flow != f->node->get_EOSFI()) {
-    char* h = hs_to_str(f->hs_object);
-    sprintf(buf,"0x%lx",f->node->node_id);
-    str << h << " @ " << buf << " <-- ";
-    free(h);
+    str << f->hs_object->to_str() << " @ 0x" << std::hex << f->node->node_id << " <-- ";
     f = *f->p_flow;
   }
-  char* h = hs_to_str(f->hs_object);
-  str << h;
-  free(h);
+  str << f->hs_object->to_str();
   return str.str();
 }
 
@@ -253,10 +249,10 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #ifdef CHECK_REACH_SHADOW
   bool checked_rs = false;
 
-  T1 all_hs = {this->length,{0}};
-  hs_add(&all_hs,array_create(this->length,BIT_X));
+  T1 all_hs = T1(this->length);
+  all_hs.psunion2(T2(this->length, BIT_X));
 
-  T1 aggr_hs = {this->length,{0}};
+  T1 aggr_hs = T1(this->length);
 #endif
 
   for (auto const &rule_pair: *rules_list) {
@@ -266,16 +262,15 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 
 #ifdef CHECK_REACH_SHADOW
       // check reachability and shadowing
-      T1 rule_hs = {this->length,{0}};
-      hs_add(&rule_hs, array_copy(rule->match, this->length));
+      T1 rule_hs = T1(this->length);
+      rule_hs.psunion2(new T2(*rule->match));
 
-      if (hs_is_equal(&all_hs,&aggr_hs)) {
+      if (all_hs.is_equal(aggr_hs) {
         this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
-      } else if (hs_is_sub(&rule_hs,&aggr_hs)) {
+      } else if (rule_hs.is_sub(aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 
-      hs_destroy(&rule_hs);
       checked_rs = true;
 #endif
 
@@ -290,13 +285,14 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
                                                   rule->input_ports);
       if (common_ports.size == 0) continue;
       // find common headerspace
-      T2 *common_hs = array_isect_a(r->match,rule->match,this->length);
+      T2 *common_hs = new T2(*r->match);
+      common_hs->intersect(rule->match);
 
 #ifdef CHECK_REACH_SHADOW
-      if (!checked_rs) hs_add(&aggr_hs,array_copy(rule->match,this->length));
+      if (!checked_rs) aggr_hs.psunion2(new T2(*rule->match));
 #endif
 
-      if (common_hs == NULL) {
+      if (common_hs->is_empty()) {
         if (!common_ports.shared) free(common_ports.list);
         continue;
       }
@@ -320,11 +316,6 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       }
     }
   }
-
-#ifdef CHECK_REACH_SHADOW
-  hs_destroy(&aggr_hs);
-  hs_destroy(&all_hs);
-#endif
 }
 
 template<class T1, class T2>
@@ -338,16 +329,17 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
           get_nodes_with_inport(end_ports->at(j));
       if (!potential_next_rules) continue;
       for (auto const &n_rule: *potential_next_rules) {
-        T2 *pipe_arr;
-        pipe_arr = array_isect_a(n_rule->match,n->inv_match,length);
-        if (pipe_arr) {
+        T2 *pipe_arr = new T2(*n_rule->match);
+        pipe_arr->intersect(n->inv_match);
+
+        if (!pipe_arr->is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = n->output_ports.list[i];
           bp->local_port = end_ports->at(j);
           fp->pipe_array = pipe_arr;
           fp->len = length;
-          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->pipe_array = new T2(*pipe_arr);
           bp->len = length;
           fp->node = n;
           bp->node = n_rule;
@@ -371,16 +363,17 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
       if (!potential_prev_rules) continue;
       for (auto const &p_rule: *potential_prev_rules) {
         T2 *pipe_arr;
-        pipe_arr = array_isect_a(p_rule->inv_match,n->match,length);
+        pipe_arr = new T2(*p_rule->inv_match);
+        pipe_arr->intersect(n->match);
 
-        if (pipe_arr) {
+        if (!pipe_arr->is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = orig_ports->at(j);
           bp->local_port = n->input_ports.list[i];
           fp->pipe_array = pipe_arr;
           fp->len = length;
-          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->pipe_array = new T2(*pipe_arr);
           bp->len = length;
           fp->node = p_rule;
           bp->node = n;
@@ -403,13 +396,13 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
 template<class T1, class T2>
 void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
   /* determine net space of pipe */
-  T1 *pipe_space = hs_create(this->length);
-  hs_add(pipe_space, array_copy(pipe->pipe_array, this->length));
+  T1 *pipe_space = T1(this->length);
+  pipe_space->psunion2(new T2(*pipe->pipe_array));
   bool match = false;
 
   /* find slice matching net space */
   for (auto &slice: slices) {
-    if (hs_is_sub_eq(pipe_space, slice.second.net_space)) {
+    if (pipe_space->is_sub_eq(slice.second.net_space)) {
       /* update slice and pipe information */
       pipe->net_space_id = slice.first;
       slice.second.pipes.push_front(pipe);
@@ -425,7 +418,7 @@ void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
     pipe->r_slice = slices.at(0).pipes.begin();
   }
 
-  hs_free(pipe_space);
+  delete pipe_space;
 }
 #endif
 
@@ -548,8 +541,8 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
   this->rule_shadow_callback_data = NULL;
 #endif
 #ifdef PIPE_SLICING
-  T1 *net_space = hs_create(this->length);
-  hs_add(net_space, array_create(this->length, BIT_X));
+  T1 *net_space = T1(this->length);
+  net_space->hsunion(T2(this->length, BIT_X));
   slices = { {0, {net_space, {}}} };
   this->slice_overlap_callback = default_slice_overlap_callback;
   this->slice_overlap_callback_data = NULL;
@@ -585,7 +578,7 @@ NetPlumber<T1, T2>::~NetPlumber() {
   }
 #ifdef PIPE_SLICING
   for (auto const &slice: slices) {
-    hs_free(slice.second.net_space);
+    delete slice.second.net_space;
   }
 #endif /* PIPE_SLICING */
 }
@@ -623,19 +616,17 @@ void NetPlumber<T1, T2>::add_link(uint32_t from_port, uint32_t to_port) {
   if (src_rules && dst_rules) {
     for (auto const &src_rule: *src_rules) {
       for (auto const &dst_rule: *dst_rules) {
-        T2 *pipe_arr = array_isect_a(
-          src_rule->inv_match,
-          dst_rule->match,
-          length
-        );
-        if (pipe_arr) {
+        T2 *pipe_arr = new T2(*src_rule->inv_match);
+        pipe_arr->intersect(dst_rule->match);
+
+        if (!pipe_arr->is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)malloc(sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)malloc(sizeof *bp);
           fp->local_port = from_port;
           bp->local_port = to_port;
           fp->pipe_array = pipe_arr;
           fp->len = length;
-          bp->pipe_array = array_copy(pipe_arr,length);
+          bp->pipe_array = new T2(*pipe_arr);
           bp->len = length;
           fp->node = src_rule;
           bp->node = dst_rule;
@@ -851,7 +842,8 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
       r->process_src_flow(NULL);
 
     } else {
-      free(in_ports.list);free(out_ports.list);array_free(match);array_free(mask);array_free(rw);
+      free(in_ports.list);free(out_ports.list);
+      delete match;delete mask; delete rewrite;
       stringstream error_msg;
       error_msg << "Group " << group << " does not exist. Can't add rule to it."
           << "Ignoring add new rule request.";
@@ -861,7 +853,8 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
 #endif
     return id;
   } else {
-    free(in_ports.list);free(out_ports.list);array_free(match);array_free(mask);array_free(rw);
+    free(in_ports.list);free(out_ports.list);
+    delete match; delete mask; delete rw;
     stringstream error_msg;
     error_msg << "trying to add a rule to a non-existing table (id: " << table
         << "). Ignored.";
@@ -906,7 +899,7 @@ size_t NetPlumber<T1, T2>::expand(size_t length) {
 
 #ifdef PIPE_SLICING
     for (auto const &slice: slices) {
-      hs_enlarge(slice.second.net_space, length);
+      slice.second.net_space->enlarge(length);
     }
 #endif //PIPE_SLICING
 
@@ -1130,7 +1123,7 @@ void NetPlumber<T1, T2>::save_dependency_graph(const string file_name) {
     ordering[node.first] = count;
     count++;
   }
-  for (auto const &s_node: id_to_node) {// = id_to_node.begin(); it != id_to_node.end(); it++) {
+  for (auto const &s_node: id_to_node) {
     stringstream s1,s2;
     s1 << s_node.first;
     Node<T1, T2> *n = s_node.second;
@@ -1241,37 +1234,28 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
             rule["in_ports"] = list_to_json(r_node->input_ports);
             rule["out_ports"] = list_to_json(r_node->output_ports);
 
-            char *match = array_to_str(r_node->match, this->length, false);
-            rule["match"] = (Json::StaticString)match;
-            free(match);
+            rule["match"] = r_node->match->to_str();
 
             if (r_node->mask) {
-                char *mask =  array_to_str(r_node->mask, this->length, false);
-                rule["mask"] = (Json::StaticString)mask;
-                free(mask);
+                rule["mask"] = r_node->mask->to_str();
             }
 
             if (r_node->rewrite) {
-                char *rw = array_to_str(r_node->rewrite, this->length, false);
-                rule["rewrite"] = (Json::StaticString)rw;
-                free(rw);
+                rule["rewrite"] = r_node->rewrite->to_str();
             }
 
 #ifdef NEW_HS
-            T1 tmp = {this->length, {0, 0, 0}, {0, 0, 0}};
+            T1 tmp = T1(this->length);
 #else
-            T1 tmp = {this->length, {0, 0, 0, 0}};
+            T1 tmp = T1(this->length);
 #endif
             for (auto const &influence: *r_node->influenced_by) {
-                hs_add(&tmp, array_copy(influence->comm_arr, this->length));
+                tmp.psunion2(new T2(*influence->comm_arr));
             }
 
-            if (!hs_is_empty(&tmp)) {
-                char *influences = hs_to_str(&tmp);
-                rule["influences"] = (Json::StaticString)influences;
-                free(influences);
+            if (!tmp.is_empty()) {
+                rule["influences"] = tmp.to_str();
             }
-            hs_destroy(&tmp);
 
             rules.append(rule);
         }
@@ -1309,7 +1293,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
 
         Json::Value params(Json::objectValue);
         Json::Value hs(Json::objectValue);
-        hs_to_json(hs, flow_node->source_flow.back()->hs_object);
+        flow_node->source_flow.back()->hs_object->to_json(hs);
         params["hs"] = hs;
         params["ports"] = list_to_json(flow_node->output_ports);
 
@@ -1398,15 +1382,14 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
 
         node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
 
-        char *flow = hs_to_str((*n_flow)->hs_object);
-        node["flow"] = (Json::StaticString) flow;
+        node["flow"] = (*n_flow)->hs_object->to_str();
 
         if (logger->isTraceEnabled()) {
             stringstream trace_msg;
             trace_msg << "traverse_flow_tree(): pass ";
             for (size_t i = 0; i < depth; i++) trace_msg << "  ";
             trace_msg << (*n_flow)->node->node_id;
-            trace_msg << " with " << flow;
+            trace_msg << " with " << (*n_flow)->hs_object->to_str();
             trace_msg << "; children at " << (*n_flow)->n_flows;
             if ((*n_flow)->n_flows) {
                 trace_msg << "; size: " << (*n_flow)->n_flows->size();
@@ -1414,8 +1397,6 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
             }
             LOG4CXX_TRACE(logger, trace_msg.str());
         }
-
-        free (flow);
 
         if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
@@ -1445,9 +1426,7 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
             Json::Value flow_tree(Json::objectValue);
 
             flow_tree["node"] = (Json::Value::UInt64) flow_node->node_id;
-            char *flow = hs_to_str(s_flow->hs_object);
-            flow_tree["flow"] = (Json::StaticString) flow;
-            free(flow);
+            flow_tree["flow"] = s_flow->hs_object->to_str();
 
             if (s_flow->n_flows) {
                 Json::Value children(Json::arrayValue);
@@ -1535,11 +1514,7 @@ void NetPlumber<T1, T2>::dump_pipes(const string dir) {
             Json::Value dest(Json::objectValue);
 
             dest["node"] = (Json::UInt64) (*n_pipe->r_pipeline)->node->node_id;
-            char *filter = array_to_str((
-                *n_pipe->r_pipeline)->pipe_array, length, false
-            );
-            dest["filter"] = (Json::StaticString) filter;
-            free(filter);
+            dest["filter"] = (*n_pipe->r_pipeline)->pipe_array->to_str();
 
             pipe.append(dest);
         }
@@ -1573,18 +1548,18 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
     size_t len = s.second.net_space->len;
     const struct hs_vec *v = &s.second.net_space->list;
     if (v->used==1 && !v->diff[0].used) {
-      slice["space"] = (Json::StaticString)array_to_str(v->elems[0], len, false);
+      slice["space"] = v->elems[0]->to_str();
     } else {
       Json::Value space(Json::objectValue);
       Json::Value lpos(Json::arrayValue);
       Json::Value lneg(Json::arrayValue);
       for (size_t i=0; i<v->used; i++) {
 	bool diff = v->diff && v->diff[i].used;
-	Json::Value arr = std::string(array_to_str(v->elems[i], len, false));
+	Json::Value arr = v->elems[i]->to_str();
 	lpos.append(arr);
 	if (diff) {
 	  for (size_t j=0; j<v->diff->used; j++) {
-	    arr = std::string(array_to_str(v->diff->elems[i], len, false));
+	    arr = v->diff->elems[i]->to_str();
 	    lneg.append(arr);
 	  }
 	}
@@ -1620,7 +1595,7 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
   }
 
   /* if slice does not fit in free network space */
-  if (!hs_is_sub_eq(net_space, slices[0].net_space)) {
+  if (!net_space->is_sub_eq(slices[0].net_space)) {
     this->slice_overlap_callback(this, NULL, this->slice_overlap_callback_data);
     return false;
   }
@@ -1629,7 +1604,7 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
   Slice slice = {net_space, {}};
 
   /* remove slice from free network space */
-  hs_minus(slices[0].net_space, net_space);
+  slices[0].net_space->minus(net_space);
 
   /* add free pipelines to slice */
   T1 *pipe_space;
@@ -1637,17 +1612,17 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
   auto it = slices[0].pipes.begin();
 
   for (auto const &pipe: slices[0].pipes) {
-    pipe_space = hs_create(this->length);
-    hs_add(pipe_space, array_copy(pipe->pipe_array, this->length));
+    pipe_space = new T1(this->length);
+    pipe_space.psunion2(new T2(*pipe->pipe_array));
 
     /* check if pipe's netspace belongs to slice's netspace */
     /* if so, add pipe to new slice and mark pipe as changed */
-    if (hs_is_sub_eq(pipe_space, net_space)) {
+    if (pipe_space->is_sub_eq(net_space)) {
       pipe->net_space_id = id;
       slice.pipes.push_front(pipe);
       changed.push_back(it);
     }
-    hs_free(pipe_space);
+    delete pipe_space;
     ++it;
   }
 
@@ -1679,8 +1654,8 @@ void NetPlumber<T1, T2>::remove_slice(uint64_t id) {
   }
 
   /* free network space */
-  hs_add_hs(slices[0].net_space, slice->second.net_space);
-  hs_free(slice->second.net_space);
+  slices[0].net_space->psunion(slice->second.net_space);
+  delete slice->second.net_space;
   slices.erase(slice);
 }
 #endif
@@ -1842,4 +1817,4 @@ void NetPlumber<T1, T2>::dump_slices_pipes(const std::string dir) {
 }
 #endif /*PIPE_SLICING */
 
-template class net_plumber::NetPlumber<struct hs, array_t>;
+template class net_plumber::NetPlumber<HeaderspacePacketSet, ArrayPacketSet>;
