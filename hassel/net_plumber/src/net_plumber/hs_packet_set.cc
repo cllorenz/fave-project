@@ -84,7 +84,14 @@ HeaderspacePacketSet::intersect(PacketSet *other) {
 void
 HeaderspacePacketSet::intersect2(ArrayPacketSet *other) {
     assert(this->hs.len == other->length);
-    hs_isect_arr(&this->hs, &this->hs, other->array);
+    if (!other->is_empty() && !this->is_empty()) {
+        struct hs tmp = {this->hs.len, {0, 0, 0, 0}};
+        hs_isect_arr(&tmp, &this->hs, other->array);
+        this->hs.list = tmp.list;
+    } else if (other->is_empty() || this->is_empty()) {
+        hs_destroy(&this->hs);
+        this->hs.list = {0, 0, 0, 0};
+    }
 }
 
 
