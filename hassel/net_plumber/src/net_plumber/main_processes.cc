@@ -21,9 +21,8 @@
 #include "../jsoncpp/json/json.h"
 #include <fstream>
 #include <dirent.h>
-extern "C" {
-  #include "../headerspace/array.h"
-}
+#include "array_packet_set.h"
+#include "hs_packet_set.h"
 
 using namespace net_plumber;
 using namespace std;
@@ -51,6 +50,11 @@ void _load_slices_from_file(string json_file_path, NetPlumber<T1, T2> * N, size_
   jsfile.close();
 }
 
+template void _load_slices_from_file<HeaderspacePacketSet, ArrayPacketSet>(
+    string,
+    NetPlumber<HeaderspacePacketSet, ArrayPacketSet>,
+    size_t
+);
 template void _load_slices_from_file<struct hs, array_t>(string, NetPlumber<struct hs, array_t>, size_t);
 #endif /* PIPE_SLICING */
 
@@ -119,8 +123,9 @@ void load_netplumber_from_dir(
           string action = rules[i]["action"].asString();
           uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffff;
           if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
-            T2 *match = val_to_array<T1, T2>(rules[i]["match"]);
-            if (filter && !array_isect(match,filter,N->get_length(),match)) {
+            T2 *match = new T2(rules[i]["match"], N->get_length());
+            match->intersect(filter);
+            if (filter && match->is_empty()) {
               run_time = 0;
             } else {
               start = get_cpu_time_us();
@@ -129,8 +134,8 @@ void load_netplumber_from_dir(
                           val_to_list(rules[i]["in_ports"]),
                           val_to_list(rules[i]["out_ports"]),
                           match,
-                          val_to_array<T1, T2>(rules[i]["mask"]),
-                          val_to_array<T1, T2>(rules[i]["rewrite"]));
+                          val_to_array<T2>(rules[i]["mask"]),
+                          val_to_array<T2>(rules[i]["rewrite"]));
               end = get_cpu_time_us();
               run_time = end - start;
               total_run_time += run_time;
@@ -209,12 +214,12 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
   for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
-      T1 *tmp = val_to_hs<T1, T2>(commands[i]["params"]["hs"], N->get_length());
+      T1 *tmp = new T1(commands[i]["params"]["hs"], N->get_length());
       T1 *h;
       if (filter) {
-        h = hs_create(N->get_length());
-        hs_isect_arr(h,tmp,filter);
-        hs_free(tmp);
+        h = T1(*tmp);
+        h->intersect2(filter);
+        delete tmp;
       } else {
         h = tmp;
       }
@@ -238,12 +243,16 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
   jsfile.close();
 }
 
-template void load_netplumber_from_dir<struct hs, array_t>(
+template void load_netplumber_from_dir<HeaderspacePacketSet, ArrayPacketSet>(
     string,
-    NetPlumber<struct hs, array_t> *,
-    array_t *
+    NetPlumber<HeaderspacePacketSet, ArrayPacketSet> *,
+    ArrayPacketSet *
 #ifdef PIPE_SLICING
     , size_t
 #endif
 );
-template void load_policy_file<struct hs, array_t>(string, NetPlumber<struct hs, array_t> *, array_t *);
+template void load_policy_file<HeaderspacePacketSet, ArrayPacketSet>(
+  string,
+  NetPlumber<HeaderspacePacketSet, ArrayPacketSet> *,
+  ArrayPacketSet *
+);
