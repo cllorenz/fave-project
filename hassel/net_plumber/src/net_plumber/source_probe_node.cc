@@ -24,6 +24,8 @@
 #include <string>
 #include "net_plumber.h"
 #include <assert.h>
+#include "array_packet_set.h"
+#include "hs_packet_set.h"
 
 using namespace std;
 using namespace log4cxx;
@@ -68,7 +70,7 @@ SourceProbeNode<T1, T2>::SourceProbeNode(void *n, int length, uint64_t node_id,
   filter(filter), test(test), cond_count(0), probe_callback_data(d)
 {
   this->node_type = SOURCE_PROBE;
-  this->match = array_create(length, BIT_X);
+  this->match = new T2(length, BIT_X);
   this->inv_match = nullptr;
   this->input_ports = ports;
   this->output_ports = make_sorted_list(0);
@@ -88,9 +90,9 @@ void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     this->source_flow.push_front(f);
     auto f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
-    f->processed_hs = hs_copy_a(f->hs_object);
+    f->processed_hs = new T1(*f->hs_object);
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
-    //hs_comp_diff(f->processed_hs);
+    //f->processed_hs->unroll();
     if (state == RUNNING) update_check(f,FLOW_ADD);
   } else {
     for (auto const &prev: this->prev_in_pipeline) {
@@ -104,13 +106,13 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
      typename list< Flow<T1, T2> *>::iterator loc, T2* change) {
   Flow<T1, T2> *f = *loc;
   if (change) {
-    if (f->processed_hs->list.used == 0) return;
-    hs_diff(f->processed_hs, change);
+    if (f->processed_hs->is_empty()) return;
+    f->processed_hs->diff2(change);
   } else {
-    hs_free(f->processed_hs);
-    f->processed_hs = hs_copy_a(f->hs_object);
+    delete f->processed_hs;
+    f->processed_hs = new T1(*f->hs_object);
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
-    //hs_comp_diff(f->processed_hs);
+    //f->processed_hs->unroll();
   }
   if (state == RUNNING) update_check(f,FLOW_MODIFY);
 }
@@ -131,7 +133,7 @@ void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION ac
    */
   assert(cond_count >= 0);
   // if flow is empty, do nothing
-  if (f->processed_hs->list.used == 0) return;
+  if (f->processed_hs->is_empty()) return;
 
   // Delete flow
   if (action == FLOW_DELETE) {
@@ -223,8 +225,7 @@ void SourceProbeNode<T1, T2>::start_probe() {
   Event e = {START_SOURCE_PROBE, this->node_id, 0};
   n->set_last_event(e);
   this->state = STARTED;
-//  auto it = source_flow.begin();
-//  for (; it != source_flow.end(); it++) {
+
   for (auto const &flow: this->source_flow) {
     if (!filter->check(flow)) continue;
     bool c = test->check(flow);
@@ -308,4 +309,4 @@ void SourceProbeNode<T1, T2>::test_to_json(Json::Value& res) {
     test->to_json(res);
 }
 
-template class SourceProbeNode <struct hs, array_t>;
+template class SourceProbeNode <HeaderspacePacketSet, ArrayPacketSet>;
