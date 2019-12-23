@@ -217,7 +217,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
       T1 *tmp = new T1(commands[i]["params"]["hs"], N->get_length());
       T1 *h;
       if (filter) {
-        h = T1(*tmp);
+        h = new T1(*tmp);
         h->intersect2(filter);
         delete tmp;
       } else {
