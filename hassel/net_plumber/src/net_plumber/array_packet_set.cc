@@ -85,12 +85,12 @@ ArrayPacketSet::enlarge(size_t len) {
 void
 ArrayPacketSet::intersect(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
-    array_t *tmp = array_create(this->length, BIT_UNDEF);
-    const bool not_empty = array_isect(this->array, ((ArrayPacketSet *)other)->array, this->length, tmp);
+
+    array_t *tmp = array_isect_a(this->array, ((ArrayPacketSet *)other)->array, this->length);
 
     // XXX: inefficient memory handling -> use in-situ intersection instead
     array_free(this->array);
-    if (not_empty) this->array = tmp;
+    if (tmp) this->array = tmp;
     else this->array = nullptr;
 }
 
