@@ -28,8 +28,8 @@
 
 namespace net_plumber {
 
-template<class T1, class T2>
-T2 *val_to_array(const Json::Value &val);
+template<class T1>
+T1 *val_to_array(const Json::Value &val);
 template<class T1, class T2>
 T1 *val_to_hs(const Json::Value &val, int len);
 List_t val_to_list(const Json::Value &val);
