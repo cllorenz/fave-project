@@ -22,8 +22,11 @@
 #include "../source_node.h"
 #include "../rule_node.h"
 #include <stdarg.h>
+#include "../array_packet_set.h"
+#include "../hs_packet_set.h"
 
 using namespace std;
+using namespace net_plumber;
 
 template<class T1, class T2>
 void ConditionsTest<T1, T2>::test_port() {
@@ -140,17 +143,19 @@ void ConditionsTest<T1, T2>::test_header() {
   list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
                                   make_unsorted_list(5,100,200,300,400,500));
   Flow<T1, T2> *f = *(flows->begin());
-  f->processed_hs = hs_create(1);
-  hs_add(f->processed_hs, array_from_str("10xxxxxx"));
-  T2 *d = array_from_str("1011xxxx");
-  hs_diff(f->processed_hs,d);
-  free(d);
+  f->processed_hs = new T1(1);
+  T2 tmp1 = T2("10xxxxxx");
+  f->processed_hs->psunion2(&tmp1);
+  T2 tmp2 = T2("1011xxxx");
+  f->processed_hs->diff2(&tmp2);
 
-  T1 *hc1_hs = hs_create(1);
-  hs_add(hc1_hs, array_from_str("100xxxxx"));
+  T1 *hc1_hs = new T1(1);
+  T2 tmp3 = T2("100xxxxx");
+  hc1_hs->psunion2(&tmp3);
 
-  T1 *hc2_hs = hs_create(1);
-  hs_add(hc2_hs, array_from_str("10111xxx"));
+  T1 *hc2_hs = new T1(1);
+  T2 tmp4 = T2("10111xxx");
+  hc2_hs->psunion2(&tmp4);
 
   HeaderCondition<T1, T2> *hc1 = new HeaderCondition<T1, T2>(hc1_hs);
   HeaderCondition<T1, T2> *hc2 = new HeaderCondition<T1, T2>(hc2_hs);
@@ -160,7 +165,7 @@ void ConditionsTest<T1, T2>::test_header() {
 
   delete hc1;
   delete hc2;
-  hs_free(f->processed_hs);
+  delete f->processed_hs;
   free_flow(flows);
 }
 
@@ -170,7 +175,7 @@ list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t t
 
   list<Flow<T1, T2> *> *result = new list<Flow<T1, T2> *>();
   Flow<T1, T2> *f, *prev;
-  auto *s = new SourceNode<T1, T2>(NULL,1,0,hs_create(1),make_sorted_list(1,0));
+  auto *s = new SourceNode<T1, T2>(NULL, 1, 0, new T1(1), make_sorted_list(1,0));
   prev = (Flow<T1, T2> *)malloc(sizeof *prev);
   prev->node = s;
   prev->in_port = 0;
@@ -180,7 +185,7 @@ list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t t
     auto *r = new RuleNode<T1, T2>(NULL, 1, 0, tables.list[i], 0,
                            make_sorted_list(1,ports.list[i]),
                            make_sorted_list(1,ports.list[i]),
-                           array_create(1,BIT_X),
+                           new T2(1),
                            NULL,
                            NULL);
 
@@ -207,4 +212,4 @@ void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
   delete flows;
 }
 
-template class ConditionsTest<struct hs, array_t>;
+template class ConditionsTest<HeaderspacePacketSet, ArrayPacketSet>;
