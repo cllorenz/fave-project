@@ -22,6 +22,8 @@
 #include "../net_plumber.h"
 #include "../net_plumber_utils.h"
 #include <sstream>
+#include "../array_packet_set.h"
+#include "../hs_packet_set.h"
 
 using namespace net_plumber;
 using namespace log4cxx;
@@ -327,21 +329,21 @@ void NetPlumberSlicingTest::test_add_slice() {
   char *hstr;
 
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "DX");
   free(hstr);
   
-  T1 *net_space = hs_create(1);
-  hs_add(net_space, array_from_str("1000xxxx"));
+  T1 *net_space = new T1(1);
+  net_space->psunion2(T2::from_str("1000xxxx"));
 
   CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
   free(hstr);
 
@@ -349,27 +351,27 @@ void NetPlumberSlicingTest::test_add_slice() {
   CPPUNIT_ASSERT(overlap_called == true);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
   free(hstr);
 
   overlap_called = false;
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("1001xxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("1001xxxx"));
   CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 3);
   //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
   free(hstr);
-  hstr = hs_to_str(np.slices[2].net_space);
+  hstr = np.slices[2].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1001xxxx");
   free(hstr);
 
@@ -431,9 +433,9 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   np.add_link(302, 303);
 
   // add rules
-  T2 *m1 = array_from_str("100xxxxx");
-  T2 *m2 = array_from_str("101xxxxx");
-  T2 *mask = array_from_str("xxxxxxxx");
+  T2 *m1 = T2::from_str("100xxxxx");
+  T2 *m2 = T2::from_str("101xxxxx");
+  T2 *mask = T2::from_str("xxxxxxxx");
   T2 *rw = NULL;
 
   uint32_t r1in[1] = { 101 };
@@ -450,15 +452,15 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   List_t tr3in = make_sorted_list_from_array(1, r3in);
   List_t tr3out = make_sorted_list_from_array(1, r3out);
 
-  np.add_rule(1, 1, tr1in, tr1out, array_copy(m1,1), array_copy(mask,1), rw);
-  np.add_rule(2, 1, tr2in, tr2out, array_copy(m2,1), array_copy(mask,1), rw);
-  np.add_rule(3, 1, tr3in, tr3out, array_copy(mask,1), array_copy(mask,1), rw);
+  np.add_rule(1, 1, tr1in, tr1out, new T2(*m1), new T2(*mask), rw);
+  np.add_rule(2, 1, tr2in, tr2out, new T2(*m2), new T2(*mask), rw);
+  np.add_rule(3, 1, tr3in, tr3out, new T2(*mask), new T2(*mask), rw);
 
   // add source
   uint32_t sl[1] = { 0 };
   List_t lsl = make_sorted_list_from_array(1, sl);
-  T1 *shs = hs_create(1);
-  hs_add(shs, array_copy(mask,1));
+  T1 *shs = new T1(1);
+  shs->psunion2(new T2(*mask));
   np.add_source(shs, lsl);
 
   // add source probes
@@ -481,38 +483,38 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
 
   // create slices
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "DX");
   free(hstr);
   // forward pipes + backward pipes
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 12);
 
-  T1 *net_space = hs_create(1);
-  hs_add(net_space, array_from_str("100xxxxx"));
+  T1 *net_space = new T1(1);
+  net_space->psunion2(T2::from_str("100xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 2);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "100xxxxx");
   free(hstr);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 8);
   CPPUNIT_ASSERT(np.slices[1].pipes.size() == 4);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("101xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("101xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 3);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "100xxxxx");
   free(hstr);
-  hstr = hs_to_str(np.slices[2].net_space);
+  hstr = np.slices[2].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "101xxxxx");
   free(hstr);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 4);
@@ -522,10 +524,10 @@ void NetPlumberSlicingTest::test_add_remove_slice_pipes() {
   // test pipe reassignment after removal
   np.remove_slice(2);
   CPPUNIT_ASSERT(np.slices.size() == 2);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "100xxxxx");
   free(hstr);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 8);
@@ -546,37 +548,37 @@ void NetPlumberSlicingTest::test_remove_slice() {
   char *hstr;
 
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "DX");
   free(hstr);
   
-  T1 *net_space = hs_create(1);
-  hs_add(net_space, array_from_str("1000xxxx"));
+  T1 *net_space = new T1(1);
+  net_space->psunion2(T2::from_str("1000xxxx"));
 
   CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
   free(hstr);
 
   np.remove_slice(0);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   //TODO(jan): possibly add proper comparison (should be tested in hs-unit)
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) != "DX");
   free(hstr);
-  hstr = hs_to_str(np.slices[1].net_space);
+  hstr = np.slices[1].net_space->to_str();
   CPPUNIT_ASSERT(std::string(hstr) == "1000xxxx");
   free(hstr);
 
   np.remove_slice(1);
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  hstr = hs_to_str(np.slices[0].net_space);
+  hstr = np.slices[0].net_space->to_str();
   //CPPUNIT_ASSERT(std::string(hstr) == "DX"); -- would work with proper compact
   free(hstr);
 }
@@ -586,9 +588,9 @@ void NetPlumberSlicingTest::test_add_pipe_to_slices_matching() {
   auto np = NetPlumber(1);
   auto pipe1 = Pipeline();
 
-  T2 *mask = array_from_str("xxxxxxxx");
-  T1 *space = hs_create(1);
-  hs_add(space, array_copy(mask, 1));
+  T2 *mask = T2::from_str("xxxxxxxx");
+  T1 *space = new T1(1);
+  space->psunion2(new T2(*mask));
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -597,10 +599,10 @@ void NetPlumberSlicingTest::test_add_pipe_to_slices_matching() {
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
-  pipe1.pipe_array = array_from_str("100xxxxx");
+  pipe1.pipe_array = T2::from_str("100xxxxx");
 
-  space = hs_create(1);
-  hs_add(space, array_from_str("100xxxxx"));
+  space = new T1(1);
+  space->psunion2(T2::from_str("100xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(1, space) == true);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 0);
@@ -622,9 +624,9 @@ void NetPlumberSlicingTest::test_add_pipe_to_slices_not_matching() {
   auto np = NetPlumber(1);
   auto pipe1 = Pipeline();
 
-  T2 *mask = array_from_str("xxxxxxxx");
-  T1 *space = hs_create(1);
-  hs_add(space, array_copy(mask, 1));
+  T2 *mask = T2::from_str("xxxxxxxx");
+  T1 *space = new T1(1);
+  space->psunion2(new T2(*mask));
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -633,10 +635,10 @@ void NetPlumberSlicingTest::test_add_pipe_to_slices_not_matching() {
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
-  pipe1.pipe_array = array_from_str("101xxxxx");
+  pipe1.pipe_array = T2::from_str("101xxxxx");
 
-  space = hs_create(1);
-  hs_add(space, array_from_str("100xxxxx"));
+  space = new T1(1);
+  space->psunion2(T2::from_str("100xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(1, space) == true);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 0);
@@ -659,9 +661,9 @@ void NetPlumberSlicingTest::test_remove_pipe_from_slices() {
   auto pipe1 = Pipeline();
   auto pipe2 = Pipeline();
   
-  T2 *mask = array_from_str("xxxxxxxx");
-  T1 *space = hs_create(1);
-  hs_add(space, array_copy(mask, 1));
+  T2 *mask = T2::from_str("xxxxxxxx");
+  T1 *space = new T1(1);
+  space->psunion2(new T2(*mask));
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -670,13 +672,13 @@ void NetPlumberSlicingTest::test_remove_pipe_from_slices() {
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
-  pipe1.pipe_array = array_from_str("100xxxxx");
+  pipe1.pipe_array = T2::from_str("100xxxxx");
   pipe2.node = node;
   pipe2.net_space_id = 5;
-  pipe2.pipe_array = array_from_str("101xxxxx");
+  pipe2.pipe_array = T2::from_str("101xxxxx");
 
-  space = hs_create(1);
-  hs_add(space, array_from_str("100xxxxx"));
+  space = new T1(1);
+  space->psunion2(T2::from_str("100xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(1, space) == true);
   CPPUNIT_ASSERT(np.slices.size() == 2);
   CPPUNIT_ASSERT(np.slices[0].pipes.size() == 0);
@@ -715,9 +717,9 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_no_exception() {
   auto pipe1 = Pipeline();
   auto pipe2 = Pipeline();
 
-  T2 *mask = array_from_str("xxxxxxxx");
-  T1 *space = hs_create(1);
-  hs_add(space, mask);
+  T2 *mask = T2::from_str("xxxxxxxx");
+  T1 *space = new T1(1);
+  space->psunion2(mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -747,9 +749,9 @@ void NetPlumberSlicingTest::test_check_pipe_for_slice_leakage_with_exception() {
   auto pipe2 = Pipeline();
   auto pipe3 = Pipeline();
   
-  T2 *mask = array_from_str("xxxxxxxx");
-  T1 *space = hs_create(1);
-  hs_add(space, mask);
+  T2 *mask = T2::from_str("xxxxxxxx");
+  T1 *space = new T1(1);
+  space->psunion2(mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -807,38 +809,38 @@ void NetPlumberSlicingTest::test_end_to_end() {
 
   // add slices
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  T1 *net_space = hs_create(1);
-  hs_add(net_space, array_from_str("000xxxxx"));
+  T1 *net_space = new T1(1);
+  net_space->psunion2(T2::from_str("000xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 2);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("001xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("001xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 3);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("010xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("010xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(3, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 4);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("011xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("011xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(4, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 5);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("100xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("100xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(5, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 6);
   
-  net_space = hs_create(1);
-  hs_add(net_space, array_from_str("101xxxxx"));
+  net_space = new T1(1);
+  net_space->psunion2(T2::from_str("101xxxxx"));
   CPPUNIT_ASSERT(np.add_slice(6, net_space) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 7);
@@ -906,16 +908,16 @@ void NetPlumberSlicingTest::test_end_to_end() {
   np.add_link(602, 605);
 
   // add rules
-  T2 *m1 = array_from_str("000xxxxx");
-  T2 *m2 = array_from_str("001xxxxx");
-  T2 *m3 = array_from_str("010xxxxx");
-  T2 *m4 = array_from_str("011xxxxx");
-  T2 *m5 = array_from_str("100xxxxx");
-  T2 *m6 = array_from_str("101xxxxx");
-  T2 *mask = array_from_str("xxxxxxxx");
+  T2 *m1 = T2::from_str("000xxxxx");
+  T2 *m2 = T2::from_str("001xxxxx");
+  T2 *m3 = T2::from_str("010xxxxx");
+  T2 *m4 = T2::from_str("011xxxxx");
+  T2 *m5 = T2::from_str("100xxxxx");
+  T2 *m6 = T2::from_str("101xxxxx");
+  T2 *mask = T2::from_str("xxxxxxxx");
   T2 *rwd = NULL;
-  T2 *mska = array_from_str("000xxxxx");
-  T2 *rwa = array_from_str("100xxxxx");
+  T2 *mska = T2::from_str("000xxxxx");
+  T2 *rwa = T2::from_str("100xxxxx");
 
   uint32_t r1in[1] = { 1 };
   uint32_t r1out[1] = { 11 };
@@ -943,12 +945,12 @@ void NetPlumberSlicingTest::test_end_to_end() {
   List_t tr6in = make_sorted_list_from_array(1, r6in);
   List_t tr6out = make_sorted_list_from_array(1, r6out);
   
-  np.add_rule(7, 1, tr1in, tr1out, array_copy(m1,1), array_copy(mask,1), rwd);
-  np.add_rule(7, 2, tr2in, tr2out, array_copy(m2,1), array_copy(mask,1), rwd);
-  np.add_rule(7, 3, tr3in, tr3out, array_copy(m3,1), array_copy(mask,1), rwd);
-  np.add_rule(7, 4, tr4in, tr4out, array_copy(m4,1), array_copy(mask,1), rwd);
-  np.add_rule(7, 5, tr5in, tr5out, array_copy(m5,1), array_copy(mask,1), rwd);
-  np.add_rule(7, 6, tr6in, tr6out, array_copy(m6,1), array_copy(mask,1), rwd);
+  np.add_rule(7, 1, tr1in, tr1out, new T2(*m1), new T2(*mask), rwd);
+  np.add_rule(7, 2, tr2in, tr2out, new T2(*m2), new T2(*mask), rwd);
+  np.add_rule(7, 3, tr3in, tr3out, new T2(*m3), new T2(*mask), rwd);
+  np.add_rule(7, 4, tr4in, tr4out, new T2(*m4), new T2(*mask), rwd);
+  np.add_rule(7, 5, tr5in, tr5out, new T2(*m5), new T2(*mask), rwd);
+  np.add_rule(7, 6, tr6in, tr6out, new T2(*m6), new T2(*mask), rwd);
 
   // add dummy rules
   uint32_t rd1in[1] = { 101 };
@@ -981,13 +983,13 @@ void NetPlumberSlicingTest::test_end_to_end() {
   List_t trd7in = make_sorted_list_from_array(1, rd7in);
   List_t trd7out = make_sorted_list_from_array(1, rd7out);
 
-  np.add_rule(1, 1, trd1in, trd1out, array_copy(m1,1), array_copy(mask,1), rwd);
-  np.add_rule(2, 1, trd2in, trd2out, array_copy(m2,1), array_copy(mask,1), rwd);
-  np.add_rule(3, 1, trd3in, trd3out, array_copy(m3,1), array_copy(mask,1), rwd);
-  np.add_rule(4, 1, trd4in, trd4out, array_copy(m4,1), array_copy(mask,1), rwd);
-  np.add_rule(5, 1, trd5in, trd5out, array_copy(m5,1), array_copy(mask,1), rwd);
-  np.add_rule(6, 1, trd6in, trd6out, array_copy(m6,1), array_copy(mask,1), rwd);
-  np.add_rule(6, 2, trd7in, trd7out, array_copy(m6,1), array_copy(mska,1), array_copy(rwa,1));
+  np.add_rule(1, 1, trd1in, trd1out, new T2(*m1), new T2(*mask), rwd);
+  np.add_rule(2, 1, trd2in, trd2out, new T2(*m2), new T2(*mask), rwd);
+  np.add_rule(3, 1, trd3in, trd3out, new T2(*m3), new T2(*mask), rwd);
+  np.add_rule(4, 1, trd4in, trd4out, new T2(*m4), new T2(*mask), rwd);
+  np.add_rule(5, 1, trd5in, trd5out, new T2(*m5), new T2(*mask), rwd);
+  np.add_rule(6, 1, trd6in, trd6out, new T2(*m6), new T2(*mask), rwd);
+  np.add_rule(6, 2, trd7in, trd7out, new T2(*m6), new T2(*mska), new T2(*rwa));
 
   // add source probes
   uint32_t s1[1] = { 103 };
@@ -1030,14 +1032,14 @@ void NetPlumberSlicingTest::test_end_to_end() {
   List_t lsa0 = make_sorted_list_from_array(1, sa0);
   List_t lsa1 = make_sorted_list_from_array(1, sa1);
 
-  net_space = hs_create(1);
-  hs_add(net_space, array_copy(mask,1));
+  net_space = new T1(1);
+  net_space->psunion2(new T2(*mask));
   np.add_source(net_space, lsa0);
   CPPUNIT_ASSERT(leakage_called == false);
 
   // finally creates the leaking pipe from 604 to 501 via 603-604 rule
-  net_space = hs_create(1);
-  hs_add(net_space, array_copy(m6,1));
+  net_space = new T1(1);
+  net_space->psunion2(new T2(*m6));
   np.add_source(net_space, lsa1);
   CPPUNIT_ASSERT(leakage_called == true);
 
@@ -1056,5 +1058,5 @@ void NetPlumberSlicingTest::test_end_to_end() {
   leakage_called = false;
 }
 
-template class NetPlumberSlicingTest<struct hs, array_t>;
+template class NetPlumberSlicingTest<HeaderspacePacketSet, ArrayPacketSet>;
 #endif /* PIPE_SLICING */
