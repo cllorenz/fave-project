@@ -20,10 +20,8 @@
 #include "../rule_node.h"
 #include "../net_plumber.h"
 #include "../net_plumber_utils.h"
-extern "C" {
-  #include "../../headerspace/array.h"
-  #include "../../headerspace/hs.h"
-}
+#include "../array_packet_set.h"
+#include "../hs_packet_set.h"
 
 using namespace net_plumber;
 
@@ -42,18 +40,18 @@ void NetPlumberBasicTest<T1, T2>::test_rule_node_create() {
   printf("\n");
   List_t in_ports = make_sorted_list(2,2,3);
   List_t out_ports = make_sorted_list(2,1,4);
-  T2 *match = array_create(2,BIT_X);
-  T2 *mask = array_from_str ("00000000,01111111");
-  T2 *rewrite = array_from_str ("00000000,00000011");
-  T2 *inv_match = array_from_str ("xxxxxxxx,x0000011");
-  T2 *inv_rw = array_from_str ("xxxxxxxx,x0000000");
+  T2 *match = new T2("xxxxxxxx,xxxxxxxx");
+  T2 *mask = new T2("00000000,01111111");
+  T2 *rewrite = new T2("00000000,00000011");
+  T2 *inv_match = new T2("xxxxxxxx,x0000011");
+  T2 *inv_rw = new T2("xxxxxxxx,x0000000");
   RuleNode<T1, T2> *r = new RuleNode<T1, T2>(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
-  CPPUNIT_ASSERT(array_is_eq(r->inv_match,inv_match,2));
-  CPPUNIT_ASSERT(array_is_eq(r->inv_rw,inv_rw,2));
+  CPPUNIT_ASSERT(r->inv_match->is_equal(inv_match));
+  CPPUNIT_ASSERT(r->inv_rw->is_equal(inv_rw));
   //printf("%s\n",r->to_string().c_str());
-  free(inv_rw);
-  free(inv_match);
+  delete inv_rw;
+  delete inv_match;
   delete r;
 }
 
@@ -79,28 +77,28 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
   // two conseq. rules
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
-  T2 *match = array_create(1,BIT_X);
+  T2 *match = new T2(1);
   uint64_t id1 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
-  match = array_create(1,BIT_X);
+  match = new T2(1);
   uint64_t id2 = n->add_rule(1,20,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id2-id1==1);
   // add to an invalid table
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
-  match = array_create(1,BIT_X);
+  match = new T2(1);
   uint64_t id3 = n->add_rule(2,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id3==0);
   // add to a removed table
   n->remove_table(1);
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
-  match = array_create(1,BIT_X);
+  match = new T2(1);
   uint64_t id4 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id4==0);
   delete n;
 }
 
-template class NetPlumberBasicTest<struct hs, array_t>;
+template class NetPlumberBasicTest<HeaderspacePacketSet, ArrayPacketSet>;
 
