@@ -23,6 +23,8 @@
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
 #include "../headerspace/test/hs_unit.h"
+#include "hs_packet_set.h"
+#include "array_packet_set.h"
 #include <string.h>
 #include "main_processes.h"
 #include "net_plumber.h"
@@ -141,7 +143,7 @@ int typed_main(int argc, char* argv[]) {
   int hdr_len = 1;
   string server_address;
   int server_port = 0;
-  array_t *filter = nullptr;
+  T2 *filter = nullptr;
 
   for (int i = 1; i < argc; i++) {
     if ( strcmp(argv[i] , "--help") == 0 ) {
@@ -213,7 +215,7 @@ int typed_main(int argc, char* argv[]) {
         printf("Please specify a header after --filter.\n");
         return -1;
       }
-      filter = array_from_str(argv[++i]);
+      filter = new T2(argv[++i]);
     }
 
     if ( strncmp(argv[i], "--log4j-config", 14) == 0 ) {
@@ -289,6 +291,6 @@ int typed_main(int argc, char* argv[]) {
 
 
 int main(int argc, char* argv[]) {
-  return typed_main<struct hs, array_t>(argc, argv);
+  return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
 }
 
