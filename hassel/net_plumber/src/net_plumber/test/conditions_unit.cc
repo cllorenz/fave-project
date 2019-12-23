@@ -64,7 +64,6 @@ void ConditionsTest<T1, T2>::test_port_sequence() {
   CPPUNIT_ASSERT(c.check(*(flows->begin())));
   c.add_pathlet(new NextPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   CPPUNIT_ASSERT(!c.check(*(flows->begin())));
-  //printf("%s\n",c.to_string().c_str());
   free_flow(flows);
 }
 
@@ -112,7 +111,6 @@ void ConditionsTest<T1, T2>::test_path_length() {
   CPPUNIT_ASSERT(!c.check(*(flows1->begin())));
   // flow 2 has length of 2 and does pass
   CPPUNIT_ASSERT(c.check(*(flows2->begin())));
-  //printf("%s\n",c.to_string().c_str());
   free_flow(flows1);
   free_flow(flows2);
 }
