@@ -92,8 +92,8 @@ class Node {
   // pointer to net plumber instance.
   void *plumber;
 
-  array_t *match;
-  array_t *inv_match;
+  T2 *match;
+  T2 *inv_match;
   bool is_input_layer;
   bool is_output_layer;
 
