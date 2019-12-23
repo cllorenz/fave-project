@@ -19,9 +19,12 @@
 
 #include "conditions.h"
 #include "rule_node.h"
+#include "array_packet_set.h"
+#include "hs_packet_set.h"
 #include <sstream>
 
 using namespace std;
+using namespace net_plumber;
 
 template<class T1, class T2>
 PathCondition<T1, T2>::~PathCondition() {
@@ -102,27 +105,25 @@ string PathCondition<T1, T2>::to_string() {
 
 template<class T1, class T2>
 bool HeaderCondition<T1, T2>::check(Flow<T1, T2> *f) {
-  T1 *tmp = hs_isect_a(f->processed_hs, h);
+  T1 tmp = *f->processed_hs;
+  tmp.intersect(h);
   bool result = false;
-  if (tmp) {
-    hs_comp_diff(tmp);
-    if (tmp->list.used > 0) result = true;
-    hs_free(tmp);
+  if (!tmp.is_empty()) {
+    tmp.unroll();
+    if (!tmp.is_empty()) result = true;
   }
   return result;
 }
 
 template<class T1, class T2>
 void HeaderCondition<T1, T2>::enlarge(uint32_t length) {
-	hs_enlarge(this->h,length);
+	this->h->enlarge(length);
 }
 
 template<class T1, class T2>
 string HeaderCondition<T1, T2>::to_string() {
   stringstream res;
-  char *c = hs_to_str(h);
-  res << "header ~ " << string(c);
-  free(c);
+  res << "header ~ " << h->to_str();
   return res.str();
 }
 
@@ -315,7 +316,7 @@ template<class T1, class T2>
 void HeaderCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "header";
   Json::Value hs(Json::objectValue);
-  hs_to_json(hs, h);
+  h->to_json(hs);
   res["header"] = hs;
 }
 
@@ -383,19 +384,19 @@ void EndPathSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "end";
 }
 
-template class TrueCondition<struct hs, array_t>;
-template class FalseCondition<struct hs, array_t>;
-template class AndCondition<struct hs, array_t>;
-template class OrCondition<struct hs, array_t>;
-template class NotCondition<struct hs, array_t>;
-template class HeaderCondition<struct hs, array_t>;
-template class PathCondition<struct hs, array_t>;
-template class PortSpecifier<struct hs, array_t>;
-template class TableSpecifier<struct hs, array_t>;
-template class NextPortsSpecifier<struct hs, array_t>;
-template class NextTablesSpecifier<struct hs, array_t>;
-template class LastPortsSpecifier<struct hs, array_t>;
-template class LastTablesSpecifier<struct hs, array_t>;
-template class SkipNextSpecifier<struct hs, array_t>;
-template class SkipNextArbSpecifier<struct hs, array_t>;
-template class EndPathSpecifier<struct hs, array_t>;
+template class TrueCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class FalseCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class AndCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class OrCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class NotCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class HeaderCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class PathCondition<HeaderspacePacketSet, ArrayPacketSet>;
+template class PortSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class TableSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class NextPortsSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class NextTablesSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class LastPortsSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class LastTablesSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class SkipNextSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class SkipNextArbSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+template class EndPathSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
