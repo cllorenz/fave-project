@@ -64,7 +64,7 @@ Node<T1, T2>::Node(void *p, int l, uint64_t n) :
 template<class T1, class T2>
 void Node<T1, T2>::remove_flows() {
   for (auto f_it = source_flow.begin(); f_it != source_flow.end(); f_it++) {
-    if ((*f_it)->processed_hs != (*f_it)->hs_object) delete (*f_it)->processed_hs;
+    if ((*f_it)->processed_hs) delete (*f_it)->processed_hs;
     delete (*f_it)->hs_object;
     this->absorb_src_flow(f_it, true);
     if ((*f_it)->p_flow != this->source_flow.end()) {
@@ -380,7 +380,7 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
         if (!h) h = new T1(*(*s_flow)->processed_hs);
         h->intersect2(next_flow->pipe->pipe_array);
         if (!h->is_empty()) {
-          delete next_flow->hs_object;
+          if (next_flow->hs_object) delete next_flow->hs_object;
           next_flow->hs_object = h;
           next_flow->node->process_src_flow_at_location(*nit, change);
           h = nullptr;
@@ -416,7 +416,7 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       h = nullptr;
     }
   }
-  delete h;
+  if (h) delete h;
 }
 
 template<class T1, class T2>
