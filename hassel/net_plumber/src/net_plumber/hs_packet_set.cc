@@ -57,9 +57,8 @@ HeaderspacePacketSet::HeaderspacePacketSet(const std::string s) {
 
 HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, size_t length) {
     HeaderspacePacketSet *tmp = val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(val, length);
-    this->hs.len = tmp->hs.len;
-    this->hs.list = tmp->hs.list;
-    free(tmp);
+    hs_copy(&this->hs, &tmp->hs);
+    delete tmp;
 }
 
 
