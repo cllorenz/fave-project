@@ -263,7 +263,7 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #ifdef CHECK_REACH_SHADOW
       // check reachability and shadowing
       T1 rule_hs = T1(this->length);
-      rule_hs.psunion2(new T2(*rule->match));
+      rule_hs.psunion2(rule->match);
 
       if (all_hs.is_equal(aggr_hs) {
         this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
@@ -285,14 +285,14 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
                                                   rule->input_ports);
       if (common_ports.size == 0) continue;
       // find common headerspace
-      T2 *common_hs = new T2(*r->match);
-      common_hs->intersect(rule->match);
+      T2 common_hs = T2(*r->match);
+      common_hs.intersect(rule->match);
 
 #ifdef CHECK_REACH_SHADOW
-      if (!checked_rs) aggr_hs.psunion2(new T2(*rule->match));
+      if (!checked_rs) aggr_hs.psunion2(rule->match);
 #endif
 
-      if (common_hs->is_empty()) {
+      if (common_hs.is_empty()) {
         if (!common_ports.shared) free(common_ports.list);
         continue;
       }
@@ -300,7 +300,7 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       Influence<T1, T2> *inf = (Influence<T1, T2> *)malloc(sizeof *inf);
       inf->len = this->length;
       Effect<T1, T2> *eff = (Effect<T1, T2> *)malloc(sizeof *eff);
-      inf->comm_arr = common_hs;
+      inf->comm_arr = new T2(common_hs);
       inf->ports = common_ports;
 
       if (r->index < rule->index) {
@@ -329,17 +329,17 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
           get_nodes_with_inport(end_ports->at(j));
       if (!potential_next_rules) continue;
       for (auto const &n_rule: *potential_next_rules) {
-        T2 *pipe_arr = new T2(*n_rule->match);
-        pipe_arr->intersect(n->inv_match);
+        T2 pipe_arr = T2(*n_rule->match);
+        pipe_arr.intersect(n->inv_match);
 
-        if (!pipe_arr->is_empty()) {
+        if (!pipe_arr.is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = n->output_ports.list[i];
           bp->local_port = end_ports->at(j);
-          fp->pipe_array = pipe_arr;
+          fp->pipe_array = new T2(pipe_arr);
           fp->len = length;
-          bp->pipe_array = new T2(*pipe_arr);
+          bp->pipe_array = new T2(pipe_arr);
           bp->len = length;
           fp->node = n;
           bp->node = n_rule;
@@ -362,18 +362,17 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
           get_nodes_with_outport(orig_ports->at(j));
       if (!potential_prev_rules) continue;
       for (auto const &p_rule: *potential_prev_rules) {
-        T2 *pipe_arr;
-        pipe_arr = new T2(*p_rule->inv_match);
-        pipe_arr->intersect(n->match);
+        T2 pipe_arr = T2(*p_rule->inv_match);
+        pipe_arr.intersect(n->match);
 
-        if (!pipe_arr->is_empty()) {
+        if (!pipe_arr.is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)calloc(1, sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)calloc(1, sizeof *bp);
           fp->local_port = orig_ports->at(j);
           bp->local_port = n->input_ports.list[i];
-          fp->pipe_array = pipe_arr;
+          fp->pipe_array = new T2(pipe_arr);
           fp->len = length;
-          bp->pipe_array = new T2(*pipe_arr);
+          bp->pipe_array = new T2(pipe_arr);
           bp->len = length;
           fp->node = p_rule;
           bp->node = n;
@@ -397,7 +396,7 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
   /* determine net space of pipe */
   T1 *pipe_space = T1(this->length);
-  pipe_space->psunion2(new T2(*pipe->pipe_array));
+  pipe_space->psunion2(pipe->pipe_array);
   bool match = false;
 
   /* find slice matching net space */
@@ -616,17 +615,17 @@ void NetPlumber<T1, T2>::add_link(uint32_t from_port, uint32_t to_port) {
   if (src_rules && dst_rules) {
     for (auto const &src_rule: *src_rules) {
       for (auto const &dst_rule: *dst_rules) {
-        T2 *pipe_arr = new T2(*src_rule->inv_match);
-        pipe_arr->intersect(dst_rule->match);
+        T2 pipe_arr = T2(*src_rule->inv_match);
+        pipe_arr.intersect(dst_rule->match);
 
-        if (!pipe_arr->is_empty()) {
+        if (!pipe_arr.is_empty()) {
           Pipeline<T1, T2> *fp = (Pipeline<T1, T2> *)malloc(sizeof *fp);
           Pipeline<T1, T2> *bp = (Pipeline<T1, T2> *)malloc(sizeof *bp);
           fp->local_port = from_port;
           bp->local_port = to_port;
-          fp->pipe_array = pipe_arr;
+          fp->pipe_array = new T2(pipe_arr);
           fp->len = length;
-          bp->pipe_array = new T2(*pipe_arr);
+          bp->pipe_array = new T2(pipe_arr);
           bp->len = length;
           fp->node = src_rule;
           bp->node = dst_rule;
@@ -1250,7 +1249,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
             T1 tmp = T1(this->length);
 #endif
             for (auto const &influence: *r_node->influenced_by) {
-                tmp.psunion2(new T2(*influence->comm_arr));
+                tmp.psunion2(influence->comm_arr);
             }
 
             if (!tmp.is_empty()) {
@@ -1613,7 +1612,7 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
 
   for (auto const &pipe: slices[0].pipes) {
     pipe_space = new T1(this->length);
-    pipe_space.psunion2(new T2(*pipe->pipe_array));
+    pipe_space.psunion2(pipe->pipe_array);
 
     /* check if pipe's netspace belongs to slice's netspace */
     /* if so, add pipe to new slice and mark pipe as changed */
