@@ -272,7 +272,8 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_remove_source() {
   printf("\n");
   N->add_link(100,1);
   T1 *h = new T1(1);
-  h->psunion2(new T2 ("1xxxxxxx"));
+  T2 a = T2 ("1xxxxxxx");
+  h->psunion2(&a);
   uint64_t id = N->add_source(h, make_sorted_list(1,100));
   //N->print_plumbing_network();
   N->remove_source(id);
@@ -354,7 +355,8 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
   printf("\n");
   N->add_link(100,1);
   T1 *h = new T1(1);
-  h->psunion2(new T2 ("1xxxxxxx"));
+  T2 a = T2 ("1xxxxxxx");
+  h->psunion2(&a);
   N->add_source(h, make_sorted_list(1,100));
   int stats[7][2] = {
       {1,0},
@@ -378,10 +380,12 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_source() {
   printf("\n");
   N->add_link(100,1);
   T1 *h = new T1(1);
-  h->psunion2(new T2 ("1xxxxxxx"));
+  T2 a = T2 ("1xxxxxxx");
+  h->psunion2(&a);
   /*uint64_t id1 = */N->add_source(h, make_sorted_list(1,100));
   h = new T1(1);
-  h->psunion2(new T2 ("xxxxxxxx"));
+  T2 b = T2 ("xxxxxxxx");
+  h->psunion2(&b);
   uint64_t id2 = N->add_source(h, make_sorted_list(1,100));
   //N->print_plumbing_network();
   N->remove_source(id2);
@@ -1124,7 +1128,8 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_source() {
          make_sorted_list(1,200), EXISTENTIAL, new TrueCondition<T1, T2>(),
          c, probe_fire_counter, &A);
   T1 *h = new T1(1);
-  h->psunion2(new T2 ("xxxxxxxx"));
+  T2 a = T2 ("xxxxxxxx");
+  h->psunion2(&a);
   node_ids.push_back(
       N->add_source(h, make_sorted_list(1,300))
       );
