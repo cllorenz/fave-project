@@ -66,7 +66,7 @@ void Node<T1, T2>::remove_flows() {
   for (auto f_it = source_flow.begin(); f_it != source_flow.end(); f_it++) {
     if ((*f_it)->processed_hs != (*f_it)->hs_object) delete (*f_it)->processed_hs;
     delete (*f_it)->hs_object;
-    this->absorb_src_flow(f_it,true);
+    this->absorb_src_flow(f_it, true);
     if ((*f_it)->p_flow != this->source_flow.end()) {
       (*(*f_it)->p_flow)->n_flows->remove(f_it);
     }
@@ -370,10 +370,10 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
         piped->intersect(next_flow->pipe->pipe_array);
         if (!piped->is_empty()) {
           next_flow->hs_object->diff2(piped);
-          next_flow->node->process_src_flow_at_location(*nit,piped);
-          delete piped;
+          next_flow->node->process_src_flow_at_location(*nit, piped);
         }
-        next_flow->node->process_src_flow_at_location(*nit,change);
+        delete piped;
+        next_flow->node->process_src_flow_at_location(*nit, change);
         nit++;
       } else {
         pipe_hash_set.insert(next_flow->pipe);
@@ -382,11 +382,11 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
         if (!h->is_empty()) {
           delete next_flow->hs_object;
           next_flow->hs_object = h;
-          next_flow->node->process_src_flow_at_location(*nit,change);
+          next_flow->node->process_src_flow_at_location(*nit, change);
           h = nullptr;
           nit++;
         } else { // then this flow no longer propagate on this path. absorb it.
-          next_flow->node->absorb_src_flow(*nit,false);
+          next_flow->node->absorb_src_flow(*nit, false);
           auto tmp_nit = nit;
           nit++;
           (*s_flow)->n_flows->erase(tmp_nit);
