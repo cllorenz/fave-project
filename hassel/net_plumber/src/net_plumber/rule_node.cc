@@ -397,7 +397,7 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
     }
 
   } else {
-    if (f->processed_hs && !f->processed_hs->is_empty()) delete f->processed_hs;
+    if (f->processed_hs) delete f->processed_hs;
     // diff higher priority rules
     f->processed_hs = new T1(*f->hs_object);
 
