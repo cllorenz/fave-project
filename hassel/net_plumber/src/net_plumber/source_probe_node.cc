@@ -109,7 +109,7 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
     if (f->processed_hs->is_empty()) return;
     f->processed_hs->diff2(change);
   } else {
-    delete f->processed_hs;
+    if (f->processed_hs) delete f->processed_hs;
     f->processed_hs = new T1(*f->hs_object);
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
