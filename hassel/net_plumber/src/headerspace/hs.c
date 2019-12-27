@@ -560,12 +560,12 @@ hs_copy_a (const struct hs *hs)
 
 size_t
 hs_count (const struct hs *hs)
-{ if (!hs_is_empty(hs)) return hs->list.used; else return -1; }
+{ if (!hs_is_empty(hs)) return hs->list.used; else return 0; }
 
 size_t
 hs_count_diff (const struct hs *hs)
 {
-  if (hs_is_empty(hs)) return -1;
+  if (hs_is_empty(hs)) return 0;
 #ifdef NEW_HS
   return hs->diff.used;
 #else
