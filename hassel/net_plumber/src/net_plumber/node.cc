@@ -325,7 +325,7 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     if (!h->is_empty()) {
 #ifdef CHECK_BLACKHOLES
       T1 p_arr = T1(this->length);
-      p_arr->psunion2(new T2(*(*pipe)->pipe_array));
+      p_arr->psunion2((*pipe)->pipe_array);
 
       // TODO: fix blackhole check
       if (h->is_sub(p_arr) && ((NetPlumber*)plumber)->blackhole_callback) {
@@ -394,7 +394,11 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       }
     }
   }
-  if (change && !change->is_empty()) return;
+
+  if (change && !change->is_empty()) {
+    if (h) delete h;
+    return;
+  }
 
   for (auto const &next: next_in_pipeline) {
     if (pipe_hash_set.count(next) > 0) continue;  //skip pipes visited above.
