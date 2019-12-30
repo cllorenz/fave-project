@@ -76,7 +76,7 @@ void load_netplumber_from_dir(
   double total_run_time = 0;
 
 #ifdef PIPE_SLICING
-  _load_slices_from_file(json_file_path, N, hdr_len);
+  _load_slices_from_file<T1, T2>(json_file_path, N, hdr_len);
 #endif
 
   // read topology
