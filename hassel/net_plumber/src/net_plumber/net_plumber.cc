@@ -395,13 +395,13 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
 template<class T1, class T2>
 void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
   /* determine net space of pipe */
-  T1 *pipe_space = T1(this->length);
+  T1 *pipe_space = new T1(this->length);
   pipe_space->psunion2(pipe->pipe_array);
   bool match = false;
 
   /* find slice matching net space */
   for (auto &slice: slices) {
-    if (pipe_space->is_sub_eq(slice.second.net_space)) {
+    if (pipe_space->is_subset_equal(slice.second.net_space)) {
       /* update slice and pipe information */
       pipe->net_space_id = slice.first;
       slice.second.pipes.push_front(pipe);
@@ -540,8 +540,9 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
   this->rule_shadow_callback_data = NULL;
 #endif
 #ifdef PIPE_SLICING
-  T1 *net_space = T1(this->length);
-  net_space->hsunion(T2(this->length, BIT_X));
+  T1 *net_space = new T1(this->length);
+  T2 all_space = T2(this->length, BIT_X);
+  net_space->psunion2(&all_space);
   slices = { {0, {net_space, {}}} };
   this->slice_overlap_callback = default_slice_overlap_callback;
   this->slice_overlap_callback_data = NULL;
@@ -1544,9 +1545,11 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
     Json::Value slice(Json::objectValue);
     slice["id"] = (Json::UInt64) s.first;
 
+/*
     size_t len = s.second.net_space->len;
     const struct hs_vec *v = &s.second.net_space->list;
-    if (v->used==1 && !v->diff[0].used) {
+
+    if (v->count == 1 && v->diff_count != 0) { //(v->used==1 && !v->diff[0].used) {
       slice["space"] = v->elems[0]->to_str();
     } else {
       Json::Value space(Json::objectValue);
@@ -1567,6 +1570,10 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
         slice["space"] = space;
       }
     }
+*/
+
+
+    s.second.net_space->to_json(slice["space"]);
     jslices.append(slice);
   }
 
@@ -1584,7 +1591,7 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
 
 #ifdef PIPE_SLICING
 template<class T1, class T2>
-bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
+bool NetPlumber<T1, T2>::add_slice(uint64_t id, T1 *net_space) {
   this->last_event.type = ADD_SLICE;
   this->last_event.id1 = id;
 
@@ -1594,13 +1601,13 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
   }
 
   /* if slice does not fit in free network space */
-  if (!net_space->is_sub_eq(slices[0].net_space)) {
+  if (!net_space->is_subset_equal(slices[0].net_space)) {
     this->slice_overlap_callback(this, NULL, this->slice_overlap_callback_data);
     return false;
   }
 
   /* allocate new slice */
-  Slice slice = {net_space, {}};
+  Slice<T1, T2> slice = {net_space, {}};
 
   /* remove slice from free network space */
   slices[0].net_space->minus(net_space);
@@ -1612,11 +1619,11 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, struct hs *net_space) {
 
   for (auto const &pipe: slices[0].pipes) {
     pipe_space = new T1(this->length);
-    pipe_space.psunion2(pipe->pipe_array);
+    pipe_space->psunion2(pipe->pipe_array);
 
     /* check if pipe's netspace belongs to slice's netspace */
     /* if so, add pipe to new slice and mark pipe as changed */
-    if (pipe_space->is_sub_eq(net_space)) {
+    if (pipe_space->is_subset_equal(net_space)) {
       pipe->net_space_id = id;
       slice.pipes.push_front(pipe);
       changed.push_back(it);
