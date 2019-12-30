@@ -49,13 +49,6 @@ void _load_slices_from_file(string json_file_path, NetPlumber<T1, T2> * N, size_
   }
   jsfile.close();
 }
-
-template void _load_slices_from_file<HeaderspacePacketSet, ArrayPacketSet>(
-    string,
-    NetPlumber<HeaderspacePacketSet, ArrayPacketSet>,
-    size_t
-);
-template void _load_slices_from_file<struct hs, array_t>(string, NetPlumber<struct hs, array_t>, size_t);
 #endif /* PIPE_SLICING */
 
 template<typename T1, typename T2>
