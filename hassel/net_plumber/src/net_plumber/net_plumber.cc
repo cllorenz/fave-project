@@ -1553,17 +1553,17 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
       Json::Value lpos(Json::arrayValue);
       Json::Value lneg(Json::arrayValue);
       for (size_t i=0; i<v->used; i++) {
-	bool diff = v->diff && v->diff[i].used;
-	Json::Value arr = v->elems[i]->to_str();
-	lpos.append(arr);
-	if (diff) {
-	  for (size_t j=0; j<v->diff->used; j++) {
-	    arr = v->diff->elems[i]->to_str();
-	    lneg.append(arr);
-	  }
-	}
-	space["list"] = lpos;
-	space["diff"] = lneg;
+	    bool diff = v->diff && v->diff[i].used;
+	    Json::Value arr = v->elems[i]->to_str();
+	    lpos.append(arr);
+	    if (diff) {
+	      for (size_t j=0; j<v->diff->used; j++) {
+	        arr = v->diff->elems[i]->to_str();
+	        lneg.append(arr);
+	      }
+	    }
+	    space["list"] = lpos;
+	    space["diff"] = lneg;
         slice["space"] = space;
       }
     }
