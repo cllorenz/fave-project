@@ -134,7 +134,7 @@ namespace net_plumber {
 
 #ifdef PIPE_SLICING
     // net_space_id to slice
-    std::map<uint64_t, Slice> slices;
+    std::map< uint64_t, Slice<T1, T2> > slices;
 
     // policy matrix, represents directed slice allow pairs
     std::map<uint64_t, std::set<uint64_t> > matrix;
@@ -165,9 +165,9 @@ namespace net_plumber {
     void *rule_shadow_callback_data;
 #endif
 #ifdef PIPE_SLICING
-    global_error_callback_t slice_overlap_callback;
+    global_error_callback_t<T1, T2> slice_overlap_callback;
     void *slice_overlap_callback_data;
-    global_error_callback_t slice_leakage_callback;
+    global_error_callback_t<T1, T2> slice_leakage_callback;
     void *slice_leakage_callback_data;
 #endif
 
@@ -337,7 +337,7 @@ namespace net_plumber {
     void check_node_for_slice_leakage(Node<T1, T2> *node);
     void check_pipe_for_slice_leakage(Pipeline<T1, T2> *in, Pipeline<T1, T2> *out);
     bool check_leak_exception(uint64_t in, uint64_t out);
-    friend class ::NetPlumberSlicingTest;
+    friend class ::NetPlumberSlicingTest<T1, T2>;
 #endif
   };
 }
