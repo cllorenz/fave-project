@@ -1549,7 +1549,7 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
     size_t len = s.second.net_space->len;
     const struct hs_vec *v = &s.second.net_space->list;
 
-    if (v->count == 1 && v->diff_count != 0) { //(v->used==1 && !v->diff[0].used) {
+    if (v->count == 1 && v->diff_count != 0) {
       slice["space"] = v->elems[0]->to_str();
     } else {
       Json::Value space(Json::objectValue);
@@ -1572,8 +1572,10 @@ void NetPlumber<T1, T2>::dump_slices(const string dir) {
     }
 */
 
+    Json::Value tmp;
+    s.second.net_space->to_json(tmp);
+    slice["space"] = tmp;
 
-    s.second.net_space->to_json(slice["space"]);
     jslices.append(slice);
   }
 
