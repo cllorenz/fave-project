@@ -70,11 +70,13 @@ struct Event {
   uint64_t id2;  // destination port.
 };
 
+#ifdef PIPE_SLICING
 template<typename T1, typename T2>
 struct Slice {
   T1 *net_space;
   std::list<struct Pipeline<T1, T2> *> pipes;
 };
+#endif
 
 std::string get_event_name(EVENT_TYPE t);
 
