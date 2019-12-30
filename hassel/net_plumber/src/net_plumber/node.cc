@@ -85,7 +85,7 @@ void Node<T1, T2>::remove_pipes() {
     free(*r);
     other_n->prev_in_pipeline.erase(r);
 #ifdef PIPE_SLICING
-    ((NetPlumber *)plumber)->remove_pipe_from_slices(next);
+    ((NetPlumber<T1, T2> *)plumber)->remove_pipe_from_slices(next);
 #endif
     free(next);
   }
