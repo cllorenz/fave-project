@@ -248,7 +248,8 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
   auto rules_list = table_to_nodes[r->table];
 #ifdef CHECK_REACH_SHADOW
   T1 all_hs = T1(this->length);
-  all_hs.psunion2(T2(this->length, BIT_X));
+  T2 tmp = T2(this->length, BIT_X);
+  all_hs.psunion2(&tmp);
 
   T1 aggr_hs = T1(this->length);
 #endif
@@ -261,11 +262,11 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #ifdef CHECK_REACH_SHADOW
       // check reachability and shadowing
       T1 rule_hs = T1(this->length);
-      rule_hs.psunion2(rule->match);
+      rule_hs.psunion2(r->match);
 
-      if (all_hs.is_equal(aggr_hs) {
+      if (all_hs.is_equal(&aggr_hs)) {
         this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
-      } else if (rule_hs.is_sub(aggr_hs)) {
+      } else if (rule_hs.is_subset(&aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 #endif
