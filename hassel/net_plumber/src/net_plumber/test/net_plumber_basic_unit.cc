@@ -77,24 +77,24 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
   // two conseq. rules
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
-  T2 *match = new T2(1);
+  T2 *match = new T2("xxxxxxxx");
   uint64_t id1 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
-  match = new T2(1);
+  match = new T2("xxxxxxxx");
   uint64_t id2 = n->add_rule(1,20,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id2-id1==1);
   // add to an invalid table
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
-  match = new T2(1);
+  match = new T2("xxxxxxxx");
   uint64_t id3 = n->add_rule(2,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id3==0);
   // add to a removed table
   n->remove_table(1);
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
-  match = new T2(1);
+  match = new T2("xxxxxxxx");
   uint64_t id4 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id4==0);
   delete n;
