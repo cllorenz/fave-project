@@ -159,9 +159,9 @@ namespace net_plumber {
     void *blackhole_callback_data;
 #endif
 #ifdef CHECK_REACH_SHADOW
-    global_error_callback_t rule_unreach_callback;
+    global_error_callback_t<T1, T2> rule_unreach_callback;
     void *rule_unreach_callback_data;
-    global_error_callback_t rule_shadow_callback;
+    global_error_callback_t<T1, T2> rule_shadow_callback;
     void *rule_shadow_callback_data;
 #endif
 #ifdef PIPE_SLICING
