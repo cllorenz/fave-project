@@ -247,8 +247,6 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #endif
   auto rules_list = table_to_nodes[r->table];
 #ifdef CHECK_REACH_SHADOW
-  bool checked_rs = false;
-
   T1 all_hs = T1(this->length);
   all_hs.psunion2(T2(this->length, BIT_X));
 
@@ -270,8 +268,6 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       } else if (rule_hs.is_sub(aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
-
-      checked_rs = true;
 #endif
 
 #ifdef USE_GROUPS
@@ -289,7 +285,7 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       common_hs.intersect(rule->match);
 
 #ifdef CHECK_REACH_SHADOW
-      if (!checked_rs) aggr_hs.psunion2(rule->match);
+      if (rule->index < r->index) aggr_hs.psunion2(rule->match);
 #endif
 
       if (common_hs.is_empty()) {
