@@ -155,7 +155,7 @@ namespace net_plumber {
     global_error_callback_t<T1, T2> loop_callback;
     void *loop_callback_data;
 #ifdef CHECK_BLACKHOLES
-    global_error_callback_t blackhole_callback;
+    global_error_callback_t<T1, T2> blackhole_callback;
     void *blackhole_callback_data;
 #endif
 #ifdef CHECK_REACH_SHADOW

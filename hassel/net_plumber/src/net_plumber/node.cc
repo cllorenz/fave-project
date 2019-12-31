@@ -286,11 +286,11 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
 
 #ifdef CHECK_BLACKHOLES
       // TODO: fix blackhole check
-      if (h->is_sub((*s_flow)->processed_hs) && ((NetPlumber*)plumber)->blackhole_callback) {
-        ((NetPlumber*)plumber)->blackhole_callback(
-          (NetPlumber*)plumber,
+      if (h->is_subset((*s_flow)->processed_hs) && ((NetPlumber<T1, T2>*)plumber)->blackhole_callback) {
+        ((NetPlumber<T1, T2>*)plumber)->blackhole_callback(
+          (NetPlumber<T1, T2>*)plumber,
           *s_flow,
-          ((NetPlumber*)plumber)->blackhole_callback_data
+          ((NetPlumber<T1, T2>*)plumber)->blackhole_callback_data
         );
       }
 #endif
@@ -325,14 +325,14 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     if (!h->is_empty()) {
 #ifdef CHECK_BLACKHOLES
       T1 p_arr = T1(this->length);
-      p_arr->psunion2((*pipe)->pipe_array);
+      p_arr.psunion2((*pipe)->pipe_array);
 
       // TODO: fix blackhole check
-      if (h->is_sub(p_arr) && ((NetPlumber*)plumber)->blackhole_callback) {
-        ((NetPlumber*)plumber)->blackhole_callback(
-          (NetPlumber*)plumber,
+      if (h->is_subset(&p_arr) && ((NetPlumber<T1, T2>*)plumber)->blackhole_callback) {
+        ((NetPlumber<T1, T2>*)plumber)->blackhole_callback(
+          (NetPlumber<T1, T2>*)plumber,
           (*it),
-          ((NetPlumber*)plumber)->blackhole_callback_data
+          ((NetPlumber<T1, T2>*)plumber)->blackhole_callback_data
         );
       }
 #endif
@@ -347,9 +347,6 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
       next_flow->processed_hs = nullptr;
       (*(*pipe)->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
-#ifdef CHECK_BLACKHOLES
-      delete p_arr;
-#endif
     }
   }
   if (h) free(h);
