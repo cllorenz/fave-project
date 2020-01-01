@@ -719,9 +719,9 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_no_excepti
   auto pipe1 = Pipeline<T1, T2>();
   auto pipe2 = Pipeline<T1, T2>();
 
-  T2 *mask = new T2(std::string("xxxxxxxx"));
+  T2 mask = T2(std::string("xxxxxxxx"));
   T1 *space = new T1(1);
-  space->psunion2(mask);
+  space->psunion2(&mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
@@ -751,9 +751,9 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_with_excep
   auto pipe2 = Pipeline<T1, T2>();
   auto pipe3 = Pipeline<T1, T2>();
   
-  T2 *mask = new T2(std::string("xxxxxxxx"));
+  T2 mask = T2(std::string("xxxxxxxx"));
   T1 *space = new T1(1);
-  space->psunion2(mask);
+  space->psunion2(&mask);
 
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
