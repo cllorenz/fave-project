@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CC_SRCS += \
 ../src/net_plumber/array_packet_set.cc \
+../src/net_plumber/bdd_packet_set.cc \
 ../src/net_plumber/conditions.cc \
 ../src/net_plumber/hs_packet_set.cc \
 ../src/net_plumber/main.cc \
@@ -19,6 +20,7 @@ CC_SRCS += \
 
 OBJS += \
 ./src/net_plumber/array_packet_set.o \
+./src/net_plumber/bdd_packet_set.o \
 ./src/net_plumber/conditions.o \
 ./src/net_plumber/hs_packet_set.o \
 ./src/net_plumber/main.o \
@@ -33,6 +35,7 @@ OBJS += \
 
 CC_DEPS += \
 ./src/net_plumber/array_packet_set.d \
+./src/net_plumber/bdd_packet_set.d \
 ./src/net_plumber/conditions.d \
 ./src/net_plumber/hs_packet_set.d \
 ./src/net_plumber/main.d \
