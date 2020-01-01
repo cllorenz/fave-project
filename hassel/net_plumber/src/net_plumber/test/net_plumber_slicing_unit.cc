@@ -811,33 +811,27 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
 
   // add slices
   CPPUNIT_ASSERT(np.slices.size() == 1);
-  T1 *net_space = new T1("000xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(1, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(1, new T1("000xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 2);
 
-  net_space = new T1("001xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(2, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(2, new T1("001xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 3);
 
-  net_space = new T1("010xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(3, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(3, new T1("010xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 4);
 
-  net_space = new T1("011xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(4, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(4, new T1("011xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 5);
 
-  net_space = new T1("100xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(5, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(5, new T1("100xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 6);
   
-  net_space = new T1("101xxxxx");
-  CPPUNIT_ASSERT(np.add_slice(6, net_space) == true);
+  CPPUNIT_ASSERT(np.add_slice(6, new T1("101xxxxx")) == true);
   CPPUNIT_ASSERT(overlap_called == false);
   CPPUNIT_ASSERT(np.slices.size() == 7);
 
@@ -1028,7 +1022,7 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
   List_t lsa0 = make_sorted_list_from_array(1, sa0);
   List_t lsa1 = make_sorted_list_from_array(1, sa1);
 
-  net_space = new T1(1);
+  T1 *net_space = new T1(1);
   net_space->psunion2(mask);
   np.add_source(net_space, lsa0);
   CPPUNIT_ASSERT(leakage_called == false);
