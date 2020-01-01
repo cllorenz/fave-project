@@ -18,7 +18,7 @@ typedef uint64_t array_t;
 typedef uint32_t array_t;
 #endif
 
-enum bit_val { BIT_Z = 0, BIT_0, BIT_1, BIT_X, BIT_UNDEF };
+#include "bitval.h"
 
 #define ARRAY_BITS(L) ( DIV_ROUND_UP (2 * (L), sizeof (array_t)) )
 #define ARRAY_BYTES(L) ( ROUND_UP (2 * (L), sizeof (array_t)) )
