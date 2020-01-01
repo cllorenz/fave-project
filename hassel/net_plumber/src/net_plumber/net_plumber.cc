@@ -392,13 +392,13 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
 template<class T1, class T2>
 void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
   /* determine net space of pipe */
-  T1 *pipe_space = new T1(this->length);
-  pipe_space->psunion2(pipe->pipe_array);
+  T1 pipe_space = T1(this->length);
+  pipe_space.psunion2(pipe->pipe_array);
   bool match = false;
 
   /* find slice matching net space */
   for (auto &slice: slices) {
-    if (pipe_space->is_subset_equal(slice.second.net_space)) {
+    if (pipe_space.is_subset_equal(slice.second.net_space)) {
       /* update slice and pipe information */
       pipe->net_space_id = slice.first;
       slice.second.pipes.push_front(pipe);
@@ -413,8 +413,6 @@ void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
     slices.at(0).pipes.push_front(pipe);
     pipe->r_slice = slices.at(0).pipes.begin();
   }
-
-  delete pipe_space;
 }
 #endif
 
