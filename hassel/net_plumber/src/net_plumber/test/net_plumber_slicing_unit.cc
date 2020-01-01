@@ -540,9 +540,9 @@ void NetPlumberSlicingTest<T1, T2>::test_add_remove_slice_pipes() {
   CPPUNIT_ASSERT(np.slices[1].pipes.size() == 4);
   
   // cleanup
-  free(m1);
-  free(m2);
-  free(mask);
+  delete m1;
+  delete m2;
+  delete mask;
 
   overlap_called = false;
 }
@@ -619,8 +619,8 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_matching() {
   CPPUNIT_ASSERT(pipe1.net_space_id == 1);
 
   // cleanup
-  free(pipe1.pipe_array);
-  free(mask);
+  delete pipe1.pipe_array;
+  delete mask;
 }
 
 template<class T1, class T2>
@@ -654,8 +654,8 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_not_matching() {
   CPPUNIT_ASSERT(pipe1.net_space_id == 0);
 
   // cleanup
-  free(pipe1.pipe_array);
-  free(mask);
+  delete pipe1.pipe_array;
+  delete mask;
 }
 
 template<class T1, class T2>
@@ -707,9 +707,9 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_pipe_from_slices() {
   CPPUNIT_ASSERT(np.slices[1].pipes.size() == 0);
   
   // cleanup
-  free(pipe1.pipe_array);
-  free(pipe2.pipe_array);
-  free(mask);
+  delete pipe1.pipe_array;
+  delete pipe2.pipe_array;
+  delete mask;
 }
 
 // Unit tests checks on Pipeline pairs, structure is not completely initialized
@@ -1040,15 +1040,15 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
   CPPUNIT_ASSERT(leakage_called == true);
 
   // cleanup
-  free(m1);
-  free(m2);
-  free(m3);
-  free(m4);
-  free(m5);
-  free(m6);
-  free(mask);
-  free(mska);
-  free(rwa);
+  delete m1;
+  delete m2;
+  delete m3;
+  delete m4;
+  delete m5;
+  delete m6;
+  delete mask;
+  delete mska;
+  delete rwa;
   
   overlap_called = false;
   leakage_called = false;
