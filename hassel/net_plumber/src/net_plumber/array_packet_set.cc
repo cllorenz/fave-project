@@ -1,8 +1,5 @@
 #include "array_packet_set.h"
 #include "rpc_handler.h"
-extern "C" {
-  #include "../headerspace/hs.h"
-}
 
 namespace net_plumber {
 
