@@ -9,11 +9,11 @@ namespace net_plumber {
 
 class BDDPacketSet : public PacketSet {
   public:
-    bdd *ps_bdd;
+    bdd ps;
     size_t length;
 
     BDDPacketSet(const size_t);
-    BDDPacketSet(bdd *, const size_t);
+    BDDPacketSet(bdd, const size_t);
     BDDPacketSet(const size_t, enum bit_val);
     BDDPacketSet(const std::string);
     BDDPacketSet(const Json::Value&, size_t);

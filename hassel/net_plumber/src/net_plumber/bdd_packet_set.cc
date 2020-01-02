@@ -2,7 +2,7 @@
 
 namespace net_plumber {
 
-BDDPacketSet::BDDPacketSet(bdd *bdd, const size_t length) : ps_bdd(bdd), length(length) {
+BDDPacketSet::BDDPacketSet(bdd ps, const size_t length) : ps(ps), length(length) {
     /* empty */
 }
 
