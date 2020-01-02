@@ -1,4 +1,7 @@
 #include "bdd_packet_set.h"
+#include <assert.h>
+#include <sstream>
+#include <vector>
 
 namespace net_plumber {
 
@@ -8,12 +11,38 @@ BDDPacketSet::BDDPacketSet(bdd ps, const size_t length) : ps(ps), length(length)
 
 
 BDDPacketSet::BDDPacketSet(const size_t length) : length(length) {
-    // TODO
+    this->ps = bddfalse;
+}
+
+
+bdd
+_all_zeros(const size_t len) {
+    bdd res = bddfalse;
+    for (size_t i = 0; i < len; i++) {
+        res |= bdd_nithvar(i);
+    }
+    return res;
+}
+
+
+bdd
+_all_ones(const size_t len) {
+    bdd res = bddfalse;
+    for (size_t i = 0; i < len; i++) {
+        res |= bdd_ithvar(i);
+    }
+    return res;
 }
 
 
 BDDPacketSet::BDDPacketSet(const size_t length, enum bit_val val) : length(length) {
-    // TODO
+    switch (val) {
+        case BIT_Z: this->ps = bddfalse; break;
+        case BIT_0: this->ps = _all_zeros(length); break;
+        case BIT_1: this->ps = _all_ones(length); break;
+        case BIT_X: this->ps = bddtrue; break;
+        default:    this->ps = bddfalse;
+    }
 }
 
 
@@ -24,111 +53,184 @@ BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) : length(lengt
 
 BDDPacketSet::BDDPacketSet(const BDDPacketSet& other) {
     this->length = other.length;
-    this->ps_bdd = other.ps_bdd;
+    this->ps = other.ps;
 }
 
 
 BDDPacketSet::~BDDPacketSet() {
-    // TODO
+    /* empty */
+}
+
+
+void
+_string_handler(char *varset, int size, std::vector<std::string> res) {
+    std::stringstream tmp;
+    for (int v=0; v < size; ++v) {
+        if (v+1 < size && v % 8 == 7) tmp << ",";
+        tmp << (((varset[v]) < 0) ? 'x' : (char)('0' + varset[v]));
+    }
+    res.push_back(tmp.str());
 }
 
 
 std::string
 BDDPacketSet::to_str(void) {
-    // TODO
+    std::vector<std::string> tmp;
+    auto handler = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+
+    //bdd_allsat(this->ps, handler); // XXX
+
+    std::stringstream res;
+    for (auto elem = tmp.begin(); elem != tmp.end(); elem++) {
+        if ((*elem).empty()) continue;
+        res << *elem;
+        if (elem != tmp.end() - 1) res << " + ";
+    }
+
+    return res.str();
 }
 
 
 void
 BDDPacketSet::to_json(Json::Value& res) {
-    // TODO
+    std::vector<std::string> tmp;
+    auto handler = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+
+    //bdd_allsat(this->ps, handler); // XXX
+
+    Json::Value arr(Json::arrayValue);
+    for (std::string item: tmp)
+        arr.append((Json::StaticString)item.c_str());
+
+    res["len"] = (Json::Value::UInt64)this->length;
+    res["list"] = arr;
 }
 
 
 void
 BDDPacketSet::compact(void) {
-    // TODO
+    /* empty */
 }
 
 
 size_t
 BDDPacketSet::count(void) {
     // TODO
+    return 0;
 }
 
 
 size_t
 BDDPacketSet::count_diff(void) {
     // TODO
+    return 0;
 }
 
 
 void
 BDDPacketSet::enlarge(size_t len) {
-    // TODO
+    if (this->length < len) this->length = len;
 }
 
 
 void
 BDDPacketSet::diff(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+    this->ps &= bdd_not(((BDDPacketSet *)other)->ps);
 }
 
 
 void
 BDDPacketSet::intersect(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+    this->ps &= ((BDDPacketSet *)other)->ps;
 }
 
 void
 BDDPacketSet::psunion(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+    this->ps |= ((BDDPacketSet *)other)->ps;
 }
 
 
 void
 BDDPacketSet::minus(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+    this->ps &= bdd_not(((BDDPacketSet *)other)->ps);
 }
 
 
 void
 BDDPacketSet::psand(PacketSet *other) {
     // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
 }
 
 
 bool
 BDDPacketSet::is_empty(void) {
-    // TODO
+    return this->ps == bddfalse;
 }
 
 
 bool
 BDDPacketSet::is_equal(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+
+    return this->ps == ((BDDPacketSet *)other)->ps;
 }
 
 
 bool BDDPacketSet::is_subset_equal(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+
+    return bdd_imp(this->ps, ((BDDPacketSet *)other)->ps) == bddtrue;
 }
 
 
 bool
 BDDPacketSet::is_subset(PacketSet *other) {
-    // TODO
+    assert (this->length == ((BDDPacketSet *)other)->length);
+
+    return this->is_subset_equal(other) && !this->is_equal(other);
 }
 
 void
 BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
-    // TODO
+    assert (
+        this->length == ((BDDPacketSet *)mask)->length &&
+        this->length == ((BDDPacketSet *)rewrite)->length
+    );
+
+    /*
+        a = 1100
+        m = 1010
+        r = 1110
+        ->  1110
+
+        a & m = 1000
+        r & m = 1010
+
+        pos = a & m | r & m = 1010
+        neg = a &~m = 0100
+
+        res = pos | neg = 1110
+     */
+
+    const bdd pos = (
+        this->ps & ((BDDPacketSet *)mask)->ps
+    ) | (
+        ((BDDPacketSet *)rewrite)->ps & ((BDDPacketSet *)mask)->ps
+    );
+    const bdd neg = this->ps & bdd_not(((BDDPacketSet *)mask)->ps);
+
+    this->ps = pos | neg;
 }
 
 
 void
 BDDPacketSet::negate(void) {
-    // TODO
+    this->ps = bdd_not(this->ps);
 }
 
 } /* namespace net_plumber */
