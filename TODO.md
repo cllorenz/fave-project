@@ -52,7 +52,8 @@ in large tables tremendously
     - wrapper around net_plumber.cc
     - native json data format instead of json string parsing
  - BDDs instead of Header Spaces
-    - generic interface for set representations and operations
+    - [DONE] generic interface for set representations and operations
+    - implement and test bdd based packet set class
     - benchmarks: IFI, UP
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
 'z' is found remove the array. Pros: makes checks for the empty set more
