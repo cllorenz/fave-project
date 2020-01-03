@@ -13,7 +13,7 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 
 from netplumber.model import Model
 
-from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss
+from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss, Rewrite
 
 from util.collections_util import list_sub
 
@@ -334,17 +334,24 @@ class PacketFilterModel(Model):
 
         self.chains["pre_routing"] = [
             SwitchRule(
-                node, 1, 1,
-                in_ports=["%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
+                node, 1, idx,
+                in_ports=["%s.%s" % (node, p[3:])], #"%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
                 match=Match(fields=[SwitchRuleField("packet.ipv6.destination", address)]),
-                actions=[Forward(["_".join([node, "pre_routing_input"])])]
-            ),
+                actions=[
+                    Rewrite(rewrite=[SwitchRuleField("in_port", "_".join([node, p[3:]]))]),
+                    Forward(["_".join([node, "pre_routing_input"])])
+                ]
+            ) for idx, p in enumerate(self.ports, start=1) if p.startswith("in_")
+        ] + [
             SwitchRule(
-                node, 1, 2,
-                in_ports=["%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
+                node, 1, idx,
+                in_ports=["%s.%s" % (node, p[3:])], #"%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
                 match=Match(),
-                actions=[Forward(["_".join([node, "pre_routing_forward"])])]
-            )
+                actions=[
+                    Rewrite(rewrite=[SwitchRuleField("in_port", "_".join([node, p[3:]]))]),
+                    Forward(["_".join([node, "pre_routing_forward"])])
+                ]
+            ) for idx, p in enumerate(self.ports, start=len(self.ports)+1) if p.startswith("in_")
         ]
 
         self.normalize()
