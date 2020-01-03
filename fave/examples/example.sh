@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+rm -rf /tmp/np
+
 TMP=$(mktemp -d -p /tmp "np.XXXXXX")
 TMPESC=$(echo $TMP | sed 's/\//\\\//g')
 sed -i "s/\/tmp\/np\......./$TMPESC/g" examples/example.conf
