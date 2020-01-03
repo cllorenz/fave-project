@@ -279,7 +279,7 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
 
       if (this->logger->isTraceEnabled()) {
         stringstream inter;
-        inter << "RuleNode::process_src_flow():   id 0x" << std::hex << this->node_id;
+        inter << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
         inter << " with " << f->processed_hs->to_str();
         inter << " after diffing " << inf->comm_arr->to_str();
         LOG4CXX_TRACE(this->logger, inter.str());
