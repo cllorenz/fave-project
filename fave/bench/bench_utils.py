@@ -127,6 +127,8 @@ def add_rulesets(devices):
     for device in devices:
         if get_type(device) in ["packet_filter", "host"]:
             _add_ruleset(*device)
+        else:
+            raise Exception("No such device type: %s" % get_type(device))
 
 
 def add_policies(probes, links):
