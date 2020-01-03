@@ -273,9 +273,15 @@ class Aggregator(AbstractAggregator):
                     dport = self._global_port(dport)
 
                     if cmd.command == "add":
+                        Aggregator.LOGGER.debug(
+                            "worker: add link to netplumber from %s to %s", sport, dport
+                        )
                         jsonrpc.add_link(self.sock, sport, dport)
                         self.links[sport] = dport
                     elif cmd.command == "del":
+                        Aggregator.LOGGER.debug(
+                            "worker: remove link from netplumber from %s to %s", sport, dport
+                        )
                         jsonrpc.remove_link(self.sock, sport, dport)
                         del self.links[sport]
 
@@ -398,10 +404,16 @@ class Aggregator(AbstractAggregator):
 
             ns_diff.append(vec)
 
+        Aggregator.LOGGER.debug(
+            "worker: add slice %s to netplumber with list %s and diff %s", sid, ns_list, ns_diff if ns_diff else None
+        )
         jsonrpc.add_slice(self.sock, sid, ns_list, ns_diff if ns_diff else None)
 
 
     def _del_slice(self, sid):
+        Aggregator.LOGGER.debug(
+            "worker: remove slice %s from netplumber", sid
+        )
         jsonrpc.remove_slice(self.sock, sid)
 
 
@@ -940,6 +952,9 @@ class Aggregator(AbstractAggregator):
             only_rid = lambda x: x[0]
             for rid in [only_rid(x) for x in model.tables[table]]:
                 for r_id in self.rule_ids[calc_rule_index(tid, rid)]:
+                    Aggregator.LOGGER.debug(
+                        "worker: remove rule %s from netplumber", r_id
+                    )
                     jsonrpc.remove_rule(self.sock, r_id)
                 del self.rule_ids[calc_rule_index(tid, rid)]
 
@@ -954,6 +969,9 @@ class Aggregator(AbstractAggregator):
             idx1 = self.tables[node1]
             idx2 = self.tables[node2]
 
+            Aggregator.LOGGER.debug(
+                "worker: remove link from %s to %s from netplumber", calc_port(idx1, model, port1), calc_port(idx2, model, port2)
+            )
             jsonrpc.remove_link(
                 self.sock,
                 calc_port(idx1, model, port1),
@@ -966,6 +984,9 @@ class Aggregator(AbstractAggregator):
             name = '_'.join([model.node, table])
 
             if not self.models[model.node].tables[table]:
+                Aggregator.LOGGER.debug(
+                    "worker: remove table %s with id %s from netplumber", name, self.tables[name]
+                )
                 jsonrpc.remove_table(self.sock, self.tables[name])
                 del self.tables[name]
 
@@ -988,6 +1009,9 @@ class Aggregator(AbstractAggregator):
             model.mapping, self.mapping, model.outgoing
         )
 
+        Aggregator.LOGGER.debug(
+            "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
+        )
         sid = jsonrpc.add_source(
             self.sock,
             [v.vector for v in outgoing.hs_list],
@@ -1004,13 +1028,22 @@ class Aggregator(AbstractAggregator):
         # delete links
         port1 = self._global_port(node+'.1')
         port2 = self.links[port1]
+        Aggregator.LOGGER.debug(
+            "worker: remove link from %s to %s from netplumber", port1, port2
+        )
         jsonrpc.remove_link(self.sock, port1, port2)
+        Aggregator.LOGGER.debug(
+            "worker: remove link from %s to %s from netplumber", port2, port1
+        )
         jsonrpc.remove_link(self.sock, port2, port1)
 
         del self.links[port1]
         del self.links[port2]
 
         # delete source and probe
+        Aggregator.LOGGER.debug(
+            "worker: remove source %s with id %s from netplumber", node, sid
+        )
         jsonrpc.remove_source(self.sock, sid)
 
         del self.tables[node]
@@ -1029,6 +1062,9 @@ class Aggregator(AbstractAggregator):
         mlength = self.mapping.length
         self.mapping.expand(mapping)
         if mlength < self.mapping.length:
+            Aggregator.LOGGER.debug(
+                "worker: expand to length %s", self.mapping.length
+            )
             jsonrpc.expand(self.sock, self.mapping.length)
 
 
@@ -1142,6 +1178,9 @@ class Aggregator(AbstractAggregator):
             eprint("Error while add probe: no test fields or path. Aborting.")
             return
 
+        Aggregator.LOGGER.debug(
+            "worker: add probe %s and port %s", name, portno
+        )
         pid = jsonrpc.add_source_probe(
             self.sock,
             [portno],
@@ -1159,13 +1198,22 @@ class Aggregator(AbstractAggregator):
         # delete links
         port1 = self._global_port(node+'.1')
         port2 = self.links[port1]
+        Aggregator.LOGGER.debug(
+            "worker: remove link from %s to %s from netplumber", port1, port2
+        )
         jsonrpc.remove_link(self.sock, port1, port2)
+        Aggregator.LOGGER.debug(
+            "worker: remove link from %s to %s from netplumber", port2, port1
+        )
         jsonrpc.remove_link(self.sock, port2, port1)
 
         del self.links[port1]
         del self.links[port2]
 
         # delete source and probe
+        Aggregator.LOGGER.debug(
+            "worker: remove probe %s from netplumber", sid
+        )
         jsonrpc.remove_source_probe(self.sock, sid)
 
         del self.tables[node]
