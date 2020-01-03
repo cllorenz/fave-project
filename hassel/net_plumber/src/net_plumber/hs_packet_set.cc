@@ -196,7 +196,11 @@ HeaderspacePacketSet::compact2(ArrayPacketSet *mask) {
     if (!mask) this->compact();
     else {
         assert(this->hs.len == mask->length);
-        hs_compact_m(&this->hs, mask->array);
+        const bool is_empty = !hs_compact_m(&this->hs, mask->array);
+        if (is_empty) {
+            hs_destroy(&this->hs);
+            this->hs.list = {0, 0, 0, 0};
+        }
     }
 }
 
