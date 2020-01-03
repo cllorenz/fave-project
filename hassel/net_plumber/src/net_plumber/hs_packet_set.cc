@@ -63,6 +63,7 @@ HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, size_t length
 
 
 HeaderspacePacketSet::HeaderspacePacketSet(const HeaderspacePacketSet& hps) {
+    this->hs = {hps.hs.len, {0, 0, 0, 0}};
     hs_copy(&this->hs, &hps.hs);
 }
 
