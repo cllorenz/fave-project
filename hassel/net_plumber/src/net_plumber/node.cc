@@ -307,9 +307,11 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
       // request next node to process this flow
       (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
+    } else {
+        if (h) { delete h; h = nullptr; }
     }
   }
-  if (h) delete h;
+  if (h) { delete h; h = nullptr; }
 }
 
 template<class T1, class T2>
@@ -323,6 +325,7 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     h->intersect2((*pipe)->pipe_array);
 
     if (!h->is_empty()) {
+
 #ifdef CHECK_BLACKHOLES
       T1 p_arr = T1(this->length);
       p_arr.psunion2((*pipe)->pipe_array);
@@ -347,9 +350,11 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
       next_flow->processed_hs = nullptr;
       (*(*pipe)->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
+    } else {
+        if (h) { delete h; h = nullptr; }
     }
   }
-  if (h) free(h);
+  if (h) { delete h; h = nullptr; }
 }
 
 template<class T1, class T2>
@@ -415,6 +420,8 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       // request next node to process this flow
       (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
+    } else {
+        if (h) { delete h; h = nullptr; }
     }
   }
   if (h) delete h;
