@@ -97,6 +97,9 @@ HeaderspacePacketSet::intersect2(ArrayPacketSet *other) {
     } else if (other->is_empty() || this->is_empty()) {
         hs_destroy(&this->hs);
         this->hs.list = {0, 0, 0, 0};
+    } else {
+        // this should never happen!
+        assert(false);
     }
 }
 
