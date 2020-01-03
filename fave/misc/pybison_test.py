@@ -397,11 +397,12 @@ class IP6TablesParser(BisonParser):
     [[:alpha:]][[:alnum:]_\-]*  { returntoken(IDENT); }
     [[:alnum:]_\-/]+        { returntoken(WORD); }
     [ \t]+                  { returntoken(WS); }
-    .                       { printf("unknown char %c ignored, yytext=0x%lx\n", yytext[0], yytext); /* ignore bad chars */ }
+    .                       { printf("unknown char %c ignored, yytext=%s\n", yytext[0], yytext); /* ignore bad chars */ }
 
     %%
 
-    yywrap() { return(1); }
+    int yywrap() { return(1); }
+    int yylex(void);
     """
 
 
