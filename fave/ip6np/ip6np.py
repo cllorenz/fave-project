@@ -11,7 +11,8 @@ import pprint
 
 import generator
 
-from misc.pybison_test import IP6TablesParser
+from misc.pybison_singleton import PARSER
+
 from util.print_util import eprint
 from util.aggregator_utils import connect_to_fave
 
@@ -61,9 +62,7 @@ def main(argv):
         elif opt == '-d':
             dump = True
 
-    parser = IP6TablesParser()
-    ast = parser.parse(ifile)
-
+    ast = PARSER.parse(ifile)
     model = generator.generate(ast, node, address, ports)
 
     if dump:

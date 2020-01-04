@@ -6,7 +6,7 @@
 import unittest
 import os
 
-from misc.pybison_test import IP6TablesParser as ASTParser
+from misc.pybison_singleton import PARSER as ASTParser
 from util.tree_util import Tree
 
 
@@ -16,7 +16,7 @@ class TestParser(unittest.TestCase):
 
 
     def setUp(self):
-        self.parser = ASTParser()
+        self.parser = PARSER
 
 
     def tearDown(self):

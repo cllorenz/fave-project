@@ -5,9 +5,9 @@ import sys
 
 from ip6np.parser import ASTParser as ANTLR
 from misc.pyparsing_test import ASTParser as PYPARSING
-from misc.pybison_test import IP6TablesParser as PYBISON
+from misc.pybison_singleton import PARSER as PYBISON
 
-RULESET_FILE = 'bench/wl_up/rulesets/pgf-ruleset'
+RULESET_FILE = 'bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset'
 
 ROUND = lambda x: round(x, 4)
 
