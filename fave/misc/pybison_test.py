@@ -413,7 +413,7 @@ class IP6TablesParser(BisonParser):
         """
 
         self._ast = Tree('root')
-        ast = self.run(file=ruleset)
+        ast = self.run(file=str(ruleset))
         return ast
 
 
