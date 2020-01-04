@@ -25,11 +25,11 @@ if __name__ == '__main__':
     # test dmz
     for name, _address, _services in hosts:
         probes.append(
-            ("probe.%s.uni-potsdam.de" % name, "probe", "existential", ["tcp_dst=22"], None, [".*(p=pgf.uni-potsdam.de.1);$"])
+            ("probe.%s" % name, "probe", "existential", ["tcp_dst=22"], None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
         links.extend([
-            ("%s.uni-potsdam.de_input_states_accept" % name, "probe.%s.uni-potsdam.de.1" % name),
-            ("%s.uni-potsdam.de_input_rules_accept" % name, "probe.%s.uni-potsdam.de.1" % name)
+            ("%s_input_states_accept" % name, "probe.%s.1" % name),
+            ("%s_input_rules_accept" % name, "probe.%s.1" % name)
         ])
 
     # test subnets
