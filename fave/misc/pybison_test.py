@@ -402,7 +402,6 @@ class IP6TablesParser(BisonParser):
     %%
 
     int yywrap() { return(1); }
-    int yylex(void);
     """
 
 
