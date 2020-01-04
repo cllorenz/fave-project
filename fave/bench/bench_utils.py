@@ -76,6 +76,7 @@ def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=N
 def _add_ruleset(name, _type, ports, address, ruleset):
     ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset])
 
+
 _DEVICES = {
     "packet_filter" : _add_packet_filter,
     "switch" : _add_switch,
@@ -124,11 +125,8 @@ def add_rulesets(devices):
     """
 
     get_type = lambda x: x[1]
-    for device in devices:
-        if get_type(device) in ["packet_filter", "host"]:
-            _add_ruleset(*device)
-        else:
-            raise Exception("No such device type: %s" % get_type(device))
+    for device in [d for d in devices if get_type(d) in ["packet_filter", "host"]]:
+        _add_ruleset(*device)
 
 
 def add_policies(probes, links):
@@ -140,9 +138,8 @@ def add_policies(probes, links):
     """
 
     get_type = lambda x: x[1]
-    for probe in probes:
-        if get_type(probe) == 'probe':
-            _add_probe(*probe)
+    for probe in [p for p in probes if get_type(p) == 'probe']:
+        _add_probe(*probe)
 
     for link in links:
         _add_link(*link)
