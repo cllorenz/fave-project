@@ -111,6 +111,9 @@ if __name__ == '__main__':
     devices.append(("source.internet", "generator", ["ipv6_src=0::1/0"]))
     links.append(("source.internet.1", "pgf.uni-potsdam.de.1"))
 
+    devices.append(("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::100/120"]))
+    links.append(("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de_output_states_in"))
+
     for host in hosts:
         hname = get_domain(*host)
         address = get_addr(*host)
