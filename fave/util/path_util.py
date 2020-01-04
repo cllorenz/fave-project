@@ -219,6 +219,8 @@ def _normalize_pathlet(pathlet):
         return str_to_pathlet(pathlet)[0]
     elif check_pathlet(pathlet):
         return pathlet
+    else:
+        raise Exception("unable to parse pathlet: %s" % pathlet)
 
 
 class Path(object):
