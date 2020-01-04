@@ -8,8 +8,8 @@ import re
 PATH_PATHLETS = ['end', 'start', 'skip', 'skip_next']
 STR_PATHLETS = ['^', '$', '.', '.*']
 
-PORT_VALUE = r"\w+(\.\w+)*\.\d+"
-TABLE_VALUE = r"\w+(\.\w+)*"
+PORT_VALUE = r"[a-zA-Z0-9][a-zA-Z0-9-_]*(\.[a-zA-Z0-9-_]+)*\.\d+"
+TABLE_VALUE = r"[a-zA-Z0-9][a-zA-Z0-9-_]*(\.[a-zA-Z0-9-_]+)*"
 
 PORT = r"\.\*\(port=(?P<value>%s)\)" % PORT_VALUE
 NPORTS = r"\(port in \((?P<value>(%s,)*%s)\)\)" % (PORT_VALUE, PORT_VALUE)
