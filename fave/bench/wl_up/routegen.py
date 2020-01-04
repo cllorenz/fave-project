@@ -18,7 +18,7 @@ if __name__ == '__main__':
         ("pgf.uni-potsdam.de", 1, 65535, [], ["fd=pgf.uni-potsdam.de.1"], []),
         ("dmz.uni-potsdam.de", 1, 65535, [], ["fd=dmz.uni-potsdam.de.1"], []),
         ("wifi.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=wifi.uni-potsdam.de.2"], []),
-        ("wifi.uni-potsdam.de", 1, 65535, [], ["fd=wifi.1"], [])
+        ("wifi.uni-potsdam.de", 1, 65535, [], ["fd=wifi.uni-potsdam.de.1"], [])
     ]
 
     # dmz hosts
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         port = cnt + 2
         routes.extend([
             ("dmz.uni-potsdam.de", 1, 0, ["ipv6_dst=%s" % addr], ["fd=dmz.uni-potsdam.de.%s" % port], []),
-            ("%s.uni-potsdam.de" % name, 1, 65535, [], ["fd=%s.dmz.uni-potsdam.de.1" % name], [])
+            (name, 1, 65535, [], ["fd=%s.1" % name], [])
         ])
 
     # subnets
