@@ -458,7 +458,7 @@ end
 def role BotanClients
     description = 'Placeholder for the botanical garden clients.'
     ipv6 = '2001:db8:abc:6::100/120'
-    hosts = ['botanischer-garten-potsdam.de']
+    hosts = ['clients.botanischer-garten-potsdam.de']
 end
 
 
