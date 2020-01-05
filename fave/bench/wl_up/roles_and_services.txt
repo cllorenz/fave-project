@@ -317,7 +317,7 @@ end
 def role DMZAdminConsole
     description = 'The public admin console in the DMZ.'
 
-    hosts = ['admin.uni-potsdam.de']
+    hosts = ['adm.uni-potsdam.de']
     ipv6 = '2001:db8:abc:0::8'
 
     offers SNMP
