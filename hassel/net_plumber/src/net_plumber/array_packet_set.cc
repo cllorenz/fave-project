@@ -69,13 +69,23 @@ ArrayPacketSet::ArrayPacketSet(const ArrayPacketSet& aps) { // copy constructor
 
 
 void
-ArrayPacketSet::enlarge(size_t len) {
+ArrayPacketSet::_generic_enlarge(size_t len, enum bit_val val) {
     if (this->length < len) {
         const size_t olen = this->length;
         this->length = len;
-        array_t * tmp = array_resize(this->array, olen, this->length);
+        array_t *tmp = array_generic_resize (this->array, olen, this->length, val);
         this->array = tmp;
     }
+}
+
+
+void ArrayPacketSet::enlarge(size_t len) {
+    this->_generic_enlarge(len, BIT_X);
+}
+
+
+void ArrayPacketSet::enlarge2(size_t len) {
+    this->_generic_enlarge(len, BIT_0);
 }
 
 

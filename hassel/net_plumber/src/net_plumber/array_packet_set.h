@@ -28,6 +28,7 @@ class ArrayPacketSet : public PacketSet {
     void unroll(void) { /* empty */ }
     size_t count(void);
     void enlarge(size_t len);
+    void enlarge2(size_t len);
 
     void diff(PacketSet *) { /* empty */ }
     void intersect(PacketSet *);
@@ -42,6 +43,9 @@ class ArrayPacketSet : public PacketSet {
 
     void rewrite(PacketSet* /*mask*/, PacketSet* /*rewrite*/);
     void negate(void);
+
+  private:
+    void _generic_enlarge(size_t len, enum bit_val val);
 };
 
 } /* namespace net_plumber */
