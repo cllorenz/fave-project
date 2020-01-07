@@ -1010,6 +1010,46 @@ void ArrayTest::test_array_rewrite() {
 }
 
 
+void ArrayTest::test_array_generic_resize() {
+  printf("\n");
+
+  enum bit_val vals[4] = { BIT_X, BIT_0, BIT_1, BIT_Z };
+
+  array_t *a = array_from_str("10xxxxxx");
+  array_t *exp[4] = {
+    array_from_str("10xxxxxx,xxxxxxxx"),
+    array_from_str("10xxxxxx,00000000"),
+    array_from_str("10xxxxxx,11111111"),
+    array_from_str("10xxxxxx,zzzzzzzz")
+  };
+
+  for (size_t i = 0; i < 4; i++) {
+    array_t *tmp = array_generic_resize(array_copy(a, 1), 1, 2, vals[i]);
+    CPPUNIT_ASSERT(array_is_eq(tmp, exp[i], 2));
+    array_free(tmp);
+  }
+
+  for (size_t i = 0; i < 4; i++) array_free(exp[i]);
+
+  array_t *exp2[4] = {
+    array_from_str("10xxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"),
+    array_from_str("10xxxxxx,00000000,00000000,00000000,00000000,00000000"),
+    array_from_str("10xxxxxx,11111111,11111111,11111111,11111111,11111111"),
+    array_from_str("10xxxxxx,zzzzzzzz,zzzzzzzz,zzzzzzzz,zzzzzzzz,zzzzzzzz")
+  };
+
+  for (size_t i = 0; i < 4; i++) {
+    array_t *tmp = array_generic_resize(array_copy(a, 1), 1, 6, vals[i]);
+    CPPUNIT_ASSERT(array_is_eq(tmp, exp2[i], 2));
+    array_free(tmp);
+  }
+
+  for (size_t i = 0; i < 4; i++) array_free(exp2[i]);
+
+  array_free(a);
+}
+
+
 void ArrayTest::test_array_combine_regression() {
   printf("\n");
 

@@ -43,6 +43,7 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_isect);
         CPPUNIT_TEST(test_array_not);
         CPPUNIT_TEST(test_array_rewrite);
+        CPPUNIT_TEST(test_array_generic_resize);
         CPPUNIT_TEST(test_array_combine_regression);
         CPPUNIT_TEST(test_array_has_xz_regression);
 
@@ -63,6 +64,7 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_isect();
         void test_array_not();
         void test_array_rewrite();
+        void test_array_generic_resize();
         void test_array_combine_regression();
         void test_array_has_xz_regression();
 };
