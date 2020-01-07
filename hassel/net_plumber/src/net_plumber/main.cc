@@ -248,10 +248,12 @@ int typed_main(int argc, char* argv[]) {
   auto *N = new NetPlumber<T1, T2>(hdr_len);
 
   if (do_load_json_files) {
+    T2 null_filter = T2(hdr_len);
+
     load_netplumber_from_dir<T1, T2>(
         json_files_path,
         N,
-        NULL
+        &null_filter
 #ifdef PIPE_SLICING
         , hdr_len
 #endif
