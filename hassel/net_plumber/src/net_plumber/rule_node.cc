@@ -554,7 +554,7 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
 		return;
 	}
 	if (this->mask)
-		this->mask->enlarge(length);
+		this->mask->enlarge2(length);
 	if (this->rewrite)
 		this->rewrite->enlarge(length);
 	if (this->inv_rw)
