@@ -90,6 +90,7 @@ void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     this->source_flow.push_front(f);
     auto f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
+    if (f->processed_hs) delete f->processed_hs;
     f->processed_hs = new T1(*f->hs_object);
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
