@@ -79,7 +79,7 @@ class SwitchRuleField(object):
 
 
     def to_json(self):
-        """ Converts the switch rule to JSON.
+        """ Converts the field to JSON.
         """
 
         return {
