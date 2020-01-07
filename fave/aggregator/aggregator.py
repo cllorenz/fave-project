@@ -220,20 +220,27 @@ class Aggregator(AbstractAggregator):
         mlength = self.mapping.length
 
         if model.type in ["packet_filter", "router"]:
+            Aggregator.LOGGER.debug("extend mapping for adding packet filters and routers")
             self._extend_mapping(model.mapping)
 
         elif model.type == "switch_command" and model.command == "add_rule":
+            Aggregator.LOGGER.debug("extend mapping for adding switch rules")
             self._extend_mapping(model.rule.mapping)
 
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
                 model.model.type in ['probe', 'generator', 'router', 'packet_filter']:
+            Aggregator.LOGGER.debug("extend mapping for adding probes, generators, routers, and packet filters")
             self._extend_mapping(model.model.mapping)
 
         elif model.type == "slicing_command" and model.command == 'add_slice':
+            Aggregator.LOGGER.debug("extend mapping for adding slices")
             self._extend_mapping(model.slice.mapping)
 
         if mlength < self.mapping.length:
+            Aggregator.LOGGER.debug(
+                "worker: expand to length %s", self.mapping.length
+            )
             jsonrpc.expand(self.sock, self.mapping.length)
 
         # handle minor model changes (e.g. updates by the control plane)
@@ -274,7 +281,7 @@ class Aggregator(AbstractAggregator):
 
                     if cmd.command == "add":
                         Aggregator.LOGGER.debug(
-                            "worker: add link to netplumber from %s to %s", sport, dport
+                            "worker: add link to netplumber from %s to %s", hex(sport), hex(dport)
                         )
                         jsonrpc.add_link(self.sock, sport, dport)
                         self.links[sport] = dport
@@ -497,7 +504,7 @@ class Aggregator(AbstractAggregator):
                 gport2 = self._global_port('_'.join([model.node, port2]))
 
                 Aggregator.LOGGER.debug(
-                    "worker: add link to netplumber from %s to %s", gport1, gport2
+                    "worker: add link to netplumber from %s to %s", hex(gport1), hex(gport2)
                 )
                 jsonrpc.add_link(self.sock, gport1, gport2)
 
@@ -574,6 +581,7 @@ class Aggregator(AbstractAggregator):
                 rule = SwitchRule.from_json(rule)
             rid = rule.idx
 
+            Aggregator.LOGGER.debug("absorb mapping for pre routing")
             self._absorb_mapping(rule.mapping)
 
             rvec = Vector(length=self.mapping.length)
@@ -655,6 +663,7 @@ class Aggregator(AbstractAggregator):
                 rule = SwitchRule.from_json(rule)
             rid = rule.idx
 
+            Aggregator.LOGGER.debug("absorb mapping for post routing")
             self._absorb_mapping(rule.mapping)
 
             rvec = Vector(length=self.mapping.length)
@@ -857,6 +866,7 @@ class Aggregator(AbstractAggregator):
             for rule in model.tables[table]:
                 rid = rule.idx
 
+                Aggregator.LOGGER.debug("absorb mapping for switch rules")
                 self._absorb_mapping(rule.mapping)
 
                 rvec = Vector(length=self.mapping.length)
@@ -1082,6 +1092,7 @@ class Aggregator(AbstractAggregator):
 
         self.ports[port] = portno
 
+        Aggregator.LOGGER.debug("absorb mapping for probe")
         self._absorb_mapping(model.mapping)
 
         filter_fields = align_headerspace(
