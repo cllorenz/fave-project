@@ -344,9 +344,25 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     if (f->processed_hs->is_empty()) {
       delete f->processed_hs;
       f->processed_hs = nullptr;
+
+      if (this->logger->isTraceEnabled()) {
+        stringstream empty;
+        empty << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
+        empty << " compressed to empty set.";
+        LOG4CXX_TRACE(this->logger, empty.str());
+      }
+
     } else {
       f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
       if (mask == nullptr || rewrite == nullptr) {
+        if (this->logger->isTraceEnabled()) {
+          stringstream no_rw;
+          no_rw << "RuleNode::process_src_flow(): id 0x" << std::hex << this->node_id;
+          no_rw << " with " << f->processed_hs->to_str();
+          no_rw << " no rewriting";
+          LOG4CXX_TRACE(this->logger, no_rw.str());
+        }
+
         this->propagate_src_flow_on_pipes(f_it);
       } else {
         f->processed_hs->rewrite2(mask, rewrite);
@@ -381,7 +397,9 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
   if (this->logger->isTraceEnabled()) {
     stringstream pre;
     pre << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
-    pre << " with " << f->processed_hs->to_str();
+    pre << " with ";
+    if (f && f->processed_hs) pre << f->processed_hs->to_str();
+    else pre << "(nil)";
     pre << " before processing";
     LOG4CXX_TRACE(this->logger, pre.str());
   }
@@ -394,7 +412,7 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
       stringstream after;
       after << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
       after << " with " << f->processed_hs->to_str();
-      after << " after processing";
+      after << " after diffing" << change->to_str();
       LOG4CXX_TRACE(this->logger, after.str());
     }
 
@@ -407,7 +425,7 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
       stringstream inter;
       inter << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
       inter << " with " << f->processed_hs->to_str();
-      inter << " after (re)allocation";
+      inter << " after (re)allocation of hs_object";
       LOG4CXX_TRACE(this->logger, inter.str());
     }
 
@@ -478,10 +496,28 @@ void RuleNode<T1, T2>::process_src_flow_at_location(typename list< Flow<T1, T2> 
     f->node->absorb_src_flow(loc, true);
     delete f->processed_hs;
     f->processed_hs = nullptr;
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream empty;
+      empty << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+      empty << " compressed to empty set.";
+      LOG4CXX_TRACE(this->logger, empty.str());
+    }
+
   } else {
     if (!f->n_flows) f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
     if (mask == nullptr || rewrite == nullptr) {
+
+      if (this->logger->isTraceEnabled()) {
+        stringstream no_rw;
+        no_rw << "RuleNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+        no_rw << " with " << f->processed_hs->to_str();
+        no_rw << " no rewriting";
+        LOG4CXX_TRACE(this->logger, no_rw.str());
+      }
+
       this->repropagate_src_flow_on_pipes(loc, change);
+
     } else {
       f->processed_hs->rewrite2(mask, rewrite);
 

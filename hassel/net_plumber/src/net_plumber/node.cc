@@ -282,6 +282,15 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
     if (!h) h = new T1(*(*s_flow)->processed_hs);
     h->intersect2(next->pipe_array);
 
+    if (this->logger->isTraceEnabled()) {
+      stringstream isect;
+      isect << "Node::propagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+      isect << " with " << h->to_str();
+      isect << " after intersecting " << (*s_flow)->processed_hs->to_str();
+      isect << " with " << next->pipe_array->to_str();
+      LOG4CXX_TRACE(this->logger, isect.str());
+    }
+
     if (!h->is_empty()) {
 
 #ifdef CHECK_BLACKHOLES
@@ -294,6 +303,13 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
         );
       }
 #endif
+
+      if (this->logger->isTraceEnabled()) {
+        stringstream cont;
+        cont << "Node::propagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+        cont << " not empty -> create new flow item and propagate on pipe";
+        LOG4CXX_TRACE(this->logger, cont.str());
+      }
 
       // create a new flow struct to pass to next node in pipeline
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
@@ -308,7 +324,13 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
       (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
     } else {
-        if (h) { delete h; h = nullptr; }
+      if (this->logger->isTraceEnabled()) {
+        stringstream cont;
+        cont << "Node::propagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+        cont << " empty -> skip pipe";
+        LOG4CXX_TRACE(this->logger, cont.str());
+      }
+      if (h) { delete h; h = nullptr; }
     }
   }
   if (h) { delete h; h = nullptr; }
@@ -323,6 +345,15 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     if ((*it)->processed_hs == nullptr) continue;
     if (!h) h = new T1(*(*it)->processed_hs);
     h->intersect2((*pipe)->pipe_array);
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream isect;
+      isect << "Node::propagate_src_flows_on_pipe(): id 0x" << std::hex << this->node_id;
+      isect << " with " << h->to_str();
+      isect << " after intersecting " << (*it)->processed_hs->to_str();
+      isect << " with " << (*pipe)->pipe_array->to_str();
+      LOG4CXX_TRACE(this->logger, isect.str());
+    }
 
     if (!h->is_empty()) {
 
@@ -340,6 +371,13 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
       }
 #endif
 
+      if (this->logger->isTraceEnabled()) {
+        stringstream cont;
+        cont << "Node::propagate_src_flows_on_pipe(): id 0x" << std::hex << this->node_id;
+        cont << " not empty -> create new flow item and propagate on pipe";
+        LOG4CXX_TRACE(this->logger, cont.str());
+      }
+
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*(*pipe)->r_pipeline)->node;
       next_flow->hs_object = h;
@@ -351,6 +389,14 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
       (*(*pipe)->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
     } else {
+
+      if (this->logger->isTraceEnabled()) {
+        stringstream cont;
+        cont << "Node::propagate_src_flows_on_pipe(): id 0x" << std::hex << this->node_id;
+        cont << " empty -> skip flow";
+        LOG4CXX_TRACE(this->logger, cont.str());
+      }
+
         if (h) { delete h; h = nullptr; }
     }
   }
@@ -367,27 +413,73 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
     for (auto nit = (*s_flow)->n_flows->begin();
         nit != (*s_flow)->n_flows->end(); /*do nothing */) {
       Flow<T1, T2> *next_flow = **nit;
-      if (change && !change->is_empty()) {
+      if (change && !change->is_empty()) { // non-empty change
         T2 *piped = new T2(*change); //change through pipe
         piped->intersect(next_flow->pipe->pipe_array);
+
+        if (this->logger->isTraceEnabled()) {
+          stringstream isect;
+          isect << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+          isect << " with " << piped->to_str();
+          isect << " after intersecting " << change->to_str();
+          isect << " with " << next_flow->pipe->pipe_array->to_str();
+          LOG4CXX_TRACE(this->logger, isect.str());
+        }
+
         if (!piped->is_empty()) {
           next_flow->hs_object->diff2(piped);
+
+          if (this->logger->isTraceEnabled()) {
+            stringstream diff;
+            diff << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+            diff << " with next flow " << next_flow->hs_object->to_str();
+            diff << " after diffing " << piped->to_str();
+            diff << " from incoming hs.";
+            LOG4CXX_TRACE(this->logger, diff.str());
+          }
+
           next_flow->node->process_src_flow_at_location(*nit, piped);
         }
         delete piped;
         next_flow->node->process_src_flow_at_location(*nit, change);
         nit++;
-      } else {
+      } else { // empty change
         pipe_hash_set.insert(next_flow->pipe);
         if (!h) h = new T1(*(*s_flow)->processed_hs);
         h->intersect2(next_flow->pipe->pipe_array);
+
+        if (this->logger->isTraceEnabled()) {
+          stringstream isect;
+          isect << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+          isect << " with " << h->to_str();
+          isect << " after intersecting " << (*s_flow)->processed_hs->to_str();
+          isect << " with " << next_flow->pipe->pipe_array->to_str();
+          LOG4CXX_TRACE(this->logger, isect.str());
+        }
+
         if (!h->is_empty()) {
+
+          if (this->logger->isTraceEnabled()) {
+            stringstream cont;
+            cont << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+            cont << " not empty -> update hs_object and trigger processing.";
+            LOG4CXX_TRACE(this->logger, cont.str());
+          }
+
           if (next_flow->hs_object) delete next_flow->hs_object;
           next_flow->hs_object = h;
           next_flow->node->process_src_flow_at_location(*nit, change);
           h = nullptr;
           nit++;
         } else { // then this flow no longer propagate on this path. absorb it.
+
+          if (this->logger->isTraceEnabled()) {
+            stringstream cont;
+            cont << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+            cont << " empty -> stop propagation of this flow on this path by absorbing it.";
+            LOG4CXX_TRACE(this->logger, cont.str());
+          }
+
           next_flow->node->absorb_src_flow(*nit, false);
           auto tmp_nit = nit;
           nit++;
@@ -398,6 +490,12 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
   }
 
   if (change && !change->is_empty()) {
+    if (this->logger->isTraceEnabled()) {
+      stringstream cont;
+      cont << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+      cont << " stop propagation update as nothing changed.";
+      LOG4CXX_TRACE(this->logger, cont.str());
+    }
     if (h) delete h;
     return;
   }
@@ -408,7 +506,25 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       continue;
     if (!h) h = new T1(*(*s_flow)->processed_hs);
     h->intersect2(next->pipe_array);
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream isect;
+      isect << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+      isect << " with " << h->to_str();
+      isect << " after intersecting " << (*s_flow)->processed_hs->to_str();
+      isect << " with " << next->pipe_array->to_str();
+      LOG4CXX_TRACE(this->logger, isect.str());
+    }
+
     if (!h->is_empty()) {
+
+      if (this->logger->isTraceEnabled()) {
+        stringstream cont;
+        cont << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+        cont << " not empty -> create new flow item and process on pipeline.";
+        LOG4CXX_TRACE(this->logger, cont.str());
+      }
+
       // create a new flow struct to pass to next node in pipeline
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*next->r_pipeline)->node;
@@ -421,6 +537,14 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       (*next->r_pipeline)->node->process_src_flow(next_flow);
       h = nullptr;
     } else {
+
+        if (this->logger->isTraceEnabled()) {
+          stringstream cont;
+          cont << "Node::repropagate_src_flow_on_pipes(): id 0x" << std::hex << this->node_id;
+          cont << " empty -> stop propagation on this pipe.";
+          LOG4CXX_TRACE(this->logger, cont.str());
+        }
+
         if (h) { delete h; h = nullptr; }
     }
   }

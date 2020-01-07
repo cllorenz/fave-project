@@ -92,6 +92,15 @@ void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     (*f->p_flow)->n_flows->push_front(f_it);
     if (f->processed_hs) delete f->processed_hs;
     f->processed_hs = new T1(*f->hs_object);
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream diff;
+      diff << "SourceProbeNode::process_src_flow(): id 0x" << std::hex << this->node_id;
+      diff << " with " << f->processed_hs->to_str();
+      diff << " skipped unrolling which currently deactivated due to possible memory explosion.";
+      LOG4CXX_TRACE(this->logger, diff.str());
+    }
+
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
     if (state == RUNNING) update_check(f,FLOW_ADD);
@@ -109,9 +118,27 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
   if (change) {
     if (f->processed_hs->is_empty()) return;
     f->processed_hs->diff2(change);
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream diff;
+      diff << "SourceProbeNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+      diff << " with " << f->processed_hs->to_str();
+      diff << " after diffing " << change->to_str();
+      LOG4CXX_TRACE(this->logger, diff.str());
+    }
+
   } else {
     if (f->processed_hs) delete f->processed_hs;
     f->processed_hs = new T1(*f->hs_object);
+
+    if (this->logger->isTraceEnabled()) {
+      stringstream diff;
+      diff << "SourceProbeNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
+      diff << " with " << f->processed_hs->to_str();
+      diff << " skipped unrolling which currently deactivated due to possible memory explosion.";
+      LOG4CXX_TRACE(this->logger, diff.str());
+    }
+
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
   }
