@@ -321,12 +321,7 @@ array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
     for (size_t i = 0; i < SIZE(len); i++) {
         // a^b -> shows differences between a and b
         // if no bit is set a and b are equal
-
-
-        array_t omask = ALL_X;
-        if (i == SIZE(len) - 1) omask >>= NUM_BITS - SET_BITS(len);
-
-        const array_t diff = (a[i] & omask) ^ (b[i] & omask);
+        const array_t diff = a[i] ^ b[i];;
 
         if (!diff) continue;
 
