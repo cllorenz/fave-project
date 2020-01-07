@@ -286,8 +286,8 @@ def main(argv):
     print (
         "success: all %s checked flows matched" % len(flow_specs)
     ) if not failed else (
-        "failure: %s of %s flows mismatched:\n\t%s" % (
-            len(failed), len(flow_specs), '\n\t'.join(failed)
+        "failure: the following flows mismatched:\n\t%s\nwhich is %s of %s." % (
+            '\n\t'.join(failed), len(failed), len(flow_specs)
         )
     )
 
