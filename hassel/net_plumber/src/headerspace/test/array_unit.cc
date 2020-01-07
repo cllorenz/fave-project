@@ -1031,6 +1031,7 @@ void ArrayTest::test_array_combine_regression() {
   array_free(res);
 }
 
+
 void ArrayTest::test_array_has_xz_regression() {
   printf("\n");
 
