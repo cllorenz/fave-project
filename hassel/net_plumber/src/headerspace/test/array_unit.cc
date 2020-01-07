@@ -1043,8 +1043,8 @@ void ArrayTest::test_array_has_xz_regression() {
 11111111,11111111,11111111,11111111"
   );
 
-  CPPUNIT_ASSERT(!array_has_x(a, 40));
-  CPPUNIT_ASSERT(!array_has_z(a, 40));
+  CPPUNIT_ASSERT(!array_has_x(a, 36));
+  CPPUNIT_ASSERT(!array_has_z(a, 36));
 
   array_free(a);
 }
