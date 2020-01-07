@@ -420,6 +420,13 @@ class SwitchRule(Model):
         """ Converts the rule to JSON.
         """
 
+        for f in self.match:
+            self.mapping.extend(f.name)
+
+        for rw in [a for a in self.actions if isinstance(a, Rewrite)]:
+            for f in rw.rewrite:
+                self.mapping.extend(f.name)
+
         return {
             "node" : self.node,
             "tid" : self.tid,
