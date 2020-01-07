@@ -80,10 +80,9 @@ void SourceNode<T1, T2>::process_src_flow_at_location(
     typename list< Flow<T1, T2> *>::iterator /*loc*/, T2* /*change*/) {
   // do nothing
   stringstream error_msg;
-  error_msg << "Called process_src_flow_at_location on SourceNode " <<
-      this->node_id << ". Unexpected behavior.";
+  error_msg << "Called process_src_flow_at_location on SourceNode 0x";
+  error_msg << std::hex << this->node_id << ". Unexpected behavior.";
   LOG4CXX_FATAL(source_logger,error_msg.str());
-
 }
 
 template<class T1, class T2>
