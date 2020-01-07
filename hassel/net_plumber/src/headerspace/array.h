@@ -25,6 +25,7 @@ typedef uint32_t array_t;
 
 array_t *array_create   (size_t len, enum bit_val val);
 array_t *array_resize   (array_t* ptr, size_t oldlen, size_t newlen);
+array_t *array_generic_resize   (array_t* ptr, size_t oldlen, size_t newlen, enum bit_val val);
 void     array_free     (array_t *a);
 
 array_t *array_copy     (const array_t *a, size_t len);

@@ -111,22 +111,31 @@ array_create (size_t len, enum bit_val val)
 array_t *
 array_resize (array_t* ptr, size_t oldlen, size_t newlen)
 {
+    return array_generic_resize (ptr, oldlen, newlen, BIT_X);
+}
+
+
+array_t *
+array_generic_resize (array_t* ptr, size_t oldlen, size_t newlen, enum bit_val val)
+{
   if (oldlen >= newlen)
     return ptr;
 
   if (!ptr)
     exit(EXIT_FAILURE);
 
-  size_t oldalen = SIZE (oldlen);
-  size_t newalen = SIZE (newlen);
+  const size_t newalen = SIZE (newlen);
 
   array_t* res = realloc (ptr, newalen*8);
   if (!res)
     exit(EXIT_FAILURE);
 
-  memset ((uint8_t *)res + oldalen*8, 0xff, (newalen - oldalen)*8);
+  static const uint8_t val_bytes[4] = { 0x00, 0x55, 0xaa, 0xff };
+  memset ((uint8_t *)res + oldlen*2, val_bytes[val], (newalen*8 - oldlen*2));
+
   return res;
 }
+
 
 void
 array_free (array_t *a)
