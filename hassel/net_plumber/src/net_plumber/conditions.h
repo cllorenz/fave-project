@@ -24,6 +24,7 @@
 #include <string>
 #include "net_plumber_utils.h"
 #include "../jsoncpp/json/json.h"
+#include "log4cxx/logger.h"
 
 /*
  * Language for describing policy using Conditions:
@@ -65,6 +66,9 @@ enum PATHLET_TYPE {
 
 template<class T1, class T2>
 class Condition {
+  protected:
+    static log4cxx::LoggerPtr logger;
+
  public:
   Condition() {};
   virtual void enlarge(uint32_t) {};

@@ -26,6 +26,11 @@
 using namespace std;
 using namespace net_plumber;
 
+using namespace log4cxx;
+
+template<class T1, class T2>
+LoggerPtr Condition<T1, T2>::logger(Logger::getLogger("NetPlumber"));
+
 template<class T1, class T2>
 PathCondition<T1, T2>::~PathCondition() {
   for (auto& it: pathlets) {
@@ -49,42 +54,107 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
 */
   stack<pair<typename list<PathSpecifier<T1, T2> * >::iterator, Flow<T1, T2> *> >decision_points;
   auto it = pathlets.begin();
+
+  LOG4CXX_TRACE(this->logger, "PathCondition::check(): start checking flow for path conformity.");
+
+  if (this->logger->isTraceEnabled()) {
+    stringstream path;
+    path << "PathCondition::check(): check flow path " << std::hex << f->node->node_id;
+    Flow<T1, T2> *flow = *f->p_flow;
+    while (flow->p_flow != flow->node->get_EOSFI()) {
+      path << " <- " << std::hex << flow->node->node_id;
+      flow = *flow->p_flow;
+    }
+    LOG4CXX_TRACE(this->logger, path.str())
+  }
+
   while (it != pathlets.end()) {
     // case 1: end of flow and no alternatives -> path does not meet spec, final decline
-    if (!f && decision_points.empty()) {
+    if (f->p_flow == f->node->get_EOSFI() && decision_points.empty()) {
+      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof and no alternatives -> final decline");
       return false;
 
     // case 2: end of flow but still alternatives open -> jump to decision point and continue with next alternative
-    } else if (!f && !decision_points.empty()) {
+    } else if (f->p_flow == f->node->get_EOSFI() && !decision_points.empty()) {
+      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof but still alternatives -> jump back and try next alternative");
+      LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
       auto dp = decision_points.top();
       decision_points.pop();
       it = dp.first;
       f = dp.second;
-      decision_points.push(make_pair(it,*(f->p_flow)));
+      if (f->p_flow != f->node->get_EOSFI()) decision_points.push(make_pair(it,*(f->p_flow)));
+      else return false;
+      if (this->logger->isTraceEnabled()) {
+        stringstream push;
+        push << "PathCondition::check(): introduce decision point for next flow item at ";
+        push << std::hex << (*f->p_flow)->node->node_id;
+        LOG4CXX_TRACE(this->logger, push.str());
+      }
 
     // case 3: process flow and path
     } else {
+      LOG4CXX_TRACE(this->logger, "PathCondition::check(): not eof -> normal processing");
 
       // case 1: normal pathlet
       if ((*it)->get_type() != PATHLET_SKIP_NEXT) {
+        if (this->logger->isTraceEnabled()) {
+          stringstream normal;
+          normal << "PathCondition::check(): normal pathlet of type ";
+          static const std::string types[10] = {
+            std::string("PATHLET_BASE"),
+            std::string("PATHLET_SKIP"),
+            std::string("PATHLET_END"),
+            std::string("PATHLET_SKIP_NEXT"),
+            std::string("PATHLET_NEXT_PORT"),
+            std::string("PATHLET_NEXT_TABLE"),
+            std::string("PATHLET_PORTS"),
+            std::string("PATHLET_TABLES"),
+            std::string("PATHLET_LAST_PORTS"),
+            std::string("PATHLET_LAST_TABLES")
+          };
+          normal << types[(*it)->get_type()];
+          normal << " at " << std::hex << f->node->node_id;
+          normal << " -> try check and move";
+          LOG4CXX_TRACE(this->logger, normal.str());
+        }
         bool c = (*it)->check_and_move(f);
 
         // case: path does not meet spec and no decisions left -> final decline
         if (!c && decision_points.empty()) {
+          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed and no alternatives -> final decline");
           return false;
 
         // case: path does not meet spec but still alternatives open -> jump to decision point, do one step, and retry
         } else if (!c && !decision_points.empty()) {
+          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed but still alternatives -> jump back, do one step, and retry");
+          LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
           auto dp = decision_points.top();
           decision_points.pop();
           it = dp.first;
           f = dp.second;
-          decision_points.push(make_pair(it,*(f->p_flow)));
+          LOG4CXX_TRACE(this->logger, "PathCondition::check(): introduce decision point for next flow item");
+          if (f->p_flow != f->node->get_EOSFI()) decision_points.push(make_pair(it, *(f->p_flow)));
+          else return false;
+          if (this->logger->isTraceEnabled()) {
+            stringstream push;
+            push << "PathCondition::check(): introduce decision point for next flow item at ";
+            push << std::hex << (*f->p_flow)->node->node_id;
+            LOG4CXX_TRACE(this->logger, push.str());
+          }
+        } else {
+          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check succeeded -> continue with next pathlet");
         }
 
       // case 2: special pathlet (skip arbitrarily, .*) -> introduce decision point
       } else {
-        decision_points.push(make_pair(it,*(f->p_flow)));
+        if (f->p_flow != f->node->get_EOSFI()) decision_points.push(make_pair(it,*(f->p_flow)));
+        else return false;
+        if (this->logger->isTraceEnabled()) {
+          stringstream push;
+          push << "PathCondition::check(): PATHLET_SKIP_NEXT pathlet -> introduce decision point for next flow item at ";
+          push << std::hex << (*f->p_flow)->node->node_id;
+          LOG4CXX_TRACE(this->logger, push.str());
+        }
       }
     }
     it++;
