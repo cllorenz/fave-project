@@ -228,8 +228,7 @@ size_t
 hs_get_length_from_string(const char *s) {
     size_t commas = 0;
     const size_t len = get_length_from_string(s, &commas);
-    const size_t res = (len - commas + 7) / 8;
-    return res;
+    return (len + 7) / 8;
 }
 
 // example: (xx10xx10,xxxxxxxx + 11xx110x,xxxxxxxx - ( 1100110x,00000000 + 11xx1x00,xxxxxxxx)+010xxx10,10101010)
