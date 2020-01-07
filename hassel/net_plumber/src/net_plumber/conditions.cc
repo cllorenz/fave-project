@@ -70,12 +70,12 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
 
   while (it != pathlets.end()) {
     // case 1: end of flow and no alternatives -> path does not meet spec, final decline
-    if (f->p_flow == f->node->get_EOSFI() && decision_points.empty()) {
+    if (!f && decision_points.empty()) {
       LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof and no alternatives -> final decline");
       return false;
 
     // case 2: end of flow but still alternatives open -> jump to decision point and continue with next alternative
-    } else if (f->p_flow == f->node->get_EOSFI() && !decision_points.empty()) {
+    } else if (!f && !decision_points.empty()) {
       LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof but still alternatives -> jump back and try next alternative");
       LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
       auto dp = decision_points.top();
