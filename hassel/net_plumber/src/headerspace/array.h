@@ -20,6 +20,9 @@ typedef uint32_t array_t;
 
 #include "bitval.h"
 
+#define NUM_BITS (sizeof(array_t) * 8)
+#define SET_BITS(L) ((L % (sizeof(array_t) / 2)) * 16)
+
 #define ARRAY_BITS(L) ( DIV_ROUND_UP (2 * (L), sizeof (array_t)) )
 #define ARRAY_BYTES(L) ( ROUND_UP (2 * (L), sizeof (array_t)) )
 
