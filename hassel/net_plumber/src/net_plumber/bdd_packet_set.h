@@ -29,6 +29,7 @@ class BDDPacketSet : public PacketSet {
     size_t count(void);
     size_t count_diff(void);
     void enlarge(size_t len);
+    void enlarge2(size_t len) { this->enlarge(len); }
 
     void diff(PacketSet *);
     void diff2(PacketSet *ps) { this->diff(ps); }
