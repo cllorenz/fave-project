@@ -220,6 +220,7 @@ string flow_to_str2(Flow<T1, T2> *f) {
 
 template<class T1, class T2>
 void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
+#ifdef NEW_HS
   /**
     Process an incoming flow by applying the following steps:
 
@@ -245,6 +246,7 @@ void RuleNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
     (11x11xxx) // compact flow
     (10x11xxx) // rewrite flow
    */
+#endif
 
   if (f) { // flow routing case
     // add f to source_flow and add it to n_flows of previous flow
