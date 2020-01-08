@@ -207,7 +207,7 @@ def role DMZFileServer
     description = 'The public file server in the DMZ.'
 
     hosts = ['file.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::1'
+    ipv6 = '2001:db8:abc:1::1'
 
     offers FTP
     offers SFTP
@@ -220,7 +220,7 @@ def role DMZMailServer
     description = 'The public mail server in the DMZ.'
 
     hosts = ['mail.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::2'
+    ipv6 = '2001:db8:abc:1::2'
 
     offers SMTP
     offers SMTPS
@@ -241,7 +241,7 @@ def role DMZWebServer
     description = 'The public web server in the DMZ.'
 
     hosts = ['web.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::3'
+    ipv6 = '2001:db8:abc:1::3'
 
     offers HTTP
     offers HTTPS
@@ -254,7 +254,7 @@ def role DMZLdapServer
     description = 'The public ldap server in the DMZ.'
 
     hosts = ['ldap.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::4'
+    ipv6 = '2001:db8:abc:1::4'
 
     offers LDAP
     offers ULDAP
@@ -269,7 +269,7 @@ def role DMZVPNServer
     description = 'The public vpn server in the DMZ.'
 
     hosts = ['vpn.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::5'
+    ipv6 = '2001:db8:abc:1::5'
 
     offers OpenVPN
     offers UOpenVPN
@@ -284,7 +284,7 @@ def role DMZDNSServer
     description = 'The public dns server in the DMZ.'
 
     hosts = ['dns.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::6'
+    ipv6 = '2001:db8:abc:1::6'
 
     offers DNS
     offers TDNS
@@ -297,7 +297,7 @@ def role DMZDataServer
     description = 'The public data server in the DMZ.'
 
     hosts = ['data.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::7'
+    ipv6 = '2001:db8:abc:1::7'
 
     offers SQL
     offers OSQL
@@ -318,7 +318,7 @@ def role DMZAdminConsole
     description = 'The public admin console in the DMZ.'
 
     hosts = ['adm.uni-potsdam.de']
-    ipv6 = '2001:db8:abc:0::8'
+    ipv6 = '2001:db8:abc:1::8'
 
     offers SNMP
     offers SSH
@@ -1578,7 +1578,7 @@ end
 
 def role Wifi
     description = 'Subnet for the WIFI clients.'
-    ipv6 = '2001:db8:abc:1::0/64'
+    ipv6 = '2001:db8:abc:2::0/64'
 end
 
 
