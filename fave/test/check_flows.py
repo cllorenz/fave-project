@@ -270,7 +270,10 @@ def main(argv):
 
     failed = []
     reach = {'' : {'' : ''}}
-    for flow_spec in flow_specs:
+    for no, flow_spec in enumerate(flow_specs):
+        if no % 1000 == 0:
+            print "  checked %s flows" % no
+
         try:
             successful = _check_flow_trees(flow_spec, flow_trees, inv_fave)
         except KeyError as ke:
