@@ -7,7 +7,7 @@ from bench.wl_up.inventory import UP
 POLICIES="bench/wl_up/policies.json"
 
 if __name__ == '__main__':
-    hosts = UP["dmz"]
+    dmz = UP["dmz"]
     subnets = UP["subnets"]
     subhosts = UP["subhosts"]
 
@@ -26,9 +26,9 @@ if __name__ == '__main__':
     ]
 
     # test dmz
-    for name, _address, _services in hosts:
+    for name, _address, _services in dmz:
         probes.append(
-            ("probe.%s" % name, "probe", "existential", ["tcp_dst=22"], None, [".*(p=pgf.uni-potsdam.de.1);$"])
+            ("probe.%s" % name, "probe", "existential", None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
         links.extend([
             ("%s_input_states_accept" % name, "probe.%s.1" % name),
@@ -44,7 +44,7 @@ if __name__ == '__main__':
                 "probe.%s" % hostnet,
                 "probe",
                 "existential",
-                ["tcp_dst=22"],
+                None,
                 None,
                 [".*(p=pgf.uni-potsdam.de.1);$"]
             ))
@@ -53,6 +53,7 @@ if __name__ == '__main__':
                 ("%s_input_states_accept" % hostnet, "probe.%s.1" % hostnet),
                 ("%s_input_rules_accept" % hostnet, "probe.%s.1" % hostnet)
             ])
+
 
         probes.append((
             "probe.clients.%s" % subnet,

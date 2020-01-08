@@ -19,12 +19,12 @@ if __name__ == '__main__':
     devices = [
         (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/pgf.uni-potsdam.de-ruleset" % RULESETS),
         ("dmz.uni-potsdam.de", "switch", 9),
-        ("wifi.uni-potsdam.de", "switch", 2),
+        ("wifi.uni-potsdam.de", "switch", 3),
         (
-            get_domain(*wifi),
+            "clients.wifi.uni-potsdam.de", #get_domain(*wifi),
             "host",
             1,
-            get_addr(*wifi),
+            "2001:db8:abc:2::100/120", #get_addr(*wifi),
             "%s/wifi.uni-potsdam.de-clients-ruleset" % RULESETS
         )
     ]
@@ -35,14 +35,14 @@ if __name__ == '__main__':
         ("dmz.uni-potsdam.de.1", "pgf.uni-potsdam.de.2"),
         ("pgf.uni-potsdam.de.27", "wifi.uni-potsdam.de.1"),
         ("wifi.uni-potsdam.de.1", "pgf.uni-potsdam.de.3"),
-        ("clients.wifi.uni-potsdam.de.2", "wifi.uni-potsdam.de.2"),
-        ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1")
+        ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1"),
+        ("clients.wifi.uni-potsdam.de.2", "wifi.uni-potsdam.de.3")
     ]
 
     # dmz hosts
-    hosts = UP["dmz"]
+    dmz = UP["dmz"]
 
-    for cnt, host in enumerate(hosts, start=2):
+    for cnt, host in enumerate(dmz, start=2):
         name = get_domain(*host)
         addr = get_addr(*host)
         port = cnt
@@ -59,13 +59,12 @@ if __name__ == '__main__':
             ("dmz.uni-potsdam.de.%s" % port, "%s.1" % name)
         ])
 
-
     subnets = UP["subnets"]
     subhosts = UP["subhosts"]
 
     for cnt, subnet in enumerate(subnets, start=4):
         port = cnt
-        netident = port
+        netident = cnt
 
         # subnet switch
         devices.append((subnet, "switch", len(subhosts)+2))
@@ -95,6 +94,7 @@ if __name__ == '__main__':
                 ("%s.2" % hostnet, "%s.%s" % (subnet, sport))
             ])
 
+
         # subnet clients
         devices.append((
             "clients.%s" % subnet,
@@ -108,7 +108,8 @@ if __name__ == '__main__':
             ("clients.%s.2"%subnet, "%s.%s"%(subnet, len(subhosts)+2))
         ])
 
-    devices.append(("source.internet", "generator", ["ipv6_src=0::1/0"]))
+
+    devices.append(("source.internet", "generator", ["ipv6_src=0::0/0"]))
     links.append(("source.internet.1", "pgf.uni-potsdam.de.1"))
 
     devices.append(("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::100/120"]))
@@ -117,7 +118,7 @@ if __name__ == '__main__':
     devices.append(("source.pgf.uni-potsdam.de", "generator", ["ipv6_src=%s" % get_addr(*pgf)]))
     links.append(("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de_output_states_in"))
 
-    for host in hosts:
+    for host in dmz:
         hname = get_domain(*host)
         address = get_addr(*host)
         server = "source.%s" % hname
