@@ -39,6 +39,7 @@ POLICIES = "bench/wl_up/policies.json"
 CHECKS = "bench/wl_up/checks.json"
 
 REACH_CSV = "bench/wl_up/reachability.csv"
+REACH_JSON = "bench/wl_up/reachable.json"
 
 
 if __name__ == "__main__":
@@ -57,7 +58,8 @@ if __name__ == "__main__":
         "python2 bench/wl_up/reach_csv_to_checks.py " + ' '.join([
             '-p', REACH_CSV,
             '-m', INVENTORY,
-            '-c', CHECKS
+            '-c', CHECKS,
+            '-j', REACH_JSON
         ])
     )
 
