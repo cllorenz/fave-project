@@ -18,6 +18,7 @@ if __name__ == '__main__':
     # device: (name, type, no_ports, address, ruleset)
     devices = [
         (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/pgf.uni-potsdam.de-ruleset" % RULESETS),
+#        (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/simple-ruleset" % RULESETS),
         ("dmz.uni-potsdam.de", "switch", 9),
         ("wifi.uni-potsdam.de", "switch", 3),
         (
