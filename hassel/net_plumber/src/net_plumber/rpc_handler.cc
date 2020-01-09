@@ -33,8 +33,8 @@ namespace net_plumber {
 
 LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
-template<typename T1>
-T1 *val_to_array(const Json::Value &val) {
+template<typename T>
+T *val_to_array(const Json::Value &val) {
   if (val.isNull()) {
     return nullptr;
   }
@@ -45,7 +45,7 @@ T1 *val_to_array(const Json::Value &val) {
   }
 
   std::string s = std::string(v);
-  return new T1(s);
+  return new T(s);
 }
 
 template<typename T1, typename T2>
