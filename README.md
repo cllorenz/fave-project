@@ -2,8 +2,9 @@
 
 This repo includes the codebase of FaVe.
 
- - fave/ -> includes the modeling pipeline and a set of management tools
- - hassel/net_plumber/ -> includes the NetPlumber verification backend
+ - `fave/` - includes the modeling pipeline and a set of management tools
+ - `hassel/net_plumber/` - includes the NetPlumber verification backend
+ - `policy-translator/` - includes the policy management tool [PolicyTranslator](policy-translator/README.md)
 
 
 ## First steps
@@ -31,10 +32,32 @@ For developers it might be more convenient to link the `net_plumber` binary to s
 
 To set up FaVe one can use the script
 
-    #> fave/setup.sh.
+    #> fave/setup.sh
 
 Afterwards, one can test the installation running
 
-    $> PYTHONPATH=fave python2 fave/test/example.sh
+    $> export PYTHONPATH=fave
+    $> python2 fave/test/example.sh
 
 Typically, a session comprises of two processes: `aggregator.py` and `net_plumber`. These can be stopped or started using their respective scripts in `fave/scripts`. If one process dies one needs to restart both - first NetPlumber and then FaVe. Logfiles are stored in `/tmp/np`.
+
+
+## Benchmarks
+
+There exist some benchmarks showing the capabilities of FaVe:
+
+ - `fave/bench/wl_ifi/` - Implementation of the small IFI benchmark which is a reasonably complex yet still manually explorable network configuration.
+ - `fave/bench/wl_up/` - Implementation of the synthetic, mid-sized, and complex UP benchmark which mimics a university campus network.
+ - `[Still Open] fave/bench/wl_tum/` - Implementation of the complex TUM-i8 benchmark from literature including a large firewall ruleset.
+ - `[Still Open] fave/bench/wl_stan/` - Implementation of the large Stanford benchmark from literature including ACLs.
+ - `[Still Open] fave/bench/wl_i2/` - Implementation of the large Internet2 benchmark from literature including .
+
+To run a benchmark `BENCH=fave/bench/wl_your_benchmark_here` use the following commands:
+
+    $> export PYTHONPATH=fave
+    $> python2 fave/bench/wl_your_benchmark_here/benchmark.py
+
+
+## Open Issues
+
+Refer to the [TODOs](TODO.md) for further issues to repair and solve.
