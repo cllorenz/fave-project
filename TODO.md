@@ -5,8 +5,8 @@
  - IFI:
     - generate all flow in subnets instead of subnet specific traffic
     - add hosts as packet filters (optional)
- - AD6:
-    - include policy translator
+ - UP:
+    - debug memory exhaustion
     - check state table traversal
  - Internet2:
     - create benchmark from originial config instead of TF format
@@ -16,7 +16,10 @@
 
 ### Policy Translator
 
- - introduce waypoint policies
+ - introduce waypoint policies: `RoleA <-[RoleB]->> RoleC` where ''RoleA may reach RoleC statefully while traversing RoleB.''
+ - improve inventory brevity:
+    - abstract roles which can be used by roles and super roles but do not instantiate, e.g., generic server offering `ssh`
+    - host name prefixes in subroles which can be applied to host names specified in super roles, e.g., prefixes `www.` and `mail.` in subroles and `uni-potsdam.de` in superclass lead to `www.uni-potsdam.de` and `mail.uni-potsdam.de` respectively when the classes are instantiated.
  - generate virtual network reachability matrix
 
 ### FaVe
@@ -42,6 +45,7 @@
 
 ### NetPlumber
 
+ - enable output ports to be used in flowexp expressions
  - Fix Rule Reachability and Shadowing detection which slows down rule insertion
 in large tables tremendously
  - improve test coverage
@@ -52,7 +56,7 @@ in large tables tremendously
     - wrapper around net_plumber.cc
     - native json data format instead of json string parsing
  - BDDs instead of Header Spaces
-    - [DONE] generic interface for set representations and operations
+    - `[DONE]` generic interface for set representations and operations
     - implement and test bdd based packet set class
     - benchmarks: IFI, UP
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
