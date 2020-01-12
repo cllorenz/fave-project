@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns="http://config"
+	targetNamespace="http://config">
+        <xs:simpleType name="direction-type">
+                 <xs:restriction base="xs:string">
+                         <xs:pattern value="(src)|(dst)"/>
+                 </xs:restriction>
+         </xs:simpleType>
+
+</xs:schema>

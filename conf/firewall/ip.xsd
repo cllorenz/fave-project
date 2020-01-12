@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+	xmlns="http://config" 
+	targetNamespace="http://config"
+	elementFormDefault="qualified">
+
+
+	<xs:include schemaLocation="basic.xsd"/>
+	<xs:include schemaLocation="common.xsd"/>
+	<xs:include schemaLocation="icmp.xsd"/>
+
+
+	<xs:simpleType name="ip4-address-cidr">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="([12]?\d?\d[.]){3}[12]?\d?\d(/[1-3]?\d)?"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="ip4-address-asterisk">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="(([12]?\d?\d[.]){3}\*)|(([12]?\d?\d[.]){2}\*\.\*)|([12]?\d?\d([.]\*){3})|((\*[.]){3}\*)"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<xs:simpleType name="netmask">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="([12]?\d?\d[.]){3}[12]?\d?\d"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<xs:simpleType name="ip4-address">
+		<xs:union memberTypes="ip4-address-cidr ip4-address-asterisk"/>
+	</xs:simpleType>
+
+
+	<xs:simpleType name="ip6-address">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="43"/>
+			<xs:pattern value="(([0-9a-fA-F]{1,4}:){0,7}:?)([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}(/1?\d?\d)?"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="address-type">
+		<xs:union memberTypes="ip4-address ip6-address bitvector"/>
+	</xs:simpleType>
+
+
+	<xs:complexType name="flav-address-type">
+		<xs:simpleContent>
+			<xs:extension base="address-type">
+				<xs:attribute name="flavor" type="xs:boolean" use="optional"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+
+	<xs:simpleType name="ip-version">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[46]"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:complexType name="ip-type">
+		<xs:sequence>
+			<xs:element name="address" type="flav-address-type"/>
+			<xs:element name="mask" type="netmask" minOccurs="0"/>
+		</xs:sequence>
+		<xs:attribute name="version" type="ip-version"/>
+		<xs:attribute name="direction" type="direction-type" use="optional"/>
+	</xs:complexType>
+
+
+	<xs:element name="ip" type="ip-type"/>
+</xs:schema>

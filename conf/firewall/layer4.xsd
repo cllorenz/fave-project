@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns="http://config"
+	targetNamespace="http://config">
+	<xs:include schemaLocation="basic.xsd"/>
+	<xs:include schemaLocation="common.xsd"/>
+	<xs:include schemaLocation="tcp.xsd"/>
+	<xs:include schemaLocation="udp.xsd"/>
+
+
+	<xs:simpleType name="port-number">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="0"/>
+			<xs:maxInclusive value="65535"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<xs:simpleType name="port-type">
+		<xs:union memberTypes="port-number bitvector"/>
+	</xs:simpleType>
+
+
+	<xs:complexType name="dir-port-type">
+		<xs:simpleContent>
+			<xs:extension base="port-type">
+				<xs:attribute name="direction" type="direction-type" use="optional"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+
+	<xs:element name="port" type="dir-port-type"/>
+</xs:schema>

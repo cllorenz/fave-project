@@ -1,0 +1,425 @@
+Instantiation ...
+set: internet_provider_ppp0_out_base
+set: internal_ws8_eth0_in_base
+set: border_gateway_fw0_forward_r0_base
+set: dmz_file_fw0_output_r0_base
+set: dmz_www_eth0_out_base
+set: dmz_voip_fw0_output_r0_base
+set: internal_ws0_fw0_output_r0_base
+set: dmz_mail_fw0_accept_r0_base
+set: internal_gateway_eth1_in_base
+set: dmz_voip_eth0_out_base
+set: dmz_voip_fw0_accept_r0_base
+set: internal_ws8_eth0_out_base
+set: dmz_gateway_eth1_out_base
+set: internal_ws2_fw0_input_r0_base
+set: dmz_gateway_fw0_accept_r0_base
+set: internal_ws4_fw0_output_r0_base
+set: internal_ws1_fw0_input_r0_base
+set: dmz_gateway_fw0_forward_r5_base
+set: internal_ws9_fw0_accept_r0_base
+set: internal_ws2_eth0_out_base
+set: internal_gateway_fw0_forward_r1_base
+set: internal_ws9_fw0_output_r0_base
+set: internal_ws3_fw0_output_r0_base
+set: dmz_gateway_fw0_output_r0_base
+set: border_gateway_ppp0_in_base
+set: dmz_file_fw0_input_r0_base
+set: internal_ws8_fw0_input_r0_base
+set: dmz_vpn_fw0_output_r0_base
+set: internal_ws5_fw0_output_r0_base
+set: internal_ws4_eth0_in_base
+set: internal_ws6_fw0_output_r0_base
+set: dmz_gateway_fw0_forward_r3_base
+set: internal_ws5_fw0_accept_r0_base
+set: dmz_mail_eth0_in_base
+set: internal_ws1_fw0_accept_r0_base
+set: dmz_gateway_eth0_in_base
+set: internal_ws9_fw0_input_r0_base
+set: dmz_gateway_eth0_out_base
+set: dmz_gateway_fw0_forward_r1_base
+set: dmz_www_eth0_in_base
+set: internal_ws5_eth0_out_base
+set: internal_ws9_eth0_out_base
+set: dmz_gateway_fw0_input_r1_base
+set: dmz_voip_fw0_input_r1_base
+set: internal_ws3_fw0_input_r0_base
+set: internal_gateway_fw0_input_r1_base
+set: internal_ws3_eth0_out_base
+set: internal_ws0_eth0_out_base
+set: dmz_file_eth0_out_base
+set: internal_ws1_eth0_out_base
+set: internal_ws8_fw0_output_r0_base
+set: dmz_www_fw0_output_r0_base
+set: dmz_vpn_fw0_accept_r0_base
+set: internal_ws0_fw0_input_r0_base
+set: dmz_vpn_fw0_input_r1_base
+set: internal_ws9_eth0_in_base
+set: dmz_gateway_fw0_forward_r6_base
+set: internal_gateway_fw0_forward_r0_base
+set: internal_ws8_fw0_accept_r0_base
+set: internal_ws1_fw0_output_r0_base
+set: internal_ws0_eth0_in_base
+set: internal_ws3_eth0_in_base
+set: dmz_gateway_fw0_input_r0_base
+set: internal_gateway_fw0_input_r0_base
+set: internal_gateway_fw0_output_r0_base
+set: internet_provider_fw0_accept_r0_base
+set: internet_provider_fw0_output_r0_base
+set: internal_ws7_fw0_input_r0_base
+set: internal_ws2_fw0_accept_r0_base
+set: internal_ws2_eth0_in_base
+set: internal_ws6_eth0_in_base
+set: internal_ws6_eth0_out_base
+set: border_gateway_eth0_in_base
+set: internal_ws7_fw0_output_r0_base
+set: dmz_vpn_eth0_in_base
+set: dmz_www_fw0_input_r0_base
+set: dmz_vpn_eth0_out_base
+set: internal_ws4_fw0_accept_r0_base
+set: dmz_gateway_fw0_forward_r2_base
+set: dmz_www_fw0_accept_r0_base
+set: internal_ws4_eth0_out_base
+set: dmz_voip_eth0_in_base
+set: dmz_vpn_fw0_input_r0_base
+set: internal_gateway_eth1_out_base
+set: internal_ws7_eth0_out_base
+set: internal_gateway_eth0_out_base
+set: internal_ws6_fw0_input_r0_base
+set: dmz_file_eth0_in_base
+set: dmz_gateway_eth1_in_base
+set: border_gateway_fw0_accept_r0_base
+set: internal_gateway_fw0_accept_r0_base
+set: dmz_mail_fw0_input_r0_base
+set: internal_ws6_fw0_accept_r0_base
+set: dmz_voip_fw0_input_r0_base
+set: internal_ws3_fw0_accept_r0_base
+set: dmz_gateway_fw0_forward_r0_base
+set: internal_gateway_eth0_in_base
+set: dmz_file_fw0_accept_r0_base
+set: border_gateway_ppp0_out_base
+set: border_gateway_eth0_out_base
+set: internal_ws7_eth0_in_base
+set: internal_ws4_fw0_input_r0_base
+set: dmz_mail_fw0_input_r1_base
+set: internal_ws1_eth0_in_base
+set: internal_ws7_fw0_accept_r0_base
+set: internal_ws0_fw0_accept_r0_base
+set: dmz_mail_fw0_output_r0_base
+set: internal_ws5_eth0_in_base
+set: dmz_www_fw0_input_r1_base
+set: internal_ws5_fw0_input_r0_base
+set: dmz_gateway_fw0_forward_r4_base
+set: internal_ws2_fw0_output_r0_base
+set: dmz_mail_eth0_out_base
+set: dmz_file_fw0_input_r1_base
+Instantiation total: 	3.6099789142608643
+Solving ...
+dmz_gateway_fw0_forward_r6_reach ...	0.12375116348266602
+internal_gateway_fw0_input_r1_shadow ...	0.11672282218933105
+dmz_gateway_fw0_forward_r1_reach ...	0.11532354354858398
+dmz_www_fw0_output_r0_shadow ...	0.11276793479919434
+internal_ws8_fw0_output_r0_shadow ...	0.11120200157165527
+internal_ws8_eth0_out_shadow ...	0.11461830139160156
+dmz_gateway_fw0_forward_r2_reach ...	0.11597418785095215
+internal_ws5_fw0_output_r0_shadow ...	0.11898994445800781
+internal_ws5_eth0_in_shadow ...	0.11411619186401367
+internal_ws6_eth0_out_shadow ...	0.11461305618286133
+internal_gateway_fw0_drop_r0_shadow ...	0.12057805061340332
+internal_ws8_fw0_input_r0_accept_reach ...	0.11368656158447266
+internal_gateway_eth1_in_reach ...	0.1152036190032959
+internal_gateway_fw0_output_r0_reach ...	0.11161565780639648
+internet_provider_ppp0_in_shadow ...	0.114044189453125
+internal_ws3_eth0_out_reach ...	0.11491966247558594
+internal_ws1_fw0_input_r0_shadow ...	0.11353468894958496
+internal_gateway_eth0_out_reach ...	0.11497831344604492
+internal_ws8_fw0_input_r0_reach ...	0.1139230728149414
+internal_ws7_eth0_in_reach ...	0.12198638916015625
+internal_ws4_fw0_input_r0_shadow ...	0.11366844177246094
+internal_ws1_fw0_input_r0_accept_reach ...	0.11340785026550293
+internal_ws2_fw0_input_r0_reach ...	0.11347174644470215
+internal_ws9_eth0_out_shadow ...	0.11556363105773926
+internal_ws6_eth0_in_reach ...	0.11504173278808594
+dmz_file_fw0_output_r0_shadow ...	0.11232399940490723
+internal_ws5_fw0_input_r0_accept_reach ...	0.11364102363586426
+dmz_www_fw0_input_r0_accept_shadow ...	0.11392951011657715
+internal_ws8_fw0_accept_r0_reach ...	0.11941337585449219
+internal_ws8_eth0_in_shadow ...	0.12040138244628906
+border_gateway_eth0_out_shadow ...	0.1143345832824707
+dmz_gateway_fw0_forward_r4_shadow ...	0.11163878440856934
+dmz_voip_fw0_output_r0_shadow ...	0.11235976219177246
+internal_gateway_eth0_in_reach ...	0.11454606056213379
+dmz_gateway_fw0_forward_r3_reach ...	0.1152198314666748
+dmz_voip_fw0_input_r0_accept_shadow ...	0.11384391784667969
+internal_ws0_eth0_out_shadow ...	0.1152341365814209
+internal_ws6_fw0_output_r0_shadow ...	0.11545491218566895
+dmz_file_eth0_out_shadow ...	0.11466836929321289
+internal_ws3_fw0_input_r0_accept_reach ...	0.11452651023864746
+internet_provider_fw0_output_r0_reach ...	0.11136507987976074
+internal_ws4_eth0_out_reach ...	0.11531281471252441
+dmz_mail_fw0_input_r0_accept_reach ...	0.11433839797973633
+internal_ws4_fw0_input_r0_reach ...	0.11327362060546875
+internal_ws6_fw0_accept_r0_shadow ...	0.11566901206970215
+dmz_mail_fw0_output_r0_shadow ...	0.11153197288513184
+internal_ws6_fw0_input_r0_shadow ...	0.11783838272094727
+dmz_www_eth0_in_shadow ...	0.11390423774719238
+internal_ws9_fw0_input_r0_accept_shadow ...	0.11388182640075684
+internal_ws9_fw0_output_r0_reach ...	0.11218786239624023
+internal_gateway_fw0_drop_r0_reach ...	0.11622977256774902
+internal_ws4_fw0_input_r0_accept_reach ...	0.12032198905944824
+dmz_gateway_fw0_accept_r0_reach ...	0.11479759216308594
+internal_ws2_fw0_output_r0_shadow ...	0.11085057258605957
+internal_ws0_eth0_in_shadow ...	0.11534500122070312
+dmz_gateway_fw0_drop_r0_reach ...	0.11596846580505371
+dmz_www_fw0_input_r1_shadow ...	0.11388731002807617
+internal_ws4_eth0_out_shadow ...	0.11525416374206543
+internal_ws3_eth0_in_reach ...	0.11527657508850098
+dmz_gateway_eth0_in_reach ...	0.11449575424194336
+internal_ws1_fw0_accept_r0_reach ...	0.1138765811920166
+border_gateway_fw0_forward_r0_reach ...	0.1143791675567627
+internal_ws5_eth0_in_reach ...	0.11254739761352539
+dmz_vpn_fw0_input_r0_accept_reach ...	0.11683487892150879
+internal_ws2_fw0_accept_r0_shadow ...	0.1149747371673584
+internal_ws5_fw0_input_r0_reach ...	0.11490988731384277
+internal_ws3_fw0_output_r0_reach ...	0.11389279365539551
+dmz_vpn_fw0_input_r1_reach ...	0.11482596397399902
+border_gateway_ppp0_in_reach ...	0.1163790225982666
+internal_ws9_fw0_output_r0_shadow ...	0.1148529052734375
+dmz_gateway_fw0_drop_r0_shadow ...	0.11402726173400879
+dmz_vpn_fw0_input_r1_shadow ...	0.11484050750732422
+dmz_www_eth0_in_reach ...	0.11532425880432129
+dmz_file_fw0_input_r0_reach ...	0.1225886344909668
+dmz_vpn_fw0_input_r0_accept_shadow ...	0.11510896682739258
+internet_provider_ppp0_out_shadow ...	0.11706876754760742
+dmz_mail_fw0_drop_r0_shadow ...	0.11543989181518555
+dmz_gateway_fw0_forward_r5_reach ...	0.11815452575683594
+dmz_www_eth0_out_reach ...	0.11941361427307129
+internal_gateway_fw0_input_r1_reach ...	0.1135246753692627
+internal_ws6_eth0_out_reach ...	0.11386752128601074
+border_gateway_eth0_in_shadow ...	0.10976839065551758
+dmz_gateway_fw0_input_r0_accept_reach ...	0.11130595207214355
+internal_ws7_fw0_accept_r0_reach ...	0.11133551597595215
+internal_gateway_fw0_forward_r0_reach ...	0.12084388732910156
+dmz_file_eth0_in_shadow ...	0.11899089813232422
+dmz_mail_fw0_input_r1_reach ...	0.11792421340942383
+internet_provider_ppp0_out_reach ...	0.12048125267028809
+dmz_file_fw0_drop_r0_shadow ...	0.11106276512145996
+dmz_www_fw0_input_r1_reach ...	0.11693501472473145
+internal_ws0_fw0_accept_r0_reach ...	0.1190652847290039
+internal_ws2_fw0_output_r0_reach ...	0.11375021934509277
+dmz_voip_fw0_accept_r0_shadow ...	0.11804461479187012
+internal_ws1_fw0_output_r0_shadow ...	0.12044906616210938
+internal_ws9_eth0_in_shadow ...	0.15221500396728516
+dmz_voip_fw0_input_r1_shadow ...	0.1147918701171875
+border_gateway_ppp0_in_shadow ...	0.12460184097290039
+dmz_voip_fw0_drop_r0_reach ...	0.10845208168029785
+dmz_file_fw0_drop_r0_reach ...	0.1123800277709961
+internal_ws2_fw0_input_r0_accept_reach ...	0.11798477172851562
+cycle ...	0.12039470672607422
+dmz_www_fw0_accept_r0_shadow ...	0.12290072441101074
+internal_ws2_eth0_in_shadow ...	0.1199960708618164
+dmz_gateway_fw0_forward_r2_shadow ...	0.15447449684143066
+dmz_vpn_eth0_out_reach ...	0.11888527870178223
+internal_ws5_eth0_out_shadow ...	0.12066888809204102
+cross ...	0.1158895492553711
+internal_ws6_fw0_input_r0_accept_shadow ...	0.11030268669128418
+internal_ws3_eth0_out_shadow ...	0.11985564231872559
+dmz_gateway_eth0_in_shadow ...	0.11710667610168457
+dmz_gateway_eth1_in_shadow ...	0.11649036407470703
+dmz_www_fw0_input_r0_reach ...	0.11064553260803223
+internal_ws7_eth0_out_reach ...	0.11795735359191895
+internet_provider_ppp0_in_reach ...	0.15230202674865723
+internal_ws1_eth0_out_reach ...	0.11878013610839844
+dmz_www_fw0_output_r0_reach ...	0.10895609855651855
+dmz_mail_eth0_out_reach ...	0.11300468444824219
+dmz_gateway_fw0_input_r1_reach ...	0.14579534530639648
+internal_ws4_fw0_input_r0_accept_shadow ...	0.12459874153137207
+internal_ws7_eth0_out_shadow ...	0.12025880813598633
+internal_ws7_fw0_input_r0_shadow ...	0.15641117095947266
+internal_ws8_eth0_in_reach ...	0.16579532623291016
+border_gateway_ppp0_out_shadow ...	0.15508818626403809
+dmz_vpn_fw0_input_r0_reach ...	0.11208701133728027
+internal_ws2_fw0_input_r0_shadow ...	0.11884403228759766
+dmz_gateway_fw0_input_r0_reach ...	0.11789345741271973
+dmz_voip_fw0_input_r0_accept_reach ...	0.11039566993713379
+dmz_mail_fw0_input_r0_reach ...	0.11997199058532715
+internal_gateway_fw0_forward_r1_reach ...	0.12398099899291992
+internal_ws2_eth0_out_reach ...	0.11176490783691406
+internal_ws5_fw0_accept_r0_shadow ...	0.11151289939880371
+internal_ws8_fw0_input_r0_accept_shadow ...	0.1114199161529541
+dmz_gateway_fw0_input_r0_accept_shadow ...	0.12007999420166016
+dmz_voip_eth0_in_shadow ...	0.11220002174377441
+internal_ws0_fw0_accept_r0_shadow ...	0.12331724166870117
+internal_ws0_fw0_input_r0_reach ...	0.1585848331451416
+internal_ws3_fw0_input_r0_reach ...	0.16649436950683594
+internal_ws1_fw0_input_r0_accept_shadow ...	0.16868948936462402
+internal_ws7_eth0_in_shadow ...	0.11571907997131348
+border_gateway_fw0_forward_r0_shadow ...	0.12053632736206055
+dmz_mail_eth0_in_reach ...	0.11816763877868652
+dmz_voip_fw0_output_r0_reach ...	0.11477208137512207
+dmz_gateway_eth1_in_reach ...	0.11189579963684082
+internal_ws2_eth0_out_shadow ...	0.11736583709716797
+internal_ws4_eth0_in_reach ...	0.12641525268554688
+internal_ws7_fw0_output_r0_shadow ...	0.1429610252380371
+internal_ws1_fw0_output_r0_reach ...	0.11307644844055176
+internal_ws0_fw0_input_r0_accept_reach ...	0.1185600757598877
+internal_ws8_fw0_input_r0_shadow ...	0.11959338188171387
+dmz_www_fw0_input_r0_shadow ...	0.11877226829528809
+internal_ws3_fw0_output_r0_shadow ...	0.11656928062438965
+internet_provider_fw0_accept_r0_reach ...	0.11126923561096191
+dmz_vpn_fw0_drop_r0_shadow ...	0.12066459655761719
+dmz_file_fw0_input_r1_reach ...	0.12141799926757812
+internal_gateway_eth0_out_shadow ...	0.15853381156921387
+dmz_www_eth0_out_shadow ...	0.14211535453796387
+dmz_mail_fw0_accept_r0_shadow ...	0.12240862846374512
+border_gateway_fw0_accept_r0_shadow ...	0.12150049209594727
+internal_ws2_fw0_accept_r0_reach ...	0.1108548641204834
+internal_ws9_fw0_accept_r0_reach ...	0.11801719665527344
+internal_ws8_fw0_output_r0_reach ...	0.1501462459564209
+internal_ws7_fw0_output_r0_reach ...	0.10878372192382812
+border_gateway_fw0_accept_r0_reach ...	0.1181633472442627
+dmz_voip_fw0_input_r0_shadow ...	0.11215710639953613
+dmz_www_fw0_input_r0_accept_reach ...	0.11806893348693848
+dmz_gateway_fw0_output_r0_shadow ...	0.11410808563232422
+internal_ws5_fw0_input_r0_shadow ...	0.11658191680908203
+dmz_voip_fw0_input_r1_reach ...	0.10780549049377441
+dmz_mail_fw0_accept_r0_reach ...	0.11949777603149414
+dmz_voip_eth0_out_reach ...	0.12412667274475098
+dmz_gateway_fw0_forward_r3_shadow ...	0.14062023162841797
+internal_ws4_fw0_accept_r0_shadow ...	0.11186027526855469
+internal_ws5_fw0_input_r0_accept_shadow ...	0.11811995506286621
+dmz_file_fw0_input_r1_shadow ...	0.11127686500549316
+internal_ws8_eth0_out_reach ...	0.1196284294128418
+internal_ws1_eth0_in_reach ...	0.1218729019165039
+dmz_www_fw0_accept_r0_reach ...	0.1589972972869873
+dmz_file_eth0_in_reach ...	0.1650102138519287
+dmz_gateway_fw0_forward_r0_reach ...	0.16900038719177246
+internal_gateway_fw0_accept_r0_shadow ...	0.11582183837890625
+dmz_mail_fw0_drop_r0_reach ...	0.11883401870727539
+internal_ws9_fw0_input_r0_shadow ...	0.11746668815612793
+internal_ws7_fw0_input_r0_accept_reach ...	0.11009001731872559
+dmz_gateway_eth1_out_shadow ...	0.11841607093811035
+dmz_mail_fw0_input_r0_shadow ...	0.12694478034973145
+internal_gateway_fw0_input_r0_shadow ...	0.11844635009765625
+border_gateway_ppp0_out_reach ...	0.121429443359375
+dmz_mail_eth0_in_shadow ...	0.14202547073364258
+dmz_file_fw0_input_r0_accept_reach ...	0.1793675422668457
+dmz_voip_fw0_drop_r0_shadow ...	0.12412667274475098
+internal_gateway_fw0_output_r0_shadow ...	0.11444306373596191
+internal_ws1_fw0_input_r0_reach ...	0.11703968048095703
+internal_ws5_fw0_accept_r0_reach ...	0.11145925521850586
+internal_ws7_fw0_input_r0_accept_shadow ...	0.11713194847106934
+internal_gateway_fw0_accept_r0_reach ...	0.11773157119750977
+internal_ws7_fw0_input_r0_reach ...	0.11369633674621582
+dmz_gateway_eth0_out_shadow ...	0.11094474792480469
+border_gateway_eth0_in_reach ...	0.13096356391906738
+dmz_vpn_eth0_out_shadow ...	0.14447259902954102
+internal_ws0_eth0_out_reach ...	0.11187911033630371
+internal_ws4_fw0_output_r0_shadow ...	0.10774588584899902
+dmz_gateway_fw0_forward_r4_reach ...	0.11204671859741211
+dmz_voip_eth0_out_shadow ...	0.11130928993225098
+dmz_gateway_fw0_forward_r1_shadow ...	0.11780095100402832
+internal_ws3_fw0_input_r0_accept_shadow ...	0.15403318405151367
+internal_gateway_fw0_forward_r0_shadow ...	0.11284661293029785
+internal_gateway_eth1_out_shadow ...	0.12879085540771484
+dmz_gateway_fw0_input_r0_shadow ...	0.12105917930603027
+internal_ws9_fw0_input_r0_reach ...	0.15249204635620117
+internal_ws3_eth0_in_shadow ...	0.11817121505737305
+internal_ws9_eth0_in_reach ...	0.13864660263061523
+dmz_www_fw0_drop_r0_reach ...	0.11038589477539062
+internal_ws6_fw0_output_r0_reach ...	0.10967445373535156
+internal_ws9_eth0_out_reach ...	0.12268829345703125
+internet_provider_fw0_accept_r0_shadow ...	0.11836028099060059
+dmz_voip_fw0_accept_r0_reach ...	0.11740779876708984
+internal_ws0_fw0_input_r0_accept_shadow ...	0.11753201484680176
+dmz_gateway_fw0_accept_r0_shadow ...	0.11248779296875
+internal_ws3_fw0_accept_r0_shadow ...	0.11173224449157715
+internal_ws1_eth0_in_shadow ...	0.10988235473632812
+dmz_gateway_eth1_out_reach ...	0.12029242515563965
+internal_gateway_fw0_input_r0_accept_shadow ...	0.11289310455322266
+internal_ws0_fw0_output_r0_reach ...	0.10850834846496582
+dmz_mail_eth0_out_shadow ...	0.1114969253540039
+internal_ws2_fw0_input_r0_accept_shadow ...	0.1155247688293457
+dmz_file_fw0_input_r0_shadow ...	0.11039400100708008
+dmz_vpn_fw0_input_r0_shadow ...	0.12054800987243652
+internal_ws1_eth0_out_shadow ...	0.1608281135559082
+dmz_file_eth0_out_reach ...	0.1729428768157959
+internal_ws6_eth0_in_shadow ...	0.17121315002441406
+internal_ws0_fw0_output_r0_shadow ...	0.1349177360534668
+dmz_mail_fw0_input_r0_accept_shadow ...	0.1566476821899414
+internal_ws9_fw0_accept_r0_shadow ...	0.12057638168334961
+dmz_gateway_fw0_forward_r5_shadow ...	0.10943961143493652
+internal_ws6_fw0_accept_r0_reach ...	0.11875081062316895
+internal_ws4_fw0_accept_r0_reach ...	0.12068724632263184
+internal_ws4_eth0_in_shadow ...	0.11733245849609375
+dmz_file_fw0_input_r0_accept_shadow ...	0.12113285064697266
+dmz_vpn_fw0_output_r0_shadow ...	0.11599588394165039
+dmz_mail_fw0_output_r0_reach ...	0.114471435546875
+dmz_file_fw0_accept_r0_reach ...	0.11156773567199707
+dmz_gateway_fw0_forward_r0_shadow ...	0.11806225776672363
+internal_gateway_fw0_forward_r1_shadow ...	0.11257433891296387
+dmz_file_fw0_output_r0_reach ...	0.10783720016479492
+dmz_gateway_eth0_out_reach ...	0.11165165901184082
+internal_ws5_fw0_output_r0_reach ...	0.109222412109375
+internal_ws5_eth0_out_reach ...	0.12201857566833496
+dmz_mail_fw0_input_r1_shadow ...	0.11774945259094238
+internal_ws2_eth0_in_reach ...	0.11916351318359375
+internal_gateway_eth1_in_shadow ...	0.11637401580810547
+border_gateway_eth0_out_reach ...	0.11479926109313965
+internal_gateway_eth0_in_shadow ...	0.11999750137329102
+dmz_vpn_eth0_in_shadow ...	0.11937355995178223
+internal_ws8_fw0_accept_r0_shadow ...	0.12033915519714355
+dmz_vpn_eth0_in_reach ...	0.11238694190979004
+internal_ws3_fw0_accept_r0_reach ...	0.12274909019470215
+dmz_vpn_fw0_output_r0_reach ...	0.11414933204650879
+dmz_vpn_fw0_accept_r0_shadow ...	0.11974620819091797
+internal_ws6_fw0_input_r0_accept_reach ...	0.11867451667785645
+internal_ws1_fw0_accept_r0_shadow ...	0.11937379837036133
+internal_ws9_fw0_input_r0_accept_reach ...	0.10999298095703125
+dmz_vpn_fw0_accept_r0_reach ...	0.11157417297363281
+internal_ws7_fw0_accept_r0_shadow ...	0.11157035827636719
+internal_ws6_fw0_input_r0_reach ...	0.11231255531311035
+dmz_file_fw0_accept_r0_shadow ...	0.11137914657592773
+dmz_www_fw0_drop_r0_shadow ...	0.11763477325439453
+dmz_gateway_fw0_input_r1_shadow ...	0.10889792442321777
+dmz_vpn_fw0_drop_r0_reach ...	0.1188509464263916
+internal_ws4_fw0_output_r0_reach ...	0.10819244384765625
+internal_gateway_fw0_input_r0_accept_reach ...	0.11103129386901855
+dmz_gateway_fw0_forward_r6_shadow ...	0.11985182762145996
+internal_gateway_fw0_input_r0_reach ...	0.11908078193664551
+dmz_voip_eth0_in_reach ...	0.12041974067687988
+internal_ws0_eth0_in_reach ...	0.12534117698669434
+internet_provider_fw0_output_r0_shadow ...	0.11458921432495117
+internal_gateway_eth1_out_reach ...	0.12240266799926758
+dmz_voip_fw0_input_r0_reach ...	0.11848902702331543
+internal_ws3_fw0_input_r0_shadow ...	0.11900854110717773
+dmz_gateway_fw0_output_r0_reach ...	0.11696600914001465
+internal_ws0_fw0_input_r0_shadow ...	0.11927175521850586
+Solving total ...	33.6443829536438
+Amount of rules: 139
+Average Solving: 0.11988761099122411
+Median Solving: 0.115324258804
+Max Deviation: 0.059479931275621595
+Standard Deviation: 0.0138607548822
+0498
+internal_ws9_eth0_out_reach ...	0.11382818222045898
+dmz_gateway_fw0_output_r0_reach ...	0.11101269721984863
+internal_ws4_fw0_input_r0_accept_shadow ...	0.11291956901550293
+internal_ws8_fw0_input_r0_reach ...	0.11352849006652832
+dmz_file_fw0_input_r0_accept_reach ...	0.11362624168395996
+internal_ws9_fw0_output_r0_shadow ...	0.11072182655334473
+internal_ws0_fw0_input_r0_accept_shadow ...	0.12155842781066895
+internet_provider_ppp0_in_reach ...	0.11288785934448242
+dmz_vpn_eth0_out_shadow ...	0.11406707763671875
+dmz_gateway_eth0_out_shadow ...	0.11330318450927734
+internal_ws3_eth0_in_shadow ...	0.11307907104492188
+internal_ws1_eth0_in_reach ...	0.11511373519897461
+internal_ws3_fw0_accept_r0_shadow ...	0.11430239677429199
+internal_ws7_fw0_input_r0_accept_reach ...	0.11340498924255371
+dmz_www_fw0_accept_r0_shadow ...	0.11436963081359863
+Solving total ...	34.01262140274048
+Amount of rules: 139
+Average Solving: 0.11978836539837955
+Median Solving: 0.114299535751
+Max Deviation: 0.05463866707232358
+Standard Deviation: 0.0137584828846

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema 
+	xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+	xmlns="http://config" 
+	targetNamespace="http://config"
+	elementFormDefault="qualified"
+	>
+
+
+	<xs:include schemaLocation="basic.xsd"/>
+	<xs:include schemaLocation="common.xsd"/>
+	<xs:include schemaLocation="../network/interface.xsd"/>
+
+
+	<xs:simpleType name="l2-direction-type">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="(in)|(out)"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<xs:complexType name="if-type">
+		<xs:attribute name="direction" type="l2-direction-type" use="optional"/>
+		<xs:attribute name="flavor" type="xs:boolean"/>
+		<xs:attribute name="keyref" type="xs:string" use="required"/>
+	</xs:complexType>
+
+
+	<xs:element name="if" type="if-type">
+		<xs:keyref name="interface-ref" refer="interface-key">
+			<xs:selector xpath="interface"/>
+			<xs:field xpath="@keyref"/>
+		</xs:keyref>
+	</xs:element>
+</xs:schema>

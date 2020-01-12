@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<formula>
+	<conjunction>
+		<disjunction>
+			<variable name="foo" negated="true"/>
+			<variable name="bar" negated="true"/>
+		</disjunction>
+		<disjunction>
+			<variable name="foo" negated="false"/>
+			<variable name="bar" negated="false"/>
+		</disjunction>
+	</conjunction>
+</formula>

@@ -1,0 +1,10 @@
+<exists variable="foo">
+	<exists variable="foo">
+		<exists variable="foo">
+			<implication>
+				<variable name="foo"/>
+				<variable name="foo"/>
+			</implication>
+		</exists>
+	</exists>
+</exists>

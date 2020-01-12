@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<config
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns="http://config"
+	>
+	<firewalls>
+		<firewall name="fw0" key="net0_n0_fw0">
+			<table name="output">
+				<rule name="r0">
+					<action type="jump" target="net0_n0_fw0_fwdin_r0"/>
+				</rule>
+			</table>
+			<table name="fwdin">
+				<rule name="r0" key="net0_n0_fw0_fwdin_r0">
+					<proto>tcp</proto>
+					<action type="jump" target="net0_n0_fw0_accept_r0"/>
+				</rule>
+				<rule name="r1">
+					<proto>tcp</proto>
+					<action type="jump" target="net0_n0_fw0_drop_r0"/>
+				</rule>
+				<rule name="r2">
+					<action type="jump" target="net0_n0_fw0_drop_r0"/>
+				</rule>
+			</table>
+			<table name="accept">
+				<rule name="r0" key="net0_n0_fw0_accept_r0">
+					<action type="accept"/>
+				</rule>
+			</table>
+			<table name="drop">
+				<rule name="r0" key="net0_n0_fw0_drop_r0">
+					<action type="drop"/>
+				</rule>
+			</table>
+		</firewall>
+	</firewalls>
+
+	<networks>
+		<network name="net0">
+			<node name="n0">
+				<interface name="eth0" key="net0_n0_eth0"/>
+				<firewall keyref="net0_n0_fw0"/>
+			</node>
+		</network>
+	</networks>
+</config>

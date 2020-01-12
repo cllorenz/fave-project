@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<formula>
+	<implication>
+		<variable name="foo" negated="false"/>
+		<equality>
+			<variable name="bar" negated="true"/>
+			<variable name="baz" negated="false"/>
+		</equality>
+	</implication>
+</formula>

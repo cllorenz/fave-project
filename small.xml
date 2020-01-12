@@ -1,0 +1,307 @@
+<config xmlns="http://config">
+  <firewalls>
+    <firewall key="api_server_fw" name="fw">
+      <table name="input">
+        <rule name="r0">
+          <proto>icmp6</proto>
+          <icmp6type>destination-unreachable</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r1">
+          <proto>icmp6</proto>
+          <icmp6type>packet-too-big</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r2">
+          <proto>icmp6</proto>
+          <icmp6type>time-exceeded</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r3">
+          <proto>icmp6</proto>
+          <icmp6type>parameter-problem</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r4">
+          <proto>icmp6</proto>
+          <icmp6type>echo-request</icmp6type>
+          <icmp6limit>900-m</icmp6limit>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r5">
+          <proto>icmp6</proto>
+          <icmp6type>echo-reply</icmp6type>
+          <icmp6limit>900-m</icmp6limit>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r6">
+          <proto>icmp6</proto>
+          <icmp6type>neighbor-solicitation</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r7">
+          <proto>icmp6</proto>
+          <icmp6type>neighbor-advertisement</icmp6type>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r8">
+          <proto>tcp</proto>
+          <port direction="dst">80</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r9">
+          <proto>tcp</proto>
+          <port direction="dst">443</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r10">
+          <proto>tcp</proto>
+          <port direction="dst">5060</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r11">
+          <proto>tcp</proto>
+          <port direction="dst">5061</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r12">
+          <proto>tcp</proto>
+          <port direction="dst">25</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r13">
+          <proto>tcp</proto>
+          <port direction="dst">587</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r14">
+          <proto>tcp</proto>
+          <port direction="dst">110</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r15">
+          <proto>tcp</proto>
+          <port direction="dst">143</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r16">
+          <proto>tcp</proto>
+          <port direction="dst">220</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r17">
+          <proto>tcp</proto>
+          <port direction="dst">465</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r18">
+          <proto>tcp</proto>
+          <port direction="dst">993</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r19">
+          <proto>tcp</proto>
+          <port direction="dst">995</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r20">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">22</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r21">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">631</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r22">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">137</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r23">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">138</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r24">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">139</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r25">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">445</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r26">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>tcp</proto>
+          <port direction="dst">2049</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r27">
+          <proto>udp</proto>
+          <port direction="dst">5060</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r28">
+          <proto>udp</proto>
+          <port direction="dst">143</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r29">
+          <proto>udp</proto>
+          <port direction="dst">220</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r30">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>udp</proto>
+          <port direction="dst">22</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r31">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>udp</proto>
+          <port direction="dst">631</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r32">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>udp</proto>
+          <port direction="dst">137</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r33">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>udp</proto>
+          <port direction="dst">138</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r34">
+          <ip version="6" direction="src">
+            <address>2001:abc::1</address>
+          </ip>
+          <proto>udp</proto>
+          <port direction="dst">139</port>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r35">
+          <action type="jump" target="api_server_fw_drop_r0"/>
+        </rule>
+      </table>
+      <table name="output">
+        <rule name="r0">
+          <proto>icmp6</proto>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r1">
+          <state>NEW</state>
+          <state>ESTABLISHED</state>
+          <state>RELATED</state>
+          <action type="jump" target="api_server_fw_accept_r0"/>
+        </rule>
+        <rule name="r2">
+          <action type="jump" target="api_server_fw_drop_r0"/>
+        </rule>
+      </table>
+      <table name="accept">
+        <rule name="r0" key="api_server_fw_accept_r0">
+          <action type="accept"/>
+        </rule>
+      </table>
+      <table name="drop">
+        <rule name="r0" key="api_server_fw_drop_r0">
+          <action type="drop"/>
+        </rule>
+      </table>
+    </firewall>
+    <firewall key="api_client_fw" name="fw">
+      <table name="input">
+        <rule name="r0">
+          <action type="jump" target="api_client_fw_accept_r0"/>
+        </rule>
+      </table>
+      <table name="output">
+        <rule name="r0">
+          <action type="jump" target="api_client_fw_accept_r0"/>
+        </rule>
+      </table>
+      <table name="accept">
+        <rule name="r0" key="api_client_fw_accept_r0">
+          <action type="accept"/>
+        </rule>
+      </table>
+      <table name="drop">
+        <rule name="r0" key="api_client_fw_drop_r0">
+          <action type="drop"/>
+        </rule>
+      </table>
+    </firewall>
+  </firewalls>
+  <networks>
+    <network name="api">
+      <node name="server">
+        <interface key="api_server_eth0" name="eth0">
+          <connections>
+            <interface keyref="api_client_eth0"/>
+          </connections>
+          <routes>
+            <ip version="6" direction="dst" negated="true">
+              <address>2001:abc:def::1</address>
+            </ip>
+          </routes>
+        </interface>
+        <firewall keyref="api_server_fw"/>
+        <ip version="6">
+          <address>2001:abc:def::1</address>
+        </ip>
+      </node>
+      <node name="client">
+        <interface key="api_client_eth0" name="eth0">
+          <connections>
+            <interface keyref="api_server_eth0"/>
+          </connections>
+          <routes>
+            <ip version="6" direction="dst" negated="false">
+              <address>2001:abc:def::1</address>
+            </ip>
+          </routes>
+        </interface>
+        <firewall keyref="api_client_fw"/>
+        <ip version="6">
+          <address>2001:abc::1</address>
+        </ip>
+      </node>
+    </network>
+  </networks>
+</config>
