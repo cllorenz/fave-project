@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<formula>
+	<equality>
+		<variable name="foo" negated="false"/>
+		<variable name="bar" negated="true"/>
+	</equality>
+</formula>

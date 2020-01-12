@@ -1,0 +1,1 @@
+["a", [{"attrib": ["foo:bar", "bar:foo"]}, ["b", [{"attrib": ["bla:blubb"]}]], ["c", [{"attrib": []}, ["d", [{"attrib": []}]], ["e", [{"attrib": []}]]]]]]

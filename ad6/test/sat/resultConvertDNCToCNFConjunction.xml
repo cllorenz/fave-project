@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<conjunction>
+	<variable name="foo" negated="false"/>
+	<conjunction>
+		<disjunction>
+			<constant value="false"/>
+			<variable name="bar" negated="true"/>
+		</disjunction>
+		<disjunction>
+			<constant value="false"/>
+			<constant value="false"/>
+		</disjunction>
+	</conjunction>
+</conjunction>

@@ -1,0 +1,7 @@
+<a foo="bar" bar="foo">
+	<b bla="blubb"/>
+	<c>
+		<d/>
+		<e/>
+	</c>
+</a>

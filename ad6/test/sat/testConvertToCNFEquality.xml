@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<formula>
+	<equality>
+		<variable name="gamma" negated="false"/>
+		<conjunction>
+			<variable name="ip" negated="false"/>
+				<disjunction>
+					<variable name="p0" negated="false"/>
+					<variable name="p1" negated="false"/>
+					<variable name="p2" negated="false"/>
+				</disjunction>
+		</conjunction>
+	</equality>
+</formula>

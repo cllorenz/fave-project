@@ -1,0 +1,7 @@
+<exists variable="bar">
+	<negation>
+		<exists variable="foo">
+			<variable name="foo"/>
+		</exists>
+	</negation>
+</exists>

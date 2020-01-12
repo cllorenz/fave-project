@@ -1,0 +1,65 @@
+header {
+	border:	thin solid black;
+	background-color: #00305E;
+}
+
+h1 {
+	color: white;
+	text-align: center;
+}
+
+main {
+	border: thin solid black;
+}
+
+footer {
+	border: thin solid black;
+	/*background-color: #284a75;*/
+	/*background-color: #5a6c92;*/
+	/*background-color: #8d97b3;*/
+	background-color: #c4c8d8;
+}
+
+section {
+	margin: 2em;
+}
+
+section[type=ldBox] {
+	margin: 2em;
+}
+
+div[type=tbox] {
+	width: 100%;
+	overflow: hidden;
+	margin: 1em;
+}
+
+div[type=lbox] {
+	width: 50%;
+	float: left;
+}
+
+div[type=rbox] {
+	width: 50%;
+	float: right;
+}
+
+div[type=canBox] {
+	border: thin solid black;
+}
+
+div[type=cbox] {
+	width: 20%;
+	float: left;
+}
+
+input[type=button] {
+	font-size: 100%;
+}
+
+/*
+canvas {
+	width: 800px;
+	height: 600px;
+}
+*/

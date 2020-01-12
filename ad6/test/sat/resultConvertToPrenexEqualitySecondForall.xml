@@ -1,0 +1,10 @@
+<exists variable="foo">
+	<forall variable="foo">
+		<exists variable="foo">
+			<equality>
+				<variable name="foo"/>
+				<variable name="foo"/>
+			</equality>
+		</exists>
+	</forall>
+</exists>

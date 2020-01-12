@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+	xmlns="http://config"
+	targetNamespace="http://config"
+	elementFormDefault="qualified">
+
+
+	<xs:include schemaLocation="firewall/firewall.xsd"/>
+	<xs:include schemaLocation="network/network.xsd"/>
+
+
+	<xs:complexType name="firewalls-type">
+		<xs:sequence>
+			<xs:element ref="firewall" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+
+
+	<xs:complexType name="networks-type">
+		<xs:sequence>
+			<xs:element ref="network" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+
+
+	<xs:complexType name="config-type">
+		<xs:sequence>
+			<xs:element name="firewalls" type="firewalls-type" minOccurs="0"/>
+			<xs:element name="networks" type="networks-type" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+
+
+	<xs:element name="config" type="config-type"/>
+</xs:schema>

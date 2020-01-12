@@ -1,0 +1,10 @@
+*.log
+*.txt
+temp-1646.rdb
+__pycache__
+__init__.py
+.project
+.pydevproject
+*.rdb
+solver.in
+solver.out
