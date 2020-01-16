@@ -13,7 +13,6 @@ if __name__ == "__main__":
     sys.path.insert(2,os.environ['PROJ_TEST'])
     sys.path.insert(3,os.environ['PROJ_CONF'])
 
-    from test import *
     from test.satsuite import SATSuite
     from test.solversuite import SolverSuite
     from test.xmlsuite import XMLSuite
