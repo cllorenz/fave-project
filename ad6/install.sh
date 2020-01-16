@@ -15,9 +15,13 @@ if [ -f /usr/bin/apt-get ]; then
 elif [ -f /usr/bin/pacman ]; then
     sudo pacman -S redis
     sudo pacman -S python3
+    sudo pacman -S python-redis
     sudo pacman -S python-pip
     sudo pacman -S python-lxml
     sudo pacman -S clingo
+    sudo pip3 install pycosat
+    sudo pip3 install cherrypy
+    sudo pip3 install numpy
 else
     echo "No packet manager found. Abort!"
     return 0
