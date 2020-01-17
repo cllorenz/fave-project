@@ -6,7 +6,6 @@
     - generate all flow in subnets instead of subnet specific traffic
     - add hosts as packet filters (optional)
  - UP:
-    - debug memory exhaustion
     - check state table traversal
  - Internet2:
     - create benchmark from originial config instead of TF format
