@@ -9,9 +9,19 @@ import json
 import pyparsing as pp
 import csv
 
+from openflow.switch import SwitchRuleField
+from ip6np.ip6np_util import field_value_to_bitvector
+from netplumber.vector import Vector, get_field_from_vector
+
 from filelock import SoftFileLock
 
 from util.print_util import eprint
+
+
+def check_field(flow, field, value, mapping):
+    vector = Vector.from_vector_str(flow)
+    rule_field = SwitchRuleField(field, value)
+    return vector == field_value_to_bitvector(rule_field)
 
 
 def check_tree(flow, tree, depth=0):
@@ -68,6 +78,10 @@ def check_tree(flow, tree, depth=0):
         # empty
         return tree["node"] in flow[0][1] and not flow[1:]
 
+    # check flow field
+    elif flow[0][0] == 'FLOW':
+        return check_field(tree["flow"], flow[0][1], flow[0][2], flow[0][3])
+
     return False
 
 
@@ -110,6 +124,13 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                 raise
             nflow.append(crules)
 
+        elif tok.startswith('f='):
+            _, fv = tok.split('=')
+            field, value = fv.split(':')
+            frule = ('FLOW', field, value, inv_fave['mapping'])
+            nflow.append(frule)
+
+
         else:
             raise Exception("cannot handle token: %s" % tok)
 
@@ -133,7 +154,8 @@ def _get_inverse_fave(dump):
             "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
             "table_id_to_rules" : table_id_to_rules,
             "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
-            "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()])
+            "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()]),
+            "mapping" : fave["mapping"]
         }
 
 
@@ -143,12 +165,14 @@ def _get_flow_trees(dump):
 
 
 def _parse_flow_spec(flow):
+    value = pp.OneOrMore(pp.Word(pp.alphanums + "." + "_" + "-"))
     ident = pp.Combine(
         pp.Word(pp.alphas) + pp.ZeroOrMore(pp.Word(pp.alphanums + "." + "_" + "-"))
     )
     tok_source = pp.Combine(pp.CaselessLiteral("s=") + ident)
     tok_probe = pp.Combine(pp.CaselessLiteral("p=") + ident)
     tok_table = pp.Combine(pp.CaselessLiteral("t=") + ident)
+    tok_field = pp.Combine(pp.CaselessLiteral("f=") + ident + pp.CaselessLiteral(":") + value)
     tok_oper_neg = pp.CaselessLiteral("!")
     tok_oper_and = pp.CaselessLiteral("&&")
     tok_oper_ex = pp.CaselessLiteral("EX")
@@ -156,13 +180,15 @@ def _parse_flow_spec(flow):
     tok_block_open = pp.CaselessLiteral("(")
     tok_block_close = pp.CaselessLiteral(")")
 
-    expr_atom = tok_source ^ tok_probe ^ tok_table
+    expr_atom = tok_source ^ tok_probe ^ tok_table ^ tok_field
 #    source_test = "s=foo"
 #    print source_test, "->", expr_atom.parseString(source_test)
 #    probe_test = "p=bar_bla"
 #    print probe_test, "->", expr_atom.parseString(probe_test)
 #    table_test = "t=baz"
 #    print table_test, "->", expr_atom.parseString(table_test)
+#    field_test = "f=foo:0"
+#    print field_test, "->", expr_atom.parseString(field_test)
 
     expr_temp = tok_oper_ex + pp.White() + expr_atom ^ \
         tok_oper_ef + pp.White() + expr_atom ^ expr_atom
