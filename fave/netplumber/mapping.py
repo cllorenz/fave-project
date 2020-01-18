@@ -6,6 +6,7 @@
 import json
 
 FIELD_SIZES = {
+    "related" : 1,
     "packet.ether.source" : 48,
     "packet.ether.destination" : 48,
     "packet.ether.type" : 8,
