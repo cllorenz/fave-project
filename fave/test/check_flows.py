@@ -270,10 +270,7 @@ def main(argv):
 
     failed = []
     reach = {'' : {'' : ''}}
-    for no, flow_spec in enumerate(flow_specs):
-        if no % 1000 == 0:
-            print "  checked %s flows" % no
-
+    for no, flow_spec in enumerate(flow_specs, start=1):
         try:
             successful = _check_flow_trees(flow_spec, flow_trees, inv_fave)
         except KeyError as ke:
@@ -285,6 +282,9 @@ def main(argv):
             _update_reachability_matrix(reach, flow_spec, False)
         else:
             _update_reachability_matrix(reach, flow_spec, True)
+
+        if no % 1000 == 0:
+            print "  checked %s flows" % no
 
     print (
         "success: all %s checked flows matched" % len(flow_specs)
