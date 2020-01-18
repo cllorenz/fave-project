@@ -2,8 +2,6 @@ ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
 
-ip6tables -A INPUT -i lo -j ACCEPT
-
 ip6tables -A INPUT -p icmpv6 -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
@@ -15,10 +13,8 @@ ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT
 ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT
 
 ip6tables -A INPUT -p tcp --dport 22 -j ACCEPT
-ip6tables -A INPUT -p tcp --dport 80 -j ACCEPT
 
 
-ip6tables -A OUTPUT -o lo -j ACCEPT
 ip6tables -A OUTPUT -p icmpv6 -j ACCEPT
 
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
