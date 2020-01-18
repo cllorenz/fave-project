@@ -6,7 +6,7 @@
 import unittest
 import os
 
-from misc.pybison_singleton import PARSER as ASTParser
+from misc.pybison_singleton import PARSER
 from util.tree_util import Tree
 
 
