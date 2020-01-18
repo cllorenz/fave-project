@@ -107,7 +107,7 @@ class TestRouterModel(unittest.TestCase):
                         }],
                         'idx': 2,
                         'in_ports': ['in'],
-                        'mapping': {'length': 32, 'out_port': 0},
+                        'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                         'match': {'fields': [{
                             'name': 'out_port',
                             'value': 'foo.2'
@@ -147,7 +147,7 @@ class TestRouterModel(unittest.TestCase):
                         ],
                         'idx': 0,
                         'in_ports': ['foo.1'],
-                        'mapping': {'length': 0},
+                        'mapping': {'length': 32, 'in_port' : 0},
                         'match': None,
                         'node': 'foo',
                         'tid': 'pre_routing'
