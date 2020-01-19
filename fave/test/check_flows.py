@@ -12,6 +12,7 @@ import csv
 from openflow.switch import SwitchRuleField
 from ip6np.ip6np_util import field_value_to_bitvector
 from netplumber.vector import Vector, get_field_from_vector
+from netplumber.vector import HeaderSpace
 
 from filelock import SoftFileLock
 
@@ -19,9 +20,10 @@ from util.print_util import eprint
 
 
 def check_field(flow, field, value, mapping):
-    vector = Vector.from_vector_str(flow)
+    hs = HeaderSpace.from_str(flow)
+    vector = get_field_from_vector(mapping, hs.hs_list[0], field)
     rule_field = SwitchRuleField(field, value)
-    return vector == field_value_to_bitvector(rule_field)
+    return vector == field_value_to_bitvector(rule_field).vector
 
 
 def check_tree(flow, tree, depth=0):
