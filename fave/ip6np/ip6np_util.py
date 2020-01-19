@@ -201,6 +201,9 @@ def bitvector_to_field_value(vector, field, ignore_bit='x'):
     if (ignore_bit * FIELD_SIZES[field] == vector):
         return None
 
+    if field == "related":
+        return vector[0] if vector[0] in ["0", "1"] else None
+
     try:
         return {
             "packet.ipv4.source" : denormalize_ipv4_address,
