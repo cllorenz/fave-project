@@ -234,6 +234,29 @@ class HeaderSpace(object):
         return self.length
 
 
+    @staticmethod
+    def from_str(s):
+        lists = s.split(' - ')
+        hsd = None
+        if len(lists) == 1:
+            hsl = lists.pop()
+        elif len(lists) == 2:
+            hsl, hsd = lists
+        else:
+            raise Exception("Cannot parse HeaderSpace: %s" % s)
+
+        hsl = hsl.lstrip('(').rstrip(')')
+        if hsd: hsd = hsd.lstrip('(').rstrip(')')
+
+        hs_list = [Vector.from_vector_str(vs) for vs in hsl.split(' + ')]
+        hs_diff = []
+        if hsd: hs_diff = [Vector.from_vector_str(vs) for vs in hsd.split(' + ')]
+
+        length = hs_list[0].length
+
+        return HeaderSpace(length, hs_list, hs_diff)
+
+
     def to_json(self):
         """ Converts the header space to JSON.
         """
