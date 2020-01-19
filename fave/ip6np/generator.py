@@ -11,6 +11,45 @@ def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
 
 
+def _is_state_rule(body):
+    return any([f.name == 'packet.ipv6.proto' and f.value == 'tcp' for f in body])
+
+
+def _swap_src_dst(field):
+    if field.startswith("packet.ipv6"):
+        return field.replace(
+            "source", "destination"
+        ) if "source" in field else field.replace(
+            "destination", "source"
+        )
+    elif field.startswith("packet.upper"):
+        return field.replace(
+            "sport", "dport"
+        ) if "sport" in field else field.replace(
+            "dport", "sport"
+        )
+    else:
+        raise Exception("cannot swap source and destination for field: %s" % field)
+
+
+def _build_state_rule_from_rule(body):
+    return [SwitchRuleField("packet.ipv6.proto", "tcp")] + [
+        SwitchRuleField(
+            _swap_src_dst(field.name),
+            field.value
+        ) for field in [f for f in body if f.name in [
+            "packet.ipv6.source",
+            "packet.ipv6.destination",
+            "packet.upper.sport",
+            "packet.upper.dport"
+        ]]
+    ]
+
+
+def _get_state_chain_from_chain(chain):
+    return chain.replace("rules", "states")
+
+
 def _ast_to_rule(node, ast, idx=0):
     is_default = False
     tags = {
@@ -88,6 +127,9 @@ def _ast_to_rule(node, ast, idx=0):
     action = _get_action_from_ast(ast)
     action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
 
+    if _is_state_rule(body) and action.ports != []:
+        body.append(SwitchRuleField("related", "0xxxxxxx"))
+
     chain = _get_chain_from_ast(ast)
     rule = SwitchRule(
         node,
@@ -98,7 +140,21 @@ def _ast_to_rule(node, ast, idx=0):
         actions=[action]
     )
 
-    return ([rule], {rule : negated}) if negated else ([rule], {})
+    state_rule = []
+    if _is_state_rule(body) and action.ports != []:
+        state_body = [SwitchRuleField("related", "1xxxxxxx")] + _build_state_rule_from_rule(body)
+        state_chain = _get_state_chain_from_chain(chain)
+
+        state_rule.append(SwitchRule(
+            node,
+            state_chain,
+            idx,
+            in_ports=['in'],
+            match=Match(state_body),
+            actions=[Forward(ports=['accept'])]
+        ))
+
+    return ([rule] + state_rule, {rule : negated}) if negated else ([rule] + state_rule, {})
 
 
 def _get_rules_from_ast(node, ast, idx=0):
