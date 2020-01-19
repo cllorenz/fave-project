@@ -117,9 +117,9 @@ F6='! s='$HOST2' && EF p='$PROBE2
 F7='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states && EX t='$FIREWALL'_forward_rules'
 F8='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states'
 
-F9='s='$HOST2' && EF p='$HOST1
-F10='s='$HOST1' && EF p='$HOST2' && f=related:1'
-F11='! s='$HOST1' && EF p='$HOST2' && f=related:0'
+F9='s='$HOST2' && EF p='$PROBE1
+F10='s='$HOST1' && EF p='$PROBE2' && f=related:1'
+F11='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
 
 python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
