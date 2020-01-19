@@ -14,70 +14,13 @@ class TestChecker(unittest.TestCase):
     def setUp(self):
         """ Sets up a clean test environment.
         """
-        pass
 
-
-    def tearDown(self):
-        """ Destroys test environment.
-        """
-        pass
-
-
-    def test_check_flow(self):
-        """ Tests different path specifications against a flow tree.
-        """
-        inv_fave = {
-            "generator_to_id" : { "source1" : 1 },
-            "probe_to_id" : { "probe1" : 2, "probe2" : 3 },
-            "table_id_to_rules" : {
-                1 : [4294967297, 4294967298],
-                2 : [8589934593, 8589934594],
-                3 : []
-            },
-            "table_to_id" : { "table1" : 1, "table2" : 2, "table3" : 3 },
-            "mapping" : { "length" : 0 }
-        }
-
-        flow_tree = {
-            'node' : 1,
-            'children' : [
-                {
-                    'node' : 4294967297,
-                    'children' : [
-                        {
-                            'node' : 2
-                        }
-                    ]
-                },
-                {
-                    'node' : 8589934594
-                }
-            ]
-        }
-
-        checks = [
-            ("s=source1 && EX t=table1", True),
-            ("s=source1 && EX t=table3", False),
-            ("! s=source1 && EX t=table3", True),
-            ("s=source1 && EX t=table3", False),
-            ("s=source1 && EF p=probe1", True),
-            ("s=source1 && EF p=probe2", False),
-            ("! s=source1 && EF p=probe2", True)
-        ]
-
-        for check, result in checks:
-            flow_spec = _parse_flow_spec(check)
-            self.assertEqual(check_flow(flow_spec, flow_tree, inv_fave), result)
-
-
-    def test_check_flow_fields(self):
-        """ Tests path specifications including flow fields
-        """
         mapping = {
             'related' : 0,
             'length' : 1
         }
-        inv_fave = {
+
+        self.inv_fave = {
             "generator_to_id" : { "source1" : 1 },
             "probe_to_id" : { "probe1" : 2, "probe2" : 3 },
             "table_id_to_rules" : {
@@ -89,8 +32,7 @@ class TestChecker(unittest.TestCase):
             "mapping" : mapping
         }
 
-
-        flow_tree = {
+        self.flow_tree = {
             'node' : 1,
             'flow' : "x",
             'children' : [
@@ -111,6 +53,41 @@ class TestChecker(unittest.TestCase):
             ]
         }
 
+
+    def tearDown(self):
+        """ Destroys test environment.
+        """
+
+        del self.inv_fave
+        del self.flow_tree
+
+
+    def test_check_flow(self):
+        """ Tests different path specifications against a flow tree.
+        """
+
+        checks = [
+            ("s=source1 && EX t=table1", True),
+            ("s=source1 && EX t=table3", False),
+            ("! s=source1 && EX t=table3", True),
+            ("s=source1 && EX t=table3", False),
+            ("s=source1 && EF p=probe1", True),
+            ("s=source1 && EF p=probe2", False),
+            ("! s=source1 && EF p=probe2", True)
+        ]
+
+        for check, result in checks:
+            flow_spec = _parse_flow_spec(check)
+            self.assertEqual(
+                check_flow(flow_spec, self.flow_tree, self.inv_fave),
+                result
+            )
+
+
+    def test_check_flow_fields(self):
+        """ Tests path specifications including flow fields
+        """
+
         checks = [
             ("s=source1 && EF p=probe1", True),
             ("s=source1 && EF p=probe2", False),
@@ -125,7 +102,10 @@ class TestChecker(unittest.TestCase):
 
         for check, result in checks:
             flow_spec = _parse_flow_spec(check)
-            self.assertEqual(check_flow(flow_spec, flow_tree, inv_fave), result)
+            self.assertEqual(
+                check_flow(flow_spec, self.flow_tree, self.inv_fave),
+                result
+            )
 
 
 if __name__ == '__main__':
