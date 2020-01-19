@@ -137,6 +137,8 @@ class Vector(object):
         vectors - a vector string
         """
 
+        vectors = str(vectors.replace(",", ""))
+
         assert Vector.is_vector(vectors)
 
         vlen = len(vectors)
