@@ -133,6 +133,10 @@ def _normalize_mh_type(mh_type):
     return "{0:08b}".format(int(mh_type))
 
 
+def _normalize_related(bit):
+    return "%sxxxxxxx" % bit
+
+
 # XXX: refactor and move to own utility module
 def field_value_to_bitvector(field):
     """ Converts field value to its bitvector representation.
@@ -153,6 +157,7 @@ def field_value_to_bitvector(field):
     vector = Vector(length=size)
     try:
         vector[:] = {
+            "related" : _normalize_related,
             "packet.ether.vlan" : normalize_vlan_tag,
             "packet.ipv4.source" : normalize_ipv4_address,
             "packet.ipv4.destination" : normalize_ipv4_address,
