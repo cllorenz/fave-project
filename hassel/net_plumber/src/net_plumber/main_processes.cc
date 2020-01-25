@@ -217,7 +217,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
         h = tmp;
       }
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
-      N->add_source(h,ports);
+      N->add_source(h, ports);
     } else if (type == "add_source_probe") {
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       PROBE_MODE mode = !strcasecmp(commands[i]["params"]["mode"].asCString(), "universal")
