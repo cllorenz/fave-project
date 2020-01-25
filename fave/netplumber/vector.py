@@ -7,7 +7,6 @@
 import json
 from netplumber.mapping import FIELD_SIZES
 
-
 def align_headerspace(smapping, tmapping, hspace):
     """ Aligns a headerspace to conform a target mapping.
 
@@ -236,7 +235,7 @@ class HeaderSpace(object):
 
     @staticmethod
     def from_str(s):
-        lists = s.split(' - ')
+        lists = s.rstrip('\n').split(' - ')
         hsd = None
         if len(lists) == 1:
             hsl = lists.pop()
