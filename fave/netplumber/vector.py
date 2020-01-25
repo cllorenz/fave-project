@@ -302,3 +302,37 @@ class HeaderSpace(object):
             self.hs_list == other.hs_list,
             self.hs_diff == other.hs_diff
         ])
+
+
+    def pprint(self, mapping=None):
+        from ip6np.ip6np_util import bitvector_to_field_value
+
+        fields = list([f for f in mapping if f != 'length'])
+
+        hsl = []
+        for vector in self.hs_list:
+            hslv = []
+            for field in fields:
+                value = bitvector_to_field_value(
+                    get_field_from_vector(mapping, vector, field), field
+                )
+                if value:
+                    hslv.append("%s = %s" % (field, value))
+            if hslv:
+                hsl.append(hslv)
+
+        hsd = []
+        for vector in self.hs_diff:
+            hsdv = []
+            for field in fields:
+                value = bitvector_to_field_value(
+                    get_field_from_vector(mapping, vector, field), field
+                )
+                if value:
+                    hsdv.append("%s = %s" % (field, value))
+            if hsdv:
+                hsd.append(hsdv)
+
+
+        print 'hs_list:', '\n + '.join([', '.join(hslv) for hslv in hsl])
+        print 'hs_diff:', '\n + '.join([', '.join(hsdv) for hsdv in hsd])
