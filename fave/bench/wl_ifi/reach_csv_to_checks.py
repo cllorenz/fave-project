@@ -78,7 +78,7 @@ if __name__ == '__main__':
                 reach_json.setdefault(target, [])
 
                 fstr = 's=source.%s && EF p=probe.%s'
-                if flag != 'X':
+                if flag not in ['X', '(X)']:
                     fstr = '! ' + fstr
                 else:
                     reach_json[target].append(source)

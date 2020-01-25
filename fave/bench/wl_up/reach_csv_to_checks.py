@@ -79,13 +79,19 @@ if __name__ == '__main__':
                     reach_json.setdefault(target, [])
 
                 fstr = 's=source.%s && EF p=probe.%s'
-                if flag != 'X':
-                    fstr = '! ' + fstr
-                else:
+                if flag == 'X':
                     for target in targets:
                         reach_json[target].extend([s for s in sources])
+                        checks.extend([fstr % (s, target) for s in sources])
 
-                checks.extend([fstr % (source, target) for source in sources for target in targets])
+                elif flag == '(X)':
+                    for target in targets:
+                        reach_json[target].extend([s for s in sources])
+                        checks.extend([fstr % (s, target) + ' && f=related:1' for s in sources])
+                        checks.extend(['! ' + fstr % (s, target) + ' && f=related:0' for s in sources])
+
+                else:
+                    checks.extend(['! ' + fstr % (s, target) for s in sources])
 
 
     with open(checks_file, 'w') as checks_file:

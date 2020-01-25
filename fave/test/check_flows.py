@@ -247,13 +247,13 @@ def _update_reachability_matrix(matrix, spec, success, exception=False):
 
     source = spec[0][9:] #skip s=source.
     source = source[:source.rfind('.ifi')] if source != 'Internet' else source
-    dest = spec[-1][8:] # skip p=probe.
+    dest = spec[-2][8:] if spec[-1].startswith('f=') else spec[-1][8:] # skip p=probe.
     dest = dest[:dest.rfind('.ifi')] if dest != 'Internet' else dest
 
     if exception:
         symbol = '_'
     else:
-        symbol = 'X' if not success ^ positive else ''
+        symbol = ('X' if len(spec) != 3 else '(X)') if not success ^ positive else ''
 
     matrix.setdefault(source, {'' : source})
     matrix[source][dest] = symbol
