@@ -145,6 +145,23 @@ class Policy(object):
 
         return (role_from, role_to) in self.policies.keys()
 
+
+    def conditional_policy_exists(self, role_from, role_to):
+        """Returns whether a conditional reachability policy concerning the two
+        given roles exists or not.
+
+        Args:
+            role_from: A string.
+            role_to: A string.
+
+        Returns:
+            A boolean.
+        """
+
+        return self.policy_exists(role_from, role_to) and \
+            self.policies[(role_from, role_to)].conditions != []
+
+
     def add_reachability_policy(self, role_from, role_to, service_to=None, condition=None):
         """Adds or updates a reachability policy concerning two roles.
 
@@ -400,7 +417,9 @@ class Policy(object):
         for role_from in sorted(roles):
             csv_list.append(role_from)
             for role_to in sorted(roles):
-                if self.policy_exists(role_from, role_to):
+                if self.conditional_policy_exists(role_from, role_to):
+                    csv_list.append(',(X)')
+                elif self.policy_exists(role_from, role_to):
                     csv_list.append(',X')
                 else:
                     csv_list.append(',')
