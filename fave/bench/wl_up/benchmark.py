@@ -43,6 +43,7 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 
 if __name__ == "__main__":
+    LOGGER.info("generate policy matrix...")
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
             "--strict",
@@ -51,9 +52,19 @@ if __name__ == "__main__":
             "bench/wl_up/reach.txt"
         ])
     )
+    LOGGER.info("generated policy matrix.")
 
+    LOGGER.info("generate rulesets...")
+    os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_up")
+    os.system("bash scripts/generate-host-rulesets.sh bench/wl_up")
+    os.system("bash scripts/generate-clients-rulesets.sh bench/wl_up")
+    LOGGER.info("generated rulesets.")
+
+    LOGGER.info("generate inventory...")
     os.system("python2 bench/wl_up/inventorygen.py")
+    LOGGER.info("generated inventory.")
 
+    LOGGER.info("convert policy matrix to checks...")
     os.system(
         "python2 bench/wl_up/reach_csv_to_checks.py " + ' '.join([
             '-p', REACH_CSV,
@@ -62,11 +73,13 @@ if __name__ == "__main__":
             '-j', REACH_JSON
         ])
     )
+    LOGGER.info("converted policy matrix.")
 
+    LOGGER.info("generate topology, routes, and probes...")
     os.system("python2 bench/wl_up/topogen.py")
     os.system("python2 bench/wl_up/routegen.py")
-
     os.system("python2 bench/wl_up/policygen.py")
+    LOGGER.info("generated topology, routes, and probes.")
 
     LOGGER.info("starting netplumber...")
     os.system("scripts/start_np.sh bench/wl_up/np.conf")
