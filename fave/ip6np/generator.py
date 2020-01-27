@@ -47,7 +47,14 @@ def _build_state_rule_from_rule(body):
 
 
 def _get_state_chain_from_chain(chain):
-    return chain.replace("rules", "states")
+    if chain.startswith("forward"):
+        return chain.replace("rules", "states")
+    elif chain.startswith("input"):
+        return chain.replace("input_rules", "output_states")
+    elif chain.startswith("output"):
+        return chain.replace("output_rules", "input_states")
+    else:
+        raise Exception("cannot fetch state chain from chain: %s" % chain)
 
 
 def _ast_to_rule(node, ast, idx=0):
