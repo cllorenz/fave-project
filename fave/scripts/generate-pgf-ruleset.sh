@@ -1,28 +1,96 @@
 #!/usr/bin/env bash
 
-function public {
+function private_dmz {
     ADDRESS=$1
     PORTS=`echo $2 | tr -s ',' ' '`
     for PORT in $PORTS; do
         PROTO=`echo $PORT | cut -d ':' -f 1`
         NO=`echo $PORT | cut -d ':' -f 2`
 
-        echo "ip6tables -A FORWARD -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+        # allow access from the wifi
+        echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+
+        # allow access from the subnet clients
+        for i in 4 5 6 7 8 9 a b c d e f 10 11 12 13 14 15 16 17 18; do
+            echo "ip6tables -A FORWARD -s 2001:db8:abc:$i::100/120 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+        done
     done
+
+    # allow ssh access from the admin console
+    echo "ip6tables -A FORWARD -s 2001:db8:abc:1::8 -d $ADDRESS -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A FORWARD -s 2001:db8:abc:1::8 -d $ADDRESS -p udp --dport 22 -j ACCEPT" >> $SCRIPT
 }
 
-function private {
-    SADDR=$1
-    DADDR=$2
+
+function public_dmz {
+    ADDRESS=$1
+    PORTS=`echo $2 | tr -s ',' ' '`
+    for PORT in $PORTS; do
+        PROTO=`echo $PORT | cut -d ':' -f 1`
+        NO=`echo $PORT | cut -d ':' -f 2`
+
+        # allow access from the internet
+        echo "ip6tables -A FORWARD -i 1 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+    done
+
+    # allow access to the internet
+    echo "ip6tables -A FORWARD -o 1 -s $ADDRESS -j ACCEPT" >> $SCRIPT
+
+    private_dmz $1 $2
+}
+
+
+function private_sub {
+    PREFIX=$1
+    POSTFIX=$2
     PORTS=`echo $3 | tr -s ',' ' '`
+
+    ADDRESS=$PREFIX::$POSTFIX
 
     for PORT in $PORTS; do
         PROTO=`echo $PORT | cut -d ':' -f 1`
         NO=`echo $PORT | cut -d ':' -f 2`
 
-        echo "ip6tables -A FORWARD -s $SADDR -d $DADDR -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+        # allow access from the subnet clients
+        echo "ip6tables -A FORWARD -s $PREFIX::100/120 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
     done
+
+    # allow ssh access from the subnet clients
+    echo "ip6tables -A FORWARD -s $PREFIX::100/120 -d $ADDRESS -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A FORWARD -s $PREFIX::100/120 -d $ADDRESS -p udp --dport 22 -j ACCEPT" >> $SCRIPT
 }
+
+function public_sub {
+    PREFIX=$1
+    POSTFIX=$2
+    PORTS=`echo $3 | tr -s ',' ' '`
+
+    ADDRESS=$PREFIX::$POSTFIX
+
+    for PORT in $PORTS; do
+        PROTO=`echo $PORT | cut -d ':' -f 1`
+        NO=`echo $PORT | cut -d ':' -f 2`
+
+        # allow access from the internet
+        echo "ip6tables -A FORWARD -i 1 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+
+        # allow access from the wifi clients
+        echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+
+        # allow access for all subnet clients (skip clients from own subnet)
+        SN=`echo $PREFIX | cut -d: -f 4`
+        for i in 4 5 6 7 8 9 a b c d e f 10 11 12 13 14 15 16 17 18; do
+            if [ "$SN" == "$i" ]; then
+                continue
+            else
+                echo "ip6tables -A FORWARD -s 2001:db8:abc:$i::100/120 -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+            fi
+        done
+    done
+
+    private_sub $1 $2 $3
+}
+
 
 SCRIPT="$1/rulesets/pgf.uni-potsdam.de-ruleset"
 echo -n "" > $SCRIPT
@@ -68,15 +136,12 @@ echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
-# accept ssh access from internal hosts
-echo "ip6tables -A INPUT -s 2001:db8:abc::0/48 -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
+# accept ssh access from the admin console
+echo "ip6tables -A INPUT -s 2001:db8:abc:1::8 -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
 
 
 # deny internal traffic originating from the internet (prevents spoofing)
 echo "ip6tables -A FORWARD -i 1 -s 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
-
-# allow outgoing flows
-#echo "ip6tables -A FORWARD -o 1 -s 2001:db8:abc::0/48 -j ACCEPT" >> $SCRIPT
 
 # handle forwarding of icmpv6
 echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
@@ -93,50 +158,28 @@ echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 -
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP" >> $SCRIPT
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP" >> $SCRIPT
 
+
+# allow the world to access the dns server
+echo "ip6tables -A FORWARD -d 2001:db8:abc:1::6 --dport 53 -j ACCEPT" >> $SCRIPT
+
+# allow the admin console to access all dmz servers
+echo "ip6tables -A FORWARD -s 2001:db8:abc:1::8 -d 2001:db8:abc:1::0/64 -j ACCEPT" >> $SCRIPT
+
+
 # allow access to dmz services
-public 2001:db8:abc:1::1 tcp:21,tcp:115
-private 2001:db8:abc::0/48 2001:db8:abc:1::1 tcp:22,udp:22
-
-public 2001:db8:abc:1::2 \
+public_dmz 2001:db8:abc:1::1 tcp:21,tcp:115
+public_dmz 2001:db8:abc:1::2 \
     tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995,udp:143,udp:220
-private 2001:db8:abc::0/48 2001:db8:abc:1::2 tcp:22,udp:22
+public_dmz 2001:db8:abc:1::3 tcp:80,tcp:443
+public_dmz 2001:db8:abc:1::4 tcp:389,tcp:636,udp:389,udp:123
+public_dmz 2001:db8:abc:1::5 tcp:1194,tcp:1723,udp:1194,udp:1723
+public_dmz 2001:db8:abc:1::6 tcp:53,udp:53
+private_dmz 2001:db8:abc:1::7 tcp:118,tcp:156,udp:118,udp:156
+private_dmz 2001:db8:abc:1::8 udp:161
 
-public 2001:db8:abc:1::3 tcp:80,tcp:443
-private 2001:db8:abc::0/48 2001:db8:abc:1::3 tcp:22,udp:22
-
-public 2001:db8:abc:1::4 tcp:389,tcp:636,udp:389,udp:123
-private 2001:db8:abc::0/48 2001:db8:abc:1::4 tcp:22,udp:22
-
-public 2001:db8:abc:1::5 tcp:1194,tcp:1723,udp:1194,udp:1723
-private 2001:db8:abc::0/48 2001:db8:abc:1::5 tcp:22,udp:22
-
-public 2001:db8:abc:1::6 tcp:53,udp:53
-private 2001:db8:abc::0/48 2001:db8:abc:1::6 tcp:22,udp:22
-
-private 2001:db8:abc::0/48 2001:db8:abc:1::7 tcp:118,tcp:156,tcp:22,udp:118,udp:156,udp:22
-
-private 2001:db8:abc::0/48 2001:db8:abc:1::8 udp:161,tcp:22,udp:22
-
-
-# restrict wifi to public communication (internet and public servers)
-#echo "ip6tables -A FORWARD ! -i 1 -s 2001:db8:abc:2::0/64 -j DROP" >> $SCRIPT
-#echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 ! -d 2001:db8:abc::0/48 -j ACCEPT" >> $SCRIPT
-#echo "ip6tables -A FORWARD -d 2001:db8:abc:2::0/64 -j ACCEPT" >> $SCRIPT
-#echo "ip6tables -A FORWARD -s 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
-
-# wifi -> dmz
-echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:1::0/64 -j ACCEPT" >> $SCRIPT
-
-# wifi -> internal public hosts
-for i in 4 5 6 7 8 9 a b c d e f 10 11 12 13 14 15 16 17 18; do
-    echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:$i::0/120 -j ACCEPT" >> $SCRIPT
-done
-
-# wifi -> internal private hosts
-echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
 
 # wifi -> internet
-echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -j ACCEPT" >> $SCRIPT
+echo "ip6tables -A FORWARD -o 1 -s 2001:db8:abc:2::0/64 -j ACCEPT" >> $SCRIPT
 
 
 # allow access to public subdomain services and restrict usage of private
@@ -145,24 +188,22 @@ for SUB in $SUBNETS; do
     PREFIX=`echo $SUB | sed -e 's/::/;/g' | cut -d ';' -f 1`
 
     # web
-    public $PREFIX::1 tcp:80,tcp:443
-    private $PREFIX::100/120 $PREFIX::1 tcp:22,udp:22
+    public_sub $PREFIX 1 tcp:80,tcp:443
 
     # voip
-    public $PREFIX::2 tcp:5060,tcp:5061,udp:5060
-    private $PREFIX::100/120 $PREFIX::2 tcp:22,udp:22
+    public_sub $PREFIX 2 tcp:5060,tcp:5061,udp:5060
 
     # print
-    private $PREFIX::100/120 $PREFIX::3 tcp:631,tcp:22,udp:631,udp:22
+    private_sub $PREFIX 3 tcp:631,udp:631
 
     # mail
-    public $PREFIX::4 \
+    public_sub $PREFIX 4 \
       tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995,udp:143,udp:220
-    private $PREFIX::100/120 $PREFIX::4 tcp:22,udp:22
 
     # file
-    private $PREFIX::100/120 $PREFIX::5 \
-      tcp:137,tcp:138,tcp:139,tcp:445,tcp:2049,tcp:22,udp:137,udp:138,udp:139,udp:22
+    private_sub $PREFIX 5 \
+      tcp:137,tcp:138,tcp:139,tcp:445,tcp:2049,udp:137,udp:138,udp:139
+
+    # allow subnet clients to access the internet
+    echo "ip6tables -A FORWARD -o 1 -s $PREFIX::100/120 -j ACCEPT" >> $SCRIPT
 done
-
-
