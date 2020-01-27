@@ -135,7 +135,7 @@ for SUB in $SUBNETS; do
 
         # accept traffic for private services
         for PORT in $PRIV; do
-            private_sub $PREFIX::100/120 $PREFIX::$POSTFIX $PORT
+            private $PREFIX::100/120 $PREFIX::$POSTFIX $PORT
         done
 
         srv=$(($srv+1))
