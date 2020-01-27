@@ -25,7 +25,7 @@ SUBNETS="api.uni-potsdam.de \
 
 cnt=4
 for SUB in $SUBNETS; do
-    SCRIPT="rulesets/$SUB-clients-ruleset"
+    SCRIPT="$1/rulesets/$SUB-clients-ruleset"
     echo -n "" > $SCRIPT
 
     # preamble

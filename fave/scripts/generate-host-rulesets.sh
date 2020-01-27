@@ -12,15 +12,15 @@ function public {
 }
 
 function private {
-    PRE=$1
-    ADDRESS=$2
+    SADDR=$1
+    DADDR=$2
     PORTS=`echo $3 | tr -s ',' ' '`
 
     for PORT in $PORTS; do
         PROTO=`echo $PORT | cut -d ':' -f 1`
         NO=`echo $PORT | cut -d ':' -f 2`
 
-        echo "ip6tables -A INPUT ! -s $PRE -d $ADDRESS -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -s $SADDR -d $DADDR -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
     done
 }
 
@@ -71,7 +71,7 @@ for HOST in $DMZ; do
     PUB=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 1`
     PRIV=`echo $HOST | cut -d ',' -f 3- | cut -d ';' -f 2`
 
-    SCRIPT="rulesets/dmz-$H-ruleset"
+    SCRIPT="$1/rulesets/dmz-$H-ruleset"
     echo -n "" > $SCRIPT
 
     # preamble
@@ -96,7 +96,7 @@ for HOST in $DMZ; do
 
     # accept traffic for private services
     for PORT in $PRIV; do
-        private 2001:db8:abc::0/80 $A $PORT
+        private 2001:db8:abc::0/48 $A $PORT
     done
 done
 
@@ -105,11 +105,12 @@ for SUB in $SUBNETS; do
     srv=1
     for HOST in $SUBHOSTS; do
         H=`echo $HOST | cut -d ',' -f 1`
-        A="2001:db8:abc:$cnt::$srv"
+        PREFIX="2001:db8:abc:`printf '%x\n' $cnt`"
+        POSTFIX=`printf '%x\n' $srv`
         PUB=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 1`
         PRIV=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 2`
 
-        SCRIPT="rulesets/$SUB-$H-ruleset"
+        SCRIPT="$1/rulesets/$SUB-$H-ruleset"
         echo -n "" > $SCRIPT
 
         # preamble
@@ -129,12 +130,12 @@ for SUB in $SUBNETS; do
 
         # accept traffic for public services
         for PORT in $PUB; do
-            public $A $PORT
+            public $PREFIX::$POSTFIX $PORT
         done
 
         # accept traffic for private services
         for PORT in $PRIV; do
-            private 2001:db8:abc::0/80 $A $PORT
+            private_sub $PREFIX::100/120 $PREFIX::$POSTFIX $PORT
         done
 
         srv=$(($srv+1))
