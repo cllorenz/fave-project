@@ -4,6 +4,7 @@ np_dump
 .lock
 bench/wl_up/*.json
 bench/wl_up/reachability.csv
+bench/wl_up/rulesets/*-ruleset
 bench/wl_ifi/*.json
 bench/wl_i2/*.json
 bench/wl_i2/i2_tfs/*.json
