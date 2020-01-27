@@ -128,7 +128,7 @@ private 2001:db8:abc::0/48 2001:db8:abc:1::8 udp:161,tcp:22,udp:22
 echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:1::0/64 -j ACCEPT" >> $SCRIPT
 
 # wifi -> internal public hosts
-for i in { 4 5 6 7 8 9 a b c d e f 10 11 12 13 14 15 16 17 18 }; do
+for i in 4 5 6 7 8 9 a b c d e f 10 11 12 13 14 15 16 17 18; do
     echo "ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:$i::0/120 -j ACCEPT" >> $SCRIPT
 done
 
