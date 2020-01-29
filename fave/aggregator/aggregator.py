@@ -1304,7 +1304,7 @@ def main(argv):
         if os.path.exists(UDS_ADDR):
             raise
 
-    register_signals()
+    #register_signals()
 
     AGGREGATOR.run()
 
