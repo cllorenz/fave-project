@@ -70,7 +70,8 @@ def main(argv):
 
     else:
         fave = connect_to_fave()
-        fave.send(json.dumps(model.to_json()))
+        s = json.dumps(model.to_json())
+        fave.send(s)
         fave.close()
 
 
