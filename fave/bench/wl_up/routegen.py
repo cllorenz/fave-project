@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # route: (name, table, idx, [fields], [commands])
     routes = [
         # up -> internet (output port as forward match)
-        ("pgf.uni-potsdam.de", 1, 0, ["out_port=1"], ["fd=pgf.uni-potsdam.de.1"], []),
+        ("pgf.uni-potsdam.de", 1, 0, ["out_port=pgf.uni-potsdam.de.1"], ["fd=pgf.uni-potsdam.de.1"], []),
         # pgf -> dmz
         ("pgf.uni-potsdam.de", 1, 1, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.uni-potsdam.de.2"], []),
         # pgf -> wifi
