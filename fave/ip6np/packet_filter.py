@@ -167,22 +167,23 @@ class PacketFilterModel(Model):
 
     def _persist(self):
 
-        constraint = lambda k, m: \
-            k == "input_rules" and m[k] != [] or \
-            k == "input_states" and constraint("input_rules", m) or \
-            k == "output_rules" and m[k] != [] or \
-            k == "output_states" and constraint("output_rules", m) or \
-            k == "forward_rules" and m[k] != [] or \
-            k == "forward_states" and constraint("forward_rules", m) or \
-            k == "pre_routing" and (
-                constraint("input_rules", m) and constraint("forward_rules", m)
-            ) or \
-            k == "post_routing" and (
-                constraint("output_rules", m) or
-                constraint("forward_rules", m)
-            ) or \
-            k == "internals_in" and constraint("input_rules", m) or \
-            k == "internals_out" and constraint("output_rules", m)
+        # XXX: remove
+        #constraint = lambda k, m: \
+        #    k == "input_rules" and m[k] != [] or \
+        #    k == "input_states" and constraint("input_rules", m) or \
+        #    k == "output_rules" and m[k] != [] or \
+        #    k == "output_states" and constraint("output_rules", m) or \
+        #    k == "forward_rules" and m[k] != [] or \
+        #    k == "forward_states" and constraint("forward_rules", m) or \
+        #    k == "pre_routing" and (
+        #        constraint("input_rules", m) and constraint("forward_rules", m)
+        #    ) or \
+        #    k == "post_routing" and (
+        #        constraint("output_rules", m) or
+        #        constraint("forward_rules", m)
+        #    ) or \
+        #    k == "internals_in" and constraint("input_rules", m) or \
+        #    k == "internals_out" and constraint("output_rules", m)
 
         #active = [k for k in self.chains if constraint(k, self.chains)]
 
