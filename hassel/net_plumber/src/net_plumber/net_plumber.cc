@@ -1234,7 +1234,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
              */
             Json::Value rule(Json::objectValue);
 
-            if (position % 99 == 0) {
+            if (position % 100 == 99) {
                 info_msg.str("");
                 info_msg.clear();
                 info_msg << "Dump rules " << position+1 << "...";
