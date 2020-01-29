@@ -161,11 +161,11 @@ class Aggregator(AbstractAggregator):
         Aggregator.LOGGER.info("listen on socket")
         uds.listen(1)
 
+        only_conn = lambda x: x[0]
         while not self.stop:
             # accept connections on unix domain socket
             Aggregator.LOGGER.debug("master: wait for connection")
             try:
-                only_conn = lambda x: x[0]
                 conn = only_conn(uds.accept())
             except socket.timeout:
                 Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
