@@ -89,6 +89,7 @@ class PacketFilterModel(Model):
             "output_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
             "forward_rules" : [],
             "forward_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
+            "routing" : [],
             "post_routing" : [],
             "internals" : [],
         }
@@ -113,6 +114,8 @@ class PacketFilterModel(Model):
             "internals_in" : 18,
             "internals_out" : 19,
             "post_routing_in" : 20,
+            "routing_in" : 21,
+            "routing_out" : 22
         }
         self.private_ports = len(internal_ports)
         input_ports = {
@@ -123,22 +126,61 @@ class PacketFilterModel(Model):
             "out_"+str(i) : (len(internal_ports)+2*len(ports)+i) \
                 for i in ports[len(ports)/2:]
         }
+
+        plen = len(ports)
+
         self.ports = dict(
             internal_ports.items() + input_ports.items() + output_ports.items()
         )
+
+        get_oname = lambda x: "%s_%s" % (node, x[0][4:])
+        get_iport = lambda x: int(x[0][3:])
+        get_oport = lambda x: int(x[0][4:])
+
+        self.chains["post_routing"] = [ # low priority: forward packets according to out port
+                                        # field set by the routing table
+            SwitchRule(
+                node, "post_routing", idx,
+                in_ports=["in"],
+                match=Match(
+                    fields=[SwitchRuleField("out_port", "%s.%s" % (node, get_oport(port)))]
+                ),
+                actions=[
+                    Rewrite(rewrite=[
+                        SwitchRuleField("in_port", "x"*32),
+                        SwitchRuleField("out_port", "x"*32)
+                    ]),
+                    Forward(ports=[get_oname(port)])
+                ]
+            ) for idx, port in enumerate(output_ports.items(), start=plen)
+        ] + [ # high priority: filter packets with equal input and output port
+            SwitchRule(
+                node, "post_routing", idx,
+                in_ports=["in"],
+                match=Match(
+                    fields=[
+                        SwitchRuleField("in_port", "%s.%s" % (node, get_iport(port))),
+                        SwitchRuleField("out_port", "%s.%s" % (node, int(get_iport(port))+plen/2))
+                    ]
+                ),
+                actions=[]
+            ) for idx, port in enumerate(input_ports.items())
+        ]
+
         self.wiring = [
             ("pre_routing_input", "input_states_in"), # pre routing to input states
             ("input_states_accept", "internals_in"), # input states accept to internals
             ("input_states_miss", "input_rules_in"), # input states miss to input rules
             ("input_rules_accept", "internals_in"), # input rules to internals
             ("pre_routing_forward", "forward_states_in"), # pre routing to forward states
-            ("forward_states_accept", "post_routing_in"), # forward states accept to post routing
+            ("forward_states_accept", "routing_in"), # forward states accept to routing
             ("forward_states_miss", "forward_rules_in"), # forward states miss to forward rules
-            ("forward_rules_accept", "post_routing_in"), # forward rules accept to post routing
+            ("forward_rules_accept", "routing_in"), # forward rules accept to routing
             ("internals_out", "output_states_in"), # internal output to output states
-            ("output_states_accept", "post_routing_in"), # output states accept to post routing
+            ("output_states_accept", "routing_in"), # output states accept to routing
             ("output_states_miss", "output_rules_in"), # output states miss to output rules
-            ("output_rules_accept", "post_routing_in") # output rules accept to post routing
+            ("output_rules_accept", "routing_in"), # output rules accept to routing
+            ("routing_out", "post_routing_in") # routing to post routing
         ]
         self.mapping = Mapping(length=0)
         self.negated = negated if negated else {}
@@ -192,6 +234,7 @@ class PacketFilterModel(Model):
         self.tables = {
             k:[r for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
+                "routing",
                 "post_routing",
                 "input_states",
                 "output_states",
@@ -201,6 +244,7 @@ class PacketFilterModel(Model):
 
         self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
         self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
+        self.tables["routing"] = [r for r in self.chains["routing"]]
         for table in ["input_states", "output_states", "forward_states"]:
             chain = self.chains[table]
             self.tables[table] = [
@@ -370,25 +414,23 @@ class PacketFilterModel(Model):
 
         rule.in_ports = ['in']
 
-        offset = (len(self.ports)-19)/2
-        for action in rule.actions:
-            if action.name != "forward":
-                continue
+        offset = (len(self.ports)-self.private_ports)/2
+        rewrites = []
+        for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
-            ports = []
             for port in action.ports:
                 labels = port.split('.')
                 prefix, rno = ('_'.join(labels[:len(labels)-1]), labels[len(labels)-1])
-                ports.append("%s_%s" % (prefix, int(rno)+offset))
-            action.ports = ports
+                rewrites.append(
+                    Rewrite(rewrite=[SwitchRuleField("out_port", "%s_%s" % (prefix, int(rno)+offset))])
+                )
 
-        rule.actions.extend([
-            Rewrite(rewrite=[SwitchRuleField("in_port", "x"*32)]),
-            Rewrite(rewrite=[SwitchRuleField("out_port", "x"*32)])
-        ])
+            action.ports = ["out"]
 
-        self.chains["post_routing"].insert(idx, rule)
-        self.tables["post_routing"].insert(idx, rule)
+        rule.actions.extend(rewrites)
+
+        self.chains["routing"].insert(idx, rule)
+        self.tables["routing"].insert(idx, rule)
         self.rules.append(rule)
 
 
@@ -400,8 +442,8 @@ class PacketFilterModel(Model):
         """
         rule = self.chains["post_routing"][idx]
 
-        del self.chains["post_routing"][idx]
-        del self.tables["post_routing"][idx]
+        del self.chains["routing"][idx]
+        del self.tables["routing"][idx]
         del self.rules[rule]
 
 
