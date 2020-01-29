@@ -1161,6 +1161,11 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
      *      "topology" : [...]
      *  }
      */
+
+    stringstream info_msg;
+    info_msg << "Dump topology...";
+    LOG4CXX_INFO(logger, info_msg.str());
+
     Json::Value topology_wrapper(Json::objectValue);
     Json::Value topology(Json::arrayValue);
 
@@ -1196,6 +1201,12 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
          *      "rules" : [...]
          *  }
          */
+
+        info_msg.str("");
+        info_msg.clear();
+        info_msg << "Dump table " << node.first << " with " << (node.second->size()) << " entries...";
+        LOG4CXX_INFO(logger, info_msg.str());
+
         Json::Value table(Json::objectValue);
         const uint64_t id = node.first;
         table["id"] = (Json::UInt64)id;
@@ -1222,6 +1233,13 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
              *  }
              */
             Json::Value rule(Json::objectValue);
+
+            if (position % 99 == 0) {
+                info_msg.str("");
+                info_msg.clear();
+                info_msg << "Dump rules " << position+1 << "...";
+                LOG4CXX_INFO(logger, info_msg.str());
+            }
 
             rule["id"] = (Json::UInt64)r_node->node_id;
             rule["position"] = (Json::UInt64)position++;
@@ -1271,6 +1289,11 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
      *  }
      */
     Json::Value commands(Json::arrayValue);
+
+    info_msg.str("");
+    info_msg.clear();
+    info_msg << "Dump sources and probes...";
+    LOG4CXX_INFO(logger, info_msg.str());
 
     for (
         auto const &flow_node: this->flow_nodes) {
@@ -1416,6 +1439,11 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
 
+    stringstream info_msg;
+    info_msg << "Dump flow trees...";
+    LOG4CXX_INFO(logger, info_msg.str());
+
+
     for (auto const &flow_node: flow_nodes) {
         for (auto const &s_flow: flow_node->source_flow) {
             Json::Value flow_tree(Json::objectValue);
@@ -1451,6 +1479,11 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_flows(string dir) {
     Json::Value flows_wrapper(Json::objectValue);
     Json::Value flows(Json::arrayValue);
+
+    stringstream info_msg;
+    info_msg << "Dump flows...";
+    LOG4CXX_INFO(logger, info_msg.str());
+
 
     for (auto const &flow_node: this->flow_nodes) {
         /*
@@ -1498,6 +1531,11 @@ void NetPlumber<T1, T2>::dump_pipes(const string dir) {
     Json::Value pipes_wrapper(Json::objectValue);
     Json::Value pipes(Json::arrayValue);
 
+    stringstream info_msg;
+    info_msg << "Dump pipes...";
+    LOG4CXX_INFO(logger, info_msg.str());
+
+
     for (auto const &node: id_to_node) {
         Json::Value pipe(Json::arrayValue);
 
@@ -1533,7 +1571,11 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_slices(const string dir) {
   Json::Value slices_wrapper(Json::objectValue);
   Json::Value jslices(Json::arrayValue);
-  
+
+  stringstream info_msg;
+  info_msg << "Dump slices.";
+  LOG4CXX_INFO(logger, info_msg.str());
+
   for (auto const &s: slices) {
     // skips the default slice
     if (!s.first) continue;
