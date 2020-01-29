@@ -381,6 +381,11 @@ class PacketFilterModel(Model):
                 ports.append("%s_%s" % (prefix, int(rno)+offset))
             action.ports = ports
 
+        rule.actions.extend([
+            Rewrite(rewrite=[SwitchRuleField("in_port", "x"*32)]),
+            Rewrite(rewrite=[SwitchRuleField("out_port", "x"*32)])
+        ])
+
         self.chains["post_routing"].insert(idx, rule)
         self.tables["post_routing"].insert(idx, rule)
         self.rules.append(rule)
