@@ -450,7 +450,7 @@ class PacketFilterModel(Model):
         self.chains["routing"].insert(idx*3+1, rule_wrong)
         self.tables["routing"].insert(idx*3+1, rule_wrong)
         self.chains["routing"].insert(idx*3+2, rule)
-        self.tables["routing"].insert(idx*3+3, rule)
+        self.tables["routing"].insert(idx*3+2, rule)
         self.rules.append(rule_exact)
         self.rules.append(rule_wrong)
         self.rules.append(rule)
