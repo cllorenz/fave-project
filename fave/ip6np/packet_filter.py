@@ -464,8 +464,12 @@ class PacketFilterModel(Model):
         """
         rule = self.chains["post_routing"][idx]
 
-        del self.chains["routing"][idx]
-        del self.tables["routing"][idx]
+        del self.chains["routing"][idx*3]
+        del self.chains["routing"][idx*3]
+        del self.chains["routing"][idx*3]
+        del self.tables["routing"][idx*3]
+        del self.tables["routing"][idx*3]
+        del self.tables["routing"][idx*3]
         del self.rules[rule]
 
 
