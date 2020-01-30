@@ -415,22 +415,44 @@ class PacketFilterModel(Model):
         rule.in_ports = ['in']
 
         offset = (len(self.ports)-self.private_ports)/2
-        rewrites = []
+        output_ports = []
         for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
             for port in action.ports:
                 labels = port.split('.')
                 prefix, rno = ('_'.join(labels[:len(labels)-1]), labels[len(labels)-1])
-                rewrites.append(
-                    Rewrite(rewrite=[SwitchRuleField("out_port", "%s_%s" % (prefix, int(rno)+offset))])
-                )
+                output_ports.append((prefix, int(rno)+offset))
 
             action.ports = ["out"]
 
+
+        # first, forward traffic that already has the destination and output
+        # ports set correctly (via a filtering rule set)
+        rule_exact = dc(rule)
+        rule.idx = idx*3
+        rule_exact.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
+
+        # second, drop traffic that has an incorrect destination set for an
+        # output port
+        rule_wrong = dc(rule)
+        rule.idx = idx*3+1
+        rule_wrong.match.filter("packet.ipv6.destination")
+        rule_wrong.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
+        rule_wrong.actions = []
+
+        # third, forward traffic with the destination set
+        rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", "%s_%s" % (prefix, rno)) for prefix, rno in output_ports])]
+        rule.idx = idx*3+2
         rule.actions.extend(rewrites)
 
-        self.chains["routing"].insert(idx, rule)
-        self.tables["routing"].insert(idx, rule)
+        self.chains["routing"].insert(idx*3, rule_exact)
+        self.tables["routing"].insert(idx*3, rule_exact)
+        self.chains["routing"].insert(idx*3+1, rule_wrong)
+        self.tables["routing"].insert(idx*3+1, rule_wrong)
+        self.chains["routing"].insert(idx*3+2, rule)
+        self.tables["routing"].insert(idx*3+3, rule)
+        self.rules.append(rule_exact)
+        self.rules.append(rule_wrong)
         self.rules.append(rule)
 
 
