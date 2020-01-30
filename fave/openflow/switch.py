@@ -348,6 +348,19 @@ class Match(list):
         )
 
 
+    def filter(self, field):
+        if isinstance(field, SwitchRuleField):
+            name = field.name
+        elif isinstance(field, str):
+            name = field
+        else:
+            raise Exception("cannot filter match for a field of type: %s" % type(field))
+
+        for f in self:
+            if f.name == name:
+                self.remove(f)
+
+
 class SwitchRule(Model):
     """ This class provides a model for switch rules.
     """
