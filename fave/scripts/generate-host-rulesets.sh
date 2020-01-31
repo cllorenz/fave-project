@@ -11,7 +11,10 @@ function public {
     done
 }
 
+
 function private {
+#    PRE=$1
+#    ADDRESS=$2
     SADDR=$1
     DADDR=$2
     PORTS=`echo $3 | tr -s ',' ' '`
@@ -23,6 +26,7 @@ function private {
         echo "ip6tables -A INPUT -s $SADDR -d $DADDR -p $PROTO --dport $NO -j ACCEPT" >> $SCRIPT
     done
 }
+
 
 DMZ="file.uni-potsdam.de,2001:db8:abc:1::1,tcp:21,tcp:115;tcp:22,udp:22 \
     mail.uni-potsdam.de,2001:db8:abc:1::2,tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,\
@@ -80,14 +84,14 @@ for HOST in $DMZ; do
     echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
 
     # handle incoming icmpv6
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
-#    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
+    echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
     # accept traffic for public services
     for PORT in $PUB; do
@@ -105,8 +109,7 @@ for SUB in $SUBNETS; do
     srv=1
     for HOST in $SUBHOSTS; do
         H=`echo $HOST | cut -d ',' -f 1`
-        PREFIX="2001:db8:abc:`printf '%x\n' $cnt`"
-        POSTFIX=`printf '%x\n' $srv`
+        A="2001:db8:abc:$cnt::$srv"
         PUB=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 1`
         PRIV=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 2`
 
@@ -119,23 +122,23 @@ for SUB in $SUBNETS; do
         echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
 
         # handle incoming icmpv6
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
-#        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
+        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
         # accept traffic for public services
         for PORT in $PUB; do
-            public $PREFIX::$POSTFIX $PORT
+            public $A $PORT
         done
 
         # accept traffic for private services
         for PORT in $PRIV; do
-            private $PREFIX::100/120 $PREFIX::$POSTFIX $PORT
+            private 2001:db8:abc::0/48 $A $PORT
         done
 
         srv=$(($srv+1))
