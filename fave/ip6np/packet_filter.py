@@ -18,6 +18,12 @@ from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss, R
 from util.collections_util import list_sub
 
 
+BASE_ROUTING_WRONG_IO=0
+BASE_ROUTING_WRONG_AP=65535/4*1
+BASE_ROUTING_EXACT=65535/4*2
+BASE_ROUTING_RULE=65535/4*3
+
+
 def expand_field(field):
     """ Expands a negated field to a set of vectors.
 
@@ -84,7 +90,14 @@ class PacketFilterModel(Model):
         self.chains = {
             "pre_routing" : [],
             "input_rules" : [],
-            "input_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
+            "input_states" : [
+                SwitchRule(
+                    node, 0, 65534, in_ports=['in'],
+                    match=Match([SwitchRuleField("related", "1xxxxxxx")]),
+                    actions=[Forward(ports=["%s_input_states_accept" % node])]
+                ),
+                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])
+            ],
             "output_rules" : [],
             "output_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
             "forward_rules" : [],
@@ -160,7 +173,7 @@ class PacketFilterModel(Model):
                 match=Match(
                     fields=[
                         SwitchRuleField("in_port", "%s.%s" % (node, get_iport(port))),
-                        SwitchRuleField("out_port", "%s.%s" % (node, int(get_iport(port))+plen/2))
+                        SwitchRuleField("out_port", "%s.%s" % (node, get_iport(port)+plen/2))
                     ]
                 ),
                 actions=[]
@@ -426,33 +439,39 @@ class PacketFilterModel(Model):
             action.ports = ["out"]
 
 
-        # first, forward traffic that already has the destination and output
+        # first, drop traffic that has an incorrect destination set for an
+        # output port
+        rule_wrong_io = dc(rule)
+        rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
+        try:
+            dst = rule_wrong_io.match.get("packet.ipv6.destination").value
+        except:
+            dst = "x"*128
+        rule_wrong_io.match.filter("packet.ipv6.destination")
+        rule_wrong_io.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
+        rule_wrong_io.match.append(SwitchRuleField("packet.ipv6.source", dst))
+        rule_wrong_io.actions = []
+
+        # second, forward traffic that already has the destination and output
         # ports set correctly (via a filtering rule set)
         rule_exact = dc(rule)
-        rule.idx = idx*3
+        rule_exact.idx = BASE_ROUTING_EXACT + idx
         rule_exact.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
 
-        # second, drop traffic that has an incorrect destination set for an
-        # output port
-        rule_wrong = dc(rule)
-        rule.idx = idx*3+1
-        rule_wrong.match.filter("packet.ipv6.destination")
-        rule_wrong.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
-        rule_wrong.actions = []
 
         # third, forward traffic with the destination set
         rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", "%s_%s" % (prefix, rno)) for prefix, rno in output_ports])]
-        rule.idx = idx*3+2
+        rule.idx = BASE_ROUTING_RULE + idx
         rule.actions.extend(rewrites)
 
-        self.chains["routing"].insert(idx*3, rule_exact)
-        self.tables["routing"].insert(idx*3, rule_exact)
-        self.chains["routing"].insert(idx*3+1, rule_wrong)
-        self.tables["routing"].insert(idx*3+1, rule_wrong)
-        self.chains["routing"].insert(idx*3+2, rule)
-        self.tables["routing"].insert(idx*3+2, rule)
+        self.chains["routing"].insert(BASE_ROUTING_WRONG_IO + idx, rule_wrong_io)
+        self.tables["routing"].insert(BASE_ROUTING_WRONG_IO + idx, rule_wrong_io)
+        self.chains["routing"].insert(BASE_ROUTING_EXACT + idx, rule_exact)
+        self.tables["routing"].insert(BASE_ROUTING_EXACT + idx, rule_exact)
+        self.chains["routing"].insert(BASE_ROUTING_RULE + idx, rule)
+        self.tables["routing"].insert(BASE_ROUTING_RULE + idx, rule)
+        self.rules.append(rule_wrong_io)
         self.rules.append(rule_exact)
-        self.rules.append(rule_wrong)
         self.rules.append(rule)
 
 
@@ -462,14 +481,19 @@ class PacketFilterModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
-        rule = self.chains["post_routing"][idx]
 
-        del self.chains["routing"][idx*3]
-        del self.chains["routing"][idx*3]
-        del self.chains["routing"][idx*3]
-        del self.tables["routing"][idx*3]
-        del self.tables["routing"][idx*3]
-        del self.tables["routing"][idx*3]
+        rule_wrong_io = self.chains["routing"][BASE_ROUTING_WRONG_IO + idx]
+        rule_exact = self.chains["routing"][BASE_ROUTING_EXACT + idx]
+        rule = self.chains["routing"][BASE_ROUTING_RULE + idx]
+
+        del self.chains["routing"][BASE_ROUTING_WRONG_IO + idx]
+        del self.chains["routing"][BASE_ROUTING_EXACT + idx]
+        del self.chains["routing"][BASE_ROUTING_RULE + idx]
+        del self.tables["routing"][BASE_ROUTING_WRONG_IO + idx]
+        del self.tables["routing"][BASE_ROUTING_EXACT + idx]
+        del self.tables["routing"][BASE_ROUTING_RULE + idx]
+        del self.rules[rule_wrong_io]
+        del self.rules[rule_exact]
         del self.rules[rule]
 
 
