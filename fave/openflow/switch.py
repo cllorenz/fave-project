@@ -361,6 +361,15 @@ class Match(list):
                 self.remove(f)
 
 
+    def get(self, field):
+        assert isinstance(field, str)
+
+        for f in self:
+            if f.name == field:
+                return f
+        raise Exception("no such field: %s" % field)
+
+
 class SwitchRule(Model):
     """ This class provides a model for switch rules.
     """
