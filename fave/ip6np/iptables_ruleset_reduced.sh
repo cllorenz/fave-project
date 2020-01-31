@@ -15,7 +15,7 @@ ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT
 ip6tables -A INPUT -p tcp --dport 22 -j ACCEPT
 
 
-ip6tables -A OUTPUT -p icmpv6 -j ACCEPT
+ip6tables -A OUTPUT -s 2001:db8::3 -p icmpv6 -j ACCEPT
 
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
 ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
