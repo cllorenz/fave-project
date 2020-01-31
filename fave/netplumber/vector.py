@@ -335,4 +335,4 @@ class HeaderSpace(object):
 
 
         print 'hs_list:', '\n + '.join([', '.join(hslv) for hslv in hsl])
-        print 'hs_diff:', '\n + '.join([', '.join(hsdv) for hsdv in hsd])
+        if hsd: print 'hs_diff:', '\n + '.join([', '.join(hsdv) for hsdv in hsd])
