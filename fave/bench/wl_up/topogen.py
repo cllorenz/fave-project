@@ -4,7 +4,8 @@ import json
 
 from bench.wl_up.inventory import UP
 
-OFILE="bench/wl_up/topology.json"
+TOPOLOGY="bench/wl_up/topology.json"
+SOURCES="bench/wl_up/sources.json"
 RULESETS="bench/wl_up/rulesets"
 
 if __name__ == '__main__':
@@ -39,6 +40,23 @@ if __name__ == '__main__':
         ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1"),
         ("clients.wifi.uni-potsdam.de.2", "wifi.uni-potsdam.de.3")
     ]
+
+
+    # source nodes
+    sources = [
+        ("source.internet", "generator", ["ipv6_src=0::0/0"]),
+        ("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::100/120"]),
+        ("source.pgf.uni-potsdam.de", "generator", ["ipv6_src=%s" % get_addr(*pgf)])
+    ]
+
+    # source links
+    source_links = [
+        ("source.internet.1", "pgf.uni-potsdam.de.1"),
+        ("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de_output_states_in"),
+        ("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de_output_states_in")
+    ]
+
+
 
     # dmz hosts
     dmz = UP["dmz"]
@@ -110,21 +128,12 @@ if __name__ == '__main__':
         ])
 
 
-    devices.append(("source.internet", "generator", ["ipv6_src=0::0/0"]))
-    links.append(("source.internet.1", "pgf.uni-potsdam.de.1"))
-
-    devices.append(("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::100/120"]))
-    links.append(("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de_output_states_in"))
-
-    devices.append(("source.pgf.uni-potsdam.de", "generator", ["ipv6_src=%s" % get_addr(*pgf)]))
-    links.append(("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de_output_states_in"))
-
     for host in dmz:
         hname = get_domain(*host)
         address = get_addr(*host)
         server = "source.%s" % hname
-        devices.append((server, "generator", ["ipv6_src=%s" % address]))
-        links.append(("%s.1" % server, "%s_output_states_in" % hname))
+        sources.append((server, "generator", ["ipv6_src=%s" % address]))
+        source_links.append(("%s.1" % server, "%s_output_states_in" % hname))
 
     for cnt, subnet in enumerate(subnets, start=4):
         netident = cnt
@@ -136,23 +145,32 @@ if __name__ == '__main__':
             server = "source.%s" % hostnet
             addr = "2001:db8:abc:%s::%s" % (netident, ident)
 
-            devices.append((server , "generator", ["ipv6_src=%s" % addr]))
-            links.append(("%s.1" % server, "%s_output_states_in" % hostnet))
+            sources.append((server , "generator", ["ipv6_src=%s" % addr]))
+            source_links.append(("%s.1" % server, "%s_output_states_in" % hostnet))
+
+            break
 
 
         caddr = "2001:db8:abc:%s::100/120" % (netident)
-        devices.append(
+        sources.append(
             ("source.clients.%s" % subnet, "generator", ["ipv6_src=%s" % caddr])
         )
-        links.append(
+        source_links.append(
             ("source.clients.%s.1" % subnet, "clients.%s_output_states_in" % subnet)
         )
 
+        break
 
-    up = {
+
+    topology = {
         'devices' : devices,
         'links' : links
     }
 
-    with open(OFILE, 'w') as of:
-        of.write(json.dumps(up, indent=2))
+    sources = {
+        'devices' : sources,
+        'links' : source_links
+    }
+
+    json.dump(topology, open(TOPOLOGY, 'w'), indent=2)
+    json.dump(sources, open(SOURCES, 'w'), indent=2)
