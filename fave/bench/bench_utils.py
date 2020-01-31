@@ -143,3 +143,19 @@ def add_policies(probes, links):
 
     for link in links:
         _add_link(*link)
+
+
+def add_sources(sources, links):
+    """ Add source nodes to the topology.
+
+    Keyword arguments:
+    probes - a set of probe nodes
+    links - a set of links
+    """
+
+    get_type = lambda x: x[1]
+    for source in [s for s in sources if get_type(s) == 'generator']:
+        _add_generator(*source)
+
+    for link in links:
+        _add_link(*link)
