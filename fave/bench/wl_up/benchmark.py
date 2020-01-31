@@ -12,7 +12,7 @@ import json
 import netplumber.dump_np as dumper
 import test.check_flows as checker
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
+from bench.bench_utils import create_topology, add_rulesets, add_routes, add_sources, add_policies
 
 LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
@@ -35,6 +35,7 @@ logging.basicConfig(
 INVENTORY = "bench/wl_up/inventory.json"
 TOPOLOGY = "bench/wl_up/topology.json"
 ROUTES = "bench/wl_up/routes.json"
+SOURCES="bench/wl_up/sources.json"
 POLICIES = "bench/wl_up/policies.json"
 CHECKS = "bench/wl_up/checks.json"
 
@@ -106,6 +107,12 @@ if __name__ == "__main__":
 
         add_routes(routes)
     LOGGER.info("initialized routes...")
+
+    LOGGER.info("initialize sources...")
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.loads(raw_sources.read()).values()
+        add_sources(sources, links)
+    LOGGER.info("initialized sources")
 
     LOGGER.info("initialize probes...")
     with open(POLICIES, 'r') as raw_policies:
