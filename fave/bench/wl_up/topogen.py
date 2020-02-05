@@ -148,8 +148,6 @@ if __name__ == '__main__':
             sources.append((server , "generator", ["ipv6_src=%s" % addr]))
             source_links.append(("%s.1" % server, "%s_output_states_in" % hostnet))
 
-            break
-
 
         caddr = "2001:db8:abc:%s::100/120" % (netident)
         sources.append(
@@ -158,8 +156,6 @@ if __name__ == '__main__':
         source_links.append(
             ("source.clients.%s.1" % subnet, "clients.%s_output_states_in" % subnet)
         )
-
-        break
 
 
     topology = {
