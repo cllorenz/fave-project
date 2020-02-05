@@ -1,3 +1,4 @@
+#ifdef USE_BDD
 #include "bdd_packet_set.h"
 #include <assert.h>
 #include <sstream>
@@ -234,3 +235,5 @@ BDDPacketSet::negate(void) {
 }
 
 } /* namespace net_plumber */
+
+#endif // USE_BDD

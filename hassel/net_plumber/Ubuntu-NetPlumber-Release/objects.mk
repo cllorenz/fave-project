@@ -4,4 +4,5 @@
 
 USER_OBJS :=
 
-LIBS := -lcppunit -Bstatic -llog4cxx -lbdd
+LIBS := -lcppunit -Bstatic -llog4cxx
+#LIBS += -lbdd
