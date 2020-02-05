@@ -140,30 +140,28 @@ def check_flow(flow_spec, flow_tree, inv_fave):
 
 
 def _get_inverse_fave(dump):
-    with open(dump+"/fave.json", "r") as ifile:
-        fave = json.loads(ifile.read())
+    fave = json.load(open(dump+"/fave.json", "r"))
 
-        id_to_rule = fave["id_to_rule"]
-        table_id_to_rules = {}
-        for rid in id_to_rule:
-            tid = id_to_rule[rid]
-            if tid in table_id_to_rules:
-                table_id_to_rules[tid].append(int(rid))
-            else:
-                table_id_to_rules[tid] = [int(rid)]
+    id_to_rule = fave["id_to_rule"]
+    table_id_to_rules = {}
+    for rid in id_to_rule:
+        tid = id_to_rule[rid]
+        if tid in table_id_to_rules:
+            table_id_to_rules[tid].append(int(rid))
+        else:
+            table_id_to_rules[tid] = [int(rid)]
 
-        return {
-            "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
-            "table_id_to_rules" : table_id_to_rules,
-            "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
-            "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()]),
-            "mapping" : fave["mapping"]
-        }
+    return {
+        "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
+        "table_id_to_rules" : table_id_to_rules,
+        "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
+        "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()]),
+        "mapping" : fave["mapping"]
+    }
 
 
 def _get_flow_trees(dump):
-    with open(dump+"/flow_trees.json") as ifile:
-        return json.loads(ifile.read())["flows"]
+    return json.load(open(dump+"/flow_trees.json"))["flows"]
 
 
 def _parse_flow_spec(flow):
