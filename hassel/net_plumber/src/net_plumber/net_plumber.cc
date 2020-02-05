@@ -1400,8 +1400,6 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
 
         node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
 
-        node["flow"] = (*n_flow)->hs_object->to_str();
-
         if (logger->isTraceEnabled()) {
             stringstream trace_msg;
             trace_msg << "traverse_flow_tree(): pass ";
@@ -1421,6 +1419,8 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
 
             _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1);
             node["children"] = children;
+        } else { // only dump flows at the leaves
+            node["flow"] = (*n_flow)->hs_object->to_str();
         }
 
         res.append(node);
