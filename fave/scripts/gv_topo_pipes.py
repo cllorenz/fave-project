@@ -353,7 +353,7 @@ class TopologyRenderer(object):
                 self.ftgraph.node(str(target), label=tlabel, shape='rectangle')
                 n_map[target] = _POSITION(self.ftgraph)
 
-            if self.use_verbose:
+            if self.use_verbose and 'flow' in child:
                 hs_list, hs_diff = self._readable_vectors(child['flow'])
 
                 label = _break_list_nl(hs_list)
@@ -404,7 +404,7 @@ class TopologyRenderer(object):
                     n_map[target] = _POSITION(self.ftgraph)
 
 
-                if self.use_verbose:
+                if self.use_verbose and 'flow' in child:
                     hs_list, hs_diff = self._readable_vectors(child['flow'])
 
                     label = _break_list_nl(hs_list)
