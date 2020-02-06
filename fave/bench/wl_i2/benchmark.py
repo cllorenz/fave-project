@@ -8,10 +8,10 @@ from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
 
-TOPOLOGY='bench/wl_i2/topology.json'
-ROUTES='bench/wl_i2/routes.json'
+TOPOLOGY='bench/wl_i2/i2-hassel/topology.json'
+ROUTES='bench/wl_i2/i2-hassel/routes.json'
 
-with open('bench/wl_i2/mapping.json', 'r') as mf:
+with open('bench/wl_i2/i2-hassel/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
@@ -35,7 +35,7 @@ def array_ipv4_to_cidr(array):
 
         return "%s/%s" % (octals, plen)
     else:
-        raise "array not in cidr format: %s" % array
+        raise Exception("array not in cidr format: %s" % array)
 
 
 def array_vlan_to_number(array):
@@ -104,15 +104,15 @@ if __name__ == '__main__':
     port_to_name = {}
 
     files = [
-        'bench/wl_i2/atla.tf.json',
-        'bench/wl_i2/chic.tf.json',
-        'bench/wl_i2/kans.tf.json',
-        'bench/wl_i2/salt.tf.json',
-        'bench/wl_i2/hous.tf.json',
-        'bench/wl_i2/losa.tf.json',
-        'bench/wl_i2/newy32aoa.tf.json',
-        'bench/wl_i2/seat.tf.json',
-        'bench/wl_i2/wash.tf.json'
+        'bench/wl_i2/i2-hassel/atla.tf.json',
+        'bench/wl_i2/i2-hassel/chic.tf.json',
+        'bench/wl_i2/i2-hassel/kans.tf.json',
+        'bench/wl_i2/i2-hassel/salt.tf.json',
+        'bench/wl_i2/i2-hassel/hous.tf.json',
+        'bench/wl_i2/i2-hassel/losa.tf.json',
+        'bench/wl_i2/i2-hassel/newy32aoa.tf.json',
+        'bench/wl_i2/i2-hassel/seat.tf.json',
+        'bench/wl_i2/i2-hassel/wash.tf.json'
     ]
     for tf in files:
         with open(tf, 'r') as tf_f:
@@ -189,7 +189,7 @@ if __name__ == '__main__':
             ))
             links.append(("source.%s.1" % pname, pname))
 
-    with open('bench/wl_i2/topology.json', 'w') as tf:
+    with open('bench/wl_i2/i2-hassel/topology.json', 'w') as tf:
         tf.write(
             json.dumps({'devices' : devices, 'links' : links}, indent=2) + '\n'
         )

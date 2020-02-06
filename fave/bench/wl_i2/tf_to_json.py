@@ -67,5 +67,5 @@ with open(sys.argv[1], 'r') as f:
 
     table['ports'] = list(ports)
 
-    with open(sys.argv[1].split('.')[0].split('/')[1]+'.tf.json', 'w') as of:
+    with open(sys.argv[1].split('/')[0] + '/' + sys.argv[1].split('.')[0].split('/')[1]+'.tf.json', 'w') as of:
         of.write(json.dumps(table, indent=2)+'\n')

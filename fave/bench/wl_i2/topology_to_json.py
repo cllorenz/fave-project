@@ -26,5 +26,5 @@ with open(sys.argv[1], 'r') as f:
         topo.append({'src' : src, 'dst' : dst})
 
 
-    with open('topology.json', 'w') as of:
+    with open('i2-hassel/topology.json', 'w') as of:
         of.write(json.dumps(topology, indent=2)+'\n')
