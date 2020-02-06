@@ -1436,15 +1436,18 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename lis
 
 template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
-    Json::Value flows_wrapper(Json::objectValue);
-    Json::Value flows(Json::arrayValue);
-
     stringstream info_msg;
     info_msg << "Dump flow trees...";
     LOG4CXX_INFO(logger, info_msg.str());
 
-
     for (auto const &flow_node: flow_nodes) {
+        stringstream tmp_flows;
+        tmp_flows << dir << "/" << flow_node->node_id << ".flow_tree.json";
+        string flow_trees_file_name = tmp_flows.str();
+
+        Json::Value flows_wrapper(Json::objectValue);
+        Json::Value flows(Json::arrayValue);
+
         for (auto const &s_flow: flow_node->source_flow) {
             Json::Value flow_tree(Json::objectValue);
 
@@ -1461,17 +1464,13 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
 
             flows.append(flow_tree);
         }
+
+        flows_wrapper["flows"] = flows;
+
+        ofstream flow_file(flow_trees_file_name.c_str());
+        flow_file << flows_wrapper;
+        flow_file.close();
     }
-
-    flows_wrapper["flows"] = flows;
-
-    stringstream tmp_flows;
-    tmp_flows << dir << "/flow_trees.json";
-    string flow_trees_file_name = tmp_flows.str();
-
-    ofstream flow_file(flow_trees_file_name.c_str());
-    flow_file << flows_wrapper;
-    flow_file.close();
 }
 
 
