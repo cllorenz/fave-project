@@ -528,6 +528,15 @@ def _read_files(ddir, name):
         contents = json.loads(ifile.read())
     return contents
 
+def _read_combine_files(ddir, name):
+    """ reads json files and combines their contents """
+    flow_trees = []
+    flow_tree_files = glob.glob('%s/*.%s.json' % (ddir, name))
+    for flow_tree_file in flow_tree_files:
+        flow_trees.extend(json.load(open(flow_tree_file, "r"))['flows'])
+
+    return { 'flows' : flow_trees }
+
 if __name__ == '__main__':
     try:
         OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bflnprstv')
@@ -591,7 +600,7 @@ if __name__ == '__main__':
     JSON_TOPOLOGY = _read_files(USE_DIR, 'topology') if USE_TOPOLOGY else None
     JSON_SLICES = _read_files(USE_DIR, 'slice') if USE_SLICE else None
     JSON_FLOWS = _read_files(USE_DIR, 'flows') if USE_FLOWS else None
-    JSON_FLOW_TREES = _read_files(USE_DIR, 'flow_trees') if USE_FLOW_TREES else None
+    JSON_FLOW_TREES = _read_combine_files(USE_DIR, 'flow_tree') if USE_FLOW_TREES else None
     JSON_FAVE = _read_files(USE_DIR, 'fave') if USE_FAVE else None
 
     GB = TopologyRenderer(
