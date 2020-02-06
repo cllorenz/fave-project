@@ -161,7 +161,11 @@ def _get_inverse_fave(dump):
 
 
 def _get_flow_trees(dump):
-    return json.load(open(dump+"/flow_trees.json"))["flows"]
+    return json.load(open(dump+"/flow_trees.json"), "r")["flows"]
+
+
+def _get_flow_tree(dump):
+    return json.load(open(dump), "r")["flows"]
 
 
 def _parse_flow_spec(flow):
@@ -218,7 +222,15 @@ def _parse_flow_spec(flow):
     return expr.parseString(flow)
 
 
+def _get_source(flow_spec):
+    for token in flow_spec:
+        if token.startswith("s="): return token[2:]
+
+    raise Exception("cannot find source in flow spec: %s" % flow_spec)
+
+
 def _check_flow_trees(flow_spec, flow_trees, inv_fave):
+    flow_trees = _get_flow_tree(flow_trees[flow_spec])
     for flow_tree in flow_trees:
         if check_flow(flow_spec, flow_tree, inv_fave):
             return True
@@ -292,7 +304,10 @@ def main(argv):
 
     with SoftFileLock("%s/.lock" % dump, timeout=-1):
         inv_fave = _get_inverse_fave(dump)
-        flow_trees = _get_flow_trees(dump)
+        #flow_trees = _get_flow_trees(dump)
+        flow_trees = {
+            k : "%s/%s.flow_tree.json" % (dump, v) for k, v in inv_fave["generator_to_id"].iteritems()
+        }
 
     failed = []
     reach = {'' : {'' : ''}}
