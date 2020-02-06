@@ -230,8 +230,9 @@ def _get_source(flow_spec):
 
 
 def _check_flow_trees(flow_spec, flow_trees, inv_fave):
-    flow_trees = _get_flow_tree(flow_trees[flow_spec])
-    for flow_tree in flow_trees:
+    source = _get_source(flow_spec)
+    fts = _get_flow_tree(flow_trees[source])
+    for flow_tree in fts:
         if check_flow(flow_spec, flow_tree, inv_fave):
             return True
 
