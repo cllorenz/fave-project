@@ -6,6 +6,48 @@ TMP=$(mktemp -d -p /tmp "np.XXXXXX")
 TMPESC=$(echo $TMP | sed 's/\//\\\//g')
 sed -i "s/\/tmp\/np\......./$TMPESC/g" examples/example.conf
 
+echo -n "generate rule set... "
+
+RS=examples/example-ruleset
+
+echo -n "" > $RS
+echo "ip6tables -P INPUT DROP" >> $RS
+echo "ip6tables -P FORWARD DROP" >> $RS
+echo "ip6tables -P OUTPUT DROP" >> $RS
+
+echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $RS
+echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $RS
+
+echo "ip6tables -A INPUT -p tcp --dport 22 -j ACCEPT" >> $RS
+
+echo "ip6tables -A OUTPUT -s 2001:db8::3 -p icmpv6 -j ACCEPT" >> $RS
+
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT" >> $RS
+#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT" >> $RS
+
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP" >> $RS
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP" >> $RS
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP" >> $RS
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP" >> $RS
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP" >> $RS
+
+echo "ip6tables -A FORWARD -d 2001:db8::2 -p tcp --dport 80 -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
+
+echo "ok"
+
 echo -n "start netplumber... "
 scripts/start_np.sh examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
@@ -53,7 +95,7 @@ echo -n "add generators... "
 python2 topology/topology.py -a -t generator -n $HOST1 -f "ipv6_dst=2001:db8::1"
 CNT=$(( $? + CNT ))
 # generator $HOST2
-python2 topology/topology.py -a -t generator -n $HOST2 -f "ipv6_dst=2001:db8::2;tcp_dst=80"
+python2 topology/topology.py -a -t generator -n $HOST2 -f "ipv6_dst=2001:db8::2"
 CNT=$(( $? + CNT ))
 
 #link: $HOST1 --> $FIREWALL
@@ -81,7 +123,7 @@ CNT=0
 
 # test firewall
 echo -n "add firewall rules... "
-python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f ip6np/iptables_ruleset_reduced.sh
+python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f $RS
 #python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f rulesets/simple_ruleset.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
