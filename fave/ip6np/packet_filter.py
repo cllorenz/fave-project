@@ -255,6 +255,12 @@ class PacketFilterModel(Model):
             ] #if k in active
         }
 
+        make_actions = lambda node, table, rule: [] if rule.actions == [] else [
+            Forward(ports=[
+                "%s_%s_%s" % (node, table, 'miss' if isinstance(r.actions[0], Miss) else 'accept')
+            ])
+        ]
+
         self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
         self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
         self.tables["routing"] = [r for r in self.chains["routing"]]
@@ -267,13 +273,7 @@ class PacketFilterModel(Model):
                     r.idx if r.idx else i,
                     in_ports=["%s_%s_in" % (self.node, table)],
                     match=Match([SwitchRuleField(f.name, f.value) for f in r.match]),
-                    actions=[Forward(ports=[
-                        "%s_%s_%s" % (
-                            self.node,
-                            table,
-                            'miss' if isinstance(r.actions[0], Miss) else 'accept'
-                        )
-                    ])]
+                    actions=make_actions(self.node, table, r)
                 ) for i, r in enumerate(chain)
             ]
 
