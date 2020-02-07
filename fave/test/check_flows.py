@@ -165,6 +165,7 @@ def _get_flow_trees(dump):
 
 
 def _get_flow_tree(dump):
+    print "load flow tree:", dump
     return json.load(open(dump, "r"))["flows"]
 
 
