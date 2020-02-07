@@ -8,6 +8,7 @@ import getopt
 import json
 import pyparsing as pp
 import csv
+import cachetools
 
 from openflow.switch import SwitchRuleField
 from ip6np.ip6np_util import field_value_to_bitvector
@@ -164,9 +165,13 @@ def _get_flow_trees(dump):
     return json.load(open(dump+"/flow_trees.json"), "r")["flows"]
 
 
-def _get_flow_tree(dump):
-    print "load flow tree:", dump
-    return json.load(open(dump, "r"))["flows"]
+def _get_flow_tree(dump, cache):
+    if dump in cache:
+        return cache[dump]
+    else:
+        j = json.load(open(dump, "r"))["flows"]
+        cache.update({dump : j})
+        return j
 
 
 def _parse_flow_spec(flow):
@@ -230,9 +235,9 @@ def _get_source(flow_spec):
     raise Exception("cannot find source in flow spec: %s" % flow_spec)
 
 
-def _check_flow_trees(flow_spec, flow_trees, inv_fave):
+def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
     source = _get_source(flow_spec)
-    fts = _get_flow_tree(flow_trees[source])
+    fts = _get_flow_tree(flow_trees[source], cache)
     for flow_tree in fts:
         if check_flow(flow_spec, flow_tree, inv_fave):
             return True
@@ -313,9 +318,10 @@ def main(argv):
 
     failed = []
     reach = {'' : {'' : ''}}
+    cache = cachetools.LRUCache(10)
     for no, flow_spec in enumerate(flow_specs, start=1):
         try:
-            successful = _check_flow_trees(flow_spec, flow_trees, inv_fave)
+            successful = _check_flow_trees(flow_spec, flow_trees, inv_fave, cache)
         except KeyError as ke:
             _update_reachability_matrix(reach, flow_spec, False, exception=True)
             continue
