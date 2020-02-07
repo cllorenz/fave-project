@@ -2,6 +2,8 @@
     rule set ASTs.
 """
 
+from copy import deepcopy as dc
+
 from ip6np_util import field_value_to_bitvector
 from packet_filter import PacketFilterModel
 from openflow.switch import SwitchRuleField, Match, SwitchRule, Forward
@@ -133,9 +135,9 @@ def _ast_to_rule(node, ast, idx=0):
     negated = [tag(f.value) for f in ast if is_field(f) and is_negated(f)]
 
     action = _get_action_from_ast(ast)
-    action = Forward(ports=[]) if action == 'DROP' else Forward(ports=[action])
+    actions = [] if action == 'DROP' else [Forward(ports=[action])]
 
-    if _is_state_rule(body) and action.ports != []:
+    if _is_state_rule(body) and actions != []:
         body.append(SwitchRuleField("related", "0xxxxxxx"))
 
     chain = _get_chain_from_ast(ast)
@@ -145,15 +147,15 @@ def _ast_to_rule(node, ast, idx=0):
         idx if not is_default else 65535,
         in_ports=['in'],
         match=Match(body),
-        actions=[action]
+        actions=actions
     )
 
-    state_rule = []
-    if _is_state_rule(body) and action.ports != []:
+    state_rules = []
+    if _is_state_rule(body) and actions != []:
         state_body = [SwitchRuleField("related", "1xxxxxxx")] + _build_state_rule_from_rule(body)
         state_chain = _get_state_chain_from_chain(chain)
 
-        state_rule.append(SwitchRule(
+        state_rules.append(SwitchRule(
             node,
             state_chain,
             idx,
@@ -163,9 +165,9 @@ def _ast_to_rule(node, ast, idx=0):
         ))
     elif action == 'DROP':
         state_chain = _get_state_chain_from_chain(chain)
-        state_rule.append(dc(rule))
+        state_rules.append(dc(rule))
 
-    return ([rule] + state_rule, {rule : negated}) if negated else ([rule] + state_rule, {})
+    return ([rule] + state_rules, {rule : negated}) if negated else ([rule] + state_rules, {})
 
 
 def _get_rules_from_ast(node, ast, idx=0):
