@@ -93,15 +93,29 @@ class PacketFilterModel(Model):
             "input_states" : [
                 SwitchRule(
                     node, 0, 65534, in_ports=['in'],
-                    match=Match([SwitchRuleField("related", "1xxxxxxx")]),
-                    actions=[Forward(ports=["%s_input_states_accept" % node])]
+                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
+                    actions=[Miss()]
                 ),
-                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])
+                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
             ],
             "output_rules" : [],
-            "output_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
+            "output_states" : [
+                SwitchRule(
+                    node, 0, 65534, in_ports=['in'],
+                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
+                    actions=[Miss()]
+                ),
+                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
+            ],
             "forward_rules" : [],
-            "forward_states" : [SwitchRule(node, 0, 65535, in_ports=['in'], actions=[Miss()])],
+            "forward_states" : [
+                SwitchRule(
+                    node, 0, 65534, in_ports=['in'],
+                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
+                    actions=[Miss()]
+                ),
+                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
+            ],
             "routing" : [],
             "post_routing" : [],
             "internals" : [],
