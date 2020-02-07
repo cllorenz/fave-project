@@ -163,9 +163,9 @@ def _ast_to_rule(node, ast, idx=0):
             match=Match(state_body),
             actions=[Forward(ports=['accept'])]
         ))
-    elif action == 'DROP':
-        state_chain = _get_state_chain_from_chain(chain)
-        state_rules.append(dc(rule))
+#    elif action == 'DROP':
+#        state_chain = _get_state_chain_from_chain(chain)
+#        state_rules.append(dc(rule))
 
     return ([rule] + state_rules, {rule : negated}) if negated else ([rule] + state_rules, {})
 
