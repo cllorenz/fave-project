@@ -534,16 +534,18 @@ class Aggregator(AbstractAggregator):
                     field_value_to_bitvector(fld).vector
                 )
 
-            port = self._global_port(
-                "%s_%s" % (tname, 'miss' if rid == 65535 else 'accept')
-            )
+            ports = [] if rule.actions == [] else [
+                self._global_port(
+                    port
+                ) for port in rule.actions[0].ports
+            ]
 
             Aggregator.LOGGER.debug(
                 "worker: add rule %s to %s:\n\t(%s -> %s)",
                 rule.idx,
                 self.tables["%s_%s" % (model.node, table)],
                 rvec.vector if rvec else "*",
-                port
+                ports
             )
 
             r_id = jsonrpc.add_rule(
@@ -551,7 +553,7 @@ class Aggregator(AbstractAggregator):
                 self.tables["%s_%s" % (model.node, table)],
                 rule.idx,
                 [self._global_port(p) for p in rule.in_ports],
-                [port],
+                ports,
                 rvec.vector,
                 None,
                 None
