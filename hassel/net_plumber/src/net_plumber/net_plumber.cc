@@ -555,6 +555,10 @@ NetPlumber<T1, T2>::~NetPlumber() {
     clear_port_to_node_maps(probe);
     delete probe;
   }
+  for (auto &flow_node: this->flow_nodes) {
+    clear_port_to_node_maps(flow_node);
+    delete flow_node;
+  }
   for (auto &link: this->topology) {
     delete link.second;
   }
@@ -566,10 +570,6 @@ NetPlumber<T1, T2>::~NetPlumber() {
     tmp++;
     free_table_memory((*it).first);
     it = tmp;
-  }
-  for (auto &flow_node: this->flow_nodes) {
-    clear_port_to_node_maps(flow_node);
-    delete flow_node;
   }
 #ifdef PIPE_SLICING
   for (auto const &slice: slices) {
