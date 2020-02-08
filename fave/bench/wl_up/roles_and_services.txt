@@ -326,8 +326,8 @@ def role DMZAdminConsole
 end
 
 
-def role DMZ
-    description = 'All DMZ servers.'
+def role DMZPublicServers
+    description = 'All public DMZ servers.'
 
     includes DMZFileServer
     includes DMZMailServer
@@ -335,6 +335,13 @@ def role DMZ
     includes DMZLdapServer
     includes DMZVPNServer
     includes DMZDNSServer
+end
+
+
+def role DMZ
+    description = 'All DMZ servers.'
+
+    includes DMZPublicServers
     includes DMZDataServer
     includes DMZAdminConsole
 end
