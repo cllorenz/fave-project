@@ -1,10 +1,10 @@
 describe policies(default: deny)
-    All <->> DMZDNSServer
+    All <--> DMZDNSServer
 
     DMZAdminConsole <->> PGF
     DMZAdminConsole <->> DMZ
 
-    Internet <--> DMZ
+    Internet <--> DMZPublicServers
     Internet <->> SubnetsPublicServers
     SubnetClients <->> Internet
     SubnetClients <->> DMZ
