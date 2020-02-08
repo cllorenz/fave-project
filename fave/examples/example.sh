@@ -149,21 +149,19 @@ python2 netplumber/print_np.py -utn
 # test flow propagation
 echo -n "check flow propagation... "
 
-F1='s='$HOST1' && EX t='$FIREWALL'_pre_routing && (EX t='$FIREWALL'_forward_states)'
+F1='s='$HOST1' && EX t='$FIREWALL'_pre_routing && (EX t='$FIREWALL'_forward_filter)'
 F2='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EF t='$SWITCH'_1 && EX p='$PROBE2
 F3='! s='$HOST1' && EF p='$PROBE1
-F4='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states && EX t='$FIREWALL'_forward_rules'
 
-F5='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EF p='$PROBE1
-F6='! s='$HOST2' && EF p='$PROBE2
-F7='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states && EX t='$FIREWALL'_forward_rules'
-F8='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_states'
+F4='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EF p='$PROBE1
+F5='! s='$HOST2' && EF p='$PROBE2
+F6='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_filter'
 
-F9='s='$HOST2' && EF p='$PROBE1
-F10='s='$HOST1' && EF p='$PROBE2' && f=related:1'
-F11='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
+F7='s='$HOST2' && EF p='$PROBE1
+F8='s='$HOST1' && EF p='$PROBE2' && f=related:1'
+F9='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
 
-python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11"
+python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
 
 # test openflow
