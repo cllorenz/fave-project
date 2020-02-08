@@ -21,7 +21,7 @@ UP = {
         ]),
         ("adm.uni-potsdam.de", "2001:db8:abc:1::8", ["udp:161", "tcp:22", "udp:22"])
     ],
-    "wifi" : [("clients.wifi.uni-potsdam.de", "2001:db8:abc:2::100/120", [])],
+    "wifi" : [("clients.wifi.uni-potsdam.de", "2001:db8:abc:2::0/64", [])],
     "subnets" : [
         "api.uni-potsdam.de",
         "asta.uni-potsdam.de",
