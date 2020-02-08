@@ -34,6 +34,7 @@ if __name__ == '__main__':
     # dmz hosts
     for cnt, host in enumerate(dmz):
         name, addr, _services = host
+
         port = cnt+2
         routes.extend([
             # dmz -> host
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     # subnets
     for cnt, subnet in enumerate(subnets):
         port = cnt+4
-        netident = cnt+4
+        netident = hex(cnt+4)[2:]
 
         routes.append((
             "pgf.uni-potsdam.de",
@@ -89,6 +90,7 @@ if __name__ == '__main__':
 
         # default rule
         routes.append((subnet, 1, 65535, [], ["fd=%s.1" % subnet], []))
+
 
     with open(OFILE, 'w') as of:
         of.write(json.dumps(routes, indent=2) + "\n")
