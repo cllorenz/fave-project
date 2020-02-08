@@ -89,33 +89,9 @@ class PacketFilterModel(Model):
         self.rules = []
         self.chains = {
             "pre_routing" : [],
-            "input_rules" : [],
-            "input_states" : [
-                SwitchRule(
-                    node, 0, 65534, in_ports=['in'],
-                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
-                    actions=[Miss()]
-                ),
-                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
-            ],
-            "output_rules" : [],
-            "output_states" : [
-                SwitchRule(
-                    node, 0, 65534, in_ports=['in'],
-                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
-                    actions=[Miss()]
-                ),
-                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
-            ],
-            "forward_rules" : [],
-            "forward_states" : [
-                SwitchRule(
-                    node, 0, 65534, in_ports=['in'],
-                    match=Match([SwitchRuleField("related", "0xxxxxxx")]),
-                    actions=[Miss()]
-                ),
-                SwitchRule(node, 0, 65535, in_ports=['in'], actions=[])
-            ],
+            "input_filter" : [],
+            "output_filter" : [],
+            "forward_filter" : [],
             "routing" : [],
             "post_routing" : [],
             "internals" : [],
@@ -123,26 +99,17 @@ class PacketFilterModel(Model):
         internal_ports = {
             "pre_routing_input" : 1,
             "pre_routing_forward" : 2,
-            "input_states_in" : 3,
-            "input_states_accept" : 4,
-            "input_states_miss" : 5,
-            "input_rules_in" : 6,
-            "input_rules_accept" : 7,
-            "forward_states_in" : 8,
-            "forward_states_accept" : 9,
-            "forward_states_miss" : 10,
-            "forward_rules_in" : 11,
-            "forward_rules_accept" : 12,
-            "output_states_in" : 13,
-            "output_states_accept" : 14,
-            "output_states_miss" : 15,
-            "output_rules_in" : 16,
-            "output_rules_accept" : 17,
-            "internals_in" : 18,
-            "internals_out" : 19,
-            "post_routing_in" : 20,
-            "routing_in" : 21,
-            "routing_out" : 22
+            "input_filter_in" : 3,
+            "input_filter_accept" : 4,
+            "forward_filter_in" : 5,
+            "forward_filter_accept" : 6,
+            "output_filter_in" : 7,
+            "output_filter_accept" : 8,
+            "internals_in" : 9,
+            "internals_out" : 10,
+            "post_routing_in" : 11,
+            "routing_in" : 12,
+            "routing_out" : 13
         }
         self.private_ports = len(internal_ports)
         input_ports = {
@@ -195,18 +162,12 @@ class PacketFilterModel(Model):
         ]
 
         self.wiring = [
-            ("pre_routing_input", "input_states_in"), # pre routing to input states
-            ("input_states_accept", "internals_in"), # input states accept to internals
-            ("input_states_miss", "input_rules_in"), # input states miss to input rules
-            ("input_rules_accept", "internals_in"), # input rules to internals
-            ("pre_routing_forward", "forward_states_in"), # pre routing to forward states
-            ("forward_states_accept", "routing_in"), # forward states accept to routing
-            ("forward_states_miss", "forward_rules_in"), # forward states miss to forward rules
-            ("forward_rules_accept", "routing_in"), # forward rules accept to routing
-            ("internals_out", "output_states_in"), # internal output to output states
-            ("output_states_accept", "routing_in"), # output states accept to routing
-            ("output_states_miss", "output_rules_in"), # output states miss to output rules
-            ("output_rules_accept", "routing_in"), # output rules accept to routing
+            ("pre_routing_input", "input_filter_in"), # pre routing to input filter
+            ("input_filter_accept", "internals_in"), # input filter accept to internals
+            ("pre_routing_forward", "forward_filter_in"), # pre routing to forward filter
+            ("forward_filter_accept", "routing_in"), # forward filter accept to routing
+            ("internals_out", "output_filter_in"), # internal output to output filter
+            ("output_filter_accept", "routing_in"), # output filter accept to routing
             ("routing_out", "post_routing_in") # routing to post routing
         ]
         self.mapping = Mapping(length=0)
@@ -262,10 +223,7 @@ class PacketFilterModel(Model):
             k:[r for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
                 "routing",
-                "post_routing",
-                "input_states",
-                "output_states",
-                "forward_states"
+                "post_routing"
             ] #if k in active
         }
 
@@ -278,18 +236,6 @@ class PacketFilterModel(Model):
         self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
         self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
         self.tables["routing"] = [r for r in self.chains["routing"]]
-        for table in ["input_states", "output_states", "forward_states"]:
-            chain = self.chains[table]
-            self.tables[table] = [
-                SwitchRule(
-                    self.node,
-                    "%s_%s" % (self.node, table),
-                    r.idx if r.idx else i,
-                    in_ports=["%s_%s_in" % (self.node, table)],
-                    match=Match([SwitchRuleField(f.name, f.value) for f in r.match]),
-                    actions=make_actions(self.node, table, r)
-                ) for i, r in enumerate(chain)
-            ]
 
         # XXX: remove
         #self.ports = {
@@ -379,7 +325,7 @@ class PacketFilterModel(Model):
 
     # XXX: ugly hack
     def _reorder_defaults(self):
-        for chain in ["input_rules", "forward_rules", "output_rules"]:
+        for chain in ["input_filter", "forward_filter", "output_filter"]:
             chn = self.chains[chain]
             if not chn:
                 continue
@@ -388,7 +334,6 @@ class PacketFilterModel(Model):
                 default = chn[0]
                 chn.remove(default)
                 chn.append(default)
-
 
     def finalize(self):
         """ Finalize model by fill chains and reorder defaults.
