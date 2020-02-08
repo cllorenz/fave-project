@@ -704,7 +704,7 @@ end
 def role GeogPublicServers
     description = 'The public servers of the geographical institute.'
 
-    hosts = ['web.geo.uni-potsdam.de', 'voip.geo.uni-potsdam.de', 'mail.geo.uni-potsdam.de']
+    hosts = ['web.geographie.uni-potsdam.de', 'voip.geographie.uni-potsdam.de', 'mail.geographie.uni-potsdam.de']
 
     offers HTTP
     offers HTTPS
@@ -727,7 +727,7 @@ end
 def role GeogPrivateServers
     description = 'The private servers of the geographical institute.'
 
-    hosts = ['print.geo.uni-potsdam.de', 'file.geo.uni-potsdam.de']
+    hosts = ['print.geographie.uni-potsdam.de', 'file.geographie.uni-potsdam.de']
 
     offers CUPS
     offers UCUPS
