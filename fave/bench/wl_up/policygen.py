@@ -19,10 +19,8 @@ if __name__ == '__main__':
     ]
     links = [
         ("pgf.uni-potsdam.de.25", "probe.internet.1"),
-        ("clients.wifi.uni-potsdam.de_input_states_accept", "probe.clients.wifi.uni-potsdam.de.1"),
-        ("clients.wifi.uni-potsdam.de_input_rules_accept", "probe.clients.wifi.uni-potsdam.de.1"),
-        ("pgf.uni-potsdam.de_input_states_accept", "probe.pgf.uni-potsdam.de.1"),
-        ("pgf.uni-potsdam.de_input_rules_accept", "probe.pgf.uni-potsdam.de.1")
+        ("clients.wifi.uni-potsdam.de_input_filter_accept", "probe.clients.wifi.uni-potsdam.de.1"),
+        ("pgf.uni-potsdam.de_input_filter_accept", "probe.pgf.uni-potsdam.de.1")
     ]
 
     # test dmz
@@ -30,10 +28,10 @@ if __name__ == '__main__':
         probes.append(
             ("probe.%s" % name, "probe", "existential", None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
-        links.extend([
-            ("%s_input_states_accept" % name, "probe.%s.1" % name),
-            ("%s_input_rules_accept" % name, "probe.%s.1" % name)
-        ])
+        links.append(
+            ("%s_input_filter_accept" % name, "probe.%s.1" % name)
+        )
+
 
     # test subnets
     for subnet in subnets:
@@ -49,10 +47,9 @@ if __name__ == '__main__':
                 [".*(p=pgf.uni-potsdam.de.1);$"]
             ))
 
-            links.extend([
-                ("%s_input_states_accept" % hostnet, "probe.%s.1" % hostnet),
-                ("%s_input_rules_accept" % hostnet, "probe.%s.1" % hostnet)
-            ])
+            links.append(
+                ("%s_input_filter_accept" % hostnet, "probe.%s.1" % hostnet)
+            )
 
 
         probes.append((
@@ -64,10 +61,9 @@ if __name__ == '__main__':
             [".*(p=pgf.uni-potsdam.de.1);$"]
         ))
 
-        links.extend([
-            ("clients.%s_input_states_accept" % subnet, "probe.clients.%s.1" % subnet),
-            ("clients.%s_input_rules_accept" % subnet, "probe.clients.%s.1" % subnet)
-        ])
+        links.append(
+            ("clients.%s_input_filter_accept" % subnet, "probe.clients.%s.1" % subnet)
+        )
 
 
     policies = {
