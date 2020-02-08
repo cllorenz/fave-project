@@ -136,7 +136,8 @@ if __name__ == '__main__':
         address = get_addr(*host)
         server = "source.%s" % hname
         sources.append((server, "generator", ["ipv6_src=%s" % address]))
-        source_links.append(("%s.1" % server, "%s_output_states_in" % hname))
+        source_links.append(("%s.1" % server, "%s_output_filter_in" % hname))
+
 
     for cnt, subnet in enumerate(subnets, start=4):
         netident = hex(cnt)[2:]
@@ -149,7 +150,7 @@ if __name__ == '__main__':
             addr = "2001:db8:abc:%s::%s" % (netident, ident)
 
             sources.append((server , "generator", ["ipv6_src=%s" % addr]))
-            source_links.append(("%s.1" % server, "%s_output_states_in" % hostnet))
+            source_links.append(("%s.1" % server, "%s_output_filter_in" % hostnet))
 
 
         caddr = "2001:db8:abc:%s::100/120" % netident
@@ -157,7 +158,7 @@ if __name__ == '__main__':
             ("source.clients.%s" % subnet, "generator", ["ipv6_src=%s" % caddr])
         )
         source_links.append(
-            ("source.clients.%s.1" % subnet, "clients.%s_output_states_in" % subnet)
+            ("source.clients.%s.1" % subnet, "clients.%s_output_filter_in" % subnet)
         )
 
 
