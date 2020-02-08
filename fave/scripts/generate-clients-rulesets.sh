@@ -29,7 +29,7 @@ for SUB in $SUBNETS; do
     echo -n "" > $SCRIPT
 
     # preamble
-    echo "ip6tables -P INPUT ACCEPT" >> $SCRIPT
+    echo "ip6tables -P INPUT DROP" >> $SCRIPT
     echo "ip6tables -P FORWARD DROP" >> $SCRIPT
     echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
 
