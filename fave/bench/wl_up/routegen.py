@@ -17,12 +17,14 @@ if __name__ == '__main__':
         ("pgf.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:1::0/64"], ["fd=pgf.uni-potsdam.de.2"], []),
         # pgf -> wifi
         ("pgf.uni-potsdam.de", 1, 1, ["ipv6_dst=2001:db8:abc:2::0/64"], ["fd=pgf.uni-potsdam.de.3"], []),
+        # uni-potsdam.de routing domain
+        ("pgf.uni-potsdam.de", 1, 65534, ["ipv6_dst=2001:db8:abc:0::0/48"], [], []),
         # pgf -> internet
         ("pgf.uni-potsdam.de", 1, 65535, [], ["fd=pgf.uni-potsdam.de.1"], []),
         # dmz -> pgf
         ("dmz.uni-potsdam.de", 1, 65535, [], ["fd=dmz.uni-potsdam.de.1"], ["dmz.uni-potsdam.de.%s" % p for p in range(2, 9+1)]),
         # wifi -> wifi
-        ("wifi.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:2::100/120"], ["fd=wifi.uni-potsdam.de.2"], ["wifi.uni-potsdam.de.1", "wifi.uni-potsdam.de.3"]),
+        ("wifi.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:2::0/64"], ["fd=wifi.uni-potsdam.de.2"], ["wifi.uni-potsdam.de.1", "wifi.uni-potsdam.de.3"]),
         # wifi -> pgf
         ("wifi.uni-potsdam.de", 1, 65535, [], ["fd=wifi.uni-potsdam.de.1"], ["wifi.uni-potsdam.de.3"]),
         # wifi -> wifi
