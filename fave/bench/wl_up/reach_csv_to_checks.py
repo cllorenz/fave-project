@@ -81,14 +81,14 @@ if __name__ == '__main__':
                 fstr = 's=source.%s && EF p=probe.%s'
                 if flag == 'X':
                     for target in targets:
-                        reach_json[target].extend([s for s in sources])
-                        checks.extend([fstr % (s, target) for s in sources])
+                        reach_json[target].extend([s for s in sources if s != target])
+                        checks.extend([fstr % (s, target) for s in sources if s != target])
 
                 elif flag == '(X)':
                     for target in targets:
-                        reach_json[target].extend([s for s in sources])
-                        checks.extend([fstr % (s, target) + ' && f=related:1' for s in sources])
-                        checks.extend(['! ' + fstr % (s, target) + ' && f=related:0' for s in sources])
+                        reach_json[target].extend([s for s in sources if s != target])
+                        checks.extend([fstr % (s, target) + ' && f=related:1' for s in sources if s != target])
+                        checks.extend(['! ' + fstr % (s, target) + ' && f=related:0' for s in sources if s != target])
 
                 else:
                     checks.extend(['! ' + fstr % (s, target) for s in sources])
