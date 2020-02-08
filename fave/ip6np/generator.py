@@ -35,26 +35,28 @@ def _swap_src_dst(field):
 
 
 def _build_state_rule_from_rule(body):
-    return [SwitchRuleField("packet.ipv6.proto", "tcp")] + [
-        SwitchRuleField(
-            _swap_src_dst(field.name),
-            field.value
-        ) for field in [f for f in body if f.name in [
-            "packet.ipv6.source",
-            "packet.ipv6.destination",
-            "packet.upper.sport",
-            "packet.upper.dport"
-        ]]
+    return [
+        (
+            SwitchRuleField(
+                _swap_src_dst(field.name),
+                field.value
+            ) if field.name in [
+                "packet.ipv6.source",
+                "packet.ipv6.destination",
+                "packet.upper.sport",
+                "packet.upper.dport"
+            ] else dc(field)
+        ) for field in [f for f in body if f.name != "related"]
     ]
 
 
 def _get_state_chain_from_chain(chain):
     if chain.startswith("forward"):
-        return chain.replace("rules", "states")
+        return chain
     elif chain.startswith("input"):
-        return chain.replace("input_rules", "output_states")
+        return chain.replace("input", "output")
     elif chain.startswith("output"):
-        return chain.replace("output_rules", "input_states")
+        return chain.replace("output", "input")
     else:
         raise Exception("cannot fetch state chain from chain: %s" % chain)
 
@@ -81,7 +83,6 @@ def _ast_to_rule(node, ast, idx=0):
         #"tos" : "packet.ipv6.priority", # value[/mask]
         "m" : "module",
         "limit" : "module.limit",
-        "state" : "module.state",
         "header" : "module.ipv6header.header",
         "rt" : "module.rt",
         "rt-type" : "module.ipv6header.rt.type", # type
@@ -191,9 +192,9 @@ def _get_chain_from_ast(ast):
 
     chain = ast.get_first().value
     return {
-        "input":"input_rules",
-        "output":"output_rules",
-        "forward":"forward_rules"
+        "input":"input_filter",
+        "output":"output_filter",
+        "forward":"forward_filter"
     }[chain.lower()]
 
 
