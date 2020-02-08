@@ -3,6 +3,7 @@ describe policies(default: deny)
 
     DMZAdminConsole <->> PGF
     DMZAdminConsole <->> DMZ
+    DMZ <--> DMZ
 
     Internet <--> DMZPublicServers
     Internet <->> SubnetsPublicServers
@@ -13,6 +14,7 @@ describe policies(default: deny)
     Wifi <->> Internet
     Wifi <->> DMZ
     Wifi <->> SubnetsPublicServers
+    Wifi <--> Wifi
 
     ApiClients <->> ApiServers
     AstaClients <->> AstaServers
