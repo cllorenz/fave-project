@@ -511,6 +511,7 @@ class Aggregator(AbstractAggregator):
                 self.links[gport1] = gport2
 
 
+    # XXX: remove
     def _add_state_table(self, model, table):
         if table not in model.tables:
             return
@@ -838,10 +839,7 @@ class Aggregator(AbstractAggregator):
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
             if table in [
                     "pre_routing",
-                    "post_routing",
-                    "input_states",
-                    "output_states",
-                    "forward_states"
+                    "post_routing"
             ]:
                 Aggregator.LOGGER.debug("worker: skip adding rules to table %s", table)
                 continue
@@ -853,9 +851,6 @@ class Aggregator(AbstractAggregator):
 
         for table in ["pre_routing"]:
             self._add_pre_routing_rules(model)
-
-        for table in ["input_states", "output_states", "forward_states"]:
-            self._add_state_table(model, table)
 
 
     # XXX: merge with pre- post-routing handling above?
