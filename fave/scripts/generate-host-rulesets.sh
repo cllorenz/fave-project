@@ -71,8 +71,8 @@ SUBNETS="api.uni-potsdam.de \
 
 SUBHOSTS="web,tcp:80,tcp:443;tcp:22 \
     voip,tcp:5060,tcp:5061;tcp:22 \
-    print,;tcp:631,tcp:22 \
     mail,tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995;tcp:22 \
+    print,;tcp:631,tcp:22 \
     file,;tcp:137,tcp:138,tcp:139,tcp:445,tcp:2049,tcp:22"
 #SUBHOSTS="web,tcp:80,tcp:443;tcp:22,udp:22 \
 #    voip,tcp:5060,tcp:5061,udp:5060;tcp:22,udp:22 \
@@ -123,7 +123,8 @@ for SUB in $SUBNETS; do
     srv=1
     for HOST in $SUBHOSTS; do
         H=`echo $HOST | cut -d ',' -f 1`
-        A="2001:db8:abc:$cnt::$srv"
+        hcnt=`printf %x $cnt`
+        A="2001:db8:abc:$hcnt::$srv"
         PUB=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 1`
         PRIV=`echo $HOST | cut -d ',' -f 2- | cut -d ';' -f 2`
 
@@ -133,7 +134,7 @@ for SUB in $SUBNETS; do
         # preamble
         echo "ip6tables -P INPUT DROP" >> $SCRIPT
         echo "ip6tables -P FORWARD DROP" >> $SCRIPT
-        echo "ip6tables -P OUTPUT ACCEPT" >> $SCRIPT
+        echo "ip6tables -P OUTPUT DROP" >> $SCRIPT
 
         # handle incoming icmpv6
 #        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
@@ -145,6 +146,15 @@ for SUB in $SUBNETS; do
 #        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
 #        echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
+        # allow access to the dns server
+        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT" >> $SCRIPT
+
+        # deny access to dmz hosts
+        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::0/64 -j DROP" >> $SCRIPT
+
+        # deny access from dmz hosts
+        echo "ip6tables -A INPUT -s 2001:db8:abc:1::0/64 -j DROP" >> $SCRIPT
+
         # accept traffic for public services
         for PORT in $PUB; do
             public $A $PORT
@@ -152,7 +162,7 @@ for SUB in $SUBNETS; do
 
         # accept traffic for private services
         for PORT in $PRIV; do
-            private 2001:db8:abc::0/48 $A $PORT
+            private 2001:db8:abc:$hcnt::100/120 $A $PORT
         done
 
         srv=$(($srv+1))
