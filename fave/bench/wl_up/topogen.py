@@ -63,6 +63,7 @@ if __name__ == '__main__':
 
     for cnt, host in enumerate(dmz, start=2):
         name = get_domain(*host)
+
         addr = get_addr(*host)
         port = cnt
 
@@ -78,12 +79,13 @@ if __name__ == '__main__':
             ("dmz.uni-potsdam.de.%s" % port, "%s.1" % name)
         ])
 
+
     subnets = UP["subnets"]
     subhosts = UP["subhosts"]
 
     for cnt, subnet in enumerate(subnets, start=4):
         port = cnt
-        netident = cnt
+        netident = hex(cnt)[2:]
 
         # subnet switch
         devices.append((subnet, "switch", len(subhosts)+2))
@@ -130,13 +132,14 @@ if __name__ == '__main__':
 
     for host in dmz:
         hname = get_domain(*host)
+
         address = get_addr(*host)
         server = "source.%s" % hname
         sources.append((server, "generator", ["ipv6_src=%s" % address]))
         source_links.append(("%s.1" % server, "%s_output_states_in" % hname))
 
     for cnt, subnet in enumerate(subnets, start=4):
-        netident = cnt
+        netident = hex(cnt)[2:]
 
         for srv, host in enumerate(subhosts):
             ident = srv + 1
@@ -149,7 +152,7 @@ if __name__ == '__main__':
             source_links.append(("%s.1" % server, "%s_output_states_in" % hostnet))
 
 
-        caddr = "2001:db8:abc:%s::100/120" % (netident)
+        caddr = "2001:db8:abc:%s::100/120" % netident
         sources.append(
             ("source.clients.%s" % subnet, "generator", ["ipv6_src=%s" % caddr])
         )
