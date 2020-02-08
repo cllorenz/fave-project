@@ -145,30 +145,28 @@ def _ast_to_rule(node, ast, idx=0):
     rule = SwitchRule(
         node,
         chain,
-        idx if not is_default else 65535,
+        (1+idx)*2+1 if not is_default else 65535,
         in_ports=['in'],
         match=Match(body),
         actions=actions
     )
 
-    state_rules = []
-    if _is_state_rule(body) and actions != []:
+    rules = [rule]
+    if (_is_state_rule(body) or is_default) and actions != []:
         state_body = [SwitchRuleField("related", "1xxxxxxx")] + _build_state_rule_from_rule(body)
+        if is_default: state_body.append(SwitchRuleField("packet.ipv6.proto", "tcp"))
         state_chain = _get_state_chain_from_chain(chain)
 
-        state_rules.append(SwitchRule(
+        rules.append(SwitchRule(
             node,
             state_chain,
-            idx,
+            (1+idx)*2 if not is_default else 1,
             in_ports=['in'],
             match=Match(state_body),
             actions=[Forward(ports=['accept'])]
         ))
-#    elif action == 'DROP':
-#        state_chain = _get_state_chain_from_chain(chain)
-#        state_rules.append(dc(rule))
 
-    return ([rule] + state_rules, {rule : negated}) if negated else ([rule] + state_rules, {})
+    return (rules, {rule : negated}) if negated else (rules, {})
 
 
 def _get_rules_from_ast(node, ast, idx=0):
