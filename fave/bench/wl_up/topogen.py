@@ -19,14 +19,14 @@ if __name__ == '__main__':
     # device: (name, type, no_ports, address, ruleset)
     devices = [
         (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/pgf.uni-potsdam.de-ruleset" % RULESETS),
-#        (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/simple-ruleset" % RULESETS),
+        #(get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/simple-ruleset" % RULESETS), # XXX
         ("dmz.uni-potsdam.de", "switch", 9),
         ("wifi.uni-potsdam.de", "switch", 3),
         (
             "clients.wifi.uni-potsdam.de", #get_domain(*wifi),
             "host",
             1,
-            "2001:db8:abc:2::100/120", #get_addr(*wifi),
+            "2001:db8:abc:2::0/64", #get_addr(*wifi),
             "%s/wifi.uni-potsdam.de-clients-ruleset" % RULESETS
         )
     ]
@@ -45,15 +45,15 @@ if __name__ == '__main__':
     # source nodes
     sources = [
         ("source.internet", "generator", ["ipv6_src=0::0/0"]),
-        ("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::100/120"]),
+        ("source.clients.wifi.uni-potsdam.de", "generator", ["ipv6_src=2001:db8:abc:2::0/64"]),
         ("source.pgf.uni-potsdam.de", "generator", ["ipv6_src=%s" % get_addr(*pgf)])
     ]
 
     # source links
     source_links = [
         ("source.internet.1", "pgf.uni-potsdam.de.1"),
-        ("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de_output_states_in"),
-        ("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de_output_states_in")
+        ("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de_output_filter_in"),
+        ("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de_output_filter_in")
     ]
 
 
