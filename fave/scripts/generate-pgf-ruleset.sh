@@ -145,21 +145,16 @@ for SUB in $SUBNETS; do
 
     # web
     public $PREFIX::1 tcp:80,tcp:443
-#    private_sub $cnt $PREFIX::1 tcp:22
-#    private_sub $cnt $PREFIX::1 tcp:22,udp:22
+    private_sub $cnt $PREFIX::1 tcp:22,udp:22
 
     # voip
-    public $PREFIX::2 tcp:5060,tcp:5061
-#    private_sub $cnt $PREFIX::2 tcp:22
-#    public $PREFIX::2 tcp:5060,tcp:5061,udp:5060
-#    private_sub $cnt $PREFIX::2 tcp:22,udp:22
+    public $PREFIX::2 tcp:5060,tcp:5061,udp:5060
+    private_sub $cnt $PREFIX::2 tcp:22,udp:22
 
     # mail
     public $PREFIX::3 \
-      tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995
-#      tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995,udp:143,udp:220
-#    private_sub $cnt $PREFIX::3 tcp:22
-#    private_sub $cnt $PREFIX::4 tcp:22,udp:22
+      tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995,udp:143,udp:220
+    private_sub $cnt $PREFIX::4 tcp:22,udp:22
 
     # print
 #    private_sub $cnt $PREFIX::4 tcp:631,tcp:22
