@@ -21,3 +21,5 @@ out
 
 *.so
 *.so.bak
+
+examples/example-ruleset
