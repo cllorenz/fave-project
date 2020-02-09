@@ -115,39 +115,32 @@ echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsle
 
 # allow access to dmz services
 public 2001:db8:abc:1::1 tcp:21 ,tcp:115
-private_dmz 2001:db8:abc:1::1 tcp:22
+private_dmz 2001:db8:abc:1::1 tcp:22,udp:22
 #private 2001:db8:abc:1::1 tcp:22,udp:22
 
 public 2001:db8:abc:1::2 \
     tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995
-private_dmz 2001:db8:abc:1::2 tcp:22
+private_dmz 2001:db8:abc:1::2 tcp:22,udp:22
 #public 2001:db8:abc:1::2 \
 #    tcp:25,tcp:587,tcp:110,tcp:143,tcp:220,tcp:465,tcp:993,tcp:995,udp:143,udp:220
-#private 2001:db8:abc:1::2 tcp:22,udp:22
 
 public 2001:db8:abc:1::3 tcp:80,tcp:443
-private_dmz 2001:db8:abc:1::3 tcp:22
-#private 2001:db8:abc:1::3 tcp:22,udp:22
+private_dmz 2001:db8:abc:1::3 tcp:22,udp:22
 
 public 2001:db8:abc:1::4 tcp:389,tcp:636
-private_dmz 2001:db8:abc:1::4 tcp:22
+private_dmz 2001:db8:abc:1::4 tcp:22,udp:22
 #public 2001:db8:abc:1::4 tcp:389,tcp:636,udp:389,udp:123
-#private 2001:db8:abc:1::4 tcp:22,udp:22
 
 public 2001:db8:abc:1::5 tcp:1194,tcp:1723
-private_dmz 2001:db8:abc:1::5 tcp:22
+private_dmz 2001:db8:abc:1::5 tcp:22,udp:22
 #public 2001:db8:abc:1::5 tcp:1194,tcp:1723,udp:1194,udp:1723
-#private 2001:db8:abc:1::5 tcp:22,udp:22
 
 public 2001:db8:abc:1::6 tcp:53,udp:53
-private_dmz 2001:db8:abc:1::6 tcp:22
-#private 2001:db8:abc:1::6 tcp:22,udp:22
+private_dmz 2001:db8:abc:1::6 tcp:22,udp:22
 
-private_dmz 2001:db8:abc:1::7 tcp:118,tcp:156,tcp:22
-#private 2001:db8:abc:1::7 tcp:118,tcp:156,tcp:22,udp:118,udp:156,udp:22
+private_dmz 2001:db8:abc:1::7 tcp:118,tcp:156,tcp:22,udp:118,udp:156,udp:22
 
-private_dmz 2001:db8:abc:1::8 tcp:161,tcp:22
-#private 2001:db8:abc:1::8 udp:161,tcp:22,udp:22
+private_dmz 2001:db8:abc:1::8 tcp:161,tcp:22,udp:161,udp:22
 
 # allow access to public subdomain services and restrict usage of private
 # services to host in the respective subnet
