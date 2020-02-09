@@ -1257,6 +1257,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
                 rule["rewrite"] = r_node->rewrite->to_str();
             }
 
+#ifdef DEBUG_DUMP
 #ifdef NEW_HS
             T1 tmp = T1(this->length);
 #else
@@ -1269,6 +1270,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
             if (!tmp.is_empty()) {
                 rule["influences"] = tmp.to_str();
             }
+#endif
 
             rules.append(rule);
         }
