@@ -9,6 +9,7 @@ import json
 import pyparsing as pp
 import csv
 import cachetools
+import time
 
 from openflow.switch import SwitchRuleField
 from ip6np.ip6np_util import field_value_to_bitvector
@@ -19,6 +20,7 @@ from filelock import SoftFileLock
 
 from util.print_util import eprint
 
+measurements = []
 
 def check_field(flow, field, value, mapping):
     hs = HeaderSpace.from_str(flow)
@@ -238,11 +240,20 @@ def _get_source(flow_spec):
 def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
     source = _get_source(flow_spec)
     fts = _get_flow_tree(flow_trees[source], cache)
+
+    t_start = time.time()
+
+    res = False
     for flow_tree in fts:
         if check_flow(flow_spec, flow_tree, inv_fave):
-            return True
+            res = True
+            break
 
-    return False
+    t_end = time.time()
+    print "checked flow in %s ms" % ((t_end - t_start) * 1000.0)
+    measurements.append((t_end - t_start) * 1000.0)
+
+    return res
 
 
 def _print_help():
@@ -341,6 +352,14 @@ def main(argv):
         "failure: the following flows mismatched:\n\t%s\nwhich is %s of %s." % (
             '\n\t'.join(failed), len(failed), len(flow_specs)
         )
+    )
+
+    print "runtimes:\n\ttotal: %s ms\n\tmean: %s ms\n\tmedian: %s ms\n\tmin: %s ms\n\tmax: %s ms" % (
+        sum(measurements),
+        sum(measurements)/len(measurements),
+        sorted(measurements)[len(measurements)/2],
+        min(measurements),
+        max(measurements)
     )
 
     if dump_matrix:
