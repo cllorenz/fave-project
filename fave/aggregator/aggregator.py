@@ -103,6 +103,8 @@ class Aggregator(AbstractAggregator):
                 self.queue.task_done()
                 continue
 
+            t_task_start = time.time()
+
             try:
                 j = json.loads(data)
             except ValueError:
@@ -111,12 +113,15 @@ class Aggregator(AbstractAggregator):
                 return
 
             if j['type'] == 'stop':
+                task_typ = 'stop'
                 self.stop_aggr()
                 jsonrpc.stop(self.sock)
 
             elif j['type'] == 'dump':
                 dump = j
                 odir = dump['dir']
+
+                task_type = "dump %s" % ','.join([k for k in dump if k not in ['type', 'dir']])
 
                 if dump['fave']:
                     self._dump_aggregator(odir)
@@ -134,7 +139,13 @@ class Aggregator(AbstractAggregator):
 
             else:
                 model = model_from_json(j)
+                task_type = model.type
+
                 self._sync_diff(model)
+
+            t_task_end = time.time()
+
+            Aggregator.LOGGER.info("worker: completed task %s in %s seconds." % (task_type, t_task_end - t_task_start))
 
             self.queue.task_done()
 
