@@ -16,6 +16,7 @@ function check_integrity {
 }
 
 BENCH=$1
+RUNS=2
 
 LAST_NP=last_np_dump
 mkdir -p $LAST_NP
@@ -23,7 +24,7 @@ rm -rf $LAST_NP/*
 mkdir -p results
 
 # run FaVe benchmark
-for i in {1..10}; do
+for i in $(seq 1 $RUNS); do
   SOUT=$i.stdout.log
   SERR=$i.stderr.log
   echo -n "run benchmark $i: $BENCH... "
@@ -47,8 +48,8 @@ for i in {1..10}; do
 done
 
 # run NetPlumber benchmark
-HDR_LEN=$()
-for i in {1..10}; do
+HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
+for i in $(seq 1 $RUNS); do
   SOUT=$i.np.stdout.log
   SERR=$i.np.stderr.log
 
