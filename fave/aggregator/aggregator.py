@@ -139,7 +139,10 @@ class Aggregator(AbstractAggregator):
 
             else:
                 model = model_from_json(j)
-                task_type = model.type
+                if model.type == 'topology_command':
+                    task_type = model.model.type
+                else:
+                    task_type = model.type
 
                 self._sync_diff(model)
 
