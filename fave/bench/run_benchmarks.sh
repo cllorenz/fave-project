@@ -16,7 +16,7 @@ function check_integrity {
 }
 
 BENCH=$1
-RUNS=2
+RUNS=10
 
 LAST_NP=last_np_dump
 mkdir -p $LAST_NP

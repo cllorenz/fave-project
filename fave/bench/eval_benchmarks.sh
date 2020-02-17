@@ -16,7 +16,7 @@ function stats {
   echo "$ASPECT $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
 }
 
-RUNS=2
+RUNS=10
 
 RESULTS=results/results.dat
 echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
