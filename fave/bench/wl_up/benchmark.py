@@ -125,7 +125,7 @@ if __name__ == "__main__":
         checks = json.loads(raw_checks.read())
 
     LOGGER.info("dumping fave and netplumber...")
-    dumper.main(["-at"])
+    dumper.main(["-ant"])
     LOGGER.info("dumped fave and netplumber.")
 
     LOGGER.info("stopping fave and netplumber...")
