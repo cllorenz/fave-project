@@ -34,6 +34,8 @@ if __name__ == '__main__':
 
     if verbose: print "Generate benchmark... ",
 
+    os.system("rm -f /tmp/np/*")
+
     os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
     os.system("python2 bench/wl_ifi/inventorygen.py")
     os.system("python2 bench/wl_ifi/topogen.py")
