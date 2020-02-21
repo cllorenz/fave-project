@@ -9,7 +9,7 @@ function stats {
 
   MEDIAN=`sort -n $DATA | awk '{ count[NR] = $1; } END { if (NR % 2) { print count[(NR + 1) / 2]; } else { print (count[NR / 2]); } }'`
 
-  MIN=`awk 'BEGIN { min = 100000.0; } { if ( $1 < min ) { min = $1; } } END { print min; }' < $DATA`
+  MIN=`awk 'BEGIN { min = "inf"; } { if ( $1 < min ) { min = $1; } } END { print min; }' < $DATA`
 
   MAX=`awk 'BEGIN { max = 0.0; } {if ( $1 > max) { max = $1; } } END { print max; }' < $DATA`
 
@@ -54,8 +54,8 @@ for i in $(seq 1 $RUNS); do
     awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $CHECKS
 done
 
-stats fave_init $FAVE_INIT
-stats fave_reach $FAVE_REACH
-stats np_init $NP_INIT
-stats np_reach $NP_REACH
-stats checks $CHECKS
+stats "\"FaVe Init\"" $FAVE_INIT
+stats "\"FaVe Reach\"" $FAVE_REACH
+stats "\"NP Init\"" $NP_INIT
+stats "\"NP Reach\"" $NP_REACH
+stats Checks $CHECKS
