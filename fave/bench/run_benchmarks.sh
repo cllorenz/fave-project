@@ -41,6 +41,8 @@ for i in $(seq 1 $RUNS); do
   mkdir -p $RDIR
   rm -rf $RDIR/*
 
+  sleep 1
+
   mv $SOUT $RDIR/
   mv $SERR $RDIR/
 
@@ -53,7 +55,9 @@ for i in $(seq 1 $RUNS); do
   SOUT=$i.np.stdout.log
   SERR=$i.np.stderr.log
 
+  echo -n "run netplumber directly $i: $BENCH... "
   net_plumber --hdr-len $HDR_LEN --load np_dump --policy np_dump/policy.json > $SOUT 2> $SERR
+  echo "done"
 
   RDIR=results/$i.raw
   mv $SOUT $RDIR/
