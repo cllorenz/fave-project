@@ -176,7 +176,7 @@ def _get_flow_tree(dump, cache):
         return j
 
 
-def _parse_flow_spec(flow):
+def _get_parser():
     value = pp.OneOrMore(pp.Word(pp.alphanums + "." + "_" + "-"))
     ident = pp.Combine(
         pp.Word(pp.alphas) + pp.ZeroOrMore(pp.Word(pp.alphanums + "." + "_" + "-"))
@@ -227,7 +227,11 @@ def _parse_flow_spec(flow):
 
 #    print flow, "->", expr.parseString(flow, parseAll=True)
 
-    return expr.parseString(flow)
+    return expr
+
+
+def _parse_flow_spec(flow, parser):
+    return parser.parseString(flow)
 
 
 def _get_source(flow_spec):
@@ -311,7 +315,8 @@ def main(argv):
         elif opt == '-d':
             dump = arg
         elif opt == '-c':
-            flow_specs = [_parse_flow_spec(flow) for flow in arg.split(';') if flow]
+            parser = _get_parser()
+            flow_specs = [_parse_flow_spec(flow, parser) for flow in arg.split(';') if flow]
         elif opt == '-r':
             dump_matrix = True
 
