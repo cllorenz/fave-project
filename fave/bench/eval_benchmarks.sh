@@ -50,7 +50,7 @@ echo -n "" > $CHECKS
 
 for i in $(seq 1 $RUNS); do
   RDIR=results/$i.raw
-  grep "checked flow in" $RDIR/$i.stdout.log | cut -d' ' -f4 | \
+  grep "checked flow tree in" $RDIR/$i.stdout.log | cut -d' ' -f5 | \
     awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $CHECKS
 done
 
