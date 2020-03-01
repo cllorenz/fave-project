@@ -241,6 +241,21 @@ def _get_source(flow_spec):
     raise Exception("cannot find source in flow spec: %s" % flow_spec)
 
 
+def _is_leaf(flow_tree):
+    return 'children' not in flow_tree
+
+
+def _get_flow_tree_leaves(flow_tree):
+    if _is_leaf(flow_tree):
+        return {flow_tree['node'] : flow_tree}
+
+    leaves = {}
+    for child in flow_tree['children']:
+        leaves.update(_get_flow_tree_leaves(child))
+
+    return leaves
+
+
 def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
     source = _get_source(flow_spec)
     fts = _get_flow_tree(flow_trees[source], cache)
@@ -258,6 +273,30 @@ def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
     measurements.append((t_end - t_start) * 1000.0)
 
     return res
+
+
+def _build_ordered_flow_specs(flow_specs):
+    ordered_flow_specs = {}
+    for flow_spec in flow_specs:
+        neg = False
+        src = None
+        dst = None
+        fld = None
+        for token in flow_spec:
+            if token.startswith('!'):
+                neg = True
+            elif token.startswith('s='):
+                src = token[2:]
+            elif token.startswith('p='):
+                dst = token[2:]
+            elif token.startswith('f='):
+                fld = token[2:]
+
+        if src and dst:
+            ordered_flow_specs.setdefault(src, [])
+            ordered_flow_specs[src].append((dst, neg, fld, flow_spec))
+
+    return ordered_flow_specs
 
 
 def _print_help():
@@ -298,7 +337,7 @@ def main(argv):
 
     try:
         only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hd:c:r"))
+        opts = only_opts(*getopt.getopt(argv, "hbd:c:r"))
     except getopt.GetoptError as err:
         eprint("error while fetching arguments: %s" % err)
         _print_help()
@@ -307,11 +346,14 @@ def main(argv):
     dump = "np_dump"
     flow_specs = []
     dump_matrix = False
+    broad = False
 
     for opt, arg in opts:
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        elif opt == '-b':
+            broad = True
         elif opt == '-d':
             dump = arg
         elif opt == '-c':
@@ -335,21 +377,55 @@ def main(argv):
     failed = []
     reach = {'' : {'' : ''}}
     cache = cachetools.LRUCache(10)
-    for no, flow_spec in enumerate(flow_specs, start=1):
-        try:
-            successful = _check_flow_trees(flow_spec, flow_trees, inv_fave, cache)
-        except KeyError as ke:
-            _update_reachability_matrix(reach, flow_spec, False, exception=True)
-            continue
+    if broad:
+        ordered_flow_specs = _build_ordered_flow_specs(flow_specs)
 
-        if not successful:
-            failed.append(' '.join([e for e in flow_spec if e != ' ']))
-            _update_reachability_matrix(reach, flow_spec, False)
-        else:
-            _update_reachability_matrix(reach, flow_spec, True)
+        mapping = inv_fave['mapping']
 
-        if no % 1000 == 0:
-            print "  checked %s flows" % no
+        for src, specs in ordered_flow_specs.iteritems():
+            flow_tree = _get_flow_tree(flow_trees[src], cache)[0]
+
+            t_start = time.time()
+
+            flow_tree_leaves = _get_flow_tree_leaves(flow_tree)
+
+            for dst, neg, fld, spec in specs:
+
+                if not inv_fave['probe_to_id'][dst] in flow_tree_leaves:
+                    if not neg:
+                        failed.append(' '.join([e for e in spec if e != ' ']))
+                    continue
+
+                leaf = flow_tree_leaves[inv_fave['probe_to_id'][dst]]
+                res = False
+
+                if fld:
+                    field, value = fld.split(':')
+                    res = check_field(leaf['flow'], field, value, mapping)
+
+                if res and neg:
+                    failed.append(' '.join([e for e in spec if e != ' ']))
+
+            t_end = time.time()
+            print "checked flow tree in %s ms" % ((t_end - t_start) * 1000.0)
+            measurements.append((t_end - t_start) * 1000.0)
+
+    else:
+        for no, flow_spec in enumerate(flow_specs, start=1):
+            try:
+                successful = _check_flow_trees(flow_spec, flow_trees, inv_fave, cache)
+            except KeyError as ke:
+                _update_reachability_matrix(reach, flow_spec, False, exception=True)
+                continue
+
+            if not successful:
+                failed.append(' '.join([e for e in flow_spec if e != ' ']))
+                _update_reachability_matrix(reach, flow_spec, False)
+            else:
+                _update_reachability_matrix(reach, flow_spec, True)
+
+            if no % 1000 == 0:
+                print "  checked %s flows" % no
 
     print (
         "success: all %s checked flows matched" % len(flow_specs)
