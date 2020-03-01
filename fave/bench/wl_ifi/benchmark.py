@@ -94,6 +94,6 @@ if __name__ == '__main__':
         print "Check results... ",
 
     import test.check_flows as checker
-    checker.main(["-r", "-c", ";".join(checks)])
+    checker.main(["-b", "-r", "-c", ";".join(checks)])
 
     os.system("rm -f np_dump/.lock")
