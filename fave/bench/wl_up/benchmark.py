@@ -133,7 +133,7 @@ if __name__ == "__main__":
     LOGGER.info("stopped fave and netplumber.")
 
     LOGGER.info("checking flow trees...")
-    checker.main(["-r", "-c", ";".join(checks)])
+    checker.main(["-b", "-r", "-c", ";".join(checks)])
     LOGGER.info("checked flow trees.")
 
     os.system("rm -f np_dump/.lock")
