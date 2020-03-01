@@ -161,7 +161,7 @@ F7='s='$HOST2' && EF p='$PROBE1
 F8='s='$HOST1' && EF p='$PROBE2' && f=related:1'
 F9='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
 
-python2 test/check_flows.py -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9"
+python2 test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
 
 # test openflow
