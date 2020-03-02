@@ -6,6 +6,7 @@
 
 import json
 import os
+import time
 
 import netplumber.dump_np as dumper
 import test.check_flows as checker
@@ -99,7 +100,10 @@ def create_topology(devices, links):
     for device in devices:
         dtype = get_type(device)
         try:
+            t_start = time.time()
             _DEVICES[dtype](*device)
+            t_end = time.time()
+            print "parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0)
         except KeyError as e:
             raise Exception("No such device type: %s" % e.message)
 
