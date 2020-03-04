@@ -52,6 +52,30 @@ BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) : length(lengt
 }
 
 
+bdd
+_bdd_from_str(std::string s) {
+    bdd res = bddfalse;
+    size_t cnt = 0;
+    for (char const &c: s) {
+        switch (c) {
+            case 'z': return bddfalse;
+            case '0' : res |= bdd_nithvar(cnt); break;
+            case '1' : res |= bdd_ithvar(cnt); break;
+            case 'x' : break;
+            case ',' : break;
+            default : fprintf(stderr, "error while parsing bdd packet set from string. no viable character: %c", c);
+        }
+        cnt++;
+    }
+    return res;
+}
+
+
+BDDPacketSet::BDDPacketSet(const std::string s) {
+    this->ps = _bdd_from_str(s);
+}
+
+
 BDDPacketSet::BDDPacketSet(const BDDPacketSet& other) {
     this->length = other.length;
     this->ps = other.ps;
@@ -125,12 +149,6 @@ size_t
 BDDPacketSet::count_diff(void) {
     // TODO
     return 0;
-}
-
-
-void
-BDDPacketSet::enlarge(size_t len) {
-    if (this->length < len) this->length = len;
 }
 
 

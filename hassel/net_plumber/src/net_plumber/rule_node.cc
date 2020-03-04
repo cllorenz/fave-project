@@ -26,6 +26,9 @@
 #include "net_plumber.h"
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace net_plumber;
@@ -607,3 +610,6 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
 }
 
 template class RuleNode<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class RuleNode <BDDPacketSet, BDDPacketSet>;
+#endif

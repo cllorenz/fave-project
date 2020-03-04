@@ -33,6 +33,10 @@ extern "C" {
 }
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#ifdef USE_BDD
+#include <bdd.h>
+#include "bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace log4cxx;
@@ -888,6 +892,10 @@ uint64_t NetPlumber<T1, T2>::add_rule_to_group(uint32_t table,int index, List_t 
 template<class T1, class T2>
 size_t NetPlumber<T1, T2>::expand(size_t length) {
   if (length > this->length) {
+#ifdef USE_BDD
+     bdd_extvarnum(length - this->length);
+#endif
+
     for (auto const &node: id_to_node) {//should contain all flows, probes and rules
       node.second->enlarge(length);
     }
@@ -897,7 +905,6 @@ size_t NetPlumber<T1, T2>::expand(size_t length) {
       slice.second.net_space->enlarge(length);
     }
 #endif //PIPE_SLICING
-
     this->length = length;
   }
   return this->length;
@@ -1864,3 +1871,6 @@ void NetPlumber<T1, T2>::dump_slices_pipes(const std::string dir) {
 #endif /*PIPE_SLICING */
 
 template class net_plumber::NetPlumber<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class net_plumber::NetPlumber<BDDPacketSet, BDDPacketSet>;
+#endif

@@ -24,11 +24,11 @@ class BDDPacketSet : public PacketSet {
     void to_json(Json::Value&);
 
     void compact(void);
-    void compact2(void) { this->compact(); }
+    void compact2(PacketSet *) { this->compact(); }
     void unroll(void) { /* empty */ }
     size_t count(void);
     size_t count_diff(void);
-    void enlarge(size_t len);
+    void enlarge(size_t len) { this->length = len; }
     void enlarge2(size_t len) { this->enlarge(len); }
 
     void diff(PacketSet *);
@@ -38,7 +38,7 @@ class BDDPacketSet : public PacketSet {
     void psunion(PacketSet *);
     void psunion2(PacketSet *ps) { this->psunion(ps); }
     void minus(PacketSet *);
-    void minus2(PacketSet *ps) { this->minus(ps); }
+    void minus2(PacketSet *ps, const size_t) { this->minus(ps); }
     void psand(PacketSet *);
 
     bool is_empty(void);

@@ -26,6 +26,9 @@
 #include <assert.h>
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace log4cxx;
@@ -338,3 +341,6 @@ void SourceProbeNode<T1, T2>::test_to_json(Json::Value& res) {
 }
 
 template class SourceProbeNode <HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class SourceProbeNode <BDDPacketSet, BDDPacketSet>;
+#endif

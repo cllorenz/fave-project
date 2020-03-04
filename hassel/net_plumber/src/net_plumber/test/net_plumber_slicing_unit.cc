@@ -24,6 +24,9 @@
 #include <sstream>
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 using namespace log4cxx;
@@ -1049,4 +1052,7 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
 }
 
 template class NetPlumberSlicingTest<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class NetPlumberSlicingTest<BDDPacketSet, BDDPacketSet>;
+#endif
 #endif /* PIPE_SLICING */

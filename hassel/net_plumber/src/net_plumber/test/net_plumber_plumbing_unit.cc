@@ -21,6 +21,9 @@
 #include <sstream>
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 using namespace std;
@@ -1263,4 +1266,6 @@ void NetPlumberPlumbingTest<T1, T2>::check_probe_counter(
 
 
 template class NetPlumberPlumbingTest<HeaderspacePacketSet, ArrayPacketSet>;
-
+#ifdef USE_BDD
+template class NetPlumberPlumbingTest<BDDPacketSet, BDDPacketSet>;
+#endif

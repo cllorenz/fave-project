@@ -22,6 +22,9 @@
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
 #include <sstream>
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace net_plumber;
@@ -470,3 +473,21 @@ template class LastTablesSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
 template class SkipNextSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
 template class SkipNextArbSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
 template class EndPathSpecifier<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class TrueCondition<BDDPacketSet, BDDPacketSet>;
+template class FalseCondition<BDDPacketSet, BDDPacketSet>;
+template class AndCondition<BDDPacketSet, BDDPacketSet>;
+template class OrCondition<BDDPacketSet, BDDPacketSet>;
+template class NotCondition<BDDPacketSet, BDDPacketSet>;
+template class HeaderCondition<BDDPacketSet, BDDPacketSet>;
+template class PathCondition<BDDPacketSet, BDDPacketSet>;
+template class PortSpecifier<BDDPacketSet, BDDPacketSet>;
+template class TableSpecifier<BDDPacketSet, BDDPacketSet>;
+template class NextPortsSpecifier<BDDPacketSet, BDDPacketSet>;
+template class NextTablesSpecifier<BDDPacketSet, BDDPacketSet>;
+template class LastPortsSpecifier<BDDPacketSet, BDDPacketSet>;
+template class LastTablesSpecifier<BDDPacketSet, BDDPacketSet>;
+template class SkipNextSpecifier<BDDPacketSet, BDDPacketSet>;
+template class SkipNextArbSpecifier<BDDPacketSet, BDDPacketSet>;
+template class EndPathSpecifier<BDDPacketSet, BDDPacketSet>;
+#endif

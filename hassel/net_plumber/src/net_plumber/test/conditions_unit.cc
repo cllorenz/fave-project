@@ -24,6 +24,9 @@
 #include <stdarg.h>
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace net_plumber;
@@ -213,3 +216,6 @@ void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
 }
 
 template class ConditionsTest<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class ConditionsTest<BDDPacketSet, BDDPacketSet>;
+#endif

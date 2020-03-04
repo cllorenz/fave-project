@@ -23,6 +23,9 @@
 #include <set>
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 #include "net_plumber.h"
 using namespace net_plumber;
@@ -569,3 +572,6 @@ void Node<T1, T2>::absorb_src_flow(typename list<Flow<T1, T2> *>::iterator s_flo
 }
 
 template class Node<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class Node <BDDPacketSet, BDDPacketSet>;
+#endif

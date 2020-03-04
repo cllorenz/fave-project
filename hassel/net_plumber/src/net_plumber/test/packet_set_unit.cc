@@ -20,6 +20,9 @@
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
 #include <iostream>
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 
@@ -297,4 +300,6 @@ void PacketSetTest<PS>::test_negate() {
 
 template class PacketSetTest<HeaderspacePacketSet>;
 template class PacketSetTest<ArrayPacketSet>;
-
+#ifdef USE_BDD
+template class PacketSetTest<BDDPacketSet>;
+#endif

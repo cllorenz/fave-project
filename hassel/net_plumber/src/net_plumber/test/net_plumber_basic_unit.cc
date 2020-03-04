@@ -22,6 +22,9 @@
 #include "../net_plumber_utils.h"
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 
@@ -101,4 +104,6 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
 }
 
 template class NetPlumberBasicTest<HeaderspacePacketSet, ArrayPacketSet>;
-
+#ifdef USE_BDD
+template class NetPlumberBasicTest<BDDPacketSet, BDDPacketSet>;
+#endif

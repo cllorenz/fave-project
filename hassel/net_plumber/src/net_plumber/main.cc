@@ -23,6 +23,9 @@
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
 #include "../headerspace/test/hs_unit.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 #include "hs_packet_set.h"
 #include "array_packet_set.h"
 #include <string.h>
@@ -293,6 +296,10 @@ int typed_main(int argc, char* argv[]) {
 
 
 int main(int argc, char* argv[]) {
+#ifdef USE_BDD
+  return typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);
+#else
   return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
+#endif
 }
 
