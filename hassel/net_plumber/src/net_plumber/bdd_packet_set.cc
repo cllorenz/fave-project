@@ -276,7 +276,7 @@ void
 BDDPacketSet::psand(PacketSet *other) {
     // TODO
 }
-#endif USE_INV
+#endif //USE_INV
 
 
 bool
