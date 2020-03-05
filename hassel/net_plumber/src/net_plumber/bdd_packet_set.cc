@@ -209,7 +209,7 @@ BDDPacketSet::to_str(void) {
 void
 BDDPacketSet::to_json(Json::Value& res) {
     std::vector<std::string> tmp;
-    std::function<void(char *, int)> bdd_to_string_cb = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+    std::function<void(char *, int)> bdd_to_string_cb = [&tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
 
     bdd_allsat(this->ps, (bddallsathandler)&bdd_to_string_cb);
 
