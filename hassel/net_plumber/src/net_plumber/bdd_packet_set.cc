@@ -217,7 +217,7 @@ BDDPacketSet::to_json(Json::Value& res) {
     for (std::string item: tmp)
         arr.append((Json::StaticString)item.c_str());
 
-    res["len"] = (Json::Value::UInt64)this->length;
+    res["len"] = (Json::Value::UInt64)(bdd_varnum() / 8);
     res["list"] = arr;
 }
 
