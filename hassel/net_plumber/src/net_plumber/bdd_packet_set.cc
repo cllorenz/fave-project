@@ -6,12 +6,17 @@
 
 namespace net_plumber {
 
-BDDPacketSet::BDDPacketSet(bdd ps, const size_t length) : ps(ps), length(length) {
+BDDPacketSet::BDDPacketSet(bdd ps) : ps(ps) {
     /* empty */
 }
 
 
-BDDPacketSet::BDDPacketSet(const size_t length) : length(length) {
+BDDPacketSet::BDDPacketSet(const size_t length) {
+    bdd_setvarnum(length * 8);
+}
+
+
+BDDPacketSet::BDDPacketSet() {
     this->ps = bddfalse;
 }
 
@@ -77,7 +82,6 @@ BDDPacketSet::BDDPacketSet(const std::string s) {
 
 
 BDDPacketSet::BDDPacketSet(const BDDPacketSet& other) {
-    this->length = other.length;
     this->ps = other.ps;
 }
 
@@ -133,6 +137,12 @@ BDDPacketSet::to_json(Json::Value& res) {
 
 
 void
+BDDPacketSet::enlarge(const size_t length) {
+    bdd_extvarnum(length * 8 - bdd_varnum());
+}
+
+
+void
 BDDPacketSet::compact(void) {
     /* empty */
 }
@@ -154,27 +164,23 @@ BDDPacketSet::count_diff(void) {
 
 void
 BDDPacketSet::diff(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
     this->ps &= bdd_not(((BDDPacketSet *)other)->ps);
 }
 
 
 void
 BDDPacketSet::intersect(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
     this->ps &= ((BDDPacketSet *)other)->ps;
 }
 
 void
 BDDPacketSet::psunion(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
     this->ps |= ((BDDPacketSet *)other)->ps;
 }
 
 
 void
 BDDPacketSet::minus(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
     this->ps &= bdd_not(((BDDPacketSet *)other)->ps);
 }
 
@@ -183,7 +189,6 @@ BDDPacketSet::minus(PacketSet *other) {
 void
 BDDPacketSet::psand(PacketSet *other) {
     // TODO
-    assert (this->length == ((BDDPacketSet *)other)->length);
 }
 #endif USE_INV
 
@@ -196,33 +201,22 @@ BDDPacketSet::is_empty(void) {
 
 bool
 BDDPacketSet::is_equal(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
-
     return this->ps == ((BDDPacketSet *)other)->ps;
 }
 
 
 bool BDDPacketSet::is_subset_equal(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
-
     return bdd_imp(this->ps, ((BDDPacketSet *)other)->ps) == bddtrue;
 }
 
 
 bool
 BDDPacketSet::is_subset(PacketSet *other) {
-    assert (this->length == ((BDDPacketSet *)other)->length);
-
     return this->is_subset_equal(other) && !this->is_equal(other);
 }
 
 void
 BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
-    assert (
-        this->length == ((BDDPacketSet *)mask)->length &&
-        this->length == ((BDDPacketSet *)rewrite)->length
-    );
-
     /*
         a = 1100
         m = 1010

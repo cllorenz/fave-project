@@ -10,11 +10,12 @@ namespace net_plumber {
 class BDDPacketSet : public PacketSet {
   public:
     bdd ps;
-    size_t length;
 
     BDDPacketSet(const size_t);
-    BDDPacketSet(bdd, const size_t);
+    BDDPacketSet();
+    BDDPacketSet(bdd);
     BDDPacketSet(const size_t, enum bit_val);
+    BDDPacketSet(enum bit_val);
     BDDPacketSet(const std::string);
     BDDPacketSet(const Json::Value&, size_t);
     BDDPacketSet(const BDDPacketSet&);
@@ -28,7 +29,7 @@ class BDDPacketSet : public PacketSet {
     void unroll(void) { /* empty */ }
     size_t count(void);
     size_t count_diff(void);
-    void enlarge(size_t len) { this->length = len; }
+    void enlarge(size_t);
     void enlarge2(size_t len) { this->enlarge(len); }
 
     void diff(PacketSet *);
