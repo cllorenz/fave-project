@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <sstream>
 #include <vector>
+#include <bdd.h>
+#include <functional>
 
 namespace net_plumber {
 
@@ -41,37 +43,121 @@ _all_ones(const size_t len) {
 }
 
 
-BDDPacketSet::BDDPacketSet(const size_t length, enum bit_val val) : length(length) {
+bdd
+_val_to_bdd(enum bit_val val) {
     switch (val) {
-        case BIT_Z: this->ps = bddfalse; break;
-        case BIT_0: this->ps = _all_zeros(length); break;
-        case BIT_1: this->ps = _all_ones(length); break;
-        case BIT_X: this->ps = bddtrue; break;
-        default:    this->ps = bddfalse;
+        case BIT_Z: return bddfalse;
+        case BIT_0: return _all_zeros();
+        case BIT_1: return _all_ones();
+        case BIT_X: return bddtrue;
+        default:    return bddfalse;
     }
 }
 
 
-BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) : length(length) {
-    // TODO
+BDDPacketSet::BDDPacketSet(enum bit_val val) {
+    this->ps = _val_to_bdd(val);
+}
+
+
+BDDPacketSet::BDDPacketSet(const size_t length, enum bit_val val) {
+    bdd_setvarnum(length * 8);
+    this->ps = _val_to_bdd(val);
 }
 
 
 bdd
-_bdd_from_str(std::string s) {
+_bdd_from_vector_str(const std::string s) {
     bdd res = bddfalse;
+    bool all_x = true;
     size_t cnt = 0;
     for (char const &c: s) {
         switch (c) {
-            case 'z': return bddfalse;
-            case '0' : res |= bdd_nithvar(cnt); break;
-            case '1' : res |= bdd_ithvar(cnt); break;
+            case 'z' : return bddfalse;
+            case '0' : res |= bdd_nithvar(cnt); all_x = false; break;
+            case '1' : res |= bdd_ithvar(cnt); all_x = false; break;
             case 'x' : break;
             case ',' : break;
             default : fprintf(stderr, "error while parsing bdd packet set from string. no viable character: %c", c);
         }
         cnt++;
     }
+    return (all_x ? bddtrue : res);
+}
+
+
+bdd
+_json_to_bdd(const Json::Value& val) {
+    bdd res = bddfalse;
+    Json::Value list = val["hs_list"];
+    Json::Value diff = val["hs_diff"];
+
+    for (Json::Value::ArrayIndex i = 0; i < list.size(); i++)
+        res |= _bdd_from_vector_str(list[i].asString());
+
+    for (Json::Value::ArrayIndex i = 0; i < diff.size(); i++)
+        res &= bdd_not(_bdd_from_vector_str(diff[i].asString()));
+
+    return res;
+}
+
+
+BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) {
+    bdd_setvarnum(length * 8);
+    this->ps = _json_to_bdd(val);
+}
+
+
+bdd
+_bdd_from_str(const std::string s) {
+    std::vector<std::string> tokens;
+
+    size_t last = 0;
+    size_t cur = 0;
+    for (char const &c: s) {
+        switch (c) {
+            case 'z' : cur++; break;
+            case '0' : cur++; break;
+            case '1' : cur++; break;
+            case 'x' : cur++; break;
+            case ',' : cur++; break;
+            case ' ' : cur++; last = cur; break;
+            case '+' :
+                tokens.push_back(s.substr(last, cur-last));
+                tokens.push_back("+");
+                cur++; last = cur;
+                break;
+            case '-' :
+                tokens.push_back(s.substr(last, cur-last+1));
+                tokens.push_back("-");
+                cur++; last = cur;
+                break;
+            case '(' :
+                tokens.push_back("(");
+                cur++; last = cur;
+                break;
+            case ')' :
+                tokens.push_back(s.substr(last, cur-last));
+                tokens.push_back(")");
+                cur++; last = cur;
+                break;
+            default : cur--; break;
+        }
+    }
+
+    bdd res = bddfalse;
+    bool add = true;
+    for (auto const token: tokens) {
+        if (token == "+") {
+            add = true;
+        } else if (token == "-") {
+            add = false;
+        } else if (token == "(") continue;
+        else if (token == ")") continue;
+        else if (add) res |= _bdd_from_vector_str(token);
+        else res &= bdd_not(_bdd_from_vector_str(token));
+    }
+
     return res;
 }
 
@@ -92,7 +178,7 @@ BDDPacketSet::~BDDPacketSet() {
 
 
 void
-_string_handler(char *varset, int size, std::vector<std::string> res) {
+_string_handler(char *varset, int size, std::vector<std::string>& res) {
     std::stringstream tmp;
     for (int v=0; v < size; ++v) {
         if (v+1 < size && v % 8 == 7) tmp << ",";
@@ -105,9 +191,9 @@ _string_handler(char *varset, int size, std::vector<std::string> res) {
 std::string
 BDDPacketSet::to_str(void) {
     std::vector<std::string> tmp;
-    auto handler = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+    std::function<void(char *, int)> bdd_to_string_cb = [&tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
 
-    //bdd_allsat(this->ps, handler); // XXX
+    bdd_allsat(this->ps, (bddallsathandler)&bdd_to_string_cb);
 
     std::stringstream res;
     for (auto elem = tmp.begin(); elem != tmp.end(); elem++) {
@@ -123,9 +209,9 @@ BDDPacketSet::to_str(void) {
 void
 BDDPacketSet::to_json(Json::Value& res) {
     std::vector<std::string> tmp;
-    auto handler = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+    std::function<void(char *, int)> bdd_to_string_cb = [tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
 
-    //bdd_allsat(this->ps, handler); // XXX
+    bdd_allsat(this->ps, (bddallsathandler)&bdd_to_string_cb);
 
     Json::Value arr(Json::arrayValue);
     for (std::string item: tmp)
