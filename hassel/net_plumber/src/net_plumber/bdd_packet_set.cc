@@ -24,9 +24,9 @@ BDDPacketSet::BDDPacketSet() {
 
 
 bdd
-_all_zeros(const size_t len) {
+_all_zeros() {
     bdd res = bddfalse;
-    for (size_t i = 0; i < len; i++) {
+    for (int i = 0; i < bdd_varnum(); i++) {
         res |= bdd_nithvar(i);
     }
     return res;
@@ -34,9 +34,9 @@ _all_zeros(const size_t len) {
 
 
 bdd
-_all_ones(const size_t len) {
+_all_ones() {
     bdd res = bddfalse;
-    for (size_t i = 0; i < len; i++) {
+    for (int i = 0; i < bdd_varnum(); i++) {
         res |= bdd_ithvar(i);
     }
     return res;
