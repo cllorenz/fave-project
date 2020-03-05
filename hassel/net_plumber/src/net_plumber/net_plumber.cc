@@ -893,7 +893,7 @@ template<class T1, class T2>
 size_t NetPlumber<T1, T2>::expand(size_t length) {
   if (length > this->length) {
 #ifdef USE_BDD
-     bdd_extvarnum(length - this->length);
+     bdd_extvarnum((length - this->length) * 8);
 #else
 
     for (auto const &node: id_to_node) {//should contain all flows, probes and rules
