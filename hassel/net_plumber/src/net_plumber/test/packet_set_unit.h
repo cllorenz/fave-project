@@ -41,7 +41,9 @@ class PacketSetTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_intersect);
   CPPUNIT_TEST(test_psunion);
   CPPUNIT_TEST(test_minus);
+#ifdef USE_INV
   CPPUNIT_TEST(test_psand);
+#endif
   CPPUNIT_TEST(test_is_empty);
   CPPUNIT_TEST(test_is_equal);
   CPPUNIT_TEST(test_is_subset);
@@ -66,7 +68,9 @@ class PacketSetTest : public CppUnit::TestFixture {
   void test_intersect();
   void test_psunion();
   void test_minus();
+#ifdef USE_INV
   void test_psand();
+#endif
   void test_is_empty();
   void test_is_equal();
   void test_is_subset();

@@ -102,11 +102,13 @@ ArrayPacketSet::intersect(PacketSet *other) {
 }
 
 
+#ifdef USE_INV
 void
 ArrayPacketSet::psand(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
     array_and(this->array, ((ArrayPacketSet *)other)->array, this->length, this->array);
 }
+#endif
 
 
 bool

@@ -61,6 +61,7 @@ void PacketSetTest<PS>::test_to_str() {
 
     std::string s{ "xxxxxxxx" };
     std::string res = this->ps->to_str();
+    printf("%s\n", res.c_str());
 
     CPPUNIT_ASSERT(res == s);
 }
@@ -187,6 +188,7 @@ void PacketSetTest<PS>::test_minus() {
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
+#ifdef USE_INV
 template<class PS>
 void PacketSetTest<PS>::test_psand() {
     printf("\n");
@@ -198,6 +200,7 @@ void PacketSetTest<PS>::test_psand() {
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
+#endif //USE_INV
 
 template<class PS>
 void PacketSetTest<PS>::test_is_empty() {

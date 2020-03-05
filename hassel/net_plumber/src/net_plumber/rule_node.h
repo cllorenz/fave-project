@@ -53,7 +53,9 @@ class RuleNode : public Node<T1, T2> {
 #endif
   T2 *mask;
   T2 *rewrite;
+#ifdef USE_INV
   T2 *inv_rw;
+#endif
   std::list<struct Effect<T1, T2> *> *effect_on;
   std::list<struct Influence<T1, T2> *> *influenced_by;
 

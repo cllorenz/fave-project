@@ -755,6 +755,7 @@ void ArrayTest::test_array_combine() {
 }
 
 
+#ifdef USE_INV
 void ArrayTest::test_array_and() {
     printf("\n");
 
@@ -821,6 +822,7 @@ void ArrayTest::test_array_and() {
     array_free(r);
     array_free(res);
 }
+#endif
 
 
 void ArrayTest::test_array_cmpl() {

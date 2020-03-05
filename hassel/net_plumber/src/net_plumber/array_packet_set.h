@@ -34,7 +34,9 @@ class ArrayPacketSet : public PacketSet {
     void intersect(PacketSet *);
     void psunion(PacketSet *) { /* empty */ }
     void minus(PacketSet *) { /* empty */ }
+#ifdef USE_INV
     void psand(PacketSet *);
+#endif
 
     bool is_empty(void);
     bool is_equal(PacketSet *);

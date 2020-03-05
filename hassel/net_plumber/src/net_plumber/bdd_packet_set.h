@@ -39,7 +39,9 @@ class BDDPacketSet : public PacketSet {
     void psunion2(PacketSet *ps) { this->psunion(ps); }
     void minus(PacketSet *);
     void minus2(PacketSet *ps, const size_t) { this->minus(ps); }
+#ifdef USE_INV
     void psand(PacketSet *);
+#endif
 
     bool is_empty(void);
     bool is_equal(PacketSet *);

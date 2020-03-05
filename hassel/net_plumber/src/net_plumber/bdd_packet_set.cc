@@ -179,11 +179,13 @@ BDDPacketSet::minus(PacketSet *other) {
 }
 
 
+#ifdef USE_INV
 void
 BDDPacketSet::psand(PacketSet *other) {
     // TODO
     assert (this->length == ((BDDPacketSet *)other)->length);
 }
+#endif USE_INV
 
 
 bool

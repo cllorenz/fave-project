@@ -67,11 +67,15 @@ RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table
   if (this->mask && this->rewrite) {
     this->inv_match = new T2(*this->match);
     this->inv_match->rewrite(this->mask, this->rewrite);
+#ifdef USE_INV
     this->inv_rw = new T2(*this->mask);
     this->inv_rw->negate();
     this->inv_rw->psand(this->match);
+#endif
   } else {
+#ifdef USE_INV
     this->inv_rw = nullptr;
+#endif
     this->inv_match = new T2(*this->match);
   }
   effect_on = new list<struct Effect<T1, T2> *>();
@@ -94,11 +98,15 @@ RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table
   if (this->mask && this->rewrite) {
     this->inv_match = new T2(*this->match);
     this->inv_match->rewrite2(this->mask, this->rewrite);
+#ifdef USE_INV
     this->inv_rw = new T2(*this->mask);
     this->inv_rw.negate();
     this->inv_rw.psand(this->match);
+#endif
   } else {
+#ifdef USE_INV
     this->inv_rw = nullptr;
+#endif
     this->inv_match = new T2(*this->match);
   }
   if (group == node_id) {
@@ -155,7 +163,9 @@ RuleNode<T1, T2>::~RuleNode() {
 #endif
   delete this->mask;
   delete this->rewrite;
+#ifdef USE_INV
   delete this->inv_rw;
+#endif
 }
 
 template<class T1, class T2>
@@ -596,8 +606,10 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
 		this->mask->enlarge2(length);
 	if (this->rewrite)
 		this->rewrite->enlarge(length);
+#ifdef USE_INV
 	if (this->inv_rw)
 		this->inv_rw->enlarge(length);
+#endif
 	//Effect should not matter
 	for (auto const &inf: *influenced_by) {
 		if (inf->comm_arr && (length > inf->len)) {

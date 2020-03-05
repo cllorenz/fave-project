@@ -54,7 +54,9 @@ void         array_set_bit  (array_t *a, enum bit_val val, size_t byte, size_t b
 void         array_set_byte (array_t *a, uint16_t val, size_t byte);
 #endif
 
+#ifdef USE_INV
 void array_and     (const array_t *a, const array_t *b, size_t len, array_t *res);
+#endif
 bool array_cmpl    (const array_t *a, size_t len, size_t *n, array_t **res);
 #ifdef USE_DEPRECATED
 bool array_diff    (const array_t *a, const array_t *b, size_t len, size_t *n, array_t **res);
