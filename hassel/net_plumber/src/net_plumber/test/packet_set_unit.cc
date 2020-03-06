@@ -95,6 +95,7 @@ void PacketSetTest<PS>::test_compact() {
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
+#ifndef USE_BDD
 template<class PS>
 void PacketSetTest<PS>::test_unroll() {
     printf("\n");
@@ -107,6 +108,7 @@ void PacketSetTest<PS>::test_unroll() {
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
+#endif
 
 template<class PS>
 void PacketSetTest<PS>::test_count() {

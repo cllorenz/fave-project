@@ -34,7 +34,9 @@ class PacketSetTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_from_json);
   CPPUNIT_TEST(test_to_json);
   CPPUNIT_TEST(test_compact);
+#ifndef USE_BDD
   CPPUNIT_TEST(test_unroll);
+#endif
   CPPUNIT_TEST(test_count);
   CPPUNIT_TEST(test_enlarge);
   CPPUNIT_TEST(test_diff);
@@ -61,7 +63,9 @@ class PacketSetTest : public CppUnit::TestFixture {
   void test_from_json();
   void test_to_json();
   void test_compact();
+#ifndef USE_BDD
   void test_unroll();
+#endif
   void test_count();
   void test_enlarge();
   void test_diff();
