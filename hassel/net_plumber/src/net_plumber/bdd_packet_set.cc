@@ -174,50 +174,48 @@ bdd
 _bdd_from_str(const std::string s) {
     if (s == "(nil)") return bddfalse;
 
-    size_t last = 0;
-    size_t cur = 0;
-    for (char const &c: s) {
-        switch (c) {
-            case 'z' : cur++; break;
-            case '0' : cur++; break;
-            case '1' : cur++; break;
-            case 'x' : cur++; break;
-            case ',' : cur++; break;
-            case ' ' : cur++; last = cur; break;
-            case '+' :
-                tokens.push_back(s.substr(last, cur-last));
-                tokens.push_back("+");
-                cur++; last = cur;
-                break;
-            case '-' :
-                tokens.push_back(s.substr(last, cur-last+1));
-                tokens.push_back("-");
-                cur++; last = cur;
-                break;
-            case '(' :
-                tokens.push_back("(");
-                cur++; last = cur;
-                break;
-            case ')' :
-                tokens.push_back(s.substr(last, cur-last));
-                tokens.push_back(")");
-                cur++; last = cur;
-                break;
-            default : cur--; break;
-        }
-    }
+    const char *c = s.c_str();
+    if (*c == '(') c++; // skip optional leading bracket
+    while (*c == ' ') c++; // seek begin of array
+    const size_t len = bdd_varnum() + _count_commas(c);
 
+    // create result hs
     bdd res = bddfalse;
-    bool add = true;
-    for (auto const token: tokens) {
-        if (token == "+") {
-            add = true;
-        } else if (token == "-") {
-            add = false;
-        } else if (token == "(") continue;
-        else if (token == ")") continue;
-        else if (add) res |= _bdd_from_vector_str(token);
-        else res &= bdd_not(_bdd_from_vector_str(token));
+
+    // parse hs string
+    while (*c) {
+        if (*c == '(') c++; // skip optional bracket
+        while (*c == ' ') c++; // skip optional spaces
+
+        res |= _bdd_from_vector_str(s.substr(c - s.c_str(), len));
+
+        c += len; // skip array
+        while (*c == ' ') c++; // skip optional space
+
+        if (*c == '-') { // optional parse diff vector
+            c++; // skip minus
+            while (*c == ' ') c++; // skip optional space
+            assert (*c == '('); // make sure diff vector is being parsed
+            c++; // skip opening bracket
+            while (*c == ' ') c++; // skip optional space
+            while (*c != ')') { // parse diff vector
+
+                res &= bdd_not(_bdd_from_vector_str(s.substr(c - s.c_str(), len)));
+
+                c += len; // skip array
+
+                while (*c == ' ') c++; // skip optional spaces
+                if (*c == '+') c++; // skip plus
+                while (*c == ' ') c++; //skip optional spaces
+                if (*c == ')') c++; // skip optional bracket
+                while (*c == ' ') c++; // skip optional spaces
+            }
+            c++; // skip closing bracket
+        }
+        if (*c == ')') c++; // skip optional closing bracket
+        if (*c == ' ') c++; // skip optional space
+        if (*c == '+') c++; // skip optional concatenation
+        while (*c == ' ') c++; // skip optional spaces
     }
 
     return res;
