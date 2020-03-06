@@ -8,6 +8,42 @@
 
 namespace net_plumber {
 
+void
+BDDPacketSet::init_result_buffer(void) {
+    result_buffer = new std::vector<std::string>();
+}
+
+void
+BDDPacketSet::destroy_result_buffer(void) {
+    delete result_buffer;
+}
+
+
+void
+BDDPacketSet::reset_result_buffer(void) {
+    result_buffer->clear();
+}
+
+
+std::vector<std::string> *
+BDDPacketSet::get_result_buffer(void) {
+    return result_buffer;
+}
+
+
+void
+BDDPacketSet::append_result_buffer(std::string item) {
+    result_buffer->push_back(item);
+}
+
+
+
+void
+_initialize_bdd_varnum(const size_t length) {
+    if (length * 8 > 0x1FFFFF || bdd_varnum() >= length * 8) return;
+    bdd_extvarnum((length * 8) - bdd_varnum());
+}
+
 BDDPacketSet::BDDPacketSet(bdd ps) : ps(ps) {
     /* empty */
 }
@@ -178,43 +214,55 @@ BDDPacketSet::~BDDPacketSet() {
 
 
 void
-_string_handler(char *varset, int size, std::vector<std::string>& res) {
+//_string_handler(char *varset, int size, std::vector<std::string>& res) {
+_string_handler(char *varset, int size) {
     std::stringstream tmp;
     for (int v=0; v < size; ++v) {
         if (v+1 < size && v % 8 == 7) tmp << ",";
         tmp << (((varset[v]) < 0) ? 'x' : (char)('0' + varset[v]));
     }
-    res.push_back(tmp.str());
+    BDDPacketSet::append_result_buffer(tmp.str());
+}
+
+
+std::string
+_all_x_str(void) {
+    std::stringstream s;
+    for (size_t i = 0; i < bdd_varnum(); i++) s << 'x';
+    return s.str();
 }
 
 
 std::string
 BDDPacketSet::to_str(void) {
-    std::vector<std::string> tmp;
-    std::function<void(char *, int)> bdd_to_string_cb = [&tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
+    if (this->ps == bddtrue) return _all_x_str();
+    if (this->ps == bddfalse) return "(nil)";
 
-    bdd_allsat(this->ps, (bddallsathandler)&bdd_to_string_cb);
+    BDDPacketSet::reset_result_buffer();
+    bdd_allsat(this->ps, *_string_handler);
 
+    auto* tmp = BDDPacketSet::get_result_buffer();
     std::stringstream res;
-    for (auto elem = tmp.begin(); elem != tmp.end(); elem++) {
+    for (auto elem = tmp->begin(); elem != tmp->end(); elem++) {
         if ((*elem).empty()) continue;
         res << *elem;
-        if (elem != tmp.end() - 1) res << " + ";
+        if (elem != tmp->end() - 1) res << " + ";
     }
 
-    return res.str();
+    return res.str().size() ? res.str() : "(nil)";
 }
 
 
 void
 BDDPacketSet::to_json(Json::Value& res) {
-    std::vector<std::string> tmp;
-    std::function<void(char *, int)> bdd_to_string_cb = [&tmp](char *varset, int size){ _string_handler(varset, size, tmp); };
 
-    bdd_allsat(this->ps, (bddallsathandler)&bdd_to_string_cb);
 
+    BDDPacketSet::reset_result_buffer();
+    bdd_allsat(this->ps, *_string_handler);
+
+    auto *tmp = BDDPacketSet::get_result_buffer();
     Json::Value arr(Json::arrayValue);
-    for (std::string item: tmp)
+    for (std::string item: *tmp)
         arr.append((Json::StaticString)item.c_str());
 
     res["len"] = (Json::Value::UInt64)(bdd_varnum() / 8);
