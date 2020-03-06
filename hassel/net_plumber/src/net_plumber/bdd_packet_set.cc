@@ -113,7 +113,7 @@ _bdd_from_vector_str(const std::string s) {
             case '0' : res |= bdd_nithvar(cnt); all_x = false; break;
             case '1' : res |= bdd_ithvar(cnt); all_x = false; break;
             case 'x' : break;
-            case ',' : break;
+            case ',' : cnt--; break;
             default : fprintf(stderr, "error while parsing bdd packet set from string. no viable character: %c", c);
         }
         cnt++;
