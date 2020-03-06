@@ -50,7 +50,7 @@ BDDPacketSet::BDDPacketSet(bdd ps) : ps(ps) {
 
 
 BDDPacketSet::BDDPacketSet(const size_t length) {
-    bdd_setvarnum(length * 8);
+    _initialize_bdd_varnum(length);
 }
 
 
@@ -97,7 +97,7 @@ BDDPacketSet::BDDPacketSet(enum bit_val val) {
 
 
 BDDPacketSet::BDDPacketSet(const size_t length, enum bit_val val) {
-    bdd_setvarnum(length * 8);
+    _initialize_bdd_varnum(length);
     this->ps = _val_to_bdd(val);
 }
 
@@ -139,14 +139,33 @@ _json_to_bdd(const Json::Value& val) {
 
 
 BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) {
-    bdd_setvarnum(length * 8);
+    _initialize_bdd_varnum(length);
     this->ps = _json_to_bdd(val);
+}
+
+
+size_t _count_commas(const char *s) {
+    const char *c = s;
+    size_t commas = 0;
+    if (*c == '(') c++;
+    while (! (
+        *c == '\0' ||
+        *c == ' ' ||
+        *c == '-' ||
+        *c == '+' ||
+        *c == '(' ||
+        *c == ')'
+    )) {
+        if (*c == ',') commas++;
+        c++;
+    }
+    return commas;
 }
 
 
 bdd
 _bdd_from_str(const std::string s) {
-    std::vector<std::string> tokens;
+    if (s == "(nil)") return bddfalse;
 
     size_t last = 0;
     size_t cur = 0;
@@ -198,7 +217,31 @@ _bdd_from_str(const std::string s) {
 }
 
 
+/* XXX: deprecated?
+size_t
+_get_length_from_str(const std::string s) {
+    size_t length = 0;
+
+    for (char const &c: s) {
+        switch (c) {
+            case 'z' : length++; break;
+            case '0' : length++; break;
+            case '1' : length++; break;
+            case 'x' : length++; break;
+            case '(' : break;
+            case ' ' : break;
+            default  : return (length + 7) / 8;
+        }
+    }
+
+    return (length + 7) / 8;
+}
+*/
+
+
 BDDPacketSet::BDDPacketSet(const std::string s) {
+//    const size_t length = _get_length_from_str(s); // XXX: deprecated?
+//    _initialize_bdd_varnum(length);
     this->ps = _bdd_from_str(s);
 }
 
