@@ -125,14 +125,21 @@ _bdd_from_vector_str(const std::string s) {
 bdd
 _json_to_bdd(const Json::Value& val) {
     bdd res = bddfalse;
-    Json::Value list = val["hs_list"];
-    Json::Value diff = val["hs_diff"];
 
-    for (Json::Value::ArrayIndex i = 0; i < list.size(); i++)
-        res |= _bdd_from_vector_str(list[i].asString());
+    if (val.isString()) {
+        res |= _bdd_from_vector_str(val.asString());
+    }
+    else if (val.isObject()) {
 
-    for (Json::Value::ArrayIndex i = 0; i < diff.size(); i++)
-        res &= bdd_not(_bdd_from_vector_str(diff[i].asString()));
+        Json::Value list = val["hs_list"];
+
+        for (Json::Value::ArrayIndex i = 0; i < list.size(); i++)
+            res |= _bdd_from_vector_str(list[i].asString());
+
+        Json::Value diff = val["hs_diff"];
+        for (Json::Value::ArrayIndex i = 0; i < diff.size(); i++)
+            res &= bdd_not(_bdd_from_vector_str(diff[i].asString()));
+    }
 
     return res;
 }
