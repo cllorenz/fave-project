@@ -61,7 +61,6 @@ void PacketSetTest<PS>::test_to_str() {
 
     std::string s{ "xxxxxxxx" };
     std::string res = this->ps->to_str();
-    printf("%s\n", res.c_str());
 
     CPPUNIT_ASSERT(res == s);
 }
