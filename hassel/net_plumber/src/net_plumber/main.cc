@@ -300,7 +300,13 @@ int typed_main(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
 #ifdef USE_BDD
-  return typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);
+  bdd_init(100000, 10000);
+  bdd_setvarnum(8);
+  BDDPacketSet::init_result_buffer();
+  int ret = typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);
+  BDDPacketSet::destroy_result_buffer();
+  bdd_done();
+  return ret;
 #else
   return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
 #endif
