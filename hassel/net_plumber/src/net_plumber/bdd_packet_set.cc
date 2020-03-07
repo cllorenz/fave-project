@@ -328,7 +328,7 @@ BDDPacketSet::to_json(Json::Value& res) {
 
 void
 BDDPacketSet::enlarge(const size_t length) {
-    bdd_extvarnum(length * 8 - bdd_varnum());
+    if (length * 8 > bdd_varnum()) bdd_extvarnum(length * 8 - bdd_varnum());
 }
 
 
