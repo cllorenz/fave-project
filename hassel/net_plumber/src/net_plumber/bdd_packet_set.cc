@@ -151,22 +151,27 @@ BDDPacketSet::BDDPacketSet(const Json::Value& val, size_t length) {
 }
 
 
-size_t _count_commas(const char *s) {
-    const char *c = s;
-    size_t commas = 0;
+size_t
+_get_length_from_string(const std::string s, size_t *commas) {
+    if (s == "(nil)") return 0;
+
+    const char *c = s.c_str();
     if (*c == '(') c++;
+    size_t l = 0;
+    *commas = 0;
     while (! (
-        *c == '\0' ||
-        *c == ' ' ||
-        *c == '-' ||
-        *c == '+' ||
-        *c == '(' ||
-        *c == ')'
+        *(c+l) == '\0' ||
+        *(c+l) == ' ' ||
+        *(c+l) == '-' ||
+        *(c+l) == '+' ||
+        *(c+l) == '(' ||
+        *(c+l) == ')'
     )) {
-        if (*c == ',') commas++;
-        c++;
+        if (*(c+l) == ',') (*commas)++;
+        l++;
     }
-    return commas;
+    const size_t res = l - (*commas);
+    return res;
 }
 
 
@@ -177,7 +182,10 @@ _bdd_from_str(const std::string s) {
     const char *c = s.c_str();
     if (*c == '(') c++; // skip optional leading bracket
     while (*c == ' ') c++; // seek begin of array
-    const size_t len = bdd_varnum() + _count_commas(c);
+    size_t commas = 0;
+    size_t len = _get_length_from_string(c, &commas);
+    if (bdd_varnum() < len) bdd_extvarnum(len - bdd_varnum());
+    len += commas;
 
     // create result hs
     bdd res = bddfalse;
