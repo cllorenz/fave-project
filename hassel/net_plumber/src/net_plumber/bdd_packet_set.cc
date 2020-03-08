@@ -274,8 +274,8 @@ void
 _string_handler(char *varset, int size) {
     std::stringstream tmp;
     for (int v=0; v < size; ++v) {
-        if (v+1 < size && v % 8 == 7) tmp << ",";
         tmp << (((varset[v]) < 0) ? 'x' : (char)('0' + varset[v]));
+        if (v+1 < size && v % 8 == 7) tmp << ",";
     }
     BDDPacketSet::append_result_buffer(tmp.str());
 }
@@ -284,7 +284,11 @@ _string_handler(char *varset, int size) {
 std::string
 _all_x_str(void) {
     std::stringstream s;
-    for (size_t i = 0; i < bdd_varnum(); i++) s << 'x';
+    const int size = bdd_varnum();
+    for (size_t i = 0; i < size; i++) {
+        s << 'x';
+        if (i + 1 < size && i % 8 == 7) s << ',';
+    }
     return s.str();
 }
 
