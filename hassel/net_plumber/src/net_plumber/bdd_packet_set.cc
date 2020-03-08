@@ -40,8 +40,9 @@ BDDPacketSet::append_result_buffer(std::string item) {
 
 void
 _initialize_bdd_varnum(const size_t length) {
-    if (length * 8 > 0x1FFFFF || bdd_varnum() >= length * 8) return;
-    bdd_extvarnum((length * 8) - bdd_varnum());
+    const int size = bdd_varnum();
+    if (length * 8 > 0x1FFFFF || (size >= 0 && static_cast<size_t>(size) >= length * 8)) return;
+    bdd_extvarnum((length * 8) - size);
 }
 
 BDDPacketSet::BDDPacketSet(bdd ps) : ps(ps) {
@@ -184,7 +185,8 @@ _bdd_from_str(const std::string s) {
     while (*c == ' ') c++; // seek begin of array
     size_t commas = 0;
     size_t len = _get_length_from_string(c, &commas);
-    if (bdd_varnum() < len) bdd_extvarnum(len - bdd_varnum());
+    const int size = bdd_varnum();
+    if (size >= 0 && static_cast<size_t>(size) < len) bdd_extvarnum(len - size);
     len += commas;
 
     // create result hs
@@ -285,7 +287,7 @@ std::string
 _all_x_str(void) {
     std::stringstream s;
     const int size = bdd_varnum();
-    for (size_t i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         s << 'x';
         if (i + 1 < size && i % 8 == 7) s << ',';
     }
@@ -332,7 +334,8 @@ BDDPacketSet::to_json(Json::Value& res) {
 
 void
 BDDPacketSet::enlarge(const size_t length) {
-    if (length * 8 > bdd_varnum()) bdd_extvarnum(length * 8 - bdd_varnum());
+    const int size = bdd_varnum();
+    if (size >= 0 && length * 8 > static_cast<size_t>(size)) bdd_extvarnum(length * 8 - size);
 }
 
 
