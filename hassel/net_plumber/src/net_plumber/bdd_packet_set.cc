@@ -317,12 +317,12 @@ _all_x_str(void) {
 
 
 std::string
-BDDPacketSet::to_str(void) {
-    if (this->ps == bddtrue) return _all_x_str();
-    if (this->ps == bddfalse) return "(nil)";
+_bdd_to_str(bdd ps) {
+    if (ps == bddtrue) return _all_x_str();
+    if (ps == bddfalse) return "(nil)";
 
     BDDPacketSet::reset_result_buffer();
-    bdd_allsat(this->ps, *_string_handler);
+    bdd_allsat(ps, *_string_handler);
 
     auto* tmp = BDDPacketSet::get_result_buffer();
     std::stringstream res;
@@ -333,6 +333,12 @@ BDDPacketSet::to_str(void) {
     }
 
     return res.str().size() ? res.str() : "(nil)";
+}
+
+
+std::string
+BDDPacketSet::to_str(void) {
+    return _bdd_to_str(this->ps);
 }
 
 
