@@ -372,10 +372,17 @@ BDDPacketSet::compact(void) {
 }
 
 
+void
+_count_handler(char *, int) {
+    BDDPacketSet::increment_vector_counter();
+}
+
+
 size_t
 BDDPacketSet::count(void) {
-    // TODO
-    return 0;
+    BDDPacketSet::reset_vector_counter();
+    bdd_allsat(this->ps, *_count_handler);
+    return BDDPacketSet::get_vector_counter();
 }
 
 
