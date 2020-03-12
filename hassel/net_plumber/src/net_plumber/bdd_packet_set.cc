@@ -443,7 +443,9 @@ bool BDDPacketSet::is_subset_equal(PacketSet *other) {
 
 bool
 BDDPacketSet::is_subset(PacketSet *other) {
-    return this->is_subset_equal(other) && !this->is_equal(other);
+    const bool is_sub_eq = this->is_subset_equal(other);
+    const bool is_equal  = this->is_equal(other);
+    return is_sub_eq && !is_equal;
 }
 
 void
