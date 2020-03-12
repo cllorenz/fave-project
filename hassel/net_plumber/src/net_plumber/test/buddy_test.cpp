@@ -9,6 +9,11 @@ using namespace std;
 
 static std::vector<std::string> *result_buffer;
 
+void print_handler(char *varset, int size) {
+    for (int v = 0; v < size; v++) cout << (varset[v] < 0 ? 'x' : (char)('0' + varset[v]));
+    cout << endl;
+}
+
 void allsatPrintHandler(char* varset, int size)
 {
     stringstream s;
@@ -82,5 +87,106 @@ int main(void) {
 
     bdd_done();
 
+    bdd_init(1000, 100);
+    bdd_setvarnum(1);
+
+    const bdd dc = bddtrue;
+    const bdd zero = bdd_nithvar(0);
+    const bdd one = bdd_ithvar(0);
+
+    cout << "(0 & 1) => 0 = ";
+    bdd_allsat(bdd_imp((zero & one), zero), *print_handler);
+
+    cout << "(0 & 1) => 1 = ";
+    bdd_allsat(bdd_imp((zero & one), one), *print_handler);
+
+    cout << "(0 & 1) => x = ";
+    bdd_allsat(bdd_imp((zero & one), dc), *print_handler);
+
+    bdd_done();
+
     return 0;
 }
+
+/*
+a => b
+// F implies x
+(0 & 1) => 0 = x
+(0 & 1) => 1 = x
+(0 & 1) => x = x
+// 0 implies 1 if b=1 else x
+0 => 0 = x
+0 => 1 = 1
+0 => x = x
+// 1 implies 0 if b=0 else x
+1 => 0 = 0
+1 => 1 = x
+1 => x = x
+// x implies self
+x => 0 = 0
+x => 1 = 1
+x => x = x
+
+a | b
+0 | 0 = 0
+0 | 1 = x
+0 | x = x
+1 | 0 = x
+1 | 1 = 1
+1 | x = x
+x | 0 = x
+x | 1 = x
+x | x = x
+
+a & b
+0 & 0 = 0
+0 & 1 = -
+0 & x = 0
+1 & 0 = -
+1 & 1 = 1
+1 & x = 1
+x & 0 = 0
+x & 1 = 1
+x & x = x
+
+
+a <=> b
+0 <=> 0 = x
+0 <=> 1 = -
+0 <=> x = 0
+1 <=> 0 = -
+1 <=> 1 = x
+1 <=> x = 1
+x <=> 0 = 0
+x <=> 1 = 1
+x <=> x = x
+
+ite(a, b, c)
+ite(0, 0, 0) = 0
+ite(0, 0, 1) = x
+ite(0, 0, x) = x
+ite(0, 1, 0) = -
+ite(0, 1, 1) = 1
+ite(0, 1, x) = 1
+ite(0, x, 0) = 0
+ite(0, x, 1) = x
+ite(0, x, x) = x
+ite(1, 0, 0) = 0
+ite(1, 0, 1) = -
+ite(1, 0, x) = 0
+ite(1, 1, 0) = x
+ite(1, 1, 1) = 1
+ite(1, 1, x) = x
+ite(1, x, 0) = x
+ite(1, x, 1) = 1
+ite(1, x, x) = x
+ite(x, 0, 0) = 0
+ite(x, 0, 1) = 0
+ite(x, 0, x) = 0
+ite(x, 1, 0) = 1
+ite(x, 1, 1) = 1
+ite(x, 1, x) = 1
+ite(x, x, 0) = x
+ite(x, x, 1) = x
+ite(x, x, x) = x
+*/
