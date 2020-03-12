@@ -25,9 +25,16 @@
 #include <cppunit/extensions/HelperMacros.h>
 
 
-template<class PS>
+
+template<class PS1, class PS2>
+class PacketSetTest;
+
+template<class PS1, class PS2>
+PacketSetTest<PS1, PS2> t_psu;
+
+template<class PS1, class PS2>
 class PacketSetTest : public CppUnit::TestFixture {
-  CPPUNIT_TEST_SUITE( PacketSetTest<PS> );
+  CPPUNIT_TEST_SUITE( decltype(t_psu<PS1, PS2>) );
 
   CPPUNIT_TEST(test_from_str);
   CPPUNIT_TEST(test_to_str);
@@ -83,6 +90,6 @@ class PacketSetTest : public CppUnit::TestFixture {
   void test_negate();
 
   private:
-    PS *ps;
+    PS1 *ps;
 };
 #endif  // PACKET_SET_UNIT_H_
