@@ -395,7 +395,7 @@ BDDPacketSet::count_diff(void) {
 
 void
 BDDPacketSet::diff(PacketSet *other) {
-    this->ps &= bdd_not(((BDDPacketSet *)other)->ps);
+    this->ps = bdd_apply(this->ps, ((BDDPacketSet *)other)->ps, bddop_diff);
 }
 
 
