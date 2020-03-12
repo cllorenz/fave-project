@@ -82,9 +82,9 @@ BDDPacketSet::BDDPacketSet() {
 
 bdd
 _all_zeros() {
-    bdd res = bddfalse;
+    bdd res = bddtrue;
     for (int i = 0; i < bdd_varnum(); i++) {
-        res |= bdd_nithvar(i);
+        res &= bdd_nithvar(i);
     }
     return res;
 }
@@ -92,9 +92,9 @@ _all_zeros() {
 
 bdd
 _all_ones() {
-    bdd res = bddfalse;
+    bdd res = bddtrue;
     for (int i = 0; i < bdd_varnum(); i++) {
-        res |= bdd_ithvar(i);
+        res &= bdd_ithvar(i);
     }
     return res;
 }
@@ -125,20 +125,21 @@ BDDPacketSet::BDDPacketSet(const size_t length, enum bit_val val) {
 
 bdd
 _bdd_from_vector_str(const std::string s) {
-    bdd res = bddfalse;
+    bdd res = bddtrue;
     bool all_x = true;
     size_t cnt = 0;
     for (char const &c: s) {
         switch (c) {
             case 'z' : return bddfalse;
-            case '0' : res |= bdd_nithvar(cnt); all_x = false; break;
-            case '1' : res |= bdd_ithvar(cnt); all_x = false; break;
+            case '0' : res &= bdd_nithvar(cnt); all_x = false; break;
+            case '1' : res &= bdd_ithvar(cnt); all_x = false; break;
             case 'x' : break;
             case ',' : cnt--; break;
             default : fprintf(stderr, "error while parsing bdd packet set from string. no viable character: %c", c);
         }
         cnt++;
     }
+
     return (all_x ? bddtrue : res);
 }
 
