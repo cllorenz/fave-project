@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
   BDDPacketSet::init_result_buffer();
   int ret = typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);
   BDDPacketSet::destroy_result_buffer();
-  bdd_done();
+  if (bdd_isrunning()) bdd_done();
   return ret;
 #else
   return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
