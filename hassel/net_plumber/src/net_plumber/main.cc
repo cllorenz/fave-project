@@ -106,11 +106,10 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 
-  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<ArrayPacketSet> );
-  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<HeaderspacePacketSet> );
-#ifdef USE_BDD
-  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<BDDPacketSet> );
-#endif
+  PacketSetTest<T1, T2> t5;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t5) );
+  PacketSetTest<T2, T2> t6;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t6) );
 
   // informs test-listener about testresults
   CPPUNIT_NS::TestResult testresult;
