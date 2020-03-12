@@ -448,31 +448,33 @@ BDDPacketSet::is_subset(PacketSet *other) {
     return is_sub_eq && !is_equal;
 }
 
+
 void
 BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
-    /*
-        a = 1100
-        m = 1010
-        r = 1110
-        ->  1110
+    const bdd m = ((BDDPacketSet *)mask)->ps;
+    const bdd rw = ((BDDPacketSet *)rewrite)->ps;
+    bdd res = bddtrue;
 
-        a & m = 1000
-        r & m = 1010
+    for (int i = 0; i < bdd_varnum(); i++) {
+        const bdd ith = bdd_ithvar(i);
+        const bdd nith = bdd_nithvar(i);
 
-        pos = a & m | r & m = 1010
-        neg = a &~m = 0100
+        const bool mask_is_one = (nith & m) == bddfalse;
 
-        res = pos | neg = 1110
-     */
+        const bool is_zero = (mask_is_one ? (rw & ith) : (this->ps & ith)) == bddfalse;
+        const bool is_one = (mask_is_one ? (rw & nith) : (this->ps & nith)) == bddfalse;
+        const bool is_x = !is_zero && !is_one;
 
-    const bdd pos = (
-        this->ps & ((BDDPacketSet *)mask)->ps
-    ) | (
-        ((BDDPacketSet *)rewrite)->ps & ((BDDPacketSet *)mask)->ps
-    );
-    const bdd neg = this->ps & bdd_not(((BDDPacketSet *)mask)->ps);
+        if (is_x) {
+            ;
+        } else if (is_zero) {
+            res &= nith;
+        } else if (is_one) {
+            res &= ith;
+        }
+    }
 
-    this->ps = pos | neg;
+    this->ps = res;
 }
 
 
