@@ -7,8 +7,6 @@
 
 namespace net_plumber {
 
-static std::vector<std::string> *result_buffer;
-
 class BDDPacketSet : public PacketSet {
   public:
     bdd ps;
@@ -28,6 +26,10 @@ class BDDPacketSet : public PacketSet {
     static void reset_result_buffer(void);
     static void append_result_buffer(std::string);
     static std::vector<std::string> *get_result_buffer(void);
+
+    static void reset_vector_counter(void);
+    static void increment_vector_counter(void);
+    static size_t get_vector_counter(void);
 
     std::string to_str(void);
     void to_json(Json::Value&);

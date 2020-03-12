@@ -8,6 +8,9 @@
 
 namespace net_plumber {
 
+static std::vector<std::string> *result_buffer;
+static size_t vector_counter = 0;
+
 void
 BDDPacketSet::init_result_buffer(void) {
     result_buffer = new std::vector<std::string>();
@@ -36,6 +39,23 @@ BDDPacketSet::append_result_buffer(std::string item) {
     result_buffer->push_back(item);
 }
 
+
+void
+BDDPacketSet::reset_vector_counter(void) {
+    vector_counter = 0;
+}
+
+
+void
+BDDPacketSet::increment_vector_counter(void) {
+    vector_counter++;
+}
+
+
+size_t
+BDDPacketSet::get_vector_counter(void) {
+    return vector_counter;
+}
 
 
 void
