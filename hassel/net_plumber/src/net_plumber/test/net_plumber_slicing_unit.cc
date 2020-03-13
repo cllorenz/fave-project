@@ -49,10 +49,18 @@ LoggerPtr NetPlumberSlicingTest<T1, T2>::logger(
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::setUp() {
+#ifdef USE_BDD
+    if (bdd_isrunning()) bdd_done();
+    bdd_init(100000, 1000);
+    bdd_setvarnum(8);
+#endif
 }
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::tearDown() {
+#ifdef USE_BDD
+    bdd_done();
+#endif
 }
 
 template<class T1, class T2>

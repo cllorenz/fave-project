@@ -37,6 +37,8 @@ class ConditionsTest : public CppUnit::TestFixture {
   CPPUNIT_TEST_SUITE_END();
 
  public:
+  void setUp();
+  void tearDown();
   void test_port();
   void test_table();
   void test_port_sequence();
