@@ -52,15 +52,17 @@ void PacketSetTest<PS1, PS2>::test_from_str() {
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 
-
+#ifdef USE_BDD
     PS1 b{ "(xxxxxxxx - (1xxxxxxx + 01xxxxxx))" };
 
     PS1 tmp1 {"1xxxxxxx"};
     this->ps->minus(&tmp1);
+
     PS1 tmp2 {"01xxxxxx"};
     this->ps->minus(&tmp2);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&b));
+#endif
 }
 
 template<class PS1, class PS2>
@@ -219,10 +221,12 @@ void PacketSetTest<PS1, PS2>::test_is_empty() {
 
     CPPUNIT_ASSERT(a.is_empty());
 
+#ifdef USE_BDD
     PS1 b{ "xxxxxxxx" };
     this->ps->minus(&b);
 
     CPPUNIT_ASSERT(this->ps->is_empty());
+#endif
 }
 
 template<class PS1, class PS2>
@@ -257,8 +261,8 @@ void PacketSetTest<PS1, PS2>::test_is_subset() {
 
     CPPUNIT_ASSERT(a.is_subset(this->ps));
 
+#ifdef USE_BDD
     PS1 tmp2 {"00xxxxxx"};
-
     a.psunion(&tmp2);
 
     CPPUNIT_ASSERT(!a.is_subset(this->ps));
@@ -267,6 +271,7 @@ void PacketSetTest<PS1, PS2>::test_is_subset() {
     a.diff(&tmp3);
 
     CPPUNIT_ASSERT(a.is_subset(this->ps));
+#endif
 }
 
 template<class PS1, class PS2>

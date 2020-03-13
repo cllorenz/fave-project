@@ -37,7 +37,11 @@ class ArrayPacketSet : public PacketSet {
 #endif
     void intersect(PacketSet *);
     void psunion(PacketSet *) { /* empty */ }
+#ifdef USE_DEPRECATED
     void minus(PacketSet *other) { this->diff(other); }
+#else
+    void minus(PacketSet *) { /* empty */ }
+#endif
 #ifdef USE_INV
     void psand(PacketSet *);
 #endif
