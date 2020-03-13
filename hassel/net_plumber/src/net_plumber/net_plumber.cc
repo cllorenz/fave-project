@@ -1003,7 +1003,7 @@ void NetPlumber<T1, T2>::remove_source_probe(uint64_t id) {
 template<class T1, class T2>
 SourceProbeNode<T1, T2> *NetPlumber<T1, T2>::get_source_probe(uint64_t id) {
   if (id_to_node.count(id) > 0) {
-    Node *n = id_to_node[id];
+    Node<T1, T2> *n = id_to_node[id];
     if (n->get_type() == SOURCE_PROBE) {
       return (SourceProbeNode<T1, T2> *)n;
     }

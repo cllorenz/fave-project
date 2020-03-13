@@ -534,7 +534,7 @@ array_set_byte (array_t *a, uint16_t val, size_t byte)
 }
 #endif
 
-#ifdef USE_INV
+#if defined(USE_INV) || defined(USE_DEPRECATED)
 void
 array_and (const array_t *a, const array_t *b, size_t len, array_t *res)
 {
