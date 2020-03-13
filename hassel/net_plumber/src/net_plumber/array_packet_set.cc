@@ -89,6 +89,29 @@ void ArrayPacketSet::enlarge2(size_t len) {
 }
 
 
+#ifdef USE_DEPRECATED
+void
+ArrayPacketSet::diff(PacketSet *other) {
+    assert(this->length == ((ArrayPacketSet *)other)->length);
+
+    size_t cnt = 0;
+    array_t **res = nullptr;
+
+    if (array_diff(this->array, ((ArrayPacketSet *)other)->array, this->length, &cnt, res)) {
+        if (cnt == 1) {
+            array_free(this->array);
+            this->array = res[0];
+        } else {
+            throw "array diff too large";
+        }
+    } else {
+        array_free(this->array);
+        this->array = nullptr;
+    }
+}
+#endif
+
+
 void
 ArrayPacketSet::intersect(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);

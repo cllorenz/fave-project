@@ -30,10 +30,14 @@ class ArrayPacketSet : public PacketSet {
     void enlarge(size_t len);
     void enlarge2(size_t len);
 
+#ifdef USE_DEPRECATED
+    void diff(PacketSet *);
+#else
     void diff(PacketSet *) { /* empty */ }
+#endif
     void intersect(PacketSet *);
     void psunion(PacketSet *) { /* empty */ }
-    void minus(PacketSet *) { /* empty */ }
+    void minus(PacketSet *other) { this->diff(other); }
 #ifdef USE_INV
     void psand(PacketSet *);
 #endif
