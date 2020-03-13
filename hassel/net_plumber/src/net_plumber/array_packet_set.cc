@@ -95,7 +95,7 @@ ArrayPacketSet::diff(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
 
     size_t cnt = 0;
-    array_t **res = nullptr;
+    array_t *res[this->length * CHAR_BIT];
 
     if (array_diff(this->array, ((ArrayPacketSet *)other)->array, this->length, &cnt, res)) {
         if (cnt == 1) {
