@@ -372,7 +372,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
   int stats[7][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -403,7 +407,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_source() {
   int stats[7][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -430,7 +438,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_lower_priority() 
   int stats[8][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -462,7 +474,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_lower_priority() {
   int stats[8][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
 // XXX: dirty fix
 #ifdef NEW_HS
       {0,0},
@@ -493,20 +509,32 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_higher_priority()
               NULL,
               NULL));
   int stats[8][2] = {
+#ifdef USE_BDD
+      {2,0},
+#else
       {1,1},
+#endif
 #ifdef NEW_HS
       {1,1},
 #else
       {1,0},
 #endif
+#ifdef USE_BDD
+      {5,0},
+#else
       {1,3},
+#endif
       {1,0},
 #ifdef NEW_HS
       {3,3},
       {2,2},
       {2,0},
 #else
+#ifdef USE_BDD
+      {3,0},
+#else
       {3,1},
+#endif
       {2,0},
       {2,0},
 #endif
@@ -533,7 +561,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_higher_priority() 
   int stats[8][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
 #ifdef NEW_HS
       {1,1},
@@ -564,7 +596,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_higher_priority2()
   int stats[8][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
       {0,0},
@@ -645,20 +681,32 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rule_block_bounce() {
               NULL,
               NULL));
   int stats[9][2] = {
+#ifdef USE_BDD
+      {2,0},
+#else
       {1,1},
+#endif
 #ifdef NEW_HS
       {1,1},
 #else
       {1,0},
 #endif
+#ifdef USE_BDD
+      {5,0},
+#else
       {1,3},
+#endif
       {1,0},
 #ifdef NEW_HS
       {3,3},
       {2,3},
       {2,2},
 #else
+#ifdef USE_BDD
+      {3,0},
+#else
       {3,1},
+#endif
       {2,0},
       {2,0},
 #endif
@@ -679,7 +727,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_group_rule_mid_priority
   int stats[7][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -725,7 +777,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_rw_rule_lower_priority(
   int stats[6][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
 #ifdef NEW_HS
       {1,2},
@@ -746,7 +802,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_fwd_rule_higher_priorit
   int stats[7][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -768,7 +828,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_rw_rule_higher_priority
   int stats[7][2] = {
       {1,0},
       {1,0},
+#ifdef USE_BDD
+      {3,0},
+#else
       {1,2},
+#endif
       {0,0},
       {2,0},
 #ifdef NEW_HS
@@ -794,19 +858,31 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
   N->add_link(11,12);
   N->add_link(7,8);
   int stats[9][2] = {
+#ifdef USE_BDD
+      {2,0},
+#else
       {1,1},
+#endif
 #ifdef NEW_HS
       {1,1},
 #else
       {1,0},
 #endif
+#ifdef USE_BDD
+      {5,0},
+#else
       {1,3},
+#endif
       {1,0},
 #ifdef NEW_HS
       {3,3},
       {3,3},
 #else
+#ifdef USE_BDD
+      {3,0},
+#else
       {3,1},
+#endif
       {3,0},
 #endif
       {3,0},
@@ -823,19 +899,31 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_link() {
 
   N->remove_link(7,8);
   int stats1[9][2] = {
+#ifdef USE_BDD
+      {2,0},
+#else
       {1,1},
+#endif
 #ifdef NEW_HS
       {1,1},
 #else
       {1,0},
 #endif
+#ifdef USE_BDD
+      {5,0},
+#else
       {1,3},
+#endif
       {1,0},
 #ifdef NEW_HS
       {3,3},
       {3,3},
 #else
+#ifdef USE_BDD
+      {3,0},
+#else
       {3,1},
+#endif
       {3,0},
 #endif
       {2,0},
@@ -846,21 +934,33 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_link() {
   this->verify_source_flow_stats("test_routing_remove_link", stats1);
   N->remove_link(11,12);
   int stats2[9][2] = {
+#ifdef USE_BDD
+        {2,0},
+#else
         {1,1},
+#endif
 // XXX: dirty fix
 #ifdef NEW_HS
         {1,1},
 #else
         {1,0},
 #endif
+#ifdef USE_BDD
+        {5,0},
+#else
         {1,3},
+#endif
         {1,0},
 // XXX: dirty fix
 #ifdef NEW_HS
         {3,3},
         {2,2},
 #else
+#ifdef USE_BDD
+        {3,0},
+#else
         {3,1},
+#endif
         {2,0},
 #endif
         {2,0},
