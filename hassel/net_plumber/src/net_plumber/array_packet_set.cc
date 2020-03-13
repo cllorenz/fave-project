@@ -97,7 +97,15 @@ ArrayPacketSet::diff(PacketSet *other) {
     size_t cnt = 0;
     array_t *res[this->length * CHAR_BIT];
 
-    if (array_diff(this->array, ((ArrayPacketSet *)other)->array, this->length, &cnt, res)) {
+    const bool has_diff = array_diff(
+        this->array,
+        ((ArrayPacketSet *)other)->array,
+        this->length,
+        &cnt,
+        res
+    );
+
+    if (has_diff) {
         if (cnt == 1) {
             array_free(this->array);
             this->array = res[0];
