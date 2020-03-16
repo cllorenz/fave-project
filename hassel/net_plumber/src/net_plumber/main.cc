@@ -40,6 +40,7 @@
 #include <cppunit/BriefTestProgressListener.h>
 // For Logging
 #include <log4cxx/logger.h>
+#include <log4cxx/logmanager.h>
 #include "log4cxx/propertyconfigurator.h"
 #include <log4cxx/basicconfigurator.h>
 
@@ -48,7 +49,6 @@
 #include <sys/resource.h>
 
 using namespace log4cxx;
-using namespace log4cxx::helpers;
 using namespace::std;
 using namespace net_plumber;
 
@@ -296,6 +296,8 @@ int typed_main(int argc, char* argv[]) {
     printf("Done! Cleaning up the NetPlumber\n");
     delete N;
   }
+
+  LogManager::shutdown();
 
   return 0;
 }
