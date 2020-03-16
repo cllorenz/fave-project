@@ -347,8 +347,8 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
           bp->r_pipeline = n->add_fwd_pipeline(fp);
           fp->r_pipeline = n_rule->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-    add_pipe_to_slices(fp);
-    add_pipe_to_slices(bp);
+          add_pipe_to_slices(fp);
+          add_pipe_to_slices(bp);
 #endif
         }
       }
@@ -380,8 +380,8 @@ void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
           bp->r_pipeline = p_rule->add_fwd_pipeline(fp);
           fp->r_pipeline = n->add_bck_pipeline(bp);
 #ifdef PIPE_SLICING
-    add_pipe_to_slices(fp);
-    add_pipe_to_slices(bp);
+          add_pipe_to_slices(fp);
+          add_pipe_to_slices(bp);
 #endif
         }
       }
