@@ -61,7 +61,10 @@ BDDPacketSet::get_vector_counter(void) {
 void
 _initialize_bdd_varnum(const size_t length) {
     const int size = bdd_varnum();
-    if (length * 8 > 0x1FFFFF || (size >= 0 && static_cast<size_t>(size) >= length * 8)) return;
+    if (
+        length * 8 > 0x1FFFFF ||
+        (size >= 0 && static_cast<size_t>(size) >= length * 8)
+    ) return;
     bdd_extvarnum((length * 8) - size);
 }
 
