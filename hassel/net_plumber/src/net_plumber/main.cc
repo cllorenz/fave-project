@@ -250,6 +250,10 @@ int typed_main(int argc, char* argv[]) {
     run_tests<T1, T2>();
   }
 
+#ifdef USE_BDD
+  if (!bdd_isrunning()) bdd_init(100000, 10000);
+#endif
+
   auto *N = new NetPlumber<T1, T2>(hdr_len);
 
   if (do_load_json_files) {
