@@ -75,6 +75,7 @@ BDDPacketSet::BDDPacketSet(bdd ps) : ps(ps) {
 
 BDDPacketSet::BDDPacketSet(const size_t length) {
     _initialize_bdd_varnum(length);
+    this->ps = bddfalse;
 }
 
 
