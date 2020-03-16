@@ -65,6 +65,7 @@ void NetPlumberSlicingTest<T1, T2>::tearDown() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_slice_matrix() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
 				     "1,,x,x,x,\n"
@@ -126,6 +127,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_slice_matrix() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_slice_matrix_errors() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
 
   CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
@@ -278,6 +280,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_slice_matrix_errors() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_remove_slice_matrix() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
 				     "1,,x,x,x,\n"
@@ -294,6 +297,7 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_slice_matrix() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_slice_allow() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   CPPUNIT_ASSERT(np.matrix.empty());
 
@@ -309,6 +313,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_slice_allow() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_remove_slice_allow() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   CPPUNIT_ASSERT(np.matrix.empty());
   CPPUNIT_ASSERT(np.add_slice_matrix(",1,2,3,4,5\n"
@@ -345,6 +350,7 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_slice_allow() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_slice() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   np.slice_overlap_callback = overlap_callback;
   std::string hstr;
@@ -425,6 +431,7 @@ S0   /________  T2: 101xxxxx _______  S2
 */
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_remove_slice_pipes() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   np.slice_overlap_callback = overlap_callback;
 
@@ -560,6 +567,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_remove_slice_pipes() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_remove_slice() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   np.slice_overlap_callback = overlap_callback;
   std::string hstr;
@@ -601,6 +609,7 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_slice() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_matching() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   auto pipe1 = Pipeline<T1, T2>();
 
@@ -636,6 +645,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_matching() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_not_matching() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   auto pipe1 = Pipeline<T1, T2>();
 
@@ -671,6 +681,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_not_matching() {
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_remove_pipe_from_slices() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   auto pipe1 = Pipeline<T1, T2>();
   auto pipe2 = Pipeline<T1, T2>();
@@ -726,6 +737,7 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_pipe_from_slices() {
 // Unit tests checks on Pipeline pairs, structure is not completely initialized
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_no_exception() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   auto pipe1 = Pipeline<T1, T2>();
   auto pipe2 = Pipeline<T1, T2>();
@@ -757,6 +769,7 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_no_excepti
 
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_with_exception() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   auto pipe1 = Pipeline<T1, T2>();
   auto pipe2 = Pipeline<T1, T2>();
@@ -814,6 +827,7 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_with_excep
 // represents demo_leak1 example
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
+  printf("\n");
   auto np = NetPlumber<T1, T2>(1);
   np.slice_overlap_callback = overlap_callback;
   np.slice_leakage_callback = leakage_callback;
