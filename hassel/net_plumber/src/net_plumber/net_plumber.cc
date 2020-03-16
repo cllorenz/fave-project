@@ -405,8 +405,8 @@ void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
     if (pipe_space.is_subset_equal(slice.second.net_space)) {
       /* update slice and pipe information */
       pipe->net_space_id = slice.first;
-      slice.second.pipes.push_front(pipe);
-      pipe->r_slice = slice.second.pipes.begin();
+      slice.second.pipes->push_front(pipe);
+      pipe->r_slice = slice.second.pipes->begin();
       match = true;
       break;
     }
@@ -414,8 +414,8 @@ void NetPlumber<T1, T2>::add_pipe_to_slices(Pipeline<T1, T2> *pipe) {
 
   if (!match) {
     pipe->net_space_id = 0;
-    slices.at(0).pipes.push_front(pipe);
-    pipe->r_slice = slices.at(0).pipes.begin();
+    slices.at(0).pipes->push_front(pipe);
+    pipe->r_slice = slices.at(0).pipes->begin();
   }
 }
 #endif
@@ -512,7 +512,7 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::remove_pipe_from_slices(struct Pipeline<T1, T2> *pipe) {
   try {
     auto &slice = slices.at(pipe->net_space_id);
-    slice.pipes.erase(pipe->r_slice);
+    slice.pipes->erase(pipe->r_slice);
   } catch (const std::out_of_range& oor) { return; }
 }
 #endif /* PIPE_SLICING */
@@ -542,7 +542,7 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
   T1 *net_space = new T1(this->length);
   T2 all_space = T2(this->length, BIT_X);
   net_space->psunion2(&all_space);
-  slices = { {0, {net_space, {}}} };
+  slices = { {0, {net_space, new std::list<struct Pipeline<T1, T2> *>()}} };
   this->slice_overlap_callback = default_slice_overlap_callback;
   this->slice_overlap_callback_data = NULL;
   this->slice_leakage_callback = default_slice_leakage_callback;
@@ -578,6 +578,7 @@ NetPlumber<T1, T2>::~NetPlumber() {
 #ifdef PIPE_SLICING
   for (auto const &slice: slices) {
     delete slice.second.net_space;
+    delete slice.second.pipes;
   }
 #endif /* PIPE_SLICING */
 }
@@ -1655,33 +1656,35 @@ bool NetPlumber<T1, T2>::add_slice(uint64_t id, T1 *net_space) {
   }
 
   /* allocate new slice */
-  Slice<T1, T2> slice = {net_space, {}};
+  std::list<struct Pipeline<T1, T2> *> *pipes = new std::list<struct Pipeline<T1, T2> *>();
+  Slice<T1, T2> slice = {net_space, pipes};
 
   /* remove slice from free network space */
   slices[0].net_space->minus(net_space);
 
   /* add free pipelines to slice */
-  T1 *pipe_space;
   std::list<typename std::list<Pipeline<T1, T2> *>::iterator> changed;
-  auto it = slices[0].pipes.begin();
+  auto it = slices[0].pipes->begin();
 
-  for (auto const &pipe: slices[0].pipes) {
-    pipe_space = new T1(this->length);
-    pipe_space->psunion2(pipe->pipe_array);
+  auto pipe = slices[0].pipes->begin();
+  for (; pipe != slices[0].pipes->end(); ++pipe) {
+    T1 pipe_space { this->length };
+    pipe_space.psunion2((*pipe)->pipe_array);
 
     /* check if pipe's netspace belongs to slice's netspace */
     /* if so, add pipe to new slice and mark pipe as changed */
-    if (pipe_space->is_subset_equal(net_space)) {
-      pipe->net_space_id = id;
-      slice.pipes.push_front(pipe);
+    if (pipe_space.is_subset_equal(net_space)) {
+      (*pipe)->net_space_id = id;
+      pipes->push_front(*pipe);
+      (*pipe)->r_slice = pipes->begin();
       changed.push_back(it);
     }
-    delete pipe_space;
     ++it;
   }
 
+  /* delete all iterators pointing to pipes moved to the new slice from the default slice */
   for (auto const &pipe: changed) {
-    slices[0].pipes.erase(pipe);
+    slices[0].pipes->erase(pipe);
   }
 
   slices[id] = slice;
@@ -1701,15 +1704,17 @@ void NetPlumber<T1, T2>::remove_slice(uint64_t id) {
   if (slice == slices.end()) return;
   
   /* remove pipelines from slice and add to free space */
-  for (const auto &pipe: slice->second.pipes) {
-    pipe->net_space_id = 0;
-    slices[0].pipes.push_front(pipe);
-    pipe->r_slice = slices[0].pipes.begin();
+  auto pipe = slice->second.pipes->begin();
+  for (; pipe != slice->second.pipes->end(); ++pipe) {
+    (*pipe)->net_space_id = 0;
+    slices[0].pipes->push_front(*pipe);
+    (*pipe)->r_slice = slices[0].pipes->begin();
   }
 
   /* free network space */
   slices[0].net_space->psunion(slice->second.net_space);
   delete slice->second.net_space;
+  delete slice->second.pipes;
   slices.erase(slice);
 }
 #endif
