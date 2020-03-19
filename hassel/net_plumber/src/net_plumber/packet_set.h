@@ -20,7 +20,9 @@ class PacketSet {
     virtual void intersect(PacketSet *) = 0;
     virtual void psunion(PacketSet *) = 0;
     virtual void minus(PacketSet *) = 0;
+#ifdef USE_INV
     virtual void psand(PacketSet *) = 0;
+#endif
 
     virtual bool is_empty(void) = 0;
     virtual bool is_equal(PacketSet *) = 0;

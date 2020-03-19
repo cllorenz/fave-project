@@ -23,6 +23,9 @@
 #include <dirent.h>
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 using namespace std;
@@ -249,3 +252,19 @@ template void load_policy_file<HeaderspacePacketSet, ArrayPacketSet>(
   NetPlumber<HeaderspacePacketSet, ArrayPacketSet> *,
   ArrayPacketSet *
 );
+
+#ifdef USE_BDD
+template void load_netplumber_from_dir<BDDPacketSet, BDDPacketSet>(
+    string,
+    NetPlumber<BDDPacketSet, BDDPacketSet> *,
+    BDDPacketSet *
+#ifdef PIPE_SLICING
+    , size_t
+#endif
+);
+template void load_policy_file<BDDPacketSet, BDDPacketSet>(
+  string,
+  NetPlumber<BDDPacketSet, BDDPacketSet> *,
+  BDDPacketSet *
+);
+#endif

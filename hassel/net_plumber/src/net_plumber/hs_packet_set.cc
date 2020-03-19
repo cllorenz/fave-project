@@ -49,9 +49,11 @@ get_length_from_val(const Json::Value& val) {
 
 HeaderspacePacketSet::HeaderspacePacketSet(const std::string s) {
     struct hs *hs = hs_from_str(s.c_str());
-    this->hs.len = hs->len;
-    this->hs.list = hs->list;
-    free(hs);
+    if (hs) {
+        this->hs.len = hs->len;
+        this->hs.list = hs->list;
+        free(hs);
+    }
 }
 
 

@@ -24,9 +24,30 @@
 #include <stdarg.h>
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace std;
 using namespace net_plumber;
+
+
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::setUp() {
+#ifdef USE_BDD
+    if (bdd_isrunning()) bdd_done();
+    bdd_init(100000, 1000);
+    bdd_setvarnum(8);
+#endif
+}
+
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::tearDown() {
+#ifdef USE_BDD
+  bdd_done();
+#endif
+}
+
 
 template<class T1, class T2>
 void ConditionsTest<T1, T2>::test_port() {
@@ -213,3 +234,6 @@ void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
 }
 
 template class ConditionsTest<HeaderspacePacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class ConditionsTest<BDDPacketSet, BDDPacketSet>;
+#endif

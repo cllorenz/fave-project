@@ -93,6 +93,9 @@ install: all
 uninstall:
 	-rm -f /usr/bin/net_plumber
 
+buddy_test: ../src/net_plumber/test/buddy_test.cpp
+	g++ -o $@ $< -lbdd
+
 .PHONY: all clean dependents install uninstall coverage test
 .SECONDARY:
 

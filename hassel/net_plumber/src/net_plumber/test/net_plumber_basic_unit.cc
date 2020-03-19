@@ -22,17 +22,26 @@
 #include "../net_plumber_utils.h"
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 
 template<class T1, class T2>
 void NetPlumberBasicTest<T1, T2>::setUp() {
-
+#ifdef USE_BDD
+  if (bdd_isrunning()) bdd_done();
+  bdd_init(100000, 1000);
+  bdd_setvarnum(8);
+#endif
 }
 
 template<class T1, class T2>
 void NetPlumberBasicTest<T1, T2>::tearDown() {
-
+#ifdef USE_BDD
+  bdd_done();
+#endif
 }
 
 template<class T1, class T2>
@@ -44,13 +53,19 @@ void NetPlumberBasicTest<T1, T2>::test_rule_node_create() {
   T2 *mask = new T2("00000000,01111111");
   T2 *rewrite = new T2("00000000,00000011");
   T2 *inv_match = new T2("xxxxxxxx,x0000011");
+#ifdef USE_INV
   T2 *inv_rw = new T2("xxxxxxxx,x0000000");
+#endif
   RuleNode<T1, T2> *r = new RuleNode<T1, T2>(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
+#ifdef USE_INV
   CPPUNIT_ASSERT(r->inv_match->is_equal(inv_match));
   CPPUNIT_ASSERT(r->inv_rw->is_equal(inv_rw));
+#endif
   //printf("%s\n",r->to_string().c_str());
+#ifdef USE_INV
   delete inv_rw;
+#endif
   delete inv_match;
   delete r;
 }
@@ -101,4 +116,6 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
 }
 
 template class NetPlumberBasicTest<HeaderspacePacketSet, ArrayPacketSet>;
-
+#ifdef USE_BDD
+template class NetPlumberBasicTest<BDDPacketSet, BDDPacketSet>;
+#endif

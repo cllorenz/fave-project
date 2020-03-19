@@ -38,7 +38,9 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_combine);
         CPPUNIT_TEST(test_array_merge);
         CPPUNIT_TEST(test_array_one_bit_subtract);
+#ifdef USE_INV
         CPPUNIT_TEST(test_array_and);
+#endif
         CPPUNIT_TEST(test_array_cmpl);
         CPPUNIT_TEST(test_array_isect);
         CPPUNIT_TEST(test_array_not);
@@ -59,7 +61,9 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_combine();
         void test_array_merge();
         void test_array_one_bit_subtract();
+#ifdef USE_INV
         void test_array_and();
+#endif
         void test_array_cmpl();
         void test_array_isect();
         void test_array_not();

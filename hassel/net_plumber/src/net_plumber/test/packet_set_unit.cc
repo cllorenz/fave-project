@@ -20,40 +20,53 @@
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
 #include <iostream>
+#ifdef USE_BDD
+#include "../bdd_packet_set.h"
+#endif
 
 using namespace net_plumber;
 
-template<class PS>
-void PacketSetTest<PS>::setUp() {
-    this->ps = new PS("xxxxxxxx");
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::setUp() {
+#ifdef USE_BDD
+    if (bdd_isrunning()) bdd_done();
+    bdd_init(100000, 1000);
+    bdd_setvarnum(8);
+#endif
+    this->ps = new PS1("xxxxxxxx");
 }
 
-template<class PS>
-void PacketSetTest<PS>::tearDown() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::tearDown() {
     delete this->ps;
+#ifdef USE_BDD
+    bdd_done();
+#endif
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_from_str() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_from_str() {
     printf("\n");
 
-    PS a{ "xxxxxxxx" };
+    PS1 a{ "xxxxxxxx" };
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 
+#ifdef USE_BDD
+    PS1 b{ "(xxxxxxxx - (1xxxxxxx + 01xxxxxx))" };
 
-    PS b{ "(xxxxxxxx - (1xxxxxxx + 01xxxxxx))" };
-
-    PS tmp1 = PS("1xxxxxxx");
+    PS1 tmp1 {"1xxxxxxx"};
     this->ps->minus(&tmp1);
-    PS tmp2 = PS("01xxxxxx");
+
+    PS1 tmp2 {"01xxxxxx"};
     this->ps->minus(&tmp2);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&b));
+#endif
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_to_str() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_to_str() {
     printf("\n");
 
     std::string s{ "xxxxxxxx" };
@@ -62,29 +75,29 @@ void PacketSetTest<PS>::test_to_str() {
     CPPUNIT_ASSERT(res == s);
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_from_json() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_from_json() {
     printf("\n");
 
     Json::Value val;
     val = (Json::StaticString)"xxxxxxxx";
 
-    PS a{ val, 1 };
+    PS1 a{ val, 1 };
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_to_json() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_to_json() {
     printf("\n TODO: implement");
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_compact() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_compact() {
     printf("\n");
 
-    PS a { "1xxxxxxx" };
-    PS tmp = PS("0xxxxxxx");
+    PS1 a { "1xxxxxxx" };
+    PS1 tmp {"0xxxxxxx"};
     a.psunion(&tmp);
 
     a.compact();
@@ -92,202 +105,229 @@ void PacketSetTest<PS>::test_compact() {
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_unroll() {
+#ifndef USE_BDD
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_unroll() {
     printf("\n");
 
-    PS a { "xxxxxxxx" };
-    auto diff = ArrayPacketSet("1xxxxxxx");
-    a.diff(&diff); // XXX: implement invariant PS test
+    PS1 a { "xxxxxxxx" };
+    PS2 diff {"1xxxxxxx"};
+    a.diff(&diff);
 
     a.unroll();
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
+#endif
 
-template<class PS>
-void PacketSetTest<PS>::test_count() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_count() {
     printf("\n");
 
     CPPUNIT_ASSERT(this->ps->count() == 1);
 
-    PS *a = new PS(1);
+    PS1 *a = new PS1(1);
 
     CPPUNIT_ASSERT(a->count() == 0);
 
     delete a;
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_enlarge() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_enlarge() {
     printf("\n");
-    PS a{"xxxxxxxx,xxxxxxxx"};
+    PS1 a{"xxxxxxxx,xxxxxxxx"};
 
     this->ps->enlarge(2);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 
-    PS b{"xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"};
+    PS1 b{"xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"};
 
     this->ps->enlarge(6);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&b));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_diff() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_diff() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
-    auto diff1 = ArrayPacketSet("1xxxxxxx");
-    a.diff(&diff1); // XXX: implement invariant PS test
-    auto diff2 = ArrayPacketSet("0xxxxxxx");
-    a.diff(&diff2); // XXX: implement invariant PS test
+    PS1 a{"xxxxxxxx"};
+    PS2 diff1 {"1xxxxxxx"};
+    a.diff(&diff1);
+    PS2 diff2 {"0xxxxxxx"};
+    a.diff(&diff2);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_intersect() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_intersect() {
     printf("\n");
 
-    PS a{"1xxxxxxx"};
+    PS1 a{"1xxxxxxx"};
 
     this->ps->intersect(&a);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_psunion() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_psunion() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
+    PS1 a{"xxxxxxxx"};
 
-    PS tmp1 = PS("1xxxxxxx");
+    PS1 tmp1 {"1xxxxxxx"};
     a.psunion(&tmp1);
-    PS tmp2 = PS("0xxxxxxx");
+    PS1 tmp2 {"0xxxxxxx"};
     a.psunion(&tmp2);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_minus() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_minus() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
+    PS1 a{"xxxxxxxx"};
 
-    PS tmp = PS("1xxxxxxx");
+    PS1 tmp {"1xxxxxxx"};
     a.minus(&tmp);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_psand() {
+#ifdef USE_INV
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_psand() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
-    PS b{"1xxxxxxx"};
+    PS2 a{"xxxxxxxx"};
+    PS2 b{"1xxxxxxx"};
 
     a.psand(&b);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
+#endif
 
-template<class PS>
-void PacketSetTest<PS>::test_is_empty() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_is_empty() {
     printf("\n");
 
+    PS1 a{ "(nil)" };
+
+    CPPUNIT_ASSERT(a.is_empty());
+
+#ifdef USE_BDD
+    PS1 b{ "xxxxxxxx" };
+    this->ps->minus(&b);
+
+    CPPUNIT_ASSERT(this->ps->is_empty());
+#endif
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_is_equal() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_is_equal() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
+    PS1 a{"xxxxxxxx"};
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 
-    PS tmp1 = PS("1xxxxxxx");
+    PS1 tmp1 {"1xxxxxxx"};
     a.psunion(&tmp1);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a));
 
-    PS tmp2 = PS("0xxxxxxx");
+    PS1 tmp2 {"0xxxxxxx"};
     a.psunion(&tmp2);
 
     CPPUNIT_ASSERT(this->ps->is_equal(&a)); 
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_is_subset() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_is_subset() {
     printf("\n");
 
-    PS a{"1xxxxxxx"};
+    PS1 a{"1xxxxxxx"};
 
     CPPUNIT_ASSERT(a.is_subset(this->ps));
 
-    PS tmp1 = PS("01xxxxxx");
+    PS1 tmp1 {"01xxxxxx"};
     a.psunion(&tmp1);
 
     CPPUNIT_ASSERT(a.is_subset(this->ps));
 
-    PS tmp2 = PS("00xxxxxx");
+#ifdef USE_BDD
+    PS1 tmp2 {"00xxxxxx"};
     a.psunion(&tmp2);
 
-    CPPUNIT_ASSERT(a.is_subset(this->ps));
+    CPPUNIT_ASSERT(!a.is_subset(this->ps));
 
-    auto tmp3 = ArrayPacketSet("xxxxxxx1");
-    a.diff(&tmp3); // XXX: implement invariant PS test
+    PS2 tmp3 {"xxxxxxx1"};
+    a.diff(&tmp3);
 
     CPPUNIT_ASSERT(a.is_subset(this->ps));
+#endif
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_is_subset_equal() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_is_subset_equal() {
     printf("\n");
 
-    PS a{"1xxxxxxx"};
+    PS1 a{"1xxxxxxx"};
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 
-    PS tmp1 = PS("01xxxxxx");
+    PS1 tmp1 {"01xxxxxx"};
     a.psunion(&tmp1);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 
-    PS tmp2 = PS("00xxxxxx");
+    PS1 tmp2 {"00xxxxxx"};
     a.psunion(&tmp2);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 
-    PS tmp3 = PS("0xxxxxxx");
+    PS1 tmp3 {"0xxxxxxx"};
     a.psunion(&tmp3);
 
     CPPUNIT_ASSERT(a.is_subset_equal(this->ps));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_rewrite() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_rewrite() {
     printf("\n");
 
-    PS a{"1xxxxxxx"};
+    PS1 a{"1xxxxxxx"};
 
-    // XXX: implement invariant PS test
-    auto mask = ArrayPacketSet("10000000");
-    auto rw = ArrayPacketSet("x0000000");
-    a.rewrite(&mask , &rw);
+    PS2 m1 {"10000000"};
+    PS2 rw1 {"x0000000"};
+
+    a.rewrite(&m1 , &rw1);
 
     CPPUNIT_ASSERT(a.is_equal(this->ps));
+
+    PS1 b {"000111xx,x01x01x0"};
+
+    PS2 m2 {"11111111,10000000"};
+    PS2 rw2 {"01x01x01,x1x0x01x"};
+
+    b.rewrite(&m2, &rw2);
+
+    PS1 r2 {"01x01x01,x01x01x0"};
+
+    CPPUNIT_ASSERT(b.is_equal(&r2));
 }
 
-template<class PS>
-void PacketSetTest<PS>::test_negate() {
+template<class PS1, class PS2>
+void PacketSetTest<PS1, PS2>::test_negate() {
     printf("\n");
 
-    PS a{"xxxxxxxx"};
+    PS1 a{"xxxxxxxx"};
 
     a.negate();
 
@@ -295,6 +335,8 @@ void PacketSetTest<PS>::test_negate() {
 }
 
 
-template class PacketSetTest<HeaderspacePacketSet>;
-template class PacketSetTest<ArrayPacketSet>;
-
+template class PacketSetTest<HeaderspacePacketSet, ArrayPacketSet>;
+template class PacketSetTest<ArrayPacketSet, ArrayPacketSet>;
+#ifdef USE_BDD
+template class PacketSetTest<BDDPacketSet, BDDPacketSet>;
+#endif

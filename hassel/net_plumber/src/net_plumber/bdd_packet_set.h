@@ -10,25 +10,36 @@ namespace net_plumber {
 class BDDPacketSet : public PacketSet {
   public:
     bdd ps;
-    size_t length;
 
     BDDPacketSet(const size_t);
-    BDDPacketSet(bdd, const size_t);
+    BDDPacketSet();
+    BDDPacketSet(bdd);
     BDDPacketSet(const size_t, enum bit_val);
+    BDDPacketSet(enum bit_val);
     BDDPacketSet(const std::string);
     BDDPacketSet(const Json::Value&, size_t);
     BDDPacketSet(const BDDPacketSet&);
     virtual ~BDDPacketSet();
 
+    static void init_result_buffer(void);
+    static void destroy_result_buffer(void);
+    static void reset_result_buffer(void);
+    static void append_result_buffer(std::string);
+    static std::vector<std::string> *get_result_buffer(void);
+
+    static void reset_vector_counter(void);
+    static void increment_vector_counter(void);
+    static size_t get_vector_counter(void);
+
     std::string to_str(void);
     void to_json(Json::Value&);
 
     void compact(void);
-    void compact2(void) { this->compact(); }
+    void compact2(PacketSet *) { this->compact(); }
     void unroll(void) { /* empty */ }
     size_t count(void);
     size_t count_diff(void);
-    void enlarge(size_t len);
+    void enlarge(size_t);
     void enlarge2(size_t len) { this->enlarge(len); }
 
     void diff(PacketSet *);
@@ -38,8 +49,10 @@ class BDDPacketSet : public PacketSet {
     void psunion(PacketSet *);
     void psunion2(PacketSet *ps) { this->psunion(ps); }
     void minus(PacketSet *);
-    void minus2(PacketSet *ps) { this->minus(ps); }
+    void minus2(PacketSet *ps, const size_t) { this->minus(ps); }
+#ifdef USE_INV
     void psand(PacketSet *);
+#endif
 
     bool is_empty(void);
     bool is_equal(PacketSet *);

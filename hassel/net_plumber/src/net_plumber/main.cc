@@ -23,6 +23,9 @@
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
 #include "../headerspace/test/hs_unit.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 #include "hs_packet_set.h"
 #include "array_packet_set.h"
 #include <string.h>
@@ -37,6 +40,7 @@
 #include <cppunit/BriefTestProgressListener.h>
 // For Logging
 #include <log4cxx/logger.h>
+#include <log4cxx/logmanager.h>
 #include "log4cxx/propertyconfigurator.h"
 #include <log4cxx/basicconfigurator.h>
 
@@ -45,7 +49,6 @@
 #include <sys/resource.h>
 
 using namespace log4cxx;
-using namespace log4cxx::helpers;
 using namespace::std;
 using namespace net_plumber;
 
@@ -103,8 +106,10 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 
-  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<ArrayPacketSet> );
-  CPPUNIT_TEST_SUITE_REGISTRATION( PacketSetTest<HeaderspacePacketSet> );
+  PacketSetTest<T1, T2> t5;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t5) );
+  PacketSetTest<T2, T2> t6;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t6) );
 
   // informs test-listener about testresults
   CPPUNIT_NS::TestResult testresult;
@@ -245,6 +250,10 @@ int typed_main(int argc, char* argv[]) {
     run_tests<T1, T2>();
   }
 
+#ifdef USE_BDD
+  if (!bdd_isrunning()) bdd_init(100000, 10000);
+#endif
+
   auto *N = new NetPlumber<T1, T2>(hdr_len);
 
   if (do_load_json_files) {
@@ -288,11 +297,23 @@ int typed_main(int argc, char* argv[]) {
     delete N;
   }
 
+  LogManager::shutdown();
+
   return 0;
 }
 
 
 int main(int argc, char* argv[]) {
+#ifdef USE_BDD
+  bdd_init(100000, 10000);
+  bdd_setvarnum(8);
+  BDDPacketSet::init_result_buffer();
+  int ret = typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);
+  BDDPacketSet::destroy_result_buffer();
+  if (bdd_isrunning()) bdd_done();
+  return ret;
+#else
   return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
+#endif
 }
 

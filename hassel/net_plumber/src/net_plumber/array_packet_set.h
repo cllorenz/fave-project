@@ -30,11 +30,21 @@ class ArrayPacketSet : public PacketSet {
     void enlarge(size_t len);
     void enlarge2(size_t len);
 
+#ifdef USE_DEPRECATED
+    void diff(PacketSet *);
+#else
     void diff(PacketSet *) { /* empty */ }
+#endif
     void intersect(PacketSet *);
     void psunion(PacketSet *) { /* empty */ }
+#ifdef USE_DEPRECATED
+    void minus(PacketSet *other) { this->diff(other); }
+#else
     void minus(PacketSet *) { /* empty */ }
+#endif
+#ifdef USE_INV
     void psand(PacketSet *);
+#endif
 
     bool is_empty(void);
     bool is_equal(PacketSet *);

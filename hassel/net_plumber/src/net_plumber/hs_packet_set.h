@@ -34,7 +34,9 @@ class HeaderspacePacketSet : public PacketSet {
     void diff(PacketSet *);
     void minus(PacketSet *);
     void minus2(ArrayPacketSet *, const size_t);
+#ifdef USE_INV
     void psand(PacketSet *) { /* empty */ };
+#endif
 
     bool is_empty(void);
     bool is_equal(PacketSet *);

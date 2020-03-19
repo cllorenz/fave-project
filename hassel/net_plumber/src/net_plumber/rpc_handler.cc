@@ -24,6 +24,9 @@
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
 #include "net_plumber_utils.h"
+#ifdef USE_BDD
+#include "bdd_packet_set.h"
+#endif
 
 using namespace log4cxx;
 using namespace Json::Rpc;
@@ -465,5 +468,14 @@ template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, int);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, int);
+
+#ifdef USE_BDD
+template class RpcHandler<BDDPacketSet, BDDPacketSet>;
+
+template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
+template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, int);
+template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
+template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, int);
+#endif
 } /* namespace net_plumber */
 
