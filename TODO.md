@@ -6,7 +6,7 @@
     - generate all flow in subnets instead of subnet specific traffic
     - add hosts as packet filters (optional)
  - UP:
-    - check state table traversal
+    - fix usage of bdd packet sets by either implementing flow tree checks in NetPlumber or fixing dumping of packet sets
  - Internet2:
     - create benchmark from originial config instead of TF format
     - construct by using FaVe instead of a direct read
@@ -26,7 +26,6 @@
  - fix removal of firewall rules
  - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
- - improve reachibility tree analysis featuring stateful connections
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
@@ -57,7 +56,9 @@ in large tables tremendously
  - BDDs instead of Header Spaces
     - `[DONE]` generic interface for set representations and operations
     - implement and test bdd based packet set class
-    - benchmarks: IFI, UP
+    - benchmarks:
+      - [DONE] IFI
+      - [ ] UP
  - Unify the empty set for arrays by a NULL representation, i.e., whenever a
 'z' is found remove the array. Pros: makes checks for the empty set more
 efficient and the memory footprint might be lowered. Cons: might break stuff at
