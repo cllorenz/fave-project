@@ -17,12 +17,12 @@ class IP6TablesParser(BisonParser):
     interactive = False
 
     tokens = [
-        'IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'TABLE',
+        'IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'RJCT', 'TABLE',
         'JUMP_SHORT', 'JUMP_LONG', 'NEGATION', 'ARG_SHORT', 'ARG_LONG',
         'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG',
         'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG',
         'DST_SHORT', 'DST_LONG', 'PORTNO', 'IPV6_CIDR', 'IDENT', 'WORD',
-        'NEWLINE', 'WS'
+        'NEWLINE', 'WS', 'COMMENT', 'WORDLIST'
     ]
 
     _ast = None
@@ -34,6 +34,7 @@ class IP6TablesParser(BisonParser):
         """
         ruleset :
                 | ruleset line
+                | ruleset comment
         """
         target = kwargs["target"]
         option = kwargs["option"]
@@ -46,8 +47,17 @@ class IP6TablesParser(BisonParser):
             if values[1] is not None:
                 self._ast.add_child(values[1])
             return self._ast
+        elif option == 2:
+            return self._ast
         else:
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+
+
+    def on_comment(self, *_args, **_kwargs):
+        """
+        comment : COMMENT NEWLINE
+        """
+        return None
 
 
     def on_line(self, *_args, **kwargs):
@@ -301,6 +311,19 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
+    def on_generic_argument(self, *_args, **kwargs):
+        """
+        generic_argument : ARG_SHORT WS IDENT
+                         | ARG_LONG WS IDENT
+        """
+        values = kwargs["values"]
+
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
+
+
     def on_module_body(self, *_args, **kwargs):
         """
         module_body : ARG_SHORT WS WORD
@@ -311,6 +334,8 @@ class IP6TablesParser(BisonParser):
                     | ARG_LONG WS IDENT
                     | ARG_LONG WS PORTNO
                     | ARG_LONG WS IPV6_CIDR
+                    | ARG_SHORT WS WORDLIST
+                    | ARG_LONG WS WORDLIST
         """
         values = kwargs["values"]
 
@@ -336,8 +361,10 @@ class IP6TablesParser(BisonParser):
         """
         action : ACCEPT
                | DROP
+               | RJCT WS generic_argument
         """
-        return Tree(kwargs["values"][0])
+        norm = "DROP" if kwargs["option"] == 2 else kwargs["values"][0]
+        return Tree(norm)
 
 
     _ipv6_seg = '[[:xdigit:]]{1,4}'
@@ -373,6 +400,7 @@ class IP6TablesParser(BisonParser):
     "-A"                    { returntoken(APPEND_CMD); }
     "ACCEPT"                { returntoken(ACCEPT); }
     "DROP"                  { returntoken(DROP); }
+    "REJECT"                { returntoken(RJCT); }
     "!"                     { returntoken(NEGATION); }
     "-t"                    { returntoken(TABLE); }
     "-j"                    { returntoken(JUMP_SHORT); }
@@ -399,6 +427,8 @@ class IP6TablesParser(BisonParser):
     [[:alpha:]][[:alnum:]_\-]*  { returntoken(IDENT); }
     [[:alnum:]_\-/]+        { returntoken(WORD); }
     [ \t]+                  { returntoken(WS); }
+    "#"[[:print:]]*         { returntoken(COMMENT); }
+    [[:alnum:]_\-/]+(","[[:alnum:]_\-/]+)*  { returntoken(WORDLIST); }
     .                       { printf("unknown char %c ignored, yytext=%s\n", yytext[0], yytext); /* ignore bad chars */ }
 
     %%
