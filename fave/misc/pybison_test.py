@@ -4,6 +4,8 @@
     and Bison.
 """
 
+import sys
+
 from bison import BisonParser
 from util.tree_util import Tree
 
@@ -418,4 +420,7 @@ class IP6TablesParser(BisonParser):
 
 
 if __name__ == '__main__':
-    IP6TablesParser().parse("bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset").print_tree()
+    ruleset = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
+    if len(sys.argv) == 2: ruleset = sys.argv[1]
+
+    IP6TablesParser().parse(ruleset).print_tree()
