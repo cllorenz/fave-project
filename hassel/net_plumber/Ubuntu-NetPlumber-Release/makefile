@@ -55,7 +55,7 @@ endif
 
 -include ../makefile.defs
 
-# Add inputs and outputs from these tool invocations to the build variables 
+# Add inputs and outputs from these tool invocations to the build variables
 
 # Tool invocations
 net_plumber: $(OBJS) $(USER_OBJS)
