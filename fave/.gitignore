@@ -15,6 +15,10 @@ bench/wl_ifi/*.html
 bench/wl_ifi/*.orig.*
 bench/wl_ifi/*.csv
 
+bench/example/reachability.csv
+bench/example/policy.csv
+bench/example/*.json
+
 *.pdf
 out
 *.svg
