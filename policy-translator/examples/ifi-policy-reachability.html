@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset='UTF-8'>
+		<title>Policy-Translator -- HTML-Ausgabe</title>
+		<link rel='stylesheet' href='policies.css'>
+	</head>
+	<body>
+		<table>
+			<tr>
+				<td></td>
+				<td></td>
+				<td class='label' colspan='7'>ZIEL</td>
+			</tr>
+			<tr>
+				<td></td>
+				<td></td>
+				<td class='role'>
+					<div class='tooltip'>
+						TrustedClients
+						<span class='tooltiptext'>vlan = 3<br/>hosts = ['office.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						Sekretariate
+						<span class='tooltiptext'>vlan = 2<br/>hosts = ['secretary.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						UntrustedClients
+						<span class='tooltiptext'>vlan = 4<br/>hosts = ['pool.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						Webserver
+						<span class='tooltiptext'>vlan = 5<br/>hosts = ['webserver.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						Intern
+						<span class='tooltiptext'>vlan = 6<br/>hosts = ['cluster.cs.uni-potsdam.de', 'printer.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						Internet
+						<span class='tooltiptext'></span>
+					</div>
+				</td>
+				<td class='role'>
+					<div class='tooltip'>
+						AdminNetz
+						<span class='tooltiptext'>vlan = 1<br/>hosts = ['admin.cs.uni-potsdam.de']<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='label' rowspan='7'>Q<br/>U<br/>E<br/>L<br/>L<br/>E</td>
+				<td class='role'>TrustedClients</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/></span>
+					</div>
+				</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>Sekretariate</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/></span>
+					</div>
+				</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>UntrustedClients</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/></span>
+					</div>
+				</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>Webserver</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/>ODER<br/>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>Intern</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/></span>
+					</div>
+				</td>
+				<td class='disallowed'>&#x274c;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>Internet</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/>ODER<br/>protocol = tcp<br/>port = 80<br/>ODER<br/>protocol = tcp<br/>port = 443<br/></span>
+					</div>
+				</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+				<td>&nbsp;</td>
+				<td class='cond_allowed'>
+					<div class='tooltip'>
+						&#x2705;
+						<span class='tooltiptext'>state = RELATED,ESTABLISHED<br/></span>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td class='role'>AdminNetz</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+				<td class='allowed'>&#x2705;</td>
+			</tr>
+		</table>
+
+		<br/><br/>
+		<h3>Legende:</h3>
+
+		<table>
+			<tr>
+				<td class='allowed'>&#x2705;</td>
+				<td>Erlaubt</td>
+			</tr>
+			<tr>
+				<td class='cond_allowed'>&#x2705;</td>
+				<td>Nur bedingt erlaubt (Mouseover für mehr Informationen)</td>
+			</tr>
+			<tr>
+				<td class='disallowed'>&#x274c;</td>
+				<td>Nicht erlaubt</td>
+			</tr>
+		</table>
+	</body>
+</html>
