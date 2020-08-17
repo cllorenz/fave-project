@@ -14,6 +14,9 @@ fi
 
 apt-get --version 2> /dev/null
 if [ $? -eq 0 ]; then
+    sudo apt-get install python2
+    sudo apt-get install python2-dev
+    sudo apt-get install python2-pip
     sudo apt-get install python-daemon
     sudo apt-get install python-pip
     sudo apt-get install pylint
