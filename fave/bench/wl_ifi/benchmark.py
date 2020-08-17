@@ -26,6 +26,7 @@ REACH = "bench/wl_ifi/reachability.csv"
 if __name__ == '__main__':
     import json
     import os
+    from os import path
     import sys
 
     verbose = False
@@ -41,12 +42,13 @@ if __name__ == '__main__':
     os.system("python2 bench/wl_ifi/topogen.py")
     os.system("python2 bench/wl_ifi/routegen.py")
     #os.system("python2 bench/wl_ifi/checkgen.py")
-    os.system(
-        "python2 ../policy-translator/policy_translator.py " +
-        "--csv --out %s " % REACH +
-        "bench/wl_ifi/roles_and_services.orig.txt " +
-        "bench/wl_ifi/policy.orig.txt"
-    )
+    if not path.exists(REACH):
+        os.system(
+            "python2 ../policy-translator/policy_translator.py " +
+            "--csv --out %s " % REACH +
+            "bench/wl_ifi/roles_and_services.orig.txt " +
+            "bench/wl_ifi/policy.orig.txt"
+        )
     os.system(
         "python2 bench/wl_ifi/reach_csv_to_checks.py " + ' '.join([
             '-p', REACH,
