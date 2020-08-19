@@ -17,12 +17,12 @@ class IP6TablesParser(BisonParser):
     interactive = False
 
     tokens = [
-        'IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'RJCT', 'TABLE',
+        'IPT6', 'IPT', 'POLICY_CMD', 'APPEND_CMD', 'ACCEPT', 'DROP', 'RJCT', 'TABLE',
         'JUMP_SHORT', 'JUMP_LONG', 'NEGATION', 'ARG_SHORT', 'ARG_LONG',
         'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG',
         'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG',
-        'DST_SHORT', 'DST_LONG', 'PORTNO', 'IPV6_CIDR', 'IDENT', 'WORD',
-        'NEWLINE', 'WS', 'COMMENT', 'WORDLIST'
+        'DST_SHORT', 'DST_LONG', 'PORTNO', 'PORTRANGE', 'IPV6_CIDR', 'IPV4_CIDR', 'IDENT', 'WORD',
+        'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS'
     ]
 
     _ast = None
@@ -63,8 +63,8 @@ class IP6TablesParser(BisonParser):
     def on_line(self, *_args, **kwargs):
         """
         line : NEWLINE
-             | IPT WS table APPEND_CMD WS IDENT body WS jump NEWLINE
-             | IPT WS table POLICY_CMD WS IDENT WS action NEWLINE
+             | ipt WS table APPEND_CMD WS IDENT body WS jump NEWLINE
+             | ipt WS table POLICY_CMD WS IDENT WS action NEWLINE
         """
         target = kwargs["target"]
         option = kwargs["option"]
@@ -102,6 +102,22 @@ class IP6TablesParser(BisonParser):
             else:
                 line.add_child('-t').add_child('filter')
 
+            has_sports = tmp.has_child('--sports')
+            has_dports = tmp.has_child('--dports')
+            if has_sports:
+                sports = tmp.get_child('--sports')
+                val = sports.get_first().value
+                first, _last = val.split(':') # XXX: implement interval handling
+                sports.value = '--sport'
+                sports.get_first().value = first
+
+            if has_dports:
+                dports = tmp.get_child('--dports')
+                val = dports.get_first().value
+                first, _last = val.split(':') # XXX: implement interval handling
+                dports.value = '--dport'
+                dports.get_first().value = first
+
             return line
 
         elif option == 2:
@@ -127,6 +143,13 @@ class IP6TablesParser(BisonParser):
 
         else:
             raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+
+    def on_ipt(self, *_args, **kwargs):
+        """
+        ipt : IPT6
+            | IPT
+        """
+        return kwargs['values'][0]
 
 
     def on_table(self, *_args, **kwargs):
@@ -195,7 +218,9 @@ class IP6TablesParser(BisonParser):
         argument : saddr
                  | daddr
                  | sport
+                 | sports
                  | dport
+                 | dports
                  | proto
                  | sinf
                  | oinf
@@ -209,11 +234,13 @@ class IP6TablesParser(BisonParser):
         """
         saddr : SRC_SHORT WS IPV6_CIDR
               | SRC_LONG WS IPV6_CIDR
+              | SRC_SHORT WS IPV4_CIDR
+              | SRC_LONG WS IPV4_CIDR
         """
         values = kwargs["values"]
 
-        arg, _ws, val = values
-        ret = Tree(arg)
+        _arg, _ws, val = values
+        ret = Tree("-s")
         ret.add_child(val)
         return ret
 
@@ -222,11 +249,13 @@ class IP6TablesParser(BisonParser):
         """
         daddr : DST_SHORT WS IPV6_CIDR
               | DST_LONG WS IPV6_CIDR
+              | DST_SHORT WS IPV4_CIDR
+              | DST_LONG WS IPV4_CIDR
         """
         values = kwargs["values"]
 
-        arg, _ws, val = values
-        ret = Tree(arg)
+        _arg, _ws, val = values
+        ret = Tree("-d")
         ret.add_child(val)
         return ret
 
@@ -246,6 +275,30 @@ class IP6TablesParser(BisonParser):
     def on_dport(self, *_args, **kwargs):
         """
         dport : DPORT WS PORTNO
+        """
+        values = kwargs["values"]
+
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
+
+
+    def on_sports(self, *_args, **kwargs):
+        """
+        sports : SPORTS WS PORTRANGE
+        """
+        values = kwargs["values"]
+
+        arg, _ws, val = values
+        ret = Tree(arg)
+        ret.add_child(val)
+        return ret
+
+
+    def on_dports(self, *_args, **kwargs):
+        """
+        dports : DPORTS WS PORTRANGE
         """
         values = kwargs["values"]
 
@@ -279,7 +332,7 @@ class IP6TablesParser(BisonParser):
 
         _arg, _ws, val = values
         ret = Tree('-i')
-        ret.add_child(val)
+        ret.add_child(val.lstrip('eth'))
         return ret
 
 
@@ -294,7 +347,7 @@ class IP6TablesParser(BisonParser):
 
         _arg, _ws, val = values
         ret = Tree('-o')
-        ret.add_child(val)
+        ret.add_child(val.lstrip('eth'))
         return ret
 
 
@@ -326,20 +379,30 @@ class IP6TablesParser(BisonParser):
 
     def on_module_body(self, *_args, **kwargs):
         """
-        module_body : ARG_SHORT WS WORD
+        module_body : ARG_SHORT WS FLAGS WS FLAGS
+                    | ARG_LONG WS FLAGS WS FLAGS
+                    | ARG_SHORT WS WORD
                     | ARG_SHORT WS IDENT
                     | ARG_SHORT WS PORTNO
                     | ARG_SHORT WS IPV6_CIDR
+                    | ARG_SHORT WS IPV4_CIDR
+                    | ARG_SHORT WS STATES
+                    | ARG_SHORT WS PORTRANGE
                     | ARG_LONG WS WORD
                     | ARG_LONG WS IDENT
                     | ARG_LONG WS PORTNO
                     | ARG_LONG WS IPV6_CIDR
-                    | ARG_SHORT WS WORDLIST
-                    | ARG_LONG WS WORDLIST
+                    | ARG_LONG WS IPV4_CIDR
+                    | ARG_LONG WS STATES
+                    | ARG_LONG WS PORTRANGE
         """
         values = kwargs["values"]
 
-        arg, _ws, val = values
+        if kwargs["option"] in [0, 1]:
+            arg, _ws1, val1, _ws2, val2 = values
+            val = "%s %s" % (val1, val2)
+        else:
+            arg, _ws, val = values
         ret = Tree(arg)
         ret.add_child(val)
         return ret
@@ -380,6 +443,22 @@ class IP6TablesParser(BisonParser):
         "(:((:%s){1,7}|:))" % _ipv6_seg
     ])
 
+    _port = '[1-9][[:digit:]]{0,4}'
+    _portrange = r"%s:%s" % (_port, _port)
+
+    _ipv4_seg = '[[:digit:]]{1,3}'
+    _ipv4_cidr = r"%s(\.%s){3}(\/[[:digit:]]{1,2})?" % (_ipv4_seg, _ipv4_seg)
+
+    _flag = '(SYN|ACK|FIN|RST|URG|PSH|ALL|NONE)'
+    _flags = r"%s(,%s)*" % (_flag, _flag)
+
+    _state = '(INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASSURED|CONFIRMED)'
+    _states = r"%s(,%s)*" % (_state, _state)
+
+    _word = '[[:alnum:]_\-/]+'
+    _wordlist = '%s(,%s)*' % (_word, _word)
+
+#    """ + _wordlist + r"""  { returntoken(WORDLIST); }
     lexscript = r"""
     %{
     #include <stdio.h>
@@ -395,7 +474,8 @@ class IP6TablesParser(BisonParser):
 
     %%
 
-    "ip6tables"             { returntoken(IPT); }
+    "ip6tables"             { returntoken(IPT6); }
+    "iptables"              { returntoken(IPT); }
     "-P"                    { returntoken(POLICY_CMD); }
     "-A"                    { returntoken(APPEND_CMD); }
     "ACCEPT"                { returntoken(ACCEPT); }
@@ -413,6 +493,8 @@ class IP6TablesParser(BisonParser):
     "--in-interface"        { returntoken(IN_LONG); }
     "--sport"               { returntoken(SPORT); }
     "--dport"               { returntoken(DPORT); }
+    "--sports"              { returntoken(SPORTS); }
+    "--dports"              { returntoken(DPORTS); }
     "-p"                    { returntoken(PROTO_SHORT); }
     "--proto"               { returntoken(PROTO_LONG); }
     "-s"                    { returntoken(SRC_SHORT); }
@@ -421,14 +503,17 @@ class IP6TablesParser(BisonParser):
     "--destination"         { returntoken(DST_LONG); }
     "-"[[:alpha:]]          { returntoken(ARG_SHORT); }
     "--"[[:alpha:]][[:alnum:]_\-]+ { returntoken(ARG_LONG); }
-    [1-9][[:digit:]]{0,4}   { returntoken(PORTNO); }
+    """ + _port + r"""      { returntoken(PORTNO); }
+    """ + _portrange + r""" { returntoken(PORTRANGE); }
     """ + _ipv6_cidr + r""" { returntoken(IPV6_CIDR); }
+    """ + _ipv4_cidr + r""" { returntoken(IPV4_CIDR); }
     [\n]                    { yylineno++; returntoken(NEWLINE); }
-    [[:alpha:]][[:alnum:]_\-]*  { returntoken(IDENT); }
+    """ + _flags + r"""     { returntoken(FLAGS); }
+    """ + _states + r"""    { returntoken(STATES); }
+    [[:alpha:]][[:alnum:]_\-\.]*  { returntoken(IDENT); }
     [[:alnum:]_\-/]+        { returntoken(WORD); }
     [ \t]+                  { returntoken(WS); }
     "#"[[:print:]]*         { returntoken(COMMENT); }
-    [[:alnum:]_\-/]+(","[[:alnum:]_\-/]+)*  { returntoken(WORDLIST); }
     .                       { printf("unknown char %c ignored, yytext=%s\n", yytext[0], yytext); /* ignore bad chars */ }
 
     %%
