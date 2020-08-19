@@ -6,9 +6,12 @@ import re
 ETHER_TYPE_IPV4 = '00000100' # 4
 ETHER_TYPE_IPV6 = '00000110' # 6
 
+IP_PROTO_ICMP = '00000001'   # 1
 IP_PROTO_ICMPV6 = '00111010' # 58
 IP_PROTO_TCP = '00000110'    # 6
 IP_PROTO_UDP = '00010001'    # 17
+IP_PROTO_ESP = '00110010'    # 50
+IP_PROTO_GRE = '00101111'    # 47
 
 IPV6_ROUTE = '00101011'      # 43
 IPV6_HOP = '00000000'        # 0
@@ -182,8 +185,10 @@ def normalize_ipv6_proto(proto):
     Keyword arguments:
     proto -- the protocol field value
     """
-
     return {
+        "gre"       : IP_PROTO_GRE,
+        "esp"       : IP_PROTO_ESP,
+        "icmp"      : IP_PROTO_ICMP,
         "icmpv6"    : IP_PROTO_ICMPV6,
         "tcp"       : IP_PROTO_TCP,
         "udp"       : IP_PROTO_UDP,
