@@ -16,7 +16,7 @@ from netplumber.model import Model
 from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss, Rewrite
 
 from util.collections_util import list_sub
-
+from util.packet_util import is_ip as is_ipv4
 
 BASE_ROUTING_EXACT=0
 BASE_ROUTING_WRONG_IO=65535/4*1
@@ -349,11 +349,12 @@ class PacketFilterModel(Model):
         """ Set the packet filter's address.
         """
 
+        address_type = "packet.ipv4.destination" if is_ipv4(address) else "packet.ipv6.destination"
         self.chains["pre_routing"] = [
             SwitchRule(
                 node, 1, idx,
                 in_ports=["%s.%s" % (node, p[3:])], #"%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
-                match=Match(fields=[SwitchRuleField("packet.ipv6.destination", address)]),
+                match=Match(fields=[SwitchRuleField(address_type, address)]),
                 actions=[
                     Rewrite(rewrite=[SwitchRuleField("in_port", "_".join([node, p[3:]]))]),
                     Forward(["_".join([node, "pre_routing_input"])])

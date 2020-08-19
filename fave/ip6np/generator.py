@@ -8,6 +8,7 @@ from ip6np_util import field_value_to_bitvector
 from packet_filter import PacketFilterModel
 from openflow.switch import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union
+from util.packet_util import is_ip as is_ipv4
 
 def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
@@ -67,8 +68,10 @@ def _ast_to_rule(node, ast, idx=0):
         "i" : "in_port",
         "o" : "out_port",
         "s" : "packet.ipv6.source",
+        "s4" : "packet.ipv4.source",
         "source" : "packet.ipv6.source",
         "d" : "packet.ipv6.destination",
+        "d4" : "packet.ipv4.destination",
         "destination" : "packet.ipv6.destination",
         "p" : "packet.ipv6.proto",
         "protocol" : "packet.ipv6.proto",
@@ -109,6 +112,7 @@ def _ast_to_rule(node, ast, idx=0):
         "hl-lt" : "module.ipv6header.hl.lt", # value
         "hl-gt" : "module.ipv6header.hl.gt", # value
         "mh-type" : "module.ipv6header.mh.type", # type[:type...]
+        "vlan" : "packet.ether.vlan"
     }
 
     strip_ap = lambda x: x.lstrip('-')
@@ -118,7 +122,7 @@ def _ast_to_rule(node, ast, idx=0):
     is_field = lambda f: tags.has_key(strip_ap(f.value))
     is_negated = lambda f: f.is_negated()
 
-    value = lambda k: k.get_first().value if k.get_first() is not None else ""
+    value = lambda f: f.get_first().value if f.get_first() is not None else ""
 
     if ast.has_child("-A"):
         ast = ast.get_child("-A")
@@ -128,6 +132,36 @@ def _ast_to_rule(node, ast, idx=0):
 
     if not ast:
         return ([], {})
+
+    has_iif = ast.has_child("-i")
+    has_oif = ast.has_child("-o")
+    if has_iif or has_oif:
+        if has_iif:
+            tmp = ast.get_child("-i")
+            if "." in value(tmp):
+                iface, vlan = value(tmp).split(".")
+                tmp.get_first().value = iface
+                vast = ast.add_child("vlan")
+                vast.add_child(vlan)
+        if has_oif:
+            tmp = ast.get_child("-o")
+            if "." in value(tmp):
+                iface, vlan = value(tmp).split(".")
+                tmp.get_first().value = iface
+                vast = ast.add_child("vlan")
+                vast.add_child(vlan)
+
+    has_src = ast.has_child("-s")
+    has_dst = ast.has_child("-d")
+    if has_src or has_dst:
+        if has_src:
+            tmp = ast.get_child("-s")
+            if is_ipv4(tmp.get_first().value):
+                tmp.value = "s4"
+        if has_dst:
+            tmp = ast.get_child("-d")
+            if is_ipv4(tmp.get_first().value):
+                tmp.value = "d4"
 
     body = [
         SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f)

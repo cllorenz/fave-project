@@ -56,7 +56,9 @@ def _normalize_module(module):
         "hl" : "00001010",
         "icmpv6" : "00001011",
         "mh" : "00001100",
-        "tos" : "00001101"
+        "tos" : "00001101",
+        "tcp" : "xxxxxxxx",
+        "udp" : "xxxxxxxx"
     }[module]
 
 
