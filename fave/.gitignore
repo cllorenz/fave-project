@@ -19,6 +19,8 @@ bench/example/reachability.csv
 bench/example/policy.csv
 bench/example/*.json
 
+bench/wl_tum/*.json
+
 *.pdf
 out
 *.svg
