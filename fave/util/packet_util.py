@@ -25,11 +25,20 @@ IPV6_PROT = '11111111'       # 255
 
 
 def is_ip(ips):
-    """ Checks if a string represents a valid IPv4 address.
+    """ Checks if a string represents a valid IPv4 CIDR.
 
     Keyword arguments:
     ips -- a string
     """
+    addr = None
+    try:
+        ips, cidr = ips.split("/")
+        i = int(cidr)
+        if i < 0 or i > 32:
+            return False
+    except ValueError:
+        pass
+
     elems = ips.split(".")
     if len(elems) != 4:
         return False
