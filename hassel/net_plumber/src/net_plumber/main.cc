@@ -305,7 +305,9 @@ int typed_main(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
 #ifdef USE_BDD
-  bdd_init(100000, 10000);
+  if (bdd_init(1000000, 10000) != 0) fprintf(stderr, "failed to intialize bdd package with %d nodes and a cache size of %d\n", 1000000, 10000);
+  if (bdd_setmaxincrease(10000000) < 0) fprintf(stderr, "failed to increase maximum node size to %d\n", 10000000);
+
   bdd_setvarnum(8);
   BDDPacketSet::init_result_buffer();
   int ret = typed_main<BDDPacketSet, BDDPacketSet>(argc, argv);

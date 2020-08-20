@@ -348,8 +348,6 @@ BDDPacketSet::to_str(void) {
 
 void
 BDDPacketSet::to_json(Json::Value& res) {
-
-
     BDDPacketSet::reset_result_buffer();
     bdd_allsat(this->ps, *_string_handler);
 
@@ -455,6 +453,21 @@ BDDPacketSet::is_subset(PacketSet *other) {
 
 void
 BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
+    // ps = 111
+    // rw = x01
+    //  mask  = 10x -> nmask = 1xx
+    // ~nmask = x11
+
+    // remaining = ~nmask => ps -> x11
+    // rewritten =  ite(nmask, rw, all_x) -> xxx
+    // res = x11 & xxx = x11
+
+    const bdd normalized_mask = bdd_imp(_all_zeros(), ((BDDPacketSet *)mask)->ps);
+    const bdd remaining = (this->ps, bddtrue);
+    const bdd rewritten = bdd_ite(normalized_mask, ((BDDPacketSet *)rewrite)->ps, bddtrue);
+
+    this->ps = remaining & rewritten;
+/*
     const bdd m = ((BDDPacketSet *)mask)->ps;
     const bdd rw = ((BDDPacketSet *)rewrite)->ps;
     bdd res = bddtrue;
@@ -479,6 +492,7 @@ BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
     }
 
     this->ps = res;
+*/
 }
 
 
