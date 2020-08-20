@@ -15,9 +15,9 @@ bench/wl_ifi/*.html
 bench/wl_ifi/*.orig.*
 bench/wl_ifi/*.csv
 
-bench/wl_example/reachability.csv
-bench/wl_example/policy.csv
-bench/wl_example/*.json
+bench/example/reachability.csv
+bench/example/policy.csv
+bench/example/*.json
 
 bench/wl_tum/*.json
 
