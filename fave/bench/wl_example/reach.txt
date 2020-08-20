@@ -1,0 +1,5 @@
+describe policies (default: deny)
+    AllClients <->> WebServer.HTTP
+    Office <->> WebServer.SSH
+    Office <->> Internet
+end
