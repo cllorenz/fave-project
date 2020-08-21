@@ -450,6 +450,23 @@ BDDPacketSet::is_subset(PacketSet *other) {
     return is_sub_eq && !is_equal;
 }
 
+/*
+void
+_normalize_mask(bdd mask, int *res, size_t *len) {
+    for (int i = 0; i < bdd_varnum(); i++) {
+        const bdd nith = bdd_nithvar(i);
+        const bool mask_is_one = (nith & m) == bddfalse;
+
+        if (mask_is_one)
+    }
+}
+
+
+bdd
+_apply_mask(bdd b, bdd mask) {
+    return mask >> b;
+}
+*/
 
 void
 BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
@@ -471,15 +488,60 @@ BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
     const bdd m = ((BDDPacketSet *)mask)->ps;
     const bdd rw = ((BDDPacketSet *)rewrite)->ps;
     bdd res = bddtrue;
+//    const bdd m = ((BDDPacketSet *)mask)->ps;
+//    const bdd rw = ((BDDPacketSet *)rewrite)->ps;
+    bdd tmp = bddtrue;
 
+    for (size_t i = 0; i < mask->im_len; i++) {
+        int idx = mask->fwd_mask[i];
+
+        const bdd ith = bdd_ithvar(idx);
+        const bdd nith = bdd_nithvar(idx);
+
+        const bool rw_is_zero = (ith & this->ps) == bddfalse;
+        const bool rw_is_one = (nith & this->ps) == bddfalse;
+        const bool rw_is_x = !rw_is_zero && !rw_is_one;
+
+        if (rw_is_x) {
+            ;
+        } else if (rw_is_zero) {
+            tmp &= nith;
+        } else if (rw_is_one) {
+            tmp &= ith;
+        }
+    }
+
+    for (int i = mask->creation_varnum; i < bdd_varnum(); i++) {
+        const bdd ith = bdd_ithvar(i);
+        const bdd nith = bdd_nithvar(i);
+
+        const bool rw_is_zero = (ith & this->ps) == bddfalse;
+        const bool rw_is_one = (nith & this->ps) == bddfalse;
+        const bool rw_is_x = !rw_is_zero && !rw_is_one;
+
+        if (rw_is_x) {
+            ;
+        } else if (rw_is_zero) {
+            tmp &= nith;
+        } else if (rw_is_one) {
+            tmp &= ith;
+        }
+    }
+
+/*
     for (int i = 0; i < bdd_varnum(); i++) {
         const bdd ith = bdd_ithvar(i);
         const bdd nith = bdd_nithvar(i);
 
+        // 0 & x != z, 0 & 0 != z, 0 & 1 == z
         const bool mask_is_one = (nith & m) == bddfalse;
 
+        // m == 1 -> (rw0 & 1 == z, rw1 & 1 != z, rwx & 1 != z), m != 1 -> (a0 & 1 == z, a1 & 1 != z, ax & 1 != z)
         const bool is_zero = (mask_is_one ? (rw & ith) : (this->ps & ith)) == bddfalse;
+
+        // m == 1 -> (rw0 & 0 != z, rw1 & 0 == z, rwx & 0 != z), m != 1 -> (a0 & 0 != z, a1 & 0 == z, ax & 0 != z)
         const bool is_one = (mask_is_one ? (rw & nith) : (this->ps & nith)) == bddfalse;
+
         const bool is_x = !is_zero && !is_one;
 
         if (is_x) {
@@ -490,9 +552,10 @@ BDDPacketSet::rewrite(PacketSet *mask, PacketSet *rewrite) {
             res &= ith;
         }
     }
-
     this->ps = res;
 */
+
+    this->ps = tmp & rewrite->rewrite;
 }
 
 

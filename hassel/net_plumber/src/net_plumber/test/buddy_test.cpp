@@ -91,11 +91,66 @@ int main(void) {
     bdd_done();
 
     bdd_init(1000, 100);
+    bdd_setvarnum(3);
+
+    // mask -> set of pairs 1 -> rw, 0,x -> x (can be precomputed)
+    // mask = 10x
+    // rw = 1x0
+    // -> 1xx
+
+    // inv_mask -> set of pairs 0,x -> a (inv_mask can be precomputed)
+    // inv_mask = x11
+    // a = 01x
+    // -> x1x
+    // 1xx & x1x = 11x
+
+    int set[3] = {0,2};
+    bdd v = bdd_makeset(set, 2);
+    cout << "makeset({0,2}) = ";
+    bdd_allsat(v, *print_handler);
+
+    bdd all_true = bddtrue;
+    bdd g = (bdd_ithvar(0) & bdd_ithvar(1) & bdd_nithvar(2));
+
+    cout << "compose(xxx,110,{0,2}) = ";
+    bdd_allsat(bdd_compose(all_true, g, 1), *print_handler);
+
+    bddPair * p = bdd_newpair();
+//    bdd_setpair(p, 1, 0);
+    bdd_setpair(p, 2, 1);
+
+    cout << "veccompose(10x, {2,1}) = ";
+    bdd_allsat(bdd_replace(bdd_ithvar(0) & bdd_nithvar(1), p), *print_handler);
+
+    bdd_done();
+
+    cout << endl;
+
+    bdd_init(1000, 100);
     bdd_setvarnum(1);
+
 
     const bdd dc = bddtrue;
     const bdd zero = bdd_nithvar(0);
-    const bdd one = bdd_ithvar(0);
+    const bdd one  = bdd_ithvar(0);
+
+    cout << "restrict(0, 0) = ";
+    bdd_allsat(bdd_restrict(zero, zero), *print_handler);
+
+    cout << "restrict(0, 1) = ";
+    bdd_allsat(bdd_restrict(zero, one), *print_handler);
+
+    cout << "restrict(0, x) = ";
+    bdd_allsat(bdd_restrict(zero, dc), *print_handler);
+
+    cout << "restrict(1, 0) = ";
+    bdd_allsat(bdd_restrict(one, zero), *print_handler);
+
+    cout << "restrict(1, 1) = ";
+    bdd_allsat(bdd_restrict(one, one), *print_handler);
+
+    cout << "restrict(1, x) = ";
+    bdd_allsat(bdd_restrict(one, dc), *print_handler);
 
     cout << "~(0 & 1) = ";
     bdd_allsat(bdd_not(zero & one), *print_handler_nl);
@@ -153,6 +208,15 @@ int main(void) {
 
     cout << " -> sat count: " << bdd_satcount(all_a) << endl;
     cout << " -> logarithmic sat count: " << bdd_satcountln(all_a) << endl;
+
+    cout << "restrict(x, 0) = ";
+    bdd_allsat(bdd_restrict(dc, zero), *print_handler);
+
+    cout << "restrict(x, 1) = ";
+    bdd_allsat(bdd_restrict(dc, one), *print_handler);
+
+    cout << "restrict(x, x) = ";
+    bdd_allsat(bdd_restrict(dc, dc), *print_handler);
 
     bdd_done();
 
@@ -266,7 +330,56 @@ x  1  x  x
 x  x  x  x
 
 
-m  a  rw  f(m, a, rw)
+m  rw x frw(m,rw,x)  ite  m&rw  ~m&x   ^
+0  0  x      x        x    0      1    x
+0  1  x      x        1    -      1    1
+0  x  x      x        x    0      1    x
+
+1  0  x      0        0    -      0    0
+1  1  x      1        x    1      0    x
+1  x  x      x        x    1      0    x
+
+x  0  x      x        0    0      x    1
+x  1  x      x        1    1      x    0
+x  x  x      x        x    x      x    -
+
+
+frw(m,rw,x) = (m == 1) ? rw : x
+
+m  rw x frw(m,rw,x)
+0  0  x      x
+0  1  x      x
+0  x  x      x
+
+1  0  x      0
+1  1  x      1
+1  x  x      x
+
+x  0  x      x
+x  1  x      x
+x  x  x      x
+
+
+
+
+m  a  x fa(m,a,x)  ite
+0  0  x     0       x <-
+0  1  x     1       1
+0  x  x     x       x
+
+1  0  x     x       0 <-
+1  1  x     x       x
+1  x  x     x       x
+
+x  0  x     0       0
+x  1  x     1       1
+x  x  x     x       x
+
+fa(m,a,x) = (m != 1) ? a : x
+
+
+m  a  rw  f
+-----------
 0  0  0   0
 0  0  1   0
 0  0  x   0
@@ -276,6 +389,9 @@ m  a  rw  f(m, a, rw)
 0  x  0   x
 0  x  1   x
 0  x  x   x
+
+m  a  rw  f(m, a, rw)
+-----------
 1  0  0   0
 1  0  1   1
 1  0  x   x
@@ -285,6 +401,8 @@ m  a  rw  f(m, a, rw)
 1  x  0   0
 1  x  1   1
 1  x  x   x
+
+m  a  rw  f(m, a, rw)
 x  0  0   0
 x  0  1   0
 x  0  x   0
@@ -294,7 +412,6 @@ x  1  x   1
 x  x  0   x
 x  x  1   x
 x  x  x   x
-
 
 
 
@@ -353,6 +470,19 @@ x & 0 = 0
 x & 1 = 1
 x & x = x
 
+a ^ b
+z ^ 0 = 0
+z ^ 1 = 1
+z ^ x = x
+0 ^ 0 = -
+0 ^ 1 = x
+0 ^ x = 1
+1 ^ 0 = x
+1 ^ 1 = -
+1 ^ x = 0
+x ^ 0 = 1
+x ^ 1 = 0
+x ^ x = -
 
 a ^ b
 (0 & 1) ^ 0 = 0
@@ -383,7 +513,7 @@ x <=> 1 = 1
 x <=> x = x
 
 
-ite(a, b, c)
+ite(a, b, c) = a & b | ~a & c
 ite(0, 0, 0) = 0
 ite(0, 0, 1) = x
 ite(0, 0, x) = x   <- :-(
@@ -416,4 +546,15 @@ ite(x, 1, x) = 1   <- ok
 ite(x, x, 0) = x
 ite(x, x, 1) = x
 ite(x, x, x) = x   <- ok
+
+restrict(a, b)
+restrict(0, 0) = x
+restrict(0, 1) = -
+restrict(0, x) = 0
+restrict(1, 0) = -
+restrict(1, 1) = x
+restrict(1, x) = 1
+restrict(x, 0) = x
+restrict(x, 1) = x
+restrict(x, x) = x
 */

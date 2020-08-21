@@ -21,6 +21,8 @@
 #define SRC_NET_PLUMBER_RULE_NODE_H_
 
 #include "node.h"
+#include "mask.h"
+#include "rewrite.h"
 
 template<class T1, class T2>
 class RuleNode;
@@ -51,8 +53,8 @@ class RuleNode : public Node<T1, T2> {
 #ifdef USE_GROUPS
   uint64_t group;
 #endif
-  T2 *mask;
-  T2 *rewrite;
+  Mask<T2> *mask;
+  Rewrite<T2> *rewrite;
 #ifdef USE_INV
   T2 *inv_rw;
 #endif
@@ -65,11 +67,11 @@ class RuleNode : public Node<T1, T2> {
 #ifdef USE_GROUPS
   RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
            uint64_t group, List_t in_ports ,List_t out_ports,
-           T2* match, T2 *mask, T2* rw);
+           T2* match, Mask<T2> *mask, Rewrite<T2>* rw);
 #else
   RuleNode(void *net_plumber, int length, uint64_t node_id, uint32_t table, uint32_t index,
            List_t in_ports ,List_t out_ports,
-           T2* match, T2 *mask, T2* rw);
+           T2* match, Mask<T2> *mask, Rewrite<T2>* rw);
 #endif
 
   /*

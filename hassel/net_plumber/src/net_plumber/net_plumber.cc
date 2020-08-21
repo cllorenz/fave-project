@@ -33,6 +33,8 @@ extern "C" {
 }
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
+#include "mask.h"
+#include "rewrite.h"
 #ifdef USE_BDD
 #include <bdd.h>
 #include "bdd_packet_set.h"
@@ -791,16 +793,24 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
     uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
 
     RuleNode<T1, T2> *r;
+
+    Mask<T2> *nmask = new Mask<T2>(mask);
+    Rewrite<T2> *nrw = new Rewrite(rw
+#ifdef USE_BDD
+        , nmask
+#endif
+    );
+
 #ifdef USE_GROUPS
     RuleNode<T1, T2> *r;
     if (!group || !gid) { //first rule in group or no group
       if (!group) r = new RuleNode<T1, T2>(this, length, id, table, in_ports, out_ports,
-                                   match, mask, rw);
+                                   match, nmask, mrw);
       else r = new RuleNode<T1, T2>(this, length, id, table, id, in_ports, out_ports,
-                            match, mask, rw);
+                            match, nmask, nrw);
 #else
       r = new RuleNode<T1, T2>(this, length, id, table, index, in_ports, out_ports,
-                        match, mask, rw);
+                        match, nmask, nrw);
 #endif
 
       this->id_to_node[id] = r;
@@ -825,7 +835,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
       RuleNode<T1, T2> *rg = (RuleNode<T1, T2> *)this->id_to_node[gid];
       table = rg->table;
       r = new RuleNode<T1, T2>(this, length, id, table, gid, in_ports, out_ports,
-                       match, mask, rw);
+                       match, nmask, nrw);
       this->id_to_node[id] = r;
       // insert rule after its lead group rule
 
@@ -854,7 +864,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
     return id;
   } else {
     free(in_ports.list);free(out_ports.list);
-    delete match; delete mask; delete rw;
+    delete match; delete nmask; delete nrw;
     stringstream error_msg;
     error_msg << "trying to add a rule to a non-existing table (id: " << table
         << "). Ignored.";
