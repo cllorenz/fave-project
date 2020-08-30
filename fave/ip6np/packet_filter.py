@@ -131,6 +131,8 @@ class PacketFilterModel(Model):
         get_iport = lambda x: int(x[0][3:])
         get_oport = lambda x: int(x[0][4:])
 
+        self.mapping = Mapping(length=64, mapping={'out_port': 0, 'in_port': 32})
+
         self.chains["post_routing"] = [ # low priority: forward packets according to out port
                                         # field set by the routing table
             SwitchRule(
@@ -145,7 +147,8 @@ class PacketFilterModel(Model):
                         SwitchRuleField("out_port", "x"*32)
                     ]),
                     Forward(ports=[get_oname(port)])
-                ]
+                ],
+                mapping=self.mapping
             ) for idx, port in enumerate(output_ports.items(), start=plen)
         ] + [ # high priority: filter packets with equal input and output port
             SwitchRule(
@@ -170,7 +173,6 @@ class PacketFilterModel(Model):
             ("output_filter_accept", "routing_in"), # output filter accept to routing
             ("routing_out", "post_routing_in") # routing to post routing
         ]
-        self.mapping = Mapping(length=0)
         self.negated = negated if negated else {}
 
         self._persist()

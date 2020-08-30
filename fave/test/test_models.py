@@ -420,106 +420,100 @@ class TestPacketFilterModel(unittest.TestCase):
         """ Tests the conversion of a packet filter model to JSON.
         """
 
+        self.maxDiff = None
+
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {'length': 0},
+                'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                 'node': 'foo',
                 'ports': {
-                    'forward_rules_accept': 12,
-                    'forward_rules_in': 11,
-                    'forward_states_accept': 9,
-                    'forward_states_in': 8,
-                    'forward_states_miss': 10,
-                    'in_1': 23,
-                    'input_rules_accept': 7,
-                    'input_rules_in': 6,
-                    'input_states_accept': 4,
-                    'input_states_in': 3,
-                    'input_states_miss': 5,
-                    'internals_in': 18,
-                    'internals_out': 19,
-                    'out_2': 26,
-                    'output_rules_accept': 17,
-                    'output_rules_in': 16,
-                    'output_states_accept': 14,
-                    'output_states_in': 13,
-                    'output_states_miss': 15,
-                    'post_routing_in': 20,
-                    'pre_routing_forward': 2,
-                    'pre_routing_input': 1
+                    "pre_routing_input" : 1,
+                    "pre_routing_forward" : 2,
+                    "input_filter_in" : 3,
+                    "input_filter_accept" : 4,
+                    "forward_filter_in" : 5,
+                    "forward_filter_accept" : 6,
+                    "output_filter_in" : 7,
+                    "output_filter_accept" : 8,
+                    "internals_in" : 9,
+                    "internals_out" : 10,
+                    "post_routing_in" : 11,
+                    "routing_in" : 12,
+                    "routing_out" : 13,
+                    'in_1': 16,
+                    'out_2': 19
                 },
-                'private_ports': 20,
+                'private_ports': 13,
                 'tables': {
-                    'forward_rules': [],
-                    'forward_states': [
-                        {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_forward_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_forward_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
-                            'node': 'foo',
-                            'tid': 'foo_forward_states'
-                        }
-                    ],
-                    'input_rules': [],
-                    'input_states': [
-                        {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_input_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_input_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
-                            'node': 'foo',
-                            'tid': 'foo_input_states'
-                        }
-                    ],
+                    'forward_filter': [],
+                    'input_filter': [],
                     'internals': [],
-                    'output_rules': [],
-                    'output_states': [
+                    'output_filter': [],
+                    'post_routing': [
                         {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_output_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_output_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
+                            'actions': [{
+                                'name': 'rewrite',
+                                'rw': [{
+                                        'name': 'in_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                    }, {
+                                        'name': 'out_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                    }
+                                ]
+                            }, {
+                                'name': 'forward',
+                                'ports': ['foo_2']
+                            }],
+                            'idx': 2,
+                            'in_ports': ['in'],
+                            'mapping': {
+                                'in_port': 32,
+                                'length': 64,
+                                'out_port': 0
+                            },
+                            'match': {
+                                'fields': [{
+                                    'name': 'out_port',
+                                    'value': 'foo.2'}]
+                                },
+                                'node': 'foo',
+                                'tid': 'post_routing'
+                        }, {
+                            'actions': [],
+                            'idx': 0,
+                            'in_ports': ['in'],
+                            'mapping': {
+                                'in_port': 0,
+                                'length': 64,
+                                'out_port': 32
+                            },
+                            'match': {
+                                'fields': [{
+                                    'name': 'in_port',
+                                    'value': 'foo.1'
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'foo.2'
+                                }]
+                            },
                             'node': 'foo',
-                            'tid': 'foo_output_states'
+                            'tid': 'post_routing'
                         }
                     ],
-                    'post_routing': [],
-                    'pre_routing': []
+                    'pre_routing': [],
+                    'routing' : []
                 },
                 'type': 'packet_filter',
                 'wiring': [
-                    ('pre_routing_input', 'input_states_in'),
-                    ('input_states_accept', 'internals_in'),
-                    ('input_states_miss', 'input_rules_in'),
-                    ('input_rules_accept', 'internals_in'),
-                    ('pre_routing_forward', 'forward_states_in'),
-                    ('forward_states_accept', 'post_routing_in'),
-                    ('forward_states_miss', 'forward_rules_in'),
-                    ('forward_rules_accept', 'post_routing_in'),
-                    ('internals_out', 'output_states_in'),
-                    ('output_states_accept', 'post_routing_in'),
-                    ('output_states_miss', 'output_rules_in'),
-                    ('output_rules_accept', 'post_routing_in')
+                    ("pre_routing_input", "input_filter_in"),
+                    ("input_filter_accept", "internals_in"),
+                    ("pre_routing_forward", "forward_filter_in"),
+                    ("forward_filter_accept", "routing_in"),
+                    ("internals_out", "output_filter_in"),
+                    ("output_filter_accept", "routing_in"),
+                    ("routing_out", "post_routing_in")
                 ]
             }
         )
@@ -531,103 +525,95 @@ class TestPacketFilterModel(unittest.TestCase):
 
         self.assertEqual(
             PacketFilterModel.from_json({
-                'mapping': {'length': 0},
+                'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                 'node': 'foo',
                 'ports': {
-                    'forward_rules_accept': 12,
-                    'forward_rules_in': 11,
-                    'forward_states_accept': 9,
-                    'forward_states_in': 8,
-                    'forward_states_miss': 10,
-                    'in_1': 23,
-                    'input_rules_accept': 7,
-                    'input_rules_in': 6,
-                    'input_states_accept': 4,
-                    'input_states_in': 3,
-                    'input_states_miss': 5,
-                    'internals_in': 18,
-                    'internals_out': 19,
-                    'out_2': 26,
-                    'output_rules_accept': 17,
-                    'output_rules_in': 16,
-                    'output_states_accept': 14,
-                    'output_states_in': 13,
-                    'output_states_miss': 15,
-                    'post_routing_in': 20,
-                    'pre_routing_forward': 2,
-                    'pre_routing_input': 1
+                    "pre_routing_input" : 1,
+                    "pre_routing_forward" : 2,
+                    "input_filter_in" : 3,
+                    "input_filter_accept" : 4,
+                    "forward_filter_in" : 5,
+                    "forward_filter_accept" : 6,
+                    "output_filter_in" : 7,
+                    "output_filter_accept" : 8,
+                    "internals_in" : 9,
+                    "internals_out" : 10,
+                    "post_routing_in" : 11,
+                    "routing_in" : 12,
+                    "routing_out" : 13,
+                    'in_1': 16,
+                    'out_2': 19
                 },
-                'internal_ports': 20,
+                'private_ports': 13,
                 'tables': {
-                    'forward_rules': [],
-                    'forward_states': [
-                        {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_forward_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_forward_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
-                            'node': 'foo',
-                            'tid': 'foo_forward_states'
-                        }
-                    ],
-                    'input_rules': [],
-                    'input_states': [
-                        {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_input_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_input_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
-                            'node': 'foo',
-                            'tid': 'foo_input_states'
-                        }
-                    ],
+                    'forward_filter': [],
+                    'input_filter': [],
                     'internals': [],
-                    'output_rules': [],
-                    'output_states': [
+                    'output_filter': [],
+                    'post_routing': [
                         {
-                            'actions': [
-                                {
-                                    'name': 'forward',
-                                    'ports': ['foo_output_states_miss']
-                                }
-                            ],
-                            'idx': 65535,
-                            'in_ports': ['foo_output_states_in'],
-                            'mapping': {'length': 0},
-                            'match': None,
+                            'actions': [{
+                                'name': 'rewrite',
+                                'rw': [{
+                                        'name': 'in_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                    }, {
+                                        'name': 'out_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                    }
+                                ]
+                            }, {
+                                'name': 'forward',
+                                'ports': ['foo_2']
+                            }],
+                            'idx': 2,
+                            'in_ports': ['in'],
+                            'mapping': {
+                                'in_port': 32,
+                                'length': 64,
+                                'out_port': 0
+                            },
+                            'match': {
+                                'fields': [{
+                                    'name': 'out_port',
+                                    'value': 'foo.2'}]
+                                },
+                                'node': 'foo',
+                                'tid': 'post_routing'
+                        }, {
+                            'actions': [],
+                            'idx': 0,
+                            'in_ports': ['in'],
+                            'mapping': {
+                                'in_port': 0,
+                                'length': 64,
+                                'out_port': 32
+                            },
+                            'match': {
+                                'fields': [{
+                                    'name': 'in_port',
+                                    'value': 'foo.1'
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'foo.2'
+                                }]
+                            },
                             'node': 'foo',
-                            'tid': 'foo_output_states'
+                            'tid': 'post_routing'
                         }
                     ],
-                    'post_routing': [],
-                    'pre_routing': []
+                    'pre_routing': [],
+                    'routing' : []
                 },
                 'type': 'packet_filter',
                 'wiring': [
-                    ('pre_routing_input', 'input_states_in'),
-                    ('input_states_accept', 'internals_in'),
-                    ('input_states_miss', 'input_rules_in'),
-                    ('input_rules_accept', 'internals_in'),
-                    ('pre_routing_forward', 'forward_states_in'),
-                    ('forward_states_accept', 'post_routing_in'),
-                    ('forward_states_miss', 'forward_rules_in'),
-                    ('forward_rules_accept', 'post_routing_in'),
-                    ('internals_out', 'output_states_in'),
-                    ('output_states_accept', 'post_routing_in'),
-                    ('output_states_miss', 'output_rules_in'),
-                    ('output_rules_accept', 'post_routing_in')
+                    ("pre_routing_input", "input_filter_in"),
+                    ("input_filter_accept", "internals_in"),
+                    ("pre_routing_forward", "forward_filter_in"),
+                    ("forward_filter_accept", "routing_in"),
+                    ("internals_out", "output_filter_in"),
+                    ("output_filter_accept", "routing_in"),
+                    ("routing_out", "post_routing_in")
                 ]
             }),
             self.model
