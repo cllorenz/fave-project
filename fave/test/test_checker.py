@@ -6,6 +6,7 @@
 import unittest
 
 from test.check_flows import check_flow, _parse_flow_spec
+from test.check_flows import _get_parser as get_default_parser
 
 class TestChecker(unittest.TestCase):
     """ This class provides tests for the flow checking tool.
@@ -53,6 +54,8 @@ class TestChecker(unittest.TestCase):
             ]
         }
 
+        self.parser = get_default_parser()
+
 
     def tearDown(self):
         """ Destroys test environment.
@@ -77,7 +80,7 @@ class TestChecker(unittest.TestCase):
         ]
 
         for check, result in checks:
-            flow_spec = _parse_flow_spec(check)
+            flow_spec = _parse_flow_spec(check, self.parser)
             self.assertEqual(
                 check_flow(flow_spec, self.flow_tree, self.inv_fave),
                 result
@@ -101,7 +104,7 @@ class TestChecker(unittest.TestCase):
         ]
 
         for check, result in checks:
-            flow_spec = _parse_flow_spec(check)
+            flow_spec = _parse_flow_spec(check, self.parser)
             self.assertEqual(
                 check_flow(flow_spec, self.flow_tree, self.inv_fave),
                 result
