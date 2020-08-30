@@ -511,6 +511,11 @@ class SwitchRule(Model):
         ])
 
 
+    def __ne__(self, other):
+        assert isinstance(other, SwitchRule)
+        return not self == other
+
+
 class SwitchCommand(object):
     """ This class provides switch commands for FaVe.
     """

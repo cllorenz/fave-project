@@ -154,3 +154,7 @@ class Model(object):
             self.wiring == other.wiring,
             self.mapping == other.mapping
         ])
+
+    def __ne__(self, other):
+        assert isinstance(other, Model)
+        return not self == other
