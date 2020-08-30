@@ -103,7 +103,7 @@ void NetPlumberPlumbingTest<T1, T2>::tearDown() {
   delete N;
   node_ids.clear();
 #ifdef USE_BDD
-  bdd_done();
+  if (bdd_isrunning()) bdd_done();
 #endif
 }
 

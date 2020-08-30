@@ -59,7 +59,7 @@ void NetPlumberSlicingTest<T1, T2>::setUp() {
 template<class T1, class T2>
 void NetPlumberSlicingTest<T1, T2>::tearDown() {
 #ifdef USE_BDD
-    bdd_done();
+    if (bdd_isrunning()) bdd_done();
 #endif
 }
 

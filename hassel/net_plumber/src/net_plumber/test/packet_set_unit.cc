@@ -40,7 +40,7 @@ template<class PS1, class PS2>
 void PacketSetTest<PS1, PS2>::tearDown() {
     delete this->ps;
 #ifdef USE_BDD
-    bdd_done();
+    if (bdd_isrunning()) bdd_done();
 #endif
 }
 
