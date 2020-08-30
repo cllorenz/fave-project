@@ -6,7 +6,7 @@ if [ "$#" -eq "1" ]; then
 #    net_plumber --log4j-config $1 --hdr-len 1 --server 127.0.0.1 1234 >> /tmp/np/stdout.log &
     [ -f /tmp/net_plumber.socket ] && rm /tmp/net_plumber.socket
     #valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log &
-    net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log &
+    net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log 2>> /tmp/np/stderr.log &
     PID=$!
 else
     [ -f /tmp/np/stdout.log ] && rm /tmp/np/stdout.log
