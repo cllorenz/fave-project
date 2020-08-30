@@ -18,7 +18,7 @@ class TestChecker(unittest.TestCase):
 
         mapping = {
             'related' : 0,
-            'length' : 1
+            'length' : 8
         }
 
         self.inv_fave = {
@@ -35,21 +35,21 @@ class TestChecker(unittest.TestCase):
 
         self.flow_tree = {
             'node' : 1,
-            'flow' : "x",
+            'flow' : "xxxxxxxx",
             'children' : [
                 {
                     'node' : 4294967297,
-                    'flow' : "1",
+                    'flow' : "1xxxxxxx",
                     'children' : [
                         {
                             'node' : 2,
-                            'flow' : "1"
+                            'flow' : "1xxxxxxx"
                         }
                     ]
                 },
                 {
                     'node' : 8589934594,
-                    'flow' : "0"
+                    'flow' : "0xxxxxxx"
                 }
             ]
         }
