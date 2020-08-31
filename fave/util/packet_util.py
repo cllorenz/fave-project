@@ -226,7 +226,7 @@ def normalize_ipv6header_header(header):
 
 
 
-def denormalize_ip_address(vector, alen, blen, bform, delim):
+def _denormalize_ip_address(vector, alen, blen, bform, delim):
     baddr = ""
     for bit in vector:
         if bit == 'x':
@@ -249,11 +249,21 @@ def denormalize_ip_address(vector, alen, blen, bform, delim):
 
 
 def denormalize_ipv4_address(vector):
+    """ Converts a ternary bit vector to an IPv4 prefix representation
+
+    Keyword arguments:
+    vector - the ternary bit vector representing the IPv4 prefix
+    """
     assert len(vector) == 32
-    return denormalize_ip_address(vector, 32, 8, str, '.')
+    return _denormalize_ip_address(vector, 32, 8, str, '.')
 
 
 def denormalize_ipv6_address(vector):
+    """ Converts a ternary bit vector to an IPv6 prefix representation
+
+    Keyword arguments:
+    vector - the ternary bit vector representing the IPv6 prefix
+    """
     assert len(vector) == 128
     return _denormalize_ip_address(vector, 128, 16, lambda x: hex(x)[2:], ':')
 
