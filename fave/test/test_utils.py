@@ -290,7 +290,7 @@ class TestPacketUtil(unittest.TestCase):
         self.assertEqual(
             portrange_to_prefix_list(1024, 2049),
             [(1024, 6), (2048, 15)]
-        ),
+        )
 
         self.assertEqual(
             portrange_to_prefix_list(1024, 2045),

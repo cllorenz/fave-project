@@ -30,7 +30,6 @@ def is_ip(ips):
     Keyword arguments:
     ips -- a string
     """
-    addr = None
     try:
         ips, cidr = ips.split("/")
         i = int(cidr)
@@ -130,7 +129,7 @@ def normalize_ipv4_address(address):
     address -- an IPv4 address in dotted or cidr notation
     """
 
-    match = re.match("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$", address)
+    match = re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d{1,2})?$", address)
     if not match:
         raise ValueError("%s is not an ipv4 address" % address)
 
@@ -144,9 +143,9 @@ def normalize_ipv4_address(address):
 
     if cidr and int(cidr) < 32:
         cidr = int(cidr)
-        return addr[:cidr] + 'x'*(32-cidr)
-    else:
-        return addr
+        addr = addr[:cidr] + 'x'*(32-cidr)
+
+    return addr
 
 
 def normalize_ipv6_address(address):
@@ -183,9 +182,9 @@ def normalize_ipv6_address(address):
 
     if cidr and int(cidr) < 128:
         cidr = int(cidr)
-        return addr[:cidr] + 'x'*(128-cidr)
-    else:
-        return addr
+        addr = addr[:cidr] + 'x'*(128-cidr)
+
+    return addr
 
 
 def normalize_ipv6_proto(proto):
@@ -268,6 +267,7 @@ def denormalize_ipv6_address(vector):
     return _denormalize_ip_address(vector, 128, 16, lambda x: hex(x)[2:], ':')
 
 
+PORT_BITS = 16
 def portrange_to_prefix_list(lower, upper):
     """ Converts a range of ports to a list of prefixes.
 
@@ -277,19 +277,18 @@ def portrange_to_prefix_list(lower, upper):
     """
     assert all([lower >= 0, lower <= 65535, upper >= 0, upper <= 65535, lower <= upper])
 
-    WIDTH = 16
     res = []
 
     if lower == upper:
-        return [(lower, WIDTH)]
+        return [(lower, PORT_BITS)]
 
     while lower < upper:
         postfix = 0
-        for postfix in range(WIDTH):
+        for postfix in range(PORT_BITS):
             if (lower % (1 << (postfix + 1)) != 0) or (lower + (1 << (postfix + 1)) - 1 > upper):
                 break
 
-        res.append((lower, WIDTH - postfix))
+        res.append((lower, PORT_BITS - postfix))
         lower += (1 << postfix)
 
     return res
