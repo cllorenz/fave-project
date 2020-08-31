@@ -255,4 +255,31 @@ def denormalize_ipv4_address(vector):
 
 def denormalize_ipv6_address(vector):
     assert len(vector) == 128
-    return denormalize_ip_address(vector, 128, 16, lambda x: hex(x)[2:], ':')
+    return _denormalize_ip_address(vector, 128, 16, lambda x: hex(x)[2:], ':')
+
+
+def portrange_to_prefix_list(lower, upper):
+    """ Converts a range of ports to a list of prefixes.
+
+    Keyword arguments:
+    lower - the lowest port
+    upper - the highest port
+    """
+    assert all([lower >= 0, lower <= 65535, upper >= 0, upper <= 65535, lower <= upper])
+
+    WIDTH = 16
+    res = []
+
+    if lower == upper:
+        return [(lower, WIDTH)]
+
+    while lower < upper:
+        postfix = 0
+        for postfix in range(WIDTH):
+            if (lower % (1 << (postfix + 1)) != 0) or (lower + (1 << (postfix + 1)) - 1 > upper):
+                break
+
+        res.append((lower, WIDTH - postfix))
+        lower += (1 << postfix)
+
+    return res

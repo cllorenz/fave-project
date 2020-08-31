@@ -18,6 +18,7 @@ from util.packet_util import IP_PROTO_ICMPV6, IP_PROTO_TCP, IP_PROTO_UDP
 from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
 from util.packet_util import normalize_ipv6header_header, normalize_upper_port
+from util.packet_util import portrange_to_prefix_list
 
 from util.path_util import Path
 from util.path_util import check_pathlet
@@ -280,6 +281,53 @@ class TestPacketUtil(unittest.TestCase):
             normalize_upper_port(22),
             '0000000000010110'
         )
+
+
+    def test_portrange_to_prefix_list(self):
+        """ Tests the conversion of port ranges to a list of prefixes.
+        """
+
+        self.assertEqual(
+            portrange_to_prefix_list(1024, 2049),
+            [(1024, 6), (2048, 15)]
+        ),
+
+        self.assertEqual(
+            portrange_to_prefix_list(1024, 2045),
+            [
+                (1024, 7),
+                (1536, 8),
+                (1792, 9),
+                (1920, 10),
+                (1984, 11),
+                (2016, 12),
+                (2032, 13),
+                (2040, 14),
+                (2044, 15)
+            ]
+        )
+
+        self.assertEqual(
+            portrange_to_prefix_list(0, 1),
+            [(0, 15)]
+        )
+
+        self.assertEqual(
+            portrange_to_prefix_list(0, 0),
+            [(0, 16)]
+        )
+
+        self.assertEqual(
+            portrange_to_prefix_list(65534, 65535),
+            [(65534, 15)]
+        )
+
+        with self.assertRaises(AssertionError):
+            portrange_to_prefix_list(65535, 65536)
+            portrange_to_prefix_list(65536, 65536)
+            portrange_to_prefix_list(65535, 65534)
+            portrange_to_prefix_list(-1, 65536)
+            portrange_to_prefix_list(0, -1)
 
 
 class TestPathUtil(unittest.TestCase):
