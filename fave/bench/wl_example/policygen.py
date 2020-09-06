@@ -2,8 +2,6 @@
 
 import json
 
-from bench.wl_example.inventory import UP
-
 POLICIES="bench/wl_example/policies.json"
 
 if __name__ == '__main__':
