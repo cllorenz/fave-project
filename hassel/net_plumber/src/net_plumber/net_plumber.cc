@@ -33,8 +33,8 @@ extern "C" {
 }
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
-#include "mask.h"
-#include "rewrite.h"
+//#include "mask.h"
+//#include "rewrite.h"
 #ifdef USE_BDD
 #include <bdd.h>
 #include "bdd_packet_set.h"
@@ -794,18 +794,20 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
 
     RuleNode<T1, T2> *r;
 
-    Mask<T2> *nmask = new Mask<T2>(mask);
-    Rewrite<T2> *nrw = new Rewrite(rw
-#ifdef USE_BDD
-        , nmask
-#endif
-    );
+    T2 *nmask = mask;
+    T2 *nrw = rw;
+//    Mask<T2> *nmask = new Mask<T2>(mask);
+//    Rewrite<T2> *nrw = new Rewrite(rw
+//#ifdef USE_BDD
+//        , nmask
+//#endif
+//    );
 
 #ifdef USE_GROUPS
     RuleNode<T1, T2> *r;
     if (!group || !gid) { //first rule in group or no group
       if (!group) r = new RuleNode<T1, T2>(this, length, id, table, in_ports, out_ports,
-                                   match, nmask, mrw);
+                                   match, nmask, nrw);
       else r = new RuleNode<T1, T2>(this, length, id, table, id, in_ports, out_ports,
                             match, nmask, nrw);
 #else
@@ -853,7 +855,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
 
     } else {
       free(in_ports.list);free(out_ports.list);
-      delete match;delete mask; delete rewrite;
+      delete match;delete nmask; delete rewrite;
       stringstream error_msg;
       error_msg << "Group " << group << " does not exist. Can't add rule to it."
           << "Ignoring add new rule request.";
@@ -864,7 +866,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
     return id;
   } else {
     free(in_ports.list);free(out_ports.list);
-    delete match; delete nmask; delete nrw;
+    delete match; delete mask; delete rw;
     stringstream error_msg;
     error_msg << "trying to add a rule to a non-existing table (id: " << table
         << "). Ignored.";

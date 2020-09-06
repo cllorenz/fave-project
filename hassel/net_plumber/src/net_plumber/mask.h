@@ -14,6 +14,7 @@ class Mask<T> {
         int *inv_mask = nullptr;
         size_t im_len = 0;
         int creation_varnum;
+#endif
 
         Mask<T>(T *mask) : mask(mask) {
 #ifdef USE_BDD
@@ -54,6 +55,5 @@ class Mask<T> {
         std::string to_str() {
             return this->mask->to_str();
         }
-#endif
 };
 #endif // MASK_H

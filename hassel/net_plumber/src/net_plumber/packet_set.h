@@ -2,7 +2,7 @@
 #define SRC_NET_PLUMBER_PACKET_SET_H_
 
 #include "../jsoncpp/json/json.h"
-#include "mask.h"
+//#include "mask.h"
 
 namespace net_plumber {
 
@@ -30,7 +30,8 @@ class PacketSet {
     virtual bool is_subset_equal(PacketSet *) = 0;
     virtual bool is_subset(PacketSet *) = 0;
 
-    virtual void rewrite(Mask<PacketSet>* /*mask*/, Rewrite<PacketSet>* /*rewrite*/) = 0;
+//    virtual void rewrite(Mask<PacketSet>* /*mask*/, Rewrite<PacketSet>* /*rewrite*/) = 0;
+    virtual void rewrite(PacketSet* /*mask*/, PacketSet* /*rewrite*/) = 0;
     virtual void negate(void) = 0;
 };
 

@@ -50,12 +50,14 @@ template<class T1, class T2>
 #ifdef USE_GROUPS
 RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
-                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+//                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+                   T2 *match, T2 *mask, T2 *rewrite) :
                    Node<T1, T2>(n,length,node_id), table(table), index(index), group(0) {
 #else
 RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    List_t in_ports, List_t out_ports,
-                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+//                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+                   T2 *match, T2 *mask, T2 *rewrite) :
                    Node<T1, T2>(n,length,node_id), table(table), index(index) {
 #endif
   this->node_type = RULE;
@@ -87,7 +89,8 @@ RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table
 template<class T1, class T2>
 RuleNode<T1, T2>::RuleNode(void *n, int length, uint64_t node_id, uint32_t table, uint32_t index,
                    uint64_t group, List_t in_ports, List_t out_ports,
-                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+//                   T2 *match, Mask<T2> *mask, Rewrite<T2> *rewrite) :
+                   T2 *match, T2 *mask, T2 *rewrite) :
                    Node<T1, T2>(n,length,node_id), table(table), index(index), group(group) {
   this->node_type = RULE;
   this->match = match;
@@ -605,7 +608,8 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
 	if (this->mask)
 		this->mask->enlarge2(length);
 	if (this->rewrite)
-		this->rewrite->rewrite->enlarge(length);
+		this->rewrite->enlarge(length);
+//		this->rewrite->rewrite->enlarge(length);
 #ifdef USE_INV
 	if (this->inv_rw)
 		this->inv_rw->enlarge(length);
