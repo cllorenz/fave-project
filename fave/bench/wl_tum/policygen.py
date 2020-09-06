@@ -9,12 +9,12 @@ OFILE="bench/wl_tum/policies.json"
 
 if __name__ == '__main__':
     probes = [
-        ("probe.tum", "probe", "universal", None, None, [])
+        ("probe.tum", "probe", "universal", None, None, []),
     ]
 
 
     links = [
-#        ("fw.tum_forward_filter_accept", "probe.tum.1")
+        ("fw.tum_forward_filter_accept", "probe.tum.1")
     ]
 
     policies = {
