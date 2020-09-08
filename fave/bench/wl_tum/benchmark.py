@@ -3,7 +3,7 @@
 """ This module benchmarks FaVe using an example workload.
 """
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
+from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
 
 IFI = {
     "topology" : [],
@@ -16,6 +16,7 @@ IFI = {
 MAP = "bench/wl_tum/map.json"
 TOPOLOGY = "bench/wl_tum/topology.json"
 ROUTES = "bench/wl_tum/routes.json"
+SOURCES="bench/wl_tum/sources.json"
 POLICIES = "bench/wl_tum/policies.json"
 CHECKS = "bench/wl_tum/checks.json"
 REACH_JSON = "bench/wl_tum/reachable.json"
@@ -73,6 +74,11 @@ if __name__ == '__main__':
         routes = json.loads(raw_routes.read())
 
         add_routes(routes)
+
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.loads(raw_sources.read()).values()
+
+        add_sources(sources, links)
 
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
