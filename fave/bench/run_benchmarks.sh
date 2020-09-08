@@ -28,7 +28,7 @@ for i in $(seq 1 $RUNS); do
   SOUT=$i.stdout.log
   SERR=$i.stderr.log
   echo -n "run benchmark $i: $BENCH... "
-  python $BENCH > $SOUT 2> $SERR
+  python2 $BENCH > $SOUT 2> $SERR
   echo "done"
 
   echo -n "check integrity... "
