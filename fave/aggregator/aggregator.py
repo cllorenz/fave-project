@@ -1184,10 +1184,12 @@ class Aggregator(AbstractAggregator):
 #                }
             }
 
+        # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
         elif test_fields:
             test_expr = {
-                "type" : "header",
-                "header" : test_hs
+                "type" : "true"
+#                "type" : "header",
+#                "header" : test_hs
             }
 
         elif test_path:
