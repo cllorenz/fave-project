@@ -31,6 +31,7 @@ sudo pip2 install graphviz
 sudo pip2 install filelock
 sudo pip2 install pyparsing
 sudo pip2 install cachetools
+sudo pip2 install dd
 
 wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz
 tar xfz Pyrex-0.9.9.tar.gz
