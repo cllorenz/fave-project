@@ -16,11 +16,12 @@ bdd.declare(*(range(128)))
 def _addr_str_to_int(addr):
     res = 0
     for i in range(128):
-        if addr[i] == '1':
-            res += 2**i
+        if addr[127-i] == '1':
+            res += 1 << i
 
     return res
 
+import pprint
 
 def _range_to_prefixes(start, end):
     start_int = _addr_str_to_int(start)
@@ -55,13 +56,6 @@ def _range_to_bdd(start, end):
 
     return res
 
-#    res = bdd.true
-#    cnt = 0
-#    while cnt < 128 and start[cnt] == end[cnt]:
-#        res &= bdd.var(cnt) if start[cnt] == '1' else ~bdd.var(cnt)
-#        cnt += 1
-#
-#    return res
 
 def _prefix_addr_to_bdd(addr):
     res = bdd.true
@@ -117,6 +111,7 @@ def _read_fffuu6(fffuu):
 
 def _flow_addr_to_bdd(flow, mapping, direction):
     hs = HeaderSpace.from_str(flow)
+    hs.pprint(mapping=mapping)
 
     hs_list = set()
     hs_diff = set()
