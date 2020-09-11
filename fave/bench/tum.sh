@@ -49,7 +49,7 @@ echo ""
 echo "run fave"
 cd fave-code/fave
 bash bench/run_benchmarks.sh bench/wl_tum/benchmark.py
-bash bench/eval_benchmarks.sh
+bash bench/eval_benchmarks_tum.sh
 cd ../..
 
 mv fave-code/fave/results $RES_PATH/../fave
