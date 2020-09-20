@@ -292,3 +292,13 @@ def portrange_to_prefix_list(lower, upper):
         lower += (1 << postfix)
 
     return res
+
+
+def portrange_to_prefixed_bitvectors(lower, upper):
+    prefixes = portrange_to_prefix_list(lower, upper)
+
+    res = []
+    for base, prefix in prefixes:
+        res.append("{:016b}".format(base)[:prefix] + "x" * (PORT_BITS - prefix))
+
+    return res

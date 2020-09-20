@@ -102,21 +102,22 @@ class IP6TablesParser(BisonParser):
             else:
                 line.add_child('-t').add_child('filter')
 
-            has_sports = tmp.has_child('--sports')
-            has_dports = tmp.has_child('--dports')
-            if has_sports:
-                sports = tmp.get_child('--sports')
-                val = sports.get_first().value
-                first, _last = val.split(':') # XXX: implement interval handling
-                sports.value = '--sport'
-                sports.get_first().value = first
-
-            if has_dports:
-                dports = tmp.get_child('--dports')
-                val = dports.get_first().value
-                first, _last = val.split(':') # XXX: implement interval handling
-                dports.value = '--dport'
-                dports.get_first().value = first
+#            has_sports = tmp.has_child('--sports')
+#            has_dports = tmp.has_child('--dports')
+#            if has_sports:
+#                sports = tmp.get_child('--sports')
+#                val = sports.get_first().value
+#                first, _last = val.split(':') # XXX: implement interval handling
+#                sports.value = '--sport'
+#                sports.get_first().value = first
+#
+#            if has_dports:
+#                dports = tmp.get_child('--dports')
+#                print dports.get_first().value
+#                val = dports.get_first().value
+#                first, _last = val.split(':') # XXX: implement interval handling
+#                dports.value = '--dport'
+#                dports.get_first().value = first
 
             return line
 
