@@ -28,16 +28,31 @@ if __name__ == '__main__':
     import json
     import os
     import sys
+    import getopt
 
     verbose = False
-    if len(sys.argv) > 1:
-        verbose = sys.argv[1] == '-v'
+    ip = 'ipv6'
+    ruleset = 'bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset'
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "vr:4")
+    except getopt.GetoptError as err:
+        print err
+        sys.exit(1)
+
+    for opt, arg in opts:
+        if opt == '-v':
+            verbose = True
+        if opt == '-r':
+            ruleset = arg
+        if opt == '-4':
+            ip = 'ipv4'
 
     if verbose: print "Generate benchmark... ",
 
     os.system("rm -f /tmp/np/*")
 
-    os.system("python2 bench/wl_tum/topogen.py")
+    os.system("python2 bench/wl_tum/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_tum/routegen.py")
 #    os.system(
 #        "python2 ../policy-translator/policy_translator.py " +
