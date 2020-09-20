@@ -4,14 +4,20 @@
 """
 
 import json
+import sys
 
 TOPOLOGY="bench/wl_tum/topology.json"
 SOURCES="bench/wl_tum/sources.json"
 
 if __name__ == '__main__':
+    address = "2001:db8::1"
+    ruleset = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
+    if len(sys.argv) == 3:
+        address = "2001:db8::1" if sys.argv[1] == "ipv6" else "10.0.0.1"
+        ruleset = sys.argv[2]
+
     devices = [
-#        ("fw.tum", "packet_filter", 2, "10.0.0.1", "bench/wl_tum/tum-ruleset"),
-        ("fw.tum", "packet_filter", 2, "2001:db8::1", "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset")
+        ("fw.tum", "packet_filter", 2, address, ruleset)
     ]
 
     links = []

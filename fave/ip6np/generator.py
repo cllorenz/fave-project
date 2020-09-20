@@ -9,6 +9,7 @@ from packet_filter import PacketFilterModel
 from openflow.switch import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
+from util.packet_util import portrange_to_prefixed_bitvectors
 
 def _is_rule(ast):
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
@@ -16,6 +17,10 @@ def _is_rule(ast):
 
 def _is_state_rule(body):
     return any([f.name == 'packet.ipv6.proto' and f.value == 'tcp' for f in body])
+
+
+def _has_multiports(body):
+    return any([f.name in ['sports', 'dports'] for f in body])
 
 
 def _swap_src_dst(field):
@@ -176,31 +181,90 @@ def _ast_to_rule(node, ast, idx=0):
         body.append(SwitchRuleField("related", "0xxxxxxx"))
 
     chain = _get_chain_from_ast(ast)
-    rule = SwitchRule(
-        node,
-        chain,
-        (1+idx)*2+1 if not is_default else 65535,
-        in_ports=['in'],
-        match=Match(body),
-        actions=actions
-    )
 
-    rules = [rule]
-    if (_is_state_rule(body) or is_default) and actions != []:
-        state_body = [SwitchRuleField("related", "1xxxxxxx")] + _build_state_rule_from_rule(body)
-        if is_default: state_body.append(SwitchRuleField("packet.ipv6.proto", "tcp"))
-        state_chain = _get_state_chain_from_chain(chain)
+    rules = []
+    multiports = []
+    if ast.has_child('--sports'): multiports.append(SwitchRuleField('sports', value(ast.get_child('--sports'))))
+    if ast.has_child('--dports'): multiports.append(SwitchRuleField('dports', value(ast.get_child('--dports'))))
+    if multiports:
+        sports = []
+        dports = []
+        for ports in multiports:
+            start, end = ports.value.split(':')
+            prefixed_ports = portrange_to_prefixed_bitvectors(int(start), int(end))
 
+            if ports.name == 'sports':
+                sports = prefixed_ports
+            else:
+                dports = prefixed_ports
+#            del body[ports]
+
+        combinations = [(sport, dport) for sport in sports for dport in dports]
+
+        if combinations:
+            for i, comb in enumerate(combinations):
+                sport, dport = comb
+                rules.append(SwitchRule(
+                    node,
+                    chain,
+                    (1+idx+i)*2+1,
+                    in_ports=['in'],
+                    match=Match(body+[SwitchRuleField('packet.upper.sport', sport), SwitchRuleField('packet.upper.dport', dport)]),
+                    actions=actions
+                ))
+
+        else:
+            for i, sport in enumerate(sports):
+                rules.append(SwitchRule(
+                    node,
+                    chain,
+                    (1+idx+i)*2+1,
+                    in_ports=['in'],
+                    match=Match(body+[SwitchRuleField('packet.upper.sport', sport)]),
+                    actions=actions
+                ))
+            for i, dport in enumerate(dports, start=len(sports)):
+                rules.append(SwitchRule(
+                    node,
+                    chain,
+                    (1+idx+i)*2+1,
+                    in_ports=['in'],
+                    match=Match(body+[SwitchRuleField('packet.upper.dport', dport)]),
+                    actions=actions
+                ))
+
+    else:
         rules.append(SwitchRule(
             node,
-            state_chain,
-            (1+idx)*2 if not is_default else 1,
+            chain,
+            (1+idx)*2+1 if not is_default else 65535,
             in_ports=['in'],
-            match=Match(state_body),
-            actions=[Forward(ports=['accept'])]
+            match=Match(body),
+            actions=actions
         ))
 
-    return (rules, {rule : negated}) if negated else (rules, {})
+    negated_rules = {r : negated for r in rules if negated}
+
+    if (_is_state_rule(body) or is_default) and actions != []:
+        state_rules = []
+        for rule in rules:
+            state_body = [SwitchRuleField("related", "1xxxxxxx")] + _build_state_rule_from_rule(rule.match)
+            if is_default: state_body.append(SwitchRuleField("packet.ipv6.proto", "tcp"))
+            state_chain = _get_state_chain_from_chain(chain)
+
+            state_rules.append(SwitchRule(
+                node,
+                state_chain,
+                (1+idx)*2 if not is_default else 1,
+                in_ports=['in'],
+                match=Match(state_body),
+                actions=[Forward(ports=['accept'])]
+            ))
+
+        rules.extend(state_rules)
+
+    #return (rules, {rule : negated}) if negated else (rules, {})
+    return (rules, negated_rules)
 
 
 def _get_rules_from_ast(node, ast, idx=0):
@@ -210,9 +274,14 @@ def _get_rules_from_ast(node, ast, idx=0):
         return ([], {})
     else:
         merge = lambda l, r: (l[0]+r[0], dict_union(l[1], r[1]))
-        return reduce(
-            merge, [_get_rules_from_ast(node, st, idx+i+1) for i, st in enumerate(ast)]
-        )
+        res = ([], {})
+        cnt = 0
+        for st in ast:
+            rules, negated = _get_rules_from_ast(node, st, idx+cnt+1)
+            res = merge(res, (rules, negated))
+            cnt += len(rules)
+
+        return res
 
 
 def _get_chain_from_ast(ast):
