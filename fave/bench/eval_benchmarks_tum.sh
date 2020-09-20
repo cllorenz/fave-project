@@ -20,6 +20,9 @@ RUNS=10
 RESULTS=results/results.dat
 echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
 
+FAVE_RAW=results/raw_fave.dat
+echo "" > $FAVE_RAW
+
 for i in $(seq 1 $RUNS); do
   grep "seconds" results/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
   awk 'BEGIN { result = 0; } { result += $6; } END { print result * 1000.0; }' >> $FAVE_RAW
