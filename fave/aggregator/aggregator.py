@@ -182,7 +182,7 @@ class Aggregator(AbstractAggregator):
         # open new unix domain socket
         Aggregator.LOGGER.info("open and bind uds socket")
         uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        uds.settimeout(1.0)
+        uds.settimeout(2.0)
         uds.bind(UDS_ADDR)
 
         # start thread to handle incoming config events
