@@ -16,6 +16,7 @@ function check_integrity {
 }
 
 BENCH=$1
+[ -n "$2" ] && RULESET=$2 || RULESET=bench/wl_tum/tum-ruleset
 RUNS=10
 
 LAST_NP=last_np_dump
@@ -28,7 +29,7 @@ for i in $(seq 1 $RUNS); do
   SOUT=$i.stdout.log
   SERR=$i.stderr.log
   echo -n "run benchmark $i: $BENCH... "
-  python2 $BENCH > $SOUT 2> $SERR
+  python2 $BENCH -4 -r $RULESET > $SOUT 2> $SERR
   echo "done"
 
   echo -n "check integrity... "
