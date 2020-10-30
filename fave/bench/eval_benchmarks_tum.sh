@@ -16,6 +16,7 @@ function stats {
 }
 
 RUNS=10
+FAVE_RAW=results/fave_raw.dat
 
 RESULTS=results/results.dat
 echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
@@ -28,7 +29,7 @@ for i in $(seq 1 $RUNS); do
   awk 'BEGIN { result = 0; } { result += $6; } END { print result * 1000.0; }' >> $FAVE_RAW
 done
 
-NP_RAW=results/raw_np.dat
+NP_RAW=results/np_raw.dat
 echo -n "" > $NP_RAW
 
 for i in $(seq 1 $RUNS); do
