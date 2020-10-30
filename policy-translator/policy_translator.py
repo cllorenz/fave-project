@@ -1,7 +1,8 @@
-#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 # Copyright 2018 Vera Clemens
+# List of co-authors:
+#    Claas Lorenz <claas_lorenz@genua.de>
 
 # This file is part of Policy Translator.
 
