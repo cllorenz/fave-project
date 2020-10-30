@@ -7,52 +7,50 @@ from dd.autoref import BDD
 
 from netplumber.mapping import Mapping
 from netplumber.vector import HeaderSpace, get_field_from_vector
-from util.packet_util import normalize_ipv6_address
-
+from util.packet_util import normalize_ipv4_address, normalize_ipv6_address
 
 bdd = BDD()
-bdd.declare(*(range(128)))
 
-def _addr_str_to_int(addr):
+def _addr_str_to_int(addr, IP_BITS):
     res = 0
-    for i in range(128):
-        if addr[127-i] == '1':
+    for i in range(IP_BITS):
+        if addr[IP_BITS-1-i] == '1':
             res += 1 << i
 
     return res
 
 import pprint
 
-def _range_to_prefixes(start, end):
-    start_int = _addr_str_to_int(start)
-    end_int = _addr_str_to_int(end)
+def _range_to_prefixes(start, end, IP_BITS):
+    start_int = _addr_str_to_int(start, IP_BITS)
+    end_int = _addr_str_to_int(end, IP_BITS)
 
     res = []
 
     while start_int < end_int:
         i = 0
-        for i in range(128):
+        for i in range(IP_BITS):
             if start_int % (1 << (i+1)) or (start_int + (1 << (i+1)) - 1) > end_int: break
-        res.append((start_int, 128 - i))
+        res.append((start_int, IP_BITS - i))
         start_int += 1 << i
 
     return res
 
 
-def _int_prefix_to_bdd(addr, prefix):
+def _int_prefix_to_bdd(IP_BITS, addr, prefix):
     res = bdd.true
-    for i in range(127, prefix, -1):
+    for i in range(IP_BITS-1, prefix, -1):
         res &= bdd.var(i) if ((1 << i) & addr != 0) else ~bdd.var(i)
 
     return res
 
 
-def _range_to_bdd(start, end):
-    prefixes = _range_to_prefixes(start, end)
+def _range_to_bdd(start, end, IP_BITS):
+    prefixes = _range_to_prefixes(start, end, IP_BITS)
 
     res = bdd.true
     for prefix in prefixes:
-        res |= _int_prefix_to_bdd(*prefix)
+        res |= _int_prefix_to_bdd(IP_BITS, *prefix)
 
     return res
 
@@ -60,16 +58,16 @@ def _range_to_bdd(start, end):
 def _prefix_addr_to_bdd(addr):
     res = bdd.true
     cnt = 0
-    while cnt < 128 and addr[cnt] != 'x':
+    while cnt < IP_BITS and addr[cnt] != 'x':
         res &= bdd.var(cnt) if addr[cnt] == '1' else ~bdd.var(cnt)
         cnt += 1
 
     return res
 
 
-def _addr_to_bdd(addr):
+def _addr_to_bdd(addr, IP_BITS):
     res = bdd.true
-    for i in range(128):
+    for i in range(IP_BITS):
         if addr[i] != 'x':
             res &= bdd.var(i) if addr[i] == '1' else ~bdd.var(i)
 
@@ -81,6 +79,14 @@ def _is_subset_eq(sub, sup):
 
 
 def _read_fffuu6(fffuu):
+    return _read_fffuux(fffuu, 128, False)
+
+
+def _read_fffuu(fffuu):
+    return _read_fffuux(fffuu, 32, True)
+
+
+def _read_fffuux(fffuu, IP_BITS, is_ipv4):
     lines = fffuu.split('\n')
 
     nets = {}
@@ -93,13 +99,21 @@ def _read_fffuu6(fffuu):
             ranges = line[6:].split(' u ')
             for range in ranges:
                 if range.startswith('{'):
+                    print range
                     start, end = range.strip('{}').split(' .. ')
-                    sv = normalize_ipv6_address(start)
-                    ev = normalize_ipv6_address(end)
-                    nets[net] |= _range_to_bdd(sv, ev)
+                    if is_ipv4:
+                        sv = normalize_ipv4_address(start)
+                        ev = normalize_ipv4_address(end)
+                    else:
+                        sv = normalize_ipv6_address(start)
+                        ev = normalize_ipv6_address(end)
+                    nets[net] |= _range_to_bdd(sv, ev, IP_BITS)
                 else:
-                    sv = ev = normalize_ipv6_address(range)
-                    nets[net] |= _range_to_bdd(sv, ev)
+                    if is_ipv4:
+                        sv = ev = normalize_ipv4_address(range)
+                    else:
+                        sv = ev = normalize_ipv6_address(range)
+                    nets[net] |= _range_to_bdd(sv, ev, IP_BITS)
 
 
         elif line.startswith('('):
@@ -109,7 +123,7 @@ def _read_fffuu6(fffuu):
     return (nets, matrix)
 
 
-def _flow_addr_to_bdd(flow, mapping, direction):
+def _flow_addr_to_bdd(flow, mapping, direction, IP_BITS):
     hs = HeaderSpace.from_str(flow)
     hs.pprint(mapping=mapping)
 
@@ -124,19 +138,23 @@ def _flow_addr_to_bdd(flow, mapping, direction):
 
     res = bdd.true
     for addr in hs_list:
-        res |= _addr_to_bdd(addr)
+        res |= _addr_to_bdd(addr, IP_BITS)
 
     tmp = bdd.true
     for addr in hs_diff:
-        tmp |= _addr_to_bdd(addr)
+        tmp |= _addr_to_bdd(addr, IP_BITS)
 
     return bdd.apply('diff', res, tmp)
 
 
 def _get_leaves(tree, mapping, probe):
     if 'children' not in tree and tree['node'] == probe:
-        source =  _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv6.source')
-        dest = _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv6.destination')
+        if is_ipv4(mapping):
+            source =  _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv4.source', 32)
+            dest = _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv4.destination', 32)
+        else:
+            source =  _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv6.source', 128)
+            dest = _flow_addr_to_bdd(tree['flow'], mapping, 'packet.ipv6.destination', 128)
         return [(source, dest)]
 
     elif 'children' not in tree:
@@ -153,6 +171,10 @@ def _read_fave(tree, mapping, probe):
     return _get_leaves(tree, mapping, probe)
 
 
+def is_ipv4(mapping):
+    return 'packet.ipv4.source' in mapping or 'packet.ipv4.destination' in mapping
+
+
 def main(argv):
     fffuu = open(argv[0], 'r').read()
     tree = json.load(open(argv[1], 'r'))['flows'][0]
@@ -160,12 +182,22 @@ def main(argv):
     mapping = Mapping.from_json(fave['mapping'])
     probe = int(fave['id_to_probe'].keys()[0])
 
+    if is_ipv4(mapping):
+        IP_BITS=32
+    else:
+        IP_BITS=128
 
-    fffuu_nets, fffuu_matrix = _read_fffuu6(fffuu)
+    bdd.declare(*(range(IP_BITS)))
+
+    if is_ipv4(mapping):
+        fffuu_nets, fffuu_matrix = _read_fffuu(fffuu)
+    else:
+        fffuu_nets, fffuu_matrix = _read_fffuu6(fffuu)
+
     fave_reach = _read_fave(tree, mapping, probe)
 
     # fave subseteq fffuu6
-    print all([
+    print "result for fave subseteq fffuux:", all([
         any([
             all([
                 _is_subset_eq(source, fffuu_nets[src]),
