@@ -26,26 +26,25 @@ mkdir -p results
 
 # run FaVe benchmark
 for i in $(seq 1 $RUNS); do
-  SOUT=$i.stdout.log
-  SERR=$i.stderr.log
-  echo -n "run benchmark $i: $BENCH... "
-  python2 $BENCH -4 -r $RULESET > $SOUT 2> $SERR
-  echo "done"
-
-  echo -n "check integrity... "
-  check_integrity
-  [ -z "$?" ] && break || echo "ok"
-  rm -f $LAST_NP/*
-  cp np_dump/* $LAST_NP/
-
   RDIR=results/$i.raw
   mkdir -p $RDIR
   rm -rf $RDIR/*
 
   sleep 1
 
-  mv $SOUT $RDIR/
-  mv $SERR $RDIR/
+  SOUT=$RDIR/$i.stdout.log
+  SERR=$RDIR/$i.stderr.log
+  echo -n "run benchmark $i: $BENCH... "
+  python2 $BENCH -4 -r $RULESET > $SOUT 2> $SERR
+  echo "done"
+
+  sleep 1
+
+  echo -n "check integrity... "
+  check_integrity
+  [ -z "$?" ] && break || echo "ok"
+  rm -f $LAST_NP/*
+  cp np_dump/* $LAST_NP/
 
   cp -r /tmp/np/ $RDIR/
 done
