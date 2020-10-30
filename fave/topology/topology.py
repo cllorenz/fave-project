@@ -302,7 +302,8 @@ def main(argv):
         return
 
     fave = connect_to_fave()
-    fave.send(json.dumps(topo.to_json()))
+    s = json.dumps(topo.to_json())
+    fave.send(s)
     fave.close()
 
 
