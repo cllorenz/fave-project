@@ -1,16 +1,32 @@
 #!/usr/bin/env bash
 
+# -*- coding: utf-8 -*-
+
+# Copyright 2020 Claas Lorenz <claas_lorenz@genua.de>
+
+# This file is part of FaVe.
+
+# FaVe is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# FaVe is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
+
 function stats {
     ASPECT=$1
     DATA=$2
 
-    MEAN=`awk 'BEGIN { total = 0; } { total += $1; } END { print total/NR; }' < $DATA`
-
-    MEDIAN=`sort -n $DATA | awk '{ count[NR] = $1; } END { if (NR % 2) { print count[(NR + 1) / 2]; } else { print (count[NR / 2]); } }'`
-
-    MIN=`awk 'BEGIN { min = "inf"; } { if ( $1 < min ) { min = $1; } } END { print min; }' < $DATA`
-
-    MAX=`awk 'BEGIN { max = 0.0; } {if ( $1 > max) { max = $1; } } END { print max; }' < $DATA`
+    MEAN=`awk -f $WDIR/bench/mean.awk < $DATA`
+    MEDIAN=`awk -f $WDIR/bench/median.awk < $DATA`
+    MIN=`awk -f $WDIR/bench/min.awk < $DATA`
+    MAX=`awk -f $WDIR/bench/max.awk < $DATA`
 
     echo "$ASPECT $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
 }
@@ -19,6 +35,8 @@ RUNS=10
 RES_PATH=$(pwd)/tum/fffuu6
 rm -rf $(pwd)/tum
 mkdir -p $RES_PATH/raw
+
+WDIR=fave-code/fave
 
 RESULTS=$RES_PATH/results.dat
 echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
