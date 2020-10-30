@@ -260,6 +260,22 @@ def add_link(sock, from_port, to_port):
     _sendrecv(sock, json.dumps(data))
 
 
+def add_links_bulk(sock, links):
+    """ Adds directed links.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    links -- A list of source and destination port pairs
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_link"
+
+    for from_port, to_port in links:
+        data["params"] = {"from_port":from_port, "to_port":to_port}
+        _sendrecv(sock, json.dumps(data))
+
+
 #@profile_method
 def remove_link(sock, from_port, to_port):
     """ Removes a link.

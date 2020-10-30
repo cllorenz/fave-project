@@ -315,6 +315,7 @@ class Aggregator(AbstractAggregator):
             cmd = model
 
             if cmd.mtype == "links":
+                links = []
                 for link in cmd.model:
                     sport, dport = link
                     sport = self._global_port(sport)
@@ -324,7 +325,7 @@ class Aggregator(AbstractAggregator):
                         Aggregator.LOGGER.debug(
                             "worker: add link to netplumber from %s to %s", hex(sport), hex(dport)
                         )
-                        jsonrpc.add_link(self.sock, sport, dport)
+                        links.append((sport, dport))
                         self.links[sport] = dport
                     elif cmd.command == "del":
                         Aggregator.LOGGER.debug(
@@ -332,6 +333,8 @@ class Aggregator(AbstractAggregator):
                         )
                         jsonrpc.remove_link(self.sock, sport, dport)
                         del self.links[sport]
+
+                jsonrpc.add_links_bulk(self.sock, links)
 
             elif cmd.mtype == "packet_filter":
                 if cmd.command == "add":
