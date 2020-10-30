@@ -1032,7 +1032,7 @@ class Aggregator(AbstractAggregator):
                 del self.tables[name]
 
 
-    def _add_generator(self, model):
+    def _prepare_generator(self, model):
         name = model.node
         if name in self.generators:
             self._delete_generator(name)
@@ -1049,6 +1049,12 @@ class Aggregator(AbstractAggregator):
         outgoing = align_headerspace(
             model.mapping, self.mapping, model.outgoing
         )
+
+        return (name, idx, portno, outgoing)
+
+
+    def _add_generator(self, model):
+        name, idx, portno, outgoing = self._prepare_generator(model)
 
         Aggregator.LOGGER.debug(
             "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
