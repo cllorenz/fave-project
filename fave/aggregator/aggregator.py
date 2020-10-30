@@ -1065,7 +1065,31 @@ class Aggregator(AbstractAggregator):
             [v.vector for v in outgoing.hs_diff],
             [portno]
         )
+
         self.generators[name] = (idx, sid, model)
+
+
+    def _add_generators_bulk(self, models):
+        generators = [self._prepare_generator(m) for m in models]
+
+        for name, idx, portno, outgoing in generators:
+            Aggregator.LOGGER.debug(
+                "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
+            )
+
+        sids = zip([n for n, _p, _o in generators], models, jsonrpc.add_sources_bulk(
+            self.sock,
+            [
+                (
+                    [v.vector for v in outgoing.hs_list],
+                    [v.vector for v in outgoing.hs_diff],
+                    [portno]
+                ) for _name, portno, outgoing in generators
+            ]
+        ))
+
+        for name, model, sid in sids:
+            self.generators[name] = (idx, sid, model)
 
 
     def _delete_generator(self, node):
