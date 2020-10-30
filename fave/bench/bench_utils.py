@@ -61,6 +61,10 @@ def _add_generator(name, _type, fields=None):
     topo.main(["-a", "-t", "generator", "-n", name] + opts)
 
 
+def _add_generators(generators):
+    topo.main(["-a", "-t", "generators", "-G", '|'.join(["%s\\%s" % (n, ';'.join(f)) for n, _t, f in generators])])
+
+
 def _add_probe(name, _type, quantor, filter_fields=None, test_fields=None, test_path=None):
     opts = []
     if filter_fields:
@@ -177,7 +181,6 @@ def add_sources(sources, links):
     """
 
     get_type = lambda x: x[1]
-    for source in [s for s in sources if get_type(s) == 'generator']:
-        _add_generator(*source)
+    _add_generators([s for s in sources if get_type(s) == 'generator'])
 
     _add_links(links)

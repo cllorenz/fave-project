@@ -111,7 +111,7 @@ CNT=0
 
 echo -n "add generators... "
 # generator $HOST1
-python2 topology/topology.py -a -t generators -G "$HOST1/ipv6_dst=2001:db8::1|$HOST2/ipv6_dst=2001:db8::2"
+python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_dst=2001:db8::1|$HOST2\ipv6_dst=2001:db8::2"
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH

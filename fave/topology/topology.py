@@ -320,7 +320,7 @@ def main(argv):
                 filter_fields[key] = values
         elif opt == '-G':
             for generator in arg.split('|'):
-                name, fields = generator.split('/')
+                name, fields = generator.split('\\')
                 generator_fields = {}
                 for field in fields.split(';'):
                     key, body = field.split('=')
