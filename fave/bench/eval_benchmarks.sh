@@ -47,10 +47,10 @@ echo -n "" > $FAVE_REACH
 
 for i in $(seq 1 $RUNS); do
   grep "seconds" results/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
-  awk 'BEGIN { done = 0; result = 0; } { if (done || $4 == "generator") { done = 1; } else if (done && $4 == "probe") { done = 0; result += $6; } else { result += $6; } } END { print result * 1000.0; }' >> $FAVE_INIT
+  awk 'BEGIN { done = 0; result = 0; } { if (done || $4 == "generators" || $4 == "generator") { done = 1; } else if (done && $4 == "probe") { done = 0; result += $6; } else { result += $6; } } END { print result * 1000.0; }' >> $FAVE_INIT
 #  awk 'BEGIN { done = 0; } { if (done || $4 == "generator") { done = 1; } else if (done && $4 == "probe") { done = 0; print $6 * 1000.0 } else { print $6 * 1000.0 } }' >> $FAVE_INIT
   grep "seconds" results/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
-  awk 'BEGIN { start = 0; result = 0; } { if (start || $4 == "generator") { start = 1;  if ($4 == "generator") { result += $6; } else if ($4 == "links") { result += $6; } else if ($4 == "probe") { start = 0; } } } END { print result * 1000.0 }' >> $FAVE_REACH
+  awk 'BEGIN { start = 0; result = 0; } { if (start || $4 == "generators" || $4 == "generator") { start = 1;  if ($4 == "generators" || $4 == "generator") { result += $6; } else if ($4 == "links") { result += $6; } else if ($4 == "probe") { start = 0; } } } END { print result * 1000.0 }' >> $FAVE_REACH
 #  awk 'BEGIN { start = 0; pos = 1; pos2 = 1; } { if (start || $4 == "generator") { start = 1;  if ($4 == "generator") { sources[pos] = $6; pos++; } else if ($4 == "links") { print (sources[pos2] + $6) * 1000.0; pos2++ } else if ($4 == "probe") { start = 0; } } }' >> $FAVE_REACH
 done
 
