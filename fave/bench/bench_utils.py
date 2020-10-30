@@ -76,6 +76,8 @@ def _add_probe(name, _type, quantor, filter_fields=None, test_fields=None, test_
 def _add_link(src, dst):
     topo.main(["-a", "-l", "%s:%s" % (src, dst)])
 
+def _add_links(links):
+    topo.main(["-a", "-l", ",".join(["%s:%s" % (src, dst) for src, dst in links])])
 
 def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=None):
     opts = []
@@ -126,8 +128,7 @@ def create_topology(devices, links):
         except KeyError as e:
             raise Exception("No such device type: %s" % e.message)
 
-    for link in links:
-        _add_link(*link)
+    _add_links(links)
 
 
 def add_routes(routes):
@@ -164,8 +165,7 @@ def add_policies(probes, links):
     for probe in [p for p in probes if get_type(p) == 'probe']:
         _add_probe(*probe)
 
-    for link in links:
-        _add_link(*link)
+    _add_links(links)
 
 
 def add_sources(sources, links):
@@ -180,5 +180,4 @@ def add_sources(sources, links):
     for source in [s for s in sources if get_type(s) == 'generator']:
         _add_generator(*source)
 
-    for link in links:
-        _add_link(*link)
+    _add_links(links)
