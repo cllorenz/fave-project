@@ -197,6 +197,7 @@ class Aggregator(AbstractAggregator):
                 part = conn.recv(Aggregator.BUF_SIZE)
                 data += part
                 if len(part) < Aggregator.BUF_SIZE:
+                    Aggregator.LOGGER.debug("master: read data of size %s", len(data))
                     break
 
             # upon data receival enqueue
