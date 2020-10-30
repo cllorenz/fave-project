@@ -282,8 +282,8 @@ def add_source(sock, hs_list, hs_diff, ports):
 
     Keyword arguments:
     sock -- A socket connected to NetPlumber
-    hs_list -- A list of vectors emitted by the probe
-    hs_diff -- A list of vectors subtracted by the probe's emission
+    hs_list -- A list of vectors emitted by the source
+    hs_diff -- A list of vectors subtracted by the source's emission
     ports -- The source's egress ports
     """
 
@@ -303,6 +303,40 @@ def add_source(sock, hs_list, hs_diff, ports):
             "ports":ports
         }
     return _extract_node(_sendrecv(sock, json.dumps(data)))
+
+
+def add_sources_bulk(sock, sources):
+    """ Adds source nodes as bulk operation.
+
+    Keyword arguments:
+    sock -- A socket connected to NetPlumber
+    sources -- A list of tuples containing a list of emitted vectors, a list of
+               vectors to be subtracted from the source's emission, a list of
+               egress ports
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_source"
+
+    sids = []
+
+    for hs_list, hs_diff, ports in sources:
+        if not hs_diff and len(hs_list) == 1:
+            data["params"] = {
+                "hs":hs_list[0],
+                "ports":ports
+            }
+        else:
+            data["params"] = {
+                "hs":{
+                    "list":hs_list,
+                    "diff":hs_diff
+                },
+                "ports":ports
+            }
+        sids.append(_extract_node(_sendrecv(sock, json.dumps(data))))
+
+    return sids
 
 
 #@profile_method

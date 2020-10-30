@@ -267,6 +267,13 @@ class Aggregator(AbstractAggregator):
             Aggregator.LOGGER.debug("extend mapping for adding probes, generators, routers, and packet filters")
             self._extend_mapping(model.model.mapping)
 
+        elif model.type == "topology_command" and \
+                model.command == 'add' and \
+                model.model.type == 'generators':
+            Aggregator.LOGGER.debug("extend mapping for adding generators")
+            for generator in model.model.generators:
+                self._extend_mapping(generator.mapping)
+
         elif model.type == "slicing_command" and model.command == 'add_slice':
             Aggregator.LOGGER.debug("extend mapping for adding slices")
             self._extend_mapping(model.slice.mapping)
@@ -355,6 +362,13 @@ class Aggregator(AbstractAggregator):
                     self._add_generator(cmd.model)
                 elif cmd.command == "del":
                     self._delete_generator(cmd.node)
+
+            elif cmd.mtype == "generators":
+                if cmd.command == "add":
+                    self._add_generators_bulk(cmd.model.generators)
+# TODO: implement deletion
+#                elif cmd.command == "del":
+#                    self._delete_generators_bulk(cmd.node)
 
             elif cmd.mtype == "probe":
                 if cmd.command == "add":
@@ -1077,18 +1091,18 @@ class Aggregator(AbstractAggregator):
                 "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
             )
 
-        sids = zip([n for n, _p, _o in generators], models, jsonrpc.add_sources_bulk(
+        sids = jsonrpc.add_sources_bulk(
             self.sock,
             [
                 (
                     [v.vector for v in outgoing.hs_list],
                     [v.vector for v in outgoing.hs_diff],
                     [portno]
-                ) for _name, portno, outgoing in generators
+                ) for _name, _idx, portno, outgoing in generators
             ]
-        ))
+        )
 
-        for name, model, sid in sids:
+        for name, model, sid in zip([n for n, _i, _p, _o in generators], models, sids):
             self.generators[name] = (idx, sid, model)
 
 

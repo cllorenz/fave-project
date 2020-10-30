@@ -111,17 +111,13 @@ CNT=0
 
 echo -n "add generators... "
 # generator $HOST1
-python2 topology/topology.py -a -t generator -n $HOST1 -f "ipv6_dst=2001:db8::1"
-CNT=$(( $? + CNT ))
-# generator $HOST2
-python2 topology/topology.py -a -t generator -n $HOST2 -f "ipv6_dst=2001:db8::2"
+python2 topology/topology.py -a -t generators -G "$HOST1/ipv6_dst=2001:db8::1|$HOST2/ipv6_dst=2001:db8::2"
 CNT=$(( $? + CNT ))
 
-#link: $HOST1 --> $FIREWALL
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2
+#links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2,$HOST2.1:$SWITCH.1
 CNT=$(( $? + CNT ))
-#link: $HOST2 --> $SWITCH
-python2 topology/topology.py -a -l $HOST2.1:$SWITCH.1
+
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 

@@ -25,6 +25,8 @@ import sys
 import getopt
 import json
 
+from itertools import product
+
 from util.aggregator_utils import connect_to_fave
 from util.print_util import eprint
 from openflow.switch import SwitchModel
@@ -58,7 +60,7 @@ class LinksModel(object):
 
     @staticmethod
     def from_json(j):
-        """ Creates a link model from JSON.
+        """ Creates a links model from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
@@ -81,6 +83,54 @@ class LinksModel(object):
         return self.type == other.type and \
             len(self.links) == len(other.links) and \
             all([link in other.links for link in self.links])
+
+
+class GeneratorsModel(object):
+    """ This class provides a model to store generators in FaVe.
+    """
+
+    def __init__(self, generators):
+        """ Creates a generators model.
+
+        Keyword arguments:
+        generators -- a list of generators name and generator
+        """
+
+        self.type = 'generators'
+        self.generators = generators
+
+
+    def to_json(self):
+        """ Converts the model to JSON.
+        """
+        return {"type" : self.type, "generators" : [g.to_json() for g in self.generators]}
+
+
+    @staticmethod
+    def from_json(j):
+        """ Creates a generators model from JSON.
+
+        Keyword arguments:
+        j -- a JSON string or object
+        """
+
+        if isinstance(j, str):
+            j = json.loads(j)
+
+        return GeneratorsModel(
+            [GeneratorModel.from_json(g) for g in j["generators"]]
+        )
+
+
+    def __iter__(self):
+        return self.generators.__iter__()
+
+
+    def __eq__(self, other):
+        assert isinstance(other, GeneratorsModel)
+        return self.type == other.type and \
+            len(self.generators) == len(other.generators) and \
+            len(self.generators) == len([(g, o) for g, o in product(self.generators, other.generators) if g == o])
 
 
 class TopologyCommand(object):
@@ -142,6 +192,7 @@ class TopologyCommand(object):
                 "packet_filter" : PacketFilterModel,
                 "links" : LinksModel,
                 "generator" : GeneratorModel,
+                "generators" : GeneratorsModel,
                 "probe" : ProbeModel,
                 "router" : RouterModel
             }[j["model"]["type"]].from_json(j["model"])
@@ -174,16 +225,18 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|links|generator|probe|router\" apply command" +
-        "for a device of type <type> (default: switch)",
+        "\t-t \"switch|packet_filter|links|generator|generators|probe|router\" apply command" +
+        "for a device of type <type>",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
         "\t-l <links> add links between port pi of device dj and port pk of" +
-        "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
+                     "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
         "\t-i <ip> add device with ip address <ip>",
         "\t-f <fields> add device with fields f1=[v1, v2, v3, ...];f2=[v4, v5, v6...];...",
         "\t-q \"universal, existential\" add a quantor for a probe",
         "\t-F <fields> add filter fields for a probe",
+        "\t-G <generators> add list of |-separated generators of the form" +
+                          "<name/flow> where the flow follow the form of fields",
         "\t-P <test_path> add a test path for a probe",
         "\t-T <fields> add test fields for a probe",
         "\t-r <ruleset> use a router acls ruleset with filename <ruleset>",
@@ -207,9 +260,10 @@ def main(argv):
     test_fields = {}
     test_path = []
     ruleset = ""
+    generators = []
 
     try:
-        opts, args = getopt.getopt(argv, "hadt:n:p:l:u:i:f:q:F:P:T:r:")
+        opts, args = getopt.getopt(argv, "hadt:n:p:l:u:i:f:q:F:G:P:T:r:")
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -228,6 +282,7 @@ def main(argv):
                 'packet_filter',
                 'links',
                 'generator',
+                'generators',
                 'probe',
                 'router'
             ]:
@@ -263,6 +318,15 @@ def main(argv):
                 key, body = field.split('=')
                 values = body.split(',')
                 filter_fields[key] = values
+        elif opt == '-G':
+            for generator in arg.split('|'):
+                name, fields = generator.split('/')
+                generator_fields = {}
+                for field in fields.split(';'):
+                    key, body = field.split('=')
+                    values = body.split(',')
+                    generator_fields[key] = values
+                generators.append((name, generator_fields))
         elif opt == '-T':
             test_fields = {}
             for field in arg.split(';'):
@@ -292,6 +356,7 @@ def main(argv):
             ),
             'links' : lambda: LinksModel(links),
             'generator' : lambda: GeneratorModel(dev, fields),
+            'generators' : lambda: GeneratorsModel([GeneratorModel(d, f) for d, f in generators]),
             'probe' : lambda: ProbeModel(
                 dev,
                 quantor,
