@@ -220,6 +220,9 @@ if __name__ == '__main__':
 #    checker.main(["-c", ";".join(checks)])
 
     os.system("bash scripts/stop_fave.sh")
+
+    os.system("python2 misc/await_fave.py")
+
     os.system("rm -f np_dump/.lock")
 
 
