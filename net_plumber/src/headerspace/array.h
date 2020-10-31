@@ -5,6 +5,7 @@
   Author: mchang@cs.stanford.com (Michael Chang)
           peyman.kazemian@gmail.com (Peyman Kazemian)
           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+          cllorenz@uni-potsdam.de (Claas Lorenz)
 */
 
 #ifndef _ARRAY_H_
