@@ -1,8 +1,0 @@
-put 
-[rtr_name]_config.text
-[rtr_name]_spanning_tree.text
-[rtr_name]_route.text
-[rtr_name]_arp_table.text
-[rtr_name]_mac_table.text
-here. These are the dump of "sh config", "sh spanning-tree", "sh ip cef",
-"sh arp", "sh mac-address-table".
