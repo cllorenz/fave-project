@@ -13,7 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: Jan Sohre (jan@sohre.eu)
+   Authors: Jan Sohre (jan@sohre.eu)
+            Claas Lorenz (cllorenz@uni-potsdam.de)
 */
 
 #ifdef PIPE_SLICING

@@ -13,8 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Authors: cllorenz@uni-potsdam.de (Claas Lorenz),
-            peyman.kazemian@gmail.com (Peyman Kazemian)
+   Author: cllorenz@uni-potsdam.de (Claas Lorenz),
 */
 
 #ifndef SRC_NET_PLUMBER_PROBE_NODE_COMMONS_H_

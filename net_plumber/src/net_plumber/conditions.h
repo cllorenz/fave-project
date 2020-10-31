@@ -13,8 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: peyman.kazemian@gmail.com (Peyman Kazemian)
-           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+   Authors: peyman.kazemian@gmail.com (Peyman Kazemian)
+            kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+            cllorenz@uni-potsdam.de (Claas Lorenz)
 */
 
 #ifndef SRC_NET_PLUMBER_CONDITIONS_H_

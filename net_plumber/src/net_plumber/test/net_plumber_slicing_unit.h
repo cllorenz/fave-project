@@ -13,7 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: jan@sohre.eu (Jan Sohre)
+   Authors: jan@sohre.eu (Jan Sohre)
+            cllorenz@uni-potsdam.de (Claas Lorenz)
 */
 
 

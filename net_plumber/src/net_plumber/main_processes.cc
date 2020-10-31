@@ -13,7 +13,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: peyman.kazemian@gmail.com (Peyman Kazemian)
+   Authors: peyman.kazemian@gmail.com (Peyman Kazemian)
+            jan@sohre.eu (Jan Sohre)
+            cllorenz@uni-potsdam.de (Claas Lorenz)
 */
 
 #include "main_processes.h"

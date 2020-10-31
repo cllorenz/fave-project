@@ -1,6 +1,7 @@
 /*
  *  JsonRpc-Cpp - JSON-RPC implementation.
  *  Copyright (C) 2008-2011 Sebastien Vincent <sebastien.vincent@cppextrem.com>
+ *  Copyright (C) 2018-2020 Claas Lorenz <cllorenz@uni-potsdam.de>
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by

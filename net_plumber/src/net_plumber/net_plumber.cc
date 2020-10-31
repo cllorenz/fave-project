@@ -13,10 +13,10 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-   Author: peyman.kazemian@gmail.com (Peyman Kazemian)
-           cllorenz@uni-potsdam.de (Claas Lorenz)
-           kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
-           jan@sohre.eu (Jan Sohre)
+   Authors: peyman.kazemian@gmail.com (Peyman Kazemian)
+            cllorenz@uni-potsdam.de (Claas Lorenz)
+            kiekhebe@uni-potsdam.de (Sebastian Kiekheben)
+            jan@sohre.eu (Jan Sohre)
 */
 
 #include "net_plumber.h"
