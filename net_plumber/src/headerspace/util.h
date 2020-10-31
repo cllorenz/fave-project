@@ -9,7 +9,6 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
-#include "list.h"
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
