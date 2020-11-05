@@ -8,7 +8,6 @@ stages:
   - build
   - test
   - deploy
-  - bench
 
 prepare_docker:
   stage: .pre
@@ -58,6 +57,6 @@ deploy_fave:
   - docker run fave:latest bash examples/example.sh
 
 bench_fave:
-  stage: bench
+  stage: deploy
   script:
     - docker run fave:latest echo "TODO implement fave benchmarks"
