@@ -52,4 +52,4 @@ RUN git clone https://github.com/smvv/pybison.git && \
     python2 setup.py install && \
     cd ..
 
-COPY fave-code $DIRPATH/
+COPY . $DIRPATH/
