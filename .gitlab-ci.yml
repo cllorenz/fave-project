@@ -27,20 +27,19 @@ lint_fave:
 test_np:
   stage: test
   script:
-    - sudo docker run fave:latest net_plumber/build/net_plumber --test
+    - sudo docker run fave:latest cd $DIRPATH && net_plumber/build/net_plumber --test
 
 test_fave:
   stage: test
   script:
-    - sudo docker run fave:latest python2-coverage run fave/test/unit_tests.py
-    - sudo docker run fave:latest python2-coverage report
+    - sudo docker run fave:latest cd $DIRPATH && python2-coverage run fave/test/unit_tests.py && python2-coverage report
 
 test_fpl:
   variables:
     PYTHONPATH: $DIRPATH/policy_translator
   stage: test
   script:
-    - sudo docker run fave:latest python policy_translator/test/unit_tests.py
+    - sudo docker run fave:latest cd $DIRPATH && python policy_translator/test/unit_tests.py
 
 deploy_np:
   stage: deploy
@@ -50,8 +49,8 @@ deploy_np:
 deploy_fave:
   stage: deploy
   script:
-  - sudo docker run fave:latest python2 test/test_rpc.py
-  - sudo docker run fave:latest bash examples/example.sh
+  - sudo docker run fave:latest cd $DIRPATH && python2 fave/test/test_rpc.py
+  - sudo docker run fave:latest cd $DIRPATH && bash fave/examples/example.sh
 
 bench_fave:
   stage: deploy
