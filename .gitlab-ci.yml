@@ -38,8 +38,8 @@ test_fave:
     - docker run fave:latest python2-coverage report
 
 test_fpl:
-  inherit:
-    variables: [DIRPATH]
+#  inherit:
+#    variables: [DIRPATH]
   variables:
     PYTHONPATH: $DIRPATH/policy_translator
   stage: test
