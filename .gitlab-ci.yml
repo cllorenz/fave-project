@@ -1,4 +1,7 @@
-#default:
+default:
+  before_script:
+    - docker build -t fave:latest .
+#    - docker run fave:latest
 
 variables:
   DIRPATH: /home/fave-code
@@ -8,12 +11,6 @@ stages:
   - build
   - test
   - deploy
-
-prepare_docker:
-  stage: .pre
-  script:
-    - docker build -t fave:latest .
-    - docker run fave:latest
 
 build_np:
   stage: build
