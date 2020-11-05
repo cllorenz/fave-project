@@ -17,7 +17,7 @@ stages:
 build_np:
   stage: build
   script:
-    - cd net_plumber/build && ls && make
+    - cd net_plumber/build && ls /usr/include && make
 
 lint_fave:
   stage: build
