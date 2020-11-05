@@ -1,8 +1,9 @@
 default:
-  image: fave:latest
   script:
-    - docker build -t fave:latest .
+    - sudo docker build -t fave:latest .
 #    - docker run fave:latest
+
+image: fave:latest
 
 variables:
   DIRPATH: /home/fave-code
