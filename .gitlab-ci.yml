@@ -1,6 +1,55 @@
-before_script:
-  - sudo apt-get update -qq
+default:
 
-hello:
+variables:
+  DIRPATH: /home/fave-code
+  PYTHONPATH: $DIRPATH/fave
+
+stages:
+  - prepare
+  - build
+  - test
+  - deploy
+  - bench
+
+prepare:
   script:
-    - echo "Hello World!"
+    - docker build -t fave:latest .
+    - docker run fave:latest
+
+build:
+  build_np:
+    script:
+      - docker run fave:latest cd net_plumber/build && make && cd ../..
+
+  lint_fave:
+    script:
+      - docker run fave:latest bash fave/test/lint_test.sh
+
+test:
+  test_np:
+    script:
+      - docker run fave:latest net_plumber/build/net_plumber --test
+
+  test_fave:
+    script:
+      - docker run fave:latest python2-coverage run fave/test/unit_tests.py
+      - docker run fave:latest python2-coverage report
+
+  test_fpl:
+    PYTHONPATH: /home/fave-code/policy_translator
+
+    script:
+      - docker run fave:latest python policy_translator/test/unit_tests.py
+
+deploy:
+  deploy_np:
+    - docker run fave:latest sudo ln -sf `pwd`/net_plumber/build/net_plumber /usr/bin/net_plumber
+
+  deploy_fave:
+    - docker run fave:latest python2 test/test_rpc.py
+    - docker run fave:latest bash examples/example.sh
+
+bench:
+  bench_fave:
+    script:
+      - docker run fave:latest echo "TODO implement fave benchmarks"
