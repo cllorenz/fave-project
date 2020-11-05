@@ -18,21 +18,29 @@ build_np:
   stage: build
   script:
     - sudo docker run fave:latest make -j -C $DIRPATH/net_plumber/build
+  dependencies:
+    - build_docker
 
 lint_fave:
   stage: build
   script:
     - sudo docker run fave:latest bash $DIRPATH/fave/test/lint_test.sh
+  dependencies:
+    - build_docker
 
 test_np:
   stage: test
   script:
       sudo make -j -C $DIRPATH/net_plumber/build/net_plumber test
+  dependencies:
+    - build_docker
 
 test_fave:
   stage: test
   script:
     - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python2-coverage run $DIRPATH/fave/test/unit_tests.py && python2-coverage report
+  dependencies:
+    - build_docker
 
 test_fpl:
   variables:
@@ -40,6 +48,8 @@ test_fpl:
   stage: test
   script:
     - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python $DIRPATH $DIRPATH/policy_translator/test/unit_tests.py
+  dependencies:
+    - build_docker
 
 deploy_fave:
   stage: deploy
@@ -50,8 +60,12 @@ deploy_fave:
   - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest \
       sudo make -j -C $DIRPATH/net_plumber/build/net_plumber install && \
       bash $DIRPATH/fave/examples/example.sh
+  dependencies:
+    - build_docker
 
 bench_fave:
   stage: deploy
   script:
     - sudo docker run fave:latest echo "TODO implement fave benchmarks"
+  dependencies:
+    - build_docker
