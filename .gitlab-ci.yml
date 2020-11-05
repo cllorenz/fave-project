@@ -9,6 +9,7 @@ stages:
   - build
   - test
   - deploy
+  - bench
 
 build_docker:
   stage: pre
@@ -55,14 +56,28 @@ test_fpl:
 deploy_fave:
   stage: deploy
   script:
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/test/test_rpc.py"
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && bash $DIRPATH/fave/examples/example.sh"
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/test/test_rpc.py"
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && bash $DIRPATH/fave/examples/example.sh"
   dependencies:
     - build_docker
 
-bench_fave:
-  stage: deploy
+bench_ifi:
+  stage: bench
   script:
-    - sudo docker run fave:latest echo "TODO implement fave benchmarks"
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_ifi/benchmark.py"
+  dependencies:
+    - build_docker
+
+bench_up:
+  stage: bench
+  script:
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_up/benchmark.py"
+  dependencies:
+    - build_docker
+
+bench_tum:
+  stage: bench
+  script:
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_tum/benchmark.py"
   dependencies:
     - build_docker
