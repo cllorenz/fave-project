@@ -17,7 +17,7 @@ stages:
 build_np:
   stage: build
   script:
-    - make -C net_plumber/build
+    - sudo docker run fave:latest make -C net_plumber/build
 
 lint_fave:
   stage: build
