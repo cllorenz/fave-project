@@ -1,7 +1,7 @@
 default:
-  image: fave:latest
-#  before_script:
-#    - docker build -t fave:latest .
+#  image: fave:latest
+  script:
+    - docker build -t fave:latest .
 #    - docker run fave:latest
 
 variables:
