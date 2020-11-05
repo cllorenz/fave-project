@@ -27,7 +27,7 @@ lint_fave:
 test_np:
   stage: test
   script:
-    - sudo docker run fave:latest $DIRPATH/net_plumber/build/net_plumber --test
+      sudo make -j -C $DIRPATH/net_plumber/build/net_plumber test
 
 test_fave:
   stage: test
@@ -39,18 +39,17 @@ test_fpl:
     PYTHONPATH: $DIRPATH/policy_translator
   stage: test
   script:
-    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python $DIRPATH policy_translator/test/unit_tests.py
-
-deploy_np:
-  stage: deploy
-  script:
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest sudo ln -sf `pwd`/net_plumber/build/net_plumber /usr/bin/net_plumber
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python $DIRPATH $DIRPATH/policy_translator/test/unit_tests.py
 
 deploy_fave:
   stage: deploy
   script:
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python2 $DIRPATH/fave/test/test_rpc.py
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest bash $DIRPATH/fave/examples/example.sh
+  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest \
+      sudo make -j -C $DIRPATH/net_plumber/build/net_plumber install && \
+      python2 $DIRPATH/fave/test/test_rpc.py
+  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest \
+      sudo make -j -C $DIRPATH/net_plumber/build/net_plumber install && \
+      bash $DIRPATH/fave/examples/example.sh
 
 bench_fave:
   stage: deploy
