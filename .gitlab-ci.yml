@@ -17,29 +17,29 @@ build_docker:
 build_np:
   stage: build
   script:
-    - sudo docker run fave:latest make -j -C net_plumber/build
+    - sudo docker run fave:latest make -j -C $DIRPATH/net_plumber/build
 
 lint_fave:
   stage: build
   script:
-    - sudo docker run fave:latest bash fave/test/lint_test.sh
+    - sudo docker run fave:latest bash $DIRPATH/fave/test/lint_test.sh
 
 test_np:
   stage: test
   script:
-    - sudo docker run fave:latest cd $DIRPATH && net_plumber/build/net_plumber --test
+    - sudo docker run fave:latest $DIRPATH/net_plumber/build/net_plumber --test
 
 test_fave:
   stage: test
   script:
-    - sudo docker run fave:latest cd $DIRPATH && python2-coverage run fave/test/unit_tests.py && python2-coverage report
+    - sudo docker run fave:latest python2-coverage run $DIRPATH/fave/test/unit_tests.py && python2-coverage report
 
 test_fpl:
   variables:
     PYTHONPATH: $DIRPATH/policy_translator
   stage: test
   script:
-    - sudo docker run fave:latest cd $DIRPATH && python policy_translator/test/unit_tests.py
+    - sudo docker run fave:latest python $DIRPATH policy_translator/test/unit_tests.py
 
 deploy_np:
   stage: deploy
@@ -49,8 +49,8 @@ deploy_np:
 deploy_fave:
   stage: deploy
   script:
-  - sudo docker run fave:latest cd $DIRPATH && python2 fave/test/test_rpc.py
-  - sudo docker run fave:latest cd $DIRPATH && bash fave/examples/example.sh
+  - sudo docker run fave:latest python2 $DIRPATH/fave/test/test_rpc.py
+  - sudo docker run fave:latest bash $DIRPATH/fave/examples/example.sh
 
 bench_fave:
   stage: deploy
