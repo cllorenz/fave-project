@@ -16,7 +16,7 @@ stages:
 build_np:
   stage: build
   script:
-    - sudo docker run fave:latest cd net_plumber/build && make && cd ../..
+    - cd net_plumber/build && make && cd ../..
 
 lint_fave:
   stage: build
