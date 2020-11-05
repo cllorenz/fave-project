@@ -5,13 +5,6 @@
 
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
 
-IFI = {
-    "topology" : [],
-    "hosts" : [],
-    "routers" : [],
-    "vlans" : [],
-    "routes" : []
-}
 
 MAP = "bench/wl_tum/map.json"
 TOPOLOGY = "bench/wl_tum/topology.json"

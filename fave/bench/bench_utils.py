@@ -132,7 +132,8 @@ def create_topology(devices, links):
         except KeyError as e:
             raise Exception("No such device type: %s" % e.message)
 
-    _add_links(links)
+    if links:
+        _add_links(links)
 
 
 def add_routes(routes):
@@ -169,7 +170,8 @@ def add_policies(probes, links):
     for probe in [p for p in probes if get_type(p) == 'probe']:
         _add_probe(*probe)
 
-    _add_links(links)
+    if links:
+        _add_links(links)
 
 
 def add_sources(sources, links):
@@ -183,4 +185,5 @@ def add_sources(sources, links):
     get_type = lambda x: x[1]
     _add_generators([s for s in sources if get_type(s) == 'generator'])
 
-    _add_links(links)
+    if links:
+        _add_links(links)
