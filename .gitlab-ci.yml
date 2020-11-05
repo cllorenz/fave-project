@@ -40,10 +40,9 @@ test_fave:
 test_fpl:
   stage: test
   inherit:
-    default: [DIRPATH]
-    variables:
-      PYTHONPATH: /home/fave-code/policy_translator
-
+    variables: [DIRPATH]
+  variables:
+    PYTHONPATH: $DIRPATH/policy_translator
   script:
     - docker run fave:latest python policy_translator/test/unit_tests.py
 
