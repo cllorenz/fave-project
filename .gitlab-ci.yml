@@ -55,8 +55,8 @@ test_fpl:
 deploy_fave:
   stage: deploy
   script:
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest make -j -C $DIRPATH/net_plumber/build install && ls $DIRPATH && ls $DIRPATH/fave && ls $DIRPATH/fave/test && python2 $DIRPATH/fave/test/test_rpc.py
-  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest make -j -C $DIRPATH/net_plumber/build install && bash $DIRPATH/fave/examples/example.sh
+  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest "make -j -C $DIRPATH/net_plumber/build install && python2 $DIRPATH/fave/test/test_rpc.py"
+  - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest "make -j -C $DIRPATH/net_plumber/build install && bash $DIRPATH/fave/examples/example.sh"
   dependencies:
     - build_docker
 
