@@ -1,5 +1,5 @@
 default:
-#  image: fave:latest
+  image: fave:latest
   script:
     - docker build -t fave:latest .
 #    - docker run fave:latest
