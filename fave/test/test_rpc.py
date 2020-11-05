@@ -567,7 +567,7 @@ class TestRPC(unittest.TestCase):
         print_plumbing_network(self.sock)
 
 
-    def test_rule_unreachability(self):
+    def _test_rule_unreachability(self):
         """ Tests rule reachability in a table.
         """
 
@@ -594,7 +594,7 @@ class TestRPC(unittest.TestCase):
         self.assertTrue(check_unreach_log())
 
 
-    def test_rule_shadowing(self):
+    def _test_rule_shadowing(self):
         """ Tests rule shadowing in a table.
         """
 
