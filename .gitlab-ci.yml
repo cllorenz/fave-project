@@ -5,12 +5,13 @@ variables:
   PYTHONPATH: $DIRPATH/fave
 
 stages:
+  - pre
   - build
   - test
   - deploy
 
 build_docker:
-  stage: build
+  stage: pre
   script:
     - sudo docker build -t fave:latest .
 
