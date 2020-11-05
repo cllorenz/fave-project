@@ -30,8 +30,9 @@ RUN apt-get $APT_CONFS install libcppunit-dev
 RUN git clone https://github.com/jgcoded/BuDDy.git && \
     cd BuDDy && \
     sh configure && \
-    make && \
+    make -j && \
     make install && \
+    ldconfig && \
     cd ..
 
 RUN pip2 install wheel
