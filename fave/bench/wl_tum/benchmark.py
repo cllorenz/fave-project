@@ -27,6 +27,8 @@ if __name__ == '__main__':
     ip = 'ipv6'
     ruleset = 'bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset'
 
+    os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vr:4")
     except getopt.GetoptError as err:

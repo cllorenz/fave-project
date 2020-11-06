@@ -57,6 +57,7 @@ function private_sub {
 
 
 SCRIPT="$1/rulesets/pgf.uni-potsdam.de-ruleset"
+mkdir -p $1/rulesets
 echo -n "" > $SCRIPT
 
 
