@@ -78,6 +78,6 @@ bench_up:
 bench_tum:
   stage: bench
   script:
-    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_tum/benchmark.py"
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_tum/benchmark.py -r $DIRPATH/fave/bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
   dependencies:
     - build_docker
