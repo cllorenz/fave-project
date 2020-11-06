@@ -25,9 +25,8 @@ if __name__ == '__main__':
 
     verbose = False
     ip = 'ipv6'
-    ruleset = 'bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset'
+    ruleset = 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset'
 
-    os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vr:4")
@@ -46,6 +45,8 @@ if __name__ == '__main__':
     if verbose: print "Generate benchmark... ",
 
     os.system("rm -f /tmp/np/*")
+
+    os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
 
     os.system("python2 bench/wl_tum/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_tum/routegen.py")
