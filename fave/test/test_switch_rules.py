@@ -48,7 +48,8 @@ class TestSwitchRuleField(unittest.TestCase):
             self.rule_field.to_json(),
             {
                 "name" : "packet.ipv6.source",
-                "value" : "2001:db8::1"
+                "value" : "2001:db8::1",
+                "negated" : False
             }
         )
 
@@ -84,7 +85,8 @@ class TestSwitchRuleField(unittest.TestCase):
         self.assertEqual(
             SwitchRuleField.from_json({
                 "name" : "packet.ipv6.source",
-                "value" : "2001:db8::1"
+                "value" : "2001:db8::1",
+                "negated" : False
             }),
             self.rule_field
         )
@@ -209,7 +211,7 @@ class TestRewrite(unittest.TestCase):
             self.rewrite.to_json(),
             {
                 "name" : "rewrite",
-                "rw" : [{"name" : "packet.ipv6.source", "value" : "2001:db8::1"}]
+                "rw" : [{"name" : "packet.ipv6.source", "value" : "2001:db8::1", "negated" : False}]
             }
         )
 
@@ -221,7 +223,7 @@ class TestRewrite(unittest.TestCase):
         self.assertEqual(
             Rewrite.from_json({
                 "name" : "rewrite",
-                "rw" : [{"name" : "packet.ipv6.source", "value" : "2001:db8::1"}]
+                "rw" : [{"name" : "packet.ipv6.source", "value" : "2001:db8::1", "negated" : False}]
             }),
             self.rewrite
         )
@@ -319,10 +321,12 @@ class TestMatch(unittest.TestCase):
             {
                 "fields" : [{
                     "name" : "packet.ipv6.source",
-                    "value" : "2001:db8::1"
+                    "value" : "2001:db8::1",
+                    "negated" : False
                 }, {
                     "name" : "packet.ipv6.destination",
-                    "value" : "2001:db8::2"
+                    "value" : "2001:db8::2",
+                    "negated" : False
                 }]
             }
         )
@@ -335,8 +339,8 @@ class TestMatch(unittest.TestCase):
         self.assertEqual(
             Match.from_json({
                 "fields" : [
-                    {"name" : "packet.ipv6.source", "value" : "2001:db8::1"},
-                    {"name" : "packet.ipv6.destination", "value" : "2001:db8::2"}
+                    {"name" : "packet.ipv6.source", "value" : "2001:db8::1", "negated" : False},
+                    {"name" : "packet.ipv6.destination", "value" : "2001:db8::2", "negated" : False}
                 ]
             }),
             self.match
@@ -422,10 +426,12 @@ class TestSwitchRule(unittest.TestCase):
                 "match" : {
                     "fields" : [{
                         "name" : "packet.ipv6.source",
-                        "value" : "2001:db8::1"
+                        "value" : "2001:db8::1",
+                        "negated" : False
                     }, {
                         "name" : "packet.ipv6.destination",
-                        "value" : "2001:db8::2"
+                        "value" : "2001:db8::2",
+                        "negated" : False
                     }]
                 },
                 "actions" : [{"name" : "forward", "ports" : [2]}],
@@ -453,10 +459,12 @@ class TestSwitchRule(unittest.TestCase):
                 "match" : {
                     "fields" : [{
                         "name" : "packet.ipv6.source",
-                        "value" : "2001:db8::1"
+                        "value" : "2001:db8::1",
+                        "negated" : False
                     }, {
                         "name" : "packet.ipv6.destination",
-                        "value" : "2001:db8::2"
+                        "value" : "2001:db8::2",
+                        "negated" : False
                     }]
                 },
                 "actions" : [{"name" : "forward", "ports" : [2]}],
