@@ -141,11 +141,11 @@ namespace net_plumber {
 #endif
 
 #ifdef USE_GROUPS
-    uint64_t _add_rule(uint32_t table,int index, bool group, uint64_t gid,
+    uint64_t _add_rule(uint32_t table, uint32_t index, bool group, uint64_t gid,
                        List_t in_ports, List_t out_ports,
                        T2 *match, T2 *mask, T2 *rw);
 #else
-    uint64_t _add_rule(uint32_t table,int index,
+    uint64_t _add_rule(uint32_t table, uint32_t index,
                        List_t in_ports, List_t out_ports,
                        T2 *match, T2 *mask, T2 *rw);
 #endif
@@ -236,10 +236,10 @@ namespace net_plumber {
      * placed next to other element of the group in the same table.
      * remove_rule: removes a rule if exist
      */
-    uint64_t add_rule(uint32_t table,int index, List_t in_ports, List_t out_ports,
+    uint64_t add_rule(uint32_t table, uint32_t index, List_t in_ports, List_t out_ports,
                   T2 *match, T2 *mask, T2 *rw);
 #ifdef USE_GROUPS
-    uint64_t add_rule_to_group(uint32_t table,int index, List_t in_ports,
+    uint64_t add_rule_to_group(uint32_t table, uint32_t index, List_t in_ports,
                                List_t out_ports, T2 *match, T2 *mask,
                                T2 *rw, uint64_t group);
 #endif

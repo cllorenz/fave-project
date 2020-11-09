@@ -272,7 +272,7 @@ PROTO(remove_table)
 
 PROTO(add_rule)
   uint32_t table = PARAM(table).asUInt();
-  int index = PARAM(index).asInt();
+  const uint32_t index = PARAM(index).asUInt();
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
   T2 *match = val_to_array<T2>(PARAM(match));

@@ -772,7 +772,7 @@ void NetPlumber<T1, T2>::print_table(const uint32_t id) {
 }
 
 template<class T1, class T2>
-uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
+uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table, uint32_t index,
 #ifdef USE_GROUPS
                                bool group, uint64_t gid,
 #endif
@@ -877,7 +877,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(uint32_t table,int index,
 
 
 template<class T1, class T2>
-uint64_t NetPlumber<T1, T2>::add_rule(uint32_t table,int index, List_t in_ports,
+uint64_t NetPlumber<T1, T2>::add_rule(uint32_t table, uint32_t index, List_t in_ports,
             List_t out_ports, T2* match, T2 *mask, T2* rw) {
 
 #ifdef USE_GROUPS
@@ -889,7 +889,7 @@ uint64_t NetPlumber<T1, T2>::add_rule(uint32_t table,int index, List_t in_ports,
 
 #ifdef USE_GROUPS
 template<class T1, class T2>
-uint64_t NetPlumber<T1, T2>::add_rule_to_group(uint32_t table,int index, List_t in_ports
+uint64_t NetPlumber<T1, T2>::add_rule_to_group(uint32_t table, uint32_t index, List_t in_ports
                            ,List_t out_ports, T2* match, T2 *mask,
                            T2* rw, uint64_t group) {
 

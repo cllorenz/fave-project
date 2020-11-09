@@ -107,7 +107,7 @@ void load_netplumber_from_dir(
         reader.parse(jsfile,root,false);
 
         // get the table id, ports and rules
-        uint32_t table_id = root["id"].asInt();
+        uint32_t table_id = root["id"].asUInt();
         Json::Value ports = root["ports"];
         Json::Value rules = root["rules"];
 
