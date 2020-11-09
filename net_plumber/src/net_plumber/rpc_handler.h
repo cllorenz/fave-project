@@ -31,12 +31,12 @@ namespace net_plumber {
 template<class T1>
 T1 *val_to_array(const Json::Value &val);
 template<class T1, class T2>
-T1 *val_to_hs(const Json::Value &val, int len);
+T1 *val_to_hs(const Json::Value &val, const size_t len);
 List_t val_to_list(const Json::Value &val);
 template<class T1, class T2>
 Condition<T1, T2> *val_to_path(const Json::Value &pathlets);
 template<class T1, class T2>
-Condition<T1, T2> *val_to_cond(const Json::Value &val, int length);
+Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length);
 
 template<class T1, class T2>
 class RpcHandler {

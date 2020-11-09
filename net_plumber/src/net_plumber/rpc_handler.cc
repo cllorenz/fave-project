@@ -52,7 +52,7 @@ T *val_to_array(const Json::Value &val) {
 }
 
 template<typename T1, typename T2>
-T1 *val_to_hs(const Json::Value &val, int len) {
+T1 *val_to_hs(const Json::Value &val, const size_t len) {
   T1 *res = new T1(len);
   if (val.isString()) {
     T2 *tmp = val_to_array<T2>(val);
@@ -126,7 +126,7 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
 }
 
 template<typename T1, typename T2>
-Condition<T1, T2> *val_to_cond(const Json::Value &val, int length) {
+Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length) {
   if (val.isNull()) return nullptr;
   const char *type = val["type"].asCString();
   if (!strcasecmp(type, "true")) return new TrueCondition<T1, T2>();
@@ -465,17 +465,17 @@ PROTO(dump_slices)
 template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;
 
 template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
-template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, int);
+template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
-template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, int);
+template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
 
 #ifdef USE_BDD
 template class RpcHandler<BDDPacketSet, BDDPacketSet>;
 
 template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
-template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, int);
+template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
-template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, int);
+template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 #endif
 } /* namespace net_plumber */
 
