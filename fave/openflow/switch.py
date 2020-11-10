@@ -47,9 +47,10 @@ class SwitchRuleField(object):
     """ This class provides a model for switch rules.
     """
 
-    def __init__(self, name, value):
+    def __init__(self, name, value, negated=False):
         self.name = name
         self.value = value
+        self.negated = negated
         self.vector = None
 
 
@@ -103,7 +104,8 @@ class SwitchRuleField(object):
 
         return {
             "name" : self.name,
-            "value" : self.value.vector if isinstance(self.value, Vector) else self.value
+            "value" : self.value.vector if isinstance(self.value, Vector) else self.value,
+            "negated" : self.negated
         }
 
 
@@ -120,6 +122,7 @@ class SwitchRuleField(object):
 
         name = j["name"]
         value = j["value"]
+        negated = j["negated"]
 
         if Vector.is_vector(value, name=name):
             value = Vector.from_vector_str(value)
@@ -128,14 +131,15 @@ class SwitchRuleField(object):
 
         return SwitchRuleField(
             name,
-            value
+            value,
+            negated=negated
         )
 
 
     def __eq__(self, other):
         assert isinstance(other, SwitchRuleField)
 
-        return self.name == other.name and self.value == other.value
+        return self.name == other.name and self.value == other.value and self.negated == other.negated
 
 
 class SwitchRuleAction(object):

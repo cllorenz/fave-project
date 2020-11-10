@@ -83,10 +83,12 @@ class TestRouterModel(unittest.TestCase):
                         },
                         'match': {'fields': [{
                             'name': 'packet.ether.vlan',
-                            'value': '4095'
+                            'value': '4095',
+                            'negated' : False
                         }, {
                             'name': 'packet.ipv4.source',
-                            'value': '192.168.0.0/16'
+                            'value': '192.168.0.0/16',
+                            'negated' : False
                         }]},
                         'node': 'foo',
                         'tid': 'acl_in'
@@ -101,10 +103,12 @@ class TestRouterModel(unittest.TestCase):
                         },
                         'match': {'fields': [{
                             'name': 'packet.ether.vlan',
-                            'value': '4095'
+                            'value': '4095',
+                            'negated' : False
                         }, {
                             'name': 'packet.ipv4.source',
-                            'value': '10.0.0.0/8'
+                            'value': '10.0.0.0/8',
+                            'negated' : False
                         }]},
                         'node': 'foo',
                         'tid': 'acl_in'
@@ -115,10 +119,12 @@ class TestRouterModel(unittest.TestCase):
                             'name': 'rewrite',
                             'rw': [{
                                 'name': 'in_port',
-                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
                             }, {
                                 'name': 'out_port',
-                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
                             }]
                         }, {
                             'name': 'forward',
@@ -129,7 +135,8 @@ class TestRouterModel(unittest.TestCase):
                         'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                         'match': {'fields': [{
                             'name': 'out_port',
-                            'value': 'foo.2'
+                            'value': 'foo.2',
+                            'negated' : False
                         }]},
                         'node': 'foo',
                         'tid': 'post_routing'
@@ -145,10 +152,12 @@ class TestRouterModel(unittest.TestCase):
                         'match': {
                             'fields': [{
                                 'name': 'in_port',
-                                'value': 'foo.1'
+                                'value': 'foo.1',
+                                'negated' : False
                             }, {
                                 'name': 'out_port',
-                                'value': 'foo.2'
+                                'value': 'foo.2',
+                                'negated' : False
                         }]},
                         'node': 'foo',
                         'tid': 'post_routing'
@@ -158,7 +167,8 @@ class TestRouterModel(unittest.TestCase):
                             'name': 'rewrite',
                             'rw': [{
                                 'name': 'in_port',
-                                'value': 'foo.1'
+                                'value': 'foo.1',
+                                'negated' : False
                             }]}, {
                                 'name': 'forward',
                                 'ports': ['foo_pre_routing_out']
@@ -216,10 +226,12 @@ class TestRouterModel(unittest.TestCase):
                     },
                     'match': {'fields': [{
                         'name': 'packet.ether.vlan',
-                        'value': '4095'
+                        'value': '4095',
+                        'negated' : False
                     }, {
                         'name': 'packet.ipv4.source',
-                        'value': '192.168.0.0/16'
+                        'value': '192.168.0.0/16',
+                        'negated' : False
                     }]},
                     'node': 'foo',
                     'tid': 'acl_in'
@@ -234,10 +246,12 @@ class TestRouterModel(unittest.TestCase):
                     },
                     'match': {'fields': [{
                         'name': 'packet.ether.vlan',
-                        'value': '4095'
+                        'value': '4095',
+                        'negated' : False
                     }, {
                         'name': 'packet.ipv4.source',
-                        'value': '10.0.0.0/8'
+                        'value': '10.0.0.0/8',
+                        'negated' : False
                     }]},
                     'node': 'foo',
                     'tid': 'acl_in'
@@ -248,10 +262,12 @@ class TestRouterModel(unittest.TestCase):
                         'name': 'rewrite',
                         'rw': [{
                             'name': 'in_port',
-                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                            'negated' : False
                         }, {
                             'name': 'out_port',
-                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                            'negated' : False
                         }]
                     }, {
                         'name': 'forward',
@@ -262,7 +278,8 @@ class TestRouterModel(unittest.TestCase):
                     'mapping': {'length': 32, 'out_port': 0},
                     'match': {'fields': [{
                         'name': 'out_port',
-                        'value': 'foo.2'
+                        'value': 'foo.2',
+                        'negated' : False
                     }]},
                     'node': 'foo',
                     'tid': 'post_routing'
@@ -278,10 +295,12 @@ class TestRouterModel(unittest.TestCase):
                     'match': {
                         'fields': [{
                             'name': 'in_port',
-                            'value': 'foo.1'
+                            'value': 'foo.1',
+                            'negated' : False
                         }, {
                             'name': 'out_port',
-                            'value': 'foo.2'
+                            'value': 'foo.2',
+                            'negated' : False
                     }]},
                     'node': 'foo',
                     'tid': 'post_routing'
@@ -291,7 +310,8 @@ class TestRouterModel(unittest.TestCase):
                         'name': 'rewrite',
                         'rw': [{
                             'name': 'in_port',
-                            'value': 'foo.1'
+                            'value': 'foo.1',
+                            'negated' : False
                         }]}, {
                             'name': 'forward',
                             'ports': ['foo_pre_routing_out']
@@ -475,10 +495,12 @@ class TestPacketFilterModel(unittest.TestCase):
                                 'name': 'rewrite',
                                 'rw': [{
                                         'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
                                     }, {
                                         'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
                                     }
                                 ]
                             }, {
@@ -495,8 +517,10 @@ class TestPacketFilterModel(unittest.TestCase):
                             'match': {
                                 'fields': [{
                                     'name': 'out_port',
-                                    'value': 'foo.2'}]
-                                },
+                                    'value': 'foo.2',
+                                    'negated' : False
+                                }]
+                            },
                                 'node': 'foo',
                                 'tid': 'post_routing'
                         }, {
@@ -511,10 +535,12 @@ class TestPacketFilterModel(unittest.TestCase):
                             'match': {
                                 'fields': [{
                                     'name': 'in_port',
-                                    'value': 'foo.1'
+                                    'value': 'foo.1',
+                                    'negated' : False
                                 }, {
                                     'name': 'out_port',
-                                    'value': 'foo.2'
+                                    'value': 'foo.2',
+                                    'negated' : False
                                 }]
                             },
                             'node': 'foo',
@@ -575,10 +601,12 @@ class TestPacketFilterModel(unittest.TestCase):
                                 'name': 'rewrite',
                                 'rw': [{
                                         'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
                                     }, {
                                         'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
                                     }
                                 ]
                             }, {
@@ -595,10 +623,12 @@ class TestPacketFilterModel(unittest.TestCase):
                             'match': {
                                 'fields': [{
                                     'name': 'out_port',
-                                    'value': 'foo.2'}]
-                                },
-                                'node': 'foo',
-                                'tid': 'post_routing'
+                                    'value': 'foo.2',
+                                    'negated' : False
+                                }]
+                            },
+                            'node': 'foo',
+                            'tid': 'post_routing'
                         }, {
                             'actions': [],
                             'idx': 0,
@@ -611,10 +641,12 @@ class TestPacketFilterModel(unittest.TestCase):
                             'match': {
                                 'fields': [{
                                     'name': 'in_port',
-                                    'value': 'foo.1'
+                                    'value': 'foo.1',
+                                    'negated' : False
                                 }, {
                                     'name': 'out_port',
-                                    'value': 'foo.2'
+                                    'value': 'foo.2',
+                                    'negated' : False
                                 }]
                             },
                             'node': 'foo',
