@@ -37,6 +37,7 @@ rm -rf $(pwd)/tum
 mkdir -p $RES_PATH/raw
 
 WDIR=fave-code/fave
+TUM_RS=bench/wl_tum/tum-ruleset
 
 RESULTS=$RES_PATH/results.dat
 echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
@@ -66,7 +67,7 @@ echo ""
 
 echo "run fave"
 cd fave-code/fave
-bash bench/run_benchmarks.sh "-4 -r bench/wl_tum/tum-ruleset" bench/wl_tum/benchmark.py
+bash bench/run_benchmarks.sh bench/wl_tum/benchmark.py -4 -r $TUM_RS
 bash bench/eval_benchmarks_tum.sh
 cd ../..
 
