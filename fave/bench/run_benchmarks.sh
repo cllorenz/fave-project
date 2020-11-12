@@ -63,8 +63,8 @@ for i in $(seq 1 $RUNS); do
   echo -n "check integrity... "
   check_integrity
   [ -z "$?" ] && break || echo "ok"
-  rm -f $LAST_NP/*
-  cp np_dump/* $LAST_NP/
+  rm -rf $LAST_NP/*
+  cp -r np_dump/* $LAST_NP/
 
   cp -r /tmp/np/ $RDIR/
 done
