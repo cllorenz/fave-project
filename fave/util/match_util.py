@@ -38,5 +38,20 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'upd_src' : "packet.upper.sport",
     'in_port' : 'in_port',
     'out_port' : 'out_port',
-    'interface' : 'interface'
+    'interface' : 'interface',
+    'packet.ether.source' : "packet.ether.source",
+    'packet.ether.destination' : "packet.ether.destination",
+    'packet.ether.type' : "packet.ether.type",
+    'packet.ether.vlan' : "packet.ether.vlan",
+    'packet.ipv4.source' : "packet.ipv4.source",
+    'packet.ipv4.destination' : "packet.ipv4.destination",
+    'packet.ipv6.source' : "packet.ipv6.source",
+    'packet.ipv6.destination' : "packet.ipv6.destination",
+    'packet.ipv6.proto' : "packet.ipv6.proto",
+    'packet.ipv6.icmpv6.type' : "packet.ipv6.icmpv6.type",
+    'module.ipv6header.header' : "module.ipv6header.header",
+    'packet.upper.dport' : "packet.upper.dport",
+    'packet.upper.sport' : "packet.upper.sport",
+    'packet.upper.dport' : "packet.upper.dport",
+    'packet.upper.sport' : "packet.upper.sport"
 }

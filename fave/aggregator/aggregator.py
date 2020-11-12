@@ -249,16 +249,9 @@ class Aggregator(AbstractAggregator):
 
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
-                model.model.type in ['probe', 'generator', 'router', 'packet_filter']:
-            Aggregator.LOGGER.debug("extend mapping for adding probes, generators, routers, and packet filters")
+                model.model.type in ['router', 'packet_filter']:
+            Aggregator.LOGGER.debug("extend mapping for adding routers and packet filters")
             self._extend_mapping(model.model.mapping)
-
-        elif model.type == "topology_command" and \
-                model.command == 'add' and \
-                model.model.type == 'generators':
-            Aggregator.LOGGER.debug("extend mapping for adding generators")
-            for generator in model.model.generators:
-                self._extend_mapping(generator.mapping)
 
         elif model.type == "slicing_command" and model.command == 'add_slice':
             Aggregator.LOGGER.debug("extend mapping for adding slices")

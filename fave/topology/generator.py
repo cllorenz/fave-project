@@ -34,37 +34,17 @@ class GeneratorModel(object):
     """
 
     def __init__(self, node, fields=None):
-        fields = fields if fields is not None else {}
+        self.fields = {
+            OXM_FIELD_TO_MATCH_FIELD[name] : [
+                SwitchRuleField(
+                    OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
+                ) for f in field_list
+            ] for name, field_list in fields.iteritems()
+        } if fields is not None else {}
 
         self.node = node
         self.type = "generator"
         self.ports = {node+'_1' : 1}
-
-        self.mapping = Mapping()
-
-        for field in fields:
-            self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
-
-        outgoing = []
-
-        keys = sorted(fields)
-        combinations = itertools.product(*(fields[k] for k in keys))
-
-        for comb in combinations:
-            vector = Vector(self.mapping.length)
-            for i, oxm in enumerate(keys):
-                field = OXM_FIELD_TO_MATCH_FIELD[oxm]
-                set_field_in_vector(
-                    self.mapping,
-                    vector,
-                    field,
-                    field_value_to_bitvector(
-                        SwitchRuleField(field, comb[i])
-                    ).vector
-                )
-            outgoing.append(vector)
-
-        self.outgoing = HeaderSpace(self.mapping.length, outgoing)
 
 
     def to_json(self):
@@ -72,10 +52,9 @@ class GeneratorModel(object):
         """
 
         return {
+            "fields" : {n:[f.to_json() for f in fl] for n, fl in self.fields.iteritems()},
             "node" : self.node,
-            "type" : self.type,
-            "mapping" : self.mapping.to_json(),
-            "outgoing" : self.outgoing.to_json()
+            "type" : self.type
         }
 
     @staticmethod
@@ -90,9 +69,11 @@ class GeneratorModel(object):
             j = json.loads(j)
 
         model = GeneratorModel(
-            j["node"],
+            j["node"], {
+                n : [
+                    SwitchRuleField.from_json(f) for f in fl
+                ] for n, fl in j["fields"].iteritems()
+            }
         )
-        model.mapping = Mapping.from_json(j["mapping"])
-        model.outgoing = HeaderSpace.from_json(j["outgoing"])
 
         return model

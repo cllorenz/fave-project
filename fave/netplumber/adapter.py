@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+import itertools
+
 from aggregator_singleton import AGGREGATOR
 
 import netplumber.jsonrpc as jsonrpc
@@ -24,11 +26,11 @@ from aggregator_util import normalize_port, calc_rule_index, calc_port
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, set_field_in_vector
 from netplumber.vector import align_headerspace
-from netplumber.vector import Vector
+from netplumber.vector import Vector, HeaderSpace
 
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.rule import SwitchRule, Forward, Miss, Rewrite
+from openflow.rule import SwitchRule, Forward, Miss, Rewrite, SwitchRuleField
 
 
 class NetPlumberAdapter(object):
@@ -36,6 +38,7 @@ class NetPlumberAdapter(object):
     def __init__(self, sock, logger):
         self.sock = sock
         self.mapping = Mapping(0)
+        self.mapping_keys = set(self.mapping.keys())
         self.tables = {}
         self.model_types = {}
         self.links = {}
@@ -83,11 +86,28 @@ class NetPlumberAdapter(object):
 
         self.mapping.expand(mapping)
 
-#    def add_model_type(self, name, mtype):
-#        self.model_types.setdefault(name, mtype)
-#
-#    def del_model_type(self, name):
-#        del self.model_types[name]
+
+    def _build_vector(self, fields, preset='x'):
+        field_names = set([f.name for f in fields])
+
+        diff = field_names - self.mapping_keys
+
+        if diff:
+            for field in diff:
+                self.mapping.extend(field)
+            self.mapping_keys.update(diff)
+            self.expand()
+
+        vec = Vector(length=self.mapping.length, preset=preset)
+        for field in fields:
+            set_field_in_vector(
+                self.mapping,
+                vec,
+                field.name,
+                field_value_to_bitvector(field).vector
+            )
+
+        return vec
 
 
     def add_slice(self, slicem):
@@ -95,27 +115,11 @@ class NetPlumberAdapter(object):
 
         ns_list = []
         for ns in slicem.ns_list:
-            vec = Vector(length=self.mapping.length)
-            for field in ns:
-                set_field_in_vector(
-                    self.mapping,
-                    vec,
-                    field.name,
-                    field_value_to_bitvector(field).vector
-                )
-
+            vec = self._build_vector(ns)
             ns_list.append(vec)
 
         for ns in slicem.ns_diff:
-            vec = Vector(length=self.mapping.length)
-            for field in ns:
-                set_field_in_vector(
-                    self.mapping,
-                    vec,
-                    field.name,
-                    field_value_to_bitvector(field).vector
-                )
-
+            vec = self._build_vector(ns)
             ns_diff.append(vec)
 
         self.logger.debug(
@@ -207,29 +211,12 @@ class NetPlumberAdapter(object):
         tname = '_'.join([model.node, table])
         tid = self.tables[tname]
 
-
-        #port_len = len(self.models.get(model.node, model).ports) #XXX
-        port_len = len(model.ports)
-        priv_len = model.private_ports
-        in_ports_len = (port_len - priv_len) / 2
-
         for rule in model.tables[table]:
             if not isinstance(rule, SwitchRule):
                 rule = SwitchRule.from_json(rule)
             rid = rule.idx
 
-            self.logger.debug("absorb mapping for pre routing")
-            self._absorb_mapping(rule.mapping)
-
-            rvec = Vector(length=self.mapping.length)
-            for fld in rule.match:
-                size = FIELD_SIZES[fld.name]
-                set_field_in_vector(
-                    self.mapping,
-                    rvec,
-                    fld.name,
-                    field_value_to_bitvector(fld).vector
-                )
+            rvec = self._build_vector(rule.match)
 
             in_ports = [self.global_port(p) for p in rule.in_ports]
 
@@ -247,19 +234,23 @@ class NetPlumberAdapter(object):
             mask = Vector(length=rewrite.length, preset='0')
 
             for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
-                for field in action.rewrite:
-                    fvec = '{:032b}'.format(
-                        self.global_port(field.value)
-                    ) if field.name in [
+                rewrite = self._build_vector([
+                    SwitchRuleField(f.name, '{:032b}'.format(
+                        self.global_port(f.value)
+                    )) if f.name in [
                         'in_port', 'out_port', 'interface'
-                    ] else field_value_to_bitvector(field).vector
+                    ] else f for f in action.rewrite
+                ])
 
-                    set_field_in_vector(
-                        self.mapping, rewrite, field.name, fvec
-                    )
-                    set_field_in_vector(
-                        self.mapping, mask, field.name, "1"*FIELD_SIZES[field.name]
-                    )
+                mask = self._build_vector([
+                    SwitchRuleField(
+                        f.name,
+                        "1"*FIELD_SIZES[f.name]
+                    ) if f.name in [
+                        'in_port', 'out_port', 'interface'
+                    ] else f for f in action.rewrite],
+                    preset='0'
+                )
 
             self.logger.debug(
                 "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
@@ -300,40 +291,29 @@ class NetPlumberAdapter(object):
                 rule = SwitchRule.from_json(rule)
             rid = rule.idx
 
-            self.logger.debug("absorb mapping for post routing")
-            self._absorb_mapping(rule.mapping)
+            rvec = self._build_vector([
+                SwitchRuleField(f.name, '{:032b}'.format(
+                        self.global_port(f.value)
+                    )) if f.name in [
+                        'in_port', 'out_port', 'interface'
+                    ] else f for f in rule.match
+            ])
 
-            rvec = Vector(length=self.mapping.length)
-            for fld in rule.match:
-                if fld.name in ['in_port', 'out_port', 'interface'] and not Vector.is_vector(fld.value, name=fld.name):
-                    fld.value = self.global_port(fld.value)
+            rewrite = self._build_vector([])
 
-                fvec = field_value_to_bitvector(fld)
-                set_field_in_vector(
-                    self.mapping,
-                    rvec,
-                    fld.name,
-                    fvec.vector
-                )
-
-            rewrite = None
-            mask = None
-
-            if any([(p in self.mapping) for p in ['in_port', 'out_port']]):
-                rewrite = Vector(length=rvec.length, preset="x")
-                mask = Vector(length=rewrite.length, preset="0")
-
-            for port in [p for p in ['in_port', 'out_port'] if p in self.mapping]:
-                set_field_in_vector(
-                    self.mapping, mask, port, '1'*FIELD_SIZES[port]
-                )
+            mask = self._build_vector([
+                SwitchRuleField(
+                    p, '1'*FIELD_SIZES[p]
+                ) for p in ['in_port', 'out_port'] if p in self.mapping],
+                preset='0'
+            )
 
             in_ports = [
                 self.global_port("%s_%s" % (tname, p)) for p in rule.in_ports
             ]
 
             out_ports = []
-            for act in [a for a in rule.actions if a.name == "forward"]:
+            for act in [a for a in rule.actions if isinstance(a, Forward)]:
 
                 out_ports.extend([self.global_port(p) for p in act.ports])
                 # XXX: ugly workaround
@@ -388,13 +368,7 @@ class NetPlumberAdapter(object):
 
                     field.vectorize()
 
-            rule.calc_vector(model.mapping)
-            vec = rule.match.vector.vector
-            rvec = Vector(length=self.mapping.length)
-            for fld in model.mapping:
-                copy_field_between_vectors(
-                    model.mapping, self.mapping, vec, rvec, fld
-                )
+            rvec = self._build_vector(rule.match)
 
             in_ports = [
                 self.global_port(
@@ -413,6 +387,7 @@ class NetPlumberAdapter(object):
                         ) for port in action.ports]
                     )
 
+                #XXX: remove?
                 elif isinstance(action, Miss):
                     out_ports.append(
                         self.global_port('%s_miss' % tname)
@@ -420,26 +395,13 @@ class NetPlumberAdapter(object):
 
                 elif isinstance(action, Rewrite):
                     if not rewrite:
-                        rewrite = Vector(self.mapping.length)
+                        rewrite = self._build_vector(action.rewrite)
                     if not mask:
-                        mask = Vector(self.mapping.length, preset='0')
-                    for field in action.rewrite:
-                        set_field_in_vector(
-                            self.mapping,
-                            rewrite,
-                            field.name,
-                            (
-                                field.value.vector
-                            ) if isinstance(field.value, Vector) else (
-                                field.vector.vector
-                            )
-                        )
-
-                        set_field_in_vector(
-                            self.mapping,
-                            mask,
-                            field.name,
-                            '1'*FIELD_SIZES[field.name]
+                        mask = self._build_vector([
+                            SwitchRuleField(
+                                f.name, '1'*FIELD_SIZES[f.name]
+                            ) for f in action.rewrite],
+                            preset='0'
                         )
 
                 else:
@@ -452,6 +414,7 @@ class NetPlumberAdapter(object):
                 "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
                 rid, tid, in_ports, rvec.vector if rvec else "*", out_ports
             )
+
             r_id = jsonrpc.add_rule(
                 self.sock,
                 tid,
@@ -497,9 +460,6 @@ class NetPlumberAdapter(object):
             for rule in model.tables[table]:
                 rid = rule.idx
 
-                self.logger.debug("absorb mapping for switch rules")
-                self._absorb_mapping(rule.mapping)
-
                 rvec = Vector(length=self.mapping.length)
                 for fld in rule.match:
                     set_field_in_vector(
@@ -519,31 +479,20 @@ class NetPlumberAdapter(object):
                         )
 
                     elif isinstance(action, Rewrite):
-                        rewrite = Vector(self.mapping.length)
-                        mask = Vector(self.mapping.length, preset='0')
-                        for field in action.rewrite:
-                            if field.name in ['interface', 'in_port', 'out_port']:
-                                set_field_in_vector(
-                                    self.mapping,
-                                    rewrite,
-                                    field.name,
-                                    '{:032b}'.format(self.global_port(field.value))
-                                )
-
-                            else:
-                                set_field_in_vector(
-                                    self.mapping,
-                                    rewrite,
-                                    field.name,
-                                    field_value_to_bitvector(field).vector
-                                )
-
-                            set_field_in_vector(
-                                self.mapping,
-                                mask,
-                                field.name,
-                                '1'*FIELD_SIZES[field.name]
-                            )
+                        rewrite = self._build_vector([
+                            SwitchRuleField(
+                                f.name, '{:032b}'.format(self.global_port(field.value))
+                            ) if f.name in [
+                                'interface', 'in_port', 'out_port'
+                            ] else f for f in action.rewrite
+                        ])
+                        mask = self._build_vector([
+                            SwitchRuleField(
+                                f.name, '1'*FIELD_SIZES[f.name]
+                            ) for f in action.rewrite if f.name in [
+                                'interface', 'in_port', 'out_port'
+                            ]
+                        ])
 
                 self.logger.debug(
                     "worker: add rule %s to %s:\n\t(%s & %s -> %s, %s)",
@@ -632,9 +581,7 @@ class NetPlumberAdapter(object):
 
         self.ports[port] = portno
 
-        outgoing = align_headerspace(
-            model.mapping, self.mapping, model.outgoing
-        )
+        outgoing = self._build_headerspace(model.fields)
 
         return (name, idx, portno, outgoing)
 
@@ -643,7 +590,11 @@ class NetPlumberAdapter(object):
         name, idx, portno, outgoing = self._prepare_generator(model)
 
         self.logger.debug(
-            "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
+            "worker: add source %s and port %s to netplumber with list %s and diff %s",
+            name,
+            portno,
+            [v.vector for v in outgoing.hs_list],
+            [v.vector for v in outgoing.hs_diff]
         )
         sid = jsonrpc.add_source(
             self.sock,
@@ -660,7 +611,11 @@ class NetPlumberAdapter(object):
 
         for name, idx, portno, outgoing in generators:
             self.logger.debug(
-                "worker: add source %s and port %s to netplumber with list %s and diff %s", name, portno, [v.vector for v in outgoing.hs_list], [v.vector for v in outgoing.hs_diff]
+                "worker: add source %s and port %s to netplumber with list %s and diff %s",
+                name,
+                portno,
+                [v.vector for v in outgoing.hs_list],
+                [v.vector for v in outgoing.hs_diff]
             )
 
         sids = jsonrpc.add_sources_bulk(
@@ -713,16 +668,15 @@ class NetPlumberAdapter(object):
         ]
 
 
-    def _absorb_mapping(self, mapping):
-        assert isinstance(mapping, Mapping)
+    def _build_headerspace(self, fields):
+        keys = sorted(fields.keys())
+        combinations = itertools.product(*(fields[k] for k in keys))
 
-        mlength = self.mapping.length
-        self.mapping.expand(mapping)
-        if mlength < self.mapping.length:
-            self.logger.debug(
-                "worker: expand to length %s", self.mapping.length
-            )
-            jsonrpc.expand(self.sock, self.mapping.length)
+        hs_list=[
+            self._build_vector(c) for c in combinations
+        ]
+
+        return HeaderSpace(self.mapping.length, hs_list=hs_list)
 
 
     def add_probe(self, model):
@@ -739,27 +693,9 @@ class NetPlumberAdapter(object):
 
         self.ports[port] = portno
 
-        self.logger.debug("absorb mapping for probe")
-        self._absorb_mapping(model.mapping)
+        filter_fields = self._build_headerspace(model.filter_fields)
+        test_fields = self._build_headerspace(model.test_fields)
 
-        filter_fields = align_headerspace(
-            model.mapping, self.mapping, model.filter_fields
-        )
-        test_fields = align_headerspace(
-            model.mapping, self.mapping, model.test_fields
-        )
-
-        if not filter_fields.hs_diff and len(filter_fields.hs_list) == 1:
-            filter_hs = filter_fields.hs_list[0].vector
-        else:
-            filter_hs = {
-                "hs_list" : [
-                    v.vector for v in filter_fields.hs_list
-                ] if filter_fields.hs_list else ["x"*self.mapping.length],
-                "hs_diff" : [
-                    v.vector for v in filter_fields.hs_diff
-                ] if filter_fields.hs_diff else None
-            }
 
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
 #        filter_expr = {"type" : "header", "header" : filter_hs}
@@ -794,17 +730,6 @@ class NetPlumberAdapter(object):
 
             test_path.append(pathlet)
 
-        if test_fields and not test_fields.hs_diff and len(test_fields.hs_list) == 1:
-            test_hs = test_fields.hs_list[0].vector
-        else:
-            test_hs = {
-                "hs_list" : [
-                    v.vector for v in test_fields.hs_list
-                ] if test_fields.hs_list else ["x"*self.mapping.length],
-                "hs_diff" : [
-                    v.vector for v in test_fields.hs_diff
-                ] if test_fields.hs_diff else None
-            }
 
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
         if test_fields and test_path:

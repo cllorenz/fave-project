@@ -30,6 +30,7 @@ from itertools import product
 from util.aggregator_utils import connect_to_fave
 from util.print_util import eprint
 from openflow.switch import SwitchModel
+from openflow.rule import SwitchRuleField
 from ip6np.packet_filter import PacketFilterModel
 
 from generator import GeneratorModel
@@ -325,7 +326,7 @@ def main(argv):
                 for field in fields.split(';'):
                     key, body = field.split('=')
                     values = body.split(',')
-                    generator_fields[key] = values
+                    generator_fields[key] = [SwitchRuleField(key, v) for v in values]
                 generators.append((name, generator_fields))
         elif opt == '-T':
             test_fields = {}
@@ -355,13 +356,21 @@ def main(argv):
                 ports=range(1, len(ports)*2+1)
             ),
             'links' : lambda: LinksModel(links),
-            'generator' : lambda: GeneratorModel(dev, fields),
-            'generators' : lambda: GeneratorsModel([GeneratorModel(d, f) for d, f in generators]),
+            'generator' : lambda: GeneratorModel(
+                dev,
+                {f : [
+                    SwitchRuleField(f, v) for v in fl
+                ] for f, fl in fields.iteritems()}
+            ),
+            'generators' : lambda: GeneratorsModel(
+                [GeneratorModel(d, f) for d, f in generators]
+            ),
             'probe' : lambda: ProbeModel(
                 dev,
                 quantor,
-                filter_expr={'filter_fields' : filter_fields},
-                test_expr={'test_fields' : test_fields, 'test_path' : test_path}
+                filter_fields=filter_fields,
+                test_fields=test_fields,
+                test_path=test_path
             ),
             'router' : lambda: RouterModel(
                 dev,

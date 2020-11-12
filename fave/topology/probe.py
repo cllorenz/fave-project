@@ -34,49 +34,39 @@ class ProbeModel(object):
     """ This class provides a probe model.
     """
 
-    def __init__(self, node, quantor, filter_expr=None, test_expr=None):
+    @staticmethod
+    def _normalize_fields(fields):
+        return {
+            OXM_FIELD_TO_MATCH_FIELD[name] : [
+                SwitchRuleField(
+                    OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
+                ) for f in field_list
+            ] for name, field_list in fields
+        }
+
+
+    def __init__(self, node, quantor, filter_fields=None, filter_path=None, test_fields=None, test_path=None):
         self.node = node
         self.type = "probe"
         self.ports = {node+'_1' : 1}
         self.quantor = quantor
-        self.mapping = Mapping()
 
-        filter_fields = []
-        test_fields = []
+        self.filter_fields = ProbeModel._normalize_fields(filter_fields)
+        self.test_fields = ProbeModel._normalize_fields(test_fields)
 
-        if filter_expr is None:
-            filter_expr = {'filter_fields':{}}
-        if test_expr is None:
-            test_expr = {'test_fields':{}, 'test_path':[]}
+        if filter_path is not None and isinstance(filter_path, Path):
+            self.filter_path = filter_path
+        elif filter_path is not None:
+            self.filter_path = Path(filter_path)
+        else:
+            self.filter_path = Path()
 
-        for vectors, fields in [
-                (filter_fields, filter_expr['filter_fields']),
-                (test_fields, test_expr['test_fields'])
-        ]:
-            for field in fields:
-                self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
-
-            keys = sorted(fields)
-            combinations = itertools.product(*(fields[k] for k in keys))
-
-            for comb in combinations:
-                vector = Vector(self.mapping.length)
-                for idx, oxm in enumerate(keys):
-                    field = OXM_FIELD_TO_MATCH_FIELD[oxm]
-                    set_field_in_vector(
-                        self.mapping,
-                        vector,
-                        field,
-                        field_value_to_bitvector(
-                            SwitchRuleField(field, comb[idx])
-                        ).vector
-                    )
-                vectors.append(vector)
-
-        self.filter_fields = HeaderSpace(self.mapping.length, filter_fields)
-        self.test_fields = HeaderSpace(self.mapping.length, test_fields)
-
-        self.test_path = Path(test_expr['test_path'])
+        if test_path is not None and isinstance(test_path, Path):
+            self.test_path = test_path
+        elif test_path is not None:
+            self.test_path = Path(test_path)
+        else:
+            self.test_path = Path()
 
 
     def to_json(self):
@@ -87,9 +77,9 @@ class ProbeModel(object):
             "node" : self.node,
             "type" : self.type,
             "quantor" : self.quantor,
-            "mapping" : self.mapping.to_json(),
-            "filter_fields" : self.filter_fields.to_json(),
-            "test_fields" : self.test_fields.to_json(),
+            "filter_fields" : {n : [f.to_json() for f in fl] for n, fl in self.filter_fields.iteritems()},
+            "filter_path" : self.filter_path.to_json(),
+            "test_fields" : {n : [f.to_json() for f in fl] for n, fl in self.test_fields.iteritems()},
             "test_path" : self.test_path.to_json()
         }
 
@@ -106,11 +96,11 @@ class ProbeModel(object):
 
         model = ProbeModel(
             j["node"],
-            j["quantor"]
+            j["quantor"],
+            filter_fields={n : [SwitchRuleField.from_json(f) for f in fl] for n, fl in j['filter_fields'].iteritems()},
+            filter_path=Path.from_json(j["filter_path"]),
+            test_fields={n : [SwitchRuleField.from_json(f) for f in fl] for n, fl in j['test_fields'].iteritems()},
+            test_path=Path.from_json(j["test_path"])
         )
-        model.test_path = Path.from_json(j["test_path"])
-        model.mapping = Mapping.from_json(j["mapping"])
-        model.filter_fields = HeaderSpace.from_json(j["filter_fields"])
-        model.test_fields = HeaderSpace.from_json(j["test_fields"])
 
         return model
