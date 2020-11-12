@@ -28,7 +28,7 @@ from netplumber.vector import Vector
 
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.switch import SwitchRule, Forward, Miss, Rewrite
+from openflow.rule import SwitchRule, Forward, Miss, Rewrite
 
 
 class NetPlumberAdapter(object):

@@ -29,7 +29,7 @@ from netplumber.vector import Vector
 from netplumber.model import Model
 from netplumber.mapping import Mapping, FIELD_SIZES
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from openflow.switch import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
+from openflow.rule import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
 
 CAPACITY=2**16/2**12 # XXX: ugly workaround

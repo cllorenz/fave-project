@@ -32,7 +32,7 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 
 from netplumber.model import Model
 
-from openflow.switch import SwitchRule, Forward, Match, SwitchRuleField, Miss, Rewrite
+from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Miss, Rewrite
 
 from util.collections_util import list_sub
 from util.packet_util import is_ip as is_ipv4

@@ -25,7 +25,7 @@ from copy import deepcopy as dc
 
 from ip6np_util import field_value_to_bitvector
 from packet_filter import PacketFilterModel
-from openflow.switch import SwitchRuleField, Match, SwitchRule, Forward
+from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
 from util.packet_util import portrange_to_prefixed_bitvectors

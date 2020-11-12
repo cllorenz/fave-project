@@ -24,7 +24,7 @@
 
 import unittest
 
-from openflow.switch import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
+from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
 from netplumber.mapping import Mapping
 
 
