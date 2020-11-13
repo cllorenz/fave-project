@@ -41,7 +41,7 @@ class ProbeModel(object):
                 SwitchRuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
                 ) for f in field_list
-            ] for name, field_list in fields
+            ] for name, field_list in fields.iteritems()
         }
 
 

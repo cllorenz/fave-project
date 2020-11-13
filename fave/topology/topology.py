@@ -317,7 +317,7 @@ def main(argv):
             filter_fields = {}
             for field in arg.split(';'):
                 key, body = field.split('=')
-                values = body.split(',')
+                values = [SwitchRuleField(key, v) for v in body.split(',')]
                 filter_fields[key] = values
         elif opt == '-G':
             for generator in arg.split('|'):
@@ -332,7 +332,7 @@ def main(argv):
             test_fields = {}
             for field in arg.split(';'):
                 key, body = field.split('=')
-                values = body.split(',')
+                values = [SwitchRuleField(key, v) for v in body.split(',')]
                 test_fields[key] = values
         elif opt == '-P':
             test_path = arg.split(';')
