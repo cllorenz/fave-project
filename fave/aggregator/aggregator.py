@@ -243,10 +243,6 @@ class Aggregator(AbstractAggregator):
             Aggregator.LOGGER.debug("extend mapping for adding packet filters and routers")
             self._extend_mapping(model.mapping)
 
-        elif model.type == "switch_command" and model.command == "add_rule":
-            Aggregator.LOGGER.debug("extend mapping for adding switch rules")
-            self._extend_mapping(model.rule.mapping)
-
         elif model.type == "topology_command" and \
                 model.command == 'add' and \
                 model.model.type in ['router', 'packet_filter']:

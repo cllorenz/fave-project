@@ -460,14 +460,7 @@ class NetPlumberAdapter(object):
             for rule in model.tables[table]:
                 rid = rule.idx
 
-                rvec = Vector(length=self.mapping.length)
-                for fld in rule.match:
-                    set_field_in_vector(
-                        self.mapping,
-                        rvec,
-                        fld.name,
-                        field_value_to_bitvector(fld).vector
-                    )
+                rvec = self._build_vector(rule.match)
 
                 out_ports = []
                 mask = None
@@ -496,7 +489,12 @@ class NetPlumberAdapter(object):
 
                 self.logger.debug(
                     "worker: add rule %s to %s:\n\t(%s & %s -> %s, %s)",
-                    rule.idx, tid, rvec.vector if rvec else "*", mask.vector if mask else "*", out_ports, rewrite.vector if rewrite else "*"
+                    rule.idx,
+                    tid,
+                    rvec.vector if rvec else "*",
+                    mask.vector if mask else "*",
+                    out_ports,
+                    rewrite.vector if rewrite else "*"
                 )
 
                 in_ports = []

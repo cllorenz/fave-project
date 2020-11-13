@@ -56,8 +56,7 @@ class SwitchCommand(object):
             "node" : self.node,
             "type" : self.type,
             "command" : self.command,
-            "rule" : self.rule.to_json(),
-            "mapping" : self.rule.mapping.to_json()
+            "rule" : self.rule.to_json()
         }
 
 
@@ -87,7 +86,6 @@ class SwitchModel(Model):
         ports = ports if ports is not None else []
 
         super(SwitchModel, self).__init__(node, "switch")
-        self.mapping = Mapping(length=0)
         self.ports = {str(p) : p for p in ports}
         self.tables = {"1" : []}
         self.rules = rules if rules is not None else []
@@ -97,7 +95,6 @@ class SwitchModel(Model):
         """ Converts the switch to JSON.
         """
         j = super(SwitchModel, self).to_json()
-        j["mapping"] = self.mapping
         j["ports"] = self.ports
         j["tables"] = {t:[r.to_json() for r in self.tables[t]] for t in self.tables}
         j["rules"] = [rule.to_json() for rule in self.rules]
@@ -115,7 +112,6 @@ class SwitchModel(Model):
             j = json.loads(j)
 
         ofm = SwitchModel(j["node"])
-        ofm.mapping = Mapping.from_json(j["mapping"]) if j["mapping"] else Mapping()
         ofm.ports = j["ports"]
 
         ofm.tables = {}
@@ -193,10 +189,7 @@ def fieldify(field):
     """
 
     fld, val = field
-    try:
-        return SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[fld], val)
-    except KeyError:
-        return SwitchRuleField(fld, val)
+    return SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[fld], val)
 
 
 def print_help():
