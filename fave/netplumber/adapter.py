@@ -271,10 +271,9 @@ class NetPlumberAdapter(object):
                 mask.vector,
                 rewrite.vector
             )
-            if calc_rule_index(tid, rid) in self.rule_ids:
-                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-            else:
-                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            np_rid = calc_rule_index(tid, rid)
+            self.rule_ids.setdefault(np_rid, [])
+            self.rule_ids[np_rid].append(r_id)
 
 
     def _add_post_routing_rules(self, model):
@@ -340,10 +339,9 @@ class NetPlumberAdapter(object):
                 mask.vector if mask else None,
                 rewrite.vector if rewrite else None
             )
-            if calc_rule_index(tid, rid) in self.rule_ids:
-                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-            else:
-                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            np_rid = calc_rule_index(tid, rid)
+            self.rule_ids.setdefault(np_rid, [])
+            self.rule_ids[np_rid].append(r_id)
 
 
     def _add_rule_table(self, model, table):
@@ -425,10 +423,9 @@ class NetPlumberAdapter(object):
                 mask.vector if mask else None,
                 rewrite.vector if rewrite else None
             )
-            if calc_rule_index(tid, rid) in self.rule_ids:
-                self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-            else:
-                self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+            np_rid = calc_rule_index(tid, rid)
+            self.rule_ids.setdefault(np_rid, [])
+            self.rule_ids[np_rid].append(r_id)
 
 
     def add_rules(self, model):
@@ -513,10 +510,9 @@ class NetPlumberAdapter(object):
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
-                if calc_rule_index(tid, rid) in self.rule_ids:
-                    self.rule_ids[calc_rule_index(tid, rid)].append(r_id)
-                else:
-                    self.rule_ids[calc_rule_index(tid, rid)] = [r_id]
+                np_rid = calc_rule_index(tid, rid)
+                self.rule_ids.setdefault(np_rid, [])
+                self.rule_ids[np_rid].append(r_id)
 
 
     def delete_rules(self, model):
