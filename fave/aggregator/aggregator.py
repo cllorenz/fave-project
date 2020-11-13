@@ -236,29 +236,6 @@ class Aggregator(AbstractAggregator):
     def _sync_diff(self, model):
         Aggregator.LOGGER.debug('worker: synchronize model')
 
-        # extend global mapping
-        mlength = self.net_plumber.mapping.length
-
-        if model.type in ["packet_filter", "router"]:
-            Aggregator.LOGGER.debug("extend mapping for adding packet filters and routers")
-            self._extend_mapping(model.mapping)
-
-        elif model.type == "topology_command" and \
-                model.command == 'add' and \
-                model.model.type in ['router', 'packet_filter']:
-            Aggregator.LOGGER.debug("extend mapping for adding routers and packet filters")
-            self._extend_mapping(model.model.mapping)
-
-        elif model.type == "slicing_command" and model.command == 'add_slice':
-            Aggregator.LOGGER.debug("extend mapping for adding slices")
-            self._extend_mapping(model.slice.mapping)
-
-        if mlength < self.net_plumber.mapping.length:
-            Aggregator.LOGGER.debug(
-                "worker: expand to length %s", self.net_plumber.mapping.length
-            )
-            self.net_plumber.expand()
-
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
             if model.node in self.models:
@@ -400,15 +377,6 @@ class Aggregator(AbstractAggregator):
             self._add_router(model)
         elif model.type == "switch":
             self._add_switch(model)
-
-
-# TODO: move to NetPlumberAdapter when models do not hold own mapping anymore
-    def _extend_mapping(self, mapping):
-        assert isinstance(mapping, Mapping)
-
-        self.net_plumber.extend_mapping(mapping)
-        for model in self.models:
-            self.models[model].expand(self.net_plumber.mapping)
 
 
     def _add_packet_filter(self, model):
