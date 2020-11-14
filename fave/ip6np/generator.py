@@ -354,15 +354,6 @@ def generate(ast, node, address, ports):
 
     model.set_address(node, address)
 
-    # generate vectors from rule tree
-    model.generate_vectors()
-
-    # expand negated fields
-    model.expand_rules()
-
-    # normalize vector length
-    model.normalize()
-
     # put the rules into their chains
     model.finalize()
 

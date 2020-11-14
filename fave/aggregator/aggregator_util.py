@@ -92,14 +92,20 @@ def calc_port(tab, model, port):
         return (tab<<16)+1
 
 
-def calc_rule_index(t_idx, r_idx):
+def calc_rule_index(r_idx, t_idx=0, n_idx=0):
     """ Calculates the rule index within a table
 
     Keyword arguments:
     t_idx -- a table index
     r_idx -- a rule index within the table
+    n_idx -- an optional index for negation expanded rules
     """
-    return (t_idx<<16)+r_idx
+
+    assert t_idx < 2**32
+    assert r_idx < 2**24
+    assert n_idx < 2**12
+
+    return (t_idx<<32)+(r_idx<<12)+n_idx
 
 
 def normalize_port(port):

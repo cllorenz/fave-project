@@ -30,7 +30,7 @@ from netplumber.vector import Vector, HeaderSpace
 
 from ip6np.generator import field_value_to_bitvector
 
-from openflow.rule import SwitchRule, Forward, Miss, Rewrite, SwitchRuleField
+from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
 
 
 class NetPlumberAdapter(object):
@@ -87,9 +87,67 @@ class NetPlumberAdapter(object):
         self.mapping.expand(mapping)
 
 
-    def _build_vector(self, fields, preset='x'):
-        field_names = set([f.name for f in fields])
+    def _expand_field(self, field):
+        """ Expands a negated field to a set of vectors.
 
+        Keyword argument:
+        field -- a negated field to be expanded
+        """
+
+        assert isinstance(field, SwitchRuleField)
+
+        vec = field_value_to_bitvector(field)
+        nvectors = []
+        for idx, bit in enumerate(vec.vector):
+            if bit == '0':
+                nvec = dc(vec)
+                nvec.vector = "x"*idx + "1" + "x"*(nvec.length-idx-1)
+                nvectors.append(nvec)
+            elif bit == '1':
+                nvec = dc(vec)
+                nvec.vector = "x"*idx + "0" + "x"*(nvec.length-idx-1)
+                nvectors.append(nvec)
+            else: # 'x'
+                continue
+
+        return nvectors
+
+
+    def _expand_negations(self, match):
+        """ Expands a match with negated fields to a set of vectors.
+
+        Keyword arguments:
+        match -- a match to be expanded
+        """
+
+        assert isinstance(match, Match)
+        fields = set([f.name for f in match])
+        self._update_mapping(fields)
+
+        field_vectors = {}
+        for idx, field in enumerate(match):
+            if field.negated:
+                field_vectors[field.name] = self._expand_field(field)
+            else:
+                field_vectors[field.name] = [field_value_to_bitvector(field)]
+
+        matches = []
+
+        keys = sorted(fields)
+        combinations = itertools.product(*(field_vectors[k] for k in keys))
+
+        for comb in combinations:
+            vec = Vector(self.mapping.length)
+            for i, name in enumerate(keys):
+                set_field_in_vector(
+                    self.mapping, vec, name, comb[i].vector
+                )
+            matches.append(vec)
+
+        return matches
+
+
+    def _update_mapping(self, field_names):
         diff = field_names - self.mapping_keys
 
         if diff:
@@ -97,6 +155,10 @@ class NetPlumberAdapter(object):
                 self.mapping.extend(field)
             self.mapping_keys.update(diff)
             self.expand()
+
+
+    def _build_vector(self, fields, preset='x'):
+        self._update_mapping(set([f.name for f in fields]))
 
         vec = Vector(length=self.mapping.length, preset=preset)
         for field in fields:
@@ -254,7 +316,7 @@ class NetPlumberAdapter(object):
 
             self.logger.debug(
                 "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
-                rid,
+                calc_rule_index(rid),
                 self.tables["%s_%s" % (model.node, table)],
                 (self.global_port(p) for p in rule.in_ports),
                 rvec.vector if rvec else "*",
@@ -264,14 +326,14 @@ class NetPlumberAdapter(object):
             r_id = jsonrpc.add_rule(
                 self.sock,
                 self.tables["%s_%s" % (model.node, table)],
-                rid,
+                calc_rule_index(rid),
                 in_ports,
                 out_ports,
                 rvec.vector,
                 mask.vector,
                 rewrite.vector
             )
-            np_rid = calc_rule_index(tid, rid)
+            np_rid = calc_rule_index(rid, t_idx=tid)
             self.rule_ids.setdefault(np_rid, [])
             self.rule_ids[np_rid].append(r_id)
 
@@ -327,19 +389,19 @@ class NetPlumberAdapter(object):
 
             self.logger.debug(
                 "worker: add rule %s to %s:\n\t(%s -> %s)",
-                rule.idx, tid, rvec.vector if rvec else "*", out_ports
+                calc_rule_index(rid), tid, rvec.vector if rvec else "*", out_ports
             )
             r_id = jsonrpc.add_rule(
                 self.sock,
                 tid,
-                rule.idx,
+                calc_rule_index(rid),
                 in_ports,
                 out_ports,
                 rvec.vector,
                 mask.vector if mask else None,
                 rewrite.vector if rewrite else None
             )
-            np_rid = calc_rule_index(tid, rid)
+            np_rid = calc_rule_index(rid, t_idx=tid)
             self.rule_ids.setdefault(np_rid, [])
             self.rule_ids[np_rid].append(r_id)
 
@@ -408,24 +470,27 @@ class NetPlumberAdapter(object):
                         json.dumps(action.to_json(), indent=2)
                     )
 
-            self.logger.debug(
-                "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
-                rid, tid, in_ports, rvec.vector if rvec else "*", out_ports
-            )
+            matches = self._expand_negations(rule.match)
 
-            r_id = jsonrpc.add_rule(
-                self.sock,
-                tid,
-                rid,
-                in_ports,
-                out_ports,
-                rvec.vector if rvec.vector else 'x'*8,
-                mask.vector if mask else None,
-                rewrite.vector if rewrite else None
-            )
-            np_rid = calc_rule_index(tid, rid)
-            self.rule_ids.setdefault(np_rid, [])
-            self.rule_ids[np_rid].append(r_id)
+            for nid, match in enumerate(matches):
+                self.logger.debug(
+                    "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
+                    calc_rule_index(rid), tid, in_ports, match.vector if match else "*", out_ports
+                )
+
+                r_id = jsonrpc.add_rule(
+                    self.sock,
+                    tid,
+                    calc_rule_index(rid, n_idx=nid),
+                    in_ports,
+                    out_ports,
+                    match.vector if match.vector else 'x'*8,
+                    mask.vector if mask else None,
+                    rewrite.vector if rewrite else None
+                )
+                np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
+                self.rule_ids.setdefault(np_rid, [])
+                self.rule_ids[np_rid].append(r_id)
 
 
     def add_rules(self, model):
@@ -486,7 +551,7 @@ class NetPlumberAdapter(object):
 
                 self.logger.debug(
                     "worker: add rule %s to %s:\n\t(%s & %s -> %s, %s)",
-                    rule.idx,
+                    calc_rule_index(rid),
                     tid,
                     rvec.vector if rvec else "*",
                     mask.vector if mask else "*",
@@ -503,14 +568,14 @@ class NetPlumberAdapter(object):
                 r_id = jsonrpc.add_rule(
                     self.sock,
                     tid,
-                    rule.idx,
+                    calc_rule_index(rid),
                     in_ports,
                     out_ports,
                     rvec.vector,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
-                np_rid = calc_rule_index(tid, rid)
+                np_rid = calc_rule_index(rid, t_idx=tid)
                 self.rule_ids.setdefault(np_rid, [])
                 self.rule_ids[np_rid].append(r_id)
 
@@ -521,12 +586,12 @@ class NetPlumberAdapter(object):
 
             only_rid = lambda x: x[0]
             for rid in [only_rid(x) for x in model.tables[table]]:
-                for r_id in self.rule_ids[calc_rule_index(tid, rid)]:
+                for r_id in self.rule_ids[calc_rule_index(rid, t_idx=tid)]:
                     self.logger.debug(
                         "worker: remove rule %s from netplumber", r_id
                     )
                     jsonrpc.remove_rule(self.sock, r_id)
-                del self.rule_ids[calc_rule_index(tid, rid)]
+                del self.rule_ids[calc_rule_index(rid, t_idx=tid)]
 
 
     def delete_wiring(self, model):
