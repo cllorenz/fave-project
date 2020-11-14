@@ -43,59 +43,6 @@ BASE_ROUTING_WRONG_AP=65535/4*2
 BASE_ROUTING_RULE=65535/4*3
 
 
-def expand_field(field):
-    """ Expands a negated field to a set of vectors.
-
-    Keyword argument:
-    field -- a negated field to be expanded
-    """
-
-    assert isinstance(field, SwitchRuleField)
-
-    pfield = dc(field)
-    pfield.negated = False
-    nfields = []
-    for idx, bit in enumerate(field.value):
-        if bit == '0':
-            nfield = dc(pfield)
-            nfield.value.vector = "x"*idx + "1" + "x"*(pfield.value.length-idx-1)
-            nfields.append(nfield)
-        elif bit == '1':
-            nfield = dc(pfield)
-            nfield.value.vector = "x"*idx + "0" + "x"*(pfield.value.length-idx-1)
-            nfields.append(nfield)
-        else: # 'x'
-            continue
-
-    return nfields
-
-
-def expand_rule(rule, negated):
-    """ Expands a rule with negated fields to a set of rules.
-
-    Keyword arguments:
-    rule -- a rule to be expanded
-    """
-
-    assert isinstance(rule, SwitchRule)
-
-    rules = []
-    for idx, field in enumerate(rule):
-        if field.name in negated:
-            nfields = expand_field(field)
-            rules.extend(
-                [SwitchRule(
-                    rule.node,
-                    rule.tid,
-                    rule.rid,
-                    rule.action,
-                    dc(rule.match[:idx])+[f]+dc(rule.match[idx+1:])
-                ) for f in nfields]
-            )
-
-    return rules
-
-
 class PacketFilterModel(Model):
     """ This class stores packet filter models.
     """
