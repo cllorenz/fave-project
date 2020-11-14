@@ -25,9 +25,7 @@
 import json
 import math
 
-from netplumber.vector import Vector
 from netplumber.model import Model
-from netplumber.mapping import Mapping, FIELD_SIZES
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.rule import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
@@ -45,11 +43,10 @@ class RouterModel(Model):
             acls=None,
             vlan_to_ports=None,
             routes=None,
-            mapping=None,
             vlan_to_acls=None,
             if_to_vlans=None
     ):
-        super(RouterModel, self).__init__(node, "router", mapping=mapping)
+        super(RouterModel, self).__init__(node, "router")
 
         # { port_id : [vlans] }
         self.if_to_vlans = if_to_vlans if if_to_vlans else {}
@@ -213,12 +210,6 @@ class RouterModel(Model):
         for table in ['acl_in', 'acl_out', 'routing']:
             self.tables.setdefault(table, [])
 
-        if not self.mapping:
-            self.mapping = Mapping()
-
-        self.mapping.extend("in_port")
-        self.mapping.extend("out_port")
-
         for vlan, in_ports in self.vlan_to_ports.iteritems():
             if vlan.startswith('nat_'):
                 continue
@@ -227,7 +218,6 @@ class RouterModel(Model):
                 vlan_match = [
                     SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)
                 ]
-                self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD["vlan"])
 
             for acl in self.vlan_to_acls[vlan]:
                 aid = int(vlan)*CAPACITY # if vlan != "0" else 2**15 # XXX: ugly workaround
@@ -247,10 +237,6 @@ class RouterModel(Model):
                         acl_in_ports = in_ports
                     elif is_in or is_out:
                         acl_in_ports = ['in']
-
-                    for field, _value in acl_match:
-                        if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
-                            self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
 
                     rule = SwitchRule(
                         self.node, acl_table, aid+rid,
@@ -310,10 +296,6 @@ class RouterModel(Model):
         for idx, route in enumerate(self.routes):
             rule_body, out_ports = route
 
-            for field, _value in rule_body:
-                if OXM_FIELD_TO_MATCH_FIELD[field] not in self.mapping:
-                    self.mapping.extend(OXM_FIELD_TO_MATCH_FIELD[field])
-
             rule_body = [
                 SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[k], v) for k, v in rule_body
             ]
@@ -341,7 +323,6 @@ class RouterModel(Model):
         if persist:
             self.persist()
         j = super(RouterModel, self).to_json()
-        j["mapping"] = self.mapping.to_json()
         j["ports"] = self.ports
         j["tables"] = {
             t:[r.to_json() for r in self.tables[t]] for t in self.tables
@@ -358,9 +339,6 @@ class RouterModel(Model):
             j = json.loads(j)
 
         router = RouterModel(j["node"])
-        router.mapping = Mapping.from_json(
-            j["mapping"]
-        ) if "mapping" in j else Mapping()
         router.tables = {
             t:[
                 SwitchRule.from_json(r) for r in j["tables"][t]
