@@ -23,7 +23,6 @@
 
 from copy import deepcopy as dc
 
-from ip6np_util import field_value_to_bitvector
 from packet_filter import PacketFilterModel
 from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union

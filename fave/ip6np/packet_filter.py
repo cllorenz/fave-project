@@ -27,9 +27,6 @@ import json
 
 from copy import deepcopy as dc
 
-from netplumber.vector import Vector
-from netplumber.mapping import Mapping, FIELD_SIZES
-
 from netplumber.model import Model
 
 from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Miss, Rewrite
