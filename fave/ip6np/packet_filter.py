@@ -441,12 +441,12 @@ class PacketFilterModel(Model):
         rule.idx = BASE_ROUTING_RULE + idx
         rule.actions.extend(rewrites)
 
-        self.chains["routing"].insert(BASE_ROUTING_EXACT + idx, rule_exact)
-        self.tables["routing"].insert(BASE_ROUTING_EXACT + idx, rule_exact)
-        self.chains["routing"].insert(BASE_ROUTING_WRONG_IO + idx, rule_wrong_io)
-        self.tables["routing"].insert(BASE_ROUTING_WRONG_IO + idx, rule_wrong_io)
-        self.chains["routing"].insert(BASE_ROUTING_RULE + idx, rule)
-        self.tables["routing"].insert(BASE_ROUTING_RULE + idx, rule)
+        self.chains["routing"].insert(rule_exact.idx, rule_exact)
+        self.tables["routing"].insert(rule_exact.idx, rule_exact)
+        self.chains["routing"].insert(rule_wrong_io.idx, rule_wrong_io)
+        self.tables["routing"].insert(rule_wrong_io.idx, rule_wrong_io)
+        self.chains["routing"].insert(rule.idx, rule)
+        self.tables["routing"].insert(rule.idx, rule)
         self.rules.append(rule_wrong_io)
         self.rules.append(rule_exact)
         self.rules.append(rule)
@@ -463,12 +463,12 @@ class PacketFilterModel(Model):
         rule_exact = self.chains["routing"][BASE_ROUTING_EXACT + idx]
         rule = self.chains["routing"][BASE_ROUTING_RULE + idx]
 
-        del self.chains["routing"][BASE_ROUTING_EXACT + idx]
-        del self.chains["routing"][BASE_ROUTING_WRONG_IO + idx]
-        del self.chains["routing"][BASE_ROUTING_RULE + idx]
-        del self.tables["routing"][BASE_ROUTING_EXACT + idx]
-        del self.tables["routing"][BASE_ROUTING_WRONG_IO + idx]
-        del self.tables["routing"][BASE_ROUTING_RULE + idx]
+        del self.chains["routing"][rule_exact.idx]
+        del self.chains["routing"][rule_wrong_io.idx]
+        del self.chains["routing"][rule.idx]
+        del self.tables["routing"][rule_exact.idx]
+        del self.tables["routing"][rule_wrong_io.idx]
+        del self.tables["routing"][rule.idx]
         del self.rules[rule_exact]
         del self.rules[rule_wrong_io]
         del self.rules[rule]
