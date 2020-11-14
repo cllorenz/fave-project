@@ -160,35 +160,12 @@ class PacketFilterModel(Model):
 
 
     def _persist(self):
-
-        # XXX: remove
-        #constraint = lambda k, m: \
-        #    k == "input_rules" and m[k] != [] or \
-        #    k == "input_states" and constraint("input_rules", m) or \
-        #    k == "output_rules" and m[k] != [] or \
-        #    k == "output_states" and constraint("output_rules", m) or \
-        #    k == "forward_rules" and m[k] != [] or \
-        #    k == "forward_states" and constraint("forward_rules", m) or \
-        #    k == "pre_routing" and (
-        #        constraint("input_rules", m) and constraint("forward_rules", m)
-        #    ) or \
-        #    k == "post_routing" and (
-        #        constraint("output_rules", m) or
-        #        constraint("forward_rules", m)
-        #    ) or \
-        #    k == "internals_in" and constraint("input_rules", m) or \
-        #    k == "internals_out" and constraint("output_rules", m)
-
-        #active = [k for k in self.chains if constraint(k, self.chains)]
-
-        #prefix = lambda x: "_".join(x.split("_")[:2])
-
         self.tables = {
             k:[r for r in self.chains[k]] for k in self.chains if k not in [
                 "pre_routing",
                 "routing",
                 "post_routing"
-            ] #if k in active
+            ]
         }
 
         make_actions = lambda node, table, rule: [] if rule.actions == [] else [
@@ -200,11 +177,6 @@ class PacketFilterModel(Model):
         self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
         self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
         self.tables["routing"] = [r for r in self.chains["routing"]]
-
-        # XXX: remove
-        #self.ports = {
-        #    k:v for k, v in self.ports.iteritems() #if prefix(k) in active
-        #}
 
 
     def to_json(self):
