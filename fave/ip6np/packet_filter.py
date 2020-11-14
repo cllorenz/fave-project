@@ -97,8 +97,6 @@ class PacketFilterModel(Model):
         get_iport = lambda x: int(x[0][3:])
         get_oport = lambda x: int(x[0][4:])
 
-        self.mapping = Mapping(length=64, mapping={'out_port': 0, 'in_port': 32})
-
         self.chains["post_routing"] = [ # low priority: forward packets according to out port
                                         # field set by the routing table
             SwitchRule(
@@ -113,8 +111,7 @@ class PacketFilterModel(Model):
                         SwitchRuleField("out_port", "x"*32)
                     ]),
                     Forward(ports=[get_oname(port)])
-                ],
-                mapping=self.mapping
+                ]
             ) for idx, port in enumerate(output_ports.items(), start=plen)
         ] + [ # high priority: filter packets with equal input and output port
             SwitchRule(
@@ -157,7 +154,6 @@ class PacketFilterModel(Model):
         npf.tables = pfm.tables
         npf.rules = rules
         npf.ports = pfm.ports
-        npf.mapping = pfm.mapping
 
         return npf
 
@@ -229,80 +225,6 @@ class PacketFilterModel(Model):
         )
 
 
-    def generate_vectors(self):
-        """ Generates the vectors of all stored rules.
-        """
-
-        for rule in self.rules:
-            assert isinstance(rule, SwitchRule)
-            rule.vector = self._generate_rule_vector(rule)
-
-
-    def _generate_rule_vector(self, rule):
-
-        mapping = self.mapping
-
-        # initialize an all wildcard vector
-        vector = Vector(length=mapping.length, preset="x")
-
-        # handle all fields of the rule
-        for field in rule.match:
-            size = FIELD_SIZES[field.name]
-
-            # unknown field
-            if field.name not in mapping:
-                mapping.extend(field.name)
-                vector.enlarge(size)
-
-            # known field
-            offset = mapping[field.name]
-
-            if not isinstance(field.value, Vector):
-                field.vectorize()
-            else:
-                field.vector = field.value
-
-            vector[offset:offset+size] = field.vector.vector
-
-        return vector
-
-
-    def expand_rules(self):
-        """ Expands all negated rule fields in this model.
-        """
-
-        nrules = []
-        for rule in self.rules:
-            assert isinstance(rule, SwitchRule)
-            if rule in self.negated:
-                nrules.extend(expand_rule(rule, self.negated[rule]))
-            else:
-                nrules.append(rule)
-
-        self.rules = nrules
-        self.negated = {}
-
-
-    def normalize(self):
-        """ Normalizes model by enlarging all stored rules.
-        """
-        for rule in self.rules:
-            assert isinstance(rule, SwitchRule)
-            rule.enlarge_vector_to_length(self.mapping.length)
-
-
-    # XXX: ugly hack
-    def _reorder_defaults(self):
-        for chain in ["input_filter", "forward_filter", "output_filter"]:
-            chn = self.chains[chain]
-            if not chn:
-                continue
-
-            if len(chn) >= 1:
-                default = chn[0]
-                chn.remove(default)
-                chn.append(default)
-
     def finalize(self):
         """ Finalize model by fill chains and reorder defaults.
         """
@@ -310,7 +232,6 @@ class PacketFilterModel(Model):
         for rule in self.rules:
             assert isinstance(rule, SwitchRule)
             self.chains[rule.tid].append(rule)
-        self._reorder_defaults()
 
 
     def set_address(self, node, address):
@@ -339,8 +260,6 @@ class PacketFilterModel(Model):
                 ]
             ) for idx, p in enumerate(self.ports, start=len(self.ports)+1) if p.startswith("in_")
         ]
-
-        self.normalize()
 
 
     def add_rule(self, idx, rule):
@@ -455,5 +374,4 @@ class PacketFilterModel(Model):
 
         npf.ports = j["ports"]
         npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]
-        npf.mapping = Mapping.from_json(j["mapping"])
         return npf
