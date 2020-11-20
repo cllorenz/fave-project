@@ -154,7 +154,7 @@ def _ast_to_rule(node, ast, idx=0):
         is_default = True
 
     if not ast:
-        return ([], {})
+        return []
 
     has_iif = ast.has_child("-i")
     has_oif = ast.has_child("-o")
@@ -189,8 +189,6 @@ def _ast_to_rule(node, ast, idx=0):
     body = [
         SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f)
     ]
-
-    negated = [tag(f.value) for f in ast if is_field(f) and is_negated(f)]
 
     action = _get_action_from_ast(ast)
     actions = [] if action == 'DROP' else [Forward(ports=[action])]
@@ -261,7 +259,6 @@ def _ast_to_rule(node, ast, idx=0):
             actions=actions
         ))
 
-    negated_rules = {r : negated for r in rules if negated}
 
     if (_is_state_rule(body) or is_default) and actions != []:
         state_rules = []
@@ -281,23 +278,21 @@ def _ast_to_rule(node, ast, idx=0):
 
         rules.extend(state_rules)
 
-    #return (rules, {rule : negated}) if negated else (rules, {})
-    return (rules, negated_rules)
+    return rules
 
 
 def _get_rules_from_ast(node, ast, idx=0):
     if _is_rule(ast):
         return _ast_to_rule(node, ast, idx)
     elif not ast.has_children():
-        return ([], {})
+        return []
     else:
-        merge = lambda l, r: (l[0]+r[0], dict_union(l[1], r[1]))
-        res = ([], {})
         cnt = 0
+        res = []
         for st in ast:
-            rules, negated = _get_rules_from_ast(node, st, idx+cnt+1)
-            res = merge(res, (rules, negated))
+            rules = _get_rules_from_ast(node, st, idx+cnt+1)
             cnt += len(rules)
+            res += rules
 
         return res
 
@@ -332,7 +327,7 @@ def _get_action_from_ast(ast):
 
 def _transform_ast_to_model(ast, node, ports):
     model = PacketFilterModel(node, ports=ports)
-    model.rules, model.negated = _get_rules_from_ast(node, ast)
+    model.rules = _get_rules_from_ast(node, ast)
 
     return model
 

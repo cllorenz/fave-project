@@ -44,7 +44,7 @@ class PacketFilterModel(Model):
     """ This class stores packet filter models.
     """
 
-    def __init__(self, node, ports=None, negated=None):
+    def __init__(self, node, ports=None):
         super(PacketFilterModel, self).__init__(node, "packet_filter")
 
         ports = ports if ports is not None else [1, 2]
@@ -133,7 +133,6 @@ class PacketFilterModel(Model):
             ("output_filter_accept", "routing_in"), # output filter accept to routing
             ("routing_out", "post_routing_in") # routing to post routing
         ]
-        self.negated = negated if negated else {}
 
         self._persist()
 
