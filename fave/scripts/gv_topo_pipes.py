@@ -156,20 +156,20 @@ class TopologyRenderer(object):
         row_position = build_row('position', rule['position'])
 
         row_match = build_row(
-            'match:', self._readable_vector(rule['match'])
+            'match:', self._readable_vector(rule['match'], printable=True)
         ) if self.use_verbose else ''
 
         row_mask = build_row(
-            'mask:', self._readable_vector(rule['mask'], ignore_bit='0')
+            'mask:', self._readable_vector(rule['mask'], ignore_bit='0', printable=True)
         ) if 'mask' in rule and self.use_verbose else ''
 
         row_rewrite = build_row(
-            'rewrite:', self._readable_vector(rule['rewrite'])
+            'rewrite:', self._readable_vector(rule['rewrite'], printable=True)
         ) if 'rewrite' in rule and self.use_verbose else ''
 
         row_influences = build_row(
             'influences', _break_list_table(
-                map(self._readable_vector, rule['influences'].split(' + '))
+                map(self._readable_vector, rule['influences'].split(' + '), printable=True)
             )
         ) if 'influences' in rule and self.use_verbose else ''
 
@@ -285,7 +285,7 @@ class TopologyRenderer(object):
                     nodes.add(tid)
 
                 label = "<%s>" % _break_list_table(
-                    map(self._readable_vector, target['filter'].split(' + '))
+                    map(self._readable_vector, target['filter'].split(' + '), printable=True)
                 ) if self.use_verbose else ''
 
                 self.pgraph.edge(
@@ -455,11 +455,11 @@ class TopologyRenderer(object):
         except:
             hs_list = hs
 
-        res_list = map(self._readable_vector, hs_list.split(' + '))
+        res_list = [self._readable_vector(vec, printable=True) for vec in hs_list.split(' + ')]
 
         res_diff = []
         if hs_diff:
-            res_diff = map(self._readable_vector, hs_diff.split(' + '))
+            res_diff = [self._readable_vector(vec, printable=True) for vec in hs_diff.split(' + ')]
 
         return res_list, res_diff
 
