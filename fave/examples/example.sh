@@ -34,7 +34,10 @@ echo "ip6tables -P INPUT DROP" >> $RS
 echo "ip6tables -P FORWARD DROP" >> $RS
 echo "ip6tables -P OUTPUT DROP" >> $RS
 
-echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $RS
+
+echo "ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $RS
+
+#echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $RS
@@ -46,21 +49,27 @@ echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCE
 
 echo "ip6tables -A INPUT -p tcp --dport 22 -j ACCEPT" >> $RS
 
-echo "ip6tables -A OUTPUT -s 2001:db8::3 -p icmpv6 -j ACCEPT" >> $RS
 
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT" >> $RS
-#echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT" >> $RS
+echo "ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $RS
+
+echo "ip6tables -A OUTPUT -p icmpv6 -j ACCEPT" >> $RS
+
 
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP" >> $RS
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP" >> $RS
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP" >> $RS
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP" >> $RS
 echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP" >> $RS
+
+echo "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $RS
+
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT" >> $RS
+echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT" >> $RS
 
 echo "ip6tables -A FORWARD -d 2001:db8::2 -p tcp --dport 80 -j ACCEPT" >> $RS
 echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
@@ -78,6 +87,8 @@ scripts/start_aggr.sh
 ##
 ## switch $SWITCH
 ## packet filter $FIREWALL
+## firewall generator $FWSOURCE
+## firewall probe $FWPROBE
 ## generator $HOST1
 ## generator $HOST2
 ## probe $PROBE1
@@ -86,6 +97,8 @@ scripts/start_aggr.sh
 
 SWITCH=sw0
 FIREWALL=fw0
+FWSOURCE=fs
+FWPROBE=fp
 HOST1=hs1
 HOST2=hs2
 PROBE1=hp1
@@ -110,12 +123,12 @@ python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.1,$FIREWALL.3:$SWITCH.2
 CNT=0
 
 echo -n "add generators... "
-# generator $HOST1
-python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_dst=2001:db8::1|$HOST2\ipv6_dst=2001:db8::2"
+# generators $HOST1 $HOST2 $FWSOURCE
+python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
 CNT=$(( $? + CNT ))
 
-#links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2,$HOST2.1:$SWITCH.1
+#links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2,$HOST2.1:$SWITCH.1,$FWSOURCE.1:$FIREWALL"_output_filter_in"
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -125,14 +138,21 @@ echo -n "add probes... "
 # PROBE1 $PROBE1
 python2 topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
+# PROBE2 $PROBE2
 python2 topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
+# FIREWALL $FWPROBE
+python2 topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
 python2 topology/topology.py -a -l $FIREWALL.4:$PROBE1.1
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
 python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1
+CNT=$(( $? + CNT ))
+# link: $FW INPUT --> PROBE2
+python2 topology/topology.py -a -l $FIREWALL"_input_filter_accept":$FWPROBE.1
+CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
@@ -148,6 +168,8 @@ echo -n "add switch rules... "
 python2 openflow/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
 python2 openflow/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
+CNT=$(( $? + CNT ))
+python2 openflow/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
 python2 openflow/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.2
@@ -176,7 +198,12 @@ F7='s='$HOST2' && EF p='$PROBE1
 F8='s='$HOST1' && EF p='$PROBE2' && f=related:1'
 F9='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
 
-python2 test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9"
+F10='s='$HOST1' && EF p='$FWPROBE
+F11='s='$HOST2' && EF p='$FWPROBE
+F12='s='$FWSOURCE' && EF p='$PROBE1' && f=related:1'
+F13='s='$FWSOURCE' && EF p='$PROBE2' && f=related:1'
+
+python2 test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
 
 # test openflow
