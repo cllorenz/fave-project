@@ -1,5 +1,5 @@
 describe policies(default: deny)
-    All <--> DMZDNSServer
+    All <->> DMZDNSServer
 
     DMZAdminConsole <->> PGF
     DMZAdminConsole <->> DMZ
