@@ -106,6 +106,23 @@ def set_field_in_vector(mapping, vector, field, value):
     vector[start:stop] = value
 
 
+def intersect_vectors(vec1, vec2):
+    assert len(vec1) == len(vec2)
+
+    res = ''
+
+    for idx in range(len(vec1)):
+        bit1 = vec1[idx]
+        bit2 = vec2[idx]
+        if bit1 == 'x': res += bit2
+        elif bit2 == 'x': res += bit1
+        elif bit1 == bit2: res += bit1
+        else:
+            return None
+
+    return res
+
+
 class Vector(object):
     """ This class stores vectors.
     """
