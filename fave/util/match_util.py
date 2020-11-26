@@ -39,6 +39,8 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'in_port' : 'in_port',
     'out_port' : 'out_port',
     'interface' : 'interface',
+    'state' : 'module.conntrack.ctstate',
+    'ctstate' : 'module.conntrack.ctstate',
     'packet.ether.source' : "packet.ether.source",
     'packet.ether.destination' : "packet.ether.destination",
     'packet.ether.type' : "packet.ether.type",
