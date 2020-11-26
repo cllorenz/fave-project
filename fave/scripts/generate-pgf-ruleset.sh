@@ -92,6 +92,9 @@ echo "ip6tables -P OUTPUT DROP" >> $SCRIPT
 # deny access on the firewall from the internet
 echo "ip6tables -A INPUT -i 1 -j DROP" >> $SCRIPT
 
+# handle established connections
+echo "ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
+
 # handle incoming icmpv6
 #echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
 #echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
@@ -105,8 +108,12 @@ echo "ip6tables -A INPUT -i 1 -j DROP" >> $SCRIPT
 # accept ssh access from internal hosts
 echo "ip6tables -A INPUT -s 2001:db8:abc:1::8 -p tcp --dport 22 -j ACCEPT" >> $SCRIPT
 
+
 # deny internal traffic going towards the internet (prevents leaking)
 echo "ip6tables -A OUTPUT -o 1 -d 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
+
+# handle established connections
+echo "ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
 
 # allow dns for the pgf
 echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p udp --dport 53 -j ACCEPT" >> $SCRIPT
@@ -118,6 +125,15 @@ echo "ip6tables -A FORWARD -i 1 -s 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
 echo "ip6tables -A FORWARD -o 1 -d 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
 
 
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP" >> $SCRIPT
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP" >> $SCRIPT
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP" >> $SCRIPT
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP" >> $SCRIPT
+echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP" >> $SCRIPT
+
+# handle established connections
+echo "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
+
 # handle forwarding of icmpv6
 #echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
 #echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
@@ -126,12 +142,6 @@ echo "ip6tables -A FORWARD -o 1 -d 2001:db8:abc::0/48 -j DROP" >> $SCRIPT
 #echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT" >> $SCRIPT
 #echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT" >> $SCRIPT
 #echo "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT" >> $SCRIPT
-
-echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP" >> $SCRIPT
-echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP" >> $SCRIPT
-echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP" >> $SCRIPT
-echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP" >> $SCRIPT
-echo "ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP" >> $SCRIPT
 
 # allow access to dmz services
 public 2001:db8:abc:1::1 tcp:21 ,tcp:115

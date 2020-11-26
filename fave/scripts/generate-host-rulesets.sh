@@ -119,6 +119,9 @@ for HOST in $DMZ; do
     echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
     echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
 
+    # handle established connections
+    echo "ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
+
     # accept traffic for public services
     for PORT in $PUB; do
         public $A $PORT
@@ -148,6 +151,20 @@ for SUB in $SUBNETS; do
         echo "ip6tables -P FORWARD DROP" >> $SCRIPT
         echo "ip6tables -P OUTPUT DROP" >> $SCRIPT
 
+
+        # handle established connections
+        echo "ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
+
+        # allow access to the dns server
+        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT" >> $SCRIPT
+
+        # deny access to dmz hosts
+        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::0/64 -j DROP" >> $SCRIPT
+
+
+        # handle established connections
+        echo "ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $SCRIPT
+
         # handle incoming icmpv6
         echo "ip6tables -A INPUT -s 2001:db8:abc:$hcnt::100/120 -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $SCRIPT
         echo "ip6tables -A INPUT -s 2001:db8:abc:$hcnt::100/120 -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $SCRIPT
@@ -157,12 +174,6 @@ for SUB in $SUBNETS; do
         echo "ip6tables -A INPUT -s 2001:db8:abc:$hcnt::100/120 -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT" >> $SCRIPT
         echo "ip6tables -A INPUT -s 2001:db8:abc:$hcnt::100/120 -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT" >> $SCRIPT
         echo "ip6tables -A INPUT -s 2001:db8:abc:$hcnt::100/120 -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT" >> $SCRIPT
-
-        # allow access to the dns server
-        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT" >> $SCRIPT
-
-        # deny access to dmz hosts
-        echo "ip6tables -A OUTPUT -d 2001:db8:abc:1::0/64 -j DROP" >> $SCRIPT
 
         # deny access from dmz hosts
         echo "ip6tables -A INPUT -s 2001:db8:abc:1::0/64 -j DROP" >> $SCRIPT
