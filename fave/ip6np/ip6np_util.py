@@ -158,6 +158,13 @@ def _normalize_related(bit):
     return "%sxxxxxxx" % bit
 
 
+def _try_int(val):
+    try:
+        int(val)
+    except ValueError:
+        return False
+    return True
+
 # XXX: refactor and move to own utility module
 def field_value_to_bitvector(field):
     """ Converts field value to its bitvector representation.
@@ -166,13 +173,19 @@ def field_value_to_bitvector(field):
     field -- a header field
     """
 
-    name, size, value = field.unleash()
+    name = field.name
+    size = FIELD_SIZES[name]
+    value = field.value
 
     if isinstance(value, Vector):
         return value
     elif Vector.is_vector(str(value), name=name):
         vec = Vector(length=size)
         vec[:] = value
+        return vec
+    elif _try_int(value):
+        vec = Vector(length=size)
+        vec[:] = ('{0:0%sb}' % size).format(int(value))
         return vec
 
     vector = Vector(length=size)
@@ -221,14 +234,11 @@ def field_value_to_bitvector(field):
     return vector
 
 
-def bitvector_to_field_value(vector, field, ignore_bit='x'):
+def bitvector_to_field_value(vector, field, ignore_bit='x', printable=False):
     assert len(vector) == FIELD_SIZES[field]
 
     if (ignore_bit * FIELD_SIZES[field] == vector):
         return None
-
-    if field == "related":
-        return vector[0] if vector[0] in ["0", "1"] else None
 
     try:
         return {
@@ -241,7 +251,7 @@ def bitvector_to_field_value(vector, field, ignore_bit='x'):
         pass
 
     if all([bit in ['0', '1'] for bit in vector]):
-        if field in ['interface', 'in_port', 'out_port']:
+        if printable and field in ['interface', 'in_port', 'out_port']:
             return hex(int(vector, 2))
         else:
             return str(int(vector, 2))

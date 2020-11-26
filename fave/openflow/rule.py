@@ -28,11 +28,11 @@ import getopt
 import json
 
 try:
-    from ip6np.ip6np_util import field_value_to_bitvector, VectorConstructionError
+    from ip6np.ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
 except ImportError:
-    from ip6np_util import field_value_to_bitvector, VectorConstructionError
+    from ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
 
-from netplumber.vector import Vector, set_field_in_vector
+from netplumber.vector import Vector, set_field_in_vector, intersect_vectors
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.model import Model
 
@@ -94,9 +94,19 @@ class SwitchRuleField(object):
 
 
     def __eq__(self, other):
+        if other == None: return False
         assert isinstance(other, SwitchRuleField)
 
         return self.name == other.name and self.value == other.value and self.negated == other.negated
+
+
+    def intersect(self, other):
+        assert isinstance(other, SwitchRuleField) and self.name == other.name
+
+        v1 = field_value_to_bitvector(self).vector
+        v2 = field_value_to_bitvector(other).vector
+
+        return bitvector_to_field_value(intersect_vectors(v1, v2), self.name)
 
 
 class SwitchRuleAction(object):
@@ -295,6 +305,30 @@ class Match(list):
             if f.name == field:
                 return f
         raise Exception("no such field: %s" % field)
+
+
+    def intersect(self, other):
+        isect = []
+        idx = 0
+
+        match1 = sorted(self, key=lambda f: f.name)
+        match2 = sorted(self, key=lambda f: f.name)
+
+        while idx < len(match1) and idx < len(match2):
+            field1 = match1[idx]
+            field2 = match2[idx]
+            if field1.name == field2.name:
+                isect.append(SwitchRuleField(field1.name, field1.intersect(field2)))
+                idx += 1
+            else:
+                break
+
+        if idx < len(match1):
+            isect.extend(match1[idx:])
+        if idx < len(match2):
+            isect.extend(match2[idx:])
+
+        return Match(isect)
 
 
 class SwitchRule(Model):
