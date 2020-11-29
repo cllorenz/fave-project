@@ -19,60 +19,44 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-function stats {
-    ASPECT=$1
-    DATA=$2
-
-    MEAN=`awk -f $WDIR/bench/mean.awk < $DATA`
-    MEDIAN=`awk -f $WDIR/bench/median.awk < $DATA`
-    MIN=`awk -f $WDIR/bench/min.awk < $DATA`
-    MAX=`awk -f $WDIR/bench/max.awk < $DATA`
-
-    echo "$ASPECT $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
-}
-
 RUNS=10
-RES_PATH=$(pwd)/tum/fffuu6
-rm -rf $(pwd)/tum
-mkdir -p $RES_PATH/raw
+RES_TUM=$(pwd)/results/tum
+RES_UP=$(pwd)/results/up
+rm -rf $(pwd)/results
+mkdir -p $RES_TUM
+mkdir -p $RES_UP
 
-WDIR=fave-code/fave
-TUM_RS=bench/wl_tum/tum-ruleset
+bash scripts/generate-pgf-ruleset.sh bench/wl_tum
 
-RESULTS=$RES_PATH/results.dat
-echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
+FAVE_TUM_RS=bench/wl_tum/rulesets/tum-ruleset
+FAVE_UP_RS=bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset
+FFFUU_TUM_RS=../thy/Iptables_Semantics/Examples/TUM_Net_Firewall/iptables-save-2015-05-15_15-23-41_cheating
+FFFUU6_UP_RS=../thy/Iptables_Semantics/Examples/UP/ip6tables-save-up
 
-TUM_TOTAL=$RES_PATH/raw_runtimes.dat
+#bash scripts/convert-ruleset-to-iptables-save.sh $FAVE_UP_RS $FFFUU_UP_RS
 
-echo -n "" > $TUM_TOTAL
+echo "run fffuu6 on up workload..."
+bash bench/run_fffuu_benchmarks.sh $RES_UP $FFFUU6_UP_RS -6
 
-echo -n "run fffuu6:"
-for i in $(seq 1 $RUNS); do
-    LOG=$RES_PATH/raw/$i.up.log
-    echo -n " $i"
-    cd fffuu/haskell_tool
-    /usr/bin/time -f "%e" -o $i.time \
-        cabal run fffuu6 -- \
-	    --service_matrix_dport 80 \
-	    ../thy/Iptables_Semantics/Examples/UP/ip6tables-save-up > $LOG 2> /dev/null
+echo "evaluate fffuu6 on up workload..."
+bash bench/eval_fffuu_benchmarks.sh $RES_UP -6
 
-    grep "^measure" $LOG | \
-        grep -v "spoofing" | \
-	cut -d ':' -f 2 | \
-	tr -d ' s' | \
-	awk 'BEGIN { sum = 0.0; } { sum += $1; } END { print sum * 1000.0; }' >> $TUM_TOTAL
-     cd ../..
-done
-echo ""
+echo "run fave on up workload..."
+bash bench/run_fave_benchmarks.sh $RES_UP bench/wl_tum/benchmark.py $FAVE_UP_RS -6
 
-echo "run fave"
-cd fave-code/fave
-bash bench/run_benchmarks.sh bench/wl_tum/benchmark.py -4 -r $TUM_RS
-bash bench/eval_benchmarks_tum.sh
-cd ../..
+echo "evaluate fave and np for up workload..."
+bash bench/eval_fave_benchmarks.sh $RES_UP
+bash bench/eval_fave_aggr_benchmarks.sh $RES_UP
 
-mv fave-code/fave/results $RES_PATH/../fave
-stats "fffuu6" $TUM_TOTAL
+echo "run fffuu on tum workload..."
+bash bench/run_fffuu_benchmarks.sh $RES_TUM $FFFUU_TUM_RS
 
-grep -v "Checks" $RES_PATH/../fave/results.dat | tail -n+2 >> $RESULTS
-mv $RESULTS tum/
+echo "evaluate fffuu on tum workload"
+bash bench/eval_fffuu_benchmarks.sh $RES_TUM
+
+echo "run fave on tum workload..."
+bash bench/run_fave_benchmarks.sh $RES_TUM bench/wl_tum/benchmark.py $FAVE_TUM_RS -4
+
+echo "evaluate fave and np on tum workload"
+bash bench/eval_fave_benchmarks.sh $RES_TUM
+bash bench/eval_fave_aggr_benchmarks.sh $RES_TUM

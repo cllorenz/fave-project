@@ -20,40 +20,44 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 function stats {
-  ASPECT=$1
+  TOOL=$1
   DATA=$2
 
-  MEAN=`awk -f $WDIR/bench/mean.awk < $DATA`
-  MEDIAN=`awk -f $WDIR/bench/median.awk < $DATA`
-  MIN=`awk -f $WDIR/bench/min.awk < $DATA`
-  MAX=`awk -f $WDIR/bench/max.awk < $DATA`
+  MEAN=`awk -f bench/mean.awk < $DATA`
+  MEDIAN=`awk -f bench/median.awk < $DATA`
+  MIN=`awk -f bench/min.awk < $DATA`
+  MAX=`awk -f bench/max.awk < $DATA`
 
-  echo "$ASPECT $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
+  echo "$TOOL $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
 }
 
-[ -n "$1" ] && WDIR=$1 || WDIR=$(pwd)
+RDIR=$1
 
 RUNS=10
-FAVE_RAW=results/fave_raw.dat
 
-RESULTS=results/results.dat
-echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
+RESULTS=$RDIR/results_aggr.dat
+[ ! -f $RESULTS ] && echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
 
-FAVE_RAW=results/raw_fave.dat
-echo "" > $FAVE_RAW
+FAVE_RAW=$RDIR/fave_raw.dat
+echo -n "" > $FAVE_RAW
 
 for i in $(seq 1 $RUNS); do
-  grep "seconds" results/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
+  grep "seconds" $RDIR/fave/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
   awk 'BEGIN { result = 0; } { result += $6; } END { print result * 1000.0; }' >> $FAVE_RAW
 done
 
-NP_RAW=results/np_raw.dat
-echo -n "" > $NP_RAW
+NP_RAW_INIT=$RDIR/raw_np_init.dat
+echo -n "" > $NP_RAW_INIT
+NP_RAW_REACH=$RDIR/raw_np_reach.dat
+echo -n "" > $NP_RAW_REACH
 
 for i in $(seq 1 $RUNS); do
-  grep "total" results/$i.raw/$i.np.stdout.log | awk '{ print $4/1000.0; }' >> $NP_RAW
-  grep "seconds" results/$i.raw/$i.np.stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW
+  grep "total" $RDIR/np/$i.raw/stdout.log | awk '{ print $4/1000.0; }' >> $NP_RAW_INIT
+  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW_REACH
 done
+
+NP_RAW=$RDIR/raw_np.dat
+paste $NP_RAW_INIT $NP_RAW_REACH | awk '{ sum = $1 + $2; print sum; }' > $NP_RAW
 
 stats FaVe $FAVE_RAW
 stats NP $NP_RAW

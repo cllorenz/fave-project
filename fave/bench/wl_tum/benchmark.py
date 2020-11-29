@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "vr:4")
+        opts, args = getopt.getopt(sys.argv[1:], "vr:46")
     except getopt.GetoptError as err:
         print err
         sys.exit(1)
@@ -41,6 +41,8 @@ if __name__ == '__main__':
             ruleset = arg
         if opt == '-4':
             ip = 'ipv4'
+        if opt == '-6':
+            ip = 'ipv6'
 
     if verbose: print "Generate benchmark... ",
 

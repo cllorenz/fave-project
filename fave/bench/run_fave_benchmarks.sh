@@ -34,26 +34,27 @@ function check_integrity {
   return 0
 }
 
-BENCH=$1
-[ -n "$3" ] && RULESET="-r $2" || RULESET=""
-[ -n "$2" ] && OPTS=$2 || OPTS=""
+RDIR=$1
+BENCH=$2
+[ -n "$3" ] && RULESET="-r $3" || RULESET=""
+[ -n "$4" ] && OPTS=$4 || OPTS=""
 RUNS=10
 
 LAST_NP=last_np_dump
 mkdir -p $LAST_NP
 rm -rf $LAST_NP/*
-mkdir -p results
+mkdir -p $RDIR/fave
 
 # run FaVe benchmark
 for i in $(seq 1 $RUNS); do
-  RDIR=results/$i.raw
-  mkdir -p $RDIR
-  rm -rf $RDIR/*
+  RAW_DIR=$RDIR/fave/$i.raw
+  rm -rf $RAW_DIR
+  mkdir -p $RAW_DIR
 
   sleep 1
 
-  SOUT=$RDIR/$i.stdout.log
-  SERR=$RDIR/$i.stderr.log
+  SOUT=$RAW_DIR/stdout.log
+  SERR=$RAW_DIR/stderr.log
   echo -n "run benchmark $i: $BENCH... "
   python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
   echo "done"
@@ -66,20 +67,20 @@ for i in $(seq 1 $RUNS); do
   rm -rf $LAST_NP/*
   cp -r np_dump/* $LAST_NP/
 
-  cp -r /tmp/np/ $RDIR/
+  cp -r /tmp/np/ $RAW_DIR
 done
 
 # run NetPlumber benchmark
+echo -n "run netplumber directly for $BENCH ..."
 HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
 for i in $(seq 1 $RUNS); do
-  SOUT=$i.np.stdout.log
-  SERR=$i.np.stderr.log
+  RAW_DIR=$RDIR/np/$i.raw
+  rm -rf $RAW_DIR
+  mkdir -p $RAW_DIR
+  SOUT=$RAW_DIR/stdout.log
+  SERR=$RAW_DIR/stderr.log
 
-  echo -n "run netplumber directly $i: $BENCH... "
+  echo -n " $i"
   net_plumber --hdr-len $HDR_LEN --load np_dump --policy np_dump/policy.json > $SOUT 2> $SERR
-  echo "done"
-
-  RDIR=results/$i.raw
-  mv $SOUT $RDIR/
-  mv $SERR $RDIR/
 done
+echo ""
