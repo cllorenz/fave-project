@@ -37,7 +37,7 @@ LOGGER.setLevel(logging.DEBUG)
 LOGGER.info("read ruleset")
 ruleset = []
 with open(RULESET, 'r') as rsf:
-    ruleset = rsf.read().split('\n')
+    ruleset = rsf.read().splitlines()
 
 LOGGER.info("start run")
 for no_rules in [len(ruleset)]: #range(3, len(ruleset), 10):

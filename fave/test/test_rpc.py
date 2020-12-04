@@ -104,7 +104,7 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
     """
 
     with open(logfile, 'r') as lf:
-        log = iter(lf.read().split('\n'))
+        log = iter(lf.read().splitlines())
         line = log.next()
 
         for probe_id, state in sequence:
@@ -131,7 +131,7 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
 
 def _check_generic_log(logger, logfile="/tmp/np/stdout.log"):
     with open(logfile, 'r') as lf:
-        log = lf.read().split("\n")
+        log = lf.read().splitlines()
         for line in log:
             if re.match(r".*%s" % logger, line) is not None:
                 return True

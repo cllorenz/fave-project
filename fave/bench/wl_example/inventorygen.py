@@ -12,7 +12,7 @@ if __name__ == '__main__':
     }
 
     with open("bench/wl_example/roles_and_services.txt", 'r') as f:
-        lines = f.read().split('\n')
+        lines = f.read().splitlines()
 
         role = None
         for line in lines:

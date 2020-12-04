@@ -147,7 +147,7 @@ if __name__ == '__main__':
         active_ports = set()
 
         cnt = 1
-        for line in tf.read().split('\n'):
+        for line in tf.read().splitlines():
             is_src = is_dst = False
 
             try:

@@ -165,7 +165,7 @@ if __name__ == '__main__':
     }
 
     with open(orig, 'r') as orig:
-        rules = orig.read().split('\n')
+        rules = orig.read().splitlines()
 
         parser = ThrowingArgumentParser(add_help=False)
         parser.add_argument('-A', '--append', nargs=1)

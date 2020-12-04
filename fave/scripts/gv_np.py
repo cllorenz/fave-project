@@ -250,7 +250,7 @@ if __name__ == '__main__':
         }
     )
 
-    TABLE_FILES = os.popen('ls -1 %s/*.tf.json' % FDIR).read().rstrip().split("\n")
+    TABLE_FILES = os.popen('ls -1 %s/*.tf.json' % FDIR).read().rstrip().splitlines()
 
     N_MAP = {}
 

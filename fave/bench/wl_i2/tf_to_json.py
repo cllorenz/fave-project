@@ -4,7 +4,7 @@ import sys
 import json
 
 with open(sys.argv[1], 'r') as f:
-    tf = f.read().split('\n')
+    tf = f.read().splitlines()
 
     tid = int(tf[0].split('$')[2])
     tf = tf[1:]

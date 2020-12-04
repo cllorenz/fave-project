@@ -106,7 +106,7 @@ def _read_fffuu(fffuu):
 
 
 def _read_fffuux(fffuu, IP_BITS, is_ipv4):
-    lines = fffuu.split('\n')
+    lines = fffuu.splitlines()
 
     nets = {}
     matrix = {}

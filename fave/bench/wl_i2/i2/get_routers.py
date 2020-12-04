@@ -44,7 +44,7 @@ with open("bench/wl_i2/i2_tfs/bundles.json", "w") as bf:
 
 rev_port_map = {}
 with open("bench/wl_i2/i2/port_map.txt", "r") as pf:
-    lines = pf.read().split("\n")
+    lines = pf.read().splitlines()
     router_name = ""
     for line in lines:
         if line.startswith("$"):
@@ -57,7 +57,7 @@ with open("bench/wl_i2/i2/port_map.txt", "r") as pf:
 
 topology = []
 with open("bench/wl_i2/i2/backbone_topology.tf", "r") as tf:
-    lines = tf.read().split("\n")
+    lines = tf.read().splitlines()
 
     for line in lines:
         try:

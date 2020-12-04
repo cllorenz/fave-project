@@ -11,7 +11,7 @@ with open(sys.argv[1], 'r') as f:
         'topology' : topo
     }
 
-    tf = f.read().split('\n')
+    tf = f.read().splitlines()
 
     for line in tf:
         try:

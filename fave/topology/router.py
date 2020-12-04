@@ -443,7 +443,7 @@ def parse_cisco_acls(acl_file):
     acls = {}
 
     with open(acl_file, 'r') as aclf:
-        raw = aclf.read().split('\n')
+        raw = aclf.read().splitlines()
 
         for line in raw:
             if not line.startswith("access-list"):
@@ -493,7 +493,7 @@ def parse_cisco_interfaces(interface_file):
     if_to_vlans = {}
 
     with open(interface_file, 'r') as inf:
-        raw = inf.read().split('\n')
+        raw = inf.read().splitlines()
 
         vlan = None
         interface = None
