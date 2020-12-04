@@ -14,7 +14,7 @@ inventory["domains"] = ["%s.ifi" % pre for pre in SUBNETS]
 with open("bench/wl_ifi/cisco_to_inventory.json", "r") as vdf:
 #with open("bench/wl_ifi/vlan_to_dn.json", "r") as vdf:
 #    mapping = json.loads('\n'.join([
-#        line for line in vdf.read().split('\n') if not line.startswith('#')
+#        line for line in vdf.read().splitlines() if not line.startswith('#')
 #    ]))
     mapping = json.load(vdf)
 
