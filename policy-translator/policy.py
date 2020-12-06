@@ -457,7 +457,7 @@ class Role(object):
             objects as values.
     """
 
-    valid_role_attr = ["description", "hosts", "vlan", "ipv4", "ipv6", "gateway"]
+    valid_role_attr = ["description", "hosts", "vlan", "ipv4", "ipv6", "gateway", "gateway4", "gateway6"]
 
     def __init__(self, name, policy, attributes=None, services=None):
         """Initialises a Role object with the given name, policy, attributes and
