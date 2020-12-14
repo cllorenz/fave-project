@@ -81,6 +81,8 @@ def main():
                 PT_LOGGER.debug("create and write html output")
                 html_file.write(policy.to_html())
 
+
+
         if args.generate_csv:
             with open(args.out_file, 'w') as csv_file:
                 PT_LOGGER.debug("create and write csv output")
