@@ -42,6 +42,7 @@ def main():
     parser.add_argument('-s', '--strict', dest='strict', action='store_const', const=True, default=False, help='Use strict mode.')
     parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
     parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
+    parser.add_argument('-fw', '--firewall', dest='generate_iptables', action='store_const', const=True, default=False, help='Generate the iptables file.')
     args = parser.parse_args()
 
     if args.trace:
@@ -93,6 +94,11 @@ def main():
             with open(args.out_file, 'w') as mapping_file:
                 PT_LOGGER.debug("create and write inventory mapping output")
                 mapping_file.write(policy.to_mapping())
+
+        if args.generate_iptables:
+            with open(args.out_file, 'w') as iptables_file:
+                PT_LOGGER.debug("create and write iptables output")
+                iptables_file.write(policy.to_iptables())
 
     except PolicyException, exception:
         print("Fehler: %s" % exception)

@@ -444,6 +444,94 @@ class Policy(object):
         }
         return json.dumps(mapping, indent=2) + '\n'
 
+    def to_iptables(self):
+        """ Creates a list which contains iptable rules for the given Policies
+
+
+        Returns:
+            A String that contains the iptable rules
+        """
+        # Build roles, set needed Variables
+        roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
+        iptable_rules = [""]
+        ip4rule = False
+        ip6rule= False
+
+        # each policies creates iptable rule(s)
+        for policy in self.policies:
+
+            # check if one is Internet
+            eth_from = " -i eth0" if (policy[0]=="Internet") else ""
+            eth_to = " -o eth0" if (policy[1]=="Internet") else ""
+
+            # Check for Vlan
+            if not eth_from:
+                eth_from = (" -i eth1." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes) else ""
+            if not eth_to:
+                eth_to = (" -o eth1." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes) else ""
+
+            # both have ipv4 or one is Internet and the other one has ipv4
+            ip4rule = True if (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
+                               or (policy[0]=="Internet" or policy[1]=="Internet") and
+                               (("ipv4" in self.roles[policy[0]].attributes) or ("ipv4" in self.roles[policy[1]].attributes))) else False
+            # get ipv4 source and destination adress
+            ip4_from =(" -s " + self.roles[policy[0]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[0]].attributes) else ""
+            ip4_to = (" -d " + self.roles[policy[1]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[1]].attributes) else ""
+
+            # both have ipv6 or one is Internet and the other one has ipv6
+            ip6rule = True if (("ipv6" in self.roles[policy[0]].attributes) and ("ipv6" in self.roles[policy[1]].attributes)
+                               or (policy[0]=="Internet" or policy[1]=="Internet") and
+                               (("ipv6" in self.roles[policy[0]].attributes) or ("ipv6" in self.roles[policy[1]].attributes))) else False
+            # get ipv6 source and destination adress
+            ip6_from =(" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
+            ip6_to =(" -d " + self.roles[policy[1]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[1]].attributes) else ""
+
+            # TODO Mehrere Services möglich, also dann auch mehrere Regeln. Ausserdem klären ob services nur bei to_role relevant sind
+            #get service information
+            if(self.roles[policy[1]].offers_services()):
+                services = self.roles[policy[1]].get_services()
+                servi =services[policy[1]]
+                key = list(servi)
+                protocol = servi[key[0]].attributes["protocol"]
+                port = servi[key[0]].attributes["port"]
+                serviceiptable = (" --protocol " + protocol + " --dport " + port)
+            else :
+                serviceiptable = ""
+
+            #TODO vllt raus weil durch best practices eh related/established abgefangen werden? dann müsen aber auch die entsprechenden policies nicht beachtet werden --> weniger regeln
+            #check for Related,Established relations
+            if self.policies[policy].conditions:
+                conditions = " -m state --state RELATED,ESTABLISHED"
+                serviceiptable = ""
+            else:
+                conditions = ""
+
+            # set jumptarget depending on standard policie
+            jumptarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
+
+            # add comment for human readability
+            comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
+
+            #create ip4 rule
+            if ip4rule:
+                rule = "iptables -A FORWARD" + eth_from + serviceiptable + ip4_from + eth_to + ip4_to + conditions + jumptarget + comment
+                iptable_rules.append(rule)
+
+                ip4rule = False
+
+            #create ip6 rule if needed
+            #TODO maybe add option for input/output chain
+            if ip6rule:
+                rule = "ip6tables -A FORWARD" + eth_from + serviceiptable + ip6_from + eth_to + ip6_to + conditions + jumptarget + comment
+                iptable_rules.append(rule)
+                ip6rule = False
+
+            # reset variables for next run
+            eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = jumptarget = serviceiptable = conditions = comment = ""
+            #TODO best practices dazu
+            #TODO Tests schreiben
+        return "\n".join(iptable_rules)
+
 
 class Role(object):
     """Represents a set of hosts that have certain attributes and offer certain
