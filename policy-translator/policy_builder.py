@@ -31,30 +31,30 @@ class PolicyBuilder(object):
     define_pattern = "(def | define | describe)"
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
     value_pattern = "[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
-    comment_pattern = r"[ \t]* \# [ \t]* .* [\n]"
+    comment_pattern = r"[ \t]* \# [ \t]* .* ([\r\n]|\r\n)"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""
-    (\n | %s)*
-    %s [ ] role [ ] (?P<role_name> %s) [\n]+
+    (\s | %s)*
+    %s [ ] role [ ] (?P<role_name> %s) \s+
     (?P<role_content>
-        (((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)
-        | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? [\n]+)
-        | ((\t | [ ]{4}) offers [ ] %s [\n]+))*
+        (((\t | [ ]{4}) %s [ \t]* = [ \t]* %s \s+)
+        | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? \s+)
+        | ((\t | [ ]{4}) offers [ ] %s \s+))*
         | (%s)
     )
-    end [\n]+
+    end \s+
     """ % (
         comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern,
         name_pattern, name_pattern, name_pattern, comment_pattern_nl
     )
     service_pattern = r"""
-    (\n | %s)*
-    %s [ ] service [ ] (?P<service_name> %s) [\n]+
+    (\s | %s)*
+    %s [ ] service [ ] (?P<service_name> %s) \s+
     (?P<service_content>
-        ((\t | [ ]{4}) %s [ \t]* = [ \t]* %s [\n]+)*
+        ((\t | [ ]{4}) %s [ \t]* = [ \t]* %s \s+)*
         | (%s)
     )
-    end [\n]+
+    end \s+
     """ % (comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
 
     role_service_regex = re.compile(
@@ -65,28 +65,28 @@ class PolicyBuilder(object):
     service_regex = re.compile(service_pattern, re.X)
 
     role_attr_regex = re.compile(
-        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value> %s | \*) [\n]+" % (name_pattern, value_pattern),
+        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value> %s | \*) \s+" % (name_pattern, value_pattern),
         re.X
     )
     role_incl_regex = re.compile(
-        r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? [\n]+" % (name_pattern, name_pattern),
+        r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? \s+" % (name_pattern, name_pattern),
         re.X
     )
     role_offers_regex = re.compile(
-        r"(\t | [ ]{4}) offers [ ] (?P<service> %s) [\n]+" % name_pattern,
+        r"(\t | [ ]{4}) offers [ ] (?P<service> %s) \s+" % name_pattern,
         re.X
     )
 
     policies_regex = re.compile(r"""
-    (\n | %s)*
-    %s [ ] (policies|policy) [ \t]* \(default: [ \t]+ (?P<default> allow | deny)\) [\n]+
-        [ \t]* (?P<policies> (%s | (\t)? \n | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? [\n]+)*)
-    end [\n]+
+    (\s | %s)*
+    %s [ ] (policies|policy) [ \t]* \(default: [ \t]+ (?P<default> allow | deny)\) \s+
+        [ \t]* (?P<policies> (%s | (\t)? \s | (\t | [ ]{4}) %s [ \t]* (--->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* %s(.(%s | [*]))? \s+)*)
+    end \s+
     """ % (comment_pattern, define_pattern, comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
 
     policy_regex = re.compile(r"""
-    (\n | %s)*
-    [ \t]* (?P<role_from> %s?) [ \t]* (?P<op> --->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* (?P<role_to>  %s)(.(?P<service_to> (%s | [*])))? [\n]+
+    (\s | %s)*
+    [ \t]* (?P<role_from> %s?) [ \t]* (?P<op> --->|<-->|<->>|--/->|<-/->|-/->>) [ \t]* (?P<role_to>  %s)(.(?P<service_to> (%s | [*])))? \s+
     """ % (comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
 
     @classmethod
@@ -127,7 +127,7 @@ class PolicyBuilder(object):
                 PT_LOGGER.trace(role_service.groupdict())
 
         if len(role_service_match) != 1:
-            PT_LOGGER.debug("error while matching: %s\n[...]", policy_chars.split("\n")[0])
+            PT_LOGGER.debug("error while matching: %s\n[...]", policy_chars.splitlines()[0])
             raise InvalidSyntaxException()
 
         PT_LOGGER.debug("match roles")
