@@ -275,7 +275,7 @@ class Aggregator(AbstractAggregator):
 
                     if cmd.command == "add":
                         Aggregator.LOGGER.debug(
-                            "worker: add link to netplumber from %s to %s", hex(sportno), hex(dportno)
+                            "worker: add link to netplumber from %s:%s to %s:%s", sport, hex(sportno), dport,  hex(dportno)
                         )
                         links.append((sport, dport))
                         self.links.setdefault(sport, [])
