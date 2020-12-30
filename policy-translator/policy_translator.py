@@ -27,6 +27,7 @@ import sys
 import argparse
 import logging
 import csv
+import json
 
 def main():
     """Builds a Policy object out of an inventory and policy file and optionally
@@ -39,6 +40,7 @@ def main():
     parser.add_argument('-i', '--inv', dest='generate_inv', action='store_const', const=True, default=False, help='Generate inventory mapping.')
     parser.add_argument('-o', '--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
     parser.add_argument('-r', '--report', dest='report_csv', default=None, help='Read report input from a csv file.')
+    parser.add_argument('--roles', dest='roles_json', default=None, help='Dump roles as json file.')
     parser.add_argument('-s', '--strict', dest='strict', action='store_const', const=True, default=False, help='Use strict mode.')
     parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
     parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
@@ -89,6 +91,11 @@ def main():
                 PT_LOGGER.debug("create and write csv output")
 #                csv_file.write(policy.vlans_to_csv())
                 csv_file.write(policy.roles_to_csv())
+
+        if args.roles_json:
+            with open(args.roles_json, 'w') as json_file:
+                PT_LOGGER.debug("dump roles as json")
+                json.dump(policy.roles_to_json(), json_file)
 
         if args.generate_inv:
             with open(args.out_file, 'w') as mapping_file:

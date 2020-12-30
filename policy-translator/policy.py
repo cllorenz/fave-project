@@ -552,6 +552,12 @@ class Policy(object):
         return "\n".join(iptable_rules)
 
 
+    def roles_to_json(self):
+        """ Dumps atomic roles as json.
+        """
+        return [self.roles[r].to_json() for r in self.get_atomic_roles()]
+
+
 class Role(object):
     """Represents a set of hosts that have certain attributes and offer certain
     services.
@@ -668,6 +674,17 @@ class Role(object):
         """
 
         return name in self.services
+
+
+    def to_json(self):
+        """ Dumps the role to json.
+        """
+        return {
+            'name' : self.name,
+            'attributes' : self.attributes,
+            'services' : [self.policy.services[s].to_json() for s in self.services]
+        }
+
 
 class Superrole(Role):
     """Contains a set of roles. May contain all services of a role or only a
@@ -878,6 +895,15 @@ class Service(object):
                 raise InvalidValueException(key, value)
         else:
             raise InvalidAttributeException(key)
+
+    def to_json(self):
+        """ Dump service as json.
+        """
+        return {
+            'name' : self.name,
+            'attributes' : self.attributes
+        }
+
 
 class ReachabilityPolicy(object):
     """Represents a reachability policy from one role to another that differs
