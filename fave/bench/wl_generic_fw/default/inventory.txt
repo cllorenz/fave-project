@@ -1,0 +1,27 @@
+describe service HTTP
+    protocol = 'tcp'
+    port = 80
+end
+
+describe service SSH
+    protocol = 'tcp'
+    port = 22
+end
+
+describe role Office
+    description = 'Hosts of the office network.'
+    hosts = [ 'office.generic' ]
+end
+
+describe role WebServer
+    description = 'Public web servers.'
+    hosts = [ 'www.generic' ]
+    offers HTTP
+    offers SSH
+end
+
+describe role AllClients
+    description = 'Internal and external clients.'
+    includes Internet
+    includes Office
+end

@@ -21,6 +21,9 @@ bench/example/*.json
 
 bench/wl_tum/*.json
 
+bench/wl_generic_fw/*.json
+bench/wl_generic_fw/*.csv
+
 *.pdf
 out
 *.svg
