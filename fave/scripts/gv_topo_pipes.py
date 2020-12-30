@@ -169,7 +169,10 @@ class TopologyRenderer(object):
 
         row_influences = build_row(
             'influences', _break_list_table(
-                map(self._readable_vector, rule['influences'].split(' + '), printable=True)
+                map(
+                    lambda inf: self._readable_vector(inf, printable=True),
+                    rule['influences'].split(' + ')
+                )
             )
         ) if 'influences' in rule and self.use_verbose else ''
 
@@ -285,7 +288,10 @@ class TopologyRenderer(object):
                     nodes.add(tid)
 
                 label = "<%s>" % _break_list_table(
-                    map(self._readable_vector, target['filter'].split(' + '), printable=True)
+                    map(
+                        lambda fil: self._readable_vector(fil, printable=True),
+                        target['filter'].split(' + ')
+                    )
                 ) if self.use_verbose else ''
 
                 self.pgraph.edge(
