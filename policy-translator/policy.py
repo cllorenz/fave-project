@@ -456,18 +456,30 @@ class Policy(object):
         ip4rule = False
         ip6rule = False
 
-        # create iptable rule(s) for every Policy
+        #defaultrules rules and best practices
+
+        defaultruletarget = " -j ACCEPT" if (self.default_policy == True)  else "-j DROP"
+        defaultrules = "iptables -P FORWARD" + defaultruletarget
+        iptable_rules.append(defaultrules)
+        defaultrules = "ip6tables -P FORWARD" + defaultruletarget
+        iptable_rules.append(defaultrules)
+        defaultruletarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
+        defaultrules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED" +defaultruletarget
+        iptable_rules.append(defaultrules)
+
+
+    # create iptable rule(s) for every Policy
         for policy in self.policies:
 
             # check if one is Internet
-            eth_from = " -i eth0" if (policy[0]=="Internet") else ""
-            eth_to = " -o eth0" if (policy[1]=="Internet") else ""
+            eth_from = " -i eth1" if (policy[0]=="Internet") else ""
+            eth_to = " -o eth1" if (policy[1]=="Internet") else ""
 
             # Check for Vlan, don't set if none given or has already been set for Internet
             if not eth_from:
-                eth_from = (" -i eth1." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes) else ""
+                eth_from = (" -i eth2." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes) else ""
             if not eth_to:
-                eth_to = (" -o eth1." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes) else ""
+                eth_to = (" -o eth2." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes) else ""
 
             # Only create ip4table rules if both have ipv4 or one is Internet and the other one has ipv4
             ip4rule = True if (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
@@ -514,12 +526,12 @@ class Policy(object):
                 if protocol:
                     for i in range(len(protocol)):
                         serviceinfo = " --protocol " + protocol[i] + " --dport " + port[i]
-                        rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + jumptarget + comment
+                        rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
                         iptable_rules.append(rule)
 
                 # otherwise only one rule without serviceinfos
                 else :
-                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + jumptarget + comment
+                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + comment + jumptarget
                     iptable_rules.append(rule)
 
 
@@ -533,12 +545,12 @@ class Policy(object):
                 if protocol:
                     for i in range(len(protocol)):
                         serviceinfo = " --protocol " + protocol[i] + " --dport " + port[i]
-                        rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + jumptarget + comment
+                        rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
                         iptable_rules.append(rule)
 
                 # otherwise only one rule without serviceinfos
                 else :
-                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + jumptarget + comment
+                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + comment + jumptarget
                     iptable_rules.append(rule)
 
                 ip6rule = False
