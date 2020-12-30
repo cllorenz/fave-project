@@ -56,7 +56,12 @@ class LinksModel(object):
     def to_json(self):
         """ Converts the model to JSON.
         """
-        return {"type" : self.type, "links" : {p1:p2 for p1, p2 in self.links}}
+        links = {}
+        for src, dst in self.links:
+            links.setdefault(src, [])
+            links[src].append(dst)
+
+        return {"type" : self.type, "links" : links}
 
 
     @staticmethod
@@ -70,9 +75,11 @@ class LinksModel(object):
         if isinstance(j, str):
             j = json.loads(j)
 
-        return LinksModel(
-            [(p, j["links"][p]) for p in j["links"]]
-        )
+        links = []
+        for src, dst in j["links"].iteritems():
+            links.extend([(src, d) for d in dst])
+
+        return LinksModel(links)
 
 
     def __iter__(self):

@@ -278,14 +278,17 @@ class Aggregator(AbstractAggregator):
                             "worker: add link to netplumber from %s to %s", hex(sportno), hex(dportno)
                         )
                         links.append((sport, dport))
-                        self.links[sport] = dport
-                        self.net_plumber.links[sportno] = dportno
+                        self.links.setdefault(sport, [])
+                        self.links[sport].append(dport)
+                        self.net_plumber.links.setdefault(sportno, [])
+                        self.net_plumber.links[sportno].append(dportno)
                     elif cmd.command == "del":
                         Aggregator.LOGGER.debug(
                             "worker: remove link from netplumber from %s to %s", sport, dport
                         )
                         self.net_plumber.remove_link(self.net_plumber.sock, sportno, dportno)
-                        del self.links[sport]
+                        self.links[sport].remove(dport)
+                        if not self.links[sport]: del self.links[sport]
 
                 self.net_plumber.add_links_bulk(links)
 
@@ -434,6 +437,8 @@ class Aggregator(AbstractAggregator):
             }
             j["id_to_probe"] = {self.net_plumber.probes[k][1]:k for k in self.net_plumber.probes}
             j["id_to_port"] = {self.net_plumber.ports[k]:k for k in self.net_plumber.ports}
+
+            j["links"] = [(src, dst) for src, dst in self.links.iteritems()]
 
             ofile.write(
                 json.dumps(j, sort_keys=True, indent=4, separators=(',', ': '))

@@ -78,7 +78,8 @@ class NetPlumberAdapter(object):
 
     def remove_link(self, sport, dport):
         jsonrpc.remove_link(self.net_plumber.sock, sport, dport)
-        del self.links[sport]
+        self.links[sport].remove(dport)
+        if not self.links[sport]: del self.links[sport]
 
 
     def extend_mapping(self, mapping):
@@ -261,7 +262,8 @@ class NetPlumberAdapter(object):
                 )
                 jsonrpc.add_link(self.sock, gport1, gport2)
 
-                self.links[gport1] = gport2
+                self.links.setdefault(gport1, [])
+                self.links[gport1].append(gport2)
 
 
     def _add_pre_routing_rules(self, model):
@@ -698,18 +700,17 @@ class NetPlumberAdapter(object):
 
         # delete links
         port1 = self.global_port(node+'.1')
-        port2 = self.links[port1]
-        self.logger.debug(
-            "worker: remove link from %s to %s from netplumber", port1, port2
-        )
-        jsonrpc.remove_link(self.sock, port1, port2)
-        self.logger.debug(
-            "worker: remove link from %s to %s from netplumber", port2, port1
-        )
-        jsonrpc.remove_link(self.sock, port2, port1)
+        ports = self.links[port1]
+        for port2 in ports:
+            self.logger.debug(
+                "worker: remove link from %s to %s from netplumber", port1, port2
+            )
+            jsonrpc.remove_link(self.sock, port1, port2)
 
-        del self.links[port1]
-        del self.links[port2]
+            self.links[port1].remove(port2)
+
+        if not self.links[port1]: del self.links[port1]
+
 
         # delete source and probe
         self.logger.debug(
@@ -839,20 +840,18 @@ class NetPlumberAdapter(object):
         only_sid = lambda x: x[1]
         sid = only_sid(self.probes[node])
 
-        # delete links
-        port1 = self.global_port(node+'.1')
-        port2 = self.links[port1]
-        self.logger.debug(
-            "worker: remove link from %s to %s from netplumber", port1, port2
-        )
-        jsonrpc.remove_link(self.sock, port1, port2)
-        self.logger.debug(
-            "worker: remove link from %s to %s from netplumber", port2, port1
-        )
-        jsonrpc.remove_link(self.sock, port2, port1)
+        # find links towards probe
+        port2 = self.global_port(node+'.1')
+        sports = [sport for sport in self.links if port1 in self.ports[sport]]
 
-        del self.links[port1]
-        del self.links[port2]
+        for port1 in sports:
+            self.logger.debug(
+                "worker: remove link from %s to %s from netplumber", port1, port2
+            )
+            jsonrpc.remove_link(self.sock, port1, port2)
+
+            self.links[port1].remove(port2)
+            if not self.links[port1]: del self.links[port1]
 
         # delete source and probe
         self.logger.debug(
