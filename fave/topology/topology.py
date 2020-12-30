@@ -323,7 +323,7 @@ def main(argv):
             for generator in arg.split('|'):
                 name, fields = generator.split('\\')
                 generator_fields = {}
-                for field in fields.split(';'):
+                for field in [f for f in fields.split(';') if f]:
                     key, body = field.split('=')
                     values = body.split(',')
                     generator_fields[key] = [SwitchRuleField(key, v) for v in values]
