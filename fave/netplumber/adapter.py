@@ -863,5 +863,9 @@ class NetPlumberAdapter(object):
 
 
     def global_port(self, port):
-        return self.ports[normalize_port(port)]
-
+        try:
+            return self.ports[normalize_port(port)]
+        except KeyError:
+            import pprint
+            pprint.pprint(self.ports, indent=2)
+            raise
