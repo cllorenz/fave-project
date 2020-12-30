@@ -41,7 +41,7 @@ class IP6TablesParser(BisonParser):
         'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG',
         'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG',
         'DST_SHORT', 'DST_LONG', 'PORTNO', 'PORTRANGE', 'IPV6_CIDR', 'IPV4_CIDR', 'IDENT', 'WORD',
-        'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS'
+        'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS', 'SENTENCE'
     ]
 
     _ast = None
@@ -401,6 +401,7 @@ class IP6TablesParser(BisonParser):
         """
         module_body : ARG_SHORT WS FLAGS WS FLAGS
                     | ARG_LONG WS FLAGS WS FLAGS
+                    | ARG_SHORT WS SENTENCE
                     | ARG_SHORT WS WORD
                     | ARG_SHORT WS IDENT
                     | ARG_SHORT WS PORTNO
@@ -408,6 +409,7 @@ class IP6TablesParser(BisonParser):
                     | ARG_SHORT WS IPV4_CIDR
                     | ARG_SHORT WS STATES
                     | ARG_SHORT WS PORTRANGE
+                    | ARG_LONG WS SENTENCE
                     | ARG_LONG WS WORD
                     | ARG_LONG WS IDENT
                     | ARG_LONG WS PORTNO
@@ -531,6 +533,7 @@ class IP6TablesParser(BisonParser):
     """ + _flags + r"""     { returntoken(FLAGS); }
     """ + _states + r"""    { returntoken(STATES); }
     [[:alpha:]][[:alnum:]_\-\.]*  { returntoken(IDENT); }
+    \"[[:print:]]*\"        { returntoken(SENTENCE); }
     [[:alnum:]_\-/]+        { returntoken(WORD); }
     [ \t]+                  { returntoken(WS); }
     "#"[[:print:]]*         { returntoken(COMMENT); }
