@@ -71,6 +71,7 @@ _TAGS = {
     #"tcp-option" : "packet.upper.tcp.option", # number
     #"tos" : "packet.ipv6.priority", # value[/mask]
     "m" : "module",
+    "module" : "module",
     "limit" : "module.limit",
     "header" : "module.ipv6header.header",
     "rt" : "module.rt",
@@ -108,6 +109,7 @@ def _ast_to_rule(node, ast, idx=0):
     tag = lambda k: _TAGS[strip_ap(k)]
 
     is_field = lambda f: _TAGS.has_key(strip_ap(f.value))
+    is_ignored = lambda f: strip_ap(f.value) in ['m', 'module', 'comment']
     is_negated = lambda f: f.is_negated()
 
     value = lambda f: f.get_first().value if f.get_first() is not None else ""
@@ -152,7 +154,7 @@ def _ast_to_rule(node, ast, idx=0):
                 tmp.value = "d4"
 
     body = [
-        SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f)
+        SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f) and not is_ignored(f)
     ]
 
     action = _get_action_from_ast(ast)
