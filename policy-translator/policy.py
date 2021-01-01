@@ -459,13 +459,15 @@ class Policy(object):
         #defaultrules rules and best practices
 
         defaultruletarget = " -j ACCEPT" if (self.default_policy == True)  else "-j DROP"
-        defaultrules = "iptables -P FORWARD" + defaultruletarget
-        iptable_rules.append(defaultrules)
-        defaultrules = "ip6tables -P FORWARD" + defaultruletarget
-        iptable_rules.append(defaultrules)
-        defaultruletarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
-        defaultrules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED" +defaultruletarget
-        iptable_rules.append(defaultrules)
+        default4rule = "iptables -P FORWARD" + defaultruletarget
+        iptable_rules.append(default4rule)
+        default6rule = "ip6tables -P FORWARD" + defaultruletarget
+        iptable_rules.append(default6rule)
+
+        # set jumptarget depending on standard policy
+        jumptarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
+        bprules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED" + jumptarget
+        iptable_rules.append(bprules)
 
 
     # create iptable rule(s) for every Policy
@@ -481,8 +483,11 @@ class Policy(object):
             if not eth_to:
                 eth_to = (" -o eth2." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes) else ""
 
-            # Only create ip4table rules if both have ipv4 or one is Internet and the other one has ipv4
-            ip4rule = True if (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
+            #test if this policy is relatedrule
+            relatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions) else False
+
+            # Only create ip4table rules if not relatedrule, both have ipv4 or one is Internet and the other one has ipv4
+            ip4rule = True if (not relatedrule) and (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
                                or (policy[0]=="Internet" or policy[1]=="Internet") and
                                (("ipv4" in self.roles[policy[0]].attributes) or ("ipv4" in self.roles[policy[1]].attributes))) else False
 
@@ -490,8 +495,8 @@ class Policy(object):
             ip4_from = (" -s " + self.roles[policy[0]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[0]].attributes) else ""
             ip4_to = (" -d " + self.roles[policy[1]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[1]].attributes) else ""
 
-            # Only create ip6table rules if both have ipv6 or one is Internet and the other one has ipv6
-            ip6rule = True if (("ipv6" in self.roles[policy[0]].attributes) and ("ipv6" in self.roles[policy[1]].attributes)
+            # Only create ip6table rules if not relatedrule and both have ipv6 or one is Internet and the other one has ipv6
+            ip6rule = True if (not relatedrule) and (("ipv6" in self.roles[policy[0]].attributes) and ("ipv6" in self.roles[policy[1]].attributes)
                                or (policy[0]=="Internet" or policy[1]=="Internet") and
                                (("ipv6" in self.roles[policy[0]].attributes) or ("ipv6" in self.roles[policy[1]].attributes))) else False
 
@@ -499,7 +504,6 @@ class Policy(object):
             ip6_from = (" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
             ip6_to = (" -d " + self.roles[policy[1]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[1]].attributes) else ""
 
-            # TODO klären ob services nur bei to_role relevant sind
             # get service information
             protocol = []
             port = []
@@ -513,8 +517,7 @@ class Policy(object):
             else :
                 serviceinfo = ""
 
-            # set jumptarget depending on standard policy
-            jumptarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
+
 
             # add comment for human readability
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
@@ -538,7 +541,7 @@ class Policy(object):
                 ip4rule = False
 
             #create ip6 rule if needed
-            #TODO maybe add option for input/output chain multiple services
+            #TODO maybe add option for input/output chain
             if ip6rule:
 
                 # if protocol is set multiple rules possible
@@ -557,9 +560,9 @@ class Policy(object):
 
             # reset variables for next run
 
-            eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = jumptarget = serviceinfo = comment = ""
+            eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = serviceinfo = comment = ""
 
-            #TODO best practices dazu
+            #TODO best practices icmp und anti spoofing dazu
             #TODO Tests schreiben
         return "\n".join(iptable_rules)
 

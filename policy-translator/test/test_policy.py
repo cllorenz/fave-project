@@ -154,6 +154,29 @@ class TestPolicy(unittest.TestCase):
         self.policy.set_default_policy("deny")
         self.assertFalse(self.policy.default_policy)
 
+    def test_to_iptables(self):
+        """ Testing simple policy to generate iptable rule
+        """
+        self.policy.set_default_policy("deny")
+        self.policy.add_role("Internal")
+        self.policy.add_role("External")
+        self.policy.add_reachability_policy("Internal", "External")
+    #    self.policy.roles["Internal"].add_attribute('ipv4', '1.2.3.4')
+    #    self.policy.roles["External"].add_attribute('ipv4', '4.3.2.1')
+        res = self.policy.to_iptables()
+        exp=[]
+        rule = "iptables -P FORWARD-j DROP"
+        exp.append(rule)
+        rule = "ip6tables -P FORWARD-j DROP"
+        exp.append(rule)
+        rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+        exp.append(rule)
+   #     rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1  -m comment --comment \"Internal to External\" -j ACCEPT"
+   #     exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        print ("--------------SSS------")
+        print (x)
+        self.assertEqual(res, x)
 
 class TestRole(unittest.TestCase):
 
