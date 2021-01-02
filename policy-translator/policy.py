@@ -458,14 +458,14 @@ class Policy(object):
 
         #defaultrules rules and best practices
 
-        defaultruletarget = " -j ACCEPT" if (self.default_policy == True)  else "-j DROP"
+        defaultruletarget = " -j ACCEPT" if (self.default_policy == True)  else " -j DROP"
         default4rule = "iptables -P FORWARD" + defaultruletarget
         iptable_rules.append(default4rule)
         default6rule = "ip6tables -P FORWARD" + defaultruletarget
         iptable_rules.append(default6rule)
 
-        # set jumptarget depending on standard policy
-        jumptarget = " -j ACCEPT" if (self.default_policy == False)  else "-j DROP"
+        # set jumptarget depending on standard policy todo bp6rules?
+        jumptarget = " -j ACCEPT" if (self.default_policy == False)  else " -j DROP"
         bprules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED" + jumptarget
         iptable_rules.append(bprules)
 

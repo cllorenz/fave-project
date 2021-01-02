@@ -155,28 +155,100 @@ class TestPolicy(unittest.TestCase):
         self.assertFalse(self.policy.default_policy)
 
     def test_to_iptables(self):
-        """ Testing simple policy to generate iptable rule
+        """ Testing simple policies to verify to_tables running as expected
         """
+
+        #testing default ruleset for allow
+        self.policy.set_default_policy("allow")
+
+        exp=[]
+        rule = "iptables -P FORWARD -j ACCEPT"
+        exp.append(rule)
+        rule = "ip6tables -P FORWARD -j ACCEPT"
+        exp.append(rule)
+        rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j DROP"
+        exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        res = self.policy.to_iptables()
+        self.assertEqual(res, x)
+
+        #Setup roles
         self.policy.set_default_policy("deny")
         self.policy.add_role("Internal")
         self.policy.add_role("External")
-        self.policy.add_reachability_policy("Internal", "External")
-    #    self.policy.roles["Internal"].add_attribute('ipv4', '1.2.3.4')
-    #    self.policy.roles["External"].add_attribute('ipv4', '4.3.2.1')
-        res = self.policy.to_iptables()
+        self.policy.roles["Internal"].add_attribute('ipv4', '"1.2.3.4"')
+        self.policy.roles["External"].add_attribute('ipv4', '"4.3.2.1"')
+
+        #set defaultrules
         exp=[]
-        rule = "iptables -P FORWARD-j DROP"
+        rule = "iptables -P FORWARD -j DROP"
         exp.append(rule)
-        rule = "ip6tables -P FORWARD-j DROP"
+        rule = "ip6tables -P FORWARD -j DROP"
         exp.append(rule)
         rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         exp.append(rule)
-   #     rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1  -m comment --comment \"Internal to External\" -j ACCEPT"
-   #     exp.append(rule)
+        defaultrules =list(exp)
+
+        # Test Internet
+        self.policy.add_reachability_policy("Internet", "Internal")
+        rule = "iptables -A FORWARD -i eth1 -d 1.2.3.4 -m comment --comment \"Internet to Internal\" -j ACCEPT"
+
+        exp.append(rule)
         x = "\n".join(str(e) for e in exp)
-        print ("--------------SSS------")
-        print (x)
+        res = self.policy.to_iptables()
         self.assertEqual(res, x)
+
+        #dropping policy for further testing
+        del self.policy.policies[('Internet','Internal')]
+
+        # simple policy test
+        self.policy.add_reachability_policy("Internal", "External")
+        rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j ACCEPT"
+        exp = list(defaultrules)
+
+        exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        res = self.policy.to_iptables()
+        self.assertEqual(res, x)
+
+        # Vlan test
+        self.policy.roles["Internal"].add_attribute('vlan', '"1"')
+        self.policy.roles["External"].add_attribute('vlan', '"2"')
+        exp = list(defaultrules)
+        rule = "iptables -A FORWARD -i eth2.1 -s 1.2.3.4 -o eth2.2 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j ACCEPT"
+
+        exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        res = self.policy.to_iptables()
+        self.assertEqual(res, x)
+
+        # Service test
+        self.policy.add_service("HTTP")
+        self.policy.services["HTTP"].add_attribute('port', '"80"')
+        self.policy.services["HTTP"].add_attribute('protocol', '"tcp"')
+        self.policy.roles["External"].add_service("HTTP")
+
+        exp = list(defaultrules)
+        rule = "iptables -A FORWARD -i eth2.1 --protocol tcp --dport 80 -s 1.2.3.4 -o eth2.2 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j ACCEPT"
+
+        exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        res = self.policy.to_iptables()
+        self.assertEqual(res, x)
+
+        # Multiple Services
+        self.policy.add_service("HTTPS")
+        self.policy.services["HTTPS"].add_attribute('port', '"443"')
+        self.policy.services["HTTPS"].add_attribute('protocol', '"tcp"')
+        self.policy.roles["External"].add_service("HTTPS")
+        rule = "iptables -A FORWARD -i eth2.1 --protocol tcp --dport 443 -s 1.2.3.4 -o eth2.2 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j ACCEPT"
+
+        exp.append(rule)
+        x = "\n".join(str(e) for e in exp)
+        res = self.policy.to_iptables()
+        self.assertEqual(res, x)
+
+
 
 class TestRole(unittest.TestCase):
 
