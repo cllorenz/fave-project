@@ -37,7 +37,6 @@ echo "ip6tables -P OUTPUT DROP" >> $RS
 
 echo "ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT" >> $RS
 
-#echo "ip6tables -A INPUT -p icmpv6 -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT" >> $RS
 echo "ip6tables -A INPUT -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT" >> $RS
@@ -115,10 +114,10 @@ echo -n "read topology... "
 python2 topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p 2
+python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p eth0,eth1
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
-python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.1,$FIREWALL.3:$SWITCH.2
+python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0,$FIREWALL.eth0:$SWITCH.2
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
@@ -128,7 +127,7 @@ python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$H
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.2,$HOST2.1:$SWITCH.1,$FWSOURCE.1:$FIREWALL"_output_filter_in"
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1,$HOST2.1:$SWITCH.1,$FWSOURCE.1:$FIREWALL".output_filter_in"
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -145,20 +144,20 @@ CNT=$(( $? + CNT ))
 python2 topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
-python2 topology/topology.py -a -l $FIREWALL.4:$PROBE1.1
+python2 topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
 python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1
 CNT=$(( $? + CNT ))
 # link: $FW INPUT --> PROBE2
-python2 topology/topology.py -a -l $FIREWALL"_input_filter_accept":$FWPROBE.1
+python2 topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1
 CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test firewall
 echo -n "add firewall rules... "
-python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f $RS
+python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p eth0,eth1 -f $RS
 #python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f rulesets/simple_ruleset.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
@@ -172,27 +171,27 @@ CNT=$(( $? + CNT ))
 python2 openflow/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python2 openflow/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.2
+python2 openflow/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
 CNT=$(( $? + CNT ))
 
-python2 openflow/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.1
+python2 openflow/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 python2 netplumber/dump_np.py -anpft
 
-python2 netplumber/print_np.py -utn
+#python2 netplumber/print_np.py -utn
 
 # test flow propagation
 echo -n "check flow propagation... "
 
-F1='s='$HOST1' && EX t='$FIREWALL'_pre_routing && (EX t='$FIREWALL'_forward_filter)'
-F2='s='$HOST1' && EX t='$FIREWALL'_pre_routing && EF t='$SWITCH'_1 && EX p='$PROBE2
+F1='s='$HOST1' && EX t='$FIREWALL'.pre_routing && (EX t='$FIREWALL'.forward_filter)'
+F2='s='$HOST1' && EX t='$FIREWALL'.pre_routing && EF t='$SWITCH'_1 && EX p='$PROBE2
 F3='! s='$HOST1' && EF p='$PROBE1
 
 F4='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EF p='$PROBE1
 F5='! s='$HOST2' && EF p='$PROBE2
-F6='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'_forward_filter'
+F6='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIREWALL'.forward_filter'
 
 F7='s='$HOST2' && EF p='$PROBE1
 F8='s='$HOST1' && EF p='$PROBE2' && f=related:1'
