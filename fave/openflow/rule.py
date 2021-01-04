@@ -308,25 +308,35 @@ class Match(list):
 
 
     def intersect(self, other):
+        if len(self) == 0:
+            return Match(other)
+        elif len(other) == 0:
+            return Match(self)
+
         isect = []
-        idx = 0
+        idx1 = idx2 = 0
 
         match1 = sorted(self, key=lambda f: f.name)
         match2 = sorted(self, key=lambda f: f.name)
 
-        while idx < len(match1) and idx < len(match2):
-            field1 = match1[idx]
-            field2 = match2[idx]
+        while match1[idx1].name != match2[idx2].name and idx1 < len(match1):
+            isect.append(match1[idx1])
+            idx1 += 1
+
+        while idx1 < len(match1) and idx2 < len(match2):
+            field1 = match1[idx1]
+            field2 = match2[idx2]
             if field1.name == field2.name:
                 isect.append(SwitchRuleField(field1.name, field1.intersect(field2)))
-                idx += 1
+                idx1 += 1
+                idx2 += 1
             else:
                 break
 
-        if idx < len(match1):
-            isect.extend(match1[idx:])
-        if idx < len(match2):
-            isect.extend(match2[idx:])
+        if idx1 < len(match1):
+            isect.extend(match1[idx1:])
+        if idx2 < len(match2):
+            isect.extend(match2[idx2:])
 
         return Match(isect)
 
