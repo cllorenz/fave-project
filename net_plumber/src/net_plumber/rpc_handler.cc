@@ -283,6 +283,7 @@ PROTO(add_rule)
   List_t out = val_to_list(PARAM(out));
   T2 *match = val_to_array<T2>(PARAM(match));
   // TODO: fix error handling properly
+  if (match->is_empty()) { delete match; match = nullptr; }
   if (!match) match = new T2(length, BIT_X);
   T2 *mask = val_to_array<T2>(PARAM(mask));
   T2 *rw = val_to_array<T2>(PARAM(rw));
