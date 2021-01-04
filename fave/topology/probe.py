@@ -48,7 +48,7 @@ class ProbeModel(object):
     def __init__(self, node, quantor, filter_fields=None, filter_path=None, test_fields=None, test_path=None):
         self.node = node
         self.type = "probe"
-        self.ports = {node+'_1' : 1}
+        self.ports = {node+'.1' : 1}
         self.quantor = quantor
 
         self.filter_fields = ProbeModel._normalize_fields(filter_fields)
@@ -104,3 +104,30 @@ class ProbeModel(object):
         )
 
         return model
+
+
+    def port_index(self, port):
+        """ Returns an unambigious index of a port of the model.
+
+        Keyword arguments:
+        port -- The port's name
+        """
+        return self.ports[port]
+
+
+    def ingress_port(self, port):
+        """ Returns the model's corresponding ingress port.
+
+        Keyword arguments:
+        port -- the outer model's port identifier
+        """
+        return port
+
+
+    def egress_port(self, port):
+        """ Returns the model's corresponding egress port.
+
+        Keyword arguments:
+        port -- the outer model's port identifier
+        """
+        return port
