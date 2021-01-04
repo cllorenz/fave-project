@@ -96,10 +96,17 @@ void SourceNode<T1, T2>::process_src_flow(Flow<T1, T2>* /*f*/) {
 
 template<class T1, class T2>
 void SourceNode<T1, T2>::enlarge(uint32_t length) {
+    if (this->logger->isTraceEnabled()) {
+      stringstream enl;
+      enl << "SourceNode::enlarge(): id 0x" << std::hex << this->node_id;
+      enl << " enlarge from " << std::dec << this->length << " to " << length;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
 	if (length <= this->length) {
 		return;
 	}
 	Node<T1, T2>::enlarge(length);
+    LOG4CXX_TRACE(this->logger, "SourceNode::enlarge(): set length\n");
 	this->length = length;
 }
 

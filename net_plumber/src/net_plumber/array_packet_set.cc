@@ -19,7 +19,11 @@
 #include "array_packet_set.h"
 #include "rpc_handler.h"
 
+using namespace log4cxx;
+
 namespace net_plumber {
+
+LoggerPtr ArrayPacketSet::logger(Logger::getLogger("NetPlumber"));
 
 ArrayPacketSet::ArrayPacketSet(array_t *array, const size_t length) : array(array), length(length) {
     /* empty */
@@ -88,6 +92,12 @@ ArrayPacketSet::ArrayPacketSet(const ArrayPacketSet& aps) { // copy constructor
 
 void
 ArrayPacketSet::_generic_enlarge(size_t len, enum bit_val val) {
+    if (this->logger->isTraceEnabled()) {
+      std::stringstream enl;
+      enl << "ArrayPacketSet::enlarge():";
+      enl << " enlarge from " << this->length << " to " << len;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
     if (this->length < len) {
         const size_t olen = this->length;
         this->length = len;

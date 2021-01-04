@@ -21,6 +21,8 @@
 
 #include "../jsoncpp/json/json.h"
 //#include "mask.h"
+#include <sstream>
+#include "log4cxx/logger.h"
 
 namespace net_plumber {
 

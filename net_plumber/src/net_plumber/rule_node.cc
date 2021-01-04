@@ -602,19 +602,29 @@ int RuleNode<T1, T2>::count_influences() {
 
 template<class T1, class T2>
 void RuleNode<T1, T2>::enlarge(uint32_t length) {
+    if (this->logger->isTraceEnabled()) {
+      stringstream enl;
+      enl << "RuleNode::enlarge(): id 0x" << std::hex << this->node_id;
+      enl << " enlarge from " << std::dec << this->length << " to " << length;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
 	if (length <= this->length) {
 		return;
 	}
+    LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge mask");
 	if (this->mask)
 		this->mask->enlarge2(length);
+    LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge rewrite");
 	if (this->rewrite)
 		this->rewrite->enlarge(length);
 //		this->rewrite->rewrite->enlarge(length);
 #ifdef USE_INV
+    LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge inverse rewrite");
 	if (this->inv_rw)
 		this->inv_rw->enlarge(length);
 #endif
 	//Effect should not matter
+    LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge influences");
 	for (auto const &inf: *influenced_by) {
 		if (inf->comm_arr && (length > inf->len)) {
             inf->comm_arr->enlarge(length);
@@ -622,6 +632,7 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
 	}
 
 	Node<T1, T2>::enlarge(length);
+    LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): set length\n");
 	this->length = length;
 }
 

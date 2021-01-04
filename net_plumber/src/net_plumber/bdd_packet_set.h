@@ -26,6 +26,9 @@
 namespace net_plumber {
 
 class BDDPacketSet : public PacketSet {
+  protected:
+    static log4cxx::LoggerPtr logger;
+
   public:
     bdd ps;
 

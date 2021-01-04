@@ -219,23 +219,35 @@ void Node<T1, T2>::remove_src_flows_from_pipe(Pipeline<T1, T2> *fwd_p) {
 
 template<class T1, class T2>
 void Node<T1, T2>::enlarge(uint32_t length) {
+    if (this->logger->isTraceEnabled()) {
+      stringstream enl;
+      enl << "Node::enlarge(): id 0x" << std::hex << this->node_id;
+      enl << " enlarge from " << std::dec << this->length << " to " << length;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
 	if (length <= this->length) {
 		return;
 	}
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge match");
 	if (this->match)
 		this->match->enlarge(length);
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge inverse match");
 	if (this->inv_match)
 		this->inv_match->enlarge(length);
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
 	for (auto const &next: next_in_pipeline)
         next->pipe_array->enlarge(length);
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge incoming pipelines");
 	for (auto const &prev: prev_in_pipeline)
         prev->pipe_array->enlarge(length);
 
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge flows");
     for (auto const &flow: source_flow) {
       if (flow->hs_object) flow->hs_object->enlarge(length);
       if (flow->processed_hs) flow->processed_hs->enlarge(length);
     }
 
+    LOG4CXX_TRACE(this->logger, "Node::enlarge(): set length");
     this->length = length;
 }
 

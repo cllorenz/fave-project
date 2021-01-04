@@ -27,6 +27,9 @@ extern "C" {
 namespace net_plumber {
 
 class ArrayPacketSet : public PacketSet {
+  protected:
+    static log4cxx::LoggerPtr logger;
+
   public:
     array_t *array;
     size_t length;

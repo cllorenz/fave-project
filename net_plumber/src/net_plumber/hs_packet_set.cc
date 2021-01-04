@@ -22,7 +22,11 @@ extern "C" {
   #include "../headerspace/array.h"
 }
 
+using namespace log4cxx;
+
 namespace net_plumber {
+
+LoggerPtr HeaderspacePacketSet::logger(Logger::getLogger("NetPlumber"));
 
 HeaderspacePacketSet::HeaderspacePacketSet(struct hs *hs) {
     this->hs.len = hs->len;
@@ -90,6 +94,12 @@ HeaderspacePacketSet::HeaderspacePacketSet(const HeaderspacePacketSet& hps) {
 
 void
 HeaderspacePacketSet::enlarge(size_t len) {
+    if (this->logger->isTraceEnabled()) {
+      std::stringstream enl;
+      enl << "HeaderspacePacketSet::enlarge():";
+      enl << " enlarge hs from " << std::dec << this->hs.len << " to " << len;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
     hs_enlarge(&this->hs, len);
 }
 

@@ -24,7 +24,11 @@
 #include <bdd.h>
 #include <functional>
 
+using namespace log4cxx;
+
 namespace net_plumber {
+
+LoggerPtr BDDPacketSet::logger(Logger::getLogger("NetPlumber"));
 
 static std::vector<std::string> *result_buffer;
 static size_t vector_counter = 0;
@@ -381,6 +385,12 @@ BDDPacketSet::to_json(Json::Value& res) {
 
 void
 BDDPacketSet::enlarge(const size_t length) {
+    if (this->logger->isTraceEnabled()) {
+      std::stringstream enl;
+      enl << "BDDPacketSet::enlarge():";
+      enl << " enlarge from " << bdd_varnum() << " to " << length;
+      LOG4CXX_TRACE(this->logger, enl.str());
+    }
     const int size = bdd_varnum();
     if (size >= 0 && length * 8 > static_cast<size_t>(size)) bdd_extvarnum(length * 8 - size);
 }

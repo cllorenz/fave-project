@@ -28,6 +28,9 @@ extern "C" {
 namespace net_plumber {
 
 class HeaderspacePacketSet : public PacketSet {
+  protected:
+    static log4cxx::LoggerPtr logger;
+
   public:
     struct hs hs = {0, {0, 0, 0, 0}};
 

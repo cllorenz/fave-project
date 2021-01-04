@@ -195,6 +195,9 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
   template<class T1, class T2>\
   bool RpcHandler<T1, T2>::NAME (const Json::Value &req, Json::Value &resp) { \
     stringstream log_msg; \
+    log_msg << "Recv: " << req; \
+    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
+    LOG_MSG_RESET; \
     resp["id"] = req["id"]; resp["jsonrpc"] = req["jsonrpc"]; \
     double start, end; start = get_cpu_time_ms();
 
@@ -209,6 +212,9 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
 
 #define RETURN(VAL) \
     end = get_cpu_time_ms(); \
+    log_msg << "Send: " << resp; \
+    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
+    LOG_MSG_RESET; \
     log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"]; \
     if (netPlumber) log_msg << "(ID1: " << netPlumber->get_last_event().id1 << ")."; \
     else log_msg << "."; \
