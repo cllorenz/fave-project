@@ -59,18 +59,40 @@ class Model(object):
         )
 
 
-    def expand(self, mapping):
-        """ Expands the models mapping as well as its vectors
+    def ingress_port(self, port):
+        """ Returns the model's corresponding ingress port.
 
         Keyword arguments:
-        mapping - the extension mapping
+        port -- the outer model's port identifier
         """
-        assert isinstance(mapping, Mapping)
+        return port
 
 
-        for table in self.tables:
-            for rule in self.tables[table]:
-                rule.enlarge(self.mapping.length)
+    def egress_port(self, port):
+        """ Returns the model's corresponding egress port.
+
+        Keyword arguments:
+        port -- the outer model's port identifier
+        """
+        return port
+
+
+    def table_index(self, table):
+        """ Returns an unambigious index of an internal table.
+
+        Keyword arguments:
+        table -- The table's name
+        """
+        return sorted(self.tables.keys()).index(table)
+
+
+    def port_index(self, port):
+        """ Returns an unambigious index of a port of the model.
+
+        Keyword arguments:
+        port -- The port's name
+        """
+        return sorted(self.ports.keys()).index(port)
 
 
     def to_json(self):
