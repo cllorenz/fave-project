@@ -125,33 +125,31 @@ def _ast_to_rule(node, ast, idx=0):
 
     has_iif = ast.has_child("-i")
     has_oif = ast.has_child("-o")
-    if has_iif or has_oif:
-        if has_iif:
-            tmp = ast.get_child("-i")
-            if "." in value(tmp):
-                iface, vlan = value(tmp).split(".")
-                tmp.get_first().value = iface
-                vast = ast.add_child("vlan")
-                vast.add_child(vlan)
-        if has_oif:
-            tmp = ast.get_child("-o")
-            if "." in value(tmp):
-                iface, vlan = value(tmp).split(".")
-                tmp.get_first().value = iface
-                vast = ast.add_child("vlan")
-                vast.add_child(vlan)
+    if has_iif:
+        tmp = ast.get_child("-i")
+        if "." in value(tmp):
+            iface, vlan = value(tmp).split(".")
+            tmp.get_first().value = node+'.'+iface+'_ingress'
+            vast = ast.add_child("vlan")
+            vast.add_child(vlan)
+    if has_oif:
+        tmp = ast.get_child("-o")
+        if "." in value(tmp):
+            iface, vlan = value(tmp).split(".")
+            tmp.get_first().value = node+'.'+iface+'_egress'
+            vast = ast.add_child("vlan")
+            vast.add_child(vlan)
 
     has_src = ast.has_child("-s")
     has_dst = ast.has_child("-d")
-    if has_src or has_dst:
-        if has_src:
-            tmp = ast.get_child("-s")
-            if is_ipv4(tmp.get_first().value):
-                tmp.value = "s4"
-        if has_dst:
-            tmp = ast.get_child("-d")
-            if is_ipv4(tmp.get_first().value):
-                tmp.value = "d4"
+    if has_src:
+        tmp = ast.get_child("-s")
+        if is_ipv4(tmp.get_first().value):
+            tmp.value = "s4"
+    if has_dst:
+        tmp = ast.get_child("-d")
+        if is_ipv4(tmp.get_first().value):
+            tmp.value = "d4"
 
     body = [
         SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f) and not is_ignored(f)
