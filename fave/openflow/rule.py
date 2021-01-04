@@ -346,7 +346,7 @@ class SwitchRule(Model):
     """
 
     def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None):
-        super(SwitchRule, self).__init__(node, mtype="switch_rule")#, mapping=mapping)
+        super(SwitchRule, self).__init__(node, mtype="switch_rule")
         self.tid = tid
         self.idx = idx
         self.in_ports = in_ports if in_ports is not None else []
