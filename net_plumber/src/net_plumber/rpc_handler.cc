@@ -186,35 +186,29 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     log_msg.clear(); \
   } while(0)
 
-/*
-    log_msg << "Recv: " << req; \
-    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
-    LOG_MSG_RESET; \
- */
 #define PROTO(NAME) \
   template<class T1, class T2>\
   bool RpcHandler<T1, T2>::NAME (const Json::Value &req, Json::Value &resp) { \
     stringstream log_msg; \
-    log_msg << "Recv: " << req; \
-    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
-    LOG_MSG_RESET; \
+    if (rpc_logger->isTraceEnabled()) {\
+      log_msg << "Recv: " << req; \
+      LOG4CXX_TRACE(rpc_logger,log_msg.str()); \
+      LOG_MSG_RESET; \
+    } \
     resp["id"] = req["id"]; resp["jsonrpc"] = req["jsonrpc"]; \
     double start, end; start = get_cpu_time_ms();
 
-/*
-    log_msg << "Send: " << resp; \
-    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
-    LOG_MSG_RESET; \
- */
 #define FINI do { \
     return true; \
   } while (0)
 
 #define RETURN(VAL) \
     end = get_cpu_time_ms(); \
-    log_msg << "Send: " << resp; \
-    LOG4CXX_DEBUG(rpc_logger,log_msg.str()); \
-    LOG_MSG_RESET; \
+    if (rpc_logger->isTraceEnabled()) {\
+      log_msg << "Send: " << resp; \
+      LOG4CXX_TRACE(rpc_logger,log_msg.str()); \
+      LOG_MSG_RESET; \
+    } \
     log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"]; \
     if (netPlumber) log_msg << "(ID1: " << netPlumber->get_last_event().id1 << ")."; \
     else log_msg << "."; \
