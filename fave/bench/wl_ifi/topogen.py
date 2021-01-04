@@ -64,7 +64,7 @@ if __name__ == '__main__':
     links = [
         ("source.Internet.1", "ifi.1"),
         ("external.ifi.1", "ifi.2"),
-        ("ifi.19", "external.ifi.1"),
+        ("ifi.2", "external.ifi.1"),
         ("source.external.ifi.1", "external.ifi.2")
     ]
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     # connect the output ports of the central router to port 1 of each subnet switch
     out_port = lambda _ip, op: op
     links.extend([
-        ("ifi.%s" % out_port(*domain_to_ports[sub]), "%s.1" % sub) for idx, sub in enumerate(SUBNETS, start=20)
+        ("ifi.%s" % out_port(*domain_to_ports[sub]), "%s.1" % sub) for idx, sub in enumerate(SUBNETS, start=3)
     ])
 
     # connect all subnet generators to port 2 of the respective switch

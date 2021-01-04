@@ -43,7 +43,7 @@ if __name__ == '__main__':
     ])
 
     links = [
-        ("ifi.18", "probe.Internet.1"),
+        ("ifi.1", "probe.Internet.1"),
         ("external.ifi.3", "probe.external.ifi.1")
     ]
 

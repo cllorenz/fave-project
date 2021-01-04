@@ -19,10 +19,10 @@ if __name__ == '__main__':
     domain_to_ports = inventory["domain_to_ports"]
 
     routes = [
-        # default route to ifi.17 (Internet)
-        ("ifi", 1, 65535, [], ["rw=vlan:%s"%(2**12-1), "fd=ifi.18"], []),
-        # route to ifi.18 (external)
-        ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["rw=vlan:48", "fd=ifi.19"], [])
+        # default route to ifi.1 (Internet)
+        ("ifi", 1, 65535, [], ["rw=vlan:%s"%(2**12-1), "fd=ifi.1"], []),
+        # route to ifi.2 (external)
+        ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["rw=vlan:48", "fd=ifi.2"], [])
     ]
 
     # one route per subnet to ports with subnets
