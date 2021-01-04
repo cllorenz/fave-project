@@ -21,6 +21,7 @@ vec_append (struct hs_vec *v, array_t *a)
 vec_append (struct hs_vec *v, array_t *a, bool diff)
 #endif
 {
+  if (!a) return;
   if (v->used == v-> alloc) {
     const size_t alloc = v->alloc ? 2 * v->alloc : VEC_START_SIZE;
     v->elems = xrealloc (v->elems, alloc * sizeof *v->elems);
