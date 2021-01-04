@@ -27,7 +27,7 @@ import re
 PATH_PATHLETS = ['end', 'start', 'skip', 'skip_next']
 STR_PATHLETS = ['^', '$', '.', '.*']
 
-PORT_VALUE = r"[a-zA-Z0-9][a-zA-Z0-9-_]*(\.[a-zA-Z0-9-_]+)*\.\d+"
+PORT_VALUE = r"[a-zA-Z0-9][a-zA-Z0-9-_]*(\.[a-zA-Z0-9-_]+)*\.[a-zA-Z0-9-_]+"
 TABLE_VALUE = r"[a-zA-Z0-9][a-zA-Z0-9-_]*(\.[a-zA-Z0-9-_]+)*"
 
 PORT = r"\.\*\(port=(?P<value>%s)\)" % PORT_VALUE
