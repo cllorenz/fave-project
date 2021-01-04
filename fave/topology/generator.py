@@ -44,7 +44,7 @@ class GeneratorModel(object):
 
         self.node = node
         self.type = "generator"
-        self.ports = {node+'_1' : 1}
+        self.ports = {node+'.1' : 1}
 
 
     def to_json(self):
@@ -77,3 +77,30 @@ class GeneratorModel(object):
         )
 
         return model
+
+
+    def port_index(self, port):
+        """ Returns an unambigious index of a port of the model.
+
+        Keyword arguments:
+        port -- The port's name
+        """
+        return self.ports[port]
+
+
+    def ingress_port(self, port):
+        """ Returns the model's corresponding ingress port.
+
+        Keyword arguments:
+        port -- the outer model's port identifier
+        """
+        return port
+
+
+    def egress_port(self, port):
+        """ Returns the model's corresponding egress port.
+
+        Keyword arguments:
+        port -- the outer model's port identifier
+        """
+        return port
