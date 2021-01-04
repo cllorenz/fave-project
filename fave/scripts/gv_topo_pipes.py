@@ -137,7 +137,7 @@ class TopologyRenderer(object):
             ports = probe['params']['ports']
             self.tgraph.node('s'+str(i), label=label, shape=shape)
             for port in ports:
-                self.tgraph.node('port'+str(port), label=self._build_port_label(str(port)))
+                self.tgraph.node('port'+str(port), label=str(port))
                 if source:
                     self.tgraph.edge('s'+str(i), 'port'+str(port))
                 else:
@@ -228,8 +228,7 @@ class TopologyRenderer(object):
             tgraph.attr(rankdir='TD', label=tlabel,
                         labelloc='t', labeljust='l')
             for port in table['ports']:
-                plabel = self._build_port_label(port)
-                tgraph.node('port'+str(port), label=plabel, shape='circle')
+                tgraph.node('port'+str(port), label=str(port), shape='circle')
 
             for j, rule in enumerate(table['rules']):
                 rule_id = rule['id']
