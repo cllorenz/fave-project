@@ -153,7 +153,11 @@ class Aggregator(AbstractAggregator):
 
             t_task_end = time.time()
 
-            Aggregator.LOGGER.info("worker: completed task %s in %s seconds." % (task_type, t_task_end - t_task_start))
+            Aggregator.LOGGER.info(
+                "worker: completed task %s in %s seconds." % (
+                    task_type, t_task_end - t_task_start
+                )
+            )
 
             self.queue.task_done()
 
@@ -231,7 +235,6 @@ class Aggregator(AbstractAggregator):
         self.stop = True
 
 
-
     #@profile_method
     def _sync_diff(self, model):
         Aggregator.LOGGER.debug('worker: synchronize model')
@@ -275,16 +278,19 @@ class Aggregator(AbstractAggregator):
 
                     if cmd.command == "add":
                         Aggregator.LOGGER.debug(
-                            "worker: add link to netplumber from %s:%s to %s:%s", sport, hex(sportno), dport,  hex(dportno)
+                            "worker: add link to netplumber from %s:%s to %s:%s",
+                            sport, hex(sportno), dport,  hex(dportno)
                         )
                         links.append((sport, dport))
                         self.links.setdefault(sport, [])
                         self.links[sport].append(dport)
                         self.net_plumber.links.setdefault(sportno, [])
                         self.net_plumber.links[sportno].append(dportno)
+
                     elif cmd.command == "del":
                         Aggregator.LOGGER.debug(
-                            "worker: remove link from netplumber from %s to %s", sport, dport
+                            "worker: remove link from netplumber from %s to %s",
+                            sport, dport
                         )
                         self.net_plumber.remove_link(self.net_plumber.sock, sportno, dportno)
                         self.links[sport].remove(dport)
