@@ -75,7 +75,7 @@ def main(argv):
         elif opt == '-i':
             address = arg
         elif opt == '-p':
-            ports = range(1, int(arg)*2+1)
+            ports = arg.split(',')
         elif opt == '-f':
             ifile = arg
         elif opt == '-d':

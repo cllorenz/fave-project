@@ -44,97 +44,94 @@ class PacketFilterModel(Model):
     """ This class stores packet filter models.
     """
 
-    def __init__(self, node, ports=None):
+    def __init__(self, node, ports=None, address=None):
         super(PacketFilterModel, self).__init__(node, "packet_filter")
 
-        ports = ports if ports is not None else [1, 2]
+        ports = ports if ports is not None else ["1", "2"]
 
-        self.rules = []
-        self.chains = {
-            "pre_routing" : [],
-            "input_filter" : [],
-            "output_filter" : [],
-            "forward_filter" : [],
-            "routing" : [],
-            "post_routing" : [],
-            "internals" : [],
+        self.tables = {
+            node + ".pre_routing" : [],
+            node + ".input_filter" : [],
+            node + ".output_filter" : [],
+            node + ".forward_filter" : [],
+            node + ".routing" : [],
+            node + ".post_routing" : [],
+            node + ".internals" : [],
         }
-        internal_ports = {
-            "pre_routing_input" : 1,
-            "pre_routing_forward" : 2,
-            "input_filter_in" : 3,
-            "input_filter_accept" : 4,
-            "forward_filter_in" : 5,
-            "forward_filter_accept" : 6,
-            "output_filter_in" : 7,
-            "output_filter_accept" : 8,
-            "internals_in" : 9,
-            "internals_out" : 10,
-            "post_routing_in" : 11,
-            "routing_in" : 12,
-            "routing_out" : 13
+
+        self.internal_ports = {
+            node + ".pre_routing_input" : node + ".pre_routing",
+            node + ".pre_routing_forward" : node + ".pre_routing",
+            node + ".input_filter_in" : node + ".input_filter",
+            node + ".input_filter_accept" : node + ".input_filter",
+            node + ".forward_filter_in" : node + ".forward_filter",
+            node + ".forward_filter_accept" : node + ".forward_filter",
+            node + ".output_filter_in" : node + ".output_filter",
+            node + ".output_filter_accept" : node + ".output_filter",
+            node + ".internals_in" : node + ".internals",
+            node + ".internals_out" : node + ".internals",
+            node + ".post_routing_in" : node + ".post_routing",
+            node + ".routing_in" : node + ".routing",
+            node + ".routing_out" : node + ".routing"
         }
-        self.private_ports = len(internal_ports)
+
         input_ports = {
-            "in_"+str(i) : (len(internal_ports)+len(ports)+i) \
-                for i in ports[:len(ports)/2]
+            node + "." + str(port) + "_ingress" : node + ".pre_routing" for port in ports
         }
         output_ports = {
-            "out_"+str(i) : (len(internal_ports)+2*len(ports)+i) \
-                for i in ports[len(ports)/2:]
+            node + "." + str(port) + "_egress" : node + ".post_routing" for port in ports
         }
+
+        external_ports = { node + '.' + str(port) : "" for port in ports }
 
         plen = len(ports)
 
         self.ports = dict(
-            internal_ports.items() + input_ports.items() + output_ports.items()
+            self.internal_ports.items() + input_ports.items() + output_ports.items() + external_ports.items()
         )
 
-        get_oname = lambda x: "%s_%s" % (node, x[0][4:])
-        get_iport = lambda x: int(x[0][3:])
-        get_oport = lambda x: int(x[0][4:])
-
-        self.chains["post_routing"] = [ # low priority: forward packets according to out port
-                                        # field set by the routing table
+        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to out port
+                                                # field set by the routing table
             SwitchRule(
                 node, "post_routing", idx,
-                in_ports=["in"],
+                in_ports=[node+".post_routing_in"],
                 match=Match(
-                    fields=[SwitchRuleField("out_port", "%s.%s" % (node, get_oport(port)))]
+                    fields=[SwitchRuleField("out_port", "%s.%s_egress" % (node, port))]
                 ),
                 actions=[
                     Rewrite(rewrite=[
                         SwitchRuleField("in_port", "x"*32),
                         SwitchRuleField("out_port", "x"*32)
                     ]),
-                    Forward(ports=[get_oname(port)])
+                    Forward(ports=["%s.%s_egress" % (node, port)])
                 ]
-            ) for idx, port in enumerate(output_ports.items(), start=plen)
+            ) for idx, port in enumerate(ports, start=plen)
         ] + [ # high priority: filter packets with equal input and output port
             SwitchRule(
                 node, "post_routing", idx,
-                in_ports=["in"],
+                in_ports=[node+".post_routing_in"],
                 match=Match(
                     fields=[
-                        SwitchRuleField("in_port", "%s.%s" % (node, get_iport(port))),
-                        SwitchRuleField("out_port", "%s.%s" % (node, get_iport(port)+plen/2))
+                        SwitchRuleField("in_port", "%s.%s_ingress" % (node, port)),
+                        SwitchRuleField("out_port", "%s.%s_egress" % (node, port))
                     ]
                 ),
                 actions=[]
-            ) for idx, port in enumerate(input_ports.items())
+            ) for idx, port in enumerate(ports)
         ]
 
         self.wiring = [
-            ("pre_routing_input", "input_filter_in"), # pre routing to input filter
-            ("input_filter_accept", "internals_in"), # input filter accept to internals
-            ("pre_routing_forward", "forward_filter_in"), # pre routing to forward filter
-            ("forward_filter_accept", "routing_in"), # forward filter accept to routing
-            ("internals_out", "output_filter_in"), # internal output to output filter
-            ("output_filter_accept", "routing_in"), # output filter accept to routing
-            ("routing_out", "post_routing_in") # routing to post routing
+            (node + ".pre_routing_input", node + ".input_filter_in"), # pre routing to input filter
+            (node + ".input_filter_accept", node + ".internals_in"), # input filter accept to internals
+            (node + ".pre_routing_forward", node + ".forward_filter_in"), # pre routing to forward filter
+            (node + ".forward_filter_accept", node + ".routing_in"), # forward filter accept to routing
+            (node + ".internals_out", node + ".output_filter_in"), # internal output to output filter
+            (node + ".output_filter_accept", node + ".routing_in"), # output filter accept to routing
+            (node + ".routing_out", node + ".post_routing_in") # routing to post routing
         ]
 
-        self._persist()
+        if address:
+            self.set_address(address)
 
 
     def __sub__(self, other):
@@ -142,44 +139,20 @@ class PacketFilterModel(Model):
         assert self.type == other.type
 
         pfm = super(PacketFilterModel, self).__sub__(other)
-        rules = list_sub(self.rules, other.rules)
 
         npf = PacketFilterModel(
             pfm.node
         )
         npf.tables = pfm.tables
-        npf.rules = rules
         npf.ports = pfm.ports
+        npf.wiring = pfm.wiring
 
         return npf
-
-
-
-    def _persist(self):
-        self.tables = {
-            k:[r for r in self.chains[k]] for k in self.chains if k not in [
-                "pre_routing",
-                "routing",
-                "post_routing"
-            ]
-        }
-
-        make_actions = lambda node, table, rule: [] if rule.actions == [] else [
-            Forward(ports=[
-                "%s_%s_%s" % (node, table, 'miss' if isinstance(r.actions[0], Miss) else 'accept')
-            ])
-        ]
-
-        self.tables["pre_routing"] = [r for r in self.chains["pre_routing"]]
-        self.tables["post_routing"] = [r for r in self.chains["post_routing"]]
-        self.tables["routing"] = [r for r in self.chains["routing"]]
 
 
     def to_json(self):
         """ Converts the packet filter model to JSON.
         """
-
-        self._persist()
 
         return super(PacketFilterModel, self).to_json()
 
@@ -187,46 +160,50 @@ class PacketFilterModel(Model):
     def __str__(self):
         return "%s\nrules:\n\t%s\nchains:\n\t%s\nports:\n\t%s" % (
             super(PacketFilterModel, self).__str__(),
-            str(self.rules),
             str(self.chains),
             str(self.ports)
         )
 
 
-    def finalize(self):
-        """ Finalize model by fill chains and reorder defaults.
-        """
-
-        for rule in self.rules:
-            assert isinstance(rule, SwitchRule)
-            self.chains[rule.tid].append(rule)
+    def ingress_port(self, port):
+        if port in self.internal_ports:
+            return port
+        else:
+            return port + "_ingress"
 
 
-    def set_address(self, node, address):
+    def egress_port(self, port):
+        if port in self.internal_ports:
+            return port
+        else:
+            return port + "_egress"
+
+
+    def set_address(self, address):
         """ Set the packet filter's address.
         """
 
         address_type = "packet.ipv4.destination" if is_ipv4(address) else "packet.ipv6.destination"
-        self.chains["pre_routing"] = [
+        self.tables[self.node+".pre_routing"] = [
             SwitchRule(
-                node, 1, idx,
-                in_ports=["%s.%s" % (node, p[3:])], #"%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
+                self.node, self.node+".pre_routing", idx,
+                in_ports=[port],
                 match=Match(fields=[SwitchRuleField(address_type, address)]),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("in_port", "_".join([node, p[3:]]))]),
-                    Forward(["_".join([node, "pre_routing_input"])])
+                    Rewrite(rewrite=[SwitchRuleField("in_port", port)]),
+                    Forward([self.node+".pre_routing_input"])
                 ]
-            ) for idx, p in enumerate(self.ports, start=1) if p.startswith("in_")
+            ) for idx, port in enumerate(self.ports, start=1) if port.endswith("_ingress")
         ] + [
             SwitchRule(
-                node, 1, idx,
-                in_ports=["%s.%s" % (node, p[3:])], #"%s.%s" % (node, p[3:]) for p in self.ports if p.startswith('in_')],
+                self.node, self.node+".pre_routing", idx,
+                in_ports=[port],
                 match=Match(),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("in_port", "_".join([node, p[3:]]))]),
-                    Forward(["_".join([node, "pre_routing_forward"])])
+                    Rewrite(rewrite=[SwitchRuleField("in_port", port)]),
+                    Forward([self.node+".pre_routing_forward"])
                 ]
-            ) for idx, p in enumerate(self.ports, start=len(self.ports)+1) if p.startswith("in_")
+            ) for idx, port in enumerate(self.ports, start=len(self.ports)+1) if port.endswith("_ingress")
         ]
 
 
@@ -240,25 +217,29 @@ class PacketFilterModel(Model):
 
         assert isinstance(rule, SwitchRule)
 
-        rule.in_ports = ['in']
+        rule.in_ports = [self.node+'.routing_in']
 
-        offset = (len(self.ports)-self.private_ports)/2
         output_ports = []
         for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
             for port in action.ports:
-                labels = port.split('.')
-                prefix, rno = ('_'.join(labels[:len(labels)-1]), labels[len(labels)-1])
-                output_ports.append((prefix, int(rno)+offset))
+                if port.startswith(self.node) and port.endswith('_egress'):
+                    pass
+                elif port.startswith(self.node):
+                    port = port + '_egress'
+                else:
+                    port = self.node+'.'+port+'_egress'
 
-            action.ports = ["out"]
+                output_ports.append(port)
+
+            action.ports = [self.node+".routing_out"]
 
 
         # first, forward traffic that already has the destination and output
         # ports set correctly (via a filtering rule set)
         rule_exact = dc(rule)
         rule_exact.idx = BASE_ROUTING_EXACT + idx
-        rule_exact.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
+        rule_exact.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
 
 
         # second, drop traffic that has an incorrect destination set for an
@@ -266,24 +247,18 @@ class PacketFilterModel(Model):
         rule_wrong_io = dc(rule)
         rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
         rule_wrong_io.match.filter("packet.ipv6.destination")
-        rule_wrong_io.match.extend([SwitchRuleField("out_port", port[1]) for port in output_ports])
+        rule_wrong_io.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
         rule_wrong_io.actions = []
 
 
         # third, forward traffic with the destination set
-        rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", "%s_%s" % (prefix, rno)) for prefix, rno in output_ports])]
+        rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", port) for port in output_ports])]
         rule.idx = BASE_ROUTING_RULE + idx
         rule.actions.extend(rewrites)
 
-        self.chains["routing"].insert(rule_exact.idx, rule_exact)
-        self.tables["routing"].insert(rule_exact.idx, rule_exact)
-        self.chains["routing"].insert(rule_wrong_io.idx, rule_wrong_io)
-        self.tables["routing"].insert(rule_wrong_io.idx, rule_wrong_io)
-        self.chains["routing"].insert(rule.idx, rule)
-        self.tables["routing"].insert(rule.idx, rule)
-        self.rules.append(rule_wrong_io)
-        self.rules.append(rule_exact)
-        self.rules.append(rule)
+        self.tables[self.node+".routing"].insert(rule_exact.idx, rule_exact)
+        self.tables[self.node+".routing"].insert(rule_wrong_io.idx, rule_wrong_io)
+        self.tables[self.node+".routing"].insert(rule.idx, rule)
 
 
     def remove_rule(self, idx):
@@ -293,19 +268,9 @@ class PacketFilterModel(Model):
         idx -- a rule index
         """
 
-        rule_wrong_io = self.chains["routing"][BASE_ROUTING_WRONG_IO + idx]
-        rule_exact = self.chains["routing"][BASE_ROUTING_EXACT + idx]
-        rule = self.chains["routing"][BASE_ROUTING_RULE + idx]
-
-        del self.chains["routing"][rule_exact.idx]
-        del self.chains["routing"][rule_wrong_io.idx]
-        del self.chains["routing"][rule.idx]
-        del self.tables["routing"][rule_exact.idx]
-        del self.tables["routing"][rule_wrong_io.idx]
-        del self.tables["routing"][rule.idx]
-        del self.rules[rule_exact]
-        del self.rules[rule_wrong_io]
-        del self.rules[rule]
+        del self.tables[self.node+".routing"][rule_exact.idx]
+        del self.tables[self.node+".routing"][rule_wrong_io.idx]
+        del self.tables[self.node+".routing"][rule.idx]
 
 
     def update_rule(self, idx, rule):

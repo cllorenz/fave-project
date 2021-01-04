@@ -155,10 +155,10 @@ def _ast_to_rule(node, ast, idx=0):
         SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f) and not is_ignored(f)
     ]
 
-    action = _get_action_from_ast(ast)
-    actions = [] if action == 'DROP' else [Forward(ports=[action])]
-
     chain = _get_chain_from_ast(ast)
+
+    action = _get_action_from_ast(ast)
+    actions = [] if action == 'DROP' else [Forward(ports=[node+'.'+chain+'_'+action.lower()])]
 
     rules = {}
     multiports = []
@@ -189,9 +189,9 @@ def _ast_to_rule(node, ast, idx=0):
                 sport, dport = comb
                 rules[idx+i] = SwitchRule(
                     node,
-                    chain,
+                    node+'.'+chain,
                     idx+i,
-                    in_ports=['in'],
+                    in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[SwitchRuleField('packet.upper.sport', sport), SwitchRuleField('packet.upper.dport', dport)]),
                     actions=actions
                 )
@@ -200,18 +200,18 @@ def _ast_to_rule(node, ast, idx=0):
             for i, sport in enumerate(sports):
                 rules[idx+i] = SwitchRule(
                     node,
-                    chain,
+                    node+'.'+chain,
                     idx+i,
-                    in_ports=['in'],
+                    in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[SwitchRuleField('packet.upper.sport', sport)]),
                     actions=actions
                 )
             for i, dport in enumerate(dports, start=len(sports)):
                 rules[idx+i] = SwitchRule(
                     node,
-                    chain,
+                    node+'.'+chain,
                     idx+i,
-                    in_ports=['in'],
+                    in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[SwitchRuleField('packet.upper.dport', dport)]),
                     actions=actions
                 )
@@ -219,9 +219,9 @@ def _ast_to_rule(node, ast, idx=0):
     else:
         rules[idx if not is_default else 65535] = SwitchRule(
             node,
-            chain,
+            node+'.'+chain,
             idx if not is_default else 65535,
-            in_ports=['in'],
+            in_ports=[node+'.'+chain+'_in'],
             match=Match(body),
             actions=actions
         )
@@ -440,8 +440,8 @@ _SWAP_CHAIN = {
     'forward_filter' : 'forward_filter',
 }
 
-def _transform_ast_to_model(ast, node, ports):
-    model = PacketFilterModel(node, ports=ports)
+def _transform_ast_to_model(ast, node, ports=None, address=None):
+    model = PacketFilterModel(node, ports=ports, address=address)
     chains = _get_rules_from_ast(node, ast)
 
     chain_rules = {}
@@ -490,7 +490,8 @@ def _transform_ast_to_model(ast, node, ports):
             chain_cond_shells[chain]
         )
 
-        model.rules += interwhoven_state_shell
+        for rule in interwhoven_state_shell:
+            model.tables[rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid].append(rule)
 
     return model
 
@@ -505,13 +506,7 @@ def generate(ast, node, address, ports):
     ports -- the node's physical interfaces
     """
 
-
     # transform AST to basic model
-    model = _transform_ast_to_model(ast, node, ports=ports)
-
-    model.set_address(node, address)
-
-    # put the rules into their chains
-    model.finalize()
+    model = _transform_ast_to_model(ast, node, ports=ports, address=address)
 
     return model
