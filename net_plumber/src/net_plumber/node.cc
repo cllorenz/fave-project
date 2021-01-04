@@ -232,8 +232,8 @@ void Node<T1, T2>::enlarge(uint32_t length) {
         prev->pipe_array->enlarge(length);
 
     for (auto const &flow: source_flow) {
-      flow->hs_object->enlarge(length);
-      flow->processed_hs->enlarge(length);
+      if (flow->hs_object) flow->hs_object->enlarge(length);
+      if (flow->processed_hs) flow->processed_hs->enlarge(length);
     }
 
     this->length = length;
