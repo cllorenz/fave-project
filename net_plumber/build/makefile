@@ -78,6 +78,9 @@ clean:
 test: all
 	./net_plumber --test
 
+valgrind: all
+	valgrind ./net_plumber --test
+
 docs: $(DOCS_OBJS)
 	-@echo 'Built documentation.'
 
