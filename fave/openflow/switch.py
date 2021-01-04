@@ -86,9 +86,8 @@ class SwitchModel(Model):
         ports = ports if ports is not None else []
 
         super(SwitchModel, self).__init__(node, "switch")
-        self.ports = {str(p) : p for p in ports}
-        self.tables = {"1" : []}
-        self.rules = rules if rules is not None else []
+        self.ports = {node+"."+str(p) : node+".1" for p in ports}
+        self.tables = {node+".1" : rules if rules is not None else []}
 
 
     def to_json(self):
@@ -96,8 +95,11 @@ class SwitchModel(Model):
         """
         j = super(SwitchModel, self).to_json()
         j["ports"] = self.ports
-        j["tables"] = {t:[r.to_json() for r in self.tables[t]] for t in self.tables}
-        j["rules"] = [rule.to_json() for rule in self.rules]
+        j["tables"] = {
+            table : [
+                r.to_json() for r in rules
+            ] for table, rules in self.tables.iteritems()
+        }
         return j
 
     @staticmethod
@@ -111,20 +113,13 @@ class SwitchModel(Model):
         if isinstance(j, str):
             j = json.loads(j)
 
-        ofm = SwitchModel(j["node"])
-        ofm.ports = j["ports"]
-
-        ofm.tables = {}
-        for table in j["tables"]:
-            ntable = []
-            for rule in j["tables"][table]:
-                rule = SwitchRule.from_json(rule)
-                ntable.insert(rule.idx, rule)
-            ofm.tables[table] = ntable
-
-        for rule in j["rules"]:
-            rule = SwitchRule.from_json(rule)
-            ofm.rules.insert(rule.idx, rule)
+        ofm = SwitchModel(j['node'])
+        ofm.tables = {
+            table : [
+                SwitchRule.from_json(r) for r in rules
+            ] for table, rules in j['tables'].iteritems()
+        }
+        ofm.ports = j['ports']
 
         return ofm
 
@@ -136,8 +131,7 @@ class SwitchModel(Model):
         idx -- a rule index
         rule -- a rule
         """
-        self.rules.insert(idx, rule)
-        self.tables["1"].insert(idx, rule)
+        self.tables[self.node+".1"].insert(idx, rule)
 
 
     def remove_rule(self, idx):
@@ -146,8 +140,7 @@ class SwitchModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
-        del self.tables["1"][idx]
-        del self.rules[idx]
+        del self.tables[self.node+".1"][idx]
 
 
     def update_rule(self, idx, rule):
@@ -167,16 +160,12 @@ class SwitchModel(Model):
         assert self.type == other.type
 
         smm = super(SwitchModel, self).__sub__(other)
-        rules = list_sub(self.rules, other.rules)
 
         res = SwitchModel(
             smm.node,
             ports=smm.ports,
-            rules=rules
+            rules=smm.tables[self.node+'.1']
         )
-        res.tables = smm.tables
-        res.wiring = smm.wiring
-        res.mapping = smm.mapping
 
         return res
 
@@ -216,7 +205,7 @@ def main(argv):
 
     command = "add"
     node = ""
-    table = 1
+    table = "1"
     cmd = None
     idx = 0
     fields = []
@@ -243,7 +232,7 @@ def main(argv):
         elif opt == '-n':
             node = arg
         elif opt == '-t':
-            table = int(arg)
+            table = arg
         elif opt == '-i':
             idx = int(arg)
         elif opt == '-f':
@@ -267,6 +256,8 @@ def main(argv):
 
         elif opt == '-p':
             in_ports = [p[len(node)+1:] for p in arg.split(',')]
+
+    table = node+'.'+table
 
     if command == 'add':
         rule = SwitchRule(
