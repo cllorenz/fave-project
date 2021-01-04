@@ -262,7 +262,7 @@ def main(argv):
     ports = []
     links = []
     topo = TopologyCommand(command, dev)
-    address = ""
+    address = None
     fields = {}
     filter_fields = {}
     test_fields = {}
@@ -303,7 +303,10 @@ def main(argv):
             dev = arg
         elif opt == '-p':
             command = 'add'
-            ports = range(1, int(arg)+1)
+            try:
+                ports = range(1, int(arg)+1)
+            except ValueError:
+                ports = arg.split(',')
         elif opt == '-l':
             dtype = 'links'
             dev = 'links'
@@ -360,7 +363,8 @@ def main(argv):
             'switch' : lambda: SwitchModel(dev, ports=ports),
             'packet_filter' : lambda: PacketFilterModel(
                 dev,
-                ports=range(1, len(ports)*2+1)
+                ports=ports,
+                address=address
             ),
             'links' : lambda: LinksModel(links),
             'generator' : lambda: GeneratorModel(
@@ -381,7 +385,7 @@ def main(argv):
             ),
             'router' : lambda: RouterModel(
                 dev,
-                ports={str(p):p for p in range(1, len(ports)*2+1)},
+                ports=ports,
                 acls=parse_cisco_acls(ruleset),
                 vlan_to_ports=parse_cisco_interfaces(ruleset)[1],
                 vlan_to_acls=parse_cisco_interfaces(ruleset)[3],
