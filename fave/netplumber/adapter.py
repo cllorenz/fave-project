@@ -65,6 +65,9 @@ class NetPlumberAdapter(object):
         jsonrpc.dump_flow_trees(self.sock, odir)
 
     def expand(self):
+        self.logger.debug(
+            "worker: expand vector length to %s", self.mapping.length
+        )
         jsonrpc.expand(self.sock, self.mapping.length)
 
     def add_links_bulk(self, links):
@@ -202,7 +205,7 @@ class NetPlumberAdapter(object):
         self.model_types.setdefault(model.node, model.type)
 
         for table in model.tables:
-            name = '_'.join([model.node, table])
+            name = table
 
             if name not in self.tables:
                 idx = self.fresh_table_index
@@ -210,30 +213,15 @@ class NetPlumberAdapter(object):
                 self.fresh_table_index += 1
 
                 ports = []
-                for port in model.ports:
-                    if prefixed and port.startswith("in_") and (
-                            table.startswith("pre_routing")
-                    ):
-                        portno = calc_port(idx, model, port)
-                        portname = normalize_port('.'.join([model.node, port[3:]]))
-
-                    elif prefixed and port.startswith("out_") and table.startswith("post_routing"):
-                        portno = calc_port(idx, model, port)
-                        portname = normalize_port('.'.join([model.node, port[4:]]))
-
-                    elif prefixed and not port.startswith(table):
-                        continue
-
-                    else:
-                        portno = calc_port(idx, model, port)
-                        portname = normalize_port('.'.join([model.node, port]))
+                for port in [port for port in model.ports if model.ports[port] == table]:
+                    portno = calc_port(idx, model, port)
 
                     ports.append(portno)
-                    self.ports[portname] = portno
+                    self.ports[port] = portno
 
                 self.logger.debug(
                     "worker: add table to netplumber: %s with index %s and ports %s",
-                    name, idx, ports
+                    name, idx, [hex(p) for p in ports]
                 )
                 jsonrpc.add_table(self.sock, idx, ports)
 
@@ -245,35 +233,33 @@ class NetPlumberAdapter(object):
             # The internals input and the post routing output are never the
             # source of an internal wire. Respectively, the internals output and
             # the post routing output are never targeted internally.
-            if port1 in ["internals_in", "post_routing"] or \
-                port2 in ["internals_out", "post_routing"]:
+            if port1 in [model.node+".internals_in", model.node+".post_routing"] or \
+                port2 in [model.node+".internals_out", model.node+".post_routing"]:
                 self.logger.debug("worker: skip wiring %s to %s", port1, port2)
                 continue
 
             self.logger.debug("worker: wire %s to %s", port1, port2)
 
-            gport1 = self.global_port('_'.join([model.node, port1]))
+            gport1 = self.global_port(port1)
+            gport2 = self.global_port(port2)
 
-            if gport1 not in self.links:
-                gport2 = self.global_port('_'.join([model.node, port2]))
+            self.logger.debug(
+                "worker: add link to netplumber from %s:%s to %s:%s",
+                port1, hex(gport1), port2, hex(gport2)
+            )
+            jsonrpc.add_link(self.sock, gport1, gport2)
 
-                self.logger.debug(
-                    "worker: add link to netplumber from %s to %s", hex(gport1), hex(gport2)
-                )
-                jsonrpc.add_link(self.sock, gport1, gport2)
-
-                self.links.setdefault(gport1, [])
-                self.links[gport1].append(gport2)
+            self.links.setdefault(gport1, [])
+            self.links[gport1].append(gport2)
 
 
     def _add_pre_routing_rules(self, model):
-        table = 'pre_routing'
+        table = model.node+'.pre_routing'
 
         if table not in model.tables:
             return
 
-        tname = '_'.join([model.node, table])
-        tid = self.tables[tname]
+        tid = self.tables[table]
 
         for rule in model.tables[table]:
             if not isinstance(rule, SwitchRule):
@@ -317,17 +303,18 @@ class NetPlumberAdapter(object):
                 )
 
             self.logger.debug(
-                "worker: add rule %s to %s:\n\t((%s) %s -> (%s) %s)",
+                "worker: add rule %s to %s:%s:\n\t((%s) %s -> (%s) %s)",
                 calc_rule_index(rid),
-                self.tables["%s_%s" % (model.node, table)],
-                (self.global_port(p) for p in rule.in_ports),
+                table,
+                self.tables[table],
+                [hex(self.global_port(p)) for p in rule.in_ports],
                 rvec.vector if rvec else "*",
                 rewrite.vector if rewrite else "*",
-                out_ports
+                [hex(p) for p in out_ports]
             )
             r_id = jsonrpc.add_rule(
                 self.sock,
-                self.tables["%s_%s" % (model.node, table)],
+                self.tables[table],
                 calc_rule_index(rid),
                 in_ports,
                 out_ports,
@@ -341,13 +328,12 @@ class NetPlumberAdapter(object):
 
 
     def _add_post_routing_rules(self, model):
-        table = 'post_routing'
+        table = model.node+'.post_routing'
 
         if table not in model.tables:
             return
 
-        tname = '_'.join([model.node, table])
-        tid = self.tables[tname]
+        tid = self.tables[table]
 
         for rule in model.tables[table]:
             if not isinstance(rule, SwitchRule):
@@ -372,7 +358,7 @@ class NetPlumberAdapter(object):
             )
 
             in_ports = [
-                self.global_port("%s_%s" % (tname, p)) for p in rule.in_ports
+                self.global_port(p) for p in rule.in_ports
             ]
 
             out_ports = []
@@ -390,8 +376,8 @@ class NetPlumberAdapter(object):
                         )
 
             self.logger.debug(
-                "worker: add rule %s to %s:\n\t(%s -> %s)",
-                calc_rule_index(rid), tid, rvec.vector if rvec else "*", out_ports
+                "worker: add rule %s to %s:%s:\n\t(%s -> %s)",
+                calc_rule_index(rid), table, tid, rvec.vector if rvec else "*", [hex(p) for p in out_ports]
             )
             r_id = jsonrpc.add_rule(
                 self.sock,
@@ -409,23 +395,30 @@ class NetPlumberAdapter(object):
 
 
     def _add_rule_table(self, model, table):
-        tname = '_'.join([model.node, table])
-        tid = self.tables[tname]
+        tid = self.tables[table]
 
-        self.logger.debug("worker: add rules to %s", tname)
+        self.logger.debug("worker: add rules to %s", table)
 
         for rule in model.tables[table]:
+            self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
+
             rid = rule.idx
             act = rule.actions
 
-            for field in [f for f in rule.match if f.name in ['in_port', 'out_port', 'interface']]:
+            for field in [
+                f for f in rule.match if f.name in [
+                    'in_port', 'out_port', 'interface'
+                ]
+            ]:
                 if not Vector.is_vector(field.value, name=field.name):
-                    field.value = "{:032b}".format(self.global_port("%s_%s" % (model.node, field.value)))
+                    field.value = "{:032b}".format(self.global_port(field.value))
                     field.vectorize()
 
             for action in [a for a in act if isinstance(a, Rewrite)]:
                 for field in action.rewrite:
-                    if field.name in ['in_port', 'out_port', 'interface'] and not Vector.is_vector(field.value, name=field.name):
+                    if field.name in [
+                        'in_port', 'out_port', 'interface'
+                    ] and not Vector.is_vector(field.value, name=field.name):
                         field.value = "{:032b}".format(self.global_port(field.value))
 
                     field.vectorize()
@@ -434,7 +427,7 @@ class NetPlumberAdapter(object):
 
             in_ports = [
                 self.global_port(
-                    "%s_%s" % (tname, pname)
+                    pname
                 ) for pname in rule.in_ports
             ]
 
@@ -445,14 +438,14 @@ class NetPlumberAdapter(object):
                 if isinstance(action, Forward):
                     out_ports.extend(
                         [self.global_port(
-                            '%s_%s' %(tname, port.lower())
+                            port
                         ) for port in action.ports]
                     )
 
                 #XXX: remove?
                 elif isinstance(action, Miss):
                     out_ports.append(
-                        self.global_port('%s_miss' % tname)
+                        self.global_port('%s_miss' % table)
                     )
 
                 elif isinstance(action, Rewrite):
@@ -477,7 +470,11 @@ class NetPlumberAdapter(object):
             for nid, match in enumerate(matches):
                 self.logger.debug(
                     "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
-                    calc_rule_index(rid), tid, in_ports, match.vector if match else "*", out_ports
+                    calc_rule_index(rid),
+                    tid,
+                    [hex(p) for p in in_ports],
+                    match.vector if match else "*",
+                    [hex(p) for p in out_ports]
                 )
 
                 r_id = jsonrpc.add_rule(
@@ -499,18 +496,18 @@ class NetPlumberAdapter(object):
         for table in model.tables:
             # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
             if table in [
-                    "pre_routing",
-                    "post_routing"
+                model.node+".pre_routing",
+                model.node+".post_routing"
             ]:
                 self.logger.debug("worker: skip adding rules to table %s", table)
                 continue
 
             self._add_rule_table(model, table)
 
-        for table in ["post_routing"]:
+        for table in [model.node+".post_routing"]:
             self._add_post_routing_rules(model)
 
-        for table in ["pre_routing"]:
+        for table in [model.node+".pre_routing"]:
             self._add_pre_routing_rules(model)
 
 
@@ -518,8 +515,7 @@ class NetPlumberAdapter(object):
     def add_switch_rules(self, model):
         for table in model.tables:
 
-            tname = '_'.join([model.node, table])
-            tid = self.tables[tname]
+            tid = self.tables[table]
 
             for rule in model.tables[table]:
                 rid = rule.idx
@@ -552,20 +548,19 @@ class NetPlumberAdapter(object):
                         ])
 
                 self.logger.debug(
-                    "worker: add rule %s to %s:\n\t(%s & %s -> %s, %s)",
+                    "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
                     calc_rule_index(rid),
+                    table,
                     tid,
                     rvec.vector if rvec else "*",
                     mask.vector if mask else "*",
-                    out_ports,
+                    [hex(p) for p in out_ports],
                     rewrite.vector if rewrite else "*"
                 )
 
-                in_ports = []
-                if rule.in_ports:
-                    in_ports = [self.global_port(
-                        "%s_%s" % (model.node, p)
-                    ) for p in rule.in_ports]
+                in_ports = [self.global_port(
+                    "%s.%s" % (model.node, p)
+                ) for p in rule.in_ports] if rule.in_ports else []
 
                 r_id = jsonrpc.add_rule(
                     self.sock,
@@ -584,7 +579,7 @@ class NetPlumberAdapter(object):
 
     def delete_rules(self, model):
         for table in model.tables:
-            tid = self.tables['_'.join([model.node, table])]
+            tid = table
 
             only_rid = lambda x: x[0]
             for rid in [only_rid(x) for x in model.tables[table]]:
@@ -618,7 +613,7 @@ class NetPlumberAdapter(object):
 
     def delete_tables(self, model):
         for table in model.tables:
-            name = '_'.join([model.node, table])
+            name = table
 
             if not self.models[model.node].tables[table]:
                 self.logger.debug(
@@ -637,7 +632,7 @@ class NetPlumberAdapter(object):
         self.tables[name] = idx
         self.fresh_table_index += 1
 
-        port = normalize_port(name + '.1')
+        port = name+'.1'
         portno = calc_port(idx, model, port)
 
         self.ports[port] = portno
@@ -724,7 +719,7 @@ class NetPlumberAdapter(object):
     def _get_model_table(self, node):
         mtype = self.model_types[node]
         return self.tables[
-            node+'_post_routing' if mtype == 'packet_filter' else node+'.1'
+            node+'.post_routing' if mtype == 'packet_filter' else node+'.1'
         ]
 
 
@@ -748,7 +743,7 @@ class NetPlumberAdapter(object):
         self.tables[name] = idx
         self.fresh_table_index += 1
 
-        port = normalize_port(name + '.1')
+        port = name + '.1'
         portno = calc_port(idx, model, port)
 
         self.ports[port] = portno
@@ -864,7 +859,7 @@ class NetPlumberAdapter(object):
 
     def global_port(self, port):
         try:
-            return self.ports[normalize_port(port)]
+            return self.ports[port]
         except KeyError:
             import pprint
             pprint.pprint(self.ports, indent=2)

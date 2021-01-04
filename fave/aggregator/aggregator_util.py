@@ -87,7 +87,7 @@ def calc_port(tab, model, port):
     port -- the port index in the table
     """
     try:
-        return (tab<<16)+model.ports[port]
+        return (tab<<16)+model.port_index(port)
     except KeyError:
         return (tab<<16)+1
 

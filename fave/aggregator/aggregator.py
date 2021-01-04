@@ -44,6 +44,7 @@ from util.print_util import eprint
 from util.aggregator_utils import UDS_ADDR
 from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port
+from util.path_util import json_to_pathlet, pathlet_to_json, Path
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.adapter import NetPlumberAdapter
@@ -68,6 +69,7 @@ class Aggregator(AbstractAggregator):
     def __init__(self, sock):
         self.queue = Queue()
         self.models = {}
+        self.port_to_model = {}
         self.links = {}
         self.stop = False
         self.net_plumber = NetPlumberAdapter(sock, Aggregator.LOGGER)
@@ -273,15 +275,25 @@ class Aggregator(AbstractAggregator):
                 links = []
                 for link in cmd.model:
                     sport, dport = link
-                    sportno = self.net_plumber.global_port(sport)
-                    dportno = self.net_plumber.global_port(dport)
+                    try:
+                        smodel = self.port_to_model[sport]
+                        dmodel = self.port_to_model[dport]
+                    except KeyError:
+                        import pprint
+                        pprint.pprint(self.links, indent=2)
+                        pprint.pprint(self.port_to_model, indent=2)
+                        raise
+
+
+                    sportno = self.net_plumber.global_port(smodel.egress_port(sport))
+                    dportno = self.net_plumber.global_port(dmodel.ingress_port(dport))
 
                     if cmd.command == "add":
                         Aggregator.LOGGER.debug(
                             "worker: add link to netplumber from %s:%s to %s:%s",
                             sport, hex(sportno), dport,  hex(dportno)
                         )
-                        links.append((sport, dport))
+                        links.append((smodel.egress_port(sport), dmodel.ingress_port(dport)))
                         self.links.setdefault(sport, [])
                         self.links[sport].append(dport)
                         self.net_plumber.links.setdefault(sportno, [])
@@ -324,12 +336,15 @@ class Aggregator(AbstractAggregator):
 
             elif cmd.mtype == "generator":
                 if cmd.command == "add":
+                    self._add_ports(cmd.model)
                     self.net_plumber.add_generator(cmd.model)
                 elif cmd.command == "del":
                     self.net_plumber.delete_generator(cmd.node)
 
             elif cmd.mtype == "generators":
                 if cmd.command == "add":
+                    for generator in cmd.model.generators:
+                        self._add_ports(generator)
                     self.net_plumber.add_generators_bulk(cmd.model.generators)
 # TODO: implement deletion
 #                elif cmd.command == "del":
@@ -337,6 +352,8 @@ class Aggregator(AbstractAggregator):
 
             elif cmd.mtype == "probe":
                 if cmd.command == "add":
+                    self._add_ports(cmd.model)
+                    self._align_ports_for_probe(cmd.model)
                     self.net_plumber.add_probe(cmd.model)
                 elif cmd.command == "del":
                     self.net_plumber.delete_probe(cmd.node)
@@ -373,6 +390,32 @@ class Aggregator(AbstractAggregator):
             self._add_model(model)
 
 
+    def _align_ports_for_probe(self, model):
+        if model.test_path is None: return
+
+        new_path = []
+        for pathlet in model.test_path.pathlets:
+            tmp = pathlet_to_json(pathlet)
+            if tmp['type'] == 'port':
+                new_pl = json_to_pathlet({
+                    'type' : 'port',
+                    'port' : self.port_to_model[tmp['port']].ingress_port(tmp['port'])
+                })
+                new_path.append(new_pl)
+
+            elif tmp['type'] in ['next_ports', 'last_ports']:
+                new_pl = json_to_pathlet({
+                    'type' : tmp['type'],
+                    'ports' : [self.port_to_model[p].ingress_port(p) for p in tmp['ports']]
+                })
+                new_path.append(new_pl)
+
+            else:
+                new_path.append(pathlet)
+
+        model.test_path = Path(new_path)
+
+
     def _delete_model(self, model):
         if model.type in ["packet_filter", "router"]:
             self._delete_packet_filter(model)
@@ -388,12 +431,23 @@ class Aggregator(AbstractAggregator):
             self._add_switch(model)
 
 
+    def _add_ports(self, model):
+        for port in model.ports:
+            self.port_to_model[port] = model
+
+
+    def _del_ports(self, model):
+        for port in model.ports:
+            del self.port_to_model[port]
+
+
     def _add_packet_filter(self, model):
         Aggregator.LOGGER.debug("worker: apply packet filter: %s", model.node)
 
         self.net_plumber.add_tables(model, prefixed=True)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_rules(model)
+        self._add_ports(model)
 
 
     def _add_switch(self, model):
@@ -401,6 +455,7 @@ class Aggregator(AbstractAggregator):
         self.net_plumber.add_tables(model)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_switch_rules(model)
+        self._add_ports(model)
 
 
     def _add_router(self, model):
@@ -408,12 +463,14 @@ class Aggregator(AbstractAggregator):
         self.net_plumber.add_tables(model, prefixed=True)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_rules(model)
+        self._add_ports(model)
 
 
     def _delete_packet_filter(self, model):
         self.net_plumber.delete_rules(model)
         self.net_plumber.delete_wiring(model)
         self.net_plumber.delete_tables(model)
+        self._del_ports(model)
 
 
     def _delete_switch(self, model):
