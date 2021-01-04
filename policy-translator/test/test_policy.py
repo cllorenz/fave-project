@@ -162,11 +162,11 @@ class TestPolicy(unittest.TestCase):
         self.policy.set_default_policy("allow")
 
         exp=[]
-        rule = "iptables -P FORWARD -j ACCEPT"
+        rule = "iptables -P FORWARD ACCEPT"
         exp.append(rule)
-        rule = "ip6tables -P FORWARD -j ACCEPT"
+        rule = "ip6tables -P FORWARD ACCEPT"
         exp.append(rule)
-        rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j DROP"
+        rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         exp.append(rule)
         x = "\n".join(str(e) for e in exp)
         res = self.policy.to_iptables()
@@ -181,9 +181,9 @@ class TestPolicy(unittest.TestCase):
 
         #set defaultrules
         exp=[]
-        rule = "iptables -P FORWARD -j DROP"
+        rule = "iptables -P FORWARD DROP"
         exp.append(rule)
-        rule = "ip6tables -P FORWARD -j DROP"
+        rule = "ip6tables -P FORWARD DROP"
         exp.append(rule)
         rule = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         exp.append(rule)
@@ -236,7 +236,7 @@ class TestPolicy(unittest.TestCase):
         res = self.policy.to_iptables()
         self.assertEqual(res, x)
 
-        # Multiple Services
+        # Multiple Services test
         self.policy.add_service("HTTPS")
         self.policy.services["HTTPS"].add_attribute('port', '"443"')
         self.policy.services["HTTPS"].add_attribute('protocol', '"tcp"')
