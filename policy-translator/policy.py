@@ -504,61 +504,88 @@ class Policy(object):
             ip6_from = (" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
             ip6_to = (" -d " + self.roles[policy[1]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[1]].attributes) else ""
 
-            # get service information
-            #todo auch für src
-            protocol = []
-            port = []
+            # get service informations
+            srcprotocol = []
+            srcport = []
+            destprotocol = []
+            destport = []
+            serviceset = False
+
+            if(self.roles[policy[0]].offers_services()):
+                serviceset = True
+                srcservices = self.roles[policy[0]].get_services()
+                srcservice = srcservices[policy[0]]
+                srckeys = list(srcservice)
+                for key in srckeys:
+                    srcprotocol.append(srcservice[key].attributes["protocol"])
+                    srcport.append(srcservice[key].attributes["port"])
+
             if(self.roles[policy[1]].offers_services()):
-                services = self.roles[policy[1]].get_services()
-                service = services[policy[1]]
-                keys = list(service)
-                for key in keys:
-                    protocol.append(service[key].attributes["protocol"])
-                    port.append(service[key].attributes["port"])
+                serviceset = True
+                destservices = self.roles[policy[1]].get_services()
+                destservice = destservices[policy[1]]
+                destkeys = list(destservice)
+                for key in destkeys:
+                    destprotocol.append(destservice[key].attributes["protocol"])
+                    destport.append(destservice[key].attributes["port"])
             else :
                 serviceinfo = ""
 
-
-
             # add comment for human readability
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
-            #create ip4 rule(s)
-            if ip4rule:
 
-                # if protocol is set multiple rules possible
-                if protocol:
-                    for i in range(len(protocol)):
-                        serviceinfo = " --protocol " + protocol[i] + " --dport " + port[i]
+            #create rules
+
+            # multiple Rules possible if services are existing
+
+            #only destination has services
+            if destprotocol and not srcprotocol:
+                for i in range(len(destprotocol)):
+                    serviceinfo = " --protocol " + destprotocol[i] + " --dport " + destport[i]
+                    if ip4rule:
                         rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
                         iptable_rules.append(rule)
-
-                # otherwise only one rule without serviceinfos
-                else :
-                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + comment + jumptarget
-                    iptable_rules.append(rule)
-
-
-                ip4rule = False
-
-            #create ip6 rule if needed
-
-            if ip6rule:
-
-                # if protocol is set multiple rules possible
-                if protocol:
-                    for i in range(len(protocol)):
-                        serviceinfo = " --protocol " + protocol[i] + " --dport " + port[i]
+                    if ip6rule:
                         rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
                         iptable_rules.append(rule)
 
-                # otherwise only one rule without serviceinfos
-                else :
+            #only source has services
+            if srcprotocol and not destprotocol:
+                for i in range(len(srcprotocol)):
+                    serviceinfo = " --protocol " + srcprotocol[i] + " --sport " + srcport[i]
+                    if ip4rule:
+                        rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
+                        iptable_rules.append(rule)
+                    if ip6rule:
+                        rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
+                        iptable_rules.append(rule)
+
+            #both have services
+            if srcprotocol and destprotocol:
+                for i in destkeys:
+                    if i in srckeys:
+                        ind = destkeys.index(i)
+                        serviceinfo = " --protocol " + destprotocol[ind] + " --sport " + destport[ind] + " --dport " + destport[ind]
+                        if ip4rule:
+                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
+                            iptable_rules.append(rule)
+                        if ip6rule:
+                            rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
+                            iptable_rules.append(rule)
+
+            #otherwise only one rule without serviceinfos
+            if not serviceset:
+                if ip4rule:
+                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + comment + jumptarget
+                    iptable_rules.append(rule)
+                if ip6rule:
                     rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + comment + jumptarget
                     iptable_rules.append(rule)
 
-                ip6rule = False
 
             # reset variables for next run
+
+            ip4rule = ip6rule = False
             eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = serviceinfo = comment = ""
 
 
