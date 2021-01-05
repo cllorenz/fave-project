@@ -22,6 +22,7 @@
 """ This module groups all unit tests for FaVe modules.
 """
 
+import sys
 import unittest
 
 from test.test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
@@ -131,4 +132,5 @@ if __name__ == '__main__':
         unittest.defaultTestLoader.loadTestsFromTestCase(TestChecker)
     )
 
-    unittest.TextTestRunner(verbosity=2).run(SUITE)
+    ret = not unittest.TextTestRunner(verbosity=2).run(SUITE).wasSuccessful()
+    sys.exit(ret)
