@@ -58,17 +58,17 @@ class TestChecker(unittest.TestCase):
             'children' : [
                 {
                     'node' : 4294967297,
-                    'flow' : "1xxxxxxx",
+                    'flow' : "00000001",
                     'children' : [
                         {
                             'node' : 2,
-                            'flow' : "1xxxxxxx"
+                            'flow' : "00000001"
                         }
                     ]
                 },
                 {
                     'node' : 8589934594,
-                    'flow' : "0xxxxxxx"
+                    'flow' : "00000000"
                 }
             ]
         }

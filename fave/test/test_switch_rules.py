@@ -92,17 +92,6 @@ class TestSwitchRuleField(unittest.TestCase):
         )
 
 
-    def test_enlarge(self):
-        """ Tests enlargement of a field vector.
-        """
-
-        self.rule_field.vectorize()
-        vlen = self.rule_field.vector.length
-
-        self.rule_field.enlarge(10)
-        self.assertEqual(self.rule_field.vector.length, vlen+10)
-
-
     def test_vectorize(self):
         """ Tests field vectorization.
         """
@@ -122,15 +111,6 @@ class TestSwitchRuleField(unittest.TestCase):
             self.rule_field.vector.vector
         )
 
-
-    def test_unleash(self):
-        """ Tests converting a field to a tuple.
-        """
-
-        self.assertEqual(
-            self.rule_field.unleash(),
-            ("packet.ipv6.source", 128, "2001:db8::1")
-        )
 
 
 class TestForward(unittest.TestCase):
@@ -228,17 +208,6 @@ class TestRewrite(unittest.TestCase):
             self.rewrite
         )
 
-
-    def test_enlarge(self):
-        """ Tests enlargement of rewrite field vectors.
-        """
-
-        self.rewrite.rewrite[0].vectorize()
-        vlen = self.rewrite.rewrite[0].vector.length
-
-        self.rewrite.enlarge(10)
-
-        self.assertEqual(self.rewrite.rewrite[0].vector.length, vlen+10)
 
 
     def test_eq(self):
@@ -347,41 +316,6 @@ class TestMatch(unittest.TestCase):
         )
 
 
-    def test_calc_vector(self):
-        """ Tests calculating the match vector.
-        """
-
-        mapping = Mapping()
-        mapping.extend("interface")
-        mapping.extend("packet.ipv6.destination")
-        mapping.extend("packet.ipv6.source")
-
-        self.match.calc_vector(mapping)
-
-        self.assertEqual(
-            self.match.vector.vector,
-            "\
-xxxxxxxxxxxxxxxx\
-xxxxxxxxxxxxxxxx\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000010\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000001"
-        )
-
-
 
 class TestSwitchRule(unittest.TestCase):
     """ This class tests rules.
@@ -402,8 +336,7 @@ class TestSwitchRule(unittest.TestCase):
             "foo", 1, 0,
             in_ports=[1],
             match=match,
-            actions=actions,
-            mapping=self.mapping
+            actions=actions
         )
 
 
@@ -434,13 +367,7 @@ class TestSwitchRule(unittest.TestCase):
                         "negated" : False
                     }]
                 },
-                "actions" : [{"name" : "forward", "ports" : [2]}],
-                "mapping" : {
-                    "interface" : 0,
-                    "packet.ipv6.destination" : 32,
-                    "packet.ipv6.source" : 160,
-                    "length" : 288
-                }
+                "actions" : [{"name" : "forward", "ports" : [2]}]
             }
         )
 
@@ -467,46 +394,11 @@ class TestSwitchRule(unittest.TestCase):
                         "negated" : False
                     }]
                 },
-                "actions" : [{"name" : "forward", "ports" : [2]}],
-                "mapping" : {
-                    "interface" : 0,
-                    "packet.ipv6.destination" : 32,
-                    "packet.ipv6.source" : 160,
-                    "length" : 288
-                }
+                "actions" : [{"name" : "forward", "ports" : [2]}]
             }),
             self.rule
         )
 
-
-    def test_calc_vector(self):
-        """ Tests calculating the rule vector.
-        """
-
-        self.rule.calc_vector(self.mapping)
-
-        self.assertEqual(
-            self.rule.match.vector.vector,
-            "\
-xxxxxxxxxxxxxxxx\
-xxxxxxxxxxxxxxxx\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000010\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000001"
-        )
 
 
     def test_eq(self):
@@ -523,8 +415,7 @@ xxxxxxxxxxxxxxxx\
             "foo", 1, 0,
             in_ports=[1],
             match=match1,
-            actions=actions1,
-            mapping=self.mapping
+            actions=actions1
         )
 
         self.assertEqual(self.rule, rule1)
@@ -533,8 +424,7 @@ xxxxxxxxxxxxxxxx\
             "bar", 2, 1,
             in_ports=[1],
             match=match1,
-            actions=actions1,
-            mapping=self.mapping
+            actions=actions1
         )
 
         self.assertNotEqual(self.rule, rule2)
@@ -543,8 +433,7 @@ xxxxxxxxxxxxxxxx\
             "foo", 1, 0,
             in_ports=[1, 2],
             match=match1,
-            actions=actions1,
-            mapping=self.mapping
+            actions=actions1
         )
 
         self.assertNotEqual(self.rule, rule3)
@@ -556,8 +445,7 @@ xxxxxxxxxxxxxxxx\
             "foo", 1, 0,
             in_ports=[1],
             match=match2,
-            actions=actions1,
-            mapping=self.mapping
+            actions=actions1
         )
 
         self.assertNotEqual(self.rule, rule4)
@@ -571,8 +459,7 @@ xxxxxxxxxxxxxxxx\
             "foo", 1, 0,
             in_ports=[1],
             match=match1,
-            actions=actions2,
-            mapping=self.mapping
+            actions=actions2
         )
 
         self.assertNotEqual(self.rule, rule5)

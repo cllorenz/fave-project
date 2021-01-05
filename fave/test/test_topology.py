@@ -49,7 +49,7 @@ class TestLinksModel(unittest.TestCase):
         """
         self.assertEqual(
             self.model.to_json(),
-            {'type':'links', 'links':{'foo.1':'bar.2', 'bar.1':'foo.2'}}
+            {'type':'links', 'links':{'foo.1':['bar.2'], 'bar.1':['foo.2']}}
         )
 
 
@@ -58,7 +58,7 @@ class TestLinksModel(unittest.TestCase):
         """
         self.assertEqual(
             LinksModel.from_json(
-                {'type':'links', 'links':{'foo.1':'bar.2', 'bar.1':'foo.2'}}
+                {'type':'links', 'links':{'foo.1':['bar.2'], 'bar.1':['foo.2']}}
             ),
             self.model
         )

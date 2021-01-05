@@ -316,9 +316,8 @@ class TestModel(unittest.TestCase):
         """
         self.model = Model(
             'foo',
-            tables={'1' : []},
-            ports={'foo.1' : 1, 'foo.2' : 2},
-            mapping=Mapping()
+            tables={'foo.1' : []},
+            ports={'foo.1' : 'foo.1', 'foo.2' : 'foo.1'}
         )
 
 
@@ -337,11 +336,9 @@ class TestModel(unittest.TestCase):
             {
                 'node' : 'foo',
                 'type' : 'model',
-                'tables' : {'1' : []},
-                'ports' : {'foo.1' : 1, 'foo.2' : 2},
-                'private_ports' : 0,
-                'wiring' : [],
-                'mapping' : {'length' : 0}
+                'tables' : {'foo.1' : []},
+                'ports' : {'foo.1' : 'foo.1', 'foo.2' : 'foo.1'},
+                'wiring' : []
             }
         )
 
@@ -353,12 +350,10 @@ class TestModel(unittest.TestCase):
             self.model.to_json_str(), \
 '{\
 "node": "foo", \
-"tables": {"1": []}, \
-"private_ports": 0, \
+"tables": {"foo.1": []}, \
 "wiring": [], \
-"mapping": {"length": 0}, \
 "type": "model", \
-"ports": {"foo.2": 2, "foo.1": 1}\
+"ports": {"foo.2": "foo.1", "foo.1": "foo.1"}\
 }'
         )
 
@@ -371,11 +366,9 @@ class TestModel(unittest.TestCase):
             Model.from_json({
                 'node' : 'foo',
                 'type' : 'model',
-                'tables' : {'1' : []},
-                'ports' : {'foo.1' : 1, 'foo.2' : 2},
-                'private_ports' : 0,
-                'wiring' : [],
-                'mapping' : {'length' : 0}
+                'tables' : {'foo.1' : []},
+                'ports' : {'foo.1' : 'foo.1', 'foo.2' : 'foo.1'},
+                'wiring' : []
             }),
             self.model
         )
@@ -390,11 +383,9 @@ class TestModel(unittest.TestCase):
                 '{\
                     "node":"foo", \
                     "type":"model", \
-                    "tables":{"1":[]}, \
-                    "private_ports":0, \
-                    "ports":{"foo.1":1, "foo.2":2}, \
-                    "wiring":[], \
-                    "mapping":{"length":0}\
+                    "tables":{"foo.1":[]}, \
+                    "ports":{"foo.1":"foo.1", "foo.2":"foo.1"}, \
+                    "wiring":[] \
                 }'
             ),
             self.model
@@ -407,19 +398,15 @@ class TestModel(unittest.TestCase):
 
         other = Model(
             'foo',
-            tables={'1' : []},
-            ports={'foo.1' : 1},
-            mapping=Mapping()
+            tables={'foo.1' : []},
+            ports={'foo.1' : 'foo.1'}
         )
-        other.mapping.extend('packet.ipv6.source')
 
         result = Model(
             'foo',
             tables={},
-            ports={'foo.2' : 2},
-            mapping=Mapping()
+            ports={'foo.2' : 'foo.1'}
         )
-        result.mapping.extend('packet.ipv6.source')
 
         self.assertEqual(self.model - other, result)
 

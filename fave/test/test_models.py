@@ -56,31 +56,28 @@ class TestRouterModel(unittest.TestCase):
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {'in_port': 0, 'length': 64, 'out_port': 32},
                 'node': 'foo',
                 'ports': {
-                    'acl_in_in': 2,
-                    'acl_in_out': 3,
-                    'acl_out_in': 6,
-                    'acl_out_out': 7,
-                    'in_1': 9,
-                    'out_2': 11,
-                    'post_routing_in': 8,
-                    'pre_routing_out': 1,
-                    'routing_in': 4,
-                    'routing_out': 5
+                    'foo.acl_in_in': 'foo.acl_in',
+                    'foo.acl_in_out': 'foo.acl_in',
+                    'foo.acl_out_in': 'foo.acl_out',
+                    'foo.acl_out_out': 'foo.acl_out',
+                    'foo.1': '',
+                    'foo.2': '',
+                    'foo.1_ingress' : 'foo.pre_routing',
+                    'foo.2_ingress' : 'foo.pre_routing',
+                    'foo.1_egress' : 'foo.post_routing',
+                    'foo.2_egress' : 'foo.post_routing',
+                    'foo.post_routing_in': 'foo.post_routing',
+                    'foo.pre_routing_out': 'foo.pre_routing',
+                    'foo.routing_in': 'foo.routing',
+                    'foo.routing_out': 'foo.routing'
                 },
-                'private_ports' : 8,
                 'tables': {
-                    'acl_in': [{
+                    'foo.acl_in': [{
                         'actions': [],
                         'idx': 1,
-                        'in_ports': ['in'],
-                        'mapping': {
-                            'length': 48,
-                            'packet.ether.vlan': 0,
-                            'packet.ipv4.source': 16
-                        },
+                        'in_ports': ['foo.acl_in_in'],
                         'match': {'fields': [{
                             'name': 'packet.ether.vlan',
                             'value': '4095',
@@ -91,16 +88,11 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
-                        'tid': 'acl_in'
+                        'tid': 'foo.acl_in'
                     }, {
                         'actions': [],
                         'idx': 2,
-                        'in_ports': ['in'],
-                        'mapping': {
-                            'length': 48,
-                            'packet.ether.vlan': 0,
-                            'packet.ipv4.source': 16
-                        },
+                        'in_ports': ['foo.acl_in_in'],
                         'match': {'fields': [{
                             'name': 'packet.ether.vlan',
                             'value': '4095',
@@ -111,10 +103,10 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
-                        'tid': 'acl_in'
+                        'tid': 'foo.acl_in'
                     }],
-                    'acl_out': [],
-                    'post_routing': [{
+                    'foo.acl_out': [],
+                    'foo.post_routing': [{
                         'actions': [{
                             'name': 'rewrite',
                             'rw': [{
@@ -128,67 +120,118 @@ class TestRouterModel(unittest.TestCase):
                             }]
                         }, {
                             'name': 'forward',
-                            'ports': ['foo_2']
+                            'ports': ['foo.1_egress']
                         }],
                         'idx': 2,
-                        'in_ports': ['in'],
-                        'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
+                        'in_ports': ['foo.post_routing_in'],
                         'match': {'fields': [{
                             'name': 'out_port',
-                            'value': 'foo.2',
+                            'value': 'foo.1_egress',
                             'negated' : False
                         }]},
                         'node': 'foo',
-                        'tid': 'post_routing'
+                        'tid': 'foo.post_routing'
                     }, {
-                        'actions': [],
-                        'idx': 0,
-                        'in_ports': ['in'],
-                        'mapping': {
-                            'in_port': 0,
-                            'length': 64,
-                            'out_port': 32
-                        },
-                        'match': {
-                            'fields': [{
-                                'name': 'in_port',
-                                'value': 'foo.1',
-                                'negated' : False
-                            }, {
-                                'name': 'out_port',
-                                'value': 'foo.2',
-                                'negated' : False
-                        }]},
-                        'node': 'foo',
-                        'tid': 'post_routing'
-                    }],
-                    'pre_routing': [{
                         'actions': [{
                             'name': 'rewrite',
                             'rw': [{
                                 'name': 'in_port',
-                                'value': 'foo.1',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }]
+                        }, {
+                            'name': 'forward',
+                            'ports': ['foo.2_egress']
+                        }],
+                        'idx': 3,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {'fields': [{
+                            'name': 'out_port',
+                            'value': 'foo.2_egress',
+                            'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }, {
+                        'actions': [],
+                        'idx': 0,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {
+                            'fields': [{
+                                'name': 'in_port',
+                                'value': 'foo.1_ingress',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'foo.1_egress',
+                                'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }, {
+                        'actions': [],
+                        'idx': 1,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {
+                            'fields': [{
+                                'name': 'in_port',
+                                'value': 'foo.2_ingress',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'foo.2_egress',
+                                'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }],
+                    'foo.pre_routing': [{
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'foo.1_ingress',
                                 'negated' : False
                             }]}, {
                                 'name': 'forward',
-                                'ports': ['foo_pre_routing_out']
+                                'ports': ['foo.pre_routing_out']
                             }
                         ],
                         'idx': 0,
-                        'in_ports': ['foo.1'],
-                        'mapping': {'length': 32, 'in_port' : 0},
+                        'in_ports': ['foo.1_ingress'],
                         'match': None,
                         'node': 'foo',
-                        'tid': 'pre_routing'
+                        'tid': 'foo.pre_routing'
+                    }, {
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'foo.2_ingress',
+                                'negated' : False
+                            }]}, {
+                                'name': 'forward',
+                                'ports': ['foo.pre_routing_out']
+                            }
+                        ],
+                        'idx': 1,
+                        'in_ports': ['foo.2_ingress'],
+                        'match': None,
+                        'node': 'foo',
+                        'tid': 'foo.pre_routing'
                     }],
-                    'routing': []
+                    'foo.routing': []
                 },
                 'type': 'router',
                 'wiring': [
-                    ('pre_routing_out', 'acl_in_in'),
-                    ('acl_in_out', 'routing_in'),
-                    ('routing_out', 'acl_out_in'),
-                    ('acl_out_out', 'post_routing_in')
+                    ('foo.pre_routing_out', 'foo.acl_in_in'),
+                    ('foo.acl_in_out', 'foo.routing_in'),
+                    ('foo.routing_out', 'foo.acl_out_in'),
+                    ('foo.acl_out_out', 'foo.post_routing_in')
                 ]
             }
         )
@@ -199,141 +242,184 @@ class TestRouterModel(unittest.TestCase):
         """
 
         router = RouterModel.from_json({
-            'mapping': {'in_port': 0, 'length': 64, 'out_port': 32},
-            'node': 'foo',
-            'ports': {
-                'acl_in_in': 2,
-                'acl_in_out': 3,
-                'acl_out_in': 6,
-                'acl_out_out': 7,
-                'in_1': 9,
-                'out_2': 11,
-                'post_routing_in': 8,
-                'pre_routing_out': 1,
-                'routing_in': 4,
-                'routing_out': 5
-            },
-            'private_ports' : 8,
-            'tables': {
-                'acl_in': [{
-                    'actions': [],
-                    'idx': 1,
-                    'in_ports': ['in'],
-                    'mapping': {
-                        'length': 48,
-                        'packet.ether.vlan': 0,
-                        'packet.ipv4.source': 16
-                    },
-                    'match': {'fields': [{
-                        'name': 'packet.ether.vlan',
-                        'value': '4095',
-                        'negated' : False
-                    }, {
-                        'name': 'packet.ipv4.source',
-                        'value': '192.168.0.0/16',
-                        'negated' : False
-                    }]},
-                    'node': 'foo',
-                    'tid': 'acl_in'
-                }, {
-                    'actions': [],
-                    'idx': 2,
-                    'in_ports': ['in'],
-                    'mapping': {
-                        'length': 48,
-                        'packet.ether.vlan': 0,
-                        'packet.ipv4.source': 16
-                    },
-                    'match': {'fields': [{
-                        'name': 'packet.ether.vlan',
-                        'value': '4095',
-                        'negated' : False
-                    }, {
-                        'name': 'packet.ipv4.source',
-                        'value': '10.0.0.0/8',
-                        'negated' : False
-                    }]},
-                    'node': 'foo',
-                    'tid': 'acl_in'
-                }],
-                'acl_out': [],
-                'post_routing': [{
-                    'actions': [{
-                        'name': 'rewrite',
-                        'rw': [{
-                            'name': 'in_port',
-                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                'node': 'foo',
+                'ports': {
+                    'foo.acl_in_in': 'foo.acl_in',
+                    'foo.acl_in_out': 'foo.acl_in',
+                    'foo.acl_out_in': 'foo.acl_out',
+                    'foo.acl_out_out': 'foo.acl_out',
+                    'foo.1': '',
+                    'foo.2': '',
+                    'foo.1_ingress' : 'foo.pre_routing',
+                    'foo.2_ingress' : 'foo.pre_routing',
+                    'foo.1_egress' : 'foo.post_routing',
+                    'foo.2_egress' : 'foo.post_routing',
+                    'foo.post_routing_in': 'foo.post_routing',
+                    'foo.pre_routing_out': 'foo.pre_routing',
+                    'foo.routing_in': 'foo.routing',
+                    'foo.routing_out': 'foo.routing'
+                },
+                'tables': {
+                    'foo.acl_in': [{
+                        'actions': [],
+                        'idx': 1,
+                        'in_ports': ['foo.acl_in_in'],
+                        'match': {'fields': [{
+                            'name': 'packet.ether.vlan',
+                            'value': '4095',
                             'negated' : False
                         }, {
-                            'name': 'out_port',
-                            'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                            'name': 'packet.ipv4.source',
+                            'value': '192.168.0.0/16',
                             'negated' : False
-                        }]
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.acl_in'
                     }, {
-                        'name': 'forward',
-                        'ports': ['foo_2']
+                        'actions': [],
+                        'idx': 2,
+                        'in_ports': ['foo.acl_in_in'],
+                        'match': {'fields': [{
+                            'name': 'packet.ether.vlan',
+                            'value': '4095',
+                            'negated' : False
+                        }, {
+                            'name': 'packet.ipv4.source',
+                            'value': '10.0.0.0/8',
+                            'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.acl_in'
                     }],
-                    'idx': 2,
-                    'in_ports': ['in'],
-                    'mapping': {'length': 32, 'out_port': 0},
-                    'match': {'fields': [{
-                        'name': 'out_port',
-                        'value': 'foo.2',
-                        'negated' : False
-                    }]},
-                    'node': 'foo',
-                    'tid': 'post_routing'
-                }, {
-                    'actions': [],
-                    'idx': 0,
-                    'in_ports': ['in'],
-                    'mapping': {
-                        'in_port': 0,
-                        'length': 64,
-                        'out_port': 32
-                    },
-                    'match': {
-                        'fields': [{
-                            'name': 'in_port',
-                            'value': 'foo.1',
-                            'negated' : False
+                    'foo.acl_out': [],
+                    'foo.post_routing': [{
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }]
                         }, {
-                            'name': 'out_port',
-                            'value': 'foo.2',
-                            'negated' : False
-                    }]},
-                    'node': 'foo',
-                    'tid': 'post_routing'
-                }],
-                'pre_routing': [{
-                    'actions': [{
-                        'name': 'rewrite',
-                        'rw': [{
-                            'name': 'in_port',
-                            'value': 'foo.1',
-                            'negated' : False
-                        }]}, {
                             'name': 'forward',
-                            'ports': ['foo_pre_routing_out']
-                        }
-                    ],
-                    'idx': 0,
-                    'in_ports': ['foo.1'],
-                    'mapping': {'length': 0},
-                    'match': None,
-                    'node': 'foo',
-                    'tid': 'pre_routing'
-                }],
-                'routing': []
-            },
-            'type': 'router',
-            'wiring': [
-                ('pre_routing_out', 'acl_in_in'),
-                ('acl_in_out', 'routing_in'),
-                ('routing_out', 'acl_out_in'),
-                ('acl_out_out', 'post_routing_in')
-            ]
-        })
+                            'ports': ['foo.1_egress']
+                        }],
+                        'idx': 2,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {'fields': [{
+                            'name': 'out_port',
+                            'value': 'foo.1_egress',
+                            'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }, {
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                'negated' : False
+                            }]
+                        }, {
+                            'name': 'forward',
+                            'ports': ['foo.2_egress']
+                        }],
+                        'idx': 3,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {'fields': [{
+                            'name': 'out_port',
+                            'value': 'foo.2_egress',
+                            'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }, {
+                        'actions': [],
+                        'idx': 0,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {
+                            'fields': [{
+                                'name': 'in_port',
+                                'value': 'foo.1_ingress',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'foo.1_egress',
+                                'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }, {
+                        'actions': [],
+                        'idx': 1,
+                        'in_ports': ['foo.post_routing_in'],
+                        'match': {
+                            'fields': [{
+                                'name': 'in_port',
+                                'value': 'foo.2_ingress',
+                                'negated' : False
+                            }, {
+                                'name': 'out_port',
+                                'value': 'foo.2_egress',
+                                'negated' : False
+                        }]},
+                        'node': 'foo',
+                        'tid': 'foo.post_routing'
+                    }],
+                    'foo.pre_routing': [{
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'foo.1_ingress',
+                                'negated' : False
+                            }]}, {
+                                'name': 'forward',
+                                'ports': ['foo.pre_routing_out']
+                            }
+                        ],
+                        'idx': 0,
+                        'in_ports': ['foo.1_ingress'],
+                        'match': None,
+                        'node': 'foo',
+                        'tid': 'foo.pre_routing'
+                    }, {
+                        'actions': [{
+                            'name': 'rewrite',
+                            'rw': [{
+                                'name': 'in_port',
+                                'value': 'foo.2_ingress',
+                                'negated' : False
+                            }]}, {
+                                'name': 'forward',
+                                'ports': ['foo.pre_routing_out']
+                            }
+                        ],
+                        'idx': 1,
+                        'in_ports': ['foo.2_ingress'],
+                        'match': None,
+                        'node': 'foo',
+                        'tid': 'foo.pre_routing'
+                    }],
+                    'foo.routing': []
+                },
+                'type': 'router',
+                'wiring': [
+                    ('foo.pre_routing_out', 'foo.acl_in_in'),
+                    ('foo.acl_in_out', 'foo.routing_in'),
+                    ('foo.routing_out', 'foo.acl_out_in'),
+                    ('foo.acl_out_out', 'foo.post_routing_in')
+                ]
+            })
 
         self.assertEqual(
             router,
@@ -345,7 +431,7 @@ class TestRouterModel(unittest.TestCase):
         """ Tests the a more complex model.
         """
 
-        ports = {'1' : 1, '2' : 2}
+        ports = ['1', '2']
         acls = {
             'acl_2' : [([('ipv6_dst', "2001:db8::1")], "permit")],
             'acl_deny' : [([], "deny")]
@@ -392,10 +478,8 @@ class TestGenericModel(unittest.TestCase):
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {'length':0},
                 'node': 'foo',
                 'ports': {},
-                'private_ports' : 0,
                 'tables': {},
                 'type': 'model',
                 'wiring': []
@@ -409,7 +493,6 @@ class TestGenericModel(unittest.TestCase):
 
         self.assertEqual(
             Model.from_json({
-                'mapping': {'length':0},
                 'node': 'foo',
                 'ports': {},
                 'tables': {},
@@ -464,32 +547,34 @@ class TestPacketFilterModel(unittest.TestCase):
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                 'node': 'foo',
                 'ports': {
-                    "pre_routing_input" : 1,
-                    "pre_routing_forward" : 2,
-                    "input_filter_in" : 3,
-                    "input_filter_accept" : 4,
-                    "forward_filter_in" : 5,
-                    "forward_filter_accept" : 6,
-                    "output_filter_in" : 7,
-                    "output_filter_accept" : 8,
-                    "internals_in" : 9,
-                    "internals_out" : 10,
-                    "post_routing_in" : 11,
-                    "routing_in" : 12,
-                    "routing_out" : 13,
-                    'in_1': 16,
-                    'out_2': 19
+                    "foo.pre_routing_input" : "foo.pre_routing",
+                    "foo.pre_routing_forward" : "foo.pre_routing",
+                    "foo.input_filter_in" : "foo.input_filter",
+                    "foo.input_filter_accept" : "foo.input_filter",
+                    "foo.forward_filter_in" : "foo.forward_filter",
+                    "foo.forward_filter_accept" : "foo.forward_filter",
+                    "foo.output_filter_in" : "foo.output_filter",
+                    "foo.output_filter_accept" : "foo.output_filter",
+                    "foo.internals_in" : "foo.internals",
+                    "foo.internals_out" : "foo.internals",
+                    "foo.post_routing_in" : "foo.post_routing",
+                    "foo.routing_in" : "foo.routing",
+                    "foo.routing_out" : "foo.routing",
+                    'foo.1': '',
+                    'foo.2': '',
+                    'foo.1_ingress': 'foo.pre_routing',
+                    'foo.2_ingress': 'foo.pre_routing',
+                    'foo.1_egress': 'foo.post_routing',
+                    'foo.2_egress': 'foo.post_routing'
                 },
-                'private_ports': 13,
                 'tables': {
-                    'forward_filter': [],
-                    'input_filter': [],
-                    'internals': [],
-                    'output_filter': [],
-                    'post_routing': [
+                    'foo.forward_filter': [],
+                    'foo.input_filter': [],
+                    'foo.internals': [],
+                    'foo.output_filter': [],
+                    'foo.post_routing': [
                         {
                             'actions': [{
                                 'name': 'rewrite',
@@ -505,41 +590,76 @@ class TestPacketFilterModel(unittest.TestCase):
                                 ]
                             }, {
                                 'name': 'forward',
-                                'ports': ['foo_2']
+                                'ports': ['foo.1_egress']
                             }],
                             'idx': 2,
-                            'in_ports': ['in'],
-                            'mapping': {
-                                'in_port': 32,
-                                'length': 64,
-                                'out_port': 0
-                            },
+                            'in_ports': ['foo.post_routing_in'],
                             'match': {
                                 'fields': [{
                                     'name': 'out_port',
-                                    'value': 'foo.2',
+                                    'value': 'foo.1_egress',
                                     'negated' : False
                                 }]
                             },
-                                'node': 'foo',
-                                'tid': 'post_routing'
+                            'node': 'foo',
+                            'tid': 'post_routing'
+                        }, {
+                            'actions': [{
+                                'name': 'rewrite',
+                                'rw': [{
+                                        'name': 'in_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
+                                    }, {
+                                        'name': 'out_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
+                                    }
+                                ]
+                            }, {
+                                'name': 'forward',
+                                'ports': ['foo.2_egress']
+                            }],
+                            'idx': 3,
+                            'in_ports': ['foo.post_routing_in'],
+                            'match': {
+                                'fields': [{
+                                    'name': 'out_port',
+                                    'value': 'foo.2_egress',
+                                    'negated' : False
+                                }]
+                            },
+                            'node': 'foo',
+                            'tid': 'post_routing'
                         }, {
                             'actions': [],
                             'idx': 0,
-                            'in_ports': ['in'],
-                            'mapping': {
-                                'in_port': 0,
-                                'length': 64,
-                                'out_port': 32
-                            },
+                            'in_ports': ['foo.post_routing_in'],
                             'match': {
                                 'fields': [{
                                     'name': 'in_port',
-                                    'value': 'foo.1',
+                                    'value': 'foo.1_ingress',
                                     'negated' : False
                                 }, {
                                     'name': 'out_port',
-                                    'value': 'foo.2',
+                                    'value': 'foo.1_egress',
+                                    'negated' : False
+                                }]
+                            },
+                            'node': 'foo',
+                            'tid': 'post_routing'
+                        }, {
+                            'actions': [],
+                            'idx': 1,
+                            'in_ports': ['foo.post_routing_in'],
+                            'match': {
+                                'fields': [{
+                                    'name': 'in_port',
+                                    'value': 'foo.2_ingress',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'foo.2_egress',
                                     'negated' : False
                                 }]
                             },
@@ -547,18 +667,18 @@ class TestPacketFilterModel(unittest.TestCase):
                             'tid': 'post_routing'
                         }
                     ],
-                    'pre_routing': [],
-                    'routing' : []
+                    'foo.pre_routing': [],
+                    'foo.routing' : []
                 },
                 'type': 'packet_filter',
                 'wiring': [
-                    ("pre_routing_input", "input_filter_in"),
-                    ("input_filter_accept", "internals_in"),
-                    ("pre_routing_forward", "forward_filter_in"),
-                    ("forward_filter_accept", "routing_in"),
-                    ("internals_out", "output_filter_in"),
-                    ("output_filter_accept", "routing_in"),
-                    ("routing_out", "post_routing_in")
+                    ("foo.pre_routing_input", "foo.input_filter_in"),
+                    ("foo.input_filter_accept", "foo.internals_in"),
+                    ("foo.pre_routing_forward", "foo.forward_filter_in"),
+                    ("foo.forward_filter_accept", "foo.routing_in"),
+                    ("foo.internals_out", "foo.output_filter_in"),
+                    ("foo.output_filter_accept", "foo.routing_in"),
+                    ("foo.routing_out", "foo.post_routing_in")
                 ]
             }
         )
@@ -570,32 +690,34 @@ class TestPacketFilterModel(unittest.TestCase):
 
         self.assertEqual(
             PacketFilterModel.from_json({
-                'mapping': {'length': 64, 'out_port': 0, 'in_port': 32},
                 'node': 'foo',
                 'ports': {
-                    "pre_routing_input" : 1,
-                    "pre_routing_forward" : 2,
-                    "input_filter_in" : 3,
-                    "input_filter_accept" : 4,
-                    "forward_filter_in" : 5,
-                    "forward_filter_accept" : 6,
-                    "output_filter_in" : 7,
-                    "output_filter_accept" : 8,
-                    "internals_in" : 9,
-                    "internals_out" : 10,
-                    "post_routing_in" : 11,
-                    "routing_in" : 12,
-                    "routing_out" : 13,
-                    'in_1': 16,
-                    'out_2': 19
+                    "foo.pre_routing_input" : "foo.pre_routing",
+                    "foo.pre_routing_forward" : "foo.pre_routing",
+                    "foo.input_filter_in" : "foo.input_filter",
+                    "foo.input_filter_accept" : "foo.input_filter",
+                    "foo.forward_filter_in" : "foo.forward_filter",
+                    "foo.forward_filter_accept" : "foo.forward_filter",
+                    "foo.output_filter_in" : "foo.output_filter",
+                    "foo.output_filter_accept" : "foo.output_filter",
+                    "foo.internals_in" : "foo.internals",
+                    "foo.internals_out" : "foo.internals",
+                    "foo.post_routing_in" : "foo.post_routing",
+                    "foo.routing_in" : "foo.routing",
+                    "foo.routing_out" : "foo.routing",
+                    'foo.1': '',
+                    'foo.2': '',
+                    'foo.1_ingress': 'foo.pre_routing',
+                    'foo.2_ingress': 'foo.pre_routing',
+                    'foo.1_egress': 'foo.post_routing',
+                    'foo.2_egress': 'foo.post_routing'
                 },
-                'private_ports': 13,
                 'tables': {
-                    'forward_filter': [],
-                    'input_filter': [],
-                    'internals': [],
-                    'output_filter': [],
-                    'post_routing': [
+                    'foo.forward_filter': [],
+                    'foo.input_filter': [],
+                    'foo.internals': [],
+                    'foo.output_filter': [],
+                    'foo.post_routing': [
                         {
                             'actions': [{
                                 'name': 'rewrite',
@@ -611,19 +733,42 @@ class TestPacketFilterModel(unittest.TestCase):
                                 ]
                             }, {
                                 'name': 'forward',
-                                'ports': ['foo_2']
+                                'ports': ['foo.1_egress']
                             }],
                             'idx': 2,
-                            'in_ports': ['in'],
-                            'mapping': {
-                                'in_port': 32,
-                                'length': 64,
-                                'out_port': 0
-                            },
+                            'in_ports': ['foo.post_routing_in'],
                             'match': {
                                 'fields': [{
                                     'name': 'out_port',
-                                    'value': 'foo.2',
+                                    'value': 'foo.1_egress',
+                                    'negated' : False
+                                }]
+                            },
+                            'node': 'foo',
+                            'tid': 'post_routing'
+                        }, {
+                            'actions': [{
+                                'name': 'rewrite',
+                                'rw': [{
+                                        'name': 'in_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
+                                    }, {
+                                        'name': 'out_port',
+                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                        'negated' : False
+                                    }
+                                ]
+                            }, {
+                                'name': 'forward',
+                                'ports': ['foo.2_egress']
+                            }],
+                            'idx': 3,
+                            'in_ports': ['foo.post_routing_in'],
+                            'match': {
+                                'fields': [{
+                                    'name': 'out_port',
+                                    'value': 'foo.2_egress',
                                     'negated' : False
                                 }]
                             },
@@ -632,20 +777,32 @@ class TestPacketFilterModel(unittest.TestCase):
                         }, {
                             'actions': [],
                             'idx': 0,
-                            'in_ports': ['in'],
-                            'mapping': {
-                                'in_port': 0,
-                                'length': 64,
-                                'out_port': 32
-                            },
+                            'in_ports': ['foo.post_routing_in'],
                             'match': {
                                 'fields': [{
                                     'name': 'in_port',
-                                    'value': 'foo.1',
+                                    'value': 'foo.1_ingress',
                                     'negated' : False
                                 }, {
                                     'name': 'out_port',
-                                    'value': 'foo.2',
+                                    'value': 'foo.1_egress',
+                                    'negated' : False
+                                }]
+                            },
+                            'node': 'foo',
+                            'tid': 'post_routing'
+                        }, {
+                            'actions': [],
+                            'idx': 1,
+                            'in_ports': ['foo.post_routing_in'],
+                            'match': {
+                                'fields': [{
+                                    'name': 'in_port',
+                                    'value': 'foo.2_ingress',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'foo.2_egress',
                                     'negated' : False
                                 }]
                             },
@@ -653,18 +810,18 @@ class TestPacketFilterModel(unittest.TestCase):
                             'tid': 'post_routing'
                         }
                     ],
-                    'pre_routing': [],
-                    'routing' : []
+                    'foo.pre_routing': [],
+                    'foo.routing' : []
                 },
                 'type': 'packet_filter',
                 'wiring': [
-                    ("pre_routing_input", "input_filter_in"),
-                    ("input_filter_accept", "internals_in"),
-                    ("pre_routing_forward", "forward_filter_in"),
-                    ("forward_filter_accept", "routing_in"),
-                    ("internals_out", "output_filter_in"),
-                    ("output_filter_accept", "routing_in"),
-                    ("routing_out", "post_routing_in")
+                    ("foo.pre_routing_input", "foo.input_filter_in"),
+                    ("foo.input_filter_accept", "foo.internals_in"),
+                    ("foo.pre_routing_forward", "foo.forward_filter_in"),
+                    ("foo.forward_filter_accept", "foo.routing_in"),
+                    ("foo.internals_out", "foo.output_filter_in"),
+                    ("foo.output_filter_accept", "foo.routing_in"),
+                    ("foo.routing_out", "foo.post_routing_in")
                 ]
             }),
             self.model
@@ -694,12 +851,9 @@ class TestSwitchModel(unittest.TestCase):
         self.assertEqual(
             self.model.to_json(),
             {
-                'mapping': {},
                 'node': 'foo',
                 'ports': {},
-                'private_ports': 0,
-                'rules': [],
-                'tables': {"1" : []},
+                'tables': {"foo.1" : []},
                 'type': 'switch',
                 'wiring': []
             }
@@ -712,12 +866,9 @@ class TestSwitchModel(unittest.TestCase):
 
         self.assertEqual(
             SwitchModel.from_json({
-                'mapping': {},
                 'node': 'foo',
                 'ports': {},
-                'private_ports': 0,
-                'rules': [],
-                'tables': {"1" : []},
+                'tables': {"foo.1" : []},
                 'type': 'switch',
                 'wiring': []
             }),
@@ -729,7 +880,7 @@ class TestSwitchModel(unittest.TestCase):
         """ Tests the a more complex model.
         """
 
-        ports = {'1' : 1, '2' : 2, '3' : 3, '4' : 4}
+        ports = ['1', '2', '3', '4']
 
         model1 = SwitchModel(
             "foo",
@@ -741,17 +892,14 @@ class TestSwitchModel(unittest.TestCase):
         match1 = Match(fields=[SwitchRuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"
         )])
-        actions1 = [Forward([3])]
-        mapping = Mapping()
-        mapping.extend(OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"])
+        actions1 = [Forward(['foo.1'])]
         model1.add_rule(
             0,
             SwitchRule(
                 "foo", 1, 0,
-                in_ports=[1, 2],
+                in_ports=['foo.1', 'foo.2'],
                 match=match1,
-                actions=actions1,
-                mapping=mapping
+                actions=actions1
             )
         )
 
@@ -762,16 +910,15 @@ class TestSwitchModel(unittest.TestCase):
             Rewrite([SwitchRuleField(
                 OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:3::0/48"
             )]),
-            Forward([4])
+            Forward(['foo.4'])
         ]
         model1.add_rule(
             1,
             SwitchRule(
                 "foo", 1, 1,
-                in_ports=[1, 2, 3],
+                in_ports=['foo.1', 'foo.2', 'foo.3'],
                 match=match2,
-                actions=actions2,
-                mapping=mapping
+                actions=actions2
             )
         )
 
