@@ -132,6 +132,8 @@ def _ast_to_rule(node, ast, idx=0):
             tmp.get_first().value = node+'.'+iface+'_ingress'
             vast = ast.add_child("vlan")
             vast.add_child(vlan)
+        else:
+            tmp.get_first().value = node+'.'+value(tmp)+'_ingress'
     if has_oif:
         tmp = ast.get_child("-o")
         if "." in value(tmp):
@@ -139,6 +141,8 @@ def _ast_to_rule(node, ast, idx=0):
             tmp.get_first().value = node+'.'+iface+'_egress'
             vast = ast.add_child("vlan")
             vast.add_child(vlan)
+        else:
+            tmp.get_first().value = node+'.'+value(tmp)+'_egress'
 
     has_src = ast.has_child("-s")
     has_dst = ast.has_child("-d")
@@ -363,6 +367,32 @@ def _calculate_blocks(rules, intervals):
     return blocks
 
 
+def _adjust_interfaces(match, chain):
+    if chain == 'forward_filter': return match
+
+    for field in match:
+        if field.name in ['in_port', 'out_port']:
+            if chain == 'input_filter':
+                field.value = field.value.replace('egress', 'ingress')
+            elif chain == 'output_filter':
+                field.value = field.value.replace('ingress', 'egress')
+
+    return match
+
+
+def _adjust_ports(ports, chain):
+    if chain == 'forward_filter': return ports
+    elif chain == 'input_filter': return [p.replace('output', 'input') for p in ports]
+    elif chain == 'output_filter': return [p.replace('input', 'output') for p in ports]
+    else: raise Exception('cannot adjust ports for unknown chain: %s' % chain)
+
+
+def _adjust_action(action, chain):
+    if isinstance(action, Forward):
+        action.ports = _adjust_ports(action.ports, chain)
+    return action
+
+
 def _derive_conditional_state_shells(
         intervals, general_state_shell, state_checking_rules, rules_size, chain
     ):
@@ -376,18 +406,26 @@ def _derive_conditional_state_shells(
         cond_shell = []
 
         for rule in general_state_shell:
-            match = rule.match.intersect(state_checking_rule.match)
+
+            match = _adjust_interfaces(
+                dc(rule.match.intersect(state_checking_rule.match)),
+                chain
+            )
+
+            in_ports = _adjust_ports(rule.in_ports, chain)
 
             if not any([f.value == None for f in match]):
                 actions = [
                     Forward([])
-                ] if state_checking_rule.actions[0].ports == [] else rule.actions
+                ] if state_checking_rule.actions[0].ports == [] else [
+                    _adjust_action(dc(a), chain) for a in rule.actions
+                ]
 
                 cond_shell.append(SwitchRule(
                     rule.node,
-                    chain,
+                    rule.node+'.'+chain,
                     (2*idx+1)*rules_size+rule.idx,
-                    in_ports=rule.in_ports,
+                    in_ports=in_ports,
                     match=match,
                     actions=actions
                 ))
@@ -397,7 +435,7 @@ def _derive_conditional_state_shells(
     return cond_shells
 
 
-def _interwheave_state_shell(intervals, blocks, conditional_state_shells):
+def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain):
     interwhoven_state_shell = []
     cnt = 0
 
@@ -414,9 +452,9 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells):
                 rule.node,
                 rule.tid,
                 cnt,
-                in_ports=rule.in_ports,
+                in_ports=rule.in_ports, #_adjust_ports(rule.in_ports, chain),
                 match=Match([f for f in rule.match if not is_conntrack(f)]),
-                actions=rule.actions
+                actions=rule.actions #[_adjust_action(a, chain) for a in rule.actions]
             ))
             cnt += 1
 
@@ -425,9 +463,9 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells):
                 rule.node,
                 rule.tid,
                 cnt,
-                in_ports=rule.in_ports,
+                in_ports=rule.in_ports, #_adjust_ports(rule.in_ports, chain),
                 match=Match([f for f in rule.match if not is_conntrack(f)]),
-                actions=rule.actions
+                actions=rule.actions #[_adjust_action(a, chain) for a in rule.actions]
             ))
             cnt += 1
 
