@@ -50,6 +50,14 @@ def print_help():
     )
 
 
+def _try_int(x):
+    try:
+        int(x)
+        return True
+    except ValueError:
+        return False
+
+
 def main(argv):
     """ Connects to FaVe and sends an ip6tables configuration event.
     """
@@ -75,7 +83,7 @@ def main(argv):
         elif opt == '-i':
             address = arg
         elif opt == '-p':
-            ports = arg.split(',')
+            ports = [str(x) for x in range(1, int(arg)+1)] if _try_int(arg) else arg.split(',')
         elif opt == '-f':
             ifile = arg
         elif opt == '-d':
