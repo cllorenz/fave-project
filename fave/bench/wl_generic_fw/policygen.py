@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     links = [
         (
-            "fw.generic_forward_filter_accept", "probe.%s.1" % role['name']
+            "fw.generic.forward_filter_accept", "probe.%s.1" % role['name']
         ) for role in roles
     ]
 

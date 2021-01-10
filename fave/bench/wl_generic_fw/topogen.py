@@ -52,7 +52,7 @@ if __name__ == '__main__':
     source_links = [
         (
             "source.%s.1" % role['name'],
-            "fw.generic_forward_filter_in"
+            "fw.generic.forward_filter_in"
         ) for role in roles
     ]
 
