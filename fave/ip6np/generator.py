@@ -516,16 +516,17 @@ def _transform_ast_to_model(ast, node, ports=None, address=None):
             chain_general_shells[_SWAP_CHAIN[chain]],
             chain_checking_rules[chain],
             len(chain_rules[chain]),
-            chain
+            _SWAP_CHAIN[chain]
         )
-        chain_cond_shells[chain] = conditional_state_shells
+        chain_cond_shells[_SWAP_CHAIN[chain]] = conditional_state_shells
 
 
     for chain in chains:
         interwhoven_state_shell = _interwheave_state_shell(
             chain_intervals[chain],
             chain_blocks[chain],
-            chain_cond_shells[chain]
+            chain_cond_shells[chain],
+            chain
         )
 
         for rule in interwhoven_state_shell:
