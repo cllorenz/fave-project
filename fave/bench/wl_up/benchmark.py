@@ -108,18 +108,18 @@ if __name__ == "__main__":
         add_routes(routes)
     LOGGER.info("initialized routes...")
 
-    LOGGER.info("initialize sources...")
-    with open(SOURCES, 'r') as raw_sources:
-        sources, links = json.loads(raw_sources.read()).values()
-        add_sources(sources, links)
-    LOGGER.info("initialized sources")
-
     LOGGER.info("initialize probes...")
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         add_policies(probes, links)
     LOGGER.info("initialized probes...")
+
+    LOGGER.info("initialize sources...")
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.loads(raw_sources.read()).values()
+        add_sources(sources, links)
+    LOGGER.info("initialized sources")
 
     with open(CHECKS, 'r') as raw_checks:
         checks = json.loads(raw_checks.read())
