@@ -297,9 +297,21 @@ _SWAP_FIELDS={
     "in_port" : "out_port"
 }
 
+
+def _swap_port_value_direction(field):
+    if field.name == 'in_port':
+        return field.value.replace('_ingress', '_egress')
+    elif field.name == 'out_port':
+        return field.value.replace('_egress', '_ingress')
+    else:
+        return field.value
+
+
 def _swap_direction(field):
+    value = _swap_port_value_direction(field)
+
     return SwitchRuleField(
-        _SWAP_FIELDS.get(field.name, field.name), field.value
+        _SWAP_FIELDS.get(field.name, field.name), value
     )
 
 
