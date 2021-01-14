@@ -15,9 +15,9 @@ if __name__ == '__main__':
 
     # link: (sname, dname)
     links = [
-        ("pgf.5", "dmz.1"),
+        ("pgf.2", "dmz.1"),
         ("dmz.1", "pgf.2"),
-        ("pgf.6", "office.1"),
+        ("pgf.3", "office.1"),
         ("office.1", "pgf.3")
     ]
 
@@ -25,15 +25,15 @@ if __name__ == '__main__':
     # source nodes
     sources = [
         ("source.internet", "generator", ["ipv6_src=0::0/0"]),
-#        ("source.dmz", "generator", ["ipv6_src=2001:db8::100/120"]),
-#        ("source.office", "generator", ["ipv6_src=2001:db8::200/120"])
+        ("source.dmz", "generator", ["ipv6_src=2001:db8::100/120"]),
+        ("source.office", "generator", ["ipv6_src=2001:db8::200/120"])
     ]
 
     # source links
     source_links = [
         ("source.internet.1", "pgf.1"),
-#        ("source.dmz.1", "dmz.2"),
-#        ("source.office.1", "office.2")
+        ("source.dmz.1", "dmz.2"),
+        ("source.office.1", "office.2")
     ]
 
 
