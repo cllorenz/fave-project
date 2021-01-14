@@ -30,6 +30,7 @@ import sys
 import getopt
 import time
 
+from pprint import pformat
 from threading import Thread
 from Queue import Queue
 from copy import deepcopy as dc
@@ -118,6 +119,8 @@ class Aggregator(AbstractAggregator):
                 Aggregator.LOGGER.exception('worker: could not parse data: %s' % data)
                 self.queue.task_done()
                 return
+
+            Aggregator.LOGGER.debug('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
                 task_typ = 'stop'
