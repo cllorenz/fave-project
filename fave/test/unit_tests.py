@@ -29,7 +29,8 @@ from test.test_utils import TestCollectionsUtilDict, TestCollectionsUtilList
 from test.test_utils import TestMatchUtil, TestPacketUtil, TestPathUtil, TestJsonUtil
 from test.test_netplumber import TestMapping, TestVector, TestHeaderSpace, TestModel
 from test.test_topology import TestLinksModel, TestTopologyCommand
-from test.test_models import TestGenericModel, TestRouterModel, TestPacketFilterModel
+from test.test_models import TestGenericModel, TestRouterModel
+from test.test_packet_filter import TestPacketFilterModel, TestPacketFilterGenerator
 from test.test_models import TestSwitchModel
 from test.test_tree import TestTree
 from test.test_switch_rules import TestSwitchRuleField, TestMatch, TestSwitchRule
@@ -86,6 +87,9 @@ if __name__ == '__main__':
 
     SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestPacketFilterModel)
+    )
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestPacketFilterGenerator)
     )
 
     SUITE.addTests(
