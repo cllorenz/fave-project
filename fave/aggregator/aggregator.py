@@ -538,7 +538,7 @@ def main(argv):
 
     log_handler = logging.FileHandler('/tmp/np/aggregator.log')
     Aggregator.LOGGER.addHandler(log_handler)
-    Aggregator.LOGGER.setLevel(logging.DEBUG)
+    Aggregator.LOGGER.setLevel(logging.INFO)
 
     try:
         sock = jsonrpc.connect_to_netplumber(server, port)
