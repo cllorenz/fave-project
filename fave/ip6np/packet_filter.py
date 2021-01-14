@@ -150,13 +150,6 @@ class PacketFilterModel(Model):
         return npf
 
 
-    def to_json(self):
-        """ Converts the packet filter model to JSON.
-        """
-
-        return super(PacketFilterModel, self).to_json()
-
-
     def __str__(self):
         return "%s\nrules:\n\t%s\nchains:\n\t%s\nports:\n\t%s" % (
             super(PacketFilterModel, self).__str__(),
