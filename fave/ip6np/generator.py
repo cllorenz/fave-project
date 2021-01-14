@@ -452,9 +452,9 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain)
                 rule.node,
                 rule.tid,
                 cnt,
-                in_ports=rule.in_ports, #_adjust_ports(rule.in_ports, chain),
+                in_ports=rule.in_ports,
                 match=Match([f for f in rule.match if not is_conntrack(f)]),
-                actions=rule.actions #[_adjust_action(a, chain) for a in rule.actions]
+                actions=rule.actions
             ))
             cnt += 1
 
@@ -463,9 +463,9 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain)
                 rule.node,
                 rule.tid,
                 cnt,
-                in_ports=rule.in_ports, #_adjust_ports(rule.in_ports, chain),
+                in_ports=rule.in_ports,
                 match=Match([f for f in rule.match if not is_conntrack(f)]),
-                actions=rule.actions #[_adjust_action(a, chain) for a in rule.actions]
+                actions=rule.actions
             ))
             cnt += 1
 
@@ -516,9 +516,10 @@ def _transform_ast_to_model(ast, node, ports=None, address=None):
             chain_general_shells[_SWAP_CHAIN[chain]],
             chain_checking_rules[chain],
             len(chain_rules[chain]),
-            _SWAP_CHAIN[chain]
+            chain
         )
-        chain_cond_shells[_SWAP_CHAIN[chain]] = conditional_state_shells
+        chain_cond_shells[chain] = conditional_state_shells
+
 
 
     for chain in chains:
