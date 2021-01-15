@@ -34,6 +34,7 @@ from openflow.switch import SwitchRuleField
 from ip6np.ip6np_util import field_value_to_bitvector
 from netplumber.vector import Vector, get_field_from_vector
 from netplumber.vector import HeaderSpace
+from netplumber.mapping import FIELD_SIZES
 
 from filelock import SoftFileLock
 
@@ -41,11 +42,20 @@ from util.print_util import eprint
 
 measurements = []
 
+_NORMALIZE_FIELD = {
+    'related' : 'related',
+    'protocol' : 'packet.ipv6.proto',
+    'port' : 'packet.upper.dport'
+}
+
+
 def check_field(flow, field, value, mapping):
+    field = _NORMALIZE_FIELD[field]
     hs = HeaderSpace.from_str(flow)
     vector = get_field_from_vector(mapping, hs.hs_list[0], field)
     rule_field = SwitchRuleField(field, value)
-    return vector == field_value_to_bitvector(rule_field).vector
+    rule_vector = field_value_to_bitvector(rule_field).vector
+    return vector == rule_vector or vector == 'x'*FIELD_SIZES[field]
 
 
 def check_tree(flow, tree, depth=0):
@@ -300,7 +310,7 @@ def _build_ordered_flow_specs(flow_specs):
         neg = False
         src = None
         dst = None
-        fld = None
+        flds = []
         for token in flow_spec:
             if token.startswith('!'):
                 neg = True
@@ -309,11 +319,11 @@ def _build_ordered_flow_specs(flow_specs):
             elif token.startswith('p='):
                 dst = token[2:]
             elif token.startswith('f='):
-                fld = token[2:]
+                flds.append(token[2:])
 
         if src and dst:
             ordered_flow_specs.setdefault(src, [])
-            ordered_flow_specs[src].append((dst, neg, fld, flow_spec))
+            ordered_flow_specs[src].append((dst, neg, flds, flow_spec))
 
     return ordered_flow_specs
 
@@ -408,7 +418,7 @@ def main(argv):
 
             flow_tree_leaves = _get_flow_tree_leaves(flow_tree)
 
-            for dst, neg, fld, spec in specs:
+            for dst, neg, flds, spec in specs:
 
                 if not inv_fave['probe_to_id'][dst] in flow_tree_leaves:
                     if not neg:
@@ -416,11 +426,11 @@ def main(argv):
                     continue
 
                 leaf = flow_tree_leaves[inv_fave['probe_to_id'][dst]]
-                res = False
+                res = True
 
-                if fld:
+                for fld in flds:
                     field, value = fld.split(':')
-                    res = check_field(leaf['flow'], field, value, mapping)
+                    res = res and check_field(leaf['flow'], field, value, mapping)
 
                 if res and neg:
                     failed.append(' '.join([e for e in spec if e != ' ']))
