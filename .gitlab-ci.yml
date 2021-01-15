@@ -61,6 +61,13 @@ deploy_fave:
   dependencies:
     - build_docker
 
+bench_example:
+  stage: bench
+  script:
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_example/benchmark.py"
+  dependencies:
+    - build_docker
+
 bench_ifi:
   stage: bench
   script:
