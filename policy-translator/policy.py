@@ -417,9 +417,6 @@ class Policy(object):
         csv_list.extend([',' + r for r in sorted(roles)])
         csv_list.append('\n')
 
-        import pprint
-        pprint.pprint(self.policies[('Office', 'WebServer')].conditions)
-
         for role_from in sorted(roles):
             csv_list.append(role_from)
             for role_to in sorted(roles):
