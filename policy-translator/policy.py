@@ -417,11 +417,21 @@ class Policy(object):
         csv_list.extend([',' + r for r in sorted(roles)])
         csv_list.append('\n')
 
+        import pprint
+        pprint.pprint(self.policies[('Office', 'WebServer')].conditions)
+
         for role_from in sorted(roles):
             csv_list.append(role_from)
             for role_to in sorted(roles):
                 if self.conditional_policy_exists(role_from, role_to):
-                    csv_list.append(',(X)')
+                    if {'state' : 'RELATED,ESTABLISHED'} in self.policies[(role_from, role_to)].conditions:
+                        csv_list.append(',(X)')
+                    else:
+                        csv_list.append(',(%s)' % '|'.join([';'.join(
+                            ['%s:%s' % (f, v) for f, v in cond.iteritems()]
+                        ) for cond in self.policies[
+                            (role_from, role_to)
+                        ].conditions]))
                 elif self.policy_exists(role_from, role_to):
                     csv_list.append(',X')
                 else:
