@@ -90,6 +90,16 @@ if __name__ == '__main__':
                         checks.extend([fstr % (s, target) + ' && f=related:1' for s in sources if s != target])
                         checks.extend(['! ' + fstr % (s, target) + ' && f=related:0' for s in sources if s != target])
 
+                elif flag.startswith('(') and flag.endswith(')'):
+                    for target in targets:
+                        reach_json[target].extend([s for s in sources if s != target])
+                        for condition in flag.lstrip('(').rstrip(')').split('|'):
+                            checks.extend([
+                                fstr % (s, target) + ' && f=related:0 && ' + ' && '.join(['f='+f for f in
+                                    condition.split(';')
+                                ]) for s in sources if s != target
+                            ])
+
                 else:
                     checks.extend(['! ' + fstr % (s, target) for s in sources])
 
