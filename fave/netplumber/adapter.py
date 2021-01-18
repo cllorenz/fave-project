@@ -728,7 +728,13 @@ class NetPlumberAdapter(object):
         combinations = itertools.product(*(fields[k] for k in keys))
 
         hs_list=[
-            self._build_vector(c) for c in combinations
+            self._build_vector([
+                SwitchRuleField(
+                    f.name, '{:032b}'.format(self.global_port(f.value))
+                ) if f.name in [
+                    'interface', 'in_port', 'out_port'
+                ] else f for f in c
+            ]) for c in combinations
         ]
 
         return HeaderSpace(self.mapping.length, hs_list=hs_list)
