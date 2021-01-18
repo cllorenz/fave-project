@@ -244,6 +244,7 @@ class TestRPC(unittest.TestCase):
         probe = (
             [11],
             "universal",
+            "x"*8,
             {
                 "type":"header",
                 "header":{
@@ -356,6 +357,7 @@ class TestRPC(unittest.TestCase):
         probe = (
             [99],
             "universal",
+            "x"*16,
             {
                 "type":"header",
                 "header":{
