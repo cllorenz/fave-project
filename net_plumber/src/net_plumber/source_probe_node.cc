@@ -90,6 +90,11 @@ SourceProbeNode<T1, T2>::~SourceProbeNode() {
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
   if (f) {
+    if (f->hs_object) {
+        f->hs_object->compact();
+        if (f->hs_object->is_empty()) return;
+    }
+
     this->source_flow.push_front(f);
     auto f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
