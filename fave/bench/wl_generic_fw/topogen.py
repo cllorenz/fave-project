@@ -5,15 +5,18 @@
 
 import json
 import sys
+import os
 
 TOPOLOGY="bench/wl_generic_fw/topology.json"
 SOURCES="bench/wl_generic_fw/sources.json"
 ROLES="bench/wl_generic_fw/roles.json"
+INTERFACES="bench/wl_generic_fw/interfaces.json"
 
 _TAGS = {
     'ipv4' : 'packet.ipv4.source',
     'ipv6' : 'packet.ipv6.source',
-    'vlan' : 'packet.ether.vlan'
+    'vlan' : 'packet.ether.vlan',
+    'interface' : 'in_port'
 }
 
 def _attributes_to_fields(attributes):
@@ -21,7 +24,7 @@ def _attributes_to_fields(attributes):
     for name, value in {k:v for k, v in attributes.iteritems() if k not in [
         "description", "hosts", "gateway", "gateway4", "gateway6"
     ]}.iteritems():
-        res.append("%s=%s" % (_TAGS[name], value))
+        res.append("%s=%s" % (_TAGS[name], value+'_ingress' if name == 'interface' else value))
 
     return res
 
@@ -33,8 +36,11 @@ if __name__ == '__main__':
         address = "2001:db8::1" if sys.argv[1] == "ipv6" else "10.0.0.1"
         ruleset = sys.argv[2]
 
+    os.system("bash scripts/fetch_interfaces.sh %s %s" % (ruleset, INTERFACES))
+    interfaces = json.load(open(INTERFACES, "r"))
+
     devices = [
-        ("fw.generic", "packet_filter", 1, address, ruleset)
+        ("fw.generic", "packet_filter", interfaces, address, ruleset)
     ]
 
     links = []

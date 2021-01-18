@@ -48,7 +48,6 @@ if __name__ == '__main__':
             sys.exit(2)
 
     checks = []
-    reach_json = {}
     with open(policy_file, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter=',')
 
@@ -72,6 +71,14 @@ if __name__ == '__main__':
                 elif flag == '(X)':
                     checks.append(fstr % (source, target) + ' && f=related:1')
                     checks.append('! ' + fstr % (source, target) + ' && f=related:0')
+
+                elif flag.startswith('(') and flag.endswith(')'):
+                    for condition in flag.lstrip('(').rstrip(')').split('|'):
+                        checks.append(
+                            fstr % (source, target) + ' && f=related:0 && ' + ' && '.join([
+                                'f='+f for f in condition.split(';')
+                            ])
+                        )
 
                 else:
                     checks.append('! ' + fstr % (source, target))
