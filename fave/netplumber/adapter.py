@@ -534,7 +534,7 @@ class NetPlumberAdapter(object):
                     elif isinstance(action, Rewrite):
                         rewrite = self._build_vector([
                             SwitchRuleField(
-                                f.name, '{:032b}'.format(self.global_port(field.value))
+                                f.name, '{:032b}'.format(self.global_port(f.value))
                             ) if f.name in [
                                 'interface', 'in_port', 'out_port'
                             ] else f for f in action.rewrite
