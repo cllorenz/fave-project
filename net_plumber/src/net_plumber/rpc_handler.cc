@@ -316,8 +316,10 @@ PROTO(add_source_probe)
   if (!filter) filter = new TrueCondition<T1, T2>();
   Condition<T1, T2> *test = val_to_cond<T1, T2>(PARAM(test), length);
   if (!test) test = new TrueCondition<T1, T2>();
+  T2 *match = val_to_array<T2>(PARAM(match));
+  if (match->is_empty()) match = new T2(length, BIT_X);
   uint64_t ret = netPlumber->add_source_probe(
-    ports, mode, filter, test, nullptr, nullptr
+    ports, mode, match, filter, test, nullptr, nullptr
   );
   RETURN((Json::UInt64) ret);
 }

@@ -258,7 +258,7 @@ namespace net_plumber {
      * Probe Management
      *
      */
-    uint64_t add_source_probe(List_t ports, PROBE_MODE mode,
+    uint64_t add_source_probe(List_t ports, PROBE_MODE mode, T2 *match,
                               Condition<T1, T2> *filter, Condition<T1, T2> *test,
                               src_probe_callback_t<T1, T2> probe_callback,
                               void *callback_data);

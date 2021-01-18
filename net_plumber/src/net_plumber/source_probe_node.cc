@@ -66,6 +66,7 @@ void default_probe_callback(void *caller, SourceProbeNode<T1, T2> *p, Flow<T1, T
 
 template<class T1, class T2>
 SourceProbeNode<T1, T2>::SourceProbeNode(void *n, int length, uint64_t node_id,
+                                 T2 *match,
                                  PROBE_MODE mode, List_t ports,
                                  Condition<T1, T2> *filter, Condition<T1, T2> *test,
                                  src_probe_callback_t<T1, T2> probe_callback, void* d)
@@ -73,8 +74,9 @@ SourceProbeNode<T1, T2>::SourceProbeNode(void *n, int length, uint64_t node_id,
   filter(filter), test(test), cond_count(0), probe_callback_data(d)
 {
   this->node_type = SOURCE_PROBE;
-  this->match = new T2(length, BIT_X);
-  this->inv_match = nullptr;
+  if (match) this->match = match;
+  else this->match = new T2(length, BIT_X);
+  this->inv_match = new T2(*this->match);
   this->input_ports = ports;
   this->output_ports = make_sorted_list(0);
   if (probe_callback) this->probe_callback = probe_callback;
@@ -352,6 +354,11 @@ void SourceProbeNode<T1, T2>::filter_to_json(Json::Value& res) {
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::test_to_json(Json::Value& res) {
     test->to_json(res);
+}
+
+template<class T1, class T2>
+void SourceProbeNode<T1, T2>::match_to_json(Json::Value& res) {
+    this->match->to_json(res);
 }
 
 template class SourceProbeNode <HeaderspacePacketSet, ArrayPacketSet>;

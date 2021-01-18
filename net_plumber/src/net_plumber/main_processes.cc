@@ -227,9 +227,10 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       PROBE_MODE mode = !strcasecmp(commands[i]["params"]["mode"].asCString(), "universal")
           ? UNIVERSAL : EXISTENTIAL;
+      T2 *match = val_to_array<T2>(commands[i]["params"]["match"]);
       Condition<T1, T2> *filter = val_to_cond<T1, T2>(commands[i]["params"]["filter"], N->get_length());
       Condition<T1, T2> *test = val_to_cond<T1, T2>(commands[i]["params"]["test"], N->get_length());
-      N->add_source_probe(ports, mode, filter, test, nullptr, nullptr);
+      N->add_source_probe(ports, mode, match, filter, test, nullptr, nullptr);
     } else if (type == "add_link") {
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
       uint32_t to_port = commands[i]["params"]["to_port"].asUInt();

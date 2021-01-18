@@ -978,11 +978,11 @@ void NetPlumber<T1, T2>::remove_source(uint64_t id) {
 
 template<class T1, class T2>
 uint64_t NetPlumber<T1, T2>::
-add_source_probe(List_t ports, PROBE_MODE mode, Condition<T1, T2> *filter,
+add_source_probe(List_t ports, PROBE_MODE mode, T2 *match, Condition<T1, T2> *filter,
                  Condition<T1, T2> *condition, src_probe_callback_t<T1, T2> probe_callback,
                  void *callback_data){
   uint64_t node_id = (uint64_t)(++last_ssp_id_used);
-  SourceProbeNode<T1, T2>* p = new SourceProbeNode<T1, T2>(this, length, node_id, mode,ports,
+  SourceProbeNode<T1, T2>* p = new SourceProbeNode<T1, T2>(this, length, node_id, match, mode,ports,
                                            filter, condition,
                                            probe_callback, callback_data);
   this->id_to_node[node_id] = p;
@@ -1376,6 +1376,10 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
         Json::Value test(Json::objectValue);
         ((SourceProbeNode<T1, T2> *)probe)->test_to_json(test);
         params["test"] = test;
+
+        Json::Value match(Json::objectValue);
+        ((SourceProbeNode<T1, T2> *)probe)->match_to_json(match);
+        params["match"] = match;
 
         command["params"] = params;
 

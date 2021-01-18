@@ -120,7 +120,7 @@ class SourceProbeNode : public Node<T1, T2> {
   void *probe_callback_data;
 
  public:
-  SourceProbeNode(void *n, int length, uint64_t node_id,
+  SourceProbeNode(void *n, int length, uint64_t node_id, T2 *match,
                   PROBE_MODE mode, List_t ports,
                   Condition<T1, T2> *filter, Condition<T1, T2> *condition,
                   src_probe_callback_t<T1, T2> probe_callback, void *callback_data);
@@ -154,6 +154,7 @@ class SourceProbeNode : public Node<T1, T2> {
   void mode_to_json(Json::Value&);
   void filter_to_json(Json::Value&);
   void test_to_json(Json::Value&);
+  void match_to_json(Json::Value&);
 };
 
 #endif  // SRC_NET_PLUMBER_SOURCE_PROBE_NODE_H_
