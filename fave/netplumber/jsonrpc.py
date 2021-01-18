@@ -369,13 +369,14 @@ def remove_source(sock, s_idx):
 
 
 #@profile_method
-def add_source_probe(sock, ports, mode, filterexp, test):
+def add_source_probe(sock, ports, mode, match, filterexp, test):
     """ Adds a probe node.
 
     Keyword arguments:
     sock -- A socket connected to NetPlumber
     ports -- The probe's ingress ports
     mode -- The probe's mode (existential|universal)
+    match -- The probe's match
     filterexp -- The probe's filter expression
     test -- The probe's test expression
     """
@@ -385,6 +386,7 @@ def add_source_probe(sock, ports, mode, filterexp, test):
     data["params"] = {
         "ports":ports,
         "mode":mode,
+        "match":match,
         "filter":filterexp,
         "test":test
     }

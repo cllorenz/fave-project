@@ -757,7 +757,6 @@ class NetPlumberAdapter(object):
         filter_fields = self._build_headerspace(model.filter_fields)
         test_fields = self._build_headerspace(model.test_fields)
 
-
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
 #        filter_expr = {"type" : "header", "header" : filter_hs}
         filter_expr = None
@@ -824,6 +823,7 @@ class NetPlumberAdapter(object):
             eprint("Error while add probe: no test fields or path. Aborting.")
             return
 
+
         self.logger.debug(
             "worker: add probe %s and port %s", name, portno
         )
@@ -831,6 +831,13 @@ class NetPlumberAdapter(object):
             self.sock,
             [portno],
             model.quantor,
+            self._build_vector([
+                SwitchRuleField(
+                    f.name, '{:032b}'.format(self.global_port(f.value))
+                ) if f.name in [
+                    'interface', 'in_port', 'out_port'
+                ] else f for f in  model.match]
+            ).vector,
             filter_expr,
             test_expr
         )

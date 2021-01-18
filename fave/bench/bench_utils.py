@@ -65,8 +65,10 @@ def _add_generators(generators):
     topo.main(["-a", "-t", "generators", "-G", '|'.join(["%s\\%s" % (n, ';'.join(f)) for n, _t, f in generators])])
 
 
-def _add_probe(name, _type, quantor, filter_fields=None, test_fields=None, test_path=None):
+def _add_probe(name, _type, quantor, match=None, filter_fields=None, test_fields=None, test_path=None):
     opts = []
+    if match:
+        opts.extend(["-f", ';'.join(match)])
     if filter_fields:
         opts.extend(["-F", ';'.join(filter_fields)])
     if test_fields:

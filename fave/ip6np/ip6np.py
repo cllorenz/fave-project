@@ -83,7 +83,12 @@ def main(argv):
         elif opt == '-i':
             address = arg
         elif opt == '-p':
-            ports = [str(x) for x in range(1, int(arg)+1)] if _try_int(arg) else arg.split(',')
+            if isinstance(arg, list):
+                ports = arg
+            elif _is_int(arg):
+                ports = [str(x) for x in range(1, int(arg)+1)]
+            else:
+                ports = arg.split(',')
         elif opt == '-f':
             ifile = arg
         elif opt == '-d':

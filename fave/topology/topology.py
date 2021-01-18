@@ -24,13 +24,14 @@
 import sys
 import getopt
 import json
+import ast
 
 from itertools import product
 
 from util.aggregator_utils import connect_to_fave
 from util.print_util import eprint
 from openflow.switch import SwitchModel
-from openflow.rule import SwitchRuleField
+from openflow.rule import SwitchRuleField, Match
 from ip6np.packet_filter import PacketFilterModel
 
 from generator import GeneratorModel
@@ -306,7 +307,7 @@ def main(argv):
             try:
                 ports = range(1, int(arg)+1)
             except ValueError:
-                ports = arg.split(',')
+                ports = ast.literal_eval(arg) #.split(',')
         elif opt == '-l':
             dtype = 'links'
             dev = 'links'
@@ -379,6 +380,7 @@ def main(argv):
             'probe' : lambda: ProbeModel(
                 dev,
                 quantor,
+                Match([SwitchRuleField(f, *v) for f, v in fields.iteritems()]),
                 filter_fields=filter_fields,
                 test_fields=test_fields,
                 test_path=test_path
