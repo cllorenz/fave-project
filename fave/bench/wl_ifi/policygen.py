@@ -21,10 +21,10 @@ if __name__ == '__main__':
     domain_to_ports = inventory["domain_to_ports"]
 
     probes = [
-        ("probe.Internet", "probe", "universal", None, None, [
+        ("probe.Internet", "probe", "universal", None, None, None, [
             ".*(p in (admin.ifi.2,external.ifi.2,lab.ifi.2,office.ifi.2,pool.ifi.2,staff_1.ifi.2,staff_2.ifi.2))$"
         ]),
-        ("probe.external.ifi", "probe", "universal", None, None, [
+        ("probe.external.ifi", "probe", "universal", None, None, None, [
             ".*(p in (ifi.1,admin.ifi.2,external.ifi.2,lab.ifi.2,office.ifi.2,pool.ifi.2,slb.ifi.2,staff_1.ifi.2,staff_2.ifi.2))$"
         ])
     ]
@@ -34,6 +34,7 @@ if __name__ == '__main__':
             "probe.%s" % sub,
             "probe",
             "universal",
+            None,
             None,
             None,
             [".*(p in (%s))$" % ','.join(
