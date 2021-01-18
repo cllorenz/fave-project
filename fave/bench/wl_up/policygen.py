@@ -13,9 +13,9 @@ if __name__ == '__main__':
 
     # probe: (name, type, quantor, [filter_fields], [test_fields], [test_path])
     probes = [
-        ("probe.internet", "probe", "universal", None, None, ["(p in (pgf.uni-potsdam.de.1))"]),
-        ("probe.clients.wifi.uni-potsdam.de", "probe", "existential", None, None, [".*(p=pgf.uni-potsdam.de.1);$"]),
-        ("probe.pgf.uni-potsdam.de", "probe", "universal", None, None, [".*;(p in (pgf.uni-potsdam.de.2,pgf.uni-potsdam.de.3,pgf.uni-potsdam.de.4,pgf.uni-potsdam.de.5,pgf.uni-potsdam.de.6,pgf.uni-potsdam.de.7,pgf.uni-potsdam.de.8,pgf.uni-potsdam.de.9,pgf.uni-potsdam.de.10,pgf.uni-potsdam.de.11,pgf.uni-potsdam.de.12,pgf.uni-potsdam.de.13,pgf.uni-potsdam.de.14,pgf.uni-potsdam.de.15,pgf.uni-potsdam.de.16,pgf.uni-potsdam.de.17,pgf.uni-potsdam.de.18,pgf.uni-potsdam.de.19,pgf.uni-potsdam.de.20,pgf.uni-potsdam.de.21,pgf.uni-potsdam.de.22,pgf.uni-potsdam.de.23,pgf.uni-potsdam.de.24))"]),
+        ("probe.internet", "probe", "universal", None, None, None, ["(p in (pgf.uni-potsdam.de.1))"]),
+        ("probe.clients.wifi.uni-potsdam.de", "probe", "existential", None, None, None, [".*(p=pgf.uni-potsdam.de.1);$"]),
+        ("probe.pgf.uni-potsdam.de", "probe", "universal", None, None, None, [".*;(p in (pgf.uni-potsdam.de.2,pgf.uni-potsdam.de.3,pgf.uni-potsdam.de.4,pgf.uni-potsdam.de.5,pgf.uni-potsdam.de.6,pgf.uni-potsdam.de.7,pgf.uni-potsdam.de.8,pgf.uni-potsdam.de.9,pgf.uni-potsdam.de.10,pgf.uni-potsdam.de.11,pgf.uni-potsdam.de.12,pgf.uni-potsdam.de.13,pgf.uni-potsdam.de.14,pgf.uni-potsdam.de.15,pgf.uni-potsdam.de.16,pgf.uni-potsdam.de.17,pgf.uni-potsdam.de.18,pgf.uni-potsdam.de.19,pgf.uni-potsdam.de.20,pgf.uni-potsdam.de.21,pgf.uni-potsdam.de.22,pgf.uni-potsdam.de.23,pgf.uni-potsdam.de.24))"]),
     ]
     links = [
         ("pgf.uni-potsdam.de.1", "probe.internet.1"),
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # test dmz
     for name, _address, _services in dmz:
         probes.append(
-            ("probe.%s" % name, "probe", "existential", None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
+            ("probe.%s" % name, "probe", "existential", None, None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
         links.append(
             ("%s.input_filter_accept" % name, "probe.%s.1" % name)
@@ -44,6 +44,7 @@ if __name__ == '__main__':
                 "existential",
                 None,
                 None,
+                None,
                 [".*(p=pgf.uni-potsdam.de.1);$"]
             ))
 
@@ -56,6 +57,7 @@ if __name__ == '__main__':
             "probe.clients.%s" % subnet,
             "probe",
             "existential",
+            None,
             ["tcp_dst=22"],
             None,
             [".*(p=pgf.uni-potsdam.de.1);$"]

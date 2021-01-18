@@ -352,7 +352,7 @@ class IP6TablesParser(BisonParser):
 
         _arg, _ws, val = values
         ret = Tree('-i')
-        ret.add_child(val.lstrip('eth'))
+        ret.add_child(val)
         return ret
 
 
@@ -367,7 +367,7 @@ class IP6TablesParser(BisonParser):
 
         _arg, _ws, val = values
         ret = Tree('-o')
-        ret.add_child(val.lstrip('eth'))
+        ret.add_child(val)
         return ret
 
 

@@ -9,7 +9,7 @@ OFILE="bench/wl_tum/policies.json"
 
 if __name__ == '__main__':
     probes = [
-        ("probe.tum", "probe", "universal", None, None, None),
+        ("probe.tum", "probe", "universal", None, None, None, None),
     ]
 
 
