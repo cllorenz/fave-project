@@ -85,7 +85,7 @@ def main(argv):
         elif opt == '-p':
             if isinstance(arg, list):
                 ports = arg
-            elif _is_int(arg):
+            elif _try_int(arg):
                 ports = [str(x) for x in range(1, int(arg)+1)]
             else:
                 ports = arg.split(',')
