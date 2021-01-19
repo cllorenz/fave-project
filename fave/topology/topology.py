@@ -307,7 +307,7 @@ def main(argv):
             try:
                 ports = range(1, int(arg)+1)
             except ValueError:
-                ports = ast.literal_eval(arg) #.split(',')
+                ports = [str(i) for i in ast.literal_eval(arg)]
         elif opt == '-l':
             dtype = 'links'
             dev = 'links'
