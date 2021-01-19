@@ -442,12 +442,6 @@ class NetPlumberAdapter(object):
                         ) for port in action.ports]
                     )
 
-                #XXX: remove?
-                elif isinstance(action, Miss):
-                    out_ports.append(
-                        self.global_port('%s_miss' % table)
-                    )
-
                 elif isinstance(action, Rewrite):
                     if not rewrite:
                         rewrite = self._build_vector(action.rewrite)
