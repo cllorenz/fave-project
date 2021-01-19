@@ -443,15 +443,13 @@ class NetPlumberAdapter(object):
                     )
 
                 elif isinstance(action, Rewrite):
-                    if not rewrite:
-                        rewrite = self._build_vector(action.rewrite)
-                    if not mask:
-                        mask = self._build_vector([
-                            SwitchRuleField(
-                                f.name, '1'*FIELD_SIZES[f.name]
-                            ) for f in action.rewrite],
-                            preset='0'
-                        )
+                    rewrite = self._build_vector(action.rewrite)
+                    mask = self._build_vector([
+                        SwitchRuleField(
+                            f.name, '1'*FIELD_SIZES[f.name]
+                        ) for f in action.rewrite],
+                        preset='0'
+                    )
 
                 else:
                     self.logger.warn(
@@ -536,9 +534,7 @@ class NetPlumberAdapter(object):
                         mask = self._build_vector([
                             SwitchRuleField(
                                 f.name, '1'*FIELD_SIZES[f.name]
-                            ) for f in action.rewrite if f.name in [
-                                'interface', 'in_port', 'out_port'
-                            ]
+                            ) for f in action.rewrite
                         ])
 
                 self.logger.debug(
