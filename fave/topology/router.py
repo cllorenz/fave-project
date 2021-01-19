@@ -367,17 +367,22 @@ class RouterModel(Model):
 
         rule.in_ports = [self.node+'.routing_in']
 
+        actions = []
         rewrites = []
-        for action in [a for a in rule.actions if isinstance(a, Forward)]:
+        for action in [a for a in rule.actions]:
+            if isinstance(action, Forward):
+                for port in action.ports:
+                    rewrites.append(
+                        SwitchRuleField("out_port", port+'_egress')
+                    )
 
-            for port in action.ports:
-                rewrites.append(
-                    Rewrite(rewrite=[SwitchRuleField("out_port", port+'_egress')])
-                )
+                action.ports = [self.node+".routing_out"]
+                actions.append(action)
+            elif isinstance(action, Rewrite):
+                rewrites.extend(action.rewrite)
 
-            action.ports = [self.node+".routing_out"]
-
-        rule.actions.extend(rewrites)
+        actions.append(Rewrite(rewrite=rewrites))
+        rule.actions = actions
 
         self.tables[self.node+'.routing'].insert(idx, rule)
 
