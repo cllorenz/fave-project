@@ -517,11 +517,12 @@ def main(argv):
 
     server = "127.0.0.1"
     port = 0
+    log_level = logging.INFO
 
     try:
         only_opts = lambda x: x[0]
         opts = only_opts(
-            getopt.getopt(argv, "hs:p:", ["help", "server=", "port="])
+            getopt.getopt(argv, "hds:p:", ["help", "debug", "server=", "port="])
         )
     except getopt.GetoptError:
         _print_help()
@@ -535,10 +536,12 @@ def main(argv):
             server = arg
         elif opt == '-p':
             port = int(arg) if is_port(arg) else port
+        elif opt == '-d':
+            log_level = logging.DEBUG
 
     log_handler = logging.FileHandler('/tmp/np/aggregator.log')
     Aggregator.LOGGER.addHandler(log_handler)
-    Aggregator.LOGGER.setLevel(logging.INFO)
+    Aggregator.LOGGER.setLevel(log_level)
 
     try:
         sock = jsonrpc.connect_to_netplumber(server, port)
