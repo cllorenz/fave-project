@@ -461,12 +461,14 @@ class NetPlumberAdapter(object):
 
             for nid, match in enumerate(matches):
                 self.logger.debug(
-                    "worker: add rule %s to %s:\n\t(%s, %s -> %s)",
+                    "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
                     calc_rule_index(rid),
                     tid,
                     [hex(p) for p in in_ports],
                     match.vector if match else "*",
-                    [hex(p) for p in out_ports]
+                    mask.vector if mask else "*",
+                    [hex(p) for p in out_ports],
+                    rewrite.vector if rewrite else "*"
                 )
 
                 r_id = jsonrpc.add_rule(
