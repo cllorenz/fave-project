@@ -55,21 +55,6 @@ if __name__ == '__main__':
 
     os.system("python2 bench/wl_tum/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_tum/routegen.py")
-#    os.system(
-#        "python2 ../policy-translator/policy_translator.py " +
-#        "--strict " +
-#        "--csv --out %s " % REACH +
-#        "bench/wl_tum/inventory.txt " +
-#        "bench/wl_tum/policy.txt"
-#    )
-#    os.system(
-#        "python2 bench/wl_tum/reach_csv_to_checks.py " + ' '.join([
-#            '-p', REACH,
-#            '-m', MAP,
-#            '-c', CHECKS,
-#            '-j', REACH_JSON
-#        ])
-#    )
 
     os.system("python2 bench/wl_tum/policygen.py")
 
@@ -101,9 +86,6 @@ if __name__ == '__main__':
 
         add_policies(probes, links)
 
-    #with open(CHECKS, 'r') as raw_checks:
-    #    checks = json.loads(raw_checks.read())
-
     import netplumber.dump_np as dumper
     dumper.main(["-ant"])
 
@@ -113,8 +95,6 @@ if __name__ == '__main__':
         print "ok"
         print "Check results... ",
 
-    #import test.check_flows as checker
-    #checker.main(["-b", "-r", "-c", ";".join(checks)])
     os.system("python2 misc/await_fave.py")
 
     os.system("rm -f np_dump/.lock")
