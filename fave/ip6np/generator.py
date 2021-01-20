@@ -99,7 +99,9 @@ _TAGS = {
     "hl-lt" : "module.ipv6header.hl.lt", # value
     "hl-gt" : "module.ipv6header.hl.gt", # value
     "mh-type" : "module.ipv6header.mh.type", # type[:type...]
-    "vlan" : "packet.ether.vlan"
+    "vlan" : "packet.ether.vlan",
+    "svlan" : "packet.ether.svlan",
+    "dvlan" : "packet.ether.dvlan"
 }
 
 def _ast_to_rule(node, ast, idx=0):
@@ -130,7 +132,7 @@ def _ast_to_rule(node, ast, idx=0):
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
             tmp.get_first().value = node+'.'+iface+'_ingress'
-            vast = ast.add_child("vlan")
+            vast = ast.add_child("svlan")
             vast.add_child(vlan)
         else:
             tmp.get_first().value = node+'.'+value(tmp)+'_ingress'
@@ -139,7 +141,7 @@ def _ast_to_rule(node, ast, idx=0):
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
             tmp.get_first().value = node+'.'+iface+'_egress'
-            vast = ast.add_child("vlan")
+            vast = ast.add_child("dvlan")
             vast.add_child(vlan)
         else:
             tmp.get_first().value = node+'.'+value(tmp)+'_egress'
@@ -293,6 +295,8 @@ _SWAP_FIELDS={
     "packet.upper.dport" : "packet.upper.sport",
     "packet.ether.source" : "packet.ether.destination",
     "packet.ether.destination" : "packet.ether.source",
+    "packet.ether.svlan" : "packet.ether.dvlan",
+    "packet.ether.dvlan" : "packet.ether.svlan",
     "out_port" : "in_port",
     "in_port" : "out_port"
 }

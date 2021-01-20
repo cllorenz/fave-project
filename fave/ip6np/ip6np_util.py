@@ -193,6 +193,8 @@ def field_value_to_bitvector(field):
         vector[:] = {
             "related" : _normalize_related,
             "packet.ether.vlan" : normalize_vlan_tag,
+            "packet.ether.svlan" : normalize_vlan_tag,
+            "packet.ether.dvlan" : normalize_vlan_tag,
             "packet.ipv4.source" : normalize_ipv4_address,
             "packet.ipv4.destination" : normalize_ipv4_address,
             "packet.ipv6.source" : normalize_ipv6_address,
