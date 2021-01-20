@@ -114,7 +114,7 @@ echo -n "read topology... "
 python2 topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p eth0,eth1
+python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']"
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
 python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0,$FIREWALL.eth0:$SWITCH.2
