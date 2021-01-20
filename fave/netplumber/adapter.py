@@ -655,6 +655,9 @@ class NetPlumberAdapter(object):
 
 
     def add_generators_bulk(self, models):
+        for model in models:
+            self._update_mapping(set([f for f in model.fields.iterkeys()]))
+
         generators = [self._prepare_generator(m) for m in models]
 
         for name, idx, portno, outgoing in generators:
