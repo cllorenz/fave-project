@@ -17,7 +17,7 @@ if __name__ == '__main__':
         ruleset = sys.argv[2]
 
     devices = [
-        ("fw.tum", "packet_filter", 2, address, ruleset)
+        ("fw.tum", "packet_filter", ['eth0', 'eth1'], address, ruleset)
     ]
 
     links = []

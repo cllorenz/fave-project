@@ -16,6 +16,7 @@ REACH_JSON = "bench/wl_tum/reachable.json"
 
 REACH = "bench/wl_tum/reachability.csv"
 
+RULESET = 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset'
 
 if __name__ == '__main__':
     import json
@@ -25,8 +26,7 @@ if __name__ == '__main__':
 
     verbose = False
     ip = 'ipv6'
-    ruleset = 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset'
-
+    ruleset = RULESET
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vr:46")
@@ -49,6 +49,9 @@ if __name__ == '__main__':
     os.system("rm -f /tmp/np/*")
 
     os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
+    if ruleset == RULESET:
+        os.system("sed -i 's/ -i / -i eth/g' %s" % ruleset)
+        os.system("sed -i 's/ -o / -o eth/g' %s" % ruleset)
 
     os.system("python2 bench/wl_tum/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_tum/routegen.py")
