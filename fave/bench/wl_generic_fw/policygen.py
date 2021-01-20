@@ -6,6 +6,7 @@
 import json
 
 ROLES="bench/wl_generic_fw/roles.json"
+INTERFACES="bench/wl_generic_fw/interfaces.json"
 OFILE="bench/wl_generic_fw/policies.json"
 
 
@@ -26,12 +27,34 @@ def _attributes_to_fields(attributes):
     return res
 
 
+def _port_field_for_role(role, interfaces):
+    return [
+        'out_port=' + (
+            'fw.generic.%s_egress' % interfaces[
+                'external'
+            ] if role[
+                'name'
+            ] == 'Internet' else 'fw.generic.%s_egress' % interfaces[
+                'internal'
+            ]
+        )
+    ]
+
+
 if __name__ == '__main__':
     roles = json.load(open(ROLES, 'r'))
 
+    interfaces = json.load(open(INTERFACES, 'r'))
+
     probes = [
         (
-            "probe.%s" % role['name'], "probe", "universal", _attributes_to_fields(role['attributes']), None, None, None
+            "probe.%s" % role['name'],
+            "probe",
+            "universal",
+            _attributes_to_fields(role['attributes']) + _port_field_for_role(role, interfaces),
+            None,
+            None,
+            None
         ) for role in roles
     ]
 

@@ -78,7 +78,7 @@ bench_ifi:
 bench_generic:
   stage: bench
   script:
-    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_generic_fw/benchmark.py"
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest /bin/bash -c "make -j -C $DIRPATH/net_plumber/build install && cd $DIRPATH/fave && python2 $DIRPATH/fave/bench/wl_generic_fw/benchmark.py -s"
   dependencies:
     - build_docker
 

@@ -17,6 +17,22 @@ REACH_JSON = "bench/wl_generic_fw/reachable.json"
 REACH = "bench/wl_generic_fw/reachability.csv"
 
 
+def _print_help():
+    options = [
+        "-4 - use ipv4 for the packet filter",
+        "-6 - use ipv6 for the packet filter (default)",
+        "-i <inventory> - an inventory file specified in FPL",
+        "-p <policy> - a policy file specified in FPL",
+        "-r <ruleset> - an iptables rule set",
+        "-s - FPL policies should be handled in strict mode",
+        "-m <map> - a mapping file with internal and external to interface mappings of the form { \"external\" : \"eth0\", \"internal\" : \"eth1\" }",
+        "-v - verbose output"
+    ]
+    print "usage:\nPYTHONPATH=. python2 bench/wl_generic_fw/benchmark [OPTIONS]\nOptions:"
+    for opt in options:
+        print " ", opt
+
+
 if __name__ == '__main__':
     import json
     import os
@@ -25,12 +41,14 @@ if __name__ == '__main__':
 
     verbose = False
     ip = 'ipv6'
+    strict = ''
     ruleset = "bench/wl_generic_fw/default/ruleset"
     policy = "bench/wl_generic_fw/default/policy.txt"
     inventory = "bench/wl_generic_fw/default/inventory.txt"
+    interfaces = "bench/wl_generic_fw/default/interfaces.json"
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "vr:p:i:46")
+        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:46")
     except getopt.GetoptError as err:
         print "unknown arguments"
         print err
@@ -49,6 +67,13 @@ if __name__ == '__main__':
             ip = 'ipv4'
         if opt == '-6':
             ip = 'ipv6'
+        if opt == '-s':
+            strict = '--strict '
+        if opt == '-m':
+            interfaces = arg
+        if opt == '-h':
+            _print_help()
+            sys.exit(0)
 
     if verbose: print "Generate benchmark... ",
 
@@ -56,12 +81,14 @@ if __name__ == '__main__':
 
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
-        "--strict " +
+        strict +
         "--csv --out %s " % REACH +
         "--roles %s " % ROLES +
         "%s " % inventory +
         policy
     )
+
+    os.system('cp %s bench/wl_generic_fw/interfaces.json' % interfaces)
 
     os.system("python2 bench/wl_generic_fw/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_generic_fw/routegen.py")

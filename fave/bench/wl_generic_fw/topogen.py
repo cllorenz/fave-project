@@ -29,6 +29,20 @@ def _attributes_to_fields(attributes):
     return res
 
 
+def _port_field_for_role(role, interfaces):
+    return [
+        'in_port=' + (
+            'fw.generic.%s_ingress' % interfaces[
+                'external'
+            ] if role[
+                'name'
+            ] == 'Internet' else 'fw.generic.%s_ingress' % interfaces[
+                'internal'
+            ]
+        )
+    ]
+
+
 if __name__ == '__main__':
     address = "2001:db8::1"
     ruleset = "bench/wl_generic_fw/default/ruleset"
@@ -36,11 +50,10 @@ if __name__ == '__main__':
         address = "2001:db8::1" if sys.argv[1] == "ipv6" else "10.0.0.1"
         ruleset = sys.argv[2]
 
-    os.system("bash scripts/fetch_interfaces.sh %s %s" % (ruleset, INTERFACES))
     interfaces = json.load(open(INTERFACES, "r"))
 
     devices = [
-        ("fw.generic", "packet_filter", interfaces, address, ruleset)
+        ("fw.generic", "packet_filter", sorted(interfaces.values()), address, ruleset)
     ]
 
     links = []
@@ -51,7 +64,7 @@ if __name__ == '__main__':
         (
             "source.%s" % role['name'],
             "generator",
-            _attributes_to_fields(role['attributes'])
+            _attributes_to_fields(role['attributes']) + _port_field_for_role(role, interfaces)
         ) for role in roles
     ]
 
