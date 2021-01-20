@@ -15,7 +15,7 @@ INTERFACES="bench/wl_generic_fw/interfaces.json"
 _TAGS = {
     'ipv4' : 'packet.ipv4.source',
     'ipv6' : 'packet.ipv6.source',
-    'vlan' : 'packet.ether.vlan',
+    'vlan' : 'packet.ether.svlan',
     'interface' : 'in_port'
 }
 

@@ -13,7 +13,7 @@ OFILE="bench/wl_generic_fw/policies.json"
 _TAGS = {
     'ipv4' : 'packet.ipv4.destination',
     'ipv6' : 'packet.ipv6.destination',
-    'vlan' : 'packet.ether.vlan',
+    'vlan' : 'packet.ether.dvlan',
     'interface' : 'out_port'
 }
 
