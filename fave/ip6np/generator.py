@@ -125,9 +125,7 @@ def _ast_to_rule(node, ast, idx=0):
     if not ast:
         return {}
 
-    has_iif = ast.has_child("-i")
-    has_oif = ast.has_child("-o")
-    if has_iif:
+    if ast.has_child("-i"):
         tmp = ast.get_child("-i")
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
@@ -136,7 +134,7 @@ def _ast_to_rule(node, ast, idx=0):
             vast.add_child(vlan)
         else:
             tmp.get_first().value = node+'.'+value(tmp)+'_ingress'
-    if has_oif:
+    if ast.has_child("-o"):
         tmp = ast.get_child("-o")
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
