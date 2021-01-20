@@ -20,6 +20,7 @@ bench/wl_example/policy.csv
 bench/wl_example/*.json
 
 bench/wl_tum/*.json
+bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset
 
 bench/wl_generic_fw/*.json
 bench/wl_generic_fw/*.csv
