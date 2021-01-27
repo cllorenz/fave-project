@@ -456,8 +456,7 @@ class Policy(object):
         return json.dumps(mapping, indent=2) + '\n'
 
     def to_iptables(self):
-        """ Creates a list which contains iptable rules for the given Policies
-
+        """ Creates a list of iptable rules for the given Policies
 
         Returns:
             A String that contains the iptable rules
@@ -475,14 +474,13 @@ class Policy(object):
         default6rule = "ip6tables -P FORWARD" + defaultruletarget
         iptable_rules.append(default6rule)
 
-        # set jumptarget depending on standard policy
-        jumptarget = " -j ACCEPT" if (self.default_policy == False)  else " -j DROP"
         bprules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         iptable_rules.append(bprules)
 
 
         # create iptable rule(s) for every Policy
         for policy in self.policies:
+
 
             # check if one is Internet
             eth_from = " -i eth1" if (policy[0]=="Internet") else ""
@@ -496,6 +494,17 @@ class Policy(object):
 
             #test if this policy is a relatedrule
             relatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions) else False
+
+            #test for single way policy
+
+            singleway = True
+            revpol= (policy[1],policy[0])
+            if revpol in self.policies:
+                revrelatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[revpol].conditions) else False
+                singleway= False if revrelatedrule else True
+
+            # set jumptarget depending on standard and singleway policy
+            jumptarget = " -j ACCEPT" if (self.default_policy == False)  else " -j DROP"
 
             # Only create ip4table rules if not relatedrule, both have ipv4 or one is Internet and the other one has ipv4
             ip4rule = True if (not relatedrule) and (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
@@ -522,6 +531,7 @@ class Policy(object):
             destport = []
             serviceset = False
 
+            #source services
             if(self.roles[policy[0]].offers_services()):
                 serviceset = True
                 srcservices = self.roles[policy[0]].get_services()
@@ -531,6 +541,7 @@ class Policy(object):
                     srcprotocol.append(srcservice[key].attributes["protocol"])
                     srcport.append(srcservice[key].attributes["port"])
 
+            #destination services
             if(self.roles[policy[1]].offers_services()):
                 serviceset = True
                 destservices = self.roles[policy[1]].get_services()
@@ -545,61 +556,65 @@ class Policy(object):
             # add comment for human readability
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
 
-            #create rules
+            # add statemodule plus new if singlerule add notrack
 
-            # multiple Rules possible if services are existing
+            module = " -m conntrack --ctstate NEW"
+            module = " -m conntrack --ctstate NEW,NOTRACK" if singleway else module
 
-            #only destination has services
-            if destprotocol and not srcprotocol:
-                for i in range(len(destprotocol)):
-                    serviceinfo = " --protocol " + destprotocol[i] + " --dport " + destport[i]
-                    if ip4rule:
-                        rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
-                        iptable_rules.append(rule)
-                    if ip6rule:
-                        rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
-                        iptable_rules.append(rule)
+            #if there are condition handle them
+            if self.policies[policy].conditions:
+                for cond in self.policies[policy].conditions:
+                    #check if services are given
+                    if 'protocol' in cond:
+                        #TODO only use sport or dport depending on policy
+                        serviceinfo = " --protocol " + cond['protocol'] + " --dport " + cond['port'] + " --sport " + cond['port']
+                    else :
+                        serviceinfo = ""
+                    # check for states
+                    if 'state' in cond:
+                        # a-/-->> rules
+                        if cond['state'] == 'NEW,INVALID':
+                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + " -m conntrack --ctstate NEW" + jumptarget
+                            iptable_rules.append(rule)
 
-            #only source has services
-            if srcprotocol and not destprotocol:
-                for i in range(len(srcprotocol)):
-                    serviceinfo = " --protocol " + srcprotocol[i] + " --sport " + srcport[i]
-                    if ip4rule:
-                        rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
-                        iptable_rules.append(rule)
-                    if ip6rule:
-                        rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
-                        iptable_rules.append(rule)
-
-            #both have services
-            if srcprotocol and destprotocol:
-                for i in destkeys:
-                    if i in srckeys:
-                        ind = destkeys.index(i)
-                        serviceinfo = " --protocol " + destprotocol[ind] + " --sport " + destport[ind] + " --dport " + destport[ind]
+                    #if serviceinfo is set create rule
+                    if serviceinfo:
                         if ip4rule:
-                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + jumptarget
+                            #create prerouting rule if neccesary
+                            if singleway and (self.default_policy == False):
+                                rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
+                                iptable_rules.append(rule)
+                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
                             iptable_rules.append(rule)
+
                         if ip6rule:
-                            rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + comment + jumptarget
+                            #create prerouting rule if neccesary
+                            if singleway and (self.default_policy == False):
+                                rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + " -j NOTRACK"
+                                iptable_rules.append(rule)
+                            rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + module + comment + jumptarget
                             iptable_rules.append(rule)
 
-            #otherwise only one rule without serviceinfos
-            if not serviceset:
+
+            #if there are no conditions
+            else:
                 if ip4rule:
-                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + comment + jumptarget
-                    iptable_rules.append(rule)
-                if ip6rule:
-                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + comment + jumptarget
+                    if singleway:
+                        rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
+                        iptable_rules.append(rule)
+                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + module + comment + jumptarget
                     iptable_rules.append(rule)
 
+                if ip6rule:
+                    if singleway:
+                        rule = "ip6tables -t raw -A PREROUTING" + eth_from + ip6_from + eth_to + ip6_to + comment + " -j NOTRACK"
+                        iptable_rules.append(rule)
+                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module +comment + jumptarget
+                    iptable_rules.append(rule)
 
             # reset variables for next run
-
             ip4rule = ip6rule = False
             eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = serviceinfo = comment = ""
-
-
         return "\n".join(iptable_rules)
 
 
