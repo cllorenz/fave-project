@@ -537,7 +537,7 @@ class NetPlumberAdapter(object):
                             SwitchRuleField(
                                 f.name, '1'*FIELD_SIZES[f.name]
                             ) for f in action.rewrite
-                        ])
+                        ], preset='0')
 
                 self.logger.debug(
                     "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
