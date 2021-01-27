@@ -15,7 +15,7 @@ tables = [
 ]
 
 policy = []
-for idx, table_name in enumerate(tables):
+for idx, table_name in enumerate(tables, start=1):
     table = json.load(open("i2-hassel/" + table_name + ".tf.json" , "r"))
 
     policy.append({
@@ -25,7 +25,7 @@ for idx, table_name in enumerate(tables):
                 "list" : ["xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"],
                 "diff" : []
             },
-            "ports" : [idx+1]
+            "ports" : [idx]
         }
     })
 
@@ -33,7 +33,7 @@ for idx, table_name in enumerate(tables):
         policy.append({
             "method" : "add_link",
             "params" : {
-                "from_port" : idx+1,
+                "from_port" : idx,
                 "to_port" : port
             }
         })
