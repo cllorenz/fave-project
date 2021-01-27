@@ -65,7 +65,7 @@ string flow_to_str(Flow<T1, T2> *f) {
     str << f->hs_object->to_str() << " @ 0x" << std::hex << f->node->node_id << " <-- ";
     f = *f->p_flow;
   }
-  str << f->hs_object->to_str();
+  if (loop_logger->isTraceEnabled()) str << f->hs_object->to_str();
   return str.str();
 }
 
