@@ -8,10 +8,11 @@ from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
 
-TOPOLOGY='bench/wl_i2/i2-hassel/topology.json'
-ROUTES='bench/wl_i2/i2-hassel/routes.json'
+TOPOLOGY='bench/wl_i2/i2-tfs/topology.json'
+ROUTES='bench/wl_i2/i2-tfs/routes.json'
+SOURCES='bench/wl_i2/i2-tfs/sources.json'
 
-with open('bench/wl_i2/i2-hassel/mapping.json', 'r') as mf:
+with open('bench/wl_i2/i2-tfs/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
@@ -48,7 +49,7 @@ def array_vlan_to_number(array):
     if m:
         return int(m.group('vlan'), 2)
     else:
-        raise "array not a vlan number: %s" % array
+        raise Exception("array not a vlan number: %s" % array)
 
 
 def get_start_end(field):
@@ -63,12 +64,18 @@ def rule_to_route(rule):
     in_ports = rule['in_ports']
     out_ports = rule['out_ports']
 
+    match_fields = []
+
     match = rule['match']
     start, end = get_start_end('packet.ipv4.destination')
-    dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
+    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.destination']:
+        dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
+        match_fields.append(dst)
 
     start, end = get_start_end('packet.ether.vlan')
-    vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
+    if match[start:end] != 'x'*FIELD_SIZES['packet.ether.vlan']:
+        vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
+        match_fields.append(vlan)
 
     actions = []
 
@@ -80,39 +87,65 @@ def rule_to_route(rule):
 
         start, end = get_start_end('packet.ipv4.destination')
         field_mask = mask[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination']:
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.destination']:
             fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
 
         start, end = get_start_end('packet.ether.vlan')
         field_mask = mask[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ether.vlan']:
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
             fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
 
-        actions.append("rw=%s" % ';'.join(fields))
+        if fields != []:
+            actions.append("rw=%s" % ';'.join(fields))
 
     actions.extend(["fd=%s" % port_to_name[p] for p in out_ports])
 
     return (
-        name, 1, rid, [dst, vlan], actions,
+        name, 1, rid, match_fields, actions,
         [port_to_name[p] for p in in_ports]
     )
 
 
 if __name__ == '__main__':
+    os.system("mkdir -p /tmp/np")
+    os.system("rm -rf /tmp/np/*.log")
+
     routes = []
     portmap = {}
     port_to_name = {}
+    active_egress_ports = {}
+    active_ingress_ports = {}
+    active_link_ports = set()
+
+    files = {
+        'bench/wl_i2/i2-hassel/atla.tf' : 1,
+        'bench/wl_i2/i2-hassel/chic.tf' : 2,
+        'bench/wl_i2/i2-hassel/hous.tf' : 3,
+        'bench/wl_i2/i2-hassel/kans.tf' : 4,
+        'bench/wl_i2/i2-hassel/losa.tf' : 5,
+        'bench/wl_i2/i2-hassel/newy32aoa.tf' : 6,
+        'bench/wl_i2/i2-hassel/salt.tf' : 7,
+        'bench/wl_i2/i2-hassel/seat.tf' : 8,
+        'bench/wl_i2/i2-hassel/wash.tf' : 9
+    }
+
+    os.system("python2 bench/wl_i2/topology_to_json.py bench/wl_i2/i2-hassel/backbone_topology.tf")
+
+    for f, t in files.iteritems():
+        os.system("python2 bench/wl_i2/tf_to_json.py %s %s" % (f, t))
 
     files = [
-        'bench/wl_i2/i2-hassel/atla.tf.json',
-        'bench/wl_i2/i2-hassel/chic.tf.json',
-        'bench/wl_i2/i2-hassel/kans.tf.json',
-        'bench/wl_i2/i2-hassel/salt.tf.json',
-        'bench/wl_i2/i2-hassel/hous.tf.json',
-        'bench/wl_i2/i2-hassel/losa.tf.json',
-        'bench/wl_i2/i2-hassel/newy32aoa.tf.json',
-        'bench/wl_i2/i2-hassel/seat.tf.json',
-        'bench/wl_i2/i2-hassel/wash.tf.json'
+        'bench/wl_i2/i2-tfs/atla.tf.json',
+        'bench/wl_i2/i2-tfs/chic.tf.json',
+        'bench/wl_i2/i2-tfs/kans.tf.json',
+        'bench/wl_i2/i2-tfs/salt.tf.json',
+        'bench/wl_i2/i2-tfs/hous.tf.json',
+        'bench/wl_i2/i2-tfs/losa.tf.json',
+        'bench/wl_i2/i2-tfs/newy32aoa.tf.json',
+        'bench/wl_i2/i2-tfs/seat.tf.json',
+        'bench/wl_i2/i2-tfs/wash.tf.json'
     ]
     for tf in files:
         with open(tf, 'r') as tf_f:
@@ -120,10 +153,14 @@ if __name__ == '__main__':
             table = json.loads(tf_f.read())
 
             portmap[name] = set()
+            active_ingress_ports.setdefault(name, set())
+            active_egress_ports.setdefault(name, set())
 
             for rule in table['rules']:
                 portmap[name].update(rule['in_ports'])
+                active_ingress_ports[name].update(rule['in_ports'])
                 portmap[name].update(rule['out_ports'])
+                active_egress_ports[name].update(rule['out_ports'])
 
             for tname, ports in portmap.iteritems():
                 portno = 1
@@ -142,58 +179,56 @@ if __name__ == '__main__':
     devices = []
     devices.extend([(n, 'switch', 64) for n in portmap])
 
+    sources = []
+
     links = []
-    with open('bench/wl_i2/i2-hassel/topology.tf', 'r') as tf:
-        active_ports = set()
+    sources_links = []
+    with open('bench/wl_i2/i2-tfs/topology.json', 'r') as tf:
+
+        topo = json.load(tf)
 
         cnt = 1
-        for line in tf.read().splitlines():
+        for link in topo['topology']:
             is_src = is_dst = False
 
-            try:
-                _, src, _, _, _, _, _, dst, _, _, _, _, _, _ = line.split('$')
-            except:
-                continue
+            src = link['src']
+            dst = link['dst']
 
-            src = int(src.strip('[]'))
-            dst = int(dst.strip('[]'))
-
-            if src not in port_to_name:
-                port_to_name[src] = 'source.external.%s.1' % cnt
-                is_src = True
-            if dst not in port_to_name:
-                port_to_name[dst] = 'probe.external.%s.1' % cnt
-                is_dst = True
-                continue # XXX
-
-            if not is_src:
-                active_ports.add(src)
-            if not is_dst:
-                active_ports.add(dst)
-
-            if is_src:
-                devices.append(
-                    ("source.external.%s" % cnt, "generator", ["ipv4_dst=0.0.0.0/0"])
-                )
-                cnt += 1
-            elif is_dst:
-#                devices.append(("probe.external.%s" % cnt, "probe", "universal", None, None, []))
-                cnt += 1
+            active_link_ports.add(src)
+            active_link_ports.add(dst)
 
             links.append((port_to_name[src], port_to_name[dst]))
 
-        for port in active_ports:
-            pname = port_to_name[port]
-            devices.append((
-                "source.%s" % pname, "generator", ["ipv4_dst=0.0.0.0/0"]
-            ))
-            links.append(("source.%s.1" % pname, pname))
 
-    with open('bench/wl_i2/i2-hassel/topology.json', 'w') as tf:
+    for name in ['atla', 'chic', 'hous', 'kans', 'losa', 'newy32aoa', 'salt', 'seat', 'wash']:
+        sources.append((
+            "source.external.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
+        ))
+        sources_links.extend([
+            (
+                "source.external.%s.1" % name, port_to_name[port]
+            ) for port in active_ingress_ports[name] if port not in active_link_ports
+        ])
+
+        devices.append((
+            "probe.external.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
+        ))
+
+        links.extend([
+            (
+                port_to_name[port], "probe.external.%s.1" % name
+            ) for port in active_egress_ports[name] if port not in active_link_ports
+        ])
+
+    with open(TOPOLOGY, 'w') as tf:
         tf.write(
             json.dumps({'devices' : devices, 'links' : links}, indent=2) + '\n'
         )
 
+    with open(SOURCES, 'w') as tf:
+        tf.write(
+            json.dumps({'devices' : sources, 'links' : sources_links}, indent=2) + '\n'
+        )
 
     os.system("bash scripts/start_np.sh bench/wl_i2/np.conf")
     os.system("bash scripts/start_aggr.sh")
@@ -203,7 +238,6 @@ if __name__ == '__main__':
 
         print "create topology... ",
         create_topology(devices, links)
-#        add_rulesets(devices)
         print "done"
 
     with open(ROUTES, 'r') as raw_routes:
@@ -211,6 +245,13 @@ if __name__ == '__main__':
 
         print "add routes... ",
         add_routes(routes)
+        print "done"
+
+    with open(SOURCES, 'r') as raw_topology:
+        devices, links = json.loads(raw_topology.read()).values()
+
+        print "create sources... ",
+        create_topology(devices, links)
         print "done"
 
     import netplumber.dump_np as dumper
