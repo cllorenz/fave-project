@@ -1,0 +1,58 @@
+def role atla
+    description = 'Atlantic City Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role chic
+    description = 'Chicago Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role hous
+    description = 'Houston Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role kans
+    description = 'Kansas City Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role losa
+    description = 'Los Angeles Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role newy32aoa
+    description = 'New York City Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role salt
+    description = 'Salt Lake City Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role seat
+    description = 'Seattle Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role wash
+    description = 'Washington Internet Exchange.'
+    ipv4 = '0.0.0.0/0'
+end
+
+def role All
+    description = 'Collects all Internet Exchanges'
+
+    includes atla
+    includes chic
+    includes hous
+    includes kans
+    includes losa
+    includes newy32aoa
+    includes salt
+    includes seat
+    includes wash
+end

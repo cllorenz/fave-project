@@ -7,6 +7,11 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
+ROLES='bench/wl_i2/roles.txt'
+POLICY='bench/wl_i2/reach.txt'
+REACH='bench/wl_i2/reach.csv'
+
+CHECKS='bench/wl_i2/checks.json'
 
 TOPOLOGY='bench/wl_i2/i2-tfs/topology.json'
 ROUTES='bench/wl_i2/i2-tfs/routes.json'
@@ -112,6 +117,18 @@ if __name__ == '__main__':
     os.system("mkdir -p /tmp/np")
     os.system("rm -rf /tmp/np/*.log")
 
+    os.system(
+        "python2 ../policy-translator/policy_translator.py " + ' '.join([
+            "--csv", "--out", REACH, ROLES, POLICY
+        ])
+    )
+
+    os.system(
+        "python2 bench/wl_i2/reach_csv_to_checks.py " + ' '.join([
+            '-p', REACH, '-c', CHECKS
+        ])
+    )
+
     routes = []
     portmap = {}
     port_to_name = {}
@@ -178,8 +195,9 @@ if __name__ == '__main__':
 
     devices = []
     devices.extend([(n, 'switch', 64) for n in portmap])
+    devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
 
-    sources = []
+    sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
 
     links = []
     sources_links = []
@@ -202,21 +220,21 @@ if __name__ == '__main__':
 
     for name in ['atla', 'chic', 'hous', 'kans', 'losa', 'newy32aoa', 'salt', 'seat', 'wash']:
         sources.append((
-            "source.external.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
+            "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
         sources_links.extend([
             (
-                "source.external.%s.1" % name, port_to_name[port]
+                "source.%s.1" % name, port_to_name[port]
             ) for port in active_ingress_ports[name] if port not in active_link_ports
         ])
 
         devices.append((
-            "probe.external.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
+            "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
         ))
 
         links.extend([
             (
-                port_to_name[port], "probe.external.%s.1" % name
+                port_to_name[port], "probe.%s.1" % name
             ) for port in active_egress_ports[name] if port not in active_link_ports
         ])
 
@@ -255,14 +273,16 @@ if __name__ == '__main__':
         print "done"
 
     import netplumber.dump_np as dumper
-#    import test.check_flows as checker
-
-    dumper.main(["-anpft"])
-#    checker.main(["-c", ";".join(checks)])
+    dumper.main(["-ant"])
 
     os.system("bash scripts/stop_fave.sh")
 
-    os.system("python2 misc/await_fave.py")
+#    os.system("python2 misc/await_fave.py")
+
+    import test.check_flows as checker
+    checks = json.load(open(CHECKS, 'r'))
+    checker.main(["-b", "-c", ";".join(checks)])
+
 
     os.system("rm -f np_dump/.lock")
 

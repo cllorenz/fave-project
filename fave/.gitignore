@@ -8,6 +8,7 @@ bench/wl_up/rulesets/*-ruleset
 bench/wl_ifi/*.json
 bench/wl_i2/*.json
 bench/wl_i2/i2-tfs/*.json
+bench/wl_i2/reach.csv
 
 bench/wl_ifi/convert.sh
 bench/wl_ifi/*.css
