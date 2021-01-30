@@ -197,7 +197,7 @@ if __name__ == '__main__':
             links.append((port_to_name[src], port_to_name[dst]))
 
 
-    for name in ['atla', 'chic', 'hous', 'kans', 'losa', 'newy32aoa', 'salt', 'seat', 'wash']:
+    for name in routers:
         sources.append((
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
