@@ -22,5 +22,5 @@ with open(sys.argv[1], 'r') as f:
         topo.append({'src' : src, 'dst' : dst})
 
 
-    with open('/'.join(sys.argv[1].split('/')[:len(sys.argv[1].split('/'))-2] + ['i2-tfs', 'topology.json']), 'w') as of:
+    with open('/'.join(sys.argv[1].split('/')[:len(sys.argv[1].split('/'))-2] + ['i2-json', 'topology.json']), 'w') as of:
         of.write(json.dumps(topology, indent=2)+'\n')

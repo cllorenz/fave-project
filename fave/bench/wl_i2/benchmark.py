@@ -13,11 +13,11 @@ REACH='bench/wl_i2/reach.csv'
 
 CHECKS='bench/wl_i2/checks.json'
 
-TOPOLOGY='bench/wl_i2/i2-tfs/topology.json'
-ROUTES='bench/wl_i2/i2-tfs/routes.json'
-SOURCES='bench/wl_i2/i2-tfs/sources.json'
+TOPOLOGY='bench/wl_i2/i2-json/topology.json'
+ROUTES='bench/wl_i2/i2-json/routes.json'
+SOURCES='bench/wl_i2/i2-json/sources.json'
 
-with open('bench/wl_i2/i2-tfs/mapping.json', 'r') as mf:
+with open('bench/wl_i2/i2-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
@@ -136,35 +136,14 @@ if __name__ == '__main__':
     active_ingress_ports = {}
     active_link_ports = set()
 
-    files = {
-        'bench/wl_i2/i2-hassel/atla.tf' : 1,
-        'bench/wl_i2/i2-hassel/chic.tf' : 2,
-        'bench/wl_i2/i2-hassel/hous.tf' : 3,
-        'bench/wl_i2/i2-hassel/kans.tf' : 4,
-        'bench/wl_i2/i2-hassel/losa.tf' : 5,
-        'bench/wl_i2/i2-hassel/newy32aoa.tf' : 6,
-        'bench/wl_i2/i2-hassel/salt.tf' : 7,
-        'bench/wl_i2/i2-hassel/seat.tf' : 8,
-        'bench/wl_i2/i2-hassel/wash.tf' : 9
-    }
+    routers = json.load(open('bench/wl_i2/i2-json/devices.json', 'r'))
 
     os.system("python2 bench/wl_i2/topology_to_json.py bench/wl_i2/i2-hassel/backbone_topology.tf")
 
-    for f, t in files.iteritems():
-        os.system("python2 bench/wl_i2/tf_to_json.py %s %s" % (f, t))
+    for tf, t in [('bench/wl_i2/i2-hassel/%s.tf' % r, t) for r, t in routers.iteritems()]:
+        os.system("python2 bench/wl_i2/tf_to_json.py %s %s" % (tf, t))
 
-    files = [
-        'bench/wl_i2/i2-tfs/atla.tf.json',
-        'bench/wl_i2/i2-tfs/chic.tf.json',
-        'bench/wl_i2/i2-tfs/kans.tf.json',
-        'bench/wl_i2/i2-tfs/salt.tf.json',
-        'bench/wl_i2/i2-tfs/hous.tf.json',
-        'bench/wl_i2/i2-tfs/losa.tf.json',
-        'bench/wl_i2/i2-tfs/newy32aoa.tf.json',
-        'bench/wl_i2/i2-tfs/seat.tf.json',
-        'bench/wl_i2/i2-tfs/wash.tf.json'
-    ]
-    for tf in files:
+    for tf in ['bench/wl_i2/i2-json/%s.tf.json' % r for r in routers]:
         with open(tf, 'r') as tf_f:
             name = tf.split('.')[0].split('/').pop()
             table = json.loads(tf_f.read())
@@ -201,7 +180,7 @@ if __name__ == '__main__':
 
     links = []
     sources_links = []
-    with open('bench/wl_i2/i2-tfs/topology.json', 'r') as tf:
+    with open('bench/wl_i2/i2-json/topology.json', 'r') as tf:
 
         topo = json.load(tf)
 
