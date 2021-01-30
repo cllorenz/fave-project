@@ -1,0 +1,10 @@
+{
+  "packet.ether.vlan" : 0,
+  "packet.ipv4.source" : 16,
+  "packet.ipv4.destination" : 48,
+  "packet.ipv6.proto" : 80,
+  "packet.upper.sport" : 88,
+  "packet.upper.dport" : 104,
+  "packet.upper.tcp.flags" : 120,
+  "length" : 128
+}

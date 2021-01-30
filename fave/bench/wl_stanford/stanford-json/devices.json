@@ -1,0 +1,18 @@
+{
+    "bbra_rtr" : 1,
+    "bbrb_rtr" : 2,
+    "boza_rtr" : 3,
+    "bozb_rtr" : 4,
+    "coza_rtr" : 5,
+    "cozb_rtr" : 6,
+    "goza_rtr" : 7,
+    "gozb_rtr" : 8,
+    "poza_rtr" : 9,
+    "pozb_rtr" : 10,
+    "roza_rtr" : 11,
+    "rozb_rtr" : 12,
+    "soza_rtr" : 13,
+    "sozb_rtr" : 14,
+    "yoza_rtr" : 15,
+    "yozb_rtr" : 16
+}
