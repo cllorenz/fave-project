@@ -256,14 +256,9 @@ if __name__ == '__main__':
 
     os.system("bash scripts/stop_fave.sh")
 
-#    os.system("python2 misc/await_fave.py")
-
     import test.check_flows as checker
     checks = json.load(open(CHECKS, 'r'))
     checker.main(["-b", "-c", ";".join(checks)])
 
 
     os.system("rm -f np_dump/.lock")
-
-
-#    os.system("net_plumber --hdr-len 6 --load bench/wl_internet2")
