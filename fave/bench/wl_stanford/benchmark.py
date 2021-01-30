@@ -13,11 +13,11 @@ REACH='bench/wl_stanford/reach.csv'
 
 CHECKS='bench/wl_stanford/checks.json'
 
-TOPOLOGY='bench/wl_stanford/i2-json/topology.json'
-ROUTES='bench/wl_stanford/i2-json/routes.json'
-SOURCES='bench/wl_stanford/i2-json/sources.json'
+TOPOLOGY='bench/wl_stanford/stanford-json/topology.json'
+ROUTES='bench/wl_stanford/stanford-json/routes.json'
+SOURCES='bench/wl_stanford/stanford-json/sources.json'
 
-with open('bench/wl_stanford/i2-json/mapping.json', 'r') as mf:
+with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
@@ -71,7 +71,13 @@ def rule_to_route(rule):
 
     match_fields = []
 
-    match = rule['match']
+    match = rule['match'].replace(',', '')
+
+    start, end = get_start_end('packet.ipv4.source')
+    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.source']:
+        src = "ipv4_src=%s" % array_ipv4_to_cidr(match[start:end])
+        match_fields.append(src)
+
     start, end = get_start_end('packet.ipv4.destination')
     if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.destination']:
         dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
@@ -82,13 +88,48 @@ def rule_to_route(rule):
         vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
         match_fields.append(vlan)
 
+    start, end = get_start_end('packet.ipv6.proto')
+    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv6.proto']:
+        proto = "ipv6_proto=%s" % int(match[start:end], 2)
+        match_fields.append(proto)
+
+    start, end = get_start_end('packet.upper.sport')
+    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.sport']:
+        try:
+            sport = "tcp_sport=%s" % int(match[start:end], 2)
+        except ValueError:
+            sport = "tcp_sport=%s" % match[start:end]
+        match_fields.append(sport)
+
+    start, end = get_start_end('packet.upper.dport')
+    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.dport']:
+        try:
+            dport = "tcp_dport=%s" % int(match[start:end], 2)
+        except ValueError:
+            dport = "tcp_dport=%s" % match[start:end]
+        match_fields.append(dport)
+
+    start, end = get_start_end('packet.upper.tcp.flags')
+    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.tcp.flags']:
+        try:
+            flags = "tcp_flags=%s" % int(match[start:end], 2)
+        except ValueError:
+            flags = "tcp_flags=%s" % match[start:end]
+        match_fields.append(flags)
+
     actions = []
 
     if rule['action'] == 'rw':
-        mask = rule['mask']
-        rewrite = rule['rewrite']
+        mask = rule['mask'].replace(',', '')
+        rewrite = rule['rewrite'].replace(',', '')
 
         fields = []
+
+        start, end = get_start_end('packet.ipv4.source')
+        field_mask = mask[start:end]
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ipv4.source'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.source']:
+            fields.append("ipv4_src:%s" % array_ipv4_to_cidr(rewrite[start:end]))
 
         start, end = get_start_end('packet.ipv4.destination')
         field_mask = mask[start:end]
@@ -101,6 +142,30 @@ def rule_to_route(rule):
         field_rewrite = rewrite[start:end]
         if field_mask == '1'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
             fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
+
+        start, end = get_start_end('packet.ipv6.proto')
+        field_mask = mask[start:end]
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.ipv6.proto'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv6.proto']:
+            fields.append("ipv6_proto:%s" % int(rewrite[start:end], 2))
+
+        start, end = get_start_end('packet.upper.sport')
+        field_mask = mask[start:end]
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.upper.sport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.sport']:
+            fields.append("tcp_sport:%s" % int(rewrite[start:end], 2))
+
+        start, end = get_start_end('packet.upper.dport')
+        field_mask = mask[start:end]
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.upper.dport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.dport']:
+            fields.append("tcp_dport:%s" % int(rewrite[start:end], 2))
+
+        start, end = get_start_end('packet.upper.tcp.flags')
+        field_mask = mask[start:end]
+        field_rewrite = rewrite[start:end]
+        if field_mask == '1'*FIELD_SIZES['packet.upper.tcp.flags'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.tcp.flags']:
+            fields.append("tcp_flags:%s" % int(rewrite[start:end], 2))
 
         if fields != []:
             actions.append("rw=%s" % ';'.join(fields))
@@ -136,17 +201,15 @@ if __name__ == '__main__':
     active_ingress_ports = {}
     active_link_ports = set()
 
-    routers = json.load(open('bench/wl_stanford/i2-json/devices.json', 'r'))
+    routers = json.load(open('bench/wl_stanford/stanford-json/devices.json', 'r'))
 
-    os.system("python2 bench/wl_stanford/topology_to_json.py bench/wl_stanford/i2-hassel/backbone_topology.tf")
+    os.system("python2 bench/wl_stanford/topology_to_json.py bench/wl_stanford/stanford-tfs/topology.tf")
 
-    for tf, t in [('bench/wl_stanford/i2-hassel/%s.tf' % r, t) for r, t in routers.iteritems()]:
+    for tf, t in [('bench/wl_stanford/stanford-tfs/%s.tf' % r, t) for r, t in routers.iteritems()]:
         os.system("python2 bench/wl_stanford/tf_to_json.py %s %s" % (tf, t))
 
-    import sys
-    sys.exit(0)
 
-    for tf in ['bench/wl_stanford/i2-json/%s.tf.json' % r for r in routers]:
+    for tf in ['bench/wl_stanford/stanford-json/%s.tf.json' % r for r in routers]:
         with open(tf, 'r') as tf_f:
             name = tf.split('.')[0].split('/').pop()
             table = json.loads(tf_f.read())
@@ -174,7 +237,6 @@ if __name__ == '__main__':
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
 
-
     devices = []
     devices.extend([(n, 'switch', 64) for n in portmap])
     devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
@@ -183,7 +245,7 @@ if __name__ == '__main__':
 
     links = []
     sources_links = []
-    with open('bench/wl_stanford/i2-json/topology.json', 'r') as tf:
+    with open('bench/wl_stanford/stanford-json/topology.json', 'r') as tf:
 
         topo = json.load(tf)
 

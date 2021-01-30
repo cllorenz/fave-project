@@ -64,5 +64,5 @@ with open(sys.argv[1], 'r') as f:
 
     table['ports'] = list(ports)
 
-    with open('/'.join(sys.argv[1].split('/')[:len(sys.argv[1].split('/'))-2] + ['i2-json', sys.argv[1].split('/')[len(sys.argv[1].split('/'))-1].split('.')[0]+'.tf.json']), 'w') as of:
+    with open('/'.join(sys.argv[1].split('/')[:len(sys.argv[1].split('/'))-2] + ['stanford-json', sys.argv[1].split('/')[len(sys.argv[1].split('/'))-1].split('.')[0]+'.tf.json']), 'w') as of:
         of.write(json.dumps(table, indent=2)+'\n')
