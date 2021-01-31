@@ -36,13 +36,13 @@ with open(sys.argv[1], 'r') as f:
 
         if out_ports:
             out_ports = json.loads(out_ports)
-            ports.update(set([p for p in out_ports if p != base_port])) #-20000
+            ports.update(set([p-20000 for p in out_ports if p != base_port]))
 
         rule = {
             'id' : rid,
             'action' : action,
             'in_ports' : [p for p in in_ports if p != base_port],
-            'out_ports' : [p for p in out_ports if p != base_port], #-20000
+            'out_ports' : [p-20000 for p in out_ports if p != base_port],
             'match' : match
         }
 
