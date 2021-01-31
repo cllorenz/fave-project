@@ -238,7 +238,7 @@ if __name__ == '__main__':
         rf.write(json.dumps(routes, indent=2)+'\n')
 
     devices = []
-    devices.extend([(n, 'switch', 64) for n in portmap])
+    devices.extend([(n, 'switch', 160) for n in portmap])
     devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
 
     sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
@@ -259,7 +259,12 @@ if __name__ == '__main__':
             active_link_ports.add(src)
             active_link_ports.add(dst)
 
-            links.append((port_to_name[src], port_to_name[dst]))
+            try:
+                links.append((port_to_name[src], port_to_name[dst]))
+            except KeyError:
+                import pprint
+                pprint.pprint(port_to_name, indent=2)
+                raise
 
 
     for name in routers:
