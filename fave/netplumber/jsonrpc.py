@@ -643,7 +643,7 @@ def dump_flows(sock, odir):
 
 
 #@profile_method
-def dump_flow_trees(sock, odir):
+def dump_flow_trees(sock, odir, keep_simple=False):
     """ Dumps the flows residing in NetPlumber as trees.
 
     Keyword arguments:
@@ -652,7 +652,7 @@ def dump_flow_trees(sock, odir):
     """
     data = _basic_rpc()
     data["method"] = "dump_flow_trees"
-    data["params"] = {"dir" : odir}
+    data["params"] = {"dir" : odir, "simple" : keep_simple}
     _sendrecv(sock, json.dumps(data))
 
 

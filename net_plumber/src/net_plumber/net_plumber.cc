@@ -1168,7 +1168,7 @@ void NetPlumber<T1, T2>::save_dependency_graph(const string file_name) {
 template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_net_plumber(const string dir) {
     dump_plumbing_network(dir);
-    dump_flow_trees(dir);
+    dump_flow_trees(dir, false);
     dump_pipes(dir);
 #ifdef PIPE_SLICING
     dump_slices(dir);
@@ -1422,7 +1422,8 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::_traverse_flow_tree(
     Json::Value& res,
     list<typename list< Flow<T1, T2> *>::iterator> *n_flows,
-    size_t depth
+    size_t depth,
+    const bool simple
 ) {
     for (auto const &n_flow: *n_flows) {
         Json::Value node(Json::objectValue);
@@ -1446,10 +1447,10 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
         if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
             Json::Value children(Json::arrayValue);
 
-            _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1);
+            _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1, simple);
             node["children"] = children;
         } else { // only dump flows at the leaves
-            node["flow"] = (*n_flow)->hs_object->to_str();
+            if (!simple) node["flow"] = (*n_flow)->hs_object->to_str();
         }
 
         res.append(node);
@@ -1458,13 +1459,13 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
 
 
 template<class T1, class T2>
-void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename list<Flow<T1, T2> *>::iterator> *n_flows) {
-    NetPlumber<T1, T2>::_traverse_flow_tree(res, n_flows, 0);
+void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename list<Flow<T1, T2> *>::iterator> *n_flows, const bool simple) {
+    NetPlumber<T1, T2>::_traverse_flow_tree(res, n_flows, 0, simple);
 }
 
 
 template<class T1, class T2>
-void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
+void NetPlumber<T1, T2>::dump_flow_trees(const string dir, const bool simple) {
     stringstream info_msg;
     info_msg << "Dump flow trees...";
     LOG4CXX_INFO(logger, info_msg.str());
@@ -1486,7 +1487,7 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
             if (s_flow->n_flows) {
                 Json::Value children(Json::arrayValue);
 
-                _traverse_flow_tree(children, s_flow->n_flows);
+                _traverse_flow_tree(children, s_flow->n_flows, simple);
 
                 flow_tree["children"] = children;
             }

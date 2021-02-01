@@ -142,7 +142,7 @@ class Aggregator(AbstractAggregator):
                 if dump['pipes']:
                     self.net_plumber.dump_pipes(odir)
                 if dump['trees']:
-                    self.net_plumber.dump_flow_trees(odir)
+                    self.net_plumber.dump_flow_trees(odir, dump['simple'])
 
                 lock = PreLockedFileLock("%s/.lock" % odir)
                 lock.release()

@@ -322,7 +322,7 @@ if __name__ == '__main__':
         print "done"
 
     import netplumber.dump_np as dumper
-    dumper.main(["-ant"])
+    dumper.main(["-ans"])
 
     os.system("bash scripts/stop_fave.sh")
 

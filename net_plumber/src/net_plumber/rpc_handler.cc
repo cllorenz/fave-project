@@ -448,7 +448,8 @@ PROTO(dump_flows)
 
 PROTO(dump_flow_trees)
     const std::string dir = PARAM(dir).asString();
-    netPlumber->dump_flow_trees(dir);
+    const bool simple = PARAM(simple).asBool();
+    netPlumber->dump_flow_trees(dir, simple);
     RETURN(VOID);
 }
 

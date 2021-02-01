@@ -61,8 +61,8 @@ class NetPlumberAdapter(object):
     def dump_pipes(self, odir):
         jsonrpc.dump_pipes(self.sock, odir)
 
-    def dump_flow_trees(self, odir):
-        jsonrpc.dump_flow_trees(self.sock, odir)
+    def dump_flow_trees(self, odir, keep_simple=False):
+        jsonrpc.dump_flow_trees(self.sock, odir, keep_simple)
 
     def expand(self):
         self.logger.debug(

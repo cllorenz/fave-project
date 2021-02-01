@@ -304,7 +304,7 @@ namespace net_plumber {
     void save_dependency_graph(std::string file_name);
     void dump_net_plumber(const std::string);
     void dump_plumbing_network(const std::string);
-    void dump_flow_trees(const std::string);
+    void dump_flow_trees(const std::string, const bool simple);
     void dump_flows(const std::string);
     void dump_pipes(const std::string);
 #ifdef PIPE_SLICING
@@ -325,11 +325,13 @@ namespace net_plumber {
     void _traverse_flow_tree(
         Json::Value& res,
         typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
-        size_t depth
+        size_t depth,
+	const bool simple
     );
     void _traverse_flow_tree(
         Json::Value& res,
-        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows
+        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
+	const bool simple
     );
 
 #ifdef PIPE_SLICING
