@@ -90,23 +90,23 @@ def rule_to_route(rule):
 
     start, end = get_start_end('packet.ipv6.proto')
     if match[start:end] != 'x'*FIELD_SIZES['packet.ipv6.proto']:
-        proto = "ipv6_proto=%s" % int(match[start:end], 2)
+        proto = "ip_proto=%s" % int(match[start:end], 2)
         match_fields.append(proto)
 
     start, end = get_start_end('packet.upper.sport')
     if match[start:end] != 'x'*FIELD_SIZES['packet.upper.sport']:
         try:
-            sport = "tcp_sport=%s" % int(match[start:end], 2)
+            sport = "tcp_src=%s" % int(match[start:end], 2)
         except ValueError:
-            sport = "tcp_sport=%s" % match[start:end]
+            sport = "tcp_src=%s" % match[start:end]
         match_fields.append(sport)
 
     start, end = get_start_end('packet.upper.dport')
     if match[start:end] != 'x'*FIELD_SIZES['packet.upper.dport']:
         try:
-            dport = "tcp_dport=%s" % int(match[start:end], 2)
+            dport = "tcp_dst=%s" % int(match[start:end], 2)
         except ValueError:
-            dport = "tcp_dport=%s" % match[start:end]
+            dport = "tcp_dst=%s" % match[start:end]
         match_fields.append(dport)
 
     start, end = get_start_end('packet.upper.tcp.flags')
@@ -147,19 +147,19 @@ def rule_to_route(rule):
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
         if field_mask == '1'*FIELD_SIZES['packet.ipv6.proto'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv6.proto']:
-            fields.append("ipv6_proto:%s" % int(rewrite[start:end], 2))
+            fields.append("ip_proto:%s" % int(rewrite[start:end], 2))
 
         start, end = get_start_end('packet.upper.sport')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
         if field_mask == '1'*FIELD_SIZES['packet.upper.sport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.sport']:
-            fields.append("tcp_sport:%s" % int(rewrite[start:end], 2))
+            fields.append("tcp_src:%s" % int(rewrite[start:end], 2))
 
         start, end = get_start_end('packet.upper.dport')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
         if field_mask == '1'*FIELD_SIZES['packet.upper.dport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.dport']:
-            fields.append("tcp_dport:%s" % int(rewrite[start:end], 2))
+            fields.append("tcp_dst:%s" % int(rewrite[start:end], 2))
 
         start, end = get_start_end('packet.upper.tcp.flags')
         field_mask = mask[start:end]
@@ -176,6 +176,19 @@ def rule_to_route(rule):
         name, 1, rid, match_fields, actions,
         [port_to_name[p] for p in in_ports]
     )
+
+def _read_port_map(pmf):
+    get_port = lambda l: int(l.split(':')[1])
+    port_map = {}
+    with open(pmf, 'r') as f:
+        router = ""
+        for line in [l.rstrip() for l in f.readlines()]:
+            if line.startswith('$'):
+                router = line.lstrip('$')
+            else:
+                port_map[get_port(line)] = router
+
+    return port_map
 
 
 if __name__ == '__main__':
@@ -197,6 +210,7 @@ if __name__ == '__main__':
     routes = []
     portmap = {}
     port_to_name = {}
+    router_ports = {}
     active_egress_ports = {}
     active_ingress_ports = {}
     active_link_ports = set()
@@ -228,6 +242,7 @@ if __name__ == '__main__':
                 portno = 1
                 for port in ports:
                     port_to_name[port] = "%s.%s" % (tname, portno)
+                    router_ports[name] = portno
                     portno += 1
 
             for rule in table['rules']:
@@ -238,10 +253,12 @@ if __name__ == '__main__':
         rf.write(json.dumps(routes, indent=2)+'\n')
 
     devices = []
-    devices.extend([(n, 'switch', 160) for n in portmap])
+    devices.extend([(n, 'switch', 192) for n in portmap])
     devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
 
     sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
+
+    hassel_port_map = _read_port_map('bench/wl_stanford/stanford-hassel/port_map.txt')
 
     links = []
     sources_links = []
@@ -258,6 +275,16 @@ if __name__ == '__main__':
 
             active_link_ports.add(src)
             active_link_ports.add(dst)
+
+            if src not in port_to_name:
+                rname = hassel_port_map[src]
+                port_to_name[src] = "%s.%s" % (rname, router_ports[rname])
+                router_ports[rname] += 1
+
+            if dst not in port_to_name:
+                rname = hassel_port_map[dst]
+                port_to_name[dst] = "%s.%s" % (rname, router_ports[rname])
+                router_ports[rname] += 1
 
             try:
                 links.append((port_to_name[src], port_to_name[dst]))

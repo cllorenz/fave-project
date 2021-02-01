@@ -240,9 +240,9 @@ def main(argv):
             for field in arg.split(';'):
                 fields.append(fieldify(field.split('=')))
                 if field.startswith('tcp') or field.startswith('udp'):
-                    fields.append(SwitchRuleField('ip_proto', field[:3]))
+                    fields.append(fieldify(('ip_proto', field[:3])))
                 elif field.startswith('icmp'):
-                    fields.append(SwitchRuleField('ip_proto', field[:4]))
+                    fields.append(fieldify(('ip_proto', field[:4])))
 
         elif opt == '-c':
             for action in arg.split(','):
