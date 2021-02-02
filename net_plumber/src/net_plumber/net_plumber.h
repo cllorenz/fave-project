@@ -34,6 +34,7 @@
 #include "../jsoncpp/json/json.h"
 #include "source_node.h"
 #include "log4cxx/logger.h"
+#include "source_node.h"
 #include "source_probe_node.h"
 
 enum EVENT_TYPE {
@@ -333,6 +334,7 @@ namespace net_plumber {
         typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
 	const bool simple
     );
+    void _dump_flow_tree_to_file(const std::string file_name, SourceNode<T1, T2> *source_node, const bool simple);
 
 #ifdef PIPE_SLICING
     void add_pipe_to_slices(struct Pipeline<T1, T2> *pipe);

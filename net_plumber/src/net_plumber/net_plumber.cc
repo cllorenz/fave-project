@@ -1465,6 +1465,36 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename lis
 
 
 template<class T1, class T2>
+void NetPlumber<T1, T2>::_dump_flow_tree_to_file(const string file_name, SourceNode<T1, T2> *source_node, const bool simple) {
+    Json::Value flows_wrapper(Json::objectValue);
+    Json::Value flows(Json::arrayValue);
+
+    for (auto const &s_flow: source_node->source_flow) {
+        Json::Value flow_tree(Json::objectValue);
+
+        flow_tree["node"] = (Json::Value::UInt64) source_node->node_id;
+        if (!simple) flow_tree["flow"] = s_flow->hs_object->to_str();
+
+        if (s_flow->n_flows) {
+            Json::Value children(Json::arrayValue);
+
+            _traverse_flow_tree(children, s_flow->n_flows, simple);
+
+            flow_tree["children"] = children;
+        }
+
+        flows.append(flow_tree);
+    }
+
+    flows_wrapper["flows"] = flows;
+
+    ofstream flow_file(file_name.c_str());
+    flow_file << flows_wrapper;
+    flow_file.close();
+}
+
+
+template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_flow_trees(const string dir, const bool simple) {
     stringstream info_msg;
     info_msg << "Dump flow trees...";
@@ -1473,33 +1503,8 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir, const bool simple) {
     for (auto const &flow_node: flow_nodes) {
         stringstream tmp_flows;
         tmp_flows << dir << "/" << flow_node->node_id << ".flow_tree.json";
-        string flow_trees_file_name = tmp_flows.str();
-
-        Json::Value flows_wrapper(Json::objectValue);
-        Json::Value flows(Json::arrayValue);
-
-        for (auto const &s_flow: flow_node->source_flow) {
-            Json::Value flow_tree(Json::objectValue);
-
-            flow_tree["node"] = (Json::Value::UInt64) flow_node->node_id;
-            flow_tree["flow"] = s_flow->hs_object->to_str();
-
-            if (s_flow->n_flows) {
-                Json::Value children(Json::arrayValue);
-
-                _traverse_flow_tree(children, s_flow->n_flows, simple);
-
-                flow_tree["children"] = children;
-            }
-
-            flows.append(flow_tree);
-        }
-
-        flows_wrapper["flows"] = flows;
-
-        ofstream flow_file(flow_trees_file_name.c_str());
-        flow_file << flows_wrapper;
-        flow_file.close();
+        string flow_tree_file_name = tmp_flows.str();
+	_dump_flow_tree_to_file(flow_tree_file_name, (SourceNode<T1, T2> *)flow_node, simple);
     }
 }
 
