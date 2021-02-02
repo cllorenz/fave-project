@@ -1428,32 +1428,42 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
     for (auto const &n_flow: *n_flows) {
         Json::Value node(Json::objectValue);
 
-        node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+	if (simple) { // mode with simplified trees
+            if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
+                _traverse_flow_tree(res, (*n_flow)->n_flows, depth+1, simple);
+	    } else { // only append leaves
+                node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+		res.append(node);
+	    }
 
-        if (logger->isTraceEnabled()) {
-            stringstream trace_msg;
-            trace_msg << "traverse_flow_tree(): pass ";
-            for (size_t i = 0; i < depth; i++) trace_msg << "  ";
-            trace_msg << (*n_flow)->node->node_id;
-            trace_msg << " with " << (*n_flow)->hs_object->to_str();
-            trace_msg << "; children at " << (*n_flow)->n_flows;
-            if ((*n_flow)->n_flows) {
-                trace_msg << "; size: " << (*n_flow)->n_flows->size();
-                trace_msg << "; is empty: " << ((*n_flow)->n_flows->empty() ? "true" : "false");
+	} else { // normal mode with full flow trees
+            node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+
+            if (logger->isTraceEnabled()) {
+                stringstream trace_msg;
+                trace_msg << "traverse_flow_tree(): pass ";
+                for (size_t i = 0; i < depth; i++) trace_msg << "  ";
+                trace_msg << (*n_flow)->node->node_id;
+                trace_msg << " with " << (*n_flow)->hs_object->to_str();
+                trace_msg << "; children at " << (*n_flow)->n_flows;
+                if ((*n_flow)->n_flows) {
+                    trace_msg << "; size: " << (*n_flow)->n_flows->size();
+                    trace_msg << "; is empty: " << ((*n_flow)->n_flows->empty() ? "true" : "false");
+                }
+                LOG4CXX_TRACE(logger, trace_msg.str());
             }
-            LOG4CXX_TRACE(logger, trace_msg.str());
-        }
 
-        if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
-            Json::Value children(Json::arrayValue);
+            if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
+                Json::Value children(Json::arrayValue);
 
-            _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1, simple);
-            node["children"] = children;
-        } else { // only dump flows at the leaves
-            if (!simple) node["flow"] = (*n_flow)->hs_object->to_str();
-        }
+                _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1, simple);
+                node["children"] = children;
+            } else { // only dump flows at the leaves
+                node["flow"] = (*n_flow)->hs_object->to_str();
+            }
 
-        res.append(node);
+            res.append(node);
+	}
     }
 }
 
