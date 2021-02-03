@@ -162,6 +162,7 @@ void load_netplumber_from_dir(
             }
           }
 #endif
+	  if (i % 100 == 99) printf("Loaded %u rules\n", i+1);
         }
 
         // clean up
