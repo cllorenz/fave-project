@@ -95,7 +95,7 @@ def _normalize_limit(limit):
 
 
 def _normalize_states(states):
-    states = states.split(",") if "," in states.value else [states]
+    states = states.split(",") if "," in states else [states]
     to_bit = lambda x: {"NEW":1, "RELATED":2, "ESTABLISHED":4, "INVALID":8}[x]
     bitmap = reduce(lambda x, y: x|y, [to_bit(x) for x in states])
     return "{0:08b}".format(bitmap)
@@ -208,6 +208,7 @@ def field_value_to_bitvector(field):
             "module.ipv6header.header" : normalize_ipv6header_header,
             "module.limit" : _normalize_limit,
             "module.state" : _normalize_states,
+            "module.conntrack.ctstate" : _normalize_states,
             "packet.ipv6.proto" : normalize_ipv6_proto,
             "packet.ipv6.icmpv6.type" : _normalize_icmpv6_type,
             "module.ipv6header.rt.len" : _normalize_ipv6header,
