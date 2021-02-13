@@ -3,6 +3,15 @@
 import sys
 import json
 
+
+def _adjust_port(port, offset, base):
+    if port - offset < base:
+        return port
+    else:
+        return port - offset
+
+
+
 with open(sys.argv[1], 'r') as f:
     tf = f.read().splitlines()
 
@@ -17,9 +26,6 @@ with open(sys.argv[1], 'r') as f:
         'rules' : rules
     }
 
-    is_default = True
-    default_rule = None
-
     cnt = 1
     for line in [l.rstrip() for l in tf if l.startswith('fwd') or l.startswith('rw')]:
         try:
@@ -32,17 +38,17 @@ with open(sys.argv[1], 'r') as f:
 
         if in_ports:
             in_ports = json.loads(in_ports)
-            ports.update(set([p for p in in_ports if p != base_port]))
+            ports.update(set([_adjust_port(p, 10000, base_port) for p in in_ports if p != base_port]))
 
         if out_ports:
             out_ports = json.loads(out_ports)
-            ports.update(set([p for p in out_ports if p != base_port])) #-20000
+            ports.update(set([_adjust_port(p, 20000, base_port) for p in out_ports if p != base_port]))
 
         rule = {
             'id' : rid,
             'action' : action,
-            'in_ports' : [p for p in in_ports if p != base_port],
-            'out_ports' : [p for p in out_ports if p != base_port], #-20000
+            'in_ports' : [_adjust_port(p, 10000, base_port) for p in in_ports if p != base_port],
+            'out_ports' : [_adjust_port(p, 20000, base_port) for p in out_ports if p != base_port],
             'match' : match
         }
 
@@ -51,16 +57,8 @@ with open(sys.argv[1], 'r') as f:
 
         if rewrite != 'None':
             rule['rewrite'] = rewrite
-
-        if is_default:
-            rule['id'] = (tid << 32) + len(tf) - 1
-            default_rule = rule
-            is_default = False
-        else:
-            rules.append(rule)
+        rules.append(rule)
         cnt += 1
-
-    rules.append(default_rule)
 
     table['ports'] = list(ports)
 

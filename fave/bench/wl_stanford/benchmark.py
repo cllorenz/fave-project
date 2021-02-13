@@ -128,44 +128,58 @@ def rule_to_route(rule):
         start, end = get_start_end('packet.ipv4.source')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ipv4.source'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.source']:
+        if field_mask == '0'*FIELD_SIZES['packet.ipv4.source'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.source']:
             fields.append("ipv4_src:%s" % array_ipv4_to_cidr(rewrite[start:end]))
+        elif field_mask == '0'*FIELD_SIZES['packet.ipv4.source']:
+            fields.append("ipv4_src:0.0.0.0/0")
 
         start, end = get_start_end('packet.ipv4.destination')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.destination']:
+        if field_mask == '0'*FIELD_SIZES['packet.ipv4.destination'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.destination']:
             fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
+        elif field_mask == '0'*FIELD_SIZES['packet.ipv4.destination']:
+            fields.append("ipv4_dst:0.0.0.0/0")
 
         start, end = get_start_end('packet.ether.vlan')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
+        if field_mask == '0'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
             fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
+        elif field_mask == '0'*FIELD_SIZES['packet.ether.vlan']:
+            fields.append("vlan:xxxxxxxxxxxxxxxx")
 
         start, end = get_start_end('packet.ipv6.proto')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ipv6.proto'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv6.proto']:
+        if field_mask == '0'*FIELD_SIZES['packet.ipv6.proto'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv6.proto']:
             fields.append("ip_proto:%s" % int(rewrite[start:end], 2))
+        elif field_mask == '0'*FIELD_SIZES['packet.ipv6.proto']:
+            fields.append("ip_proto:xxxxxxxx")
 
         start, end = get_start_end('packet.upper.sport')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.upper.sport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.sport']:
+        if field_mask == '0'*FIELD_SIZES['packet.upper.sport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.sport']:
             fields.append("tcp_src:%s" % int(rewrite[start:end], 2))
+        elif field_mask == '0'*FIELD_SIZES['packet.upper.sport']:
+            fields.append("tcp_src:xxxxxxxxxxxxxxxx")
 
         start, end = get_start_end('packet.upper.dport')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.upper.dport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.dport']:
+        if field_mask == '0'*FIELD_SIZES['packet.upper.dport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.dport']:
             fields.append("tcp_dst:%s" % int(rewrite[start:end], 2))
+        elif field_mask == '0'*FIELD_SIZES['packet.upper.dport']:
+            fields.append("tcp_dst:xxxxxxxxxxxxxxxx")
 
         start, end = get_start_end('packet.upper.tcp.flags')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.upper.tcp.flags'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.tcp.flags']:
+        if field_mask == '0'*FIELD_SIZES['packet.upper.tcp.flags'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.tcp.flags']:
             fields.append("tcp_flags:%s" % int(rewrite[start:end], 2))
+        elif field_mask == '0'*FIELD_SIZES['packet.upper.tcp.flags']:
+            fields.append("tcp_flags:xxxxxxxx")
 
         if fields != []:
             actions.append("rw=%s" % ';'.join(fields))
