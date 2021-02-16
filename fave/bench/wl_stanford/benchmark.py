@@ -21,6 +21,16 @@ with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
+def _generic_port_check(port, offset, base):
+    return port - offset > base
+
+def _is_intermediate_port(port, base):
+    return _generic_port_check(port, 10000, base)
+
+def _is_output_port(port, base):
+    return _generic_port_check(port, 20000, base)
+
+
 def array_ipv4_to_cidr(array):
     assert 32 == len(array)
     cidr_regex = '(?P<pre>[01]*)(?P<post>x*)'
@@ -224,10 +234,11 @@ if __name__ == '__main__':
     routes = []
     portmap = {}
     port_to_name = {}
-    router_ports = {}
     active_egress_ports = {}
     active_ingress_ports = {}
     active_link_ports = set()
+
+    links = []
 
     routers = json.load(open('bench/wl_stanford/stanford-json/devices.json', 'r'))
 
@@ -242,39 +253,39 @@ if __name__ == '__main__':
             name = tf.split('.')[0].split('/').pop()
             table = json.loads(tf_f.read())
 
-            portmap[name] = set()
+            base_port = table['id'] * 100000
+
+            table_ports = set(table['ports'])
+
+            portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
 
             for rule in table['rules']:
-                portmap[name].update(rule['in_ports'])
                 active_ingress_ports[name].update(rule['in_ports'])
-                portmap[name].update(rule['out_ports'])
                 active_egress_ports[name].update(rule['out_ports'])
 
-            for tname, ports in portmap.iteritems():
-                portno = 1
-                for port in ports:
-                    port_to_name[port] = "%s.%s" % (tname, portno)
-                    router_ports[name] = portno
-                    portno += 1
+            portno = 1
+            for port in table_ports:
+                port_to_name[port] = "%s.%s" % (name, portno)
+                portno += 1
 
             for rule in table['rules']:
                 routes.append(rule_to_route(rule))
 
+            links.append((port_to_name[base_port], port_to_name[base_port]))
+            active_link_ports.add(base_port)
+            for port in [
+                p for p in table_ports if _is_intermediate_port(p, base_port)
+            ]:
+                links.append((port_to_name[port], port_to_name[port]))
+                active_link_ports.add(port)
 
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
 
-    devices = []
-    devices.extend([(n, 'switch', 192) for n in portmap])
-    devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
-
-    sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
-
     hassel_port_map = _read_port_map('bench/wl_stanford/stanford-hassel/port_map.txt')
 
-    links = []
     sources_links = []
     with open('bench/wl_stanford/stanford-json/topology.json', 'r') as tf:
 
@@ -292,13 +303,13 @@ if __name__ == '__main__':
 
             if src not in port_to_name:
                 rname = hassel_port_map[src]
-                port_to_name[src] = "%s.%s" % (rname, router_ports[rname])
-                router_ports[rname] += 1
+                port_to_name[src] = "%s.%s" % (rname, len(portmap[rname]) + 1)
+                portmap[rname].add(src)
 
             if dst not in port_to_name:
                 rname = hassel_port_map[dst]
-                port_to_name[dst] = "%s.%s" % (rname, router_ports[rname])
-                router_ports[rname] += 1
+                port_to_name[dst] = "%s.%s" % (rname, len(portmap[rname]) + 1)
+                portmap[rname].add(dst)
 
             try:
                 links.append((port_to_name[src], port_to_name[dst]))
@@ -308,6 +319,12 @@ if __name__ == '__main__':
                 raise
 
 
+    devices = []
+    devices.extend([(n, 'switch', len(p)) for n, p in portmap.iteritems()])
+    devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
+
+    sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
+
     for name in routers:
         sources.append((
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
@@ -315,7 +332,7 @@ if __name__ == '__main__':
         sources_links.extend([
             (
                 "source.%s.1" % name, port_to_name[port]
-            ) for port in active_ingress_ports[name] if port not in active_link_ports
+            ) for port in active_ingress_ports[name] - active_link_ports
         ])
 
         devices.append((
@@ -325,7 +342,7 @@ if __name__ == '__main__':
         links.extend([
             (
                 port_to_name[port], "probe.%s.1" % name
-            ) for port in active_egress_ports[name] if port not in active_link_ports
+            ) for port in active_egress_ports[name] - active_link_ports
         ])
 
     with open(TOPOLOGY, 'w') as tf:
