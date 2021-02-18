@@ -12,7 +12,7 @@ def _adjust_port(port, offset, base):
 
 
 def _generic_port_check(port, offset, base):
-    return port - offset > base
+    return port - offset > base and port - 2 * offset < base
 
 def _is_intermediate_port(port, base):
     return _generic_port_check(port, 10000, base)

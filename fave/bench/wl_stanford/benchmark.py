@@ -22,7 +22,7 @@ with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
 
 
 def _generic_port_check(port, offset, base):
-    return port - offset > base
+    return port - offset > base and port  - 2  * offset < base
 
 def _is_intermediate_port(port, base):
     return _generic_port_check(port, 10000, base)
@@ -275,11 +275,13 @@ if __name__ == '__main__':
 
             links.append((port_to_name[base_port], port_to_name[base_port]))
             active_link_ports.add(base_port)
+#            print "self link base port:", base_port
             for port in [
                 p for p in table_ports if _is_intermediate_port(p, base_port)
             ]:
                 links.append((port_to_name[port], port_to_name[port]))
                 active_link_ports.add(port)
+#                print "self link intermediate port:", port
 
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
@@ -313,11 +315,18 @@ if __name__ == '__main__':
 
             try:
                 links.append((port_to_name[src], port_to_name[dst]))
+#                print "link regular ports: %s -> %s" % (src, dst)
             except KeyError:
                 import pprint
                 pprint.pprint(port_to_name, indent=2)
                 raise
 
+#    for name, ports in portmap.iteritems():
+#        print "table: %s, ports: %s" % (name, len(ports))
+#    import pprint
+#    pprint.pprint(portmap['yozb_rtr'], indent=2)
+#    for port in portmap['yozb_rtr']:
+#        print port, ",", port_to_name[port]
 
     devices = []
     devices.extend([(n, 'switch', len(p)) for n, p in portmap.iteritems()])
@@ -329,11 +338,15 @@ if __name__ == '__main__':
         sources.append((
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
-        sources_links.extend([
-            (
-                "source.%s.1" % name, port_to_name[port]
-            ) for port in active_ingress_ports[name] - active_link_ports
-        ])
+#        print "inactive ingress ports", name, active_ingress_ports[name] - active_link_ports
+#        sources_links.extend([
+#            (
+#                "source.%s.1" % name, port_to_name[port]
+#            ) for port in active_ingress_ports[name] - active_link_ports
+#        ])
+        for port in active_ingress_ports[name] - active_link_ports:
+            sources_links.append(("source.%s.1" % name, port_to_name[port]))
+            break
 
         devices.append((
             "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
@@ -354,6 +367,9 @@ if __name__ == '__main__':
         tf.write(
             json.dumps({'devices' : sources, 'links' : sources_links}, indent=2) + '\n'
         )
+
+#    import sys
+#    sys.exit(0)
 
     os.system("bash scripts/start_np.sh bench/wl_stanford/np.conf")
     os.system("bash scripts/start_aggr.sh")
