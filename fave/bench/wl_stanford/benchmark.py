@@ -154,7 +154,7 @@ def rule_to_route(rule):
         start, end = get_start_end('packet.ether.vlan')
         field_mask = mask[start:end]
         field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
+        if field_mask == '0'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite != '0'*FIELD_SIZES['packet.ether.vlan']:
             fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
         elif field_mask == '0'*FIELD_SIZES['packet.ether.vlan']:
             fields.append("vlan:xxxxxxxxxxxxxxxx")
