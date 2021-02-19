@@ -33,7 +33,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         verbose = sys.argv[1] == '-v'
 
-    if verbose: print "Generate benchmark... ",
+    if verbose: print "Generate benchmark... "
 
     os.system("rm -f /tmp/np/*")
 
@@ -61,8 +61,7 @@ if __name__ == '__main__':
     os.system("python2 bench/wl_ifi/policygen.py")
 
     if verbose:
-        print "ok"
-        print "Run benchmark... ",
+        print "Run benchmark... "
 
     os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf")
     os.system("bash scripts/start_aggr.sh")
@@ -70,21 +69,29 @@ if __name__ == '__main__':
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
+        if verbose: print "Initialize Topology"
         create_topology(devices, links)
         add_rulesets(devices)
+        if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
+        if verbose: print "Initialize routes..."
         add_routes(routes)
+        if verbose: print "Routes sent to FaVe"
 
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
+        if verbose: print "Initialize probes..."
         add_policies(probes, links)
+        if verbose: print "Probes sent to FaVe"
 
     with open(CHECKS, 'r') as raw_checks:
         checks = json.loads(raw_checks.read())
+
+    if verbose: print "Wait for FaVe"
 
     import netplumber.dump_np as dumper
     dumper.main(["-anpft"])
@@ -92,8 +99,7 @@ if __name__ == '__main__':
     os.system("bash scripts/stop_fave.sh")
 
     if verbose:
-        print "ok"
-        print "Check results... ",
+        print "Check results... "
 
     import test.check_flows as checker
     checker.main(["-b", "-r", "-c", ";".join(checks)])
