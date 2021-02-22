@@ -368,7 +368,7 @@ class TF(object):
         else:
             self.rules.insert(position, rule)
         #setting up fast lookups and influences
-        self._find_influences(position)
+        #self._find_influences(position)
         self._set_fast_lookup_pointers(position)
         
         
