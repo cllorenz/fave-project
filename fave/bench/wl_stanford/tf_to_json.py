@@ -65,6 +65,7 @@ with open(sys.argv[1], 'r') as f:
 
         if rewrite != 'None':
             rule['rewrite'] = rewrite
+
         rules.append(rule)
         cnt += 1
 
