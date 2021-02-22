@@ -99,7 +99,7 @@ def rule_to_route(rule):
         match_fields.append(vlan)
 
     start, end = get_start_end('packet.ipv6.proto')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv6.proto']:
+    if match[start:end] not in ['x'*FIELD_SIZES['packet.ipv6.proto'], '0'*FIELD_SIZES['packet.ipv6.proto']]:
         proto = "ip_proto=%s" % int(match[start:end], 2)
         match_fields.append(proto)
 
