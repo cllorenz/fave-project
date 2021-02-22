@@ -300,23 +300,25 @@ if __name__ == '__main__':
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
-        print "create topology... ",
+        print "initialize topology..."
         create_topology(devices, links)
-        print "done"
+        print "topology sent to fave"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
-        print "add routes... ",
+        print "initialize routes..."
         add_routes(routes)
-        print "done"
+        print "routes sent to fave"
 
     with open(SOURCES, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
-        print "create sources... ",
+        print "initialize sources..."
         create_topology(devices, links)
-        print "done"
+        print "sources sent to fave"
+
+    print "wait for fave..."
 
     import netplumber.dump_np as dumper
     dumper.main(["-ant"])
@@ -326,6 +328,5 @@ if __name__ == '__main__':
     import test.check_flows as checker
     checks = json.load(open(CHECKS, 'r'))
     checker.main(["-b", "-c", ";".join(checks)])
-
 
     os.system("rm -f np_dump/.lock")
