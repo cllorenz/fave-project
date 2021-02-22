@@ -21,6 +21,16 @@ with open('bench/wl_i2/i2-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
+def _generic_port_check(port, offset, base):
+    return port - offset > base and port  - 2  * offset < base
+
+def _is_intermediate_port(port, base):
+    return _generic_port_check(port, 10000, base)
+
+def _is_output_port(port, base):
+    return _generic_port_check(port, 20000, base)
+
+
 def array_ipv4_to_cidr(array):
     assert 32 == len(array)
     cidr_regex = '(?P<pre>[01]*)(?P<post>x*)'
@@ -63,24 +73,47 @@ def get_start_end(field):
     return start, end
 
 
-def rule_to_route(rule):
+def _get_field_from_match(match, fname, sname, convert):
+    res = None
+    start, end = get_start_end(fname)
+    field_match = match[start:end]
+    if field_match != 'x'*FIELD_SIZES[fname]:
+        res = "%s=%s" % (sname, convert(field_match))
+    return res
+
+
+def _get_rewrite(rewrite, mask, fname, sname, convert, default=None):
+    res = None
+    start, end = get_start_end(fname)
+    field_mask = mask[start:end]
+    field_rewrite = rewrite[start:end]
+    if field_mask == '0'*FIELD_SIZES[fname]:
+        res = "%s:%s" % (sname, convert(field_rewrite))
+
+    return res
+
+
+def rule_to_route(rule, base_port, ext_port):
     rid = int(rule['id']) & 0xffff
 
     in_ports = rule['in_ports']
+    if not any([_is_intermediate_port(p, base_port) for p in in_ports]):
+        in_ports.append(ext_port)
     out_ports = rule['out_ports']
 
     match_fields = []
 
     match = rule['match']
-    start, end = get_start_end('packet.ipv4.destination')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.destination']:
-        dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
-        match_fields.append(dst)
 
-    start, end = get_start_end('packet.ether.vlan')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ether.vlan']:
-        vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
-        match_fields.append(vlan)
+    dst = _get_field_from_match(
+        match, 'packet.ipv4.destination', 'ipv4_dst', array_ipv4_to_cidr
+    )
+    if dst: match_fields.append(dst)
+
+    vlan = _get_field_from_match(
+        match, 'packet.ether.vlan', 'vlan', array_vlan_to_number
+    )
+    if vlan: match_fields.append(vlan)
 
     actions = []
 
@@ -90,17 +123,24 @@ def rule_to_route(rule):
 
         fields = []
 
-        start, end = get_start_end('packet.ipv4.destination')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ipv4.destination'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.destination']:
-            fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
+        dst_rw = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ipv4.destination',
+            'ipv4_dst',
+            array_ipv4_to_cidr,
+            default='0.0.0.0/0'
+        )
+        if dst_rw: fields.append(dst_rw)
 
-        start, end = get_start_end('packet.ether.vlan')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '1'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite == '0'*FIELD_SIZES['packet.ether.vlan']:
-            fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
+        vlan_rw = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ether.vlan',
+            'vlan',
+            array_vlan_to_number
+        )
+        if vlan_rw: fields.append(vlan_rw)
 
         if fields != []:
             actions.append("rw=%s" % ';'.join(fields))
@@ -135,12 +175,16 @@ if __name__ == '__main__':
     active_egress_ports = {}
     active_ingress_ports = {}
     active_link_ports = set()
+    table_from_id = {}
+    ext_ports = {}
+
+    links = []
 
     routers = json.load(open('bench/wl_i2/i2-json/devices.json', 'r'))
 
-    os.system("python2 bench/wl_i2/topology_to_json.py bench/wl_i2/i2-hassel/backbone_topology.tf")
+    os.system("python2 bench/wl_i2/topology_to_json.py bench/wl_i2/i2-tfs/backbone_topology.tf")
 
-    for tf, t in [('bench/wl_i2/i2-hassel/%s.tf' % r, t) for r, t in routers.iteritems()]:
+    for tf, t in [('bench/wl_i2/i2-tfs/%s.tf' % r, t) for r, t in routers.iteritems()]:
         os.system("python2 bench/wl_i2/tf_to_json.py %s %s" % (tf, t))
 
     for tf in ['bench/wl_i2/i2-json/%s.tf.json' % r for r in routers]:
@@ -148,64 +192,87 @@ if __name__ == '__main__':
             name = tf.split('.')[0].split('/').pop()
             table = json.loads(tf_f.read())
 
-            portmap[name] = set()
+            tid = table['id']
+            table_from_id[tid] = name
+            base_port = tid * 100000
+            ext_port = tid * 100000 + 90000
+
+            ext_ports[name] = ext_port
+            table_ports = set(table['ports'] + [ext_port])
+
+            portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
 
             for rule in table['rules']:
-                portmap[name].update(rule['in_ports'])
-                active_ingress_ports[name].update(rule['in_ports'])
-                portmap[name].update(rule['out_ports'])
-                active_egress_ports[name].update(rule['out_ports'])
+                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or _is_intermediate_port(p, base_port))])
+                active_egress_ports[name].update([p for p in rule['out_ports'] if _is_output_port(p, base_port)])
 
-            for tname, ports in portmap.iteritems():
-                portno = 1
-                for port in ports:
-                    port_to_name[port] = "%s.%s" % (tname, portno)
-                    portno += 1
+            portno = 1
+            for port in table_ports:
+                port_to_name[port] = "%s.%s" % (name, portno)
+                portno += 1
 
             for rule in table['rules']:
-                routes.append(rule_to_route(rule))
+                routes.append(rule_to_route(rule, base_port, ext_port))
+
+            links.append((port_to_name[base_port], port_to_name[base_port]))
+            active_link_ports.add(base_port)
+            for port in [
+                p for p in table_ports if _is_intermediate_port(p, base_port)
+            ]:
+                links.append((port_to_name[port], port_to_name[port]))
+                active_link_ports.add(port)
 
 
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
 
 
-    devices = []
-    devices.extend([(n, 'switch', 64) for n in portmap])
-    devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
-
-    sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
-
-    links = []
-    sources_links = []
     with open('bench/wl_i2/i2-json/topology.json', 'r') as tf:
 
         topo = json.load(tf)
 
         cnt = 1
         for link in topo['topology']:
-            is_src = is_dst = False
-
             src = link['src']
             dst = link['dst']
 
             active_link_ports.add(src)
             active_link_ports.add(dst)
 
+            if src not in port_to_name:
+                rname = table_from_id[src / 100000]
+                port_to_name[src] = "%s.%s" % (rname, len(portmap[rname]) + 1)
+                portmap[rname].add(src)
+
+            if dst not in port_to_name:
+                rname = table_from_id[dst / 100000]
+                port_to_name[dst] = "%s.%s" % (rname, len(portmap[rname]) + 1)
+                portmap[rname].add(dst)
+
+            active_egress_ports[table_from_id[src / 100000]].add(src)
+            active_ingress_ports[table_from_id[dst / 100000]].add(dst)
+
             links.append((port_to_name[src], port_to_name[dst]))
 
 
+    devices = []
+    devices.extend([(n, 'switch', len(p)) for n, p in portmap.iteritems()])
+    devices.append(('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None))
+
+    sources = [('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])]
+
+
+    sources_links = []
     for name in routers:
         sources.append((
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
-        sources_links.extend([
-            (
-                "source.%s.1" % name, port_to_name[port]
-            ) for port in active_ingress_ports[name] if port not in active_link_ports
-        ])
+
+        sources_links.append(
+            ("source.%s.1" % name, port_to_name[ext_ports[name]])
+        )
 
         devices.append((
             "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
@@ -214,7 +281,7 @@ if __name__ == '__main__':
         links.extend([
             (
                 port_to_name[port], "probe.%s.1" % name
-            ) for port in active_egress_ports[name] if port not in active_link_ports
+            ) for port in active_egress_ports[name] - active_link_ports
         ])
 
     with open(TOPOLOGY, 'w') as tf:

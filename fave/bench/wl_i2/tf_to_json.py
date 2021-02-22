@@ -6,9 +6,7 @@ import json
 with open(sys.argv[1], 'r') as f:
     tf = f.read().splitlines()
 
-    tid = int(sys.argv[2]) #int(tf[0].split('$')[2])
-    base_port = tid * 100000
-    #tf = tf[1:]
+    tid = int(sys.argv[2])
 
     ports = set()
     rules = []
@@ -17,9 +15,6 @@ with open(sys.argv[1], 'r') as f:
         'id' : tid,
         'rules' : rules
     }
-
-    is_default = True
-    default_rule = None
 
     cnt = 1
     for line in [l.rstrip() for l in tf if l.startswith('fwd') or l.startswith('rw')]:
@@ -33,35 +28,28 @@ with open(sys.argv[1], 'r') as f:
 
         if in_ports:
             in_ports = json.loads(in_ports)
-            ports.update(set([p for p in in_ports if p != base_port]))
+            ports.update(in_ports)
 
         if out_ports:
             out_ports = json.loads(out_ports)
-            ports.update(set([p-20000 for p in out_ports if p != base_port]))
+            ports.update(out_ports)
 
         rule = {
             'id' : rid,
             'action' : action,
-            'in_ports' : [p for p in in_ports if p != base_port],
-            'out_ports' : [p-20000 for p in out_ports if p != base_port],
-            'match' : match
+            'in_ports' : in_ports,
+            'out_ports' : out_ports,
+            'match' : match.replace(',', '')
         }
 
         if mask != 'None':
-            rule['mask'] = mask
+            rule['mask'] = mask.replace(',', '')
 
         if rewrite != 'None':
-            rule['rewrite'] = rewrite
+            rule['rewrite'] = rewrite.replace(',', '')
 
-        if is_default:
-            rule['id'] = (tid << 32) + len(tf) - 1
-            default_rule = rule
-            is_default = False
-        else:
-            rules.append(rule)
+        rules.append(rule)
         cnt += 1
-
-    rules.append(default_rule)
 
     table['ports'] = list(ports)
 

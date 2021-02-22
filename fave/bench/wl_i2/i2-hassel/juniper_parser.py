@@ -747,18 +747,103 @@ class juniperRouter(object):
                                 mask_int = int(subnet_mask[1])
                             self.port_subnets["%d"%vlan].append((ip_int, 32-mask_int, file_path, [], physical_interface_name))           
 
+
+def _read_port_map(fname):
+    port_map = {}
+    with open(fname, 'r') as f:
+        rname = None
+        for l in f.read().splitlines():
+            if l.startswith('$'):
+                rname = l.lstrip('$')
+                port_map.setdefault(rname, {})
+            else:
+                pname, pno = l.split(':')
+                port_map[rname][pname] = int(pno)
+
+    return port_map
+
+
 if __name__ == "__main__":
-  for idx, prefix_id in enumerate([
-    'atla', 'chic', 'hous', 'kans', 'losa', 'newy32aoa', 'salt', 'seat', 'wash'
-  ], start=1):
+  cs_list = {
+    'atla' : 1,
+    'chic' : 2,
+    'hous' : 3,
+    'kans' : 4,
+    'losa' : 5,
+    'newy32aoa' : 6,
+    'salt' : 7,
+    'seat' : 8,
+    'wash' : 9
+  }
+
+  port_map = _read_port_map("port_map.txt")
+
+  for prefix_id, idx in cs_list.iteritems():
     print """=== Process Router %s ===""" % prefix_id
     jr = juniperRouter(idx)
+    jr.set_replaced_vlan(0)
+
     L = jr.hs_format["length"]
     tf = TF(L)
     tf.set_prefix_id(prefix_id)
     jr.read_config_file("show_interfaces.xml", prefix_id)
     jr.read_route_file("%s-show_route_forwarding-table_table_default.xml" % prefix_id)
-    jr.optimize_forwarding_table()
     jr.generate_port_ids([])
+    jr.optimize_forwarding_table()
     jr.generate_transfer_function(tf)
     tf.save_object_to_file("../i2-tfs/%s.tf" % prefix_id)
+
+  topology = [("chic","xe-0/1/0","newy32aoa","xe-0/1/3"),
+          ("chic","xe-1/0/1","kans","xe-0/1/0"),
+          ("chic","xe-1/1/3","wash","xe-6/3/0"),
+          ("hous","xe-3/1/0","losa","ge-6/0/0"),
+          ("kans","ge-6/0/0","salt","ge-6/1/0"),
+          ("chic","xe-1/1/2","atla","xe-0/1/3"),
+          ("seat","xe-0/0/0","salt","xe-0/1/1"),
+          ("chic","xe-1/0/2","kans","xe-0/0/3"),
+          ("hous","xe-1/1/0","kans","xe-1/0/0"),
+          ("seat","xe-0/1/0","losa","xe-0/0/0"),
+          ("salt","xe-0/0/1","losa","xe-0/1/3"),
+          ("seat","xe-1/0/0","salt","xe-0/1/3"),
+          ("newy32aoa","et-3/0/0-0","wash","et-3/0/0-0"),
+          ("newy32aoa","et-3/0/0-1","wash","et-3/0/0-1"),
+          ("chic","xe-1/1/1","atla","xe-0/0/0"),
+          ("losa","xe-0/1/0","seat","xe-2/1/0"),
+          ("hous","xe-0/1/0","losa","ge-6/1/0"),
+          ("atla","xe-0/0/3","wash","xe-1/1/3"),
+          ("hous","xe-3/1/0","kans","ge-6/2/0"),
+          ("atla","ge-6/0/0","hous","xe-0/0/0"),
+          ("chic","xe-1/0/3","kans","xe-1/0/3"),
+          ("losa","xe-0/0/3","salt","xe-0/1/0"),
+          ("atla","ge-6/1/0","hous","xe-1/0/0"),
+          ("atla","xe-1/0/3","wash","xe-0/0/0"),
+          ("chic","xe-2/1/3","wash","xe-0/1/3"),
+          ("atla","xe-1/0/1","wash","xe-0/0/3"),
+          ("kans","xe-0/1/1","salt","ge-6/0/0"),
+          ("chic","xe-1/1/0","newy32aoa","xe-0/0/0"),
+      ]
+  tf = TF(jr.hs_format["length"])
+  tf.set_prefix_id("link")
+  for (from_router,from_port,to_router,to_port) in topology:
+      rule = TF.create_standard_rule(
+          [port_map[from_router][from_port] + juniperRouter.PORT_TYPE_MULTIPLIER * juniperRouter.OUTPUT_PORT_TYPE_CONST],
+          None,
+          [port_map[to_router][to_port]],
+          None,
+          None,
+          "",
+          []
+      )
+      tf.add_link_rule(rule)
+      rule = TF.create_standard_rule(
+          [port_map[to_router][to_port] + juniperRouter.PORT_TYPE_MULTIPLIER * juniperRouter.OUTPUT_PORT_TYPE_CONST],
+          None,
+          [port_map[from_router][from_port]],
+          None,
+          None,
+          "",
+          []
+      )
+      tf.add_link_rule(rule)
+  tf.save_object_to_file("../i2-tfs/backbone_topology.tf")
+    
