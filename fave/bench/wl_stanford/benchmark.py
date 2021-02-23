@@ -67,10 +67,37 @@ def array_vlan_to_number(array):
         raise Exception("array not a vlan number: %s" % array)
 
 
+def array_to_int(array):
+    try:
+        return int(array, 2)
+    except ValueError:
+        return array
+
+
 def get_start_end(field):
     start = MAPPING[field]
     end = start + FIELD_SIZES[field]
     return start, end
+
+
+def _get_field_from_match(match, fname, sname, convert):
+    res = None
+    start, end = get_start_end(fname)
+    field_match = match[start:end]
+    if field_match != 'x'*FIELD_SIZES[fname]:
+        res = "%s=%s" % (sname, convert(field_match))
+    return res
+
+
+def _get_rewrite(rewrite, mask, fname, sname, convert, default=None):
+    res = None
+    start, end = get_start_end(fname)
+    field_mask = mask[start:end]
+    field_rewrite = rewrite[start:end]
+    if field_mask == '0'*FIELD_SIZES[fname]:
+        res = "%s:%s" % (sname, convert(field_rewrite))
+
+    return res
 
 
 def rule_to_route(rule):
@@ -83,49 +110,41 @@ def rule_to_route(rule):
 
     match = rule['match'].replace(',', '')
 
-    start, end = get_start_end('packet.ipv4.source')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.source']:
-        src = "ipv4_src=%s" % array_ipv4_to_cidr(match[start:end])
-        match_fields.append(src)
+    src = _get_field_from_match(
+        match, 'packet.ipv4.source', 'ipv4_src', array_ipv4_to_cidr
+    )
+    if src: match_fields.append(src)
 
-    start, end = get_start_end('packet.ipv4.destination')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ipv4.destination']:
-        dst = "ipv4_dst=%s" % array_ipv4_to_cidr(match[start:end])
-        match_fields.append(dst)
+    dst = _get_field_from_match(
+        match, 'packet.ipv4.destination', 'ipv4_dst', array_ipv4_to_cidr
+    )
+    if dst: match_fields.append(dst)
 
-    start, end = get_start_end('packet.ether.vlan')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.ether.vlan']:
-        vlan = "vlan=%s" % array_vlan_to_number(match[start:end])
-        match_fields.append(vlan)
+    vlan = _get_field_from_match(
+        match, 'packet.ether.vlan', 'vlan', array_vlan_to_number
+    )
+    if vlan: match_fields.append(vlan)
 
     start, end = get_start_end('packet.ipv6.proto')
     if match[start:end] not in ['x'*FIELD_SIZES['packet.ipv6.proto'], '0'*FIELD_SIZES['packet.ipv6.proto']]:
         proto = "ip_proto=%s" % int(match[start:end], 2)
         match_fields.append(proto)
 
-    start, end = get_start_end('packet.upper.sport')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.sport']:
-        try:
-            sport = "tcp_src=%s" % int(match[start:end], 2)
-        except ValueError:
-            sport = "tcp_src=%s" % match[start:end]
-        match_fields.append(sport)
 
-    start, end = get_start_end('packet.upper.dport')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.dport']:
-        try:
-            dport = "tcp_dst=%s" % int(match[start:end], 2)
-        except ValueError:
-            dport = "tcp_dst=%s" % match[start:end]
-        match_fields.append(dport)
+    sport = _get_field_from_match(
+        match, 'packet.upper.sport', 'tcp_src', array_to_int
+    )
+    if sport: match_fields.append(sport)
 
-    start, end = get_start_end('packet.upper.tcp.flags')
-    if match[start:end] != 'x'*FIELD_SIZES['packet.upper.tcp.flags']:
-        try:
-            flags = "tcp_flags=%s" % int(match[start:end], 2)
-        except ValueError:
-            flags = "tcp_flags=%s" % match[start:end]
-        match_fields.append(flags)
+    dport = _get_field_from_match(
+        match, 'packet.upper.sport', 'tcp_dst', array_to_int
+    )
+    if dport: match_fields.append(dport)
+
+    flags = _get_field_from_match(
+        match, 'packet.upper.tcp.flags', 'tcp_flags', array_to_int
+    )
+    if flags: match_fields.append(flags)
 
     actions = []
 
@@ -135,61 +154,72 @@ def rule_to_route(rule):
 
         fields = []
 
-        start, end = get_start_end('packet.ipv4.source')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.ipv4.source'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.source']:
-            fields.append("ipv4_src:%s" % array_ipv4_to_cidr(rewrite[start:end]))
-        elif field_mask == '0'*FIELD_SIZES['packet.ipv4.source']:
-            fields.append("ipv4_src:0.0.0.0/0")
+        src_rw = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ipv4.source',
+            'ipv4_dst',
+            array_ipv4_to_cidr,
+            default='0.0.0.0/0'
+        )
+        if src_rw: fields.append(src_rw)
 
-        start, end = get_start_end('packet.ipv4.destination')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.ipv4.destination'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv4.destination']:
-            fields.append("ipv4_dst:%s" % array_ipv4_to_cidr(rewrite[start:end]))
-        elif field_mask == '0'*FIELD_SIZES['packet.ipv4.destination']:
-            fields.append("ipv4_dst:0.0.0.0/0")
+        dst_rw = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ipv4.destination',
+            'ipv4_dst',
+            array_ipv4_to_cidr,
+            default='0.0.0.0/0'
+        )
+        if dst_rw: fields.append(dst_rw)
 
-        start, end = get_start_end('packet.ether.vlan')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.ether.vlan'] and field_rewrite != '0'*FIELD_SIZES['packet.ether.vlan']:
-            fields.append("vlan:%s" % array_vlan_to_number(rewrite[start:end]))
-        elif field_mask == '0'*FIELD_SIZES['packet.ether.vlan']:
-            fields.append("vlan:xxxxxxxxxxxxxxxx")
+        vlan = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ether.vlan',
+            'ipv4_dst',
+            array_vlan_to_number
+        )
+        if vlan: fields.append(vlan)
 
-        start, end = get_start_end('packet.ipv6.proto')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.ipv6.proto'] and field_rewrite != '0'*FIELD_SIZES['packet.ipv6.proto']:
-            fields.append("ip_proto:%s" % int(rewrite[start:end], 2))
-        elif field_mask == '0'*FIELD_SIZES['packet.ipv6.proto']:
-            fields.append("ip_proto:xxxxxxxx")
 
-        start, end = get_start_end('packet.upper.sport')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.upper.sport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.sport']:
-            fields.append("tcp_src:%s" % int(rewrite[start:end], 2))
-        elif field_mask == '0'*FIELD_SIZES['packet.upper.sport']:
-            fields.append("tcp_src:xxxxxxxxxxxxxxxx")
+        proto = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.ipv6.proto',
+            'ip_proto',
+            array_to_int
+        )
+        if proto: fields.append(proto)
 
-        start, end = get_start_end('packet.upper.dport')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.upper.dport'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.dport']:
-            fields.append("tcp_dst:%s" % int(rewrite[start:end], 2))
-        elif field_mask == '0'*FIELD_SIZES['packet.upper.dport']:
-            fields.append("tcp_dst:xxxxxxxxxxxxxxxx")
+        sport = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.upper.sport',
+            'tcp_src',
+            array_to_int
+        )
+        if sport: fields.append(sport)
 
-        start, end = get_start_end('packet.upper.tcp.flags')
-        field_mask = mask[start:end]
-        field_rewrite = rewrite[start:end]
-        if field_mask == '0'*FIELD_SIZES['packet.upper.tcp.flags'] and field_rewrite != '0'*FIELD_SIZES['packet.upper.tcp.flags']:
-            fields.append("tcp_flags:%s" % int(rewrite[start:end], 2))
-        elif field_mask == '0'*FIELD_SIZES['packet.upper.tcp.flags']:
-            fields.append("tcp_flags:xxxxxxxx")
+        dport = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.upper.dport',
+            'tcp_dst',
+            array_to_int
+        )
+        if dport: fields.append(dport)
+
+        flags = _get_rewrite(
+            rewrite,
+            mask,
+            'packet.upper.tcp.flags',
+            'tcp_flags',
+            array_to_int
+        )
+        if flags: fields.append(flags)
+
 
         if fields != []:
             actions.append("rw=%s" % ';'.join(fields))
@@ -237,6 +267,8 @@ if __name__ == '__main__':
     active_egress_ports = {}
     active_ingress_ports = {}
     active_link_ports = set()
+    table_from_id = {}
+    ext_ports = {}
 
     links = []
 
@@ -253,17 +285,21 @@ if __name__ == '__main__':
             name = tf.split('.')[0].split('/').pop()
             table = json.loads(tf_f.read())
 
-            base_port = table['id'] * 100000
+            tid = table['id']
+            table_from_id[tid] = name
+            base_port = tid * 100000
+            ext_port = tid * 100000 + 90000
 
-            table_ports = set(table['ports'])
+            ext_ports[name] = ext_port
+            table_ports = set(table['ports'] + [ext_port])
 
             portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
 
             for rule in table['rules']:
-                active_ingress_ports[name].update(rule['in_ports'])
-                active_egress_ports[name].update(rule['out_ports'])
+                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or _is_intermediate_port(p, base_port))])
+                active_egress_ports[name].update([p for p in rule['out_ports'] if _is_output_port(p, base_port)])
 
             portno = 1
             for port in table_ports:
@@ -275,13 +311,12 @@ if __name__ == '__main__':
 
             links.append((port_to_name[base_port], port_to_name[base_port]))
             active_link_ports.add(base_port)
-#            print "self link base port:", base_port
             for port in [
                 p for p in table_ports if _is_intermediate_port(p, base_port)
             ]:
                 links.append((port_to_name[port], port_to_name[port]))
                 active_link_ports.add(port)
-#                print "self link intermediate port:", port
+
 
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
@@ -313,20 +348,8 @@ if __name__ == '__main__':
                 port_to_name[dst] = "%s.%s" % (rname, len(portmap[rname]) + 1)
                 portmap[rname].add(dst)
 
-            try:
-                links.append((port_to_name[src], port_to_name[dst]))
-#                print "link regular ports: %s -> %s" % (src, dst)
-            except KeyError:
-                import pprint
-                pprint.pprint(port_to_name, indent=2)
-                raise
+            links.append((port_to_name[src], port_to_name[dst]))
 
-#    for name, ports in portmap.iteritems():
-#        print "table: %s, ports: %s" % (name, len(ports))
-#    import pprint
-#    pprint.pprint(portmap['yozb_rtr'], indent=2)
-#    for port in portmap['yozb_rtr']:
-#        print port, ",", port_to_name[port]
 
     devices = []
     devices.extend([(n, 'switch', len(p)) for n, p in portmap.iteritems()])
@@ -338,15 +361,10 @@ if __name__ == '__main__':
         sources.append((
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
-#        print "inactive ingress ports", name, active_ingress_ports[name] - active_link_ports
-#        sources_links.extend([
-#            (
-#                "source.%s.1" % name, port_to_name[port]
-#            ) for port in active_ingress_ports[name] - active_link_ports
-#        ])
-        for port in active_ingress_ports[name] - active_link_ports:
-            sources_links.append(("source.%s.1" % name, port_to_name[port]))
-            break
+
+        sources_links.append(
+            ("source.%s.1" % name, port_to_name[ext_ports[name]])
+        )
 
         devices.append((
             "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
