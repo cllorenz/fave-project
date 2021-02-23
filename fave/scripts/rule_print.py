@@ -44,7 +44,7 @@ if __name__ == '__main__':
     _at, rno_str, _arrow = rule_str.rstrip().split(' ')
 
     rno = int(rno_str, 16)
-    tno = fave['id_to_rule'][str(rno)]
+    tno = fave['id_to_rule'][str(rno)] >> 16
 
     table = fave['id_to_table'][str(tno)]
 
