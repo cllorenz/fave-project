@@ -100,10 +100,12 @@ def _get_rewrite(rewrite, mask, fname, sname, convert, default=None):
     return res
 
 
-def rule_to_route(rule):
+def rule_to_route(rule, base_port, ext_port):
     rid = int(rule['id']) & 0xffff
 
     in_ports = rule['in_ports']
+    if not any([_is_intermediate_port(p, base_port) for p in in_ports]):
+        in_ports.append(ext_port)
     out_ports = rule['out_ports']
 
     match_fields = []
@@ -174,51 +176,51 @@ def rule_to_route(rule):
         )
         if dst_rw: fields.append(dst_rw)
 
-        vlan = _get_rewrite(
+        vlan_rw = _get_rewrite(
             rewrite,
             mask,
             'packet.ether.vlan',
-            'ipv4_dst',
+            'vlan',
             array_vlan_to_number
         )
-        if vlan: fields.append(vlan)
+        if vlan_rw: fields.append(vlan_rw)
 
 
-        proto = _get_rewrite(
+        proto_rw = _get_rewrite(
             rewrite,
             mask,
             'packet.ipv6.proto',
             'ip_proto',
             array_to_int
         )
-        if proto: fields.append(proto)
+        if proto_rw: fields.append(proto_rw)
 
-        sport = _get_rewrite(
+        sport_rw = _get_rewrite(
             rewrite,
             mask,
             'packet.upper.sport',
             'tcp_src',
             array_to_int
         )
-        if sport: fields.append(sport)
+        if sport_rw: fields.append(sport_rw)
 
-        dport = _get_rewrite(
+        dport_rw = _get_rewrite(
             rewrite,
             mask,
             'packet.upper.dport',
             'tcp_dst',
             array_to_int
         )
-        if dport: fields.append(dport)
+        if dport_rw: fields.append(dport_rw)
 
-        flags = _get_rewrite(
+        flags_rw = _get_rewrite(
             rewrite,
             mask,
             'packet.upper.tcp.flags',
             'tcp_flags',
             array_to_int
         )
-        if flags: fields.append(flags)
+        if flags_rw: fields.append(flags_rw)
 
 
         if fields != []:
@@ -307,7 +309,7 @@ if __name__ == '__main__':
                 portno += 1
 
             for rule in table['rules']:
-                routes.append(rule_to_route(rule))
+                routes.append(rule_to_route(rule, base_port, ext_port))
 
             links.append((port_to_name[base_port], port_to_name[base_port]))
             active_link_ports.add(base_port)
@@ -321,8 +323,6 @@ if __name__ == '__main__':
     with open (ROUTES, 'w') as rf:
         rf.write(json.dumps(routes, indent=2)+'\n')
 
-    hassel_port_map = _read_port_map('bench/wl_stanford/stanford-hassel/port_map.txt')
-
     sources_links = []
     with open('bench/wl_stanford/stanford-json/topology.json', 'r') as tf:
 
@@ -330,8 +330,6 @@ if __name__ == '__main__':
 
         cnt = 1
         for link in topo['topology']:
-            is_src = is_dst = False
-
             src = link['src']
             dst = link['dst']
 
@@ -339,14 +337,17 @@ if __name__ == '__main__':
             active_link_ports.add(dst)
 
             if src not in port_to_name:
-                rname = hassel_port_map[src]
+                rname = table_from_id[src / 100000]
                 port_to_name[src] = "%s.%s" % (rname, len(portmap[rname]) + 1)
                 portmap[rname].add(src)
 
             if dst not in port_to_name:
-                rname = hassel_port_map[dst]
+                rname = table_from_id[dst / 100000]
                 port_to_name[dst] = "%s.%s" % (rname, len(portmap[rname]) + 1)
                 portmap[rname].add(dst)
+
+            active_egress_ports[table_from_id[src / 100000]].add(src)
+            active_ingress_ports[table_from_id[dst / 100000]].add(dst)
 
             links.append((port_to_name[src], port_to_name[dst]))
 
