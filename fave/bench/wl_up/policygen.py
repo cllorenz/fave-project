@@ -18,9 +18,9 @@ if __name__ == '__main__':
         ("probe.pgf.uni-potsdam.de", "probe", "universal", None, None, None, [".*;(p in (pgf.uni-potsdam.de.2,pgf.uni-potsdam.de.3,pgf.uni-potsdam.de.4,pgf.uni-potsdam.de.5,pgf.uni-potsdam.de.6,pgf.uni-potsdam.de.7,pgf.uni-potsdam.de.8,pgf.uni-potsdam.de.9,pgf.uni-potsdam.de.10,pgf.uni-potsdam.de.11,pgf.uni-potsdam.de.12,pgf.uni-potsdam.de.13,pgf.uni-potsdam.de.14,pgf.uni-potsdam.de.15,pgf.uni-potsdam.de.16,pgf.uni-potsdam.de.17,pgf.uni-potsdam.de.18,pgf.uni-potsdam.de.19,pgf.uni-potsdam.de.20,pgf.uni-potsdam.de.21,pgf.uni-potsdam.de.22,pgf.uni-potsdam.de.23,pgf.uni-potsdam.de.24))"]),
     ]
     links = [
-        ("pgf.uni-potsdam.de.1", "probe.internet.1"),
-        ("clients.wifi.uni-potsdam.de.input_filter_accept", "probe.clients.wifi.uni-potsdam.de.1"),
-        ("pgf.uni-potsdam.de.input_filter_accept", "probe.pgf.uni-potsdam.de.1")
+        ("pgf.uni-potsdam.de.1", "probe.internet.1", False),
+        ("clients.wifi.uni-potsdam.de.input_filter_accept", "probe.clients.wifi.uni-potsdam.de.1", False),
+        ("pgf.uni-potsdam.de.input_filter_accept", "probe.pgf.uni-potsdam.de.1", False)
     ]
 
     # test dmz
@@ -29,7 +29,7 @@ if __name__ == '__main__':
             ("probe.%s" % name, "probe", "existential", None, None, None, [".*(p=pgf.uni-potsdam.de.1);$"])
         )
         links.append(
-            ("%s.input_filter_accept" % name, "probe.%s.1" % name)
+            ("%s.input_filter_accept" % name, "probe.%s.1" % name, False)
         )
 
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
             ))
 
             links.append(
-                ("%s.input_filter_accept" % hostnet, "probe.%s.1" % hostnet)
+                ("%s.input_filter_accept" % hostnet, "probe.%s.1" % hostnet, False)
             )
 
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         ))
 
         links.append(
-            ("clients.%s.input_filter_accept" % subnet, "probe.clients.%s.1" % subnet)
+            ("clients.%s.input_filter_accept" % subnet, "probe.clients.%s.1" % subnet, False)
         )
 
 

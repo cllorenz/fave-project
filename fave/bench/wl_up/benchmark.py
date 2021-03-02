@@ -83,11 +83,11 @@ if __name__ == "__main__":
     LOGGER.info("generated topology, routes, and probes.")
 
     LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh bench/wl_up/np.conf")
+    os.system("scripts/start_np.sh bench/wl_up/np.conf np1")
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
-    os.system("scripts/start_aggr.sh")
+    os.system("scripts/start_aggr.sh np1")
     LOGGER.info("started aggregator.")
 
     LOGGER.info("initialize topology...")
