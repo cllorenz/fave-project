@@ -44,12 +44,12 @@ if __name__ == '__main__':
     ])
 
     links = [
-        ("ifi.1", "probe.Internet.1"),
-        ("external.ifi.3", "probe.external.ifi.1")
+        ("ifi.1", "probe.Internet.1", False),
+        ("external.ifi.3", "probe.external.ifi.1", False)
     ]
 
     links.extend([
-        ("%s.3" % sub, "probe.%s.1" % sub) for sub in SUBNETS
+        ("%s.3" % sub, "probe.%s.1" % sub, False) for sub in SUBNETS
     ])
 
     policies = {

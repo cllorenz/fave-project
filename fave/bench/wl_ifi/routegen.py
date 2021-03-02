@@ -73,6 +73,5 @@ if __name__ == '__main__':
         ) for sub in SUBNETS
     ])
 
-
     with open(OFILE, 'w') as of:
         of.write(json.dumps(routes, indent=2) + "\n")
