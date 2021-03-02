@@ -695,7 +695,7 @@ class NetPlumberAdapter(object):
         )
 
         for name, idx, _portno, _outgoing in generators:
-            self.generators[name] = (idx, sids[idx][0], idx_to_model[idx])
+            self.generators[name] = (idx, sids[idx], idx_to_model[idx])
 
 
     def delete_generator(self, node):

@@ -355,8 +355,8 @@ class Aggregator(AbstractAggregator):
                 if cmd.command == "add":
                     for generator in cmd.model.generators:
                         self._add_ports(generator)
-#                    self.net_plumber.add_generators_bulk(cmd.model.generators)
-                        self.net_plumber.add_generator(generator)
+#                        self.net_plumber.add_generator(generator)
+                    self.net_plumber.add_generators_bulk(cmd.model.generators)
 
 # TODO: implement deletion
 #                elif cmd.command == "del":
