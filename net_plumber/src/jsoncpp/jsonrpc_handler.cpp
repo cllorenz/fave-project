@@ -111,7 +111,9 @@ namespace Json
         error["jsonrpc"] = "2.0";
 
         err["code"] = INVALID_REQUEST;
-        err["message"] = "Invalid JSON-RPC request.";
+        if (!root.isObject()) err["message"] = "Invalid JSON-RPC request: invalid object.";
+        else if (!root.isMember("jsonrpc")) err["message"] = "Invalid JSON-RPC request: no jsonrpc member.";
+        else if (root["jsonrpc"] != "2.0") err["message"] = "Invalid JSON-RPC request: invalid version.";
         error["error"] = err;
         return false;
       }
@@ -122,7 +124,7 @@ namespace Json
         error["jsonrpc"] = "2.0";
 
         err["code"] = INVALID_REQUEST;
-        err["message"] = "Invalid JSON-RPC request.";
+        err["message"] = "Invalid JSON-RPC request: id is array or object.";
         error["error"] = err;
         return false;
       }
@@ -134,7 +136,7 @@ namespace Json
         error["jsonrpc"] = "2.0";
 
         err["code"] = INVALID_REQUEST;
-        err["message"] = "Invalid JSON-RPC request.";
+        err["message"] = "Invalid JSON-RPC request: no method or method is string.";
         error["error"] = err;
         return false;
       }
