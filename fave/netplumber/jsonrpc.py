@@ -377,10 +377,7 @@ def add_source(socks, idx, hs_list, hs_diff, ports):
             "ports":ports
         }
 
-    print "jsonrpc: send source", hex(idx), "to sock", idx % len(socks)
-
     res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
-    print "jsonrpc: received node id", hex(_extract_node(res[0])), "for", hex(idx)
     return _extract_node(res[0])
 
 
@@ -413,13 +410,11 @@ def add_sources_bulk(socks, sources):
                 },
                 "ports":ports
             }
-        print "jsonrpc: send source", hex(idx), "to sock", idx % len(socks)
         _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
 
     sids = {}
     for idx, _hs_list, _hs_diff, _ports in sources:
         res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
-        print "jsonrpc: received node ids", [hex(_extract_node(n)) for n in res], "for", [hex(_extract_index(n)) for n in res]
         for node in res:
             sids[_extract_index(node)] = _extract_node(node)
 #        sids.extend([_extract_node(n) for n in res])
