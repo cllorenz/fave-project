@@ -15,10 +15,10 @@ if __name__ == '__main__':
 
     # link: (sname, dname)
     links = [
-        ("pgf.2", "dmz.1"),
-        ("dmz.1", "pgf.2"),
-        ("pgf.3", "office.1"),
-        ("office.1", "pgf.3")
+        ("pgf.2", "dmz.1", False),
+        ("dmz.1", "pgf.2", False),
+        ("pgf.3", "office.1", False),
+        ("office.1", "pgf.3", False)
     ]
 
 
@@ -31,9 +31,9 @@ if __name__ == '__main__':
 
     # source links
     source_links = [
-        ("source.internet.1", "pgf.1"),
-        ("source.dmz.1", "dmz.2"),
-        ("source.office.1", "office.2")
+        ("source.internet.1", "pgf.1", True),
+        ("source.dmz.1", "dmz.2", True),
+        ("source.office.1", "office.2", True)
     ]
 
 
