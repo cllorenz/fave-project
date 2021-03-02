@@ -83,7 +83,7 @@ def _add_link(src, dst):
     topo.main(["-a", "-l", "%s:%s" % (src, dst)])
 
 def _add_links(links):
-    topo.main(["-a", "-l", ",".join(["%s:%s" % (src, dst) for src, dst in links])])
+    topo.main(["-a", "-l", ",".join(["%s:%s:%s" % (src, dst, bulk) for src, dst, bulk in links])])
 
 def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=None):
     opts = []

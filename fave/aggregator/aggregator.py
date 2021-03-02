@@ -67,13 +67,13 @@ class Aggregator(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
 
-    def __init__(self, sock):
+    def __init__(self, socks):
         self.queue = Queue()
         self.models = {}
         self.port_to_model = {}
         self.links = {}
         self.stop = False
-        self.net_plumber = NetPlumberAdapter(sock, Aggregator.LOGGER)
+        self.net_plumber = NetPlumberAdapter(socks.values(), Aggregator.LOGGER)
 
 
     def print_aggregator(self):
@@ -277,7 +277,7 @@ class Aggregator(AbstractAggregator):
             if cmd.mtype == "links":
                 links = []
                 for link in cmd.model:
-                    sport, dport = link
+                    sport, dport, bulk = link
                     try:
                         smodel = self.port_to_model[sport]
                         dmodel = self.port_to_model[dport]
@@ -293,14 +293,19 @@ class Aggregator(AbstractAggregator):
 
                     if cmd.command == "add":
                         Aggregator.LOGGER.debug(
-                            "worker: add link to netplumber from %s:%s to %s:%s",
-                            sport, hex(sportno), dport,  hex(dportno)
+                            "worker: add link to netplumber from %s:%s to %s:%s%s",
+                            sport, hex(sportno), dport,  hex(dportno), (" as bulk" if bulk else "")
                         )
-                        links.append((smodel.egress_port(sport), dmodel.ingress_port(dport)))
+                        nlink = (smodel.egress_port(sport), dmodel.ingress_port(dport))
+                        if bulk:
+                            links.append(nlink)
                         self.links.setdefault(sport, [])
                         self.links[sport].append(dport)
                         self.net_plumber.links.setdefault(sportno, [])
                         self.net_plumber.links[sportno].append(dportno)
+
+                        if not bulk:
+                            self.net_plumber.add_link(*nlink)
 
                     elif cmd.command == "del":
                         Aggregator.LOGGER.debug(
@@ -311,7 +316,9 @@ class Aggregator(AbstractAggregator):
                         self.links[sport].remove(dport)
                         if not self.links[sport]: del self.links[sport]
 
-                self.net_plumber.add_links_bulk(links)
+                if links:
+                    Aggregator.LOGGER.debug("worker: add all bulk links")
+                    self.net_plumber.add_links_bulk(links)
 
             elif cmd.mtype == "packet_filter":
                 if cmd.command == "add":
@@ -348,7 +355,9 @@ class Aggregator(AbstractAggregator):
                 if cmd.command == "add":
                     for generator in cmd.model.generators:
                         self._add_ports(generator)
-                    self.net_plumber.add_generators_bulk(cmd.model.generators)
+#                    self.net_plumber.add_generators_bulk(cmd.model.generators)
+                        self.net_plumber.add_generator(generator)
+
 # TODO: implement deletion
 #                elif cmd.command == "del":
 #                    self._delete_generators_bulk(cmd.node)
@@ -515,14 +524,15 @@ def main(argv):
     """ Connects to net_plumber backend and starts aggregator.
     """
 
-    server = "127.0.0.1"
+    servers = ["127.0.0.1"]
     port = 0
     log_level = logging.INFO
+    socks = {}
 
     try:
         only_opts = lambda x: x[0]
         opts = only_opts(
-            getopt.getopt(argv, "hds:p:", ["help", "debug", "server=", "port="])
+            getopt.getopt(argv, "hds:p:S:", ["help", "debug", "server=", "port=", "servers="])
         )
     except getopt.GetoptError:
         _print_help()
@@ -533,9 +543,11 @@ def main(argv):
             _print_help()
             sys.exit(0)
         elif opt == '-s' and (is_ip(arg) or is_domain(arg) or is_unix(arg)):
-            server = arg
+            servers = [arg]
         elif opt == '-p':
             port = int(arg) if is_port(arg) else port
+        elif opt == '-S' and all([is_ip(s) or is_domain(s) or is_unix(s) for s in arg.split(',')]):
+            servers = ["/tmp/%s.socket" % s for s in arg.split(',')]
         elif opt == '-d':
             log_level = logging.DEBUG
 
@@ -543,21 +555,24 @@ def main(argv):
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(log_level)
 
-    try:
-        sock = jsonrpc.connect_to_netplumber(server, port)
-    except jsonrpc.RPCError as err:
-        Aggregator.LOGGER.error(err.message)
-        _print_help()
-        sys.exit(1)
+    for server in servers:
+        try:
+            sock = jsonrpc.connect_to_netplumber(server, port)
+            socks[server] = sock
+        except jsonrpc.RPCError as err:
+            Aggregator.LOGGER.error(err.message)
+            _print_help()
+            sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = Aggregator(sock)
+    AGGREGATOR = Aggregator(socks)
 
-    try:
-        os.unlink(UDS_ADDR)
-    except OSError:
-        if os.path.exists(UDS_ADDR):
-            raise
+    for server in [s for s in servers if is_unix(s)]:
+        try:
+            os.unlink(server)
+        except OSError:
+            if os.path.exists(server):
+                raise
 
     register_signals()
 

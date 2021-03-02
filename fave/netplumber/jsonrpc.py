@@ -66,6 +66,41 @@ def _sendrecv(sock, msg):
     return result
 
 
+def _async_send(socks, msg):
+    """ Asynchronous RPC call send.
+    """
+
+    for sock in socks:
+        sock.sendall(msg+'\n')
+
+
+def _sync_recv(socks):
+    results = []
+    for sock in socks:
+        result = ''
+        while True:
+            chunk = sock.recv(4096, socket.MSG_PEEK)
+            pos = chunk.find('\n')
+
+            if pos == -1:
+                result += sock.recv(4096)
+            else:
+                result += chunk[:pos]
+                sock.recv(pos+1)
+                break
+
+
+        results.append(result)
+
+    return results
+
+
+def _asend_recv(socks, msg):
+    _async_send(socks, msg)
+    return _sync_recv(socks)
+
+
+
 def _extract_node(msg):
     """ Extracts the node ID from node-related RPC call results.
     """
@@ -77,10 +112,20 @@ def _extract_node(msg):
     return data["result"]
 
 
-def _basic_rpc():
+def _extract_index(msg):
+    """ Extracts the index encoded in the message ID.
+    """
+    data = json.loads(msg)
+    if "error" in data and data["error"]["code"] != 0:
+        raise RPCError(data["error"]["message"])
+
+    return data["id"]
+
+
+def _basic_rpc(idx=0):
     """ Creates basic RPC structure.
     """
-    return {"id":"0", "jsonrpc":"2.0"}
+    return {"id" : idx, "jsonrpc" : "2.0"}
 
 
 class RPCError(Exception):
@@ -108,6 +153,8 @@ def connect_to_netplumber(server, port=0):
             )
         )
 
+    sock.setblocking(1)
+
     tries = 5
     while tries > 0:
         try:
@@ -125,54 +172,55 @@ def connect_to_netplumber(server, port=0):
     return sock
 
 
-def stop(sock):
+def stop(socks):
     """ Stops the NetPlumber service.
 
     Keyword arguments:
-    sock - A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "stop"
     data["params"] = None
-    _sendrecv(sock, json.dumps(data))
-    sock.close()
+    _asend_recv(socks, json.dumps(data))
+    for sock in socks:
+        sock.close()
 
 
 #@profile_method
-def init(sock, length):
-    """ Initializes a NetPlumber instance with vectors of a certain length.
+def init(socks, length):
+    """ Initializes NetPlumber instances with vectors of a certain length.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     length -- The vector length
     """
 
     data = _basic_rpc()
     data["method"] = "init"
     data["params"] = {"length":length}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def destroy(sock):
-    """ Destroys the active NetPlumber instance.
+def destroy(socks):
+    """ Destroys the active NetPlumber instances.
 
     Keyword arguments:
-    sock - A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "destroy"
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_table(sock, t_idx, ports):
+def add_table(socks, t_idx, ports):
     """ Adds a table.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     t_idx -- The table's ID
     ports -- The table's ports
     """
@@ -180,30 +228,30 @@ def add_table(sock, t_idx, ports):
     data = _basic_rpc()
     data["method"] = "add_table"
     data["params"] = {"id":t_idx, "in":ports}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def remove_table(sock, t_idx):
+def remove_table(socks, t_idx):
     """ Removes a table.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     t_idx -- The table's ID
     """
 
     data = _basic_rpc()
     data["method"] = "remove_table"
     data["params"] = {"id":t_idx}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_rule(sock, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
+def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
     """ Adds a rule to a table.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     t_idx -- The table's ID
     r_idx -- The rule's ID
     in_ports -- The rule's matched ports
@@ -224,30 +272,31 @@ def add_rule(sock, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
         "mask":mask,
         "rw":rewrite
     }
-    return _extract_node(_sendrecv(sock, json.dumps(data)))
+    res = _asend_recv(socks, json.dumps(data))
+    return _extract_node(res[0])
 
 
 #@profile_method
-def remove_rule(sock, r_idx):
+def remove_rule(socks, r_idx):
     """ Removes a rule.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     r_idx -- The rule's ID as returned by its previous add call.
     """
 
     data = _basic_rpc()
     data["method"] = "remove_rule"
     data["params"] = {"node":r_idx}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_link(sock, from_port, to_port):
+def add_link(socks, from_port, to_port):
     """ Adds a directed link between two ports.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     from_port -- The link's start port
     to_port -- The link's target port
     """
@@ -255,31 +304,40 @@ def add_link(sock, from_port, to_port):
     data = _basic_rpc()
     data["method"] = "add_link"
     data["params"] = {"from_port":from_port, "to_port":to_port}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
-def add_links_bulk(sock, links):
+def add_links_bulk(socks, links):
     """ Adds directed links.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     links -- A list of source and destination port pairs
     """
 
-    data = _basic_rpc()
-    data["method"] = "add_link"
-
-    for from_port, to_port in links:
+    for idx, from_port, to_port in links:
+        data = _basic_rpc(idx)
+        data["method"] = "add_link"
         data["params"] = {"from_port":from_port, "to_port":to_port}
-        _sendrecv(sock, json.dumps(data))
+
+        if idx != -1:
+            _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
+        else:
+            _async_send(socks, json.dumps(data))
+
+    for idx, _from_port, _to_port in links:
+        if idx != -1:
+            res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+        else:
+            _sync_recv(socks)
 
 
 #@profile_method
-def remove_link(sock, from_port, to_port):
+def remove_link(socks, from_port, to_port):
     """ Removes a link.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     from_port -- The link's start port.
     to_port -- The link's target port.
     """
@@ -287,15 +345,15 @@ def remove_link(sock, from_port, to_port):
     data = _basic_rpc()
     data["method"] = "remove_link"
     data["params"] = {"from_port":from_port, "to_port":to_port}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_source(sock, hs_list, hs_diff, ports):
+def add_source(socks, idx, hs_list, hs_diff, ports):
     """ Adds a source node.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     hs_list -- A list of vectors emitted by the source
     hs_diff -- A list of vectors subtracted by the source's emission
     ports -- The source's egress ports
@@ -305,75 +363,91 @@ def add_source(sock, hs_list, hs_diff, ports):
     data["method"] = "add_source"
     if not hs_diff and len(hs_list) == 1:
         data["params"] = {
+            "id":idx,
             "hs":hs_list[0],
             "ports":ports
         }
     else:
         data["params"] = {
+            "id":idx,
             "hs":{
                 "list":hs_list,
                 "diff":hs_diff
             },
             "ports":ports
         }
-    return _extract_node(_sendrecv(sock, json.dumps(data)))
+
+    print "jsonrpc: send source", hex(idx), "to sock", idx % len(socks)
+
+    res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
+    print "jsonrpc: received node id", hex(_extract_node(res[0])), "for", hex(idx)
+    return _extract_node(res[0])
 
 
-def add_sources_bulk(sock, sources):
+def add_sources_bulk(socks, sources):
     """ Adds source nodes as bulk operation.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
-    sources -- A list of tuples containing a list of emitted vectors, a list of
+    socks -- A list of sockets connected to NetPlumber instances
+    sources -- An index, a list of tuples containing a list of emitted vectors, a list of
                vectors to be subtracted from the source's emission, a list of
                egress ports
     """
 
-    data = _basic_rpc()
-    data["method"] = "add_source"
+    for idx, hs_list, hs_diff, ports in sources:
+        data = _basic_rpc(idx)
+        data["method"] = "add_source"
 
-    sids = []
-
-    for hs_list, hs_diff, ports in sources:
         if not hs_diff and len(hs_list) == 1:
             data["params"] = {
+                "id":idx,
                 "hs":hs_list[0],
                 "ports":ports
             }
         else:
             data["params"] = {
+                "id":idx,
                 "hs":{
                     "list":hs_list,
                     "diff":hs_diff
                 },
                 "ports":ports
             }
-        sids.append(_extract_node(_sendrecv(sock, json.dumps(data))))
+        print "jsonrpc: send source", hex(idx), "to sock", idx % len(socks)
+        _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
+
+    sids = {}
+    for idx, _hs_list, _hs_diff, _ports in sources:
+        res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+        print "jsonrpc: received node ids", [hex(_extract_node(n)) for n in res], "for", [hex(_extract_index(n)) for n in res]
+        for node in res:
+            sids[_extract_index(node)] = _extract_node(node)
+#        sids.extend([_extract_node(n) for n in res])
 
     return sids
 
 
 #@profile_method
-def remove_source(sock, s_idx):
+def remove_source(socks, s_idx):
     """ Removes a source node.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     s_idx -- The source's ID as returned by its previous add call
     """
 
     data = _basic_rpc()
     data["method"] = "remove_source"
     data["params"] = {"id":s_idx}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_source_probe(sock, ports, mode, match, filterexp, test):
+def add_source_probe(socks, ports, mode, match, filterexp, test, idx):
     """ Adds a probe node.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     ports -- The probe's ingress ports
     mode -- The probe's mode (existential|universal)
     match -- The probe's match
@@ -388,32 +462,34 @@ def add_source_probe(sock, ports, mode, match, filterexp, test):
         "mode":mode,
         "match":match,
         "filter":filterexp,
-        "test":test
+        "test":test,
+        "id" : idx
     }
-    return _extract_node(_sendrecv(sock, json.dumps(data)))
+    res = _asend_recv(socks, json.dumps(data))
+    return _extract_node(res[0])
 
 
 #@profile_method
-def remove_source_probe(sock, sp_idx):
+def remove_source_probe(socks, sp_idx):
     """ Removes probe node.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     sp_idx -- The probe's ID as returned by its previous add call
     """
 
     data = _basic_rpc()
     data["method"] = "remove_source_probe"
     data["params"] = {"id":sp_idx}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_slice(sock, nid, ns_list, ns_diff):
+def add_slice(socks, nid, ns_list, ns_diff):
     """ Adds a network slice.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     nid -- The slice's ID
     ns_list -- A list of vectors included in the slice
     ns_diff -- A list of vectors subtracted from the slice
@@ -428,63 +504,63 @@ def add_slice(sock, nid, ns_list, ns_diff):
             "diff":ns_diff
         }
     }
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def remove_slice(sock, nid):
+def remove_slice(socks, nid):
     """ Removes a network slice.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     nid -- The slice's ID
     """
 
     data = _basic_rpc()
     data["method"] = "remove_slice"
     data["params"] = {"id":nid}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_slice_matrix(sock, matrix):
+def add_slice_matrix(socks, matrix):
     """ Adds a reachability matrix to a network slice.
 
     The (directed) matrix represents pairs of slice ids
     between which reachability is allowed.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     matrix -- The reachability matrix as CSV
     """
 
     data = _basic_rpc()
     data["method"] = "add_slice_matrix"
     data["params"] = {"matrix":matrix}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def remove_slice_matrix(sock):
+def remove_slice_matrix(socks):
     """ Clears all contents from reachability matrix
         for network slices.
 
     Keyword arguments:
-    sock --- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "remove_slice_matrix"
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def add_slice_allow(sock, id1, id2):
+def add_slice_allow(socks, id1, id2):
     """ Adds a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
 
     Keyword arguments:
-    sock --- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     id1  --- src slice id
     id2  --- dst slice id
     """
@@ -493,16 +569,16 @@ def add_slice_allow(sock, id1, id2):
     data["method"] = "add_slice_allow"
     data["params"] = {"id1": id1,
                       "id2": id2}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def remove_slice_allow(sock, id1, id2):
+def remove_slice_allow(socks, id1, id2):
     """ Removes a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
 
     Keyword arguments:
-    sock --- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     id1  --- src slice id
     id2  --- dst slice id
     """
@@ -511,189 +587,189 @@ def remove_slice_allow(sock, id1, id2):
     data["method"] = "remove_slice_allow"
     data["params"] = {"id1": id1,
                       "id2": id2}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def print_slice_matrix(sock):
+def print_slice_matrix(socks):
     """ Prints the reachability matrix to slice logger.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "print_slice_matrix"
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def dump_slices_pipes(sock, odir):
+def dump_slices_pipes(socks, odir):
     """ Dumps NetPlumber's plumbing network including pipes with slice ids.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON files
     """
 
     data = _basic_rpc()
     data["method"] = "dump_slices_pipes"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def print_table(sock, t_idx):
+def print_table(socks, t_idx):
     """ Prints a table using NetPlumber's default logger.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     t_idx -- The table's ID
     """
 
     data = _basic_rpc()
     data["method"] = "print_table"
     data["params"] = {"id":t_idx}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def print_topology(sock):
+def print_topology(socks):
     """ Prints NetPlumber's topology using its default logger.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "print_topology"
     data["params"] = None
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def print_plumbing_network(sock):
+def print_plumbing_network(socks):
     """ Prints NetPlumber's plumbing network using its default logger.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "print_plumbing_network"
     data["params"] = None
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 #@profile_method
-def reset_plumbing_network(sock):
+def reset_plumbing_network(socks):
     """ Resets NetPlumber to its defaults.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     """
 
     data = _basic_rpc()
     data["method"] = "reset_plumbing_network"
     data["params"] = None
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def expand(sock, new_length):
+def expand(socks, new_length):
     """ Expands NetPlumber's vectors to a new length.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     new_length -- The vector's new length
     """
 
     data = _basic_rpc()
     data["method"] = "expand"
     data["params"] = {"length":new_length}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def dump_plumbing_network(sock, odir):
+def dump_plumbing_network(socks, odir):
     """ Dumps NetPlumber's plumbing network as JSON including tables and rules.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON files
     """
 
     data = _basic_rpc()
     data["method"] = "dump_plumbing_network"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks[:1], json.dumps(data))
 
 
 #@profile_method
-def dump_flows(sock, odir):
+def dump_flows(socks, odir):
     """ Dumps the flows residing in NetPlumber.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON file
     """
     data = _basic_rpc()
     data["method"] = "dump_flows"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def dump_flow_trees(sock, odir, keep_simple=False):
+def dump_flow_trees(socks, odir, keep_simple=False):
     """ Dumps the flows residing in NetPlumber as trees.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON file
     """
     data = _basic_rpc()
     data["method"] = "dump_flow_trees"
     data["params"] = {"dir" : odir, "simple" : keep_simple}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 
 #@profile_method
-def dump_pipes(sock, odir):
+def dump_pipes(socks, odir):
     """ Dumps the pipelines residing in NetPlumber.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON file
     """
 
     data = _basic_rpc()
     data["method"] = "dump_pipes"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
 
 #@profile_method
-def dump_slices_pipes(sock, odir):
+def dump_slices_pipes(socks, odir):
     """ Dumps the pipelines with slice information residing in NetPlumber.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON file
     """
 
     data = _basic_rpc()
     data["method"] = "dump_slices_pipes"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))
     
 #@profile_method
-def dump_slices(sock, odir):
+def dump_slices(socks, odir):
     """ Dumps the slices residing in NetPlumber.
 
     Keyword arguments:
-    sock -- A socket connected to NetPlumber
+    socks -- A list of sockets connected to NetPlumber instances
     odir -- The output directory for the JSON file
     """
 
     data = _basic_rpc()
     data["method"] = "dump_slices"
     data["params"] = {"dir" : odir}
-    _sendrecv(sock, json.dumps(data))
+    _asend_recv(socks, json.dumps(data))

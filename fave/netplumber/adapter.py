@@ -35,8 +35,8 @@ from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleF
 
 class NetPlumberAdapter(object):
 
-    def __init__(self, sock, logger):
-        self.sock = sock
+    def __init__(self, socks, logger):
+        self.socks = socks
         self.mapping = Mapping(0)
         self.mapping_keys = set(self.mapping.keys())
         self.tables = {}
@@ -50,34 +50,42 @@ class NetPlumberAdapter(object):
         self.logger = logger
 
     def stop(self):
-        jsonrpc.stop(self.sock)
+        jsonrpc.stop(self.socks)
 
     def dump_flows(self, odir):
-        jsonrpc.dump_flows(self.sock, odir)
+        jsonrpc.dump_flows(self.socks, odir)
 
     def dump_plumbing_network(self, odir):
-        jsonrpc.dump_plumbing_network(self.sock, odir)
+        jsonrpc.dump_plumbing_network(self.socks, odir)
 
     def dump_pipes(self, odir):
-        jsonrpc.dump_pipes(self.sock, odir)
+        jsonrpc.dump_pipes(self.socks, odir)
 
     def dump_flow_trees(self, odir, keep_simple=False):
-        jsonrpc.dump_flow_trees(self.sock, odir, keep_simple)
+        jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
 
     def expand(self):
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length
         )
-        jsonrpc.expand(self.sock, self.mapping.length)
+        jsonrpc.expand(self.socks, self.mapping.length)
+
+    def _get_index_for_src(self, src):
+        return self.generators.get(src.rstrip('.1'), [-1, 0, 0])[0]
 
     def add_links_bulk(self, links):
-        jsonrpc.add_links_bulk(
-            self.sock,
+         jsonrpc.add_links_bulk(
+            self.socks,
             [(
+                self._get_index_for_src(src),
                 self.global_port(src),
                 self.global_port(dst)
             ) for src, dst in links]
-        )
+         )
+
+    def add_link(self, src, dst):
+        jsonrpc.add_link(self.socks, self.global_port(src), self.global_port(dst))
+
 
     def remove_link(self, sport, dport):
         jsonrpc.remove_link(self.net_plumber.sock, sport, dport)
@@ -191,14 +199,14 @@ class NetPlumberAdapter(object):
         self.logger.debug(
             "worker: add slice %s to netplumber with list %s and diff %s", sid, ns_list, ns_diff if ns_diff else None
         )
-        jsonrpc.add_slice(self.sock, sid, ns_list, ns_diff if ns_diff else None)
+        jsonrpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
 
 
     def del_slice(self, sid):
         self.logger.debug(
             "worker: remove slice %s from netplumber", sid
         )
-        jsonrpc.remove_slice(self.sock, sid)
+        jsonrpc.remove_slice(self.socks, sid)
 
 
     def add_tables(self, model, prefixed=False):
@@ -223,7 +231,7 @@ class NetPlumberAdapter(object):
                     "worker: add table to netplumber: %s with index %s and ports %s",
                     name, idx, [hex(p) for p in ports]
                 )
-                jsonrpc.add_table(self.sock, idx, ports)
+                jsonrpc.add_table(self.socks, idx, ports)
 
 
     def add_wiring(self, model):
@@ -247,7 +255,7 @@ class NetPlumberAdapter(object):
                 "worker: add link to netplumber from %s:%s to %s:%s",
                 port1, hex(gport1), port2, hex(gport2)
             )
-            jsonrpc.add_link(self.sock, gport1, gport2)
+            jsonrpc.add_link(self.socks, gport1, gport2)
 
             self.links.setdefault(gport1, [])
             self.links[gport1].append(gport2)
@@ -313,7 +321,7 @@ class NetPlumberAdapter(object):
                 [hex(p) for p in out_ports]
             )
             r_id = jsonrpc.add_rule(
-                self.sock,
+                self.socks,
                 self.tables[table],
                 calc_rule_index(rid),
                 in_ports,
@@ -380,7 +388,7 @@ class NetPlumberAdapter(object):
                 calc_rule_index(rid), table, tid, rvec.vector if rvec else "*", [hex(p) for p in out_ports]
             )
             r_id = jsonrpc.add_rule(
-                self.sock,
+                self.socks,
                 tid,
                 calc_rule_index(rid),
                 in_ports,
@@ -472,7 +480,7 @@ class NetPlumberAdapter(object):
                 )
 
                 r_id = jsonrpc.add_rule(
-                    self.sock,
+                    self.socks,
                     tid,
                     calc_rule_index(rid, n_idx=nid),
                     in_ports,
@@ -555,7 +563,7 @@ class NetPlumberAdapter(object):
                 ) for p in rule.in_ports] if rule.in_ports else []
 
                 r_id = jsonrpc.add_rule(
-                    self.sock,
+                    self.socks,
                     tid,
                     calc_rule_index(rid),
                     in_ports,
@@ -579,7 +587,7 @@ class NetPlumberAdapter(object):
                     self.logger.debug(
                         "worker: remove rule %s from netplumber", r_id
                     )
-                    jsonrpc.remove_rule(self.sock, r_id)
+                    jsonrpc.remove_rule(self.socks, r_id)
                 del self.rule_ids[calc_rule_index(rid, t_idx=tid)]
 
 
@@ -597,7 +605,7 @@ class NetPlumberAdapter(object):
                 "worker: remove link from %s to %s from netplumber", calc_port(idx1, model, port1), calc_port(idx2, model, port2)
             )
             jsonrpc.remove_link(
-                self.sock,
+                self.socks,
                 calc_port(idx1, model, port1),
                 calc_port(idx2, model, port2)
             )
@@ -611,7 +619,7 @@ class NetPlumberAdapter(object):
                 self.logger.debug(
                     "worker: remove table %s with id %s from netplumber", name, self.tables[name]
                 )
-                jsonrpc.remove_table(self.sock, self.tables[name])
+                jsonrpc.remove_table(self.socks, self.tables[name])
                 del self.tables[name]
 
 
@@ -645,7 +653,8 @@ class NetPlumberAdapter(object):
             [v.vector for v in outgoing.hs_diff]
         )
         sid = jsonrpc.add_source(
-            self.sock,
+            self.socks,
+            idx,
             [v.vector for v in outgoing.hs_list],
             [v.vector for v in outgoing.hs_diff],
             [portno]
@@ -659,6 +668,10 @@ class NetPlumberAdapter(object):
             self._update_mapping(set([f for f in model.fields.iterkeys()]))
 
         generators = [self._prepare_generator(m) for m in models]
+        idx_to_model = {}
+        for generator, model in zip(generators, models):
+            _n, idx, _p, _o = generator
+            idx_to_model[idx] = model
 
         for name, idx, portno, outgoing in generators:
             self.logger.debug(
@@ -670,18 +683,19 @@ class NetPlumberAdapter(object):
             )
 
         sids = jsonrpc.add_sources_bulk(
-            self.sock,
+            self.socks,
             [
                 (
+                    idx,
                     [v.vector for v in outgoing.hs_list],
                     [v.vector for v in outgoing.hs_diff],
                     [portno]
-                ) for _name, _idx, portno, outgoing in generators
+                ) for _name, idx, portno, outgoing in generators
             ]
         )
 
-        for name, model, sid in zip([n for n, _i, _p, _o in generators], models, sids):
-            self.generators[name] = (idx, sid, model)
+        for name, idx, _portno, _outgoing in generators:
+            self.generators[name] = (idx, sids[idx][0], idx_to_model[idx])
 
 
     def delete_generator(self, node):
@@ -695,7 +709,7 @@ class NetPlumberAdapter(object):
             self.logger.debug(
                 "worker: remove link from %s to %s from netplumber", port1, port2
             )
-            jsonrpc.remove_link(self.sock, port1, port2)
+            jsonrpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
 
@@ -706,7 +720,7 @@ class NetPlumberAdapter(object):
         self.logger.debug(
             "worker: remove source %s with id %s from netplumber", node, sid
         )
-        jsonrpc.remove_source(self.sock, sid)
+        jsonrpc.remove_source(self.socks, sid)
 
         del self.tables[node]
 
@@ -823,7 +837,7 @@ class NetPlumberAdapter(object):
             "worker: add probe %s and port %s", name, portno
         )
         pid = jsonrpc.add_source_probe(
-            self.sock,
+            self.socks,
             [portno],
             model.quantor,
             self._build_vector([
@@ -834,7 +848,8 @@ class NetPlumberAdapter(object):
                 ] else f for f in  model.match]
             ).vector,
             filter_expr,
-            test_expr
+            test_expr,
+            idx
         )
         self.probes[name] = (idx, pid, model)
 
@@ -851,7 +866,7 @@ class NetPlumberAdapter(object):
             self.logger.debug(
                 "worker: remove link from %s to %s from netplumber", port1, port2
             )
-            jsonrpc.remove_link(self.sock, port1, port2)
+            jsonrpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
             if not self.links[port1]: del self.links[port1]
@@ -860,7 +875,7 @@ class NetPlumberAdapter(object):
         self.logger.debug(
             "worker: remove probe %s from netplumber", sid
         )
-        jsonrpc.remove_source_probe(self.sock, sid)
+        jsonrpc.remove_source_probe(self.socks, sid)
 
         del self.tables[node]
 
