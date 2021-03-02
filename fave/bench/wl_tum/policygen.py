@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
 
     links = [
-        ("fw.tum.forward_filter_accept", "probe.tum.1")
+        ("fw.tum.forward_filter_accept", "probe.tum.1", False)
     ]
 
     policies = {
