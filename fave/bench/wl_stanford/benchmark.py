@@ -311,12 +311,12 @@ if __name__ == '__main__':
             for rule in table['rules']:
                 routes.append(rule_to_route(rule, base_port, ext_port))
 
-            links.append((port_to_name[base_port], port_to_name[base_port]))
+            links.append((port_to_name[base_port], port_to_name[base_port], False))
             active_link_ports.add(base_port)
             for port in [
                 p for p in table_ports if _is_intermediate_port(p, base_port)
             ]:
-                links.append((port_to_name[port], port_to_name[port]))
+                links.append((port_to_name[port], port_to_name[port], False))
                 active_link_ports.add(port)
 
 
@@ -349,7 +349,7 @@ if __name__ == '__main__':
             active_egress_ports[table_from_id[src / 100000]].add(src)
             active_ingress_ports[table_from_id[dst / 100000]].add(dst)
 
-            links.append((port_to_name[src], port_to_name[dst]))
+            links.append((port_to_name[src], port_to_name[dst], False))
 
 
     devices = []
@@ -364,7 +364,7 @@ if __name__ == '__main__':
         ))
 
         sources_links.append(
-            ("source.%s.1" % name, port_to_name[ext_ports[name]])
+            ("source.%s.1" % name, port_to_name[ext_ports[name]], True)
         )
 
         devices.append((
@@ -373,7 +373,7 @@ if __name__ == '__main__':
 
         links.extend([
             (
-                port_to_name[port], "probe.%s.1" % name
+                port_to_name[port], "probe.%s.1" % name, False
             ) for port in active_egress_ports[name] - active_link_ports
         ])
 
@@ -390,8 +390,8 @@ if __name__ == '__main__':
 #    import sys
 #    sys.exit(0)
 
-    os.system("bash scripts/start_np.sh bench/wl_stanford/np.conf")
-    os.system("bash scripts/start_aggr.sh")
+    os.system("bash scripts/start_np.sh bench/wl_stanford/np.conf np1")
+    os.system("bash scripts/start_aggr.sh np1")
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
