@@ -68,15 +68,19 @@ namespace Json
     {
       Json::Value response;
       ssize_t nb = -1;
-      /* XXX: changed buffer size to 9000 bytes */
-      char buf[9000];
+      /* XXX: changed buffer size to 32768 bytes */
+      char buf[32768];
 
-      nb = recv(fd, buf, sizeof(buf), 0);
+      nb = recv(fd, buf, sizeof(buf), MSG_PEEK);
 
       /* give the message to JsonHandler */
       if(nb > 0)
       {
-        std::string msg = std::string(buf, nb);
+        std::string tmp = std::string(buf, nb);
+
+        size_t pos = tmp.find_first_of('\n');
+        std::string msg = std::string(buf, pos);
+        recv(fd, buf, pos+1, 0);
 
         if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
         {
