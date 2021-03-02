@@ -107,8 +107,8 @@ if __name__ == '__main__':
         print "Benchmark generated"
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh bench/wl_generic_fw/np.conf")
-    os.system("bash scripts/start_aggr.sh")
+    os.system("bash scripts/start_np.sh bench/wl_generic_fw/np.conf np1")
+    os.system("bash scripts/start_aggr.sh np1")
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
