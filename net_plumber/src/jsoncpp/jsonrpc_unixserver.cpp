@@ -33,7 +33,7 @@
 #include <cerrno>
 
 
-namespace Json 
+namespace Json
 {
 
   namespace Rpc
@@ -50,7 +50,7 @@ namespace Json
         Close();
       }
     }
-    
+
     ssize_t UnixServer::Send(int fd, const std::string& data)
     {
       std::string rep = data;
@@ -116,7 +116,7 @@ namespace Json
             if(retVal == -1)
             {
               /* error */
-              std::cerr << "Error while sending data: " 
+              std::cerr << "Error while sending data: "
                         << strerror(errno) << std::endl;
               return false;
             }
@@ -242,7 +242,7 @@ namespace Json
         ::close((*it));
       }
       m_clients.erase(m_clients.begin(), m_clients.end());
-      
+
       /* listen socket should be closed in Server destructor */
     }
 

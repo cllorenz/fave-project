@@ -28,7 +28,7 @@
 
 #include "netstring.h"
 
-namespace Json 
+namespace Json
 {
 
   namespace Rpc
