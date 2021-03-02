@@ -44,6 +44,10 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 
 if __name__ == "__main__":
+    tds = 1
+    if len(sys.argv) == 2:
+        tds = int(sys.argv[1])
+
     LOGGER.info("generate policy matrix...")
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
@@ -83,11 +87,14 @@ if __name__ == "__main__":
     LOGGER.info("generated topology, routes, and probes.")
 
     LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh bench/wl_up/np.conf np1")
+    for no in range(1,tds+1):
+        os.system("scripts/start_np.sh bench/wl_up/np.conf np%s" % no)
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
-    os.system("scripts/start_aggr.sh np1")
+    os.system(
+        "scripts/start_aggr.sh %s" % ','.join(["np%s" % no for no in range(1, tds+1)])
+    )
     LOGGER.info("started aggregator.")
 
     LOGGER.info("initialize topology...")
