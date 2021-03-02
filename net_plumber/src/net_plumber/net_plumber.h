@@ -252,7 +252,7 @@ namespace net_plumber {
      * @hs_object: the source flow
      * @ports: output ports
      */
-    uint64_t add_source(T1 *hs_object, List_t ports);
+    uint64_t add_source(T1 *hs_object, List_t ports, const uint64_t node_id);
     void remove_source(uint64_t id);
 
     /*
@@ -262,7 +262,7 @@ namespace net_plumber {
     uint64_t add_source_probe(List_t ports, PROBE_MODE mode, T2 *match,
                               Condition<T1, T2> *filter, Condition<T1, T2> *test,
                               src_probe_callback_t<T1, T2> probe_callback,
-                              void *callback_data);
+                              void *callback_data, const uint64_t node_id);
     void remove_source_probe(uint64_t id);
 #ifdef USE_DEPRECATED
     SourceProbeNode<T1, T2> *get_source_probe(uint64_t);

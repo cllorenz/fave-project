@@ -946,8 +946,7 @@ void NetPlumber<T1, T2>::remove_rule(uint64_t rule_id) {
 }
 
 template<class T1, class T2>
-uint64_t NetPlumber<T1, T2>::add_source(T1 *hs_object, List_t ports) {
-  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
+uint64_t NetPlumber<T1, T2>::add_source(T1 *hs_object, List_t ports, const uint64_t node_id) {
   SourceNode<T1, T2> *s = new SourceNode<T1, T2>(this, length, node_id, hs_object, ports);
   this->id_to_node[node_id] = s;
   this->flow_nodes.push_back(s);
@@ -980,8 +979,7 @@ template<class T1, class T2>
 uint64_t NetPlumber<T1, T2>::
 add_source_probe(List_t ports, PROBE_MODE mode, T2 *match, Condition<T1, T2> *filter,
                  Condition<T1, T2> *condition, src_probe_callback_t<T1, T2> probe_callback,
-                 void *callback_data){
-  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
+                 void *callback_data, const uint64_t node_id){
   SourceProbeNode<T1, T2>* p = new SourceProbeNode<T1, T2>(this, length, node_id, match, mode,ports,
                                            filter, condition,
                                            probe_callback, callback_data);
