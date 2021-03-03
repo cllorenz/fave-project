@@ -7,11 +7,8 @@
     - add hosts as packet filters (optional)
  - UP:
     - fix usage of bdd packet sets by either implementing flow tree checks in NetPlumber or fixing dumping of packet sets
- - Internet2:
-    - create benchmark from originial config instead of TF format
-    - construct by using FaVe instead of a direct read
- - Stanford: create benchmark from original configuration
- - TUM-i8: create benchmark
+ - Internet2: fix benchmark
+ - Stanford: fix benchmark
 
 ### Policy Translator
 
@@ -24,19 +21,10 @@
 ### FaVe
 
  - fix removal of firewall rules
- - automate in-/out-port mappings for firewalls and routers
  - improve integration and system tests by checking log output
  - improve reachability tree analysis by using more generic flow specifications
  - improve reachability tree analysis by implementing a better subset of CTL
  - improve test coverage
- - Gitlab-CI
- - use asynchronous rpc calls to improve performance? -> complex, better use libnetplumber instead?
-    - introduce counter for FaVe events
-    - save mapping generations marked by event counters
-    - extend dumping with mapping generations
-    - enhance rpc calls with event counter as identifyer
-    - use rpc calls asynchonously
-    - support asynchronous handling of rpc return values
  - Upgrade code to Python3
  - libnetplumber
     - replace rpc calls with library calls
@@ -75,9 +63,6 @@ funny places... which leads to the question: why is that code even there?
  - documentation
    - abstract (and static) doc
    - generated low level docs from code
- - support asynchronous rpc calls? -> complex, better use libnetplumber instead?
-    - extend callbacks with rpc identifyer
-    - extend logs with rpc identifyer
 
 ### AP-Verifyer
 
