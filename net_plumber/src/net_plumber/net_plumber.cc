@@ -65,7 +65,7 @@ string flow_to_str(Flow<T1, T2> *f) {
     str << f->hs_object->to_str() << " @ 0x" << std::hex << f->node->node_id << " <-- ";
     f = *f->p_flow;
   }
-  str << f->hs_object->to_str();
+  if (loop_logger->isTraceEnabled()) str << f->hs_object->to_str();
   return str.str();
 }
 
@@ -946,8 +946,7 @@ void NetPlumber<T1, T2>::remove_rule(uint64_t rule_id) {
 }
 
 template<class T1, class T2>
-uint64_t NetPlumber<T1, T2>::add_source(T1 *hs_object, List_t ports) {
-  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
+uint64_t NetPlumber<T1, T2>::add_source(T1 *hs_object, List_t ports, const uint64_t node_id) {
   SourceNode<T1, T2> *s = new SourceNode<T1, T2>(this, length, node_id, hs_object, ports);
   this->id_to_node[node_id] = s;
   this->flow_nodes.push_back(s);
@@ -980,8 +979,7 @@ template<class T1, class T2>
 uint64_t NetPlumber<T1, T2>::
 add_source_probe(List_t ports, PROBE_MODE mode, T2 *match, Condition<T1, T2> *filter,
                  Condition<T1, T2> *condition, src_probe_callback_t<T1, T2> probe_callback,
-                 void *callback_data){
-  uint64_t node_id = (uint64_t)(++last_ssp_id_used);
+                 void *callback_data, const uint64_t node_id){
   SourceProbeNode<T1, T2>* p = new SourceProbeNode<T1, T2>(this, length, node_id, match, mode,ports,
                                            filter, condition,
                                            probe_callback, callback_data);
@@ -1168,7 +1166,7 @@ void NetPlumber<T1, T2>::save_dependency_graph(const string file_name) {
 template<class T1, class T2>
 void NetPlumber<T1, T2>::dump_net_plumber(const string dir) {
     dump_plumbing_network(dir);
-    dump_flow_trees(dir);
+    dump_flow_trees(dir, false);
     dump_pipes(dir);
 #ifdef PIPE_SLICING
     dump_slices(dir);
@@ -1422,49 +1420,90 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::_traverse_flow_tree(
     Json::Value& res,
     list<typename list< Flow<T1, T2> *>::iterator> *n_flows,
-    size_t depth
+    size_t depth,
+    const bool simple
 ) {
     for (auto const &n_flow: *n_flows) {
         Json::Value node(Json::objectValue);
 
-        node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+	if (simple) { // mode with simplified trees
+            if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
+                _traverse_flow_tree(res, (*n_flow)->n_flows, depth+1, simple);
+	    } else { // only append leaves
+                node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+		res.append(node);
+	    }
 
-        if (logger->isTraceEnabled()) {
-            stringstream trace_msg;
-            trace_msg << "traverse_flow_tree(): pass ";
-            for (size_t i = 0; i < depth; i++) trace_msg << "  ";
-            trace_msg << (*n_flow)->node->node_id;
-            trace_msg << " with " << (*n_flow)->hs_object->to_str();
-            trace_msg << "; children at " << (*n_flow)->n_flows;
-            if ((*n_flow)->n_flows) {
-                trace_msg << "; size: " << (*n_flow)->n_flows->size();
-                trace_msg << "; is empty: " << ((*n_flow)->n_flows->empty() ? "true" : "false");
+	} else { // normal mode with full flow trees
+            node["node"] = (Json::Value::UInt64) (*n_flow)->node->node_id;
+
+            if (logger->isTraceEnabled()) {
+                stringstream trace_msg;
+                trace_msg << "traverse_flow_tree(): pass ";
+                for (size_t i = 0; i < depth; i++) trace_msg << "  ";
+                trace_msg << (*n_flow)->node->node_id;
+                trace_msg << " with " << (*n_flow)->hs_object->to_str();
+                trace_msg << "; children at " << (*n_flow)->n_flows;
+                if ((*n_flow)->n_flows) {
+                    trace_msg << "; size: " << (*n_flow)->n_flows->size();
+                    trace_msg << "; is empty: " << ((*n_flow)->n_flows->empty() ? "true" : "false");
+                }
+                LOG4CXX_TRACE(logger, trace_msg.str());
             }
-            LOG4CXX_TRACE(logger, trace_msg.str());
-        }
 
-        if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
-            Json::Value children(Json::arrayValue);
+            if ((*n_flow)->n_flows && !(*n_flow)->n_flows->empty()) {
+                Json::Value children(Json::arrayValue);
 
-            _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1);
-            node["children"] = children;
-        } else { // only dump flows at the leaves
-            node["flow"] = (*n_flow)->hs_object->to_str();
-        }
+                _traverse_flow_tree(children, (*n_flow)->n_flows, depth+1, simple);
+                node["children"] = children;
+            } else { // only dump flows at the leaves
+                node["flow"] = (*n_flow)->hs_object->to_str();
+            }
 
-        res.append(node);
+            res.append(node);
+	}
     }
 }
 
 
 template<class T1, class T2>
-void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename list<Flow<T1, T2> *>::iterator> *n_flows) {
-    NetPlumber<T1, T2>::_traverse_flow_tree(res, n_flows, 0);
+void NetPlumber<T1, T2>::_traverse_flow_tree(Json::Value& res, list<typename list<Flow<T1, T2> *>::iterator> *n_flows, const bool simple) {
+    NetPlumber<T1, T2>::_traverse_flow_tree(res, n_flows, 0, simple);
 }
 
 
 template<class T1, class T2>
-void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
+void NetPlumber<T1, T2>::_dump_flow_tree_to_file(const string file_name, SourceNode<T1, T2> *source_node, const bool simple) {
+    Json::Value flows_wrapper(Json::objectValue);
+    Json::Value flows(Json::arrayValue);
+
+    for (auto const &s_flow: source_node->source_flow) {
+        Json::Value flow_tree(Json::objectValue);
+
+        flow_tree["node"] = (Json::Value::UInt64) source_node->node_id;
+        if (!simple) flow_tree["flow"] = s_flow->hs_object->to_str();
+
+        if (s_flow->n_flows) {
+            Json::Value children(Json::arrayValue);
+
+            _traverse_flow_tree(children, s_flow->n_flows, simple);
+
+            flow_tree["children"] = children;
+        }
+
+        flows.append(flow_tree);
+    }
+
+    flows_wrapper["flows"] = flows;
+
+    ofstream flow_file(file_name.c_str());
+    flow_file << flows_wrapper;
+    flow_file.close();
+}
+
+
+template<class T1, class T2>
+void NetPlumber<T1, T2>::dump_flow_trees(const string dir, const bool simple) {
     stringstream info_msg;
     info_msg << "Dump flow trees...";
     LOG4CXX_INFO(logger, info_msg.str());
@@ -1472,33 +1511,8 @@ void NetPlumber<T1, T2>::dump_flow_trees(const string dir) {
     for (auto const &flow_node: flow_nodes) {
         stringstream tmp_flows;
         tmp_flows << dir << "/" << flow_node->node_id << ".flow_tree.json";
-        string flow_trees_file_name = tmp_flows.str();
-
-        Json::Value flows_wrapper(Json::objectValue);
-        Json::Value flows(Json::arrayValue);
-
-        for (auto const &s_flow: flow_node->source_flow) {
-            Json::Value flow_tree(Json::objectValue);
-
-            flow_tree["node"] = (Json::Value::UInt64) flow_node->node_id;
-            flow_tree["flow"] = s_flow->hs_object->to_str();
-
-            if (s_flow->n_flows) {
-                Json::Value children(Json::arrayValue);
-
-                _traverse_flow_tree(children, s_flow->n_flows);
-
-                flow_tree["children"] = children;
-            }
-
-            flows.append(flow_tree);
-        }
-
-        flows_wrapper["flows"] = flows;
-
-        ofstream flow_file(flow_trees_file_name.c_str());
-        flow_file << flows_wrapper;
-        flow_file.close();
+        string flow_tree_file_name = tmp_flows.str();
+	_dump_flow_tree_to_file(flow_tree_file_name, (SourceNode<T1, T2> *)flow_node, simple);
     }
 }
 

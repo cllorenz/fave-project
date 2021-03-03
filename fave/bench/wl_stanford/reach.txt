@@ -1,0 +1,3 @@
+def policies (default: deny)
+    All <--> All
+end

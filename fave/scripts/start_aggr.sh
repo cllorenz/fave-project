@@ -21,7 +21,11 @@
 
 mkdir -p /tmp/np
 
-PYTHONPATH=. python2 aggregator/aggregator.py -s /tmp/net_plumber.socket &
+if [ "$#" -eq "1" ]; then
+    PYTHONPATH=. python2 aggregator/aggregator.py -S $1 &
+else
+    PYTHONPATH=. python2 aggregator/aggregator.py -s /tmp/net_plumber.socket &
+fi
 
 PID=$!
 echo $PID > /tmp/aggr.pid

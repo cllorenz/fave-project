@@ -34,6 +34,7 @@
 #include "../jsoncpp/json/json.h"
 #include "source_node.h"
 #include "log4cxx/logger.h"
+#include "source_node.h"
 #include "source_probe_node.h"
 
 enum EVENT_TYPE {
@@ -251,7 +252,7 @@ namespace net_plumber {
      * @hs_object: the source flow
      * @ports: output ports
      */
-    uint64_t add_source(T1 *hs_object, List_t ports);
+    uint64_t add_source(T1 *hs_object, List_t ports, const uint64_t node_id);
     void remove_source(uint64_t id);
 
     /*
@@ -261,7 +262,7 @@ namespace net_plumber {
     uint64_t add_source_probe(List_t ports, PROBE_MODE mode, T2 *match,
                               Condition<T1, T2> *filter, Condition<T1, T2> *test,
                               src_probe_callback_t<T1, T2> probe_callback,
-                              void *callback_data);
+                              void *callback_data, const uint64_t node_id);
     void remove_source_probe(uint64_t id);
 #ifdef USE_DEPRECATED
     SourceProbeNode<T1, T2> *get_source_probe(uint64_t);
@@ -304,7 +305,7 @@ namespace net_plumber {
     void save_dependency_graph(std::string file_name);
     void dump_net_plumber(const std::string);
     void dump_plumbing_network(const std::string);
-    void dump_flow_trees(const std::string);
+    void dump_flow_trees(const std::string, const bool simple);
     void dump_flows(const std::string);
     void dump_pipes(const std::string);
 #ifdef PIPE_SLICING
@@ -325,12 +326,15 @@ namespace net_plumber {
     void _traverse_flow_tree(
         Json::Value& res,
         typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
-        size_t depth
+        size_t depth,
+	const bool simple
     );
     void _traverse_flow_tree(
         Json::Value& res,
-        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows
+        typename std::list<typename std::list<struct Flow<T1, T2> *>::iterator> *n_flows,
+	const bool simple
     );
+    void _dump_flow_tree_to_file(const std::string file_name, SourceNode<T1, T2> *source_node, const bool simple);
 
 #ifdef PIPE_SLICING
     void add_pipe_to_slices(struct Pipeline<T1, T2> *pipe);

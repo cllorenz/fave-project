@@ -44,6 +44,10 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 
 if __name__ == "__main__":
+    tds = 1
+    if len(sys.argv) == 2:
+        tds = int(sys.argv[1])
+
     LOGGER.info("generate policy matrix...")
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
@@ -83,11 +87,14 @@ if __name__ == "__main__":
     LOGGER.info("generated topology, routes, and probes.")
 
     LOGGER.info("starting netplumber...")
-    os.system("scripts/start_np.sh bench/wl_up/np.conf")
+    for no in range(1,tds+1):
+        os.system("scripts/start_np.sh bench/wl_up/np.conf np%s" % no)
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
-    os.system("scripts/start_aggr.sh")
+    os.system(
+        "scripts/start_aggr.sh %s" % ','.join(["np%s" % no for no in range(1, tds+1)])
+    )
     LOGGER.info("started aggregator.")
 
     LOGGER.info("initialize topology...")
@@ -98,7 +105,7 @@ if __name__ == "__main__":
         create_topology(devices, links)
         LOGGER.info("  add rulesets")
         add_rulesets(devices)
-    LOGGER.info("initialized topology.")
+    LOGGER.info("topology sent to fave")
 
 
     LOGGER.info("initialize routes...")
@@ -106,33 +113,33 @@ if __name__ == "__main__":
         routes = json.loads(raw_routes.read())
 
         add_routes(routes)
-    LOGGER.info("initialized routes...")
+    LOGGER.info("routes sent to fave")
 
     LOGGER.info("initialize probes...")
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         add_policies(probes, links)
-    LOGGER.info("initialized probes...")
+    LOGGER.info("probes sent to fave")
 
     LOGGER.info("initialize sources...")
     with open(SOURCES, 'r') as raw_sources:
         sources, links = json.loads(raw_sources.read()).values()
         add_sources(sources, links)
-    LOGGER.info("initialized sources")
+    LOGGER.info("sources sent to fave")
 
     with open(CHECKS, 'r') as raw_checks:
         checks = json.loads(raw_checks.read())
 
     LOGGER.info("dumping fave and netplumber...")
     dumper.main(["-ant"])
-    LOGGER.info("dumped fave and netplumber.")
+    LOGGER.info("ordered fave to dump")
 
     LOGGER.info("stopping fave and netplumber...")
     os.system("bash scripts/stop_fave.sh")
-    LOGGER.info("stopped fave and netplumber.")
+    LOGGER.info("ordered fave to stop")
 
-    LOGGER.info("checking flow trees...")
+    LOGGER.info("wait for fave to check flow trees...")
     checker.main(["-b", "-r", "-c", ";".join(checks)])
     LOGGER.info("checked flow trees.")
 

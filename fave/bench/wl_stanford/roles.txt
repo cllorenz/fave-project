@@ -1,0 +1,82 @@
+def role bbra_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role bbrb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role boza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role bozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role coza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role cozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role goza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role gozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role poza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role pozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role roza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role rozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role soza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role sozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role yoza_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role yozb_rtr
+    ipv4 = '0.0.0.0/0'
+end
+
+def role All
+    includes bbra_rtr
+    includes bbrb_rtr
+    includes boza_rtr
+    includes bozb_rtr
+    includes coza_rtr
+    includes cozb_rtr
+    includes goza_rtr
+    includes gozb_rtr
+    includes poza_rtr
+    includes pozb_rtr
+    includes roza_rtr
+    includes rozb_rtr
+    includes soza_rtr
+    includes sozb_rtr
+    includes yoza_rtr
+    includes yozb_rtr
+end

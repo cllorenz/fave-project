@@ -33,12 +33,12 @@ if __name__ == '__main__':
 
     # link: (sname, dname)
     links = [
-        ("pgf.uni-potsdam.de.2", "dmz.uni-potsdam.de.1"),
-        ("dmz.uni-potsdam.de.1", "pgf.uni-potsdam.de.2"),
-        ("pgf.uni-potsdam.de.3", "wifi.uni-potsdam.de.1"),
-        ("wifi.uni-potsdam.de.1", "pgf.uni-potsdam.de.3"),
-        ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1"),
-        ("clients.wifi.uni-potsdam.de.1", "wifi.uni-potsdam.de.3")
+        ("pgf.uni-potsdam.de.2", "dmz.uni-potsdam.de.1", False),
+        ("dmz.uni-potsdam.de.1", "pgf.uni-potsdam.de.2", False),
+        ("pgf.uni-potsdam.de.3", "wifi.uni-potsdam.de.1", False),
+        ("wifi.uni-potsdam.de.1", "pgf.uni-potsdam.de.3", False),
+        ("wifi.uni-potsdam.de.2", "clients.wifi.uni-potsdam.de.1", False),
+        ("clients.wifi.uni-potsdam.de.1", "wifi.uni-potsdam.de.3", False)
     ]
 
 
@@ -51,9 +51,9 @@ if __name__ == '__main__':
 
     # source links
     source_links = [
-        ("source.internet.1", "pgf.uni-potsdam.de.1"),
-        ("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de.output_filter_in"),
-        ("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de.output_filter_in")
+        ("source.internet.1", "pgf.uni-potsdam.de.1", True),
+        ("source.clients.wifi.uni-potsdam.de.1", "clients.wifi.uni-potsdam.de.output_filter_in", True),
+        ("source.pgf.uni-potsdam.de.1", "pgf.uni-potsdam.de.output_filter_in", True)
     ]
 
 
@@ -75,8 +75,8 @@ if __name__ == '__main__':
             "%s/dmz-%s-ruleset" % (RULESETS, name)
         ))
         links.extend([
-            ("%s.1" % name, "dmz.uni-potsdam.de.%s" % port),
-            ("dmz.uni-potsdam.de.%s" % port, "%s.1" % name)
+            ("%s.1" % name, "dmz.uni-potsdam.de.%s" % port, False),
+            ("dmz.uni-potsdam.de.%s" % port, "%s.1" % name, False)
         ])
 
 
@@ -90,8 +90,8 @@ if __name__ == '__main__':
         # subnet switch
         devices.append((subnet, "switch", len(subhosts)+2))
         links.extend([
-            ("pgf.uni-potsdam.de.%s" % port, "%s.1" % subnet),
-            ("%s.1" % subnet, "pgf.uni-potsdam.de.%s" % port)
+            ("pgf.uni-potsdam.de.%s" % port, "%s.1" % subnet, False),
+            ("%s.1" % subnet, "pgf.uni-potsdam.de.%s" % port, False)
         ])
 
         # subnet hosts
@@ -111,8 +111,8 @@ if __name__ == '__main__':
                 "%s/%s-ruleset" % (RULESETS, nethost)
             ))
             links.extend([
-                ("%s.%s" % (subnet, sport), "%s.1" % hostnet),
-                ("%s.1" % hostnet, "%s.%s" % (subnet, sport))
+                ("%s.%s" % (subnet, sport), "%s.1" % hostnet, False),
+                ("%s.1" % hostnet, "%s.%s" % (subnet, sport), False)
             ])
 
 
@@ -125,8 +125,8 @@ if __name__ == '__main__':
             "%s/%s-clients-ruleset" % (RULESETS, subnet)
         ))
         links.extend([
-            ("%s.%s"%(subnet, len(subhosts)+2), "clients.%s.1" % subnet),
-            ("clients.%s.1"%subnet, "%s.%s"%(subnet, len(subhosts)+2))
+            ("%s.%s"%(subnet, len(subhosts)+2), "clients.%s.1" % subnet, False),
+            ("clients.%s.1"%subnet, "%s.%s"%(subnet, len(subhosts)+2), False)
         ])
 
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         address = get_addr(*host)
         server = "source.%s" % hname
         sources.append((server, "generator", ["ipv6_src=%s" % address]))
-        source_links.append(("%s.1" % server, "%s.output_filter_in" % hname))
+        source_links.append(("%s.1" % server, "%s.output_filter_in" % hname, True))
 
 
     for cnt, subnet in enumerate(subnets, start=4):
@@ -150,7 +150,7 @@ if __name__ == '__main__':
             addr = "2001:db8:abc:%s::%s" % (netident, ident)
 
             sources.append((server , "generator", ["ipv6_src=%s" % addr]))
-            source_links.append(("%s.1" % server, "%s.output_filter_in" % hostnet))
+            source_links.append(("%s.1" % server, "%s.output_filter_in" % hostnet, True))
 
 
         caddr = "2001:db8:abc:%s::100/120" % netident
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             ("source.clients.%s" % subnet, "generator", ["ipv6_src=%s" % caddr])
         )
         source_links.append(
-            ("source.clients.%s.1" % subnet, "clients.%s.output_filter_in" % subnet)
+            ("source.clients.%s.1" % subnet, "clients.%s.output_filter_in" % subnet, True)
         )
 
 

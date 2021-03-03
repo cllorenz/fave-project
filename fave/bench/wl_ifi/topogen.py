@@ -62,27 +62,27 @@ if __name__ == '__main__':
     # connect the university proxy to port 1 of the central router
     # connect the Internet to port 1 of the central router
     links = [
-        ("source.Internet.1", "ifi.1"),
-        ("external.ifi.1", "ifi.2"),
-        ("ifi.2", "external.ifi.1"),
-        ("source.external.ifi.1", "external.ifi.2")
+        ("source.Internet.1", "ifi.1", True),
+        ("external.ifi.1", "ifi.2", False),
+        ("ifi.2", "external.ifi.1", False),
+        ("source.external.ifi.1", "external.ifi.2", True)
     ]
 
     # connect all port 1 of the subnet switches to an input port of the central router
     in_port = lambda ip, _op: ip
     links.extend([
-        ("%s.1" % sub, "ifi.%s" % in_port(*domain_to_ports[sub])) for sub in SUBNETS
+        ("%s.1" % sub, "ifi.%s" % in_port(*domain_to_ports[sub]), False) for sub in SUBNETS
     ])
 
     # connect the output ports of the central router to port 1 of each subnet switch
     out_port = lambda _ip, op: op
     links.extend([
-        ("ifi.%s" % out_port(*domain_to_ports[sub]), "%s.1" % sub) for idx, sub in enumerate(SUBNETS, start=3)
+        ("ifi.%s" % out_port(*domain_to_ports[sub]), "%s.1" % sub, False) for idx, sub in enumerate(SUBNETS, start=3)
     ])
 
     # connect all subnet generators to port 2 of the respective switch
     links.extend([
-        ("source.%s.1" % sub, "%s.2" % sub) for sub in SUBNETS
+        ("source.%s.1" % sub, "%s.2" % sub, True) for sub in SUBNETS
     ])
 
     ifi = {

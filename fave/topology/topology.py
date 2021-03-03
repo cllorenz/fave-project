@@ -47,20 +47,20 @@ class LinksModel(object):
         """ Creates a link model.
 
         Keyword arguments:
-        links -- a list of pairs of origin and destination ports
+        links -- a list of triples of origin and destination ports as well as the bulk flag
         """
 
         self.type = 'links'
-        self.links = [(p1, p2) for p1, p2 in links]
+        self.links = [(p1, p2, bulk) for p1, p2, bulk in links]
 
 
     def to_json(self):
         """ Converts the model to JSON.
         """
         links = {}
-        for src, dst in self.links:
+        for src, dst, bulk in self.links:
             links.setdefault(src, [])
-            links[src].append(dst)
+            links[src].append((dst, bulk))
 
         return {"type" : self.type, "links" : links}
 
@@ -78,7 +78,7 @@ class LinksModel(object):
 
         links = []
         for src, dst in j["links"].iteritems():
-            links.extend([(src, d) for d in dst])
+            links.extend([(src, d, b) for d, b in dst])
 
         return LinksModel(links)
 
@@ -311,7 +311,8 @@ def main(argv):
         elif opt == '-l':
             dtype = 'links'
             dev = 'links'
-            links = [link.split(':') for link in arg.split(',')]
+            to_link = lambda s, d, b: (s, d, b == 'True')
+            links = [to_link(*link.split(':')) for link in arg.split(',')]
         elif opt == '-i':
             address = arg
         elif opt == '-f':

@@ -162,6 +162,7 @@ void load_netplumber_from_dir(
             }
           }
 #endif
+	  if (i % 100 == 99) printf("Loaded %u rules\n", i+1);
         }
 
         // clean up
@@ -222,7 +223,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
         h = tmp;
       }
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
-      N->add_source(h, ports);
+      N->add_source(h, ports, i+1);
     } else if (type == "add_source_probe") {
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       PROBE_MODE mode = !strcasecmp(commands[i]["params"]["mode"].asCString(), "universal")
@@ -230,7 +231,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
       T2 *match = val_to_array<T2>(commands[i]["params"]["match"]);
       Condition<T1, T2> *filter = val_to_cond<T1, T2>(commands[i]["params"]["filter"], N->get_length());
       Condition<T1, T2> *test = val_to_cond<T1, T2>(commands[i]["params"]["test"], N->get_length());
-      N->add_source_probe(ports, mode, match, filter, test, nullptr, nullptr);
+      N->add_source_probe(ports, mode, match, filter, test, nullptr, nullptr, i+1);
     } else if (type == "add_link") {
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
       uint32_t to_port = commands[i]["params"]["to_port"].asUInt();

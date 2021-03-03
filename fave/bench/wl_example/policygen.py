@@ -12,9 +12,9 @@ if __name__ == '__main__':
         ("probe.office", "probe", "existential", None, None, None, [".*(p=pgf.1);$"])
     ]
     links = [
-        ("pgf.1", "probe.internet.1"),
-        ("dmz.2", "probe.dmz.1"),
-        ("office.2", "probe.office.1")
+        ("pgf.1", "probe.internet.1", False),
+        ("dmz.2", "probe.dmz.1", False),
+        ("office.2", "probe.office.1", False)
     ]
 
     policies = {

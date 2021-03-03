@@ -263,7 +263,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_source() {
   N->add_link(100,1);
   T1 *h = new T1("1xxxxxxx");
   node_ids.push_back(
-      N->add_source(h, make_sorted_list(1,100))
+      N->add_source(h, make_sorted_list(1,100), 1)
   );
   int stats[8][4]={
       {1,1,1,0},
@@ -286,7 +286,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_remove_source() {
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
-  uint64_t id = N->add_source(h, make_sorted_list(1,100));
+  uint64_t id = N->add_source(h, make_sorted_list(1,100), 1);
   //N->print_plumbing_network();
   N->remove_source(id);
   this->test_setup();
@@ -298,7 +298,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_probe() {
   N->add_link(13,200);
   node_ids.push_back(N->add_source_probe(
       make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-      new TrueCondition<T1, T2>(),NULL, NULL));
+      new TrueCondition<T1, T2>(),NULL, NULL, 1));
   int stats[8][4]={
       {1,0,1,0},
       {1,0,1,0},
@@ -369,7 +369,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
-  N->add_source(h, make_sorted_list(1,100));
+  N->add_source(h, make_sorted_list(1,100), 1);
   int stats[7][2] = {
       {1,0},
       {1,0},
@@ -398,11 +398,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_source() {
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
-  /*uint64_t id1 = */N->add_source(h, make_sorted_list(1,100));
+  /*uint64_t id1 = */N->add_source(h, make_sorted_list(1,100), 1);
   h = new T1(1);
   T2 b = T2 ("xxxxxxxx");
   h->psunion2(&b);
-  uint64_t id2 = N->add_source(h, make_sorted_list(1,100));
+  uint64_t id2 = N->add_source(h, make_sorted_list(1,100), 2);
   //N->print_plumbing_network();
   N->remove_source(id2);
   int stats[7][2] = {
@@ -1035,10 +1035,10 @@ void NetPlumberPlumbingTest<T1, T2>::test_false_probe() {
   probe_counter_t r = {0,3,0,0,0,0,0,0};
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-       new FalseCondition<T1, T2>(), probe_fire_counter, &a));
+       new FalseCondition<T1, T2>(), probe_fire_counter, &a, 3));
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), UNIVERSAL, nullptr, new TrueCondition<T1, T2>(),
-       new FalseCondition<T1, T2>(), probe_fire_counter, &a));
+       new FalseCondition<T1, T2>(), probe_fire_counter, &a, 4));
   this->check_probe_counter("test_false_probe", a, r);
   //N->print_plumbing_network();
 }
@@ -1051,10 +1051,10 @@ void NetPlumberPlumbingTest<T1, T2>::test_true_probe() {
   probe_counter_t r = {3,0,0,0,0,0,0,0};
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-       new TrueCondition<T1, T2>(), probe_fire_counter, &a));
+       new TrueCondition<T1, T2>(), probe_fire_counter, &a, 3));
   node_ids.push_back(N->add_source_probe(
        make_sorted_list(1,200), UNIVERSAL, nullptr, new TrueCondition<T1, T2>(),
-       new TrueCondition<T1, T2>(), probe_fire_counter, &a));
+       new TrueCondition<T1, T2>(), probe_fire_counter, &a, 4));
   this->check_probe_counter("test_true_probe", a, r);
 }
 
@@ -1068,7 +1068,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_port_probe() {
   c->add_pathlet(new PortSpecifier<T1, T2>(4));
   N->add_source_probe(
          make_sorted_list(1,200), UNIVERSAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &a);
+         c, probe_fire_counter, &a, 3);
   this->check_probe_counter("test_port_probe", a, r);
 }
 
@@ -1084,7 +1084,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_table_probe() {
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, f,
-         c, probe_fire_counter, &a);
+         c, probe_fire_counter, &a, 3);
   this->check_probe_counter("test_table_probe",  a, r);
 }
 
@@ -1098,7 +1098,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_reachability() {
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &a);
+         c, probe_fire_counter, &a, 3);
   this->check_probe_counter("test_reachability", a, r);
 }
 
@@ -1112,7 +1112,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_no_update_add_rule() 
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   node_ids.push_back(N->add_rule(1,-1,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
@@ -1147,7 +1147,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule1
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
               make_sorted_list(1,7),
@@ -1174,7 +1174,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule2
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,1)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
               make_sorted_list(1,15),
@@ -1204,7 +1204,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_link() {
   c->add_pathlet(new TableSpecifier<T1, T2>(3));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   this->test_routing_add_link();
   //N->print_plumbing_network();
   this->check_probe_counter("test_probe_transition_add_link", A, r);
@@ -1220,7 +1220,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_remove_link() {
   c->add_pathlet(new TableSpecifier<T1, T2>(3));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   this->test_routing_remove_link();
   //N->print_plumbing_network();
   this->check_probe_counter("test_probe_transition_remove_link", A, r);
@@ -1238,12 +1238,12 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_source() {
   c->add_pathlet(new LastPortsSpecifier<T1, T2>(make_sorted_list(1,4)));
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
-         c, probe_fire_counter, &A);
+         c, probe_fire_counter, &A, 3);
   T1 *h = new T1(1);
   T2 a = T2 ("xxxxxxxx");
   h->psunion2(&a);
   node_ids.push_back(
-      N->add_source(h, make_sorted_list(1,300))
+      N->add_source(h, make_sorted_list(1,300), 2)
       );
 
   //N->print_plumbing_network();

@@ -69,7 +69,8 @@ FIELD_SIZES = {
     "module.ipv6header.hl.eq" : 8,
     "module.ipv6header.hl.lt" : 8,
     "module.ipv6header.hl.gt" : 8,
-    "module.ipv6header.mh.type" : 8
+    "module.ipv6header.mh.type" : 8,
+    "module.conntrack.ctstate" : 8
 }
 
 

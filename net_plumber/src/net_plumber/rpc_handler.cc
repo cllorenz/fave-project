@@ -299,7 +299,8 @@ PROTO(remove_rule)
 PROTO(add_source)
   T1 *h = val_to_hs<T1, T2>(PARAM(hs), length);
   List_t ports = val_to_list(PARAM(ports));
-  uint64_t ret = netPlumber->add_source(h, ports);
+  const uint64_t id = PARAM(id).asUInt64();
+  uint64_t ret = netPlumber->add_source(h, ports, id);
   RETURN((Json::Value::UInt64) ret);
 }
 
@@ -318,8 +319,9 @@ PROTO(add_source_probe)
   if (!test) test = new TrueCondition<T1, T2>();
   T2 *match = val_to_array<T2>(PARAM(match));
   if (match->is_empty()) match = new T2(length, BIT_X);
+  const uint64_t id = PARAM(id).asUInt64();
   uint64_t ret = netPlumber->add_source_probe(
-    ports, mode, match, filter, test, nullptr, nullptr
+    ports, mode, match, filter, test, nullptr, nullptr, id
   );
   RETURN((Json::UInt64) ret);
 }
@@ -448,7 +450,8 @@ PROTO(dump_flows)
 
 PROTO(dump_flow_trees)
     const std::string dir = PARAM(dir).asString();
-    netPlumber->dump_flow_trees(dir);
+    const bool simple = PARAM(simple).asBool();
+    netPlumber->dump_flow_trees(dir, simple);
     RETURN(VOID);
 }
 

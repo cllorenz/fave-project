@@ -27,8 +27,10 @@ function stats {
   MEDIAN=`awk -f bench/median.awk < $DATA`
   MIN=`awk -f bench/min.awk < $DATA`
   MAX=`awk -f bench/max.awk < $DATA`
+  VAR=`awk -f bench/var.awk -vMEAN=$MEAN < $DATA`
+  STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
 
-  echo "$TOOL $MEAN $MEDIAN $MIN $MAX" >> $RESULTS
+  echo "$TOOL $MEAN $MEDIAN $MIN $MAX $VAR $STDDEV" >> $RESULTS
 }
 
 RDIR=$1
@@ -36,7 +38,7 @@ RDIR=$1
 RUNS=10
 
 RESULTS=$RDIR/results_aggr.dat
-[ ! -f $RESULTS ] && echo "aspect mean(ms) median(ms) min(ms) max(ms)" > $RESULTS
+[ ! -f $RESULTS ] && echo "aspect mean(ms) median(ms) min(ms) max(ms) variance(ms) stddev(ms)" > $RESULTS
 
 FAVE_RAW=$RDIR/fave_raw.dat
 echo -n "" > $FAVE_RAW

@@ -46,6 +46,7 @@ def print_help():
         "\t-o <dir> output directory (default: np_dump)",
         "\t-p dump pipes",
         "\t-t dump flow trees",
+        "\t-s dump simple flow trees",
         sep="\n"
     )
 
@@ -57,7 +58,7 @@ def main(argv):
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "ahfno:pt"))
+        opts = only_opts(getopt.getopt(argv, "ahfno:pst"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -67,6 +68,7 @@ def main(argv):
     use_network = False
     use_pipes = False
     use_trees = False
+    keep_simple = False
 
     odir = "np_dump"
 
@@ -94,6 +96,10 @@ def main(argv):
         elif opt == '-t':
             use_trees = True
 
+        elif opt == '-s':
+            use_trees = True
+            keep_simple = True
+
         else:
             eprint("unknown option: %s, usage:" % opt)
             print_help()
@@ -109,7 +115,8 @@ def main(argv):
         'flows':use_flows,
         'network':use_network,
         'pipes':use_pipes,
-        'trees':use_trees
+        'trees':use_trees,
+        'simple':keep_simple
     }
 
     if any([use_fave, use_flows, use_network, use_pipes, use_trees]):

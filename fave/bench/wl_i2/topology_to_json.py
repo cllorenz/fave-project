@@ -13,12 +13,8 @@ with open(sys.argv[1], 'r') as f:
 
     tf = f.read().splitlines()
 
-    for line in tf:
-        try:
-            _, src, _, _, _, _, _, dst, _, _, _, _, _, _ = line.split('$')
-        except:
-            print 'not parseable:', line
-            continue
+    for line in [l for l in tf if l.startswith('link')]:
+        _, src, _, _, _, _, _, dst, _, _, _, _, _, _ = line.split('$')
 
         src = int(src.strip('[]'))
         dst = int(dst.strip('[]'))
@@ -26,5 +22,5 @@ with open(sys.argv[1], 'r') as f:
         topo.append({'src' : src, 'dst' : dst})
 
 
-    with open('i2-hassel/topology.json', 'w') as of:
+    with open('/'.join(sys.argv[1].split('/')[:len(sys.argv[1].split('/'))-2] + ['i2-json', 'topology.json']), 'w') as of:
         of.write(json.dumps(topology, indent=2)+'\n')

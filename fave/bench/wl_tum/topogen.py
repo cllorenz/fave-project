@@ -29,7 +29,7 @@ if __name__ == '__main__':
     ]
 
     source_links = [
-        ("source.tum.1", "fw.tum.forward_filter_in")
+        ("source.tum.1", "fw.tum.forward_filter_in", True)
     ]
 
     topology = {
