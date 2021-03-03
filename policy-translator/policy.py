@@ -467,17 +467,66 @@ class Policy(object):
         ip6rule = False
 
         #defaultrules rules and best practices
-        #TODO add best practices icmp and anti spoofing + add those to testcase
         defaultruletarget = " ACCEPT" if (self.default_policy == True)  else " DROP"
         default4rule = "iptables -P FORWARD" + defaultruletarget
         iptable_rules.append(default4rule)
+
+        #Anti-Spoofing Ipv4
+        for role in self.get_atomic_roles():
+            if 'ipv4' in self.roles[role].attributes:
+                src= self.roles[role].attributes['ipv4']
+                bp4rules = "iptables -A FORWARD -i eth1 -s " + src + " -j DROP"
+                iptable_rules.append(bp4rules)
+
+        bp4rules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+        iptable_rules.append(bp4rules)
+
         default6rule = "ip6tables -P FORWARD" + defaultruletarget
         iptable_rules.append(default6rule)
 
-        bprules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
-        iptable_rules.append(bprules)
+        #Anti-Spoofing Ipv6
+        for role in self.get_atomic_roles():
+            if 'ipv6' in self.roles[role].attributes:
+                src= self.roles[role].attributes['ipv6']
+                bp6rules = "ip6tables -A FORWARD -i eth1 -s " + src + " -j DROP"
+                iptable_rules.append(bp6rules)
 
 
+        #ICMP Traffic
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT"
+        iptable_rules.append(bp6rules)
+
+        #Routing-Header
+        bp6rules = "ip6tables -N routinghdr"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 0 --rt-segsleft 0 -j RETURN"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 2 --rt-segsleft 1 -j RETURN"
+        iptable_rules.append(bp6rules)
+        bp6rules = "ip6tables -A routinghdr -m rt ! --rt-segsleft 0 --j DROP"
+        iptable_rules.append(bp6rules)
+
+        bp6rules = "ip6tables -A FORWARD -m ipv6header --header ipv6-route --soft -j routinghdr"
+        iptable_rules.append(bp6rules)
+
+        bp6rules = "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+        iptable_rules.append(bp6rules)
         # create iptable rule(s) for every Policy
         for policy in self.policies:
 
@@ -486,11 +535,15 @@ class Policy(object):
             eth_from = " -i eth1" if (policy[0]=="Internet") else ""
             eth_to = " -o eth1" if (policy[1]=="Internet") else ""
 
-            # Check for Vlan, don't set if none given or has already been set for Internet
+            # Check for interface and vlan
             if not eth_from:
-                eth_from = (" -i eth2." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes) else ""
+                eth_from_interface = (" -i " + self.roles[policy[0]].attributes["interface"]) if ("interface" in self.roles[policy[0]].attributes) else ""
+                eth_from_vlan = ("." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes and "interface" in self.roles[policy[0]].attributes) else ""
+                eth_from = eth_from_interface + eth_from_vlan
             if not eth_to:
-                eth_to = (" -o eth2." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes) else ""
+                eth_to_interface = (" -o " + self.roles[policy[1]].attributes["interface"]) if ("interface" in self.roles[policy[1]].attributes) else ""
+                eth_to_vlan = ("." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes and "interface" in self.roles[policy[1]].attributes) else ""
+                eth_to = eth_to_interface + eth_to_vlan
 
             #test if this policy is a relatedrule
             relatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions) else False
@@ -524,35 +577,6 @@ class Policy(object):
             ip6_from = (" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
             ip6_to = (" -d " + self.roles[policy[1]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[1]].attributes) else ""
 
-            # get service informations
-            srcprotocol = []
-            srcport = []
-            destprotocol = []
-            destport = []
-            serviceset = False
-
-            #source services
-            if(self.roles[policy[0]].offers_services()):
-                serviceset = True
-                srcservices = self.roles[policy[0]].get_services()
-                srcservice = srcservices[policy[0]]
-                srckeys = list(srcservice)
-                for key in srckeys:
-                    srcprotocol.append(srcservice[key].attributes["protocol"])
-                    srcport.append(srcservice[key].attributes["port"])
-
-            #destination services
-            if(self.roles[policy[1]].offers_services()):
-                serviceset = True
-                destservices = self.roles[policy[1]].get_services()
-                destservice = destservices[policy[1]]
-                destkeys = list(destservice)
-                for key in destkeys:
-                    destprotocol.append(destservice[key].attributes["protocol"])
-                    destport.append(destservice[key].attributes["port"])
-            else :
-                serviceinfo = ""
-
             # add comment for human readability
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
 
@@ -564,10 +588,13 @@ class Policy(object):
             #if there are condition handle them
             if self.policies[policy].conditions:
                 for cond in self.policies[policy].conditions:
+                    provider = []
                     #check if services are given
+                    if 'provider' in cond:
+                        provider = cond['provider']
                     if 'protocol' in cond:
-                        #TODO only use sport or dport depending on policy
-                        serviceinfo = " --protocol " + cond['protocol'] + " --dport " + cond['port'] + " --sport " + cond['port']
+                        serviceport = " --sport " if provider == policy[0] else " --dport "
+                        serviceinfo = " --protocol " + cond['protocol'] + serviceport + cond['port']
                     else :
                         serviceinfo = ""
                     # check for states
