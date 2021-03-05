@@ -269,11 +269,11 @@ class PolicyBuilder(object):
                         policy.add_reachability_policy(role_to, role_from, condition={"state": "RELATED,ESTABLISHED"})
                         PT_LOGGER.debug("created conditional back")
                     elif op == "--->" or op == "<-->":
-
-                        policy.add_reachability_policy(role_from, role_to, service_to, condition={"provider": role_to})
+                        cond = {"provider": role_to} if service_to else None
+                        policy.add_reachability_policy(role_from, role_to, service_to, condition=cond)
                         PT_LOGGER.debug("created unconditional forth")
                         if op == "<-->":
-                            policy.add_reachability_policy(role_to, role_from, service_to, condition={"provider": role_to})
+                            policy.add_reachability_policy(role_to, role_from, service_to, condition=cond)
                             PT_LOGGER.debug("created unconditional back")
                     else:
                         PT_LOGGER.debug("operator %s not permitted with default %s", op, policy.default_policy)

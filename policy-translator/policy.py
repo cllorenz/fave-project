@@ -601,7 +601,7 @@ class Policy(object):
                     if 'state' in cond:
                         # a-/-->> rules
                         if cond['state'] == 'NEW,INVALID':
-                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + comment + " -m conntrack --ctstate NEW" + jumptarget
+                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + " -m conntrack --ctstate NEW" + comment + jumptarget
                             iptable_rules.append(rule)
 
                     #if serviceinfo is set create rule

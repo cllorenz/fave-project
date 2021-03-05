@@ -137,6 +137,51 @@ class TestToIptables(unittest.TestCase):
         self.expdeny.append(rule)
         self.check(self.expdeny)
 
+    def test_reversePolicy(self):
+        # simple policy test
+        self.policy.add_reachability_policy("Internal", "External")
+        self.policy.add_reachability_policy("External", "Internal")
+        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
+        self.expdeny.append(rule)
+        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j ACCEPT"
+        self.expdeny.append(rule)
+        rule = "iptables -t raw -A PREROUTING -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j NOTRACK"
+        self.expdeny.append(rule)
+        rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"Internal to External\" -j ACCEPT"
+        self.expdeny.append(rule)
+
+        self.check(self.expdeny)
+
+    def test_defaultallowsimple(self):
+        self.policy.set_default_policy("allow")
+        self.policy.add_reachability_policy("Internal", "External")
+        rule = "iptables -t raw -A PREROUTING -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j NOTRACK"
+        self.expallow.append(rule)
+        rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"Internal to External\" -j DROP"
+        self.expallow.append(rule)
+        self.check(self.expallow)
+
+    def test_defaulallowrevrerse(self):
+        self.policy.set_default_policy("allow")
+        self.policy.add_reachability_policy("Internal", "External")
+        self.policy.add_reachability_policy("External", "Internal")
+        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
+        self.expallow.append(rule)
+        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j DROP"
+        self.expallow.append(rule)
+        rule = "iptables -t raw -A PREROUTING -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j NOTRACK"
+        self.expallow.append(rule)
+        rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"Internal to External\" -j DROP"
+        self.expallow.append(rule)
+        self.check(self.expallow)
+
+    def test_defaultallowoneway(self):
+        self.policy.set_default_policy("allow")
+        self.policy.add_reachability_policy("Internal", "External", condition={"state": "NEW,INVALID"})
+        rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW -m comment --comment \"Internal to External\" -j DROP"
+        self.expallow.append(rule)
+        self.check(self.expallow)
+
     def test_vlan(self):
         self.policy.add_reachability_policy("Internal", "External")
         # Vlan test
