@@ -456,10 +456,10 @@ class Policy(object):
         return json.dumps(mapping, indent=2) + '\n'
 
     def to_iptables(self):
-        """ Creates a list of iptable rules for the given Policies
+        """ Creates a list of iptables rules for the given Policies
 
         Returns:
-            A String that contains the iptable rules
+            A String that contains the iptables rules
         """
         # set needed Variables
         iptable_rules = []
@@ -581,7 +581,6 @@ class Policy(object):
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
 
             # add statemodule plus new if singlerule add notrack
-
             module = " -m conntrack --ctstate NEW"
             module = " -m conntrack --ctstate NEW,NOTRACK" if singleway else module
 
@@ -636,7 +635,7 @@ class Policy(object):
                     if singleway:
                         rule = "ip6tables -t raw -A PREROUTING" + eth_from + ip6_from + eth_to + ip6_to + comment + " -j NOTRACK"
                         iptable_rules.append(rule)
-                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module +comment + jumptarget
+                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + jumptarget
                     iptable_rules.append(rule)
 
             # reset variables for next run
