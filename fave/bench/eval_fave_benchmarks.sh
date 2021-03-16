@@ -20,17 +20,30 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 function stats {
-  ASPECT=$1
-  DATA=$2
+  TOOL=$1
 
-  MEAN=`awk -f bench/mean.awk < $DATA`
-  MEDIAN=`awk -f bench/median.awk < $DATA`
-  MIN=`awk -f bench/min.awk < $DATA`
-  MAX=`awk -f bench/max.awk < $DATA`
-  VAR=`awk -f bench/var.awk -vMEAN=$MEAN < $DATA`
-  STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+  echo -n $TOOL >> $RESULTS
 
-  echo "$ASPECT $MEAN $MEDIAN $MIN $MAX $VAR $STDDEV" >> $RESULTS
+  for DATA in ${@:2}; do
+      MEAN=`awk -f bench/mean.awk < $DATA`
+      if [ "$MEAN" == "0" ]; then
+          echo -n " NaN" >> $RESULTS
+      else
+          echo -n " $MEAN" >> $RESULTS
+      fi
+  done
+
+  for DATA in ${@:2}; do
+      MEAN=`awk -f bench/mean.awk < $DATA`
+      STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+      if [ "$STDDEV" == "0" ]; then
+          echo -n " NaN" >> $RESULTS
+      else
+          echo -n " $STDDEV" >> $RESULTS
+      fi
+  done
+
+  echo "" >> $RESULTS
 }
 
 RDIR=$1
@@ -38,7 +51,7 @@ RDIR=$1
 RUNS=10
 
 RESULTS=$RDIR/results.dat
-[ ! -f $RESULTS ] && echo "aspect mean(ms) median(ms) min(ms) max(ms) var(ms) stddev(ms)" > $RESULTS
+[ ! -f $RESULTS ] && echo "Tool Initialization Reachability Compliance \"Initialization StdDev.\" \"Reachability StdDev.\" \"Compliance StdDev.\"" > $RESULTS
 
 PARSING=$RDIR/raw_parsing.dat
 echo -n "" > $PARSING
@@ -104,9 +117,5 @@ for i in $(seq 1 $RUNS); do
     awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $CHECKS
 done
 
-stats Parsing $PARSING
-stats "\"FaVe Init\"" $FAVE_INIT
-stats "\"FaVe Reach\"" $FAVE_REACH
-stats "\"NP Init\"" $NP_INIT
-stats "\"NP Reach\"" $NP_REACH
-stats Checks $CHECKS
+stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS
+stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0")
