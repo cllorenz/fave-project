@@ -56,9 +56,10 @@ def _print_help():
     """ Prints a usage message to stderr.
     """
     eprint(
-        "aggregator -s <server> -p <port>",
+        "aggregator [-s <server> [-p <port>]] [-S <backends>]",
         "\t-s <server> ip address of the instance",
         "\t-p <port> the port number of the netplumber instance",
+        "\t-S <backends> a list of NP backend socket identifiers, e.g., np1,np2,...",
         sep="\n"
     )
 
@@ -535,6 +536,7 @@ def main(argv):
             getopt.getopt(argv, "hds:p:S:", ["help", "debug", "server=", "port=", "servers="])
         )
     except getopt.GetoptError:
+        eprint("could not parse options: %s" % argv)
         _print_help()
         sys.exit(2)
 
@@ -561,6 +563,7 @@ def main(argv):
             socks[server] = sock
         except jsonrpc.RPCError as err:
             Aggregator.LOGGER.error(err.message)
+            eprint("could not connect to server: %s" % server)
             _print_help()
             sys.exit(1)
 
