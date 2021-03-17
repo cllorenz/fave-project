@@ -214,7 +214,13 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     else log_msg << "."; \
     LOG4CXX_INFO(rpc_logger,log_msg.str()); \
     LOG_MSG_RESET; \
-    do { resp["result"] = (VAL); FINI; } while (0)
+    resp["result"] = (VAL); \
+    if (rpc_logger->isTraceEnabled()) {\
+      log_msg << "Send: " << resp; \
+      LOG4CXX_TRACE(rpc_logger,log_msg.str()); \
+      LOG_MSG_RESET; \
+    } \
+    do { FINI; } while (0)
 
 #define ERROR(MSG) do { \
     resp["error"]["code"] = 1; resp["error"]["message"] = (MSG); FINI; \
