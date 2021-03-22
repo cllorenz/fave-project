@@ -113,7 +113,7 @@ echo -n "" > $CHECKS
 for i in $(seq 1 $RUNS); do
   grep "parse device" $RDIR/fave/$i.raw/stdout.log | cut -d' ' -f4 | \
     awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $PARSING
-  grep "checked flow tree in" $RDIR/fave/$i.raw/stdout.log | cut -d' ' -f5 | \
+  grep "checked flow tree in" $RDIR/fave/$i.raw/stdout.log | cut -d' ' -f7 | \
     awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $CHECKS
 done
 
