@@ -25,7 +25,7 @@
 
 import json
 
-from copy import deepcopy as dc
+from copy import deepcopy
 
 from netplumber.model import Model
 
@@ -230,14 +230,14 @@ class PacketFilterModel(Model):
 
         # first, forward traffic that already has the destination and output
         # ports set correctly (via a filtering rule set)
-        rule_exact = dc(rule)
+        rule_exact = deepcopy(rule)
         rule_exact.idx = BASE_ROUTING_EXACT + idx
         rule_exact.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
 
 
         # second, drop traffic that has an incorrect destination set for an
         # output port
-        rule_wrong_io = dc(rule)
+        rule_wrong_io = deepcopy(rule)
         rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
         rule_wrong_io.match.filter("packet.ipv6.destination")
         rule_wrong_io.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
