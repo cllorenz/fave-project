@@ -33,7 +33,6 @@ import time
 from pprint import pformat
 from threading import Thread
 from Queue import Queue
-from copy import deepcopy as dc
 
 #from aggregator_profiler import profile_method
 from aggregator_abstract import AbstractAggregator
