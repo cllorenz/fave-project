@@ -249,6 +249,14 @@ class PacketFilterModel(Model):
         rule.idx = BASE_ROUTING_RULE + idx
         rule.actions.extend(rewrites)
 
+        rule_exact.tid = self.node+".routing"
+        rule_wrong_io.tid = self.node+".routing"
+        rule.tid = self.node+".routing"
+
+        super(PacketFilterModel, self).add_rule(rule_exact)
+        super(PacketFilterModel, self).add_rule(rule_wrong_io)
+        super(PacketFilterModel, self).add_rule(rule)
+
         self.tables[self.node+".routing"].insert(rule_exact.idx, rule_exact)
         self.tables[self.node+".routing"].insert(rule_wrong_io.idx, rule_wrong_io)
         self.tables[self.node+".routing"].insert(rule.idx, rule)
@@ -260,7 +268,7 @@ class PacketFilterModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
-
+        super(SwitchModel, self).remove_rule(idx)
         del self.tables[self.node+".routing"][rule_exact.idx]
         del self.tables[self.node+".routing"][rule_wrong_io.idx]
         del self.tables[self.node+".routing"][rule.idx]

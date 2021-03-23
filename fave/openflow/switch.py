@@ -131,6 +131,8 @@ class SwitchModel(Model):
         idx -- a rule index
         rule -- a rule
         """
+
+        super(SwitchModel, self).add_rule(rule)
         self.tables[self.node+".1"].insert(idx, rule)
 
 
@@ -140,6 +142,7 @@ class SwitchModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
+        super(SwitchModel, self).remove_rule(idx)
         del self.tables[self.node+".1"][idx]
 
 
@@ -160,6 +163,7 @@ class SwitchModel(Model):
         assert self.type == other.type
 
         smm = super(SwitchModel, self).__sub__(other)
+        smm.tables.setdefault(self.node+'.1', [])
 
         res = SwitchModel(
             smm.node,

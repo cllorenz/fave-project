@@ -269,7 +269,7 @@ class Aggregator(AbstractAggregator):
         if model.type == "switch_command":
             if model.node in self.models:
 
-                switch = dc(self.models[model.node]) # XXX: is there a more efficient way than copying?
+                switch = self.models[model.node]
 
                 if model.command == "add_rule":
                     switch.add_rule(model.rule.idx, model.rule)
@@ -410,6 +410,12 @@ class Aggregator(AbstractAggregator):
         if model.node in self.models:
             # calculate items to remove and items to add
             add = model - self.models[model.node]
+            for table in model.adds:
+                add.tables.setdefault(table, [])
+                add.tables[table].extend(model.adds[table])
+
+            model.reset()
+
             #sub = self.models[model.node] - model
 
 # TODO: fix deletion... needs exclusion of pre-, post-routing, state tables

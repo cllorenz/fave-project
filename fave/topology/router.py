@@ -384,6 +384,8 @@ class RouterModel(Model):
         actions.append(Rewrite(rewrite=rewrites))
         rule.actions = actions
 
+        rule.tid = self.node+'.routing'
+        super(RouterModel, self).add_rule(rule)
         self.tables[self.node+'.routing'].insert(idx, rule)
 
 
@@ -393,7 +395,7 @@ class RouterModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
-
+        super(RouterModel, self).remove_rule(idx)
         del self.tables[self.node+".routing"][idx]
 
 
