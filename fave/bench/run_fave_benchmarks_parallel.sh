@@ -45,7 +45,7 @@ mkdir -p $LAST_NP
 rm -rf $LAST_NP/*
 mkdir -p $RDIR/fave
 
-for threads in 2 4 8 16 24; do
+for threads in 1 2 4 8 16 24; do
   # run FaVe benchmark
   for i in $(seq 1 $RUNS); do
     RAW_DIR=$RDIR/fave/$threads/$i.raw
