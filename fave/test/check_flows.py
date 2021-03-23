@@ -366,7 +366,7 @@ def main(argv):
 
     try:
         only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hbd:c:rj:t:"))
+        opts = only_opts(*getopt.getopt(argv, "hbd:c:rj:t:f:"))
     except getopt.GetoptError as err:
         eprint("error while fetching arguments: %s" % err)
         _print_help()
@@ -385,6 +385,9 @@ def main(argv):
             sys.exit(0)
         elif opt == '-b':
             broad = True
+        elif opt == '-f':
+            parser = _get_parser()
+            flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow]
         elif opt == '-d':
             dump = arg
         elif opt == '-c':

@@ -140,7 +140,8 @@ if __name__ == "__main__":
     LOGGER.info("ordered fave to stop")
 
     LOGGER.info("wait for fave to check flow trees...")
-    checker.main(["-b", "-r", "-c", ";".join(checks)])
+    os.system("python2 misc/await_fave.py")
+    os.system("bash scripts/check_parallel.sh %s %s" % (CHECKS, tds))
     LOGGER.info("checked flow trees.")
 
     os.system("rm -f np_dump/.lock")
