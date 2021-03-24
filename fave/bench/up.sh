@@ -20,12 +20,14 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 RUNS=10
-RES_UP=$(pwd)/results/up-full
-rm -rf $(pwd)/results
+#RES_UP=$(pwd)/results/up-full
+RES_UP=$(pwd)/results/up-parallel
+rm -rf $RES_UP
 mkdir -p $RES_UP
 
 echo "run fave on up workload..."
-bash bench/run_fave_benchmarks.sh $RES_UP bench/wl_up/benchmark.py
+#bash bench/run_fave_benchmarks.sh $RES_UP bench/wl_up/benchmark.py
+bash bench/run_fave_benchmarks-parallel.sh $RES_UP bench/wl_up/benchmark.py
 
 echo "evaluate fave and np for up workload..."
 bash bench/eval_fave_benchmarks.sh $RES_UP
