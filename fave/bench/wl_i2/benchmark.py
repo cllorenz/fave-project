@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
 
 import os
-import re
 import json
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
+from bench.bench_helpers import is_intermediate_port, is_output_port, pick_port, array_ipv4_to_cidr, array_vlan_to_number
 
 ROLES='bench/wl_i2/roles.txt'
 POLICY='bench/wl_i2/reach.txt'
@@ -19,52 +19,6 @@ SOURCES='bench/wl_i2/i2-json/sources.json'
 
 with open('bench/wl_i2/i2-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
-
-
-def _generic_port_check(port, offset, base):
-    return port - offset > base and port  - 2  * offset < base
-
-def _is_intermediate_port(port, base):
-    return _generic_port_check(port, 10000, base)
-
-def _is_output_port(port, base):
-    return _generic_port_check(port, 20000, base)
-
-
-def array_ipv4_to_cidr(array):
-    assert 32 == len(array)
-    cidr_regex = '(?P<pre>[01]*)(?P<post>x*)'
-    m = re.match(cidr_regex, array)
-    if m and 32 == len(m.group('pre')) + len(m.group('post')):
-        pre = m.group('pre')
-        plen = len(pre)
-        post = '0'*len(m.group('post'))
-
-        octal_regex = '(?P<i1>[01]{8})(?P<i2>[01]{8})(?P<i3>[01]{8})(?P<i4>[01]{8})'
-        o = re.match(octal_regex, pre+post)
-        octals = "%s.%s.%s.%s" % (
-            int(o.group('i1'), 2),
-            int(o.group('i2'), 2),
-            int(o.group('i3'), 2),
-            int(o.group('i4'), 2)
-        )
-
-        return "%s/%s" % (octals, plen)
-    else:
-        raise Exception("array not in cidr format: %s" % array)
-
-
-def array_vlan_to_number(array):
-    assert 16 == len(array)
-    if 'x'*16 == array:
-        return 0
-
-    vlan_regex = '((xxxx)|(0000))(?P<vlan>[01]{12})'
-    m = re.match(vlan_regex, array)
-    if m:
-        return int(m.group('vlan'), 2)
-    else:
-        raise Exception("array not a vlan number: %s" % array)
 
 
 def get_start_end(field):
@@ -97,8 +51,6 @@ def rule_to_route(rule, base_port, ext_port):
     rid = int(rule['id']) & 0xffff
 
     in_ports = rule['in_ports']
-    if not any([_is_intermediate_port(p, base_port) for p in in_ports]):
-        in_ports.append(ext_port)
     out_ports = rule['out_ports']
 
     match_fields = []
@@ -174,6 +126,7 @@ if __name__ == '__main__':
     port_to_name = {}
     active_egress_ports = {}
     active_ingress_ports = {}
+    inactive_ingress_ports = {}
     active_link_ports = set()
     table_from_id = {}
     ext_ports = {}
@@ -198,15 +151,26 @@ if __name__ == '__main__':
             ext_port = tid * 100000 + 90000
 
             ext_ports[name] = ext_port
-            table_ports = set(table['ports'] + [ext_port])
+            table_ports = set(table['ports'])
 
             portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
+            intermediate_ports = set(
+                [p for p in table_ports if p == base_port or is_intermediate_port(p, base_port)]
+            )
+            egress_ports = set(
+                [p for p in table_ports if is_output_port(p, base_port)]
+            )
+            ingress_ports = (table_ports - intermediate_ports) - egress_ports
 
             for rule in table['rules']:
-                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or _is_intermediate_port(p, base_port))])
-                active_egress_ports[name].update([p for p in rule['out_ports'] if _is_output_port(p, base_port)])
+                active_ingress_ports[name].update(
+                    set(rule['in_ports']) - intermediate_ports
+                )
+                active_egress_ports[name].update(
+                    set(rule['out_ports']) - intermediate_ports
+                )
 
             portno = 1
             for port in table_ports:
@@ -218,11 +182,13 @@ if __name__ == '__main__':
 
             links.append((port_to_name[base_port], port_to_name[base_port], False))
             active_link_ports.add(base_port)
-            for port in [
-                p for p in table_ports if _is_intermediate_port(p, base_port)
-            ]:
+            for port in intermediate_ports:
                 links.append((port_to_name[port], port_to_name[port], False))
                 active_link_ports.add(port)
+
+            inactive_ingress_ports[name] = list(
+                ingress_ports - active_ingress_ports[name]
+            )
 
 
     with open (ROUTES, 'w') as rf:
@@ -270,8 +236,14 @@ if __name__ == '__main__':
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
 
+        dst = pick_port(
+            inactive_ingress_ports[name], name
+        ) if inactive_ingress_ports[name] else pick_port(
+            active_ingress_ports[name], name
+        )
+
         sources_links.append(
-            ("source.%s.1" % name, port_to_name[ext_ports[name]], True)
+            ("source.%s.1" % name, port_to_name[dst], True)
         )
 
         devices.append((
