@@ -115,6 +115,20 @@ def is_ext_port(ports):
     return is_port(ports)
 
 
+def is_host(hosts):
+    """ Checks if a string is a valid host identifier consisting of either of
+        the form <domain>:<port> or <ip>:port.
+    Keyword arguments:
+    hosts -- a string
+    """
+    try:
+        host, port = hosts.split(':')
+    except ValueError:
+        return False
+
+    return (is_ip(host) or is_domain(host)) and is_port(port)
+
+
 def normalize_vlan_tag(vlan):
     """ Normalizes vlan tags.
 
