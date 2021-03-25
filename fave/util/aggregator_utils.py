@@ -24,6 +24,8 @@ import time
 import socket
 
 UDS_ADDR = "/tmp/np_aggregator.socket"
+FAVE_DEFAULT_IP = '127.0.0.1'
+FAVE_DEFAULT_PORT = 44000
 
 def connect_to_fave():
     """ Creates a connected socket to FaVe.

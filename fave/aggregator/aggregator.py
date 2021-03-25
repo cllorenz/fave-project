@@ -41,7 +41,7 @@ from aggregator_signals import register_signals
 from aggregator_util import model_from_json
 
 from util.print_util import eprint
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import UDS_ADDR, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
