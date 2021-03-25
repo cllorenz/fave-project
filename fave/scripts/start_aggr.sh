@@ -19,15 +19,19 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-mkdir -p /tmp/np
+DIR=/dev/shm
+mkdir -p $DIR/np
+
 
 if [ "$#" -eq "1" ]; then
-    PYTHONPATH=. python2 aggregator/aggregator.py -S $1 &
+    python2 aggregator/aggregator.py -s 127.0.0.1 -p 44000 -S $1 &
+elif [ "$#" -eq "3" ]; then
+    python2 aggregator/aggregator.py -s $1 -p $2 -S $3 &
 else
-    PYTHONPATH=. python2 aggregator/aggregator.py -s /tmp/net_plumber.socket &
+    python2 aggregator/aggregator.py -s 127.0.0.1 -p 44000 &
 fi
 
-PID=$!
-echo $PID > /tmp/aggr.pid
+#PID=$!
+#echo $PID > $DIR/aggr.pid
 #taskset -p 0x00000004 $PID > /dev/null
-sleep 0.5s
+#sleep 0.5s

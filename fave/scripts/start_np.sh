@@ -19,22 +19,19 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-mkdir -p /tmp/np
+DIR=/dev/shm
+mkdir -p $DIR/np
 
 if [ "$#" -eq "1" ]; then
-#    net_plumber --log4j-config $1 --hdr-len 1 --server 127.0.0.1 1234 >> /tmp/np/stdout.log &
-    [ -f /tmp/net_plumber.socket ] && rm /tmp/net_plumber.socket
     #valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log &
-    net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log 2>> /tmp/np/stderr.log &
-    PID=$!
+    net_plumber --log4j-config $1 --hdr-len 1 --server 127.0.0.1 44001 >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
 elif [ "$#" -eq "2" ]; then
-    net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/$2.socket >> /tmp/np/$2.stdout.log 2>> /tmp/np/$2.stderr.log &
-    PID=$!
+    [ -f $DIR/$2.socket ] && rm $DIR/$2.socket
+    net_plumber --log4j-config $1 --hdr-len 1 --unix $DIR/$2.socket >> $DIR/np/$2.stdout.log 2>> $DIR/np/$2.stderr.log &
 else
-    [ -f /tmp/np/stdout.log ] && rm /tmp/np/stdout.log
-    touch /tmp/np/stdout.log
-    net_plumber --hdr-len 1 --server 127.0.0.1 1234 >> /tmp/np/stdout.log &
-    PID=$!
+    [ -f $DIR/np/stdout.log ] && rm $DIR/np/stdout.log
+    touch $DIR/np/stdout.log
+    net_plumber --hdr-len 1 --server 127.0.0.1 44001 >> $DIR/np/stdout.log &
 fi
 
 #taskset -p 0x00000001 $PID > /dev/null
