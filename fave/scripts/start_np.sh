@@ -28,6 +28,8 @@ if [ "$#" -eq "1" ]; then
 elif [ "$#" -eq "2" ]; then
     [ -f $DIR/$2.socket ] && rm $DIR/$2.socket
     net_plumber --log4j-config $1 --hdr-len 1 --unix $DIR/$2.socket >> $DIR/np/$2.stdout.log 2>> $DIR/np/$2.stderr.log &
+elif [ "$#" -eq "4" ]; then
+    net_plumber --log4j-config $1 --hdr-len 1 --server $3 $4 >> $DIR/np/$2.stdout.log 2>> $DIR/np/$2.stderr.log &
 else
     [ -f $DIR/np/stdout.log ] && rm $DIR/np/stdout.log
     touch $DIR/np/stdout.log

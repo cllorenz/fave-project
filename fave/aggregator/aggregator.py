@@ -607,7 +607,7 @@ def main(argv):
     for np_server, np_port in servers:
         try:
             sock = jsonrpc.connect_to_netplumber(np_server, np_port)
-            socks[np_server] = sock
+            socks[(np_server, np_port)] = sock
         except jsonrpc.RPCError as err:
             Aggregator.LOGGER.error(err.message)
             eprint("could not connect to server: %s %s" % (np_server, np_port))
