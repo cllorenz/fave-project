@@ -18,7 +18,8 @@ LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
 LOGGER.setLevel(logging.DEBUG)
 
-TMPDIR = "/tmp/np"
+#TMPDIR = "/tmp/np"
+TMPDIR = "/dev/shm/np"
 os.system("mkdir -p %s" % TMPDIR)
 
 LOGGER.info("deleting old logs and measurements...")
@@ -88,12 +89,12 @@ if __name__ == "__main__":
 
     LOGGER.info("starting netplumber...")
     for no in range(1,tds+1):
-        os.system("scripts/start_np.sh bench/wl_up/np.conf np%s" % no)
+        os.system("scripts/start_np.sh bench/wl_up/np.conf 127.0.0.1 44%03d" % no)
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
     os.system(
-        "scripts/start_aggr.sh %s" % ','.join(["np%s" % no for no in range(1, tds+1)])
+         "scripts/start_aggr.sh %s" % ','.join(["127.0.0.1:44%03d" % no for no in range(1, tds+1)])
     )
     LOGGER.info("started aggregator.")
 

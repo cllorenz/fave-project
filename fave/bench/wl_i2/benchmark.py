@@ -266,8 +266,8 @@ if __name__ == '__main__':
             json.dumps({'devices' : sources, 'links' : sources_links}, indent=2) + '\n'
         )
 
-    os.system("bash scripts/start_np.sh bench/wl_i2/np.conf np1")
-    os.system("bash scripts/start_aggr.sh np1")
+    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf 127.0.0.1 44001")
+    os.system("bash scripts/start_aggr.sh 127.0.0.1:44001")
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()

@@ -34,6 +34,7 @@ function check_integrity {
   return 0
 }
 
+FDIR=/dev/shm
 RDIR=$1
 BENCH=$2
 [ -n "$3" ] && RULESET="-r $3" || RULESET=""
@@ -51,8 +52,8 @@ for threads in 1 2 4 8 16 24; do
     RAW_DIR=$RDIR/fave/$threads/$i.raw
     rm -rf $RAW_DIR
     mkdir -p $RAW_DIR
-  
-    sleep 1
+
+    sleep 5
   
     SOUT=$RAW_DIR/stdout.log
     SERR=$RAW_DIR/stderr.log
@@ -61,7 +62,7 @@ for threads in 1 2 4 8 16 24; do
     python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
     echo "done"
   
-    sleep 1
+    sleep 5
   
     echo -n "check integrity... "
     check_integrity
@@ -69,7 +70,9 @@ for threads in 1 2 4 8 16 24; do
     rm -rf $LAST_NP/*
     cp -r np_dump/* $LAST_NP/
   
-    cp -r /tmp/np/ $RAW_DIR
+    cp -r $FDIR/np/ $RAW_DIR
+
+    sleep 5
   done
 done
 
