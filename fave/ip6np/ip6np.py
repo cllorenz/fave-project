@@ -33,7 +33,7 @@ import generator
 from misc.pybison_singleton import PARSER
 
 from util.print_util import eprint
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 def print_help():
     """ Prints the usage on stderr.
@@ -101,7 +101,7 @@ def main(argv):
         pprint.pprint(model.to_json())
 
     else:
-        fave = connect_to_fave()
+        fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
         s = json.dumps(model.to_json())
         fave.send(s)
         fave.close()

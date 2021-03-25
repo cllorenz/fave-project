@@ -19,6 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-PYTHONPATH=. python2 aggregator/stop.py
+python2 aggregator/stop.py
 
 [ -S /tmp/np_aggregator.socket ] && rm /tmp/np_aggregator.socket

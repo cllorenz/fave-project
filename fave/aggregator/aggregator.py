@@ -57,9 +57,9 @@ def _print_help():
     """
     eprint(
         "aggregator [-s <server> [-p <port>]] [-S <backends>]",
-        "\t-s <server> ip address of the instance",
+        "\t-s <server> ip address of the netplumber instance",
         "\t-p <port> the port number of the netplumber instance",
-        "\t-S <backends> a list of NP backend socket identifiers, e.g., np1,np2,...",
+        "\t-S <backends> a list of NP backend socket identifiers, e.g., np1,np2,... or 1.2.3.4:44001,1.2.3.4:44001,...",
         sep="\n"
     )
 
@@ -176,16 +176,23 @@ class Aggregator(AbstractAggregator):
             Aggregator.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
 
 
-    def run(self):
+    def run(self, server, port=0):
         """ Operates FaVe's aggregation service.
         """
 
-        # open new unix domain socket
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("open and bind uds socket")
-        uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        uds.settimeout(2.0)
-        uds.bind(UDS_ADDR)
+        if port == 0:
+            # open new unix domain socket
+            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+                Aggregator.LOGGER.info("open and bind uds socket")
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(2.0)
+            sock.bind(UDS_ADDR)
+        else:
+            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+                Aggregator.LOGGER.info("open and bind tcp socket")
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2.0)
+            sock.bind((server, port))
 
         # start thread to handle incoming config events
         if Aggregator.LOGGER.isEnabledFor(logging.INFO):
@@ -196,7 +203,7 @@ class Aggregator(AbstractAggregator):
 
         if Aggregator.LOGGER.isEnabledFor(logging.INFO):
             Aggregator.LOGGER.info("listen on socket")
-        uds.listen(1)
+        sock.listen(1)
 
         only_conn = lambda x: x[0]
         while not self.stop:
@@ -204,7 +211,7 @@ class Aggregator(AbstractAggregator):
             if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                 Aggregator.LOGGER.debug("master: wait for connection")
             try:
-                conn = only_conn(uds.accept())
+                conn = only_conn(sock.accept())
             except socket.timeout:
                 if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                     Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
@@ -236,7 +243,7 @@ class Aggregator(AbstractAggregator):
         # close unix domain socket
         if Aggregator.LOGGER.isEnabledFor(logging.INFO):
             Aggregator.LOGGER.info("master: close receiving socket")
-        uds.close()
+        sock.close()
 
         # wait for the config event handler to finish
         if Aggregator.LOGGER.isEnabledFor(logging.INFO):
@@ -557,15 +564,16 @@ def main(argv):
     """ Connects to net_plumber backend and starts aggregator.
     """
 
-    servers = ["127.0.0.1"]
-    port = 0
+    fave_addr = FAVE_DEFAULT_IP
+    fave_port = FAVE_DEFAULT_PORT
+    servers = [(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
     log_level = logging.INFO
     socks = {}
 
     try:
         only_opts = lambda x: x[0]
         opts = only_opts(
-            getopt.getopt(argv, "hds:p:S:", ["help", "debug", "server=", "port=", "servers="])
+            getopt.getopt(argv, "hds:p:S:u:", ["help", "debug", "server=", "port=", "servers=", "unix="])
         )
     except getopt.GetoptError:
         eprint("could not parse options: %s" % argv)
@@ -576,33 +584,40 @@ def main(argv):
         if opt == '-h':
             _print_help()
             sys.exit(0)
-        elif opt == '-s' and (is_ip(arg) or is_domain(arg) or is_unix(arg)):
-            servers = [arg]
+        elif opt == '-s' and (is_ip(arg) or is_domain(arg)):
+            fave_addr = arg
         elif opt == '-p':
-            port = int(arg) if is_port(arg) else port
-        elif opt == '-S' and all([is_ip(s) or is_domain(s) or is_unix(s) for s in arg.split(',')]):
-            servers = ["/tmp/%s.socket" % s for s in arg.split(',')]
+            fave_port = int(arg) if is_port(arg) else port
+        elif opt == '-u' and is_unix(arg):
+            fave_addr = arg
+        elif opt == '-S' and all([is_host(s) for s in arg.split(',')]):
+            servers = []
+            for sp in arg.split(','):
+                np_host, np_port = sp.split(':')
+                servers.append((np_host, int(np_port)))
+        elif opt == '-S' and all([is_unix(s) for s in arg.split(',')]):
+            servers = [("/dev/shm/%s.socket" % s, 0) for s in arg.split(',')]
         elif opt == '-d':
             log_level = logging.DEBUG
 
-    log_handler = logging.FileHandler('/tmp/np/aggregator.log')
+    log_handler = logging.FileHandler('/dev/shm/np/aggregator.log')
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(log_level)
 
-    for server in servers:
+    for np_server, np_port in servers:
         try:
-            sock = jsonrpc.connect_to_netplumber(server, port)
-            socks[server] = sock
+            sock = jsonrpc.connect_to_netplumber(np_server, np_port)
+            socks[np_server] = sock
         except jsonrpc.RPCError as err:
             Aggregator.LOGGER.error(err.message)
-            eprint("could not connect to server: %s" % server)
+            eprint("could not connect to server: %s %s" % (np_server, np_port))
             _print_help()
             sys.exit(1)
 
     global AGGREGATOR
     AGGREGATOR = Aggregator(socks)
 
-    for server in [s for s in servers if is_unix(s)]:
+    for server in [s[0] for s in servers if is_unix(s[0]) and s[1] == 0]:
         try:
             os.unlink(server)
         except OSError:
@@ -611,7 +626,12 @@ def main(argv):
 
     register_signals()
 
-    AGGREGATOR.run()
+    if is_ip(fave_addr) or is_domain(fave_addr):
+        AGGREGATOR.run(fave_addr, port=fave_port)
+    else:
+        AGGREGATOR.run(fave_addr)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

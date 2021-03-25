@@ -35,7 +35,7 @@ from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 
 class SwitchCommand(object):
@@ -298,8 +298,8 @@ def main(argv):
         sys.exit(2)
 
 
-    fave = connect_to_fave()
-    fave.send(json.dumps(cmd.to_json()))
+    fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave.sendall(json.dumps(cmd.to_json()))
     fave.close()
 
 

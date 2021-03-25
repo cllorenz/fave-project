@@ -27,7 +27,7 @@ import sys
 import getopt
 import json
 
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 from util.print_util import eprint
 from util.lock_util import PersistentFileLock
@@ -106,7 +106,7 @@ def main(argv):
             sys.exit(1)
 
 
-    fave = connect_to_fave()
+    fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
 
     dump = {
         'type':'dump',

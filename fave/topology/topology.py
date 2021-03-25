@@ -28,7 +28,7 @@ import ast
 
 from itertools import product
 
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.print_util import eprint
 from openflow.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
@@ -408,9 +408,9 @@ def main(argv):
         print_help()
         return
 
-    fave = connect_to_fave()
+    fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
     s = json.dumps(topo.to_json())
-    fave.send(s)
+    fave.sendall(s)
     fave.close()
 
 

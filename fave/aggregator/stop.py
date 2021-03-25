@@ -22,13 +22,11 @@
 """ This script sends a stopping event to FaVe.
 """
 
-import socket
 import json
 
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import UDS_ADDR, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
-_AGGR = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-_AGGR.connect(UDS_ADDR)
+_AGGR = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
 
 _STOP = {
     'type':'stop'
