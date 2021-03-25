@@ -418,7 +418,6 @@ def add_sources_bulk(socks, sources):
         res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
         for node in res:
             sids[_extract_index(node)] = _extract_node(node)
-#        sids.extend([_extract_node(n) for n in res])
 
     return sids
 
