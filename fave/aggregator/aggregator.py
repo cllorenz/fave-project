@@ -47,6 +47,7 @@ from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
 
 import netplumber.jsonrpc as jsonrpc
+from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
 from netplumber.adapter import NetPlumberAdapter
 from netplumber.mapping import Mapping
 

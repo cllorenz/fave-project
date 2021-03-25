@@ -30,6 +30,8 @@ import socket
 import cProfile
 
 PROFILE = cProfile.Profile()
+NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
+NET_PLUMBER_DEFAULT_PORT = 44001
 
 def profile_method(method):
     """ Enriches a method with profiling capabilities.
