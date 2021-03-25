@@ -51,3 +51,10 @@ def array_vlan_to_number(array):
         return int(m.group('vlan'), 2)
     else:
         raise Exception("array not a vlan number: %s" % array)
+
+
+def array_to_int(array):
+    try:
+        return int(array, 2)
+    except ValueError:
+        return array

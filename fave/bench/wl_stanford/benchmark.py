@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
 
 import os
-import re
 import json
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
+from bench.bench_helpers import is_intermediate_port, is_output_port, pick_port, array_ipv4_to_cidr, array_vlan_to_number, array_to_int
 
 ROLES='bench/wl_stanford/roles.txt'
 POLICY='bench/wl_stanford/reach.txt'
@@ -19,59 +19,6 @@ SOURCES='bench/wl_stanford/stanford-json/sources.json'
 
 with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
-
-
-def _generic_port_check(port, offset, base):
-    return port - offset > base and port  - 2  * offset < base
-
-def _is_intermediate_port(port, base):
-    return _generic_port_check(port, 10000, base)
-
-def _is_output_port(port, base):
-    return _generic_port_check(port, 20000, base)
-
-
-def array_ipv4_to_cidr(array):
-    assert 32 == len(array)
-    cidr_regex = '(?P<pre>[01]*)(?P<post>x*)'
-    m = re.match(cidr_regex, array)
-    if m and 32 == len(m.group('pre')) + len(m.group('post')):
-        pre = m.group('pre')
-        plen = len(pre)
-        post = '0'*len(m.group('post'))
-
-        octal_regex = '(?P<i1>[01]{8})(?P<i2>[01]{8})(?P<i3>[01]{8})(?P<i4>[01]{8})'
-        o = re.match(octal_regex, pre+post)
-        octals = "%s.%s.%s.%s" % (
-            int(o.group('i1'), 2),
-            int(o.group('i2'), 2),
-            int(o.group('i3'), 2),
-            int(o.group('i4'), 2)
-        )
-
-        return "%s/%s" % (octals, plen)
-    else:
-        raise Exception("array not in cidr format: %s" % array)
-
-
-def array_vlan_to_number(array):
-    assert 16 == len(array)
-    if 'x'*16 == array:
-        return 0
-
-    vlan_regex = '((xxxx)|(0000))(?P<vlan>[01]{12})'
-    m = re.match(vlan_regex, array)
-    if m:
-        return int(m.group('vlan'), 2)
-    else:
-        raise Exception("array not a vlan number: %s" % array)
-
-
-def array_to_int(array):
-    try:
-        return int(array, 2)
-    except ValueError:
-        return array
 
 
 def get_start_end(field):
@@ -100,11 +47,14 @@ def _get_rewrite(rewrite, mask, fname, sname, convert, default=None):
     return res
 
 
+
+
+
 def rule_to_route(rule, base_port, ext_port):
     rid = int(rule['id']) & 0xffff
 
     in_ports = rule['in_ports']
-    if not any([_is_intermediate_port(p, base_port) for p in in_ports]):
+    if not any([is_intermediate_port(p, base_port) for p in in_ports]):
         in_ports.append(ext_port)
     out_ports = rule['out_ports']
 
@@ -300,8 +250,8 @@ if __name__ == '__main__':
             active_egress_ports.setdefault(name, set())
 
             for rule in table['rules']:
-                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or _is_intermediate_port(p, base_port))])
-                active_egress_ports[name].update([p for p in rule['out_ports'] if _is_output_port(p, base_port)])
+                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or is_intermediate_port(p, base_port))])
+                active_egress_ports[name].update([p for p in rule['out_ports'] if is_output_port(p, base_port)])
 
             portno = 1
             for port in table_ports:
@@ -314,7 +264,7 @@ if __name__ == '__main__':
             links.append((port_to_name[base_port], port_to_name[base_port], False))
             active_link_ports.add(base_port)
             for port in [
-                p for p in table_ports if _is_intermediate_port(p, base_port)
+                p for p in table_ports if is_intermediate_port(p, base_port)
             ]:
                 links.append((port_to_name[port], port_to_name[port], False))
                 active_link_ports.add(port)
