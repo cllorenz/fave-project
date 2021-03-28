@@ -127,7 +127,7 @@ class Aggregator(AbstractAggregator):
                 Aggregator.LOGGER.debug('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
-                task_typ = 'stop'
+                task_type = 'stop'
                 self.stop_aggr()
                 self.net_plumber.stop()
 
