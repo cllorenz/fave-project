@@ -59,7 +59,7 @@ def _print_help():
         "aggregator [-s <server> [-p <port>]] [-S <backends>]",
         "\t-s <server> ip address of the netplumber instance",
         "\t-p <port> the port number of the netplumber instance",
-        "\t-S <backends> a list of NP backend socket identifiers, e.g., np1,np2,... or 1.2.3.4:44001,1.2.3.4:44002,...",
+        "\t-S <backends> a list of NP backend socket identifiers, e.g., /dev/shm/np1,/dev/shm/np2,... or 1.2.3.4:44001,1.2.3.4:44002,...",
         sep="\n"
     )
 
