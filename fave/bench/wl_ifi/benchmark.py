@@ -29,13 +29,16 @@ if __name__ == '__main__':
     from os import path
     import sys
 
+    use_unix = False
+
     verbose = False
     if len(sys.argv) > 1:
         verbose = sys.argv[1] == '-v'
 
     if verbose: print "Generate benchmark... "
 
-    os.system("rm -f /tmp/np/*")
+    os.system("rm -f /dev/shm/*.socket")
+    os.system("rm -f /dev/shm/np/*")
 
     os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
     os.system("python2 bench/wl_ifi/inventorygen.py")
@@ -63,29 +66,30 @@ if __name__ == '__main__':
     if verbose:
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf 127.0.0.1 44001")
-    os.system("bash scripts/start_aggr.sh 127.0.0.1:44001")
+    os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % ('-u /dev/shm/np1.socket' if use_unix else '-s 127.0.0.1 -p 44001'))
+    os.system("bash scripts/start_aggr.sh %s" % ('-u -S /dev/shm/np1.socket' if use_unix else '-S 127.0.0.1:44001'))
+
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         if verbose: print "Initialize Topology"
-        create_topology(devices, links)
-        add_rulesets(devices)
+        create_topology(devices, links, use_unix=use_unix)
+        add_rulesets(devices, use_unix=use_unix)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
         if verbose: print "Initialize routes..."
-        add_routes(routes)
+        add_routes(routes, use_unix=use_unix)
         if verbose: print "Routes sent to FaVe"
 
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         if verbose: print "Initialize probes..."
-        add_policies(probes, links)
+        add_policies(probes, links, use_unix=use_unix)
         if verbose: print "Probes sent to FaVe"
 
     with open(CHECKS, 'r') as raw_checks:
@@ -94,9 +98,9 @@ if __name__ == '__main__':
     if verbose: print "Wait for FaVe"
 
     import netplumber.dump_np as dumper
-    dumper.main(["-anpft"])
+    dumper.main(["-anpft%s" % ('u' if use_unix else '')])
 
-    os.system("bash scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh %s" % ('-u' if use_unix else ''))
 
     if verbose:
         print "Check results... "

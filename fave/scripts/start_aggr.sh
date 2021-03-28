@@ -22,14 +22,38 @@
 DIR=/dev/shm
 mkdir -p $DIR/np
 
+SOCK_PARAMS="-s 127.0.0.1 -p 44000"
+BACK_PARAMS=""
 
-if [ "$#" -eq "1" ]; then
-    python2 aggregator/aggregator.py -s 127.0.0.1 -p 44000 -S $1 &
-elif [ "$#" -eq "3" ]; then
-    python2 aggregator/aggregator.py -s $1 -p $2 -S $3 &
-else
-    python2 aggregator/aggregator.py -s 127.0.0.1 -p 44000 &
+UNIX=""
+
+usage() { echo "usage: $0 [-hu] [-S <backend>]" 2>&2; }
+
+while getopts "huS:" o; do
+    case "${o}" in
+        h)
+            usage
+            exit 0
+            ;;
+        u)
+            UNIX="/dev/shm/np_aggregator.socket"
+            ;;
+        S)
+            BACK_PARAMS="-S ${OPTARG}"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ -n "$UNIX" ]; then
+    [ -s $UNIX ] && rm $UNIX
+    SOCK_PARAMS="-u"
 fi
+
+python2 aggregator/aggregator.py $SOCK_PARAMS $BACK_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid

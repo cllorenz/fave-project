@@ -22,19 +22,69 @@
 DIR=/dev/shm
 mkdir -p $DIR/np
 
-if [ "$#" -eq "1" ]; then
-    #valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --log4j-config $1 --hdr-len 1 --unix /tmp/net_plumber.socket >> /tmp/np/stdout.log &
-    net_plumber --log4j-config $1 --hdr-len 1 --server 127.0.0.1 44001 >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
-elif [ "$#" -eq "2" ]; then
-    [ -f $DIR/$2.socket ] && rm $DIR/$2.socket
-    net_plumber --log4j-config $1 --hdr-len 1 --unix $DIR/$2.socket >> $DIR/np/$2.stdout.log 2>> $DIR/np/$2.stderr.log &
-elif [ "$#" -eq "4" ]; then
-    net_plumber --log4j-config $1 --hdr-len 1 --server $3 $4 >> $DIR/np/$2.stdout.log 2>> $DIR/np/$2.stderr.log &
-else
-    [ -f $DIR/np/stdout.log ] && rm $DIR/np/stdout.log
-    touch $DIR/np/stdout.log
-    net_plumber --hdr-len 1 --server 127.0.0.1 44001 >> $DIR/np/stdout.log &
+
+
+SOCK_PARAMS="--server 127.0.0.1 44001"
+LOG_PARAMS=""
+
+SERVER=""
+PORT=""
+UNIX=""
+
+RDR=""
+
+usage() { echo "usage: $0 [-hvV] [-s <host> -p <port> |-u <unix socket>] [-l <logging>]" 2>&2; }
+
+while getopts "hs:p:u:l:vV" o; do
+    case "${o}" in
+        h)
+            usage
+            exit 0
+            ;;
+        s)
+            SERVER=${OPTARG}
+            ;;
+        p)
+            PORT=${OPTARG}
+            ;;
+        u)
+            UNIX=${OPTARG}
+            [ -S $UNIX ] && rm $UNIX
+            ;;
+        l)
+            LOG_PARAMS="--log4j-config ${OPTARG}"
+            ;;
+        v)
+            RDR="1"
+            ;;
+        V)
+            VALGRIND="1"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -n "$SERVER" && -n "$PORT" ]]; then
+    SOCK_PARAMS="--server $SERVER $PORT"
+elif [ -n "$SERVER" ]; then
+    SOCK_PARAMS="--server $SERVER 44001"
+elif [ -n "$PORT" ]; then
+    SOCK_PARAMS="--server 127.0.0.1 $PORT"
+elif [ -n "$UNIX" ]; then
+    SOCK_PARAMS="--unix $UNIX"
 fi
+
+if [ -n "$VALGRIND" ]; then
+    valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS
+elif [ -n "$RDR" ]; then
+    net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS &
+else
+    net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
+fi
+
 
 #taskset -p 0x00000001 $PID > /dev/null
 
