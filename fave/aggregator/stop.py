@@ -22,11 +22,34 @@
 """ This script sends a stopping event to FaVe.
 """
 
+import sys
 import json
+import getopt
 
-from util.aggregator_utils import UDS_ADDR, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
-_AGGR = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+_ADDR = FAVE_DEFAULT_IP
+_PORT = FAVE_DEFAULT_PORT
+_UNIX = FAVE_DEFAULT_UNIX
+
+use_unix = False
+
+try:
+    argv = sys.argv[1:]
+    opts, _args = getopt.getopt(argv, "s:p:u")
+except getopt.GetoptError:
+    eprint("could not parse options: %s" % argv)
+    sys.exit(1)
+
+for opt, arg in opts:
+    if opt == '-s':
+        _ADDR = arg
+    elif opt == '-p':
+        _PORT = int(arg)
+    elif opt == '-u':
+        use_unix = True
+
+_AGGR = connect_to_fave(_UNIX) if use_unix else connect_to_fave(_ADDR, _PORT)
 
 _STOP = {
     'type':'stop'

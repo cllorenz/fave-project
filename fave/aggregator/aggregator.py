@@ -41,13 +41,13 @@ from aggregator_signals import register_signals
 from aggregator_util import model_from_json
 
 from util.print_util import eprint
-from util.aggregator_utils import UDS_ADDR, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
 
 import netplumber.jsonrpc as jsonrpc
-from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
+from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_UNIX
 from netplumber.adapter import NetPlumberAdapter
 from netplumber.mapping import Mapping
 
@@ -186,7 +186,7 @@ class Aggregator(AbstractAggregator):
                 Aggregator.LOGGER.info("open and bind uds socket")
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.settimeout(2.0)
-            sock.bind(UDS_ADDR)
+            sock.bind(server)
         else:
             if Aggregator.LOGGER.isEnabledFor(logging.INFO):
                 Aggregator.LOGGER.info("open and bind tcp socket")
@@ -566,14 +566,20 @@ def main(argv):
 
     fave_addr = FAVE_DEFAULT_IP
     fave_port = FAVE_DEFAULT_PORT
+    fave_unix = FAVE_DEFAULT_UNIX
     servers = [(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
     log_level = logging.INFO
     socks = {}
+    use_unix = False
+
+    logging._srcfile = None
+    logging.logThreads = 0
+    logging.logProcesses = 0
 
     try:
         only_opts = lambda x: x[0]
         opts = only_opts(
-            getopt.getopt(argv, "hds:p:S:u:", ["help", "debug", "server=", "port=", "servers=", "unix="])
+            getopt.getopt(argv, "hds:p:S:u", ["help", "debug", "server=", "port=", "servers=", "unix"])
         )
     except getopt.GetoptError:
         eprint("could not parse options: %s" % argv)
@@ -588,15 +594,20 @@ def main(argv):
             fave_addr = arg
         elif opt == '-p':
             fave_port = int(arg) if is_port(arg) else port
-        elif opt == '-u' and is_unix(arg):
-            fave_addr = arg
-        elif opt == '-S' and all([is_host(s) for s in arg.split(',')]):
+        elif opt == '-u':
+            use_unix = True
+        elif opt == '-S':
             servers = []
             for sp in arg.split(','):
-                np_host, np_port = sp.split(':')
-                servers.append((np_host, int(np_port)))
-        elif opt == '-S' and all([is_unix(s) for s in arg.split(',')]):
-            servers = [("/dev/shm/%s.socket" % s, 0) for s in arg.split(',')]
+                try:
+                    np_host, np_port = sp.split(':')
+                    assert is_host(sp)
+                    np_port = int(np_port)
+                except ValueError:
+                    np_host = sp
+                    assert is_unix(sp)
+                    np_port = 0
+                servers.append((np_host, np_port))
         elif opt == '-d':
             log_level = logging.DEBUG
 
@@ -612,28 +623,26 @@ def main(argv):
             Aggregator.LOGGER.error(err.message)
             eprint("could not connect to server: %s %s" % (np_server, np_port))
             _print_help()
+            raise
             sys.exit(1)
 
     global AGGREGATOR
     AGGREGATOR = Aggregator(socks)
 
-    for server in [s[0] for s in servers if is_unix(s[0]) and s[1] == 0]:
-        try:
-            os.unlink(server)
-        except OSError:
-            if os.path.exists(server):
-                raise
-
     register_signals()
 
-    if is_ip(fave_addr) or is_domain(fave_addr):
-        AGGREGATOR.run(fave_addr, port=fave_port)
+    if use_unix:
+        AGGREGATOR.run(FAVE_DEFAULT_UNIX)
     else:
-        AGGREGATOR.run(fave_addr)
+        AGGREGATOR.run(fave_addr, port=fave_port)
 
-    sys.exit(0)
+#    sys.exit(0)
 
 
 if __name__ == "__main__":
-    #cProfile.run('main(%s)' % sys.argv[1:], "aggregator.profile")
+    import yappi
+    yappi.start()
     main(sys.argv[1:])
+    yappi.stop()
+
+    yappi.get_func_stats().save('aggregator.profile', type='pstat')

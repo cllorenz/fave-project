@@ -30,6 +30,7 @@ import socket
 import cProfile
 
 PROFILE = cProfile.Profile()
+NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
 NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
 NET_PLUMBER_DEFAULT_PORT = 44001
 
@@ -150,9 +151,7 @@ def connect_to_netplumber(server, port=0):
 
     if not sock:
         raise RPCError(
-            "could not create socket from %s" % "address %s" % (
-                server if port == 0 else "address %s and port %s" % (server, port)
-            )
+            "could not create socket for %s" % ('unix' if port == 0 else 'tcp/ip')
         )
 
     sock.setblocking(1)
@@ -169,7 +168,7 @@ def connect_to_netplumber(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
-        raise RPCError("could not connect to net_plumber")
+        raise RPCError("could not connect to net_plumber at %s" % (server if port == 0 else (server, port)))
 
     return sock
 

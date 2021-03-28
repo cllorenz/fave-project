@@ -28,7 +28,7 @@ import ast
 
 from itertools import product
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.print_util import eprint
 from openflow.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
@@ -270,10 +270,12 @@ def main(argv):
     test_path = []
     ruleset = ""
     generators = []
+    use_unix = False
 
     try:
-        opts, args = getopt.getopt(argv, "hadt:n:p:l:u:i:f:q:F:G:P:T:r:")
+        opts, args = getopt.getopt(argv, "hadt:n:p:l:ui:f:q:F:G:P:T:r:")
     except getopt.GetoptError:
+        eprint("cannot parse arguments: %s" % argv)
         print_help()
         sys.exit(2)
 
@@ -285,6 +287,8 @@ def main(argv):
             command = 'add'
         elif opt == '-d':
             command = 'del'
+        elif opt == '-u':
+            use_unix = True
         elif opt == '-t':
             if arg in [
                 'switch',
@@ -408,7 +412,7 @@ def main(argv):
         print_help()
         return
 
-    fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
     s = json.dumps(topo.to_json())
     fave.sendall(s)
     fave.close()

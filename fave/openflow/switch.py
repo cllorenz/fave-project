@@ -35,7 +35,7 @@ from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 
 
 class SwitchCommand(object):
@@ -215,10 +215,11 @@ def main(argv):
     fields = []
     actions = []
     in_ports = []
+    use_unix = False
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hadun:t:i:f:c:p:"))
+        opts = only_opts(getopt.getopt(argv, "haduUn:t:i:f:c:p:"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -233,6 +234,8 @@ def main(argv):
             command = 'del'
         elif opt == '-u':
             command = 'upd'
+        elif opt == '-U':
+            use_unix = True
         elif opt == '-n':
             node = arg
         elif opt == '-t':
@@ -298,7 +301,7 @@ def main(argv):
         sys.exit(2)
 
 
-    fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
     fave.sendall(json.dumps(cmd.to_json()))
     fave.close()
 

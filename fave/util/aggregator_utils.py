@@ -23,7 +23,7 @@
 import time
 import socket
 
-UDS_ADDR = "/dev/shm/np_aggregator.socket"
+FAVE_DEFAULT_UNIX = "/dev/shm/np_aggregator.socket"
 FAVE_DEFAULT_IP = '127.0.0.1'
 FAVE_DEFAULT_PORT = 44000
 
@@ -38,14 +38,14 @@ def connect_to_fave(server, port=0):
 
     if not sock:
         raise Exception(
-            "could not create unix socket"
+            "could not create socket for %s" % ('unix' if port == 0 else 'tcp/ip')
         )
 
     tries = 5
     while tries > 0:
         try:
             if port == 0:
-                sock.connect(UDS_ADDR)
+                sock.connect(server)
             else:
                 sock.connect((server, port))
             break
@@ -57,7 +57,7 @@ def connect_to_fave(server, port=0):
         sock.getpeername()
     except socket.error:
         if port == 0:
-            raise Exception("could not connect to fave: %s" % UDS_ADDR)
+            raise Exception("could not connect to fave: %s" % server)
         else:
             raise Exception("could not connect to fave: %s %s" % (server, port))
 
