@@ -24,16 +24,20 @@ mkdir -p $DIR/np
 
 SOCK_PARAMS="-s 127.0.0.1 -p 44000"
 BACK_PARAMS=""
+DEBUG_PARAMS=""
 
 UNIX=""
 
 usage() { echo "usage: $0 [-hu] [-S <backend>]" 2>&2; }
 
-while getopts "huS:" o; do
+while getopts "hduS:" o; do
     case "${o}" in
         h)
             usage
             exit 0
+            ;;
+        d)
+            DEBUG_PARAMS="-d"
             ;;
         u)
             UNIX="/dev/shm/np_aggregator.socket"
@@ -53,7 +57,7 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="-u"
 fi
 
-python2 aggregator/aggregator.py $SOCK_PARAMS $BACK_PARAMS &
+python2 aggregator/aggregator.py $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid
