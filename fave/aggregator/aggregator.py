@@ -180,19 +180,13 @@ class Aggregator(AbstractAggregator):
         """ Operates FaVe's aggregation service.
         """
 
-        if port == 0:
-            # open new unix domain socket
-            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-                Aggregator.LOGGER.info("open and bind uds socket")
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.settimeout(2.0)
-            sock.bind(server)
-        else:
-            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-                Aggregator.LOGGER.info("open and bind tcp socket")
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2.0)
-            sock.bind((server, port))
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("open and bind %s socket" % ('unix' if port == 0 else 'tcp/ip'))
+
+        # open new socket
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2.0)
+        sock.bind(server if port == 0 else (server, port))
 
         # start thread to handle incoming config events
         if Aggregator.LOGGER.isEnabledFor(logging.INFO):
