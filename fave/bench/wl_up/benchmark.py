@@ -89,12 +89,12 @@ if __name__ == "__main__":
 
     LOGGER.info("starting netplumber...")
     for no in range(1,tds+1):
-        os.system("scripts/start_np.sh bench/wl_up/np.conf %s 127.0.0.1 44%03d" % (tds, no))
+        os.system("bash scripts/start_np.sh bench/wl_up/np.conf %s 127.0.0.1 44%03d" % (tds, no))
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
     os.system(
-         "scripts/start_aggr.sh %s" % ','.join(["127.0.0.1:44%03d" % no for no in range(1, tds+1)])
+        "bash scripts/start_aggr.sh -S %s" % ','.join(["127.0.0.1:44%03d" % no for no in range(1, tds+1)])
     )
     LOGGER.info("started aggregator.")
 
