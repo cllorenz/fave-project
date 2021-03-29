@@ -76,11 +76,11 @@ echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
 echo "ok"
 
 echo -n "start netplumber... "
-scripts/start_np.sh examples/example.conf
+bash scripts/start_np.sh examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 echo -n "start aggregator... "
-scripts/start_aggr.sh
+bash scripts/start_aggr.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
