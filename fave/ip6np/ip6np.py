@@ -33,7 +33,7 @@ import generator
 from misc.pybison_singleton import PARSER
 
 from util.print_util import eprint
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 
 def print_help():
     """ Prints the usage on stderr.
@@ -103,7 +103,10 @@ def main(argv):
     else:
         fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
         s = json.dumps(model.to_json())
-        fave.send(s)
+        ret = fave_sendmsg(fave, s)
+        if ret != None:
+            raise Exception("ip6np was unable to send configuration correctly")
+
         fave.close()
 
 

@@ -26,7 +26,7 @@ import sys
 import json
 import getopt
 
-from util.aggregator_utils import FAVE_DEFAULT_UNIX, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, fave_sendmsg
 
 _ADDR = FAVE_DEFAULT_IP
 _PORT = FAVE_DEFAULT_PORT
@@ -55,5 +55,5 @@ _STOP = {
     'type':'stop'
 }
 
-_AGGR.sendall(json.dumps(_STOP))
+fave_sendmsg(_AGGR, json.dumps(_STOP))
 _AGGR.close()

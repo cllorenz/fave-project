@@ -27,7 +27,7 @@ import sys
 import getopt
 import json
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 
 from util.print_util import eprint
 from util.lock_util import PersistentFileLock
@@ -132,7 +132,7 @@ def main(argv):
     lock = PersistentFileLock("%s/.lock" % odir, timeout=-1)
     lock.acquire()
 
-    fave.sendall(json.dumps(dump))
+    fave_sendmsg(fave, json.dumps(dump))
     fave.close()
 
 

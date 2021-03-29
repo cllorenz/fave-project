@@ -35,7 +35,7 @@ from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 
 
 class SwitchCommand(object):
@@ -302,7 +302,7 @@ def main(argv):
 
 
     fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
-    fave.sendall(json.dumps(cmd.to_json()))
+    fave_sendmsg(fave, json.dumps(cmd.to_json()))
     fave.close()
 
 

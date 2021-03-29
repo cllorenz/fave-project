@@ -41,7 +41,7 @@ from aggregator_signals import register_signals
 from aggregator_util import model_from_json
 
 from util.print_util import eprint
-from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, fave_recvmsg
 from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
@@ -214,19 +214,16 @@ class Aggregator(AbstractAggregator):
                     Aggregator.LOGGER.debug("master: break listening loop due to socket error")
                 Aggregator.LOGGER.exception("master: error from accept():")
                 break
+            else:
+                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                    Aggregator.LOGGER.debug("master: accepted connection")
+                pass
 
+            # receive data from socket
+            data = fave_recvmsg(conn, logger=Aggregator.LOGGER)
+            assert data != None
             if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                Aggregator.LOGGER.debug("master: accepted connection")
-
-            # receive data from unix domain socket
-            data = ""
-            while True:
-                part = conn.recv(Aggregator.BUF_SIZE)
-                data += part
-                if len(part) < Aggregator.BUF_SIZE:
-                    if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                        Aggregator.LOGGER.debug("master: read data of size %s", len(data))
-                    break
+                Aggregator.LOGGER.debug("master: read data of size %s" % len(data))
 
             # upon data receival enqueue
             self.queue.put(data)

@@ -28,7 +28,7 @@ import ast
 
 from itertools import product
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 from util.print_util import eprint
 from openflow.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
@@ -414,7 +414,7 @@ def main(argv):
 
     fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
     s = json.dumps(topo.to_json())
-    fave.sendall(s)
+    fave_sendmsg(fave, s)
     fave.close()
 
 
