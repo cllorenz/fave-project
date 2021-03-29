@@ -35,14 +35,14 @@ from ip6np import ip6np as ip6tables
 from openflow import switch
 
 
-def _add_packet_filter(name, _type, ports, address, _ruleset):
+def _add_packet_filter(name, _type, ports, address, _ruleset, use_unix=False):
     topo.main([
         "-a",
         "-t", "packet_filter",
         "-n", name,
         "-i", address,
         "-p", str(ports)
-    ])
+    ] + (['-u'] if use_unix else []))
 
 
 def _add_switch(name, _type, ports, use_unix=False):
@@ -62,7 +62,7 @@ def _add_generator(name, _type, fields=None, use_unix=False):
 
 
 def _add_generators(generators, use_unix=False):
-    topo.main(["-a", "-t", "generators", "-G", '|'.join(["%s\\%s" % (n, ';'.join(f)) for n, _t, f in generators])] + ["-u"] if use_unix else [])
+    topo.main(["-a", "-t", "generators", "-G", '|'.join(["%s\\%s" % (n, ';'.join(f)) for n, _t, f in generators])] + (["-u"] if use_unix else []))
 
 
 def _add_probe(name, _type, quantor, match=None, filter_fields=None, test_fields=None, test_path=None, use_unix=False):
