@@ -639,9 +639,9 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    import yappi
-    yappi.start()
+#    import yappi
+#    yappi.start()
     main(sys.argv[1:])
-    yappi.stop()
+#    yappi.stop()
 
-    yappi.get_func_stats().save('aggregator.profile', type='pstat')
+#    yappi.get_func_stats().save('aggregator.profile', type='pstat')
