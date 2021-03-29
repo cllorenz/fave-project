@@ -205,13 +205,12 @@ class Aggregator(AbstractAggregator):
             Aggregator.LOGGER.info("listen on socket")
         sock.listen(1)
 
-        only_conn = lambda x: x[0]
         while not self.stop:
-            # accept connections on unix domain socket
+            # accept connections on socket
             if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                 Aggregator.LOGGER.debug("master: wait for connection")
             try:
-                conn = only_conn(sock.accept())
+                conn, _addr = sock.accept()
             except socket.timeout:
                 if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                     Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
