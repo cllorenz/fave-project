@@ -46,6 +46,7 @@ def print_help():
         "\t-i <ip> ip address",
         "\t-p <ports> number of ports",
         "\t-f <file> ip6tables ruleset",
+        "\t-u use UNIX domain socket",
         sep="\n"
     )
 
@@ -66,10 +67,11 @@ def main(argv):
     node = ''
     ports = [1, 2]
     dump = False
+    use_unix = False
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:", ["node=", "file="]))
+        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:u"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -93,6 +95,8 @@ def main(argv):
             ifile = arg
         elif opt == '-d':
             dump = True
+        elif opt == '-u':
+            use_unix = True
 
     ast = PARSER.parse(ifile)
     model = generator.generate(ast, node, address, ports)
@@ -101,7 +105,11 @@ def main(argv):
         pprint.pprint(model.to_json())
 
     else:
-        fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+        if use_unix:
+            fave = connect_to_fave(FAVE_DEFAULT_UNIX)
+        else:
+            fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+        fave.setblocking(1)
         s = json.dumps(model.to_json())
         ret = fave_sendmsg(fave, s)
         if ret != None:
