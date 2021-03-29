@@ -67,7 +67,7 @@ if __name__ == '__main__':
         print "Run benchmark... "
 
     os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % ('-u /dev/shm/np1.socket' if use_unix else '-s 127.0.0.1 -p 44001'))
-    os.system("bash scripts/start_aggr.sh %s" % ('-u -S /dev/shm/np1.socket' if use_unix else '-S 127.0.0.1:44001'))
+    os.system("bash scripts/start_aggr.sh -S %s" % ('/dev/shm/np1.socket -u' if use_unix else '127.0.0.1:44001'))
 
 
     with open(TOPOLOGY, 'r') as raw_topology:
