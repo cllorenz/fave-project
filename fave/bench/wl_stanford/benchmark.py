@@ -340,39 +340,44 @@ if __name__ == '__main__':
             json.dumps({'devices' : sources, 'links' : sources_links}, indent=2) + '\n'
         )
 
-#    import sys
-#    sys.exit(0)
-
-    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf 127.0.0.1 44001")
-    os.system("bash scripts/start_aggr.sh 127.0.0.1:44001")
+    os.system(
+        "bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
+            "-u /dev/shm/np1.socket" if use_unix  else "-s 127.0.0.1 -p 44001"
+        )
+    )
+    os.system(
+        "bash scripts/start_aggr.sh -S %s %s" % (
+            ("/dev/shm/np1.socket", "-u") if use_unix else ("127.0.0.1:44001", "")
+        )
+    )
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         print "create topology..."
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         print "topology sent to fave"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
         print "add routes..."
-        add_routes(routes)
+        add_routes(routes, use_unix=use_unix)
         print "routes sent to fave"
 
     with open(SOURCES, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         print "create sources..."
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         print "sources sent to fave"
 
     print "wait for fave..."
 
     import netplumber.dump_np as dumper
-    dumper.main(["-ans"])
+    dumper.main(["-ans%s" % ("u" if use_unix else "")])
 
-    os.system("bash scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
 
     import test.check_flows as checker
     checks = json.load(open(CHECKS, 'r'))
