@@ -162,13 +162,19 @@ class SwitchModel(Model):
         assert self.node == other.node
         assert self.type == other.type
 
-        smm = super(SwitchModel, self).__sub__(other)
-        smm.tables.setdefault(self.node+'.1', [])
+#        smm = super(SwitchModel, self).__sub__(other)
+#        smm.tables.setdefault(self.node+'.1', [])
+#
+#        res = SwitchModel(
+#            smm.node,
+#            ports=smm.ports,
+#            rules=smm.tables[self.node+'.1']
+#        )
 
         res = SwitchModel(
-            smm.node,
-            ports=smm.ports,
-            rules=smm.tables[self.node+'.1']
+            self.node,
+            ports=self.ports,
+            rules=self.adds[self.node+'.1']
         )
 
         return res
