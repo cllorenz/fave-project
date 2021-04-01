@@ -77,7 +77,9 @@ if __name__ == '__main__':
 
     if verbose: print "Generate benchmark..."
 
-    os.system("rm -f /tmp/np/*")
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
 
     os.system(
         "python2 ../policy-translator/policy_translator.py " +

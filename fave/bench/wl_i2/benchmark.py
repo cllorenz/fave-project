@@ -108,6 +108,7 @@ def rule_to_route(rule, base_port, ext_port):
 if __name__ == '__main__':
     os.system("mkdir -p /dev/shm/np")
     os.system("rm -rf /dev/shm/np/*.log")
+    os.system("rm -f /dev/shm/*.socket")
 
     use_unix = True
 

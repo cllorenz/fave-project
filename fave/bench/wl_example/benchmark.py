@@ -44,6 +44,10 @@ REACH_JSON = "bench/wl_example/reachable.json"
 
 
 if __name__ == "__main__":
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
+
     LOGGER.info("generate policy matrix...")
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([

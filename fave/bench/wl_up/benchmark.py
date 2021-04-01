@@ -51,6 +51,10 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         tds = int(sys.argv[1])
 
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
+
     LOGGER.info("generate policy matrix...")
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([

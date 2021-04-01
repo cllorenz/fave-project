@@ -198,8 +198,11 @@ def _read_port_map(pmf):
 
 
 if __name__ == '__main__':
-    os.system("mkdir -p /tmp/np")
-    os.system("rm -rf /tmp/np/*.log")
+    use_unix = True
+
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
 
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
