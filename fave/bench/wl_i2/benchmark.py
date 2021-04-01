@@ -256,7 +256,7 @@ if __name__ == '__main__':
         links.extend([
             (
                 port_to_name[port], "probe.%s.1" % name, False
-            ) for port in active_egress_ports[name] - active_link_ports
+            ) for port in active_egress_ports[name]
         ])
 
     with open(TOPOLOGY, 'w') as tf:
