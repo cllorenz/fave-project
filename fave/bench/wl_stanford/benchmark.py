@@ -221,6 +221,7 @@ if __name__ == '__main__':
     port_to_name = {}
     active_egress_ports = {}
     active_ingress_ports = {}
+    inactive_ingress_ports = {}
     active_link_ports = set()
     table_from_id = {}
     ext_ports = {}
@@ -251,10 +252,21 @@ if __name__ == '__main__':
             portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
+            intermediate_ports = set(
+                [p for p in table_ports if p == base_port or is_intermediate_port(p, base_port)]
+            )
+            egress_ports = set(
+                [p for p in table_ports if is_output_port(p, base_port)]
+            )
+            ingress_ports = ((table_ports - intermediate_ports) - egress_ports)
 
             for rule in table['rules']:
-                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or is_intermediate_port(p, base_port))])
-                active_egress_ports[name].update([p for p in rule['out_ports'] if is_output_port(p, base_port)])
+                active_ingress_ports[name].update(
+                    set(rule['in_ports']) - intermediate_ports
+                )
+                active_egress_ports[name].update(
+                    set(rule['out_ports']) - intermediate_ports
+                )
 
             portno = 1
             for port in table_ports:
@@ -271,6 +283,10 @@ if __name__ == '__main__':
             ]:
                 links.append((port_to_name[port], port_to_name[port], False))
                 active_link_ports.add(port)
+
+            inactive_ingress_ports[name] = list(
+                ingress_ports - active_ingress_ports[name]
+            )
 
 
     with open (ROUTES, 'w') as rf:
@@ -316,9 +332,16 @@ if __name__ == '__main__':
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
 
-        sources_links.append(
-            ("source.%s.1" % name, port_to_name[ext_ports[name]], True)
+        dst = pick_port(
+            inactive_ingress_ports[name], name
+        ) if inactive_ingress_ports[name] else pick_port(
+            active_ingress_ports[name], name
         )
+
+        sources_links.append(
+            ("source.%s.1" % name, port_to_name[dst], True)
+        )
+
 
         devices.append((
             "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
@@ -327,7 +350,7 @@ if __name__ == '__main__':
         links.extend([
             (
                 port_to_name[port], "probe.%s.1" % name, False
-            ) for port in active_egress_ports[name] - active_link_ports
+            ) for port in active_egress_ports[name]
         ])
 
     with open(TOPOLOGY, 'w') as tf:
