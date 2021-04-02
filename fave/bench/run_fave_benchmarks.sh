@@ -67,7 +67,7 @@ for i in $(seq 1 $RUNS); do
   rm -rf $LAST_NP/*
   cp -r np_dump/* $LAST_NP/
 
-  cp -r /tmp/np/ $RAW_DIR
+  cp -r /dev/shm/np/ $RAW_DIR
 done
 
 # run NetPlumber benchmark
