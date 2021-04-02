@@ -76,17 +76,17 @@ for threads in 1 2 4 8 16 24; do
   done
 done
 
-## run NetPlumber benchmark
-#echo -n "run netplumber directly for $BENCH ..."
-#HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
-#for i in $(seq 1 $RUNS); do
-#  RAW_DIR=$RDIR/np/$i.raw
-#  rm -rf $RAW_DIR
-#  mkdir -p $RAW_DIR
-#  SOUT=$RAW_DIR/stdout.log
-#  SERR=$RAW_DIR/stderr.log
-#
-#  echo -n " $i"
-#  net_plumber --hdr-len $HDR_LEN --load np_dump --policy np_dump/policy.json > $SOUT 2> $SERR
-#done
-#echo ""
+# run NetPlumber benchmark
+echo -n "run netplumber directly for $BENCH ..."
+HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
+for i in $(seq 1 $RUNS); do
+  RAW_DIR=$RDIR/np/$i.raw
+  rm -rf $RAW_DIR
+  mkdir -p $RAW_DIR
+  SOUT=$RAW_DIR/stdout.log
+  SERR=$RAW_DIR/stderr.log
+
+  echo -n " $i"
+  net_plumber --hdr-len $HDR_LEN --load np_dump --policy np_dump/policy.json > $SOUT 2> $SERR
+done
+echo ""
