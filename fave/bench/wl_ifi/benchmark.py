@@ -29,7 +29,8 @@ if __name__ == '__main__':
     from os import path
     import sys
 
-    use_unix = False
+    use_unix = True
+    use_tcp_np = True
 
     verbose = False
     if len(sys.argv) > 1:
@@ -66,9 +67,17 @@ if __name__ == '__main__':
     if verbose:
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % ('-u /dev/shm/np1.socket' if use_unix else '-s 127.0.0.1 -p 44001'))
-    os.system("bash scripts/start_aggr.sh -S %s" % ('/dev/shm/np1.socket -u' if use_unix else '127.0.0.1:44001'))
-
+    os.system(
+        "bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
+            '-u /dev/shm/np1.socket' if use_unix and not use_tcp_np else '-s 127.0.0.1 -p 44001'
+        )
+    )
+    os.system(
+        "bash scripts/start_aggr.sh -S %s %s" % (
+            '/dev/shm/np1.socket' if use_unix and not use_tcp_np else '127.0.0.1:44001',
+            '-u' if use_unix else ''
+        )
+    )
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
