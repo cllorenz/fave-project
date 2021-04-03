@@ -46,6 +46,7 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 if __name__ == "__main__":
     use_unix = True
+    use_tcp_np = True
 
     tds = 1
     if len(sys.argv) == 2:
@@ -95,7 +96,7 @@ if __name__ == "__main__":
 
     LOGGER.info("starting netplumber...")
     for no in range(1,tds+1):
-        sockopt = "-u /dev/shm/np%s.socket" % no if use_unix else "-s 127.0.0.1 -p 44%03d" % no
+        sockopt = "-u /dev/shm/np%s.socket" % no if use_unix and not use_tcp_np else "-s 127.0.0.1 -p 44%03d" % no
         os.system("bash scripts/start_np.sh -l bench/wl_up/np.conf %s" % sockopt)
     LOGGER.info("started netplumber.")
 
@@ -103,7 +104,7 @@ if __name__ == "__main__":
     os.system(
         "bash scripts/start_aggr.sh -S %s %s" % (
             ','.join([
-                ("/dev/shm/np%d.socket" if use_unix else "127.0.0.1:44%03d") % no for no in range(1, tds+1)
+                ("/dev/shm/np%d.socket" if use_unix and not use_tcp_np else "127.0.0.1:44%03d") % no for no in range(1, tds+1)
             ]),
             "-u" if use_unix else ""
         )
