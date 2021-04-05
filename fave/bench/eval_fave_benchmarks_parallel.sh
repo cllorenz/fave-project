@@ -19,10 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-function stats {
+function fave_stats {
   TOOL=$1
 
-  for threads in 2 4 8 16 24; do
+  for threads in 1 2 4 8 16 24; do
       echo -n "$TOOL$threads" >> $RESULTS
 
       for DATA in ${@:2}; do
@@ -48,6 +48,33 @@ function stats {
   done
 }
 
+function np_stats {
+  TOOL=$1
+
+  echo -n $TOOL >> $RESULTS
+
+  for DATA in ${@:2}; do
+      MEAN=`awk -f bench/mean.awk < $DATA`
+      if [ "$MEAN" == "0" ]; then
+          echo -n " NaN" >> $RESULTS
+      else
+          echo -n " $MEAN" >> $RESULTS
+      fi
+  done
+
+  for DATA in ${@:2}; do
+      MEAN=`awk -f bench/mean.awk < $DATA`
+      STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+      if [ "$STDDEV" == "0" ]; then
+          echo -n " NaN" >> $RESULTS
+      else
+          echo -n " $STDDEV" >> $RESULTS
+      fi
+  done
+
+  echo "" >> $RESULTS
+}
+
 RDIR=$1
 
 RUNS=10
@@ -62,7 +89,7 @@ echo -n "" > $FAVE_INIT
 FAVE_REACH=$RDIR/raw_fave_reach.dat
 echo -n "" > $FAVE_REACH
 
-for threads in 2 4 8 16 24; do
+for threads in 1 2 4 8 16 24; do
     for i in $(seq 1 $RUNS); do
       echo -n "$threads " >> $FAVE_INIT
       grep "seconds" $RDIR/fave/$threads/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
@@ -103,29 +130,27 @@ for threads in 2 4 8 16 24; do
     done
 done
 
-#NP_INIT=$RDIR/raw_np_init.dat
-#echo -n "" > $NP_INIT
-#NP_REACH=$RDIR/raw_np_reach.dat
-#echo -n "" > $NP_REACH
-#
-#for i in $(seq 1 $RUNS); do
-#  grep "total" $RDIR/np/$i.raw/stdout.log | awk '{ print $4/1000.0; }' >> $NP_INIT
-#  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_REACH
-#done
+NP_INIT=$RDIR/raw_np_init.dat
+echo -n "" > $NP_INIT
+NP_REACH=$RDIR/raw_np_reach.dat
+echo -n "" > $NP_REACH
+
+for i in $(seq 1 $RUNS); do
+  grep "total" $RDIR/np/$i.raw/stdout.log | awk '{ print $4/1000.0; }' >> $NP_INIT
+  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_REACH
+done
 
 CHECKS=$RDIR/raw_checks.dat
 echo -n "" > $CHECKS
 
-for threads in 2 4 8 16 24; do
+for threads in 1 2 4 8 16 24; do
     for i in $(seq 1 $RUNS); do
       grep "parse device" $RDIR/fave/$threads/$i.raw/stdout.log | cut -d' ' -f4 | \
         awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $PARSING
       echo -n "$threads " >> $CHECKS
       grep "total:" $RDIR/fave/$threads/$i.raw/stdout.log | awk 'BEGIN { max = -1; } { if ( max < $2 ) { max = $2; } } END { print max; }' >> $CHECKS
-#      grep "checked flow tree in" $RDIR/fave/$threads/$i.raw/stdout.log | cut -d' ' -f5 | \
-#        awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $CHECKS
     done
 done
 
-stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS
-#stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0")
+fave_stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS
+np_stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0")
