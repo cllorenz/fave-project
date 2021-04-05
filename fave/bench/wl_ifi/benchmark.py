@@ -107,7 +107,7 @@ if __name__ == '__main__':
     if verbose: print "Wait for FaVe"
 
     import netplumber.dump_np as dumper
-    dumper.main(["-anpft%s" % ('u' if use_unix else '')])
+    dumper.main(["-o", 'np_dump', "-a", "-n", "-p", "-f", "-t"] + (['-u'] if use_unix else []))
 
     os.system("bash scripts/stop_fave.sh %s" % ('-u' if use_unix else ''))
 
@@ -115,6 +115,6 @@ if __name__ == '__main__':
         print "Check results... "
 
     import test.check_flows as checker
-    checker.main(["-b", "-r", "-c", ";".join(checks)])
+    checker.main(["-b", "-r", "-c", ";".join(checks), '-d', 'np_dump'])
 
     os.system("rm -f np_dump/.lock")
