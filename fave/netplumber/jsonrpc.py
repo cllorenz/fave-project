@@ -319,10 +319,12 @@ def add_links_bulk(socks, links):
         data["method"] = "add_link"
         data["params"] = {"from_port":from_port, "to_port":to_port}
 
+        msg = json.dumps(data)
+
         if idx != -1:
-            _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
+            _async_send(socks[idx % len(socks):idx % len(socks)+1], msg)
         else:
-            _async_send(socks, json.dumps(data))
+            _async_send(socks, msg)
 
     for idx, _from_port, _to_port in links:
         if idx != -1:
