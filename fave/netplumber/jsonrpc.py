@@ -330,7 +330,7 @@ def add_links_bulk(socks, links):
 
     for idx, _from_port, _to_port in links:
         if idx != -1:
-            res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+            _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
         else:
             _sync_recv(socks)
 
