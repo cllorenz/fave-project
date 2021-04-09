@@ -77,6 +77,14 @@ def _async_send(socks, msg):
         sock.sendall(msg+'\n')
 
 
+def _parse_msg(msg):
+    data = json.loads(msg)
+    if "error" in data and data["error"]["code"] != 0:
+        raise RPCError(data["error"]["message"])
+
+    return data
+
+
 def _sync_recv(socks):
     results = []
     for sock in socks:
@@ -92,8 +100,7 @@ def _sync_recv(socks):
                 sock.recv(pos+1)
                 break
 
-
-        results.append(result)
+        results.append(_parse_msg(result))
 
     return results
 
@@ -107,22 +114,13 @@ def _asend_recv(socks, msg):
 def _extract_node(msg):
     """ Extracts the node ID from node-related RPC call results.
     """
-
-    data = json.loads(msg)
-    if "error" in data and data["error"]["code"] != 0:
-        raise RPCError(data["error"]["message"])
-
-    return data["result"]
+    return msg["result"]
 
 
 def _extract_index(msg):
     """ Extracts the index encoded in the message ID.
     """
-    data = json.loads(msg)
-    if "error" in data and data["error"]["code"] != 0:
-        raise RPCError(data["error"]["message"])
-
-    return data["id"]
+    return msg["id"]
 
 
 def _basic_rpc(idx=0):
