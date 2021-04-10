@@ -25,6 +25,8 @@
 import json
 import math
 
+from copy import deepcopy
+
 from netplumber.model import Model
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.rule import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
@@ -386,7 +388,6 @@ class RouterModel(Model):
 
         rule.tid = self.node+'.routing'
         super(RouterModel, self).add_rule(rule)
-        self.tables[self.node+'.routing'].insert(idx, rule)
 
 
     def remove_rule(self, idx):
@@ -411,6 +412,20 @@ class RouterModel(Model):
 
         self.remove_rule(idx)
         self.add_rule(idx, rule)
+
+
+    def __sub__(self, other):
+        assert self.node == other.node
+        assert self.type == other.type
+
+        res = RouterModel(
+            self.node,
+            ports=self.ports
+        )
+
+        res.tables = deepcopy(self.adds)
+
+        return res
 
 
 def _build_cidr(address, netmask=None, proto='6', inverse_netmask=False):

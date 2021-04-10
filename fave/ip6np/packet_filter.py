@@ -138,14 +138,11 @@ class PacketFilterModel(Model):
         assert self.node == other.node
         assert self.type == other.type
 
-        pfm = super(PacketFilterModel, self).__sub__(other)
-
         npf = PacketFilterModel(
-            pfm.node
+            self.node,
+            ports=self.ports
         )
-        npf.tables = pfm.tables
-        npf.ports = pfm.ports
-        npf.wiring = pfm.wiring
+        npf.tables = deepcopy(self.adds)
 
         return npf
 
@@ -256,10 +253,6 @@ class PacketFilterModel(Model):
         super(PacketFilterModel, self).add_rule(rule_exact)
         super(PacketFilterModel, self).add_rule(rule_wrong_io)
         super(PacketFilterModel, self).add_rule(rule)
-
-        self.tables[self.node+".routing"].insert(rule_exact.idx, rule_exact)
-        self.tables[self.node+".routing"].insert(rule_wrong_io.idx, rule_wrong_io)
-        self.tables[self.node+".routing"].insert(rule.idx, rule)
 
 
     def remove_rule(self, idx):

@@ -26,6 +26,8 @@ import sys
 import getopt
 import json
 
+from copy import deepcopy
+
 from openflow.rule import SwitchRule, SwitchRuleField, Forward, Rewrite, Match
 
 from netplumber.mapping import Mapping
@@ -133,7 +135,6 @@ class SwitchModel(Model):
         """
 
         super(SwitchModel, self).add_rule(rule)
-        self.tables[self.node+".1"].insert(idx, rule)
 
 
     def remove_rule(self, idx):
@@ -162,19 +163,10 @@ class SwitchModel(Model):
         assert self.node == other.node
         assert self.type == other.type
 
-#        smm = super(SwitchModel, self).__sub__(other)
-#        smm.tables.setdefault(self.node+'.1', [])
-#
-#        res = SwitchModel(
-#            smm.node,
-#            ports=smm.ports,
-#            rules=smm.tables[self.node+'.1']
-#        )
-
         res = SwitchModel(
             self.node,
             ports=self.ports,
-            rules=self.adds[self.node+'.1']
+            rules=deepcopy(self.adds[self.node+'.1'])
         )
 
         return res
