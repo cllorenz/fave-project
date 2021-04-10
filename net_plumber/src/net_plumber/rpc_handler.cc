@@ -282,8 +282,7 @@ PROTO(add_rule)
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
   T2 *match = val_to_array<T2>(PARAM(match));
-  // TODO: fix error handling properly
-  if (match->is_empty()) { delete match; match = nullptr; }
+  if (!match || match->is_empty()) { delete match; match = nullptr; }
   if (!match) match = new T2(length, BIT_X);
   T2 *mask = val_to_array<T2>(PARAM(mask));
   T2 *rw = val_to_array<T2>(PARAM(rw));
@@ -324,7 +323,7 @@ PROTO(add_source_probe)
   Condition<T1, T2> *test = val_to_cond<T1, T2>(PARAM(test), length);
   if (!test) test = new TrueCondition<T1, T2>();
   T2 *match = val_to_array<T2>(PARAM(match));
-  if (match->is_empty()) match = new T2(length, BIT_X);
+  if (!match || match->is_empty()) match = new T2(length, BIT_X);
   const uint64_t id = PARAM(id).asUInt64();
   uint64_t ret = netPlumber->add_source_probe(
     ports, mode, match, filter, test, nullptr, nullptr, id
