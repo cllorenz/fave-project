@@ -417,7 +417,7 @@ class NetPlumberAdapter(object):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _add_rule_table(self, model, table):
+    def _add_generic_table(self, model, table):
         tid = self.tables[table]
 
         if self.logger.isEnabledFor(logging.DEBUG):
@@ -427,34 +427,8 @@ class NetPlumberAdapter(object):
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
+        for rule in model.tables[table]:
             rid = rule.idx
-            act = rule.actions
-
-            for field in [
-                f for f in rule.match if f.name in [
-                    'in_port', 'out_port', 'interface'
-                ]
-            ]:
-                if not Vector.is_vector(field.value, name=field.name):
-                    field.value = "{:032b}".format(self.global_port(field.value))
-                    field.vectorize()
-
-            for action in [a for a in act if isinstance(a, Rewrite)]:
-                for field in action.rewrite:
-                    if field.name in [
-                        'in_port', 'out_port', 'interface'
-                    ] and not Vector.is_vector(field.value, name=field.name):
-                        field.value = "{:032b}".format(self.global_port(field.value))
-
-                    field.vectorize()
-
-            rvec = self._build_vector(rule.match)
-
-            in_ports = [
-                self.global_port(
-                    pname
-                ) for pname in rule.in_ports
-            ]
 
             out_ports = []
             mask = None
@@ -462,19 +436,22 @@ class NetPlumberAdapter(object):
             for action in rule.actions:
                 if isinstance(action, Forward):
                     out_ports.extend(
-                        [self.global_port(
-                            port
-                        ) for port in action.ports]
+                        [self.global_port(port) for port in action.ports]
                     )
 
                 elif isinstance(action, Rewrite):
-                    rewrite = self._build_vector(action.rewrite)
+                    rewrite = self._build_vector([
+                        SwitchRuleField(
+                            f.name, '{:032b}'.format(self.global_port(f.value))
+                        ) if f.name in [
+                            'interface', 'in_port', 'out_port'
+                        ] else f for f in action.rewrite
+                    ])
                     mask = self._build_vector([
                         SwitchRuleField(
                             f.name, '1'*FIELD_SIZES[f.name]
-                        ) for f in action.rewrite],
-                        preset='0'
-                    )
+                        ) for f in action.rewrite
+                    ], preset='0')
 
                 else:
                     if self.logger.isEnabledFor(logging.WARN):
@@ -483,7 +460,19 @@ class NetPlumberAdapter(object):
                             json.dumps(action.to_json(), indent=2)
                         )
 
-            matches = self._expand_negations(rule.match)
+            in_ports = [
+                self.global_port(
+                    pname
+                ) for pname in rule.in_ports
+            ]
+
+            matches = self._expand_negations(Match([
+                SwitchRuleField(
+                    f.name, '{:032b}'.format(self.global_port(f.value))
+                ) if f.name in [
+                    'interface', 'in_port', 'out_port'
+                ] else f for f in rule.match
+            ]))
 
             for nid, match in enumerate(matches):
                 if self.logger.isEnabledFor(logging.DEBUG):
@@ -498,14 +487,13 @@ class NetPlumberAdapter(object):
                         [hex(p) for p in out_ports],
                         rewrite.vector if rewrite else "*"
                     )
-
                 r_id = jsonrpc.add_rule(
                     self.socks,
                     tid,
                     calc_rule_index(rid, n_idx=nid),
                     in_ports,
                     out_ports,
-                    match.vector if match.vector else 'x'*8,
+                    match.vector,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
@@ -524,8 +512,11 @@ class NetPlumberAdapter(object):
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug("worker: skip adding rules to table %s", table)
                 continue
+            else:
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
 
-            self._add_rule_table(model, table)
+            self._add_generic_table(model, table)
 
         for table in [model.node+".post_routing"]:
             self._add_post_routing_rules(model)
