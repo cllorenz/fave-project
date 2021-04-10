@@ -19,7 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-rm -rf /tmp/np
+rm -rf /dev/shm/np
+rm -f /dev/shm/*.socket
 
 TMP=$(mktemp -d -p /tmp "np.XXXXXX")
 TMPESC=$(echo $TMP | sed 's/\//\\\//g')
