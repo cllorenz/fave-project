@@ -248,11 +248,8 @@ class NetPlumberAdapter(object):
             if port1 in [model.node+".internals_in", model.node+".post_routing"] or \
                 port2 in [model.node+".internals_out", model.node+".post_routing"]:
                 if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("worker: skip wiring %s to %s", port1, port2)
+                    self.logger.debug("worker: skip forbidden wire from %s to %s", port1, port2)
                 continue
-
-            if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("worker: wire %s to %s", port1, port2)
 
             gport1 = self.global_port(port1)
             gport2 = self.global_port(port2)
@@ -415,7 +412,7 @@ class NetPlumberAdapter(object):
         tid = self.tables[table]
 
         if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug("worker: add rules to %s", table)
+            self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
         for rule in model.tables[table]:
             if self.logger.isEnabledFor(logging.DEBUG):
@@ -482,11 +479,12 @@ class NetPlumberAdapter(object):
             for nid, match in enumerate(matches):
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug(
-                        "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
-                        calc_rule_index(rid),
+                        "worker: add rule %s to %s:%s:\n\t(%s, %s & %s -> %s, %s)",
+                        calc_rule_index(rid, n_idx=nid),
+                        table,
                         tid,
                         [hex(p) for p in in_ports],
-                        match.vector if match else "*",
+                        match.vector,
                         mask.vector if mask else "*",
                         [hex(p) for p in out_ports],
                         rewrite.vector if rewrite else "*"
