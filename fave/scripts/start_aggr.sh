@@ -28,7 +28,7 @@ DEBUG_PARAMS=""
 
 UNIX=""
 
-usage() { echo "usage: $0 [-hu] [-S <backend>]" 2>&2; }
+usage() { echo "usage: $0 [-hdu] [-S <backend>]" 2>&2; }
 
 while getopts "hduS:" o; do
     case "${o}" in
