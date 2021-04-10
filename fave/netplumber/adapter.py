@@ -479,8 +479,8 @@ class NetPlumberAdapter(object):
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
-        for rule in model.tables[table]:
-            if self.logger.isEnabledFor(logging.DEBUG):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for rule in model.tables[table]:
                 self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
         for rule in model.tables[table]:
