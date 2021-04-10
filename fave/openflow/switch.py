@@ -260,7 +260,7 @@ def main(argv):
                     actions.append(Rewrite(rwfields))
 
         elif opt == '-p':
-            in_ports = [p[len(node)+1:] for p in arg.split(',')]
+            in_ports = arg.split(',')
 
     table = node+'.'+table
 
