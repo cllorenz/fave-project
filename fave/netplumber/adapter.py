@@ -212,7 +212,7 @@ class NetPlumberAdapter(object):
         jsonrpc.remove_slice(self.socks, sid)
 
 
-    def add_tables(self, model, prefixed=False):
+    def add_tables(self, model): #, prefixed=False):
         self.model_types.setdefault(model.node, model.type)
 
         for table in model.tables:
@@ -523,71 +523,6 @@ class NetPlumberAdapter(object):
 
         for table in [model.node+".pre_routing"]:
             self._add_pre_routing_rules(model)
-
-
-    # XXX: merge with pre- post-routing handling above?
-    def add_switch_rules(self, model):
-        for table in model.tables:
-
-            tid = self.tables[table]
-
-            for rule in model.tables[table]:
-                rid = rule.idx
-
-                rvec = self._build_vector(rule.match)
-
-                out_ports = []
-                mask = None
-                rewrite = None
-                for action in rule.actions:
-                    if isinstance(action, Forward):
-                        out_ports.extend(
-                            [self.global_port(port) for port in action.ports]
-                        )
-
-                    elif isinstance(action, Rewrite):
-                        rewrite = self._build_vector([
-                            SwitchRuleField(
-                                f.name, '{:032b}'.format(self.global_port(f.value))
-                            ) if f.name in [
-                                'interface', 'in_port', 'out_port'
-                            ] else f for f in action.rewrite
-                        ])
-                        mask = self._build_vector([
-                            SwitchRuleField(
-                                f.name, '1'*FIELD_SIZES[f.name]
-                            ) for f in action.rewrite
-                        ], preset='0')
-
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug(
-                        "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
-                        calc_rule_index(rid),
-                        table,
-                        tid,
-                        rvec.vector if rvec else "*",
-                        mask.vector if mask else "*",
-                        [hex(p) for p in out_ports],
-                        rewrite.vector if rewrite else "*"
-                    )
-
-                in_ports = [self.global_port(
-                    "%s.%s" % (model.node, p)
-                ) for p in rule.in_ports] if rule.in_ports else []
-
-                r_id = jsonrpc.add_rule(
-                    self.socks,
-                    tid,
-                    calc_rule_index(rid),
-                    in_ports,
-                    out_ports,
-                    rvec.vector,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
-                )
-                np_rid = calc_rule_index(rid, t_idx=tid)
-                self.rule_ids.setdefault(np_rid, [])
-                self.rule_ids[np_rid].append(r_id)
 
 
     def delete_rules(self, model):

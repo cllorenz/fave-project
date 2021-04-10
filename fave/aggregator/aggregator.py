@@ -461,13 +461,22 @@ class Aggregator(AbstractAggregator):
         elif model.type == "switch":
             self._delete_switch(model)
 
+
     def _add_model(self, model):
-        if model.type == "packet_filter":
-            self._add_packet_filter(model)
-        elif model.type == "router":
-            self._add_router(model)
-        elif model.type == "switch":
-            self._add_switch(model)
+        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            Aggregator.LOGGER.debug("worker: apply %s: %s" % (model.type, model.node))
+
+        self.net_plumber.add_tables(model) #, prefixed=True)
+        self.net_plumber.add_wiring(model)
+        self.net_plumber.add_rules(model)
+        self._add_ports(model)
+
+#        if model.type == "packet_filter":
+#            self._add_packet_filter(model)
+#        elif model.type == "router":
+#            self._add_router(model)
+#        elif model.type == "switch":
+#            self._add_switch(model)
 
 
     def _add_ports(self, model):
