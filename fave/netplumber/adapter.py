@@ -254,6 +254,15 @@ class NetPlumberAdapter(object):
             gport1 = self.global_port(port1)
             gport2 = self.global_port(port2)
 
+            # ignore existing wiring
+            if gport1 in self.links and gport2 in self.links[gport1]:
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: skip existing wire from %s to %s", port1, port2)
+                continue
+            else:
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: wire %s to %s", port1, port2)
+
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
                     "worker: add link to netplumber from %s:%s to %s:%s",
