@@ -27,32 +27,10 @@
 import json
 import time
 import socket
-import cProfile
 
-PROFILE = cProfile.Profile()
 NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
 NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
 NET_PLUMBER_DEFAULT_PORT = 44001
-
-def profile_method(method):
-    """ Enriches a method with profiling capabilities.
-    """
-
-    def profile_wrapper(*args, **kwargs):
-        """ Wrapper for profiling.
-        """
-
-        PROFILE.enable()
-        method(*args, **kwargs)
-        PROFILE.disable()
-
-    return profile_wrapper
-
-
-def dump_stats():
-    """ Dumps profiling results.
-    """
-    PROFILE.dump_stats("jsonrpc.stats")
 
 
 def _sendrecv(sock, msg):
@@ -113,6 +91,12 @@ def _asend_recv(socks, msg):
 
 def _extract_node(msg):
     """ Extracts the node ID from node-related RPC call results.
+    """
+    return msg["result"]
+
+
+def _extract_nodes(msg):
+    """ Extracts the node IDs from node-related batch RPC call results.
     """
     return msg["result"]
 
@@ -186,7 +170,6 @@ def stop(socks):
         sock.close()
 
 
-#@profile_method
 def init(socks, length):
     """ Initializes NetPlumber instances with vectors of a certain length.
 
@@ -201,7 +184,6 @@ def init(socks, length):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def destroy(socks):
     """ Destroys the active NetPlumber instances.
 
@@ -214,7 +196,6 @@ def destroy(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_table(socks, t_idx, ports):
     """ Adds a table.
 
@@ -230,7 +211,6 @@ def add_table(socks, t_idx, ports):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def remove_table(socks, t_idx):
     """ Removes a table.
 
@@ -245,7 +225,6 @@ def remove_table(socks, t_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
     """ Adds a rule to a table.
 
@@ -275,7 +254,40 @@ def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
     return _extract_node(res[0])
 
 
-#@profile_method
+def add_rules_batch(socks, rules):
+    """ Adds a list of rules.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    rules -- The list of rules. Each rule is a tuple containing the following:
+        t_idx -- The table's ID
+        r_idx -- The rule's ID
+        in_ports -- The rule's matched ports
+        out_ports -- The rule's forwarding ports
+        match -- The rule's matching vector
+        mask -- The rule's mask bits as vector
+        rewrite -- The rule's rewriting as vector
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_rules"
+    data["params"] = {
+        "rules" : [
+            {
+                "table":t_idx,
+                "index":r_idx,
+                "in":in_ports,
+                "out":out_ports,
+                "match":match,
+                "mask":mask,
+                "rw":rewrite
+            } for _np_rid, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite in rules
+        ]
+    }
+    res = _asend_recv(socks, json.dumps(data))
+    return _extract_nodes(res[0])
+
+
 def remove_rule(socks, r_idx):
     """ Removes a rule.
 
@@ -290,7 +302,6 @@ def remove_rule(socks, r_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_link(socks, from_port, to_port):
     """ Adds a directed link between two ports.
 
@@ -333,7 +344,6 @@ def add_links_bulk(socks, links):
             _sync_recv(socks)
 
 
-#@profile_method
 def remove_link(socks, from_port, to_port):
     """ Removes a link.
 
@@ -349,7 +359,6 @@ def remove_link(socks, from_port, to_port):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_source(socks, idx, hs_list, hs_diff, ports):
     """ Adds a source node.
 
@@ -422,7 +431,6 @@ def add_sources_bulk(socks, sources):
     return sids
 
 
-#@profile_method
 def remove_source(socks, s_idx):
     """ Removes a source node.
 
@@ -437,7 +445,6 @@ def remove_source(socks, s_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_source_probe(socks, ports, mode, match, filterexp, test, idx):
     """ Adds a probe node.
 
@@ -464,7 +471,6 @@ def add_source_probe(socks, ports, mode, match, filterexp, test, idx):
     return _extract_node(res[0])
 
 
-#@profile_method
 def remove_source_probe(socks, sp_idx):
     """ Removes probe node.
 
@@ -479,7 +485,6 @@ def remove_source_probe(socks, sp_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_slice(socks, nid, ns_list, ns_diff):
     """ Adds a network slice.
 
@@ -502,7 +507,6 @@ def add_slice(socks, nid, ns_list, ns_diff):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def remove_slice(socks, nid):
     """ Removes a network slice.
 
@@ -517,7 +521,6 @@ def remove_slice(socks, nid):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_slice_matrix(socks, matrix):
     """ Adds a reachability matrix to a network slice.
 
@@ -535,7 +538,6 @@ def add_slice_matrix(socks, matrix):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def remove_slice_matrix(socks):
     """ Clears all contents from reachability matrix
         for network slices.
@@ -549,7 +551,6 @@ def remove_slice_matrix(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def add_slice_allow(socks, id1, id2):
     """ Adds a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
@@ -567,7 +568,6 @@ def add_slice_allow(socks, id1, id2):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def remove_slice_allow(socks, id1, id2):
     """ Removes a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
@@ -585,7 +585,6 @@ def remove_slice_allow(socks, id1, id2):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def print_slice_matrix(socks):
     """ Prints the reachability matrix to slice logger.
 
@@ -598,7 +597,6 @@ def print_slice_matrix(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def dump_slices_pipes(socks, odir):
     """ Dumps NetPlumber's plumbing network including pipes with slice ids.
 
@@ -613,7 +611,6 @@ def dump_slices_pipes(socks, odir):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def print_table(socks, t_idx):
     """ Prints a table using NetPlumber's default logger.
 
@@ -628,7 +625,6 @@ def print_table(socks, t_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def print_topology(socks):
     """ Prints NetPlumber's topology using its default logger.
 
@@ -642,7 +638,6 @@ def print_topology(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def print_plumbing_network(socks):
     """ Prints NetPlumber's plumbing network using its default logger.
 
@@ -655,7 +650,6 @@ def print_plumbing_network(socks):
     data["params"] = None
     _asend_recv(socks, json.dumps(data))
 
-#@profile_method
 def reset_plumbing_network(socks):
     """ Resets NetPlumber to its defaults.
 
@@ -669,7 +663,6 @@ def reset_plumbing_network(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def expand(socks, new_length):
     """ Expands NetPlumber's vectors to a new length.
 
@@ -684,7 +677,6 @@ def expand(socks, new_length):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def dump_plumbing_network(socks, odir):
     """ Dumps NetPlumber's plumbing network as JSON including tables and rules.
 
@@ -699,7 +691,6 @@ def dump_plumbing_network(socks, odir):
     _asend_recv(socks[:1], json.dumps(data))
 
 
-#@profile_method
 def dump_flows(socks, odir):
     """ Dumps the flows residing in NetPlumber.
 
@@ -713,7 +704,6 @@ def dump_flows(socks, odir):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def dump_flow_trees(socks, odir, keep_simple=False):
     """ Dumps the flows residing in NetPlumber as trees.
 
@@ -727,7 +717,6 @@ def dump_flow_trees(socks, odir, keep_simple=False):
     _asend_recv(socks, json.dumps(data))
 
 
-#@profile_method
 def dump_pipes(socks, odir):
     """ Dumps the pipelines residing in NetPlumber.
 
@@ -741,7 +730,7 @@ def dump_pipes(socks, odir):
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))
 
-#@profile_method
+
 def dump_slices_pipes(socks, odir):
     """ Dumps the pipelines with slice information residing in NetPlumber.
 
@@ -755,7 +744,7 @@ def dump_slices_pipes(socks, odir):
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))
     
-#@profile_method
+
 def dump_slices(socks, odir):
     """ Dumps the slices residing in NetPlumber.
 

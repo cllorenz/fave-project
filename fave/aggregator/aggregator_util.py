@@ -68,7 +68,6 @@ def model_from_json(j):
         return model.from_json(j)
 
 
-#@profile_method
 def model_from_string(jsons):
     """ Reconstructs a model from a JSON string.
 

@@ -34,7 +34,6 @@ from pprint import pformat
 from threading import Thread
 from Queue import Queue
 
-#from aggregator_profiler import profile_method
 from aggregator_abstract import AbstractAggregator, TRACE
 from aggregator_singleton import AGGREGATOR
 from aggregator_signals import register_signals
@@ -99,7 +98,6 @@ class Aggregator(AbstractAggregator):
         )
 
 
-    #@profile_method
     def _handler(self):
         t_start = time.time()
 
@@ -257,7 +255,6 @@ class Aggregator(AbstractAggregator):
         self.stop = True
 
 
-    #@profile_method
     def _sync_diff(self, model):
         if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
             Aggregator.LOGGER.debug('worker: synchronize model')
@@ -577,8 +574,6 @@ def main(argv):
         AGGREGATOR.run(FAVE_DEFAULT_UNIX)
     else:
         AGGREGATOR.run(fave_addr, port=fave_port)
-
-#    sys.exit(0)
 
 
 if __name__ == "__main__":

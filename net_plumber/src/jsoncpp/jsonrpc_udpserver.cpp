@@ -78,7 +78,7 @@ namespace Json
         std::string chunk = std::string(buf, nb);
         size_t pos = chunk.find_first_of('\n');
 
-        if (!pos) { /* message not finished, yet -> receive more chunks */
+        if (pos == std::string::npos) { /* message not finished, yet -> receive more chunks */
           msg.append(chunk);
           ::recvfrom(fd, buf, nb, 0, (struct sockaddr*)&addr, &addrlen);
 

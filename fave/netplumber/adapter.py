@@ -410,88 +410,105 @@ class NetPlumberAdapter(object):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _add_generic_table(self, model, table):
-        tid = self.tables[table]
+    def _prepare_generic_rule(self, rule):
+        tid = self.tables[rule.tid]
+        rid = rule.idx
+        out_ports = []
+        mask = None
+        rewrite = None
+        for action in rule.actions:
+            if isinstance(action, Forward):
+                out_ports.extend(
+                    [self.global_port(port) for port in action.ports]
+                )
 
+            elif isinstance(action, Rewrite):
+                rewrite = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '{:032b}'.format(self.global_port(f.value))
+                    ) if f.name in [
+                        'interface', 'in_port', 'out_port'
+                    ] else f for f in action.rewrite
+                ])
+                mask = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '1'*FIELD_SIZES[f.name]
+                    ) for f in action.rewrite
+                ], preset='0')
+
+            else:
+                if self.logger.isEnabledFor(logging.WARN):
+                    self.logger.warn(
+                        "worker: ignore unknown action while preparing rule\n%s",
+                        json.dumps(action.to_json(), indent=2)
+                    )
+
+        in_ports = [
+            self.global_port(
+                pname
+            ) for pname in rule.in_ports
+        ]
+
+        matches = self._expand_negations(Match([
+            SwitchRuleField(
+                f.name, '{:032b}'.format(self.global_port(f.value))
+            ) if f.name in [
+                'interface', 'in_port', 'out_port'
+            ] else f for f in rule.match
+        ]))
+
+        res = []
+        for nid, match in enumerate(matches):
+            np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
+            self.rule_ids.setdefault(np_rid, [])
+            res.append((
+                np_rid,
+                tid,
+                calc_rule_index(rid, n_idx=nid),
+                in_ports,
+                out_ports,
+                match.vector if match else None,
+                mask.vector if mask else None,
+                rewrite.vector if rewrite else None
+            ))
+
+        return res
+
+
+    def _add_generic_table(self, model, table):
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
-        for rule in model.tables[table]:
-            if self.logger.isEnabledFor(logging.DEBUG):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for rule in model.tables[table]:
                 self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
         for rule in model.tables[table]:
-            rid = rule.idx
+            prules = self._prepare_generic_rule(rule)
 
-            out_ports = []
-            mask = None
-            rewrite = None
-            for action in rule.actions:
-                if isinstance(action, Forward):
-                    out_ports.extend(
-                        [self.global_port(port) for port in action.ports]
-                    )
-
-                elif isinstance(action, Rewrite):
-                    rewrite = self._build_vector([
-                        SwitchRuleField(
-                            f.name, '{:032b}'.format(self.global_port(f.value))
-                        ) if f.name in [
-                            'interface', 'in_port', 'out_port'
-                        ] else f for f in action.rewrite
-                    ])
-                    mask = self._build_vector([
-                        SwitchRuleField(
-                            f.name, '1'*FIELD_SIZES[f.name]
-                        ) for f in action.rewrite
-                    ], preset='0')
-
-                else:
-                    if self.logger.isEnabledFor(logging.WARN):
-                        self.logger.warn(
-                            "worker: ignore unknown action while adding rule\n%s",
-                            json.dumps(action.to_json(), indent=2)
-                        )
-
-            in_ports = [
-                self.global_port(
-                    pname
-                ) for pname in rule.in_ports
-            ]
-
-            matches = self._expand_negations(Match([
-                SwitchRuleField(
-                    f.name, '{:032b}'.format(self.global_port(f.value))
-                ) if f.name in [
-                    'interface', 'in_port', 'out_port'
-                ] else f for f in rule.match
-            ]))
-
-            for nid, match in enumerate(matches):
+            for np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite in prules:
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug(
                         "worker: add rule %s to %s:%s:\n\t(%s, %s & %s -> %s, %s)",
-                        calc_rule_index(rid, n_idx=nid),
+                        fave_rid,
                         table,
                         tid,
                         [hex(p) for p in in_ports],
-                        match.vector,
-                        mask.vector if mask else "*",
+                        match if match else "*",
+                        mask if mask else "*",
                         [hex(p) for p in out_ports],
-                        rewrite.vector if rewrite else "*"
+                        rewrite if rewrite else "*"
                     )
                 r_id = jsonrpc.add_rule(
                     self.socks,
                     tid,
-                    calc_rule_index(rid, n_idx=nid),
+                    fave_rid,
                     in_ports,
                     out_ports,
-                    match.vector if match.vector else None,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
+                    match,
+                    mask,
+                    rewrite
                 )
-                np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
-                self.rule_ids.setdefault(np_rid, [])
                 self.rule_ids[np_rid].append(r_id)
 
 
@@ -506,13 +523,56 @@ class NetPlumberAdapter(object):
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
 
-            self._add_generic_table(model, table)
+            self.add_rules_batch(model.tables[table])
 
         if model.node+".post_routing" in model.tables:
             self._add_post_routing_rules(model)
 
         if model.node+".pre_routing" in model.tables:
             self._add_pre_routing_rules(model)
+
+
+    def _update_mapping_for_rule(rule):
+        self._update_mapping()
+
+
+    def add_rules_batch(self, rules):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("worker: add a batch of %s rules" % len(rules))
+
+        fields = set()
+        for rule in rules:
+            fields.update([f.name for f in rule.match])
+            rw = set()
+            for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
+                rw.update([f.name for f in action.rewrite])
+            fields.update(rw)
+        self._update_mapping(fields)
+
+        batch = []
+        for rule in rules:
+            batch.extend(self._prepare_generic_rule(rule))
+
+        for rule in batch:
+            np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite = rule
+
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
+                    fave_rid,
+                    tid,
+                    [hex(p) for p in in_ports],
+                    match if match else "*",
+                    mask if mask else "*",
+                    [hex(p) for p in out_ports],
+                    rewrite if rewrite else "*"
+                )
+
+        rids = jsonrpc.add_rules_batch(self.socks, batch)
+
+        for r_id, rule in zip(rids, batch):
+            np_rid, _tid, _fave_rid, _in, _out, _match, _mask, _rewrite = rule
+            self.rule_ids[np_rid].append(r_id)
 
 
     def delete_rules(self, model):
