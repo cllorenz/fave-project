@@ -154,6 +154,7 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     FN(add_link), FN(remove_link),
     FN(add_table), FN(remove_table),
     FN(add_rule), FN(remove_rule),
+    FN(add_rules),
     FN(add_source), FN(remove_source),
     FN(add_source_probe), FN(remove_source_probe),
 #ifdef PIPE_SLICING
@@ -288,6 +289,26 @@ PROTO(add_rule)
   T2 *rw = val_to_array<T2>(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
   RETURN((Json::Value::UInt64) ret);
+}
+
+PROTO(add_rules)
+  Json::Value rules = PARAM(rules);
+  Json::Value ret(Json::arrayValue);
+  for (Json::ArrayIndex i = 0; i < rules.size(); i++) {
+    Json::Value rule = rules[i];
+    const uint32_t table = rule["table"].asUInt();
+    const uint32_t index = rule["index"].asUInt();
+    List_t in = val_to_list(rule["in"]);
+    List_t out = val_to_list(rule["out"]);
+    T2 *match = val_to_array<T2>(rule["match"]);
+    if (!match || match->is_empty()) { delete match; match = nullptr; }
+    if (!match) match = new T2(length, BIT_X);
+    T2 *mask = val_to_array<T2>(rule["mask"]);
+    T2 *rw = val_to_array<T2>(rule["rw"]);
+    uint64_t np_id = netPlumber->add_rule(table, index, in, out, match, mask, rw);
+    ret.append((Json::Value::UInt64) np_id);
+  }
+  RETURN(ret);
 }
 
 PROTO(remove_rule)
