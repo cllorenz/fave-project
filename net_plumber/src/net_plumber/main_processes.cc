@@ -119,7 +119,7 @@ void load_netplumber_from_dir(
           long run_time = 0;
           rule_counter++;
           string action = rules[i]["action"].asString();
-          uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffff;
+          uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffffffff;
           if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
             T2 *match = new T2(rules[i]["match"], N->get_length());
             match->intersect(filter);
@@ -145,7 +145,7 @@ void load_netplumber_from_dir(
             Json::Value mp_rules = rules[i]["rules"];
             uint64_t group = 0;
             for (Json::ArrayIndex i = 0; i < mp_rules.size(); i++) {
-              uint32_t rule_id = mp_rules[i]["id"].asUInt64() & 0xffff;
+              uint32_t rule_id = mp_rules[i]["id"].asUInt64() & 0xffffffff;
               string action = mp_rules[i]["action"].asString();
               if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
                 uint64_t id = N->add_rule_to_group(
@@ -223,7 +223,9 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
         h = tmp;
       }
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
-      N->add_source(h, ports, i+1);
+      const uint64_t id = commands[i]["params"]["id"].asUInt64();
+      N->add_source(h, ports, id);
+
     } else if (type == "add_source_probe") {
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       PROBE_MODE mode = !strcasecmp(commands[i]["params"]["mode"].asCString(), "universal")
@@ -231,7 +233,9 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
       T2 *match = val_to_array<T2>(commands[i]["params"]["match"]);
       Condition<T1, T2> *filter = val_to_cond<T1, T2>(commands[i]["params"]["filter"], N->get_length());
       Condition<T1, T2> *test = val_to_cond<T1, T2>(commands[i]["params"]["test"], N->get_length());
-      N->add_source_probe(ports, mode, match, filter, test, nullptr, nullptr, i+1);
+      const uint64_t id = commands[i]["params"]["id"].asUInt64();
+      N->add_source_probe(ports, mode, match, filter, test, nullptr, nullptr, id);
+
     } else if (type == "add_link") {
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
       uint32_t to_port = commands[i]["params"]["to_port"].asUInt();

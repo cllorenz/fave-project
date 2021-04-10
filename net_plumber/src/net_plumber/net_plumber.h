@@ -106,9 +106,6 @@ namespace net_plumber {
     //inverse topology
     std::map< uint32_t, std::vector<uint32_t>* > inv_topology;
 
-    // last id used for a table id
-    std::map<uint32_t,uint64_t> table_to_last_id;
-
     //list of nodes for table id
     std::map<uint32_t, std::map<uint32_t, RuleNode<T1, T2> *>* > table_to_nodes;
 
