@@ -35,7 +35,7 @@ from threading import Thread
 from Queue import Queue
 
 #from aggregator_profiler import profile_method
-from aggregator_abstract import AbstractAggregator
+from aggregator_abstract import AbstractAggregator, TRACE
 from aggregator_singleton import AGGREGATOR
 from aggregator_signals import register_signals
 from aggregator_util import model_from_json
@@ -123,8 +123,8 @@ class Aggregator(AbstractAggregator):
                 self.queue.task_done()
                 return
 
-            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                Aggregator.LOGGER.debug('worker: parsed data\n%s' % pformat(j, indent=2))
+            if Aggregator.LOGGER.isEnabledFor(TRACE):
+                Aggregator.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
                 task_type = 'stop'
@@ -567,10 +567,7 @@ def main(argv):
     logging.logProcesses = 0
 
     try:
-        only_opts = lambda x: x[0]
-        opts = only_opts(
-            getopt.getopt(argv, "hds:p:S:u", ["help", "debug", "server=", "port=", "servers=", "unix"])
-        )
+        opts, _args = getopt.getopt(argv, "hds:p:S:tu", ["help", "debug", "server=", "port=", "servers=", "trace", "unix"])
     except getopt.GetoptError:
         eprint("could not parse options: %s" % argv)
         _print_help()
@@ -600,6 +597,9 @@ def main(argv):
                 servers.append((np_host, np_port))
         elif opt == '-d':
             log_level = logging.DEBUG
+
+        elif opt == '-t':
+            log_level = TRACE
 
     log_handler = logging.FileHandler('/dev/shm/np/aggregator.log')
     Aggregator.LOGGER.addHandler(log_handler)
