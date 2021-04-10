@@ -46,14 +46,14 @@ mkdir -p $LAST_NP
 rm -rf $LAST_NP/*
 mkdir -p $RDIR/fave
 
-for threads in 1 2 4 8 16 24; do
+for threads in 24 16 8 4 2 1; do
   # run FaVe benchmark
   for i in $(seq 1 $RUNS); do
     RAW_DIR=$RDIR/fave/$threads/$i.raw
     rm -rf $RAW_DIR
     mkdir -p $RAW_DIR
 
-    sleep 5
+    sleep 1
   
     SOUT=$RAW_DIR/stdout.log
     SERR=$RAW_DIR/stderr.log
@@ -62,7 +62,7 @@ for threads in 1 2 4 8 16 24; do
     python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
     echo "done"
   
-    sleep 5
+    sleep 1
   
     echo -n "check integrity... "
     check_integrity
@@ -72,7 +72,7 @@ for threads in 1 2 4 8 16 24; do
   
     cp -r $FDIR/np/ $RAW_DIR
 
-    sleep 5
+    sleep 1
   done
 done
 
