@@ -76,14 +76,14 @@ class NetPlumberAdapter(object):
         return self.generators.get(src.rstrip('.1'), [-1, 0, 0])[0]
 
     def add_links_bulk(self, links):
-         jsonrpc.add_links_bulk(
+        jsonrpc.add_links_bulk(
             self.socks,
             [(
                 self._get_index_for_src(src),
                 self.global_port(src),
                 self.global_port(dst)
             ) for src, dst in links]
-         )
+        )
 
     def add_link(self, src, dst):
         jsonrpc.add_link(self.socks, self.global_port(src), self.global_port(dst))
