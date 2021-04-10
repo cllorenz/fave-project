@@ -119,7 +119,7 @@ class Aggregator(AbstractAggregator):
             try:
                 j = json.loads(data)
             except ValueError:
-                Aggregator.LOGGER.exception('worker: could not parse data: %s' % data)
+                Aggregator.LOGGER.fatal('worker: could not parse data: %s' % data)
                 self.queue.task_done()
                 return
 
