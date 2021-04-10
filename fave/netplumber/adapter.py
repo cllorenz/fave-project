@@ -486,7 +486,7 @@ class NetPlumberAdapter(object):
                     calc_rule_index(rid, n_idx=nid),
                     in_ports,
                     out_ports,
-                    match.vector,
+                    match.vector if match.vector else None,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
