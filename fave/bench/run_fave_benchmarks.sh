@@ -65,13 +65,14 @@ for i in $(seq 1 $RUNS); do
   check_integrity
   [ -z "$?" ] && break || echo "ok"
   rm -rf $LAST_NP/*
-  cp -r np_dump/* $LAST_NP/
+  mv np_dump/* $LAST_NP/
 
   cp -r /dev/shm/np/ $RAW_DIR
 done
 
 # run NetPlumber benchmark
 echo -n "run netplumber directly for $BENCH ..."
+mv $LAST_NP np_dump
 HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
 for i in $(seq 1 $RUNS); do
   RAW_DIR=$RDIR/np/$i.raw
