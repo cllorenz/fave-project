@@ -38,6 +38,8 @@ from generator import GeneratorModel
 from probe import ProbeModel
 from router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
 
+from ip6np.generator import generate as ip6np_generate
+from misc.pybison_singleton import PARSER as IP6TABLES_PARSER
 
 class LinksModel(object):
     """ This class provides a model to store links in FaVe.
@@ -367,10 +369,11 @@ def main(argv):
     if command == 'add':
         model = {
             'switch' : lambda: SwitchModel(dev, ports=ports),
-            'packet_filter' : lambda: PacketFilterModel(
+            'packet_filter' : lambda: ip6np_generate(
+                IP6TABLES_PARSER.parse(ruleset),
                 dev,
-                ports=ports,
-                address=address
+                address,
+                ports
             ),
             'links' : lambda: LinksModel(links),
             'generator' : lambda: GeneratorModel(

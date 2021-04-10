@@ -35,13 +35,14 @@ from ip6np import ip6np as ip6tables
 from openflow import switch
 
 
-def _add_packet_filter(name, _type, ports, address, _ruleset, use_unix=False):
+def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False):
     topo.main([
         "-a",
         "-t", "packet_filter",
         "-n", name,
         "-i", address,
-        "-p", str(ports)
+        "-p", str(ports),
+        "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
 
