@@ -275,6 +275,40 @@ def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
     return _extract_node(res[0])
 
 
+def add_rules_batch(socks, rules):
+    """ Adds a list of rules.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    rules -- The list of rules. Each rule is a tuple containing the following:
+        t_idx -- The table's ID
+        r_idx -- The rule's ID
+        in_ports -- The rule's matched ports
+        out_ports -- The rule's forwarding ports
+        match -- The rule's matching vector
+        mask -- The rule's mask bits as vector
+        rewrite -- The rule's rewriting as vector
+    """
+
+    data = _basic_rpc()
+    data["method"] = "add_rules"
+    data["params"] = {
+        "rules" : [
+            {
+                "table":t_idx,
+                "index":r_idx,
+                "in":in_ports,
+                "out":out_ports,
+                "match":match,
+                "mask":mask,
+                "rw":rewrite
+            } for _np_rid, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite in rules
+        ]
+    }
+    res = _asend_recv(socks, json.dumps(data))
+    return [_extract_node(r) for r in res[0]]
+
+
 #@profile_method
 def remove_rule(socks, r_idx):
     """ Removes a rule.
