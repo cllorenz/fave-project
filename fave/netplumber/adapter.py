@@ -410,9 +410,72 @@ class NetPlumberAdapter(object):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _add_generic_table(self, model, table):
-        tid = self.tables[table]
+    def _prepare_generic_rule(self, rule):
+        tid = self.tables[rule.tid]
+        rid = rule.idx
+        out_ports = []
+        mask = None
+        rewrite = None
+        for action in rule.actions:
+            if isinstance(action, Forward):
+                out_ports.extend(
+                    [self.global_port(port) for port in action.ports]
+                )
 
+            elif isinstance(action, Rewrite):
+                rewrite = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '{:032b}'.format(self.global_port(f.value))
+                    ) if f.name in [
+                        'interface', 'in_port', 'out_port'
+                    ] else f for f in action.rewrite
+                ])
+                mask = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '1'*FIELD_SIZES[f.name]
+                    ) for f in action.rewrite
+                ], preset='0')
+
+            else:
+                if self.logger.isEnabledFor(logging.WARN):
+                    self.logger.warn(
+                        "worker: ignore unknown action while preparing rule\n%s",
+                        json.dumps(action.to_json(), indent=2)
+                    )
+
+        in_ports = [
+            self.global_port(
+                pname
+            ) for pname in rule.in_ports
+        ]
+
+        matches = self._expand_negations(Match([
+            SwitchRuleField(
+                f.name, '{:032b}'.format(self.global_port(f.value))
+            ) if f.name in [
+                'interface', 'in_port', 'out_port'
+            ] else f for f in rule.match
+        ]))
+
+        res = []
+        for nid, match in enumerate(matches):
+            np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
+            self.rule_ids.setdefault(np_rid, [])
+            res.append((
+                np_rid,
+                tid,
+                calc_rule_index(rid, n_idx=nid),
+                in_ports,
+                out_ports,
+                match,
+                mask,
+                rewrite
+            ))
+
+        return res
+
+
+    def _add_generic_table(self, model, table):
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
@@ -421,57 +484,13 @@ class NetPlumberAdapter(object):
                 self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
         for rule in model.tables[table]:
-            rid = rule.idx
+            prules = self._prepare_generic_rule(rule)
 
-            out_ports = []
-            mask = None
-            rewrite = None
-            for action in rule.actions:
-                if isinstance(action, Forward):
-                    out_ports.extend(
-                        [self.global_port(port) for port in action.ports]
-                    )
-
-                elif isinstance(action, Rewrite):
-                    rewrite = self._build_vector([
-                        SwitchRuleField(
-                            f.name, '{:032b}'.format(self.global_port(f.value))
-                        ) if f.name in [
-                            'interface', 'in_port', 'out_port'
-                        ] else f for f in action.rewrite
-                    ])
-                    mask = self._build_vector([
-                        SwitchRuleField(
-                            f.name, '1'*FIELD_SIZES[f.name]
-                        ) for f in action.rewrite
-                    ], preset='0')
-
-                else:
-                    if self.logger.isEnabledFor(logging.WARN):
-                        self.logger.warn(
-                            "worker: ignore unknown action while adding rule\n%s",
-                            json.dumps(action.to_json(), indent=2)
-                        )
-
-            in_ports = [
-                self.global_port(
-                    pname
-                ) for pname in rule.in_ports
-            ]
-
-            matches = self._expand_negations(Match([
-                SwitchRuleField(
-                    f.name, '{:032b}'.format(self.global_port(f.value))
-                ) if f.name in [
-                    'interface', 'in_port', 'out_port'
-                ] else f for f in rule.match
-            ]))
-
-            for nid, match in enumerate(matches):
+            for np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite in prules:
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug(
                         "worker: add rule %s to %s:%s:\n\t(%s, %s & %s -> %s, %s)",
-                        calc_rule_index(rid, n_idx=nid),
+                        fave_rid,
                         table,
                         tid,
                         [hex(p) for p in in_ports],
@@ -483,15 +502,13 @@ class NetPlumberAdapter(object):
                 r_id = jsonrpc.add_rule(
                     self.socks,
                     tid,
-                    calc_rule_index(rid, n_idx=nid),
+                    fave_rid,
                     in_ports,
                     out_ports,
-                    match.vector if match.vector else None,
+                    match.vector if match else None,
                     mask.vector if mask else None,
                     rewrite.vector if rewrite else None
                 )
-                np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
-                self.rule_ids.setdefault(np_rid, [])
                 self.rule_ids[np_rid].append(r_id)
 
 
