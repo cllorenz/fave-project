@@ -578,8 +578,6 @@ def main(argv):
     else:
         AGGREGATOR.run(fave_addr, port=fave_port)
 
-#    sys.exit(0)
-
 
 if __name__ == "__main__":
 #    import yappi
