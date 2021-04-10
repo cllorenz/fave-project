@@ -240,6 +240,9 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
       uint32_t from_port = commands[i]["params"]["from_port"].asUInt();
       uint32_t to_port = commands[i]["params"]["to_port"].asUInt();
       N->add_link(from_port,to_port);
+
+    } else {
+      printf("Oooops... unknown command: %s\n", type.c_str());
     }
   }
   end = get_cpu_time_us();
