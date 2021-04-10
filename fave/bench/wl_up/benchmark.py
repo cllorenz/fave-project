@@ -18,7 +18,6 @@ LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
 LOGGER.setLevel(logging.DEBUG)
 
-#TMPDIR = "/tmp/np"
 TMPDIR = "/dev/shm/np"
 os.system("mkdir -p %s" % TMPDIR)
 
