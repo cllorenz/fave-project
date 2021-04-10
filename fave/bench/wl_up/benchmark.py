@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     LOGGER.info("wait for fave to check flow trees...")
     os.system("python2 misc/await_fave.py")
-    os.system("bash scripts/check_parallel.sh %s %s" % (CHECKS, tds))
+    os.system("bash scripts/check_parallel.sh %s %s %s" % (CHECKS, tds, "np_dump"))
     LOGGER.info("checked flow trees.")
 
     os.system("rm -f np_dump/.lock")
