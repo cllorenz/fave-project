@@ -205,11 +205,6 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
 
 #define RETURN(VAL) \
     end = get_cpu_time_ms(); \
-    if (rpc_logger->isTraceEnabled()) {\
-      log_msg << "Send: " << resp; \
-      LOG4CXX_TRACE(rpc_logger,log_msg.str()); \
-      LOG_MSG_RESET; \
-    } \
     log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"]; \
     if (netPlumber) log_msg << "(ID1: " << netPlumber->get_last_event().id1 << ")."; \
     else log_msg << "."; \
