@@ -115,10 +115,7 @@ if __name__ == "__main__":
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
-        LOGGER.info("  create topology")
         create_topology(devices, links, use_unix=use_unix)
-        LOGGER.info("  add rulesets")
-        add_rulesets(devices, use_unix=use_unix)
     LOGGER.info("topology sent to fave")
 
 
