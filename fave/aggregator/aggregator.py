@@ -341,29 +341,10 @@ class Aggregator(AbstractAggregator):
                         Aggregator.LOGGER.debug("worker: add all bulk links")
                     self.net_plumber.add_links_bulk(links)
 
-            elif cmd.mtype == "packet_filter":
-                if cmd.command == "add":
-                    self._add_packet_filter(cmd.model)
-                    self.models[cmd.model.node] = cmd.model
-                elif cmd.command == "del":
-                    self._delete_packet_filter(cmd.node)
-                    del self.models[cmd.model.node]
+                return
 
-            elif cmd.mtype == "switch":
-                if cmd.command == "add":
-                    self._add_switch(cmd.model)
-                    self.models[cmd.model.node] = cmd.model
-                elif cmd.command == "del":
-                    self._delete_switch(cmd.node)
-                    del self.models[cmd.model.node]
-
-            elif cmd.mtype == "router":
-                if cmd.command == "add":
-                    self._add_router(cmd.model)
-                    self.models[cmd.model.node] = cmd.model
-                elif cmd.command == "del":
-                    self._delete_router(cmd.node)
-                    del self.models[cmd.model.node]
+            elif cmd.mtype in ["packet_filter", "switch", "router"]:
+                model = cmd.model
 
             elif cmd.mtype == "generator":
                 if cmd.command == "add":
@@ -372,16 +353,20 @@ class Aggregator(AbstractAggregator):
                 elif cmd.command == "del":
                     self.net_plumber.delete_generator(cmd.node)
 
+                return
+
             elif cmd.mtype == "generators":
                 if cmd.command == "add":
                     for generator in cmd.model.generators:
                         self._add_ports(generator)
-#                        self.net_plumber.add_generator(generator)
+
                     self.net_plumber.add_generators_bulk(cmd.model.generators)
 
 # TODO: implement deletion
 #                elif cmd.command == "del":
 #                    self._delete_generators_bulk(cmd.node)
+
+                return
 
             elif cmd.mtype == "probe":
                 if cmd.command == "add":
@@ -391,7 +376,10 @@ class Aggregator(AbstractAggregator):
                 elif cmd.command == "del":
                     self.net_plumber.delete_probe(cmd.node)
 
-            return
+                return
+
+            else:
+                return
 
 
         if model.type == "slicing_command":
@@ -408,10 +396,12 @@ class Aggregator(AbstractAggregator):
             # calculate items to remove and items to add
             add = model - self.models[model.node]
             for table in model.adds:
-                add.tables.setdefault(table, [])
-                add.tables[table].extend(model.adds[table])
+                model.tables.setdefault(table, [])
+                model.tables[table].extend(model.adds[table])
 
             model.reset()
+
+            model = add
 
             #sub = self.models[model.node] - model
 
@@ -420,13 +410,9 @@ class Aggregator(AbstractAggregator):
 #            self._delete_model(sub)
 
             # add new items
-            self._add_model(add)
+        self._add_model(model)
 
-        else:
-            self.models[model.node] = model
-
-            # add model completely
-            self._add_model(model)
+        self.models.setdefault(model.node, model)
 
 
     def _align_ports_for_probe(self, model):
@@ -466,22 +452,15 @@ class Aggregator(AbstractAggregator):
         if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
             Aggregator.LOGGER.debug("worker: apply %s: %s" % (model.type, model.node))
 
-        self.net_plumber.add_tables(model) #, prefixed=True)
+        self.net_plumber.add_tables(model)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_rules(model)
         self._add_ports(model)
 
-#        if model.type == "packet_filter":
-#            self._add_packet_filter(model)
-#        elif model.type == "router":
-#            self._add_router(model)
-#        elif model.type == "switch":
-#            self._add_switch(model)
-
 
     def _add_ports(self, model):
         for port in model.ports:
-            self.port_to_model[port] = model
+            self.port_to_model.setdefault(port, model)
 
 
     def _del_ports(self, model):
@@ -489,47 +468,11 @@ class Aggregator(AbstractAggregator):
             del self.port_to_model[port]
 
 
-    def _add_packet_filter(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-            Aggregator.LOGGER.debug("worker: apply packet filter: %s", model.node)
-
-        self.net_plumber.add_tables(model, prefixed=True)
-        self.net_plumber.add_wiring(model)
-        self.net_plumber.add_rules(model)
-        self._add_ports(model)
-
-
-    def _add_switch(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-            Aggregator.LOGGER.debug("worker: apply switch: %s", model.node)
-        self.net_plumber.add_tables(model)
-        self.net_plumber.add_wiring(model)
-        self.net_plumber.add_switch_rules(model)
-        self._add_ports(model)
-
-
-    def _add_router(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-            Aggregator.LOGGER.debug("worker: apply router: %s", model.node)
-        self.net_plumber.add_tables(model, prefixed=True)
-        self.net_plumber.add_wiring(model)
-        self.net_plumber.add_rules(model)
-        self._add_ports(model)
-
-
-    def _delete_packet_filter(self, model):
+    def _delete_model(self, model):
         self.net_plumber.delete_rules(model)
         self.net_plumber.delete_wiring(model)
         self.net_plumber.delete_tables(model)
         self._del_ports(model)
-
-
-    def _delete_switch(self, model):
-        self._delete_packet_filter(model)
-
-
-    def _delete_router(self, model):
-        self._delete_packet_filter(model)
 
 
     def _dump_aggregator(self, odir):
