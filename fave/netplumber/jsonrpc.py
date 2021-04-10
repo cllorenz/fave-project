@@ -117,6 +117,12 @@ def _extract_node(msg):
     return msg["result"]
 
 
+def _extract_nodes(msg):
+    """ Extracts the node IDs from node-related batch RPC call results.
+    """
+    return msg["result"]
+
+
 def _extract_index(msg):
     """ Extracts the index encoded in the message ID.
     """
@@ -306,7 +312,7 @@ def add_rules_batch(socks, rules):
         ]
     }
     res = _asend_recv(socks, json.dumps(data))
-    return [_extract_node(r) for r in res[0]]
+    return _extract_nodes(res[0])
 
 
 #@profile_method
