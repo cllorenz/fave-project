@@ -21,6 +21,7 @@ import itertools
 import logging
 
 from aggregator_singleton import AGGREGATOR
+from aggregator_abstract import TRACE
 
 import netplumber.jsonrpc as jsonrpc
 from aggregator_util import normalize_port, calc_rule_index, calc_port
@@ -276,10 +277,6 @@ class NetPlumberAdapter(object):
 
     def _add_pre_routing_rules(self, model):
         table = model.node+'.pre_routing'
-
-        if table not in model.tables:
-            return
-
         tid = self.tables[table]
 
         for rule in model.tables[table]:
@@ -351,10 +348,6 @@ class NetPlumberAdapter(object):
 
     def _add_post_routing_rules(self, model):
         table = model.node+'.post_routing'
-
-        if table not in model.tables:
-            return
-
         tid = self.tables[table]
 
         for rule in model.tables[table]:
@@ -503,25 +496,22 @@ class NetPlumberAdapter(object):
 
 
     def add_rules(self, model):
-        for table in model.tables:
-            # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
-            if table in [
-                model.node+".pre_routing",
-                model.node+".post_routing"
-            ]:
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("worker: skip adding rules to table %s", table)
-                continue
-            else:
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
+        if self.logger.isEnabledFor(TRACE):
+            tables = "\n".join(["\t%s=%s" % (t, len(r)) for t,r in model.tables.iteritems()])
+            self.logger.trace("worker: update rules for model %s with tables:\n%s" % (model.node, tables))
+
+        for table in [t for t in model.tables if t not in [
+            model.node+".pre_routing", model.node+".post_routing"
+        ]]:
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
 
             self._add_generic_table(model, table)
 
-        for table in [model.node+".post_routing"]:
+        if model.node+".post_routing" in model.tables:
             self._add_post_routing_rules(model)
 
-        for table in [model.node+".pre_routing"]:
+        if model.node+".pre_routing" in model.tables:
             self._add_pre_routing_rules(model)
 
 
