@@ -28,6 +28,10 @@ import json
 import time
 import socket
 
+NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
+NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
+NET_PLUMBER_DEFAULT_PORT = 44001
+
 
 def _sendrecv(sock, msg):
     """ Synchronous RPC call.
