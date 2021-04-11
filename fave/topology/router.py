@@ -308,12 +308,12 @@ class RouterModel(Model):
                         Rewrite(rewrite=[
                             SwitchRuleField("out_port", "%s_egress" % port)
                         ]),
-                        Forward(ports=["routing_out"])
+                        Forward(ports=[self.node+".routing_out"])
                     ]
                 )
 
-                self.tables.setdefault("routing", [])
-                self.tables["routing"].append(rule)
+                self.tables.setdefault(self.node+".routing", [])
+                self.tables[self.node+".routing"].append(rule)
 
 
     def ingress_port(self, port):
