@@ -324,7 +324,7 @@ class RouterModel(Model):
         return port + "_egress"
 
 
-    def to_json(self, persist=True):
+    def to_json(self, persist=False):
         """ Converts router model to JSON.
         """
 
