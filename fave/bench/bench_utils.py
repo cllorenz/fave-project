@@ -102,6 +102,14 @@ def _add_rule(name, table=None, idx=None, fields=None, commands=None, in_ports=N
     switch.main(["-a", "-n", name] + opts)
 
 
+def _add_rules(rules, use_unix=False):
+    opts = ["-U"] if use_unix else []
+    opts.extend(["-r", "#".join(["$".join((
+        name, str(table), str(idx), ','.join(in_ports), ';'.join(fields), ','.join(commands)
+    )) for name, table, idx, fields, commands, in_ports in rules])])
+    switch.main(["-a"] + opts)
+
+
 def _add_ruleset(name, _type, ports, address, ruleset, use_unix=False):
     ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset] + (["-u"] if use_unix else []))
 
@@ -145,8 +153,15 @@ def add_routes(routes, use_unix=False):
     Keyword arguments:
     routes - a set of routing rules
     """
-    for route in routes:
-        _add_rule(*route, use_unix=use_unix)
+
+    tables = {}
+    for cnt, route in enumerate(routes, start=1):
+        table = route[0]
+        tables.setdefault(table, [])
+        tables[table].append(route)
+
+    for table, routes in tables.iteritems():
+        _add_rules(routes, use_unix=use_unix)
 
 
 def add_rulesets(devices, use_unix=False):
