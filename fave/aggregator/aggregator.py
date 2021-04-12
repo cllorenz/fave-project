@@ -267,6 +267,9 @@ class Aggregator(AbstractAggregator):
 
                 if model.command == "add_rule":
                     switch.add_rule(model.rule.idx, model.rule)
+                elif model.command == "add_rules":
+                    for idx, rule in enumerate(model.rules):
+                        switch.add_rule(rule.idx, rule)
                 elif model.command == "remove_rule":
                     switch.remove_rule(model.rule.idx)
                 elif model.command == "update_rule":
