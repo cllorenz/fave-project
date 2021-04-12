@@ -44,11 +44,11 @@ class SwitchCommand(object):
     """ This class provides switch commands for FaVe.
     """
 
-    def __init__(self, node, command, rule):
+    def __init__(self, node, command, rules):
         self.node = node
         self.type = "switch_command"
         self.command = command
-        self.rule = rule
+        self.rules = rules
 
 
     def to_json(self):
@@ -58,7 +58,7 @@ class SwitchCommand(object):
             "node" : self.node,
             "type" : self.type,
             "command" : self.command,
-            "rule" : self.rule.to_json()
+            "rules" : [r.to_json() for r in self.rules]
         }
 
 
@@ -76,7 +76,7 @@ class SwitchCommand(object):
         return SwitchCommand(
             j["node"],
             j["command"],
-            SwitchRule.from_json(j["rule"])
+            [SwitchRule.from_json(r) for r in j["rules"]]
         )
 
 
@@ -134,6 +134,7 @@ class SwitchModel(Model):
         rule -- a rule
         """
 
+        rule.tid = self.node+'.1'
         super(SwitchModel, self).add_rule(rule)
 
 
@@ -165,9 +166,10 @@ class SwitchModel(Model):
 
         res = SwitchModel(
             self.node,
-            ports=self.ports,
-            rules=deepcopy(self.adds[self.node+'.1'])
+            ports=self.ports
         )
+
+        res.tables = deepcopy(self.adds)
 
         return res
 
@@ -201,6 +203,32 @@ def print_help():
     )
 
 
+def _fields_to_match(fields):
+    match = []
+    for field in [f for f in fields.split(';') if f]:
+        match.append(fieldify(field.split('=')))
+        if field.startswith('tcp') or field.startswith('udp'):
+            match.append(fieldify(('ip_proto', field[:3])))
+        elif field.startswith('icmp'):
+            match.append(fieldify(('ip_proto', field[:4])))
+
+    return match
+
+
+def _commands_to_actions(commands):
+    actions = []
+    for action in [c for c in commands.split(',') if c]:
+        cmd, body = action.split('=')
+        if cmd == 'fd':
+            actions.append(Forward([p for p in body.split(';')]))
+
+        elif cmd == 'rw':
+            rwfields = [fieldify(f.split(':')) for f in body.split(';')]
+            actions.append(Rewrite(rwfields))
+
+    return actions
+
+
 def main(argv):
     """ Provides functionality to interact with switches in FaVe.
     """
@@ -213,11 +241,12 @@ def main(argv):
     fields = []
     actions = []
     in_ports = []
+    rules = []
     use_unix = False
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "haduUn:t:i:f:c:p:"))
+        opts = only_opts(getopt.getopt(argv, "haduUn:t:i:f:c:p:r:"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -241,37 +270,38 @@ def main(argv):
         elif opt == '-i':
             idx = int(arg)
         elif opt == '-f':
-            fields = []
-            for field in arg.split(';'):
-                fields.append(fieldify(field.split('=')))
-                if field.startswith('tcp') or field.startswith('udp'):
-                    fields.append(fieldify(('ip_proto', field[:3])))
-                elif field.startswith('icmp'):
-                    fields.append(fieldify(('ip_proto', field[:4])))
-
+            fields = _fields_to_match(arg)
         elif opt == '-c':
-            for action in arg.split(','):
-                cmd, body = action.split('=')
-                if cmd == 'fd':
-                    actions.append(Forward([p for p in body.split(';')]))
-
-                elif cmd == 'rw':
-                    rwfields = [fieldify(f.split(':')) for f in body.split(';')]
-                    actions.append(Rewrite(rwfields))
-
+            actions = _commands_to_actions(arg)
         elif opt == '-p':
             in_ports = arg.split(',')
+        elif opt == '-r':
+            rules = [r.split('$') for r in arg.split('#')]
 
     table = node+'.'+table
 
     if command == 'add':
-        rule = SwitchRule(
-            node, table, idx,
-            in_ports=in_ports,
-            match=Match(fields),
-            actions=actions
-        )
-        cmd = SwitchCommand(node, 'add_rule', rule)
+        if rules:
+            switch_rules = []
+            switch_rules = [
+                SwitchRule(
+                    node,
+                    int(table),
+                    int(idx),
+                    [p for p in in_ports.split(',') if p],
+                    Match(_fields_to_match(fields)),
+                    _commands_to_actions(commands)
+                ) for node, table, idx, in_ports, fields, commands in rules
+            ]
+            cmd = SwitchCommand(node, 'add_rules', switch_rules)
+        else:
+            rule = SwitchRule(
+                node, table, idx,
+                in_ports=in_ports,
+                match=Match(fields),
+                actions=actions
+            )
+            cmd = SwitchCommand(node, 'add_rules', [rule])
 
 
     elif command == 'del':
