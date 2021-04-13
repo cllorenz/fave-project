@@ -43,7 +43,7 @@ def get_serverlist():
   master_node_id = os.environ['slurm_node_id'] # assumes no instances on master node
 
   nodes = set(parse_slurm_nodelist(nodelist))
-  nodes.remove(master_node_id)
+  #nodes.remove(master_node_id)
 
   for node in nodes:
     for port in portlist:
@@ -58,6 +58,8 @@ def parse_slurm_nodelist(nodelist):
   while next_delim != ']':
     next_id, next_delim, nodelist = get_next_node_id_and_delim(nodelist)    
     if next_delim == ',':
+      nodes.append("node{}".format(next_id))
+      end_id, next_delim, nodelist = get_next_node_id_and_delim(nodelist)
       nodes.append("node{}".format(next_id))
       continue
     if next_delim == '-':

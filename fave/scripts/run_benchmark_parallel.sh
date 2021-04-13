@@ -50,12 +50,12 @@ then
   cur_port=$start_port
   
   # start instances on master node
-  # while [ $cur_port -le $end_port ]
-  # do
-  #     echo "Start host: $slurm_node_id:$cur_port"
-  #     net_plumber --log4j-config $benchmark_conf_path --hdr-len 1 --server $slurm_node_id $cur_port >> $log_dir/stdout_${slurm_node_id}_${cur_port}.log 2>> $log_dir/stderr_${slurm_node_id}_${cur_port}.log &
-  #     cur_port=$(($cur_port + 1))
-  # done
+  while [ $cur_port -le $end_port ]
+  do
+      echo "Start host: $slurm_node_id:$cur_port"
+      net_plumber --log4j-config $benchmark_conf_path --hdr-len 1 --server $slurm_node_id $cur_port >> $log_dir/stdout_${slurm_node_id}_${cur_port}.log 2>> $log_dir/stderr_${slurm_node_id}_${cur_port}.log &
+      cur_port=$(($cur_port + 1))
+  done
   
   # start benchmark on master node
   cd $fave_path
