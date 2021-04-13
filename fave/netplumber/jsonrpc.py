@@ -28,6 +28,9 @@ import json
 import time
 import socket
 import cProfile
+import sys
+
+import util.dynamic_distribution as dynamic_distribution
 
 PROFILE = cProfile.Profile()
 NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
@@ -321,16 +324,9 @@ def add_links_bulk(socks, links):
 
         msg = json.dumps(data)
 
-        if idx != -1:
-            _async_send(socks[idx % len(socks):idx % len(socks)+1], msg)
-        else:
-            _async_send(socks, msg)
-
-    for idx, _from_port, _to_port in links:
-        if idx != -1:
-            _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
-        else:
-            _sync_recv(socks)
+        dynamic_distribution.add_link_to_dict(idx, msg)
+    
+    dynamic_distribution.distribute_nodes_and_links()
 
 
 #@profile_method
@@ -378,8 +374,12 @@ def add_source(socks, idx, hs_list, hs_diff, ports):
             "ports":ports
         }
 
-    res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
-    return _extract_node(res[0])
+    msg = json.dumps(data)
+
+    dynamic_distribution.add_node_to_dict(idx, msg)
+    #res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
+    #return _extract_node(res[0])
+    return idx
 
 
 def add_sources_bulk(socks, sources):
@@ -391,6 +391,8 @@ def add_sources_bulk(socks, sources):
                vectors to be subtracted from the source's emission, a list of
                egress ports
     """
+
+    sids_MOCK = {}
 
     for idx, hs_list, hs_diff, ports in sources:
         data = _basic_rpc(idx)
@@ -411,15 +413,13 @@ def add_sources_bulk(socks, sources):
                 },
                 "ports":ports
             }
-        _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
+        
+        msg = json.dumps(data)
 
-    sids = {}
-    for idx, _hs_list, _hs_diff, _ports in sources:
-        res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
-        for node in res:
-            sids[_extract_index(node)] = _extract_node(node)
+        dynamic_distribution.add_node_to_dict(idx, msg)
+        sids_MOCK[idx] = idx
 
-    return sids
+    return sids_MOCK
 
 
 #@profile_method
