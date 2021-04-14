@@ -48,6 +48,9 @@ class NodeLinkDispatcher(asyncore.dispatcher):
 
         # Immediately send a pair on construction
         self.send_next_pair()
+
+        self.raw_msg_buf = ''
+
     
     def send_next_pair(self):
         try:
@@ -67,31 +70,37 @@ class NodeLinkDispatcher(asyncore.dispatcher):
                 self.close()
 
     def handle_read(self):
-        result = self.recv_whole_buffer()
-        print("Receiving ({}): {}".format((self.host, self.port), result))
-        sys.stdout.flush()
-        try:
-            # Remove one entry for an expected message
-            self.recv_queue.get_nowait()
-        except Queue.Empty:
-            # no messages expected anymore, close the channel
-            print("Closing {}".format((self.host, self.port)))
+        results = self.recv_whole_buffer()
+        for result in results:
+            print("Receiving ({}): {}".format((self.host, self.port), result))
             sys.stdout.flush()
-            self.close()
-        # channel still open, try sending another message
+            try:
+                # Remove one entry for an expected message
+                self.recv_queue.get_nowait()
+            except Queue.Empty:
+                # no messages expected anymore, close the channel
+                print("Closing {}".format((self.host, self.port)))
+                sys.stdout.flush()
+                self.close()
+            # channel still open, try sending another message
         self.send_next_pair()
         
     def recv_whole_buffer(self):
-        result = ''
-        while True:
-            chunk = self.recv(4096)
-            pos = chunk.find('\n')
+        results = []
+        raw = self.recv(4096)
+        chunk = self.raw_msg_buf + raw
+        self.raw_msg_buf = ''
 
-            if pos == -1:
-                result += self.recv(4096)
-                break
-            else:
-                result += chunk[:pos]
-                break
+        pos = chunk.rfind('\n')
 
-        return result
+        if pos == -1:
+            self.raw_msg_buf = chunk
+            return []
+
+        elif pos != len(chunk) - 1:
+            self.raw_msg_buf = chunk[(pos+1):]
+            chunk = chunk[:pos]
+
+        results = [m for m in chunk.split('\n') if m]
+
+        return results
