@@ -548,8 +548,10 @@ class Policy(object):
             #test if this policy is a relatedrule
             relatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions) else False
 
-            #test for single way policy
+            #test for strict rules A--->A to convert to A<-->A later on
+            strictrule= True if policy[0]==policy[1] else False
 
+            #test for single way policy
             singleway = True
             revpol= (policy[1],policy[0])
             if revpol in self.policies:
@@ -582,7 +584,7 @@ class Policy(object):
 
             # add statemodule plus new if singlerule add notrack
             module = " -m conntrack --ctstate NEW"
-            module = " -m conntrack --ctstate NEW,NOTRACK" if singleway else module
+            module = " -m conntrack --ctstate NEW,NOTRACK" if (singleway and not strictrule) else module
 
             #if there are condition handle them
             if self.policies[policy].conditions:
@@ -607,7 +609,8 @@ class Policy(object):
                     if serviceinfo:
                         if ip4rule:
                             #create prerouting rule if neccesary
-                            if singleway and (self.default_policy == False):
+                            #TODO remove ALL strictrule when Policy creation(A<->A insted of A->A) is fixed
+                            if singleway and (self.default_policy == False) and not strictrule:
                                 rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
                                 iptable_rules.append(rule)
                             rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
@@ -615,7 +618,7 @@ class Policy(object):
 
                         if ip6rule:
                             #create prerouting rule if neccesary
-                            if singleway and (self.default_policy == False):
+                            if singleway and (self.default_policy == False) and not strictrule:
                                 rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + " -j NOTRACK"
                                 iptable_rules.append(rule)
                             rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + module + comment + jumptarget
@@ -625,14 +628,14 @@ class Policy(object):
             #if there are no conditions
             else:
                 if ip4rule:
-                    if singleway:
+                    if singleway and not strictrule:
                         rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
                         iptable_rules.append(rule)
                     rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + module + comment + jumptarget
                     iptable_rules.append(rule)
 
                 if ip6rule:
-                    if singleway:
+                    if singleway and not strictrule:
                         rule = "ip6tables -t raw -A PREROUTING" + eth_from + ip6_from + eth_to + ip6_to + comment + " -j NOTRACK"
                         iptable_rules.append(rule)
                     rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + jumptarget
