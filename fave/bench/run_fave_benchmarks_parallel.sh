@@ -34,6 +34,7 @@ function check_integrity {
   return 0
 }
 
+FDIR=/dev/shm
 RDIR=$1
 BENCH=$2
 [ -n "$3" ] && RULESET="-r $3" || RULESET=""
@@ -45,29 +46,34 @@ mkdir -p $LAST_NP
 rm -rf $LAST_NP/*
 mkdir -p $RDIR/fave
 
-# run FaVe benchmark
-for i in $(seq 1 $RUNS); do
-  RAW_DIR=$RDIR/fave/$i.raw
-  rm -rf $RAW_DIR
-  mkdir -p $RAW_DIR
+for threads in 24 16 8 4 2 1; do
+  # run FaVe benchmark
+  for i in $(seq 1 $RUNS); do
+    RAW_DIR=$RDIR/fave/$threads/$i.raw
+    rm -rf $RAW_DIR
+    mkdir -p $RAW_DIR
 
-  sleep 1
+    sleep 1
+  
+    SOUT=$RAW_DIR/stdout.log
+    SERR=$RAW_DIR/stderr.log
+    echo -n "run benchmark $i: $BENCH with $threads threads... "
+    OPTS="$threads"
+    python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
+    echo "done"
+  
+    sleep 1
+  
+    echo -n "check integrity... "
+    check_integrity
+    [ -z "$?" ] && break || echo "ok"
+    rm -rf $LAST_NP/*
+    cp -r np_dump/* $LAST_NP/
+  
+    cp -r $FDIR/np/ $RAW_DIR
 
-  SOUT=$RAW_DIR/stdout.log
-  SERR=$RAW_DIR/stderr.log
-  echo -n "run benchmark $i: $BENCH... "
-  python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
-  echo "done"
-
-  sleep 1
-
-  echo -n "check integrity... "
-  check_integrity
-  [ -z "$?" ] && break || echo "ok"
-  rm -rf $LAST_NP/*
-  cp -r np_dump/* $LAST_NP/
-
-  cp -r /dev/shm/np/ $RAW_DIR
+    sleep 1
+  done
 done
 
 # run NetPlumber benchmark

@@ -19,15 +19,47 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-mkdir -p /tmp/np
+DIR=/dev/shm
+mkdir -p $DIR/np
 
-if [ "$#" -eq "1" ]; then
-    PYTHONPATH=. python2 aggregator/aggregator.py -S $1 &
-else
-    PYTHONPATH=. python2 aggregator/aggregator.py -s /tmp/net_plumber.socket &
+SOCK_PARAMS="-s 127.0.0.1 -p 44000"
+BACK_PARAMS=""
+DEBUG_PARAMS=""
+
+UNIX=""
+
+usage() { echo "usage: $0 [-hu] [-S <backend>]" 2>&2; }
+
+while getopts "hduS:" o; do
+    case "${o}" in
+        h)
+            usage
+            exit 0
+            ;;
+        d)
+            DEBUG_PARAMS="-d"
+            ;;
+        u)
+            UNIX="/dev/shm/np_aggregator.socket"
+            ;;
+        S)
+            BACK_PARAMS="-S ${OPTARG}"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ -n "$UNIX" ]; then
+    [ -s $UNIX ] && rm $UNIX
+    SOCK_PARAMS="-u"
 fi
 
-PID=$!
-echo $PID > /tmp/aggr.pid
+python2 aggregator/aggregator.py $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
+
+#PID=$!
+#echo $PID > $DIR/aggr.pid
 #taskset -p 0x00000004 $PID > /dev/null
-sleep 0.5s
+#sleep 0.5s

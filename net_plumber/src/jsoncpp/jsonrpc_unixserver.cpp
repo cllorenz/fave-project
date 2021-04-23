@@ -71,72 +71,80 @@ namespace Json
       /* XXX: changed buffer size to 32768 bytes */
       char buf[32768];
 
-      nb = recv(fd, buf, sizeof(buf), MSG_PEEK);
+      std::string msg = std::string();
+
+      while (1) {
+        nb = recv(fd, buf, sizeof(buf), MSG_PEEK);
+        if (nb <= 0) {
+          m_purge.push_back(fd);
+          return false;
+        }
+
+        std::string chunk = std::string(buf, nb);
+        size_t pos = chunk.find_first_of('\n');
+
+        if (!pos) { /* message not finished, yet -> receive more chunks */
+          msg.append(chunk);
+          recv(fd, buf, nb, 0);
+
+        } else { /* message finished -> read rest of message and forward receive buffer */
+          msg.append(chunk, 0, pos+1);
+          recv(fd, buf, pos+1, 0);
+          break;
+        }
+      }
 
       /* give the message to JsonHandler */
-      if(nb > 0)
+      if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
       {
-        std::string tmp = std::string(buf, nb);
+        try
+        {
+          msg = netstring::decode(msg);
+        }
+        catch(const netstring::NetstringException& e)
+        {
+          /* error parsing Netstring */
+          std::cerr << e.what() << std::endl;
+          return false;
+        }
+      }
 
-        size_t pos = tmp.find_first_of('\n');
-        std::string msg = std::string(buf, pos);
-        recv(fd, buf, pos+1, 0);
+      m_jsonHandler.Process(msg, response);
 
+      /* in case of notification message received, the response could be Json::Value::null */
+
+
+      if(response != Json::Value::null)
+      {
+
+        std::string rep = m_jsonHandler.GetString(response);
+
+        /* encoding */
         if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
         {
-          try
+          rep = netstring::encode(rep);
+        }
+
+        int bytesToSend = rep.length();
+        const char* ptrBuffer = rep.c_str();
+        do
+        {
+          int retVal = send(fd, ptrBuffer, bytesToSend, 0);
+          if(retVal == -1)
           {
-            msg = netstring::decode(msg);
-          }
-          catch(const netstring::NetstringException& e)
-          {
-            /* error parsing Netstring */
-            std::cerr << e.what() << std::endl;
+            /* error */
+            std::cerr << "Error while sending data: "
+                      << strerror(errno) << std::endl;
             return false;
           }
-        }
-
-        m_jsonHandler.Process(msg, response);
-
-        /* in case of notification message received, the response could be Json::Value::null */
-
-
-        if(response != Json::Value::null)
-        {
-
-          std::string rep = m_jsonHandler.GetString(response);
-
-          /* encoding */
-          if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
-          {
-            rep = netstring::encode(rep);
-          }
-
-          int bytesToSend = rep.length();
-          const char* ptrBuffer = rep.c_str();
-          do
-          {
-            int retVal = send(fd, ptrBuffer, bytesToSend, 0);
-            if(retVal == -1)
-            {
-              /* error */
-              std::cerr << "Error while sending data: "
-                        << strerror(errno) << std::endl;
-              return false;
-            }
-            bytesToSend -= retVal;
-            ptrBuffer += retVal;
-          }while(bytesToSend > 0);
-        }
-
-        return true;
+          bytesToSend -= retVal;
+          ptrBuffer += retVal;
+        }while(bytesToSend > 0);
       }
-      else
-      {
-        m_purge.push_back(fd);
-        return false;
-      }
+
+      return true;
     }
+
 
     void UnixServer::WaitMessage(uint32_t ms)
     {

@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
 
 import os
-import re
 import json
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import Vector
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
+from bench.bench_helpers import is_intermediate_port, is_output_port, pick_port, array_ipv4_to_cidr, array_vlan_to_number, array_to_int
 
 ROLES='bench/wl_stanford/roles.txt'
 POLICY='bench/wl_stanford/reach.txt'
@@ -19,59 +19,6 @@ SOURCES='bench/wl_stanford/stanford-json/sources.json'
 
 with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
-
-
-def _generic_port_check(port, offset, base):
-    return port - offset > base and port  - 2  * offset < base
-
-def _is_intermediate_port(port, base):
-    return _generic_port_check(port, 10000, base)
-
-def _is_output_port(port, base):
-    return _generic_port_check(port, 20000, base)
-
-
-def array_ipv4_to_cidr(array):
-    assert 32 == len(array)
-    cidr_regex = '(?P<pre>[01]*)(?P<post>x*)'
-    m = re.match(cidr_regex, array)
-    if m and 32 == len(m.group('pre')) + len(m.group('post')):
-        pre = m.group('pre')
-        plen = len(pre)
-        post = '0'*len(m.group('post'))
-
-        octal_regex = '(?P<i1>[01]{8})(?P<i2>[01]{8})(?P<i3>[01]{8})(?P<i4>[01]{8})'
-        o = re.match(octal_regex, pre+post)
-        octals = "%s.%s.%s.%s" % (
-            int(o.group('i1'), 2),
-            int(o.group('i2'), 2),
-            int(o.group('i3'), 2),
-            int(o.group('i4'), 2)
-        )
-
-        return "%s/%s" % (octals, plen)
-    else:
-        raise Exception("array not in cidr format: %s" % array)
-
-
-def array_vlan_to_number(array):
-    assert 16 == len(array)
-    if 'x'*16 == array:
-        return 0
-
-    vlan_regex = '((xxxx)|(0000))(?P<vlan>[01]{12})'
-    m = re.match(vlan_regex, array)
-    if m:
-        return int(m.group('vlan'), 2)
-    else:
-        raise Exception("array not a vlan number: %s" % array)
-
-
-def array_to_int(array):
-    try:
-        return int(array, 2)
-    except ValueError:
-        return array
 
 
 def get_start_end(field):
@@ -100,11 +47,14 @@ def _get_rewrite(rewrite, mask, fname, sname, convert, default=None):
     return res
 
 
+
+
+
 def rule_to_route(rule, base_port, ext_port):
     rid = int(rule['id']) & 0xffff
 
     in_ports = rule['in_ports']
-    if not any([_is_intermediate_port(p, base_port) for p in in_ports]):
+    if not any([is_intermediate_port(p, base_port) for p in in_ports]):
         in_ports.append(ext_port)
     out_ports = rule['out_ports']
 
@@ -248,8 +198,11 @@ def _read_port_map(pmf):
 
 
 if __name__ == '__main__':
-    os.system("mkdir -p /tmp/np")
-    os.system("rm -rf /tmp/np/*.log")
+    use_unix = True
+
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
 
     os.system(
         "python2 ../policy-translator/policy_translator.py " + ' '.join([
@@ -268,6 +221,7 @@ if __name__ == '__main__':
     port_to_name = {}
     active_egress_ports = {}
     active_ingress_ports = {}
+    inactive_ingress_ports = {}
     active_link_ports = set()
     table_from_id = {}
     ext_ports = {}
@@ -298,10 +252,21 @@ if __name__ == '__main__':
             portmap[name] = table_ports
             active_ingress_ports.setdefault(name, set())
             active_egress_ports.setdefault(name, set())
+            intermediate_ports = set(
+                [p for p in table_ports if p == base_port or is_intermediate_port(p, base_port)]
+            )
+            egress_ports = set(
+                [p for p in table_ports if is_output_port(p, base_port)]
+            )
+            ingress_ports = ((table_ports - intermediate_ports) - egress_ports)
 
             for rule in table['rules']:
-                active_ingress_ports[name].update([p for p in rule['in_ports'] if not (p == base_port or _is_intermediate_port(p, base_port))])
-                active_egress_ports[name].update([p for p in rule['out_ports'] if _is_output_port(p, base_port)])
+                active_ingress_ports[name].update(
+                    set(rule['in_ports']) - intermediate_ports
+                )
+                active_egress_ports[name].update(
+                    set(rule['out_ports']) - intermediate_ports
+                )
 
             portno = 1
             for port in table_ports:
@@ -314,10 +279,14 @@ if __name__ == '__main__':
             links.append((port_to_name[base_port], port_to_name[base_port], False))
             active_link_ports.add(base_port)
             for port in [
-                p for p in table_ports if _is_intermediate_port(p, base_port)
+                p for p in table_ports if is_intermediate_port(p, base_port)
             ]:
                 links.append((port_to_name[port], port_to_name[port], False))
                 active_link_ports.add(port)
+
+            inactive_ingress_ports[name] = list(
+                ingress_ports - active_ingress_ports[name]
+            )
 
 
     with open (ROUTES, 'w') as rf:
@@ -363,9 +332,16 @@ if __name__ == '__main__':
             "source.%s" % name, "generator", ["ipv4_dst=0.0.0.0/0"]
         ))
 
-        sources_links.append(
-            ("source.%s.1" % name, port_to_name[ext_ports[name]], True)
+        dst = pick_port(
+            inactive_ingress_ports[name], name
+        ) if inactive_ingress_ports[name] else pick_port(
+            active_ingress_ports[name], name
         )
+
+        sources_links.append(
+            ("source.%s.1" % name, port_to_name[dst], True)
+        )
+
 
         devices.append((
             "probe.%s" % name, "probe", "universal", None, None, ['vlan=0'], None
@@ -374,7 +350,7 @@ if __name__ == '__main__':
         links.extend([
             (
                 port_to_name[port], "probe.%s.1" % name, False
-            ) for port in active_egress_ports[name] - active_link_ports
+            ) for port in active_egress_ports[name]
         ])
 
     with open(TOPOLOGY, 'w') as tf:
@@ -387,39 +363,44 @@ if __name__ == '__main__':
             json.dumps({'devices' : sources, 'links' : sources_links}, indent=2) + '\n'
         )
 
-#    import sys
-#    sys.exit(0)
-
-    os.system("bash scripts/start_np.sh bench/wl_stanford/np.conf np1")
-    os.system("bash scripts/start_aggr.sh np1")
+    os.system(
+        "bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
+            "-u /dev/shm/np1.socket" if use_unix  else "-s 127.0.0.1 -p 44001"
+        )
+    )
+    os.system(
+        "bash scripts/start_aggr.sh -S %s %s" % (
+            ("/dev/shm/np1.socket", "-u") if use_unix else ("127.0.0.1:44001", "")
+        )
+    )
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         print "create topology..."
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         print "topology sent to fave"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
         print "add routes..."
-        add_routes(routes)
+        add_routes(routes, use_unix=use_unix)
         print "routes sent to fave"
 
     with open(SOURCES, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         print "create sources..."
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         print "sources sent to fave"
 
     print "wait for fave..."
 
     import netplumber.dump_np as dumper
-    dumper.main(["-ans"])
+    dumper.main(["-ans%s" % ("u" if use_unix else "")])
 
-    os.system("bash scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
 
     import test.check_flows as checker
     checks = json.load(open(CHECKS, 'r'))

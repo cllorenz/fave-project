@@ -18,7 +18,8 @@ LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
 LOGGER.setLevel(logging.DEBUG)
 
-TMPDIR = "/tmp/np"
+#TMPDIR = "/tmp/np"
+TMPDIR = "/dev/shm/np"
 os.system("mkdir -p %s" % TMPDIR)
 
 LOGGER.info("deleting old logs and measurements...")
@@ -44,9 +45,16 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 
 if __name__ == "__main__":
+    use_unix = True
+    use_tcp_np = True
+
     tds = 1
     if len(sys.argv) == 2:
         tds = int(sys.argv[1])
+
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
 
     LOGGER.info("generate policy matrix...")
     os.system(
@@ -88,12 +96,18 @@ if __name__ == "__main__":
 
     LOGGER.info("starting netplumber...")
     for no in range(1,tds+1):
-        os.system("scripts/start_np.sh bench/wl_up/np.conf np%s" % no)
+        sockopt = "-u /dev/shm/np%s.socket" % no if use_unix and not use_tcp_np else "-s 127.0.0.1 -p 44%03d" % no
+        os.system("bash scripts/start_np.sh -l bench/wl_up/np.conf %s" % sockopt)
     LOGGER.info("started netplumber.")
 
     LOGGER.info("starting aggregator...")
     os.system(
-        "scripts/start_aggr.sh %s" % ','.join(["np%s" % no for no in range(1, tds+1)])
+        "bash scripts/start_aggr.sh -S %s %s" % (
+            ','.join([
+                ("/dev/shm/np%d.socket" if use_unix and not use_tcp_np else "127.0.0.1:44%03d") % no for no in range(1, tds+1)
+            ]),
+            "-u" if use_unix else ""
+        )
     )
     LOGGER.info("started aggregator.")
 
@@ -102,9 +116,9 @@ if __name__ == "__main__":
         devices, links = json.loads(raw_topology.read()).values()
 
         LOGGER.info("  create topology")
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         LOGGER.info("  add rulesets")
-        add_rulesets(devices)
+        add_rulesets(devices, use_unix=use_unix)
     LOGGER.info("topology sent to fave")
 
 
@@ -112,35 +126,36 @@ if __name__ == "__main__":
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
-        add_routes(routes)
+        add_routes(routes, use_unix=use_unix)
     LOGGER.info("routes sent to fave")
 
     LOGGER.info("initialize probes...")
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
-        add_policies(probes, links)
+        add_policies(probes, links, use_unix=use_unix)
     LOGGER.info("probes sent to fave")
 
     LOGGER.info("initialize sources...")
     with open(SOURCES, 'r') as raw_sources:
         sources, links = json.loads(raw_sources.read()).values()
-        add_sources(sources, links)
+        add_sources(sources, links, use_unix=use_unix)
     LOGGER.info("sources sent to fave")
 
     with open(CHECKS, 'r') as raw_checks:
         checks = json.loads(raw_checks.read())
 
     LOGGER.info("dumping fave and netplumber...")
-    dumper.main(["-ant"])
+    dumper.main(["-ant%s" % ("u" if use_unix else "")])
     LOGGER.info("ordered fave to dump")
 
     LOGGER.info("stopping fave and netplumber...")
-    os.system("bash scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
     LOGGER.info("ordered fave to stop")
 
     LOGGER.info("wait for fave to check flow trees...")
-    checker.main(["-b", "-r", "-c", ";".join(checks)])
+    os.system("python2 misc/await_fave.py")
+    os.system("bash scripts/check_parallel.sh %s %s" % (CHECKS, tds))
     LOGGER.info("checked flow trees.")
 
     os.system("rm -f np_dump/.lock")

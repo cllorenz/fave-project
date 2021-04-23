@@ -69,7 +69,7 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
       path << " <- " << std::hex << flow->node->node_id;
       flow = *flow->p_flow;
     }
-    LOG4CXX_TRACE(this->logger, path.str())
+    LOG4CXX_TRACE(this->logger, path.str());
   }
 
   while (it != pathlets.end()) {

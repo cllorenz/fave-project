@@ -74,7 +74,8 @@ void default_loop_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void* /*data*
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Loop Detected: after event " << get_event_name(e.type) <<
-      " (ID1: " << e.id1 << ")" << endl << flow_to_str(f);
+      " (ID1: " << e.id1 << ")" << endl;
+  if (loop_logger->isDebugEnabled()) error_msg << flow_to_str(f);
   LOG4CXX_FATAL(loop_logger,error_msg.str());
 }
 

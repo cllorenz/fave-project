@@ -77,7 +77,9 @@ if __name__ == '__main__':
 
     if verbose: print "Generate benchmark..."
 
-    os.system("rm -f /tmp/np/*")
+    os.system("mkdir -p /dev/shm/np")
+    os.system("rm -rf /dev/shm/np/*")
+    os.system("rm -f /dev/shm/*.socket")
 
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
@@ -107,8 +109,8 @@ if __name__ == '__main__':
         print "Benchmark generated"
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh bench/wl_generic_fw/np.conf np1")
-    os.system("bash scripts/start_aggr.sh np1")
+    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf 127.0.0.1 44001")
+    os.system("bash scripts/start_aggr.sh 127.0.0.1:44001")
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()

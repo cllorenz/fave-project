@@ -366,7 +366,7 @@ def main(argv):
 
     try:
         only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hbd:c:rj:"))
+        opts = only_opts(*getopt.getopt(argv, "hbd:c:rj:t:f:"))
     except getopt.GetoptError as err:
         eprint("error while fetching arguments: %s" % err)
         _print_help()
@@ -376,6 +376,8 @@ def main(argv):
     flow_specs = []
     dump_matrix = False
     broad = False
+    tid = 0
+    threads = 1
 
     for opt, arg in opts:
         if opt == '-h':
@@ -383,6 +385,9 @@ def main(argv):
             sys.exit(0)
         elif opt == '-b':
             broad = True
+        elif opt == '-f':
+            parser = _get_parser()
+            flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow]
         elif opt == '-d':
             dump = arg
         elif opt == '-c':
@@ -394,6 +399,10 @@ def main(argv):
             with open(arg, 'r') as f:
                 parser = _get_parser()
                 flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(f)]
+        elif opt == '-t':
+            tid_str, threads_str = arg.split(':')
+            tid = int(tid_str)
+            threads = int(threads_str)
 
     if not flow_specs:
         eprint("missing flow check specifications")
@@ -415,7 +424,11 @@ def main(argv):
 
         mapping = inv_fave['mapping']
 
-        for src, specs in ordered_flow_specs.iteritems():
+        for src, specs in [
+            item for idx, item in enumerate(
+                ordered_flow_specs.iteritems()
+            ) if idx % threads == tid
+        ]:
             flow_tree = _get_flow_tree(flow_trees[src], cache)[0]
 
             t_start = time.time()
@@ -440,7 +453,7 @@ def main(argv):
                     failed.append(' '.join([e for e in spec if e != ' ']))
 
             t_end = time.time()
-            print "checked flow tree in %s ms" % ((t_end - t_start) * 1000.0)
+            print "thread %s: checked flow tree in %s ms" % (tid, ((t_end - t_start) * 1000.0))
             measurements.append((t_end - t_start) * 1000.0)
 
     else:
@@ -468,7 +481,8 @@ def main(argv):
         )
     )
 
-    print "runtimes:\n\ttotal: %s ms\n\tmean: %s ms\n\tmedian: %s ms\n\tmin: %s ms\n\tmax: %s ms" % (
+    print "thread %s: runtimes:\n\ttotal: %s ms\n\tmean: %s ms\n\tmedian: %s ms\n\tmin: %s ms\n\tmax: %s ms" % (
+        tid,
         sum(measurements),
         sum(measurements)/len(measurements),
         sorted(measurements)[len(measurements)/2],

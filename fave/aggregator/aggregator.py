@@ -33,7 +33,6 @@ import time
 from pprint import pformat
 from threading import Thread
 from Queue import Queue
-from copy import deepcopy as dc
 
 #from aggregator_profiler import profile_method
 from aggregator_abstract import AbstractAggregator
@@ -42,12 +41,13 @@ from aggregator_signals import register_signals
 from aggregator_util import model_from_json
 
 from util.print_util import eprint
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, fave_recvmsg
 from util.lock_util import PreLockedFileLock
-from util.packet_util import is_ip, is_domain, is_unix, is_port
+from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
 
 import netplumber.jsonrpc as jsonrpc
+from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_UNIX
 from netplumber.adapter import NetPlumberAdapter
 from netplumber.mapping import Mapping
 
@@ -56,9 +56,10 @@ def _print_help():
     """ Prints a usage message to stderr.
     """
     eprint(
-        "aggregator -s <server> -p <port>",
-        "\t-s <server> ip address of the instance",
+        "aggregator [-s <server> [-p <port>]] [-S <backends>]",
+        "\t-s <server> ip address of the netplumber instance",
         "\t-p <port> the port number of the netplumber instance",
+        "\t-S <backends> a list of NP backend socket identifiers, e.g., /dev/shm/np1,/dev/shm/np2,... or 1.2.3.4:44001,1.2.3.4:44002,...",
         sep="\n"
     )
 
@@ -104,10 +105,12 @@ class Aggregator(AbstractAggregator):
 
         while not self.stop:
             data = self.queue.get()
-            Aggregator.LOGGER.debug('worker: fetched data from queue')
+            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                Aggregator.LOGGER.debug('worker: fetched data from queue')
 
             if not data:
-                Aggregator.LOGGER.debug('worker: ignoring empty data')
+                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                    Aggregator.LOGGER.debug('worker: ignoring empty data')
                 self.queue.task_done()
                 continue
 
@@ -120,10 +123,11 @@ class Aggregator(AbstractAggregator):
                 self.queue.task_done()
                 return
 
-            Aggregator.LOGGER.debug('worker: parsed data\n%s' % pformat(j, indent=2))
+            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                Aggregator.LOGGER.debug('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
-                task_typ = 'stop'
+                task_type = 'stop'
                 self.stop_aggr()
                 self.net_plumber.stop()
 
@@ -158,97 +162,111 @@ class Aggregator(AbstractAggregator):
 
             t_task_end = time.time()
 
-            Aggregator.LOGGER.info(
-                "worker: completed task %s in %s seconds." % (
-                    task_type, t_task_end - t_task_start
+            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+                Aggregator.LOGGER.info(
+                    "worker: completed task %s in %s seconds." % (
+                        task_type, t_task_end - t_task_start
+                    )
                 )
-            )
 
             self.queue.task_done()
 
         t_stop = time.time()
-        Aggregator.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
 
 
-    def run(self):
+    def run(self, server, port=0):
         """ Operates FaVe's aggregation service.
         """
 
-        # open new unix domain socket
-        Aggregator.LOGGER.info("open and bind uds socket")
-        uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        uds.settimeout(2.0)
-        uds.bind(UDS_ADDR)
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("open and bind %s socket" % ('unix' if port == 0 else 'tcp/ip'))
+
+        # open new socket
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) if port == 0 else socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2.0)
+        sock.bind(server if port == 0 else (server, port))
 
         # start thread to handle incoming config events
-        Aggregator.LOGGER.info("start handler thread")
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("start handler thread")
         thread = Thread(target=self._handler)
         thread.daemon = True
         thread.start()
 
-        Aggregator.LOGGER.info("listen on socket")
-        uds.listen(1)
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("listen on socket")
+        sock.listen(1)
 
-        only_conn = lambda x: x[0]
         while not self.stop:
-            # accept connections on unix domain socket
-            Aggregator.LOGGER.debug("master: wait for connection")
+            # accept connections on socket
+            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                Aggregator.LOGGER.debug("master: wait for connection")
             try:
-                conn = only_conn(uds.accept())
+                conn, _addr = sock.accept()
             except socket.timeout:
-                Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
+                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                    Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
                 continue
             except socket.error:
-                Aggregator.LOGGER.debug("master: break listening loop due to socket error")
+                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                    Aggregator.LOGGER.debug("master: break listening loop due to socket error")
                 Aggregator.LOGGER.exception("master: error from accept():")
                 break
+            else:
+                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                    Aggregator.LOGGER.debug("master: accepted connection")
+                pass
 
-            Aggregator.LOGGER.debug("master: accepted connection")
-
-            # receive data from unix domain socket
-            data = ""
-            while True:
-                part = conn.recv(Aggregator.BUF_SIZE)
-                data += part
-                if len(part) < Aggregator.BUF_SIZE:
-                    Aggregator.LOGGER.debug("master: read data of size %s", len(data))
-                    break
+            # receive data from socket
+            data = fave_recvmsg(conn, logger=Aggregator.LOGGER)
+            assert data != None
+            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                Aggregator.LOGGER.debug("master: read data of size %s" % len(data))
 
             # upon data receival enqueue
             self.queue.put(data)
-            Aggregator.LOGGER.debug("master: enqueued data")
+            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                Aggregator.LOGGER.debug("master: enqueued data")
 
         # close unix domain socket
-        Aggregator.LOGGER.info("master: close receiving socket")
-        uds.close()
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("master: close receiving socket")
+        sock.close()
 
         # wait for the config event handler to finish
-        Aggregator.LOGGER.info("master: join queue")
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("master: join queue")
         self.queue.join()
 
         # join thread
-        Aggregator.LOGGER.info("master: join handler thread")
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("master: join handler thread")
         thread.join()
 
-        Aggregator.LOGGER.info("master: finished run")
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("master: finished run")
 
 
     def stop_aggr(self):
         """ Stops FaVe's aggregation service.
         """
-        Aggregator.LOGGER.info("initiate stopping")
+        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            Aggregator.LOGGER.info("initiate stopping")
         self.stop = True
 
 
     #@profile_method
     def _sync_diff(self, model):
-        Aggregator.LOGGER.debug('worker: synchronize model')
+        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            Aggregator.LOGGER.debug('worker: synchronize model')
 
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "switch_command":
             if model.node in self.models:
 
-                switch = dc(self.models[model.node]) # XXX: is there a more efficient way than copying?
+                switch = self.models[model.node]
 
                 if model.command == "add_rule":
                     switch.add_rule(model.rule.idx, model.rule)
@@ -292,10 +310,11 @@ class Aggregator(AbstractAggregator):
                     dportno = self.net_plumber.global_port(dmodel.ingress_port(dport))
 
                     if cmd.command == "add":
-                        Aggregator.LOGGER.debug(
-                            "worker: add link to netplumber from %s:%s to %s:%s%s",
-                            sport, hex(sportno), dport,  hex(dportno), (" as bulk" if bulk else "")
-                        )
+                        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                            Aggregator.LOGGER.debug(
+                                "worker: add link to netplumber from %s:%s to %s:%s%s",
+                                sport, hex(sportno), dport,  hex(dportno), (" as bulk" if bulk else "")
+                            )
                         nlink = (smodel.egress_port(sport), dmodel.ingress_port(dport))
                         if bulk:
                             links.append(nlink)
@@ -308,16 +327,18 @@ class Aggregator(AbstractAggregator):
                             self.net_plumber.add_link(*nlink)
 
                     elif cmd.command == "del":
-                        Aggregator.LOGGER.debug(
-                            "worker: remove link from netplumber from %s to %s",
-                            sport, dport
-                        )
+                        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                            Aggregator.LOGGER.debug(
+                                "worker: remove link from netplumber from %s to %s",
+                                sport, dport
+                            )
                         self.net_plumber.remove_link(self.net_plumber.sock, sportno, dportno)
                         self.links[sport].remove(dport)
                         if not self.links[sport]: del self.links[sport]
 
                 if links:
-                    Aggregator.LOGGER.debug("worker: add all bulk links")
+                    if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+                        Aggregator.LOGGER.debug("worker: add all bulk links")
                     self.net_plumber.add_links_bulk(links)
 
             elif cmd.mtype == "packet_filter":
@@ -386,6 +407,12 @@ class Aggregator(AbstractAggregator):
         if model.node in self.models:
             # calculate items to remove and items to add
             add = model - self.models[model.node]
+            for table in model.adds:
+                add.tables.setdefault(table, [])
+                add.tables[table].extend(model.adds[table])
+
+            model.reset()
+
             #sub = self.models[model.node] - model
 
 # TODO: fix deletion... needs exclusion of pre-, post-routing, state tables
@@ -454,7 +481,8 @@ class Aggregator(AbstractAggregator):
 
 
     def _add_packet_filter(self, model):
-        Aggregator.LOGGER.debug("worker: apply packet filter: %s", model.node)
+        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            Aggregator.LOGGER.debug("worker: apply packet filter: %s", model.node)
 
         self.net_plumber.add_tables(model, prefixed=True)
         self.net_plumber.add_wiring(model)
@@ -463,7 +491,8 @@ class Aggregator(AbstractAggregator):
 
 
     def _add_switch(self, model):
-        Aggregator.LOGGER.debug("worker: apply switch: %s", model.node)
+        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            Aggregator.LOGGER.debug("worker: apply switch: %s", model.node)
         self.net_plumber.add_tables(model)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_switch_rules(model)
@@ -471,7 +500,8 @@ class Aggregator(AbstractAggregator):
 
 
     def _add_router(self, model):
-        Aggregator.LOGGER.debug("worker: apply router: %s", model.node)
+        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            Aggregator.LOGGER.debug("worker: apply router: %s", model.node)
         self.net_plumber.add_tables(model, prefixed=True)
         self.net_plumber.add_wiring(model)
         self.net_plumber.add_rules(model)
@@ -524,17 +554,25 @@ def main(argv):
     """ Connects to net_plumber backend and starts aggregator.
     """
 
-    servers = ["127.0.0.1"]
-    port = 0
+    fave_addr = FAVE_DEFAULT_IP
+    fave_port = FAVE_DEFAULT_PORT
+    fave_unix = FAVE_DEFAULT_UNIX
+    servers = [(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
     log_level = logging.INFO
     socks = {}
+    use_unix = False
+
+    logging._srcfile = None
+    logging.logThreads = 0
+    logging.logProcesses = 0
 
     try:
         only_opts = lambda x: x[0]
         opts = only_opts(
-            getopt.getopt(argv, "hds:p:S:", ["help", "debug", "server=", "port=", "servers="])
+            getopt.getopt(argv, "hds:p:S:u", ["help", "debug", "server=", "port=", "servers=", "unix"])
         )
     except getopt.GetoptError:
+        eprint("could not parse options: %s" % argv)
         _print_help()
         sys.exit(2)
 
@@ -542,43 +580,59 @@ def main(argv):
         if opt == '-h':
             _print_help()
             sys.exit(0)
-        elif opt == '-s' and (is_ip(arg) or is_domain(arg) or is_unix(arg)):
-            servers = [arg]
+        elif opt == '-s' and (is_ip(arg) or is_domain(arg)):
+            fave_addr = arg
         elif opt == '-p':
-            port = int(arg) if is_port(arg) else port
-        elif opt == '-S' and all([is_ip(s) or is_domain(s) or is_unix(s) for s in arg.split(',')]):
-            servers = ["/tmp/%s.socket" % s for s in arg.split(',')]
+            fave_port = int(arg) if is_port(arg) else port
+        elif opt == '-u':
+            use_unix = True
+        elif opt == '-S':
+            servers = []
+            for sp in arg.split(','):
+                try:
+                    np_host, np_port = sp.split(':')
+                    assert is_host(sp)
+                    np_port = int(np_port)
+                except ValueError:
+                    np_host = sp
+                    assert is_unix(sp)
+                    np_port = 0
+                servers.append((np_host, np_port))
         elif opt == '-d':
             log_level = logging.DEBUG
 
-    log_handler = logging.FileHandler('/tmp/np/aggregator.log')
+    log_handler = logging.FileHandler('/dev/shm/np/aggregator.log')
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(log_level)
 
-    for server in servers:
+    for np_server, np_port in servers:
         try:
-            sock = jsonrpc.connect_to_netplumber(server, port)
-            socks[server] = sock
+            sock = jsonrpc.connect_to_netplumber(np_server, np_port)
+            socks[(np_server, np_port)] = sock
         except jsonrpc.RPCError as err:
             Aggregator.LOGGER.error(err.message)
+            eprint("could not connect to server: %s %s" % (np_server, np_port))
             _print_help()
+            raise
             sys.exit(1)
 
     global AGGREGATOR
     AGGREGATOR = Aggregator(socks)
 
-    for server in [s for s in servers if is_unix(s)]:
-        try:
-            os.unlink(server)
-        except OSError:
-            if os.path.exists(server):
-                raise
-
     register_signals()
 
-    AGGREGATOR.run()
+    if use_unix:
+        AGGREGATOR.run(FAVE_DEFAULT_UNIX)
+    else:
+        AGGREGATOR.run(fave_addr, port=fave_port)
+
+#    sys.exit(0)
 
 
 if __name__ == "__main__":
-    #cProfile.run('main(%s)' % sys.argv[1:], "aggregator.profile")
+#    import yappi
+#    yappi.start()
     main(sys.argv[1:])
+#    yappi.stop()
+
+#    yappi.get_func_stats().save('aggregator.profile', type='pstat')

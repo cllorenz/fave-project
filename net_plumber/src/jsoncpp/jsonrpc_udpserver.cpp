@@ -66,56 +66,67 @@ namespace Json
       struct sockaddr_storage addr;
       socklen_t addrlen = sizeof(struct sockaddr_storage);
 
-      nb = ::recvfrom(fd, buf, sizeof(buf), MSG_PEEK, (struct sockaddr*)&addr, &addrlen);
 
-      if(nb > 0)
-      {
-        std::string tmp = std::string(buf, nb);
+      std::string msg = std::string();
 
-        size_t pos = tmp.find_first_of('\n');
-        std::string msg = std::string(buf, pos);
-        ::recvfrom(fd, buf, pos+1, 0, (struct sockaddr*)&addr, &addrlen);
-
-        if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
-        {
-          try
-          {
-            msg = netstring::decode(msg);
-          }
-          catch(const netstring::NetstringException& e)
-          {
-            /* error parsing NetString */
-            std::cerr << e.what() << std::endl;
-            return false;
-          }
+      while (1) {
+        nb = ::recvfrom(fd, buf, sizeof(buf), MSG_PEEK, (struct sockaddr*)&addr, &addrlen);
+        if (nb <= 0) {
+          return false;
         }
 
-        /* give the message to JsonHandler */
-        m_jsonHandler.Process(msg, response);
+        std::string chunk = std::string(buf, nb);
+        size_t pos = chunk.find_first_of('\n');
 
-        /* in case of notification message received, the response could be Json::Value::null */
-        if(response != Json::Value::null)
-        {
-          std::string rep = m_jsonHandler.GetString(response);
+        if (!pos) { /* message not finished, yet -> receive more chunks */
+          msg.append(chunk);
+          ::recvfrom(fd, buf, nb, 0, (struct sockaddr*)&addr, &addrlen);
 
-          /* encoding */
-          if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
-          {
-            rep = netstring::encode(rep);
-          }
-
-          if(::sendto(fd, rep.c_str(), rep.length(), 0, (struct sockaddr*)&addr, addrlen) == -1)
-          {
-            /* error */
-            std::cerr << "Error while sending"  << std::endl;
-            return false;
-          }
+        } else { /* message finished -> read rest of message and forward receive buffer */
+          msg.append(chunk, 0, pos+1);
+          ::recvfrom(fd, buf, pos+1, 0, (struct sockaddr*)&addr, &addrlen);
+          break;
         }
-
-        return true;
       }
 
-      return false;
+
+      if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
+      {
+        try
+        {
+          msg = netstring::decode(msg);
+        }
+        catch(const netstring::NetstringException& e)
+        {
+          /* error parsing NetString */
+          std::cerr << e.what() << std::endl;
+          return false;
+        }
+      }
+
+      /* give the message to JsonHandler */
+      m_jsonHandler.Process(msg, response);
+
+      /* in case of notification message received, the response could be Json::Value::null */
+      if(response != Json::Value::null)
+      {
+        std::string rep = m_jsonHandler.GetString(response);
+
+        /* encoding */
+        if(GetEncapsulatedFormat() == Json::Rpc::NETSTRING)
+        {
+          rep = netstring::encode(rep);
+        }
+
+        if(::sendto(fd, rep.c_str(), rep.length(), 0, (struct sockaddr*)&addr, addrlen) == -1)
+        {
+          /* error */
+          std::cerr << "Error while sending"  << std::endl;
+          return false;
+        }
+      }
+
+      return true;
     }
 
     void UdpServer::WaitMessage(uint32_t ms)

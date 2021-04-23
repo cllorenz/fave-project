@@ -30,6 +30,9 @@ import socket
 import cProfile
 
 PROFILE = cProfile.Profile()
+NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
+NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
+NET_PLUMBER_DEFAULT_PORT = 44001
 
 def profile_method(method):
     """ Enriches a method with profiling capabilities.
@@ -74,6 +77,14 @@ def _async_send(socks, msg):
         sock.sendall(msg+'\n')
 
 
+def _parse_msg(msg):
+    data = json.loads(msg)
+    if "error" in data and data["error"]["code"] != 0:
+        raise RPCError(data["error"]["message"])
+
+    return data
+
+
 def _sync_recv(socks):
     results = []
     for sock in socks:
@@ -89,8 +100,7 @@ def _sync_recv(socks):
                 sock.recv(pos+1)
                 break
 
-
-        results.append(result)
+        results.append(_parse_msg(result))
 
     return results
 
@@ -104,22 +114,13 @@ def _asend_recv(socks, msg):
 def _extract_node(msg):
     """ Extracts the node ID from node-related RPC call results.
     """
-
-    data = json.loads(msg)
-    if "error" in data and data["error"]["code"] != 0:
-        raise RPCError(data["error"]["message"])
-
-    return data["result"]
+    return msg["result"]
 
 
 def _extract_index(msg):
     """ Extracts the index encoded in the message ID.
     """
-    data = json.loads(msg)
-    if "error" in data and data["error"]["code"] != 0:
-        raise RPCError(data["error"]["message"])
-
-    return data["id"]
+    return msg["id"]
 
 
 def _basic_rpc(idx=0):
@@ -148,9 +149,7 @@ def connect_to_netplumber(server, port=0):
 
     if not sock:
         raise RPCError(
-            "could not create socket from %s" % "address %s" % (
-                server if port == 0 else "address %s and port %s" % (server, port)
-            )
+            "could not create socket for %s" % ('unix' if port == 0 else 'tcp/ip')
         )
 
     sock.setblocking(1)
@@ -167,7 +166,7 @@ def connect_to_netplumber(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
-        raise RPCError("could not connect to net_plumber")
+        raise RPCError("could not connect to net_plumber at %s" % (server if port == 0 else (server, port)))
 
     return sock
 
@@ -320,14 +319,16 @@ def add_links_bulk(socks, links):
         data["method"] = "add_link"
         data["params"] = {"from_port":from_port, "to_port":to_port}
 
+        msg = json.dumps(data)
+
         if idx != -1:
-            _async_send(socks[idx % len(socks):idx % len(socks)+1], json.dumps(data))
+            _async_send(socks[idx % len(socks):idx % len(socks)+1], msg)
         else:
-            _async_send(socks, json.dumps(data))
+            _async_send(socks, msg)
 
     for idx, _from_port, _to_port in links:
         if idx != -1:
-            res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+            _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
         else:
             _sync_recv(socks)
 
@@ -417,7 +418,6 @@ def add_sources_bulk(socks, sources):
         res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
         for node in res:
             sids[_extract_index(node)] = _extract_node(node)
-#        sids.extend([_extract_node(n) for n in res])
 
     return sids
 

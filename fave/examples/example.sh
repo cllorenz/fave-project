@@ -76,11 +76,11 @@ echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
 echo "ok"
 
 echo -n "start netplumber... "
-scripts/start_np.sh examples/example.conf
+bash scripts/start_np.sh examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 echo -n "start aggregator... "
-scripts/start_aggr.sh
+bash scripts/start_aggr.sh
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
@@ -117,7 +117,7 @@ CNT=$(( $? + CNT ))
 python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']"
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
-python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0,$FIREWALL.eth0:$SWITCH.2
+python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
@@ -127,7 +127,7 @@ python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$H
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1,$HOST2.1:$SWITCH.1,$FWSOURCE.1:$FIREWALL".output_filter_in"
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:False,$HOST2.1:$SWITCH.1:False,$FWSOURCE.1:$FIREWALL".output_filter_in":False
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -144,13 +144,13 @@ CNT=$(( $? + CNT ))
 python2 topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
-python2 topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1
+python2 topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
-python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1
+python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
 CNT=$(( $? + CNT ))
 # link: $FW INPUT --> PROBE2
-python2 topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1
+python2 topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
 CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0

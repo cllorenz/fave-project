@@ -18,6 +18,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 import itertools
+import logging
 
 from aggregator_singleton import AGGREGATOR
 
@@ -196,16 +197,18 @@ class NetPlumberAdapter(object):
             vec = self._build_vector(ns)
             ns_diff.append(vec)
 
-        self.logger.debug(
-            "worker: add slice %s to netplumber with list %s and diff %s", sid, ns_list, ns_diff if ns_diff else None
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: add slice %s to netplumber with list %s and diff %s", sid, ns_list, ns_diff if ns_diff else None
+            )
         jsonrpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
 
 
     def del_slice(self, sid):
-        self.logger.debug(
-            "worker: remove slice %s from netplumber", sid
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: remove slice %s from netplumber", sid
+            )
         jsonrpc.remove_slice(self.socks, sid)
 
 
@@ -227,10 +230,11 @@ class NetPlumberAdapter(object):
                     ports.append(portno)
                     self.ports[port] = portno
 
-                self.logger.debug(
-                    "worker: add table to netplumber: %s with index %s and ports %s",
-                    name, idx, [hex(p) for p in ports]
-                )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(
+                        "worker: add table to netplumber: %s with index %s and ports %s",
+                        name, idx, [hex(p) for p in ports]
+                    )
                 jsonrpc.add_table(self.socks, idx, ports)
 
 
@@ -243,18 +247,21 @@ class NetPlumberAdapter(object):
             # the post routing output are never targeted internally.
             if port1 in [model.node+".internals_in", model.node+".post_routing"] or \
                 port2 in [model.node+".internals_out", model.node+".post_routing"]:
-                self.logger.debug("worker: skip wiring %s to %s", port1, port2)
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: skip wiring %s to %s", port1, port2)
                 continue
 
-            self.logger.debug("worker: wire %s to %s", port1, port2)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("worker: wire %s to %s", port1, port2)
 
             gport1 = self.global_port(port1)
             gport2 = self.global_port(port2)
 
-            self.logger.debug(
-                "worker: add link to netplumber from %s:%s to %s:%s",
-                port1, hex(gport1), port2, hex(gport2)
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add link to netplumber from %s:%s to %s:%s",
+                    port1, hex(gport1), port2, hex(gport2)
+                )
             jsonrpc.add_link(self.socks, gport1, gport2)
 
             self.links.setdefault(gport1, [])
@@ -310,16 +317,17 @@ class NetPlumberAdapter(object):
                     preset='0'
                 )
 
-            self.logger.debug(
-                "worker: add rule %s to %s:%s:\n\t((%s) %s -> (%s) %s)",
-                calc_rule_index(rid),
-                table,
-                self.tables[table],
-                [hex(self.global_port(p)) for p in rule.in_ports],
-                rvec.vector if rvec else "*",
-                rewrite.vector if rewrite else "*",
-                [hex(p) for p in out_ports]
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add rule %s to %s:%s:\n\t((%s) %s -> (%s) %s)",
+                    calc_rule_index(rid),
+                    table,
+                    self.tables[table],
+                    [hex(self.global_port(p)) for p in rule.in_ports],
+                    rvec.vector if rvec else "*",
+                    rewrite.vector if rewrite else "*",
+                    [hex(p) for p in out_ports]
+                )
             r_id = jsonrpc.add_rule(
                 self.socks,
                 self.tables[table],
@@ -383,10 +391,11 @@ class NetPlumberAdapter(object):
                             "{:032b}".format(self.global_port(port))
                         )
 
-            self.logger.debug(
-                "worker: add rule %s to %s:%s:\n\t(%s -> %s)",
-                calc_rule_index(rid), table, tid, rvec.vector if rvec else "*", [hex(p) for p in out_ports]
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add rule %s to %s:%s:\n\t(%s -> %s)",
+                    calc_rule_index(rid), table, tid, rvec.vector if rvec else "*", [hex(p) for p in out_ports]
+                )
             r_id = jsonrpc.add_rule(
                 self.socks,
                 tid,
@@ -405,10 +414,12 @@ class NetPlumberAdapter(object):
     def _add_rule_table(self, model, table):
         tid = self.tables[table]
 
-        self.logger.debug("worker: add rules to %s", table)
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("worker: add rules to %s", table)
 
         for rule in model.tables[table]:
-            self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
             rid = rule.idx
             act = rule.actions
@@ -460,24 +471,26 @@ class NetPlumberAdapter(object):
                     )
 
                 else:
-                    self.logger.warn(
-                        "worker: ignore unknown action while adding rule\n%s",
-                        json.dumps(action.to_json(), indent=2)
-                    )
+                    if self.logger.isEnabledFor(logging.WARN):
+                        self.logger.warn(
+                            "worker: ignore unknown action while adding rule\n%s",
+                            json.dumps(action.to_json(), indent=2)
+                        )
 
             matches = self._expand_negations(rule.match)
 
             for nid, match in enumerate(matches):
-                self.logger.debug(
-                    "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
-                    calc_rule_index(rid),
-                    tid,
-                    [hex(p) for p in in_ports],
-                    match.vector if match else "*",
-                    mask.vector if mask else "*",
-                    [hex(p) for p in out_ports],
-                    rewrite.vector if rewrite else "*"
-                )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(
+                        "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
+                        calc_rule_index(rid),
+                        tid,
+                        [hex(p) for p in in_ports],
+                        match.vector if match else "*",
+                        mask.vector if mask else "*",
+                        [hex(p) for p in out_ports],
+                        rewrite.vector if rewrite else "*"
+                    )
 
                 r_id = jsonrpc.add_rule(
                     self.socks,
@@ -501,7 +514,8 @@ class NetPlumberAdapter(object):
                 model.node+".pre_routing",
                 model.node+".post_routing"
             ]:
-                self.logger.debug("worker: skip adding rules to table %s", table)
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: skip adding rules to table %s", table)
                 continue
 
             self._add_rule_table(model, table)
@@ -547,16 +561,17 @@ class NetPlumberAdapter(object):
                             ) for f in action.rewrite
                         ], preset='0')
 
-                self.logger.debug(
-                    "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
-                    calc_rule_index(rid),
-                    table,
-                    tid,
-                    rvec.vector if rvec else "*",
-                    mask.vector if mask else "*",
-                    [hex(p) for p in out_ports],
-                    rewrite.vector if rewrite else "*"
-                )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(
+                        "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
+                        calc_rule_index(rid),
+                        table,
+                        tid,
+                        rvec.vector if rvec else "*",
+                        mask.vector if mask else "*",
+                        [hex(p) for p in out_ports],
+                        rewrite.vector if rewrite else "*"
+                    )
 
                 in_ports = [self.global_port(
                     "%s.%s" % (model.node, p)
@@ -584,9 +599,10 @@ class NetPlumberAdapter(object):
             only_rid = lambda x: x[0]
             for rid in [only_rid(x) for x in model.tables[table]]:
                 for r_id in self.rule_ids[calc_rule_index(rid, t_idx=tid)]:
-                    self.logger.debug(
-                        "worker: remove rule %s from netplumber", r_id
-                    )
+                    if self.logger.isEnabledFor(logging.DEBUG):
+                        self.logger.debug(
+                            "worker: remove rule %s from netplumber", r_id
+                        )
                     jsonrpc.remove_rule(self.socks, r_id)
                 del self.rule_ids[calc_rule_index(rid, t_idx=tid)]
 
@@ -601,9 +617,10 @@ class NetPlumberAdapter(object):
             idx1 = self.tables[node1]
             idx2 = self.tables[node2]
 
-            self.logger.debug(
-                "worker: remove link from %s to %s from netplumber", calc_port(idx1, model, port1), calc_port(idx2, model, port2)
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: remove link from %s to %s from netplumber", calc_port(idx1, model, port1), calc_port(idx2, model, port2)
+                )
             jsonrpc.remove_link(
                 self.socks,
                 calc_port(idx1, model, port1),
@@ -616,9 +633,10 @@ class NetPlumberAdapter(object):
             name = table
 
             if not self.models[model.node].tables[table]:
-                self.logger.debug(
-                    "worker: remove table %s with id %s from netplumber", name, self.tables[name]
-                )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(
+                        "worker: remove table %s with id %s from netplumber", name, self.tables[name]
+                    )
                 jsonrpc.remove_table(self.socks, self.tables[name])
                 del self.tables[name]
 
@@ -645,13 +663,14 @@ class NetPlumberAdapter(object):
     def add_generator(self, model):
         name, idx, portno, outgoing = self._prepare_generator(model)
 
-        self.logger.debug(
-            "worker: add source %s and port %s to netplumber with list %s and diff %s",
-            name,
-            portno,
-            [v.vector for v in outgoing.hs_list],
-            [v.vector for v in outgoing.hs_diff]
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: add source %s and port %s to netplumber with list %s and diff %s",
+                name,
+                portno,
+                [v.vector for v in outgoing.hs_list],
+                [v.vector for v in outgoing.hs_diff]
+            )
         sid = jsonrpc.add_source(
             self.socks,
             idx,
@@ -674,13 +693,14 @@ class NetPlumberAdapter(object):
             idx_to_model[idx] = model
 
         for name, idx, portno, outgoing in generators:
-            self.logger.debug(
-                "worker: add source %s and port %s to netplumber with list %s and diff %s",
-                name,
-                portno,
-                [v.vector for v in outgoing.hs_list],
-                [v.vector for v in outgoing.hs_diff]
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add source %s and port %s to netplumber with list %s and diff %s",
+                    name,
+                    portno,
+                    [v.vector for v in outgoing.hs_list],
+                    [v.vector for v in outgoing.hs_diff]
+                )
 
         sids = jsonrpc.add_sources_bulk(
             self.socks,
@@ -706,9 +726,10 @@ class NetPlumberAdapter(object):
         port1 = self.global_port(node+'.1')
         ports = self.links[port1]
         for port2 in ports:
-            self.logger.debug(
-                "worker: remove link from %s to %s from netplumber", port1, port2
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: remove link from %s to %s from netplumber", port1, port2
+                )
             jsonrpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
@@ -717,9 +738,10 @@ class NetPlumberAdapter(object):
 
 
         # delete source and probe
-        self.logger.debug(
-            "worker: remove source %s with id %s from netplumber", node, sid
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: remove source %s with id %s from netplumber", node, sid
+            )
         jsonrpc.remove_source(self.socks, sid)
 
         del self.tables[node]
@@ -832,10 +854,10 @@ class NetPlumberAdapter(object):
             eprint("Error while add probe: no test fields or path. Aborting.")
             return
 
-
-        self.logger.debug(
-            "worker: add probe %s and port %s", name, portno
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: add probe %s and port %s", name, portno
+            )
         pid = jsonrpc.add_source_probe(
             self.socks,
             [portno],
@@ -863,18 +885,20 @@ class NetPlumberAdapter(object):
         sports = [sport for sport in self.links if port1 in self.ports[sport]]
 
         for port1 in sports:
-            self.logger.debug(
-                "worker: remove link from %s to %s from netplumber", port1, port2
-            )
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: remove link from %s to %s from netplumber", port1, port2
+                )
             jsonrpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
             if not self.links[port1]: del self.links[port1]
 
         # delete source and probe
-        self.logger.debug(
-            "worker: remove probe %s from netplumber", sid
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "worker: remove probe %s from netplumber", sid
+            )
         jsonrpc.remove_source_probe(self.socks, sid)
 
         del self.tables[node]

@@ -19,6 +19,44 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-PYTHONPATH=. python2 aggregator/stop.py
+SOCK_PARAMS="-s 127.0.0.1 -p 44000"
 
-[ -S /tmp/np_aggregator.socket ] && rm /tmp/np_aggregator.socket
+SERVER=""
+PORT=""
+UNIX=""
+
+usage() { echo "usage: $0 [-h] [-s <host> -p <port> |-u]" 2>&2; }
+
+while getopts "hs:p:u" o; do
+    case "${o}" in
+        h)
+            usage
+            exit 0
+            ;;
+        s)
+            SERVER=${OPTARG}
+            ;;
+        p)
+            PORT=${OPTARG}
+            ;;
+        u)
+            UNIX="1"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -n "$SERVER" && -n "$PORT" ]]; then
+    SOCK_PARAMS="-s $SERVER -p $PORT"
+elif [ -n "$SERVER" ]; then
+    SOCK_PARAMS="-s $SERVER -p 44000"
+elif [ -n "$PORT" ]; then
+    SOCK_PARAMS="-s 127.0.0.1 -p $PORT"
+elif [ -n "$UNIX" ]; then
+    SOCK_PARAMS="-u"
+fi
+
+python2 aggregator/stop.py $SOCK_PARAMS

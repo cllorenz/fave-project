@@ -27,7 +27,7 @@ import sys
 import getopt
 import json
 
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 
 from util.print_util import eprint
 from util.lock_util import PersistentFileLock
@@ -47,6 +47,7 @@ def print_help():
         "\t-p dump pipes",
         "\t-t dump flow trees",
         "\t-s dump simple flow trees",
+        "\t-u connect via UNIX domain socket",
         sep="\n"
     )
 
@@ -58,7 +59,7 @@ def main(argv):
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "ahfno:pst"))
+        opts = only_opts(getopt.getopt(argv, "ahfno:pstu"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -69,6 +70,7 @@ def main(argv):
     use_pipes = False
     use_trees = False
     keep_simple = False
+    use_unix = False
 
     odir = "np_dump"
 
@@ -100,13 +102,16 @@ def main(argv):
             use_trees = True
             keep_simple = True
 
+        elif opt == '-u':
+            use_unix = True
+
         else:
             eprint("unknown option: %s, usage:" % opt)
             print_help()
             sys.exit(1)
 
 
-    fave = connect_to_fave()
+    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
 
     dump = {
         'type':'dump',
@@ -127,7 +132,7 @@ def main(argv):
     lock = PersistentFileLock("%s/.lock" % odir, timeout=-1)
     lock.acquire()
 
-    fave.sendall(json.dumps(dump))
+    fave_sendmsg(fave, json.dumps(dump))
     fave.close()
 
 

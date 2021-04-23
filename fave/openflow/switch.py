@@ -35,7 +35,7 @@ from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from util.collections_util import list_sub
 
-from util.aggregator_utils import connect_to_fave
+from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 
 
 class SwitchCommand(object):
@@ -131,6 +131,8 @@ class SwitchModel(Model):
         idx -- a rule index
         rule -- a rule
         """
+
+        super(SwitchModel, self).add_rule(rule)
         self.tables[self.node+".1"].insert(idx, rule)
 
 
@@ -140,6 +142,7 @@ class SwitchModel(Model):
         Keyword arguments:
         idx -- a rule index
         """
+        super(SwitchModel, self).remove_rule(idx)
         del self.tables[self.node+".1"][idx]
 
 
@@ -159,12 +162,19 @@ class SwitchModel(Model):
         assert self.node == other.node
         assert self.type == other.type
 
-        smm = super(SwitchModel, self).__sub__(other)
+#        smm = super(SwitchModel, self).__sub__(other)
+#        smm.tables.setdefault(self.node+'.1', [])
+#
+#        res = SwitchModel(
+#            smm.node,
+#            ports=smm.ports,
+#            rules=smm.tables[self.node+'.1']
+#        )
 
         res = SwitchModel(
-            smm.node,
-            ports=smm.ports,
-            rules=smm.tables[self.node+'.1']
+            self.node,
+            ports=self.ports,
+            rules=self.adds[self.node+'.1']
         )
 
         return res
@@ -211,10 +221,11 @@ def main(argv):
     fields = []
     actions = []
     in_ports = []
+    use_unix = False
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hadun:t:i:f:c:p:"))
+        opts = only_opts(getopt.getopt(argv, "haduUn:t:i:f:c:p:"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -229,6 +240,8 @@ def main(argv):
             command = 'del'
         elif opt == '-u':
             command = 'upd'
+        elif opt == '-U':
+            use_unix = True
         elif opt == '-n':
             node = arg
         elif opt == '-t':
@@ -294,8 +307,8 @@ def main(argv):
         sys.exit(2)
 
 
-    fave = connect_to_fave()
-    fave.send(json.dumps(cmd.to_json()))
+    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave_sendmsg(fave, json.dumps(cmd.to_json()))
     fave.close()
 
 
