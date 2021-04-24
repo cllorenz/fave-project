@@ -138,7 +138,7 @@ vec_diff_remove (struct hs_vec *v, size_t i)
 #else
   if (v->diff) {
     vec_destroy(&v->diff[i]);
-    v->diff[i] = v->diff[v->used];
+    if (i < v->used-1) v->diff[i] = v->diff[v->used-1];
   }
 #endif
 }
@@ -150,10 +150,10 @@ vec_elem_free (struct hs_vec *v, size_t i)
   assert(i < v->used);
 
   if (v->elems[i]) array_free (v->elems[i]);
-  vec_elem_remove(v,i);
 #ifndef NEW_HS
   vec_diff_remove(v,i);
 #endif
+  vec_elem_remove(v,i);
 }
 
 static void
