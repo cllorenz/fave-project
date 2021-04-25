@@ -710,7 +710,7 @@ size_t
 array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const size_t len)
 {
 #ifdef STRICT_RW
-  assert (!array_has_x(mask, len) && !array_has_z(mask, len));
+  ;//assert (!array_has_x(mask, len) && !array_has_z(mask, len));
 #endif
 
   size_t n = 0; // counts the number of overwritten wildcards
