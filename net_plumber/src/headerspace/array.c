@@ -858,12 +858,9 @@ array_isect_a (const array_t *a, const array_t *b, size_t len)
 {
   if (!a || !b) return NULL;
 
-  array_t *res = array_create (len, BIT_UNDEF);
-  if (!array_isect (a, b, len, res)) {
-    array_free (res);
-    return NULL;
-  }
-  return res;
+  array_t tmp[ARRAY_BYTES (len) / sizeof (array_t)];
+  if (!array_isect (a, b, len, &tmp)) return NULL;
+  return xmemdup(tmp, sizeof(tmp));
 }
 
 array_t *
