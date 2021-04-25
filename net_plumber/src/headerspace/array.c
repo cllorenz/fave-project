@@ -627,8 +627,34 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 
   for (size_t i = 0; i < SIZE (len); i++) {
     res[i] = a[i] & b[i];
-    if (has_z (res[i])) return false;
+    array_t tmp = res[i];
+    // for the last round mask incomplete bits in array_t
+    if (i == SIZE (len) - 1) {
+      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
+      // set leading bits while keeping originally set bits
+      tmp |= ((-1ull >> set_bits) << set_bits);
+    }
+    if (has_z (tmp)) return false;
   }
+  return true;
+}
+
+bool
+array_isect_arr_i (array_t *a, const array_t *b, size_t len) {
+  if (!a || !b) return false;
+
+  for (size_t i = 0; i < SIZE (len); i++) {
+    a[i] &= b[i];
+    array_t tmp = a[i];
+    // for the last round mask incomplete bits in array_t
+    if (i == SIZE (len) - 1) {
+      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
+      // set leading bits while keeping originally set bits
+      tmp |= ((-1ull >> set_bits) << set_bits);
+    }
+    if (has_z (tmp)) return false;
+  }
+
   return true;
 }
 

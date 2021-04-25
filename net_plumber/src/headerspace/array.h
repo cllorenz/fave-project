@@ -63,6 +63,7 @@ bool array_cmpl    (const array_t *a, size_t len, size_t *n, array_t **res);
 bool array_diff    (const array_t *a, const array_t *b, size_t len, size_t *n, array_t **res);
 #endif
 bool array_isect   (const array_t *a, const array_t *b, size_t len, array_t *res);
+bool array_isect_arr_i (array_t *a, const array_t *b, size_t len);
 void array_not     (const array_t *a, size_t len, array_t *res);
 #ifdef USE_DEPRECATED
 void array_or      (const array_t *a, const array_t *b, size_t len, array_t *res);
