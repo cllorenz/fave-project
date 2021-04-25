@@ -995,6 +995,30 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
 #endif
 }
 
+
+bool
+hs_isect_arr_i (struct hs *hs, const array_t *a) {
+  for (size_t i = 0; i < hs->list.used; i++) {
+    // in situ intersection of hs element with array
+    bool empty = !array_isect_arr_i(hs->list.elems[i], a, hs->len);
+    if (empty) { // no intersection
+                 // -> first, delete diff and replace with last diff if existent
+                 //    then,  delete and replace with last element if existent
+      vec_elem_free(&hs->list, i);
+      continue;
+    }
+    // intersection -> intersect diff elements as well
+    for (size_t j = 0; j < hs->list.diff[i].used; j++) {
+      empty = !array_isect_arr_i(hs->list.diff[i].elems[j], a, hs->len);
+      if (empty) {
+        vec_elem_free(&hs->list.diff[i], j);
+      }
+    }
+  }
+  return !hs_is_empty(hs);
+}
+
+
 void
 hs_minus (struct hs *a, const struct hs *b)
 {
