@@ -87,6 +87,25 @@ HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, const size_t 
 }
 
 
+/*
+    Create hs packet set by intersecting an existing hs with an array. This is
+    semantically equivalent to the copy constructor plus an application of
+    intersect2(). This constructor is more efficient in time and space since
+    only non-empty intersections will be added to the hs in a constructive way
+    instead of deleting empty intersections from a previously copied hs.
+ */
+HeaderspacePacketSet::HeaderspacePacketSet(
+    const HeaderspacePacketSet *hps, const ArrayPacketSet *arr
+) {
+    this->hs = {hps->hs.len, {0, 0, 0, 0}};
+    const bool empty = !hs_isect_arr(&this->hs, &hps->hs, arr->array);
+    if (empty) {
+        hs_destroy(&this->hs);
+        this->hs = {hps->hs.len, {0, 0, 0, 0}};
+    }
+}
+
+
 HeaderspacePacketSet::HeaderspacePacketSet(const HeaderspacePacketSet& hps) {
     this->hs = {hps.hs.len, {0, 0, 0, 0}};
     hs_copy(&this->hs, &hps.hs);
