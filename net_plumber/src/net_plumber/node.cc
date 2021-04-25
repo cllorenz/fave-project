@@ -307,8 +307,8 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
   for (auto const &next: next_in_pipeline) {
     if (is_output_layer && should_block_flow(*s_flow, next->local_port))
       continue;
-    if (!h) h = new T1(*(*s_flow)->processed_hs);
-    h->intersect2(next->pipe_array);
+
+    if (!h) h = new T1((*s_flow)->processed_hs, next->pipe_array);
 
     if (this->logger->isTraceEnabled()) {
       stringstream isect;
@@ -371,8 +371,8 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     if (is_output_layer && should_block_flow(*it,(*pipe)->local_port))
       continue;
     if ((*it)->processed_hs == nullptr) continue;
-    if (!h) h = new T1(*(*it)->processed_hs);
-    h->intersect2((*pipe)->pipe_array);
+
+    if (!h) h = new T1((*it)->processed_hs, (*pipe)->pipe_array);
 
     if (this->logger->isTraceEnabled()) {
       stringstream isect;
