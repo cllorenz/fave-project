@@ -1,0 +1,15 @@
+{
+    "tables" : [
+        "atla",
+        "chic",
+        "hous",
+        "kans",
+        "losa",
+        "newy32aoa",
+        "salt",
+        "seat",
+        "wash"
+    ],
+    "table_types" : ["in", "out"],
+    "length" : 6
+}
