@@ -17,7 +17,9 @@ fi
 TF_DIR=$BENCH"_tfs"
 
 VANILLA_DIR=$BENCH"_json_vanilla"
+mkdir -p $VANILLA_DIR
 FAVENP_DIR=$BENCH"_json_favenp"
+mkdir -p $FAVENP_DIR
 
 TF_LOG=$BENCH"_gen_tfs.log"
 JSON_LOG=$BENCH"_gen_json.log"
@@ -30,8 +32,7 @@ HDR_LEN=`grep "length" $VANILLA_DIR/config.json | tr -d ' ,' | cut -d: -f2`
 echo "generate tfs"
 mkdir -p $TF_DIR
 PYTHONPATH=$HASSEL_DIR/hsa-python \
-python2 $TF_GENERATOR \
-    $HASSEL_DIR/hsa-python/$BENCH"_orig" $TF_DIR > $TF_LOG
+python2 $TF_GENERATOR $BENCH"_orig" $TF_DIR > $TF_LOG
 cat $TF_LOG >> $LOG
 
 GEN_TFS=`grep "completed in" $TF_LOG | cut -d' ' -f3`
