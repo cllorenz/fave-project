@@ -2,6 +2,7 @@ import Queue
 import asyncore
 import socket
 import sys
+import time
 
 node_link_queue = Queue.Queue()
 node_link_dict = {}
@@ -37,7 +38,12 @@ class NodeLinkDispatcher(asyncore.dispatcher):
     
     def __init__(self, host, port):
         asyncore.dispatcher.__init__(self)
+
+        self.debug = True
+
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Start connection process asynchronously
+        # for actions after connection successful see handle_connect
         self.connect((host, port))
 
         self.host = host
@@ -46,18 +52,16 @@ class NodeLinkDispatcher(asyncore.dispatcher):
         # Keep track of expected messages before closing the channel
         self.recv_queue = Queue.Queue()
 
-        # Immediately send a pair on construction
-        self.send_next_pair()
-
         self.raw_msg_buf = ''
 
+    def handle_connect(self):
+        # Immediately send a pair after socket connection successful
+        self.send_next_pair()
     
     def send_next_pair(self):
         try:
             # Try sending a message if there are still open messages
             node_msg, link_msg = node_link_queue.get_nowait()
-            print("Sending ({}): {}".format((self.host, self.port), (node_msg, link_msg)))
-            # print((node_msg, link_msg))
             self.send(node_msg + '\n')
             self.send(link_msg + '\n')
             # Add "message expected" signal to recv queue
@@ -71,9 +75,9 @@ class NodeLinkDispatcher(asyncore.dispatcher):
 
     def handle_read(self):
         results = self.recv_whole_buffer()
+        print("Receiving ({}): {}".format((self.host, self.port), results))
+        sys.stdout.flush()
         for result in results:
-            print("Receiving ({}): {}".format((self.host, self.port), result))
-            sys.stdout.flush()
             try:
                 # Remove one entry for an expected message
                 self.recv_queue.get_nowait()
@@ -82,7 +86,7 @@ class NodeLinkDispatcher(asyncore.dispatcher):
                 print("Closing {}".format((self.host, self.port)))
                 sys.stdout.flush()
                 self.close()
-            # channel still open, try sending another message
+        # channel still open, try sending another message
         self.send_next_pair()
         
     def recv_whole_buffer(self):
