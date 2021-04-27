@@ -190,7 +190,6 @@ if __name__ == "__main__":
     LOGGER.info("ordered fave to stop")
 
     LOGGER.info("wait for fave to check flow trees...")
-    os.system("python2 misc/await_fave.py")
 
     import test.check_flows as checker
     checker.main(["-b", "-r", "-c", ";".join(checks), '-d', os.environ['np_flows_output_directory']])

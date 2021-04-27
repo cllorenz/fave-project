@@ -60,7 +60,7 @@ def parse_slurm_nodelist(nodelist):
     if next_delim == ',':
       nodes.append("node{}".format(next_id))
       end_id, next_delim, nodelist = get_next_node_id_and_delim(nodelist)
-      nodes.append("node{}".format(next_id))
+      nodes.append("node{}".format(end_id))
       continue
     if next_delim == '-':
       start_id = next_id
