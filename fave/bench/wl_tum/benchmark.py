@@ -82,7 +82,6 @@ if __name__ == '__main__':
 
         if verbose: print "Initialize topology..."
         create_topology(devices, links, use_unix=use_unix)
-        add_rulesets(devices, use_unix=use_unix)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:
@@ -92,19 +91,19 @@ if __name__ == '__main__':
         add_routes(routes, use_unix=use_unix)
         if verbose: print "Routes sent to FaVe"
 
-    with open(SOURCES, 'r') as raw_sources:
-        sources, links = json.loads(raw_sources.read()).values()
-
-        if verbose: print "Initialize sources..."
-        add_sources(sources, links, use_unix=use_unix)
-        if verbose: print "Sources sent to FaVe"
-
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         if verbose: print "Initialize probes..."
         add_policies(probes, links, use_unix=use_unix)
         if verbose: print "Probes sent to FaVe"
+
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.loads(raw_sources.read()).values()
+
+        if verbose: print "Initialize sources..."
+        add_sources(sources, links, use_unix=use_unix)
+        if verbose: print "Sources sent to FaVe"
 
     import netplumber.dump_np as dumper
     dumper.main(["-ant%s" % ("u" if use_unix else "")])

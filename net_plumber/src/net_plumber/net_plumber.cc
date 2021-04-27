@@ -193,7 +193,6 @@ void NetPlumber<T1, T2>::free_rule_memory(RuleNode<T1, T2> *r, bool remove_from_
 template<class T1, class T2>
 void NetPlumber<T1, T2>::free_table_memory(uint32_t table) {
   if (table_to_nodes.count(table) > 0) {
-    table_to_last_id.erase(table);
     auto rules_list = table_to_nodes[table];
     for (auto &rule: *rules_list) {
       free_rule_memory(rule.second, false);
@@ -718,13 +717,11 @@ template<class T1, class T2>
 void NetPlumber<T1, T2>::add_table(uint32_t id, List_t ports) {
   this->last_event.type = ADD_TABLE;
   this->last_event.id1 = id;
-  assert(table_to_nodes.count(id) == table_to_last_id.count(id));
   if (table_to_nodes.count(id) == 0 && id > 0) {
     ports.shared = true;
 
     table_to_nodes[id] = new map<uint32_t, RuleNode<T1, T2> *>();
     table_to_ports[id] = ports;
-    table_to_last_id[id] = 0l;
     return;
   } else if (id == 0) {
     LOG4CXX_ERROR(logger,"Can not create table with ID 0. ID should be > 0.");
@@ -790,8 +787,7 @@ uint64_t NetPlumber<T1, T2>::_add_rule(const uint32_t table, const uint32_t inde
 
     if (in_ports.size == 0) in_ports = table_ports;
 
-    table_to_last_id[table] += 1;
-    uint64_t id = table_to_last_id[table] + ((uint64_t)table << 32) ;
+    uint64_t id = ((uint64_t)table << 32) + index;
 
     RuleNode<T1, T2> *r;
 
@@ -1338,6 +1334,7 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
         flow_node->source_flow.back()->hs_object->to_json(hs);
         params["hs"] = hs;
         params["ports"] = list_to_json(flow_node->output_ports);
+        params["id"] = (Json::UInt64) flow_node->node_id;
 
         command["params"] = params;
 
@@ -1379,6 +1376,8 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
         Json::Value match(Json::objectValue);
         ((SourceProbeNode<T1, T2> *)probe)->match_to_json(match);
         params["match"] = match;
+
+        params["id"] = (Json::UInt64) probe->node_id;
 
         command["params"] = params;
 

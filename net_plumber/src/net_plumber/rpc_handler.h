@@ -52,6 +52,7 @@ private:
   FN(add_link); FN(remove_link);
   FN(add_table); FN(remove_table);
   FN(add_rule); FN(remove_rule);
+  FN(add_rules);
   FN(add_source); FN(remove_source);
   FN(add_source_probe); FN(remove_source_probe);
 #ifdef PIPE_SLICING

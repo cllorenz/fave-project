@@ -304,10 +304,11 @@ if __name__ == '__main__':
     print "wait for fave..."
 
     import netplumber.dump_np as dumper
-    dumper.main(["-ant%s" % ("u" if use_unix else "")])
+    dumper.main(["-ans%s" % ("u" if use_unix else "")])
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
 
+    os.system("python2 misc/await_fave.py")
     import test.check_flows as checker
     checks = json.load(open(CHECKS, 'r'))
     checker.main(["-b", "-c", ";".join(checks)])

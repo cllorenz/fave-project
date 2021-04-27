@@ -141,6 +141,7 @@ int typed_main(int argc, char* argv[]) {
   bool do_load_json_files = false;
   bool do_dump_json_files = false;
   bool do_load_policy = false;
+  bool do_print_network = false;
 
   string log_config_file = "";
   string json_files_path = "";
@@ -165,6 +166,7 @@ int typed_main(int argc, char* argv[]) {
       printf("  settings:\n");
       printf("\t --log4j-config <config file> : path to <log4j config> file.\n");
       printf("\t --hdr-len <length> : <length> of packet header (default is 1 byte).\n");
+      printf("\t --print : print plumbing network.\n");
       break;
     }
     if ( strncmp(argv[i], "--unix", 6) == 0 ) {
@@ -239,6 +241,10 @@ int typed_main(int argc, char* argv[]) {
       }
       hdr_len = atoi(argv[++i]);
     }
+
+    if ( strncmp(argv[i], "--print", 7) == 0 ) {
+      do_print_network = true;
+    }
   }
   //configure log4cxx.
   if (log_config_file != "") {
@@ -286,6 +292,10 @@ int typed_main(int argc, char* argv[]) {
     N->dump_slices(dump_files_path);
 #endif
     printf("Dumped the plumbing network to %s/\n", dump_files_path.c_str());
+  }
+
+  if (do_print_network) {
+    N->print_plumbing_network();
   }
 
   if (!do_run_server) {

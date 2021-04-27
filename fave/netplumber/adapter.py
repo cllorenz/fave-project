@@ -21,6 +21,7 @@ import itertools
 import logging
 
 from aggregator_singleton import AGGREGATOR
+from aggregator_abstract import TRACE
 
 import netplumber.jsonrpc as jsonrpc
 from aggregator_util import normalize_port, calc_rule_index, calc_port
@@ -75,14 +76,14 @@ class NetPlumberAdapter(object):
         return self.generators.get(src.rstrip('.1'), [-1, 0, 0])[0]
 
     def add_links_bulk(self, links):
-         jsonrpc.add_links_bulk(
+        jsonrpc.add_links_bulk(
             self.socks,
             [(
                 self._get_index_for_src(src),
                 self.global_port(src),
                 self.global_port(dst)
             ) for src, dst in links]
-         )
+        )
 
     def add_link(self, src, dst):
         jsonrpc.add_link(self.socks, self.global_port(src), self.global_port(dst))
@@ -212,7 +213,7 @@ class NetPlumberAdapter(object):
         jsonrpc.remove_slice(self.socks, sid)
 
 
-    def add_tables(self, model, prefixed=False):
+    def add_tables(self, model): #, prefixed=False):
         self.model_types.setdefault(model.node, model.type)
 
         for table in model.tables:
@@ -248,14 +249,20 @@ class NetPlumberAdapter(object):
             if port1 in [model.node+".internals_in", model.node+".post_routing"] or \
                 port2 in [model.node+".internals_out", model.node+".post_routing"]:
                 if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("worker: skip wiring %s to %s", port1, port2)
+                    self.logger.debug("worker: skip forbidden wire from %s to %s", port1, port2)
                 continue
-
-            if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("worker: wire %s to %s", port1, port2)
 
             gport1 = self.global_port(port1)
             gport2 = self.global_port(port2)
+
+            # ignore existing wiring
+            if gport1 in self.links and gport2 in self.links[gport1]:
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: skip existing wire from %s to %s", port1, port2)
+                continue
+            else:
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("worker: wire %s to %s", port1, port2)
 
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
@@ -270,10 +277,6 @@ class NetPlumberAdapter(object):
 
     def _add_pre_routing_rules(self, model):
         table = model.node+'.pre_routing'
-
-        if table not in model.tables:
-            return
-
         tid = self.tables[table]
 
         for rule in model.tables[table]:
@@ -345,10 +348,6 @@ class NetPlumberAdapter(object):
 
     def _add_post_routing_rules(self, model):
         table = model.node+'.post_routing'
-
-        if table not in model.tables:
-            return
-
         tid = self.tables[table]
 
         for rule in model.tables[table]:
@@ -411,185 +410,169 @@ class NetPlumberAdapter(object):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _add_rule_table(self, model, table):
-        tid = self.tables[table]
+    def _prepare_generic_rule(self, rule):
+        tid = self.tables[rule.tid]
+        rid = rule.idx
+        out_ports = []
+        mask = None
+        rewrite = None
+        for action in rule.actions:
+            if isinstance(action, Forward):
+                out_ports.extend(
+                    [self.global_port(port) for port in action.ports]
+                )
+
+            elif isinstance(action, Rewrite):
+                rewrite = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '{:032b}'.format(self.global_port(f.value))
+                    ) if f.name in [
+                        'interface', 'in_port', 'out_port'
+                    ] else f for f in action.rewrite
+                ])
+                mask = self._build_vector([
+                    SwitchRuleField(
+                        f.name, '1'*FIELD_SIZES[f.name]
+                    ) for f in action.rewrite
+                ], preset='0')
+
+            else:
+                if self.logger.isEnabledFor(logging.WARN):
+                    self.logger.warn(
+                        "worker: ignore unknown action while preparing rule\n%s",
+                        json.dumps(action.to_json(), indent=2)
+                    )
+
+        in_ports = [
+            self.global_port(
+                pname
+            ) for pname in rule.in_ports
+        ]
+
+        matches = self._expand_negations(Match([
+            SwitchRuleField(
+                f.name, '{:032b}'.format(self.global_port(f.value))
+            ) if f.name in [
+                'interface', 'in_port', 'out_port'
+            ] else f for f in rule.match
+        ]))
+
+        res = []
+        for nid, match in enumerate(matches):
+            np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
+            self.rule_ids.setdefault(np_rid, [])
+            res.append((
+                np_rid,
+                tid,
+                calc_rule_index(rid, n_idx=nid),
+                in_ports,
+                out_ports,
+                match.vector if match else None,
+                mask.vector if mask else None,
+                rewrite.vector if rewrite else None
+            ))
+
+        return res
+
+
+    def _add_generic_table(self, model, table):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
         if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug("worker: add rules to %s", table)
-
-        for rule in model.tables[table]:
-            if self.logger.isEnabledFor(logging.DEBUG):
+            for rule in model.tables[table]:
                 self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
 
-            rid = rule.idx
-            act = rule.actions
+        for rule in model.tables[table]:
+            prules = self._prepare_generic_rule(rule)
 
-            for field in [
-                f for f in rule.match if f.name in [
-                    'in_port', 'out_port', 'interface'
-                ]
-            ]:
-                if not Vector.is_vector(field.value, name=field.name):
-                    field.value = "{:032b}".format(self.global_port(field.value))
-                    field.vectorize()
-
-            for action in [a for a in act if isinstance(a, Rewrite)]:
-                for field in action.rewrite:
-                    if field.name in [
-                        'in_port', 'out_port', 'interface'
-                    ] and not Vector.is_vector(field.value, name=field.name):
-                        field.value = "{:032b}".format(self.global_port(field.value))
-
-                    field.vectorize()
-
-            rvec = self._build_vector(rule.match)
-
-            in_ports = [
-                self.global_port(
-                    pname
-                ) for pname in rule.in_ports
-            ]
-
-            out_ports = []
-            mask = None
-            rewrite = None
-            for action in rule.actions:
-                if isinstance(action, Forward):
-                    out_ports.extend(
-                        [self.global_port(
-                            port
-                        ) for port in action.ports]
-                    )
-
-                elif isinstance(action, Rewrite):
-                    rewrite = self._build_vector(action.rewrite)
-                    mask = self._build_vector([
-                        SwitchRuleField(
-                            f.name, '1'*FIELD_SIZES[f.name]
-                        ) for f in action.rewrite],
-                        preset='0'
-                    )
-
-                else:
-                    if self.logger.isEnabledFor(logging.WARN):
-                        self.logger.warn(
-                            "worker: ignore unknown action while adding rule\n%s",
-                            json.dumps(action.to_json(), indent=2)
-                        )
-
-            matches = self._expand_negations(rule.match)
-
-            for nid, match in enumerate(matches):
+            for np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite in prules:
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug(
-                        "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
-                        calc_rule_index(rid),
+                        "worker: add rule %s to %s:%s:\n\t(%s, %s & %s -> %s, %s)",
+                        fave_rid,
+                        table,
                         tid,
                         [hex(p) for p in in_ports],
-                        match.vector if match else "*",
-                        mask.vector if mask else "*",
+                        match if match else "*",
+                        mask if mask else "*",
                         [hex(p) for p in out_ports],
-                        rewrite.vector if rewrite else "*"
+                        rewrite if rewrite else "*"
                     )
-
                 r_id = jsonrpc.add_rule(
                     self.socks,
                     tid,
-                    calc_rule_index(rid, n_idx=nid),
+                    fave_rid,
                     in_ports,
                     out_ports,
-                    match.vector if match.vector else 'x'*8,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
+                    match,
+                    mask,
+                    rewrite
                 )
-                np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
-                self.rule_ids.setdefault(np_rid, [])
                 self.rule_ids[np_rid].append(r_id)
 
 
     def add_rules(self, model):
-        for table in model.tables:
-            # XXX: ugly as f*ck... eliminate INPUT/OUTPUT and make PREROUTING static???
-            if table in [
-                model.node+".pre_routing",
-                model.node+".post_routing"
-            ]:
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("worker: skip adding rules to table %s", table)
-                continue
+        if self.logger.isEnabledFor(TRACE):
+            tables = "\n".join(["\t%s=%s" % (t, len(r)) for t,r in model.tables.iteritems()])
+            self.logger.trace("worker: update rules for model %s with tables:\n%s" % (model.node, tables))
 
-            self._add_rule_table(model, table)
+        for table in [t for t in model.tables if t not in [
+            model.node+".pre_routing", model.node+".post_routing"
+        ]]:
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
 
-        for table in [model.node+".post_routing"]:
+            self.add_rules_batch(model.tables[table])
+
+        if model.node+".post_routing" in model.tables:
             self._add_post_routing_rules(model)
 
-        for table in [model.node+".pre_routing"]:
+        if model.node+".pre_routing" in model.tables:
             self._add_pre_routing_rules(model)
 
 
-    # XXX: merge with pre- post-routing handling above?
-    def add_switch_rules(self, model):
-        for table in model.tables:
+    def _update_mapping_for_rule(rule):
+        self._update_mapping()
 
-            tid = self.tables[table]
 
-            for rule in model.tables[table]:
-                rid = rule.idx
+    def add_rules_batch(self, rules):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("worker: add a batch of %s rules" % len(rules))
 
-                rvec = self._build_vector(rule.match)
+        fields = set()
+        for rule in rules:
+            fields.update([f.name for f in rule.match])
+            rw = set()
+            for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
+                rw.update([f.name for f in action.rewrite])
+            fields.update(rw)
+        self._update_mapping(fields)
 
-                out_ports = []
-                mask = None
-                rewrite = None
-                for action in rule.actions:
-                    if isinstance(action, Forward):
-                        out_ports.extend(
-                            [self.global_port(port) for port in action.ports]
-                        )
+        batch = []
+        for rule in rules:
+            batch.extend(self._prepare_generic_rule(rule))
 
-                    elif isinstance(action, Rewrite):
-                        rewrite = self._build_vector([
-                            SwitchRuleField(
-                                f.name, '{:032b}'.format(self.global_port(f.value))
-                            ) if f.name in [
-                                'interface', 'in_port', 'out_port'
-                            ] else f for f in action.rewrite
-                        ])
-                        mask = self._build_vector([
-                            SwitchRuleField(
-                                f.name, '1'*FIELD_SIZES[f.name]
-                            ) for f in action.rewrite
-                        ], preset='0')
+        for rule in batch:
+            np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite = rule
 
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug(
-                        "worker: add rule %s to %s:%s:\n\t(%s & %s -> %s, %s)",
-                        calc_rule_index(rid),
-                        table,
-                        tid,
-                        rvec.vector if rvec else "*",
-                        mask.vector if mask else "*",
-                        [hex(p) for p in out_ports],
-                        rewrite.vector if rewrite else "*"
-                    )
-
-                in_ports = [self.global_port(
-                    "%s.%s" % (model.node, p)
-                ) for p in rule.in_ports] if rule.in_ports else []
-
-                r_id = jsonrpc.add_rule(
-                    self.socks,
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(
+                    "worker: add rule %s to %s:\n\t(%s, %s & %s -> %s, %s)",
+                    fave_rid,
                     tid,
-                    calc_rule_index(rid),
-                    in_ports,
-                    out_ports,
-                    rvec.vector,
-                    mask.vector if mask else None,
-                    rewrite.vector if rewrite else None
+                    [hex(p) for p in in_ports],
+                    match if match else "*",
+                    mask if mask else "*",
+                    [hex(p) for p in out_ports],
+                    rewrite if rewrite else "*"
                 )
-                np_rid = calc_rule_index(rid, t_idx=tid)
-                self.rule_ids.setdefault(np_rid, [])
-                self.rule_ids[np_rid].append(r_id)
+
+        rids = jsonrpc.add_rules_batch(self.socks, batch)
+
+        for r_id, rule in zip(rids, batch):
+            np_rid, _tid, _fave_rid, _in, _out, _match, _mask, _rewrite = rule
+            self.rule_ids[np_rid].append(r_id)
 
 
     def delete_rules(self, model):

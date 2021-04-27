@@ -39,6 +39,7 @@ class HeaderspacePacketSet : public PacketSet {
     HeaderspacePacketSet(const std::string);
     HeaderspacePacketSet(const Json::Value&, size_t);
     HeaderspacePacketSet(const HeaderspacePacketSet&);
+    HeaderspacePacketSet(const HeaderspacePacketSet*, const ArrayPacketSet*);
 
     virtual ~HeaderspacePacketSet();
 

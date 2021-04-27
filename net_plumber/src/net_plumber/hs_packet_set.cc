@@ -81,8 +81,28 @@ HeaderspacePacketSet::HeaderspacePacketSet(const std::string s) {
 
 HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, const size_t length) {
     HeaderspacePacketSet *tmp = val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(val, length);
-    hs_copy(&this->hs, &tmp->hs);
+    this->hs = tmp->hs;
+    tmp->hs = {0, {0, 0, 0, 0}};
     delete tmp;
+}
+
+
+/*
+    Create hs packet set by intersecting an existing hs with an array. This is
+    semantically equivalent to the copy constructor plus an application of
+    intersect2(). This constructor is more efficient in time and space since
+    only non-empty intersections will be added to the hs in a constructive way
+    instead of deleting empty intersections from a previously copied hs.
+ */
+HeaderspacePacketSet::HeaderspacePacketSet(
+    const HeaderspacePacketSet *hps, const ArrayPacketSet *arr
+) {
+    this->hs = {hps->hs.len, {0, 0, 0, 0}};
+    const bool empty = !hs_isect_arr(&this->hs, &hps->hs, arr->array);
+    if (empty) {
+        hs_destroy(&this->hs);
+        this->hs = {hps->hs.len, {0, 0, 0, 0}};
+    }
 }
 
 
@@ -114,23 +134,18 @@ HeaderspacePacketSet::intersect(PacketSet *other) {
 void
 HeaderspacePacketSet::intersect2(ArrayPacketSet *other) {
     assert(this->hs.len == other->length);
-    if (!other->is_empty() && !this->is_empty()) {
-        struct hs tmp = {this->hs.len, {0, 0, 0, 0}};
-        const bool empty = !hs_isect_arr(&tmp, &this->hs, other->array);
-        if (empty) {
-            hs_destroy(&tmp);
-            hs_destroy(&this->hs);
-            this->hs.list = {0, 0, 0, 0};
-        } else {
-            hs_destroy(&this->hs);
-            this->hs.list = tmp.list;
-        }
-    } else if (other->is_empty() || this->is_empty()) {
+
+    if (this->is_empty()) return;
+
+    if (other->is_empty()) {
         hs_destroy(&this->hs);
         this->hs.list = {0, 0, 0, 0};
-    } else {
-        // this should never happen!
-        assert(false);
+        return;
+    }
+
+    if (!hs_isect_arr_i(&this->hs, other->array)) {
+        hs_destroy(&this->hs);
+        this->hs.list = {0, 0, 0, 0};
     }
 }
 

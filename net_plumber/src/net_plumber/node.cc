@@ -39,14 +39,27 @@ LoggerPtr Node<T1, T2>::logger(Logger::getLogger("NetPlumber"));
 template<typename T1, typename T2>
 bool is_flow_looped(Flow<T1, T2> *flow) {
   Flow<T1, T2> *f = flow;
+#ifdef DENSE_LOOPS
   set<uint64_t> seen_rules;
+#else
+  set<uint64_t> seen_tables;
+#endif
   while(1) {
+#if DENSE_LOOPS
     uint64_t rule_id = (f->node->node_id);
     if (seen_rules.count(rule_id) == 0) {
       seen_rules.insert(rule_id);
     } else {
       return true;
     }
+#else
+    uint64_t table_id = (f->node->node_id & 0xffffffff00000000);
+    if (seen_tables.count(table_id) == 0) {
+      seen_tables.insert(table_id);
+    } else {
+      return true;
+    }
+#endif
     if (f->node->get_type() == RULE) {
       f = *f->p_flow;
     } else {
@@ -294,8 +307,8 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
   for (auto const &next: next_in_pipeline) {
     if (is_output_layer && should_block_flow(*s_flow, next->local_port))
       continue;
-    if (!h) h = new T1(*(*s_flow)->processed_hs);
-    h->intersect2(next->pipe_array);
+
+    if (!h) h = new T1((*s_flow)->processed_hs, next->pipe_array);
 
     if (this->logger->isTraceEnabled()) {
       stringstream isect;
@@ -358,8 +371,8 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
     if (is_output_layer && should_block_flow(*it,(*pipe)->local_port))
       continue;
     if ((*it)->processed_hs == nullptr) continue;
-    if (!h) h = new T1(*(*it)->processed_hs);
-    h->intersect2((*pipe)->pipe_array);
+
+    if (!h) h = new T1((*it)->processed_hs, (*pipe)->pipe_array);
 
     if (this->logger->isTraceEnabled()) {
       stringstream isect;

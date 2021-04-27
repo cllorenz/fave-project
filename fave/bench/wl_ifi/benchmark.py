@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
         if verbose: print "Initialize Topology"
         create_topology(devices, links, use_unix=use_unix)
-        add_rulesets(devices, use_unix=use_unix)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:

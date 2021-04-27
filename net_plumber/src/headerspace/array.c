@@ -627,8 +627,22 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 
   for (size_t i = 0; i < SIZE (len); i++) {
     res[i] = a[i] & b[i];
-    if (has_z (res[i])) return false;
+    array_t tmp = res[i];
+    if (has_z (tmp)) return false;
   }
+  return true;
+}
+
+bool
+array_isect_arr_i (array_t *a, const array_t *b, size_t len) {
+  if (!a || !b) return false;
+
+  for (size_t i = 0; i < SIZE (len); i++) {
+    a[i] &= b[i];
+    array_t tmp = a[i];
+    if (has_z (tmp)) return false;
+  }
+
   return true;
 }
 
@@ -684,7 +698,7 @@ size_t
 array_rewrite (array_t *a, const array_t *mask, const array_t *rewrite, const size_t len)
 {
 #ifdef STRICT_RW
-  assert (!array_has_x(mask, len) && !array_has_z(mask, len));
+  ;//assert (!array_has_x(mask, len) && !array_has_z(mask, len));
 #endif
 
   size_t n = 0; // counts the number of overwritten wildcards
@@ -832,12 +846,9 @@ array_isect_a (const array_t *a, const array_t *b, size_t len)
 {
   if (!a || !b) return NULL;
 
-  array_t *res = array_create (len, BIT_UNDEF);
-  if (!array_isect (a, b, len, res)) {
-    array_free (res);
-    return NULL;
-  }
-  return res;
+  array_t tmp[ARRAY_BYTES (len) / sizeof (array_t)];
+  if (!array_isect (a, b, len, &tmp)) return NULL;
+  return xmemdup(tmp, sizeof(tmp));
 }
 
 array_t *

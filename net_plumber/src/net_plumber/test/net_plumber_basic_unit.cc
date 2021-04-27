@@ -98,7 +98,7 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
   match = new T2("xxxxxxxx");
-  uint64_t id2 = n->add_rule(1,20,in_ports,out_ports,match,NULL,NULL);
+  uint64_t id2 = n->add_rule(1,11,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id2-id1==1);
   // add to an invalid table
   in_ports = make_sorted_list(1,1);

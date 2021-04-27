@@ -19,7 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-rm -rf /tmp/np
+rm -rf /dev/shm/np
+rm -f /dev/shm/*.socket
 
 TMP=$(mktemp -d -p /tmp "np.XXXXXX")
 TMPESC=$(echo $TMP | sed 's/\//\\\//g')
@@ -114,7 +115,7 @@ echo -n "read topology... "
 python2 topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']"
+python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
 python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
@@ -155,13 +156,6 @@ CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
-# test firewall
-echo -n "add firewall rules... "
-python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p eth0,eth1 -f $RS
-#python2 ip6np/ip6np.py -n $FIREWALL -i 2001:db8::3 -p 2 -f rulesets/simple_ruleset.sh
-[ $? -eq 0 ] && echo "ok" || echo "fail"
-CNT=0
-
 # test rule setting
 echo -n "add switch rules... "
 python2 openflow/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
@@ -179,8 +173,6 @@ python2 openflow/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$F
 CNT=0
 
 python2 netplumber/dump_np.py -anpft
-
-#python2 netplumber/print_np.py -utn
 
 # test flow propagation
 echo -n "check flow propagation... "

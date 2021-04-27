@@ -18,7 +18,6 @@ LOGGER = logging.getLogger("up")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
 LOGGER.setLevel(logging.DEBUG)
 
-#TMPDIR = "/tmp/np"
 TMPDIR = "/dev/shm/np"
 os.system("mkdir -p %s" % TMPDIR)
 
@@ -115,10 +114,7 @@ if __name__ == "__main__":
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
-        LOGGER.info("  create topology")
         create_topology(devices, links, use_unix=use_unix)
-        LOGGER.info("  add rulesets")
-        add_rulesets(devices, use_unix=use_unix)
     LOGGER.info("topology sent to fave")
 
 
@@ -155,7 +151,7 @@ if __name__ == "__main__":
 
     LOGGER.info("wait for fave to check flow trees...")
     os.system("python2 misc/await_fave.py")
-    os.system("bash scripts/check_parallel.sh %s %s" % (CHECKS, tds))
+    os.system("bash scripts/check_parallel.sh %s %s %s" % (CHECKS, tds, "np_dump"))
     LOGGER.info("checked flow trees.")
 
     os.system("rm -f np_dump/.lock")

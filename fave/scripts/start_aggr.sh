@@ -28,9 +28,9 @@ DEBUG_PARAMS=""
 
 UNIX=""
 
-usage() { echo "usage: $0 [-hu] [-S <backend>]" 2>&2; }
+usage() { echo "usage: $0 [-hdut] [-S <backend>]" 2>&2; }
 
-while getopts "hduS:" o; do
+while getopts "hduS:t" o; do
     case "${o}" in
         h)
             usage
@@ -44,6 +44,9 @@ while getopts "hduS:" o; do
             ;;
         S)
             BACK_PARAMS="-S ${OPTARG}"
+            ;;
+        t)
+            DEBUG_PARAMS="-t"
             ;;
         *)
             usage

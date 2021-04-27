@@ -138,7 +138,7 @@ vec_diff_remove (struct hs_vec *v, size_t i)
 #else
   if (v->diff) {
     vec_destroy(&v->diff[i]);
-    v->diff[i] = v->diff[v->used];
+    if (i < v->used-1) v->diff[i] = v->diff[v->used-1];
   }
 #endif
 }
@@ -150,10 +150,10 @@ vec_elem_free (struct hs_vec *v, size_t i)
   assert(i < v->used);
 
   if (v->elems[i]) array_free (v->elems[i]);
-  vec_elem_remove(v,i);
 #ifndef NEW_HS
   vec_diff_remove(v,i);
 #endif
+  vec_elem_remove(v,i);
 }
 
 static void
@@ -956,12 +956,16 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
   return hs_compact(res);
 
 #else
-  const struct hs_vec *v = &hs->list;
-  array_t tmp[ARRAY_BYTES (hs->len) / sizeof (array_t)];
+  const struct hs_vec v = hs->list;
+  array_t tmp[
+    ARRAY_BYTES (hs->len) / sizeof (array_t) +
+    (ARRAY_BYTES (hs->len) % sizeof (array_t) == 0 ? sizeof (array_t) : 0)
+  ];
   size_t pos = SIZE_MAX;
 
-  for (size_t i = 0; i < v->used; i++) {
-    if (!array_isect (v->elems[i], a, hs->len, tmp)) continue;
+  // try to intersect in local buffer until first non-empty result is reached
+  for (size_t i = 0; i < v.used; i++) {
+    if (!array_isect (v.elems[i], a, hs->len, tmp)) continue;
     pos = i; break;
   }
   if (pos == SIZE_MAX) return false;
@@ -970,15 +974,17 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
   memset (res, 0, sizeof *res);
   res->len = oldlen;
   struct hs_vec *resv = &res->list;
-  for (size_t i = pos; i < v->used; i++) {
+  // use first non-empty result, then continue to intersect and add everything
+  // to new structure
+  for (size_t i = pos; i < v.used; i++) {
     if (i == pos) vec_append (resv, xmemdup (tmp, sizeof tmp), false);
     else {
-      array_t *isect = array_isect_a (v->elems[i], a, res->len);
+      array_t *isect = array_isect_a (v.elems[i], a, res->len);
       if (!isect) continue;
       vec_append (resv, isect, false);
     }
 
-    struct hs_vec *diff = &v->diff[i], *resd = &resv->diff[resv->used - 1];
+    struct hs_vec *diff = &v.diff[i], *resd = &resv->diff[resv->used - 1];
     for (size_t j = 0; j < diff->used; j++) {
       array_t *isect = array_isect_a (diff->elems[j], a, res->len);
       if (!isect) continue;
@@ -988,6 +994,30 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
   return true;
 #endif
 }
+
+
+bool
+hs_isect_arr_i (struct hs *hs, const array_t *a) {
+  for (size_t i = 0; i < hs->list.used; i++) {
+    // in situ intersection of hs element with array
+    bool empty = !array_isect_arr_i(hs->list.elems[i], a, hs->len);
+    if (empty) { // no intersection
+                 // -> first, delete diff and replace with last diff if existent
+                 //    then,  delete and replace with last element if existent
+      vec_elem_free(&hs->list, i);
+      continue;
+    }
+    // intersection -> intersect diff elements as well
+    for (size_t j = 0; j < hs->list.diff[i].used; j++) {
+      empty = !array_isect_arr_i(hs->list.diff[i].elems[j], a, hs->len);
+      if (empty) {
+        vec_elem_free(&hs->list.diff[i], j);
+      }
+    }
+  }
+  return !hs_is_empty(hs);
+}
+
 
 void
 hs_minus (struct hs *a, const struct hs *b)

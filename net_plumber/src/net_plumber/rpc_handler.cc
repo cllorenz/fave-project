@@ -154,6 +154,7 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     FN(add_link), FN(remove_link),
     FN(add_table), FN(remove_table),
     FN(add_rule), FN(remove_rule),
+    FN(add_rules),
     FN(add_source), FN(remove_source),
     FN(add_source_probe), FN(remove_source_probe),
 #ifdef PIPE_SLICING
@@ -204,11 +205,6 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
 
 #define RETURN(VAL) \
     end = get_cpu_time_ms(); \
-    if (rpc_logger->isTraceEnabled()) {\
-      log_msg << "Send: " << resp; \
-      LOG4CXX_TRACE(rpc_logger,log_msg.str()); \
-      LOG_MSG_RESET; \
-    } \
     log_msg << "Event handling time: " << (end - start) << "ms for " << req["method"]; \
     if (netPlumber) log_msg << "(ID1: " << netPlumber->get_last_event().id1 << ")."; \
     else log_msg << "."; \
@@ -282,13 +278,32 @@ PROTO(add_rule)
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
   T2 *match = val_to_array<T2>(PARAM(match));
-  // TODO: fix error handling properly
-  if (match->is_empty()) { delete match; match = nullptr; }
+  if (!match || match->is_empty()) { delete match; match = nullptr; }
   if (!match) match = new T2(length, BIT_X);
   T2 *mask = val_to_array<T2>(PARAM(mask));
   T2 *rw = val_to_array<T2>(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
   RETURN((Json::Value::UInt64) ret);
+}
+
+PROTO(add_rules)
+  Json::Value rules = PARAM(rules);
+  Json::Value ret(Json::arrayValue);
+  for (Json::ArrayIndex i = 0; i < rules.size(); i++) {
+    Json::Value rule = rules[i];
+    const uint32_t table = rule["table"].asUInt();
+    const uint32_t index = rule["index"].asUInt();
+    List_t in = val_to_list(rule["in"]);
+    List_t out = val_to_list(rule["out"]);
+    T2 *match = val_to_array<T2>(rule["match"]);
+    if (!match || match->is_empty()) { delete match; match = nullptr; }
+    if (!match) match = new T2(length, BIT_X);
+    T2 *mask = val_to_array<T2>(rule["mask"]);
+    T2 *rw = val_to_array<T2>(rule["rw"]);
+    uint64_t np_id = netPlumber->add_rule(table, index, in, out, match, mask, rw);
+    ret.append((Json::Value::UInt64) np_id);
+  }
+  RETURN(ret);
 }
 
 PROTO(remove_rule)
@@ -324,7 +339,7 @@ PROTO(add_source_probe)
   Condition<T1, T2> *test = val_to_cond<T1, T2>(PARAM(test), length);
   if (!test) test = new TrueCondition<T1, T2>();
   T2 *match = val_to_array<T2>(PARAM(match));
-  if (match->is_empty()) match = new T2(length, BIT_X);
+  if (!match || match->is_empty()) match = new T2(length, BIT_X);
   const uint64_t id = PARAM(id).asUInt64();
   uint64_t ret = netPlumber->add_source_probe(
     ports, mode, match, filter, test, nullptr, nullptr, id
