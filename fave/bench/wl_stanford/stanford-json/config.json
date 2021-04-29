@@ -1,0 +1,22 @@
+{
+    "tables" : [
+        "bbra_rtr",
+        "bbrb_rtr",
+        "boza_rtr",
+        "bozb_rtr",
+        "coza_rtr",
+        "cozb_rtr",
+        "goza_rtr",
+        "gozb_rtr",
+        "poza_rtr",
+        "pozb_rtr",
+        "roza_rtr",
+        "rozb_rtr",
+        "soza_rtr",
+        "sozb_rtr",
+        "yoza_rtr",
+        "yozb_rtr"
+    ],
+    "table_types" : ["in", "mid", "out"],
+    "length" : 16
+}

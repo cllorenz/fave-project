@@ -1,0 +1,315 @@
+#!/usr/bin/env python2
+
+import json
+
+from netplumber.mapping import FIELD_SIZES
+from netplumber.vector import Vector
+from bench.bench_helpers import array_ipv4_to_cidr, array_vlan_to_number, array_to_int
+
+
+# field : (short_field, dontcares, conv_func, rw_default)
+_CONVERSION = {
+    'packet.ipv4.source' : ('ipv4_src', ['x'], array_ipv4_to_cidr, '0.0.0.0/0'),
+    'packet.ipv4.destination' : ('ipv4_dst', ['x'], array_ipv4_to_cidr, '0.0.0.0/0'),
+    'packet.ether.vlan' : ('vlan', ['x'], array_vlan_to_number, None),
+    'packet.ipv6.proto' : ('ip_proto', ['x', '0'], array_to_int, None),
+    'packet.upper.sport' : ('tcp_src', ['x'], array_to_int, None),
+    'packet.upper.dport' : ('tcp_dst', ['x'], array_to_int, None),
+    'packet.upper.tcp.flags' : ('tcp_flags', ['x'], array_to_int, None)
+}
+
+
+def _port_no_to_port_name(port,
+        table_id_to_name,
+        intervals,
+        skip_table_name=False
+    ):
+
+    table_id = port / 100000
+    port_id = port % 100000
+
+    for interval, ttype in intervals.iteritems():
+        i1, i2 = interval
+        if (i1 <= port_id and port_id < i2):
+            return '%s.%d' % (
+                table_id_to_name[table_id*10+ttype],
+                port
+            ) if not skip_table_name else str(port)
+
+    raise Exception('invalid port: %d' % port)
+
+
+def _probe_port_to_port_name(port, tables):
+    return 'probe.%s.1' % (tables[((port % 10000) % 100) - 1])
+#    return 'probe.%s.%d.1' % (tables[((port % 10000) % 100) - 1], port)
+
+
+def _source_port_to_port_name(port, tables):
+    return 'source.%s.1' % (tables[((port % 20000) / 100) - 1])
+
+
+def _probe_id_to_name(id, tables):
+    return 'probe.%s' % (tables[((id % 10000) % 100) - 1])
+#    return 'probe.%s.%d' % (tables[((id % 10000) % 100) - 1], id)
+
+
+def _source_id_to_name(id, tables):
+    return 'source.%s' % tables[((id % 20000) / 100) - 1]
+
+
+def get_start_end(field, mapping):
+    start = mapping[field]
+    end = start + FIELD_SIZES[field]
+    return start, end
+
+
+def _get_field_from_match(match, fname, sname, convert, mapping, dontcares=['x']):
+    res = None
+    start, end = get_start_end(fname, mapping)
+    field_match = match[start:end]
+    if all([field_match != dc*FIELD_SIZES[fname] for dc in dontcares]):
+        res = "%s=%s" % (sname, convert(field_match))
+    return res
+
+
+def _get_rewrite(rewrite, mask, fname, sname, convert, mapping, default=None):
+    res = None
+    start, end = get_start_end(fname, mapping)
+    field_mask = mask[start:end]
+    field_rewrite = rewrite[start:end]
+    if field_mask == '1'*FIELD_SIZES[fname]:
+        res = "%s:%s" % (sname, convert(field_rewrite))
+
+    return res
+
+
+
+def rule_to_route(rule, table_id_to_name, mapping, intervals):
+    rid = int(rule['id']) & 0xffffffff
+    table_name = table_id_to_name[int(rule['id']) >> 32]
+
+    in_ports = [
+        _port_no_to_port_name(
+            p,
+            table_id_to_name,
+            intervals
+        ) for p in rule['in_ports']
+    ]
+    out_ports = [
+        _port_no_to_port_name(
+            p,
+            table_id_to_name,
+            intervals
+        ) for p in rule['out_ports']
+    ]
+
+    match_fields = []
+
+    match = rule['match'].replace(',', '')
+
+    for field in mapping.keys():
+        short_field, dontcares, conv_func, _rw_default = _CONVERSION[field]
+        match_field = _get_field_from_match(
+            match, field, short_field, conv_func, mapping, dontcares=dontcares
+        )
+        if match_field: match_fields.append(match_field)
+
+    actions = []
+
+    if rule['action'] == 'rw':
+        mask = rule['mask'].replace(',', '')
+        rewrite = rule['rewrite'].replace(',', '')
+
+        fields = []
+
+        for field in mapping.keys():
+            short_field, dontcares, conv_func, rw_default = _CONVERSION[field]
+            rw_field = _get_rewrite(
+                rewrite,
+                mask,
+                field,
+                short_field,
+                conv_func,
+                mapping,
+                default=rw_default
+            )
+            if rw_field: fields.append(rw_field)
+
+        if fields != []:
+            actions.append("rw=%s" % ';'.join(fields))
+
+    actions.extend(["fd=%s" % p for p in out_ports])
+
+    return (table_name, 1, rid, match_fields, actions, in_ports)
+
+
+def prepare_benchmark(
+        json_dir,
+        topology_file,
+        sources_file,
+        routes_file,
+        mapping,
+        intervals
+    ):
+    config_file = json_dir + '/config.json'
+    topo_file = json_dir + '/topology.json'
+
+    config_json = json.load(open(config_file, 'r'))
+    tables = config_json['tables']
+    table_types = config_json['table_types']
+
+    # map table indices to table file names
+    table_id_to_name = {
+        tid*10 + ttid : "%s.%s" % (
+            ttype, tname
+        ) for ttid, ttype in enumerate(table_types) for tid, tname in enumerate(tables, start=1)
+    }
+
+    topology = {
+        'devices' : [('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None)],
+        'links' : []
+    }
+
+    # transform link topology
+    topo_json = json.load(open(topo_file, 'r'))
+    topo_links = []
+    for link in topo_json['topology']:
+        topo_links.append((
+            _port_no_to_port_name(link['src'], table_id_to_name, intervals),
+            _port_no_to_port_name(link['dst'], table_id_to_name, intervals),
+            False
+        ))
+
+    topology['links'] = topo_links
+
+    # create devices for topology and transform rule tables
+    routes = []
+    for tid, table in enumerate(tables, start=1):
+        for ttid, ttype in enumerate(table_types):
+            table_json = json.load(
+                open("%s/%s.%s.rules.json" % (json_dir, table, ttype), 'r')
+            )
+            table_id = table_json['id']
+            table_name = table_id_to_name[table_id]
+            device_ports = [
+                _port_no_to_port_name(
+                    p, table_id_to_name, intervals, skip_table_name=True
+                ) for p in table_json['ports']
+            ]
+
+            topology['devices'].append((
+                table_name,
+                "switch",
+                device_ports
+            ))
+
+            for rule in table_json['rules']:
+                routes.append(
+                    rule_to_route(rule, table_id_to_name, mapping, intervals)
+                )
+
+
+    # transform policy
+    policy_json = json.load(open('%s/policy.json' % json_dir, 'r'))
+    sources = {
+        'devices' : [
+            ('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])
+        ],
+        'links' : []
+    }
+    last_was_probe = False
+    last_was_source = False
+    probes = set()
+    probe_links = set()
+    for command in policy_json['commands']:
+        if command['method'] == 'add_source_probe':
+            last_was_probe = True
+            last_was_source = False
+
+            probe_name = _probe_id_to_name(command['params']['id'], tables)
+            probe_test_path = command['params']['test']['pathlets']
+
+#            topology['devices'].append((
+#                probe_name,
+#                'probe',
+#                'existential',
+#                None, # match
+#                None, # filter fields
+#                ['vlan=0'], # test fields
+#                [".*(port in (%s))$" % ','.join([
+#                    _port_no_to_port_name(
+#                        p, table_id_to_name, intervals
+#                    ) for p in probe_test_path[0]['ports']
+#                ])] # test path
+#            ))
+
+            if probe_name not in probes:
+                topology['devices'].append((
+                    probe_name,
+                    'probe',
+                    'existential',
+                    None, # match
+                    None, # filter fields
+                    ['vlan=0'], # test fields
+                    None
+                ))
+                probes.add(probe_name)
+
+        elif command['method'] == 'add_source':
+            last_was_probe = False
+            last_was_source = True
+
+            sources['devices'].append((
+                _source_id_to_name(command['params']['id'], tables),
+                'generator',
+                ['ipv4_dst=0.0.0.0/0']
+            ))
+
+        elif command['method'] == 'add_link':
+            if last_was_probe and not last_was_source:
+                src_port = _port_no_to_port_name(
+                    command['params']['from_port'], table_id_to_name, intervals
+                )
+                dst_port = _probe_port_to_port_name(
+                    command['params']['to_port'], tables
+                )
+
+#                topology['links'].append((src_port, dst_port, False))
+                if (src_port, dst_port) not in probe_links:
+                    topology['links'].append((src_port, dst_port, False))
+                    probe_links.add((src_port, dst_port))
+
+            elif not last_was_probe and last_was_source:
+                src_port = _source_port_to_port_name(
+                    command['params']['from_port'], tables
+                )
+                dst_port = _port_no_to_port_name(
+                    command['params']['to_port'], table_id_to_name, intervals
+                )
+
+                sources['links'].append((src_port, dst_port, True))
+
+            else:
+                raise Exception(
+                    'cannot process flag combination of %s %s for %s' % (
+                        last_was_probe, last_was_source, command
+                    )
+                )
+
+        else:
+            print 'skip unknown command: %s' % command
+
+
+    # write json files
+    with open(topology_file, 'w') as tf:
+        tf.write(
+            json.dumps(topology, indent=2) + '\n'
+        )
+
+    with open(sources_file, 'w') as tf:
+        tf.write(
+            json.dumps(sources, indent=2) + '\n'
+        )
+
+    with open (routes_file, 'w') as rf:
+        rf.write(json.dumps(routes, indent=2)+'\n')

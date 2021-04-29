@@ -1,0 +1,229 @@
+{
+ "rules": [
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520013
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530013
+   ], 
+   "action": "fwd", 
+   "position": 1, 
+   "id": 223338299393, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520012
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530012
+   ], 
+   "action": "fwd", 
+   "position": 2, 
+   "id": 223338299394, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520011
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530011
+   ], 
+   "action": "fwd", 
+   "position": 3, 
+   "id": 223338299395, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520010
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530010
+   ], 
+   "action": "fwd", 
+   "position": 4, 
+   "id": 223338299396, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520009
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530009
+   ], 
+   "action": "fwd", 
+   "position": 5, 
+   "id": 223338299397, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520008
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530008
+   ], 
+   "action": "fwd", 
+   "position": 6, 
+   "id": 223338299398, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520007
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530007
+   ], 
+   "action": "fwd", 
+   "position": 7, 
+   "id": 223338299399, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520006
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530006
+   ], 
+   "action": "fwd", 
+   "position": 8, 
+   "id": 223338299400, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520005
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530005
+   ], 
+   "action": "fwd", 
+   "position": 9, 
+   "id": 223338299401, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520004
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530004
+   ], 
+   "action": "fwd", 
+   "position": 10, 
+   "id": 223338299402, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520003
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530003
+   ], 
+   "action": "fwd", 
+   "position": 11, 
+   "id": 223338299403, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520002
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530002
+   ], 
+   "action": "fwd", 
+   "position": 12, 
+   "id": 223338299404, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    520001
+   ], 
+   "mask": null, 
+   "in_ports": [
+    530001
+   ], 
+   "action": "fwd", 
+   "position": 13, 
+   "id": 223338299405, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": "00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000", 
+   "out_ports": [
+    520009
+   ], 
+   "mask": "00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,11111111,11111111", 
+   "in_ports": [
+    530009
+   ], 
+   "action": "rw", 
+   "position": 14, 
+   "id": 223338299406, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000000,00010000"
+  }
+ ], 
+ "ports": [
+  520001, 
+  520002, 
+  520003, 
+  520004, 
+  520005, 
+  520006, 
+  520007, 
+  520008, 
+  520009, 
+  520010, 
+  520011, 
+  520012, 
+  520013, 
+  530001, 
+  530002, 
+  530003, 
+  530004, 
+  530005, 
+  530006, 
+  530007, 
+  530008, 
+  530009, 
+  530010, 
+  530011, 
+  530012, 
+  530013
+ ], 
+ "id": 52
+}
