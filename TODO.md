@@ -7,12 +7,11 @@
     - add hosts as packet filters (optional)
  - UP:
     - fix usage of bdd packet sets by either implementing flow tree checks in NetPlumber or fixing dumping of packet sets
- - Internet2: fix benchmark
- - Stanford: fix benchmark
 
 ### Policy Translator
 
  - introduce waypoint policies: `RoleA <-[RoleB]->> RoleC` where ''RoleA may reach RoleC statefully while traversing RoleB.''
+ - introduce crypto policies: `RoleA <-&->> RoleB.ServiceC` where ''RoleA may reach RoleB statefully through an encrypted connection''. A service specification implies the usage of (D)TLS. If no service is specified IPSec is used instead.
  - improve inventory brevity:
     - abstract roles which can be used by roles and super roles but do not instantiate, e.g., generic server offering `ssh`
     - host name prefixes in subroles which can be applied to host names specified in super roles, e.g., prefixes `www.` and `mail.` in subroles and `uni-potsdam.de` in superclass lead to `www.uni-potsdam.de` and `mail.uni-potsdam.de` respectively when the classes are instantiated.
