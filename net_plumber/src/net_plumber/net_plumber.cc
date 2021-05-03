@@ -292,7 +292,7 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       common_hs.intersect(rule->match);
 
 #ifdef CHECK_REACH_SHADOW
-      if (rule->index < r->index) aggr_hs.psunion2(rule->match);
+      if (rule->index > r->index) aggr_hs.psunion2(rule->match);
 #endif
 
       if (common_hs.is_empty()) {
