@@ -6,6 +6,8 @@ LOG=stdout.log
 echo "" > $LOG
 HASSEL_DIR=~/hassel-public
 
+export PYTHONPATH=$HASSEL_DIR
+
 TF_GENERATOR=$HASSEL_DIR/hsa-python/examples/$BENCH/generate_$BENCH"_"backbone_tf.py
 JSON_GENERATOR=$HASSEL_DIR/hsa-python/examples/$BENCH/generate_rules_json_file.py
 
