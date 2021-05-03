@@ -35,7 +35,7 @@ class TestLinksModel(unittest.TestCase):
     def setUp(self):
         """ Creates a clean test environment.
         """
-        self.model = LinksModel([['foo.1', 'bar.2'], ['bar.1', 'foo.2']])
+        self.model = LinksModel([['foo.1', 'bar.2', False], ['bar.1', 'foo.2', False]])
 
 
     def tearDown(self):
@@ -49,7 +49,7 @@ class TestLinksModel(unittest.TestCase):
         """
         self.assertEqual(
             self.model.to_json(),
-            {'type':'links', 'links':{'foo.1':['bar.2'], 'bar.1':['foo.2']}}
+            {'type':'links', 'links':{'foo.1':[('bar.2', False)], 'bar.1':[('foo.2', False)]}}
         )
 
 
@@ -58,7 +58,7 @@ class TestLinksModel(unittest.TestCase):
         """
         self.assertEqual(
             LinksModel.from_json(
-                {'type':'links', 'links':{'foo.1':['bar.2'], 'bar.1':['foo.2']}}
+                {'type':'links', 'links':{'foo.1':[('bar.2', False)], 'bar.1':[('foo.2', False)]}}
             ),
             self.model
         )
@@ -72,7 +72,7 @@ class TestTopologyCommand(unittest.TestCase):
         """ Creates a clean test environment.
         """
 
-        self.model = LinksModel([['foo.1', 'bar.2'], ['bar.1', 'foo.2']])
+        self.model = LinksModel([['foo.1', 'bar.2', False], ['bar.1', 'foo.2', False]])
         self.cmd = TopologyCommand('links', 'add', model=self.model)
 
     def tearDown(self):
