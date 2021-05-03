@@ -488,7 +488,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_remove_slice_pipes() {
   uint32_t sl[1] = { 0 };
   List_t lsl = make_sorted_list_from_array(1, sl);
   T1 *shs = new T1(std::string("xxxxxxxx"));
-  np.add_source(shs, lsl);
+  np.add_source(shs, lsl, 100);
 
   // add source probes
   uint32_t s1[1] = { 103 };
@@ -504,9 +504,9 @@ void NetPlumberSlicingTest<T1, T2>::test_add_remove_slice_pipes() {
   Condition<T1, T2> *t2 = new TrueCondition<T1, T2>();
   Condition<T1, T2> *f3 = new FalseCondition<T1, T2>();
   Condition<T1, T2> *t3 = new TrueCondition<T1, T2>();
-  np.add_source_probe(ss1, mode, f1, t1, nullptr, nullptr);
-  np.add_source_probe(ss2, mode, f2, t2, nullptr, nullptr);
-  np.add_source_probe(ss3, mode, f3, t3, nullptr, nullptr);
+  np.add_source_probe(ss1, mode, nullptr, f1, t1, nullptr, nullptr, 200);
+  np.add_source_probe(ss2, mode, nullptr, f2, t2, nullptr, nullptr, 201);
+  np.add_source_probe(ss3, mode, nullptr, f3, t3, nullptr, nullptr, 202);
 
   // create slices
   CPPUNIT_ASSERT(np.slices.size() == 1);
@@ -616,7 +616,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_matching() {
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
 
-  auto nid = np.add_source(space, lnports);
+  auto nid = np.add_source(space, lnports, 100);
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
@@ -652,7 +652,7 @@ void NetPlumberSlicingTest<T1, T2>::test_add_pipe_to_slices_not_matching() {
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
 
-  auto nid = np.add_source(space, lnports);
+  auto nid = np.add_source(space, lnports, 100);
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
@@ -689,7 +689,7 @@ void NetPlumberSlicingTest<T1, T2>::test_remove_pipe_from_slices() {
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
 
-  auto nid = np.add_source(space, lnports);
+  auto nid = np.add_source(space, lnports, 100);
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe1.net_space_id = 0;
@@ -745,7 +745,7 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_no_excepti
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
 
-  auto nid = np.add_source(space, lnports);
+  auto nid = np.add_source(space, lnports, 100);
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe2.node = node;
@@ -778,7 +778,7 @@ void NetPlumberSlicingTest<T1, T2>::test_check_pipe_for_slice_leakage_with_excep
   uint32_t nports[1] = { 0 };
   List_t lnports = make_sorted_list_from_array(1, nports);
 
-  auto nid = np.add_source(space, lnports);
+  auto nid = np.add_source(space, lnports, 100);
   auto node = np.id_to_node[nid];
   pipe1.node = node;
   pipe2.node = node;
@@ -1028,12 +1028,12 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
   Condition<T1, T2> *t5 = new TrueCondition<T1, T2>();
   Condition<T1, T2> *f6 = new FalseCondition<T1, T2>();
   Condition<T1, T2> *t6 = new TrueCondition<T1, T2>();
-  np.add_source_probe(ss1, mode, f1, t1, NULL, NULL);
-  np.add_source_probe(ss2, mode, f2, t2, NULL, NULL);
-  np.add_source_probe(ss3, mode, f3, t3, NULL, NULL);
-  np.add_source_probe(ss4, mode, f4, t4, NULL, NULL);
-  np.add_source_probe(ss5, mode, f5, t5, NULL, NULL);
-  np.add_source_probe(ss6, mode, f6, t6, NULL, NULL);
+  np.add_source_probe(ss1, mode, nullptr, f1, t1, NULL, NULL, 200);
+  np.add_source_probe(ss2, mode, nullptr, f2, t2, NULL, NULL, 201);
+  np.add_source_probe(ss3, mode, nullptr, f3, t3, NULL, NULL, 202);
+  np.add_source_probe(ss4, mode, nullptr, f4, t4, NULL, NULL, 203);
+  np.add_source_probe(ss5, mode, nullptr, f5, t5, NULL, NULL, 204);
+  np.add_source_probe(ss6, mode, nullptr, f6, t6, NULL, NULL, 205);
 
   CPPUNIT_ASSERT(leakage_called == false);
 
@@ -1045,13 +1045,13 @@ void NetPlumberSlicingTest<T1, T2>::test_end_to_end() {
 
   T1 *net_space = new T1(1);
   net_space->psunion2(mask);
-  np.add_source(net_space, lsa0);
+  np.add_source(net_space, lsa0, 100);
   CPPUNIT_ASSERT(leakage_called == false);
 
   // finally creates the leaking pipe from 604 to 501 via 603-604 rule
   net_space = new T1(1);
   net_space->psunion2(m6);
-  np.add_source(net_space, lsa1);
+  np.add_source(net_space, lsa1, 101);
   CPPUNIT_ASSERT(leakage_called == true);
 
   // cleanup
