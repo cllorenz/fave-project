@@ -97,14 +97,20 @@ x_count (array_t a, array_t mask)
   return __builtin_popcountll (tmp);
 }
 
+inline void
+array_init (array_t *a, size_t len, enum bit_val val) {
+  size_t alen = SIZE (len);
+  if (val != BIT_UNDEF) memset (a, val * 0x55, 2 * len);
+  memset ((uint8_t *) a + 2 * len, 0xff, alen * sizeof *a - 2 * len);
+}
+
 array_t *
 array_create (size_t len, enum bit_val val)
 {
   size_t alen = SIZE (len);
   /* TODO: Alignment */
   array_t *res = xmalloc (alen * sizeof *res);
-  if (val != BIT_UNDEF) memset (res, val * 0x55, 2 * len);
-  memset ((uint8_t *) res + 2 * len, 0xff, alen * sizeof *res - 2 * len);
+  array_init(res, len, val);
   return res;
 }
 

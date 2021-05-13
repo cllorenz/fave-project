@@ -27,6 +27,7 @@ typedef uint32_t array_t;
 #define ARRAY_BITS(L) ( DIV_ROUND_UP (2 * (L), sizeof (array_t)) )
 #define ARRAY_BYTES(L) ( ROUND_UP (2 * (L), sizeof (array_t)) )
 
+void     array_init     (array_t *a, size_t len, enum bit_val val);
 array_t *array_create   (size_t len, enum bit_val val);
 array_t *array_resize   (array_t* ptr, size_t oldlen, size_t newlen);
 array_t *array_generic_resize   (array_t* ptr, size_t oldlen, size_t newlen, enum bit_val val);
