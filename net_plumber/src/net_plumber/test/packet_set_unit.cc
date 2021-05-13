@@ -334,9 +334,10 @@ void PacketSetTest<PS1, PS2>::test_negate() {
     CPPUNIT_ASSERT(a.is_subset(this->ps));
 }
 
-
+#ifdef GENERIC_PS
 template class PacketSetTest<HeaderspacePacketSet, ArrayPacketSet>;
 template class PacketSetTest<ArrayPacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class PacketSetTest<BDDPacketSet, BDDPacketSet>;
+#endif
 #endif
