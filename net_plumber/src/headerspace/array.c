@@ -633,8 +633,7 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 
   for (size_t i = 0; i < SIZE (len); i++) {
     res[i] = a[i] & b[i];
-    array_t tmp = res[i];
-    if (has_z (tmp)) return false;
+    if (has_z (res[i])) return false;
   }
   return true;
 }
@@ -645,8 +644,7 @@ array_isect_arr_i (array_t *a, const array_t *b, size_t len) {
 
   for (size_t i = 0; i < SIZE (len); i++) {
     a[i] &= b[i];
-    array_t tmp = a[i];
-    if (has_z (tmp)) return false;
+    if (has_z (a[i])) return false;
   }
 
   return true;
