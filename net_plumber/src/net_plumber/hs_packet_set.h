@@ -34,6 +34,7 @@ class HeaderspacePacketSet : public PacketSet {
   public:
     struct hs hs = {0, {0, 0, 0, 0}};
 
+    HeaderspacePacketSet();
     HeaderspacePacketSet(struct hs *);
     HeaderspacePacketSet(const size_t);
     HeaderspacePacketSet(const std::string);

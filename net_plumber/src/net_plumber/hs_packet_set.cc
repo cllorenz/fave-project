@@ -28,6 +28,8 @@ namespace net_plumber {
 
 LoggerPtr HeaderspacePacketSet::logger(Logger::getLogger("NetPlumber"));
 
+HeaderspacePacketSet::HeaderspacePacketSet() {}
+
 HeaderspacePacketSet::HeaderspacePacketSet(struct hs *hs) {
     this->hs.len = hs->len;
     this->hs.list = hs->list;
@@ -80,10 +82,17 @@ HeaderspacePacketSet::HeaderspacePacketSet(const std::string s) {
 
 
 HeaderspacePacketSet::HeaderspacePacketSet(const Json::Value& val, const size_t length) {
+#ifdef GENERIC_PS
     HeaderspacePacketSet *tmp = val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(val, length);
     this->hs = tmp->hs;
     tmp->hs = {0, {0, 0, 0, 0}};
     delete tmp;
+#else
+    struct hs *tmp = val_to_hs<struct hs, array_t>(val, length);
+    this->hs = *tmp;
+    tmp->list = {0, 0, 0, 0};
+    delete tmp;
+#endif
 }
 
 
