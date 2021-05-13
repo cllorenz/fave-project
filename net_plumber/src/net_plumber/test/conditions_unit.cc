@@ -165,6 +165,8 @@ void ConditionsTest<T1, T2>::test_header() {
   list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(5,1,2,3,4,5),
                                   make_unsorted_list(5,100,200,300,400,500));
   Flow<T1, T2> *f = *(flows->begin());
+
+#ifdef GENERIC_PS
   f->processed_hs = new T1(1);
   T2 tmp1 = T2("10xxxxxx");
   f->processed_hs->psunion2(&tmp1);
@@ -178,6 +180,21 @@ void ConditionsTest<T1, T2>::test_header() {
   T1 *hc2_hs = new T1(1);
   T2 tmp4 = T2("10111xxx");
   hc2_hs->psunion2(&tmp4);
+#else
+  f->processed_hs = hs_create(1);
+  T2 *tmp1 = array_from_str("10xxxxxx");
+  hs_add(f->processed_hs, tmp1);
+  T2 *tmp2 = array_from_str("1011xxxx");
+  hs_diff(f->processed_hs, tmp2);
+
+  T1 *hc1_hs = hs_create(1);
+  T2 *tmp3 = array_from_str("100xxxxx");
+  hs_add(hc1_hs, tmp3);
+
+  T1 *hc2_hs = hs_create(1);
+  T2 *tmp4 = array_from_str("10111xxx");
+  hs_add(hc2_hs, tmp4);
+#endif
 
   HeaderCondition<T1, T2> *hc1 = new HeaderCondition<T1, T2>(hc1_hs);
   HeaderCondition<T1, T2> *hc2 = new HeaderCondition<T1, T2>(hc2_hs);
@@ -187,7 +204,12 @@ void ConditionsTest<T1, T2>::test_header() {
 
   delete hc1;
   delete hc2;
+#ifdef GENERIC_PS
   delete f->processed_hs;
+#else
+  hs_free(f->processed_hs);
+  array_free(tmp2);
+#endif
   free_flow(flows);
 }
 
@@ -197,7 +219,15 @@ list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t t
 
   list<Flow<T1, T2> *> *result = new list<Flow<T1, T2> *>();
   Flow<T1, T2> *f, *prev;
-  auto *s = new SourceNode<T1, T2>(NULL, 1, 0, new T1(1), make_sorted_list(1,0));
+  auto *s = new SourceNode<T1, T2>(
+    NULL, 1, 0,
+#ifdef GENERIC_HS
+    new T1(1),
+#else
+    hs_create(1),
+#endif
+    make_sorted_list(1,0)
+  );
   prev = (Flow<T1, T2> *)malloc(sizeof *prev);
   prev->node = s;
   prev->in_port = 0;
@@ -207,7 +237,11 @@ list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t t
     auto *r = new RuleNode<T1, T2>(NULL, 1, 0, tables.list[i], 0,
                            make_sorted_list(1,ports.list[i]),
                            make_sorted_list(1,ports.list[i]),
+#ifdef GENERIC_PS
                            new T2(1),
+#else
+                           array_create(1, BIT_X),
+#endif
                            NULL,
                            NULL);
 
@@ -234,7 +268,11 @@ void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
   delete flows;
 }
 
+#ifdef GENERIC_PS
 template class ConditionsTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class ConditionsTest<BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class ConditionsTest<hs, array_t>;
 #endif

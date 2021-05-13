@@ -75,8 +75,13 @@ SourceProbeNode<T1, T2>::SourceProbeNode(void *n, int length, uint64_t node_id,
 {
   this->node_type = SOURCE_PROBE;
   if (match) this->match = match;
-  else this->match = new T2(length, BIT_X);
+#ifdef GENERIC_PS
+  else this->match = new T2(this->length, BIT_X);
   this->inv_match = new T2(*this->match);
+#else
+  else this->match = array_create(this->length, BIT_X);
+  this->inv_match = array_copy(this->match, this->length);
+#endif
   this->input_ports = ports;
   this->output_ports = make_sorted_list(0);
   if (probe_callback) this->probe_callback = probe_callback;
@@ -92,17 +97,22 @@ SourceProbeNode<T1, T2>::~SourceProbeNode() {
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
   if (f) {
-    if (f->hs_object) {
-        f->hs_object->compact();
-        if (f->hs_object->is_empty()) return;
-    }
+//    if (f->hs_object) {
+//        f->hs_object->compact();
+//        if (f->hs_object->is_empty()) return;
+//    }
 
     this->source_flow.push_front(f);
     auto f_it = this->source_flow.begin();
     (*f->p_flow)->n_flows->push_front(f_it);
-    if (f->processed_hs) delete f->processed_hs;
+#ifdef GENERIC_PS
+//    if (f->processed_hs) delete f->processed_hs; // XXX: memory leak
     f->processed_hs = new T1(*f->hs_object);
+#else
+    f->processed_hs = hs_copy_a(f->hs_object);
+#endif
 
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream diff;
       diff << "SourceProbeNode::process_src_flow(): id 0x" << std::hex << this->node_id;
@@ -110,6 +120,7 @@ void SourceProbeNode<T1, T2>::process_src_flow(Flow<T1, T2> *f) {
       diff << " skipped unrolling which currently deactivated due to possible memory explosion.";
       LOG4CXX_TRACE(this->logger, diff.str());
     }
+*/
 
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
@@ -126,9 +137,15 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
      typename list< Flow<T1, T2> *>::iterator loc, T2* change) {
   Flow<T1, T2> *f = *loc;
   if (change) {
+#ifdef GENERIC_PS
     if (f->processed_hs->is_empty()) return;
     f->processed_hs->diff2(change);
+#else
+    if (!f->processed_hs) return;
+    hs_diff(f->processed_hs, change);
+#endif
 
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream diff;
       diff << "SourceProbeNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
@@ -136,11 +153,20 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
       diff << " after diffing " << change->to_str();
       LOG4CXX_TRACE(this->logger, diff.str());
     }
+*/
 
   } else {
-    if (f->processed_hs) delete f->processed_hs;
-    f->processed_hs = new T1(*f->hs_object);
+#ifdef GENERIC_PS
+//    if (f->processed_hs) delete f->processed_hs;
+//    f->processed_hs = new T1(*f->hs_object);
+    if (f->processed_hs) hs_destroy(&f->processed_hs->hs); // XXX
+    hs_copy(&f->processed_hs->hs, &f->hs_object->hs); // XXX
+#else
+    if (f->processed_hs) hs_destroy(f->processed_hs);
+    hs_copy(f->processed_hs, f->hs_object);
+#endif
 
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream diff;
       diff << "SourceProbeNode::process_src_flow_at_location(): id 0x" << std::hex << this->node_id;
@@ -148,6 +174,7 @@ void SourceProbeNode<T1, T2>::process_src_flow_at_location(
       diff << " skipped unrolling which currently deactivated due to possible memory explosion.";
       LOG4CXX_TRACE(this->logger, diff.str());
     }
+*/
 
     // XXX: deactivate due to possible memory explosion when having meaningful diffs in flow
     //f->processed_hs->unroll();
@@ -171,7 +198,11 @@ void SourceProbeNode<T1, T2>::update_check(Flow<T1, T2> *f, PROBE_FLOW_ACTION ac
    */
   assert(cond_count >= 0);
   // if flow is empty, do nothing
+#ifdef GENERIC_PS
   if (f->processed_hs->is_empty()) return;
+#else
+  if (!f->processed_hs || hs_is_empty(f->processed_hs)) return;
+#endif
 
   // Delete flow
   if (action == FLOW_DELETE) {
@@ -321,21 +352,23 @@ string SourceProbeNode<T1, T2>::to_string() {
 
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream enl;
       enl << "SourceProbeNode::enlarge(): id 0x" << std::hex << this->node_id;
       enl << " enlarge from " << std::dec << this->length << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
+*/
 	if (length <= this->length) {
 		return;
 	}
-    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
+//    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
 	filter->enlarge(length);
-    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge test");
+//    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge test");
 	test->enlarge(length);
 	Node<T1, T2>::enlarge(length);
-    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): set length\n");
+//    LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): persist length\n");
 	this->length = length;
 }
 
@@ -358,10 +391,20 @@ void SourceProbeNode<T1, T2>::test_to_json(Json::Value& res) {
 
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::match_to_json(Json::Value& res) {
+#ifdef GENERIC_PS
     this->match->to_json(res);
+#else
+    char *tmp = array_to_str(this->match, this->length, false);
+    res = std::string(tmp);
+    free(tmp);
+#endif
 }
 
+#ifdef GENERIC_PS
 template class SourceProbeNode <HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class SourceProbeNode <BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class SourceProbeNode <hs, array_t>;
 #endif

@@ -50,6 +50,7 @@ void NetPlumberBasicTest<T1, T2>::test_rule_node_create() {
   printf("\n");
   List_t in_ports = make_sorted_list(2,2,3);
   List_t out_ports = make_sorted_list(2,1,4);
+#ifdef GENERIC_PS
   T2 *match = new T2("xxxxxxxx,xxxxxxxx");
   T2 *mask = new T2("00000000,01111111");
   T2 *rewrite = new T2("00000000,00000011");
@@ -57,17 +58,32 @@ void NetPlumberBasicTest<T1, T2>::test_rule_node_create() {
 #ifdef USE_INV
   T2 *inv_rw = new T2("xxxxxxxx,x0000000");
 #endif
+#else
+  T2 *match = array_from_str("xxxxxxxx,xxxxxxxx");
+  T2 *mask = array_from_str("00000000,01111111");
+  T2 *rewrite = array_from_str("00000000,00000011");
+  T2 *inv_match = array_from_str("xxxxxxxx,x0000011");
+#ifdef USE_INV
+  T2 *inv_rw = array_from_str("xxxxxxxx,x0000000");
+#endif
+#endif
   RuleNode<T1, T2> *r = new RuleNode<T1, T2>(NULL,2,1,1,0,in_ports,out_ports,match,mask,rewrite);
   CPPUNIT_ASSERT(r->output_ports.size == 2);
-#ifdef USE_INV
+#ifdef GENERIC_PS
   CPPUNIT_ASSERT(r->inv_match->is_equal(inv_match));
-  CPPUNIT_ASSERT(r->inv_rw->is_equal(inv_rw));
-#endif
-  //printf("%s\n",r->to_string().c_str());
 #ifdef USE_INV
+  CPPUNIT_ASSERT(r->inv_rw->is_equal(inv_rw));
   delete inv_rw;
 #endif
   delete inv_match;
+#else
+  CPPUNIT_ASSERT(array_is_eq(r->inv_match, inv_match, 2));
+#ifdef USE_INV
+  CPPUNIT_ASSERT(array_is_eq(r->inv_rw, inv_rw, 2));
+  array_free(inv_rw);
+#endif
+  array_free(inv_match);
+#endif
   delete r;
 }
 
@@ -93,30 +109,50 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
   // two conseq. rules
   List_t in_ports = make_sorted_list(1,1);
   List_t out_ports = make_sorted_list(1,2);
+#ifdef GENERIC_PS
   T2 *match = new T2("xxxxxxxx");
+#else
+  T2 *match = array_from_str("xxxxxxxx");
+#endif
   uint64_t id1 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   in_ports = make_sorted_list(1,2);
   out_ports = make_sorted_list(1,3);
+#ifdef GENERIC_PS
   match = new T2("xxxxxxxx");
+#else
+  match = array_from_str("xxxxxxxx");
+#endif
   uint64_t id2 = n->add_rule(1,11,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id2-id1==1);
   // add to an invalid table
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
+#ifdef GENERIC_PS
   match = new T2("xxxxxxxx");
+#else
+  match = array_from_str("xxxxxxxx");
+#endif
   uint64_t id3 = n->add_rule(2,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id3==0);
   // add to a removed table
   n->remove_table(1);
   in_ports = make_sorted_list(1,1);
   out_ports = make_sorted_list(1,2);
+#ifdef GENERIC_PS
   match = new T2("xxxxxxxx");
+#else
+  match = array_from_str("xxxxxxxx");
+#endif
   uint64_t id4 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id4==0);
   delete n;
 }
 
+#ifdef GENERIC_PS
 template class NetPlumberBasicTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class NetPlumberBasicTest<BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class NetPlumberBasicTest<hs, array_t>;
 #endif

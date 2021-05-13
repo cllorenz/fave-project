@@ -169,7 +169,11 @@ class HeaderCondition : public Condition<T1, T2> {
   T1 *h;
  public:
   HeaderCondition(T1 *match_header) : h(match_header) {}
-  ~HeaderCondition() { delete h; }
+#ifdef GENERIC_PS
+  ~HeaderCondition() { delete this->h; }
+#else
+  ~HeaderCondition() { hs_free(this->h); this->h = nullptr; }
+#endif
   void enlarge(uint32_t length);
   bool check(Flow<T1, T2> *f);
   std::string to_string();

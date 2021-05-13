@@ -48,16 +48,28 @@ T *val_to_array(const Json::Value &val) {
   }
 
   std::string s = std::string(v);
+#ifdef GENERIC_PS
   return new T(s);
+#else
+  return array_from_str(s.c_str());
+#endif
 }
 
 template<typename T1, typename T2>
 T1 *val_to_hs(const Json::Value &val, const size_t len) {
+#ifdef GENERIC_PS
   T1 *res = new T1(len);
+#else
+  T1 *res = hs_create(len);
+#endif
   if (val.isString()) {
+#ifdef GENERIC_PS
     T2 *tmp = val_to_array<T2>(val);
     res->psunion2(tmp);
     delete tmp;
+#else
+    hs_add(res, val_to_array<T2>(val));
+#endif
   }
   else if (val.isObject()) {
     const Json::Value &list = val["list"];
@@ -72,15 +84,23 @@ T1 *val_to_hs(const Json::Value &val, const size_t len) {
       hs_vec_append(v_diff, val_to_array<T2>(diff[i]));
 #else
     for (Json::Value::ArrayIndex i = 0; i < list.size(); i++) {
+#ifdef GENERIC_PS
       T2 *tmp1 = val_to_array<T2>(list[i]);
       res->psunion2(tmp1);
       delete tmp1;
+#else
+      hs_add(res, val_to_array<T2>(list[i]));
+#endif
 
       const Json::Value &d = diff[i];
       for (Json::Value::ArrayIndex j = 0; j < d.size(); j++) {
+#ifdef GENERIC_PS
         T2 *tmp2 = val_to_array<T2>(d[j]);
         res->minus2(tmp2, j);
         delete tmp2;
+#else
+        hs_vec_append(&res->list.diff[i], val_to_array<T2>(d[j]), true);
+#endif
       }
     }
 #endif
@@ -278,8 +298,12 @@ PROTO(add_rule)
   List_t in = val_to_list(PARAM(in));
   List_t out = val_to_list(PARAM(out));
   T2 *match = val_to_array<T2>(PARAM(match));
+#ifdef GENERIC_PS
   if (!match || match->is_empty()) { delete match; match = nullptr; }
   if (!match) match = new T2(length, BIT_X);
+#else
+  if (!match) array_create(length, BIT_X);
+#endif
   T2 *mask = val_to_array<T2>(PARAM(mask));
   T2 *rw = val_to_array<T2>(PARAM(rw));
   uint64_t ret = netPlumber->add_rule(table, index, in, out, match, mask, rw);
@@ -296,8 +320,12 @@ PROTO(add_rules)
     List_t in = val_to_list(rule["in"]);
     List_t out = val_to_list(rule["out"]);
     T2 *match = val_to_array<T2>(rule["match"]);
+#ifdef GENERIC_PS
     if (!match || match->is_empty()) { delete match; match = nullptr; }
     if (!match) match = new T2(length, BIT_X);
+#else
+    if (!match) match = array_create(length, BIT_X);
+#endif
     T2 *mask = val_to_array<T2>(rule["mask"]);
     T2 *rw = val_to_array<T2>(rule["rw"]);
     uint64_t np_id = netPlumber->add_rule(table, index, in, out, match, mask, rw);
@@ -339,7 +367,11 @@ PROTO(add_source_probe)
   Condition<T1, T2> *test = val_to_cond<T1, T2>(PARAM(test), length);
   if (!test) test = new TrueCondition<T1, T2>();
   T2 *match = val_to_array<T2>(PARAM(match));
+#ifdef GENERIC_PS
   if (!match || match->is_empty()) match = new T2(length, BIT_X);
+#else
+  if (!match) match = array_create(length, BIT_X);
+#endif
   const uint64_t id = PARAM(id).asUInt64();
   uint64_t ret = netPlumber->add_source_probe(
     ports, mode, match, filter, test, nullptr, nullptr, id
@@ -490,10 +522,11 @@ PROTO(dump_slices)
 }
 #endif /* PIPE_SLICING */
 
+#ifdef GENERIC_PS
 template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;
 
-template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
+template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
 
@@ -504,6 +537,14 @@ template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
 template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
 template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
+#endif
+#else
+template class RpcHandler<hs, array_t>;
+
+template array_t* val_to_array<array_t>(const Json::Value&);
+template hs* val_to_hs<hs, array_t>(const Json::Value&, const size_t);
+template Condition<hs, array_t>* val_to_path<hs, array_t>(const Json::Value&);
+template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t);
 #endif
 } /* namespace net_plumber */
 

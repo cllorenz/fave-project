@@ -49,7 +49,7 @@ void _load_slices_from_file(string json_file_path, NetPlumber<T1, T2> * N, size_
   reader.parse(jsfile,root,false);
   Json::Value slices = root["slices"];
   for (Json::ArrayIndex i=0; i<slices.size(); i++) {
-    T1 *h = val_to_hs<T1, T2>(slices[i]["space"],hdr_len);
+    T1 *h = val_to_hs<T1, T2>(slices[i]["space"], hdr_len);
     N->add_slice(slices[i]["id"].asInt(), h);
   }
   jsfile.close();
@@ -121,9 +121,14 @@ void load_netplumber_from_dir(
           string action = rules[i]["action"].asString();
           uint32_t rule_id = rules[i]["id"].asUInt64() & 0xffffffff;
           if (action == "fwd" || action == "rw" /*|| action == "encap"*/) {
-            T2 *match = new T2(rules[i]["match"], N->get_length());
+            T2 *match = val_to_array<T2>(rules[i]["match"]);
+#ifdef GENERIC_PS
             match->intersect(filter);
-            if (filter && match->is_empty()) {
+            const bool empty = filter && match->is_empty();
+#else
+            const bool empty = !array_isect_arr_i(match, filter, N->get_length());
+#endif
+            if (empty) {
               run_time = 0;
             } else {
               start = get_cpu_time_us();
@@ -213,14 +218,15 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
   for (Json::ArrayIndex i = 0; i < commands.size(); i++) {
     string type = commands[i]["method"].asString();
     if (type == "add_source") {
-      T1 *tmp = new T1(commands[i]["params"]["hs"], N->get_length());
-      T1 *h;
+      T1 *h = val_to_hs<T1, T2>(commands[i]["params"]["hs"], N->get_length());
       if (filter) {
-        h = new T1(*tmp);
+#ifdef GENERIC_PS
         h->intersect2(filter);
-        delete tmp;
-      } else {
-        h = tmp;
+        const bool empty = h->is_empty();
+#else
+        const bool empty = !hs_isect_arr_i(h, filter);
+#endif
+        if (empty) continue;
       }
       List_t ports = val_to_list(commands[i]["params"]["ports"]);
       const uint64_t id = commands[i]["params"]["id"].asUInt64();
@@ -250,6 +256,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
   jsfile.close();
 }
 
+#ifdef GENERIC_PS
 template void load_netplumber_from_dir<HeaderspacePacketSet, ArrayPacketSet>(
     string,
     NetPlumber<HeaderspacePacketSet, ArrayPacketSet> *,
@@ -277,5 +284,20 @@ template void load_policy_file<BDDPacketSet, BDDPacketSet>(
   string,
   NetPlumber<BDDPacketSet, BDDPacketSet> *,
   BDDPacketSet *
+);
+#endif
+#else
+template void load_netplumber_from_dir<hs, array_t>(
+    string,
+    NetPlumber<hs, array_t> *,
+    array_t *
+#ifdef PIPE_SLICING
+    , size_t
+#endif
+);
+template void load_policy_file<hs, array_t>(
+  string,
+  NetPlumber<hs, array_t> *,
+  array_t *
 );
 #endif

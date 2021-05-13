@@ -57,43 +57,80 @@ void NetPlumberPlumbingTest<T1, T2>::setUp() {
   node_ids.push_back(N->add_rule(1,10,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
+#ifdef GENERIC_PS
               new T2 ("1010xxxx"),
+#else
+              array_from_str("1010xxxx"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(1,20,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
+#ifdef GENERIC_PS
               new T2 ("10001xxx"),
+#else
+              array_from_str("10001xxx"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(1,30,
               make_sorted_list(2,1,2),
               make_sorted_list(1,3),
+#ifdef GENERIC_PS
               new T2 ("10xxxxxx"),
+#else
+              array_from_str("10xxxxxx"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(2,10,
               make_sorted_list(1,4),
               make_sorted_list(2,5,11),
+#ifdef GENERIC_PS
               new T2 ("1011xxxx"),
               new T2 ("00011000"),
-              new T2 ("00001000")));
+              new T2 ("00001000")
+#else
+              array_from_str("1011xxxx"),
+              array_from_str("00011000"),
+              array_from_str("00001000")
+#endif
+  ));
   node_ids.push_back(N->add_rule(2,20,
               make_sorted_list(1,4),
               make_sorted_list(1,5),
+#ifdef GENERIC_PS
               new T2 ("10xxxxxx"),
               new T2 ("01100000"),
-              new T2 ("01100000")));
+              new T2 ("01100000")
+#else
+              array_from_str("10xxxxxx"),
+              array_from_str("01100000"),
+              array_from_str("01100000")
+#endif
+  ));
   node_ids.push_back(N->add_rule(3,10,
               make_sorted_list(3,6,7,12),
               make_sorted_list(1,7),
+#ifdef GENERIC_PS
               new T2 ("101xxxxx"),
               new T2 ("00000111"),
-              new T2 ("00000111")));
+              new T2 ("00000111")
+#else
+              array_from_str("101xxxxx"),
+              array_from_str("00000111"),
+              array_from_str("00000111")
+#endif
+  ));
   node_ids.push_back(N->add_rule(4,10,
               make_sorted_list(1,8),
               make_sorted_list(1,13),
+#ifdef GENERIC_PS
               new T2 ("xxx010xx"),
+#else
+              array_from_str("xxx010xx"),
+#endif
               NULL,
               NULL));
   memset(&A,0,sizeof A);
@@ -130,7 +167,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_rule() {
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xx11xxxx"),
+#else
+              array_from_str("xx11xxxx"),
+#endif
               NULL,
               NULL));
   int stats[8][4]={
@@ -171,9 +212,17 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_group_rule() {
   node_ids.push_back(N->add_rule_to_group(1,1,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
+#ifdef GENERIC_PS
               new T2 ("xxxx11xx"),
-              new T2 ("00110000"), //("11001111"),
-              new T2 ("00000000"),0));
+              new T2 ("00110000"),
+              new T2 ("00000000"),
+#else
+              array_from_str("xxxx11xx"),
+              array_from_str("00110000"),
+              array_from_str("00000000"),
+#endif
+              0
+  ));
   node_ids.push_back(N->add_rule_to_group(1,0,
               make_sorted_list(1,1),
               make_sorted_list(1,3),
@@ -202,7 +251,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_group_rule_mix() {
   node_ids.push_back(N->add_rule(1,2,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xx11xxxx"),
+#else
+              array_from_str("xx11xxxx"),
+#endif
               NULL,
               NULL));
   int stats[10][4]={
@@ -261,7 +314,11 @@ template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_pipeline_add_source() {
   printf("\n");
   N->add_link(100,1);
+#ifdef GENERIC_PS
   T1 *h = new T1("1xxxxxxx");
+#else
+  T1 *h = hs_from_str("1xxxxxxx");
+#endif
   node_ids.push_back(
       N->add_source(h, make_sorted_list(1,100), 1)
   );
@@ -283,9 +340,13 @@ template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_pipeline_remove_source() {
   printf("\n");
   N->add_link(100,1);
+#ifdef GENERIC_PS
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
+#else
+  T1 *h = hs_from_str("1xxxxxxx");
+#endif
   uint64_t id = N->add_source(h, make_sorted_list(1,100), 1);
   //N->print_plumbing_network();
   N->remove_source(id);
@@ -331,21 +392,39 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_shared_ports() {
   node_ids.push_back(N->add_rule(5,10,
               make_sorted_list(0),
               make_sorted_list(1,15),
+#ifdef GENERIC_PS
               new T2 ("10xxxxxx"),
-              new T2 ("01100000"), //("10011111"),
-              new T2 ("01100000")));
+              new T2 ("01100000"),
+              new T2 ("01100000")
+#else
+              array_from_str("10xxxxxx"),
+              array_from_str("01100000"),
+              array_from_str("01100000")
+#endif
+  ));
   node_ids.push_back(N->add_rule(5,20,
               make_sorted_list(0),
               make_sorted_list(1,16),
+#ifdef GENERIC_PS
               new T2 ("1000xxxx"),
+#else
+              array_from_str("1000xxxx"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(5,30,
               make_sorted_list(0),
               make_sorted_list(1,15),
+#ifdef GENERIC_PS
               new T2 ("1010xxxx"),
-              new T2 ("01100000"), //("10011111"),
-              new T2 ("01000000")));
+              new T2 ("01100000"),
+              new T2 ("01000000")
+#else
+              array_from_str("1010xxxx"),
+              array_from_str("01100000"),
+              array_from_str("01000000")
+#endif
+  ));
   int stats[10][4]={
       {1,0,1,0},
       {1,0,1,0},
@@ -366,9 +445,13 @@ template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
   printf("\n");
   N->add_link(100,1);
+#ifdef GENERIC_PS
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
+#else
+  T1 *h = hs_from_str("1xxxxxxx");
+#endif
   N->add_source(h, make_sorted_list(1,100), 1);
   int stats[7][2] = {
       {1,0},
@@ -395,13 +478,21 @@ template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_source() {
   printf("\n");
   N->add_link(100,1);
+#ifdef GENERIC_PS
   T1 *h = new T1(1);
   T2 a = T2 ("1xxxxxxx");
   h->psunion2(&a);
+#else
+  T1 *h = hs_from_str("1xxxxxxx");
+#endif
   /*uint64_t id1 = */N->add_source(h, make_sorted_list(1,100), 1);
+#ifdef GENERIC_PS
   h = new T1(1);
   T2 b = T2 ("xxxxxxxx");
   h->psunion2(&b);
+#else
+  h = hs_from_str("xxxxxxxx");
+#endif
   uint64_t id2 = N->add_source(h, make_sorted_list(1,100), 2);
   //N->print_plumbing_network();
   N->remove_source(id2);
@@ -433,7 +524,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_lower_priority() 
   node_ids.push_back(N->add_rule(1,-1,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xxx11xxx"),
+#else
+              array_from_str("xxx11xxx"),
+#endif
               NULL,
               NULL));
   int stats[8][2] = {
@@ -469,9 +564,16 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_lower_priority() {
   node_ids.push_back(N->add_rule(1,-1,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xxx11xxx"),
-              new T2 ("01000000"), //("10111111"),
-              new T2 ("00000000")));
+              new T2 ("01000000"),
+              new T2 ("00000000")
+#else
+              array_from_str("xxx11xxx"),
+              array_from_str("01000000"),
+              array_from_str("00000000")
+#endif
+  ));
   int stats[8][2] = {
       {1,0},
       {1,0},
@@ -506,7 +608,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_higher_priority()
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xxxx11xx"),
+#else
+              array_from_str("xxxx11xx"),
+#endif
               NULL,
               NULL));
   int stats[8][2] = {
@@ -555,9 +661,15 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_higher_priority() 
   node_ids.push_back(N->add_rule(2,0,
               make_sorted_list(1,4),
               make_sorted_list(1,5),
+#ifdef GENERIC_PS
               new T2 ("10xx1xxx"),
-              new T2 ("11000000"), //("00111111"),
+              new T2 ("11000000"),
               new T2 ("01000000")
+#else
+              array_from_str("10xx1xxx"),
+              array_from_str("11000000"),
+              array_from_str("01000000")
+#endif
               ));
   int stats[8][2] = {
       {1,0},
@@ -590,9 +702,15 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_higher_priority2()
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
               make_sorted_list(1,7),
+#ifdef GENERIC_PS
               new T2 ("1xxxxxxx"),
-              new T2 ("00100000"), //("11011111"),
+              new T2 ("00100000"),
               new T2 ("00000000")
+#else
+              array_from_str("1xxxxxxx"),
+              array_from_str("00100000"),
+              array_from_str("00000000")
+#endif
               ));
   int stats[8][2] = {
       {1,0},
@@ -628,13 +746,25 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_group_rule_mid_priority() 
   node_ids.push_back(N->add_rule_to_group(1,1,
               make_sorted_list(1,1),
               make_sorted_list(1,2),
+#ifdef GENERIC_PS
               new T2 ("xxxx11xx"),
-              new T2 ("00011000"), //("11100111"),
-              new T2 ("00000000"),0));
+              new T2 ("00011000"),
+              new T2 ("00000000"),
+#else
+              array_from_str("xxxx11xx"),
+              array_from_str("00011000"),
+              array_from_str ("00000000"),
+#endif
+              0
+  ));
   node_ids.push_back(N->add_rule_to_group(1,0,
               make_sorted_list(1,1),
               make_sorted_list(1,3),
+#ifdef GENERIC_PS
               new T2 ("xxxx11xx"),
+#else
+              array_from_str("xxxx11xx"),
+#endif
               NULL,
               NULL,node_ids[node_ids.size()-1]));
   int stats[9][2] = {
@@ -672,13 +802,21 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rule_block_bounce() {
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(3,1,2,3),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xxxx11xx"),
+#else
+              array_from_str("xxxx11xx"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
               make_sorted_list(1,6),
+#ifdef GENERIC_PS
               new T2 ("100x11xx"),
+#else
+              array_from_str("100x11xx"),
+#endif
               NULL,
               NULL));
   int stats[9][2] = {
@@ -853,9 +991,16 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,12),
               make_sorted_list(1,7),
+#ifdef GENERIC_PS
               new T2 ("10xxxxx1"),
-              new T2 ("11100111"), //("00011000"),
-              new T2 ("00000000")));
+              new T2 ("11100111"),
+              new T2 ("00000000")
+#else
+              array_from_str("10xxxxx1"),
+              array_from_str("11100111"),
+              array_from_str("00000000")
+#endif
+  ));
   N->add_link(11,12);
   N->add_link(7,8);
   int stats[9][2] = {
@@ -997,13 +1142,21 @@ void NetPlumberPlumbingTest<T1, T2>::test_detect_loop() {
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,12),
               make_sorted_list(1,14),
+#ifdef GENERIC_PS
               new T2 ("10xxxxx1"),
+#else
+              array_from_str("10xxxxx1"),
+#endif
               NULL,
               NULL));
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,15),
               make_sorted_list(1,2),
+#ifdef GENERIC_PS
               new T2 ("10xxxxxx"),
+#else
+              array_from_str("10xxxxxx"),
+#endif
               NULL,
               NULL));
   //N->print_plumbing_network();
@@ -1116,7 +1269,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_no_update_add_rule() 
   node_ids.push_back(N->add_rule(1,-1,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
+#ifdef GENERIC_PS
               new T2 ("xxx11xxx"),
+#else
+              array_from_str("xxx11xxx"),
+#endif
               NULL,
               NULL));
   //N->print_plumbing_network();
@@ -1151,14 +1308,26 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule1
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,6),
               make_sorted_list(1,7),
+#ifdef GENERIC_PS
               new T2 ("1xxxxxxx"),
-              new T2 ("00011000"), //("11100111"),
+              new T2 ("00011000"),
               new T2 ("00001000")
+#else
+              array_from_str("1xxxxxxx"),
+              array_from_str("00011000"),
+              array_from_str ("00001000")
+#endif
               ));
   node_ids.push_back(N->add_rule(4, -1,
     make_sorted_list(1,9),
     make_sorted_list(1,13),
-    new T2 ("xxxxxxxx"), NULL, NULL
+#ifdef GENERIC_PS
+    new T2 ("xxxxxxxx"),
+#else
+    array_from_str("xxxxxxxx"),
+#endif
+    NULL,
+    NULL
   ));
   //N->print_plumbing_network();
   this->check_probe_counter("test_probe_transition_with_update_add_rule1", A, r);
@@ -1178,7 +1347,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule2
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
               make_sorted_list(1,15),
+#ifdef GENERIC_PS
               new T2 ("10xxxxxx"),
+#else
+              array_from_str("10xxxxxx"),
+#endif
               NULL,
               NULL));
   //N->print_plumbing_network();
@@ -1239,9 +1412,13 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_source() {
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
          c, probe_fire_counter, &A, 3);
+#ifdef GENERIC_PS
   T1 *h = new T1(1);
   T2 a = T2 ("xxxxxxxx");
   h->psunion2(&a);
+#else
+  T1 *h = hs_from_str("xxxxxxxx");
+#endif
   node_ids.push_back(
       N->add_source(h, make_sorted_list(1,300), 2)
       );
@@ -1373,8 +1550,11 @@ void NetPlumberPlumbingTest<T1, T2>::check_probe_counter(
   CPPUNIT_ASSERT(result.less_true == expected.less_true);
 }
 
-
+#ifdef GENERIC_PS
 template class NetPlumberPlumbingTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class NetPlumberPlumbingTest<BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class NetPlumberPlumbingTest<hs, array_t>;
 #endif

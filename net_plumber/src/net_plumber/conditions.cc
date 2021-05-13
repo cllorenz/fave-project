@@ -59,8 +59,9 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
   stack<pair<typename list<PathSpecifier<T1, T2> * >::iterator, Flow<T1, T2> *> >decision_points;
   auto it = pathlets.begin();
 
-  LOG4CXX_TRACE(this->logger, "PathCondition::check(): start checking flow for path conformity.");
+//  LOG4CXX_TRACE(this->logger, "PathCondition::check(): start checking flow for path conformity.");
 
+/*
   if (this->logger->isTraceEnabled()) {
     stringstream path;
     path << "PathCondition::check(): check flow path " << std::hex << f->node->node_id;
@@ -71,36 +72,40 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
     }
     LOG4CXX_TRACE(this->logger, path.str());
   }
+*/
 
   while (it != pathlets.end()) {
     // case 1: end of flow and no alternatives -> path does not meet spec, final decline
     if (!f && decision_points.empty()) {
-      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof and no alternatives -> final decline");
+//      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof and no alternatives -> final decline");
       return false;
 
     // case 2: end of flow but still alternatives open -> jump to decision point and continue with next alternative
     } else if (!f && !decision_points.empty()) {
-      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof but still alternatives -> jump back and try next alternative");
-      LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
+//      LOG4CXX_TRACE(this->logger, "PathCondition::check(): eof but still alternatives -> jump back and try next alternative");
+//      LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
       auto dp = decision_points.top();
       decision_points.pop();
       it = dp.first;
       f = dp.second;
       if (f->p_flow != f->node->get_EOSFI()) decision_points.push(make_pair(it,*(f->p_flow)));
       else return false;
+/*
       if (this->logger->isTraceEnabled()) {
         stringstream push;
         push << "PathCondition::check(): introduce decision point for next flow item at ";
         push << std::hex << (*f->p_flow)->node->node_id;
         LOG4CXX_TRACE(this->logger, push.str());
       }
+*/
 
     // case 3: process flow and path
     } else {
-      LOG4CXX_TRACE(this->logger, "PathCondition::check(): not eof -> normal processing");
+//      LOG4CXX_TRACE(this->logger, "PathCondition::check(): not eof -> normal processing");
 
       // case 1: normal pathlet
       if ((*it)->get_type() != PATHLET_SKIP_NEXT) {
+/*
         if (this->logger->isTraceEnabled()) {
           stringstream normal;
           normal << "PathCondition::check(): normal pathlet of type ";
@@ -121,32 +126,35 @@ bool PathCondition<T1, T2>::check(Flow<T1, T2> *f) {
           normal << " -> try check and move";
           LOG4CXX_TRACE(this->logger, normal.str());
         }
+*/
         bool c = (*it)->check_and_move(f);
 
         // case: path does not meet spec and no decisions left -> final decline
         if (!c && decision_points.empty()) {
-          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed and no alternatives -> final decline");
+//          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed and no alternatives -> final decline");
           return false;
 
         // case: path does not meet spec but still alternatives open -> jump to decision point, do one step, and retry
         } else if (!c && !decision_points.empty()) {
-          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed but still alternatives -> jump back, do one step, and retry");
-          LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
+//          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check failed but still alternatives -> jump back, do one step, and retry");
+//          LOG4CXX_TRACE(this->logger, "PathCondition::check(): pop decision point");
           auto dp = decision_points.top();
           decision_points.pop();
           it = dp.first;
           f = dp.second;
-          LOG4CXX_TRACE(this->logger, "PathCondition::check(): introduce decision point for next flow item");
+//          LOG4CXX_TRACE(this->logger, "PathCondition::check(): introduce decision point for next flow item");
           if (f->p_flow != f->node->get_EOSFI()) decision_points.push(make_pair(it, *(f->p_flow)));
           else return false;
+/*
           if (this->logger->isTraceEnabled()) {
             stringstream push;
             push << "PathCondition::check(): introduce decision point for next flow item at ";
             push << std::hex << (*f->p_flow)->node->node_id;
             LOG4CXX_TRACE(this->logger, push.str());
           }
+*/
         } else {
-          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check succeeded -> continue with next pathlet");
+//          LOG4CXX_TRACE(this->logger, "PathCondition::check(): check succeeded -> continue with next pathlet");
         }
 
       // case 2: special pathlet (skip arbitrarily, .*) -> introduce decision point
@@ -179,31 +187,53 @@ string PathCondition<T1, T2>::to_string() {
 
 template<class T1, class T2>
 bool HeaderCondition<T1, T2>::check(Flow<T1, T2> *f) {
-  T1 tmp = *f->processed_hs;
-  tmp.intersect(h);
   bool result = false;
+#ifdef GENERIC_PS
+  T1 tmp = T1(*f->processed_hs);
+  tmp.intersect(h);
   if (!tmp.is_empty()) {
     tmp.unroll();
     if (!tmp.is_empty()) result = true;
   }
+#else
+  T1 *tmp = hs_isect_a(f->processed_hs, h);
+  if (tmp) {
+    hs_comp_diff(tmp);
+    char *c = hs_to_str(tmp);
+    free(c);
+    if (tmp->list.used > 0) result = true;
+    hs_free(tmp);
+  }
+#endif
   return result;
 }
 
 template<class T1, class T2>
 void HeaderCondition<T1, T2>::enlarge(uint32_t length) {
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream enl;
       enl << "HeaderCondition::enlarge():";
       enl << " enlarge from " << this->h->hs.len << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
+*/
+#ifdef GENERIC_PS
 	this->h->enlarge(length);
+#else
+    hs_enlarge(this->h, length);
+#endif
 }
 
 template<class T1, class T2>
 string HeaderCondition<T1, T2>::to_string() {
   stringstream res;
-  res << "header ~ " << h->to_str();
+  res << "header ~ ";
+#ifdef GENERIC_PS
+  res << h->to_str();
+#else
+  res << hs_to_str(h);
+#endif
   return res.str();
 }
 
@@ -396,7 +426,11 @@ template<class T1, class T2>
 void HeaderCondition<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "header";
   Json::Value hs(Json::objectValue);
+#ifdef GENERIC_PS
   h->to_json(hs);
+#else
+  hs_to_json(hs, h);
+#endif
   res["header"] = hs;
 }
 
@@ -464,6 +498,7 @@ void EndPathSpecifier<T1, T2>::to_json(Json::Value& res) {
   res["type"] = "end";
 }
 
+#ifdef GENERIC_PS
 template class TrueCondition<HeaderspacePacketSet, ArrayPacketSet>;
 template class FalseCondition<HeaderspacePacketSet, ArrayPacketSet>;
 template class AndCondition<HeaderspacePacketSet, ArrayPacketSet>;
@@ -497,4 +532,22 @@ template class LastTablesSpecifier<BDDPacketSet, BDDPacketSet>;
 template class SkipNextSpecifier<BDDPacketSet, BDDPacketSet>;
 template class SkipNextArbSpecifier<BDDPacketSet, BDDPacketSet>;
 template class EndPathSpecifier<BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class TrueCondition<hs, array_t>;
+template class FalseCondition<hs, array_t>;
+template class AndCondition<hs, array_t>;
+template class OrCondition<hs, array_t>;
+template class NotCondition<hs, array_t>;
+template class HeaderCondition<hs, array_t>;
+template class PathCondition<hs, array_t>;
+template class PortSpecifier<hs, array_t>;
+template class TableSpecifier<hs, array_t>;
+template class NextPortsSpecifier<hs, array_t>;
+template class NextTablesSpecifier<hs, array_t>;
+template class LastPortsSpecifier<hs, array_t>;
+template class LastTablesSpecifier<hs, array_t>;
+template class SkipNextSpecifier<hs, array_t>;
+template class SkipNextArbSpecifier<hs, array_t>;
+template class EndPathSpecifier<hs, array_t>;
 #endif

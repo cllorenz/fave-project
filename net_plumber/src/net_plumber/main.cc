@@ -223,7 +223,11 @@ int typed_main(int argc, char* argv[]) {
         printf("Please specify a header after --filter.\n");
         return -1;
       }
+#ifdef GENERIC_PS
       filter = new T2(argv[++i]);
+#else
+      filter = array_from_str(argv[++i]);
+#endif
     }
 
     if ( strncmp(argv[i], "--log4j-config", 14) == 0 ) {
@@ -264,12 +268,21 @@ int typed_main(int argc, char* argv[]) {
   auto *N = new NetPlumber<T1, T2>(hdr_len);
 
   if (do_load_json_files) {
+#ifdef GENERIC_PS
     T2 null_filter = T2(hdr_len, BIT_X);
+#else
+    T2 null_filter[ARRAY_BYTES (hdr_len) / sizeof (array_t)];
+    array_init(null_filter, hdr_len, BIT_X);
+#endif
 
     load_netplumber_from_dir<T1, T2>(
         json_files_path,
         N,
+#ifdef GENERIC_PS
         &null_filter
+#else
+        null_filter
+#endif
 #ifdef PIPE_SLICING
         , hdr_len
 #endif
@@ -315,6 +328,7 @@ int typed_main(int argc, char* argv[]) {
 
 
 int main(int argc, char* argv[]) {
+#ifdef GENERIC_PS
 #ifdef USE_BDD
   if (bdd_init(1000000, 10000) != 0) fprintf(stderr, "failed to intialize bdd package with %d nodes and a cache size of %d\n", 1000000, 10000);
   if (bdd_setmaxincrease(10000000) < 0) fprintf(stderr, "failed to increase maximum node size to %d\n", 10000000);
@@ -327,6 +341,9 @@ int main(int argc, char* argv[]) {
   return ret;
 #else
   return typed_main<HeaderspacePacketSet, ArrayPacketSet>(argc, argv);
+#endif
+#else
+  return typed_main<hs, array_t>(argc, argv);
 #endif
 }
 

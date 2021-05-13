@@ -40,14 +40,22 @@ SourceNode<T1, T2>::SourceNode(void *n, int length, uint64_t node_id, T1 *hs_obj
   : Node<T1, T2>(n,length,node_id) {
   this->node_type = SOURCE;
   this->match = nullptr;
+#ifdef GENERIC_PS
   this->inv_match = new T2(length, BIT_X);
+#else
+  this->inv_match = array_create(length, BIT_X);
+#endif
   this->output_ports = ports;
   this->input_ports = make_sorted_list(0);
   // create the flow;
   Flow<T1, T2> *f = (Flow<T1, T2> *)malloc(sizeof *f);
   f->node = this;
   f->hs_object = hs_object;
+#ifdef GENERIC_PS
   f->processed_hs = new T1(*hs_object);
+#else
+  f->processed_hs = hs_copy_a(hs_object);
+#endif
   f->in_port = 0;
   f->p_flow = this->source_flow.end();
   f->n_flows = new list< typename list< Flow<T1, T2> *>::iterator >();
@@ -62,7 +70,12 @@ SourceNode<T1, T2>::~SourceNode() {
 template<class T1, class T2>
 string SourceNode<T1, T2>::source_to_str() {
   stringstream result;
-  result << "Source: " << (*this->source_flow.begin())->hs_object->to_str();
+  result << "Source: ";
+#ifdef GENERIC_PS
+  result << (*this->source_flow.begin())->hs_object->to_str();
+#else
+  result << hs_to_str((*this->source_flow.begin())->hs_object);
+#endif
   result << " Ports: " << list_to_string(this->output_ports);
   return result.str();
 }
@@ -96,21 +109,27 @@ void SourceNode<T1, T2>::process_src_flow(Flow<T1, T2>* /*f*/) {
 
 template<class T1, class T2>
 void SourceNode<T1, T2>::enlarge(uint32_t length) {
+/*
     if (this->logger->isTraceEnabled()) {
       stringstream enl;
       enl << "SourceNode::enlarge(): id 0x" << std::hex << this->node_id;
       enl << " enlarge from " << std::dec << this->length << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
+*/
 	if (length <= this->length) {
 		return;
 	}
 	Node<T1, T2>::enlarge(length);
-    LOG4CXX_TRACE(this->logger, "SourceNode::enlarge(): set length\n");
+//    LOG4CXX_TRACE(this->logger, "SourceNode::enlarge(): persist length\n");
 	this->length = length;
 }
 
+#ifdef GENERIC_PS
 template class SourceNode <HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
 template class SourceNode <BDDPacketSet, BDDPacketSet>;
+#endif
+#else
+template class SourceNode <hs, array_t>;
 #endif
