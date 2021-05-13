@@ -79,7 +79,7 @@ ArrayPacketSet::ArrayPacketSet(const Json::Value& val, const size_t length) {
     ArrayPacketSet *a = val_to_array<ArrayPacketSet>(val);
     assert(length == a->length);
     this->length = length;
-    this.>array = a->array;
+    this->array = a->array;
     a->array = nullptr;
     delete a;
 #else
@@ -157,7 +157,7 @@ void
 ArrayPacketSet::intersect(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
 
-    const bool empty = !array_isect_arr_i(this->array, other->array, this->length);
+    const bool empty = !array_isect_arr_i(this->array, ((ArrayPacketSet *)other)->array, this->length);
     if (empty) {
         array_free(this->array);
         this->array = nullptr;
