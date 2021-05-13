@@ -273,7 +273,7 @@ array_has_isect(const array_t *a, const array_t *b, size_t len) {
 inline bool
 array_is_empty (const array_t *a, size_t len)
 {
-    return !a || array_has_z(a, len);
+    return !a;
 }
 
 bool
