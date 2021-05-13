@@ -147,7 +147,7 @@ void
 array_free (array_t *a)
 { if (a) free (a); }
 
-array_t *
+inline array_t *
 array_copy (const array_t *a, size_t len)
 {
   array_t *res = array_create (len, BIT_UNDEF);
@@ -248,7 +248,7 @@ array_has_x (const array_t *a, size_t len)
   return false;
 }
 
-bool
+inline bool
 array_has_z (const array_t *a, size_t len)
 {
   for (size_t i = 0; i < SIZE (len); i++) {
@@ -270,7 +270,7 @@ array_has_isect(const array_t *a, const array_t *b, size_t len) {
     return array_isect(a, b, len, &tmp);
 }
 
-bool
+inline bool
 array_is_empty (const array_t *a, size_t len)
 {
     return !a || array_has_z(a, len);
@@ -626,7 +626,7 @@ array_diff (const array_t *a, const array_t *b, size_t len, size_t *n, array_t *
 #endif
 
 
-bool
+inline bool
 array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
 {
   if (!a || !b) return false;
@@ -639,7 +639,7 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
   return true;
 }
 
-bool
+inline bool
 array_isect_arr_i (array_t *a, const array_t *b, size_t len) {
   if (!a || !b) return false;
 
