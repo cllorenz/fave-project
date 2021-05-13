@@ -14,7 +14,7 @@
 #define VEC_START_SIZE 1
 
 /* Add A to V. If DIFF, V is a diff list, else V is directly from an hs. */
-static void
+static inline void
 #ifdef NEW_HS
 vec_append (struct hs_vec *v, array_t *a)
 #else
@@ -36,7 +36,7 @@ vec_append (struct hs_vec *v, array_t *a, bool diff)
   v->elems[v->used++] = a;
 }
 
-static bool
+static inline bool
 vec_is_empty(const struct hs_vec *vec) {
     return !vec || !vec->used;
 }
@@ -957,10 +957,7 @@ hs_isect_arr (struct hs *res, const struct hs *hs, const array_t *a)
 
 #else
   const struct hs_vec v = hs->list;
-  array_t tmp[
-    ARRAY_BYTES (hs->len) / sizeof (array_t) +
-    (ARRAY_BYTES (hs->len) % sizeof (array_t) == 0 ? sizeof (array_t) : 0)
-  ];
+  array_t tmp[ARRAY_BYTES (hs->len) / sizeof (array_t)];
   size_t pos = SIZE_MAX;
 
   // try to intersect in local buffer until first non-empty result is reached
@@ -1156,11 +1153,11 @@ bool hs_potponed_diff_and_rewrite (const struct hs *orig_hs, struct hs *rw_hs,
 #endif
 
 
-bool hs_vec_is_empty(const struct hs_vec *vec) {
+inline bool hs_vec_is_empty(const struct hs_vec *vec) {
     return vec_is_empty(vec);
 }
 
-bool hs_is_empty(const struct hs *hs) {
+inline bool hs_is_empty(const struct hs *hs) {
 #ifdef NEW_HS
     return !hs || vec_is_empty(&hs->list) || vec_is_all(&hs->diff, hs->len);
 #else
