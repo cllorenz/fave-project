@@ -221,7 +221,7 @@ list<Flow<T1, T2> *>* ConditionsTest<T1, T2>::create_flow(List_t ports, List_t t
   Flow<T1, T2> *f, *prev;
   auto *s = new SourceNode<T1, T2>(
     NULL, 1, 0,
-#ifdef GENERIC_HS
+#ifdef GENERIC_PS
     new T1(1),
 #else
     hs_create(1),
