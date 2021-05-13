@@ -93,14 +93,14 @@ for tid, table in enumerate(tables, start=1):
 				"ports" : [ probe_port ],
 				"test" :
 				{
-#                    "type" : "true"
-					"type" : "path",
-                    "pathlets" : [
-                        {
-                            "type" : "last_ports",
-                            "ports" : [ source_port ]
-                        }
-                    ]
+                    "type" : "true"
+#					"type" : "path",
+#                    "pathlets" : [
+#                        {
+#                            "type" : "last_ports",
+#                            "ports" : [ source_port ]
+#                        }
+#                    ]
 				},
                 "mode" : "existential",
                 "id" : pid
