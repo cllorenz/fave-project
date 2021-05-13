@@ -76,6 +76,7 @@ sources = {
 }
 
 # add and connect probes
+source_commands = []
 for tid, table in enumerate(tables, start=1):
     table_ports = table_out_ports[table]
     table_probes = probes[table]
@@ -84,7 +85,7 @@ for tid, table in enumerate(tables, start=1):
 #        _sid, source_port = sources[table]
         source_port = first_in_port[table]
         pid, probe_port = table_probe
-        commands.append({
+        source_commands.append({
             "method" : "add_source_probe",
             "params" : {
                 "filter" : { "type" : "true" },
@@ -108,7 +109,7 @@ for tid, table in enumerate(tables, start=1):
 
         # connect all egress ports to probe
         for table_port in table_out_ports[table]: #(table_used_out_ports[table] - topology_used_out_ports):
-            commands.append({
+            source_commands.append({
                 "method" : "add_link",
                 "params" : {
                     "from_port" : table_port,
@@ -146,5 +147,6 @@ for tid, table in enumerate(tables, start=1):
         }
     })
 
+commands.extend(source_commands)
 
 json.dump({ 'commands' : commands }, open("%s/policy.json" % src_dir, 'w'), indent=2)
