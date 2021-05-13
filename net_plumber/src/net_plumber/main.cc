@@ -107,10 +107,12 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 
+#ifdef GENERIC_PS
   PacketSetTest<T1, T2> t5;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t5) );
   PacketSetTest<T2, T2> t6;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t6) );
+#endif
 
   // informs test-listener about testresults
   CPPUNIT_NS::TestResult testresult;
