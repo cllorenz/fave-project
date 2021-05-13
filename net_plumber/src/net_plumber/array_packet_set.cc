@@ -75,12 +75,17 @@ length_from_array_val(const Json::Value& val) {
 
 
 ArrayPacketSet::ArrayPacketSet(const Json::Value& val, const size_t length) {
+#ifdef GENERIC_PS
     ArrayPacketSet *a = val_to_array<ArrayPacketSet>(val);
     assert(length == a->length);
-
-    this->array = array_copy(a->array, a->length);
     this->length = length;
+    this.>array = a->array;
+    a->array = nullptr;
     delete a;
+#else
+    this->array = val_to_array<array_t>(val);
+    this->length = length;
+#endif
 }
 
 
@@ -152,12 +157,11 @@ void
 ArrayPacketSet::intersect(PacketSet *other) {
     assert(this->length == ((ArrayPacketSet *)other)->length);
 
-    array_t *tmp = array_isect_a(this->array, ((ArrayPacketSet *)other)->array, this->length);
-
-    // XXX: inefficient memory handling -> use in-situ intersection instead
-    array_free(this->array);
-    if (tmp) this->array = tmp;
-    else this->array = nullptr;
+    const bool empty = !array_isect_arr_i(this->array, other->array, this->length);
+    if (empty) {
+        array_free(this->array);
+        this->array = nullptr;
+    }
 }
 
 
