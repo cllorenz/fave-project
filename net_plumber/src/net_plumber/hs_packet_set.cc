@@ -123,11 +123,11 @@ HeaderspacePacketSet::HeaderspacePacketSet(const HeaderspacePacketSet& hps) {
 
 void
 HeaderspacePacketSet::enlarge(size_t len) {
-    if (this->logger->isTraceEnabled()) {
+    if (this->logger->isDebugEnabled()) {
       std::stringstream enl;
       enl << "HeaderspacePacketSet::enlarge():";
       enl << " enlarge hs from " << std::dec << this->hs.len << " to " << len;
-      LOG4CXX_TRACE(this->logger, enl.str());
+      LOG4CXX_DEBUG(this->logger, enl.str());
     }
     hs_enlarge(&this->hs, len);
 }
