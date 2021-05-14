@@ -210,14 +210,17 @@ bool HeaderCondition<T1, T2>::check(Flow<T1, T2> *f) {
 
 template<class T1, class T2>
 void HeaderCondition<T1, T2>::enlarge(uint32_t length) {
-/*
     if (this->logger->isTraceEnabled()) {
       stringstream enl;
-      enl << "HeaderCondition::enlarge():";
-      enl << " enlarge from " << this->h->hs.len << " to " << length;
+      enl << "HeaderCondition::enlarge(): enlarge from ";
+#ifdef GENERIC_PS
+      enl << this->h->hs.len;
+#else
+      enl << this->h->len;
+#endif
+      enl << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
-*/
 #ifdef GENERIC_PS
 	this->h->enlarge(length);
 #else
