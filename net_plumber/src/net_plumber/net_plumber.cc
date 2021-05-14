@@ -1401,8 +1401,11 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
             }
 
             if (!hs_is_empty(&tmp)) {
-                Json::Value inf;
-                hs_to_json(inf, &tmp);
+//                Json::Value inf;
+//                hs_to_json(inf, &tmp);
+                char *tmp2 = hs_to_str(&tmp);
+                std::string inf = std::string(tmp2);
+                free(tmp2);
                 rule["influences"] = inf;
             }
 #endif
@@ -1588,8 +1591,11 @@ void NetPlumber<T1, T2>::_traverse_flow_tree(
 #ifdef GENERIC_PS
                 node["flow"] = (*n_flow)->hs_object->to_str();
 #else
-                Json::Value flow;
-                hs_to_json(flow, (*n_flow)->hs_object);
+//                Json::Value flow;
+//                hs_to_json(flow, (*n_flow)->hs_object);
+                char *tmp = hs_to_str((*n_flow)->hs_object);
+                std::string flow = std::string(tmp);
+                free(tmp);
                 node["flow"] = flow;
 #endif
             }
@@ -1619,8 +1625,10 @@ void NetPlumber<T1, T2>::_dump_flow_tree_to_file(const string file_name, SourceN
         if (!simple) flow_tree["flow"] = s_flow->hs_object->to_str();
 #else
         if (!simple) {
-            Json::Value flow;
-            hs_to_json(flow, s_flow->hs_object);
+//            Json::Value flow;
+//            hs_to_json(flow, s_flow->hs_object);
+            char *tmp = hs_to_str(s_flow->hs_object);
+            std::string flow = std::string(tmp);
             flow_tree["flow"] = flow;
         }
 #endif

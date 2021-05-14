@@ -460,10 +460,15 @@ class TopologyRenderer(object):
         except:
             hs_list = hs
 
+#        hs_list = hs['list']
+#        hs_diff = hs['diff']
+
+#        res_list = [self._readable_vector(vec, printable=True) for vec in hs_list]
         res_list = [self._readable_vector(vec, printable=True) for vec in hs_list.split(' + ')]
 
         res_diff = []
         if hs_diff:
+#            res_diff = [self._readable_vector(vec, printable=True) for vec in hs_diff]
             res_diff = [self._readable_vector(vec, printable=True) for vec in hs_diff.split(' + ')]
 
         return res_list, res_diff
