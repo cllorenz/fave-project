@@ -78,7 +78,7 @@ elif [ -n "$UNIX" ]; then
 fi
 
 if [ -n "$VALGRIND" ]; then
-    valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS
+    valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS &
 elif [ -n "$RDR" ]; then
     net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS &
 else
