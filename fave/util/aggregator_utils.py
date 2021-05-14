@@ -43,7 +43,7 @@ def connect_to_fave(server, port=0):
             "could not create socket for %s" % ('unix' if port == 0 else 'tcp/ip')
         )
 
-    tries = 5
+    tries = 10
     while tries > 0:
         try:
             if port == 0:

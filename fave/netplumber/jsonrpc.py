@@ -138,7 +138,7 @@ def connect_to_netplumber(server, port=0):
 
     sock.setblocking(1)
 
-    tries = 5
+    tries = 10
     while tries > 0:
         try:
             sock.connect(backend)
