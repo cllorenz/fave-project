@@ -417,7 +417,7 @@ vec_isect (struct hs_vec *a, const struct hs_vec *b, size_t len)
   *a = v;
 }
 
-static void
+static inline void
 vec_enlarge (struct hs_vec *vec, size_t length_old, size_t length)
 {
 	if (length <= length_old) {

@@ -121,7 +121,7 @@ array_resize (array_t* ptr, size_t oldlen, size_t newlen)
 }
 
 
-array_t *
+inline array_t *
 array_generic_resize (array_t* ptr, size_t oldlen, size_t newlen, enum bit_val val)
 {
   if (oldlen >= newlen)
