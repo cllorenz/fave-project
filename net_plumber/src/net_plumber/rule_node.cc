@@ -835,52 +835,53 @@ void RuleNode<T1, T2>::enlarge(uint32_t length) {
       LOG4CXX_TRACE(this->logger, enl.str());
     }
 
-	if (length <= this->length) {
-		return;
-	}
+    if (length <= this->length) {
+        return;
+    }
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge mask");
 #ifdef GENERIC_PS
-	if (this->mask)
-		this->mask->enlarge2(length);
+    if (this->mask)
+        this->mask->enlarge2(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge rewrite");
-	if (this->rewrite)
-		this->rewrite->enlarge(length);
-//		this->rewrite->rewrite->enlarge(length);
+    if (this->rewrite)
+        this->rewrite->enlarge(length);
+//        this->rewrite->rewrite->enlarge(length);
 #ifdef USE_INV
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge inverse rewrite");
-	if (this->inv_rw)
-		this->inv_rw->enlarge(length);
+    if (this->inv_rw)
+        this->inv_rw->enlarge(length);
 #endif
-	//Effect should not matter
+    //Effect should not matter
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge influences");
-	for (auto const &inf: *influenced_by) {
-		if (inf->comm_arr && (length > inf->len)) {
+    for (auto const &inf: *influenced_by) {
+        if (inf->comm_arr && (length > inf->len)) {
             inf->comm_arr->enlarge(length);
         }
-	}
+    }
 #else
-	if (this->mask)
-		array_generic_resize(this->mask, this->length, length, BIT_0);
+    const size_t olen = this->length;
+    if (this->mask)
+        array_generic_resize(this->mask, olen, length, BIT_0);
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge rewrite");
-	if (this->rewrite)
-		array_resize(this->rewrite, this->length, length);
+    if (this->rewrite)
+        array_resize(this->rewrite, olen, length);
 #ifdef USE_INV
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge inverse rewrite");
-	if (this->inv_rw)
-		array_resize(this->inv_rw, this->length, length);
+    if (this->inv_rw)
+        array_resize(this->inv_rw, olen, length);
 #endif
-	//Effect should not matter
+    //Effect should not matter
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): enlarge influences");
-	for (auto const &inf: *influenced_by) {
-		if (inf->comm_arr && (length > inf->len)) {
-            array_resize(inf->comm_arr, this->length, length);
+    for (auto const &inf: *influenced_by) {
+        if (inf->comm_arr && (length > inf->len)) {
+            array_resize(inf->comm_arr, olen, length);
         }
-	}
+    }
 #endif
 
-	Node<T1, T2>::enlarge(length);
+    Node<T1, T2>::enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "RuleNode::enlarge(): persist length\n");
-	this->length = length;
+    this->length = length;
 }
 
 #ifdef GENERIC_PS

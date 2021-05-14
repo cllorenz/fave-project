@@ -116,12 +116,12 @@ void SourceNode<T1, T2>::enlarge(uint32_t length) {
       enl << " enlarge from " << std::dec << this->length << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
-	if (length <= this->length) {
-		return;
-	}
-	Node<T1, T2>::enlarge(length);
+    if (length <= this->length) {
+        return;
+    }
+    Node<T1, T2>::enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "SourceNode::enlarge(): persist length\n");
-	this->length = length;
+    this->length = length;
 }
 
 #ifdef GENERIC_PS

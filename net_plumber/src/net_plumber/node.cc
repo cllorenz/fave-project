@@ -289,21 +289,21 @@ void Node<T1, T2>::enlarge(uint32_t length) {
       enl << " enlarge from " << std::dec << this->length << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
-	if (length <= this->length) {
-		return;
-	}
+    if (length <= this->length) {
+        return;
+    }
 #ifdef GENERIC_PS
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge match");
-	if (this->match)
-		this->match->enlarge(length);
+    if (this->match)
+        this->match->enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge inverse match");
-	if (this->inv_match)
-		this->inv_match->enlarge(length);
+    if (this->inv_match)
+        this->inv_match->enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
-	for (auto const &next: next_in_pipeline)
+    for (auto const &next: next_in_pipeline)
         next->pipe_array->enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge incoming pipelines");
-	for (auto const &prev: prev_in_pipeline)
+    for (auto const &prev: prev_in_pipeline)
         prev->pipe_array->enlarge(length);
 
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge flows");
@@ -312,18 +312,19 @@ void Node<T1, T2>::enlarge(uint32_t length) {
       if (flow->processed_hs) flow->processed_hs->enlarge(length);
     }
 #else
+    const size_t olen = this->length;
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge match");
-	if (this->match)
-		array_resize(this->match, this->length, length);
+    if (this->match)
+        array_resize(this->match, olen, length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge inverse match");
-	if (this->inv_match)
-		array_resize(this->inv_match, this->length, length);
+    if (this->inv_match)
+        array_resize(this->inv_match, olen, length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
-	for (auto const &next: next_in_pipeline)
-        array_resize(next->pipe_array, this->length, length);
+    for (auto const &next: next_in_pipeline)
+        array_resize(next->pipe_array, olen, length);
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge incoming pipelines");
-	for (auto const &prev: prev_in_pipeline)
-        array_resize(prev->pipe_array, this->length, length);
+    for (auto const &prev: prev_in_pipeline)
+        array_resize(prev->pipe_array, olen, length);
 
     if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge flows");
     for (auto const &flow: source_flow) {

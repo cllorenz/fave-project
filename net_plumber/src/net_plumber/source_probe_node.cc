@@ -359,16 +359,16 @@ void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
       enl << " enlarge from " << std::dec << this->length << " to " << length;
       LOG4CXX_TRACE(this->logger, enl.str());
     }
-	if (length <= this->length) {
-		return;
-	}
+    if (length <= this->length) {
+        return;
+    }
     if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
-	filter->enlarge(length);
+    filter->enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge test");
-	test->enlarge(length);
-	Node<T1, T2>::enlarge(length);
+    test->enlarge(length);
+    Node<T1, T2>::enlarge(length);
     if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): persist length\n");
-	this->length = length;
+    this->length = length;
 }
 
 template<class T1, class T2>
