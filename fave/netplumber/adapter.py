@@ -37,9 +37,9 @@ from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleF
 
 class NetPlumberAdapter(object):
 
-    def __init__(self, socks, logger):
+    def __init__(self, socks, logger, mapping=None):
         self.socks = socks
-        self.mapping = Mapping(0)
+        self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)
         self.mapping_keys = set(self.mapping.keys())
         self.tables = {}
         self.model_types = {}

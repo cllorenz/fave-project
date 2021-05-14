@@ -55,10 +55,11 @@ def _print_help():
     """ Prints a usage message to stderr.
     """
     eprint(
-        "aggregator [-s <server> [-p <port>]] [-S <backends>]",
+        "aggregator [-s <server> [-p <port>]] [-S <backends>] [-m <mapping>]",
         "\t-s <server> ip address of the netplumber instance",
         "\t-p <port> the port number of the netplumber instance",
         "\t-S <backends> a list of NP backend socket identifiers, e.g., /dev/shm/np1,/dev/shm/np2,... or 1.2.3.4:44001,1.2.3.4:44002,...",
+        "\t-m <mapping> a json file containing a mapping to initialize the NP adapter",
         sep="\n"
     )
 
@@ -67,13 +68,13 @@ class Aggregator(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
 
-    def __init__(self, socks):
+    def __init__(self, socks, mapping=None):
         self.queue = Queue()
         self.models = {}
         self.port_to_model = {}
         self.links = {}
         self.stop = False
-        self.net_plumber = NetPlumberAdapter(socks.values(), Aggregator.LOGGER)
+        self.net_plumber = NetPlumberAdapter(socks.values(), Aggregator.LOGGER, mapping=mapping)
 
 
     def print_aggregator(self):
@@ -513,13 +514,14 @@ def main(argv):
     log_level = logging.INFO
     socks = {}
     use_unix = False
+    mapping = None
 
     logging._srcfile = None
     logging.logThreads = 0
     logging.logProcesses = 0
 
     try:
-        opts, _args = getopt.getopt(argv, "hds:p:S:tu", ["help", "debug", "server=", "port=", "servers=", "trace", "unix"])
+        opts, _args = getopt.getopt(argv, "hdm:s:p:S:tu", ["help", "debug","mapping=", "server=", "port=", "servers=", "trace", "unix"])
     except getopt.GetoptError:
         eprint("could not parse options: %s" % argv)
         _print_help()
@@ -529,6 +531,8 @@ def main(argv):
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        elif opt == '-m':
+            mapping = json.load(open(arg))
         elif opt == '-s' and (is_ip(arg) or is_domain(arg)):
             fave_addr = arg
         elif opt == '-p':
@@ -569,7 +573,7 @@ def main(argv):
             sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = Aggregator(socks)
+    AGGREGATOR = Aggregator(socks, mapping=mapping)
 
     register_signals()
 
