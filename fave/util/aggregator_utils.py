@@ -52,7 +52,7 @@ def connect_to_fave(server, port=0):
                 sock.connect((server, port))
             break
         except socket.error:
-            time.sleep(1)
+            time.sleep(0.1)
             tries -= 1
 
     try:

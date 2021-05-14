@@ -144,7 +144,7 @@ def connect_to_netplumber(server, port=0):
             sock.connect(backend)
             break
         except socket.error:
-            time.sleep(1)
+            time.sleep(0.1)
             tries -= 1
 
     try:
