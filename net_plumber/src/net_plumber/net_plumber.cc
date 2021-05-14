@@ -997,7 +997,7 @@ template<class T1, class T2>
 size_t NetPlumber<T1, T2>::expand(size_t length) {
   if (length > this->length) {
 #ifdef USE_BDD
-     bdd_extvarnum((length - this->length) * 8);
+    bdd_extvarnum((length - this->length) * 8);
 #else
     LOG4CXX_DEBUG(logger, "enlarge nodes");
     for (auto const &node: id_to_node) {//should contain all flows, probes and rules
@@ -1011,7 +1011,7 @@ size_t NetPlumber<T1, T2>::expand(size_t length) {
       slice.second.net_space->enlarge(length);
     }
 #endif //PIPE_SLICING
-    LOG4CXX_DEBUG(logger, "set length");
+    LOG4CXX_DEBUG(logger, "persist length");
     this->length = length;
   }
   return this->length;
