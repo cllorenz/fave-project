@@ -25,12 +25,13 @@ mkdir -p $DIR/np
 SOCK_PARAMS="-s 127.0.0.1 -p 44000"
 BACK_PARAMS=""
 DEBUG_PARAMS=""
+MAP_PARAMS=""
 
 UNIX=""
 
-usage() { echo "usage: $0 [-hdut] [-S <backend>]" 2>&2; }
+usage() { echo "usage: $0 [-hdut] [-S <backend>] [-m <mapping>]" 2>&2; }
 
-while getopts "hduS:t" o; do
+while getopts "hdm:uS:t" o; do
     case "${o}" in
         h)
             usage
@@ -38,6 +39,9 @@ while getopts "hduS:t" o; do
             ;;
         d)
             DEBUG_PARAMS="-d"
+            ;;
+        m)
+            MAP_PARAMS="-m ${OPTARG}"
             ;;
         u)
             UNIX="/dev/shm/np_aggregator.socket"
@@ -60,7 +64,7 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="-u"
 fi
 
-python2 aggregator/aggregator.py $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
+python2 aggregator/aggregator.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid

@@ -26,6 +26,7 @@ mkdir -p $DIR/np
 
 SOCK_PARAMS="--server 127.0.0.1 44001"
 LOG_PARAMS=""
+LEN_PARAMS="--hdr-len 1"
 
 SERVER=""
 PORT=""
@@ -33,9 +34,9 @@ UNIX=""
 
 RDR=""
 
-usage() { echo "usage: $0 [-hvV] [-s <host> -p <port> |-u <unix socket>] [-l <logging>]" 2>&2; }
+usage() { echo "usage: $0 [-hvV] [-s <host> -p <port> |-u <unix socket>] [-l <logging>] [-L <hdr-len>]" 2>&2; }
 
-while getopts "hs:p:u:l:vV" o; do
+while getopts "hs:p:u:l:L:vV" o; do
     case "${o}" in
         h)
             usage
@@ -53,6 +54,9 @@ while getopts "hs:p:u:l:vV" o; do
             ;;
         l)
             LOG_PARAMS="--log4j-config ${OPTARG}"
+            ;;
+        L)
+            LEN_PARAMS="--hdr-len ${OPTARG}"
             ;;
         v)
             RDR="1"
@@ -78,11 +82,11 @@ elif [ -n "$UNIX" ]; then
 fi
 
 if [ -n "$VALGRIND" ]; then
-    valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS &
+    valgrind --tool=memcheck --leak-check=full --track-origins=yes net_plumber $LEN_PARAMS $LOG_PARAMS $SOCK_PARAMS &
 elif [ -n "$RDR" ]; then
-    net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS &
+    net_plumber $LEN_PARAMS $LOG_PARAMS $SOCK_PARAMS &
 else
-    net_plumber --hdr-len 1 $LOG_PARAMS $SOCK_PARAMS >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
+    net_plumber $LEN_PARAMS $LOG_PARAMS $SOCK_PARAMS >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
 fi
 
 
