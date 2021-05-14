@@ -120,7 +120,7 @@ void SourceNode<T1, T2>::enlarge(uint32_t length) {
         return;
     }
     Node<T1, T2>::enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "SourceNode::enlarge(): persist length\n");
+    LOG4CXX_DEBUG(this->logger, "SourceNode::enlarge(): persist length\n");
     this->length = length;
 }
 

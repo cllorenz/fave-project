@@ -353,6 +353,7 @@ string SourceProbeNode<T1, T2>::to_string() {
 template<class T1, class T2>
 void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
     const bool tracing = this->logger->isTraceEnabled();
+    const bool debug = this->logger->isDebugEnabled();
     if (tracing) {
       stringstream enl;
       enl << "SourceProbeNode::enlarge(): id 0x" << std::hex << this->node_id;
@@ -362,12 +363,12 @@ void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
     if (length <= this->length) {
         return;
     }
-    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
+    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
     filter->enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge test");
+    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): enlarge test");
     test->enlarge(length);
     Node<T1, T2>::enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): persist length\n");
+    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): persist length\n");
     this->length = length;
 }
 

@@ -280,9 +280,12 @@ void Node<T1, T2>::remove_src_flows_from_pipe(Pipeline<T1, T2> *fwd_p) {
   }
 }
 
+
+
 template<class T1, class T2>
 void Node<T1, T2>::enlarge(uint32_t length) {
     const bool tracing = this->logger->isTraceEnabled();
+    const bool debug = this->logger->isDebugEnabled();
     if (tracing) {
       stringstream enl;
       enl << "Node::enlarge(): id 0x" << std::hex << this->node_id;
@@ -293,47 +296,56 @@ void Node<T1, T2>::enlarge(uint32_t length) {
         return;
     }
 #ifdef GENERIC_PS
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge match");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge match");
     if (this->match)
         this->match->enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge inverse match");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge inverse match");
     if (this->inv_match)
         this->inv_match->enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
     for (auto const &next: next_in_pipeline)
         next->pipe_array->enlarge(length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge incoming pipelines");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge incoming pipelines");
     for (auto const &prev: prev_in_pipeline)
         prev->pipe_array->enlarge(length);
 
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge flows");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge flows");
     for (auto const &flow: source_flow) {
       if (flow->hs_object) flow->hs_object->enlarge(length);
       if (flow->processed_hs) flow->processed_hs->enlarge(length);
     }
 #else
     const size_t olen = this->length;
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge match");
-    if (this->match)
-        array_resize(this->match, olen, length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge inverse match");
-    if (this->inv_match)
-        array_resize(this->inv_match, olen, length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
-    for (auto const &next: next_in_pipeline)
-        array_resize(next->pipe_array, olen, length);
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge incoming pipelines");
-    for (auto const &prev: prev_in_pipeline)
-        array_resize(prev->pipe_array, olen, length);
+    T2 *tmp;
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge match");
+    if (this->match) {
+        tmp = array_resize(this->match, olen, length);
+        this->match = tmp;
+    }
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge inverse match");
+    if (this->inv_match) {
+        tmp = array_resize(this->inv_match, olen, length);
+        this->inv_match = tmp;
+    }
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge outgoing pipelines");
+    for (auto const &next: next_in_pipeline) {
+        tmp = array_resize(next->pipe_array, olen, length);
+        next->pipe_array = tmp;
+    }
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge incoming pipelines");
+    for (auto const &prev: prev_in_pipeline) {
+        tmp = array_resize(prev->pipe_array, olen, length);
+        prev->pipe_array = tmp;
+    }
 
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): enlarge flows");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): enlarge flows");
     for (auto const &flow: source_flow) {
       if (flow->hs_object) hs_enlarge(flow->hs_object, length);
       if (flow->processed_hs) hs_enlarge(flow->processed_hs, length);
     }
 #endif
 
-    if (tracing) LOG4CXX_TRACE(this->logger, "Node::enlarge(): persist length");
+    if (debug) LOG4CXX_DEBUG(this->logger, "Node::enlarge(): persist length");
     this->length = length;
 }
 
