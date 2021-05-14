@@ -18,8 +18,8 @@ TOPOLOGY='bench/wl_stanford/stanford-json/device_topology.json'
 ROUTES='bench/wl_stanford/stanford-json/routes.json'
 SOURCES='bench/wl_stanford/stanford-json/sources.json'
 
-
-with open('bench/wl_stanford/stanford-json/mapping.json', 'r') as mf:
+MAP_FILE='bench/wl_stanford/stanford-json/mapping.json'
+with open(MAP_FILE, 'r') as mf:
     MAPPING = Mapping.from_json(json.loads(mf.read()))
 
 
@@ -62,13 +62,13 @@ if __name__ == '__main__':
     )
 
     os.system(
-        "bash scripts/start_np.sh -l bench/wl_stanford/np.conf %s" % (
+        "bash scripts/start_np.sh -L 16 -l bench/wl_stanford/np.conf %s" % (
             "-u /dev/shm/np1.socket" if use_unix  else "-s 127.0.0.1 -p 44001"
         )
     )
     os.system(
-        "bash scripts/start_aggr.sh -S %s %s" % (
-            ("/dev/shm/np1.socket", "-u") if use_unix else ("127.0.0.1:44001", "")
+        "bash scripts/start_aggr.sh -m %s -S %s %s" % (
+            (MAP_FILE, "/dev/shm/np1.socket", "-u") if use_unix else (MAP_FILE, "127.0.0.1:44001", "")
         )
     )
 
