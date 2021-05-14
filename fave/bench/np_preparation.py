@@ -227,7 +227,7 @@ def prepare_benchmark(
             last_was_source = False
 
             probe_name = _probe_id_to_name(command['params']['id'], tables)
-            probe_test_path = command['params']['test']['pathlets']
+#            probe_test_path = command['params']['test']['pathlets']
 
 #            topology['devices'].append((
 #                probe_name,
