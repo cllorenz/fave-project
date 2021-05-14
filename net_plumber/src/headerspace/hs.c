@@ -424,7 +424,7 @@ vec_enlarge (struct hs_vec *vec, size_t length_old, size_t length)
 		return;
 	}
 	for (size_t i = 0; i < vec->used; i++) {
-		array_t *tmp = array_resize(vec->elems[i],length_old,length);
+		array_t *tmp = array_resize(vec->elems[i], length_old, length);
         vec->elems[i] = tmp;
 	}
 #ifndef NEW_HS
