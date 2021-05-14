@@ -485,6 +485,7 @@ PROTO(expand)
   size_t len = PARAM(length).asUInt64();
   assert (len % 8 == 0);
   size_t ret = netPlumber->expand((len / 8) + ((len % 8) ? 1 : 0));
+  this->length = ret;
   RETURN((Json::Value::UInt64) ret);
 }
 
