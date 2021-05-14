@@ -76,9 +76,13 @@ echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
 
 echo "ok"
 
+export PYTHONPATH="$(pwd):${PYTHONPATH}"
+
 echo -n "start netplumber... "
-bash scripts/start_np.sh examples/example.conf
+bash scripts/start_np.sh -l examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
+
+sleep 1
 
 echo -n "start aggregator... "
 bash scripts/start_aggr.sh
@@ -104,8 +108,6 @@ HOST2=hs2
 PROBE1=hp1
 PROBE2=hp2
 
-PYTHONPATH="${PYTHONPATH}:`pwd`/"
-export PYTHONPATH
 
 CNT=0
 
