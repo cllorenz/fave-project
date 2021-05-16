@@ -18,5 +18,6 @@
         "yozb_rtr"
     ],
     "table_types" : ["in", "mid", "out"],
-    "length" : 16
+    "length" : 16,
+    "with_paths" : false
 }

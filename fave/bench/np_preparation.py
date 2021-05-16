@@ -39,18 +39,22 @@ def _port_no_to_port_name(port,
     raise Exception('invalid port: %d' % port)
 
 
-def _probe_port_to_port_name(port, tables):
-    return 'probe.%s.1' % (tables[((port % 10000) % 100) - 1])
-#    return 'probe.%s.%d.1' % (tables[((port % 10000) % 100) - 1], port)
+def _probe_port_to_port_name(port, tables, first=False):
+    if first:
+        return 'probe.%s.1' % (tables[((port % 10000) % 100) - 1])
+    else:
+        return 'probe.%s.%d.1' % (tables[((port % 10000) % 100) - 1], port)
 
 
 def _source_port_to_port_name(port, tables):
     return 'source.%s.1' % (tables[((port % 20000) / 100) - 1])
 
 
-def _probe_id_to_name(id, tables):
-    return 'probe.%s' % (tables[((id % 10000) % 100) - 1])
-#    return 'probe.%s.%d' % (tables[((id % 10000) % 100) - 1], id)
+def _probe_id_to_name(id, tables, first=False):
+    if first:
+        return 'probe.%s' % (tables[((id % 10000) / 100) - 1])
+    else:
+        return 'probe.%s.%d' % (tables[((id % 10000) / 100) - 1], id)
 
 
 def _source_id_to_name(id, tables):
@@ -217,47 +221,46 @@ def prepare_benchmark(
         ],
         'links' : []
     }
-    last_was_probe = False
-    last_was_source = False
-    probes = set()
+
+    first_probes = set()
     probe_links = set()
+
+    port_is_source = {}
+    source_ports = set()
+    probe_ports = set()
+
     for command in policy_json['commands']:
         if command['method'] == 'add_source_probe':
-            last_was_probe = True
-            last_was_source = False
 
-            probe_name = _probe_id_to_name(command['params']['id'], tables)
-#            probe_test_path = command['params']['test']['pathlets']
+            probe_name = _probe_id_to_name(command['params']['id'], tables, first=True)
+            is_first = not probe_name in first_probes
+            if not is_first:
+                probe_name = _probe_id_to_name(command['params']['id'], tables, first=False)
 
-#            topology['devices'].append((
-#                probe_name,
-#                'probe',
-#                'existential',
-#                None, # match
-#                None, # filter fields
-#                ['vlan=0'], # test fields
-#                [".*(port in (%s))$" % ','.join([
-#                    _port_no_to_port_name(
-#                        p, table_id_to_name, intervals
-#                    ) for p in probe_test_path[0]['ports']
-#                ])] # test path
-#            ))
+            probe_test_path = [".*(port in (%s))$" % ','.join([
+                _port_no_to_port_name(
+                    p, table_id_to_name, intervals
+                ) for p in command['params']['test']['pathlets'][0]['ports']
+            ])] if 'pathlets' in command['params']['test'] else None
 
-            if probe_name not in probes:
-                topology['devices'].append((
-                    probe_name,
-                    'probe',
-                    'existential',
-                    None, # match
-                    None, # filter fields
-                    ['vlan=0'], # test fields
-                    None
-                ))
-                probes.add(probe_name)
+            topology['devices'].append((
+                probe_name,
+                'probe',
+                'existential',
+                None, # match
+                None, # filter fields
+                ['vlan=0'], # test fields
+                probe_test_path # test path
+            ))
+            if is_first:
+                first_probes.add(probe_name)
+
+            for port in command['params']['ports']:
+                port_is_source[port] = False
+                probe_ports.add(port)
+
 
         elif command['method'] == 'add_source':
-            last_was_probe = False
-            last_was_source = True
 
             sources['devices'].append((
                 _source_id_to_name(command['params']['id'], tables),
@@ -265,36 +268,36 @@ def prepare_benchmark(
                 ['ipv4_dst=0.0.0.0/0']
             ))
 
+            for port in command['params']['ports']:
+                port_is_source[port] = True
+                source_ports.add(port)
+
+
         elif command['method'] == 'add_link':
-            if last_was_probe and not last_was_source:
-                src_port = _port_no_to_port_name(
-                    command['params']['from_port'], table_id_to_name, intervals
-                )
-                dst_port = _probe_port_to_port_name(
-                    command['params']['to_port'], tables
-                )
-
-#                topology['links'].append((src_port, dst_port, False))
-                if (src_port, dst_port) not in probe_links:
-                    topology['links'].append((src_port, dst_port, False))
-                    probe_links.add((src_port, dst_port))
-
-            elif not last_was_probe and last_was_source:
+            src_port_num = command['params']['from_port']
+            if src_port_num in source_ports:
                 src_port = _source_port_to_port_name(
-                    command['params']['from_port'], tables
+                    src_port_num, tables
                 )
-                dst_port = _port_no_to_port_name(
-                    command['params']['to_port'], table_id_to_name, intervals
-                )
-
-                sources['links'].append((src_port, dst_port, True))
-
             else:
-                raise Exception(
-                    'cannot process flag combination of %s %s for %s' % (
-                        last_was_probe, last_was_source, command
-                    )
+                src_port = _port_no_to_port_name(
+                    src_port_num, table_id_to_name, intervals
                 )
+
+            dst_port_num = command['params']['to_port']
+            if dst_port_num in probe_ports:
+                dst_port = _probe_port_to_port_name(
+                    dst_port_num, tables
+                )
+            else:
+                dst_port = _port_no_to_port_name(
+                    dst_port_num, table_id_to_name, intervals
+                )
+
+            if port_is_source.get(src_port_num, False):
+                sources['links'].append((src_port, dst_port, True))
+            elif port_is_source.get(dst_port_num, True) == False:
+                probe_links.add((src_port, dst_port, False))
 
         else:
             print 'skip unknown command: %s' % command

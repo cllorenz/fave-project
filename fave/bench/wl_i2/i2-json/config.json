@@ -11,5 +11,6 @@
         "wash"
     ],
     "table_types" : ["in", "out"],
-    "length" : 6
+    "length" : 6,
+    "with_paths" : false
 }
