@@ -45,7 +45,7 @@ REACH_JSON = "bench/wl_up/reachable.json"
 
 if __name__ == "__main__":
     use_unix = True
-    use_tcp_np = True
+    use_tcp_np = False
 
     tds = 1
     if len(sys.argv) == 2:
