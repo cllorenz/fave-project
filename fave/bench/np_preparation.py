@@ -19,7 +19,8 @@ _CONVERSION = {
 }
 
 
-def _port_no_to_port_name(port,
+def _port_no_to_port_name(
+        port,
         table_id_to_name,
         intervals,
         skip_table_name=False
@@ -39,11 +40,12 @@ def _port_no_to_port_name(port,
     raise Exception('invalid port: %d' % port)
 
 
+
 def _probe_port_to_port_name(port, tables, first=False):
     if first:
-        return 'probe.%s.1' % (tables[((port % 10000) % 100) - 1])
+        return 'probe.%s.1' % (tables[((port % 10000) / 100) - 1])
     else:
-        return 'probe.%s.%d.1' % (tables[((port % 10000) % 100) - 1], port)
+        return 'probe.%s.%d.1' % (tables[((port % 10000) / 100) - 1], port)
 
 
 def _source_port_to_port_name(port, tables):
@@ -174,25 +176,15 @@ def prepare_benchmark(
         'links' : []
     }
 
-    # transform link topology
-    topo_json = json.load(open(topo_file, 'r'))
-    topo_links = []
-    for link in topo_json['topology']:
-        topo_links.append((
-            _port_no_to_port_name(link['src'], table_id_to_name, intervals),
-            _port_no_to_port_name(link['dst'], table_id_to_name, intervals),
-            False
-        ))
-
-    topology['links'] = topo_links
-
     # create devices for topology and transform rule tables
     routes = []
     for tid, table in enumerate(tables, start=1):
         for ttid, ttype in enumerate(table_types):
             table_json = json.load(
-                open("%s/%s.%s.rules.json" % (json_dir, table, ttype), 'r')
+#                open("%s/%s.%s.rules.json" % (json_dir, table, ttype), 'r')
+                open("%s/%s.tf.json" % (json_dir, tid * 10 + ttid), 'r')
             )
+            assert tid * 10 + ttid == table_json['id']
             table_id = table_json['id']
             table_name = table_id_to_name[table_id]
             device_ports = [
@@ -236,6 +228,8 @@ def prepare_benchmark(
             is_first = not probe_name in first_probes
             if not is_first:
                 probe_name = _probe_id_to_name(command['params']['id'], tables, first=False)
+            else:
+                first_probes.add(probe_name)
 
             probe_test_path = [".*(port in (%s))$" % ','.join([
                 _port_no_to_port_name(
@@ -252,11 +246,8 @@ def prepare_benchmark(
                 ['vlan=0'], # test fields
                 probe_test_path # test path
             ))
-            if is_first:
-                first_probes.add(probe_name)
 
             for port in command['params']['ports']:
-                port_is_source[port] = False
                 probe_ports.add(port)
 
 
@@ -269,11 +260,10 @@ def prepare_benchmark(
             ))
 
             for port in command['params']['ports']:
-                port_is_source[port] = True
                 source_ports.add(port)
 
-
-        elif command['method'] == 'add_link':
+    for command in policy_json['commands']:
+        if command['method'] == 'add_link':
             src_port_num = command['params']['from_port']
             if src_port_num in source_ports:
                 src_port = _source_port_to_port_name(
@@ -294,14 +284,55 @@ def prepare_benchmark(
                     dst_port_num, table_id_to_name, intervals
                 )
 
-            if port_is_source.get(src_port_num, False):
+            if src_port_num in source_ports:
                 sources['links'].append((src_port, dst_port, True))
-            elif port_is_source.get(dst_port_num, True) == False:
+
+            elif dst_port_num in probe_ports:
+                if _probe_id_to_name(dst_port_num, tables, first=True) in first_probes:
+                    dst_port = _probe_port_to_port_name(dst_port_num, tables, first=True)
+
                 probe_links.add((src_port, dst_port, False))
 
-        else:
-            print 'skip unknown command: %s' % command
+            else:
+                print "cannot add link: %s" % (src_port, dst_port)
 
+    # transform link topology
+    topo_json = json.load(open(topo_file, 'r'))
+    topo_links = []
+    for link in topo_json['topology']:
+
+        src_port_num = link['src']
+        if src_port_num in source_ports:
+            src_port = _source_port_to_port_name(
+                src_port_num, tables
+            )
+        else:
+            src_port = _port_no_to_port_name(
+                src_port_num, table_id_to_name, intervals
+            )
+
+        dst_port_num = link['dst']
+        if dst_port_num in probe_ports:
+            dst_port = _probe_port_to_port_name(
+                dst_port_num, tables
+            )
+        else:
+            dst_port = _port_no_to_port_name(
+                dst_port_num, table_id_to_name, intervals
+            )
+
+        if src_port_num in source_ports:
+            sources['links'].append((src_port, dst_port, True))
+            continue
+
+        elif dst_port_num in probe_ports:
+            if _probe_id_to_name(dst_port_num, tables, first=True) in first_probes:
+                dst_port = _probe_port_to_port_name(dst_port_num, tables, first=True)
+
+        topo_links.append((src_port, dst_port, False))
+
+    topology['links'] = topo_links
+    topology['links'] += probe_links
 
     # write json files
     with open(topology_file, 'w') as tf:
