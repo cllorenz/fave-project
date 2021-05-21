@@ -22,12 +22,16 @@ VANILLA_DIR=$BENCH"_json_vanilla"
 mkdir -p $VANILLA_DIR
 FAVENP_DIR=$BENCH"_json_favenp"
 mkdir -p $FAVENP_DIR
+FAVENP_DUMP=$BENCH"_favenp_dump"
+mkdir -p $FAVENP_DUMP
+
 
 TF_LOG=$BENCH"_gen_tfs.log"
 JSON_LOG=$BENCH"_gen_json.log"
 
 VANILLA_LOG=$BENCH"_vanilla.log"
 FAVENP_LOG=$BENCH"_favenp.log"
+DUMP_LOG=$BENCH"_favenp_dump.log"
 
 HDR_LEN=`grep "length" $VANILLA_DIR/config.json | tr -d ' ,' | cut -d: -f2`
 
@@ -73,7 +77,9 @@ echo "run favenp benchmark"
 net_plumber \
     --hdr-len $HDR_LEN \
     --load $FAVENP_DIR \
-    --policy $FAVENP_DIR/policy.json > $FAVENP_LOG
+    --policy $FAVENP_DIR/policy.json \
+    --dump $FAVENP_DUMP > $FAVENP_LOG
+
 cat $FAVENP_LOG >> $LOG
 
 LOAD_FAVENP=`grep "total run time" $FAVENP_LOG | cut -d' ' -f 4`
@@ -84,3 +90,20 @@ echo "reach: $POLICY_FAVENP s"
 
 echo "compare results"
 python2 analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
+
+echo "run favenp on dump"
+net_plumber \
+    --hdr-len $HDR_LEN \
+    --load $FAVENP_DUMP \
+    --policy $FAVENP_DUMP/policy.json > $DUMP_LOG
+
+cat $DUMP_LOG >> $LOG
+
+LOAD_DUMP=`grep "total run time" $DUMP_LOG | cut -d' ' -f 4`
+POLICY_DUMP=`grep "Loaded policy" $DUMP_LOG | cut -d' ' -f5`
+
+echo "init: "$(echo $LOAD_DUMP | awk '{ print $1 / 1000000.0; }')" s"
+echo "reach: $POLICY_DUMP s"
+
+echo "compare results"
+python2 analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
