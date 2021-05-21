@@ -1,0 +1,197 @@
+{
+ "rules": [
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620011
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630011
+   ], 
+   "action": "fwd", 
+   "position": 0, 
+   "id": 266287972353, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620010
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630010
+   ], 
+   "action": "fwd", 
+   "position": 1, 
+   "id": 266287972354, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620009
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630009
+   ], 
+   "action": "fwd", 
+   "position": 2, 
+   "id": 266287972355, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620008
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630008
+   ], 
+   "action": "fwd", 
+   "position": 3, 
+   "id": 266287972356, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620007
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630007
+   ], 
+   "action": "fwd", 
+   "position": 4, 
+   "id": 266287972357, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620006
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630006
+   ], 
+   "action": "fwd", 
+   "position": 5, 
+   "id": 266287972358, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620005
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630005
+   ], 
+   "action": "fwd", 
+   "position": 6, 
+   "id": 266287972359, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620004
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630004
+   ], 
+   "action": "fwd", 
+   "position": 7, 
+   "id": 266287972360, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620003
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630003
+   ], 
+   "action": "fwd", 
+   "position": 8, 
+   "id": 266287972361, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620002
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630002
+   ], 
+   "action": "fwd", 
+   "position": 9, 
+   "id": 266287972362, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": null, 
+   "out_ports": [
+    620001
+   ], 
+   "mask": null, 
+   "in_ports": [
+    630001
+   ], 
+   "action": "fwd", 
+   "position": 10, 
+   "id": 266287972363, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"
+  }, 
+  {
+   "rewrite": "00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000", 
+   "out_ports": [
+    620004
+   ], 
+   "mask": "00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,11111111,11111111", 
+   "in_ports": [
+    630004
+   ], 
+   "action": "rw", 
+   "position": 11, 
+   "id": 266287972364, 
+   "match": "xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx,00000000,00010000"
+  }
+ ], 
+ "ports": [
+  620001, 
+  620002, 
+  620003, 
+  620004, 
+  620005, 
+  620006, 
+  620007, 
+  620008, 
+  620009, 
+  620010, 
+  620011, 
+  630001, 
+  630002, 
+  630003, 
+  630004, 
+  630005, 
+  630006, 
+  630007, 
+  630008, 
+  630009, 
+  630010, 
+  630011
+ ], 
+ "id": 62
+}
