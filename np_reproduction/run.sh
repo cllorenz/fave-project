@@ -50,6 +50,9 @@ cat $JSON_LOG >> $LOG
 echo "generate policy"
 python2 create_policy.py $VANILLA_DIR >> $LOG
 
+echo "rename tfs"
+bash rename_workload.sh $VANILLA_DIR
+
 echo "transform to favenp workload"
 python2 transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
 
