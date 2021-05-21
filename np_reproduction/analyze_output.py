@@ -32,7 +32,9 @@ for output_file in output_files:
         prefix = output_file.split('.')[0].split('_')[1] # XXX :-(
         config_json = json.load(open("%s_json_%s/config.json" % (benchmark, prefix)))
         tables = {
-            tid*10 + ttid : "%s.%s" % (table, ttype) for ttid, ttype in enumerate(config_json["table_types"]) for tid, table in enumerate(config_json["tables"], start=1)
+            tid*10 + ttid : "%s.%s" % (table, ttype) for ttid, ttype in \
+                enumerate(config_json["table_types"]) for tid, table in \
+                enumerate(config_json["tables"], start=1)
         }
 
         for line in f.readlines():
