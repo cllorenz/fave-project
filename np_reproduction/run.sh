@@ -60,7 +60,7 @@ bash rename_workload.sh $VANILLA_DIR
 echo "transform to favenp workload"
 python2 transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
 
-echo "run vanilla benchmark"
+echo "run vanillanp on vanilla workload"
 $HASSEL_DIR/net_plumber/Ubuntu-NetPlumber-Release/net_plumber \
     --hdr-len $HDR_LEN \
     --load $VANILLA_DIR \
@@ -73,7 +73,7 @@ POLICY_VANILLA=`grep "Loaded policy" $VANILLA_LOG | cut -d' ' -f5`
 echo "init: "$(echo $LOAD_VANILLA | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_VANILLA s"
 
-echo "run favenp benchmark"
+echo "run favenp on favenp workload"
 net_plumber \
     --hdr-len $HDR_LEN \
     --load $FAVENP_DIR \
@@ -91,7 +91,7 @@ echo "reach: $POLICY_FAVENP s"
 echo "compare results"
 python2 analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
 
-echo "run favenp on dump"
+echo "run favenp on favenp dump"
 net_plumber \
     --hdr-len $HDR_LEN \
     --load $FAVENP_DUMP \
@@ -107,3 +107,75 @@ echo "reach: $POLICY_DUMP s"
 
 echo "compare results"
 python2 analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
+
+FAVE_DIR=$BENCH"_json_fave"
+cp -r $FAVENP_DIR $FAVE_DIR
+cp $FAVE_DIR/*.json ../fave/bench/wl_$BENCH/$BENCH"-json/"
+
+REPRO_WD=$(pwd)
+FAVE_LOG=$REPRO_WD/$BENCH"_fave.log"
+FAVE_DUMP_LOG=$BENCH"_fave_dump.log"
+FAVE_DUMP=$REPRO_WD/$BENCH"_fave_dump"
+mkdir -p $FAVE_DUMP
+
+echo "run fave on favenp workload"
+
+cd ../fave
+
+PYTHONPATH=. python2 bench/wl_$BENCH/benchmark.py > $FAVE_LOG
+cat $FAVE_LOG >> $LOG
+
+FAVE_INIT=`grep "seconds" /dev/shm/np/aggregator.log | grep -v "dump\|stop" | \
+  awk 'BEGIN {
+    done = 0; result = 0;
+  } {
+    if (done || $4 == "generators" || $4 == "generator") {
+      done = 1;
+    } else if (done && $4 == "probe") {
+      done = 0;
+      result += $6;
+    } else {
+      result += $6;
+    }
+  } END {
+    print result;
+  }'`
+
+FAVE_REACH=`grep "seconds" /dev/shm/np/aggregator.log | grep -v "dump\|stop" | \
+  awk 'BEGIN {
+    start = 0;
+    result = 0;
+  } {
+    if (start || $4 == "generators" || $4 == "generator") {
+      start = 1;
+      if ($4 == "generators" || $4 == "generator") {
+        result += $6;
+      } else if ($4 == "links") {
+        result += $6;
+      } else if ($4 == "probe") {
+        start = 0;
+      }
+    }
+  } END {
+    print result;
+  }'`
+
+echo "init: $FAVE_INIT s"
+echo "reach: $FAVE_REACH s"
+
+cp np_dump/* $FAVE_DUMP/
+
+cd $REPRO_WD
+
+echo "run favenp on fave dump"
+
+net_plumber \
+    --hdr-len $HDR_LEN \
+    --load $FAVE_DUMP \
+    --policy $FAVE_DUMP/policy.json > $FAVE_DUMP_LOG
+
+LOAD_FAVE_DUMP=`grep "total run time" $FAVE_DUMP_LOG | cut -d' ' -f 4`
+POLICY_FAVE_DUMP=`grep "Loaded policy" $FAVE_DUMP_LOG | cut -d' ' -f5`
+
+echo "init: "$(echo $LOAD_FAVE_DUMP | awk '{ print $1 / 1000000.0; }')" s"
+echo "reach: $POLICY_FAVE_DUMP s"
