@@ -18,16 +18,17 @@ ttypes = { ttype : idx for idx, ttype in enumerate(config_json["table_types"]) }
 for tid, table in enumerate(tables, start=1):
     print "table", table
     for ttid, ttype in enumerate(ttypes):
+        etid = tid * 10 + ttid
         print "  ttype", ttype
-        print "    read from", '%s/%s.tf.json' % (src_dir, tid * 10 + ttid)
-        tab = json.load(open('%s/%s.tf.json' % (src_dir, tid * 10 + ttid)))
+        print "    read from", '%s/%s.tf.json' % (src_dir, etid)
+        tab = json.load(open('%s/%s.tf.json' % (src_dir, etid)))
 
-        assert tid * 10 + ttid == tab['id']
+        assert etid == tab['id']
         tab['rules'].reverse()
 
         for rid, rule in enumerate(tab['rules'], start=0):
             rule['position'] = rid
-            rule['id'] = (tid << 32) + rid + 1
+            rule['id'] = (etid << 32) + rid + 1
             rule['mask'] = toggle_mask_bits(rule['mask'])
 
         print "    write to %s/%s.tf.json" % (dst_dir, tid * 10 + ttid)
