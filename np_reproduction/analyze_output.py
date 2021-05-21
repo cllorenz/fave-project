@@ -48,9 +48,7 @@ for output_file in output_files:
             elif tokens[7] == 'Probe':
                 probe_id = int(tokens[8])
                 probes.setdefault(probe_id, 0)
-                if tokens[15] != 'Started':
-                    probes[probe_id] += 1
-#                print probe_id, probes[probe_id], tokens[7], tokens[8], tokens[15]
+                probes[probe_id] += 1
 
             elif tokens[6] == 'Loop':
                 loop = True
