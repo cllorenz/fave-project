@@ -23,6 +23,7 @@
 #include "../jsoncpp/json/json.h"
 #include <fstream>
 #include <dirent.h>
+#include <algorithm>
 #include "array_packet_set.h"
 #include "hs_packet_set.h"
 #ifdef USE_BDD
@@ -95,6 +96,26 @@ void load_netplumber_from_dir(
   //read every json file.
   struct dirent *ent;
   DIR *dir = opendir(json_file_path.c_str());
+#ifdef SORTED_DIR
+  std::vector<std::string> files;
+  if (dir != nullptr) {
+    while ((ent = readdir(dir)) != nullptr) {
+      file_name = string(ent->d_name);
+      if (file_name.find(".rules.json") != string::npos || file_name.find(".tf.json") != string::npos) {
+        files.push_back(file_name);
+      }
+    }
+  }
+
+#ifdef SORTED_FWD
+  std::sort(files.begin(), files.end());
+#else
+  std::sort(files.rbegin(), files.rend());
+#endif
+
+  for (auto file: files) {
+    file_name = json_file_path + "/" + file;
+#else
   if (dir != nullptr) {
     while ((ent = readdir(dir)) != nullptr ) {
       file_name = string(ent->d_name);
@@ -102,6 +123,7 @@ void load_netplumber_from_dir(
           file_name.find(".tf.json") != string::npos) {
         // open the json file
         file_name = json_file_path + "/" + file_name;
+#endif
         printf("=== Loading rule file %s to NetPlumber ===\n",file_name.c_str());
         jsfile.open (file_name.c_str());
         reader.parse(jsfile,root,false);
@@ -172,8 +194,10 @@ void load_netplumber_from_dir(
 
         // clean up
         jsfile.close();
+#ifndef SORTED_DIR
       }
     }
+#endif
     //N->print_plumbing_network();
   }
   double avg = total_run_time / rule_counter;
