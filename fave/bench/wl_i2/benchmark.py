@@ -17,6 +17,7 @@ CHECKS='bench/wl_i2/checks.json'
 TOPOLOGY='bench/wl_i2/i2-json/device_topology.json'
 ROUTES='bench/wl_i2/i2-json/routes.json'
 SOURCES='bench/wl_i2/i2-json/sources.json'
+PROBES='bench/wl_i2/i2-json/probes.json'
 
 MAP_FILE='bench/wl_i2/i2-json/mapping.json'
 with open(MAP_FILE, 'r') as mf:
@@ -36,6 +37,7 @@ if __name__ == '__main__':
         "bench/wl_i2/i2-json",
         TOPOLOGY,
         SOURCES,
+        PROBES,
         ROUTES,
         MAPPING,
         intervals
@@ -71,25 +73,32 @@ if __name__ == '__main__':
     )
 
     with open(TOPOLOGY, 'r') as raw_topology:
-        devices, links = json.loads(raw_topology.read()).values()
+        devices, links = json.load(raw_topology).values()
 
         print "create topology..."
         create_topology(devices, links, use_unix=use_unix)
         print "topology sent to fave"
 
     with open(ROUTES, 'r') as raw_routes:
-        routes = json.loads(raw_routes.read())
+        routes = json.load(raw_routes)
 
         print "add routes..."
         add_routes(routes, use_unix=use_unix)
         print "routes sent to fave"
 
-    with open(SOURCES, 'r') as raw_topology:
-        devices, links = json.loads(raw_topology.read()).values()
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.load(raw_sources).values()
 
         print "create sources..."
-        create_topology(devices, links, use_unix=use_unix)
+        create_topology(sources, links, use_unix=use_unix)
         print "sources sent to fave"
+
+    with open(PROBES, 'r') as raw_probes:
+        probes, links = json.load(raw_probes).values()
+
+        print "create probes..."
+        create_topology(probes, links, use_unix=use_unix)
+        print "probes sent to fave"
 
     print "wait for fave..."
 

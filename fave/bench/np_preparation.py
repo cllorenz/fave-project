@@ -153,6 +153,7 @@ def prepare_benchmark(
         json_dir,
         topology_file,
         sources_file,
+        probes_file,
         routes_file,
         mapping,
         intervals
@@ -172,7 +173,7 @@ def prepare_benchmark(
     }
 
     topology = {
-        'devices' : [('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None)],
+        'devices' : [],
         'links' : []
     }
 
@@ -215,6 +216,13 @@ def prepare_benchmark(
         'links' : []
     }
 
+    probes = {
+        'devices' : [
+            ('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None)
+        ],
+        'links' : []
+    }
+
     first_probes = set()
     probe_links = set()
 
@@ -238,7 +246,7 @@ def prepare_benchmark(
                 ) for p in command['params']['test']['pathlets'][0]['ports']
             ])] if 'pathlets' in command['params']['test'] else None
 
-            topology['devices'].append((
+            probes['devices'].append((
                 probe_name,
                 'probe',
                 'existential',
@@ -297,9 +305,10 @@ def prepare_benchmark(
             else:
                 print "cannot add link: %s" % (src_port, dst_port)
 
+    probes['links'] = list(probe_links)
+
     # transform link topology
     topo_json = json.load(open(topo_file, 'r'))
-    topo_links = []
     for link in topo_json['topology']:
 
         src_port_num = link['src']
@@ -322,18 +331,7 @@ def prepare_benchmark(
                 dst_port_num, table_id_to_name, intervals
             )
 
-        if src_port_num in source_ports:
-            sources['links'].append((src_port, dst_port, True))
-            continue
-
-        elif dst_port_num in probe_ports:
-            if _probe_id_to_name(dst_port_num, tables, first=True) in first_probes:
-                dst_port = _probe_port_to_port_name(dst_port_num, tables, first=True)
-
-        topo_links.append((src_port, dst_port, False))
-
-    topology['links'] = topo_links
-    topology['links'] += probe_links
+        topology['links'].append((src_port, dst_port, False))
 
     # write json files
     with open(topology_file, 'w') as tf:
@@ -341,9 +339,14 @@ def prepare_benchmark(
             json.dumps(topology, indent=2) + '\n'
         )
 
-    with open(sources_file, 'w') as tf:
-        tf.write(
+    with open(sources_file, 'w') as sf:
+        sf.write(
             json.dumps(sources, indent=2) + '\n'
+        )
+
+    with open(probes_file, 'w') as pf:
+        pf.write(
+            json.dumps(probes, indent=2) + '\n'
         )
 
     with open (routes_file, 'w') as rf:

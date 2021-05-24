@@ -17,6 +17,7 @@ CHECKS='bench/wl_stanford/checks.json'
 TOPOLOGY='bench/wl_stanford/stanford-json/device_topology.json'
 ROUTES='bench/wl_stanford/stanford-json/routes.json'
 SOURCES='bench/wl_stanford/stanford-json/sources.json'
+PROBES='bench/wl_stanford/stanford-json/probes.json'
 
 MAP_FILE='bench/wl_stanford/stanford-json/mapping.json'
 with open(MAP_FILE, 'r') as mf:
@@ -38,6 +39,7 @@ if __name__ == '__main__':
         "bench/wl_stanford/stanford-json",
         TOPOLOGY,
         SOURCES,
+        PROBES,
         ROUTES,
         MAPPING,
         intervals
@@ -86,11 +88,18 @@ if __name__ == '__main__':
         add_routes(routes, use_unix=use_unix)
         print "routes sent to fave"
 
-    with open(SOURCES, 'r') as raw_topology:
-        devices, links = json.loads(raw_topology.read()).values()
+    with open(PROBES, 'r') as raw_probes:
+        probes, links = json.loads(raw_probes.read()).values()
+
+        print "create probes..."
+        create_topology(probes, links, use_unix=use_unix)
+        print "probes sent to fave"
+
+    with open(SOURCES, 'r') as raw_sources:
+        sources, links = json.loads(raw_sources.read()).values()
 
         print "create sources..."
-        create_topology(devices, links, use_unix=use_unix)
+        create_topology(sources, links, use_unix=use_unix)
         print "sources sent to fave"
 
     print "wait for fave..."
