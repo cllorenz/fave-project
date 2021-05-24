@@ -181,3 +181,6 @@ POLICY_FAVE_DUMP=`grep "Loaded policy" $FAVE_DUMP_LOG | cut -d' ' -f5`
 
 echo "init: "$(echo $LOAD_FAVE_DUMP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_FAVE_DUMP s"
+
+echo "compare results"
+python2 analyze_output.py $BENCH $FAVENP_LOG $FAVE_DUMP_LOG
