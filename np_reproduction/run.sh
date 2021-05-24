@@ -24,6 +24,7 @@ FAVENP_DIR=$BENCH"_json_favenp"
 mkdir -p $FAVENP_DIR
 FAVENP_DUMP=$BENCH"_favenp_dump"
 mkdir -p $FAVENP_DUMP
+rm -rf $FAVENP_DUMP/*
 
 
 TF_LOG=$BENCH"_gen_tfs.log"
@@ -36,6 +37,7 @@ DUMP_LOG=$BENCH"_favenp_dump.log"
 HDR_LEN=`grep "length" $VANILLA_DIR/config.json | tr -d ' ,' | cut -d: -f2`
 
 echo "generate tfs"
+rm -rf $TF_DIR
 mkdir -p $TF_DIR
 PYTHONPATH=$HASSEL_DIR/hsa-python \
 python2 $TF_GENERATOR $BENCH"_orig" $TF_DIR > $TF_LOG
@@ -116,7 +118,6 @@ REPRO_WD=$(pwd)
 FAVE_LOG=$REPRO_WD/$BENCH"_fave.log"
 FAVE_DUMP_LOG=$BENCH"_fave_dump.log"
 FAVE_DUMP=$REPRO_WD/$BENCH"_fave_dump"
-mkdir -p $FAVE_DUMP
 
 echo "run fave on favenp workload"
 
@@ -163,7 +164,8 @@ FAVE_REACH=`grep "seconds" /dev/shm/np/aggregator.log | grep -v "dump\|stop" | \
 echo "init: $FAVE_INIT s"
 echo "reach: $FAVE_REACH s"
 
-cp np_dump/* $FAVE_DUMP/
+rm -rf $FAVE_DUMP
+cp -r np_dump $FAVE_DUMP
 
 cd $REPRO_WD
 
