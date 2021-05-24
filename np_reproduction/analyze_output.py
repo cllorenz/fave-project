@@ -29,7 +29,8 @@ for output_file in output_files:
         loops = []
         probes = {}
 
-        prefix = output_file.split('.')[0].split('_')[1] # XXX :-(
+        raw_prefix = output_file.split('/').pop()
+        prefix = raw_prefix.split('.')[0].split('_')[1] # XXX :-(
         config_json = json.load(open("%s_json_%s/config.json" % (benchmark, prefix)))
         tables = {
             tid*10 + ttid : "%s.%s" % (table, ttype) for ttid, ttype in \
