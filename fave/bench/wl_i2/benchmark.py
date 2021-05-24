@@ -67,7 +67,7 @@ if __name__ == '__main__':
         )
     )
     os.system(
-        "bash scripts/start_aggr.sh -m %s -S %s %s" % (
+            "bash scripts/start_aggr.sh -m %s -S %s %s" % (
             (MAP_FILE, "/dev/shm/np1.socket", "-u") if use_unix else (MAP_FILE, "127.0.0.1:44001", "")
         )
     )
