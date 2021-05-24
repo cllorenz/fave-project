@@ -123,7 +123,7 @@ _DEVICES = {
     "host" : _add_packet_filter
 }
 
-def create_topology(devices, links, use_unix=False):
+def create_topology(devices, links, use_unix=False, verbose=False):
     """ Builds a topology from devices and links.
 
     Keyword arguments:
@@ -139,7 +139,7 @@ def create_topology(devices, links, use_unix=False):
             t_start = time.time()
             _DEVICES[dtype](*device, use_unix=use_unix)
             t_end = time.time()
-            print "parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0)
+            if verbose: print "parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0)
         except KeyError as e:
             raise #Exception("No such device type: %s" % e.message)
 
