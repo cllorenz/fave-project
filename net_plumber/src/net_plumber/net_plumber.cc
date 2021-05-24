@@ -1436,6 +1436,37 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
     info_msg << "Dump sources and probes...";
     LOG4CXX_INFO(logger, info_msg.str());
 
+    for (
+        auto const &flow_node: this->flow_nodes) {
+        /*
+         *  {
+         *      "method" : "add_source",
+         *      "params" : {
+         *          "hs" : { "list" : [...], "diff" : [...] },
+         *          "ports" : [...]
+         *      }
+         *  }
+         */
+        Json::Value command(Json::objectValue);
+        command["method"] = "add_source";
+
+        Json::Value params(Json::objectValue);
+        Json::Value hs(Json::objectValue);
+#ifdef GENERIC_PS
+        flow_node->source_flow.back()->hs_object->to_json(hs);
+#else
+        hs_to_json(hs, flow_node->source_flow.back()->hs_object);
+#endif
+        params["hs"] = hs;
+        params["ports"] = list_to_json(flow_node->output_ports);
+        params["id"] = (Json::UInt64) flow_node->node_id;
+
+        command["params"] = params;
+
+        commands.append(command);
+    }
+
+    Json::Value policy(Json::objectValue);
     for (auto const &probe: this->probes) {
         /*
          *  {
@@ -1479,37 +1510,6 @@ void NetPlumber<T1, T2>::dump_plumbing_network(const string dir) {
         commands.append(command);
     }
 
-    for (
-        auto const &flow_node: this->flow_nodes) {
-        /*
-         *  {
-         *      "method" : "add_source",
-         *      "params" : {
-         *          "hs" : { "list" : [...], "diff" : [...] },
-         *          "ports" : [...]
-         *      }
-         *  }
-         */
-        Json::Value command(Json::objectValue);
-        command["method"] = "add_source";
-
-        Json::Value params(Json::objectValue);
-        Json::Value hs(Json::objectValue);
-#ifdef GENERIC_PS
-        flow_node->source_flow.back()->hs_object->to_json(hs);
-#else
-        hs_to_json(hs, flow_node->source_flow.back()->hs_object);
-#endif
-        params["hs"] = hs;
-        params["ports"] = list_to_json(flow_node->output_ports);
-        params["id"] = (Json::UInt64) flow_node->node_id;
-
-        command["params"] = params;
-
-        commands.append(command);
-    }
-
-    Json::Value policy(Json::objectValue);
     policy["commands"] = commands;
 
     stringstream tmp_policy;
