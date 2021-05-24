@@ -55,18 +55,18 @@ for probe_table in tables:
             "method" : "add_source_probe",
             "params" : {
                 "filter" : { "type" : "true" },
-				"match" : ','.join(["xxxxxxxx"]*hdr_len),
-				"ports" : [ probe_port ],
-				"test" : # complex expression if paths should be checked
-				{
-					"type" : "path",
+                "match" : ','.join(["xxxxxxxx"]*hdr_len),
+                "ports" : [ probe_port ],
+                "test" : # complex expression if paths should be checked
+                {
+                    "type" : "path",
                     "pathlets" : [
                         {
                             "type" : "last_ports",
                             "ports" : [ first_in_port[source_table] ]
                         }
                     ]
-				} if with_paths else { "type" : "true" },
+                } if with_paths else { "type" : "true" },
                 "mode" : "existential",
                 "id" : pid
             }
@@ -93,17 +93,17 @@ for table in tables:
     sid, source_port = sources[table]
 
     source_adds.append({
-		"method" : "add_source",
-		"params" :
-		{
-			"hs" : {
+        "method" : "add_source",
+        "params" :
+        {
+            "hs" : {
                 "list" : [ ','.join(["xxxxxxxx"]*hdr_len) ],
                 "diff" : None
             },
             "ports" : [ source_port ],
             "id" : sid
-		},
-	})
+        },
+    })
 
     # connect source to first ingress port
     table_port = first_in_port[table]
