@@ -180,11 +180,11 @@ def prepare_benchmark(
     routes = []
     for tid, table in enumerate(tables, start=1):
         for ttid, ttype in enumerate(table_types):
+            etid = tid * 10 + ttid
             table_json = json.load(
-#                open("%s/%s.%s.rules.json" % (json_dir, table, ttype), 'r')
-                open("%s/%s.tf.json" % (json_dir, tid * 10 + ttid), 'r')
+                open("%s/%s.tf.json" % (json_dir, etid), 'r')
             )
-            assert tid * 10 + ttid == table_json['id']
+            assert etid == table_json['id']
             table_id = table_json['id']
             table_name = table_id_to_name[table_id]
             device_ports = [
