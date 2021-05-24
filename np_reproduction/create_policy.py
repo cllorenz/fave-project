@@ -115,6 +115,6 @@ for table in tables:
         }
     })
 
-commands = probe_adds + probe_links + source_adds + source_links
+commands = source_adds + source_links + probe_adds + probe_links
 
 json.dump({ 'commands' : commands }, open("%s/policy.json" % src_dir, 'w'), indent=2)
