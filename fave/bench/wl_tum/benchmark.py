@@ -16,7 +16,7 @@ REACH_JSON = "bench/wl_tum/reachable.json"
 
 REACH = "bench/wl_tum/reachability.csv"
 
-RULESET = 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset'
+RULESET = 'bench/wl_tum/rulesets/tum-ruleset'
 
 if __name__ == '__main__':
     import json
@@ -25,13 +25,14 @@ if __name__ == '__main__':
     import getopt
 
     verbose = False
-    ip = 'ipv6'
+    ip = 'ipv4'
     ruleset = RULESET
+    mapping = 'bench/wl_tum/mapping.json'
 
     use_unix = True
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "vr:46")
+        opts, args = getopt.getopt(sys.argv[1:], "vm:r:46")
     except getopt.GetoptError as err:
         print err
         sys.exit(1)
@@ -45,6 +46,8 @@ if __name__ == '__main__':
             ip = 'ipv4'
         if opt == '-6':
             ip = 'ipv6'
+        if opt == '-m':
+            mapping = arg
 
     if verbose: print "Generate benchmark..."
 
@@ -52,9 +55,8 @@ if __name__ == '__main__':
     os.system("rm -rf /dev/shm/np/*")
     os.system("rm -f /dev/shm/*.socket")
 
-
-    os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
-    if ruleset == RULESET:
+    if ruleset == 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset':
+        os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
         os.system("sed -i 's/ -i / -i eth/g' %s" % ruleset)
         os.system("sed -i 's/ -o / -o eth/g' %s" % ruleset)
 
@@ -66,15 +68,24 @@ if __name__ == '__main__':
     if verbose:
         print "Run benchmark..."
 
+    arguments = "-l bench/wl_tum/np.conf -L %s" % (json.load(open(mapping, 'r'))['length'] / 8)
+    if use_unix:
+        arguments += " -u /dev/shm/np1.socket"
+    else:
+        arugments += " -s 127.0.0.1 -p 44001"
+
     os.system(
-        "bash scripts/start_np.sh -l bench/wl_tum/np.conf %s" % (
-            "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001"
-        )
+        "bash scripts/start_np.sh %s" % arguments
     )
+
+    arguments = "-m %s" % mapping
+    if use_unix:
+        arguments += " -u -S %s" % "/dev/shm/np1.socket"
+    else:
+        arguments += " -S 127.0.0.1:44001"
+
     os.system(
-        "bash scripts/start_aggr.sh -S %s %s" % (
-            ("/dev/shm/np1.socket", "-u") if use_unix else ("127.0.0.1:44001", "")
-        )
+        "bash scripts/start_aggr.sh " + arguments
     )
 
     with open(TOPOLOGY, 'r') as raw_topology:
