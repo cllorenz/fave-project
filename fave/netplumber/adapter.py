@@ -220,9 +220,14 @@ class NetPlumberAdapter(object):
             name = table
 
             if name not in self.tables:
-                idx = self.fresh_table_index
+                if hasattr(model, 'table_ids'):
+                    idx = model.table_ids[name.rstrip('.1')]
+                    self.fresh_table_index = idx + 1 # XXX: only works if tables appear in order
+                else:
+                    idx = self.fresh_table_index
+                    self.fresh_table_index += 1
+
                 self.tables[name] = idx
-                self.fresh_table_index += 1
 
                 ports = []
                 for port in [port for port in model.ports if model.ports[port] == table]:

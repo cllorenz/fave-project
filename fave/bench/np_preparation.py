@@ -196,7 +196,8 @@ def prepare_benchmark(
             topology['devices'].append((
                 table_name,
                 "switch",
-                device_ports
+                device_ports,
+                { table_name : table_id }
             ))
 
             for rule in table_json['rules']:

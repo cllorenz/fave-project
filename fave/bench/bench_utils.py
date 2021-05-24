@@ -46,8 +46,8 @@ def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False):
     ] + (['-u'] if use_unix else []))
 
 
-def _add_switch(name, _type, ports, use_unix=False):
-    topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports)] + (["-u"] if use_unix else []))
+def _add_switch(name, _type, ports, table_ids, use_unix=False):
+    topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)] + (["-u"] if use_unix else []))
 
 
 def _add_router(name, _type, ports, acls, use_unix=False):

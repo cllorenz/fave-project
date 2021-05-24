@@ -263,6 +263,7 @@ def main(argv):
     dev = ""
     dtype = ""
     ports = []
+    table_ids = None
     links = []
     topo = TopologyCommand(command, dev)
     address = None
@@ -275,7 +276,7 @@ def main(argv):
     use_unix = False
 
     try:
-        opts, args = getopt.getopt(argv, "hadt:n:p:l:ui:f:q:F:G:P:T:r:")
+        opts, args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:")
     except getopt.GetoptError:
         eprint("cannot parse arguments: %s" % argv)
         print_help()
@@ -321,6 +322,8 @@ def main(argv):
             links = [to_link(*link.split(':')) for link in arg.split(',')]
         elif opt == '-i':
             address = arg
+        elif opt == '-I':
+            table_ids = ast.literal_eval(arg)
         elif opt == '-f':
             fields = {}
             for field in arg.split(';'):
@@ -368,7 +371,7 @@ def main(argv):
 
     if command == 'add':
         model = {
-            'switch' : lambda: SwitchModel(dev, ports=ports),
+            'switch' : lambda: SwitchModel(dev, ports=ports, table_ids=table_ids),
             'packet_filter' : lambda: ip6np_generate(
                 IP6TABLES_PARSER.parse(ruleset),
                 dev,

@@ -84,12 +84,15 @@ class SwitchModel(Model):
     """ This class provides a switch model.
     """
 
-    def __init__(self, node, ports=None, rules=None):
+    def __init__(self, node, ports=None, rules=None, table_ids=None):
         ports = ports if ports is not None else []
 
         super(SwitchModel, self).__init__(node, "switch")
         self.ports = {node+"."+str(p) : node+".1" for p in ports}
         self.tables = {node+".1" : rules if rules is not None else []}
+
+        if table_ids:
+            self.table_ids = table_ids
 
 
     def to_json(self):
@@ -102,6 +105,8 @@ class SwitchModel(Model):
                 r.to_json() for r in rules
             ] for table, rules in self.tables.iteritems()
         }
+        if hasattr(self, 'table_ids'):
+            j["table_ids"] = { t:i for t, i in self.table_ids.iteritems() }
         return j
 
     @staticmethod
@@ -115,7 +120,9 @@ class SwitchModel(Model):
         if isinstance(j, str):
             j = json.loads(j)
 
-        ofm = SwitchModel(j['node'])
+        table_ids = j['table_ids'] if 'table_ids' in j else None
+
+        ofm = SwitchModel(j['node'], table_ids=table_ids)
         ofm.tables = {
             table : [
                 SwitchRule.from_json(r) for r in rules
