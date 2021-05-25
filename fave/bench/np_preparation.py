@@ -179,9 +179,13 @@ def prepare_benchmark(
 
     # create devices for topology and transform rule tables
     routes = []
+#    for tid, table in enumerate(sorted(tables, reverse=True)):
+#        for ttid, ttype in enumerate(sorted(table_types, reverse=True), start=1):
+#            etid = (len(tables) - tid) * 10 + (len(table_types) - ttid)
     for tid, table in enumerate(tables, start=1):
         for ttid, ttype in enumerate(table_types):
             etid = tid * 10 + ttid
+
             table_json = json.load(
                 open("%s/%s.tf.json" % (json_dir, etid), 'r')
             )
