@@ -38,6 +38,7 @@ def main():
     parser.add_argument('-c', '--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
     parser.add_argument('-d', '--debug', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
     parser.add_argument('-i', '--inv', dest='generate_inv', action='store_const', const=True, default=False, help='Generate inventory mapping.')
+    parser.add_argument('--no-internet', dest='use_internet', default=True, const=False, action='store_const', help='Disable default role for the Internet.')
     parser.add_argument('-o', '--out', dest='out_file', default='reachability.html', help='Store output in a prefixed file.')
     parser.add_argument('-r', '--report', dest='report_csv', default=None, help='Read report input from a csv file.')
     parser.add_argument('--roles', dest='roles_json', default=None, help='Dump roles as json file.')
@@ -70,7 +71,7 @@ def main():
             report_csv = [row[0].split(',') for row in r]
 
     PT_LOGGER.debug("create policy object")
-    policy = Policy(strict=args.strict)
+    policy = Policy(strict=args.strict, use_internet=args.use_internet)
     try:
         PT_LOGGER.debug("build policy")
         PolicyBuilder.build(policy_chars, policy)

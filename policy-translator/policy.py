@@ -44,7 +44,7 @@ class Policy(object):
     # XXX: make interface configurable or use more sane default
     default_roles = {"Internet" : [('interface', '"fw.generic.eth1"')]}
 
-    def __init__(self, strict=False):
+    def __init__(self, strict=False, use_internet=True):
         """Initialises a Policy object with role "Internet", no services, no
         policies and default policy "deny"."""
 
@@ -52,7 +52,11 @@ class Policy(object):
         self.services = {}
         self.policies = {}
         self.default_policy = False
-        for role, attributes in self.default_roles.iteritems():
+        for role, attributes in [
+            (r, a) for r, a in  self.default_roles.iteritems() if (
+                use_internet or r != 'Internet'
+            )
+        ]:
             self.add_role(role)
             tmp = self.roles[role]
             for key, value in attributes:
