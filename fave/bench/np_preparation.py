@@ -210,16 +210,12 @@ def prepare_benchmark(
     # transform policy
     policy_json = json.load(open('%s/policy.json' % json_dir, 'r'))
     sources = {
-        'devices' : [
-            ('source.Internet', "generator", ["ipv4_dst=0.0.0.0/0"])
-        ],
+        'devices' : [],
         'links' : []
     }
 
     probes = {
-        'devices' : [
-            ('probe.Internet', "probe", "universal", None, None, ['vlan=0'], None)
-        ],
+        'devices' : [],
         'links' : []
     }
 
