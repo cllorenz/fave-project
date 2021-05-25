@@ -26,7 +26,7 @@ import sys
 import getopt
 import json
 
-from copy import deepcopy
+from copy import copy
 
 from openflow.rule import SwitchRule, SwitchRuleField, Forward, Rewrite, Match
 
@@ -176,7 +176,7 @@ class SwitchModel(Model):
             ports=self.ports
         )
 
-        res.tables = deepcopy(self.adds)
+        res.tables = copy(self.adds)
 
         return res
 

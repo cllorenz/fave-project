@@ -25,7 +25,7 @@
 import json
 import math
 
-from copy import deepcopy
+from copy import copy
 
 from netplumber.model import Model
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
@@ -423,7 +423,7 @@ class RouterModel(Model):
             ports=self.ports
         )
 
-        res.tables = deepcopy(self.adds)
+        res.tables = copy(self.adds)
 
         return res
 

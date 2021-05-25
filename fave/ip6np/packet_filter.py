@@ -25,7 +25,7 @@
 
 import json
 
-from copy import deepcopy
+from copy import copy
 
 from netplumber.model import Model
 
@@ -142,7 +142,7 @@ class PacketFilterModel(Model):
             self.node,
             ports=self.ports
         )
-        npf.tables = deepcopy(self.adds)
+        npf.tables = copy(self.adds)
 
         return npf
 
