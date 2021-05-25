@@ -573,7 +573,9 @@ class NetPlumberAdapter(object):
                     rewrite if rewrite else "*"
                 )
 
-        rids = jsonrpc.add_rules_batch(self.socks, batch)
+        rids = []
+        if batch != []:
+            rids = jsonrpc.add_rules_batch(self.socks, batch)
 
         for r_id, rule in zip(rids, batch):
             np_rid, _tid, _fave_rid, _in, _out, _match, _mask, _rewrite = rule
