@@ -88,6 +88,7 @@ if __name__ == '__main__':
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
         strict +
+        "--no-internet " +
         "--csv --out %s " % REACH +
         "--roles %s " % ROLES +
         "%s " % inventory +
