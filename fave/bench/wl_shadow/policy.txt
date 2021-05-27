@@ -1,0 +1,3 @@
+describe policies (default: deny)
+    A <--> B
+end

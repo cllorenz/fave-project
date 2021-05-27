@@ -1,0 +1,9 @@
+describe role A
+    description = 'A generic role.'
+    ipv6 = '0::0/0'
+end
+
+describe role B
+    description = 'A generic role.'
+    ipv6 = '0::0/0'
+end
