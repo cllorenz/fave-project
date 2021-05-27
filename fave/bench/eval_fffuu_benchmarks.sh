@@ -21,16 +21,16 @@
 
 function stats {
   TOOL=$1
-  DATA=$2
+  INIT=$2
+  REACH=$3
 
-  MEAN=`awk -f bench/mean.awk < $DATA`
-  MEDIAN=`awk -f bench/median.awk < $DATA`
-  MIN=`awk -f bench/min.awk < $DATA`
-  MAX=`awk -f bench/max.awk < $DATA`
-  VAR=`awk -f bench/var.awk -vMEAN=$MEAN < $DATA`
-  STDDEV=`awk -f bench/stddev.awk -vMEAN=$MEAN < $DATA`
+  MEAN_INIT=`awk -f bench/mean.awk < $INIT`
+  STDDEV_INIT=`awk -f bench/stddev.awk -vMEAN=$MEAN_INIT < $INIT`
 
-  echo "$TOOL $MEAN $MEDIAN $MIN $MAX $VAR $STDDEV" >> $RESULTS
+  MEAN_REACH=`awk -f bench/mean.awk < $REACH`
+  STDDEV_REACH=`awk -f bench/stddev.awk -vMEAN=$MEAN_REACH < $REACH`
+
+  echo "$TOOL $MEAN_INIT $MEAN_REACH NaN $STDDEV_INIT $STDDEV_REACH NaN" >> $RESULTS
 }
 
 RDIR=$1
@@ -38,18 +38,26 @@ RDIR=$1
 
 RUNS=10
 
-RESULTS=$RDIR/results_aggr.dat
-[ ! -f $RESULTS ] && echo "aspect mean(ms) median(ms) min(ms) max(ms) var(ms) stddev(ms)" > $RESULTS
+RESULTS=$RDIR/results.dat
+[ ! -f $RESULTS ] && echo "Tool Initialization Reachability Compliance \"Initialization StdDev.\" \"Reachability StdDev.\" \"Compliance StdDev.\"" > $RESULTS
 
-FFFUU_RAW=$RDIR/fffuu_raw.dat
-echo -n "" > $FFFUU_RAW
+FFFUU_INIT_RAW=$RDIR/raw_fffuu_init.dat
+FFFUU_REACH_RAW=$RDIR/raw_fffuu_reach.dat
+echo -n "" > $FFFUU_INIT_RAW
+echo -n "" > $FFFUU_REACH_RAW
 
 for i in $(seq 1 $RUNS); do
     grep "^measure" $RDIR/fffuu/$i.stdout.log | \
-        grep -v "spoofing" | \
+        grep -v "spoofing\|matrices" | \
         cut -d ':' -f 2 | \
         tr -d ' s' | \
-        awk 'BEGIN { sum = 0.0; } { sum += $1; } END { print sum * 1000.0; }' >> $FFFUU_RAW
+        awk 'BEGIN { sum = 0.0; } { sum += $1; } END { print sum * 1000.0; }' >> $FFFUU_INIT_RAW
+
+    grep "^measure" $RDIR/fffuu/$i.stdout.log | \
+        grep "matrices" | \
+        cut -d ':' -f 2 | \
+        tr -d ' s' | \
+        awk 'BEGIN { sum = 0.0; } { sum += $1; } END { print sum * 1000.0; }' >> $FFFUU_REACH_RAW
 done
 
 #FAVE_RAW=$RDIR/fave_raw.dat
@@ -68,6 +76,6 @@ done
 #  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW
 #done
 
-stats $TOOL $FFFUU_RAW
+stats $TOOL $FFFUU_INIT_RAW $FFFUU_REACH_RAW
 #stats FaVe $FAVE_RAW
 #stats NP $NP_RAW
