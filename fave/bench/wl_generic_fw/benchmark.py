@@ -95,10 +95,16 @@ if __name__ == '__main__':
         policy
     )
 
+    if verbose: print "Policy translated"
+
     os.system('cp %s bench/wl_generic_fw/interfaces.json' % interfaces)
+
+    if verbose: print "Interface mapping copied"
 
     os.system("python2 bench/wl_generic_fw/topogen.py %s %s" % (ip, ruleset))
     os.system("python2 bench/wl_generic_fw/routegen.py")
+
+    if verbose: print "Topology and routes generated"
 
     os.system(
         "python2 bench/wl_generic_fw/reach_csv_to_checks.py " + ' '.join([
@@ -107,6 +113,8 @@ if __name__ == '__main__':
             '-j', REACH_JSON
         ])
     )
+
+    if verbose: print "CSV converted to checks."
 
     os.system("python2 bench/wl_generic_fw/policygen.py")
 
