@@ -47,8 +47,10 @@ if __name__ == '__main__':
     inventory = "bench/wl_generic_fw/default/inventory.txt"
     interfaces = "bench/wl_generic_fw/default/interfaces.json"
 
+    use_unix = False
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:46")
+        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:u46")
     except getopt.GetoptError as err:
         print "unknown arguments"
         print err
@@ -74,6 +76,8 @@ if __name__ == '__main__':
         if opt == '-h':
             _print_help()
             sys.exit(0)
+        if opt == '-u':
+            use_unix = True
 
     if verbose: print "Generate benchmark..."
 
@@ -109,35 +113,40 @@ if __name__ == '__main__':
         print "Benchmark generated"
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh bench/wl_ifi/np.conf 127.0.0.1 44001")
-    os.system("bash scripts/start_aggr.sh 127.0.0.1:44001")
+    os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
+        "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001")
+    )
+    os.system("bash scripts/start_aggr.sh -S %s %s" % (
+        "/dev/shm/np1.socket" if use_unix else "127.0.0.1:44001",
+        "-u" if use_unix else ""
+    ))
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
         if verbose: print "Initialize topology..."
-        create_topology(devices, links)
+        create_topology(devices, links, use_unix=use_unix)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:
         routes = json.loads(raw_routes.read())
 
         if verbose: print "Initialize routes..."
-        add_routes(routes)
+        add_routes(routes, use_unix=use_unix)
         if verbose: print "Routes sent to FaVe"
 
     with open(SOURCES, 'r') as raw_sources:
         sources, links = json.loads(raw_sources.read()).values()
 
         if verbose: print "Initialize sources..."
-        add_sources(sources, links)
+        add_sources(sources, links, use_unix=use_unix)
         if verbose: print "Sources sent to FaVe"
 
     with open(POLICIES, 'r') as raw_policies:
         links, probes = json.loads(raw_policies.read()).values()
 
         if verbose: print "Initialize probes..."
-        add_policies(probes, links)
+        add_policies(probes, links, use_unix=use_unix)
         if verbose: print "Probes sent to FaVe"
 
     with open(CHECKS, 'r') as raw_checks:
@@ -146,9 +155,9 @@ if __name__ == '__main__':
     if verbose: print "Wait for fave..."
 
     import netplumber.dump_np as dumper
-    dumper.main(["-anpt"])
+    dumper.main(["-a", "-n", "-t"] + (["-u" if use_unix else []]))
 
-    os.system("bash scripts/stop_fave.sh")
+    os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
 
     if verbose:
         print "Check results..."
