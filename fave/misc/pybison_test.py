@@ -331,7 +331,9 @@ class IP6TablesParser(BisonParser):
     def on_proto(self, *_args, **kwargs):
         """
         proto : PROTO_SHORT WS IDENT
+              | PROTO_SHORT WS WORD
               | PROTO_LONG WS IDENT
+              | PROTO_LONG WS WORD
         """
         values = kwargs["values"]
 
