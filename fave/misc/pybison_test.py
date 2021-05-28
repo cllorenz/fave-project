@@ -41,7 +41,7 @@ class IP6TablesParser(BisonParser):
         'MOD_SHORT', 'MOD_LONG', 'OUT_SHORT', 'OUT_LONG', 'IN_SHORT', 'IN_LONG',
         'SPORT', 'DPORT', 'PROTO_SHORT', 'PROTO_LONG', 'SRC_SHORT', 'SRC_LONG',
         'DST_SHORT', 'DST_LONG', 'PORTNO', 'PORTRANGE', 'IPV6_CIDR', 'IPV4_CIDR', 'IDENT', 'WORD',
-        'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS', 'SENTENCE'
+        'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS', 'SENTENCE', 'PROTONO'
     ]
 
     _ast = None
@@ -331,8 +331,12 @@ class IP6TablesParser(BisonParser):
     def on_proto(self, *_args, **kwargs):
         """
         proto : PROTO_SHORT WS IDENT
+              | PROTO_SHORT WS PROTONO
+              | PROTO_SHORT WS PORTNO
               | PROTO_SHORT WS WORD
               | PROTO_LONG WS IDENT
+              | PROTO_LONG WS PROTONO
+              | PROTO_LONG WS PORTNO
               | PROTO_LONG WS WORD
         """
         values = kwargs["values"]
@@ -482,6 +486,8 @@ class IP6TablesParser(BisonParser):
     _word = '[[:alnum:]_\-/]+'
     _wordlist = '%s(,%s)*' % (_word, _word)
 
+    _proto = '[[:digit:]]{1,3}'
+
 #    """ + _wordlist + r"""  { returntoken(WORDLIST); }
     lexscript = r"""
     %{
@@ -536,7 +542,8 @@ class IP6TablesParser(BisonParser):
     """ + _states + r"""    { returntoken(STATES); }
     [[:alpha:]][[:alnum:]_\-\.]*  { returntoken(IDENT); }
     \"[[:print:]]*\"        { returntoken(SENTENCE); }
-    [[:alnum:]_\-/]+        { returntoken(WORD); }
+    """ + _word + r"""      { returntoken(WORD); }
+    """ + _proto + r"""     { returntoken(PROTONO); }
     [ \t]+                  { returntoken(WS); }
     "#"[[:print:]]*         { returntoken(COMMENT); }
     .                       { printf("unknown char %c ignored, yytext=%s\n", yytext[0], yytext); /* ignore bad chars */ }
