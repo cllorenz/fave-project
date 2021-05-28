@@ -24,7 +24,7 @@ if __name__ == '__main__':
         # a generator representing the Internet
         ("source.Internet", "generator", ["ipv4_src=%s" % domain_to_ip["Internet"]]),
         # a switch and generator representing the subnet for external services
-        ("external.ifi", "switch", 3),
+        ("external.ifi", "switch", 3, None),
         ("source.external.ifi", "generator", [
             "ipv4_src=%s" % domain_to_ip["external.ifi"],
             "vlan=%s" % domain_to_vlan["external.ifi"]
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     #        2 -> input from the generator,
     #        3 -> output to the subnet)
     devices.extend([
-        (sub, "switch", 3) for sub in SUBNETS
+        (sub, "switch", 3, None) for sub in SUBNETS
     ])
 
     # connect the university proxy to port 1 of the central router

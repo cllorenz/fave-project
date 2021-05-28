@@ -20,8 +20,8 @@ if __name__ == '__main__':
     devices = [
         (get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/pgf.uni-potsdam.de-ruleset" % RULESETS),
         #(get_domain(*pgf), "packet_filter", 24, get_addr(*pgf), "%s/simple-ruleset" % RULESETS), # XXX
-        ("dmz.uni-potsdam.de", "switch", 9),
-        ("wifi.uni-potsdam.de", "switch", 3),
+        ("dmz.uni-potsdam.de", "switch", 9, None),
+        ("wifi.uni-potsdam.de", "switch", 3, None),
         (
             "clients.wifi.uni-potsdam.de", #get_domain(*wifi),
             "host",
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         netident = hex(cnt)[2:]
 
         # subnet switch
-        devices.append((subnet, "switch", len(subhosts)+2))
+        devices.append((subnet, "switch", len(subhosts)+2, None))
         links.extend([
             ("pgf.uni-potsdam.de.%s" % port, "%s.1" % subnet, False),
             ("%s.1" % subnet, "pgf.uni-potsdam.de.%s" % port, False)
