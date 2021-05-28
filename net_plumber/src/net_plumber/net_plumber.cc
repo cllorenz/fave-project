@@ -300,12 +300,12 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 #else
-      T1 rule_hs = hs_create(this->length);
+      T1 rule_hs = {this->length, {0, 0, 0, 0}};
       hs_add(&rule_hs, array_copy(r->match, false));
 
       if (hs_is_equal(&all_hs, &aggr_hs)) {
         this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
-      } else if (hs_is_subset(&rule_hs, &aggr_hs)) {
+      } else if (hs_is_sub_eq(&rule_hs, &aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
       hs_destroy(&rule_hs);
@@ -1956,7 +1956,7 @@ bool NetPlumber<T1, T2>::add_slice_matrix(std::string matrix) {
       id = std::strtoul(x, &end, 10);
       if ((id == 0 && end == x) ||
       (id == ULLONG_MAX && errno) ||
-      (*end)) { 
+      (*end)) {
     return false;
       }
       if (!ids.insert(id).second) return false;
