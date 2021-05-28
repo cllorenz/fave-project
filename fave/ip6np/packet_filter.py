@@ -25,7 +25,7 @@
 
 import json
 
-from copy import copy
+from copy import copy, deepcopy
 
 from netplumber.model import Model
 
