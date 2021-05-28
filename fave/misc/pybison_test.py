@@ -554,7 +554,7 @@ class IP6TablesParser(BisonParser):
     """
 
 
-    def parse(self, ruleset):
+    def parse(self, ruleset, debug=False):
         """ Retrieve an AST for an ip6tables rule set.
 
         Keyword arguments:
@@ -562,12 +562,14 @@ class IP6TablesParser(BisonParser):
         """
 
         self._ast = Tree('root')
-        ast = self.run(file=str(ruleset))
+        ast = self.run(file=str(ruleset), debug=(1 if debug else 0))
         return ast
 
 
 if __name__ == '__main__':
     ruleset = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
-    if len(sys.argv) == 2: ruleset = sys.argv[1]
+    debug = False
+    if len(sys.argv) >= 2: ruleset = sys.argv[1]
+    if len(sys.argv) >= 3 and sys.argv[2] == '-d': debug = True
 
-    IP6TablesParser().parse(ruleset).print_tree()
+    IP6TablesParser().parse(ruleset, debug=debug).print_tree()
