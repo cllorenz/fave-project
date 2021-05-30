@@ -80,65 +80,19 @@ RDIR=$1
 RUNS=10
 
 RESULTS=$RDIR/results.dat
-[ ! -f $RESULTS ] && echo "Tool Initialization Reachability Compliance \"Initialization StdDev.\" \"Reachability StdDev.\" \"Compliance StdDev.\"" > $RESULTS
+[ ! -f $RESULTS ] && echo "Tool Initialization Reachability Compliance Total \"Initialization StdDev.\" \"Reachability StdDev.\" \"Compliance StdDev.\" \"Total StdDev.\"" > $RESULTS
 
 PARSING=$RDIR/raw_parsing.dat
 echo -n "" > $PARSING
+
 FAVE_INIT=$RDIR/raw_fave_init.dat
 echo -n "" > $FAVE_INIT
+
 FAVE_REACH=$RDIR/raw_fave_reach.dat
 echo -n "" > $FAVE_REACH
 
-for threads in 1 2 4 8 16 24; do
-    for i in $(seq 1 $RUNS); do
-      echo -n "$threads " >> $FAVE_INIT
-      grep "seconds" $RDIR/fave/$threads/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
-      awk 'BEGIN {
-        done = 0; result = 0;
-      } {
-        if (done || $4 == "generators" || $4 == "generator") {
-          done = 1;
-        } else if (done && $4 == "probe") {
-          done = 0;
-          result += $6;
-        } else {
-          result += $6;
-        }
-      } END {
-        print result * 1000.0;
-      }' >> $FAVE_INIT
-
-      echo -n "$threads " >> $FAVE_REACH
-      grep "seconds" $RDIR/fave/$threads/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
-      awk 'BEGIN {
-        start = 0;
-        result = 0;
-      } {
-        if (start || $4 == "generators" || $4 == "generator") {
-          start = 1;
-          if ($4 == "generators" || $4 == "generator") {
-            result += $6;
-          } else if ($4 == "links") {
-            result += $6;
-          } else if ($4 == "probe") {
-            start = 0;
-          }
-        }
-      } END {
-        print result * 1000.0
-      }' >> $FAVE_REACH
-    done
-done
-
-NP_INIT=$RDIR/raw_np_init.dat
-echo -n "" > $NP_INIT
-NP_REACH=$RDIR/raw_np_reach.dat
-echo -n "" > $NP_REACH
-
-for i in $(seq 1 $RUNS); do
-  grep "total" $RDIR/np/$i.raw/stdout.log | awk '{ print $4/1000.0; }' >> $NP_INIT
-  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_REACH
-done
+FAVE_TOTAL=$RDIR/raw_fave_total.dat
+echo -n "" > $FAVE_TOTAL
 
 CHECKS=$RDIR/raw_checks.dat
 echo -n "" > $CHECKS
@@ -147,10 +101,75 @@ for threads in 1 2 4 8 16 24; do
     for i in $(seq 1 $RUNS); do
       grep "parse device" $RDIR/fave/$threads/$i.raw/stdout.log | cut -d' ' -f4 | \
         awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $PARSING
+
+      echo -n "$threads " >> $FAVE_INIT
+      FAVE_INIT_TMP=`grep "seconds" $RDIR/fave/$threads/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
+        awk 'BEGIN {
+          done = 0; result = 0;
+        } {
+          if (done || $4 == "generators" || $4 == "generator") {
+            done = 1;
+          } else if (done && $4 == "probe") {
+            done = 0;
+            result += $6;
+          } else {
+            result += $6;
+          }
+        } END {
+          print result * 1000.0;
+        }'`
+      echo $FAVE_INIT_TMP >> $FAVE_INIT
+
+      echo -n "$threads " >> $FAVE_REACH
+      FAVE_REACH_TMP=`grep "seconds" $RDIR/fave/$threads/$i.raw/np/aggregator.log |
+        grep -v "dump\|stop" | \
+        awk 'BEGIN {
+          start = 0;
+          result = 0;
+        } {
+          if (start || $4 == "generators" || $4 == "generator") {
+            start = 1;
+            if ($4 == "generators" || $4 == "generator") {
+              result += $6;
+            } else if ($4 == "links") {
+              result += $6;
+            } else if ($4 == "probe") {
+              start = 0;
+            }
+          }
+        } END {
+          print result * 1000.0
+        }'`
+      echo $FAVE_REACH_TMP >> $FAVE_REACH
+
       echo -n "$threads " >> $CHECKS
-      grep "total:" $RDIR/fave/$threads/$i.raw/stdout.log | awk 'BEGIN { max = -1; } { if ( max < $2 ) { max = $2; } } END { print max; }' >> $CHECKS
+      FAVE_CHECKS_TMP=`grep "total:" $RDIR/fave/$threads/$i.raw/stdout.log | \
+        awk 'BEGIN { max = -1; } { if ( max < $2 ) { max = $2; } } END { print max; }'`
+      echo $FAVE_CHECKS_TMP >> $CHECKS
+
+      echo -n "$threads " >> $FAVE_TOTAL
+      echo "$FAVE_INIT_TMP + $FAVE_REACH_TMP + $FAVE_CHECKS_TMP" | bc >> $FAVE_TOTAL
     done
 done
 
-fave_stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS
-np_stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0")
+NP_INIT=$RDIR/raw_np_init.dat
+echo -n "" > $NP_INIT
+
+NP_REACH=$RDIR/raw_np_reach.dat
+echo -n "" > $NP_REACH
+
+NP_TOTAL=$RDIR/raw_np_total.dat
+echo -n "" > $NP_TOTAL
+
+for i in $(seq 1 $RUNS); do
+  NP_INIT_TMP=`grep "total" $RDIR/np/$i.raw/stdout.log | \
+    awk '{ print $4/1000.0; }'`
+  echo $NP_INIT_TMP >> $NP_INIT
+  NP_REACH_TMP=`grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | \
+    awk '{ print $7/1000.0; }'`
+  echo $NP_REACH_TMP >> $NP_REACH
+  echo "$NP_INIT_TMP + $NP_REACH_TMP" | bc >> $NP_TOTAL
+done
+
+fave_stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS $FAVE_TOTAL
+np_stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0") $NP_TOTAL
