@@ -553,7 +553,7 @@ class Main:
 
 
     def __init__(self):
-        trees = [et.parse('./large.xml')]#et.parse('./small.xml'),et.parse('./medium.xml'),et.parse('./large.xml')]
+        trees = [et.parse('./bench/up-legacy/large.xml')]#et.parse('./bench/up-legacy/small.xml'),et.parse('./bench/up-legacy/medium.xml'),et.parse('./bench/up-legacy/large.xml')]
         self._roots = [tree.getroot() for tree in trees ]
 
 
