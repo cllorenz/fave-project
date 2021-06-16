@@ -5,6 +5,8 @@
 
 from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 
+from util import parallel_utils
+
 IFI = {
     "topology" : [],
     "hosts" : [],
@@ -28,13 +30,14 @@ if __name__ == '__main__':
     import os
     from os import path
     import sys
+    import socket
 
     use_unix = True
     use_tcp_np = True
 
     verbose = False
-    if len(sys.argv) > 1:
-        verbose = sys.argv[1] == '-v'
+
+    
 
     if verbose: print "Generate benchmark... "
 
@@ -67,17 +70,78 @@ if __name__ == '__main__':
     if verbose:
         print "Run benchmark... "
 
-    os.system(
-        "bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
-            '-u /dev/shm/np1.socket' if use_unix and not use_tcp_np else '-s 127.0.0.1 -p 44001'
+    if not use_tcp_np:
+        # use unix sockets to communicate to NP backend
+        tds = 1
+        if len(sys.argv) == 2:
+            try:
+                tds = int(sys.argv[1])
+            except Exception as e:
+                print(repr(e))
+        for no in range(1,tds+1):
+            sockopt = "-u /dev/shm/np%s.socket" % no
+            print("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
+            os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
+
+        aggr_args = [
+            "/dev/shm/np%d.socket" % no for no in range(1, tds+1)
+        ]
+        print("bash scripts/start_aggr.sh -S %s %s" % (
+                ','.join(aggr_args),
+                "-u" if use_unix else ""
+            ))
+        os.system(
+            "bash scripts/start_aggr.sh -S %s %s" % (
+                ','.join(aggr_args),
+                "-u" if use_unix else ""
+            )
         )
-    )
-    os.system(
-        "bash scripts/start_aggr.sh -S %s %s" % (
-            '/dev/shm/np1.socket' if use_unix and not use_tcp_np else '127.0.0.1:44001',
-            '-u' if use_unix else ''
+    else:
+        serverlist = []
+        
+        try:
+            # get hosts from slurm environment variables
+            serverlist = parallel_utils.get_serverlist()
+            print('using slurm nodelist as serverlist')
+        except Exception as e:
+            # slurm environment variables not defined or parsing failed
+            # build default serverlist
+            print(repr(e))
+            print('no slurm nodelist found, using default serverlist')
+            hostname = socket.gethostname()
+            print(hostname)
+            host_ip = socket.gethostbyname(hostname)
+            print(host_ip)
+            
+            cur_port = 44001
+            try:
+                cur_port = int(os.environ['start_port'])
+            except: 
+                if verbose:
+                    print('environment variable start_port not defined, defaulting to 44001')
+
+            tds = 1
+            if len(sys.argv) == 2:
+                try:
+                    tds = int(sys.argv[1])
+                except Exception as e:
+                    print(repr(e))
+
+            for no in range(0,tds):
+                serverlist.append({'host': host_ip, 'port': str(cur_port + no)})
+            
+            for server in serverlist:
+                sockopt = "-s %s -p %s" % (server['host'], server['port'])
+                print("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
+                os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
+
+        print(serverlist)            
+
+        aggr_args = [("%s:%s" % (server['host'], server['port'])) for server in serverlist]
+        print("bash scripts/start_aggr.sh -S %s -u" % ','.join(aggr_args))
+        os.system(
+            "bash scripts/start_aggr.sh -S %s -u" % ','.join(aggr_args)
         )
-    )
 
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
@@ -106,7 +170,7 @@ if __name__ == '__main__':
     if verbose: print "Wait for FaVe"
 
     import netplumber.dump_np as dumper
-    dumper.main(["-o", 'np_dump', "-a", "-n", "-p", "-f", "-t"] + (['-u'] if use_unix else []))
+    dumper.main(["-o", os.environ['np_flows_output_directory'], "-a", "-n", "-p", "-f", "-t"] + (['-u'] if use_unix else []))
 
     os.system("bash scripts/stop_fave.sh %s" % ('-u' if use_unix else ''))
 
@@ -114,6 +178,6 @@ if __name__ == '__main__':
         print "Check results... "
 
     import test.check_flows as checker
-    checker.main(["-b", "-r", "-c", ";".join(checks), '-d', 'np_dump'])
+    checker.main(["-b", "-r", "-c", ";".join(checks), '-d', os.environ['np_flows_output_directory']])
 
     os.system("rm -f np_dump/.lock")

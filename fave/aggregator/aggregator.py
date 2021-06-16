@@ -558,6 +558,14 @@ def main(argv):
             log_level = TRACE
 
     log_handler = logging.FileHandler('/dev/shm/np/aggregator.log')
+
+# XXX: from golombek
+#    try:
+#        os.system('rm -f {}/aggregator.log'.format(os.environ['log_dir']))
+#    except:
+#        pass
+#    log_handler = logging.FileHandler('{}/aggregator.log'.format(os.environ['log_dir']))
+
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(log_level)
 
