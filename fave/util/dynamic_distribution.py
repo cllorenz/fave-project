@@ -57,9 +57,11 @@ class NodeLinkDispatcher(asyncore.dispatcher):
         try:
             # Try sending a message if there are still open messages
             node_msg, link_msg = node_link_queue.get_nowait()
-            self.logger.debug("Sending node message: {}".format(node_msg))
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("Sending node message: {}".format(node_msg))
             self.send(node_msg + '\n')
-            self.logger.debug("Sending link message: {}".format(link_msg))
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("Sending link message: {}".format(link_msg))
             self.send(link_msg + '\n')
             # Add "message expected" signal to recv queue
             self.recv_queue.put(node_msg)
@@ -67,16 +69,18 @@ class NodeLinkDispatcher(asyncore.dispatcher):
 
         except Queue.Empty:
             if self.recv_queue.empty():
-                self.logger.debug(
-                    "Closing send_next_pair {}".format((self.host, self.port))
-                )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug(
+                        "Closing send_next_pair {}".format((self.host, self.port))
+                    )
                 self.close()
 
     def handle_read(self):
         results = self.recv_whole_buffer()
-        self.logger.debug(
-            "Receiving ({}): {}".format((self.host, self.port), results)
-        )
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(
+                "Receiving ({}): {}".format((self.host, self.port), results)
+            )
 
         for result in results:
             try:
@@ -84,7 +88,8 @@ class NodeLinkDispatcher(asyncore.dispatcher):
                 self.recv_queue.get_nowait()
             except Queue.Empty:
                 # no messages expected anymore, close the channel
-                self.logger.debug("Closing {}".format((self.host, self.port)))
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("Closing {}".format((self.host, self.port)))
 
         # channel still open, try sending another message
         self.send_next_pair()
