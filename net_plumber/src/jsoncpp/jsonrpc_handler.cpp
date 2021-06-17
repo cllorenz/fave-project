@@ -171,7 +171,7 @@ namespace Json
       response["jsonrpc"] = "2.0";
 
       error["code"] = METHOD_NOT_FOUND;
-      error["message"] = "Method not found.";
+      error["message"] = "Method not found: " + method;
       response["error"] = error;
 
       return false;
