@@ -8,15 +8,11 @@ node_link_queue = Queue.Queue()
 node_link_dict = {}
 
 def add_node_to_dict(idx, node):
-    try: node_link_dict[idx]
-    except: node_link_dict[idx] = {}
-
+    node_link_dict.setdefault(idx, {})
     node_link_dict[idx]['node'] = node
-    
-def add_link_to_dict(idx, link):
-    try: node_link_dict[idx]
-    except: node_link_dict[idx] = {}
 
+def add_link_to_dict(idx, link):
+    node_link_dict.setdefault(idx, {})
     node_link_dict[idx]['link'] = link
 
 def prepare_node_link_queue():
