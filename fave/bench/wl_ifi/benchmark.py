@@ -35,9 +35,7 @@ if __name__ == '__main__':
     use_unix = True
     use_tcp_np = True
 
-    verbose = False
-
-    
+    verbose = sys.argv[1] == '-v' if len(sys.argv) > 1 else False
 
     if verbose: print "Generate benchmark... "
 
@@ -67,8 +65,7 @@ if __name__ == '__main__':
 
     os.system("python2 bench/wl_ifi/policygen.py")
 
-    if verbose:
-        print "Run benchmark... "
+    if verbose: print "Run benchmark... "
 
     if not use_tcp_np:
         # use unix sockets to communicate to NP backend
@@ -86,7 +83,7 @@ if __name__ == '__main__':
         aggr_args = [
             "/dev/shm/np%d.socket" % no for no in range(1, tds+1)
         ]
-        print("bash scripts/start_aggr.sh -S %s %s" % (
+        print("bash scripts/start_aggr.sh -a -S %s %s" % (
                 ','.join(aggr_args),
                 "-u" if use_unix else ""
             ))
@@ -170,7 +167,7 @@ if __name__ == '__main__':
     if verbose: print "Wait for FaVe"
 
     import netplumber.dump_np as dumper
-    dumper.main(["-o", os.environ['np_flows_output_directory'], "-a", "-n", "-p", "-f", "-t"] + (['-u'] if use_unix else []))
+    dumper.main(["-o", os.environ.get('np_flows_output_directory', 'np_dump'), "-a", "-n", "-p", "-f", "-t"] + (['-u'] if use_unix else []))
 
     os.system("bash scripts/stop_fave.sh %s" % ('-u' if use_unix else ''))
 
@@ -178,6 +175,6 @@ if __name__ == '__main__':
         print "Check results... "
 
     import test.check_flows as checker
-    checker.main(["-b", "-r", "-c", ";".join(checks), '-d', os.environ['np_flows_output_directory']])
+    checker.main(["-b", "-r", "-c", ";".join(checks), '-d', os.environ.get('np_flows_output_directory', 'np_dump')])
 
-    os.system("rm -f np_dump/.lock")
+    os.system("rm -f {}/.lock".format(os.environ.get('np_flows_output_directory', 'np_dump')))

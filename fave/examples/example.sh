@@ -85,7 +85,7 @@ bash scripts/start_np.sh -l examples/example.conf
 sleep 1
 
 echo -n "start aggregator... "
-bash scripts/start_aggr.sh
+bash scripts/start_aggr.sh -a
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
@@ -130,7 +130,7 @@ python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$H
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:False,$HOST2.1:$SWITCH.1:False,$FWSOURCE.1:$FIREWALL".output_filter_in":False
+python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"

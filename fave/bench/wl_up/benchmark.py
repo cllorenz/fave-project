@@ -116,12 +116,7 @@ if __name__ == "__main__":
         host_ip = socket.gethostbyname(hostname)
         print(host_ip)
         
-        cur_port = 44001
-        try:
-            cur_port = int(os.environ['start_port'])
-        except: 
-            if verbose:
-                print('environment variable start_port not defined, defaulting to 44001')
+        cur_port = int(os.environ.get('start_port', 44001))
 
         tds = 1
         if len(sys.argv) == 2:
@@ -141,7 +136,7 @@ if __name__ == "__main__":
     print(serverlist)
 
     aggr_args = [("%s:%s" % (server['host'], server['port'])) for server in serverlist]
-    print("bash scripts/start_aggr.sh -S %s -u" % ','.join(aggr_args))
+    print("bash scripts/start_aggr.sh -a -S %s -u" % ','.join(aggr_args))
     os.system(
         "bash scripts/start_aggr.sh -S %s -u" % ','.join(aggr_args)
     )
@@ -178,7 +173,7 @@ if __name__ == "__main__":
         checks = json.loads(raw_checks.read())
 
     LOGGER.info("dumping fave and netplumber...")
-    dumper.main(["-o", os.environ['np_flows_output_directory'], "-a", "-n", "-t"] + (['-u'] if use_unix else []))
+    dumper.main(["-o", os.environ.get('np_flows_output_directory', 'np_dump'), "-a", "-n", "-t"] + (['-u'] if use_unix else []))
     LOGGER.info("ordered fave to dump")
 
     LOGGER.info("stopping fave and netplumber...")
