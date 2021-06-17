@@ -74,7 +74,7 @@ class NetPlumberAdapter(object):
         jsonrpc.expand(self.socks, self.mapping.length)
 
     def _get_index_for_src(self, src):
-        return self.generators.get(src.rstrip('.1'), [-1, 0, 0])[0]
+        return self.generators.get(src.rstrip('1').rstrip('.'), [-1, 0, 0])[0]
 
     def add_links_bulk(self, links, use_dynamic=False):
         jsonrpc.add_links_bulk(
