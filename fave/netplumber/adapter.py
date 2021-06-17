@@ -37,8 +37,9 @@ from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleF
 
 class NetPlumberAdapter(object):
 
-    def __init__(self, socks, logger, mapping=None):
+    def __init__(self, socks, logger, asyncore_socks={}, mapping=None):
         self.socks = socks
+        self.asyncore_socks = asyncore_socks
         self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)
         self.mapping_keys = set(self.mapping.keys())
         self.tables = {}
@@ -75,14 +76,16 @@ class NetPlumberAdapter(object):
     def _get_index_for_src(self, src):
         return self.generators.get(src.rstrip('.1'), [-1, 0, 0])[0]
 
-    def add_links_bulk(self, links):
+    def add_links_bulk(self, links, use_dynamic=False):
         jsonrpc.add_links_bulk(
             self.socks,
             [(
                 self._get_index_for_src(src),
                 self.global_port(src),
                 self.global_port(dst)
-            ) for src, dst in links]
+            ) for src, dst in links],
+            use_dynamic=use_dynamic,
+            asyncore_socks=(self.asyncore_socks if use_dynamic else {})
         )
 
     def add_link(self, src, dst):
@@ -672,7 +675,7 @@ class NetPlumberAdapter(object):
         self.generators[name] = (idx, sid, model)
 
 
-    def add_generators_bulk(self, models):
+    def add_generators_bulk(self, models, use_dynamic=False):
         for model in models:
             self._update_mapping(set([f for f in model.fields.iterkeys()]))
 
@@ -701,7 +704,8 @@ class NetPlumberAdapter(object):
                     [v.vector for v in outgoing.hs_diff],
                     [portno]
                 ) for _name, idx, portno, outgoing in generators
-            ]
+            ],
+            use_dynamic=use_dynamic
         )
 
         for name, idx, _portno, _outgoing in generators:

@@ -319,7 +319,7 @@ def add_link(socks, from_port, to_port):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_links_bulk(socks, links):
+def add_links_bulk(socks, links, use_dynamic=False):
     """ Adds directed links.
 
     Keyword arguments:
@@ -328,6 +328,8 @@ def add_links_bulk(socks, links):
     """
 
     for idx, from_port, to_port in links:
+        if use_dynamic: break
+
         data = _basic_rpc(idx)
         data["method"] = "add_link"
         data["params"] = {"from_port":from_port, "to_port":to_port}
@@ -339,16 +341,23 @@ def add_links_bulk(socks, links):
         else:
             _async_send(socks, msg)
 
-    for idx, _from_port, _to_port in links:
-        if idx != -1:
-            _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
-        else:
-            _sync_recv(socks)
+    for idx, from_port, to_port in links:
+        if use_dynamic:
+            data = _basic_rpc(idx)
+            data["method"] = "add_link"
+            data["params"] = {"from_port":from_port, "to_port":to_port}
 
-# XXX: from golombek
-#        dynamic_distribution.add_link_to_dict(idx, msg)
-#    
-#    dynamic_distribution.distribute_nodes_and_links()
+            msg = json.dumps(data)
+
+            dynamic_distribution.add_link_to_dict(idx, msg)
+        else:
+            if idx != -1:
+                _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+            else:
+                _sync_recv(socks)
+
+    if use_dynamic:
+        dynamic_distribution.distribute_nodes_and_links()
 
 
 def remove_link(socks, from_port, to_port):
@@ -366,7 +375,7 @@ def remove_link(socks, from_port, to_port):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_source(socks, idx, hs_list, hs_diff, ports):
+def add_source(socks, idx, hs_list, hs_diff, ports, use_dynamic=False):
     """ Adds a source node.
 
     Keyword arguments:
@@ -396,13 +405,15 @@ def add_source(socks, idx, hs_list, hs_diff, ports):
 
     msg = json.dumps(data)
 
-    dynamic_distribution.add_node_to_dict(idx, msg)
-    #res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
-    #return _extract_node(res[0])
-    return idx
+    if use_dynamic:
+        dynamic_distribution.add_node_to_dict(idx, msg)
+        return idx
+    else:
+        res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
+        return _extract_node(res[0])
 
 
-def add_sources_bulk(socks, sources):
+def add_sources_bulk(socks, sources, use_dynamic=False):
     """ Adds source nodes as bulk operation.
 
     Keyword arguments:
@@ -412,7 +423,7 @@ def add_sources_bulk(socks, sources):
                egress ports
     """
 
-    sids_MOCK = {}
+    sids = {}
 
     for idx, hs_list, hs_diff, ports in sources:
         data = _basic_rpc(idx)
@@ -433,13 +444,22 @@ def add_sources_bulk(socks, sources):
                 },
                 "ports":ports
             }
-        
+
         msg = json.dumps(data)
 
-        dynamic_distribution.add_node_to_dict(idx, msg)
-        sids_MOCK[idx] = idx
+        if use_dynamic:
+            dynamic_distribution.add_node_to_dict(idx, msg)
+            sids[idx] = idx
+        else:
+            _async_send(socks[idx % len(socks):idx % len(socks)+1], msg)
 
-    return sids_MOCK
+    if not use_dynamic:
+        for idx, _hs_list, _hs_diff, _ports in sources:
+            res = _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
+            for node in res:
+                sids[_extract_index(node)] = _extract_node(node)
+
+    return sids
 
 
 def remove_source(socks, s_idx):

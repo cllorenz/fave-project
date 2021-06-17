@@ -44,6 +44,7 @@ from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAU
 from util.lock_util import PreLockedFileLock
 from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
+from util.dynamic_distribution import NodeLinkDispatcher
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_UNIX
@@ -68,13 +69,18 @@ class Aggregator(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
 
-    def __init__(self, socks, mapping=None):
+    def __init__(self, socks, asyncore_socks, mapping=None):
         self.queue = Queue()
         self.models = {}
         self.port_to_model = {}
         self.links = {}
         self.stop = False
-        self.net_plumber = NetPlumberAdapter(socks.values(), Aggregator.LOGGER, mapping=mapping)
+        self.net_plumber = NetPlumberAdapter(
+            socks.values(),
+            Aggregator.LOGGER,
+            asyncore_socks=asyncore_socks,
+            mapping=mapping
+        )
 
 
     def print_aggregator(self):
@@ -314,7 +320,11 @@ class Aggregator(AbstractAggregator):
                         if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                             Aggregator.LOGGER.debug(
                                 "worker: add link to netplumber from %s:%s to %s:%s%s",
-                                sport, hex(sportno), dport,  hex(dportno), (" as bulk" if bulk else "")
+                                sport,
+                                hex(sportno),
+                                dport,
+                                hex(dportno),
+                                (" as bulk" if bulk else "")
                             )
                         nlink = (smodel.egress_port(sport), dmodel.ingress_port(dport))
                         if bulk:
@@ -340,7 +350,10 @@ class Aggregator(AbstractAggregator):
                 if links:
                     if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
                         Aggregator.LOGGER.debug("worker: add all bulk links")
-                    self.net_plumber.add_links_bulk(links)
+                    self.net_plumber.add_links_bulk(
+                        links,
+                        use_dynamic=(self.net_plumber.asyncore_socks != {})
+                    )
 
                 return
 
@@ -361,7 +374,10 @@ class Aggregator(AbstractAggregator):
                     for generator in cmd.model.generators:
                         self._add_ports(generator)
 
-                    self.net_plumber.add_generators_bulk(cmd.model.generators)
+                    self.net_plumber.add_generators_bulk(
+                        cmd.model.generators,
+                        use_dynamic=(self.net_plumber.asyncore_socks != {})
+                    )
 
 # TODO: implement deletion
 #                elif cmd.command == "del":
@@ -513,15 +529,17 @@ def main(argv):
     servers = [(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
     log_level = logging.INFO
     socks = {}
+    asyncore_socks = {}
     use_unix = False
     mapping = None
+    use_dynamic = False
 
     logging._srcfile = None
     logging.logThreads = 0
     logging.logProcesses = 0
 
     try:
-        opts, _args = getopt.getopt(argv, "hdm:s:p:S:tu", ["help", "debug","mapping=", "server=", "port=", "servers=", "trace", "unix"])
+        opts, _args = getopt.getopt(argv, "hadm:s:p:S:tu", ["help", "dynamic", "debug","mapping=", "server=", "port=", "servers=", "trace", "unix"])
     except getopt.GetoptError:
         eprint("could not parse options: %s" % argv)
         _print_help()
@@ -551,20 +569,24 @@ def main(argv):
                     assert is_unix(sp)
                     np_port = 0
                 servers.append((np_host, np_port))
+
         elif opt == '-d':
             log_level = logging.DEBUG
 
         elif opt == '-t':
             log_level = TRACE
 
-    log_handler = logging.FileHandler('/dev/shm/np/aggregator.log')
+        elif opt == '-a':
+            use_dynamic = True
 
-# XXX: from golombek
-#    try:
-#        os.system('rm -f {}/aggregator.log'.format(os.environ['log_dir']))
-#    except:
-#        pass
-#    log_handler = logging.FileHandler('{}/aggregator.log'.format(os.environ['log_dir']))
+    try:
+        os.system('rm -f {}/aggregator.log'.format(os.environ.get('log_dir', '/dev/shm/np')))
+    except:
+        pass
+
+    log_handler = logging.FileHandler(
+        '{}/aggregator.log'.format(os.environ.get('log_dir', '/dev/shm/np'))
+    )
 
     Aggregator.LOGGER.addHandler(log_handler)
     Aggregator.LOGGER.setLevel(log_level)
@@ -573,6 +595,9 @@ def main(argv):
         try:
             sock = jsonrpc.connect_to_netplumber(np_server, np_port)
             socks[(np_server, np_port)] = sock
+            if use_dynamic:
+                asyncore_sock = NodeLinkDispatcher(np_server, np_port)
+                asyncore_socks[(np_server, np_port)] = asyncore_sock
         except jsonrpc.RPCError as err:
             Aggregator.LOGGER.error(err.message)
             eprint("could not connect to server: %s %s" % (np_server, np_port))
@@ -581,7 +606,7 @@ def main(argv):
             sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = Aggregator(socks, mapping=mapping)
+    AGGREGATOR = Aggregator(socks, asyncore_socks=asyncore_socks, mapping=mapping)
 
     register_signals()
 
