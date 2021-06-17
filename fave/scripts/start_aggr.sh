@@ -31,11 +31,14 @@ UNIX=""
 
 usage() { echo "usage: $0 [-hdut] [-S <backend>] [-m <mapping>]" 2>&2; }
 
-while getopts "hdm:uS:t" o; do
+while getopts "hadm:uS:t" o; do
     case "${o}" in
         h)
             usage
             exit 0
+            ;;
+        a)
+            SOCK_PARAMS="-a"
             ;;
         d)
             DEBUG_PARAMS="-d"
@@ -61,7 +64,7 @@ done
 
 if [ -n "$UNIX" ]; then
     [ -s $UNIX ] && rm $UNIX
-    SOCK_PARAMS="-u"
+    SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
 python2 aggregator/aggregator.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
