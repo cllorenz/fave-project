@@ -22,14 +22,7 @@ def prepare_node_link_queue():
 
 def distribute_nodes_and_links():
     prepare_node_link_queue()
-    import util.parallel_utils as parallel_utils
-    for server in parallel_utils.get_serverlist():
-        print('Creating dispatcher: {}'.format(server))
-        sys.stdout.flush()
-        NodeLinkDispatcher(server['host'], server['port'])
     asyncore.loop()
-    print('LOOP DONE')
-    sys.stdout.flush()
 
 class NodeLinkDispatcher(asyncore.dispatcher):
     
