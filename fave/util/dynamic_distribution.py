@@ -39,10 +39,15 @@ class NodeLinkDispatcher(asyncore.dispatcher):
             self.debug = False
             self.logger = logging.getLogger('Dispatcher')
 
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket_family = socket.AF_UNIX if port == 0 else socket.AF_INET
+
+        self.create_socket(socket_family, socket.SOCK_STREAM)
         # Start connection process asynchronously
         # for actions after connection successful see handle_connect
-        self.connect((host, port))
+        if port == 0:
+            self.connect(host)
+        else:
+            self.connect((host, port))
 
         self.host = host
         self.port = port
