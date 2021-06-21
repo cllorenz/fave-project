@@ -126,19 +126,28 @@ if __name__ == "__main__":
                 print(repr(e))
 
         for no in range(0,tds):
-            serverlist.append({'host': host_ip, 'port': str(cur_port + no)})
+            if use_tcp_np:
+                serverlist.append({'host': host_ip, 'port': str(cur_port + no)})
+            else:
+                serverlist.append('/dev/shm/np%d.socket' % no)
         
         for server in serverlist:
-            sockopt = "-s %s -p %s" % (server['host'], server['port'])
-            print("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
-            os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % sockopt)
+            if use_tcp_np:
+                sockopt = "-s %s -p %s" % (server['host'], server['port'])
+            else:
+                sockopt = "-u %s" % server
+            print("bash scripts/start_np.sh -l bench/wl_up/np.conf %s" % sockopt)
+            os.system("bash scripts/start_np.sh -l bench/wl_up/np.conf %s" % sockopt)
 
     print(serverlist)
 
-    aggr_args = [("%s:%s" % (server['host'], server['port'])) for server in serverlist]
+    if use_tcp_np:
+        aggr_args = [("%s:%s" % (server['host'], server['port'])) for server in serverlist]
+    else:
+        aggr_args = serverlist
     print("bash scripts/start_aggr.sh -a -S %s -u" % ','.join(aggr_args))
     os.system(
-        "bash scripts/start_aggr.sh -S %s -u" % ','.join(aggr_args)
+        "bash scripts/start_aggr.sh -a -S %s -u" % ','.join(aggr_args)
     )
 
     LOGGER.info("initialize topology...")
