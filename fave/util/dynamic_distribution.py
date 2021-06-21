@@ -26,8 +26,8 @@ def distribute_nodes_and_links():
 
 class NodeLinkDispatcher(asyncore.dispatcher):
     
-    def __init__(self, host, port):
-        asyncore.dispatcher.__init__(self, logger=None)
+    def __init__(self, host, port, logger=None):
+        asyncore.dispatcher.__init__(self)
 
         if logger:
             self.debug = logger.isEnabledFor(logging.DEBUG)
