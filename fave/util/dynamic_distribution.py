@@ -22,7 +22,10 @@ def prepare_node_link_queue():
 
 def distribute_nodes_and_links():
     prepare_node_link_queue()
+    for _fd, obj in asyncore.socket_map.iteritems():
+        obj.send_next_pair()
     asyncore.loop()
+
 
 class NodeLinkDispatcher(asyncore.dispatcher):
     
@@ -43,15 +46,11 @@ class NodeLinkDispatcher(asyncore.dispatcher):
 
         self.host = host
         self.port = port
-        
+
         # Keep track of expected messages before closing the channel
         self.recv_queue = Queue.Queue()
 
         self.raw_msg_buf = ''
-
-    def handle_connect(self):
-        # Immediately send a pair after socket connection successful
-        self.send_next_pair()
 
     def send_next_pair(self):
         try:
