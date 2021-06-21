@@ -84,8 +84,7 @@ class NetPlumberAdapter(object):
                 self.global_port(src),
                 self.global_port(dst)
             ) for src, dst in links],
-            use_dynamic=use_dynamic,
-            asyncore_socks=(self.asyncore_socks if use_dynamic else {})
+            use_dynamic=use_dynamic
         )
 
     def add_link(self, src, dst):
