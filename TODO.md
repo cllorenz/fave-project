@@ -1,5 +1,9 @@
 ## TODOs
 
+### General
+
+ - Update [README](README.md)
+
 ### Benchmarks
 
  - IFI:
@@ -39,7 +43,7 @@ in large tables tremendously
  - improve code readability
  - libnetplumber (C++ plus Python)
     - wrapper around net_plumber.cc
-    - native json data format instead of json string parsing
+    - native Python data format instead of json string parsing
  - BDDs instead of Header Spaces
     - `[DONE]` generic interface for set representations and operations
     - implement and test bdd based packet set class
