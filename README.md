@@ -48,9 +48,9 @@ There exist some benchmarks showing the capabilities of FaVe:
 
  - `fave/bench/wl_ifi/` - Implementation of the small IFI benchmark which is a reasonably complex yet still manually explorable network configuration.
  - `fave/bench/wl_up/` - Implementation of the synthetic, mid-sized, and complex UP benchmark which mimics a university campus network.
- - `[Still Open] fave/bench/wl_tum/` - Implementation of the complex TUM-i8 benchmark from literature including a large firewall ruleset.
- - `[Still Open] fave/bench/wl_stan/` - Implementation of the large Stanford benchmark from literature including ACLs.
- - `[Still Open] fave/bench/wl_i2/` - Implementation of the large Internet2 benchmark from literature including .
+ - `fave/bench/wl_tum/` - Implementation of the complex TUM-i8 benchmark from literature including a large firewall ruleset.
+ - `fave/bench/wl_stanford/` - Implementation of the large Stanford benchmark from literature including ACLs.
+ - `fave/bench/wl_i2/` - Implementation of the large Internet2 benchmark from literature including .
 
 To run a benchmark `BENCH=fave/bench/wl_your_benchmark_here` use the following commands:
 
