@@ -15,10 +15,12 @@ class GenUtils():
     def table(name):
         return et.Element('table',{'name':name})
 
-    def rule(name,key=""):
+    def rule(name,key="",raw=""):
         rule = et.Element('rule',{'name':'r'+name})
         if key != "":
             rule.attrib['key'] = key
+        if raw != "":
+            rule.attrib['raw'] = raw
         return rule
 
     def action(actiontype,target=''):
