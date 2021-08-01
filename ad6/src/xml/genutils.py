@@ -67,6 +67,11 @@ class GenUtils():
         elem.text = statetype
         return elem
 
+    def tcp_flags(flags):
+        elem = et.Element('tcp-flags')
+        elem.text = flags
+        return elem
+
     def ipv6header():
         return et.Element('ipv6-header')
 
@@ -93,9 +98,20 @@ class GenUtils():
         elem.attrib['negated'] = 'true'
         return elem
 
+    def vlan(no, direction=None):
+        elem = et.Element('vlan')
+        elem.text = no
+        if direction:
+            elem.attrib['direction'] = direction
+        return elem
 
-    def interface(name,key):
-        return et.Element('interface',{'name':name,'key':key})
+    def interface(name, key, direction=None):
+        if not direction:
+            return et.Element('interface',{'name':name,'key':key})
+        else:
+            elem = et.Element('interface',{'direction':direction})
+            elem.text = key
+            return elem
 
     def connections():
         return et.Element('connections')
