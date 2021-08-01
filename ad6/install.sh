@@ -22,6 +22,7 @@ elif [ -f /usr/bin/pacman ]; then
     sudo pip3 install pycosat
     sudo pip3 install cherrypy
     sudo pip3 install numpy
+    sudo pip3 install yappi
 else
     echo "No packet manager found. Abort!"
     return 0
