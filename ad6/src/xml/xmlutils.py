@@ -31,6 +31,8 @@ class XMLUtils:
     TABLE = "table"
     ACTION = "action"
     INTERFACE = "interface"
+    INGRESS = "ingress"
+    EGRESS = "egress"
     IP = "ip"
     PROTO = "proto"
     ICMP6TYPE = "icmp6-type"
@@ -41,6 +43,8 @@ class XMLUtils:
     SRC = "src"
     IPV6HEADER = "ipv6-header"
     IPV6ROUTE = "ipv6-route"
+    VLAN = "vlan"
+    TCPFLAGS = "tcp-flags"
 
     FIREWALLPATH = "/*/firewalls/"+FIREWALL
     NETWORKPATH = "/*/networks/"+NETWORK
@@ -60,15 +64,20 @@ class XMLUtils:
     ICMP6LIMITPATH = "./"+ICMP6LIMIT
     RTTYPEPATH = "./"+RTTYPE
     RTSEGSLEFTPATH = "./"+RTSEGSLEFT
-    RBODYPATHS = [PROTOPATH,
+    VLANPATH="./"+VLAN
+    TCPFLAGSPATH="./"+TCPFLAGS
+    RBODYPATHS = [
+        PROTOPATH,
         IPPATH,
         PORTPATH,
-        IFPATH,
+        INTERFACEPATH,
         STATEPATH,
         ICMP6TYPEPATH,
         ICMP6LIMITPATH,
         RTTYPEPATH,
-        RTSEGSLEFTPATH
+        RTSEGSLEFTPATH,
+        VLANPATH,
+        TCPFLAGSPATH
     ]
 
     DEFAULTINPUT = "input"
@@ -80,16 +89,15 @@ class XMLUtils:
         DEFAULTFORWARD
     ]
 
-
     OTHERS = [
         ICMP6TYPE,
         PROTO,
         ICMP6LIMIT,
         STATE,
         RTTYPE,
-        RTSEGSLEFT
+        RTSEGSLEFT,
+        TCPFLAGS
     ]
-
 
     NEGATION = "negation"
     CONJUNCTION = "conjunction"
@@ -102,11 +110,13 @@ class XMLUtils:
     NEW = "NEW"
     ESTABLISHED = "ESTABLISHED"
     RELATED = "RELATED"
+    UNTRACKED = "UNTRACKED"
 
     STATES = {
         NEW : 0,
         ESTABLISHED : 1,
         RELATED : 2,
+        UNTRACKED : 3
     }
 
     TCP = "tcp"
@@ -219,10 +229,10 @@ class XMLUtils:
         except Exception:
             print('error: no version')
             return
-        if not Version in ['4','6']:# (version == '4' or version == '6'):
+        if not Version in ['4','6']:
             print('error: no such version: ' + Version)
             return
-        
+
         Address = Elem.find(XMLUtils.ADDRESS).text
 
         if Version == '4':
@@ -272,8 +282,8 @@ class XMLUtils:
         return Address + '/' + str(Mask)
 
 
-    def CanonizePort(Port):
-        return XMLUtils._CanonizeBitvector(Port,16)
+    def CanonizePort(Port, Prefix=16):
+        return XMLUtils._CanonizeBitvector(Port, 16)[:Prefix*2-1]
 
 
     def _CanonizeBitvector(Element,Length):
@@ -299,6 +309,10 @@ class XMLUtils:
             Prefix = Config.attrib[XMLUtils.ATTRDIRECTION] + '_'+XMLUtils.PORT+'_'
             XML = XMLUtils.variable(Prefix + Config.text)
 
+        if Config.tag == XMLUtils.VLAN:
+            Prefix = Config.attrib[XMLUtils.ATTRDIRECTION] + '_'+XMLUtils.VLAN+'_'
+            XML = XMLUtils.variable(Prefix + Config.text)
+
         elif Config.tag == XMLUtils.IP:
             CIDR = XMLUtils.CanonizeIP(Config)
             try:
@@ -313,6 +327,10 @@ class XMLUtils:
             XML = XMLUtils.variable(Prefix)
 
 
+        elif Config.tag == XMLUtils.INTERFACE:
+            Prefix = Config.attrib.get(XMLUtils.ATTRKEYREF, Config.text) + '_' + Config.attrib[XMLUtils.ATTRDIRECTION]
+            XML = XMLUtils.variable(Prefix)
+
         elif Config.tag in [XMLUtils.PROTO,XMLUtils.ICMP6TYPE,XMLUtils.ICMP6LIMIT,XMLUtils.STATE]:
             XML = XMLUtils.variable(Config.tag + '_' + Config.text)
 
@@ -325,16 +343,21 @@ class XMLUtils:
         elif Config.tag in [XMLUtils.IPV6HEADER,XMLUtils.IPV6ROUTE]:
             XML = XMLUtils.variable(Config.tag)
 
+        elif Config.tag == XMLUtils.TCPFLAGS:
+            XML = XMLUtils.variable(Config.tag + '_' + Config.text)
+
         return XML
 
 
     def ConvertPortToVariables(Port,Direction):
-        BitVector = XMLUtils.CanonizePort(Port).split(' ')
+        Port, Prefix = Port.split('/')
+        BitVector = XMLUtils.CanonizePort(Port, Prefix=int(Prefix)).split(' ')
         XML = XMLUtils.conjunction()
         Prefix = Direction + '_'+XMLUtils.PORT+'_'
         for Index,Bit in enumerate(BitVector):
             Name = Prefix + str(Index) + '=' + Bit
             XML.append(XMLUtils.variable(Name))
+
         return XML
 
 
@@ -406,15 +429,12 @@ class XMLUtils:
 
 
     def ConvertStateToVariables(State):
-        States = XMLUtils.STATES
         Prefix = XMLUtils.STATE+'_'
 
-        try:
-            StateNo = States[State]
-        except KeyError:
-            StateNo = 0
+        BitVector = ['0' for _i in range(len(XMLUtils.STATES))]
+        for State in State.split(','):
+            BitVector[XMLUtils.STATES.get(State, 0)] = '1'
 
-        BitVector = XMLUtils._CanonizeBitvector(StateNo,2).split(' ')
         XML = XMLUtils.conjunction()
 
         for Index,Bit in enumerate(BitVector):
@@ -448,6 +468,24 @@ class XMLUtils:
         XML = XMLUtils.conjunction()
 
         for Index,Bit in enumerate(BitVector):
+            XML.append(XMLUtils.variable(Prefix + str(Index) + '=' + Bit))
+
+        return XML
+
+    def ConvertTCPFlagsToVariables(Flags):
+        XML = XMLUtils.conjunction()
+
+        for Flag in Flags.split(','):
+            XML.append(XMLUtils.variable(XMLUtils.TCPFLAGS + '_' + Flag + '=1'))
+
+        return XML
+
+    def ConvertVLANToVariables(Vlan, Direction):
+        Prefix = Direction+'_'+XMLUtils.VLAN+'_'
+        BitVector = XMLUtils._CanonizeBitvector(Vlan, 12).split(' ')
+        XML = XMLUtils.conjunction()
+
+        for Index, Bit in enumerate(BitVector):
             XML.append(XMLUtils.variable(Prefix + str(Index) + '=' + Bit))
 
         return XML
