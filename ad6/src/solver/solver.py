@@ -20,55 +20,60 @@ class AbstractSolver:
         raise Exception("TODO: implement")
 
     def _ConvertToDIMACS(self,CNF):
-        Header = "p cnf "
-        Content = ""
-
         if CNF.tag == XMLUtils.FORMULA:
             CNF = CNF[0]
 
-        self._Variables = []
+        Variables = []
+        DIMACS = []
         Reverse = {}
-        Clauses = list(CNF)
         LastIndex = 1
+
+        Clauses = list(CNF)
         for Clause in Clauses:
-            Line = "\n"
+            Line = []
             if Clause.tag == XMLUtils.VARIABLE:
-                # add to set with new Index
                 Name = Clause.attrib[XMLUtils.ATTRNAME]
                 try:
                     Index = Reverse[Name]
                 except KeyError:
-                    self._Variables.append(Name)
+                    Variables.append(Name)
                     Reverse[Name] = LastIndex
                     Index = LastIndex
                     LastIndex += 1
-                
-                # add to Line
+
                 Flag = Clause.attrib[XMLUtils.ATTRNEGATED] == "false"
-                Line += str(Index) + " " if Flag else "-" + str(Index) + " "
+                Line.append(Index if Flag else -Index)
 
             elif Clause.tag == XMLUtils.DISJUNCTION:
                 Literals = list(Clause)
-                for Literal in list(Literals):
-                    # add to set with new Index
-                    Name = Literal.attrib[XMLUtils.ATTRNAME]
+                for Literal in Literals:
+                    try:
+                        Name = Literal.attrib[XMLUtils.ATTRNAME]
+                    except:
+                        print("Exception while conversion to DIMACS caused by:")
+                        XMLUtils.pprint(Clause)
+                        exit(1)
                     try:
                         Index = Reverse[Name]
                     except KeyError:
-                        self._Variables.append(Name)
+                        Variables.append(Name)
                         Reverse[Name] = LastIndex
                         Index = LastIndex
                         LastIndex += 1
- 
-                    # add to Line
+
                     Flag = Literal.attrib[XMLUtils.ATTRNEGATED] == "false"
-                    Line += str(Index) + " " if Flag else "-" + str(Index) + " "
+                    Line.append(Index if Flag else -Index)
 
-            Content += Line + "0"
+            DIMACS.append(Line)
+        return Variables, DIMACS
 
-        Header += str(LastIndex-1) + " " + str(len(Clauses))
+    def _ConvertToDIMACSStr(self, CLF):
+        Variables, DIMACS = self._ConvertToDIMACS(CLF)
 
-        return Header + Content + '\n'
+        Header = "p cnf {} {}".format(len(Variables), len(DIMACS))
+        Content = "\n".join([(' '.join([str(v) for v in Clause]) + " 0") for Clause in DIMACS])
+
+        return Variables, Header + '\n' + Content + '\n'
 
     def _Filter(self,Name):
         return not (Name.startswith(SATUtils.SUB+'_') or Name.endswith('_'+Instantiator.GAMMA))

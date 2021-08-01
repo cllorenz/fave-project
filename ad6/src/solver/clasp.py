@@ -6,7 +6,8 @@ from src.solver.solver import AbstractSolver
 
 class ClaspAdapter(AbstractSolver):
     def _Prepare(self,CNF):
-        DIMACS = self._ConvertToDIMACS(CNF)
+        Variables, DIMACS = self._ConvertToDIMACSStr(CNF)
+        self._Variables = Variables
 
         IFile = open(self._IFILE,'w')
         IFile.write(DIMACS)
@@ -46,7 +47,7 @@ class ClaspAdapter(AbstractSolver):
 
 
     def Reset(self):
-        self._Variables = set()
+        self._Variables = []
         IFile = open(self._IFILE,'w')
         IFile.writeLine('')
         IFile.close()

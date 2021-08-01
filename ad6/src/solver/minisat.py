@@ -6,7 +6,8 @@ from src.solver.solver import AbstractSolver
 
 class MiniSATAdapter(AbstractSolver):
     def _Prepare(self,CNF):
-        DIMACS = self._ConvertToDIMACS(CNF)
+        Variables, DIMACS = self._ConvertToDIMACSStr(CNF)
+        self._Variables = Variables
 
         IFile = open(self._IFILE,'w')
         IFile.write(DIMACS)
