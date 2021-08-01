@@ -40,8 +40,8 @@ class GenUtils():
             elem.attrib['direction'] = direction
         return elem
 
-    def address(addr,direction=""):
-        ip = GenUtils.ip("6",direction)
+    def address(addr,direction="",version="6"):
+        ip = GenUtils.ip(version,direction)
         address = et.Element('address')
         address.text = addr
         ip.append(address)
