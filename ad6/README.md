@@ -7,7 +7,6 @@ Date: Berlin, October 20th 2014
 This software was developed and tested with
 
  - `Python 3.4.2`
- - `Redis 2.8.17`
 
 on a 3.16.4 Kernel with Arch Linux.
 
