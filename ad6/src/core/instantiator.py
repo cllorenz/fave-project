@@ -1,13 +1,9 @@
-import lxml.etree as et
-import ast
 from copy import deepcopy
 from functools import reduce
 
 from src.xml.xmlutils import XMLUtils
 from src.sat.satutils import SATUtils
 from src.core.kripke import KripkeUtils
-from src.database.redis import RedisAdapter
-from src.core.structure import KripkeStructure
 
 
 class Instantiator:
@@ -18,6 +14,8 @@ class Instantiator:
     _KRIPKE = 'kripke'
     _BASE = 'base'
     GAMMA = 'gamma'
+
+    DB = {}
 
     def Instantiate(Config,Reach=True,Cycle=False,Shadow=False,Cross=False):
         """ DEPRECATED: Reads a distributed firewall Configuration and transforms it into model checking Instances.
@@ -44,15 +42,19 @@ class Instantiator:
         return Instances
 
 
-    def InstantiateBase(Config):
-        DB = RedisAdapter.Instance()
+    def InstantiateBase(Config, Inits=[]):
+        DB = Instantiator.DB
 
         Kripke = KripkeUtils.ConvertToKripke(Config)
+        for Init in Inits:
+            InitNode = Kripke.GetNode(Init)
+            if XMLUtils.INIT not in InitNode.Props: InitNode.Props.append(XMLUtils.INIT)
+            Kripke.PutInit(Init, InitNode)
 
         LastKripke = DB.get(Instantiator._KRIPKE)
         Diff = []
         if LastKripke is not None:
-            LastKripke = KripkeStructure.fromstring(LastKripke)
+            LastKripke = LastKripke
             Diff = Kripke.Diff(LastKripke)
             DiffKripke = Kripke.SubStructure(Diff)
         else:
@@ -60,8 +62,7 @@ class Instantiator:
             DiffKripke = Kripke
 
         if Diff:
-            DB.set(Instantiator._KRIPKE,Kripke.tostring())
-
+            DB[Instantiator._KRIPKE] = Kripke
 
         Intersection = set(LastKripke.IterNodes()).intersection(Diff) if LastKripke is not None else set()
         for Node in Intersection:
@@ -72,18 +73,32 @@ class Instantiator:
         Encoding = Instantiator._InstantiateBase(DiffKripke)
         Complement = set(Kripke.IterNodes()).difference(Diff)
         for Node in Complement:
-            ImplicationsStr = DB.get(Node+'_'+Instantiator._BASE)
-            Implications = ast.literal_eval(ImplicationsStr) if ImplicationsStr is not None else []
-            Encoding[0].extend([et.fromstring(Implication) for Implication in Implications])
-            GammaStr = DB.get(Node+'_'+Instantiator.GAMMA)
-            Gammas = ast.literal_eval(GammaStr) if GammaStr is not None else []
-            Encoding[0].extend([et.fromstring(Gamma) for Gamma in Gammas])
+            Implications = DB.get(Node+'_'+Instantiator._BASE)
+            Encoding[0].extend(Implications)
+            Gammas = DB.get(Node+'_'+Instantiator.GAMMA)
+            Encoding[0].extend(Gammas)
 
+        Variables = Encoding.iterdescendants(XMLUtils.VARIABLE)
+        Handled = {}
 
-        Instantiator._HandlePrefixes(Encoding)
-        Instantiator._HandlePorts(Encoding)
-        Instantiator._HandleOthers(Encoding)
+        for Variable in Variables:
+            Instantiator._HandlePrefixes(Variable, Handled)
+            Instantiator._HandlePorts(Variable, Handled)
+            Instantiator._HandleVlans(Variable, Handled)
+            Instantiator._HandleOthers(Variable, Handled)
+
+        Keys = list(Handled)
+
+        SrcKeys = [key for key in Keys if key.startswith('src_')]
+        DstKeys = [key for key in Keys if key.startswith('dst_')]
+
+        Instantiator._ShortenPrefixes(Handled,SrcKeys)
+        Instantiator._ShortenPrefixes(Handled,DstKeys)
+
+        Encoding[0].extend(list(Handled.values()))
+
         Encoding[0].extend(Instantiator._CreateGlobalConstraints(Kripke,Encoding))
+
         SATUtils.ConvertToCNF(Encoding)
 
         return Kripke,Encoding
@@ -316,7 +331,7 @@ class Instantiator:
 
     def _ConvertNodesToImplications(Kripke):
         Implications = []
-        DB = RedisAdapter.Instance()
+        DB = Instantiator.DB
 
         FTransitions = Kripke.IterFTransitions(None)
         for NodeKey in FTransitions:
@@ -360,7 +375,6 @@ class Instantiator:
                 Conjunction.append(Implication)
 
                 SATUtils.ConvertToCNF(Dummy)
-
                 Conjunction = Dummy[0]
                 Dummy.remove(Conjunction)
 
@@ -369,7 +383,7 @@ class Instantiator:
                 else:
                     NodeImplications.append(Conjunction)
 
-            DB.set(NodeKey+'_'+Instantiator._BASE,str([et.tostring(Implication) for Implication in NodeImplications]))
+            DB[NodeKey+'_'+Instantiator._BASE] = NodeImplications
             Implications.extend(NodeImplications)
 
         return Implications
@@ -447,7 +461,7 @@ class Instantiator:
 
 
     def _HandleGammas(Kripke):
-        DB = RedisAdapter.Instance()
+        DB = Instantiator.DB
         Gammas = []
         Nodes = Kripke.IterNodes()
         for NodeKey in Nodes:
@@ -466,10 +480,10 @@ class Instantiator:
 
             if Conjunction.tag == XMLUtils.CONJUNCTION:
                 Gammas.extend(list(Conjunction))
-                DB.set(NodeKey+'_'+Instantiator.GAMMA,str([et.tostring(elem) for elem in list(Conjunction)]))
+                DB[NodeKey+'_'+Instantiator.GAMMA] = Conjunction
             else:
                 Gammas.append(Conjunction)
-                DB.set(NodeKey+'_'+Instantiator.GAMMA,str([et.tostring(Conjunction)]))
+                DB[NodeKey+'_'+Instantiator.GAMMA] = Conjunction
 
         return Gammas
 
@@ -497,90 +511,81 @@ class Instantiator:
         return Encoding
 
 
-    def _HandlePorts(Formula):
-        Variables = Formula.iterdescendants(XMLUtils.VARIABLE)
-        Handled = {}
+    def _HandlePorts(Variable, Handled):
+        Name = Variable.attrib[XMLUtils.ATTRNAME]
+        if Name in Handled or not Name.startswith(('dst_port_','src_port_')):
+            return
 
-        for Variable in Variables:
-            Name = Variable.attrib[XMLUtils.ATTRNAME]
-            if Name in Handled or not Name.startswith(('dst_port_','src_port_')):
-                continue
+        Equality = XMLUtils.equality()
+        var = deepcopy(Variable)
+        var.attrib[XMLUtils.ATTRNEGATED] = 'false'
+        Equality.append(var)
 
-            Equality = XMLUtils.equality()
-            var = deepcopy(Variable)
-            var.attrib[XMLUtils.ATTRNEGATED] = 'false'
-            Equality.append(var)
+        Direction,tmp,Port = Name.split('_')
+        Equality.append(XMLUtils.ConvertPortToVariables(Port,Direction))
 
-            Direction,tmp,Port = Name.split('_')
-            Equality.append(XMLUtils.ConvertPortToVariables(Port,Direction))
-
-            Handled[Name] = Equality
-
-        Formula[0].extend(list(Handled.values()))
+        Handled[Name] = Equality
 
 
-    def _HandleOthers(Formula):
-        Variables = Formula.iterdescendants(XMLUtils.VARIABLE)
-        Handled = {}
+    def _HandleVlans(Variable, Handled):
+        Name = Variable.attrib[XMLUtils.ATTRNAME]
+        if Name in Handled or not Name.startswith(('ingress_vlan_', 'egress_vlan_')):
+            return
 
-        for Variable in Variables:
-            Name = Variable.attrib[XMLUtils.ATTRNAME]
-            if Name in Handled or not any(Name.startswith(x) for x in XMLUtils.OTHERS):
-                continue
+        Equality = XMLUtils.equality()
+        var = deepcopy(Variable)
+        var.attrib[XMLUtils.ATTRNEGATED] = 'false'
+        Equality.append(var)
 
-            Equality = XMLUtils.equality()
-            var = deepcopy(Variable)
-            var.attrib[XMLUtils.ATTRNEGATED] = 'false'
-            Equality.append(var)
+        Direction,tmp,Vlan = Name.split('_')
+        Equality.append(XMLUtils.ConvertVLANToVariables(Vlan,Direction))
 
-            Prefix,Postfix = Name.split('_')
-            Functions = {
-                XMLUtils.PROTO : XMLUtils.ConvertProtoToVariables,
-                XMLUtils.ICMP6TYPE : XMLUtils.ConvertICMP6TypeToVariables,
-                XMLUtils.ICMP6LIMIT : XMLUtils.ConvertICMP6LimitToVariables,
-                XMLUtils.STATE : XMLUtils.ConvertStateToVariables,
-                XMLUtils.RTTYPE : XMLUtils.ConvertRTTypeToVariables,
-                XMLUtils.RTSEGSLEFT : XMLUtils.ConvertRTSegsLeftToVariables,
-            }
-
-            try:
-                Equality.append(Functions[Prefix](Postfix))
-            except KeyError:
-                Equality.append(deepcopy(Variable))
-
-            Handled[Name] = Equality
-
-        Formula[0].extend(list(Handled.values()))
+        Handled[Name] = Equality
 
 
-    def _HandlePrefixes(Formula):
-        Variables = Formula.iterdescendants(XMLUtils.VARIABLE)
-        Handled = {}
+    def _HandleOthers(Variable, Handled):
+        Name = Variable.attrib[XMLUtils.ATTRNAME]
+        if Name in Handled or not any(Name.startswith(x) for x in XMLUtils.OTHERS):
+            return
 
-        for Variable in Variables:
-            Name = Variable.attrib['name']
-            if Name in Handled or not Name.startswith(('dst_ip','src_ip')):
-                continue
+        Equality = XMLUtils.equality()
+        var = deepcopy(Variable)
+        var.attrib[XMLUtils.ATTRNEGATED] = 'false'
+        Equality.append(var)
 
-            Equality = XMLUtils.equality()
-            var = deepcopy(Variable)
-            var.attrib['negated'] = 'false'
-            Equality.append(var)
+        Prefix,Postfix = Name.split('_')
+        Functions = {
+            XMLUtils.PROTO : XMLUtils.ConvertProtoToVariables,
+            XMLUtils.ICMP6TYPE : XMLUtils.ConvertICMP6TypeToVariables,
+            XMLUtils.ICMP6LIMIT : XMLUtils.ConvertICMP6LimitToVariables,
+            XMLUtils.STATE : XMLUtils.ConvertStateToVariables,
+            XMLUtils.RTTYPE : XMLUtils.ConvertRTTypeToVariables,
+            XMLUtils.RTSEGSLEFT : XMLUtils.ConvertRTSegsLeftToVariables,
+            XMLUtils.TCPFLAGS : XMLUtils.ConvertTCPFlagsToVariables
+        }
 
-            Direction,IPType,CIDR = Name.split('_')
-            Equality.append(XMLUtils.ConvertCIDRToVariables(CIDR,Direction))
+        try:
+            Equality.append(Functions[Prefix](Postfix))
+        except KeyError:
+            Equality.append(deepcopy(Variable))
 
-            Handled[Name] = Equality
+        Handled[Name] = Equality
 
-        Keys = list(Handled)
 
-        SrcKeys = [key for key in Keys if key.startswith('src_')]
-        DstKeys = [key for key in Keys if key.startswith('dst_')]
+    def _HandlePrefixes(Variable, Handled):
+        Name = Variable.attrib['name']
+        if Name in Handled or not Name.startswith(('dst_ip','src_ip')):
+            return
 
-        Instantiator._ShortenPrefixes(Handled,SrcKeys)
-        Instantiator._ShortenPrefixes(Handled,DstKeys)
+        Equality = XMLUtils.equality()
+        var = deepcopy(Variable)
+        var.attrib['negated'] = 'false'
+        Equality.append(var)
 
-        Formula[0].extend(list(Handled.values()))
+        Direction,IPType,CIDR = Name.split('_')
+        Equality.append(XMLUtils.ConvertCIDRToVariables(CIDR,Direction))
+
+        Handled[Name] = Equality
 
 
     def _ShortenPrefixes(Handled,Keys):
@@ -589,14 +594,18 @@ class Instantiator:
 
         Concat = lambda x,y: x+'_'+y
         Stringify = lambda collection: reduce(Concat,map(str,collection))
-        Canonize = lambda x: '{:016b}'.format(int(x,16))
+        Canonize6 = lambda x: '{:016b}'.format(int(x,16))
+        Canonize4 = lambda x: '{:08b}'.format(int(x,10))
 
         # bring addresses into canonical form and add them to mapping
         for Key in Keys:
-            Addr,CIDR = Key[8:].split('/')
-            SplitAddr = Addr.split(':')
-
-            CanonAddr = ''.join(map(Canonize,SplitAddr))
+            Addr,CIDR = Key.split('_')[-1].split('/')
+            if Key[6] == '6':
+                SplitAddr = Addr.split(':')
+                CanonAddr = ''.join(map(Canonize6,SplitAddr))
+            else:
+                SplitAddr = Addr.split('.')
+                CanonAddr = ''.join(map(Canonize4,SplitAddr))
 
             Split = (CanonAddr,int(CIDR,10))
 

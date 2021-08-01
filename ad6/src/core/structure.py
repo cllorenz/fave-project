@@ -4,9 +4,10 @@ import ast
 from pprint import pprint
 
 class KripkeNode:
-    def __init__(self,Props=[],Gamma=None):
+    def __init__(self,Props=[],Gamma=None, Desc=None):
         self.Props = Props
         self.Gamma = Gamma
+        self.Desc = Desc
 
 
     def tostring(self):

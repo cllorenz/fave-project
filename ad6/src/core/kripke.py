@@ -6,6 +6,7 @@ class KripkeUtils:
         Kripke = KripkeUtils._GetTransitions(Config)
         KripkeUtils._RedirectInputs(Kripke)
         KripkeUtils._ConnectOutputs(Kripke)
+
         return Kripke
 
 
@@ -44,7 +45,7 @@ class KripkeUtils:
 
     def _HandleRule(Kripke,IfRules,Index,Rule,Table,TKey):
         RKey = TKey + '_r' + str(Index)
-        Node = KripkeNode(Props=[RKey],Gamma=None)
+        Node = KripkeNode(Props=[RKey], Gamma=None, Desc=Rule.attrib.get('raw', None))
         Kripke.Put(RKey,Node)
 
         if XMLUtils.ACCEPT in RKey:
@@ -73,6 +74,29 @@ class KripkeUtils:
             if any(x.tag == XMLUtils.IF for x in Gamma):
                 IfRules.append(Node)
 
+            InterfaceFilter = lambda x: x.tag == XMLUtils.INTERFACE
+            Interfaces = list(filter(InterfaceFilter, Gamma))
+            InInterfaceList = []
+            OutInterfaceList = []
+            for Interface in Interfaces:
+                Gamma.remove(Interface)
+                if Interface.attrib[XMLUtils.ATTRDIRECTION] == XMLUtils.IN:
+                    InInterfaceList.append(Interface)
+                else:
+                    OutInterfaceList.append(Interface)
+
+            if len(InInterfaceList) == 1:
+                InInterfaces = XMLUtils.ConvertToVariables(InInterfaceList[0])
+            elif len(InInterfaceList) > 1:
+                InInterfaces = XMLUtils.disjunction()
+                InInterfaces.extend(list(map(XMLUtils.ConvertToVariables,InInterfaceList)))
+
+            if len(OutInterfaceList) == 1:
+                OutInterfaces = XMLUtils.ConvertToVariables(OutInterfaceList[0])
+            elif len(OutInterfaceList) > 1:
+                OutInterfaces = XMLUtils.disjunction()
+                OutInterfaces.extend(list(map(XMLUtils.ConvertToVariables,OutInterfaceList)))
+
             PortFilter = lambda x: x.tag == XMLUtils.PORT
             Ports = list(filter(PortFilter,Gamma))
             PortList = []
@@ -85,6 +109,29 @@ class KripkeUtils:
             elif len(PortList) > 1:
                 Ports = XMLUtils.disjunction()
                 Ports.extend(list(map(XMLUtils.ConvertToVariables,PortList)))
+
+            VlanFilter = lambda x: x.tag == XMLUtils.VLAN
+            Vlans = list(filter(VlanFilter, Gamma))
+            InVlanList = []
+            OutVlanList = []
+            for Vlan in Vlans:
+                Gamma.remove(Vlan)
+                if Vlan.attrib[XMLUtils.ATTRDIRECTION] == XMLUtils.INGRESS:
+                    InVlanList.append(Vlan)
+                else:
+                    OutVlanList.append(Vlan)
+
+            if len(InVlanList) == 1:
+                InVlans = XMLUtils.ConvertToVariables(InVlanList[0])
+            elif len(InVlanList) > 1:
+                InVlans = XMLUtils.disjunction()
+                InVlans.extend(list(map(XMLUtils.ConvertToVariables,InVlanList)))
+
+            if len(OutVlanList) == 1:
+                OutVlans = XMLUtils.ConvertToVariables(OutVlanList[0])
+            elif len(OutVlanList) > 1:
+                OutVlans = XMLUtils.disjunction()
+                OutVlans.extend(list(map(XMLUtils.ConvertToVariables,OutVlanList)))
 
             StateFilter = lambda x: x.tag == XMLUtils.STATE
             States = list(filter(StateFilter,Gamma))
@@ -101,11 +148,18 @@ class KripkeUtils:
             Gamma = list(map(XMLUtils.ConvertToVariables,Gamma))
             Node.Gamma = XMLUtils.conjunction()
             Node.Gamma.extend(Gamma)
+            if InInterfaceList:
+                Node.Gamma.append(InInterfaces)
+            if OutInterfaceList:
+                Node.Gamma.append(OutInterfaces)
             if PortList:
                 Node.Gamma.append(Ports)
+            if InVlanList:
+                Node.Gamma.append(InVlans)
+            if OutVlanList:
+                Node.Gamma.append(OutVlans)
             if StateList:
                 Node.Gamma.append(States)
-
 
         # true Transition
         Action = Rule.xpath(XMLUtils.ACTIONPATH)[0]
@@ -146,11 +200,11 @@ class KripkeUtils:
 
         OutNode = KripkeNode(Props=[IFaceKey+'_'+XMLUtils.OUT],Gamma=None)
         Kripke.Put(IFaceKey+'_'+XMLUtils.OUT,OutNode)
-        ROutes = Interface.xpath(XMLUtils.REMOTEIPPATH)
-        if ROutes:
+        Routes = Interface.xpath(XMLUtils.REMOTEIPPATH)
+        if Routes:
             IPs = []
-            for ROute in ROutes:
-                KripkeUtils._HandleROute(ROute,IPs)
+            for Route in Routes:
+                KripkeUtils._HandleRoute(Route,IPs)
 
             if len(IPs) > 1:
                 Disjunction = XMLUtils.disjunction()
@@ -186,10 +240,10 @@ class KripkeUtils:
             Kripke.Put(ConKey+'_'+XMLUtils.OUT,(IFaceKey+'_'+XMLUtils.IN,True))
 
 
-    def _HandleROute(ROute,IPs):
-        IP = XMLUtils.ConvertToVariables(ROute)
+    def _HandleRoute(Route,IPs):
+        IP = XMLUtils.ConvertToVariables(Route)
         try:
-            Flag = ROute.attrib[XMLUtils.ATTRNEGATED] == 'false'
+            Flag = Route.attrib[XMLUtils.ATTRNEGATED] == 'false'
         except KeyError:
             Flag = True
 
