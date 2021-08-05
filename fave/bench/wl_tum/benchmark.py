@@ -68,7 +68,10 @@ if __name__ == '__main__':
     if verbose:
         print "Run benchmark..."
 
-    arguments = "-l bench/wl_tum/np.conf -L %s" % (json.load(open(mapping, 'r'))['length'] / 8)
+    arguments = "-l bench/wl_tum/np.conf"
+    if mapping:
+        arguments += " -L %s" % (json.load(open(mapping, 'r'))['length'] / 8)
+
     if use_unix:
         arguments += " -u /dev/shm/np1.socket"
     else:
@@ -78,7 +81,10 @@ if __name__ == '__main__':
         "bash scripts/start_np.sh %s" % arguments
     )
 
-    arguments = "-m %s" % mapping
+    arguments = ""
+    if mapping:
+        arguments += " -m %s" % mapping
+
     if use_unix:
         arguments += " -u -S %s" % "/dev/shm/np1.socket"
     else:
