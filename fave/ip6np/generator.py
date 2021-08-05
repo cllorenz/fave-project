@@ -449,8 +449,8 @@ def _derive_conditional_state_shells(
     return cond_shells
 
 
-def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain):
-    interwhoven_state_shell = []
+def _interweave_state_shell(intervals, blocks, conditional_state_shells, chain):
+    interwoven_state_shell = []
     cnt = 0
 
     is_conntrack = lambda f: f.name == 'module.conntrack.ctstate' or (
@@ -462,7 +462,7 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain)
         cond_shell = conditional_state_shells[idx] if idx < len(conditional_state_shells) else []
 
         for rule in block:
-            interwhoven_state_shell.append(SwitchRule(
+            interwoven_state_shell.append(SwitchRule(
                 rule.node,
                 rule.tid,
                 cnt,
@@ -473,7 +473,7 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain)
             cnt += 1
 
         for rule in cond_shell:
-            interwhoven_state_shell.append(SwitchRule(
+            interwoven_state_shell.append(SwitchRule(
                 rule.node,
                 rule.tid,
                 cnt,
@@ -483,7 +483,7 @@ def _interwheave_state_shell(intervals, blocks, conditional_state_shells, chain)
             ))
             cnt += 1
 
-    return interwhoven_state_shell
+    return interwoven_state_shell
 
 
 _SWAP_CHAIN = {
@@ -492,9 +492,19 @@ _SWAP_CHAIN = {
     'forward_filter' : 'forward_filter',
 }
 
-def _transform_ast_to_model(ast, node, ports=None, address=None):
+def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=True):
     model = PacketFilterModel(node, ports=ports, address=address)
     chains = _get_rules_from_ast(node, ast)
+
+    if not interweaving:
+        for chain, rules in chains.iteritems():
+            for idx, rule in rules.iteritems():
+                model.tables[
+                    rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid
+            ].append(rule)
+
+        return model
+
 
     chain_rules = {}
     chain_blocks = {}
@@ -535,22 +545,21 @@ def _transform_ast_to_model(ast, node, ports=None, address=None):
         chain_cond_shells[chain] = conditional_state_shells
 
 
-
     for chain in chains:
-        interwhoven_state_shell = _interwheave_state_shell(
+        interwoven_state_shell = _interweave_state_shell(
             chain_intervals[chain],
             chain_blocks[chain],
             chain_cond_shells[chain],
             chain
         )
 
-        for rule in interwhoven_state_shell:
+        for rule in interwoven_state_shell:
             model.tables[rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid].append(rule)
 
     return model
 
 
-def generate(ast, node, address, ports):
+def generate(ast, node, address, ports, interweaving=True):
     """ Generates a packet filter model from a rule set AST.
 
     Keyword arguments:
@@ -561,6 +570,12 @@ def generate(ast, node, address, ports):
     """
 
     # transform AST to basic model
-    model = _transform_ast_to_model(ast, node, ports=ports, address=address)
+    model = _transform_ast_to_model(
+        ast,
+        node,
+        ports=ports,
+        address=address,
+        interweaving=interweaving
+    )
 
     return model

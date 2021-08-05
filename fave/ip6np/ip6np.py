@@ -68,10 +68,11 @@ def main(argv):
     ports = [1, 2]
     dump = False
     use_unix = False
+    use_interweaving = True
 
     try:
         only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:u"))
+        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:su"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -95,11 +96,19 @@ def main(argv):
             ifile = arg
         elif opt == '-d':
             dump = True
+        elif opt == '-s':
+            use_interweaving = False
         elif opt == '-u':
             use_unix = True
 
     ast = PARSER.parse(ifile)
-    model = generator.generate(ast, node, address, ports)
+    model = generator.generate(
+        ast,
+        node,
+        address,
+        ports,
+        interweaving=use_interweaving
+    )
 
     if dump:
         pprint.pprint(model.to_json())

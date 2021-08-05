@@ -251,6 +251,7 @@ def print_help():
         "\t-P <test_path> add a test path for a probe",
         "\t-T <fields> add test fields for a probe",
         "\t-r <ruleset> use a router acls ruleset with filename <ruleset>",
+        "\t-s suppress state shell interweaving",
         sep="\n"
     )
 
@@ -274,9 +275,10 @@ def main(argv):
     ruleset = ""
     generators = []
     use_unix = False
+    use_interweaving = True
 
     try:
-        opts, args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:")
+        opts, args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:s")
     except getopt.GetoptError:
         eprint("cannot parse arguments: %s" % argv)
         print_help()
@@ -369,6 +371,9 @@ def main(argv):
         elif opt == '-r':
             ruleset = arg
 
+        elif opt == '-s':
+            use_interweaving = False
+
     if command == 'add':
         model = {
             'switch' : lambda: SwitchModel(dev, ports=ports, table_ids=table_ids),
@@ -376,7 +381,8 @@ def main(argv):
                 IP6TABLES_PARSER.parse(ruleset),
                 dev,
                 address,
-                ports
+                ports,
+                interweaving=use_interweaving
             ),
             'links' : lambda: LinksModel(links),
             'generator' : lambda: GeneratorModel(

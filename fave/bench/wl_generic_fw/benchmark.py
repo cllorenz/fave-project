@@ -134,7 +134,7 @@ if __name__ == '__main__':
         devices, links = json.loads(raw_topology.read()).values()
 
         if verbose: print "Initialize topology..."
-        create_topology(devices, links, use_unix=use_unix)
+        create_topology(devices, links, use_unix=use_unix, interweave=False)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:

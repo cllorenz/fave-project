@@ -35,7 +35,7 @@ from ip6np import ip6np as ip6tables
 from openflow import switch
 
 
-def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False):
+def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False, interweave=True):
     topo.main([
         "-a",
         "-t", "packet_filter",
@@ -43,7 +43,7 @@ def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False):
         "-i", address,
         "-p", str(ports),
         "-r", ruleset
-    ] + (['-u'] if use_unix else []))
+    ] + (['-u'] if use_unix else []) + (['-s'] if interweave else []))
 
 
 def _add_switch(name, _type, ports, table_ids, use_unix=False):
@@ -110,8 +110,8 @@ def _add_rules(rules, use_unix=False):
     switch.main(["-a"] + opts)
 
 
-def _add_ruleset(name, _type, ports, address, ruleset, use_unix=False):
-    ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset] + (["-u"] if use_unix else []))
+def _add_ruleset(name, _type, ports, address, ruleset, use_unix=False, interweave=True):
+    ip6tables.main(["-n", name, "-p", ports, "-i", address, "-f", ruleset] + (["-u"] if use_unix else [])) + (["-s"] if interweave else [])
 
 
 _DEVICES = {
@@ -123,7 +123,7 @@ _DEVICES = {
     "host" : _add_packet_filter
 }
 
-def create_topology(devices, links, use_unix=False, verbose=False):
+def create_topology(devices, links, use_unix=False, verbose=False, interweave=True):
     """ Builds a topology from devices and links.
 
     Keyword arguments:
@@ -137,7 +137,7 @@ def create_topology(devices, links, use_unix=False, verbose=False):
         dtype = get_type(device)
         try:
             t_start = time.time()
-            _DEVICES[dtype](*device, use_unix=use_unix)
+            _DEVICES[dtype](*device, use_unix=use_unix, interweave=interweave)
             t_end = time.time()
             if verbose: print "parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0)
         except KeyError as e:
@@ -164,7 +164,7 @@ def add_routes(routes, use_unix=False):
         _add_rules(routes, use_unix=use_unix)
 
 
-def add_rulesets(devices, use_unix=False):
+def add_rulesets(devices, use_unix=False, interweave=True):
     """ Add rulesets to a set of devices.
 
     Keyword arguments:
@@ -173,7 +173,7 @@ def add_rulesets(devices, use_unix=False):
 
     get_type = lambda x: x[1]
     for device in [d for d in devices if get_type(d) in ["packet_filter", "host"]]:
-        _add_ruleset(*device, use_unix=use_unix)
+        _add_ruleset(*device, use_unix=use_unix, interweave=interweave)
 
 
 def add_policies(probes, links, use_unix=False):
