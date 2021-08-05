@@ -1,5 +1,5 @@
 iptables -P FORWARD DROP
-iptables -A FORWARD -m state --state ESTABLISHED,RELATED,UNTRACKED -j ACCEPT
+iptables -A FORWARD -m state --state ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i eth1.110 -s 131.159.14.0/23 -j DROP
 iptables -A FORWARD -i eth1.110 -s 131.159.20.0/23 -j DROP
 iptables -A FORWARD -i eth1.110 -s 192.168.212.0/23 -j DROP
