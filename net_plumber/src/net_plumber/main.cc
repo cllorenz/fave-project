@@ -18,8 +18,9 @@
 */
 
 #include "test/packet_set_unit.h"
-#include "test/net_plumber_basic_unit.h"
 #include "test/net_plumber_plumbing_unit.h"
+#include "test/net_plumber_basic_unit.h"
+#include "test/net_plumber_anomalies_unit.h"
 #include "test/net_plumber_slicing_unit.h"
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
@@ -98,12 +99,16 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t1) );
   NetPlumberPlumbingTest<T1, T2> t2;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t2) );
-#ifdef PIPE_SLICING
-  NetPlumberSlicingTest<T1, T2> t3;
+#ifdef CHECK_REACH_SHADOW
+  NetPlumberAnomaliesTest<T1, T2> t3;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t3) );
 #endif
-  ConditionsTest<T1, T2> t4;
+#ifdef PIPE_SLICING
+  NetPlumberSlicingTest<T1, T2> t4;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t4) );
+#endif
+  ConditionsTest<T1, T2> t5;
+  CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t5) );
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
 

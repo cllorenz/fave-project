@@ -301,13 +301,14 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
       }
 #else
       T1 rule_hs = {this->length, {0, 0, 0, 0}};
-      hs_add(&rule_hs, array_copy(r->match, false));
+      hs_add(&rule_hs, array_copy(r->match, this->length));
 
       if (hs_is_equal(&all_hs, &aggr_hs)) {
         this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
       } else if (hs_is_sub_eq(&rule_hs, &aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
+
       hs_destroy(&rule_hs);
 #endif
 #endif
@@ -334,9 +335,9 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 
 #ifdef CHECK_REACH_SHADOW
 #ifdef GENERIC_PS
-      if (rule->index > r->index) aggr_hs.psunion2(rule->match);
+      if (rule->index < r->index) aggr_hs.psunion2(rule->match);
 #else
-      if (rule->index > r->index) hs_add(&aggr_hs, array_copy(rule->match, this->length));
+      if (rule->index < r->index) hs_add(&aggr_hs, array_copy(rule->match, this->length));
 #endif
 #endif
 
