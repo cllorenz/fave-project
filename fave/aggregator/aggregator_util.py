@@ -30,6 +30,7 @@ from aggregator_abstract import AbstractAggregator
 from netplumber.model import Model
 from netplumber.slice import SlicingCommand
 from ip6np.packet_filter import PacketFilterModel
+from ip6np.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
 from openflow.switch import SwitchModel, SwitchCommand
 from topology.topology import LinksModel, TopologyCommand
 from topology.generator import GeneratorModel
@@ -48,8 +49,10 @@ def model_from_json(j):
         models = {
             "model" : Model,
             "packet_filter" : PacketFilterModel,
+            "snapshot_packet_filter" : SnapshotPacketFilterModel,
             "switch" : SwitchModel,
             "switch_command" : SwitchCommand,
+            "state_command" : StateCommand,
             "topology_command" : TopologyCommand,
             "slicing_command" : SlicingCommand,
             "links" : LinksModel,

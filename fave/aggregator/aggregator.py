@@ -295,6 +295,32 @@ class Aggregator(AbstractAggregator):
                 )
                 return
 
+        # handle minor model changes (e.g. updates by the control plane)
+        if model.type == "state_command":
+            if model.node in self.models:
+                packet_filter = self.models[model.node]
+
+                if model.command == "add_state":
+                    packet_filter.add_state(model.rules)
+                elif model.command == "remove_state":
+                    packet_filter.remove_state([r.idx for r in model.rules])
+                elif model.command == "update_state":
+                    packet_filter.update_state(model.rules)
+                else:
+                    print "unknown: %s" % model.command
+                    # ignore unknown command
+                    return
+
+                model = packet_filter
+
+            else:
+                eprint(
+                    "Error while processing state modification: no such dp:",
+                    str(model.node),
+                    sep=" "
+                )
+                return
+
         # handle topology changes (e.g. by the network management)
         if model.type == "topology_command":
             cmd = model
@@ -357,7 +383,7 @@ class Aggregator(AbstractAggregator):
 
                 return
 
-            elif cmd.mtype in ["packet_filter", "switch", "router"]:
+            elif cmd.mtype in ["packet_filter", "snapshot_packet_filter", "switch", "router"]:
                 model = cmd.model
 
             elif cmd.mtype == "generator":

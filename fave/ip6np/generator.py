@@ -24,6 +24,7 @@
 from copy import deepcopy as dc
 
 from packet_filter import PacketFilterModel
+from snapshot_packet_filter import SnapshotPacketFilterModel
 from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
 from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
@@ -492,8 +493,12 @@ _SWAP_CHAIN = {
     'forward_filter' : 'forward_filter',
 }
 
-def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=True):
-    model = PacketFilterModel(node, ports=ports, address=address)
+def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=True, state_snap=False):
+    if state_snap:
+        model = SnapshotPacketFilterModel(node, ports=ports, address=address)
+        interweaving=False
+    else:
+        model = PacketFilterModel(node, ports=ports, address=address)
     chains = _get_rules_from_ast(node, ast)
 
     if not interweaving:
@@ -559,7 +564,7 @@ def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=Tr
     return model
 
 
-def generate(ast, node, address, ports, interweaving=True):
+def generate(ast, node, address, ports, interweaving=True, state_snap=False):
     """ Generates a packet filter model from a rule set AST.
 
     Keyword arguments:
@@ -575,7 +580,8 @@ def generate(ast, node, address, ports, interweaving=True):
         node,
         ports=ports,
         address=address,
-        interweaving=interweaving
+        interweaving=interweaving,
+        state_snap=state_snap
     )
 
     return model

@@ -33,6 +33,7 @@ from util.print_util import eprint
 from openflow.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
 from ip6np.packet_filter import PacketFilterModel
+from ip6np.snapshot_packet_filter import SnapshotPacketFilterModel
 
 from generator import GeneratorModel
 from probe import ProbeModel
@@ -201,6 +202,7 @@ class TopologyCommand(object):
             model = {
                 "switch" : SwitchModel,
                 "packet_filter" : PacketFilterModel,
+                "snapshot_packet_filter" : SnapshotPacketFilterModel,
                 "links" : LinksModel,
                 "generator" : GeneratorModel,
                 "generators" : GeneratorsModel,
@@ -236,7 +238,7 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|links|generator|generators|probe|router\" apply command" +
+        "\t-t \"switch|packet_filter|snapshot_packet_filter|links|generator|generators|probe|router\" apply command" +
         "for a device of type <type>",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
@@ -298,6 +300,7 @@ def main(argv):
             if arg in [
                 'switch',
                 'packet_filter',
+                'snapshot_packet_filter',
                 'links',
                 'generator',
                 'generators',
@@ -383,6 +386,13 @@ def main(argv):
                 address,
                 ports,
                 interweaving=use_interweaving
+            ),
+            'snapshot_packet_filter' : lambda: ip6np_generate(
+                IP6TABLES_PARSER.parse(ruleset),
+                dev,
+                address,
+                ports,
+                state_snap=True
             ),
             'links' : lambda: LinksModel(links),
             'generator' : lambda: GeneratorModel(
