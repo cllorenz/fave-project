@@ -7,6 +7,8 @@ import random
 import json
 import os
 import time
+import argparse
+import sys
 
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 from ip6np.snapshot_packet_filter import StateCommand
@@ -40,11 +42,40 @@ def _generate_request(node, i):
 
 
 if __name__ == '__main__':
-    use_unix = True
-    verbose = True
-    with_policy = False
-    no_req = 325
-    duration = 10
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-f', '--frequency', 
+        type=int, dest="frequency", default=10, 
+        help="the number of requests per second in Hertz (default: 10)"
+    )
+    parser.add_argument(
+        '-d', '--duration',
+        type=int, dest="duration", default=5,
+        help="the duration of the run in seconds (default: 5)"
+    )
+    parser.add_argument(
+        '-p', '--with_policy',
+        dest="with_policy", action="store_true", default=False,
+        help="include more complex network with two sources and two probes attached to the packet filter"
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        dest="verbose", action="store_true", default=False,
+        help="show more status output"
+    )
+    parser.add_argument(
+        '-t', '--use_tcp',
+        dest="use_tcp", action="store_true", default=False,
+        help="use tcp for connections to fave"
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    no_req = args.frequency
+    duration = args.duration
+    with_policy = args.with_policy
+    verbose = args.verbose
+    use_unix = not args.use_tcp
 
     os.system("mkdir -p /dev/shm/np")
     os.system("rm -rf /dev/shm/np/*")
