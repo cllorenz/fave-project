@@ -579,14 +579,13 @@ class TestSwitchModel(unittest.TestCase):
             ports=ports
         )
 
-        model1.add_rule(65535, SwitchRule("foo", 1, 65535, actions=[]))
+        model1.add_rule(SwitchRule("foo", 1, 65535, actions=[]))
 
         match1 = Match(fields=[SwitchRuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"
         )])
         actions1 = [Forward(['foo.1'])]
         model1.add_rule(
-            0,
             SwitchRule(
                 "foo", 1, 0,
                 in_ports=['foo.1', 'foo.2'],
@@ -605,7 +604,6 @@ class TestSwitchModel(unittest.TestCase):
             Forward(['foo.4'])
         ]
         model1.add_rule(
-            1,
             SwitchRule(
                 "foo", 1, 1,
                 in_ports=['foo.1', 'foo.2', 'foo.3'],
