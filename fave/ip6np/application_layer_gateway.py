@@ -187,5 +187,5 @@ class ApplicationLayerGatewayModel(AbstractPacketFilterModel):
             for action in [a for a in rule.actions if isinstance(a, Forward) and a.ports]:
                 action.ports = [self.node+'.relay_out']
 
-        self.adds.setdefault(self.node+'.relay_in', [])
-        self.adds[self.node+'.relay_in'].extend(rules)
+            self.adds.setdefault(rule.tid, [])
+            self.adds[self.tid].append(rule)

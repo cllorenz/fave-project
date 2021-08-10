@@ -115,62 +115,72 @@ class AbstractPacketFilterModel(Model):
         ]
 
 
-    def add_rule(self, idx, rule):
+    def add_rules(self, rules):
         """ Add a rule to the post_routing chain.
 
         Keyword arguments:
-        idx -- a rule index
         rule -- new rule
         """
 
-        assert isinstance(rule, SwitchRule)
+        exact_rules = []
+        wrong_io_rules = []
+        normal_rules = []
 
-        rule.in_ports = [self.node+'.routing_in']
+        for rule in rules:
+            assert isinstance(rule, SwitchRule)
 
-        output_ports = []
-        for action in [a for a in rule.actions if isinstance(a, Forward)]:
+            idx = rule.idx
 
-            for port in action.ports:
-                if port.startswith(self.node) and port.endswith('_egress'):
-                    pass
-                elif port.startswith(self.node):
-                    port = port + '_egress'
-                else:
-                    port = self.node+'.'+port+'_egress'
+            rule.in_ports = [self.node+'.routing_in']
 
-                output_ports.append(port)
+            output_ports = []
+            for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
-            action.ports = [self.node+".routing_out"]
+                for port in action.ports:
+                    if port.startswith(self.node) and port.endswith('_egress'):
+                        pass
+                    elif port.startswith(self.node):
+                        port = port + '_egress'
+                    else:
+                        port = self.node+'.'+port+'_egress'
 
+                    output_ports.append(port)
 
-        # first, forward traffic that already has the destination and output
-        # ports set correctly (via a filtering rule set)
-        rule_exact = deepcopy(rule)
-        rule_exact.idx = BASE_ROUTING_EXACT + idx
-        rule_exact.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
-
-
-        # second, drop traffic that has an incorrect destination set for an
-        # output port
-        rule_wrong_io = deepcopy(rule)
-        rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
-        rule_wrong_io.match.filter("packet.ipv6.destination")
-        rule_wrong_io.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
-        rule_wrong_io.actions = []
+                action.ports = [self.node+".routing_out"]
 
 
-        # third, forward traffic with the destination set
-        rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", port) for port in output_ports])]
-        rule.idx = BASE_ROUTING_RULE + idx
-        rule.actions.extend(rewrites)
+            # first, forward traffic that already has the destination and output
+            # ports set correctly (via a filtering rule set)
+            rule_exact = deepcopy(rule)
+            rule_exact.idx = BASE_ROUTING_EXACT + idx
+            rule_exact.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
 
-        rule_exact.tid = self.node+".routing"
-        rule_wrong_io.tid = self.node+".routing"
-        rule.tid = self.node+".routing"
 
-        super(AbstractPacketFilterModel, self).add_rule(rule_exact)
-        super(AbstractPacketFilterModel, self).add_rule(rule_wrong_io)
-        super(AbstractPacketFilterModel, self).add_rule(rule)
+            # second, drop traffic that has an incorrect destination set for an
+            # output port
+            rule_wrong_io = deepcopy(rule)
+            rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
+            rule_wrong_io.match.filter("packet.ipv6.destination")
+            rule_wrong_io.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
+            rule_wrong_io.actions = []
+
+
+            # third, forward traffic with the destination set
+            rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", port) for port in output_ports])]
+            rule.idx = BASE_ROUTING_RULE + idx
+            rule.actions.extend(rewrites)
+
+            rule_exact.tid = self.node+".routing"
+            rule_wrong_io.tid = self.node+".routing"
+            rule.tid = self.node+".routing"
+
+            exact_rules.append(rule_exact)
+            wrong_io_rules.append(rule_wrong_io)
+            normal_rules.append(rule)
+
+        super(AbstractPacketFilterModel, self).add_rules(exact_rules)
+        super(AbstractPacketFilterModel, self).add_rules(wrong_io_rules)
+        super(AbstractPacketFilterModel, self).add_rules(normal_rules)
 
 
     def remove_rule(self, idx):
@@ -195,9 +205,10 @@ class AbstractPacketFilterModel(Model):
 
         assert isinstance(rule, SwitchRule)
 
+        rule.idx = idx
 
         self.remove_rule(idx)
-        self.add_rule(idx, rule)
+        self.add_rules([rule])
 
 
 class PacketFilterModel(AbstractPacketFilterModel):

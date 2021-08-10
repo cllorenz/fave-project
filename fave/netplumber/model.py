@@ -71,8 +71,13 @@ class Model(object):
     def add_rule(self, rule):
         """ Add rule to add buffer.
         """
-        self.adds.setdefault(rule.tid, [])
-        self.adds[rule.tid].append(rule)
+        self.add_rules([rule])
+
+
+    def add_rules(self, rules):
+        for rule in rules:
+            self.adds.setdefault(rule.tid, [])
+            self.adds[rule.tid].append(rule)
 
 
     def remove_rule(self, idx):

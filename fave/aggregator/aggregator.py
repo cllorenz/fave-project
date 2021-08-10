@@ -266,26 +266,13 @@ class Aggregator(AbstractAggregator):
         if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
             Aggregator.LOGGER.debug('worker: synchronize model')
 
+
         # handle minor model changes (e.g. updates by the control plane)
-        if model.type == "switch_command":
+        if model.type in ["switch_command", 'state_command', 'relay_command']:
             if model.node in self.models:
-
-                switch = self.models[model.node]
-
-                if model.command == "add_rule":
-                    switch.add_rule(model.rule.idx, model.rule)
-                elif model.command == "add_rules":
-                    for idx, rule in enumerate(model.rules):
-                        switch.add_rule(rule.idx, rule)
-                elif model.command == "remove_rule":
-                    switch.remove_rule(model.rule.idx)
-                elif model.command == "update_rule":
-                    switch.update_rule(model.rule.idx, model.rule)
-                else:
-                    # ignore unknown command
-                    return
-
-                model = switch
+                device = self.models[model.node]
+                getattr(device, model.command)(model.rules)
+                model = device
 
             else:
                 eprint(
@@ -295,59 +282,6 @@ class Aggregator(AbstractAggregator):
                 )
                 return
 
-
-        # handle minor model changes (e.g. updates by the control plane)
-        if model.type == "state_command":
-            if model.node in self.models:
-                packet_filter = self.models[model.node]
-
-                if model.command == "add_state":
-                    packet_filter.add_state(model.rules)
-                elif model.command == "remove_state":
-                    packet_filter.remove_state([r.idx for r in model.rules])
-                elif model.command == "update_state":
-                    packet_filter.update_state(model.rules)
-                else:
-                    print "unknown: %s" % model.command
-                    # ignore unknown command
-                    return
-
-                model = packet_filter
-
-            else:
-                eprint(
-                    "Error while processing state modification: no such dp:",
-                    str(model.node),
-                    sep=" "
-                )
-                return
-
-
-        # handle minor model changes (e.g. updates by the control plane)
-        if model.type == "relay_command":
-            if model.node in self.models:
-                alg = self.models[model.node]
-
-                if model.command == "add_relay":
-                    alg.add_relay(model.rules)
-                elif model.command == "remove_relay":
-                    alg.remove_relay([r.idx for r in model.rules])
-                elif model.command == "update_relay":
-                    alg.update_relay(model.rules)
-                else:
-                    print "unknown: %s" % model.command
-                    # ignore unknown command
-                    return
-
-                model = alg
-
-            else:
-                eprint(
-                    "Error while processing state modification: no such dp:",
-                    str(model.node),
-                    sep=" "
-                )
-                return
 
         # handle topology changes (e.g. by the network management)
         if model.type == "topology_command":
@@ -411,7 +345,13 @@ class Aggregator(AbstractAggregator):
 
                 return
 
-            elif cmd.mtype in ["packet_filter", "snapshot_packet_filter", "application_layer_gateway", "switch", "router"]:
+            elif cmd.mtype in [
+                    "packet_filter",
+                    "snapshot_packet_filter",
+                    "application_layer_gateway",
+                    "switch",
+                    "router"
+            ]:
                 model = cmd.model
 
             elif cmd.mtype == "generator":

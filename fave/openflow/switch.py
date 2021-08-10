@@ -133,16 +133,10 @@ class SwitchModel(Model):
         return ofm
 
 
-    def add_rule(self, idx, rule):
-        """ Adds a rule to the switch.
-
-        Keyword arguments:
-        idx -- a rule index
-        rule -- a rule
-        """
-
-        rule.tid = self.node+'.1'
-        super(SwitchModel, self).add_rule(rule)
+    def add_rules(self, rules):
+        for rule in rules:
+            rule.tid = self.node+'.1'
+        super(SwitchModel, self).add_rules(rules)
 
 
     def remove_rule(self, idx):
@@ -164,7 +158,7 @@ class SwitchModel(Model):
         """
 
         self.remove_rule(idx)
-        self.add_rule(idx, rule)
+        self.add_rules(idx, [rule])
 
 
     def __sub__(self, other):
