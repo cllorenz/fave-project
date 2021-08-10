@@ -34,6 +34,7 @@ from openflow.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
 from ip6np.packet_filter import PacketFilterModel
 from ip6np.snapshot_packet_filter import SnapshotPacketFilterModel
+from ip6np.application_layer_gateway import ApplicationLayerGatewayModel
 
 from generator import GeneratorModel
 from probe import ProbeModel
@@ -203,6 +204,7 @@ class TopologyCommand(object):
                 "switch" : SwitchModel,
                 "packet_filter" : PacketFilterModel,
                 "snapshot_packet_filter" : SnapshotPacketFilterModel,
+                "application_layer_gateway" : ApplicationLayerGatewayModel,
                 "links" : LinksModel,
                 "generator" : GeneratorModel,
                 "generators" : GeneratorsModel,
@@ -238,7 +240,7 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|snapshot_packet_filter|links|generator|generators|probe|router\" apply command" +
+        "\t-t \"switch|packet_filter|snapshot_packet_filter|application_layer_gateway|links|generator|generators|probe|router\" apply command" +
         "for a device of type <type>",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
@@ -301,6 +303,7 @@ def main(argv):
                 'switch',
                 'packet_filter',
                 'snapshot_packet_filter',
+                'application_layer_gateway',
                 'links',
                 'generator',
                 'generators',
@@ -381,6 +384,13 @@ def main(argv):
         model = {
             'switch' : lambda: SwitchModel(dev, ports=ports, table_ids=table_ids),
             'packet_filter' : lambda: ip6np_generate(
+                IP6TABLES_PARSER.parse(ruleset),
+                dev,
+                address,
+                ports,
+                interweaving=use_interweaving
+            ),
+            'application_layer_gateway' : lambda: ip6np_generate(
                 IP6TABLES_PARSER.parse(ruleset),
                 dev,
                 address,

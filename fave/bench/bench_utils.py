@@ -56,6 +56,16 @@ def _add_snapshot_packet_filter(name, _type, ports, address, ruleset, use_unix=F
         "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
+def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_unix=False, interweave=False):
+    topo.main([
+        "-a",
+        "-t", "application_layer_gateway",
+        "-n", name,
+        "-i", address,
+        "-p", str(ports),
+        "-r", ruleset
+    ] + (['-u'] if use_unix else []))
+
 def _add_switch(name, _type, ports, table_ids, use_unix=False):
     topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)] + (["-u"] if use_unix else []))
 
@@ -127,6 +137,7 @@ def _add_ruleset(name, _type, ports, address, ruleset, use_unix=False, interweav
 _DEVICES = {
     "packet_filter" : _add_packet_filter,
     "snapshot_packet_filter" : _add_snapshot_packet_filter,
+    "application_layer_gateway" : _add_application_layer_gateway,
     "switch" : _add_switch,
     "router" : _add_router,
     "generator" : _add_generator,

@@ -295,6 +295,7 @@ class Aggregator(AbstractAggregator):
                 )
                 return
 
+
         # handle minor model changes (e.g. updates by the control plane)
         if model.type == "state_command":
             if model.node in self.models:
@@ -312,6 +313,33 @@ class Aggregator(AbstractAggregator):
                     return
 
                 model = packet_filter
+
+            else:
+                eprint(
+                    "Error while processing state modification: no such dp:",
+                    str(model.node),
+                    sep=" "
+                )
+                return
+
+
+        # handle minor model changes (e.g. updates by the control plane)
+        if model.type == "relay_command":
+            if model.node in self.models:
+                alg = self.models[model.node]
+
+                if model.command == "add_relay":
+                    alg.add_relay(model.rules)
+                elif model.command == "remove_relay":
+                    alg.remove_relay([r.idx for r in model.rules])
+                elif model.command == "update_relay":
+                    alg.update_relay(model.rules)
+                else:
+                    print "unknown: %s" % model.command
+                    # ignore unknown command
+                    return
+
+                model = alg
 
             else:
                 eprint(
@@ -383,7 +411,7 @@ class Aggregator(AbstractAggregator):
 
                 return
 
-            elif cmd.mtype in ["packet_filter", "snapshot_packet_filter", "switch", "router"]:
+            elif cmd.mtype in ["packet_filter", "snapshot_packet_filter", "application_layer_gateway", "switch", "router"]:
                 model = cmd.model
 
             elif cmd.mtype == "generator":
