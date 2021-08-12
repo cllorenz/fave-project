@@ -28,6 +28,7 @@ from netplumber.model import Model
 from topology.router import RouterModel
 from openflow.switch import SwitchModel, Forward, Rewrite, SwitchRule
 from openflow.switch import Match, SwitchRuleField
+from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 
@@ -579,7 +580,7 @@ class TestSwitchModel(unittest.TestCase):
             ports=ports
         )
 
-        model1.add_rule(SwitchRule("foo", 1, 65535, actions=[]))
+        model1.add_rule(SwitchRule("foo", 1, TABLE_MAX, actions=[]))
 
         match1 = Match(fields=[SwitchRuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"

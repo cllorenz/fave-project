@@ -26,6 +26,7 @@ from copy import deepcopy as dc
 from packet_filter import PacketFilterModel
 from snapshot_packet_filter import SnapshotPacketFilterModel
 from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
+from util.model_util import TABLE_MAX
 from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
 from util.packet_util import portrange_to_prefixed_bitvectors
@@ -222,10 +223,10 @@ def _ast_to_rule(node, ast, idx=0):
                 )
 
     else:
-        rules[idx if not is_default else 65535] = SwitchRule(
+        rules[idx if not is_default else TABLE_MAX] = SwitchRule(
             node,
             node+'.'+chain,
-            idx if not is_default else 65535,
+            idx if not is_default else TABLE_MAX,
             in_ports=[node+'.'+chain+'_in'],
             match=Match(body),
             actions=actions

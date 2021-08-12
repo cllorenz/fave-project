@@ -2,6 +2,7 @@
 
 import json
 
+from util.model_util import TABLE_MAX
 from bench.wl_up.inventory import UP
 
 OFILE="bench/wl_up/routes.json"
@@ -18,17 +19,17 @@ if __name__ == '__main__':
         # pgf -> wifi
         ("pgf.uni-potsdam.de", 1, 1, ["ipv6_dst=2001:db8:abc:2::0/64"], ["fd=pgf.uni-potsdam.de.3"], []),
         # uni-potsdam.de routing domain
-        ("pgf.uni-potsdam.de", 1, 65534, ["ipv6_dst=2001:db8:abc:0::0/48"], [], []),
+        ("pgf.uni-potsdam.de", 1, TABLE_MAX-1, ["ipv6_dst=2001:db8:abc:0::0/48"], [], []),
         # pgf -> internet
-        ("pgf.uni-potsdam.de", 1, 65535, [], ["fd=pgf.uni-potsdam.de.1"], []),
+        ("pgf.uni-potsdam.de", 1, TABLE_MAX, [], ["fd=pgf.uni-potsdam.de.1"], []),
         # dmz -> pgf
-        ("dmz.uni-potsdam.de", 1, 65535, [], ["fd=dmz.uni-potsdam.de.1"], ["dmz.uni-potsdam.de.%s" % p for p in range(2, 9+1)]),
+        ("dmz.uni-potsdam.de", 1, TABLE_MAX, [], ["fd=dmz.uni-potsdam.de.1"], ["dmz.uni-potsdam.de.%s" % p for p in range(2, 9+1)]),
         # wifi -> wifi
         ("wifi.uni-potsdam.de", 1, 0, ["ipv6_dst=2001:db8:abc:2::0/64"], ["fd=wifi.uni-potsdam.de.2"], ["wifi.uni-potsdam.de.1", "wifi.uni-potsdam.de.3"]),
         # wifi -> pgf
-        ("wifi.uni-potsdam.de", 1, 65535, [], ["fd=wifi.uni-potsdam.de.1"], ["wifi.uni-potsdam.de.3"]),
+        ("wifi.uni-potsdam.de", 1, TABLE_MAX, [], ["fd=wifi.uni-potsdam.de.1"], ["wifi.uni-potsdam.de.3"]),
         # wifi -> wifi
-        ("clients.wifi.uni-potsdam.de", 1, 65535, [], ["fd=clients.wifi.uni-potsdam.de.1"], [])
+        ("clients.wifi.uni-potsdam.de", 1, TABLE_MAX, [], ["fd=clients.wifi.uni-potsdam.de.1"], [])
     ]
 
     # dmz hosts
@@ -40,7 +41,7 @@ if __name__ == '__main__':
             # dmz -> host
             ("dmz.uni-potsdam.de", 1, cnt, ["ipv6_dst=%s" % addr], ["fd=dmz.uni-potsdam.de.%s" % port], []),
             # host -> dmz
-            (name, 1, 65535, [], ["fd=%s.1" % name], [])
+            (name, 1, TABLE_MAX, [], ["fd=%s.1" % name], [])
         ])
 
 
@@ -73,7 +74,7 @@ if __name__ == '__main__':
                 []
             ))
 
-            routes.append((hostnet, 1, 65535, [], ["fd=%s.1" % hostnet], []))
+            routes.append((hostnet, 1, TABLE_MAX, [], ["fd=%s.1" % hostnet], []))
 
 
         # subnet clients
@@ -85,11 +86,11 @@ if __name__ == '__main__':
                 ["ipv6_dst=%s" % caddr],
                 ["fd=%s.%s" % (subnet, sport)], []
             ),
-            ("clients.%s" % subnet, 1, 65535, [], ["fd=clients.%s.1" % subnet], [])
+            ("clients.%s" % subnet, 1, TABLE_MAX, [], ["fd=clients.%s.1" % subnet], [])
         ])
 
         # default rule
-        routes.append((subnet, 1, 65535, [], ["fd=%s.1" % subnet], []))
+        routes.append((subnet, 1, TABLE_MAX, [], ["fd=%s.1" % subnet], []))
 
 
     with open(OFILE, 'w') as of:

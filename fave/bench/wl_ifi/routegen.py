@@ -5,6 +5,7 @@
 
 import json
 
+from util.model_util import TABLE_MAX
 from bench.wl_ifi.inventory import SUBNETS, WITH_IP, WITHOUT_IP
 
 IFILE="bench/wl_ifi/inventory.json"
@@ -20,7 +21,7 @@ if __name__ == '__main__':
 
     routes = [
         # default route to ifi.1 (Internet)
-        ("ifi", 1, 65535, [], ["rw=vlan:%s"%(2**12-1), "fd=ifi.1"], []),
+        ("ifi", 1, TABLE_MAX, [], ["rw=vlan:%s"%(2**12-1), "fd=ifi.1"], []),
         # route to ifi.2 (external)
         ("ifi", 1, 0, ["ipv4_dst=%s" % domain_to_ips["external.ifi"]], ["rw=vlan:48", "fd=ifi.2"], [])
     ]
@@ -66,10 +67,10 @@ if __name__ == '__main__':
     ])
 
     # one default route per subnet directing towards the router
-    routes.append(("external.ifi", 1, 65535, [], ["fd=external.ifi.1"], ["external.ifi.1", "external.ifi.2"]))
+    routes.append(("external.ifi", 1, TABLE_MAX, [], ["fd=external.ifi.1"], ["external.ifi.1", "external.ifi.2"]))
     routes.extend([
         (
-            sub, 1, 65535, [], ["fd=%s.1" % sub], ["%s.1" % sub, "%s.2" % sub]
+            sub, 1, TABLE_MAX, [], ["fd=%s.1" % sub], ["%s.1" % sub, "%s.2" % sub]
         ) for sub in SUBNETS
     ])
 

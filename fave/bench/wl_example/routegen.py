@@ -2,6 +2,8 @@
 
 import json
 
+from util.model_util import TABLE_MAX
+
 OFILE="bench/wl_example/routes.json"
 
 if __name__ == '__main__':
@@ -16,11 +18,11 @@ if __name__ == '__main__':
         # dmz -> dmz
         ("dmz", 1, 0, ["ipv6_dst=2001:db8::100/120"], ["fd=dmz.2"], ["dmz.1"]),
         # dmz -> pgf
-        ("dmz", 1, 65535, [], ["fd=dmz.1"], ["dmz.2"]),
+        ("dmz", 1, TABLE_MAX, [], ["fd=dmz.1"], ["dmz.2"]),
         # office -> office
         ("office", 1, 0, ["ipv6_dst=2001:db8::200/120"], ["fd=office.2"], ["office.1"]),
         # office -> pgf
-        ("office", 1, 65535, [], ["fd=office.1"], ["office.2"])
+        ("office", 1, TABLE_MAX, [], ["fd=office.1"], ["office.2"])
     ]
 
     with open(OFILE, 'w') as of:

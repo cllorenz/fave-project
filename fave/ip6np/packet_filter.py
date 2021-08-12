@@ -31,13 +31,14 @@ from netplumber.model import Model
 
 from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Rewrite
 
+from util.model_util import TABLE_MAX
 from util.collections_util import list_sub
 from util.packet_util import is_ip as is_ipv4
 
 BASE_ROUTING_EXACT=0
-BASE_ROUTING_WRONG_IO=65535/4*1
-BASE_ROUTING_WRONG_AP=65535/4*2
-BASE_ROUTING_RULE=65535/4*3
+BASE_ROUTING_WRONG_IO=TABLE_MAX/4*1
+BASE_ROUTING_WRONG_AP=TABLE_MAX/4*2
+BASE_ROUTING_RULE=TABLE_MAX/4*3
 
 
 class AbstractPacketFilterModel(Model):

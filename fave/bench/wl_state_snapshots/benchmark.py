@@ -10,6 +10,7 @@ import time
 import argparse
 import sys
 
+from util.model_util import TABLE_MAX
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 from ip6np.snapshot_packet_filter import StateCommand
 from openflow.rule import SwitchRule, Match, SwitchRuleField, Forward
@@ -108,7 +109,7 @@ if __name__ == '__main__':
     if with_policy:
         if verbose: print "Initialize routes..."
         routes = [
-            ('fw0', 1, 65535, [], ["fd=fw0.eth0"], []),
+            ('fw0', 1, TABLE_MAX, [], ["fd=fw0.eth0"], []),
             ('fw0', 1, 0, ["ipv6_dst=2001:db8::2"], ["fd=fw0.eth1"], []),
         ]
 
