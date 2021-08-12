@@ -9,8 +9,8 @@ if __name__ == '__main__':
     # device: (name, type, no_ports, address, ruleset)
     devices = [
         ("pgf", "packet_filter", 3, "2001:db8::1", "%s/pgf-ruleset" % RULESETS),
-        ("dmz", "switch", 2),
-        ("office", "switch", 2)
+        ("dmz", "switch", 2, None),
+        ("office", "switch", 2, None)
     ]
 
     # link: (sname, dname)

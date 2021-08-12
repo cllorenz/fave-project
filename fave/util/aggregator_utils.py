@@ -66,10 +66,10 @@ def connect_to_fave(server, port=0):
     return sock
 
 
-
 def fave_sendmsg(conn, data):
     msg = struct.pack('>I', len(data)) + data
     return conn.sendall(msg)
+
 
 def fave_recvmsg(conn, logger=None):
     raw_msglen = conn.recv(4)
