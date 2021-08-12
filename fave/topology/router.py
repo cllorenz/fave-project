@@ -357,7 +357,7 @@ class RouterModel(Model):
         return router
 
 
-    def add_rule(self, idx, rule):
+    def add_rules(self, rules):
         """ Add a rule to the routing table
 
         Keyword arguments:
@@ -365,29 +365,31 @@ class RouterModel(Model):
         rule -- new rule
         """
 
-        assert isinstance(rule, SwitchRule)
+        for rule in rules:
+            assert isinstance(rule, SwitchRule)
 
-        rule.in_ports = [self.node+'.routing_in']
+            rule.in_ports = [self.node+'.routing_in']
 
-        actions = []
-        rewrites = []
-        for action in [a for a in rule.actions]:
-            if isinstance(action, Forward):
-                for port in action.ports:
-                    rewrites.append(
-                        SwitchRuleField("out_port", port+'_egress')
-                    )
+            actions = []
+            rewrites = []
+            for action in [a for a in rule.actions]:
+                if isinstance(action, Forward):
+                    for port in action.ports:
+                        rewrites.append(
+                            SwitchRuleField("out_port", port+'_egress')
+                        )
 
-                action.ports = [self.node+".routing_out"]
-                actions.append(action)
-            elif isinstance(action, Rewrite):
-                rewrites.extend(action.rewrite)
+                    action.ports = [self.node+".routing_out"]
+                    actions.append(action)
+                elif isinstance(action, Rewrite):
+                    rewrites.extend(action.rewrite)
 
-        actions.append(Rewrite(rewrite=rewrites))
-        rule.actions = actions
+            actions.append(Rewrite(rewrite=rewrites))
+            rule.actions = actions
 
-        rule.tid = self.node+'.routing'
-        super(RouterModel, self).add_rule(rule)
+            rule.tid = self.node+'.routing'
+
+        super(RouterModel, self).add_rules(rules)
 
 
     def remove_rule(self, idx):
