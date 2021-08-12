@@ -66,15 +66,15 @@ def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_uni
         "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
-def _add_switch(name, _type, ports, table_ids, use_unix=False):
+def _add_switch(name, _type, ports, table_ids, use_unix=False, interweave=False):
     topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)] + (["-u"] if use_unix else []))
 
 
-def _add_router(name, _type, ports, acls, use_unix=False):
+def _add_router(name, _type, ports, acls, use_unix=False, interweave=False):
     topo.main(["-a", "-t", "router", "-n", name, "-p", ','.join([str(p) for p in range(1, ports+1)]), "-r", acls] + (["-u"] if use_unix else []))
 
 
-def _add_generator(name, _type, fields=None, use_unix=False):
+def _add_generator(name, _type, fields=None, use_unix=False, interweave=False):
     opts = ["-u"] if use_unix else []
     if fields:
         opts.extend(["-f", ';'.join(fields)])
@@ -82,11 +82,11 @@ def _add_generator(name, _type, fields=None, use_unix=False):
     topo.main(["-a", "-t", "generator", "-n", name] + opts)
 
 
-def _add_generators(generators, use_unix=False):
+def _add_generators(generators, use_unix=False, interweave=False):
     topo.main(["-a", "-t", "generators", "-G", '|'.join(["%s\\%s" % (n, ';'.join(f)) for n, _t, f in generators])] + (["-u"] if use_unix else []))
 
 
-def _add_probe(name, _type, quantor, match=None, filter_fields=None, test_fields=None, test_path=None, use_unix=False):
+def _add_probe(name, _type, quantor, match=None, filter_fields=None, test_fields=None, test_path=None, use_unix=False, interweave=False):
     opts = ["-u"] if use_unix else []
     if match:
         opts.extend(["-f", ';'.join(match)])
