@@ -29,7 +29,7 @@ from copy import copy, deepcopy
 
 from abstract_device import AbstractDeviceModel
 
-from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Rewrite
+from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
 from util.model_util import TABLE_MAX
 from util.packet_util import is_ip as is_ipv4
@@ -93,22 +93,22 @@ class AbstractFirewallModel(AbstractDeviceModel):
 
         address_type = "packet.ipv4.destination" if is_ipv4(address) else "packet.ipv6.destination"
         self.tables[self.node+".pre_routing"] = [
-            SwitchRule(
+            Rule(
                 self.node, self.node+".pre_routing", idx,
                 in_ports=[port],
-                match=Match(fields=[SwitchRuleField(address_type, address)]),
+                match=Match(fields=[RuleField(address_type, address)]),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("in_port", port)]),
+                    Rewrite(rewrite=[RuleField("in_port", port)]),
                     Forward([self.node+".pre_routing_input"])
                 ]
             ) for idx, port in enumerate(self.ports, start=1) if port.endswith("_ingress")
         ] + [
-            SwitchRule(
+            Rule(
                 self.node, self.node+".pre_routing", idx,
                 in_ports=[port],
                 match=Match(),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("in_port", port)]),
+                    Rewrite(rewrite=[RuleField("in_port", port)]),
                     Forward([self.node+".pre_routing_forward"])
                 ]
             ) for idx, port in enumerate(self.ports, start=len(self.ports)+1) if port.endswith("_ingress")
@@ -127,7 +127,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
         normal_rules = []
 
         for rule in rules:
-            assert isinstance(rule, SwitchRule)
+            assert isinstance(rule, Rule)
 
             idx = rule.idx
 
@@ -153,7 +153,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
             # ports set correctly (via a filtering rule set)
             rule_exact = deepcopy(rule)
             rule_exact.idx = BASE_ROUTING_EXACT + idx
-            rule_exact.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
+            rule_exact.match.extend([RuleField("out_port", port) for port in output_ports])
 
 
             # second, drop traffic that has an incorrect destination set for an
@@ -161,12 +161,12 @@ class AbstractFirewallModel(AbstractDeviceModel):
             rule_wrong_io = deepcopy(rule)
             rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
             rule_wrong_io.match.filter("packet.ipv6.destination")
-            rule_wrong_io.match.extend([SwitchRuleField("out_port", port) for port in output_ports])
+            rule_wrong_io.match.extend([RuleField("out_port", port) for port in output_ports])
             rule_wrong_io.actions = []
 
 
             # third, forward traffic with the destination set
-            rewrites = [Rewrite(rewrite=[SwitchRuleField("out_port", port) for port in output_ports])]
+            rewrites = [Rewrite(rewrite=[RuleField("out_port", port) for port in output_ports])]
             rule.idx = BASE_ROUTING_RULE + idx
             rule.actions.extend(rewrites)
 
@@ -203,7 +203,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
         rule -- a rule substitute
         """
 
-        assert isinstance(rule, SwitchRule)
+        assert isinstance(rule, Rule)
 
         rule.idx = idx
 

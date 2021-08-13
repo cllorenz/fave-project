@@ -28,7 +28,7 @@ import json
 
 from copy import copy
 
-from openflow.rule import SwitchRule, SwitchRuleField, Forward, Rewrite, Match
+from rule.rule_model import Rule, RuleField, Forward, Rewrite, Match
 
 from netplumber.mapping import Mapping
 from abstract_device import AbstractDeviceModel
@@ -76,7 +76,7 @@ class SwitchCommand(object):
         return SwitchCommand(
             j["node"],
             j["command"],
-            [SwitchRule.from_json(r) for r in j["rules"]]
+            [Rule.from_json(r) for r in j["rules"]]
         )
 
 
@@ -125,7 +125,7 @@ class SwitchModel(AbstractDeviceModel):
         ofm = SwitchModel(j['node'], table_ids=table_ids)
         ofm.tables = {
             table : [
-                SwitchRule.from_json(r) for r in rules
+                Rule.from_json(r) for r in rules
             ] for table, rules in j['tables'].iteritems()
         }
         ofm.ports = j['ports']
@@ -183,7 +183,7 @@ def fieldify(field):
     """
 
     fld, val = field
-    return SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[fld], val)
+    return RuleField(OXM_FIELD_TO_MATCH_FIELD[fld], val)
 
 
 def print_help():
@@ -285,7 +285,7 @@ def main(argv):
         if rules:
             switch_rules = []
             switch_rules = [
-                SwitchRule(
+                Rule(
                     node,
                     int(table),
                     int(idx),
@@ -296,7 +296,7 @@ def main(argv):
             ]
             cmd = SwitchCommand(node, 'add_rules', switch_rules)
         else:
-            rule = SwitchRule(
+            rule = Rule(
                 node, table, idx,
                 in_ports=in_ports,
                 match=Match(fields),
@@ -306,7 +306,7 @@ def main(argv):
 
 
     elif command == 'del':
-        rule = SwitchRule(
+        rule = Rule(
             table, table, idx,
             in_ports=in_ports,
             match=Match([]),
@@ -316,7 +316,7 @@ def main(argv):
 
 
     elif command == 'upd':
-        rule = SwitchRule(
+        rule = Rule(
             table, table, idx,
             in_ports=in_ports,
             match=Match(fields),

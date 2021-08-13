@@ -29,7 +29,7 @@ from copy import copy
 
 from abstract_device import AbstractDeviceModel
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from openflow.rule import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
+from rule.rule_model import RuleField, Match, Forward, Rule, Rewrite
 
 
 CAPACITY=2**16/2**12 # XXX: ugly workaround
@@ -100,25 +100,25 @@ class RouterModel(AbstractDeviceModel):
         get_vlans = lambda _interface, vlans: vlans
 
         pre_routing = [ # bind vlans explicitly configured to ports
-            SwitchRule(
+            Rule(
                 node, node+".pre_routing", idx,
                 in_ports=[node+'.'+get_if(*item)+'_ingress'],
                 match=Match(),
                 actions=[
                     Rewrite(rewrite=[
-                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], str(get_vlans(*item)[0])),
-                        SwitchRuleField("in_port", node+'.'+get_if(*item)+'_ingress')
+                        RuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], str(get_vlans(*item)[0])),
+                        RuleField("in_port", node+'.'+get_if(*item)+'_ingress')
                     ]),
                     Forward(ports=["%s.pre_routing_out" % node])
                 ]
             ) for idx, item in enumerate(self.if_to_vlans.iteritems()) if get_vlans(*item) != []
         ] + [ # allow all vlans on other ports
-            SwitchRule(
+            Rule(
                 node, node+".pre_routing", idx,
                 in_ports=[node+'.'+port+"_ingress"],
                 match=Match(),
                 actions=[
-                    Rewrite(rewrite=[SwitchRuleField("in_port", node+'.'+port+"_ingress")]),
+                    Rewrite(rewrite=[RuleField("in_port", node+'.'+port+"_ingress")]),
                     Forward(ports=["%s.pre_routing_out" % node])
                 ]
             ) for idx, port in enumerate([
@@ -128,28 +128,28 @@ class RouterModel(AbstractDeviceModel):
 
         post_routing = [ # low priority: forward packets according to out port
                          #               field set by the routing table
-            SwitchRule(
+            Rule(
                 node, node+".post_routing", idx,
                 in_ports=[node+".post_routing_in"],
                 match=Match(
-                    fields=[SwitchRuleField("out_port", node+'.'+port+"_egress")]
+                    fields=[RuleField("out_port", node+'.'+port+"_egress")]
                 ),
                 actions=[
                     Rewrite(rewrite=[
-                        SwitchRuleField("in_port", "x"*32),
-                        SwitchRuleField("out_port", "x"*32)
+                        RuleField("in_port", "x"*32),
+                        RuleField("out_port", "x"*32)
                     ]),
                     Forward(ports=[node+'.'+port+'_egress'])
                 ]
             ) for idx, port in enumerate(ports, start=plen)
         ] + [ # high priority: filter packets with equal input and output port
-            SwitchRule(
+            Rule(
                 node, node+".post_routing", idx,
                 in_ports=[node+".post_routing_in"],
                 match=Match(
                     fields=[
-                        SwitchRuleField("in_port", "%s.%s_ingress" % (node, port)),
-                        SwitchRuleField("out_port", "%s.%s_egress" % (node, port))
+                        RuleField("in_port", "%s.%s_ingress" % (node, port)),
+                        RuleField("out_port", "%s.%s_egress" % (node, port))
                     ]
                 ),
                 actions=[]
@@ -158,22 +158,22 @@ class RouterModel(AbstractDeviceModel):
 
         # generic drops of reserved prefixes incoming from the internet
         acl_in = [
-            SwitchRule(node, node+".acl_in", 1,
+            Rule(node, node+".acl_in", 1,
                 in_ports=[node+'.acl_in_in'],
                 match=Match(
                     fields=[
-                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
-                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "192.168.0.0/16")
+                        RuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
+                        RuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "192.168.0.0/16")
                     ]
                 ),
                 actions=[]
             ),
-            SwitchRule(node, node+".acl_in", 2,
+            Rule(node, node+".acl_in", 2,
                 in_ports=[node+'.acl_in_in'],
                 match=Match(
                     fields=[
-                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
-                        SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "10.0.0.0/8")
+                        RuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], "4095"),
+                        RuleField(OXM_FIELD_TO_MATCH_FIELD["ipv4_src"], "10.0.0.0/8")
                     ]
                 ),
                 actions=[]
@@ -218,7 +218,7 @@ class RouterModel(AbstractDeviceModel):
 
             else:
                 vlan_match = [
-                    SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)
+                    RuleField(OXM_FIELD_TO_MATCH_FIELD["vlan"], vlan)
                 ]
 
             for acl in self.vlan_to_acls[vlan]:
@@ -240,11 +240,11 @@ class RouterModel(AbstractDeviceModel):
                     elif is_in or is_out:
                         acl_in_ports = [acl_table+'_in']
 
-                    rule = SwitchRule(
+                    rule = Rule(
                         self.node, acl_table, aid+rid,
                         in_ports=acl_in_ports,
                         match=Match(fields=vlan_match + [
-                            SwitchRuleField(
+                            RuleField(
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
                             ) for k, v in acl_body(acl_match)
                         ]),
@@ -273,17 +273,17 @@ class RouterModel(AbstractDeviceModel):
                 acl_body, acl_action = acl_rule
 
                 for pub_ip in pub_ips:
-                    rule = SwitchRule(
+                    rule = Rule(
                         self.node, acl_table, offset+idx,
                         in_ports=acl_in_ports,
                         match=Match(fields=[
-                            SwitchRuleField(
+                            RuleField(
                                 OXM_FIELD_TO_MATCH_FIELD[k], v
                             ) for k, v in acl_body
                         ]),
                         actions=[
                             Rewrite(rewrite=[
-                                SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD['ipv4_src'], pub_ip)
+                                RuleField(OXM_FIELD_TO_MATCH_FIELD['ipv4_src'], pub_ip)
                             ]),
                             Forward(ports=acl_out_ports if acl_permit(acl_action) else [])
                         ]
@@ -297,16 +297,16 @@ class RouterModel(AbstractDeviceModel):
             rule_body, out_ports = route
 
             rule_body = [
-                SwitchRuleField(OXM_FIELD_TO_MATCH_FIELD[k], v) for k, v in rule_body
+                RuleField(OXM_FIELD_TO_MATCH_FIELD[k], v) for k, v in rule_body
             ]
 
             for port in out_ports:
-                rule = SwitchRule(
+                rule = Rule(
                     self.node, self.node+".routing", idx, [],
                     match=Match(fields=rule_body),
                     actions=[
                         Rewrite(rewrite=[
-                            SwitchRuleField("out_port", "%s_egress" % port)
+                            RuleField("out_port", "%s_egress" % port)
                         ]),
                         Forward(ports=[self.node+".routing_out"])
                     ]
@@ -349,7 +349,7 @@ class RouterModel(AbstractDeviceModel):
         router = RouterModel(j["node"])
         router.tables = {
             t:[
-                SwitchRule.from_json(r) for r in j["tables"][t]
+                Rule.from_json(r) for r in j["tables"][t]
             ] for t in j["tables"]
         }
         router.ports=j["ports"]
@@ -366,7 +366,7 @@ class RouterModel(AbstractDeviceModel):
         """
 
         for rule in rules:
-            assert isinstance(rule, SwitchRule)
+            assert isinstance(rule, Rule)
 
             rule.in_ports = [self.node+'.routing_in']
 
@@ -376,7 +376,7 @@ class RouterModel(AbstractDeviceModel):
                 if isinstance(action, Forward):
                     for port in action.ports:
                         rewrites.append(
-                            SwitchRuleField("out_port", port+'_egress')
+                            RuleField("out_port", port+'_egress')
                         )
 
                     action.ports = [self.node+".routing_out"]
@@ -410,7 +410,7 @@ class RouterModel(AbstractDeviceModel):
         rule -- a rule substitute
         """
 
-        assert isinstance(rule, SwitchRule)
+        assert isinstance(rule, Rule)
 
         self.remove_rule(idx)
         self.add_rule(idx, rule)

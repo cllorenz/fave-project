@@ -28,7 +28,7 @@ from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from util.ip6np_util import field_value_to_bitvector
-from openflow.rule import SwitchRuleField, Match
+from rule.rule_model import RuleField, Match
 
 class ProbeModel(object):
     """ This class provides a probe model.
@@ -38,7 +38,7 @@ class ProbeModel(object):
     def _normalize_fields(fields):
         return {
             OXM_FIELD_TO_MATCH_FIELD[name] : [
-                SwitchRuleField(
+                RuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
                 ) for f in field_list
             ] for name, field_list in fields.iteritems()
@@ -100,9 +100,9 @@ class ProbeModel(object):
             j["node"],
             j["quantor"],
             Match.from_json(j["match"]),
-            filter_fields={n : [SwitchRuleField.from_json(f) for f in fl] for n, fl in j['filter_fields'].iteritems()},
+            filter_fields={n : [RuleField.from_json(f) for f in fl] for n, fl in j['filter_fields'].iteritems()},
             filter_path=Path.from_json(j["filter_path"]),
-            test_fields={n : [SwitchRuleField.from_json(f) for f in fl] for n, fl in j['test_fields'].iteritems()},
+            test_fields={n : [RuleField.from_json(f) for f in fl] for n, fl in j['test_fields'].iteritems()},
             test_path=Path.from_json(j["test_path"])
         )
 

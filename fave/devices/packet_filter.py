@@ -26,7 +26,7 @@
 import json
 
 from abstract_firewall import AbstractFirewallModel
-from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Rewrite
+from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
 
 class PacketFilterModel(AbstractFirewallModel):
@@ -81,28 +81,28 @@ class PacketFilterModel(AbstractFirewallModel):
 
         self.tables[node + ".post_routing"] = [ # low priority: forward packets according to out port
                                                 # field set by the routing table
-            SwitchRule(
+            Rule(
                 node, "post_routing", idx,
                 in_ports=[node+".post_routing_in"],
                 match=Match(
-                    fields=[SwitchRuleField("out_port", "%s.%s_egress" % (node, port))]
+                    fields=[RuleField("out_port", "%s.%s_egress" % (node, port))]
                 ),
                 actions=[
                     Rewrite(rewrite=[
-                        SwitchRuleField("in_port", "x"*32),
-                        SwitchRuleField("out_port", "x"*32)
+                        RuleField("in_port", "x"*32),
+                        RuleField("out_port", "x"*32)
                     ]),
                     Forward(ports=["%s.%s_egress" % (node, port)])
                 ]
             ) for idx, port in enumerate(ports, start=plen)
         ] + [ # high priority: filter packets with equal input and output port
-            SwitchRule(
+            Rule(
                 node, "post_routing", idx,
                 in_ports=[node+".post_routing_in"],
                 match=Match(
                     fields=[
-                        SwitchRuleField("in_port", "%s.%s_ingress" % (node, port)),
-                        SwitchRuleField("out_port", "%s.%s_egress" % (node, port))
+                        RuleField("in_port", "%s.%s_ingress" % (node, port)),
+                        RuleField("out_port", "%s.%s_egress" % (node, port))
                     ]
                 ),
                 actions=[]
@@ -138,7 +138,7 @@ class PacketFilterModel(AbstractFirewallModel):
         npf.tables = {}
         tables = j["tables"]
         for table in tables:
-            npf.tables[table] = [SwitchRule.from_json(r) for r in tables[table]]
+            npf.tables[table] = [Rule.from_json(r) for r in tables[table]]
 
         npf.ports = j["ports"]
         npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]

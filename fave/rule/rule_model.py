@@ -34,7 +34,7 @@ from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.model import Model
 
 
-class SwitchRuleField(object):
+class RuleField(object):
     """ This class provides a model for switch rules.
     """
 
@@ -83,7 +83,7 @@ class SwitchRuleField(object):
             assert value.length == FIELD_SIZES[name]
 
 
-        return SwitchRuleField(
+        return RuleField(
             name,
             value,
             negated=negated
@@ -92,13 +92,13 @@ class SwitchRuleField(object):
 
     def __eq__(self, other):
         if other == None: return False
-        assert isinstance(other, SwitchRuleField)
+        assert isinstance(other, RuleField)
 
         return self.name == other.name and self.value == other.value and self.negated == other.negated
 
 
     def intersect(self, other):
-        assert isinstance(other, SwitchRuleField) and self.name == other.name
+        assert isinstance(other, RuleField) and self.name == other.name
 
         v1 = field_value_to_bitvector(self).vector
         v2 = field_value_to_bitvector(other).vector
@@ -106,7 +106,7 @@ class SwitchRuleField(object):
         return bitvector_to_field_value(intersect_vectors(v1, v2), self.name)
 
 
-class SwitchRuleAction(object):
+class RuleAction(object):
     """ Abstract class for switch rule action models.
     """
 
@@ -120,7 +120,7 @@ class SwitchRuleAction(object):
         pass
 
 
-class Forward(SwitchRuleAction):
+class Forward(RuleAction):
     """ This class provides a forward action.
     """
 
@@ -163,7 +163,7 @@ class Forward(SwitchRuleAction):
         return self.ports == other.ports
 
 
-class Rewrite(SwitchRuleAction):
+class Rewrite(RuleAction):
     """ This class provides a rewrite action.
     """
 
@@ -198,7 +198,7 @@ class Rewrite(SwitchRuleAction):
             j = json.loads(j)
 
         return Rewrite(
-            rewrite=[SwitchRuleField.from_json(field) for field in j["rw"]]
+            rewrite=[RuleField.from_json(field) for field in j["rw"]]
         )
 
 
@@ -210,7 +210,7 @@ class Rewrite(SwitchRuleAction):
             all([a == b for a, b in zip(self.rewrite, other.rewrite)])
 
 
-class Miss(SwitchRuleAction):
+class Miss(RuleAction):
     """ This class provides a miss action.
     """
 
@@ -278,12 +278,12 @@ class Match(list):
             j = json.loads(j)
 
         return Match(
-            fields=[SwitchRuleField.from_json(f) for f in j["fields"]]
+            fields=[RuleField.from_json(f) for f in j["fields"]]
         )
 
 
     def filter(self, field):
-        if isinstance(field, SwitchRuleField):
+        if isinstance(field, RuleField):
             name = field.name
         elif isinstance(field, str):
             name = field
@@ -324,12 +324,12 @@ class Match(list):
             field1 = match1[idx1]
             field2 = match2[idx2]
             if field1.name == field2.name and field1.name not in ['in_port', 'out_port']:
-                isect.append(SwitchRuleField(field1.name, field1.intersect(field2)))
+                isect.append(RuleField(field1.name, field1.intersect(field2)))
                 idx1 += 1
                 idx2 += 1
             elif field1.name == field2.name:
                 if field1.value == field2.value:
-                    isect.append(SwitchRuleField(field1.name, field1.value))
+                    isect.append(RuleField(field1.name, field1.value))
 
                 idx1 += 1
                 idx2 += 1
@@ -344,12 +344,12 @@ class Match(list):
         return Match(isect)
 
 
-class SwitchRule(Model):
+class Rule(Model):
     """ This class provides a model for switch rules.
     """
 
     def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None):
-        super(SwitchRule, self).__init__(node, mtype="switch_rule")
+        super(Rule, self).__init__(node, mtype="switch_rule")
         self.tid = tid
         self.idx = idx
         self.in_ports = in_ports if in_ports is not None else []
@@ -395,7 +395,7 @@ class SwitchRule(Model):
             "miss" : Miss
         }
 
-        return SwitchRule(
+        return Rule(
             node=j["node"],
             tid=int(j["tid"]) if isinstance(j["tid"], str) and j["tid"].isdigit() else j["tid"],
             idx=int(j["idx"]),
@@ -406,7 +406,7 @@ class SwitchRule(Model):
 
     def __str__(self):
         return "%s\ntid: %s\nidx: %s\nmatch:\n\t%s\nactions:\n\t%s\n" % (
-            super(SwitchRule, self).__str__(),
+            super(Rule, self).__str__(),
             self.tid,
             self.idx,
             self.match,
@@ -415,7 +415,7 @@ class SwitchRule(Model):
 
 
     def __eq__(self, other):
-        assert isinstance(other, SwitchRule)
+        assert isinstance(other, Rule)
 
         return all([
             self.node == other.node,
@@ -428,5 +428,5 @@ class SwitchRule(Model):
 
 
     def __ne__(self, other):
-        assert isinstance(other, SwitchRule)
+        assert isinstance(other, Rule)
         return not self == other

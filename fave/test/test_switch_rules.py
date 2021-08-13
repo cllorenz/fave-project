@@ -24,16 +24,16 @@
 
 import unittest
 
-from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
+from rule.rule_model import Rule, Match, Forward, Miss, Rewrite, RuleField
 from netplumber.mapping import Mapping
 
 
-class TestSwitchRuleField(unittest.TestCase):
+class TestRuleField(unittest.TestCase):
     """ This class tests switch rule fields.
     """
 
     def setUp(self):
-        self.rule_field = SwitchRuleField("packet.ipv6.source", "2001:db8::1")
+        self.rule_field = RuleField("packet.ipv6.source", "2001:db8::1")
 
 
     def tearDown(self):
@@ -58,9 +58,9 @@ class TestSwitchRuleField(unittest.TestCase):
         """ Tests equality of fields.
         """
 
-        nrf1 = SwitchRuleField("packet.ipv6.source", "2001:db8::1")
-        nrf2 = SwitchRuleField("packet.ipv6.destination", "2001:db8::1")
-        nrf3 = SwitchRuleField("packet.ipv6.source", "2001:db8::2")
+        nrf1 = RuleField("packet.ipv6.source", "2001:db8::1")
+        nrf2 = RuleField("packet.ipv6.destination", "2001:db8::1")
+        nrf3 = RuleField("packet.ipv6.source", "2001:db8::2")
 
         self.assertEqual(self.rule_field, nrf1)
         self.assertNotEqual(self.rule_field, nrf2)
@@ -83,7 +83,7 @@ class TestSwitchRuleField(unittest.TestCase):
         """
 
         self.assertEqual(
-            SwitchRuleField.from_json({
+            RuleField.from_json({
                 "name" : "packet.ipv6.source",
                 "value" : "2001:db8::1",
                 "negated" : False
@@ -175,7 +175,7 @@ class TestRewrite(unittest.TestCase):
 
     def setUp(self):
         self.rewrite = Rewrite(rewrite=[
-            SwitchRuleField("packet.ipv6.source", "2001:db8::1")
+            RuleField("packet.ipv6.source", "2001:db8::1")
         ])
 
 
@@ -214,8 +214,8 @@ class TestRewrite(unittest.TestCase):
         """ Tests equality of rewrite actions.
         """
 
-        rw1 = Rewrite(rewrite=[SwitchRuleField("packet.ipv6.source", "2001:db8::1")])
-        rw2 = Rewrite(rewrite=[SwitchRuleField("packet.ipv6.source", "2001:db8::2")])
+        rw1 = Rewrite(rewrite=[RuleField("packet.ipv6.source", "2001:db8::1")])
+        rw2 = Rewrite(rewrite=[RuleField("packet.ipv6.source", "2001:db8::2")])
 
         self.assertEqual(self.rewrite, rw1)
         self.assertNotEqual(self.rewrite, rw2)
@@ -271,8 +271,8 @@ class TestMatch(unittest.TestCase):
 
     def setUp(self):
         self.match = Match(fields=[
-            SwitchRuleField("packet.ipv6.source", "2001:db8::1"),
-            SwitchRuleField("packet.ipv6.destination", "2001:db8::2")
+            RuleField("packet.ipv6.source", "2001:db8::1"),
+            RuleField("packet.ipv6.destination", "2001:db8::2")
         ])
 
     def tearDown(self):
@@ -317,14 +317,14 @@ class TestMatch(unittest.TestCase):
 
 
 
-class TestSwitchRule(unittest.TestCase):
+class TestRule(unittest.TestCase):
     """ This class tests rules.
     """
 
     def setUp(self):
         match = Match(fields=[
-            SwitchRuleField("packet.ipv6.source", "2001:db8::1"),
-            SwitchRuleField("packet.ipv6.destination", "2001:db8::2")
+            RuleField("packet.ipv6.source", "2001:db8::1"),
+            RuleField("packet.ipv6.destination", "2001:db8::2")
         ])
         actions = [Forward(ports=[2])]
         self.mapping = Mapping()
@@ -332,7 +332,7 @@ class TestSwitchRule(unittest.TestCase):
         self.mapping.extend("packet.ipv6.destination")
         self.mapping.extend("packet.ipv6.source")
 
-        self.rule = SwitchRule(
+        self.rule = Rule(
             "foo", 1, 0,
             in_ports=[1],
             match=match,
@@ -378,7 +378,7 @@ class TestSwitchRule(unittest.TestCase):
         """
 
         self.assertEqual(
-            SwitchRule.from_json({
+            Rule.from_json({
                 "node" : "foo",
                 "tid" : 1,
                 "idx" : 0,
@@ -406,12 +406,12 @@ class TestSwitchRule(unittest.TestCase):
         """
 
         match1 = Match(fields=[
-            SwitchRuleField("packet.ipv6.source", "2001:db8::1"),
-            SwitchRuleField("packet.ipv6.destination", "2001:db8::2")
+            RuleField("packet.ipv6.source", "2001:db8::1"),
+            RuleField("packet.ipv6.destination", "2001:db8::2")
         ])
         actions1 = [Forward(ports=[2])]
 
-        rule1 = SwitchRule(
+        rule1 = Rule(
             "foo", 1, 0,
             in_ports=[1],
             match=match1,
@@ -420,7 +420,7 @@ class TestSwitchRule(unittest.TestCase):
 
         self.assertEqual(self.rule, rule1)
 
-        rule2 = SwitchRule(
+        rule2 = Rule(
             "bar", 2, 1,
             in_ports=[1],
             match=match1,
@@ -429,7 +429,7 @@ class TestSwitchRule(unittest.TestCase):
 
         self.assertNotEqual(self.rule, rule2)
 
-        rule3 = SwitchRule(
+        rule3 = Rule(
             "foo", 1, 0,
             in_ports=[1, 2],
             match=match1,
@@ -439,9 +439,9 @@ class TestSwitchRule(unittest.TestCase):
         self.assertNotEqual(self.rule, rule3)
 
         match2 = Match(fields=[
-            SwitchRuleField("packet.ipv6.source", "2001:db8::3")
+            RuleField("packet.ipv6.source", "2001:db8::3")
         ])
-        rule4 = SwitchRule(
+        rule4 = Rule(
             "foo", 1, 0,
             in_ports=[1],
             match=match2,
@@ -452,10 +452,10 @@ class TestSwitchRule(unittest.TestCase):
 
         actions2 = [
             Rewrite(rewrite=[
-                SwitchRuleField("packet.ipv6.source", "2001:db8::3")
+                RuleField("packet.ipv6.source", "2001:db8::3")
             ])
         ]
-        rule5 = SwitchRule(
+        rule5 = Rule(
             "foo", 1, 0,
             in_ports=[1],
             match=match1,

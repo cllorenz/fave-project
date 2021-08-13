@@ -25,7 +25,7 @@ from copy import deepcopy as dc
 
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
-from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
+from rule.rule_model import RuleField, Match, Rule, Forward
 from util.model_util import TABLE_MAX
 from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
@@ -158,7 +158,7 @@ def _ast_to_rule(node, ast, idx=0):
             tmp.value = "d4"
 
     body = [
-        SwitchRuleField(tag(f.value), value(f)) for f in ast if is_field(f) and not is_ignored(f)
+        RuleField(tag(f.value), value(f)) for f in ast if is_field(f) and not is_ignored(f)
     ]
 
     chain = _get_chain_from_ast(ast)
@@ -170,11 +170,11 @@ def _ast_to_rule(node, ast, idx=0):
     multiports = []
     if ast.has_child('--sports'):
         multiports.append(
-            SwitchRuleField('sports', value(ast.get_child('--sports')))
+            RuleField('sports', value(ast.get_child('--sports')))
         )
     if ast.has_child('--dports'):
         multiports.append(
-            SwitchRuleField('dports', value(ast.get_child('--dports')))
+            RuleField('dports', value(ast.get_child('--dports')))
         )
     if multiports:
         sports = []
@@ -193,37 +193,37 @@ def _ast_to_rule(node, ast, idx=0):
         if combinations:
             for i, comb in enumerate(combinations):
                 sport, dport = comb
-                rules[idx+i] = SwitchRule(
+                rules[idx+i] = Rule(
                     node,
                     node+'.'+chain,
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
-                    match=Match(body+[SwitchRuleField('packet.upper.sport', sport), SwitchRuleField('packet.upper.dport', dport)]),
+                    match=Match(body+[RuleField('packet.upper.sport', sport), RuleField('packet.upper.dport', dport)]),
                     actions=actions
                 )
 
         else:
             for i, sport in enumerate(sports):
-                rules[idx+i] = SwitchRule(
+                rules[idx+i] = Rule(
                     node,
                     node+'.'+chain,
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
-                    match=Match(body+[SwitchRuleField('packet.upper.sport', sport)]),
+                    match=Match(body+[RuleField('packet.upper.sport', sport)]),
                     actions=actions
                 )
             for i, dport in enumerate(dports, start=len(sports)):
-                rules[idx+i] = SwitchRule(
+                rules[idx+i] = Rule(
                     node,
                     node+'.'+chain,
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
-                    match=Match(body+[SwitchRuleField('packet.upper.dport', dport)]),
+                    match=Match(body+[RuleField('packet.upper.dport', dport)]),
                     actions=actions
                 )
 
     else:
-        rules[idx if not is_default else TABLE_MAX] = SwitchRule(
+        rules[idx if not is_default else TABLE_MAX] = Rule(
             node,
             node+'.'+chain,
             idx if not is_default else TABLE_MAX,
@@ -314,14 +314,14 @@ def _swap_port_value_direction(field):
 def _swap_direction(field):
     value = _swap_port_value_direction(field)
 
-    return SwitchRuleField(
+    return RuleField(
         _SWAP_FIELDS.get(field.name, field.name), value
     )
 
 
 def _derive_general_state_shell(rules, state_checking_rules):
     return [
-        SwitchRule(
+        Rule(
             r.node,
             r.tid,
             r.idx,
@@ -329,7 +329,7 @@ def _derive_general_state_shell(rules, state_checking_rules):
             match=Match([
                 _swap_direction(f) for f in r.match
             ] + [
-                SwitchRuleField('related', '1')
+                RuleField('related', '1')
             ]),
             actions=r.actions
         ) for r in rules if r not in state_checking_rules.values()
@@ -363,10 +363,10 @@ def _calculate_blocks(rules, intervals):
                 break
 
             match = Match(dc(rule.match) + [
-                SwitchRuleField('related', '0')
+                RuleField('related', '0')
             ]) if _is_new_state_rule(rule) else dc(rule.match)
 
-            block.append(SwitchRule(
+            block.append(Rule(
                 rule.node,
                 rule.tid,
                 2*idx*rules_size+rule.idx,
@@ -437,7 +437,7 @@ def _derive_conditional_state_shells(
                     _adjust_action(dc(a), chain) for a in rule.actions
                 ]
 
-                cond_shell.append(SwitchRule(
+                cond_shell.append(Rule(
                     rule.node,
                     rule.node+'.'+chain,
                     (2*idx+1)*rules_size+rule.idx,
@@ -464,7 +464,7 @@ def _interweave_state_shell(intervals, blocks, conditional_state_shells, chain):
         cond_shell = conditional_state_shells[idx] if idx < len(conditional_state_shells) else []
 
         for rule in block:
-            interwoven_state_shell.append(SwitchRule(
+            interwoven_state_shell.append(Rule(
                 rule.node,
                 rule.tid,
                 cnt,
@@ -475,7 +475,7 @@ def _interweave_state_shell(intervals, blocks, conditional_state_shells, chain):
             cnt += 1
 
         for rule in cond_shell:
-            interwoven_state_shell.append(SwitchRule(
+            interwoven_state_shell.append(Rule(
                 rule.node,
                 rule.tid,
                 cnt,

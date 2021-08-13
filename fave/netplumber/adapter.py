@@ -31,7 +31,7 @@ from netplumber.vector import Vector, HeaderSpace
 
 from util.ip6np_util import field_value_to_bitvector
 
-from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
+from rule.rule_model import Rule, Match, Forward, Miss, Rewrite, RuleField
 
 
 def calc_port(tab, model, port):
@@ -148,7 +148,7 @@ class NetPlumberAdapter(object):
         field -- a negated field to be expanded
         """
 
-        assert isinstance(field, SwitchRuleField)
+        assert isinstance(field, RuleField)
 
         vec = field_value_to_bitvector(field)
         nvectors = []
@@ -325,8 +325,8 @@ class NetPlumberAdapter(object):
         tid = self.tables[table]
 
         for rule in model.tables[table]:
-            if not isinstance(rule, SwitchRule):
-                rule = SwitchRule.from_json(rule)
+            if not isinstance(rule, Rule):
+                rule = Rule.from_json(rule)
             rid = rule.idx
 
             rvec = self._build_vector(rule.match)
@@ -348,7 +348,7 @@ class NetPlumberAdapter(object):
 
             for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
                 rewrite = self._build_vector([
-                    SwitchRuleField(f.name, '{:032b}'.format(
+                    RuleField(f.name, '{:032b}'.format(
                         self.global_port(f.value)
                     )) if f.name in [
                         'in_port', 'out_port', 'interface'
@@ -356,7 +356,7 @@ class NetPlumberAdapter(object):
                 ])
 
                 mask = self._build_vector([
-                    SwitchRuleField(
+                    RuleField(
                         f.name,
                         "1"*FIELD_SIZES[f.name]
                     ) if f.name in [
@@ -396,12 +396,12 @@ class NetPlumberAdapter(object):
         tid = self.tables[table]
 
         for rule in model.tables[table]:
-            if not isinstance(rule, SwitchRule):
-                rule = SwitchRule.from_json(rule)
+            if not isinstance(rule, Rule):
+                rule = Rule.from_json(rule)
             rid = rule.idx
 
             rvec = self._build_vector([
-                SwitchRuleField(f.name, '{:032b}'.format(
+                RuleField(f.name, '{:032b}'.format(
                         self.global_port(f.value)
                     )) if f.name in [
                         'in_port', 'out_port', 'interface'
@@ -411,7 +411,7 @@ class NetPlumberAdapter(object):
             rewrite = self._build_vector([])
 
             mask = self._build_vector([
-                SwitchRuleField(
+                RuleField(
                     p, '1'*FIELD_SIZES[p]
                 ) for p in ['in_port', 'out_port'] if p in self.mapping],
                 preset='0'
@@ -469,14 +469,14 @@ class NetPlumberAdapter(object):
 
             elif isinstance(action, Rewrite):
                 rewrite = self._build_vector([
-                    SwitchRuleField(
+                    RuleField(
                         f.name, '{:032b}'.format(self.global_port(f.value))
                     ) if f.name in [
                         'interface', 'in_port', 'out_port'
                     ] else f for f in action.rewrite
                 ])
                 mask = self._build_vector([
-                    SwitchRuleField(
+                    RuleField(
                         f.name, '1'*FIELD_SIZES[f.name]
                     ) for f in action.rewrite
                 ], preset='0')
@@ -495,7 +495,7 @@ class NetPlumberAdapter(object):
         ]
 
         matches = self._expand_negations(Match([
-            SwitchRuleField(
+            RuleField(
                 f.name, '{:032b}'.format(self.global_port(f.value))
             ) if f.name in [
                 'interface', 'in_port', 'out_port'
@@ -791,7 +791,7 @@ class NetPlumberAdapter(object):
 
         hs_list=[
             self._build_vector([
-                SwitchRuleField(
+                RuleField(
                     f.name, '{:032b}'.format(self.global_port(f.value))
                 ) if f.name in [
                     'interface', 'in_port', 'out_port'
@@ -894,7 +894,7 @@ class NetPlumberAdapter(object):
             [portno],
             model.quantor,
             self._build_vector([
-                SwitchRuleField(
+                RuleField(
                     f.name, '{:032b}'.format(self.global_port(f.value))
                 ) if f.name in [
                     'interface', 'in_port', 'out_port'

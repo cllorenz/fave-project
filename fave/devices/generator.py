@@ -26,7 +26,7 @@ import itertools
 from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from util.ip6np_util import field_value_to_bitvector
-from openflow.rule import SwitchRuleField
+from rule.rule_model import RuleField
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 class GeneratorModel(object):
@@ -36,7 +36,7 @@ class GeneratorModel(object):
     def __init__(self, node, fields=None):
         self.fields = {
             OXM_FIELD_TO_MATCH_FIELD[name] : [
-                SwitchRuleField(
+                RuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
                 ) for f in field_list
             ] for name, field_list in fields.iteritems()
@@ -71,7 +71,7 @@ class GeneratorModel(object):
         model = GeneratorModel(
             j["node"], {
                 n : [
-                    SwitchRuleField.from_json(f) for f in fl
+                    RuleField.from_json(f) for f in fl
                 ] for n, fl in j["fields"].iteritems()
             }
         )

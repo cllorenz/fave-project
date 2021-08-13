@@ -31,7 +31,7 @@ from itertools import product
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 from util.print_util import eprint
 from devices.switch import SwitchModel
-from openflow.rule import SwitchRuleField, Match
+from rule.rule_model import RuleField, Match
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
 from devices.application_layer_gateway import ApplicationLayerGatewayModel
@@ -346,7 +346,7 @@ def main(argv):
             filter_fields = {}
             for field in arg.split(';'):
                 key, body = field.split('=')
-                values = [SwitchRuleField(key, v) for v in body.split(',')]
+                values = [RuleField(key, v) for v in body.split(',')]
                 filter_fields[key] = values
         elif opt == '-G':
             for generator in arg.split('|'):
@@ -355,13 +355,13 @@ def main(argv):
                 for field in [f for f in fields.split(';') if f]:
                     key, body = field.split('=')
                     values = body.split(',')
-                    generator_fields[key] = [SwitchRuleField(key, v) for v in values]
+                    generator_fields[key] = [RuleField(key, v) for v in values]
                 generators.append((name, generator_fields))
         elif opt == '-T':
             test_fields = {}
             for field in arg.split(';'):
                 key, body = field.split('=')
-                values = [SwitchRuleField(key, v) for v in body.split(',')]
+                values = [RuleField(key, v) for v in body.split(',')]
                 test_fields[key] = values
         elif opt == '-P':
             test_path = arg.split(';')
@@ -408,7 +408,7 @@ def main(argv):
             'generator' : lambda: GeneratorModel(
                 dev,
                 {f : [
-                    SwitchRuleField(f, v) for v in fl
+                    RuleField(f, v) for v in fl
                 ] for f, fl in fields.iteritems()}
             ),
             'generators' : lambda: GeneratorsModel(
@@ -417,7 +417,7 @@ def main(argv):
             'probe' : lambda: ProbeModel(
                 dev,
                 quantor,
-                Match([SwitchRuleField(f, *v) for f, v in fields.iteritems()]),
+                Match([RuleField(f, *v) for f, v in fields.iteritems()]),
                 filter_fields=filter_fields,
                 test_fields=test_fields,
                 test_path=test_path
