@@ -2,7 +2,7 @@
 
 import json
 
-from topology.router import parse_cisco_interfaces
+from devices.router import parse_cisco_interfaces
 
 CISCO_CONF="bench/wl_ifi/acls.txt"
 OFILE="bench/wl_ifi/cisco_to_inventory.json"
