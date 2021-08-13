@@ -12,8 +12,8 @@ import sys
 
 from util.model_util import TABLE_MAX
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
-from ip6np.snapshot_packet_filter import StateCommand
-from openflow.rule import SwitchRule, Match, SwitchRuleField, Forward
+from devices.snapshot_packet_filter import StateCommand
+from rule.rule_model import Rule, Match, RuleField, Forward
 from bench.bench_utils import create_topology, add_routes, add_sources, add_policies
 
 def _random_port():
@@ -23,17 +23,17 @@ def _random_ipv6_address():
     return ':'.join(["{:04x}".format(random.randint(0, 65535)) for _i in range(8)])
 
 def _generate_request(node, i):
-    rule = SwitchRule(
+    rule = Rule(
         node,
         node+'.forward_state',
         i,
         in_ports=[node+'.forward_state_in'],
         match=Match([
-            SwitchRuleField('packet.ipv6.source', _random_ipv6_address()),
-            SwitchRuleField('packet.ipv6.destination', '2001:db8::1'),
-            SwitchRuleField('packet.ipv6.proto', 'tcp'),
-            SwitchRuleField('packet.upper.sport', _random_port()),
-            SwitchRuleField('packet.upper.dport', 80)
+            RuleField('packet.ipv6.source', _random_ipv6_address()),
+            RuleField('packet.ipv6.destination', '2001:db8::1'),
+            RuleField('packet.ipv6.proto', 'tcp'),
+            RuleField('packet.upper.sport', _random_port()),
+            RuleField('packet.upper.dport', 80)
         ]),
         actions=[Forward(ports=[node+'.forward_state_accept'])]
     )
