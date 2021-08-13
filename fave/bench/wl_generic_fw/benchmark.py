@@ -122,7 +122,7 @@ if __name__ == '__main__':
         print "Benchmark generated"
         print "Run benchmark... "
 
-    os.system("bash scripts/start_np.sh -l bench/wl_ifi/np.conf %s" % (
+    os.system("bash scripts/start_np.sh -l bench/wl_generic_fw/np.conf %s" % (
         "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001")
     )
     os.system("bash scripts/start_aggr.sh -S %s %s" % (
