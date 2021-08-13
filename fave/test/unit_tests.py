@@ -33,8 +33,8 @@ from test.test_models import TestGenericModel, TestRouterModel
 from test.test_packet_filter import TestPacketFilterModel, TestPacketFilterGenerator
 from test.test_models import TestSwitchModel
 from test.test_tree import TestTree
-from test.test_switch_rules import TestRuleField, TestMatch, TestRule
-from test.test_switch_rules import TestForward, TestRewrite, TestMiss
+from test.test_rules import TestRuleField, TestMatch, TestRule
+from test.test_rules import TestForward, TestRewrite, TestMiss
 from test.test_iptables_parser import TestParser
 from test.test_checker import TestChecker
 
