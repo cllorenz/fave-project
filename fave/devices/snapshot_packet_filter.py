@@ -25,14 +25,8 @@
 
 import json
 
-from copy import copy, deepcopy
-
-from packet_filter import AbstractPacketFilterModel
-
+from abstract_firewall import AbstractFirewallModel
 from openflow.rule import SwitchRule, Match, SwitchRuleField, Forward, Rewrite
-
-from util.collections_util import list_sub
-from util.packet_util import is_ip as is_ipv4
 
 
 def _SWAP_FIELD(field):
@@ -96,7 +90,7 @@ class StateCommand(object):
         )
 
 
-class SnapshotPacketFilterModel(AbstractPacketFilterModel):
+class SnapshotPacketFilterModel(AbstractFirewallModel):
     """ This class stores packet filter models that use state snapshots instead
         of state deduction.
     """

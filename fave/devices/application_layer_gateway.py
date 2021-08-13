@@ -25,7 +25,7 @@
 
 import json
 
-from packet_filter import AbstractPacketFilterModel
+from abstract_firewall import AbstractFirewallModel
 from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Rewrite
 
 
@@ -70,7 +70,7 @@ class RelayCommand(object):
 
 
 
-class ApplicationLayerGatewayModel(AbstractPacketFilterModel):
+class ApplicationLayerGatewayModel(AbstractFirewallModel):
     """ This class stores packet filter models.
     """
 
