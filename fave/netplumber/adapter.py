@@ -24,7 +24,6 @@ from aggregator_singleton import AGGREGATOR
 from aggregator_abstract import TRACE
 
 import netplumber.jsonrpc as jsonrpc
-from aggregator_util import normalize_port, calc_rule_index, calc_port
 from netplumber.mapping import Mapping, FIELD_SIZES
 from netplumber.vector import copy_field_between_vectors, set_field_in_vector
 from netplumber.vector import align_headerspace
@@ -33,6 +32,45 @@ from netplumber.vector import Vector, HeaderSpace
 from ip6np.ip6np_util import field_value_to_bitvector
 
 from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
+
+
+def calc_port(tab, model, port):
+    """ Calculates a port number for a table.
+
+    Keyword arguments:
+    tab -- a table id
+    model -- the model inheriting the table
+    port -- the port index in the table
+    """
+    try:
+        return (tab<<16)+model.port_index(port)
+    except KeyError:
+        return (tab<<16)+1
+
+
+def calc_rule_index(r_idx, t_idx=0, n_idx=0):
+    """ Calculates the rule index within a table
+
+    Keyword arguments:
+    t_idx -- a table index
+    r_idx -- a rule index within the table
+    n_idx -- an optional index for negation expanded rules
+    """
+
+    assert t_idx < 2**32
+    assert r_idx < 2**24
+    assert n_idx < 2**12
+
+    return (t_idx<<32)+(r_idx<<12)+n_idx
+
+
+def normalize_port(port):
+    """ Normalizes a port's name
+
+    Keyword arguments:
+    port -- a port name
+    """
+    return port.replace('.', '_')
 
 
 class NetPlumberAdapter(object):

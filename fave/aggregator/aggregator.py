@@ -37,7 +37,6 @@ from Queue import Queue
 from aggregator_abstract import AbstractAggregator, TRACE
 from aggregator_singleton import AGGREGATOR
 from aggregator_signals import register_signals
-from aggregator_util import model_from_json
 
 from util.print_util import eprint
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, fave_recvmsg
@@ -50,6 +49,47 @@ import netplumber.jsonrpc as jsonrpc
 from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_UNIX
 from netplumber.adapter import NetPlumberAdapter
 from netplumber.mapping import Mapping
+
+from netplumber.slice import SlicingCommand
+from devices.packet_filter import PacketFilterModel
+from devices.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
+from devices.switch import SwitchModel, SwitchCommand
+from topology.topology import LinksModel, TopologyCommand
+from devices.generator import GeneratorModel
+from devices.probe import ProbeModel
+
+
+def model_from_json(j):
+    """ Reconstructs a model from a JSON object.
+
+    Keyword arguments:
+    j -- a JSON object
+    """
+
+    AbstractAggregator.LOGGER.debug('reconstruct model')
+    try:
+        models = {
+            "packet_filter" : PacketFilterModel,
+            "snapshot_packet_filter" : SnapshotPacketFilterModel,
+            "switch" : SwitchModel,
+            "switch_command" : SwitchCommand,
+            "state_command" : StateCommand,
+            "topology_command" : TopologyCommand,
+            "slicing_command" : SlicingCommand,
+            "links" : LinksModel,
+            "generator" : GeneratorModel,
+            "probe" : ProbeModel
+        }
+        model = models[j["type"]]
+
+    except KeyError:
+        AbstractAggregator.LOGGER.error(
+            "model type not implemented: %s", j["type"]
+        )
+        raise Exception("model type not implemented: %s" % j["type"])
+
+    else:
+        return model.from_json(j)
 
 
 def _print_help():
