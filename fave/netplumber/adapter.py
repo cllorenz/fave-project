@@ -29,7 +29,7 @@ from netplumber.vector import copy_field_between_vectors, set_field_in_vector
 from netplumber.vector import align_headerspace
 from netplumber.vector import Vector, HeaderSpace
 
-from ip6np.ip6np_util import field_value_to_bitvector
+from util.ip6np_util import field_value_to_bitvector
 
 from openflow.rule import SwitchRule, Match, Forward, Miss, Rewrite, SwitchRuleField
 

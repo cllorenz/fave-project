@@ -341,7 +341,7 @@ class HeaderSpace(object):
 
 
     def pprint(self, mapping=None):
-        from ip6np.ip6np_util import bitvector_to_field_value
+        from util.ip6np_util import bitvector_to_field_value
 
         fields = list([f for f in mapping if f != 'length'])
 

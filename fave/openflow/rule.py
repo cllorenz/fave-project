@@ -27,10 +27,7 @@ import sys
 import getopt
 import json
 
-try:
-    from ip6np.ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
-except ImportError:
-    from ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
+from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
 
 from netplumber.vector import Vector, set_field_in_vector, intersect_vectors
 from netplumber.mapping import Mapping, FIELD_SIZES
