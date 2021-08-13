@@ -28,7 +28,7 @@ import json
 import socket
 import pprint
 
-import generator
+import iptables.generator
 
 from iptables.parser_singleton import PARSER
 
