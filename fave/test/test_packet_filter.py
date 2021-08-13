@@ -28,7 +28,7 @@ import tempfile
 from iptables.generator import generate
 from iptables.parser import IP6TablesParser
 from devices.packet_filter import PacketFilterModel
-from openflow.rule import Forward, Rewrite, SwitchRule, Match, SwitchRuleField
+from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from devices.switch import SwitchModel
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
@@ -399,15 +399,15 @@ class TestSwitchModel(unittest.TestCase):
             ports=ports
         )
 
-        model1.add_rule(SwitchRule("foo", 1, TABLE_MAX, actions=[]))
+        model1.add_rule(Rule("foo", 1, TABLE_MAX, actions=[]))
 
-        match1 = Match(fields=[SwitchRuleField(
+        match1 = Match(fields=[RuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"
         )])
         actions1 = [Forward(['foo.1'])]
         model1.add_rule(
             0,
-            SwitchRule(
+            Rule(
                 "foo", 1, 0,
                 in_ports=['foo.1', 'foo.2'],
                 match=match1,
@@ -415,18 +415,18 @@ class TestSwitchModel(unittest.TestCase):
             )
         )
 
-        match2 = Match(fields=[SwitchRuleField(
+        match2 = Match(fields=[RuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:2::0/48"
         )])
         actions2 = [
-            Rewrite([SwitchRuleField(
+            Rewrite([RuleField(
                 OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:3::0/48"
             )]),
             Forward(['foo.4'])
         ]
         model1.add_rule(
             1,
-            SwitchRule(
+            Rule(
                 "foo", 1, 1,
                 in_ports=['foo.1', 'foo.2', 'foo.3'],
                 match=match2,
@@ -470,7 +470,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
 
         self.model.set_address(address)
         self.model.tables['foo.input_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 0,
@@ -480,7 +480,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
             )
         ]
         self.model.tables['foo.output_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 0,
@@ -490,40 +490,40 @@ class TestPacketFilterGenerator(unittest.TestCase):
             )
         ]
         self.model.tables['foo.forward_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.forward_filter',
                 0,
                 in_ports=['foo.forward_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.proto', '6'),
-                    SwitchRuleField('packet.ipv6.source', '2001:db8:0:0:0:0:0:0/64'),
-                    SwitchRuleField('packet.upper.sport', '80'),
-                    SwitchRuleField('related', '1')
+                    RuleField('packet.ipv6.proto', '6'),
+                    RuleField('packet.ipv6.source', '2001:db8:0:0:0:0:0:0/64'),
+                    RuleField('packet.upper.sport', '80'),
+                    RuleField('related', '1')
                 ]),
                 actions=[Forward(['foo.forward_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.forward_filter',
                 1,
                 in_ports=['foo.forward_filter_in'],
-                match=Match([SwitchRuleField('related', '1')]),
+                match=Match([RuleField('related', '1')]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.forward_filter',
                 2,
                 in_ports=['foo.forward_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.destination', '2001:db8::0/64'),
-                    SwitchRuleField('packet.ipv6.proto', 'tcp'),
-                    SwitchRuleField('packet.upper.dport', '80')
+                    RuleField('packet.ipv6.destination', '2001:db8::0/64'),
+                    RuleField('packet.ipv6.proto', 'tcp'),
+                    RuleField('packet.upper.dport', '80')
                 ]),
                 actions=[Forward(['foo.forward_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.forward_filter',
                 3,
@@ -563,61 +563,61 @@ class TestPacketFilterGenerator(unittest.TestCase):
 
         self.model.set_address(address)
         self.model.tables['foo.input_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 0,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.proto', '6'),
-                    SwitchRuleField('packet.ipv6.source', '2001:db8:abc:1:0:0:0:6'),
-                    SwitchRuleField('packet.upper.sport', '53'),
-                    SwitchRuleField('related', '1')
+                    RuleField('packet.ipv6.proto', '6'),
+                    RuleField('packet.ipv6.source', '2001:db8:abc:1:0:0:0:6'),
+                    RuleField('packet.upper.sport', '53'),
+                    RuleField('related', '1')
                 ]),
                 actions=[Forward(['foo.input_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 1,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.source', '2001:db8:abc:1:0:0:0:0/64'),
-                    SwitchRuleField('related', '1')
+                    RuleField('packet.ipv6.source', '2001:db8:abc:1:0:0:0:0/64'),
+                    RuleField('related', '1')
                 ]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 2,
                 in_ports=['foo.input_filter_in'],
-                match=Match([SwitchRuleField('related', '1')]),
+                match=Match([RuleField('related', '1')]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 3,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.source', '2001:db8:abc:1::0/64')
+                    RuleField('packet.ipv6.source', '2001:db8:abc:1::0/64')
                 ]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 4,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.destination', '2001:db8:abc::0/64'),
-                    SwitchRuleField('packet.ipv6.proto', 'tcp'),
-                    SwitchRuleField('packet.upper.dport', '22')
+                    RuleField('packet.ipv6.destination', '2001:db8:abc::0/64'),
+                    RuleField('packet.ipv6.proto', 'tcp'),
+                    RuleField('packet.upper.dport', '22')
                 ]),
                 actions=[Forward(['foo.input_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.input_filter',
                 5,
@@ -627,61 +627,61 @@ class TestPacketFilterGenerator(unittest.TestCase):
             )
         ]
         self.model.tables['foo.output_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 0,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.destination', '2001:db8:abc:1:0:0:0:0/64'),
-                    SwitchRuleField('related', '1')
+                    RuleField('packet.ipv6.destination', '2001:db8:abc:1:0:0:0:0/64'),
+                    RuleField('related', '1')
                 ]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 1,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.proto', '6'),
-                    SwitchRuleField('packet.ipv6.source', '2001:db8:abc:0:0:0:0:0/64'),
-                    SwitchRuleField('packet.upper.sport', '22'),
-                    SwitchRuleField('related', '1')
+                    RuleField('packet.ipv6.proto', '6'),
+                    RuleField('packet.ipv6.source', '2001:db8:abc:0:0:0:0:0/64'),
+                    RuleField('packet.upper.sport', '22'),
+                    RuleField('related', '1')
                 ]),
                 actions=[Forward(['foo.output_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 2,
                 in_ports=['foo.output_filter_in'],
-                match=Match([SwitchRuleField('related', '1')]),
+                match=Match([RuleField('related', '1')]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 3,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.destination', '2001:db8:abc:1::6'),
-                    SwitchRuleField('packet.ipv6.proto', 'tcp'),
-                    SwitchRuleField('packet.upper.dport', '53')
+                    RuleField('packet.ipv6.destination', '2001:db8:abc:1::6'),
+                    RuleField('packet.ipv6.proto', 'tcp'),
+                    RuleField('packet.upper.dport', '53')
                 ]),
                 actions=[Forward(['foo.output_filter_accept'])]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 4,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
-                    SwitchRuleField('packet.ipv6.destination', '2001:db8:abc:1::0/64')
+                    RuleField('packet.ipv6.destination', '2001:db8:abc:1::0/64')
                 ]),
                 actions=[]
             ),
-            SwitchRule(
+            Rule(
                 node,
                 'foo.output_filter',
                 5,
@@ -691,7 +691,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
             )
         ]
         self.model.tables['foo.forward_filter'] = [
-            SwitchRule(
+            Rule(
                 node,
                 'foo.forward_filter',
                 0,

@@ -27,7 +27,7 @@ import unittest
 from devices.abstract_device import AbstractDeviceModel
 from devices.router import RouterModel
 from devices.switch import SwitchModel
-from openflow.rule import Forward, Rewrite, SwitchRule, Match, SwitchRuleField
+from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
@@ -580,14 +580,14 @@ class TestSwitchModel(unittest.TestCase):
             ports=ports
         )
 
-        model1.add_rule(SwitchRule("foo", 1, TABLE_MAX, actions=[]))
+        model1.add_rule(Rule("foo", 1, TABLE_MAX, actions=[]))
 
-        match1 = Match(fields=[SwitchRuleField(
+        match1 = Match(fields=[RuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:1::0/48"
         )])
         actions1 = [Forward(['foo.1'])]
         model1.add_rule(
-            SwitchRule(
+            Rule(
                 "foo", 1, 0,
                 in_ports=['foo.1', 'foo.2'],
                 match=match1,
@@ -595,17 +595,17 @@ class TestSwitchModel(unittest.TestCase):
             )
         )
 
-        match2 = Match(fields=[SwitchRuleField(
+        match2 = Match(fields=[RuleField(
             OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:2::0/48"
         )])
         actions2 = [
-            Rewrite([SwitchRuleField(
+            Rewrite([RuleField(
                 OXM_FIELD_TO_MATCH_FIELD["ipv6_dst"], "2001:db8:3::0/48"
             )]),
             Forward(['foo.4'])
         ]
         model1.add_rule(
-            SwitchRule(
+            Rule(
                 "foo", 1, 1,
                 in_ports=['foo.1', 'foo.2', 'foo.3'],
                 match=match2,

@@ -33,7 +33,7 @@ from test.test_models import TestGenericModel, TestRouterModel
 from test.test_packet_filter import TestPacketFilterModel, TestPacketFilterGenerator
 from test.test_models import TestSwitchModel
 from test.test_tree import TestTree
-from test.test_switch_rules import TestSwitchRuleField, TestMatch, TestSwitchRule
+from test.test_switch_rules import TestRuleField, TestMatch, TestRule
 from test.test_switch_rules import TestForward, TestRewrite, TestMiss
 from test.test_iptables_parser import TestParser
 from test.test_checker import TestChecker
@@ -101,11 +101,11 @@ if __name__ == '__main__':
     )
 
     SUITE.addTests(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRuleField)
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestRuleField)
     )
 
     SUITE.addTests(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestRule)
     )
 
     SUITE.addTests(
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     )
 
     SUITE.addTests(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestSwitchRule)
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestRule)
     )
 
     SUITE.addTests(
