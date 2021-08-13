@@ -495,11 +495,13 @@ _SWAP_CHAIN = {
 }
 
 def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=True, state_snap=False):
+
     if state_snap:
         model = SnapshotPacketFilterModel(node, ports=ports, address=address)
         interweaving=False
     else:
         model = PacketFilterModel(node, ports=ports, address=address)
+
     chains = _get_rules_from_ast(node, ast)
 
     if not interweaving:
@@ -510,7 +512,6 @@ def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=Tr
             ].append(rule)
 
         return model
-
 
     chain_rules = {}
     chain_blocks = {}

@@ -43,7 +43,7 @@ def _add_packet_filter(name, _type, ports, address, ruleset, use_unix=False, int
         "-i", address,
         "-p", str(ports),
         "-r", ruleset
-    ] + (['-u'] if use_unix else []) + (['-s'] if interweave else []))
+    ] + (['-u'] if use_unix else []) + (['-s'] if not interweave else []))
 
 
 def _add_snapshot_packet_filter(name, _type, ports, address, ruleset, use_unix=False, interweave=False):
@@ -56,7 +56,7 @@ def _add_snapshot_packet_filter(name, _type, ports, address, ruleset, use_unix=F
         "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
-def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_unix=False, interweave=False):
+def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_unix=False, interweave=True):
     topo.main([
         "-a",
         "-t", "application_layer_gateway",
