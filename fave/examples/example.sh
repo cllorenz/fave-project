@@ -160,17 +160,17 @@ CNT=0
 
 # test rule setting
 echo -n "add switch rules... "
-python2 openflow/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
+python2 devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
-python2 openflow/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
+python2 devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
-python2 openflow/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
-CNT=$(( $? + CNT ))
-
-python2 openflow/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+python2 devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python2 openflow/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
+python2 devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+CNT=$(( $? + CNT ))
+
+python2 devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
