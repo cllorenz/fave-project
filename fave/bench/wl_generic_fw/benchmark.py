@@ -134,7 +134,7 @@ if __name__ == '__main__':
         devices, links = json.loads(raw_topology.read()).values()
 
         if verbose: print "Initialize topology..."
-        create_topology(devices, links, use_unix=use_unix, interweave=False)
+        create_topology(devices, links, use_unix=use_unix, interweave=not use_state_snapshots)
         if verbose: print "Topology sent to FaVe"
 
     with open(ROUTES, 'r') as raw_routes:
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     if verbose: print "Wait for fave..."
 
     import netplumber.dump_np as dumper
-    dumper.main(["-a", "-n", "-t"] + (["-u" if use_unix else []]))
+    dumper.main(["-a", "-n", "-t"] + (["-u"] if use_unix else []))
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
 
