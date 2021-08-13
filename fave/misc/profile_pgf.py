@@ -27,7 +27,7 @@ from ip6np import ip6np as ip6tables
 import netplumber.dump_np as dumper
 
 
-RULESET='bench/wl_up/rulesets/pgf-ruleset'
+RULESET='bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset'
 TMPFILE='/tmp/pgf-ruleset'
 
 LOGGER = logging.getLogger("ad6")
@@ -44,8 +44,8 @@ for no_rules in [len(ruleset)]: #range(3, len(ruleset), 10):
     rules = '\n'.join(ruleset[:no_rules])
 
 
-    os.system("scripts/start_np.sh bench/wl_up/np.conf")
-    os.system("scripts/start_aggr.sh")
+    os.system("bash scripts/start_np.sh -l bench/wl_up/np.conf")
+    os.system("bash scripts/start_aggr.sh")
 
     os.system('rm -f %s' % TMPFILE)
     with open(TMPFILE, 'w') as rsf:
@@ -59,5 +59,6 @@ for no_rules in [len(ruleset)]: #range(3, len(ruleset), 10):
 
     os.system("bash scripts/stop_fave.sh")
 
+    os.system("python2 misc/await_fave.py")
 
 LOGGER.info("completed all rules")
