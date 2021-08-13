@@ -31,7 +31,7 @@ import netplumber.dump_np as dumper
 import test.check_flows as checker
 
 from topology import topology as topo
-from ip6np import ip6np as ip6tables
+from misc import ip6np as ip6tables
 from devices import switch
 
 
