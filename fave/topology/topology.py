@@ -30,18 +30,18 @@ from itertools import product
 
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
 from util.print_util import eprint
-from openflow.switch import SwitchModel
+from devices.switch import SwitchModel
 from openflow.rule import SwitchRuleField, Match
-from ip6np.packet_filter import PacketFilterModel
-from ip6np.snapshot_packet_filter import SnapshotPacketFilterModel
-from ip6np.application_layer_gateway import ApplicationLayerGatewayModel
+from devices.packet_filter import PacketFilterModel
+from devices.snapshot_packet_filter import SnapshotPacketFilterModel
+from devices.application_layer_gateway import ApplicationLayerGatewayModel
 
-from generator import GeneratorModel
-from probe import ProbeModel
-from router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
+from devices.generator import GeneratorModel
+from devices.probe import ProbeModel
+from devices.router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
 
-from ip6np.generator import generate as ip6np_generate
-from misc.pybison_singleton import PARSER as IP6TABLES_PARSER
+from iptables.generator import generate as ip6np_generate
+from iptables.parser_singleton import PARSER as IP6TABLES_PARSER
 
 class LinksModel(object):
     """ This class provides a model to store links in FaVe.

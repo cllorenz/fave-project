@@ -23,8 +23,8 @@
 
 from copy import deepcopy as dc
 
-from packet_filter import PacketFilterModel
-from snapshot_packet_filter import SnapshotPacketFilterModel
+from devices.packet_filter import PacketFilterModel
+from devices.snapshot_packet_filter import SnapshotPacketFilterModel
 from openflow.rule import SwitchRuleField, Match, SwitchRule, Forward
 from util.model_util import TABLE_MAX
 from util.collections_util import dict_union

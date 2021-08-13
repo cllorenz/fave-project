@@ -30,7 +30,7 @@ import pprint
 
 import generator
 
-from misc.pybison_singleton import PARSER
+from iptables.parser_singleton import PARSER
 
 from util.print_util import eprint
 from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg

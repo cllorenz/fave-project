@@ -30,8 +30,8 @@ import logging
 from ryu.ofproto import ofproto_parser
 from ryu.ofproto import ofproto_protocol
 
-from openflow.switch import Match, Forward, Rewrite
-from openflow.switch import SwitchRule, SwitchRuleField, SwitchCommand
+from devices.rule import SwitchRule, SwitchRuleField, Match, Forward, Rewrite
+from devices.switch import SwitchCommand
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 LOGGER = logging.getLogger('tcp_proxy')

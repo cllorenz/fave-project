@@ -27,14 +27,13 @@ import json
 
 from aggregator_abstract import AbstractAggregator
 
-from netplumber.model import Model
 from netplumber.slice import SlicingCommand
-from ip6np.packet_filter import PacketFilterModel
-from ip6np.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
-from openflow.switch import SwitchModel, SwitchCommand
+from devices.packet_filter import PacketFilterModel
+from devices.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
+from devices.switch import SwitchModel, SwitchCommand
 from topology.topology import LinksModel, TopologyCommand
-from topology.generator import GeneratorModel
-from topology.probe import ProbeModel
+from devices.generator import GeneratorModel
+from devices.probe import ProbeModel
 
 
 def model_from_json(j):
@@ -47,7 +46,6 @@ def model_from_json(j):
     AbstractAggregator.LOGGER.debug('reconstruct model')
     try:
         models = {
-            "model" : Model,
             "packet_filter" : PacketFilterModel,
             "snapshot_packet_filter" : SnapshotPacketFilterModel,
             "switch" : SwitchModel,

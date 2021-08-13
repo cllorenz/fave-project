@@ -31,7 +31,7 @@ from copy import copy
 from openflow.rule import SwitchRule, SwitchRuleField, Forward, Rewrite, Match
 
 from netplumber.mapping import Mapping
-from netplumber.model import Model
+from abstract_device import AbstractDeviceModel
 
 from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
@@ -80,7 +80,7 @@ class SwitchCommand(object):
         )
 
 
-class SwitchModel(Model):
+class SwitchModel(AbstractDeviceModel):
     """ This class provides a switch model.
     """
 

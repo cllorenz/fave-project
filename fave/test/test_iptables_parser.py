@@ -25,7 +25,7 @@
 import unittest
 import os
 
-from misc.pybison_singleton import PARSER
+from iptables.parser_singleton import PARSER
 from util.tree_util import Tree
 
 

@@ -24,10 +24,10 @@
 
 import unittest
 
-from netplumber.model import Model
-from topology.router import RouterModel
-from openflow.switch import SwitchModel, Forward, Rewrite, SwitchRule
-from openflow.switch import Match, SwitchRuleField
+from devices.abstract_device import AbstractDeviceModel
+from devices.router import RouterModel
+from devices.switch import SwitchModel
+from openflow.rule import Forward, Rewrite, SwitchRule, Match, SwitchRuleField
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
@@ -461,7 +461,7 @@ class TestGenericModel(unittest.TestCase):
     def setUp(self):
         """ Creates a clean test environment.
         """
-        self.model = Model("foo")
+        self.model = AbstractDeviceModel("foo")
 
 
     def tearDown(self):
@@ -491,7 +491,7 @@ class TestGenericModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            Model.from_json({
+            AbstractDeviceModel.from_json({
                 'node': 'foo',
                 'ports': {},
                 'tables': {},
@@ -509,14 +509,14 @@ class TestGenericModel(unittest.TestCase):
         ports = {'1' : 3, '2' : 4, 't1_out' : 1, 't2_in' : 2}
         wiring = [('t1_out', 't2_in')]
 
-        model1 = Model(
+        model1 = AbstractDeviceModel(
             "foo",
             tables=tables,
             ports=ports,
             wiring=wiring
         )
 
-        model2 = Model.from_json(model1.to_json())
+        model2 = AbstractDeviceModel.from_json(model1.to_json())
 
         self.assertEqual(model1, model2)
 

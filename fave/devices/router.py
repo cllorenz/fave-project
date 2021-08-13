@@ -27,14 +27,14 @@ import math
 
 from copy import copy
 
-from netplumber.model import Model
+from abstract_device import AbstractDeviceModel
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from openflow.rule import SwitchRuleField, Match, Forward, SwitchRule, Rewrite
 
 
 CAPACITY=2**16/2**12 # XXX: ugly workaround
 
-class RouterModel(Model):
+class RouterModel(AbstractDeviceModel):
     """ This class provides a model for routers.
     """
 

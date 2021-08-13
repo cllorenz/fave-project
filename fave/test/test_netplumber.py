@@ -29,7 +29,7 @@ from netplumber.mapping import Mapping
 from netplumber.vector import Vector, HeaderSpace
 from netplumber.vector import get_field_from_vector, set_field_in_vector
 from netplumber.vector import copy_field_between_vectors
-from netplumber.model import Model
+from devices.abstract_device import AbstractDeviceModel
 
 
 class TestMapping(unittest.TestCase):
@@ -314,7 +314,7 @@ class TestModel(unittest.TestCase):
     def setUp(self):
         """ Provides a clean test environment.
         """
-        self.model = Model(
+        self.model = AbstractDeviceModel(
             'foo',
             tables={'foo.1' : []},
             ports={'foo.1' : 'foo.1', 'foo.2' : 'foo.1'}
@@ -363,7 +363,7 @@ class TestModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            Model.from_json({
+            AbstractDeviceModel.from_json({
                 'node' : 'foo',
                 'type' : 'model',
                 'tables' : {'foo.1' : []},
@@ -379,7 +379,7 @@ class TestModel(unittest.TestCase):
         """
 
         self.assertEqual(
-            Model.from_string(
+            AbstractDeviceModel.from_string(
                 '{\
                     "node":"foo", \
                     "type":"model", \
@@ -396,13 +396,13 @@ class TestModel(unittest.TestCase):
         """ Tests the subtraction of a model from another.
         """
 
-        other = Model(
+        other = AbstractDeviceModel(
             'foo',
             tables={'foo.1' : []},
             ports={'foo.1' : 'foo.1'}
         )
 
-        result = Model(
+        result = AbstractDeviceModel(
             'foo',
             tables={},
             ports={'foo.2' : 'foo.1'}

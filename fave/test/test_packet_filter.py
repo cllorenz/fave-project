@@ -25,11 +25,11 @@
 import unittest
 import tempfile
 
-from ip6np.generator import generate
-from misc.pybison_test import IP6TablesParser
-from ip6np.packet_filter import PacketFilterModel
-from openflow.switch import SwitchModel, Forward, Rewrite, SwitchRule
-from openflow.switch import Match, SwitchRuleField
+from iptables.generator import generate
+from iptables.parser import IP6TablesParser
+from devices.packet_filter import PacketFilterModel
+from openflow.rule import Forward, Rewrite, SwitchRule, Match, SwitchRuleField
+from devices.switch import SwitchModel
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 

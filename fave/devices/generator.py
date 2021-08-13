@@ -26,7 +26,7 @@ import itertools
 from netplumber.mapping import Mapping
 from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
 from ip6np.ip6np_util import field_value_to_bitvector
-from openflow.switch import SwitchRuleField
+from openflow.rule import SwitchRuleField
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 class GeneratorModel(object):

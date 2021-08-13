@@ -27,7 +27,7 @@ import json
 
 from copy import copy, deepcopy
 
-from netplumber.model import Model
+from abstract_device import AbstractDeviceModel
 
 from openflow.rule import SwitchRule, Forward, Match, SwitchRuleField, Rewrite
 
@@ -41,7 +41,7 @@ BASE_ROUTING_WRONG_AP=TABLE_MAX/4*2
 BASE_ROUTING_RULE=TABLE_MAX/4*3
 
 
-class AbstractPacketFilterModel(Model):
+class AbstractPacketFilterModel(AbstractDeviceModel):
     def __init__(self, node, pf_type, ports=None):
         super(AbstractPacketFilterModel, self).__init__(node, pf_type)
 

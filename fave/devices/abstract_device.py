@@ -27,7 +27,7 @@ from util.collections_util import list_sub, dict_sub
 from netplumber.mapping import Mapping
 
 
-class Model(object):
+class AbstractDeviceModel(object):
     """ This class stores a basic model for a node.
     """
 
@@ -156,7 +156,7 @@ class Model(object):
         assert isinstance(jsons, str)
 
         j = json.loads(jsons)
-        return Model.from_json(j)
+        return AbstractDeviceModel.from_json(j)
 
 
     @staticmethod
@@ -167,7 +167,7 @@ class Model(object):
         j -- a JSON object
         """
 
-        model = Model(
+        model = AbstractDeviceModel(
             j["node"],
             j["type"],
             tables=j["tables"],
@@ -191,7 +191,7 @@ class Model(object):
         ports = dict_sub(self.ports, other.ports)
         wiring = list_sub(self.wiring, other.wiring)
 
-        return Model(
+        return AbstractDeviceModel(
             self.node,
             mtype=self.type,
             tables=tables,
@@ -201,7 +201,7 @@ class Model(object):
 
 
     def __eq__(self, other):
-        assert isinstance(other, Model)
+        assert isinstance(other, AbstractDeviceModel)
 
         return all([
             self.node == other.node,
@@ -212,5 +212,5 @@ class Model(object):
         ])
 
     def __ne__(self, other):
-        assert isinstance(other, Model)
+        assert isinstance(other, AbstractDeviceModel)
         return not self == other

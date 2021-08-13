@@ -23,5 +23,5 @@
 PARSER = None
 
 if PARSER is None:
-    from misc.pybison_test import IP6TablesParser
+    from iptables.parser import IP6TablesParser
     PARSER = IP6TablesParser()

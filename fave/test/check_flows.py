@@ -30,7 +30,7 @@ import csv
 import cachetools
 import time
 
-from openflow.switch import SwitchRuleField
+from openflow.rule import SwitchRuleField
 from ip6np.ip6np_util import field_value_to_bitvector
 from netplumber.vector import Vector, get_field_from_vector
 from netplumber.vector import HeaderSpace
