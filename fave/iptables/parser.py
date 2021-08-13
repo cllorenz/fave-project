@@ -32,7 +32,7 @@ class IP6TablesParser(BisonParser):
     """ This class provides a fast ip6tables parser.
     """
 
-    bisonEngineLibName = "ip6tables-parser"
+    bisonEngineLibName = "iptables/ip6tables-parser"
     interactive = False
 
     tokens = [
