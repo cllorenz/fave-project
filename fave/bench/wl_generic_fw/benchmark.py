@@ -47,10 +47,12 @@ if __name__ == '__main__':
     inventory = "bench/wl_generic_fw/default/inventory.txt"
     interfaces = "bench/wl_generic_fw/default/interfaces.json"
 
+    use_internet = True
+    use_state_snapshots = False
     use_unix = False
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:u46")
+        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:nu46")
     except getopt.GetoptError as err:
         print "unknown arguments"
         print err
@@ -73,6 +75,9 @@ if __name__ == '__main__':
             strict = '--strict '
         if opt == '-m':
             interfaces = arg
+        if opt == '-n':
+            use_internet = False
+            use_state_snapshots = True
         if opt == '-h':
             _print_help()
             sys.exit(0)
@@ -88,7 +93,7 @@ if __name__ == '__main__':
     os.system(
         "python2 ../policy-translator/policy_translator.py " +
         strict +
-        "--no-internet " +
+        ("--no-internet " if not use_internet else "") +
         "--csv --out %s " % REACH +
         "--roles %s " % ROLES +
         "%s " % inventory +

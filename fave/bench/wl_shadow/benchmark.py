@@ -11,7 +11,7 @@ if __name__ == '__main__':
     use_unix = True
     verbose = False
 
-    os.system("python2 bench/wl_generic_fw/benchmark.py -6 -s -r %s -i %s -p %s -m %s %s %s" % (
+    os.system("python2 bench/wl_generic_fw/benchmark.py -6 -n -r %s -i %s -p %s -m %s %s %s" % (
         RULESET,
         INVENTORY,
         POLICY,
