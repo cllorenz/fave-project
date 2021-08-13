@@ -57,8 +57,11 @@ tar xfz Pyrex-0.9.9.tar.gz
 cd Pyrex-0.9.9
 sudo python2 setup.py install
 cd ..
+rm Pyrex.0.9.9.tar.gz
+sudo m -rf Pyrex-0.9.9
 
 git clone https://github.com/smvv/pybison.git
 cd pybison
 sudo python2 setup.py install
 cd ..
+sudo rm -rf pybison
