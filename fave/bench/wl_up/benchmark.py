@@ -48,6 +48,7 @@ REACH_JSON = "bench/wl_up/reachable.json"
 if __name__ == "__main__":
     use_unix = True
     use_tcp_np = False
+    use_interweaving = True
 
     verbose = True # XXX
 
@@ -154,7 +155,7 @@ if __name__ == "__main__":
     with open(TOPOLOGY, 'r') as raw_topology:
         devices, links = json.loads(raw_topology.read()).values()
 
-        create_topology(devices, links, use_unix=use_unix)
+        create_topology(devices, links, use_unix=use_unix, interweave=use_interweaving)
     LOGGER.info("topology sent to fave")
 
 
