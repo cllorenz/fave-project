@@ -52,7 +52,10 @@ _NORMALIZE_FIELD = {
 def check_field(flow, field, value, mapping):
     field = _NORMALIZE_FIELD[field]
     hs = HeaderSpace.from_str(flow)
-    vector = get_field_from_vector(mapping, hs.hs_list[0], field)
+    try:
+        vector = get_field_from_vector(mapping, hs.hs_list[0], field)
+    except KeyError:
+        return False
     rule_field = RuleField(field, value)
     rule_vector = field_value_to_bitvector(rule_field).vector
     return vector == rule_vector or vector == 'x'*FIELD_SIZES[field]
