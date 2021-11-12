@@ -25,22 +25,22 @@
 import sys
 import getopt
 import json
-import pyparsing as pp
 import csv
-import cachetools
 import time
-
-from rule.rule_model import RuleField
-from util.ip6np_util import field_value_to_bitvector
-from netplumber.vector import Vector, get_field_from_vector
-from netplumber.vector import HeaderSpace
-from netplumber.mapping import FIELD_SIZES
+import cachetools
+import pyparsing as pp
 
 from filelock import SoftFileLock
 
+from rule.rule_model import RuleField
+from util.ip6np_util import field_value_to_bitvector
 from util.print_util import eprint
+from netplumber.vector import get_field_from_vector
+from netplumber.vector import HeaderSpace
+from netplumber.mapping import FIELD_SIZES
 
-measurements = []
+
+_MEASUREMENTS = []
 
 _NORMALIZE_FIELD = {
     'related' : 'related',
@@ -50,12 +50,22 @@ _NORMALIZE_FIELD = {
 
 
 def check_field(flow, field, value, mapping):
+    """ Check if a field value is set in a flow.
+
+    Positional arguments:
+    flow -- a flow specification to be checked
+    field -- the field name to be checked
+    value -- the value to be checked
+    mapping -- the mapping between field names and positions in a flow
+    """
     field = _NORMALIZE_FIELD[field]
-    hs = HeaderSpace.from_str(flow)
+    header_space = HeaderSpace.from_str(flow)
+
     try:
-        vector = get_field_from_vector(mapping, hs.hs_list[0], field)
+        vector = get_field_from_vector(mapping, header_space.hs_list[0], field)
     except KeyError:
         return False
+
     rule_field = RuleField(field, value)
     rule_vector = field_value_to_bitvector(rule_field).vector
     return vector == rule_vector or vector == 'x'*FIELD_SIZES[field]
@@ -64,9 +74,12 @@ def check_field(flow, field, value, mapping):
 def check_tree(flow, tree, depth=0):
     """ Checks whether a specified flow equals a branch in a flow tree.
 
-    Keyword arguments:
+    Positional arguments:
     flow -- a flow specification to be checked
     tree -- a flow tree
+
+    Keyword arguments:
+    depth -- the level of the current subtree
     """
 
     # if the end of the flow specification has been reached
@@ -143,8 +156,8 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             _, tname = tok.split('=')
             try:
                 crule = ('START', [inv_fave["generator_to_id"][tname]])
-            except KeyError as ke:
-                eprint("skip unknown generator: %s" % ke.message)
+            except KeyError as key_error:
+                eprint("skip unknown generator: %s" % key_error.message)
                 raise
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
@@ -156,14 +169,14 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                     [inv_fave["probe_to_id"][tname]] if ttype == 'p' else \
                     inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
                 )
-            except KeyError as ke:
-                eprint("skip unknown entity: %s" % ke.message)
+            except KeyError as key_error:
+                eprint("skip unknown entity: %s" % key_error.message)
                 raise
             nflow.append(crules)
 
         elif tok.startswith('f='):
-            _, fv = tok.split('=')
-            field, value = fv.split(':')
+            _, field_value = tok.split('=')
+            field, value = field_value.split(':')
             frule = ('FLOW', field, value, inv_fave['mapping'])
             nflow.append(frule)
 
@@ -201,11 +214,12 @@ def _get_flow_trees(dump):
 
 def _get_flow_tree(dump, cache):
     if dump in cache:
-        return cache[dump]
+        res = cache[dump]
     else:
-        j = json.load(open(dump, "r"))["flows"]
-        cache.update({dump : j})
-        return j
+        res = json.load(open(dump, "r"))["flows"]
+        cache.update({dump : res})
+
+    return res
 
 
 def _get_parser():
@@ -253,7 +267,11 @@ def _get_parser():
 #    and_test = "%s && %s" % (par_ex_test, par_ef_test)
 #    print and_test, "->", expr_and.parseString(and_test)
 
-    expr = pp.ZeroOrMore(tok_oper_neg + pp.White()) + expr_and + pp.ZeroOrMore(pp.White() + tok_oper_and + pp.White() + expr_and) ^ expr_and
+    expr = pp.ZeroOrMore(
+        tok_oper_neg + pp.White()
+    ) + expr_and + pp.ZeroOrMore(
+        pp.White() + tok_oper_and + pp.White() + expr_and
+    ) ^ expr_and
 #    expr_test = "%s && %s" % (par_atom_test, and_test)
 #    print expr_test, "->", expr.parseString(expr_test)
 
@@ -302,7 +320,7 @@ def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
 
     t_end = time.time()
     print "checked flow in %s ms" % ((t_end - t_start) * 1000.0)
-    measurements.append((t_end - t_start) * 1000.0)
+    _MEASUREMENTS.append((t_end - t_start) * 1000.0)
 
     return res
 
@@ -390,7 +408,9 @@ def main(argv):
             broad = True
         elif opt == '-f':
             parser = _get_parser()
-            flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow]
+            flow_specs = [
+                _parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow
+            ]
         elif opt == '-d':
             dump = arg
         elif opt == '-c':
@@ -399,9 +419,9 @@ def main(argv):
         elif opt == '-r':
             dump_matrix = True
         elif opt == '-j':
-            with open(arg, 'r') as f:
+            with open(arg, 'r') as file_:
                 parser = _get_parser()
-                flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(f)]
+                flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(file_)]
         elif opt == '-t':
             tid_str, threads_str = arg.split(':')
             tid = int(tid_str)
@@ -416,7 +436,9 @@ def main(argv):
         inv_fave = _get_inverse_fave(dump)
         #flow_trees = _get_flow_trees(dump)
         flow_trees = {
-            k : "%s/%s.flow_tree.json" % (dump, v) for k, v in inv_fave["generator_to_id"].iteritems()
+            k : "%s/%s.flow_tree.json" % (
+                dump, v
+            ) for k, v in inv_fave["generator_to_id"].iteritems()
         }
 
     failed = []
@@ -428,10 +450,10 @@ def main(argv):
         mapping = inv_fave['mapping']
 
         for src, specs in [
-            item for idx, item in enumerate(
-                ordered_flow_specs.iteritems()
-            ) if idx % threads == tid
-        ]:
+                item for idx, item in enumerate(
+                    ordered_flow_specs.iteritems()
+                ) if idx % threads == tid
+            ]:
             flow_tree = _get_flow_tree(flow_trees[src], cache)[0]
 
             t_start = time.time()
@@ -457,13 +479,13 @@ def main(argv):
 
             t_end = time.time()
             print "thread %s: checked flow tree in %s ms" % (tid, ((t_end - t_start) * 1000.0))
-            measurements.append((t_end - t_start) * 1000.0)
+            _MEASUREMENTS.append((t_end - t_start) * 1000.0)
 
     else:
-        for no, flow_spec in enumerate(flow_specs, start=1):
+        for spec_no, flow_spec in enumerate(flow_specs, start=1):
             try:
                 successful = _check_flow_trees(flow_spec, flow_trees, inv_fave, cache)
-            except KeyError as ke:
+            except KeyError:
                 _update_reachability_matrix(reach, flow_spec, False, exception=True)
                 continue
 
@@ -473,8 +495,8 @@ def main(argv):
             else:
                 _update_reachability_matrix(reach, flow_spec, True)
 
-            if no % 1000 == 0:
-                print "  checked %s flows" % no
+            if spec_no % 1000 == 0:
+                print "  checked %s flows" % spec_no
 
     print (
         "success: all %s checked flows matched" % len(flow_specs)
@@ -484,14 +506,14 @@ def main(argv):
         )
     )
 
-    print "thread %s: runtimes:\n\ttotal: %s ms\n\tmean: %s ms\n\tmedian: %s ms\n\tmin: %s ms\n\tmax: %s ms" % (
-        tid,
-        sum(measurements),
-        sum(measurements)/len(measurements),
-        sorted(measurements)[len(measurements)/2],
-        min(measurements),
-        max(measurements)
-    )
+    print("\n\t".join([
+        "thread %s: runtimes:" % tid,
+        "total: %s ms" % sum(_MEASUREMENTS),
+        "mean: %s ms" % sum(_MEASUREMENTS)/len(_MEASUREMENTS),
+        "median: %s ms" % sorted(_MEASUREMENTS)[len(_MEASUREMENTS)/2],
+        "min: %s ms" % min(_MEASUREMENTS),
+        "max: %s ms" % max(_MEASUREMENTS)
+    ]))
 
     if dump_matrix:
         with open(dump+'/reach.csv', 'w') as csvf:
