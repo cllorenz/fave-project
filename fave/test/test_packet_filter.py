@@ -406,7 +406,6 @@ class TestSwitchModel(unittest.TestCase):
         )])
         actions1 = [Forward(['foo.1'])]
         model1.add_rule(
-            0,
             Rule(
                 "foo", 1, 0,
                 in_ports=['foo.1', 'foo.2'],
@@ -425,7 +424,6 @@ class TestSwitchModel(unittest.TestCase):
             Forward(['foo.4'])
         ]
         model1.add_rule(
-            1,
             Rule(
                 "foo", 1, 1,
                 in_ports=['foo.1', 'foo.2', 'foo.3'],
