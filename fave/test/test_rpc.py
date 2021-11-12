@@ -30,7 +30,6 @@ import random
 
 from netplumber.jsonrpc import connect_to_netplumber
 from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand
-from netplumber.jsonrpc import print_plumbing_network
 from netplumber.jsonrpc import add_table, add_link
 from netplumber.jsonrpc import add_rule, remove_rule
 from netplumber.jsonrpc import add_source, add_source_probe
@@ -61,28 +60,29 @@ def generate_random_rule(idx, in_ports, out_ports, length):
 
 
 def _check_probe_log_line(line, probe_id, state):
-    p1 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Started in True State" % probe_id
-    p2 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Met Probe Condition" % probe_id
-    p3 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*More Flows Met Probe Condition" % probe_id
-    p4 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Fewer Flows Met Probe Condition" % probe_id
+    prefix = ".*DefaultProbeLogger.* - (Universal|Existential) Probe"
+    pos1 = r"%s %s.*Started in True State" % (prefix, probe_id)
+    pos2 = r"%s %s.*Met Probe Condition" % (prefix, probe_id)
+    pos3 = r"%s %s.*More Flows Met Probe Condition" % (prefix, probe_id)
+    pos4 = r"%s %s.*Fewer Flows Met Probe Condition" % (prefix, probe_id)
 
-    n1 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Started in False State" % probe_id
-    n2 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Failed Probe Condition" % probe_id
-    n3 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*More Flows Failed Probe Condition" % probe_id
-    n4 = r".*DefaultProbeLogger.* - (Universal|Existential) Probe %s.*Fewer Flows Failed Probe Condition" % probe_id
+    neg1 = r"%s %s.*Started in False State" % (prefix, probe_id)
+    neg2 = r"%s %s.*Failed Probe Condition" % (prefix, probe_id)
+    neg3 = r"%s %s.*More Flows Failed Probe Condition" % (prefix, probe_id)
+    neg4 = r"%s %s.*Fewer Flows Failed Probe Condition" % (prefix, probe_id)
 
     # probe match and positive state
     positives = [
-        re.match(p1, line) is not None,
-        re.match(p2, line) is not None,
-        re.match(p3, line) is not None,
-        re.match(p4, line) is not None
+        re.match(pos1, line) is not None,
+        re.match(pos2, line) is not None,
+        re.match(pos3, line) is not None,
+        re.match(pos4, line) is not None
     ]
     negatives = [
-        re.match(n1, line) is not None,
-        re.match(n2, line) is not None,
-        re.match(n3, line) is not None,
-        re.match(n4, line) is not None,
+        re.match(neg1, line) is not None,
+        re.match(neg2, line) is not None,
+        re.match(neg3, line) is not None,
+        re.match(neg4, line) is not None,
     ]
 
     if (state and any(positives)) or (not state and any(negatives)):
@@ -91,8 +91,8 @@ def _check_probe_log_line(line, probe_id, state):
         return "mismatch"
     elif re.match(r".*DefaultProbeLogger", line) is not None:
         return "wrong_probe"
-    else:
-        return "skip"
+
+    return "skip"
 
 
 def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
@@ -103,8 +103,8 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
     logfile - path to a net_plumber log file
     """
 
-    with open(logfile, 'r') as lf:
-        log = iter(lf.read().splitlines())
+    with open(logfile, 'r') as log_file_:
+        log = iter(log_file_.read().splitlines())
         line = log.next()
 
         for probe_id, state in sequence:
@@ -130,8 +130,8 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
 
 
 def _check_generic_log(logger, logfile="/tmp/np/stdout.log"):
-    with open(logfile, 'r') as lf:
-        log = lf.read().splitlines()
+    with open(logfile, 'r') as log_file_:
+        log = log_file_.read().splitlines()
         for line in log:
             if re.match(r".*%s" % logger, line) is not None:
                 return True
@@ -479,94 +479,94 @@ class TestRPC(unittest.TestCase):
         remove_slice(self.sock, 1)
 
 
-    def _test_fw(self):
-        """ Tests special firewall tables in a simple network.
-        """
+#    def _test_fw(self):
+#        """ Tests special firewall tables in a simple network.
+#        """
+#
+#        tables = [
+#            # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
+#            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
+#            (2, [3, 4], []),
+#            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
+#        ]
+#
+#        # (from_port, to_port)
+#        links = [(2, 3), (4, 5)]
+#
+#        sources = [(["x"*8], None, [1])]
+#        probes = []
+#
+#        init(self.sock, 1)
+#
+#        nodes = self.prepare_network(tables, links, sources, probes)
+#
+#        # add new rule which drops some traffic
+#        rule2 = add_fw_rule(self.sock, *(2, 2, [3], [], {"list":["x"*8], "diff":None}))
+#        self.assertTrue(rule2 != 0)
+#
+#        # add new rule which allows some traffic
+#        rule1 = add_fw_rule(self.sock, *(2, 1, [3], [4], {"list":["xxxxxx11"], "diff":None}))
+#        self.assertTrue(rule1 != 0)
+#
+#        # try to add normal rule to firewall,  should fail
+#        rule3 = add_rule(self.sock, *(2, 3, [3], [4], "x"*8, None, None))
+#        self.assertEqual(rule3, 0)
+#
+#        # try to add firewall rule to normal table,  should fail
+#        rule4 = add_fw_rule(self.sock, *(1, 2, [1], [2], {"list":["x"*8], "diff":None}))
+#        self.assertEqual(rule4, 0)
+#
+#        remove_fw_rule(self.sock, rule1)
+#
+#        # try to add firewall rule to former normal table,  should succeed
+#        remove_rule(self.sock, nodes[0][0])
+#        rule5 = add_fw_rule(self.sock, 1, 1, [1], [2], {"list":["x"*8], "diff":None})
+#        self.assertTrue(rule5 != 0)
+#
+#        remove_fw_rule(self.sock, rule2)
+#
+#        # try to add normal rule to former firewall table,  should succeed
+#        rule6 = add_rule(self.sock, 2, 1, [3], [4], "x"*8, None, None)
+#        self.assertTrue(rule6 != 0)
 
-        tables = [
-            # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
-            (2, [3, 4], []),
-            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
-        ]
 
-        # (from_port, to_port)
-        links = [(2, 3), (4, 5)]
-
-        sources = [(["x"*8], None, [1])]
-        probes = []
-
-        init(self.sock, 1)
-
-        nodes = self.prepare_network(tables, links, sources, probes)
-
-        # add new rule which drops some traffic
-        rule2 = add_fw_rule(self.sock, *(2, 2, [3], [], {"list":["x"*8], "diff":None}))
-        self.assertTrue(rule2 != 0)
-
-        # add new rule which allows some traffic
-        rule1 = add_fw_rule(self.sock, *(2, 1, [3], [4], {"list":["xxxxxx11"], "diff":None}))
-        self.assertTrue(rule1 != 0)
-
-        # try to add normal rule to firewall,  should fail
-        rule3 = add_rule(self.sock, *(2, 3, [3], [4], "x"*8, None, None))
-        self.assertEqual(rule3, 0)
-
-        # try to add firewall rule to normal table,  should fail
-        rule4 = add_fw_rule(self.sock, *(1, 2, [1], [2], {"list":["x"*8], "diff":None}))
-        self.assertEqual(rule4, 0)
-
-        remove_fw_rule(self.sock, rule1)
-
-        # try to add firewall rule to former normal table,  should succeed
-        remove_rule(self.sock, nodes[0][0])
-        rule5 = add_fw_rule(self.sock, 1, 1, [1], [2], {"list":["x"*8], "diff":None})
-        self.assertTrue(rule5 != 0)
-
-        remove_fw_rule(self.sock, rule2)
-
-        # try to add normal rule to former firewall table,  should succeed
-        rule6 = add_rule(self.sock, 2, 1, [3], [4], "x"*8, None, None)
-        self.assertTrue(rule6 != 0)
-
-
-    def _test_policy(self):
-        """ Tests policy sources and probes in a simple network.
-        """
-
-        tables = [
-            # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
-            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
-            (2, [3, 4], []),
-            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
-        ]
-
-        # (from_port, to_port)
-        links = [(2, 3), (4, 5)]
-
-        sources = [(["x"*8], None, [99])]
-        probes = []
-
-        init(self.sock, 1)
-
-        self.prepare_network(tables, links, sources, probes)
-
-        # add policy probe node
-        add_policy_probe(self.sock, [7])
-        add_link(self.sock, 6, 7)
-        add_link(self.sock, 99, 1)
-
-        # add policy rules
-        add_policy_rule(self.sock, 2, {"list":["xxxxxx11"], "diff":None}, "allow")
-        add_policy_rule(self.sock, 2, {"list":["x"*8], "diff":None}, "deny")
-
-        # add uncritical rule
-        add_rule(self.sock, *(2, 1, [3], [4], "xxxxx111", None, None))
-
-        # add critical rule
-        add_rule(self.sock, *(2, 2, [3], [4], "xxxxxx11", "1"*8, "xxxxxx10"))
-
-        print_plumbing_network(self.sock)
+#    def _test_policy(self):
+#        """ Tests policy sources and probes in a simple network.
+#        """
+#
+#        tables = [
+#            # (t_idx, t_ports, [(r_idx, [in_ports], [out_ports], match, mask, rw)])
+#            (1, [1, 2], [(1, [1], [2], "x"*8, None, None)]),
+#            (2, [3, 4], []),
+#            (3, [5, 6], [(1, [5], [6], "x"*8, None, None)])
+#        ]
+#
+#        # (from_port, to_port)
+#        links = [(2, 3), (4, 5)]
+#
+#        sources = [(["x"*8], None, [99])]
+#        probes = []
+#
+#        init(self.sock, 1)
+#
+#        self.prepare_network(tables, links, sources, probes)
+#
+#        # add policy probe node
+#        add_policy_probe(self.sock, [7])
+#        add_link(self.sock, 6, 7)
+#        add_link(self.sock, 99, 1)
+#
+#        # add policy rules
+#        add_policy_rule(self.sock, 2, {"list":["xxxxxx11"], "diff":None}, "allow")
+#        add_policy_rule(self.sock, 2, {"list":["x"*8], "diff":None}, "deny")
+#
+#        # add uncritical rule
+#        add_rule(self.sock, *(2, 1, [3], [4], "xxxxx111", None, None))
+#
+#        # add critical rule
+#        add_rule(self.sock, *(2, 2, [3], [4], "xxxxxx11", "1"*8, "xxxxxx10"))
+#
+#        print_plumbing_network(self.sock)
 
 
     def _test_rule_unreachability(self):
