@@ -283,8 +283,6 @@ class TestMatch(unittest.TestCase):
         """ Tests conversion to json.
         """
 
-        self.maxDiff = None
-
         self.assertEqual(
             self.match.to_json(),
             {
