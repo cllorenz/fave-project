@@ -26,30 +26,32 @@ import sys
 import json
 import getopt
 
-from util.aggregator_utils import FAVE_DEFAULT_UNIX, connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, fave_sendmsg
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.print_util import eprint
 
 _ADDR = FAVE_DEFAULT_IP
 _PORT = FAVE_DEFAULT_PORT
 _UNIX = FAVE_DEFAULT_UNIX
 
-use_unix = False
+USE_UNIX = False
 
 try:
-    argv = sys.argv[1:]
-    opts, _args = getopt.getopt(argv, "s:p:u")
+    ARGV = sys.argv[1:]
+    OPTS, _ARGS = getopt.getopt(ARGV, "s:p:u")
 except getopt.GetoptError:
-    eprint("could not parse options: %s" % argv)
+    eprint("could not parse options: %s" % ARGV)
     sys.exit(1)
 
-for opt, arg in opts:
+for opt, arg in OPTS:
     if opt == '-s':
         _ADDR = arg
     elif opt == '-p':
         _PORT = int(arg)
     elif opt == '-u':
-        use_unix = True
+        USE_UNIX = True
 
-_AGGR = connect_to_fave(_UNIX) if use_unix else connect_to_fave(_ADDR, _PORT)
+_AGGR = connect_to_fave(_UNIX) if USE_UNIX else connect_to_fave(_ADDR, _PORT)
 
 _STOP = {
     'type':'stop'

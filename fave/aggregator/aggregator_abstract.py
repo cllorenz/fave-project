@@ -28,6 +28,8 @@ TRACE = 9
 if not hasattr(logging.Logger, 'trace'):
     logging.addLevelName(TRACE, "trace")
     def trace(self, message, *args, **kws):
+        """ Logging function for tracing.
+        """
         if self.isEnabledFor(TRACE):
             self._log(TRACE, message, args, **kws)
     logging.Logger.trace = trace

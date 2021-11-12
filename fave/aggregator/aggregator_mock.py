@@ -25,23 +25,23 @@
 import socket
 import os
 
-from util.aggregator_utils import UDS_ADDR
+from util.aggregator_utils import FAVE_DEFAULT_UNIX
 
 def main():
     """ Starts mocking by accepting all incoming FaVe events.
     """
 
     try:
-        os.unlink(UDS_ADDR)
+        os.unlink(FAVE_DEFAULT_UNIX)
     except OSError:
-        if os.path.exists(UDS_ADDR):
+        if os.path.exists(FAVE_DEFAULT_UNIX):
             raise
 
     buf_size = 4096
 
     # open new unix domain socket
     uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    uds.bind(UDS_ADDR)
+    uds.bind(FAVE_DEFAULT_UNIX)
 
     uds.listen(1)
 
