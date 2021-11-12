@@ -28,8 +28,8 @@ import tempfile
 from iptables.generator import generate
 from iptables.parser import IP6TablesParser
 from devices.packet_filter import PacketFilterModel
-from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from devices.switch import SwitchModel
+from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
@@ -53,8 +53,6 @@ class TestPacketFilterModel(unittest.TestCase):
     def test_to_json(self):
         """ Tests the conversion of a packet filter model to JSON.
         """
-
-        self.maxDiff = None
 
         self.assertEqual(
             self.model.to_json(),
@@ -91,15 +89,14 @@ class TestPacketFilterModel(unittest.TestCase):
                             'actions': [{
                                 'name': 'rewrite',
                                 'rw': [{
-                                        'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }, {
-                                        'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }
-                                ]
+                                    'name': 'in_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }]
                             }, {
                                 'name': 'forward',
                                 'ports': ['foo.1_egress']
@@ -119,15 +116,14 @@ class TestPacketFilterModel(unittest.TestCase):
                             'actions': [{
                                 'name': 'rewrite',
                                 'rw': [{
-                                        'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }, {
-                                        'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }
-                                ]
+                                    'name': 'in_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }]
                             }, {
                                 'name': 'forward',
                                 'ports': ['foo.2_egress']
@@ -234,15 +230,14 @@ class TestPacketFilterModel(unittest.TestCase):
                             'actions': [{
                                 'name': 'rewrite',
                                 'rw': [{
-                                        'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }, {
-                                        'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }
-                                ]
+                                    'name': 'in_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }]
                             }, {
                                 'name': 'forward',
                                 'ports': ['foo.1_egress']
@@ -262,15 +257,14 @@ class TestPacketFilterModel(unittest.TestCase):
                             'actions': [{
                                 'name': 'rewrite',
                                 'rw': [{
-                                        'name': 'in_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }, {
-                                        'name': 'out_port',
-                                        'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-                                        'negated' : False
-                                    }
-                                ]
+                                    'name': 'in_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }, {
+                                    'name': 'out_port',
+                                    'value': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                                    'negated' : False
+                                }]
                             }, {
                                 'name': 'forward',
                                 'ports': ['foo.2_egress']
@@ -454,6 +448,9 @@ class TestPacketFilterGenerator(unittest.TestCase):
 
 
     def test_forward_filter(self):
+        """ Tests whether a simple forward rule set is correctly modeled in a
+            packet filter.
+        """
         iptables = '\n'.join([
             'ip6tables -P FORWARD DROP',
             'ip6tables -P INPUT DROP',
@@ -532,8 +529,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
         ]
 
         _fd, iptables_file = tempfile.mkstemp()
-        with open(iptables_file, 'w') as f:
-            f.write(iptables + '\n')
+        with open(iptables_file, 'w') as tmp_file:
+            tmp_file.write(iptables + '\n')
         parser = IP6TablesParser()
         ast = parser.parse(iptables_file)
         result = generate(ast, node, address, ports)
@@ -542,6 +539,9 @@ class TestPacketFilterGenerator(unittest.TestCase):
 
 
     def test_input_output_filters(self):
+        """ Tests whether a simple input/output rule set is correctly modeled
+            in a packet filter.
+        """
         iptables = '\n'.join([
             'ip6tables -P FORWARD DROP',
             'ip6tables -P INPUT DROP',
@@ -700,8 +700,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
         ]
 
         _fd, iptables_file = tempfile.mkstemp()
-        with open(iptables_file, 'w') as f:
-            f.write(iptables + '\n')
+        with open(iptables_file, 'w') as tmp_file:
+            tmp_file.write(iptables + '\n')
         parser = IP6TablesParser()
         ast = parser.parse(iptables_file)
         result = generate(ast, node, address, ports)
