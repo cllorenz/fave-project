@@ -4,6 +4,11 @@ max-args = 8
 
 min-public-methods = 0
 
+max-returns = 20
+
+max-branches = 15
+
+max-locals = 20
 
 [TYPECHECK]
 
