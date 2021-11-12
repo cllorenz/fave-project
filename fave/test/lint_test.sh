@@ -23,14 +23,6 @@ export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
 
 # to be ignored (generated code):
 export IGNORE="\
-ip6np/ip6tables_lexer.py \
-ip6np/ip6tables_listener.py \
-ip6np/ip6tables_parser.py \
-test/antlr/ip6tables_lexer.py \
-test/antlr/ip6tables_listener.py \
-test/antlr/ip6tables_parser.py \
-test/antlr/parser.py \
-test/antlr/test.py \
 examples/example-traverse.py
 "
 export OKS="$TMP/ok_files"
@@ -60,14 +52,15 @@ lint_file() {
     else
         REPORT=/tmp/lint_$SPY.log
         cp $LOG $REPORT
-        echo "$PRE fail (report at $REPORT)"
+        grep "Your code has been rated at" $LOG | cut -d' ' -f7-
+        echo "$PRE fail with $SCORE (report at $REPORT)"
         echo $PYFILE >> $FAILS
     fi
 }
 export -f lint_file
 
 
-PYFILES=`find . -name "*.py"`
+PYFILES=`find . -not -path "deprecated" -not -name "__init__.py" -name "*.py"`
 
 MAX_PROCS=$(nproc)
 echo $PYFILES | xargs --max-procs $MAX_PROCS -n 1 bash -c 'lint_file "$@"' _
