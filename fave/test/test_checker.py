@@ -41,14 +41,14 @@ class TestChecker(unittest.TestCase):
         }
 
         self.inv_fave = {
-            "generator_to_id" : { "source1" : 1 },
-            "probe_to_id" : { "probe1" : 2, "probe2" : 3 },
+            "generator_to_id" : {"source1" : 1},
+            "probe_to_id" : {"probe1" : 2, "probe2" : 3},
             "table_id_to_rules" : {
                 1 : [4294967297, 4294967298],
                 2 : [8589934593, 8589934594],
                 3 : []
             },
-            "table_to_id" : { "table1" : 1, "table2" : 2, "table3" : 3 },
+            "table_to_id" : {"table1" : 1, "table2" : 2, "table3" : 3},
             "mapping" : mapping
         }
 
