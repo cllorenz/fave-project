@@ -33,10 +33,10 @@ def connect_to_fave(server, port=0):
     """ Creates a connected socket to FaVe.
     """
 
-    if port == 0:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    else:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket(
+        socket.AF_UNIX if port == 0 else socket.AF_INET,
+        socket.SOCK_STREAM
+    )
 
     if not sock:
         raise Exception(
@@ -46,10 +46,7 @@ def connect_to_fave(server, port=0):
     tries = 10
     while tries > 0:
         try:
-            if port == 0:
-                sock.connect(server)
-            else:
-                sock.connect((server, port))
+            sock.connect(server if port == 0 else (server, port))
             break
         except socket.error:
             time.sleep(0.1)
@@ -58,10 +55,8 @@ def connect_to_fave(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
-        if port == 0:
-            raise Exception("could not connect to fave: %s" % server)
-        else:
-            raise Exception("could not connect to fave: %s %s" % (server, port))
+        server_str = server if port == 0 else "%s %s" % (server, port)
+        raise Exception("could not connect to fave: %s" % server_str)
 
     return sock
 
