@@ -19,27 +19,33 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" This module provides simple utilities to print a header space object from a
+    NetPlumber dump.
+"""
+
 import sys
 import json
 
 from netplumber.vector import HeaderSpace
 
 def print_help():
+    """ Prints the usage message.
+    """
     print "usage: python2 hs_print <fave.json> <hs.txt>"
 
 
 if __name__ == '__main__':
-    argv = sys.argv[1:]
+    ARGV = sys.argv[1:]
 
-    if len(argv) != 2:
+    if len(ARGV) != 2:
         print_help()
         sys.exit(1)
 
-    mapping = json.load(open(argv[0], 'r'))['mapping']
+    MAPPING = json.load(open(ARGV[0], 'r'))['mapping']
 
-    with open(argv[1], 'r') as f:
-        hs_str = f.read()
+    with open(ARGV[1], 'r') as f:
+        HS_STR = f.read()
 
-    hs = HeaderSpace.from_str(hs_str)
+    HSP = HeaderSpace.from_str(HS_STR)
 
-    hs.pprint(mapping)
+    HSP.pprint(MAPPING)

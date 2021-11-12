@@ -19,14 +19,21 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" This module prints the depth of a flow tree from a NetPlumber dump.
+"""
+
 import json
 
-trees = json.load(open("np_dump/flow_trees.json", "r"))["flows"]
+TREES = json.load(open("np_dump/flow_trees.json", "r"))["flows"]
 
 def tree_depth(tree):
-  if "children" not in tree or not tree["children"]:
-    return 1
-  else:
+    """ Traverses tree to determine its depth.
+    Arguments:
+    tree -- a flow tree
+    """
+    if "children" not in tree or not tree["children"]:
+        return 1
+
     return max(map(tree_depth, tree["children"])) + 1
 
-print max(map(tree_depth, trees))
+print max(map(tree_depth, TREES))

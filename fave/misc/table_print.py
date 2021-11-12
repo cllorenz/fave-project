@@ -19,36 +19,41 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" This module provides simple utilities to print a TABLE from a NetPlumber dump.
+"""
+
 import sys
 import json
 
 from netplumber.vector import HeaderSpace
 
 def print_help():
-    print "usage: python2 table_print <fave.json> <table.json>"
+    """ Prints the usage message.
+    """
+    print "usage: python2 TABLE_print <FAVE.json> <TABLE.json>"
 
 
 if __name__ == '__main__':
-    argv = sys.argv[1:]
+    ARGV = sys.argv[1:]
 
-    if len(argv) != 2:
+    if len(ARGV) != 2:
         print_help()
         sys.exit(1)
 
-    fave = json.load(open(argv[0], 'r'))
-    mapping = fave['mapping']
+    FAVE = json.load(open(ARGV[0], 'r'))
+    MAPPING = FAVE['MAPPING']
 
-    table = json.load(open(argv[1], 'r'))
+    TABLE = json.load(open(ARGV[1], 'r'))
 
-    print "table:", fave['id_to_table'][str(table['id'])]
-    print "ports:", [fave['id_to_port'][str(p)] for p in table['ports']]
+    print "TABLE:", FAVE['id_to_TABLE'][str(TABLE['id'])]
+    print "ports:", [FAVE['id_to_port'][str(p)] for p in TABLE['ports']]
 
-    for rule in table['rules']:
+    for rule in TABLE['rules']:
         print '\t', 'id:', hex(rule['id'])
         print '\t', 'position:', rule['position']
-        print '\t', 'in_ports:', [fave['id_to_port'][str(p)] for p in rule['in_ports']]
-        print '\t', 'out_ports:', [fave['id_to_port'][str(p)] for p in rule['out_ports']]
+        print '\t', 'in_ports:', [FAVE['id_to_port'][str(p)] for p in rule['in_ports']]
+        print '\t', 'out_ports:', [FAVE['id_to_port'][str(p)] for p in rule['out_ports']]
         hs = HeaderSpace.from_str(rule['match'])
         print '\t', 'match:',
-        hs.pprint(mapping)
+        hs.pprint(MAPPING)
         print ''

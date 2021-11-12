@@ -19,33 +19,35 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" This module provides a simple utility to print NetPlumber rules.
+"""
+
 import sys
 import json
 
-from netplumber.vector import HeaderSpace
-
 def print_help():
+    """ Prints usage message.
+    """
     print "usage: python2 hs_print <fave.json> <hs.txt>"
 
 
 if __name__ == '__main__':
-    argv = sys.argv[1:]
+    ARGV = sys.argv[1:]
 
-    if len(argv) != 2:
+    if len(ARGV) != 2:
         print_help()
         sys.exit(1)
 
-    fave = json.load(open(argv[0], 'r'))
-    mapping = fave['mapping']
+    FAVE = json.load(open(ARGV[0], 'r'))
 
-    with open(argv[1], 'r') as f:
-        rule_str = f.read()
+    with open(ARGV[1], 'r') as f:
+        RULE = f.read()
 
-    _at, rno_str, _arrow = rule_str.rstrip().split(' ')
+    _AT, RNO_STR, _ARROW = RULE.rstrip().split(' ')
 
-    rno = int(rno_str, 16)
-    tno = fave['id_to_rule'][str(rno)] >> 16
+    RNO = int(RNO_STR, 16)
+    TNO = FAVE['id_to_rule'][str(RNO)] >> 16
 
-    table = fave['id_to_table'][str(tno)]
+    TABLE = FAVE['id_to_table'][str(TNO)]
 
-    print "\n@ %s.%s <--\n" % (table, rno & 0xffff)
+    print "\n@ %s.%s <--\n" % (TABLE, RNO & 0xffff)

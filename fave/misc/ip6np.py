@@ -25,15 +25,14 @@
 import sys
 import getopt
 import json
-import socket
 import pprint
 
-import iptables.generator
-
+from iptables.generator import generate
 from iptables.parser_singleton import PARSER
 
 from util.print_util import eprint
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
 def print_help():
     """ Prints the usage on stderr.
@@ -51,9 +50,9 @@ def print_help():
     )
 
 
-def _try_int(x):
+def _try_int(var):
     try:
-        int(x)
+        int(var)
         return True
     except ValueError:
         return False
@@ -102,7 +101,7 @@ def main(argv):
             use_unix = True
 
     ast = PARSER.parse(ifile)
-    model = generator.generate(
+    model = generate(
         ast,
         node,
         address,
@@ -119,8 +118,8 @@ def main(argv):
         else:
             fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
         fave.setblocking(1)
-        s = json.dumps(model.to_json())
-        ret = fave_sendmsg(fave, s)
+        model_str = json.dumps(model.to_json())
+        ret = fave_sendmsg(fave, model_str)
         if ret != None:
             raise Exception("ip6np was unable to send configuration correctly")
 
