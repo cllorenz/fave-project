@@ -27,7 +27,6 @@ from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
 from rule.rule_model import RuleField, Match, Rule, Forward
 from util.model_util import TABLE_MAX
-from util.collections_util import dict_union
 from util.packet_util import is_ip as is_ipv4
 from util.packet_util import portrange_to_prefixed_bitvectors
 
@@ -37,12 +36,12 @@ def _is_rule(ast):
 
 def _is_state_checking_rule(rule):
     return any([
-        True for f in rule.match if f.name == 'module.conntrack.ctstate' and f.value == 'ESTABLISHED'
+        f.name == 'module.conntrack.ctstate' and f.value == 'ESTABLISHED' for f in rule.match
     ])
 
 def _is_new_state_rule(rule):
     return any([
-        True for f in rule.match if f.name == 'module.conntrack.ctstate' and f.value == 'NEW'
+        f.name == 'module.conntrack.ctstate' and f.value == 'NEW' for f in rule.match
     ])
 
 
@@ -114,7 +113,6 @@ def _ast_to_rule(node, ast, idx=0):
 
     is_field = lambda f: _TAGS.has_key(strip_ap(f.value))
     is_ignored = lambda f: strip_ap(f.value) in ['m', 'module', 'comment']
-    is_negated = lambda f: f.is_negated()
 
     value = lambda f: f.get_first().value if f.get_first() is not None else ""
 
@@ -198,7 +196,10 @@ def _ast_to_rule(node, ast, idx=0):
                     node+'.'+chain,
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
-                    match=Match(body+[RuleField('packet.upper.sport', sport), RuleField('packet.upper.dport', dport)]),
+                    match=Match(body+[
+                        RuleField('packet.upper.sport', sport),
+                        RuleField('packet.upper.dport', dport)
+                    ]),
                     actions=actions
                 )
 
@@ -232,7 +233,7 @@ def _ast_to_rule(node, ast, idx=0):
             actions=actions
         )
 
-    return { chain : rules }
+    return {chain : rules}
 
 
 def _get_rules_from_ast(node, ast, idx=0):
@@ -240,18 +241,18 @@ def _get_rules_from_ast(node, ast, idx=0):
         return _ast_to_rule(node, ast, idx)
     elif not ast.has_children():
         return {}
-    else:
-        cnt = 0
-        chains = {}
-        for st in ast:
-            rules = _get_rules_from_ast(node, st, idx+cnt+1)
 
-            for chain, rules in rules.iteritems():
-                chains.setdefault(chain, {})
-                chains[chain].update(rules)
-                cnt += len(rules)
+    cnt = 0
+    chains = {}
+    for subtree in ast:
+        rules = _get_rules_from_ast(node, subtree, idx+cnt+1)
 
-        return chains
+        for chain, rules in rules.iteritems():
+            chains.setdefault(chain, {})
+            chains[chain].update(rules)
+            cnt += len(rules)
+
+    return chains
 
 
 def _get_chain_from_ast(ast):
@@ -278,15 +279,15 @@ def _get_action_from_ast(ast):
 
     if ast.has_child("-j"):
         return ast.get_child("-j").get_first().value
-    else:
-        return ast.get_first().get_first().value
+
+    return ast.get_first().get_first().value
 
 
 def _get_state_checking_rules(rules):
     return {r.idx : r for r in rules if _is_state_checking_rule(r)}
 
 
-_SWAP_FIELDS={
+_SWAP_FIELDS = {
     "packet.ipv4.source" : "packet.ipv4.destination",
     "packet.ipv4.destination" : "packet.ipv4.source",
     "packet.ipv6.source" : "packet.ipv6.destination",
@@ -307,8 +308,8 @@ def _swap_port_value_direction(field):
         return field.value.replace('_ingress', '_egress')
     elif field.name == 'out_port':
         return field.value.replace('_egress', '_ingress')
-    else:
-        return field.value
+
+    return field.value
 
 
 def _swap_direction(field):
@@ -400,7 +401,7 @@ def _adjust_ports(ports, chain):
     if chain == 'forward_filter': return ports
     elif chain == 'input_filter': return [p.replace('output', 'input') for p in ports]
     elif chain == 'output_filter': return [p.replace('input', 'output') for p in ports]
-    else: raise Exception('cannot adjust ports for unknown chain: %s' % chain)
+    raise Exception('cannot adjust ports for unknown chain: %s' % chain)
 
 
 def _adjust_action(action, chain):
@@ -414,7 +415,7 @@ def _derive_conditional_state_shells(
     ):
     cond_shells = []
 
-    for idx, start, end in intervals:
+    for idx, _start, end in intervals:
         if end in state_checking_rules:
             state_checking_rule = state_checking_rules[end]
         else:
@@ -430,7 +431,7 @@ def _derive_conditional_state_shells(
 
             in_ports = _adjust_ports(rule.in_ports, chain)
 
-            if not any([f.value == None for f in match]):
+            if not any([f.value is None for f in match]):
                 actions = [
                     Forward([])
                 ] if state_checking_rule.actions[0].ports == [] else [
@@ -451,7 +452,7 @@ def _derive_conditional_state_shells(
     return cond_shells
 
 
-def _interweave_state_shell(intervals, blocks, conditional_state_shells, chain):
+def _interweave_state_shell(intervals, blocks, conditional_state_shells):
     interwoven_state_shell = []
     cnt = 0
 
@@ -494,11 +495,18 @@ _SWAP_CHAIN = {
     'forward_filter' : 'forward_filter',
 }
 
-def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=True, state_snap=False):
+def _transform_ast_to_model(
+        ast,
+        node,
+        ports=None,
+        address=None,
+        interweaving=True,
+        state_snap=False
+    ):
 
     if state_snap:
         model = SnapshotPacketFilterModel(node, ports=ports, address=address)
-        interweaving=False
+        interweaving = False
     else:
         model = PacketFilterModel(node, ports=ports, address=address)
 
@@ -509,7 +517,7 @@ def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=Tr
             for idx, rule in rules.iteritems():
                 model.tables[
                     rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid
-            ].append(rule)
+                ].append(rule)
 
         return model
 
@@ -556,8 +564,7 @@ def _transform_ast_to_model(ast, node, ports=None, address=None, interweaving=Tr
         interwoven_state_shell = _interweave_state_shell(
             chain_intervals[chain],
             chain_blocks[chain],
-            chain_cond_shells[chain],
-            chain
+            chain_cond_shells[chain]
         )
 
         for rule in interwoven_state_shell:

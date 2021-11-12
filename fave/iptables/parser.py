@@ -463,7 +463,9 @@ class IP6TablesParser(BisonParser):
     _flag = '(SYN|ACK|FIN|RST|URG|PSH|ALL|NONE)'
     _flags = r"%s(,%s)*" % (_flag, _flag)
 
-    _state = '(INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASSURED|CONFIRMED)'
+    _state = '(\
+INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASSURED|CONFIRMED\
+)'
     _states = r"%s(,%s)*" % (_state, _state)
 
     _word = '[[:alnum:]_\-/]+'
@@ -549,9 +551,9 @@ class IP6TablesParser(BisonParser):
 
 
 if __name__ == '__main__':
-    ruleset = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
-    debug = False
-    if len(sys.argv) >= 2: ruleset = sys.argv[1]
-    if len(sys.argv) >= 3 and sys.argv[2] == '-d': debug = True
+    RULESET = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
+    DEBUG = False
+    if len(sys.argv) >= 2: RULESET = sys.argv[1]
+    if len(sys.argv) >= 3 and sys.argv[2] == '-d': DEBUG = True
 
-    IP6TablesParser().parse(ruleset, debug=debug).print_tree()
+    IP6TablesParser().parse(RULESET, debug=DEBUG).print_tree()
