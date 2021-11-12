@@ -136,5 +136,5 @@ if __name__ == '__main__':
         unittest.defaultTestLoader.loadTestsFromTestCase(TestChecker)
     )
 
-    ret = not unittest.TextTestRunner(verbosity=2).run(SUITE).wasSuccessful()
-    sys.exit(ret)
+    RET = not unittest.TextTestRunner(verbosity=2).run(SUITE).wasSuccessful()
+    sys.exit(RET)
