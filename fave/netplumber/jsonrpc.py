@@ -152,7 +152,9 @@ def connect_to_netplumber(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
-        raise RPCError("could not connect to net_plumber at %s" % (server if port == 0 else (server, port)))
+        raise RPCError(
+            "could not connect to net_plumber at %s" % (server if port == 0 else (server, port))
+        )
 
     return sock
 
@@ -408,9 +410,9 @@ def add_source(socks, idx, hs_list, hs_diff, ports, use_dynamic=False):
     if use_dynamic:
         dynamic_distribution.add_node_to_dict(idx, msg)
         return idx
-    else:
-        res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
-        return _extract_node(res[0])
+
+    res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
+    return _extract_node(res[0])
 
 
 def add_sources_bulk(socks, sources, use_dynamic=False):
@@ -628,20 +630,6 @@ def print_slice_matrix(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def dump_slices_pipes(socks, odir):
-    """ Dumps NetPlumber's plumbing network including pipes with slice ids.
-
-    Keyword arguments:
-    socks -- A list of sockets connected to NetPlumber instances
-    odir -- The output directory for the JSON files
-    """
-
-    data = _basic_rpc()
-    data["method"] = "dump_slices_pipes"
-    data["params"] = {"dir" : odir}
-    _asend_recv(socks, json.dumps(data))
-
-
 def print_table(socks, t_idx):
     """ Prints a table using NetPlumber's default logger.
 
@@ -772,19 +760,5 @@ def dump_slices_pipes(socks, odir):
 
     data = _basic_rpc()
     data["method"] = "dump_slices_pipes"
-    data["params"] = {"dir" : odir}
-    _asend_recv(socks, json.dumps(data))
-    
-
-def dump_slices(socks, odir):
-    """ Dumps the slices residing in NetPlumber.
-
-    Keyword arguments:
-    socks -- A list of sockets connected to NetPlumber instances
-    odir -- The output directory for the JSON file
-    """
-
-    data = _basic_rpc()
-    data["method"] = "dump_slices"
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))

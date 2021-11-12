@@ -27,7 +27,8 @@ import sys
 import getopt
 import json
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
 from util.print_util import eprint
 from util.lock_util import PersistentFileLock
@@ -58,8 +59,8 @@ def main(argv):
     """
 
     try:
-        only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "ahfno:pstu"))
+        only_opts = lambda opts, _args: opts
+        opts = only_opts(*getopt.getopt(argv, "ahfno:pstu"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
@@ -111,7 +112,11 @@ def main(argv):
             sys.exit(1)
 
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
 
     dump = {
         'type':'dump',

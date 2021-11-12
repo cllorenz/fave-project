@@ -51,8 +51,8 @@ def main(argv):
     """
 
     try:
-        only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "htnsu"))
+        only_opts = lambda opts, _args: opts
+        opts = only_opts(*getopt.getopt(argv, "htnsu"))
     except getopt.GetoptError:
         print_help()
         sys.exit(2)
