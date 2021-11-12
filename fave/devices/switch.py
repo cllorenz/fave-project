@@ -30,14 +30,13 @@ from copy import copy
 
 from rule.rule_model import Rule, RuleField, Forward, Rewrite, Match
 
-from netplumber.mapping import Mapping
-from abstract_device import AbstractDeviceModel
+from devices.abstract_device import AbstractDeviceModel
 
 from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from util.collections_util import list_sub
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
 
 class SwitchCommand(object):
@@ -106,7 +105,7 @@ class SwitchModel(AbstractDeviceModel):
             ] for table, rules in self.tables.iteritems()
         }
         if hasattr(self, 'table_ids'):
-            j["table_ids"] = { t:i for t, i in self.table_ids.iteritems() }
+            j["table_ids"] = {t:i for t, i in self.table_ids.iteritems()}
         return j
 
     @staticmethod
@@ -330,7 +329,11 @@ def main(argv):
         sys.exit(2)
 
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
     fave_sendmsg(fave, json.dumps(cmd.to_json()))
     fave.close()
 

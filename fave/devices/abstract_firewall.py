@@ -23,27 +23,28 @@
     fields, rules and packet filter models.
 """
 
-import json
-
 from copy import copy, deepcopy
 
-from abstract_device import AbstractDeviceModel
+from devices.abstract_device import AbstractDeviceModel
 
 from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
 from util.model_util import TABLE_MAX
 from util.packet_util import is_ip as is_ipv4
 
-BASE_ROUTING_EXACT=0
-BASE_ROUTING_WRONG_IO=TABLE_MAX/4*1
-BASE_ROUTING_WRONG_AP=TABLE_MAX/4*2
-BASE_ROUTING_RULE=TABLE_MAX/4*3
+_BASE_ROUTING_EXACT = 0
+_BASE_ROUTING_WRONG_IO = TABLE_MAX / 4 * 1
+_BASE_ROUTING_WRONG_AP = TABLE_MAX / 4 * 2
+_BASE_ROUTING_RULE = TABLE_MAX / 4 * 3
 
 
 class AbstractFirewallModel(AbstractDeviceModel):
+    """ An abstract model for firewalls that groups common characteristica.
+    """
     def __init__(self, node, pf_type, ports=None):
         super(AbstractFirewallModel, self).__init__(node, pf_type)
 
+        self.internal_ports = []
         self.ports = {
             node + '.' + str(port) : "" for port in (
                 ports if ports is not None else ["1", "2"]
@@ -65,26 +66,18 @@ class AbstractFirewallModel(AbstractDeviceModel):
         return npf
 
 
-    def __str__(self):
-        return "%s\nrules:\n\t%s\nchains:\n\t%s\nports:\n\t%s" % (
-            super(AbstractFirewallModel, self).__str__(),
-            str(self.chains),
-            str(self.ports)
-        )
-
-
     def ingress_port(self, port):
         if port in self.internal_ports:
             return port
-        else:
-            return port + "_ingress"
+
+        return port + "_ingress"
 
 
     def egress_port(self, port):
         if port in self.internal_ports:
             return port
-        else:
-            return port + "_egress"
+
+        return port + "_egress"
 
 
     def set_address(self, address):
@@ -111,7 +104,9 @@ class AbstractFirewallModel(AbstractDeviceModel):
                     Rewrite(rewrite=[RuleField("in_port", port)]),
                     Forward([self.node+".pre_routing_forward"])
                 ]
-            ) for idx, port in enumerate(self.ports, start=len(self.ports)+1) if port.endswith("_ingress")
+            ) for idx, port in enumerate(
+                self.ports, start=len(self.ports)+1
+            ) if port.endswith("_ingress")
         ]
 
 
@@ -152,14 +147,14 @@ class AbstractFirewallModel(AbstractDeviceModel):
             # first, forward traffic that already has the destination and output
             # ports set correctly (via a filtering rule set)
             rule_exact = deepcopy(rule)
-            rule_exact.idx = BASE_ROUTING_EXACT + idx
+            rule_exact.idx = _BASE_ROUTING_EXACT + idx
             rule_exact.match.extend([RuleField("out_port", port) for port in output_ports])
 
 
             # second, drop traffic that has an incorrect destination set for an
             # output port
             rule_wrong_io = deepcopy(rule)
-            rule_wrong_io.idx = BASE_ROUTING_WRONG_IO + idx
+            rule_wrong_io.idx = _BASE_ROUTING_WRONG_IO + idx
             rule_wrong_io.match.filter("packet.ipv6.destination")
             rule_wrong_io.match.extend([RuleField("out_port", port) for port in output_ports])
             rule_wrong_io.actions = []
@@ -167,7 +162,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
 
             # third, forward traffic with the destination set
             rewrites = [Rewrite(rewrite=[RuleField("out_port", port) for port in output_ports])]
-            rule.idx = BASE_ROUTING_RULE + idx
+            rule.idx = _BASE_ROUTING_RULE + idx
             rule.actions.extend(rewrites)
 
             rule_exact.tid = self.node+".routing"
@@ -189,10 +184,11 @@ class AbstractFirewallModel(AbstractDeviceModel):
         Keyword arguments:
         idx -- a rule index
         """
+        rule = self.tables[self.node+'_routing'][_BASE_ROUTING_EXACT + idx]
         super(AbstractFirewallModel, self).remove_rule(idx)
-        del self.tables[self.node+".routing"][rule_exact.idx]
-        del self.tables[self.node+".routing"][rule_wrong_io.idx]
-        del self.tables[self.node+".routing"][rule.idx]
+        del self.tables[self.node+".routing"][_BASE_ROUTING_EXACT + rule.idx]
+        del self.tables[self.node+".routing"][_BASE_ROUTING_WRONG_IO + rule.idx]
+        del self.tables[self.node+".routing"][_BASE_ROUTING_RULE + rule.idx]
 
 
     def update_rule(self, idx, rule):

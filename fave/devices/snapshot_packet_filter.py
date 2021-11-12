@@ -25,11 +25,11 @@
 
 import json
 
-from abstract_firewall import AbstractFirewallModel
+from devices.abstract_firewall import AbstractFirewallModel
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
 
 
-def _SWAP_FIELD(field):
+def _swap_field(field):
     if 'source' in field.name:
         return field.name.replace('source', 'destination'), field.value
     elif 'destination' in field.name:
@@ -38,14 +38,14 @@ def _SWAP_FIELD(field):
         return field.name.replace('sport', 'dport'), field.value
     elif 'dport' in field.name:
         return field.name.replace('dport', 'sport'), field.value
-    else:
-        return field.name, field.value
+
+    return field.name, field.value
 
 
 def _reverse_quintuple(quintuple):
     return Match([
         RuleField(
-            *_SWAP_FIELD(field)
+            *_swap_field(field)
         ) for field in quintuple
     ])
 
@@ -145,16 +145,17 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
             node + "." + str(port) + "_egress" : node + ".post_routing" for port in ports
         }
 
-        external_ports = { node + '.' + str(port) : "" for port in ports }
+        external_ports = {node + '.' + str(port) : "" for port in ports}
 
         plen = len(ports)
 
         self.ports = dict(
-            self.internal_ports.items() + input_ports.items() + output_ports.items() + external_ports.items()
+            self.internal_ports.items() + input_ports.items() +
+            output_ports.items() + external_ports.items()
         )
 
-        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to out port
-                                                # field set by the routing table
+        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to
+                                                # out port field set by the routing table
             Rule(
                 node, "post_routing", idx,
                 in_ports=[node+".post_routing_in"],
@@ -184,8 +185,8 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
         ]
 
         for state_table in [
-            node+'.input_state', node+'.forward_state', node+'.output_state'
-        ]:
+                node+'.input_state', node+'.forward_state', node+'.output_state'
+            ]:
             self.tables[state_table] = [
                 Rule(
                     node, state_table, 65535,
@@ -195,19 +196,19 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
             ]
 
         self.wiring = [
-            (node + ".pre_routing_input", node + ".input_state_in"), # pre routing to input state
-            (node + ".input_state_miss", node + ".input_filter_in"), # input state miss to input filter
-            (node + ".input_state_accept", node + ".internals_in"), # input state accept to internals
-            (node + ".input_filter_accept", node + ".internals_in"), # input filter accept to internals
-            (node + ".pre_routing_forward", node + ".forward_state_in"), # pre routing to forward state
-            (node + ".forward_state_miss", node + ".forward_filter_in"), # forward state miss to forward filter
-            (node + ".forward_state_accept", node + ".routing_in"), # forward state accept to routing
-            (node + ".forward_filter_accept", node + ".routing_in"), # forward filter accept to routing
-            (node + ".internals_out", node + ".output_state_in"), # internal output to output state
-            (node + ".output_state_miss", node + ".output_filter_in"), # output state miss to output filter
-            (node + ".output_state_accept", node + ".routing_in"), # output state accept to routing
-            (node + ".output_filter_accept", node + ".routing_in"), # output filter accept to routing
-            (node + ".routing_out", node + ".post_routing_in") # routing to post routing
+            (node + ".pre_routing_input", node + ".input_state_in"),
+            (node + ".input_state_miss", node + ".input_filter_in"),
+            (node + ".input_state_accept", node + ".internals_in"),
+            (node + ".input_filter_accept", node + ".internals_in"),
+            (node + ".pre_routing_forward", node + ".forward_state_in"),
+            (node + ".forward_state_miss", node + ".forward_filter_in"),
+            (node + ".forward_state_accept", node + ".routing_in"),
+            (node + ".forward_filter_accept", node + ".routing_in"),
+            (node + ".internals_out", node + ".output_state_in"),
+            (node + ".output_state_miss", node + ".output_filter_in"),
+            (node + ".output_state_accept", node + ".routing_in"),
+            (node + ".output_filter_accept", node + ".routing_in"),
+            (node + ".routing_out", node + ".post_routing_in")
         ]
 
         if address:
@@ -215,6 +216,12 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
 
 
     def add_state(self, quintuples):
+        """ Adds state entries to the packet filter.
+
+        Positional arguments:
+        quintuples -- a list of quintuples that characterize the connections to
+                      be added
+        """
         for quintuple in quintuples:
             quintuple.idx *= 2
 

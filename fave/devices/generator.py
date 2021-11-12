@@ -21,11 +21,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
-import itertools
 
-from netplumber.mapping import Mapping
-from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
-from util.ip6np_util import field_value_to_bitvector
 from rule.rule_model import RuleField
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 

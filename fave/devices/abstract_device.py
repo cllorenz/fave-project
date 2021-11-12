@@ -24,7 +24,6 @@
 
 import json
 from util.collections_util import list_sub, dict_sub
-from netplumber.mapping import Mapping
 
 
 class AbstractDeviceModel(object):
@@ -70,11 +69,19 @@ class AbstractDeviceModel(object):
 
     def add_rule(self, rule):
         """ Add rule to add buffer.
+
+        Positional arguments:
+        rule -- the rule to be added
         """
         self.add_rules([rule])
 
 
     def add_rules(self, rules):
+        """ Add rules to rule buffer.
+
+        Positional arguments:
+        rules -- list of ports to be added
+        """
         for rule in rules:
             self.adds.setdefault(rule.tid, [])
             self.adds[rule.tid].append(rule)

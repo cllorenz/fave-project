@@ -25,7 +25,7 @@
 
 import json
 
-from abstract_firewall import AbstractFirewallModel
+from devices.abstract_firewall import AbstractFirewallModel
 from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
 
@@ -53,7 +53,7 @@ class RelayCommand(object):
 
     @staticmethod
     def from_json(j):
-        """ Constructs a state command from JSON.
+        """ Constructs a relay command from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
@@ -62,7 +62,7 @@ class RelayCommand(object):
         if isinstance(j, str):
             j = json.loads(j)
 
-        return StateCommand(
+        return RelayCommand(
             j["node"],
             j["command"],
             [Rule.from_json(r) for r in j["rules"]]
@@ -108,16 +108,17 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
             node + "." + str(port) + "_egress" : node + ".post_routing" for port in ports
         }
 
-        external_ports = { node + '.' + str(port) : "" for port in ports }
+        external_ports = {node + '.' + str(port) : "" for port in ports}
 
         plen = len(ports)
 
         self.ports = dict(
-            self.internal_ports.items() + input_ports.items() + output_ports.items() + external_ports.items()
+            self.internal_ports.items() + input_ports.items() +
+            output_ports.items() + external_ports.items()
         )
 
-        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to out port
-                                                # field set by the routing table
+        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to
+                                                # out port field set by the routing table
             Rule(
                 node, "post_routing", idx,
                 in_ports=[node+".post_routing_in"],
@@ -147,11 +148,11 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
         ]
 
         self.wiring = [
-            (node + ".pre_routing_input", node + ".input_filter_in"), # pre routing to input filter
-            (node + ".input_filter_accept", node + ".relay_in"), # input filter accept to internals
-            (node + ".relays_out", node + ".output_filter_in"), # internal output to output filter
-            (node + ".output_filter_accept", node + ".routing_in"), # output filter accept to routing
-            (node + ".routing_out", node + ".post_routing_in") # routing to post routing
+            (node + ".pre_routing_input", node + ".input_filter_in"),
+            (node + ".input_filter_accept", node + ".relay_in"),
+            (node + ".relays_out", node + ".output_filter_in"),
+            (node + ".output_filter_accept", node + ".routing_in"),
+            (node + ".routing_out", node + ".post_routing_in")
         ]
 
         if address:
@@ -169,7 +170,7 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
         if isinstance(j, str):
             j = json.loads(j)
 
-        npf = PacketFilterModel(j["node"])
+        npf = ApplicationLayerGatewayModel(j["node"])
         npf.tables = {}
         tables = j["tables"]
         for table in tables:
@@ -181,6 +182,11 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
 
 
     def add_relay(self, rules):
+        """ Add rules that characterize the functionality of the relay.
+
+        Positional arguments:
+        rules -- a list of rules
+        """
         for rule in rules:
             rule.tid = self.node+'.relay'
             rule.in_ports = [self.node+'.relay_in']
@@ -188,4 +194,4 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
                 action.ports = [self.node+'.relay_out']
 
             self.adds.setdefault(rule.tid, [])
-            self.adds[self.tid].append(rule)
+            self.adds[rule.tid].append(rule)

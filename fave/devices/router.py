@@ -27,12 +27,12 @@ import math
 
 from copy import copy
 
-from abstract_device import AbstractDeviceModel
+from devices.abstract_device import AbstractDeviceModel
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from rule.rule_model import RuleField, Match, Forward, Rule, Rewrite
 
 
-CAPACITY=2**16/2**12 # XXX: ugly workaround
+CAPACITY = 2**16 / 2**12 # XXX: ugly workaround
 
 class RouterModel(AbstractDeviceModel):
     """ This class provides a model for routers.
@@ -80,7 +80,8 @@ class RouterModel(AbstractDeviceModel):
         }
 
         self.ports = dict(
-            internal_ports.items() + input_ports.items() + output_ports.items() + external_ports.items()
+            internal_ports.items() + input_ports.items() +
+            output_ports.items() + external_ports.items()
         )
 
         self.wiring = [
@@ -89,12 +90,6 @@ class RouterModel(AbstractDeviceModel):
             (node+".routing_out", node+".acl_out_in"),
             (node+".acl_out_out", node+".post_routing_in")
         ]
-
-        get_iname = lambda x: "%s_%s" % (node, x[0][3:])
-        get_iport = lambda x: int(x[0][3:])
-        get_oname = lambda x: "%s_%s" % (node, x[0][4:])
-        get_oport = lambda x: int(x[0][4:])
-        get_port = lambda x: x[1]
 
         get_if = lambda interface, _vlans: interface
         get_vlans = lambda _interface, vlans: vlans
@@ -158,7 +153,8 @@ class RouterModel(AbstractDeviceModel):
 
         # generic drops of reserved prefixes incoming from the internet
         acl_in = [
-            Rule(node, node+".acl_in", 1,
+            Rule(
+                node, node+".acl_in", 1,
                 in_ports=[node+'.acl_in_in'],
                 match=Match(
                     fields=[
@@ -168,7 +164,8 @@ class RouterModel(AbstractDeviceModel):
                 ),
                 actions=[]
             ),
-            Rule(node, node+".acl_in", 2,
+            Rule(
+                node, node+".acl_in", 2,
                 in_ports=[node+'.acl_in_in'],
                 match=Match(
                     fields=[
@@ -352,7 +349,7 @@ class RouterModel(AbstractDeviceModel):
                 Rule.from_json(r) for r in j["tables"][t]
             ] for t in j["tables"]
         }
-        router.ports=j["ports"]
+        router.ports = j["ports"]
 
         return router
 
@@ -413,7 +410,7 @@ class RouterModel(AbstractDeviceModel):
         assert isinstance(rule, Rule)
 
         self.remove_rule(idx)
-        self.add_rule(idx, rule)
+        self.add_rule(rule)
 
 
     def __sub__(self, other):
@@ -551,7 +548,9 @@ def parse_cisco_interfaces(interface_file):
 
             elif nline.startswith('ip address'):
                 _proto, _label, daddr, dmask = nline.split(' ')
-                vlan_to_ips[vlan] = _build_cidr(daddr, dmask, '4', inverse_netmask=True) #XXX: not protocol agnostic
+                vlan_to_ips[vlan] = _build_cidr(
+                    daddr, dmask, '4', inverse_netmask=True
+                ) #XXX: not protocol agnostic
 
             elif nline.startswith('no ip address'):
                 vlan_to_ips[vlan] = None
@@ -596,7 +595,9 @@ def parse_cisco_interfaces(interface_file):
 if __name__ == '__main__':
     RACLS = parse_cisco_acls("bench/wl_ifi/acls.txt")
 
-    _RVTD, RVLAN_TO_PORTS, _RVTI, RVLAN_TO_ACLS = parse_cisco_interfaces("bench/wl_ifi/interfaces.txt")
+    _RVTD, RVLAN_TO_PORTS, _RVTI, RVLAN_TO_ACLS, _RITV = parse_cisco_interfaces(
+        "bench/wl_ifi/interfaces.txt"
+    )
 
     RPORTS = {str(p):p for p in range(1, 17)}
     for RVLAN, RVPORTS in RVLAN_TO_PORTS.items():

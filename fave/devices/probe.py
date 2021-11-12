@@ -21,13 +21,9 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
-import itertools
 
 from util.path_util import Path
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from netplumber.mapping import Mapping
-from netplumber.vector import set_field_in_vector, Vector, HeaderSpace
-from util.ip6np_util import field_value_to_bitvector
 from rule.rule_model import RuleField, Match
 
 class ProbeModel(object):
@@ -45,7 +41,17 @@ class ProbeModel(object):
         }
 
 
-    def __init__(self, node, quantor, match=None, filter_fields=None, filter_path=None, test_fields=None, test_path=None):
+    def __init__(
+            self,
+            node,
+            quantor,
+            match=None,
+            filter_fields=None,
+            filter_path=None,
+            test_fields=None,
+            test_path=None
+        ):
+
         self.node = node
         self.type = "probe"
         self.ports = {node+'.1' : 1}
@@ -79,9 +85,17 @@ class ProbeModel(object):
             "type" : self.type,
             "quantor" : self.quantor,
             "match" : self.match.to_json(),
-            "filter_fields" : {n : [f.to_json() for f in fl] for n, fl in self.filter_fields.iteritems()},
+            "filter_fields" : {
+                n : [
+                    f.to_json() for f in fl
+                ] for n, fl in self.filter_fields.iteritems()
+            },
             "filter_path" : self.filter_path.to_json(),
-            "test_fields" : {n : [f.to_json() for f in fl] for n, fl in self.test_fields.iteritems()},
+            "test_fields" : {
+                n : [
+                    f.to_json() for f in fl
+                ] for n, fl in self.test_fields.iteritems()
+            },
             "test_path" : self.test_path.to_json()
         }
 
@@ -100,9 +114,17 @@ class ProbeModel(object):
             j["node"],
             j["quantor"],
             Match.from_json(j["match"]),
-            filter_fields={n : [RuleField.from_json(f) for f in fl] for n, fl in j['filter_fields'].iteritems()},
+            filter_fields={
+                n : [
+                    RuleField.from_json(f) for f in fl
+                ] for n, fl in j['filter_fields'].iteritems()
+            },
             filter_path=Path.from_json(j["filter_path"]),
-            test_fields={n : [RuleField.from_json(f) for f in fl] for n, fl in j['test_fields'].iteritems()},
+            test_fields={
+                n : [
+                    RuleField.from_json(f) for f in fl
+                ] for n, fl in j['test_fields'].iteritems()
+            },
             test_path=Path.from_json(j["test_path"])
         )
 

@@ -25,7 +25,7 @@
 
 import json
 
-from abstract_firewall import AbstractFirewallModel
+from devices.abstract_firewall import AbstractFirewallModel
 from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
 
 
@@ -71,16 +71,17 @@ class PacketFilterModel(AbstractFirewallModel):
             node + "." + str(port) + "_egress" : node + ".post_routing" for port in ports
         }
 
-        external_ports = { node + '.' + str(port) : "" for port in ports }
+        external_ports = {node + '.' + str(port) : "" for port in ports}
 
         plen = len(ports)
 
         self.ports = dict(
-            self.internal_ports.items() + input_ports.items() + output_ports.items() + external_ports.items()
+            self.internal_ports.items() + input_ports.items() +
+            output_ports.items() + external_ports.items()
         )
 
-        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to out port
-                                                # field set by the routing table
+        self.tables[node + ".post_routing"] = [ # low priority: forward packets according to
+                                                # out port field set by the routing table
             Rule(
                 node, "post_routing", idx,
                 in_ports=[node+".post_routing_in"],
@@ -110,13 +111,13 @@ class PacketFilterModel(AbstractFirewallModel):
         ]
 
         self.wiring = [
-            (node + ".pre_routing_input", node + ".input_filter_in"), # pre routing to input filter
-            (node + ".input_filter_accept", node + ".internals_in"), # input filter accept to internals
-            (node + ".pre_routing_forward", node + ".forward_filter_in"), # pre routing to forward filter
-            (node + ".forward_filter_accept", node + ".routing_in"), # forward filter accept to routing
-            (node + ".internals_out", node + ".output_filter_in"), # internal output to output filter
-            (node + ".output_filter_accept", node + ".routing_in"), # output filter accept to routing
-            (node + ".routing_out", node + ".post_routing_in") # routing to post routing
+            (node + ".pre_routing_input", node + ".input_filter_in"),
+            (node + ".input_filter_accept", node + ".internals_in"),
+            (node + ".pre_routing_forward", node + ".forward_filter_in"),
+            (node + ".forward_filter_accept", node + ".routing_in"),
+            (node + ".internals_out", node + ".output_filter_in"),
+            (node + ".output_filter_accept", node + ".routing_in"),
+            (node + ".routing_out", node + ".post_routing_in")
         ]
 
         if address:
