@@ -52,7 +52,7 @@ lint_file() {
     else
         REPORT=/tmp/lint_$SPY.log
         cp $LOG $REPORT
-        grep "Your code has been rated at" $LOG | cut -d' ' -f7-
+        SCORE=$`grep "Your code has been rated at" $LOG | cut -d' ' -f7-`
         echo "$PRE fail with $SCORE (report at $REPORT)"
         echo $PYFILE >> $FAILS
     fi
