@@ -144,7 +144,11 @@ class GeneratorsModel(object):
         assert isinstance(other, GeneratorsModel)
         return self.type == other.type and \
             len(self.generators) == len(other.generators) and \
-            len(self.generators) == len([(g, o) for g, o in product(self.generators, other.generators) if g == o])
+            len(self.generators) == len(
+                [(g, o) for g, o in product(
+                    self.generators, other.generators
+                ) if g == o]
+            )
 
 
 class TopologyCommand(object):
@@ -241,18 +245,19 @@ def print_help():
         "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
         "\t-a add device or links (default)",
         "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|snapshot_packet_filter|application_layer_gateway|links|generator|generators|probe|router\" apply command" +
-        "for a device of type <type>",
+        "\t-t \"switch|packet_filter|snapshot_packet_filter|" +
+        "application_layer_gateway|links|generator|generators|probe|router\" " +
+        "apply command for a device of type <type>",
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
-        "\t-l <links> add links between port pi of device dj and port pk of" +
-                     "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
+        "\t-l <links> add links between port pi of device dj and port pk of " +
+         "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
         "\t-i <ip> add device with ip address <ip>",
         "\t-f <fields> add device with fields f1=[v1, v2, v3, ...];f2=[v4, v5, v6...];...",
         "\t-q \"universal, existential\" add a quantor for a probe",
         "\t-F <fields> add filter fields for a probe",
-        "\t-G <generators> add list of |-separated generators of the form" +
-                          "<name/flow> where the flow follow the form of fields",
+        "\t-G <generators> add list of |-separated generators of the form " +
+        "<name/flow> where the flow follow the form of fields",
         "\t-P <test_path> add a test path for a probe",
         "\t-T <fields> add test fields for a probe",
         "\t-r <ruleset> use a router acls ruleset with filename <ruleset>",
@@ -445,7 +450,11 @@ def main(argv):
         print_help()
         return
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
     s = json.dumps(topo.to_json())
     fave_sendmsg(fave, s)
     fave.close()
