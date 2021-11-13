@@ -28,7 +28,8 @@ import ast
 
 from itertools import product
 
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.print_util import eprint
 from devices.switch import SwitchModel
 from rule.rule_model import RuleField, Match

@@ -23,14 +23,13 @@
     switch rules.
 """
 
-import sys
-import getopt
 import json
 
-from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value, VectorConstructionError
+from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
+from util.ip6np_util import VectorConstructionError
 
-from netplumber.vector import Vector, set_field_in_vector, intersect_vectors
-from netplumber.mapping import Mapping, FIELD_SIZES
+from netplumber.vector import Vector, intersect_vectors
+from netplumber.mapping import FIELD_SIZES
 from netplumber.model import Model
 
 
@@ -94,7 +93,9 @@ class RuleField(object):
         if other == None: return False
         assert isinstance(other, RuleField)
 
-        return self.name == other.name and self.value == other.value and self.negated == other.negated
+        return self.name == other.name and
+            self.value == other.value and
+            self.negated == other.negated
 
 
     def intersect(self, other):
