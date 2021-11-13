@@ -93,9 +93,7 @@ class RuleField(object):
         if other == None: return False
         assert isinstance(other, RuleField)
 
-        return self.name == other.name and
-            self.value == other.value and
-            self.negated == other.negated
+        return self.name == other.name and self.value == other.value and self.negated == other.negated
 
 
     def intersect(self, other):

@@ -94,9 +94,7 @@ class LinksModel(object):
 
     def __eq__(self, other):
         assert isinstance(other, LinksModel)
-        return self.type == other.type and \
-            len(self.links) == len(other.links) and \
-            all([link in other.links for link in self.links])
+        return self.type == other.type and len(self.links) == len(other.links) and all([link in other.links for link in self.links])
 
 
 class GeneratorsModel(object):
