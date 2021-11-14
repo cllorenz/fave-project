@@ -26,11 +26,9 @@
 import json
 
 from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
-from util.ip6np_util import VectorConstructionError
 
 from netplumber.vector import Vector, intersect_vectors
 from netplumber.mapping import FIELD_SIZES
-from netplumber.model import Model
 
 
 class RuleField(object):
@@ -91,19 +89,28 @@ class RuleField(object):
 
 
     def __eq__(self, other):
-        if other == None: return False
+        if other is None: return False
         assert isinstance(other, RuleField)
 
-        return self.name == other.name and self.value == other.value and self.negated == other.negated
+        return \
+            self.name == other.name and \
+            self.value == other.value and \
+            self.negated == other.negated
 
 
     def intersect(self, other):
+        """ Intersect field with another of the same type.
+
+        Arguments:
+        other -- the other field
+        """
+
         assert isinstance(other, RuleField) and self.name == other.name
 
-        v1 = field_value_to_bitvector(self).vector
-        v2 = field_value_to_bitvector(other).vector
+        vec1 = field_value_to_bitvector(self).vector
+        vec2 = field_value_to_bitvector(other).vector
 
-        return bitvector_to_field_value(intersect_vectors(v1, v2), self.name)
+        return bitvector_to_field_value(intersect_vectors(vec1, vec2), self.name)
 
 
 class RuleAction(object):
@@ -283,6 +290,12 @@ class Match(list):
 
 
     def filter(self, field):
+        """ Remove field from match if present.
+
+        Arguments:
+        field -- the field or field name to remove
+        """
+
         if isinstance(field, RuleField):
             name = field.name
         elif isinstance(field, str):
@@ -290,24 +303,36 @@ class Match(list):
         else:
             raise Exception("cannot filter match for a field of type: %s" % type(field))
 
-        for f in self:
-            if f.name == name:
-                self.remove(f)
+        for fld in self:
+            if fld.name == name:
+                self.remove(fld)
 
 
     def get(self, field):
+        """ Get field from match.
+
+        Arguments:
+        field -- the field name
+        """
+
         assert isinstance(field, str)
 
-        for f in self:
-            if f.name == field:
-                return f
+        for fld in self:
+            if fld.name == field:
+                return fld
         raise Exception("no such field: %s" % field)
 
 
     def intersect(self, other):
-        if len(self) == 0:
+        """ Intersect match with another.
+
+        Arguments:
+        other -- the other match
+        """
+
+        if not self:
             return Match(other)
-        elif len(other) == 0:
+        elif not other:
             return Match(self)
 
         isect = []
@@ -344,12 +369,13 @@ class Match(list):
         return Match(isect)
 
 
-class Rule(Model):
+class Rule(object):
     """ This class provides a model for switch rules.
     """
 
     def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None):
-        super(Rule, self).__init__(node, mtype="switch_rule")
+        self.node = node
+        self.mtype = "switch_rule"
         self.tid = tid
         self.idx = idx
         self.in_ports = in_ports if in_ports is not None else []
@@ -405,8 +431,9 @@ class Rule(Model):
         )
 
     def __str__(self):
-        return "%s\ntid: %s\nidx: %s\nmatch:\n\t%s\nactions:\n\t%s\n" % (
-            super(Rule, self).__str__(),
+        return "%s\nnode:%s\ntid: %s\nidx: %s\nmatch:\n\t%s\nactions:\n\t%s\n" % (
+            self.mtype,
+            self.node,
             self.tid,
             self.idx,
             self.match,
