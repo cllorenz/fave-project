@@ -81,7 +81,7 @@ echo "ok"
 export PYTHONPATH="$ROOTDIR:${PYTHONPATH}"
 
 echo -n "start netplumber... "
-bash scripts/start_np.sh -l $ROOTDIR/examples/example.conf
+bash $ROOTDIR/scripts/start_np.sh -l $ROOTDIR/examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 sleep 1
