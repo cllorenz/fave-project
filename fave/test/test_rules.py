@@ -67,15 +67,16 @@ class TestRuleField(unittest.TestCase):
         self.assertNotEqual(self.rule_field, nrf3)
         self.assertNotEqual(nrf2, nrf3)
 
-        self.rule_field.vectorize()
-        nrf1.vectorize()
-        nrf2.vectorize()
-        nrf3.vectorize()
-
-        self.assertEqual(self.rule_field, nrf1)
-        self.assertNotEqual(self.rule_field, nrf2)
-        self.assertNotEqual(self.rule_field, nrf3)
-        self.assertNotEqual(nrf2, nrf3)
+#        # deprecated
+#        self.rule_field.vectorize()
+#        nrf1.vectorize()
+#        nrf2.vectorize()
+#        nrf3.vectorize()
+#
+#        self.assertEqual(self.rule_field, nrf1)
+#        self.assertNotEqual(self.rule_field, nrf2)
+#        self.assertNotEqual(self.rule_field, nrf3)
+#        self.assertNotEqual(nrf2, nrf3)
 
 
     def test_from_json(self):
@@ -92,24 +93,25 @@ class TestRuleField(unittest.TestCase):
         )
 
 
-    def test_vectorize(self):
-        """ Tests field vectorization.
-        """
-
-        self.rule_field.vectorize()
-
-        self.assertEqual(
-            "\
-0010000000000001\
-0000110110111000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000000\
-0000000000000001",
-            self.rule_field.vector.vector
-        )
+#    # deprecated
+#    def test_vectorize(self):
+#        """ Tests field vectorization.
+#        """
+#
+#        self.rule_field.vectorize()
+#
+#        self.assertEqual(
+#            "\
+#0010000000000001\
+#0000110110111000\
+#0000000000000000\
+#0000000000000000\
+#0000000000000000\
+#0000000000000000\
+#0000000000000000\
+#0000000000000001",
+#            self.rule_field.vector.vector
+#        )
 
 
 

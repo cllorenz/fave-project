@@ -43,12 +43,13 @@ class RuleField(object):
         self.negated = negated
 
 
-    def vectorize(self):
-        """ Transforms value into a vector representation.
-        """
-
-        if not isinstance(self.value, Vector):
-            self.vector = field_value_to_bitvector(self)
+#    # deprecated
+#    def vectorize(self):
+#        """ Transforms value into a vector representation.
+#        """
+#
+#        if not isinstance(self.value, Vector):
+#            self.vector = field_value_to_bitvector(self)
 
 
     def to_json(self):
