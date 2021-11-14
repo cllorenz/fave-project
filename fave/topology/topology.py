@@ -31,12 +31,12 @@ from itertools import product
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.print_util import eprint
-from devices.switch import SwitchModel
 from rule.rule_model import RuleField, Match
+
+from devices.switch import SwitchModel
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
 from devices.application_layer_gateway import ApplicationLayerGatewayModel
-
 from devices.generator import GeneratorModel
 from devices.probe import ProbeModel
 from devices.router import RouterModel, parse_cisco_acls, parse_cisco_interfaces
@@ -94,7 +94,10 @@ class LinksModel(object):
 
     def __eq__(self, other):
         assert isinstance(other, LinksModel)
-        return self.type == other.type and len(self.links) == len(other.links) and all([link in other.links for link in self.links])
+        return \
+            self.type == other.type and \
+            len(self.links) == len(other.links) and \
+            all([link in other.links for link in self.links])
 
 
 class GeneratorsModel(object):
@@ -249,7 +252,7 @@ def print_help():
         "\t-n <dev> apply command for the device <dev> (default: \"\")",
         "\t-p <ports> add device with <ports> ports (implies -a)",
         "\t-l <links> add links between port pi of device dj and port pk of " +
-         "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
+        "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
         "\t-i <ip> add device with ip address <ip>",
         "\t-f <fields> add device with fields f1=[v1, v2, v3, ...];f2=[v4, v5, v6...];...",
         "\t-q \"universal, existential\" add a quantor for a probe",
@@ -286,7 +289,7 @@ def main(argv):
     use_interweaving = True
 
     try:
-        opts, args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:s")
+        opts, _args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:s")
     except getopt.GetoptError:
         eprint("cannot parse arguments: %s" % argv)
         print_help()
@@ -304,15 +307,15 @@ def main(argv):
             use_unix = True
         elif opt == '-t':
             if arg in [
-                'switch',
-                'packet_filter',
-                'snapshot_packet_filter',
-                'application_layer_gateway',
-                'links',
-                'generator',
-                'generators',
-                'probe',
-                'router'
+                    'switch',
+                    'packet_filter',
+                    'snapshot_packet_filter',
+                    'application_layer_gateway',
+                    'links',
+                    'generator',
+                    'generators',
+                    'probe',
+                    'router'
             ]:
                 dtype = arg
             else:
@@ -453,8 +456,8 @@ def main(argv):
     ) if use_unix else connect_to_fave(
         FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
     )
-    s = json.dumps(topo.to_json())
-    fave_sendmsg(fave, s)
+    topo_str = json.dumps(topo.to_json())
+    fave_sendmsg(fave, topo_str)
     fave.close()
 
 
