@@ -19,16 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+ROOTDIR=$(pwd)
+
 rm -rf /dev/shm/np
 rm -f /dev/shm/*.socket
 
 TMP=$(mktemp -d -p /tmp "np.XXXXXX")
 TMPESC=$(echo $TMP | sed 's/\//\\\//g')
-sed -i "s/\/tmp\/np\......./$TMPESC/g" examples/example.conf
+sed -i "s/\/tmp\/np\......./$TMPESC/g" $ROOTDIR/examples/example.conf
 
 echo -n "generate rule set... "
 
-RS=examples/example-ruleset
+RS=$ROOTDIR/examples/example-ruleset
 
 echo -n "" > $RS
 echo "ip6tables -P INPUT DROP" >> $RS
@@ -76,16 +78,16 @@ echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
 
 echo "ok"
 
-export PYTHONPATH="$(pwd):${PYTHONPATH}"
+export PYTHONPATH="$ROOTDIR:${PYTHONPATH}"
 
 echo -n "start netplumber... "
-bash scripts/start_np.sh -l examples/example.conf
+bash scripts/start_np.sh -l $ROOTDIR/examples/example.conf
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 sleep 1
 
 echo -n "start aggregator... "
-bash scripts/start_aggr.sh -a
+bash $ROOTDIR/scripts/start_aggr.sh -a
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
@@ -114,23 +116,23 @@ CNT=0
 # test topology
 echo -n "read topology... "
 # $SWITCH
-python2 topology/topology.py -a -t switch -n $SWITCH -p 2
+python2 $ROOTDIR/topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python2 topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
+python2 $ROOTDIR/topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
-python2 topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
+python2 $ROOTDIR/topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 echo -n "add generators... "
 # generators $HOST1 $HOST2 $FWSOURCE
-python2 topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
+python2 $ROOTDIR/topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python2 topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
+python2 $ROOTDIR/topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -138,43 +140,43 @@ CNT=0
 
 echo -n "add probes... "
 # PROBE1 $PROBE1
-python2 topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
+python2 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # PROBE2 $PROBE2
-python2 topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
+python2 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # FIREWALL $FWPROBE
-python2 topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
+python2 $ROOTDIR/topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
-python2 topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
+python2 $ROOTDIR/topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
-python2 topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
+python2 $ROOTDIR/topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
 CNT=$(( $? + CNT ))
 # link: $FW INPUT --> PROBE2
-python2 topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
+python2 $ROOTDIR/topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
 CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test rule setting
 echo -n "add switch rules... "
-python2 devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
+python2 $ROOTDIR/devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
-python2 devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
+python2 $ROOTDIR/devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
-python2 devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
-CNT=$(( $? + CNT ))
-
-python2 devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+python2 $ROOTDIR/devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python2 devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
+python2 $ROOTDIR/devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+CNT=$(( $? + CNT ))
+
+python2 $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
-python2 netplumber/dump_np.py -anpft
+python2 $ROOTDIR/netplumber/dump_np.py -anpft
 
 # test flow propagation
 echo -n "check flow propagation... "
@@ -196,7 +198,7 @@ F11='s='$HOST2' && EF p='$FWPROBE
 F12='s='$FWSOURCE' && EF p='$PROBE1' && f=related:1'
 F13='s='$FWSOURCE' && EF p='$PROBE2' && f=related:1'
 
-python2 test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
+python2 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
 
 # test openflow
@@ -208,10 +210,10 @@ python2 test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11
 #echo "start openflow proxy..."
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
-bash scripts/stop_fave.sh
+bash $ROOTDIR/scripts/stop_fave.sh
 
 rm -rf $TMP
 
-git checkout examples/example.conf 2> /dev/null
+git checkout $ROOTDIR/examples/example.conf 2> /dev/null
 
 #kill -s KILL $RYU
