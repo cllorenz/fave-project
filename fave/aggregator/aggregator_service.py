@@ -34,9 +34,9 @@ from pprint import pformat
 from threading import Thread
 from Queue import Queue
 
-from fave.aggregator.aggregator_abstract import AbstractAggregator, TRACE
-from fave.aggregator.aggregator_singleton import AGGREGATOR
-from fave.aggregator.aggregator_signals import register_signals
+from aggregator.aggregator_abstract import AbstractAggregator, TRACE
+from aggregator.aggregator_singleton import AGGREGATOR
+from aggregator.aggregator_signals import register_signals
 
 from util.print_util import eprint
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
@@ -106,7 +106,7 @@ def _print_help():
     )
 
 
-class Aggregator(AbstractAggregator):
+class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
 
@@ -118,7 +118,7 @@ class Aggregator(AbstractAggregator):
         self.stop = False
         self.net_plumber = NetPlumberAdapter(
             socks.values(),
-            Aggregator.LOGGER,
+            AggregatorService.LOGGER,
             asyncore_socks=asyncore_socks,
             mapping=mapping
         )
@@ -151,12 +151,12 @@ class Aggregator(AbstractAggregator):
 
         while not self.stop:
             data = self.queue.get()
-            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                Aggregator.LOGGER.debug('worker: fetched data from queue')
+            if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                AggregatorService.LOGGER.debug('worker: fetched data from queue')
 
             if not data:
-                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                    Aggregator.LOGGER.debug('worker: ignoring empty data')
+                if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                    AggregatorService.LOGGER.debug('worker: ignoring empty data')
                 self.queue.task_done()
                 continue
 
@@ -166,12 +166,12 @@ class Aggregator(AbstractAggregator):
                 j = json.loads(data)
             except ValueError:
                 emsg = 'worker: could not parse data: %s' % data
-                Aggregator.LOGGER.fatal(emsg)
+                AggregatorService.LOGGER.fatal(emsg)
                 self.queue.task_done()
                 return
 
-            if Aggregator.LOGGER.isEnabledFor(TRACE):
-                Aggregator.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
+            if AggregatorService.LOGGER.isEnabledFor(TRACE):
+                AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
                 task_type = 'stop'
@@ -209,28 +209,28 @@ class Aggregator(AbstractAggregator):
 
             t_task_end = time.time()
 
-            if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+            if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
                 emsg = "worker: completed task %s in %s seconds." % (
                     task_type, t_task_end - t_task_start
                 )
-                Aggregator.LOGGER.info(emsg)
+                AggregatorService.LOGGER.info(emsg)
 
             self.queue.task_done()
 
         t_stop = time.time()
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
 
 
     def run(self, server, port=0):
         """ Operates FaVe's aggregation service.
         """
 
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
             lmsg = "open and bind %s socket" % (
                 'unix' if port == 0 else 'tcp/ip'
             )
-            Aggregator.LOGGER.info(lmsg)
+            AggregatorService.LOGGER.info(lmsg)
 
         # open new socket
         sock = socket.socket(
@@ -241,77 +241,79 @@ class Aggregator(AbstractAggregator):
         sock.bind(server if port == 0 else (server, port))
 
         # start thread to handle incoming config events
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("start handler thread")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("start handler thread")
         thread = Thread(target=self._handler)
         thread.daemon = True
         thread.start()
 
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("listen on socket")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("listen on socket")
         sock.listen(1)
 
         while not self.stop:
             # accept connections on socket
-            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                Aggregator.LOGGER.debug("master: wait for connection")
+            if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                AggregatorService.LOGGER.debug("master: wait for connection")
             try:
                 conn, _addr = sock.accept()
             except socket.timeout:
-                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                    Aggregator.LOGGER.debug("master: listening timed out, continue loop...")
+                if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                    AggregatorService.LOGGER.debug("master: listening timed out, continue loop...")
                 continue
             except socket.error:
-                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                    Aggregator.LOGGER.debug("master: break listening loop due to socket error")
-                Aggregator.LOGGER.exception("master: error from accept():")
+                if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                    AggregatorService.LOGGER.debug(
+                        "master: break listening loop due to socket error"
+                    )
+                AggregatorService.LOGGER.exception("master: error from accept():")
                 break
             else:
-                if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                    Aggregator.LOGGER.debug("master: accepted connection")
+                if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                    AggregatorService.LOGGER.debug("master: accepted connection")
 
             # receive data from socket
-            data = fave_recvmsg(conn, logger=Aggregator.LOGGER)
+            data = fave_recvmsg(conn, logger=AggregatorService.LOGGER)
             assert data != None
-            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+            if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
                 lmsg = "master: read data of size %s" % len(data)
-                Aggregator.LOGGER.debug(lmsg)
+                AggregatorService.LOGGER.debug(lmsg)
 
             # upon data receival enqueue
             self.queue.put(data)
-            if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                Aggregator.LOGGER.debug("master: enqueued data")
+            if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                AggregatorService.LOGGER.debug("master: enqueued data")
 
         # close unix domain socket
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("master: close receiving socket")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("master: close receiving socket")
         sock.close()
 
         # wait for the config event handler to finish
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("master: join queue")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("master: join queue")
         self.queue.join()
 
         # join thread
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("master: join handler thread")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("master: join handler thread")
         thread.join()
 
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("master: finished run")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("master: finished run")
 
 
     def stop_aggr(self):
         """ Stops FaVe's aggregation service.
         """
-        if Aggregator.LOGGER.isEnabledFor(logging.INFO):
-            Aggregator.LOGGER.info("initiate stopping")
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("initiate stopping")
         self.stop = True
 
 
     def _sync_diff(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-            Aggregator.LOGGER.debug('worker: synchronize model')
+        if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+            AggregatorService.LOGGER.debug('worker: synchronize model')
 
 
         # handle minor model changes (e.g. updates by the control plane)
@@ -352,8 +354,8 @@ class Aggregator(AbstractAggregator):
                     dportno = self.net_plumber.global_port(dmodel.ingress_port(dport))
 
                     if cmd.command == "add":
-                        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                            Aggregator.LOGGER.debug(
+                        if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                            AggregatorService.LOGGER.debug(
                                 "worker: add link to netplumber from %s:%s to %s:%s%s",
                                 sport,
                                 hex(sportno),
@@ -373,8 +375,8 @@ class Aggregator(AbstractAggregator):
                             self.net_plumber.add_link(*nlink)
 
                     elif cmd.command == "del":
-                        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                            Aggregator.LOGGER.debug(
+                        if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                            AggregatorService.LOGGER.debug(
                                 "worker: remove link from netplumber from %s to %s",
                                 sport, dport
                             )
@@ -383,8 +385,8 @@ class Aggregator(AbstractAggregator):
                         if not self.links[sport]: del self.links[sport]
 
                 if links:
-                    if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
-                        Aggregator.LOGGER.debug("worker: add all bulk links")
+                    if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
+                        AggregatorService.LOGGER.debug("worker: add all bulk links")
                     self.net_plumber.add_links_bulk(
                         links,
                         use_dynamic=(self.net_plumber.asyncore_socks != {})
@@ -500,18 +502,18 @@ class Aggregator(AbstractAggregator):
 
 
     def _delete_model(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+        if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             lmsg = "worker: delete %s: %s" % (model.type, model.node)
-            Aggregator.LOGGER.debug(lmsg)
+            AggregatorService.LOGGER.debug(lmsg)
         self.net_plumber.delete_rules(model)
         self.net_plumber.delete_wiring(model)
         self.net_plumber.delete_tables(model)
 
 
     def _add_model(self, model):
-        if Aggregator.LOGGER.isEnabledFor(logging.DEBUG):
+        if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             lmsg = "worker: apply %s: %s" % (model.type, model.node)
-            Aggregator.LOGGER.debug(lmsg)
+            AggregatorService.LOGGER.debug(lmsg)
 
         self.net_plumber.add_tables(model)
         self.net_plumber.add_wiring(model)
@@ -644,8 +646,8 @@ def main(argv):
         '{}/aggregator.log'.format(os.environ.get('log_dir', '/dev/shm/np'))
     )
 
-    Aggregator.LOGGER.addHandler(log_handler)
-    Aggregator.LOGGER.setLevel(log_level)
+    AggregatorService.LOGGER.addHandler(log_handler)
+    AggregatorService.LOGGER.setLevel(log_level)
 
     for np_server, np_port in servers:
         try:
@@ -655,13 +657,13 @@ def main(argv):
                 asyncore_sock = NodeLinkDispatcher(np_server, np_port)
                 asyncore_socks[(np_server, np_port)] = asyncore_sock
         except jsonrpc.RPCError as err:
-            Aggregator.LOGGER.error(err.message)
+            AggregatorService.LOGGER.error(err.message)
             eprint("could not connect to server: %s %s" % (np_server, np_port))
             _print_help()
             sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = Aggregator(socks, asyncore_socks=asyncore_socks, mapping=mapping)
+    AGGREGATOR = AggregatorService(socks, asyncore_socks=asyncore_socks, mapping=mapping)
 
     register_signals()
 
