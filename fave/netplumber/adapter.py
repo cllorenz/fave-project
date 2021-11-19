@@ -17,24 +17,28 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+""" This module implements an adapter from FaVe to NetPlumber.
+"""
+
 import itertools
 import logging
+import json
 
-from aggregator_singleton import AGGREGATOR
-from aggregator_abstract import TRACE
+from copy import deepcopy
+
+from aggregator.aggregator_abstract import TRACE
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.mapping import Mapping, FIELD_SIZES
-from netplumber.vector import copy_field_between_vectors, set_field_in_vector
-from netplumber.vector import align_headerspace
+from netplumber.vector import set_field_in_vector
 from netplumber.vector import Vector, HeaderSpace
 
 from util.ip6np_util import field_value_to_bitvector
+from util.print_util import eprint
+from rule.rule_model import Rule, Match, Forward, Rewrite, RuleField
 
-from rule.rule_model import Rule, Match, Forward, Miss, Rewrite, RuleField
 
-
-def calc_port(tab, model, port):
+def _calc_port(tab, model, port):
     """ Calculates a port number for a table.
 
     Keyword arguments:
@@ -47,8 +51,11 @@ def calc_port(tab, model, port):
     except KeyError:
         return (tab<<16)+1
 
+_TABLE_IDX_MAX = 2**32-1
+_RULE_IDX_MAX = 2**24-1
+_NEG_IDX_MAX = 2**12-1
 
-def calc_rule_index(r_idx, t_idx=0, n_idx=0):
+def _calc_rule_index(r_idx, t_idx=0, n_idx=0):
     """ Calculates the rule index within a table
 
     Keyword arguments:
@@ -57,27 +64,47 @@ def calc_rule_index(r_idx, t_idx=0, n_idx=0):
     n_idx -- an optional index for negation expanded rules
     """
 
-    assert t_idx < 2**32
-    assert r_idx < 2**24
-    assert n_idx < 2**12
+    assert t_idx <= _TABLE_IDX_MAX
+    assert r_idx <= _RULE_IDX_MAX
+    assert n_idx <= _NEG_IDX_MAX
 
     return (t_idx<<32)+(r_idx<<12)+n_idx
 
 
-def normalize_port(port):
-    """ Normalizes a port's name
+def _expand_field(field):
+    """ Expands a negated field to a set of vectors.
 
-    Keyword arguments:
-    port -- a port name
+    Keyword argument:
+    field -- a negated field to be expanded
     """
-    return port.replace('.', '_')
+
+    assert isinstance(field, RuleField)
+
+    vec = field_value_to_bitvector(field)
+    nvectors = []
+    for idx, bit in enumerate(vec.vector):
+        if bit == '0':
+            nvec = deepcopy(vec)
+            nvec.vector = "x"*idx + "1" + "x"*(nvec.length-idx-1)
+            nvectors.append(nvec)
+        elif bit == '1':
+            nvec = deepcopy(vec)
+            nvec.vector = "x"*idx + "0" + "x"*(nvec.length-idx-1)
+            nvectors.append(nvec)
+        else: # 'x'
+            continue
+
+    return nvectors
+
 
 
 class NetPlumberAdapter(object):
+    """ Class that maps and translates a FaVe model to a NetPlumber model.
+    """
 
-    def __init__(self, socks, logger, asyncore_socks={}, mapping=None):
+    def __init__(self, socks, logger, asyncore_socks=None, mapping=None):
         self.socks = socks
-        self.asyncore_socks = asyncore_socks
+        self.asyncore_socks = asyncore_socks if asyncore_socks else {}
         self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)
         self.mapping_keys = set(self.mapping.keys())
         self.tables = {}
@@ -91,21 +118,43 @@ class NetPlumberAdapter(object):
         self.logger = logger
 
     def stop(self):
+        """ Stops NetPlumber.
+        """
         jsonrpc.stop(self.socks)
 
     def dump_flows(self, odir):
+        """ Dumps flows.
+
+        Arguments:
+        odir -- the target directory
+        """
         jsonrpc.dump_flows(self.socks, odir)
 
     def dump_plumbing_network(self, odir):
+        """ Dumps plumbing network.
+
+        Arguments:
+        odir -- the target directory
+        """
         jsonrpc.dump_plumbing_network(self.socks, odir)
 
     def dump_pipes(self, odir):
+        """ Dumps pipes.
+
+        Arguments:
+        odir -- the target directory
+        """
         jsonrpc.dump_pipes(self.socks, odir)
 
     def dump_flow_trees(self, odir, keep_simple=False):
+        """ Dumps flow trees.
+
+        Arguments:
+        odir -- the target directory
+        """
         jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
 
-    def expand(self):
+    def _expand(self):
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length
         )
@@ -115,6 +164,15 @@ class NetPlumberAdapter(object):
         return self.generators.get(src.rstrip('1').rstrip('.'), [-1, 0, 0])[0]
 
     def add_links_bulk(self, links, use_dynamic=False):
+        """ Add a bulk of links.
+
+        Arguments:
+        links -- a list of link tuples
+
+        Keyword arguments:
+        use_dynamic -- use a dynamic instead of a round robin distribution (default: False)
+        """
+
         jsonrpc.add_links_bulk(
             self.socks,
             [(
@@ -125,46 +183,26 @@ class NetPlumberAdapter(object):
             use_dynamic=use_dynamic
         )
 
-    def add_link(self, src, dst):
-        jsonrpc.add_link(self.socks, self.global_port(src), self.global_port(dst))
+    def add_link(self, sport, dport):
+        """ Add a link.
+
+        Arguments:
+        sport -- the source port
+        dport -- the destination port
+        """
+        jsonrpc.add_link(self.socks, self.global_port(sport), self.global_port(dport))
 
 
     def remove_link(self, sport, dport):
-        jsonrpc.remove_link(self.net_plumber.sock, sport, dport)
+        """ Remove a link.
+
+        Arguments:
+        sport -- the source port
+        dport -- the destination port
+        """
+        jsonrpc.remove_link(self.socks, sport, dport)
         self.links[sport].remove(dport)
         if not self.links[sport]: del self.links[sport]
-
-
-    def extend_mapping(self, mapping):
-        assert isinstance(mapping, Mapping)
-
-        self.mapping.expand(mapping)
-
-
-    def _expand_field(self, field):
-        """ Expands a negated field to a set of vectors.
-
-        Keyword argument:
-        field -- a negated field to be expanded
-        """
-
-        assert isinstance(field, RuleField)
-
-        vec = field_value_to_bitvector(field)
-        nvectors = []
-        for idx, bit in enumerate(vec.vector):
-            if bit == '0':
-                nvec = dc(vec)
-                nvec.vector = "x"*idx + "1" + "x"*(nvec.length-idx-1)
-                nvectors.append(nvec)
-            elif bit == '1':
-                nvec = dc(vec)
-                nvec.vector = "x"*idx + "0" + "x"*(nvec.length-idx-1)
-                nvectors.append(nvec)
-            else: # 'x'
-                continue
-
-        return nvectors
 
 
     def _expand_negations(self, match):
@@ -179,9 +217,9 @@ class NetPlumberAdapter(object):
         self._update_mapping(fields)
 
         field_vectors = {}
-        for idx, field in enumerate(match):
+        for field in match:
             if field.negated:
-                field_vectors[field.name] = self._expand_field(field)
+                field_vectors[field.name] = _expand_field(field)
             else:
                 field_vectors[field.name] = [field_value_to_bitvector(field)]
 
@@ -208,7 +246,7 @@ class NetPlumberAdapter(object):
             for field in diff:
                 self.mapping.extend(field)
             self.mapping_keys.update(diff)
-            self.expand()
+            self._expand()
 
 
     def _build_vector(self, fields, preset='x'):
@@ -227,25 +265,35 @@ class NetPlumberAdapter(object):
 
 
     def add_slice(self, slicem):
+        """ Add a network slice.
+
+        Arguments:
+        slicem -- a network slice model
+        """
+
         sid = slicem.sid
 
-        ns_list = []
-        for ns in slicem.ns_list:
-            vec = self._build_vector(ns)
-            ns_list.append(vec)
-
-        for ns in slicem.ns_diff:
-            vec = self._build_vector(ns)
-            ns_diff.append(vec)
+        ns_list = [self._build_vector(ns) for ns in slicem.ns_list]
+        ns_diff = [self._build_vector(ns) for ns in slicem.ns_diff]
 
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug(
-                "worker: add slice %s to netplumber with list %s and diff %s", sid, ns_list, ns_diff if ns_diff else None
+                "worker: add slice %s to netplumber with list %s and diff %s",
+                sid,
+                ns_list,
+                ns_diff if ns_diff else None
             )
+
         jsonrpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
 
 
     def del_slice(self, sid):
+        """ Remove a network slice.
+
+        Arguments:
+        sid -- a slice ID
+        """
+
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug(
                 "worker: remove slice %s from netplumber", sid
@@ -253,7 +301,13 @@ class NetPlumberAdapter(object):
         jsonrpc.remove_slice(self.socks, sid)
 
 
-    def add_tables(self, model): #, prefixed=False):
+    def add_tables(self, model):
+        """ Add model tables.
+
+        Arguments:
+        model -- a device model
+        """
+
         self.model_types.setdefault(model.node, model.type)
 
         for table in model.tables:
@@ -271,7 +325,7 @@ class NetPlumberAdapter(object):
 
                 ports = []
                 for port in [port for port in model.ports if model.ports[port] == table]:
-                    portno = calc_port(idx, model, port)
+                    portno = _calc_port(idx, model, port)
 
                     ports.append(portno)
                     self.ports[port] = portno
@@ -285,6 +339,12 @@ class NetPlumberAdapter(object):
 
 
     def add_wiring(self, model):
+        """ Add internal model wirings.
+
+        Arguments:
+        model -- a device model
+        """
+
         # add links between tables
         for port1, port2 in model.wiring:
 
@@ -355,20 +415,22 @@ class NetPlumberAdapter(object):
                     ] else f for f in action.rewrite
                 ])
 
-                mask = self._build_vector([
-                    RuleField(
-                        f.name,
-                        "1"*FIELD_SIZES[f.name]
-                    ) if f.name in [
-                        'in_port', 'out_port', 'interface'
-                    ] else f for f in action.rewrite],
+                mask = self._build_vector(
+                    [
+                        RuleField(
+                            f.name,
+                            "1"*FIELD_SIZES[f.name]
+                        ) if f.name in [
+                            'in_port', 'out_port', 'interface'
+                        ] else f for f in action.rewrite
+                    ],
                     preset='0'
                 )
 
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
                     "worker: add rule %s to %s:%s:\n\t((%s) %s -> (%s) %s)",
-                    calc_rule_index(rid),
+                    _calc_rule_index(rid),
                     table,
                     self.tables[table],
                     [hex(self.global_port(p)) for p in rule.in_ports],
@@ -379,14 +441,14 @@ class NetPlumberAdapter(object):
             r_id = jsonrpc.add_rule(
                 self.socks,
                 self.tables[table],
-                calc_rule_index(rid),
+                _calc_rule_index(rid),
                 in_ports,
                 out_ports,
                 rvec.vector,
                 mask.vector,
                 rewrite.vector
             )
-            np_rid = calc_rule_index(rid, t_idx=tid)
+            np_rid = _calc_rule_index(rid, t_idx=tid)
             self.rule_ids.setdefault(np_rid, [])
             self.rule_ids[np_rid].append(r_id)
 
@@ -402,18 +464,20 @@ class NetPlumberAdapter(object):
 
             rvec = self._build_vector([
                 RuleField(f.name, '{:032b}'.format(
-                        self.global_port(f.value)
-                    )) if f.name in [
-                        'in_port', 'out_port', 'interface'
-                    ] else f for f in rule.match
+                    self.global_port(f.value)
+                )) if f.name in [
+                    'in_port', 'out_port', 'interface'
+                ] else f for f in rule.match
             ])
 
             rewrite = self._build_vector([])
 
-            mask = self._build_vector([
-                RuleField(
-                    p, '1'*FIELD_SIZES[p]
-                ) for p in ['in_port', 'out_port'] if p in self.mapping],
+            mask = self._build_vector(
+                [
+                    RuleField(
+                        p, '1'*FIELD_SIZES[p]
+                    ) for p in ['in_port', 'out_port'] if p in self.mapping
+                ],
                 preset='0'
             )
 
@@ -438,19 +502,23 @@ class NetPlumberAdapter(object):
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
                     "worker: add rule %s to %s:%s:\n\t(%s -> %s)",
-                    calc_rule_index(rid), table, tid, rvec.vector if rvec else "*", [hex(p) for p in out_ports]
+                    _calc_rule_index(rid),
+                    table,
+                    tid,
+                    rvec.vector if rvec else "*",
+                    [hex(p) for p in out_ports]
                 )
             r_id = jsonrpc.add_rule(
                 self.socks,
                 tid,
-                calc_rule_index(rid),
+                _calc_rule_index(rid),
                 in_ports,
                 out_ports,
                 rvec.vector,
                 mask.vector if mask else None,
                 rewrite.vector if rewrite else None
             )
-            np_rid = calc_rule_index(rid, t_idx=tid)
+            np_rid = _calc_rule_index(rid, t_idx=tid)
             self.rule_ids.setdefault(np_rid, [])
             self.rule_ids[np_rid].append(r_id)
 
@@ -504,12 +572,12 @@ class NetPlumberAdapter(object):
 
         res = []
         for nid, match in enumerate(matches):
-            np_rid = calc_rule_index(rid, t_idx=tid, n_idx=nid)
+            np_rid = _calc_rule_index(rid, t_idx=tid, n_idx=nid)
             self.rule_ids.setdefault(np_rid, [])
             res.append((
                 np_rid,
                 tid,
-                calc_rule_index(rid, n_idx=nid),
+                _calc_rule_index(rid, n_idx=nid),
                 in_ports,
                 out_ports,
                 match.vector if match else None,
@@ -526,7 +594,11 @@ class NetPlumberAdapter(object):
 
         if self.logger.isEnabledFor(logging.DEBUG):
             for rule in model.tables[table]:
-                self.logger.debug("worker: %s -> %s", [f.to_json() for f in rule.match], [a.to_json() for a in rule.actions])
+                self.logger.debug(
+                    "worker: %s -> %s",
+                    [f.to_json() for f in rule.match],
+                    [a.to_json() for a in rule.actions]
+                )
 
         for rule in model.tables[table]:
             prules = self._prepare_generic_rule(rule)
@@ -558,15 +630,33 @@ class NetPlumberAdapter(object):
 
 
     def add_rules(self, model):
+        """ Add model rules.
+
+        Arguments:
+        model -- a device model
+        """
+
         if self.logger.isEnabledFor(TRACE):
-            tables = "\n".join(["\t%s=%s" % (t, len(r)) for t,r in model.tables.iteritems()])
-            self.logger.trace("worker: update rules for model %s with tables:\n%s" % (model.node, tables))
+            tables = "\n".join(
+                ["\t%s=%s" % (t, len(r)) for t, r in model.tables.iteritems()]
+            )
+            self.logger.trace(
+                "worker: update rules for model %s with tables:\n%s" % (
+                    model.node,
+                    tables
+                )
+            )
 
         for table in [t for t in model.tables if t not in [
-            model.node+".pre_routing", model.node+".post_routing"
+                model.node+".pre_routing", model.node+".post_routing"
         ]]:
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("worker: add %s rules to table %s" % (len(model.tables[table]), table))
+                self.logger.debug(
+                    "worker: add %s rules to table %s" % (
+                        len(model.tables[table]),
+                        table
+                    )
+                )
 
             self.add_rules_batch(model.tables[table])
 
@@ -577,21 +667,20 @@ class NetPlumberAdapter(object):
             self._add_pre_routing_rules(model)
 
 
-    def _update_mapping_for_rule(rule):
-        self._update_mapping()
-
-
     def add_rules_batch(self, rules):
+        """ Add a batch of rules.
+
+        rules -- a list of rules
+        """
+
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("worker: add a batch of %s rules" % len(rules))
 
         fields = set()
         for rule in rules:
             fields.update([f.name for f in rule.match])
-            rw = set()
             for action in [a for a in rule.actions if isinstance(a, Rewrite)]:
-                rw.update([f.name for f in action.rewrite])
-            fields.update(rw)
+                fields.update(set([f.name for f in action.rewrite]))
         self._update_mapping(fields)
 
         batch = []
@@ -623,21 +712,33 @@ class NetPlumberAdapter(object):
 
 
     def delete_rules(self, model):
+        """ Deletes all rules from a device model.
+
+        Arguments:
+        model -- a device model
+        """
+
         for table in model.tables:
             tid = table
 
             only_rid = lambda x: x[0]
             for rid in [only_rid(x) for x in model.tables[table]]:
-                for r_id in self.rule_ids[calc_rule_index(rid, t_idx=tid)]:
+                for r_id in self.rule_ids[_calc_rule_index(rid, t_idx=tid)]:
                     if self.logger.isEnabledFor(logging.DEBUG):
                         self.logger.debug(
                             "worker: remove rule %s from netplumber", r_id
                         )
                     jsonrpc.remove_rule(self.socks, r_id)
-                del self.rule_ids[calc_rule_index(rid, t_idx=tid)]
+                del self.rule_ids[_calc_rule_index(rid, t_idx=tid)]
 
 
     def delete_wiring(self, model):
+        """ Remove all internal wiring of a device model.
+
+        Arguments:
+        model -- a device model
+        """
+
         prefix = lambda x: '.'.join(x.split('.')[:len(x.split('.'))-1])
 
         for port1, port2 in model.wiring:
@@ -649,39 +750,48 @@ class NetPlumberAdapter(object):
 
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug(
-                    "worker: remove link from %s to %s from netplumber", calc_port(idx1, model, port1), calc_port(idx2, model, port2)
+                    "worker: remove link from %s to %s from netplumber",
+                    _calc_port(idx1, model, port1),
+                    _calc_port(idx2, model, port2)
                 )
             jsonrpc.remove_link(
                 self.socks,
-                calc_port(idx1, model, port1),
-                calc_port(idx2, model, port2)
+                _calc_port(idx1, model, port1),
+                _calc_port(idx2, model, port2)
             )
 
 
     def delete_tables(self, model):
-        for table in model.tables:
-            name = table
+        """ Deletes all tables of a device model.
 
-            if not self.models[model.node].tables[table]:
+        Arguments:
+        model -- a device model
+        """
+
+        for table in model.tables:
+
+            if not self.tables[table]:
                 if self.logger.isEnabledFor(logging.DEBUG):
                     self.logger.debug(
-                        "worker: remove table %s with id %s from netplumber", name, self.tables[name]
+                        "worker: remove table %s with id %s from netplumber",
+                        table,
+                        self.tables[table]
                     )
-                jsonrpc.remove_table(self.socks, self.tables[name])
-                del self.tables[name]
+                jsonrpc.remove_table(self.socks, self.tables[table])
+                del self.tables[table]
 
 
     def _prepare_generator(self, model):
         name = model.node
         if name in self.generators:
-            self._delete_generator(name)
+            self.delete_generator(name)
 
         idx = self.fresh_table_index
         self.tables[name] = idx
         self.fresh_table_index += 1
 
         port = name+'.1'
-        portno = calc_port(idx, model, port)
+        portno = _calc_port(idx, model, port)
 
         self.ports[port] = portno
 
@@ -691,6 +801,12 @@ class NetPlumberAdapter(object):
 
 
     def add_generator(self, model):
+        """ Add a generator model.
+
+        Arguments:
+        model -- a generator model
+        """
+
         name, idx, portno, outgoing = self._prepare_generator(model)
 
         if self.logger.isEnabledFor(logging.DEBUG):
@@ -713,6 +829,15 @@ class NetPlumberAdapter(object):
 
 
     def add_generators_bulk(self, models, use_dynamic=False):
+        """ Add a bulk of generator models.
+
+        Arguments:
+        models -- a bulk of generator models
+
+        Keyword arguments:
+        use_dynamic -- use dynamic instead of round robin distribution (default: False)
+        """
+
         for model in models:
             self._update_mapping(set([f for f in model.fields.iterkeys()]))
 
@@ -750,6 +875,12 @@ class NetPlumberAdapter(object):
 
 
     def delete_generator(self, node):
+        """ Deletes a generator model.
+
+        Arguments:
+        node -- the generator's name
+        """
+
         only_sid = lambda x: x[1]
         sid = only_sid(self.generators[node])
 
@@ -789,7 +920,7 @@ class NetPlumberAdapter(object):
         keys = sorted(fields.keys())
         combinations = itertools.product(*(fields[k] for k in keys))
 
-        hs_list=[
+        hs_list = [
             self._build_vector([
                 RuleField(
                     f.name, '{:032b}'.format(self.global_port(f.value))
@@ -803,20 +934,26 @@ class NetPlumberAdapter(object):
 
 
     def add_probe(self, model):
+        """ Add a probe model.
+
+        Arguments:
+        model -- a probe model
+        """
+
         name = model.node
         if name in self.probes:
-            self._delete_probe(name)
+            self.delete_probe(name)
 
         idx = self.fresh_table_index
         self.tables[name] = idx
         self.fresh_table_index += 1
 
         port = name + '.1'
-        portno = calc_port(idx, model, port)
+        portno = _calc_port(idx, model, port)
 
         self.ports[port] = portno
 
-        filter_fields = self._build_headerspace(model.filter_fields)
+#        filter_fields = self._build_headerspace(model.filter_fields)
         test_fields = self._build_headerspace(model.test_fields)
 
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
@@ -856,23 +993,14 @@ class NetPlumberAdapter(object):
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
         if test_fields and test_path:
             test_expr = {
-#                "type": "and",
-#                "arg1" : {
-#                    "type" : "header",
-#                    "header" : test_hs
-#                },
-#                "arg2" : {
-                    "type" : "path",
-                    "pathlets" : test_path
-#                }
+                "type" : "path",
+                "pathlets" : test_path
             }
 
         # XXX: deactivate using flow expressions due to possible memory explosion in net_plumber
         elif test_fields:
             test_expr = {
                 "type" : "true"
-#                "type" : "header",
-#                "header" : test_hs
             }
 
         elif test_path:
@@ -898,8 +1026,8 @@ class NetPlumberAdapter(object):
                     f.name, '{:032b}'.format(self.global_port(f.value))
                 ) if f.name in [
                     'interface', 'in_port', 'out_port'
-                ] else f for f in  model.match]
-            ).vector,
+                ] else f for f in  model.match
+            ]).vector,
             filter_expr,
             test_expr,
             idx
@@ -908,12 +1036,18 @@ class NetPlumberAdapter(object):
 
 
     def delete_probe(self, node):
+        """ Delete a probe model
+
+        Arguments:
+        node -- the probe's name
+        """
+
         only_sid = lambda x: x[1]
         sid = only_sid(self.probes[node])
 
         # find links towards probe
         port2 = self.global_port(node+'.1')
-        sports = [sport for sport in self.links if port1 in self.ports[sport]]
+        sports = [sport for sport in self.links if port2 in self.ports[sport]]
 
         for port1 in sports:
             if self.logger.isEnabledFor(logging.DEBUG):
@@ -936,9 +1070,9 @@ class NetPlumberAdapter(object):
 
 
     def global_port(self, port):
-        try:
-            return self.ports[port]
-        except KeyError:
-            import pprint
-            pprint.pprint(self.ports, indent=2)
-            raise
+        """ Get global port ID.
+
+        Arguments:
+        port -- a port name
+        """
+        return self.ports[port]
