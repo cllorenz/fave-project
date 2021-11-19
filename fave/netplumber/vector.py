@@ -107,12 +107,21 @@ def set_field_in_vector(mapping, vector, field, value):
 
 
 def intersect_vectors(vec1, vec2):
+    """ Intersects two vectors.
+
+    Arguments:
+    vec1 -- a vector
+    vec2 -- another vector
+
+    Returns:
+    A vector that represents the intersection or None if the intersection is empty.
+    """
+
     assert len(vec1) == len(vec2)
 
     res = ''
 
-    for idx in range(len(vec1)):
-        bit1 = vec1[idx]
+    for idx, bit1 in enumerate(vec1):
         bit2 = vec2[idx]
         if bit1 == 'x': res += bit2
         elif bit2 == 'x': res += bit1
@@ -270,15 +279,20 @@ class HeaderSpace(object):
 
 
     @staticmethod
-    def from_str(s):
-        lists = s.rstrip('\n').split(' - ')
+    def from_str(str_):
+        """ Constructs header space from string representation.
+
+        Arguments:
+        str_ -- a string
+        """
+        lists = str_.rstrip('\n').split(' - ')
         hsd = None
         if len(lists) == 1:
             hsl = lists.pop()
         elif len(lists) == 2:
             hsl, hsd = lists
         else:
-            raise Exception("Cannot parse HeaderSpace: %s" % s)
+            raise Exception("Cannot parse HeaderSpace: %s" % str_)
 
         hsl = hsl.lstrip('(').rstrip(')')
         if hsd: hsd = hsd.lstrip('(').rstrip(')')
@@ -341,6 +355,12 @@ class HeaderSpace(object):
 
 
     def pprint(self, mapping=None):
+        """ Prints header space prettily.
+
+        Keyword arguments:
+        mapping -- a mapping to convert vectors to human readable values (default: None)
+        """
+
         from util.ip6np_util import bitvector_to_field_value
 
         fields = list([f for f in mapping if f != 'length'])
