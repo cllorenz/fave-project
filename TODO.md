@@ -35,8 +35,6 @@
 ### NetPlumber
 
  - enable output ports to be used in flowexp expressions
- - Fix Rule Reachability and Shadowing detection which slows down rule insertion
-in large tables tremendously
  - improve test coverage
  - bring NetPlumber to C++11 (or higher) to improve readability:
     - use lambdas where suitable
@@ -50,10 +48,6 @@ in large tables tremendously
     - benchmarks:
       - [DONE] IFI
       - [ ] UP
- - Unify the empty set for arrays by a NULL representation, i.e., whenever a
-'z' is found remove the array. Pros: makes checks for the empty set more
-efficient and the memory footprint might be lowered. Cons: might break stuff at
-funny places... which leads to the question: why is that code even there?
  - Replace strange hs representation by simpler $A - A_d$ data structure
     - pass unit tests
     - meaningful debug output for unit tests
@@ -66,11 +60,6 @@ funny places... which leads to the question: why is that code even there?
  - documentation
    - abstract (and static) doc
    - generated low level docs from code
-
-### AP-Verifyer
-
- - better integration with IFI benchmark
- - better reporting: check reachability trees against policy-matrix
 
 ### AD6
 
