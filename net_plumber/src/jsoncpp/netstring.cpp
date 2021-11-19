@@ -36,7 +36,7 @@ namespace netstring
     unsigned long len = str.length();
     char strLen[32];
     std::string ret;
-    
+
     /* format of a netstring is [len]:[string], */
     sprintf(strLen, "%lu:", len);
     ret.append(strLen);
@@ -46,7 +46,7 @@ namespace netstring
     return ret;
   }
 
-  std::string decode(const std::string& str) throw(netstring::NetstringException) 
+  std::string decode(const std::string& str)
   {
     unsigned long len = 0;
     size_t index = 0; /* position of ":" */
@@ -61,7 +61,7 @@ namespace netstring
       /* error */
       throw NetstringException("netstring: missing ':' character");
     }
-    
+
     index2 = str.find_last_of(",");
     if(index2 == std::string::npos)
     {
@@ -91,7 +91,7 @@ namespace netstring
     ret.assign(str, index + 1, len);
     return ret;
   }
-  
+
   NetstringException::NetstringException(const std::string& msg) throw()
   {
     m_msg = msg;

@@ -47,7 +47,7 @@ CPP_DEPS += \
 src/jsoncpp/%.o: ../src/jsoncpp/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -DJSON_IS_AMALGAMATION -I/usr/include/ $(GCFLAGS) -std=c++14 -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	g++ -DJSON_IS_AMALGAMATION -I/usr/include/ $(GCFLAGS) -std=c++17 -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
