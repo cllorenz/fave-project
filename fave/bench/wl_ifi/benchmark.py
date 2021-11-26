@@ -28,13 +28,16 @@ from bench.generic_benchmark import GenericBenchmark
 
 
 class IFIBenchmark(GenericBenchmark):
+    """ This class provides the IFI benchmark.
+    """
+
     def _pre_preparation(self):
         os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
 
 
 
 if __name__ == '__main__':
-    IFIBenchmark("bench/wl_ifi").run()
+    IFIBenchmark("bench/wl_ifi", logger=logging.getLogger('ifi')).run()
 
 
 #        serverlist = []
