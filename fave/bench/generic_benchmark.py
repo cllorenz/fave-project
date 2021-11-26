@@ -38,7 +38,7 @@ class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
 
-    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1):
+    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1, use_interweaving=True):
         self.prefix = prefix
         files = {
             "inventory" : "inventory.json",
@@ -61,6 +61,7 @@ class GenericBenchmark(object):
 
         self.use_unix = use_unix
         self.use_tcp_np = use_tcp_np
+        self.use_interweaving = use_interweaving
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -159,7 +160,9 @@ class GenericBenchmark(object):
         with open(self.files['topology'], 'r') as raw_topology:
             devices, links = json.loads(raw_topology.read()).values()
 
-            create_topology(devices, links, use_unix=self.use_unix)
+            create_topology(
+                devices, links, use_unix=self.use_unix, interweaving=self.use_interweaving
+            )
         self.logger.info("topology sent to fave")
 
 
