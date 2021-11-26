@@ -1,34 +1,80 @@
+#!/usr/bin/env python2
+
+# -*- coding: utf-8 -*-
+
+# Copyright 2021 Lukas Golombek <lgolombe@uni-potsdam.de>
+
+# This file is part of FaVe.
+
+# FaVe is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# FaVe is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
+
+# Authors: lgolombe@uni-potsdam.de (Lukas Golombek)
+#          cllorenz@uni-potsdam.de (Claas Lorenz)
+
+""" This module provides utilities to dynamically distribute FaVe workloads over
+    a cluster of NetPlumber instances.
+"""
+
 import Queue
 import asyncore
 import socket
-import sys
-import time
 import logging
 
-node_link_queue = Queue.Queue()
-node_link_dict = {}
+NODE_LINK_QUEUE = Queue.Queue()
+NODE_LINK_DICT = {}
 
 def add_node_to_dict(idx, node):
-    node_link_dict.setdefault(idx, {})
-    node_link_dict[idx]['node'] = node
+    """ Store a node for distribution.
+
+    Arguments:
+    idx -- a pair index
+    node -- the node's send message
+    """
+
+    NODE_LINK_DICT.setdefault(idx, {})
+    NODE_LINK_DICT[idx]['node'] = node
 
 def add_link_to_dict(idx, link):
-    node_link_dict.setdefault(idx, {})
-    node_link_dict[idx]['link'] = link
+    """ Store a link for distribution.
 
-def prepare_node_link_queue():
-    for pair in node_link_dict.values():
-        node_link_queue.put((pair['node'], pair['link']))
+    Arguments:
+    idx -- a pair index
+    link -- the link's send message
+    """
+
+    NODE_LINK_DICT.setdefault(idx, {})
+    NODE_LINK_DICT[idx]['link'] = link
+
+def _prepare_node_link_queue():
+    for pair in NODE_LINK_DICT.values():
+        NODE_LINK_QUEUE.put((pair['node'], pair['link']))
 
 def distribute_nodes_and_links():
-    prepare_node_link_queue()
+    """ Distribute stored nodes and links dynamically.
+    """
+
+    _prepare_node_link_queue()
     for _fd, obj in asyncore.socket_map.iteritems():
         obj.send_next_pair()
     asyncore.loop()
 
 
 class NodeLinkDispatcher(asyncore.dispatcher):
-    
+    """ An asyncore dispatcher that dynamically distributes nodes and links over
+        a cluster of NetPlumber instances.
+    """
+
     def __init__(self, host, port, logger=None):
         asyncore.dispatcher.__init__(self)
 
@@ -58,14 +104,19 @@ class NodeLinkDispatcher(asyncore.dispatcher):
         self.raw_msg_buf = ''
 
     def send_next_pair(self):
+        """ Sends the next node-link-pair
+        """
+
         try:
             # Try sending a message if there are still open messages
-            node_msg, link_msg = node_link_queue.get_nowait()
+            node_msg, link_msg = NODE_LINK_QUEUE.get_nowait()
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("Sending node message: {}".format(node_msg))
+                debug_msg = "Sending node message: {}".format(node_msg)
+                self.logger.debug(debug_msg)
             self.send(node_msg + '\n')
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("Sending link message: {}".format(link_msg))
+                debug_msg = "Sending link message: {}".format(link_msg)
+                self.logger.debug(debug_msg)
             self.send(link_msg + '\n')
             # Add "message expected" signal to recv queue
             self.recv_queue.put(node_msg)
@@ -74,31 +125,33 @@ class NodeLinkDispatcher(asyncore.dispatcher):
         except Queue.Empty:
             if self.recv_queue.empty():
                 if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug(
-                        "Closing send_next_pair {}".format((self.host, self.port))
-                    )
+                    debug_msg = "Closing send_next_pair {}".format((self.host, self.port))
+                    self.logger.debug(debug_msg)
                 self.close()
 
     def handle_read(self):
-        results = self.recv_whole_buffer()
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug(
-                "Receiving ({}): {}".format((self.host, self.port), results)
-            )
+        """ Handle response messages.
+        """
 
-        for result in results:
+        results = self._recv_whole_buffer()
+        if self.logger.isEnabledFor(logging.DEBUG):
+            debug_msg = "Receiving ({}): {}".format((self.host, self.port), results)
+            self.logger.debug(debug_msg)
+
+        for _result in results:
             try:
                 # Remove one entry for an expected message
                 self.recv_queue.get_nowait()
             except Queue.Empty:
                 # no messages expected anymore, close the channel
                 if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("Closing {}".format((self.host, self.port)))
+                    debug_msg = "Closing {}".format((self.host, self.port))
+                    self.logger.debug(debug_msg)
 
         # channel still open, try sending another message
         self.send_next_pair()
 
-    def recv_whole_buffer(self):
+    def _recv_whole_buffer(self):
         results = []
         raw = self.recv(4096)
         chunk = self.raw_msg_buf + raw

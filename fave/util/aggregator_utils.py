@@ -62,11 +62,27 @@ def connect_to_fave(server, port=0):
 
 
 def fave_sendmsg(conn, data):
+    """ Send a message to FaVe.
+
+    Arguments:
+    conn -- a connected socket
+    data -- the message as string
+    """
+
     msg = struct.pack('>I', len(data)) + data
     return conn.sendall(msg)
 
 
 def fave_recvmsg(conn, logger=None):
+    """ Receive a message from FaVe.
+
+    Arguments:
+    conn -- a connected socket
+
+    Keyword arguments:
+    logger -- a logger instance (default: None)
+    """
+
     raw_msglen = conn.recv(4)
     if not raw_msglen:
         logger.warn("fave_recvmsg: failed to read message length")

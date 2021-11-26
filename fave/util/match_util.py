@@ -58,7 +58,5 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'packet.ipv6.icmpv6.type' : "packet.ipv6.icmpv6.type",
     'module.ipv6header.header' : "module.ipv6header.header",
     'packet.upper.dport' : "packet.upper.dport",
-    'packet.upper.sport' : "packet.upper.sport",
-    'packet.upper.dport' : "packet.upper.dport",
     'packet.upper.sport' : "packet.upper.sport"
 }

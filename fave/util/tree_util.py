@@ -67,8 +67,8 @@ class Tree(list):
             elem.parent = self
             self.append(elem)
             return elem
-        else:
-            return self.add_child(Tree(value=elem))
+
+        return self.add_child(Tree(value=elem))
 
 
     def add_children(self, elems):
@@ -117,17 +117,19 @@ class Tree(list):
         """ Fetches the tree's first child.
         """
 
-        if len(self) > 0:
+        try:
             return self[0]
-        return None
+        except IndexError:
+            return None
 
 
     def get_last(self):
         """ Fetches the tree's last child.
         """
-        if len(self) > 0:
+        try:
             return self[len(self)-1]
-        return None
+        except IndexError:
+            return None
 
 
     def __eq__(self, obj):

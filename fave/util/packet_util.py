@@ -328,6 +328,15 @@ def portrange_to_prefix_list(lower, upper):
 
 
 def portrange_to_prefixed_bitvectors(lower, upper):
+    """ Transforms a port range to a set of prefixed bit vectors.
+
+    Arguments:
+    lower -- the lower port
+    upper -- the upper port
+    """
+
+    assert (lower <= upper)
+
     prefixes = portrange_to_prefix_list(lower, upper)
 
     res = []

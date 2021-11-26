@@ -117,7 +117,6 @@ def _normalize_icmpv6_type(icmpv6_type):
     }[icmpv6_type]
 
 
-# TODO: implement ranges
 def _normalize_rt_type(rt_type):
     try:
         lrt, rrt = rt_type.split(':')
@@ -135,7 +134,6 @@ def _normalize_ipv6header(header):
 def _normalize_frag_id(frag_id):
     return "{0:032b}".format(frag_id)
 
-# TODO: implement ranges
 def _normalize_ah_spi(ah_spi):
     try:
         lspi, rspi = ah_spi.split(':')
@@ -238,9 +236,20 @@ def field_value_to_bitvector(field):
 
 
 def bitvector_to_field_value(vector, field, ignore_bit='x', printable=False):
+    """ Translates a bitvector to a field value
+
+    Arguments:
+    vector -- the bitvector
+    field -- the field name
+
+    Keyword arguments:
+    ignore_bit -- overwrite the ignore bit of the vector (default: 'x')
+    printable -- return hex representation if the field is a port type (default: False)
+    """
+
     assert len(vector) == FIELD_SIZES[field]
 
-    if (ignore_bit * FIELD_SIZES[field] == vector):
+    if ignore_bit * FIELD_SIZES[field] == vector:
         return None
 
     try:
@@ -256,7 +265,7 @@ def bitvector_to_field_value(vector, field, ignore_bit='x', printable=False):
     if all([bit in ['0', '1'] for bit in vector]):
         if printable and field in ['interface', 'in_port', 'out_port']:
             return hex(int(vector, 2))
-        else:
-            return str(int(vector, 2))
-    else:
-        return None
+
+        return str(int(vector, 2))
+
+    return None
