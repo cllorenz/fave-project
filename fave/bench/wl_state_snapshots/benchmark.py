@@ -11,10 +11,11 @@ import argparse
 import sys
 
 from util.model_util import TABLE_MAX
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.bench_utils import create_topology, add_routes, add_sources, add_policies
 from devices.snapshot_packet_filter import StateCommand
 from rule.rule_model import Rule, Match, RuleField, Forward
-from bench.bench_utils import create_topology, add_routes, add_sources, add_policies
 
 def _random_port():
     return random.randint(0, 65535)
@@ -45,8 +46,8 @@ def _generate_request(node, i):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-f', '--frequency', 
-        type=int, dest="frequency", default=10, 
+        '-f', '--frequency',
+        type=int, dest="frequency", default=10,
         help="the number of requests per second in Hertz (default: 10)"
     )
     parser.add_argument(

@@ -3,7 +3,7 @@
 """ This module benchmarks FaVe using an generic workload.
 """
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
+from util.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
 
 
 TOPOLOGY = "bench/wl_generic_fw/topology.json"

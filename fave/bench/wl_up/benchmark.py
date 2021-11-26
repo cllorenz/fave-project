@@ -12,8 +12,7 @@ import json
 import netplumber.dump_np as dumper
 import test.check_flows as checker
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_sources, add_policies
-
+from util.bench_utils import create_topology, add_rulesets, add_routes, add_sources, add_policies
 from util import parallel_utils
 
 LOGGER = logging.getLogger("up")
@@ -99,10 +98,10 @@ if __name__ == "__main__":
     LOGGER.info("generated topology, routes, and probes.")
 
     import socket
-    
-    
+
+
     serverlist = []
-    
+
     try:
         # get hosts from slurm environment variables
         serverlist = parallel_utils.get_serverlist()
@@ -116,7 +115,7 @@ if __name__ == "__main__":
         print(hostname)
         host_ip = socket.gethostbyname(hostname)
         print(host_ip)
-        
+
         cur_port = int(os.environ.get('start_port', 44001))
 
         tds = 1
@@ -131,7 +130,7 @@ if __name__ == "__main__":
                 serverlist.append({'host': host_ip, 'port': str(cur_port + no)})
             else:
                 serverlist.append('/dev/shm/np%d.socket' % no)
-        
+
         for server in serverlist:
             if use_tcp_np:
                 sockopt = "-s %s -p %s" % (server['host'], server['port'])

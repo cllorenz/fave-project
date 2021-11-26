@@ -10,10 +10,11 @@ import argparse
 import sys
 
 from util.model_util import TABLE_MAX
-from util.aggregator_utils import connect_to_fave, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX, fave_sendmsg
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from util.bench_utils import create_topology
 from devices.switch import SwitchCommand
 from rule.rule_model import Rule, Match, RuleField, Forward
-from bench.bench_utils import create_topology
 
 def _random_port():
     return random.randint(0, 65535)
@@ -49,8 +50,8 @@ def _generate_large_rule(node, i):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-c', '--count', 
-        type=int, dest="count", default=10, 
+        '-c', '--count',
+        type=int, dest="count", default=10,
         help="the rule count that is inserted before the expansion (default: 10)"
     )
     parser.add_argument(

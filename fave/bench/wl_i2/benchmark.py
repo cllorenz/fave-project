@@ -5,8 +5,8 @@ import json
 
 from netplumber.mapping import Mapping
 from bench.np_preparation import prepare_benchmark
-from bench.bench_utils import create_topology, add_routes
 from bench.bench_helpers import array_ipv4_to_cidr, array_vlan_to_number, array_to_int
+from util.bench_utils import create_topology, add_routes
 
 ROLES='bench/wl_i2/roles.txt'
 POLICY='bench/wl_i2/reach.txt'

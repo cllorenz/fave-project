@@ -5,8 +5,7 @@
 
 import argparse
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_policies
-
+from util.bench_utils import create_topology, add_rulesets, add_routes, add_policies
 from util import parallel_utils
 
 IFI = {

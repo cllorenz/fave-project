@@ -12,7 +12,7 @@ import json
 import netplumber.dump_np as dumper
 import test.check_flows as checker
 
-from bench.bench_utils import create_topology, add_rulesets, add_routes, add_sources, add_policies
+from util.bench_utils import create_topology, add_rulesets, add_routes, add_sources, add_policies
 
 LOGGER = logging.getLogger("example")
 LOGGER.addHandler(logging.StreamHandler(sys.stdout))
