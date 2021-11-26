@@ -38,7 +38,7 @@ class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
 
-    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None):
+    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1):
         self.prefix = prefix
         files = {
             "inventory" : "inventory.json",
@@ -72,6 +72,8 @@ class GenericBenchmark(object):
             filename="%s/fave.log" % TMPDIR,
             filemode='w'
         )
+
+        self.threads = threads
 
     def _pre_preparation(self):
         pass
@@ -122,18 +124,24 @@ class GenericBenchmark(object):
 
     def _startup(self):
         self.logger.info("starting netplumber...")
-        sockopt = "-u /dev/shm/np1.socket" if (
-            self.use_unix and not self.use_tcp_np
-        ) else "-s 127.0.0.1 -p 44001"
-        os.system("bash scripts/start_np.sh -l %s/np.conf %s" % (self.prefix, sockopt))
+        for no in range(1,self.threads+1):
+            if self.use_unix and not self.use_tcp_np:
+                sockopt = "-u /dev/shm/np%d.socket" % no
+            else:
+                sockopt = "-s 127.0.0.1 -p %d" % 44001+no
+
+            os.system("bash scripts/start_np.sh -l %s/np.conf %s" % (self.prefix, sockopt))
         self.logger.info("started netplumber.")
 
         self.logger.info("starting aggregator...")
+        aggr_args = [
+            "/dev/shm/np%d.socket" % no for no in range(1, self.threads+1)
+        ] if self.use_unix else [
+            "127.0.0.1:%d" % no for no in range(44001, 44001+self.threads)
+        ]
         os.system(
             "bash scripts/start_aggr.sh -S %s %s" % (
-                "/dev/shm/np1.socket" if (
-                    self.use_unix and not self.use_tcp_np
-                ) else "127.0.0.1:44001",
+                ','.join(aggr_args),
                 "-u" if self.use_unix else ""
             )
         )
@@ -184,14 +192,13 @@ class GenericBenchmark(object):
 
 
     def _compliance(self):
-        with open(self.files['checks'], 'r') as raw_checks:
-            checks = json.loads(raw_checks.read())
-
         self.logger.info("wait for fave")
 
         self.logger.info("checking flow trees...")
         os.system("python2 misc/await_fave.py")
-        checker.main(["-b", "-r", "-c", ";".join(checks)])
+        os.system("bash scripts/check_parallel.sh %s %s %s" % (
+            self.files['checks'], self.threads, "np_dump"
+        ))
         self.logger.info("checked flow trees.")
 
         os.system("rm -f np_dump/.lock")
