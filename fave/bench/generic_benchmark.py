@@ -1,0 +1,211 @@
+#!/usr/bin/env python2
+
+# -*- coding: utf-8 -*-
+
+# Copyright 2021 Claas Lorenz <claas_lorenz@genua.de>
+
+# This file is part of FaVe.
+
+# FaVe is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# FaVe is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
+
+""" This module provides a generic benchmark class.
+"""
+
+import os
+import sys
+import logging
+import json
+
+import test.check_flows as checker
+import netplumber.dump_np as dumper
+
+from util.bench_utils import create_topology, add_routes, add_sources, add_policies
+
+TMPDIR = "/dev/shm/np"
+
+class GenericBenchmark(object):
+    """ This class provides a canonical benchmark and can be customized by sub classes.
+    """
+
+    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None):
+        self.prefix = prefix
+        files = {
+            "inventory" : "inventory.json",
+            "topology" : "topology.json",
+            "routes" : "routes.json",
+            "sources" : "sources.json",
+            "policies" : "policies.json",
+            "checks" : "checks.json",
+            "reach_csv" : "reachability.csv",
+            "reach_json" : "reachable.json",
+            "roles_services" : "roles_and_services.txt",
+            "reach_policies" : "reach.txt"
+        }
+        if extra_files:
+            files.update(extra_files)
+
+        self.files = {
+            k : "%s/%s" % (prefix, v) for k, v in files.iteritems()
+        }
+
+        self.use_unix = use_unix
+        self.use_tcp_np = use_tcp_np
+
+        self.logger = logger if logger else logging.getLogger(prefix)
+        self.logger.addHandler(logging.StreamHandler(sys.stdout))
+        self.logger.setLevel(logging.DEBUG)
+
+        logging.basicConfig(
+            format='%(asctime)s [%(name)s.%(levelname)s] - %(message)s',
+            level=logging.INFO,
+            filename="%s/fave.log" % TMPDIR,
+            filemode='w'
+        )
+
+    def _pre_preparation(self):
+        pass
+
+
+    def _preparation(self):
+        os.system("mkdir -p %s" % TMPDIR)
+        self.logger.info("deleting old logs and measurements...")
+        os.system("rm -rf %s/*" % TMPDIR)
+        self.logger.info("deleted old logs and measurements.")
+        os.system("rm -f %s/../*.socket" % TMPDIR)
+
+        self.logger.info("generate policy matrix...")
+        os.system(
+            "python2 ../policy-translator/policy_translator.py " + ' '.join([
+                "--csv", "--out", self.files['reach_csv'],
+                self.files['roles_services'],
+                self.files['reach_policies']
+            ])
+        )
+        self.logger.info("generated policy matrix.")
+
+        self.logger.info("generate inventory...")
+        os.system("python2 %s/inventorygen.py" % self.prefix)
+        self.logger.info("generated inventory.")
+
+        self.logger.info("convert policy matrix to checks...")
+        os.system(
+            ("python2 %s/reach_csv_to_checks.py " % self.prefix) + ' '.join([
+                '-p', self.files['reach_csv'],
+                '-m', self.files['inventory'],
+                '-c', self.files['checks'],
+                '-j', self.files['reach_json']
+            ])
+        )
+        self.logger.info("converted policy matrix.")
+
+        self.logger.info("generate topology, routes, and probes...")
+        os.system("python2 %s/topogen.py" % self.prefix)
+        os.system("python2 %s/routegen.py" % self.prefix)
+        os.system("python2 %s/policygen.py" % self.prefix)
+        self.logger.info("generated topology, routes, and probes.")
+
+
+    def _post_preparation(self):
+        pass
+
+
+    def _startup(self):
+        self.logger.info("starting netplumber...")
+        sockopt = "-u /dev/shm/np1.socket" if (
+            self.use_unix and not self.use_tcp_np
+        ) else "-s 127.0.0.1 -p 44001"
+        os.system("bash scripts/start_np.sh -l %s/np.conf %s" % (self.prefix, sockopt))
+        self.logger.info("started netplumber.")
+
+        self.logger.info("starting aggregator...")
+        os.system(
+            "bash scripts/start_aggr.sh -S %s %s" % (
+                "/dev/shm/np1.socket" if (
+                    self.use_unix and not self.use_tcp_np
+                ) else "127.0.0.1:44001",
+                "-u" if self.use_unix else ""
+            )
+        )
+        self.logger.info("started aggregator.")
+
+
+    def _teardown(self):
+        self.logger.info("stopping fave and netplumber...")
+        os.system("bash scripts/stop_fave.sh %s" % ("-u" if self.use_unix else ""))
+        self.logger.info("fave ordered to stop")
+
+
+    def _initialization(self):
+        self.logger.info("initialize topology...")
+        with open(self.files['topology'], 'r') as raw_topology:
+            devices, links = json.loads(raw_topology.read()).values()
+
+            create_topology(devices, links, use_unix=self.use_unix)
+        self.logger.info("topology sent to fave")
+
+
+        self.logger.info("initialize routes...")
+        with open(self.files['routes'], 'r') as raw_routes:
+            routes = json.loads(raw_routes.read())
+
+            add_routes(routes, use_unix=self.use_unix)
+        self.logger.info("routes sent to fave")
+
+        self.logger.info("initialize probes...")
+        with open(self.files['policies'], 'r') as raw_policies:
+            links, probes = json.loads(raw_policies.read()).values()
+
+            add_policies(probes, links, use_unix=self.use_unix)
+        self.logger.info("probes sent to fave")
+
+
+    def _reachability(self):
+        self.logger.info("initialize sources...")
+        with open(self.files['sources'], 'r') as raw_sources:
+            sources, links = json.loads(raw_sources.read()).values()
+            add_sources(sources, links, use_unix=self.use_unix)
+        self.logger.info("sources sent to fave")
+
+
+        self.logger.info("dumping fave and netplumber...")
+        dumper.main(["-atnp%s" % ("u" if self.use_unix else "")])
+        self.logger.info("fave ordered to dump")
+
+
+    def _compliance(self):
+        with open(self.files['checks'], 'r') as raw_checks:
+            checks = json.loads(raw_checks.read())
+
+        self.logger.info("wait for fave")
+
+        self.logger.info("checking flow trees...")
+        os.system("python2 misc/await_fave.py")
+        checker.main(["-b", "-r", "-c", ";".join(checks)])
+        self.logger.info("checked flow trees.")
+
+        os.system("rm -f np_dump/.lock")
+
+
+    def run(self):
+        """ Runs the benchmark.
+        """
+
+        self._pre_preparation()
+        self._preparation()
+        self._post_preparation()
+        self._startup()
+        self._initialization()
+        self._reachability()
+        self._teardown()
+        self._compliance()
