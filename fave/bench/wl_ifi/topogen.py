@@ -7,7 +7,8 @@ import json
 
 from bench.wl_ifi.inventory import SUBNETS, WITH_IP, WITHOUT_IP
 
-OFILE="bench/wl_ifi/topology.json"
+TOPOLOGY="bench/wl_ifi/topology.json"
+SOURCES="bench/wl_ifi/sources.json"
 INVENTORY="bench/wl_ifi/inventory.json"
 
 if __name__ == '__main__':
@@ -21,10 +22,13 @@ if __name__ == '__main__':
     devices = [
         # central IFI router with 17 ports
         ("ifi", "router", 17, "bench/wl_ifi/acls.txt"),
+        # a switch and generator representing the subnet for external services
+        ("external.ifi", "switch", 3, None)
+    ]
+
+    sources = [
         # a generator representing the Internet
         ("source.Internet", "generator", ["ipv4_src=%s" % domain_to_ip["Internet"]]),
-        # a switch and generator representing the subnet for external services
-        ("external.ifi", "switch", 3, None),
         ("source.external.ifi", "generator", [
             "ipv4_src=%s" % domain_to_ip["external.ifi"],
             "vlan=%s" % domain_to_vlan["external.ifi"]
@@ -32,7 +36,7 @@ if __name__ == '__main__':
     ]
 
     # generators representing the subnets with given IP addresses
-    devices.extend([
+    sources.extend([
         (
             "source.%s" % sub,
             "generator",
@@ -43,7 +47,7 @@ if __name__ == '__main__':
         ) for sub in WITH_IP
     ])
 
-    devices.extend([
+    sources.extend([
         (
             "source.%s" % sub,
             "generator",
@@ -62,9 +66,11 @@ if __name__ == '__main__':
     # connect the university proxy to port 1 of the central router
     # connect the Internet to port 1 of the central router
     links = [
-        ("source.Internet.1", "ifi.1", True),
         ("external.ifi.1", "ifi.2", False),
-        ("ifi.2", "external.ifi.1", False),
+        ("ifi.2", "external.ifi.1", False)
+    ]
+    source_links = [
+        ("source.Internet.1", "ifi.1", True),
         ("source.external.ifi.1", "external.ifi.2", True)
     ]
 
@@ -81,14 +87,12 @@ if __name__ == '__main__':
     ])
 
     # connect all subnet generators to port 2 of the respective switch
-    links.extend([
+    source_links.extend([
         ("source.%s.1" % sub, "%s.2" % sub, True) for sub in SUBNETS
     ])
 
-    ifi = {
-        'devices' : devices,
-        'links' : links
-    }
+    with open(TOPOLOGY, 'w') as of:
+        of.write(json.dumps({'devices' : devices, 'links' : links}, indent=2))
 
-    with open(OFILE, 'w') as of:
-        of.write(json.dumps(ifi, indent=2))
+    with open(SOURCES, 'w') as of:
+        of.write(json.dumps({'devices' : sources, 'links' : source_links}, indent=2))
