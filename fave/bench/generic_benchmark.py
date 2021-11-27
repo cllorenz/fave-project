@@ -161,7 +161,7 @@ class GenericBenchmark(object):
             devices, links = json.loads(raw_topology.read()).values()
 
             create_topology(
-                devices, links, use_unix=self.use_unix, interweaving=self.use_interweaving
+                devices, links, use_unix=self.use_unix, interweave=self.use_interweaving
             )
         self.logger.info("topology sent to fave")
 
