@@ -20,7 +20,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 # Authors: lgolombe@uni-potsdam.de (Lukas Golombek)
-#          cllorenz@uni-potsdam.de (Claas Lorenz)
+#          claas_lorenz@genua.de (Claas Lorenz)
 
 """ This module provides utilities to manage NetPlumber instances in a SLURM
     managed cluster of compute nodes.
