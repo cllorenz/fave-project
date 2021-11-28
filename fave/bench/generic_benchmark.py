@@ -39,7 +39,19 @@ class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
 
-    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1, use_interweaving=True, strict=False):
+    def __init__(
+            self,
+            prefix,
+            extra_files=None,
+            use_unix=True,
+            use_tcp_np=False,
+            logger=None,
+            threads=1,
+            use_interweaving=True,
+            strict=False,
+            use_internet=True,
+            ip=None
+    ):
         self.prefix = prefix
         files = {
             "inventory" : "inventory.json",
@@ -51,19 +63,23 @@ class GenericBenchmark(object):
             "reach_csv" : "reachability.csv",
             "reach_json" : "reachable.json",
             "roles_services" : "roles_and_services.txt",
-            "reach_policies" : "reach.txt"
+            "reach_policies" : "reach.txt",
+            "np_config" : 'np.conf'
         }
-        if extra_files:
-            files.update(extra_files)
 
         self.files = {
             k : "%s/%s" % (prefix, v) for k, v in files.iteritems()
         }
 
+        if extra_files:
+            self.files.update(extra_files)
+
         self.use_unix = use_unix
         self.use_tcp_np = use_tcp_np
         self.use_interweaving = use_interweaving
         self.strict = strict
+        self.use_internet = use_internet
+        self.ip = ip
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -95,7 +111,9 @@ class GenericBenchmark(object):
         self.logger.info("generate policy matrix...")
         os.system(
             "python2 ../policy-translator/policy_translator.py " + ' '.join(
-                (["--strict"] if self.strict else []) + [
+                (["--strict"] if self.strict else []) +
+                (["--no-internet"] if not self.use_internet else []) +
+                (["--roles %s" % self.files['roles_json']] if 'roles_json' in self.files else []) + [
                     "--csv", "--out", self.files['reach_csv'],
                     self.files['roles_services'],
                     self.files['reach_policies']
@@ -136,9 +154,9 @@ class GenericBenchmark(object):
             if self.use_unix and not self.use_tcp_np:
                 sockopt = "-u /dev/shm/np%d.socket" % no
             else:
-                sockopt = "-s 127.0.0.1 -p %d" % 44001+no
+                sockopt = "-s 127.0.0.1 -p %d" % (44000+no)
 
-            os.system("bash scripts/start_np.sh -l %s/np.conf %s" % (self.prefix, sockopt))
+            os.system("bash scripts/start_np.sh -l %s %s" % (self.files['np_config'], sockopt))
         self.logger.info("started netplumber.")
 
         self.logger.info("starting aggregator...")

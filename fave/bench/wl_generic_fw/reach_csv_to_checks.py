@@ -39,6 +39,9 @@ if __name__ == '__main__':
         elif arg == '-j':
             reach_file = opt
 
+        elif arg == '-m':
+            pass
+
         elif arg == '-p':
             policy_file = opt
 
