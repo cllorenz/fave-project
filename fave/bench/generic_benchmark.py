@@ -23,6 +23,7 @@
 """
 
 import os
+import os.path
 import sys
 import logging
 import json
@@ -38,7 +39,7 @@ class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
 
-    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1, use_interweaving=True):
+    def __init__(self, prefix, extra_files=None, use_unix=True, use_tcp_np=False, logger=None, threads=1, use_interweaving=True, strict=False):
         self.prefix = prefix
         files = {
             "inventory" : "inventory.json",
@@ -62,10 +63,14 @@ class GenericBenchmark(object):
         self.use_unix = use_unix
         self.use_tcp_np = use_tcp_np
         self.use_interweaving = use_interweaving
+        self.strict = strict
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
         self.logger.setLevel(logging.DEBUG)
+
+        if not os.path.exists(TMPDIR):
+            os.system("mkdir -p %s" % TMPDIR)
 
         logging.basicConfig(
             format='%(asctime)s [%(name)s.%(levelname)s] - %(message)s',
@@ -89,11 +94,13 @@ class GenericBenchmark(object):
 
         self.logger.info("generate policy matrix...")
         os.system(
-            "python2 ../policy-translator/policy_translator.py " + ' '.join([
-                "--csv", "--out", self.files['reach_csv'],
-                self.files['roles_services'],
-                self.files['reach_policies']
-            ])
+            "python2 ../policy-translator/policy_translator.py " + ' '.join(
+                (["--strict"] if self.strict else []) + [
+                    "--csv", "--out", self.files['reach_csv'],
+                    self.files['roles_services'],
+                    self.files['reach_policies']
+                ]
+            )
         )
         self.logger.info("generated policy matrix.")
 

@@ -19,7 +19,7 @@ class UPBenchmark(GenericBenchmark):
 
 
 if __name__ == "__main__":
-    UPBenchmark("bench/wl_up", logger=logging.getLogger("up")).run()
+    UPBenchmark("bench/wl_up", logger=logging.getLogger("up"), strict=True).run()
 
 
 #    serverlist = []
