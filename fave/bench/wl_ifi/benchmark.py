@@ -23,6 +23,7 @@
 """
 
 import os
+import logging
 
 from bench.generic_benchmark import GenericBenchmark
 
