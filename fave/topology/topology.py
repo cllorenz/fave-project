@@ -22,7 +22,6 @@
 """
 
 import sys
-import getopt
 import json
 import ast
 import argparse
