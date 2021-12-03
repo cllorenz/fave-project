@@ -40,6 +40,12 @@ if __name__ == '__main__':
         elif arg == '-p':
             policy_file = opt
 
+        elif arg == '-m':
+            pass
+
+        elif arg == '-j':
+            pass
+
         else:
             print "unknown argument: %s %s" % (arg, opt)
             print_help()
