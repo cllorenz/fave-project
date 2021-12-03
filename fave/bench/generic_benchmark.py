@@ -50,7 +50,8 @@ class GenericBenchmark(object):
             use_interweaving=True,
             strict=False,
             use_internet=True,
-            ip=None
+            ip=None,
+            length=0
     ):
         self.prefix = prefix
         files = {
@@ -80,6 +81,7 @@ class GenericBenchmark(object):
         self.strict = strict
         self.use_internet = use_internet
         self.ip = ip
+        self.length = length
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -155,6 +157,8 @@ class GenericBenchmark(object):
                 sockopt = "-u /dev/shm/np%d.socket" % no
             else:
                 sockopt = "-s 127.0.0.1 -p %d" % (44000+no)
+
+            if self.length: sockopt += " -L %d" % self.length
 
             os.system("bash scripts/start_np.sh -l %s %s" % (self.files['np_config'], sockopt))
         self.logger.info("started netplumber.")

@@ -3,26 +3,43 @@
 """ This module benchmarks FaVe using an example workload.
 """
 
+import os
+import sys
+import json
+import getopt
+import logging
+
 from util.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
 
+from bench.generic_benchmark import GenericBenchmark
 
-MAP = "bench/wl_tum/map.json"
-TOPOLOGY = "bench/wl_tum/topology.json"
-ROUTES = "bench/wl_tum/routes.json"
-SOURCES="bench/wl_tum/sources.json"
-POLICIES = "bench/wl_tum/policies.json"
-CHECKS = "bench/wl_tum/checks.json"
-REACH_JSON = "bench/wl_tum/reachable.json"
+class TUMBenchmark(GenericBenchmark):
+    """ This class provides the TUM benchmark.
+    """
 
-REACH = "bench/wl_tum/reachability.csv"
+    def _pre_preparation(self):
+        if self.files['tum_ruleset'] == 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset':
+            ruleset = self.files['tum_ruleset']
+            os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
+            os.system("sed -i 's/ -i / -i eth/g' %s" % ruleset)
+            os.system("sed -i 's/ -o / -o eth/g' %s" % ruleset)
+
+
+    def _post_preparation(self):
+        os.system(
+            "python2 bench/wl_tum/topogen.py %s %s" % (self.ip, self.files['tum_ruleset'])
+        )
+
+
+    def _compliance(self):
+        self.logger.info("wait for fave")
+        os.system("python2 misc/await_fave.py")
+        self.logger.info("fave stopped successfully")
+
 
 RULESET = 'bench/wl_tum/rulesets/tum-ruleset'
 
 if __name__ == '__main__':
-    import json
-    import os
-    import sys
-    import getopt
 
     verbose = False
     ip = 'ipv4'
@@ -49,85 +66,10 @@ if __name__ == '__main__':
         if opt == '-m':
             mapping = arg
 
-    if verbose: print "Generate benchmark..."
+    length = json.load(open(mapping, 'r'))['length'] / 8
 
-    os.system("mkdir -p /dev/shm/np")
-    os.system("rm -rf /dev/shm/np/*")
-    os.system("rm -f /dev/shm/*.socket")
+    files = {
+        'tum_ruleset' : ruleset
+    }
 
-    if ruleset == 'bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset':
-        os.system("bash scripts/generate-pgf-ruleset.sh bench/wl_tum")
-        os.system("sed -i 's/ -i / -i eth/g' %s" % ruleset)
-        os.system("sed -i 's/ -o / -o eth/g' %s" % ruleset)
-
-    os.system("python2 bench/wl_tum/topogen.py %s %s" % (ip, ruleset))
-    os.system("python2 bench/wl_tum/routegen.py")
-
-    os.system("python2 bench/wl_tum/policygen.py")
-
-    if verbose:
-        print "Run benchmark..."
-
-    arguments = "-l bench/wl_tum/np.conf"
-    if mapping:
-        arguments += " -L %s" % (json.load(open(mapping, 'r'))['length'] / 8)
-
-    if use_unix:
-        arguments += " -u /dev/shm/np1.socket"
-    else:
-        arugments += " -s 127.0.0.1 -p 44001"
-
-    os.system(
-        "bash scripts/start_np.sh %s" % arguments
-    )
-
-    arguments = ""
-    if mapping:
-        arguments += " -m %s" % mapping
-
-    if use_unix:
-        arguments += " -u -S %s" % "/dev/shm/np1.socket"
-    else:
-        arguments += " -S 127.0.0.1:44001"
-
-    os.system(
-        "bash scripts/start_aggr.sh " + arguments
-    )
-
-    with open(TOPOLOGY, 'r') as raw_topology:
-        devices, links = json.loads(raw_topology.read()).values()
-
-        if verbose: print "Initialize topology..."
-        create_topology(devices, links, use_unix=use_unix)
-        if verbose: print "Topology sent to FaVe"
-
-    with open(ROUTES, 'r') as raw_routes:
-        routes = json.loads(raw_routes.read())
-
-        if verbose: print "Initialize routes..."
-        add_routes(routes, use_unix=use_unix)
-        if verbose: print "Routes sent to FaVe"
-
-    with open(POLICIES, 'r') as raw_policies:
-        links, probes = json.loads(raw_policies.read()).values()
-
-        if verbose: print "Initialize probes..."
-        add_policies(probes, links, use_unix=use_unix)
-        if verbose: print "Probes sent to FaVe"
-
-    with open(SOURCES, 'r') as raw_sources:
-        sources, links = json.loads(raw_sources.read()).values()
-
-        if verbose: print "Initialize sources..."
-        add_sources(sources, links, use_unix=use_unix)
-        if verbose: print "Sources sent to FaVe"
-
-    import netplumber.dump_np as dumper
-    dumper.main(["-ant%s" % ("u" if use_unix else "")])
-
-    os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
-
-    if verbose: print "Wait for FaVe..."
-    os.system("python2 misc/await_fave.py")
-
-    os.system("rm -f np_dump/.lock")
+    TUMBenchmark("bench/wl_tum", extra_files=files, length=length, ip=ip).run()
