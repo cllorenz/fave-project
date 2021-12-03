@@ -35,6 +35,11 @@ from util.bench_utils import create_topology, add_routes, add_sources, add_polic
 
 TMPDIR = "/dev/shm/np"
 
+
+def _UNPACK(d):
+    return d['devices'], d['links']
+
+
 class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
@@ -187,7 +192,7 @@ class GenericBenchmark(object):
     def _initialization(self):
         self.logger.info("initialize topology...")
         with open(self.files['topology'], 'r') as raw_topology:
-            devices, links = json.loads(raw_topology.read()).values()
+            devices, links = _UNPACK(json.load(raw_topology))
 
             create_topology(
                 devices, links, use_unix=self.use_unix, interweave=self.use_interweaving
@@ -197,14 +202,14 @@ class GenericBenchmark(object):
 
         self.logger.info("initialize routes...")
         with open(self.files['routes'], 'r') as raw_routes:
-            routes = json.loads(raw_routes.read())
+            routes = json.load(raw_routes)
 
             add_routes(routes, use_unix=self.use_unix)
         self.logger.info("routes sent to fave")
 
         self.logger.info("initialize probes...")
         with open(self.files['policies'], 'r') as raw_policies:
-            links, probes = json.loads(raw_policies.read()).values()
+            probes, links = _UNPACK(json.load(raw_policies))
 
             add_policies(probes, links, use_unix=self.use_unix)
         self.logger.info("probes sent to fave")
@@ -213,7 +218,7 @@ class GenericBenchmark(object):
     def _reachability(self):
         self.logger.info("initialize sources...")
         with open(self.files['sources'], 'r') as raw_sources:
-            sources, links = json.loads(raw_sources.read()).values()
+            sources, links = _UNPACK(json.load(raw_sources))
             add_sources(sources, links, use_unix=self.use_unix)
         self.logger.info("sources sent to fave")
 

@@ -53,7 +53,7 @@ if __name__ == '__main__':
     ])
 
     policies = {
-        "probes" : probes,
+        "devices" : probes,
         "links" : links
     }
 
