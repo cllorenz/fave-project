@@ -24,34 +24,39 @@
 
 import sys
 import json
-import getopt
+import argparse
 
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.print_util import eprint
 
-_ADDR = FAVE_DEFAULT_IP
-_PORT = FAVE_DEFAULT_PORT
-_UNIX = FAVE_DEFAULT_UNIX
+_PARSER = argparse.ArgumentParser()
+_PARSER.add_argument(
+    '-s', '--server',
+    dest='server',
+    default=FAVE_DEFAULT_IP
+)
+_PARSER.add_argument(
+    '-p', '--port',
+    dest='port',
+    type=int,
+    default=FAVE_DEFAULT_PORT
+)
+_PARSER.add_argument(
+    '-u', '--use-unix',
+    dest='use_unix',
+    action='store_const',
+    const=True,
+    default=False
+)
 
-USE_UNIX = False
+_ARGS = _PARSER.parse_args(sys.argv[1:])
 
-try:
-    ARGV = sys.argv[1:]
-    OPTS, _ARGS = getopt.getopt(ARGV, "s:p:u")
-except getopt.GetoptError:
-    eprint("could not parse options: %s" % ARGV)
-    sys.exit(1)
-
-for opt, arg in OPTS:
-    if opt == '-s':
-        _ADDR = arg
-    elif opt == '-p':
-        _PORT = int(arg)
-    elif opt == '-u':
-        USE_UNIX = True
-
-_AGGR = connect_to_fave(_UNIX) if USE_UNIX else connect_to_fave(_ADDR, _PORT)
+_AGGR = connect_to_fave(
+    FAVE_DEFAULT_UNIX
+) if _ARGS.use_unix else connect_to_fave(
+    _ARGS.server, _ARGS.port
+)
 
 _STOP = {
     'type':'stop'
