@@ -25,6 +25,7 @@ import sys
 import getopt
 import json
 import ast
+import argparse
 
 from itertools import product
 
@@ -238,226 +239,260 @@ class TopologyCommand(object):
             self.model == other.model
 
 
-def print_help():
-    """ Prints a usage message to stderr.
-    """
+def _parse_links(arg):
+    to_link = lambda s, d, b: (s, d, b == 'True')
+    return [to_link(*link.split(':')) for link in arg.split(',')]
 
-    eprint(
-        "topology -ad [-n <id>] [-t <type>] [-p <ports>] [-l <links>]",
-        "\t-a add device or links (default)",
-        "\t-d delete device or links",
-        "\t-t \"switch|packet_filter|snapshot_packet_filter|" +
-        "application_layer_gateway|links|generator|generators|probe|router\" " +
-        "apply command for a device of type <type>",
-        "\t-n <dev> apply command for the device <dev> (default: \"\")",
-        "\t-p <ports> add device with <ports> ports (implies -a)",
-        "\t-l <links> add links between port pi of device dj and port pk of " +
-        "device dl: d1.p1:d2.p2, d3.p3:d4.p4, ...]",
-        "\t-i <ip> add device with ip address <ip>",
-        "\t-f <fields> add device with fields f1=[v1, v2, v3, ...];f2=[v4, v5, v6...];...",
-        "\t-q \"universal, existential\" add a quantor for a probe",
-        "\t-F <fields> add filter fields for a probe",
-        "\t-G <generators> add list of |-separated generators of the form " +
-        "<name/flow> where the flow follow the form of fields",
-        "\t-P <test_path> add a test path for a probe",
-        "\t-T <fields> add test fields for a probe",
-        "\t-r <ruleset> use a router acls ruleset with filename <ruleset>",
-        "\t-s suppress state shell interweaving",
-        sep="\n"
-    )
+
+def _parse_fields(arg):
+    fields = {}
+    for field in arg.split(';'):
+        key, body = field.split('=')
+        values = body.split(',')
+        fields[key] = values
+        if key.startswith('tcp') or key.startswith('udp'):
+            fields['ip_proto'] = [key[:3]]
+        elif key.startswith('icmp'):
+            fields['ip_proto'] = [key[:4]]
+
+    return fields
+
+
+def _parse_probe_fields(arg):
+    fields = {}
+    for field in arg.split(';'):
+        key, body = field.split('=')
+        values = [RuleField(key, v) for v in body.split(',')]
+        fields[key] = values
+
+    return fields
+
+
+def _parse_ports(arg):
+    ports = []
+
+    try:
+        ports = range(1, int(arg)+1)
+    except ValueError:
+        ports = [str(i) for i in ast.literal_eval(arg)]
+
+    return ports
+
+
+def _parse_generators(arg):
+    generators = []
+
+    for generator in arg.split('|'):
+        name, fields = generator.split('\\')
+        generator_fields = {}
+        for field in [f for f in fields.split(';') if f]:
+            key, body = field.split('=')
+            values = body.split(',')
+            generator_fields[key] = [RuleField(key, v) for v in values]
+        generators.append((name, generator_fields))
+
+    return generators
+
 
 
 def main(argv):
     """ Command line tool to manipulate the topology in FaVe.
     """
 
-    command = "add"
-    dev = ""
-    dtype = ""
-    ports = []
-    table_ids = None
-    links = []
-    topo = TopologyCommand(command, dev)
-    address = None
-    fields = {}
-    filter_fields = {}
-    test_fields = {}
-    test_path = []
-    ruleset = ""
-    generators = []
-    use_unix = False
-    use_interweaving = True
 
-    try:
-        opts, _args = getopt.getopt(argv, "hadn:p:l:ui:I:f:q:F:G:P:t:T:r:s")
-    except getopt.GetoptError:
-        eprint("cannot parse arguments: %s" % argv)
-        print_help()
-        sys.exit(2)
+    topo = None
 
-    for opt, arg in opts:
-        if opt == '-h':
-            print_help()
-            sys.exit(0)
-        elif opt == '-a':
-            command = 'add'
-        elif opt == '-d':
-            command = 'del'
-        elif opt == '-u':
-            use_unix = True
-        elif opt == '-t':
-            if arg in [
-                    'switch',
-                    'packet_filter',
-                    'snapshot_packet_filter',
-                    'application_layer_gateway',
-                    'links',
-                    'generator',
-                    'generators',
-                    'probe',
-                    'router'
-            ]:
-                dtype = arg
-            else:
-                eprint("No such type: "+arg, sep="\n")
-                print_help()
-                sys.exit(2)
-        elif opt == '-n':
-            dev = arg
-        elif opt == '-p':
-            command = 'add'
-            try:
-                ports = range(1, int(arg)+1)
-            except ValueError:
-                ports = [str(i) for i in ast.literal_eval(arg)]
-        elif opt == '-l':
-            dtype = 'links'
-            dev = 'links'
-            to_link = lambda s, d, b: (s, d, b == 'True')
-            links = [to_link(*link.split(':')) for link in arg.split(',')]
-        elif opt == '-i':
-            address = arg
-        elif opt == '-I':
-            table_ids = ast.literal_eval(arg)
-        elif opt == '-f':
-            fields = {}
-            for field in arg.split(';'):
-                key, body = field.split('=')
-                values = body.split(',')
-                fields[key] = values
-                if key.startswith('tcp') or key.startswith('udp'):
-                    fields['ip_proto'] = [key[:3]]
-                elif key.startswith('icmp'):
-                    fields['ip_proto'] = [key[:4]]
-        elif opt == '-F':
-            filter_fields = {}
-            for field in arg.split(';'):
-                key, body = field.split('=')
-                values = [RuleField(key, v) for v in body.split(',')]
-                filter_fields[key] = values
-        elif opt == '-G':
-            for generator in arg.split('|'):
-                name, fields = generator.split('\\')
-                generator_fields = {}
-                for field in [f for f in fields.split(';') if f]:
-                    key, body = field.split('=')
-                    values = body.split(',')
-                    generator_fields[key] = [RuleField(key, v) for v in values]
-                generators.append((name, generator_fields))
-        elif opt == '-T':
-            test_fields = {}
-            for field in arg.split(';'):
-                key, body = field.split('=')
-                values = [RuleField(key, v) for v in body.split(',')]
-                test_fields[key] = values
-        elif opt == '-P':
-            test_path = arg.split(';')
+    parser = argparse.ArgumentParser(
+        description="Command line too to manipulate the topology in FaVe."
+    )
+    parser.add_argument(
+        '-a', '--add',
+        dest="command",
+        action='store_const',
+        const='add',
+        default='add',
+        help="add device or links (default)"
+    )
+    parser.add_argument(
+        '-d', '--delete',
+        dest="command",
+        action='store_const',
+        const='del',
+        default='add',
+        help="delete device or links (default)"
+    )
+    parser.add_argument(
+        '-t', '--type',
+        dest="type",
+        choices=[
+            'switch', 'packet_filter', 'snapshot_packet_filter',
+            'application_layer_gateway', 'links', 'generator', 'generators',
+            'probe', 'router'
+        ],
+        help="apply command for a device type"
+    )
+    parser.add_argument(
+        '-n', '--node',
+        dest="node",
+        help="apply command for the device with this node id"
+    )
+    parser.add_argument(
+        '-p', '--ports',
+        type=_parse_ports,
+        dest="ports",
+        help="add device with these ports (implies -a)"
+    )
+    parser.add_argument(
+        '-l', '--links',
+        dest="links",
+        type=_parse_links,
+        help="add links between port pi of device dj and port pk of device dl: d1.p1:d2.p2,d3.p3:d4.p4,..."
+    )
+    parser.add_argument(
+        '-i', '--ip',
+        dest="ip",
+        help="add device with this ip address"
+    )
+    parser.add_argument(
+        '-f', '--fields',
+        dest="fields",
+        type=_parse_fields,
+        default={},
+        help="add device with these fields f1=[v1,v2,v3,...];f2=[v4,v5,v6,...];..."
+    )
+    parser.add_argument(
+        '-q', '--quantifier',
+        dest="quantor",
+        choices=['universal', 'existential'],
+        help="add a quantor for a probe"
+    )
+    parser.add_argument(
+        '-F', '--filter-fields',
+        dest="filter_fields",
+        type=_parse_probe_fields,
+        default={},
+        help="add filter fields for a probe"
+    )
+    parser.add_argument(
+        '-G', '--generators',
+        dest="generators",
+        type=_parse_generators,
+        default={},
+        help="add list of generators of |-separated generators of the form <name/flow> where the flows follow the form of fields"
+    )
+    parser.add_argument(
+        '-P', '--test-path',
+        dest="test_path",
+        type=lambda p: p.split(';'),
+        default=[],
+        help="add a test path for a probe"
+    )
+    parser.add_argument(
+        '-I', '--table-ids',
+        dest="table_ids",
+        type=ast.literal_eval,
+        help="add tables with these ids to the switch"
+    )
+    parser.add_argument(
+        '-T', '--test-fields',
+        dest="test_fields",
+        type=_parse_probe_fields,
+        default={},
+        help="add test fields for a probe"
+    )
+    parser.add_argument(
+        '-r', '--ruleset',
+        dest="ruleset",
+        help="use a router acls rule set with this filename"
+    )
+    parser.add_argument(
+        '-s', '--suppress-interweaving',
+        dest="use_interweaving",
+        action='store_const',
+        const=False,
+        default=True,
+        help="suppress the state shell interweaving for this device"
+    )
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest="use_unix",
+        action='store_const',
+        const=True,
+        default=False,
+        help="use unix socket to connect to fave"
+    )
 
-        elif opt == '-q':
-            if arg in ['universal', 'existential']:
-                quantor = arg
-            else:
-                eprint("No such quantor: "+arg, sep="\n")
-                print_help()
-                sys.exit(2)
+    args = parser.parse_args(argv)
 
-        elif opt == '-r':
-            ruleset = arg
+    if args.links: args.type = 'links'
+    if args.ports: args.command = 'add'
 
-        elif opt == '-s':
-            use_interweaving = False
-
-    if command == 'add':
+    if args.command == 'add':
         model = {
-            'switch' : lambda: SwitchModel(dev, ports=ports, table_ids=table_ids),
+            'switch' : lambda: SwitchModel(args.node, ports=args.ports, table_ids=args.table_ids),
             'packet_filter' : lambda: ip6np_generate(
-                IP6TABLES_PARSER.parse(ruleset),
-                dev,
-                address,
-                ports,
-                interweaving=use_interweaving
+                IP6TABLES_PARSER.parse(args.ruleset),
+                args.node,
+                args.ip,
+                args.ports,
+                interweaving=args.use_interweaving
             ),
             'application_layer_gateway' : lambda: ip6np_generate(
-                IP6TABLES_PARSER.parse(ruleset),
-                dev,
-                address,
-                ports,
-                interweaving=use_interweaving
+                IP6TABLES_PARSER.parse(args.ruleset),
+                args.node,
+                args.ip,
+                args.ports,
+                interweaving=args.use_interweaving
             ),
             'snapshot_packet_filter' : lambda: ip6np_generate(
-                IP6TABLES_PARSER.parse(ruleset),
-                dev,
-                address,
-                ports,
+                IP6TABLES_PARSER.parse(args.ruleset),
+                args.node,
+                args.ip,
+                args.ports,
                 state_snap=True
             ),
-            'links' : lambda: LinksModel(links),
+            'links' : lambda: LinksModel(args.links),
             'generator' : lambda: GeneratorModel(
-                dev,
+                args.node,
                 {f : [
                     RuleField(f, v) for v in fl
-                ] for f, fl in fields.iteritems()}
+                ] for f, fl in args.fields.iteritems()}
             ),
             'generators' : lambda: GeneratorsModel(
-                [GeneratorModel(d, f) for d, f in generators]
+                [GeneratorModel(d, f) for d, f in args.generators]
             ),
             'probe' : lambda: ProbeModel(
-                dev,
-                quantor,
-                Match([RuleField(f, *v) for f, v in fields.iteritems()]),
-                filter_fields=filter_fields,
-                test_fields=test_fields,
-                test_path=test_path
+                args.node,
+                args.quantor,
+                Match([RuleField(f, *v) for f, v in args.fields.iteritems()]),
+                filter_fields=args.filter_fields,
+                test_fields=args.test_fields,
+                test_path=args.test_path
             ),
             'router' : lambda: RouterModel(
-                dev,
-                ports=ports,
-                acls=parse_cisco_acls(ruleset),
-                vlan_to_ports=parse_cisco_interfaces(ruleset)[1],
-                vlan_to_acls=parse_cisco_interfaces(ruleset)[3],
-                if_to_vlans=parse_cisco_interfaces(ruleset)[4],
-            )}[dtype]()
+                args.node,
+                ports=args.ports,
+                acls=parse_cisco_acls(args.ruleset),
+                vlan_to_ports=parse_cisco_interfaces(args.ruleset)[1],
+                vlan_to_acls=parse_cisco_interfaces(args.ruleset)[3],
+                if_to_vlans=parse_cisco_interfaces(args.ruleset)[4],
+            )}[args.type]()
 
-        topo = TopologyCommand(dev, command, model=model)
+        topo = TopologyCommand(args.node, args.command, model=model)
 
-    elif command == 'del':
+    elif args.command == 'del':
         if dtype == 'links':
-            model = LinksModel(links)
-            topo = TopologyCommand("links", command, model)
+            model = LinksModel(args.links)
+            topo = TopologyCommand("links", args.command, model)
         else:
-            topo = TopologyCommand(dev, command)
-
-    else:
-        print_help()
-        return
+            topo = TopologyCommand(args.node, args.command)
 
     fave = connect_to_fave(
         FAVE_DEFAULT_UNIX
-    ) if use_unix else connect_to_fave(
+    ) if args.use_unix else connect_to_fave(
         FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
     )
-    topo_str = json.dumps(topo.to_json())
-    fave_sendmsg(fave, topo_str)
+    fave_sendmsg(fave, json.dumps(topo.to_json()))
     fave.close()
 
 
