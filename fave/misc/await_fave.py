@@ -23,45 +23,27 @@
 """
 
 import sys
-import getopt
+import argparse
 
 from filelock import SoftFileLock
 from util.print_util import eprint
-
-
-def _print_help():
-    eprint(
-        "usage: python2 " + sys.argv[0] + " [-h]" + " [-d <path>]",
-        "\t-h - this help text",
-        "\t-d <path> - path to a net_plumber dump",
-        sep="\n"
-    )
-
-
 
 
 def main(argv):
     """ Main method.
     """
 
-    try:
-        only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hd:"))
-    except getopt.GetoptError as err:
-        eprint("error while fetching arguments: %s" % err)
-        _print_help()
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
 
-    dump = "np_dump"
+    parser.add_argument(
+        '-d', '--dump',
+        dest='dump',
+        default='np_dump'
+    )
 
-    for opt, arg in opts:
-        if opt == '-h':
-            _print_help()
-            sys.exit(0)
-        elif opt == '-d':
-            dump = arg
+    args = parser.parse_args(argv)
 
-    with SoftFileLock("%s/.lock" % dump, timeout=-1):
+    with SoftFileLock("%s/.lock" % args.dump, timeout=-1):
         pass
 
 if __name__ == "__main__":
