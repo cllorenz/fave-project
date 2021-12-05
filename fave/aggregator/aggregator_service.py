@@ -27,7 +27,7 @@ import os
 import json
 import logging
 import sys
-import getopt
+import argparse
 import time
 
 from pprint import pformat
@@ -90,20 +90,6 @@ def model_from_json(j):
 
     else:
         return model.from_json(j)
-
-
-def _print_help():
-    """ Prints a usage message to stderr.
-    """
-    eprint(
-        "aggregator [-s <server> [-p <port>]] [-S <backends>] [-m <mapping>]",
-        "\t-s <server> ip address of the netplumber instance",
-        "\t-p <port> the port number of the netplumber instance",
-        "\t-S <backends> a list of NP backend socket identifiers, e.g., " +
-        "/dev/shm/np1,/dev/shm/np2,... or 1.2.3.4:44001,1.2.3.4:44002,...",
-        "\t-m <mapping> a json file containing a mapping to initialize the NP adapter",
-        sep="\n"
-    )
 
 
 class AggregatorService(AbstractAggregator):
@@ -564,79 +550,90 @@ class AggregatorService(AbstractAggregator):
                 json.dumps(j, sort_keys=True, indent=4, separators=(',', ': '))
             )
 
+def _parse_servers(arg):
+    servers = []
+
+    for host in arg.split(','):
+        try:
+            np_host, np_port = host.split(':')
+            assert is_host(host)
+            np_port = int(np_port)
+        except ValueError:
+            np_host = host
+            assert is_unix(host)
+            np_port = 0
+        servers.append((np_host, np_port))
+
+    return servers
+
 
 def main(argv):
     """ Connects to net_plumber backend and starts aggregator.
     """
 
-    fave_addr = FAVE_DEFAULT_IP
-    fave_port = FAVE_DEFAULT_PORT
-    servers = [(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
     log_level = logging.INFO
     socks = {}
     asyncore_socks = {}
-    use_unix = False
-    mapping = None
-    use_dynamic = False
 
     logging._srcfile = None
     logging.logThreads = 0
     logging.logProcesses = 0
 
-    try:
-        opts, _args = getopt.getopt(
-            argv,
-            "hadm:s:p:S:tu",
-            [
-                "help",
-                "dynamic",
-                "debug",
-                "mapping=",
-                "server=",
-                "port=",
-                "servers=",
-                "trace",
-                "unix"
-            ]
-        )
-    except getopt.GetoptError:
-        eprint("could not parse options: %s" % argv)
-        _print_help()
-        sys.exit(2)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-a', '--use-dynamic',
+        dest='use_dynamic',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-d', '--debug',
+        dest='debug',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-m', '--mapping',
+        dest='mapping',
+        type=lambda f: json.load(open(f))
+    )
+    parser.add_argument(
+        '-s', '--server',
+        dest='fave_addr',
+        type=lambda a: a if is_ip(a) or is_domain(a) else FAVE_DEFAULT_IP
+    )
+    parser.add_argument(
+        '-p', '--port',
+        dest='fave_port',
+        type=lambda p: int(p) if is_port(p) else FAVE_DEFAULT_PORT
+    )
+    parser.add_argument(
+        '-S', '--servers',
+        dest='servers',
+        type=_parse_servers,
+        default=[(NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT)]
+    )
+    parser.add_argument(
+        '-t', '--trace',
+        dest='trace',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
 
-    for opt, arg in opts:
-        if opt == '-h':
-            _print_help()
-            sys.exit(0)
-        elif opt == '-m':
-            mapping = json.load(open(arg))
-        elif opt == '-s' and (is_ip(arg) or is_domain(arg)):
-            fave_addr = arg
-        elif opt == '-p':
-            fave_port = int(arg) if is_port(arg) else 0
-        elif opt == '-u':
-            use_unix = True
-        elif opt == '-S':
-            servers = []
-            for host in arg.split(','):
-                try:
-                    np_host, np_port = host.split(':')
-                    assert is_host(host)
-                    np_port = int(np_port)
-                except ValueError:
-                    np_host = host
-                    assert is_unix(host)
-                    np_port = 0
-                servers.append((np_host, np_port))
+    args = parser.parse_args(argv)
 
-        elif opt == '-d':
-            log_level = logging.DEBUG
-
-        elif opt == '-t':
-            log_level = TRACE
-
-        elif opt == '-a':
-            use_dynamic = True
+    if args.debug: log_level = logging.DEBUG
+    if args.trace: log_level = TRACE
 
     os.system('rm -f {}/aggregator.log'.format(
         os.environ.get('log_dir', '/dev/shm/np')
@@ -649,28 +646,28 @@ def main(argv):
     AggregatorService.LOGGER.addHandler(log_handler)
     AggregatorService.LOGGER.setLevel(log_level)
 
-    for np_server, np_port in servers:
+    for np_server, np_port in args.servers:
         try:
             sock = jsonrpc.connect_to_netplumber(np_server, np_port)
             socks[(np_server, np_port)] = sock
-            if use_dynamic:
+            if args.use_dynamic:
                 asyncore_sock = NodeLinkDispatcher(np_server, np_port)
                 asyncore_socks[(np_server, np_port)] = asyncore_sock
         except jsonrpc.RPCError as err:
             AggregatorService.LOGGER.error(err.message)
             eprint("could not connect to server: %s %s" % (np_server, np_port))
-            _print_help()
+            parser.print_help()
             sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = AggregatorService(socks, asyncore_socks=asyncore_socks, mapping=mapping)
+    AGGREGATOR = AggregatorService(socks, asyncore_socks=asyncore_socks, mapping=args.mapping)
 
     register_signals()
 
-    if use_unix:
+    if args.use_unix:
         AGGREGATOR.run(FAVE_DEFAULT_UNIX)
     else:
-        AGGREGATOR.run(fave_addr, port=fave_port)
+        AGGREGATOR.run(args.fave_addr, port=args.fave_port)
 
 
 if __name__ == "__main__":
