@@ -23,12 +23,12 @@
 """
 
 import sys
-import getopt
 import json
 import csv
 import time
 import cachetools
 import pyparsing as pp
+import argparse
 
 from filelock import SoftFileLock
 
@@ -349,16 +349,6 @@ def _build_ordered_flow_specs(flow_specs):
     return ordered_flow_specs
 
 
-def _print_help():
-    eprint(
-        "usage: python2 " + sys.argv[0] + " [-h]" + " [-d <path>]"  " -c <path specs>",
-        "\t-h - this help text",
-        "\t-d <path> - path to a net_plumber dump",
-        "\t-c <path specs> - specifications of paths divided by semicola",
-        sep="\n"
-    )
-
-
 def _update_reachability_matrix(matrix, spec, success, exception=False):
     if spec[0] == '!':
         spec = spec[2:]
@@ -380,72 +370,99 @@ def _update_reachability_matrix(matrix, spec, success, exception=False):
     matrix[source][dest] = symbol
 
 
+def _parse_flow_spec_files(arg):
+    parser = _get_parser()
+    return [
+        _parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow
+    ]
+
+
+def _parse_flow_spec_strings(arg):
+    parser = _get_parser()
+    return [_parse_flow_spec(flow, parser) for flow in arg.split(';') if flow]
+
+
+def _parse_flow_spec_json(arg):
+    parser = _get_parser()
+    return [_parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r'))]
+
+
+def _parse_threads(arg):
+    return (int(x) for x in arg.split(':'))
+
 
 def main(argv):
     """ Main method.
     """
 
-    try:
-        only_opts = lambda opts, args: opts
-        opts = only_opts(*getopt.getopt(argv, "hbd:c:rj:t:f:"))
-    except getopt.GetoptError as err:
-        eprint("error while fetching arguments: %s" % err)
-        _print_help()
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-b', '--broad',
+        dest='broad',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-f', '--load-files',
+        dest='flow_specs',
+        type=_parse_flow_spec_files,
+        default=[]
+    )
+    parser.add_argument(
+        '-d', '--dump',
+        dest='dump',
+        default='np_dump'
+    )
+    parser.add_argument(
+        '-c', '--flow-specs',
+        dest='flow_specs',
+        type=_parse_flow_spec_strings,
+        default=[]
+    )
+    parser.add_argument(
+        '-r', '--reverse',
+        dest='dump_matrix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-j', '--load-json',
+        dest='flow_specs',
+        type=_parse_flow_spec_json,
+        default=[]
+    )
+    parser.add_argument(
+        '-t', '--threads',
+        dest='threads',
+        type=_parse_threads,
+        default=(0, 1)
+    )
 
-    dump = "np_dump"
-    flow_specs = []
-    dump_matrix = False
-    broad = False
-    tid = 0
-    threads = 1
+    args = parser.parse_args(argv)
 
-    for opt, arg in opts:
-        if opt == '-h':
-            _print_help()
-            sys.exit(0)
-        elif opt == '-b':
-            broad = True
-        elif opt == '-f':
-            parser = _get_parser()
-            flow_specs = [
-                _parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow
-            ]
-        elif opt == '-d':
-            dump = arg
-        elif opt == '-c':
-            parser = _get_parser()
-            flow_specs = [_parse_flow_spec(flow, parser) for flow in arg.split(';') if flow]
-        elif opt == '-r':
-            dump_matrix = True
-        elif opt == '-j':
-            with open(arg, 'r') as file_:
-                parser = _get_parser()
-                flow_specs = [_parse_flow_spec(flow, parser) for flow in json.load(file_)]
-        elif opt == '-t':
-            tid_str, threads_str = arg.split(':')
-            tid = int(tid_str)
-            threads = int(threads_str)
 
-    if not flow_specs:
+    if not args.flow_specs:
         eprint("missing flow check specifications")
-        _print_help()
+        parser.print_help()
         return 2
 
-    with SoftFileLock("%s/.lock" % dump, timeout=-1):
-        inv_fave = _get_inverse_fave(dump)
-        #flow_trees = _get_flow_trees(dump)
+    tid, threads = args.threads
+
+    with SoftFileLock("%s/.lock" % args.dump, timeout=-1):
+        inv_fave = _get_inverse_fave(args.dump)
         flow_trees = {
             k : "%s/%s.flow_tree.json" % (
-                dump, v
+                args.dump, v
             ) for k, v in inv_fave["generator_to_id"].iteritems()
         }
 
     failed = []
     reach = {'' : {'' : ''}}
     cache = cachetools.LRUCache(10)
-    if broad:
-        ordered_flow_specs = _build_ordered_flow_specs(flow_specs)
+    if args.broad:
+        ordered_flow_specs = _build_ordered_flow_specs(args.flow_specs)
 
         mapping = inv_fave['mapping']
 
@@ -482,7 +499,7 @@ def main(argv):
             _MEASUREMENTS.append((t_end - t_start) * 1000.0)
 
     else:
-        for spec_no, flow_spec in enumerate(flow_specs, start=1):
+        for spec_no, flow_spec in enumerate(args.flow_specs, start=1):
             try:
                 successful = _check_flow_trees(flow_spec, flow_trees, inv_fave, cache)
             except KeyError:
@@ -499,10 +516,10 @@ def main(argv):
                 print "  checked %s flows" % spec_no
 
     print (
-        "success: all %s checked flows matched" % len(flow_specs)
+        "success: all %s checked flows matched" % len(args.flow_specs)
     ) if not failed else (
         "failure: the following flows mismatched:\n\t%s\nwhich is %s of %s." % (
-            '\n\t'.join(failed), len(failed), len(flow_specs)
+            '\n\t'.join(failed), len(failed), len(args.flow_specs)
         )
     )
 
@@ -515,8 +532,8 @@ def main(argv):
         "max: %s ms" % max(_MEASUREMENTS)
     ]))
 
-    if dump_matrix:
-        with open(dump+'/reach.csv', 'w') as csvf:
+    if args.dump_matrix:
+        with open(args.dump+'/reach.csv', 'w') as csvf:
             header = sorted(reach)
             csv_writer = csv.DictWriter(csvf, header)
             csv_writer.writeheader()
