@@ -30,7 +30,7 @@ import json
 import glob
 import getopt
 
-from ip6np.ip6np_util import bitvector_to_field_value
+from util.ip6np_util import bitvector_to_field_value
 from netplumber.vector import get_field_from_vector
 from netplumber.mapping import Mapping
 
