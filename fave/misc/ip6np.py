@@ -23,7 +23,7 @@
 """
 
 import sys
-import getopt
+import argparse
 import json
 import pprint
 
@@ -34,22 +34,6 @@ from util.print_util import eprint
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
-def print_help():
-    """ Prints the usage on stderr.
-    """
-
-    eprint(
-        "ip6np -n <node> -p <ports> -f <file>",
-        "\t-d dump model",
-        "\t-n <node> node identifier",
-        "\t-i <ip> ip address",
-        "\t-p <ports> number of ports",
-        "\t-f <file> ip6tables ruleset",
-        "\t-u use UNIX domain socket",
-        sep="\n"
-    )
-
-
 def _try_int(var):
     try:
         int(var)
@@ -58,62 +42,82 @@ def _try_int(var):
         return False
 
 
+def _parse_ports(arg):
+    ports = [1, 2]
+
+    if isinstance(arg, list):
+        ports = arg
+    elif _try_int(arg):
+        ports = [str(x) for x in range(1, int(arg)+1)]
+    else:
+        ports = arg.split(',')
+
+    return ports
+
+
+
 def main(argv):
     """ Connects to FaVe and sends an ip6tables configuration event.
     """
 
-    ifile = ''
-    node = ''
-    ports = [1, 2]
-    dump = False
-    use_unix = False
-    use_interweaving = True
+    parser = argparse.ArgumentParser()
 
-    try:
-        only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "hdn:i:p:f:su"))
-    except getopt.GetoptError:
-        print_help()
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt == '-h':
-            print_help()
-            sys.exit(0)
-        elif opt == '-n':
-            node = arg
-        elif opt == '-i':
-            address = arg
-        elif opt == '-p':
-            if isinstance(arg, list):
-                ports = arg
-            elif _try_int(arg):
-                ports = [str(x) for x in range(1, int(arg)+1)]
-            else:
-                ports = arg.split(',')
-        elif opt == '-f':
-            ifile = arg
-        elif opt == '-d':
-            dump = True
-        elif opt == '-s':
-            use_interweaving = False
-        elif opt == '-u':
-            use_unix = True
-
-    ast = PARSER.parse(ifile)
-    model = generate(
-        ast,
-        node,
-        address,
-        ports,
-        interweaving=use_interweaving
+    parser.add_argument(
+        '-d', '--dump',
+        dest='dump',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-n', '--node',
+        dest='node'
+    )
+    parser.add_argument(
+        '-i', '--ip',
+        dest='address'
+    )
+    parser.add_argument(
+        '-p', '--port',
+        dest='port',
+        type=_parse_ports,
+        default=[1, 2]
+    )
+    parser.add_argument(
+        '-f', '--file',
+        dest='file'
+    )
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-s', '--use-interweaving',
+        dest='use_interweaving',
+        action='store_const',
+        const=True,
+        default=False
     )
 
-    if dump:
+    args = parser.parse_args(argv)
+
+    ast = PARSER.parse(args.file)
+    model = generate(
+        ast,
+        args.node,
+        args.address,
+        args.ports,
+        interweaving=args.use_interweaving
+    )
+
+    if args.dump:
         pprint.pprint(model.to_json())
 
     else:
-        if use_unix:
+        if args.use_unix:
             fave = connect_to_fave(FAVE_DEFAULT_UNIX)
         else:
             fave = connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
