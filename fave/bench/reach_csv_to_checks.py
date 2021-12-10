@@ -3,65 +3,47 @@
 import sys
 import csv
 import json
-import getopt
-
-
-def print_help():
-    print "synopsis: %s [-h][-c <checkfile>][-m <mapfile>][-p <policyfile>]" % sys.argv[0]
-    print "-h - prints help message and exits"
-    print "-c <checkfile> - specifies the json file to write the checks (default: checks.json)."
-    print "-j <jsonfile> - specifies the json file to write the reachabilities (default: reachable.json)."
-    print "-m <mapfile> - specifies the json file containing a mapping between vlan tags and domain names (default: inventory.json)."
-    print "-p <policyfile> - specifies the csv file containing the policy (default: policy.csv)."
+import argparse
 
 
 if __name__ == '__main__':
-    mapping = None
     checks = []
-    suffix = ''
 
-    checks_file = 'checks.json'
-    inventory_file = 'inventory.json'
-    policy_file = 'policy.csv'
-    reach_file = 'reachable.json'
+    parser = argparse.ArgumentParser()
 
-    try:
-        opts, _args = getopt.getopt(sys.argv[1:], "hc:j:m:p:s:")
-    except ValueError:
-        print "unknown arguments"
-        print_help()
-        sys.exit(1)
+    parser.add_argument(
+        '-c', '--checks',
+        dest='checks_file',
+        default='checks.json'
+    )
+    parser.add_argument(
+        '-j', '--reach-json',
+        dest='reach_file',
+        default='reachable.json'
+    )
+    parser.add_argument(
+        '-m', '--inventory-mapping',
+        dest='inventory_file',
+        default='inventory.json'
+    )
+    parser.add_argument(
+        '-p', '--policy-csv',
+        dest='policy_file',
+        default='policy.csv'
+    )
+    parser.add_argument(
+        '-s', '--suffix',
+        dest='suffix',
+        default=''
+    )
 
-    for arg, opt in opts:
-        if arg == '-h':
-            print_help()
-            sys.exit(0)
+    args = parser.parse_args(sys.argv[1:])
 
-        elif arg == '-c':
-            checks_file = opt
-
-        elif arg == '-j':
-            reach_file = opt
-
-        elif arg == '-m':
-            inventory_file = opt
-
-        elif arg == '-p':
-            policy_file = opt
-
-        elif arg == '-s':
-            suffix = opt
-
-        else:
-            print "unknown argument: %s %s" % (arg, opt)
-            print_help()
-            sys.exit(2)
-
-    mapping = json.load(open(inventory_file, 'r'))
+    mapping = json.load(open(args.inventory_file, 'r'))
 
     checks = []
     reach_json = {}
-    with open(policy_file, 'r') as csv_file:
+    with open(args.policy_file, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter=',')
 
         header = reader.next()[1:]
@@ -71,18 +53,18 @@ if __name__ == '__main__':
             row_iter = iter(row)
 
             source = row_iter.next()
-            sources = [s+suffix if s != 'Internet' else s for s in mapping[source]] if mapping else [source+suffix if source != 'Internet' else source]
+            sources = [s+args.suffix if s != 'Internet' else s for s in mapping[source]] if mapping else [source+args.suffix if source != 'Internet' else source]
 
             if source != 'Internet':
-                source += suffix
+                source += args.suffix
 
             for idx, flag in enumerate(row_iter):
                 target = header[idx]
-                targets = [t+suffix if t != 'Internet' else t for t in mapping[target]] if mapping else [target+suffix if target != 'Internet' else target]
+                targets = [t+args.suffix if t != 'Internet' else t for t in mapping[target]] if mapping else [target+args.suffix if target != 'Internet' else target]
 
                 if source == 'Internet' and source == target: continue
 
-                if target != 'Internet': target += suffix
+                if target != 'Internet': target += args.suffix
 
                 for target in targets:
                     reach_json.setdefault(target, [])
@@ -113,8 +95,8 @@ if __name__ == '__main__':
                     checks.extend(['! ' + fstr % (s, target) for s in sources])
 
 
-    with open(checks_file, 'w') as checks_file:
+    with open(args.checks_file, 'w') as checks_file:
         checks_file.write(json.dumps(checks, indent=2) + '\n')
 
-    with open(reach_file, 'w') as rf:
+    with open(args.reach_file, 'w') as rf:
         rf.write(json.dumps(reach_json, indent=2) + '\n')
