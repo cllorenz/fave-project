@@ -18,6 +18,7 @@ def print_help():
 if __name__ == '__main__':
     mapping = None
     checks = []
+    suffix = ''
 
     checks_file = 'checks.json'
     inventory_file = 'inventory.json'
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     reach_file = 'reachable.json'
 
     try:
-        opts, _args = getopt.getopt(sys.argv[1:], "hc:j:m:p:")
+        opts, _args = getopt.getopt(sys.argv[1:], "hc:j:m:p:s:")
     except ValueError:
         print "unknown arguments"
         print_help()
@@ -48,6 +49,9 @@ if __name__ == '__main__':
         elif arg == '-p':
             policy_file = opt
 
+        elif arg == '-s':
+            suffix = opt
+
         else:
             print "unknown argument: %s %s" % (arg, opt)
             print_help()
@@ -67,13 +71,18 @@ if __name__ == '__main__':
             row_iter = iter(row)
 
             source = row_iter.next()
-            sources = mapping[source]
+            sources = [s+suffix if s != 'Internet' else s for s in mapping[source]] if mapping else [source+suffix if source != 'Internet' else source]
+
+            if source != 'Internet':
+                source += suffix
 
             for idx, flag in enumerate(row_iter):
                 target = header[idx]
-                targets = mapping[target]
+                targets = [t+suffix if t != 'Internet' else t for t in mapping[target]] if mapping else [target+suffix if target != 'Internet' else target]
 
                 if source == 'Internet' and source == target: continue
+
+                if target != 'Internet': target += suffix
 
                 for target in targets:
                     reach_json.setdefault(target, [])
@@ -89,6 +98,16 @@ if __name__ == '__main__':
                         reach_json[target].extend([s for s in sources if s != target])
                         checks.extend([fstr % (s, target) + ' && f=related:1' for s in sources if s != target])
                         checks.extend(['! ' + fstr % (s, target) + ' && f=related:0' for s in sources if s != target])
+
+                elif flag.startswith('(') and flag.endswith(')'):
+                    for target in targets:
+                        reach_json[target].extend([s for s in sources if s != target])
+                        for condition in flag.lstrip('(').rstrip(')').split('|'):
+                            checks.extend([
+                                fstr % (s, target) + ' && f=related:0 && ' + ' && '.join(['f='+f for f in
+                                    condition.split(';')
+                                ]) for s in sources if s != target
+                            ])
 
                 else:
                     checks.extend(['! ' + fstr % (s, target) for s in sources])

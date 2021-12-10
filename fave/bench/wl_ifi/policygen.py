@@ -39,7 +39,7 @@ if __name__ == '__main__':
             None,
             [".*(p in (%s))$" % ','.join(
                 [("%s.2" % s) if s != "Internet" else "ifi.1" for s in reachable[sub]]
-            )]
+            )] if reachable[sub] else None
         ) for sub in SUBNETS
     ])
 

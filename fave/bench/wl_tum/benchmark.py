@@ -86,7 +86,9 @@ if __name__ == '__main__':
     length = json.load(open(args.mapping, 'r'))['length'] / 8
 
     files = {
-        'tum_ruleset' : args.ruleset
+        'tum_ruleset' : args.ruleset,
+        'reach_csv' : 'bench/empty.csv',
+        'inventory' : 'bench/empty.json',
     }
 
     TUMBenchmark(

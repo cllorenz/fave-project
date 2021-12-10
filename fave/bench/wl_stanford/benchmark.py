@@ -69,7 +69,8 @@ if __name__ == '__main__':
         "stanford_probes" : "bench/wl_stanford/stanford-json/probes.json",
         'roles_services' : 'bench/wl_stanford/roles.txt',
         'reach_csv' : 'bench/wl_stanford/reach.csv',
-        'stanford_mapping' : 'bench/wl_stanford/stanford-json/mapping.json'
+        'stanford_mapping' : 'bench/wl_stanford/stanford-json/mapping.json',
+        'inventory' : 'bench/empty.json'
     }
 
     length = json.load(open(files['stanford_mapping'], 'r'))['length'] / 8

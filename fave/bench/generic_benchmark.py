@@ -56,7 +56,8 @@ class GenericBenchmark(object):
             strict=False,
             use_internet=True,
             ip=None,
-            length=0
+            length=0,
+            suffix=''
     ):
         self.prefix = prefix
         files = {
@@ -87,6 +88,7 @@ class GenericBenchmark(object):
         self.use_internet = use_internet
         self.ip = ip
         self.length = length
+        self.suffix = suffix
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -135,12 +137,14 @@ class GenericBenchmark(object):
 
         self.logger.info("convert policy matrix to checks...")
         os.system(
-            ("python2 %s/reach_csv_to_checks.py " % self.prefix) + ' '.join([
-                '-p', self.files['reach_csv'],
-                '-m', self.files['inventory'],
-                '-c', self.files['checks'],
-                '-j', self.files['reach_json']
-            ])
+            "python2 bench/reach_csv_to_checks.py " + ' '.join(
+                (['-s', self.suffix] if self.suffix else []) + [
+                    '-p', self.files['reach_csv'],
+                    '-m', self.files['inventory'],
+                    '-c', self.files['checks'],
+                    '-j', self.files['reach_json']
+                ]
+            )
         )
         self.logger.info("converted policy matrix.")
 

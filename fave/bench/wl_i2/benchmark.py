@@ -66,7 +66,8 @@ if __name__ == '__main__':
         "i2_probes" : "bench/wl_i2/i2-json/probes.json",
         'roles_services' : 'bench/wl_i2/roles.txt',
         'reach_csv' : 'bench/wl_i2/reach.csv',
-        'i2_mapping' : 'bench/wl_i2/i2-json/mapping.json'
+        'i2_mapping' : 'bench/wl_i2/i2-json/mapping.json',
+        'inventory' : 'bench/empty.json'
     }
 
     length = json.load(open(files['i2_mapping'], 'r'))['length'] / 8

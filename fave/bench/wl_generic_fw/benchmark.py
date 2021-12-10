@@ -139,7 +139,8 @@ if __name__ == '__main__':
         'genfw_interfaces' : args.interfaces,
         'reach_policies' : args.policy,
         'roles_services' : args.inventory,
-        'np_config' : np_config
+        'np_config' : np_config,
+        'inventory' : 'bench/empty.json'
     }
 
     GenericFirewallBenchmark(

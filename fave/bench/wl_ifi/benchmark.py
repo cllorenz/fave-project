@@ -40,12 +40,14 @@ class IFIBenchmark(GenericBenchmark):
 if __name__ == '__main__':
     files = {
         'roles_services' : 'bench/wl_ifi/roles_and_services.orig.txt',
-        'reach_policies' : 'bench/wl_ifi/policy.orig.txt'
+        'reach_policies' : 'bench/wl_ifi/policy.orig.txt',
+        'inventory' : 'bench/empty.json'
     }
     IFIBenchmark(
         "bench/wl_ifi",
         logger=logging.getLogger('ifi'),
-        extra_files=files
+        extra_files=files,
+        suffix='.ifi'
     ).run()
 
 
