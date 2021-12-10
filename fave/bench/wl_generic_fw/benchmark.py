@@ -22,10 +22,11 @@
 """ This module benchmarks FaVe using an generic workload.
 """
 
+import json
 import os
 import sys
 import logging
-import getopt
+import argparse
 
 from bench.generic_benchmark import GenericBenchmark
 
@@ -57,79 +58,87 @@ class GenericFirewallBenchmark(GenericBenchmark):
         )
 
 
-def _print_help():
-    options = [
-        "-4 - use ipv4 for the packet filter",
-        "-6 - use ipv6 for the packet filter (default)",
-        "-i <inventory> - an inventory file specified in FPL",
-        "-p <policy> - a policy file specified in FPL",
-        "-r <ruleset> - an iptables rule set",
-        "-s - FPL policies should be handled in strict mode",
-        "-m <map> - a mapping file with internal and external to interface mappings of the form { \"external\" : \"eth0\", \"internal\" : \"eth1\" }",
-        "-v - verbose output"
-    ]
-    print "usage:\nPYTHONPATH=. python2 bench/wl_generic_fw/benchmark [OPTIONS]\nOptions:"
-    for opt in options:
-        print " ", opt
-
-
 if __name__ == '__main__':
-    import json
-    import os
-    import sys
-
-    verbose = False
-    ip = 'ipv6'
-    strict = ''
-    ruleset = "bench/wl_generic_fw/default/ruleset"
-    policy = "bench/wl_generic_fw/default/policy.txt"
-    inventory = "bench/wl_generic_fw/default/inventory.txt"
-    interfaces = "bench/wl_generic_fw/default/interfaces.json"
     np_config = "bench/wl_generic_fw/default/np.conf"
 
     use_internet = True
-    use_state_snapshots = False
-    use_unix = False
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvsr:p:i:m:nu46")
-    except getopt.GetoptError as err:
-        print "unknown arguments"
-        print err
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
 
-    for opt, arg in opts:
-        if opt == '-v':
-            verbose = True
-        if opt == '-r':
-            ruleset = arg
-        if opt == '-p':
-            policy = arg
-        if opt == '-i':
-            inventory = arg
-        if opt == '-4':
-            ip = 'ipv4'
-        if opt == '-6':
-            ip = 'ipv6'
-        if opt == '-s':
-            strict = '--strict '
-        if opt == '-m':
-            interfaces = arg
-        if opt == '-n':
-            use_internet = False
-            use_state_snapshots = True
-        if opt == '-h':
-            _print_help()
-            sys.exit(0)
-        if opt == '-u':
-            use_unix = True
+    parser.add_argument(
+        '-v', '--verbose',
+        dest='verbose',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-n', '--no-internet',
+        dest='use_state_snapshots',
+        action='store_const',
+        const=False,
+        default=True
+    )
+    parser.add_argument(
+        '-s', '--strict',
+        dest='strict',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-r', '--ruleset',
+        dest='ruleset',
+        default="bench/wl_generic_fw/default/ruleset"
+    )
+    parser.add_argument(
+        '-p', '--policy',
+        dest='policy',
+        default="bench/wl_generic_fw/default/policy.txt"
+    )
+    parser.add_argument(
+        '-i', '--inventory',
+        dest='inventory',
+        default="bench/wl_generic_fw/default/inventory.txt"
+    )
+    parser.add_argument(
+        '-m', '--interface-mapping',
+        dest='interfaces',
+        default="bench/wl_generic_fw/default/interfaces.json"
+    )
+    parser.add_argument(
+        '-4', '--ipv4',
+        dest='ip',
+        action='store_const',
+        const='ipv4',
+        default='ipv4'
+    )
+    parser.add_argument(
+        '-6', '--ipv6',
+        dest='ip',
+        action='store_const',
+        const='ipv6',
+        default='ipv4'
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    if args.use_state_snapshots:
+        use_internet = False
 
     files = {
         'roles_json' : 'bench/wl_generic_fw/roles.json',
-        'genfw_ruleset' : ruleset,
-        'genfw_interfaces' : interfaces,
-        'reach_policies' : policy,
-        'roles_services' : inventory,
+        'genfw_ruleset' : args.ruleset,
+        'genfw_interfaces' : args.interfaces,
+        'reach_policies' : args.policy,
+        'roles_services' : args.inventory,
         'np_config' : np_config
     }
 
@@ -138,8 +147,8 @@ if __name__ == '__main__':
         logger=logging.getLogger("generic_fw"),
         extra_files=files,
         use_internet=use_internet,
-        use_interweaving=not use_state_snapshots,
-        use_unix=use_unix,
-        strict=strict,
-        ip=ip
+        use_interweaving=not args.use_state_snapshots,
+        use_unix=args.use_unix,
+        strict='--strict' if args.strict else '',
+        ip=args.ip
     ).run()
