@@ -9,7 +9,6 @@ import os
 import argparse
 import sys
 
-from util.model_util import TABLE_MAX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.bench_utils import create_topology
@@ -23,7 +22,7 @@ def _random_ipv6_address():
     return ':'.join(["{:04x}".format(random.randint(0, 65535)) for _i in range(8)])
 
 def _random_ipv6_prefix():
-    return _random_ipv6_address() + '/' + str(random.randint(0,128))
+    return _random_ipv6_address() + '/' + str(random.randint(0, 128))
 
 def _generate_rule(node, i):
     return Rule(
@@ -47,7 +46,10 @@ def _generate_large_rule(node, i):
     ])
     return rule
 
-if __name__ == '__main__':
+def main(argv):
+    """ main
+    """
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-c', '--count',
@@ -65,7 +67,7 @@ if __name__ == '__main__':
         help="use tcp for connections to fave"
     )
 
-    args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args(argv)
 
     count = args.count
     verbose = args.verbose
@@ -76,8 +78,8 @@ if __name__ == '__main__':
     os.system("rm -f /dev/shm/*.socket")
 
     os.system("bash scripts/start_np.sh -l bench/wl_expand/np.conf %s" % (
-        "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001")
-    )
+        "-u /dev/shm/np1.socket" if use_unix else "-s 127.0.0.1 -p 44001"
+    ))
     os.system("bash scripts/start_aggr.sh -S %s %s" % (
         "/dev/shm/np1.socket" if use_unix else "127.0.0.1:44001",
         "-u" if use_unix else ""
@@ -111,15 +113,27 @@ if __name__ == '__main__':
         _generate_large_rule('sw0', count)
     ]
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
     fave_sendmsg(fave, json.dumps(SwitchCommand('sw0', 'add_rules', pre_rules1).to_json()))
     fave.close()
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
     fave_sendmsg(fave, json.dumps(SwitchCommand('sw0', 'add_rules', pre_rules2).to_json()))
     fave.close()
 
-    fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
+    fave = connect_to_fave(
+        FAVE_DEFAULT_UNIX
+    ) if use_unix else connect_to_fave(
+        FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+    )
     fave_sendmsg(fave, json.dumps(SwitchCommand('sw0', 'add_rules', post_rules).to_json()))
     fave.close()
 
@@ -134,3 +148,6 @@ if __name__ == '__main__':
 
     os.system("rm -f np_dump/.lock")
     if verbose: print "Benchmark finished"
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

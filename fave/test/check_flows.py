@@ -26,9 +26,9 @@ import sys
 import json
 import csv
 import time
+import argparse
 import cachetools
 import pyparsing as pp
-import argparse
 
 from filelock import SoftFileLock
 

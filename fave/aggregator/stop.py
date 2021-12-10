@@ -28,7 +28,6 @@ import argparse
 
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
-from util.print_util import eprint
 
 _PARSER = argparse.ArgumentParser()
 _PARSER.add_argument(

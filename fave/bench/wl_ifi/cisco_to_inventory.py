@@ -4,16 +4,16 @@ import json
 
 from devices.router import parse_cisco_interfaces
 
-CISCO_CONF="bench/wl_ifi/acls.txt"
-OFILE="bench/wl_ifi/cisco_to_inventory.json"
+CISCO_CONF = "bench/wl_ifi/acls.txt"
+OFILE = "bench/wl_ifi/cisco_to_inventory.json"
 
-vlan_to_domain, _vtp, vlan_to_ips, _vta, _itv = parse_cisco_interfaces(CISCO_CONF)
+VLAN_TO_DOMAIN, _VTP, VLAN_TO_IPS, _VTA, _ITV = parse_cisco_interfaces(CISCO_CONF)
 
-res = {}
+RES = {}
 
-for vlan, domain in vlan_to_domain.iteritems():
-    dn = domain + '.ifi' if not domain in ['Internet'] else domain
-    res[dn] = (vlan, vlan_to_ips.get(vlan, None))
+for VLAN, DOMAIN in VLAN_TO_DOMAIN.iteritems():
+    DNAME = DOMAIN + '.ifi' if not DOMAIN in ['Internet'] else DOMAIN
+    RES[DNAME] = (VLAN, VLAN_TO_IPS.get(VLAN, None))
 
 with open(OFILE, 'w') as ofile:
-    json.dump(res, ofile, indent=2)
+    json.dump(RES, ofile, indent=2)

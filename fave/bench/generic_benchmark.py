@@ -28,7 +28,6 @@ import sys
 import logging
 import json
 
-import test.check_flows as checker
 import netplumber.dump_np as dumper
 
 from util.bench_utils import create_topology, add_routes, add_sources, add_policies
@@ -36,8 +35,8 @@ from util.bench_utils import create_topology, add_routes, add_sources, add_polic
 TMPDIR = "/dev/shm/np"
 
 
-def _UNPACK(d):
-    return d['devices'], d['links']
+def _unpack(topo):
+    return topo['devices'], topo['links']
 
 
 class GenericBenchmark(object):
@@ -122,7 +121,11 @@ class GenericBenchmark(object):
             "python2 ../policy-translator/policy_translator.py " + ' '.join(
                 (["--strict"] if self.strict else []) +
                 (["--no-internet"] if not self.use_internet else []) +
-                (["--roles %s" % self.files['roles_json']] if 'roles_json' in self.files else []) + [
+                (
+                    [
+                        "--roles %s" % self.files['roles_json']
+                    ] if 'roles_json' in self.files else []
+                ) + [
                     "--csv", "--out", self.files['reach_csv'],
                     self.files['roles_services'],
                     self.files['reach_policies']
@@ -161,11 +164,11 @@ class GenericBenchmark(object):
 
     def _startup(self):
         self.logger.info("starting netplumber...")
-        for no in range(1,self.threads+1):
+        for number_ in range(1, self.threads+1):
             if self.use_unix and not self.use_tcp_np:
-                sockopt = "-u /dev/shm/np%d.socket" % no
+                sockopt = "-u /dev/shm/np%d.socket" % number_
             else:
-                sockopt = "-s 127.0.0.1 -p %d" % (44000+no)
+                sockopt = "-s 127.0.0.1 -p %d" % (44000+number_)
 
             if self.length: sockopt += " -L %d" % self.length
 
@@ -196,7 +199,7 @@ class GenericBenchmark(object):
     def _initialization(self):
         self.logger.info("initialize topology...")
         with open(self.files['topology'], 'r') as raw_topology:
-            devices, links = _UNPACK(json.load(raw_topology))
+            devices, links = _unpack(json.load(raw_topology))
 
             create_topology(
                 devices, links, use_unix=self.use_unix, interweave=self.use_interweaving
@@ -213,7 +216,7 @@ class GenericBenchmark(object):
 
         self.logger.info("initialize probes...")
         with open(self.files['policies'], 'r') as raw_policies:
-            probes, links = _UNPACK(json.load(raw_policies))
+            probes, links = _unpack(json.load(raw_policies))
 
             add_policies(probes, links, use_unix=self.use_unix)
         self.logger.info("probes sent to fave")
@@ -222,7 +225,7 @@ class GenericBenchmark(object):
     def _reachability(self):
         self.logger.info("initialize sources...")
         with open(self.files['sources'], 'r') as raw_sources:
-            sources, links = _UNPACK(json.load(raw_sources))
+            sources, links = _unpack(json.load(raw_sources))
             add_sources(sources, links, use_unix=self.use_unix)
         self.logger.info("sources sent to fave")
 

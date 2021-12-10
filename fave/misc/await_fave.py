@@ -26,8 +26,6 @@ import sys
 import argparse
 
 from filelock import SoftFileLock
-from util.print_util import eprint
-
 
 def main(argv):
     """ Main method.

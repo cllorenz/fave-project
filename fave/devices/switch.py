@@ -32,7 +32,6 @@ from rule.rule_model import Rule, RuleField, Forward, Rewrite, Match
 
 from devices.abstract_device import AbstractDeviceModel
 
-from util.print_util import eprint
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
@@ -317,7 +316,7 @@ def main(argv):
             cmd = SwitchCommand(args.node, 'add_rules', [rule])
 
 
-    elif command == 'del':
+    elif args.command == 'del':
         rule = Rule(
             table, table, args.index,
             in_ports=args.in_ports,
@@ -327,7 +326,7 @@ def main(argv):
         cmd = SwitchCommand(args.node, 'remove_rule', rule)
 
 
-    elif command == 'upd':
+    elif args.command == 'upd':
         rule = Rule(
             table, table, args.index,
             in_ports=args.in_ports,

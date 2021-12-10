@@ -5,9 +5,9 @@
 
 import json
 
-ROLES="bench/wl_generic_fw/roles.json"
-INTERFACES="bench/wl_generic_fw/interfaces.json"
-OFILE="bench/wl_generic_fw/policies.json"
+ROLES = "bench/wl_generic_fw/roles.json"
+INTERFACES = "bench/wl_generic_fw/interfaces.json"
+OFILE = "bench/wl_generic_fw/policies.json"
 
 
 _TAGS = {
@@ -20,7 +20,7 @@ _TAGS = {
 def _attributes_to_fields(attributes):
     res = []
     for name, value in {k:v for k, v in attributes.iteritems() if k not in [
-        "description", "hosts", "gateway", "gateway4", "gateway6"
+            "description", "hosts", "gateway", "gateway4", "gateway6"
     ]}.iteritems():
         res.append("%s=%s" % (_TAGS[name], value+'_egress' if name == 'interface' else value))
 
@@ -41,7 +41,7 @@ def _port_field_for_role(role, interfaces):
     ]
 
 
-if __name__ == '__main__':
+def _main():
     roles = json.load(open(ROLES, 'r'))
 
     interfaces = json.load(open(INTERFACES, 'r'))
@@ -70,5 +70,8 @@ if __name__ == '__main__':
         "links" : links
     }
 
-    with open(OFILE, 'w') as of:
-        of.write(json.dumps(policies, indent=2) + "\n")
+    json.dump(policies, open(OFILE, 'w'), indent=2)
+
+
+if __name__ == '__main__':
+    _main()

@@ -30,7 +30,6 @@ import pprint
 from iptables.generator import generate
 from iptables.parser_singleton import PARSER
 
-from util.print_util import eprint
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
