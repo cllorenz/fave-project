@@ -28,7 +28,7 @@ import os
 import sys
 import json
 import glob
-import getopt
+import argparse
 
 from util.ip6np_util import bitvector_to_field_value
 from netplumber.vector import get_field_from_vector
@@ -492,24 +492,6 @@ class TopologyRenderer(object):
         self.graph.render(filename, view=False)
 
 
-def _print_help():
-    print 'usage: python2 ' + os.path.basename(__file__) + ' [-hfmprst] [-d <dir]'
-    print
-    print '\t-h this help message'
-    print '\t-b include flow trees (disables flows)'
-    print '\t-f include flows (disables flow trees)'
-    print '\t-l show fave labels instead of netplumber identifiers'
-    print '\t-n suppress tables (also ignores -p and -t)'
-    print '\t-p include policy'
-    print '\t-r include pipes'
-    print '\t-s include slices'
-    print '\t-t include topology'
-    print '\t-v verbose mode'
-    print '\t-d <dir> directory of a netplumber dump'
-    print
-
-
-
 def _break_list_inline(rows, row_func, lrow_func):
     if len(rows) == 1:
         res = [lrow_func('', rows[0])]
@@ -569,78 +551,101 @@ def _read_combine_files(ddir, name):
     return { 'flows' : flow_trees }
 
 if __name__ == '__main__':
-    try:
-        OPTS, _ARGS = getopt.getopt(sys.argv[1:], 'hd:bflnprstv')
-    except getopt.GetoptError:
-        print 'Unable to parse options.'
-        sys.exit(1)
+    PARSER = argparse.ArgumentParser()
 
-    USE_DIR = 'np_dump'
-    USE_PIPES = False
-    USE_SLICE = False
-    USE_POLICY = False
-    USE_TABLES = True
-    USE_TOPOLOGY = False
-    USE_FAVE = False
-    USE_FLOWS = False
-    USE_FLOW_TREES = False
-    USE_VERBOSE = False
+    PARSER.add_argument(
+        '-b', '--baeume',
+        dest='use_flow_trees',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-f', '--flows',
+        dest='use_flows',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-n', '--no-tables',
+        dest='use_tables',
+        action='store_const',
+        const=False,
+        default=True
+    )
+    PARSER.add_argument(
+        '-l', '--labels',
+        dest='use_fave',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-p', '--policy',
+        dest='use_policy',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-r', '--rohre',
+        dest='use_pipes',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-s', '--slices',
+        dest='use_slices',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-t', '--topology',
+        dest='use_topology',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-v', '--verbose',
+        dest='use_verbose',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    PARSER.add_argument(
+        '-d', '--dir',
+        dest='use_dir',
+        default='np_dump'
+    )
 
-    for opt, arg in OPTS:
-        if opt == '-h':
-            _print_help()
-            sys.exit(0)
-        elif opt == '-b':
-            USE_FLOW_TREES = True
-            USE_FLOWS = False
-            """ b wie baum """
-        elif opt == '-f':
-            USE_FLOWS = True
-            USE_FLOW_TREES = False
-        elif opt == '-n':
-            USE_TABLES=False
-        elif opt == '-l':
-            USE_FAVE = True
-        elif opt == '-p':
-            USE_POLICY = True
-        elif opt == '-r':
-            USE_PIPES = True
-            """ r wie rohr """
-        elif opt == '-s':
-            USE_SLICE = True
-        elif opt == '-t':
-            USE_TOPOLOGY = True
-        elif opt == '-v':
-            USE_VERBOSE = True
-        elif opt == '-d':
-            USE_DIR = arg.rstrip('/')
-        else:
-            print 'No such option: %s.' % opt
-            _print_help()
-            sys.exit(2)
+    ARGS = PARSER.parse_args(sys.argv[1:])
 
-    if not USE_TABLES:
-        USE_POLICY = False
-        USE_TOPOLOGY = False
+    if not ARGS.use_tables:
+        ARGS.use_policy = False
+        ARGS.use_topology = False
 
     # read required data
-    JSON_TABLES = _read_tables(USE_DIR)
+    JSON_TABLES = _read_tables(ARGS.use_dir)
 
-    JSON_PIPES = _read_files(USE_DIR, 'pipes') if USE_PIPES else None
-    JSON_POLICY = _read_files(USE_DIR, 'policy') if USE_POLICY else None
-    JSON_TOPOLOGY = _read_files(USE_DIR, 'topology') if USE_TOPOLOGY else None
-    JSON_SLICES = _read_files(USE_DIR, 'slice') if USE_SLICE else None
-    JSON_FLOWS = _read_files(USE_DIR, 'flows') if USE_FLOWS else None
-    JSON_FLOW_TREES = _read_combine_files(USE_DIR, 'flow_tree') if USE_FLOW_TREES else None
-    JSON_FAVE = _read_files(USE_DIR, 'fave') if USE_FAVE else None
+    JSON_PIPES = _read_files(ARGS.use_dir, 'pipes') if ARGS.use_pipes else None
+    JSON_POLICY = _read_files(ARGS.use_dir, 'policy') if ARGS.use_policy else None
+    JSON_TOPOLOGY = _read_files(ARGS.use_dir, 'topology') if ARGS.use_topology else None
+    JSON_SLICES = _read_files(ARGS.use_dir, 'slice') if ARGS.use_slices else None
+    JSON_FLOWS = _read_files(ARGS.use_dir, 'flows') if ARGS.use_flows else None
+    JSON_FLOW_TREES = _read_combine_files(ARGS.use_dir, 'flow_tree') if ARGS.use_flow_trees else None
+    JSON_FAVE = _read_files(ARGS.use_dir, 'fave') if ARGS.use_fave else None
 
     GB = TopologyRenderer(
-        USE_FAVE, USE_PIPES, USE_POLICY, USE_TABLES, USE_TOPOLOGY,
+        ARGS.use_fave, ARGS.use_pipes, ARGS.use_policy, ARGS.use_tables, ARGS.use_topology,
         JSON_TABLES, JSON_POLICY, JSON_TOPOLOGY, JSON_PIPES,
-        use_slices=USE_SLICE, json_slices=JSON_SLICES,
-        use_flows=USE_FLOWS, json_flows=JSON_FLOWS, json_fave=JSON_FAVE,
-        use_flow_trees=USE_FLOW_TREES, json_flow_trees=JSON_FLOW_TREES,
-        use_verbose=USE_VERBOSE
+        use_slices=ARGS.use_slices, json_slices=JSON_SLICES,
+        use_flows=ARGS.use_flows, json_flows=JSON_FLOWS, json_fave=JSON_FAVE,
+        use_flow_trees=ARGS.use_flow_trees, json_flow_trees=JSON_FLOW_TREES,
+        use_verbose=ARGS.use_verbose
     )
     GB.build()
     GB.render('out')
