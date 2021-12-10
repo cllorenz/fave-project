@@ -23,7 +23,7 @@
 """
 
 import sys
-import getopt
+import argparse
 import json
 
 from copy import copy
@@ -185,24 +185,6 @@ def fieldify(field):
     return RuleField(OXM_FIELD_TO_MATCH_FIELD[fld], val)
 
 
-def print_help():
-    """ Prints usage message to stderr.
-    """
-
-    eprint(
-        "switch -ad -t <id> -i <index> [-f <fields>] [-c <commands>]",
-        "\t-a add device or links (default)",
-        "\t-d delete device or links",
-        "\t-n <id> apply command for node <id>",
-        "\t-t <id> apply command for table <id>",
-        "\t-i <index> apply command for the rule <index> (default: 0)",
-        "\t-f <fields> add a rule matching a list of fields: k1=v1, k2=v2, ...",
-        "\t-c <commands> add a rule with applying a list of actions: c1=a1;c2=a2;...",
-        "\t-p <ports> add a rule with applying a list of ports: p1,p2,p3, ...",
-        sep="\n"
-    )
-
-
 def _fields_to_match(fields):
     match = []
     for field in [f for f in fields.split(';') if f]:
@@ -233,55 +215,86 @@ def main(argv):
     """ Provides functionality to interact with switches in FaVe.
     """
 
-    command = "add"
-    node = ""
-    table = "1"
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '-a', '--add',
+        dest='command',
+        action='store_const',
+        const='add',
+        default='add'
+    )
+    parser.add_argument(
+        '-d', '--delete',
+        dest='command',
+        action='store_const',
+        const='del',
+        default='add'
+    )
+    parser.add_argument(
+        '-u', '--update',
+        dest='command',
+        action='store_const',
+        const='upd',
+        default='add'
+    )
+    parser.add_argument(
+        '-U', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-n', '--node',
+        dest='node',
+        default=''
+    )
+    parser.add_argument(
+        '-t', '--table',
+        dest='table',
+        default='1'
+    )
+    parser.add_argument(
+        '-i', '--index',
+        dest='index',
+        type=int,
+        default=0
+    )
+    parser.add_argument(
+        '-f', '--fields',
+        dest='fields',
+        type=_fields_to_match,
+        default=[]
+    )
+    parser.add_argument(
+        '-c', '--commands',
+        dest='actions',
+        type=_commands_to_actions,
+        default=[]
+    )
+    parser.add_argument(
+        '-p', '--ports',
+        dest='in_ports',
+        type=lambda p: p.split(','),
+        default=[]
+    )
+    parser.add_argument(
+        '-r', '--rules',
+        dest='rules',
+        type=lambda rules: [r.split('$') for r in rules.split('#')],
+        default=[]
+    )
+
+    args = parser.parse_args(argv)
+
+    table = args.node+'.'+args.table
+
     cmd = None
-    idx = 0
-    fields = []
-    actions = []
-    in_ports = []
-    rules = []
-    use_unix = False
 
-    try:
-        only_opts = lambda x: x[0]
-        opts = only_opts(getopt.getopt(argv, "haduUn:t:i:f:c:p:r:"))
-    except getopt.GetoptError:
-        print_help()
-        sys.exit(2)
+    if args.command == 'add':
+        if args.rules:
 
-    for opt, arg in opts:
-        if opt == '-h':
-            print_help()
-            sys.exit(0)
-        elif opt == '-a':
-            command = 'add'
-        elif opt == '-d':
-            command = 'del'
-        elif opt == '-u':
-            command = 'upd'
-        elif opt == '-U':
-            use_unix = True
-        elif opt == '-n':
-            node = arg
-        elif opt == '-t':
-            table = arg
-        elif opt == '-i':
-            idx = int(arg)
-        elif opt == '-f':
-            fields = _fields_to_match(arg)
-        elif opt == '-c':
-            actions = _commands_to_actions(arg)
-        elif opt == '-p':
-            in_ports = arg.split(',')
-        elif opt == '-r':
-            rules = [r.split('$') for r in arg.split('#')]
-
-    table = node+'.'+table
-
-    if command == 'add':
-        if rules:
             switch_rules = []
             switch_rules = [
                 Rule(
@@ -291,47 +304,47 @@ def main(argv):
                     [p for p in in_ports.split(',') if p],
                     Match(_fields_to_match(fields)),
                     _commands_to_actions(commands)
-                ) for node, table, idx, in_ports, fields, commands in rules
+                ) for node, table, idx, in_ports, fields, commands in args.rules
             ]
             cmd = SwitchCommand(node, 'add_rules', switch_rules)
         else:
             rule = Rule(
-                node, table, idx,
-                in_ports=in_ports,
-                match=Match(fields),
-                actions=actions
+                args.node, table, args.index,
+                in_ports=args.in_ports,
+                match=Match(args.fields),
+                actions=args.actions
             )
-            cmd = SwitchCommand(node, 'add_rules', [rule])
+            cmd = SwitchCommand(args.node, 'add_rules', [rule])
 
 
     elif command == 'del':
         rule = Rule(
-            table, table, idx,
-            in_ports=in_ports,
+            table, table, args.index,
+            in_ports=args.in_ports,
             match=Match([]),
             actions=[]
         )
-        cmd = SwitchCommand(node, 'remove_rule', rule)
+        cmd = SwitchCommand(args.node, 'remove_rule', rule)
 
 
     elif command == 'upd':
         rule = Rule(
-            table, table, idx,
-            in_ports=in_ports,
-            match=Match(fields),
-            actions=actions
+            table, table, args.index,
+            in_ports=args.in_ports,
+            match=Match(args.fields),
+            actions=args.actions
         )
-        cmd = SwitchCommand(node, 'update_rule', rule)
+        cmd = SwitchCommand(args.node, 'update_rule', rule)
 
 
     else:
-        print_help()
+        parser.print_help()
         sys.exit(2)
 
 
     fave = connect_to_fave(
         FAVE_DEFAULT_UNIX
-    ) if use_unix else connect_to_fave(
+    ) if args.use_unix else connect_to_fave(
         FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
     )
     fave_sendmsg(fave, json.dumps(cmd.to_json()))
