@@ -20,6 +20,7 @@
     - abstract roles which can be used by roles and super roles but do not instantiate, e.g., generic server offering `ssh`
     - host name prefixes in subroles which can be applied to host names specified in super roles, e.g., prefixes `www.` and `mail.` in subroles and `uni-potsdam.de` in superclass lead to `www.uni-potsdam.de` and `mail.uni-potsdam.de` respectively when the classes are instantiated.
  - generate virtual network reachability matrix
+ - cleanup iptables generation and use rule classes from FaVe
 
 ### FaVe
 
@@ -31,6 +32,13 @@
  - Upgrade code to Python3
  - libnetplumber
     - replace rpc calls with library calls
+ - documentation
+    - abstract (and static) doc
+    - generated low level docs from code
+ - include setup.py
+ - streamline client tools
+    - library functions plus simple calls from main
+    - perhaps as own module `libfave`
 
 ### NetPlumber
 
@@ -66,3 +74,4 @@
  - read topology and config from benchmark input files
  - use reachability matrix
  - better reporting
+ - licensing
