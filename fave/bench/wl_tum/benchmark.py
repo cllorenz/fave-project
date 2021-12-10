@@ -6,7 +6,7 @@
 import os
 import sys
 import json
-import getopt
+import argparse
 import logging
 
 from util.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
@@ -40,36 +40,59 @@ class TUMBenchmark(GenericBenchmark):
 RULESET = 'bench/wl_tum/rulesets/tum-ruleset'
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
 
-    verbose = False
-    ip = 'ipv4'
-    ruleset = RULESET
-    mapping = 'bench/wl_tum/mapping.json'
+    parser.add_argument(
+        '-v', '--verbose',
+        dest='verbose',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '-r', '--ruleset',
+        dest='ruleset',
+        default=RULESET
+    )
+    parser.add_argument(
+        '-m', '--mapping',
+        dest='mapping',
+        default='bench/wl_tum/mapping.json'
+    )
+    parser.add_argument(
+        '-4', '--ipv4',
+        dest='ip',
+        action='store_const',
+        const='ipv4',
+        default='ipv4'
+    )
+    parser.add_argument(
+        '-6', '--ipv6',
+        dest='ip',
+        action='store_const',
+        const='ipv6',
+        default='ipv4'
+    )
 
-    use_unix = True
+    args = parser.parse_args(sys.argv[1:])
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "vm:r:46")
-    except getopt.GetoptError as err:
-        print err
-        sys.exit(1)
-
-    for opt, arg in opts:
-        if opt == '-v':
-            verbose = True
-        if opt == '-r':
-            ruleset = arg
-        if opt == '-4':
-            ip = 'ipv4'
-        if opt == '-6':
-            ip = 'ipv6'
-        if opt == '-m':
-            mapping = arg
-
-    length = json.load(open(mapping, 'r'))['length'] / 8
+    length = json.load(open(args.mapping, 'r'))['length'] / 8
 
     files = {
-        'tum_ruleset' : ruleset
+        'tum_ruleset' : args.ruleset
     }
 
-    TUMBenchmark("bench/wl_tum", extra_files=files, length=length, ip=ip).run()
+    TUMBenchmark(
+        "bench/wl_tum",
+        extra_files=files,
+        length=length,
+        ip=args.ip,
+        use_unix=args.use_unix
+    ).run()
