@@ -23,7 +23,20 @@ export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
 
 # to be ignored (generated code):
 export IGNORE="\
-examples/example-traverse.py
+examples/example-traverse.py \
+deprecated/* \
+bench/wl_stanford/stanford-hassel/utils/*.py \
+bench/wl_stanford/stanford-hassel/utils//test/*.py \
+bench/wl_stanford/stanford-hassel/headerspace/*.py \
+bench/wl_stanford/stanford-hassel/headerspace/test/*.py \
+bench/wl_stanford/stanford-hassel/c-bytearray/*.py
+bench/wl_stanford/stanford-hassel/cisco_router_parser.py \
+bench/wl_i2/i2-hassel/utils/*.py \
+bench/wl_i2/i2-hassel/utils/test/*.py \
+bench/wl_i2/i2-hassel/headerspace/*.py \
+bench/wl_i2/i2-hassel/headerspace/test/*.py \
+bench/wl_i2/i2-hassel/c-bytearray/*.py \
+bench/wl_i2/i2-hassel/juniper_parser.py
 "
 export OKS="$TMP/ok_files"
 touch $OKS
@@ -52,7 +65,7 @@ lint_file() {
     else
         REPORT=/tmp/lint_$SPY.log
         cp $LOG $REPORT
-        SCORE=$`grep "Your code has been rated at" $LOG | cut -d' ' -f7-`
+        SCORE=`grep "Your code has been rated at" $LOG | cut -d' ' -f7-`
         echo "$PRE fail with $SCORE (report at $REPORT)"
         echo $PYFILE >> $FAILS
     fi
