@@ -3,6 +3,7 @@
 # Copyright 2018 Vera Clemens
 # List of co-authors:
 #    Claas Lorenz <claas_lorenz@genua.de>
+#    Benjamin Plewka <plewka@uni-potsdam.de>
 
 # This file is part of Policy Translator.
 

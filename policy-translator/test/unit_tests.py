@@ -1,5 +1,26 @@
 #!/usr/bin/env python2
 
+# -*- coding: utf-8 -*-
+
+# Copyright 2019 Claas Lorenz
+# List of co-authors:
+#    Benjamin Plewka <plewka@uni-potsdam.de>
+
+# This file is part of Policy Translator.
+
+# Policy Translator is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Policy Translator is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
+
 """ This module groups all unit tests for PolicyTranslator modules.
 """
 
