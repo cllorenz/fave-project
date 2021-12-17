@@ -30,7 +30,7 @@ import logging
 import csv
 import json
 
-def main():
+def main(argv):
     """Builds a Policy object out of an inventory and policy file and optionally
     generates reachability tables in HTML or CSV formats."""
 
@@ -47,7 +47,7 @@ def main():
     parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
     parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
     parser.add_argument('-fw', '--firewall', dest='generate_iptables', action='store_const', const=True, default=False, help='Generate the iptables file.')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.trace:
         PT_LOGGER.setLevel(logging.TRACE)
@@ -113,4 +113,4 @@ def main():
         print("Fehler: %s" % exception)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
