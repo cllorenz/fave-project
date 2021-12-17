@@ -20,15 +20,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
-from policy import Policy
-from policy_builder import PolicyBuilder
-from policy_exceptions import PolicyException
-from policy_logger import PT_LOGGER
 import sys
 import argparse
 import logging
 import csv
 import json
+
+from policy import Policy
+from policy_builder import PolicyBuilder
+from policy_exceptions import PolicyException
+from policy_logger import PT_LOGGER
+
 
 def main(argv):
     """Builds a Policy object out of an inventory and policy file and optionally
@@ -63,13 +65,13 @@ def main(argv):
         sys.exit(1)
 
     PT_LOGGER.debug("fetch data from files")
-    policy_chars = "".join([file.read() for file in files])
-    for file in files:
-        file.close()
+    policy_chars = "".join([f.read() for f in files])
+    for file_ in files:
+        file_.close()
     if args.report_csv:
         with open(args.report_csv, 'rb') as csv_file:
-            r = csv.reader(csv_file, delimiter=' ', quotechar='|')
-            report_csv = [row[0].split(',') for row in r]
+            rows = csv.reader(csv_file, delimiter=' ', quotechar='|')
+            report_csv = [row[0].split(',') for row in rows]
 
     PT_LOGGER.debug("create policy object")
     policy = Policy(strict=args.strict, use_internet=args.use_internet)
@@ -78,8 +80,6 @@ def main(argv):
         PolicyBuilder.build(policy_chars, policy)
         if args.report_csv:
             PolicyBuilder.replace_policy_with_csv(report_csv, policy)
-
-        prefix = args.files[-1].rsplit('.', 1)[0]
 
         if args.generate_html:
             with open(args.out_file, 'w') as html_file:
