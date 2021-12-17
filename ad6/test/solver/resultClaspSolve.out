@@ -1,9 +1,0 @@
-c clasp version 3.0.3
-c Reading from ./test/solver/solver.in
-c Solving...
-c Answer: 1
-v 1 2 -3 0
-s SATISFIABLE
-c 
-c Models         : 1     
-c Calls          : 1

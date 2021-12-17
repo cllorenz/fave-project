@@ -1,4 +1,0 @@
-Rules	Nodes	Transitions
-45	51	84
-721	732	1435
-2044	2328	4097

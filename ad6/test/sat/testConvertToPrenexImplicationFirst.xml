@@ -1,8 +1,0 @@
-<exists variable="foo">
-	<implication>
-		<forall variable="foo">
-			<variable name="foo"/>
-		</forall>
-		<variable name="foo"/>
-	</implication>
-</exists>

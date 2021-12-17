@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<conjunction>
-	<variable name="foo" negated="false"/>
-	<disjunction>
-		<constant value="false"/>
-		<constant value="true"/>
-	</disjunction>
-</conjunction>

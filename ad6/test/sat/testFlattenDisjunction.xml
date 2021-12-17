@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<disjunction>
-	<variable name="foo" negated="false"/>
-	<disjunction>
-		<variable name="bar" negated="true"/>
-		<variable name="baz" negated="false"/>
-	</disjunction>
-</disjunction>

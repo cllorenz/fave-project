@@ -1,8 +1,0 @@
-<exists variable="foo">
-	<forall variable="foo">
-		<conjunction>
-			<variable name="foo"/>
-			<variable name="foo"/>
-		</conjunction>
-	</forall>
-</exists>

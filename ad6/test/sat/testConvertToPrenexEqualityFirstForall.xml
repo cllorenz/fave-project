@@ -1,8 +1,0 @@
-<exists variable="foo">
-	<equality>
-		<forall variable="foo">
-			<variable name="foo"/>
-		</forall>
-		<variable name="foo"/>
-	</equality>
-</exists>
