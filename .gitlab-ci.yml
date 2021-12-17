@@ -46,10 +46,10 @@ test_fave:
 
 test_fpl:
   variables:
-    PYTHONPATH: $DIRPATH/policy-translator
+    PYTHONPATH: $DIRPATH/policy_translator
   stage: test
   script:
-    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python $DIRPATH/policy-translator/test/unit_tests.py
+    - sudo docker run -e PYTHONPATH=$PYTHONPATH fave:latest python $DIRPATH/policy_translator/test/unit_tests.py
   dependencies:
     - build_docker
 

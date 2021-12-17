@@ -4,7 +4,7 @@ This repo includes the codebase of FaVe.
 
  - `fave/` - includes the modeling pipeline and a set of management tools
  - `net_plumber/` - includes the NetPlumber verification backend
- - `policy-translator/` - includes the policy management tool [PolicyTranslator](policy-translator/README.md)
+ - `policy_translator/` - includes the policy management tool [PolicyTranslator](policy_translator/README.md)
  - `ad6` - includes ad6 for anomaly detection in ip6tables rule sets
 
 

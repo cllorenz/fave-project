@@ -118,7 +118,7 @@ class GenericBenchmark(object):
 
         self.logger.info("generate policy matrix...")
         os.system(
-            "python2 ../policy-translator/policy_translator.py " + ' '.join(
+            "python2 ../policy_translator/policy_translator.py " + ' '.join(
                 (["--strict"] if self.strict else []) +
                 (["--no-internet"] if not self.use_internet else []) +
                 (
