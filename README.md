@@ -69,4 +69,4 @@ Refer to the [TODOs](TODO.md) for further issues to repair and solve.
 
 The original implementation of NetPlumber by Peyman Kazemian stems from [here](https://bitbucket.org/peymank/hassel-public/wiki/Home).
 
-The original implementation of the PolicTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
+The original implementation of the PolicyTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
