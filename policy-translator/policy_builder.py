@@ -21,7 +21,7 @@
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
-from policy_exceptions import *
+from policy_exceptions import InvalidSyntaxException
 from policy_logger import PT_LOGGER
 
 class PolicyBuilder(object):
@@ -156,11 +156,11 @@ class PolicyBuilder(object):
                 cls.role_attr_regex.search
             )
             if service_attr_matches:
-                for match in service_attr_matches:
-                    PT_LOGGER.debug("service attribute: %s" , match.groupdict())
+                for match_ in service_attr_matches:
+                    PT_LOGGER.debug("service attribute: %s", match_.groupdict())
 
-            for match in service_attr_matches:
-                policy.services[service].add_attribute(match.group("key"), match.group("value"))
+            for match_ in service_attr_matches:
+                policy.services[service].add_attribute(match_.group("key"), match_.group("value"))
 
         for match in role_matches:
             PT_LOGGER.debug("fetch role name")
@@ -197,12 +197,12 @@ class PolicyBuilder(object):
                 for role_offers_match in role_offers_matches:
                     PT_LOGGER.debug("role offers: %s", role_offers_match.groupdict())
 
-            if len(role_incl_matches) > 0:
+            if role_incl_matches:
                 policy.add_superrole(role)
                 PT_LOGGER.debug("policy: added superrole %s", role)
-                for match in role_incl_matches:
-                    policy.roles[role].add_subrole(match.group("role"), service=match.group("service"))
-                    PT_LOGGER.debug("%s: added subrole %s", role, match.group("role"))
+                for match_ in role_incl_matches:
+                    policy.roles[role].add_subrole(match_.group("role"), service=match_.group("service"))
+                    PT_LOGGER.debug("%s: added subrole %s", role, match_.group("role"))
 
 #            if len(role_uses_matches) > 0:
 #                policy.add_abstract_role(role)
@@ -215,14 +215,14 @@ class PolicyBuilder(object):
                 policy.add_role(role)
                 PT_LOGGER.debug("policy: added role %s", role)
 
-            for match in role_offers_matches:
-                policy.roles[role].add_service(match.group("service"))
-                PT_LOGGER.debug("%s: added service %s", role, match.group("service"))
+            for match_ in role_offers_matches:
+                policy.roles[role].add_service(match_.group("service"))
+                PT_LOGGER.debug("%s: added service %s", role, match_.group("service"))
 
-            for match in role_attr_matches:
-                policy.roles[role].add_attribute(match.group("key"), match.group("value"))
+            for match_ in role_attr_matches:
+                policy.roles[role].add_attribute(match_.group("key"), match_.group("value"))
                 PT_LOGGER.debug(
-                    "%s: added attribute %s:%s", role, match.group("key"), match.group("value")
+                    "%s: added attribute %s:%s", role, match_.group("key"), match_.group("value")
                 )
 
         return role_service_match[0].end()
@@ -243,7 +243,7 @@ class PolicyBuilder(object):
             for policy_match in policy_matches:
                 PT_LOGGER.trace(policy_match.groupdict())
 
-        if len(policy_matches) > 0:
+        if policy_matches:
             PT_LOGGER.debug("fetch first match")
             match = policy_matches[0]
             PT_LOGGER.trace("first match: %s", match.groupdict())
@@ -259,36 +259,36 @@ class PolicyBuilder(object):
             PT_LOGGER.debug("match single policies")
             single_policy_matches = cls.match(cls.policy_regex, policies_chars)
             for match in single_policy_matches:
-                role_from, role_to, op, service_to = match.group("role_from"), match.group("role_to"), match.group("op"), match.group("service_to")
-                PT_LOGGER.debug("single policy: %s %s %s", role_from, op, ("%s.%s" % (role_to, service_to) if service_to else role_to))
+                role_from, role_to, op_, service_to = match.group("role_from"), match.group("role_to"), match.group("op"), match.group("service_to")
+                PT_LOGGER.debug("single policy: %s %s %s", role_from, op_, ("%s.%s" % (role_to, service_to) if service_to else role_to))
 
                 if not policy.default_policy:
-                    if op == "<->>":
+                    if op_ == "<->>":
                         policy.add_reachability_policy(role_from, role_to, service_to)
                         PT_LOGGER.debug("created uncoditional forth")
                         policy.add_reachability_policy(role_to, role_from, condition={"state": "RELATED,ESTABLISHED"})
                         PT_LOGGER.debug("created conditional back")
-                    elif op == "--->" or op == "<-->":
+                    elif op_ == "--->" or op_ == "<-->":
                         cond = {"provider": role_to} if service_to else None
                         policy.add_reachability_policy(role_from, role_to, service_to, condition=cond)
                         PT_LOGGER.debug("created unconditional forth")
-                        if op == "<-->":
+                        if op_ == "<-->":
                             policy.add_reachability_policy(role_to, role_from, service_to, condition=cond)
                             PT_LOGGER.debug("created unconditional back")
                     else:
-                        PT_LOGGER.debug("operator %s not permitted with default %s", op, policy.default_policy)
+                        PT_LOGGER.debug("operator %s not permitted with default %s", op_, policy.default_policy)
                 else:
-                    if op == "--/->" or op == "<-/->":
+                    if op_ == "--/->" or op_ == "<-/->":
                         policy.add_reachability_policy(role_from, role_to, service_to)
                         PT_LOGGER.debug("created forbidden forth")
-                        if op == "<-/->":
+                        if op_ == "<-/->":
                             policy.add_reachability_policy(role_to, role_from, service_to)
                             PT_LOGGER.debug("created forbidden back")
-                    elif op == "-/->>":
+                    elif op_ == "-/->>":
                         policy.add_reachability_policy(role_from, role_to, condition={"state": "NEW,INVALID"})
                         PT_LOGGER.debug("created conditionally forbidden forth")
                     else:
-                        PT_LOGGER.debug("operator %s not permitted with default %s", op, policy.default_policy)
+                        PT_LOGGER.debug("operator %s not permitted with default %s", op_, policy.default_policy)
 
         if not policy.strict:
             PT_LOGGER.debug("add default self reachability policies")
@@ -323,7 +323,7 @@ class PolicyBuilder(object):
 
 
     @classmethod
-    def match(self, regex, chars, function=None):
+    def match(cls, regex, chars, function=None):
         """Returns all matches of a regular expression in a character string.
 
         Returns all Match objects found using either a match function (for
