@@ -100,10 +100,13 @@ class TestPolicy(unittest.TestCase):
             ),
             "WebService" : exp_web,
             "NameService" : exp_name,
-            "Internet" : Role("Internet", self.policy)
+            "Internet" : Role("Internet", self.policy, attributes={'interface': 'fw.generic.eth1'})
         }
 
-        self.assertEqual(self.policy.roles, exp)
+        self.assertEqual(self.policy.roles.keys(), exp.keys())
+
+        for key in exp:
+            self.assertEqual(self.policy.roles[key], exp[key])
 
 
     def test_add_service(self):

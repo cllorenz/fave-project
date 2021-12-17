@@ -691,10 +691,8 @@ class Role(object):
     def __eq__(self, other):
         assert isinstance(other, Role)
 
-        return all([
-            self.name == other.name,
-            self.attributes == other.attributes,
-            self.services == other.services
+        return self.name == other.name and self.attributes == other.attributes and all([
+            service == other_service for service, other_service in zip(self.services, other.services)
         ])
 
     def add_attribute(self, key, value):
@@ -818,11 +816,11 @@ class Superrole(Role):
     def __eq__(self, other):
         assert isinstance(other, Superrole)
 
-        return all([
-            self.name == other.name,
-            self.subroles == other.subroles,
-            self.subservices == other.subservices
-        ])
+        return self.name == other.name and all([
+                role == other_role for role, other_role in zip(self.subroles, other.subroles)
+            ]) and all([
+                service == other_service for service, other_service in zip(self.subservices, other.subservices)
+            ])
 
     def add_attribute(self, key, value):
         """Sets an attribute value for all subroles. See base class."""
