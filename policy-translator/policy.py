@@ -24,7 +24,8 @@
 import ast
 import copy
 import json
-from policy_exceptions import *
+from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
+from policy_exceptions import ServiceUnknownException, RoleUnknownException
 
 class Policy(object):
     """Represents a security policy for a computer network. Contains roles,
@@ -54,9 +55,9 @@ class Policy(object):
         self.policies = {}
         self.default_policy = False
         for role, attributes in [
-            (r, a) for r, a in  self.default_roles.iteritems() if (
-                use_internet or r != 'Internet'
-            )
+                (r, a) for r, a in  self.default_roles.iteritems() if (
+                    use_internet or r != 'Internet'
+                )
         ]:
             self.add_role(role)
             tmp = self.roles[role]
@@ -83,7 +84,7 @@ class Policy(object):
             NameTakenException: A role or service with this name already exists.
         """
         if not name in self.default_roles and (
-            self.role_exists(name) or self.service_exists(name)
+                self.role_exists(name) or self.service_exists(name)
         ):
             raise NameTakenException(name)
 
@@ -202,15 +203,13 @@ class Policy(object):
         if not self.role_exists(role_to):
             raise RoleUnknownException(role_to)
 
-        roles_from, roles_to = self.roles[role_from].get_roles(), self.roles[role_to].get_roles()
-
-        for role_from in roles_from:
-            for role_to in roles_to:
+        for role_from_ in self.roles[role_from].get_roles():
+            for role_to_ in self.roles[role_to].get_roles():
                 conditions = [copy.deepcopy(condition)] if condition is not None else []
 
                 if service_to == "*":
-                    services = self.roles[role_to].get_services()
-                    services = services[role_to]
+                    services = self.roles[role_to_].get_services()
+                    services = services[role_to_]
                 else:
                     services = [service_to] if service_to is not None else []
 
@@ -218,12 +217,14 @@ class Policy(object):
                     if self.roles[role_to].offers_service(service):
                         conditions.append(copy.deepcopy(self.services[service].attributes))
                     else:
-                        raise ServiceUnknownException(service, role_to)
+                        raise ServiceUnknownException(service, role_to_)
 
-                if not self.policy_exists(role_from, role_to):
-                    self.policies[(role_from, role_to)] = ReachabilityPolicy(role_from, role_to, self, conditions)
+                if not self.policy_exists(role_from_, role_to_):
+                    self.policies[(role_from_, role_to_)] = ReachabilityPolicy(
+                        role_from_, role_to_, self, conditions
+                    )
                 else:
-                    self.policies[(role_from, role_to)].update_conditions(conditions)
+                    self.policies[(role_from_, role_to_)].update_conditions(conditions)
 
 
     def add_ignore_policy(self, role_from, role_to):
@@ -258,9 +259,9 @@ class Policy(object):
     def get_atomic_roles_rec(self, roles):
         res = set([])
         for role in roles:
-            r = self.roles[role]
-            if isinstance(r, Superrole):
-                res.update(self.get_atomic_roles_rec(r.subroles))
+            r_tmp = self.roles[role]
+            if isinstance(r_tmp, Superrole):
+                res.update(self.get_atomic_roles_rec(r_tmp.subroles))
             else:
                 res.add(role)
 
@@ -284,34 +285,40 @@ class Policy(object):
 
         roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
 
-        html_list = ["<!DOCTYPE html>\n",
-        "<html>\n",
-        "\t<head>\n",
-        "\t\t<meta charset='UTF-8'>\n",
-        "\t\t<title>Policy-Translator -- HTML-Ausgabe</title>\n",
-        "\t\t<link rel='stylesheet' href='policies.css'>\n",
-        "\t</head>\n",
-        "\t<body>\n",
-        "\t\t<table>\n",
-        "\t\t\t<tr>\n",
-        "\t\t\t\t<td></td>\n",
-        "\t\t\t\t<td></td>\n",
-        "\t\t\t\t<td class='label' colspan='%d'>ZIEL</td>\n" % len(roles),
-        "\t\t\t</tr>\n",
-        "\t\t\t<tr>\n",
-        "\t\t\t\t<td></td>\n",
-        "\t\t\t\t<td></td>\n"]
+        html_list = [
+            "<!DOCTYPE html>\n",
+            "<html>\n",
+            "\t<head>\n",
+            "\t\t<meta charset='UTF-8'>\n",
+            "\t\t<title>Policy-Translator -- HTML-Ausgabe</title>\n",
+            "\t\t<link rel='stylesheet' href='policies.css'>\n",
+            "\t</head>\n",
+            "\t<body>\n",
+            "\t\t<table>\n",
+            "\t\t\t<tr>\n",
+            "\t\t\t\t<td></td>\n",
+            "\t\t\t\t<td></td>\n",
+            "\t\t\t\t<td class='label' colspan='%d'>ZIEL</td>\n" % len(roles),
+            "\t\t\t</tr>\n",
+            "\t\t\t<tr>\n",
+            "\t\t\t\t<td></td>\n",
+            "\t\t\t\t<td></td>\n"
+        ]
 
         for role in sorted(roles):
-            html_list.append(("\t\t\t\t<td class='role_rotate'>\n"
-            "\t\t\t\t\t<div class='tooltip_rotated'>\n"
-            "\t\t\t\t\t\t" + role + "\n"
-            "\t\t\t\t\t\t<span class='tooltiptext_unrotated'>"))
+            html_list.append((
+                "\t\t\t\t<td class='role_rotate'>\n"
+                "\t\t\t\t\t<div class='tooltip_rotated'>\n"
+                "\t\t\t\t\t\t" + role + "\n"
+                "\t\t\t\t\t\t<span class='tooltiptext_unrotated'>"
+            ))
             for key, value in self.roles[role].attributes.iteritems():
                 html_list.append("%s = %s<br/>" % (key, value))
-            html_list.append(("</span>\n"
-            "\t\t\t\t\t</div>\n"
-            "\t\t\t\t</td>\n"))
+            html_list.append((
+                "</span>\n"
+                "\t\t\t\t\t</div>\n"
+                "\t\t\t\t</td>\n"
+            ))
 
         html_list.append("\t\t\t</tr>\n")
 
@@ -319,58 +326,66 @@ class Policy(object):
             html_list.append("\t\t\t<tr>\n")
 
             if counter == 0:
-                html_list.append("\t\t\t\t<td class='label' rowspan='%d'>Q<br/>U<br/>E<br/>L<br/>L<br/>E</td>\n" % len(roles))
+                html_list.append(
+                    "\t\t\t\t<td class='label' rowspan='%d'>Q<br/>U<br/>E<br/>L<br/>L<br/>E</td>\n" % len(roles)
+                )
 
             html_list.append("\t\t\t\t<td class='role'>%s</td>\n" % role_from)
 
             for role_to in sorted(roles):
                 if role_from == "Internet" and role_to == "Internet":
                     html_list.append("\t\t\t\t<td>&nbsp;</td>\n")
-                elif (role_from, role_to) in self.policies and len(self.policies[(role_from, role_to)].conditions) > 0:
-                        html_list.append(("\t\t\t\t<td class='cond_allowed'>\n"
+                elif (role_from, role_to) in self.policies and self.policies[(role_from, role_to)].conditions:
+                    html_list.append((
+                        "\t\t\t\t<td class='cond_allowed'>\n"
                         "\t\t\t\t\t<div class='tooltip'>\n"
                         "\t\t\t\t\t\t&#x2705;\n"
-                        "\t\t\t\t\t\t<span class='tooltiptext'>"))
-                        if self.default_policy:
-                            html_list.append("NICHT<br/>(</br>")
-                        for counter, cond in enumerate(self.policies[(role_from, role_to)].conditions):
-                            if not counter == 0:
-                                html_list.append("ODER<br/>")
-                            for key, value in cond.iteritems():
-                                html_list.append("%s = %s<br/>" % (key, value))
-                        if self.default_policy:
-                            html_list.append(")")
-                        html_list.append(("</span>\n"
+                        "\t\t\t\t\t\t<span class='tooltiptext'>"
+                    ))
+                    if self.default_policy:
+                        html_list.append("NICHT<br/>(</br>")
+                    for cond_counter, cond in enumerate(self.policies[(role_from, role_to)].conditions):
+                        if not cond_counter == 0:
+                            html_list.append("ODER<br/>")
+                        for key, value in cond.iteritems():
+                            html_list.append("%s = %s<br/>" % (key, value))
+                    if self.default_policy:
+                        html_list.append(")")
+                    html_list.append((
+                        "</span>\n"
                         "\t\t\t\t\t</div>\n"
-                        "\t\t\t\t</td>\n"))
-                elif (self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], ReachabilityPolicy))):
+                        "\t\t\t\t</td>\n"
+                    ))
+                elif self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], ReachabilityPolicy)):
                     html_list.append("\t\t\t\t<td class='allowed'>&#x2705;</td>\n")
-                elif (self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], IgnorePolicy))):
+                elif self.default_policy ^ ((role_from, role_to) in self.policies and isinstance(self.policies[(role_from, role_to)], IgnorePolicy)):
                     html_list.append("\t\t\t\t<td>&nbsp;</td>\n")
                 else:
                     html_list.append("\t\t\t\t<td class='disallowed'>&#x274c;</td>\n")
 
             html_list.append("\t\t\t</tr>\n")
 
-        html_list.append(("\t\t</table>\n\n"
-        "\t\t<br/><br/>\n"
-        "\t\t<h3>Legende:</h3>\n\n"
-        "\t\t<table>\n"
-        "\t\t\t<tr>\n"
-        "\t\t\t\t<td class='allowed'>&#x2705;</td>\n"
-        "\t\t\t\t<td>Erlaubt</td>\n"
-        "\t\t\t</tr>\n"
-        "\t\t\t<tr>\n"
-        "\t\t\t\t<td class='cond_allowed'>&#x2705;</td>\n"
-        "\t\t\t\t<td>Nur bedingt erlaubt (Mouseover für mehr Informationen)</td>\n"
-        "\t\t\t</tr>\n"
-        "\t\t\t<tr>\n"
-        "\t\t\t\t<td class='disallowed'>&#x274c;</td>\n"
-        "\t\t\t\t<td>Nicht erlaubt</td>\n"
-        "\t\t\t</tr>\n"
-        "\t\t</table>\n"
-        "\t</body>\n"
-        "</html>"))
+        html_list.append((
+            "\t\t</table>\n\n"
+            "\t\t<br/><br/>\n"
+            "\t\t<h3>Legende:</h3>\n\n"
+            "\t\t<table>\n"
+            "\t\t\t<tr>\n"
+            "\t\t\t\t<td class='allowed'>&#x2705;</td>\n"
+            "\t\t\t\t<td>Erlaubt</td>\n"
+            "\t\t\t</tr>\n"
+            "\t\t\t<tr>\n"
+            "\t\t\t\t<td class='cond_allowed'>&#x2705;</td>\n"
+            "\t\t\t\t<td>Nur bedingt erlaubt (Mouseover für mehr Informationen)</td>\n"
+            "\t\t\t</tr>\n"
+            "\t\t\t<tr>\n"
+            "\t\t\t\t<td class='disallowed'>&#x274c;</td>\n"
+            "\t\t\t\t<td>Nicht erlaubt</td>\n"
+            "\t\t\t</tr>\n"
+            "\t\t</table>\n"
+            "\t</body>\n"
+            "</html>"
+        ))
 
         return "".join(html_list)
 
@@ -385,7 +400,7 @@ class Policy(object):
         roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
         vlans, csv_list = set(), []
 
-        for name, role in roles.iteritems():
+        for _name, role in roles.iteritems():
             if "vlan" in role.attributes:
                 vlans.add(role.attributes["vlan"])
 
@@ -472,14 +487,14 @@ class Policy(object):
         ip6rule = False
 
         #defaultrules rules and best practices
-        defaultruletarget = " ACCEPT" if (self.default_policy == True)  else " DROP"
+        defaultruletarget = " ACCEPT" if self.default_policy else " DROP"
         default4rule = "iptables -P FORWARD" + defaultruletarget
         iptable_rules.append(default4rule)
 
         #Anti-Spoofing Ipv4
         for role in self.get_atomic_roles():
             if 'ipv4' in self.roles[role].attributes:
-                src= self.roles[role].attributes['ipv4']
+                src = self.roles[role].attributes['ipv4']
                 bp4rules = "iptables -A FORWARD -i eth1 -s " + src + " -j DROP"
                 iptable_rules.append(bp4rules)
 
@@ -492,7 +507,7 @@ class Policy(object):
         #Anti-Spoofing Ipv6
         for role in self.get_atomic_roles():
             if 'ipv6' in self.roles[role].attributes:
-                src= self.roles[role].attributes['ipv6']
+                src = self.roles[role].attributes['ipv6']
                 bp6rules = "ip6tables -A FORWARD -i eth1 -s " + src + " -j DROP"
                 iptable_rules.append(bp6rules)
 
@@ -537,48 +552,65 @@ class Policy(object):
 
 
             # check if one is Internet
-            eth_from = " -i eth1" if (policy[0]=="Internet") else ""
-            eth_to = " -o eth1" if (policy[1]=="Internet") else ""
+            eth_from = " -i eth1" if (policy[0] == "Internet") else ""
+            eth_to = " -o eth1" if (policy[1] == "Internet") else ""
 
             # Check for interface and vlan
             if not eth_from:
-                eth_from_interface = (" -i " + self.roles[policy[0]].attributes["interface"]) if ("interface" in self.roles[policy[0]].attributes) else ""
-                eth_from_vlan = ("." + self.roles[policy[0]].attributes["vlan"]) if ("vlan" in self.roles[policy[0]].attributes and "interface" in self.roles[policy[0]].attributes) else ""
+                eth_from_interface = (
+                    " -i " + self.roles[policy[0]].attributes["interface"]
+                ) if ("interface" in self.roles[policy[0]].attributes) else ""
+                eth_from_vlan = (
+                    "." + self.roles[policy[0]].attributes["vlan"]
+                ) if ("vlan" in self.roles[policy[0]].attributes and "interface" in self.roles[policy[0]].attributes) else ""
                 eth_from = eth_from_interface + eth_from_vlan
             if not eth_to:
-                eth_to_interface = (" -o " + self.roles[policy[1]].attributes["interface"]) if ("interface" in self.roles[policy[1]].attributes) else ""
-                eth_to_vlan = ("." + self.roles[policy[1]].attributes["vlan"]) if ("vlan" in self.roles[policy[1]].attributes and "interface" in self.roles[policy[1]].attributes) else ""
+                eth_to_interface = (
+                    " -o " + self.roles[policy[1]].attributes["interface"]
+                ) if ("interface" in self.roles[policy[1]].attributes) else ""
+                eth_to_vlan = (
+                    "." + self.roles[policy[1]].attributes["vlan"]
+                ) if ("vlan" in self.roles[policy[1]].attributes and "interface" in self.roles[policy[1]].attributes) else ""
                 eth_to = eth_to_interface + eth_to_vlan
 
             #test if this policy is a relatedrule
-            relatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions) else False
+            relatedrule = ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions)
 
             #test for strict rules A--->A to convert to A<-->A later on
-            strictrule= True if policy[0]==policy[1] else False
+            strictrule = policy[0] == policy[1]
 
             #test for single way policy
             singleway = True
-            revpol= (policy[1],policy[0])
+            revpol = (policy[1], policy[0])
             if revpol in self.policies:
-                revrelatedrule = True if ({'state':'RELATED,ESTABLISHED'} in self.policies[revpol].conditions) else False
-                singleway= False if revrelatedrule else True
+                revrelatedrule = ({'state' : 'RELATED,ESTABLISHED'} in self.policies[revpol].conditions)
+                singleway = not revrelatedrule
 
             # set jumptarget depending on standard and singleway policy
-            jumptarget = " -j ACCEPT" if (self.default_policy == False)  else " -j DROP"
+            jumptarget = " -j ACCEPT" if not self.default_policy else " -j DROP"
 
             # Only create ip4table rules if not relatedrule, both have ipv4 or one is Internet and the other one has ipv4
-            ip4rule = True if (not relatedrule) and (("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)
-                               or (policy[0]=="Internet" or policy[1]=="Internet") and
-                               (("ipv4" in self.roles[policy[0]].attributes) or ("ipv4" in self.roles[policy[1]].attributes))) else False
+            ip4rule = (not relatedrule) and (
+                ("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)  or
+                (policy[0] == "Internet" or policy[1] == "Internet") and (
+                    ("ipv4" in self.roles[policy[0]].attributes) or ("ipv4" in self.roles[policy[1]].attributes)
+                )
+            )
 
             # get ipv4 source and destination adress
-            ip4_from = (" -s " + self.roles[policy[0]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[0]].attributes) else ""
-            ip4_to = (" -d " + self.roles[policy[1]].attributes["ipv4"] ) if ("ipv4" in self.roles[policy[1]].attributes) else ""
+            ip4_from = (" -s " + self.roles[policy[0]].attributes["ipv4"]) if ("ipv4" in self.roles[policy[0]].attributes) else ""
+            ip4_to = (" -d " + self.roles[policy[1]].attributes["ipv4"]) if ("ipv4" in self.roles[policy[1]].attributes) else ""
 
             # Only create ip6table rules if not relatedrule and both have ipv6 or one is Internet and the other one has ipv6
-            ip6rule = True if (not relatedrule) and (("ipv6" in self.roles[policy[0]].attributes) and ("ipv6" in self.roles[policy[1]].attributes)
-                               or (policy[0]=="Internet" or policy[1]=="Internet") and
-                               (("ipv6" in self.roles[policy[0]].attributes) or ("ipv6" in self.roles[policy[1]].attributes))) else False
+            ip6rule = (not relatedrule) and (
+                ("ipv6" in self.roles[policy[0]].attributes) and
+                ("ipv6" in self.roles[policy[1]].attributes) or
+                (policy[0] == "Internet" or policy[1] == "Internet") and
+                (
+                    ("ipv6" in self.roles[policy[0]].attributes) or
+                    ("ipv6" in self.roles[policy[1]].attributes)
+                )
+            )
 
             # get ipv6 source and destination adress
             ip6_from = (" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
@@ -601,7 +633,7 @@ class Policy(object):
                     if 'protocol' in cond:
                         serviceport = " --sport " if provider == policy[0] else " --dport "
                         serviceinfo = " --protocol " + cond['protocol'] + serviceport + cond['port']
-                    else :
+                    else:
                         serviceinfo = ""
                     # check for states
                     if 'state' in cond:
@@ -615,7 +647,7 @@ class Policy(object):
                         if ip4rule:
                             #create prerouting rule if neccesary
                             #TODO remove ALL strictrule when Policy creation(A<->A insted of A->A) is fixed
-                            if singleway and (self.default_policy == False) and not strictrule:
+                            if singleway and not self.default_policy and not strictrule:
                                 rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
                                 iptable_rules.append(rule)
                             rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
@@ -623,7 +655,7 @@ class Policy(object):
 
                         if ip6rule:
                             #create prerouting rule if neccesary
-                            if singleway and (self.default_policy == False) and not strictrule:
+                            if singleway and not self.default_policy and not strictrule:
                                 rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + " -j NOTRACK"
                                 iptable_rules.append(rule)
                             rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + module + comment + jumptarget
@@ -817,10 +849,10 @@ class Superrole(Role):
         assert isinstance(other, Superrole)
 
         return self.name == other.name and all([
-                role == other_role for role, other_role in zip(self.subroles, other.subroles)
-            ]) and all([
-                service == other_service for service, other_service in zip(self.subservices, other.subservices)
-            ])
+            role == other_role for role, other_role in zip(self.subroles, other.subroles)
+        ]) and all([
+            service == other_service for service, other_service in zip(self.subservices, other.subservices)
+        ])
 
     def add_attribute(self, key, value):
         """Sets an attribute value for all subroles. See base class."""
@@ -876,9 +908,9 @@ class Superrole(Role):
                 object.
         """
 
-        if (service == "*"):
-            for service in self.policy.roles[subrole].services:
-                self.subservices[subrole][service] = self.policy.services[service]
+        if service == "*":
+            for service_ in self.policy.roles[subrole].services:
+                self.subservices[subrole][service_] = self.policy.services[service_]
         elif self.policy.roles[subrole].offers_service(service):
             self.subservices[subrole][service] = self.policy.services[service]
         else:
