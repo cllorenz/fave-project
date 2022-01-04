@@ -1,0 +1,7 @@
+iptables -P FORWARD DROP
+iptables -P OUTPUT DROP
+iptables -P INPUT DROP
+iptables -A FORWARD -d 1.2.3.4 -j ACCEPT
+iptables -A FORWARD -d 1.2.3.4 -p tcp --dport 80 -j ACCEPT
+#iptables -A FORWARD -d 1.2.3.4 -p tcp -m multiports --dports 80:80 -j ACCEPT
+iptables -A FORWARD -d 1.2.3.4 -p tcp -m multiports --dports 1234:4321 -j ACCEPT

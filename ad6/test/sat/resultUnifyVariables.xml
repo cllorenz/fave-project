@@ -1,0 +1,7 @@
+<exists variable="foo_0">
+	<forall variable="foo_1">
+		<variable name="foo_1"/>
+	</forall>
+	<variable name="foo_0"/>
+	<variable name="bar_f"/>
+</exists>

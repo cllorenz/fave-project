@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<conjunction>
+	<variable name="foo" negated="true"/>
+	<constant value="true"/>
+</conjunction>
