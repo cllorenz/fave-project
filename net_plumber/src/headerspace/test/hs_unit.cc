@@ -55,13 +55,9 @@ void HeaderspaceTest::test_from_str() {
     hs_vec_append(&h->list.diff[1], array_from_str("11xx1x00,xxxxxxxx"), true);
     hs_vec_append(&h->list, array_from_str("010xxx10,10101010"), false);
 
-    hs_print(h);
-
     struct hs *a = hs_from_str(
         "(xx10xx10,xxxxxxxx + (11xx110x,xxxxxxxx - ( 1100110x,00000000 + 11xx1x00,xxxxxxxx))+010xxx10,10101010)"
     );
-
-    hs_print(a);
 
     CPPUNIT_ASSERT(hs_is_equal(h, a));
 
