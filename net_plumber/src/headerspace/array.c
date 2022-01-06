@@ -324,27 +324,15 @@ array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
     // trivial case where only the first operand is NULL
     else if (!a && b) return true;
 
-    for (size_t i = 0; i < SIZE(len); i++) {
-        // a^b -> shows differences between a and b
-        // if no bit is set a and b are equal
-        const array_t diff = a[i] ^ b[i];;
+    // no intersection? -> disjoint operands
+    array_t tmp[ARRAY_BYTES (len) / sizeof (array_t)];
+    const bool has_isect = array_isect (a, b, len, &tmp);
 
-        if (!diff) continue;
+    if (!has_isect) return false;
 
-        // f = (b << 1) & EVEN_MASK -> indicates first bit of an x in b
-        // s = (b >> 1) & ODD_MASK -> indicates second bit of an x in b
-        array_t f_b = b[i] & (b[i] << 1) & EVEN_MASK;
-        array_t s_b = b[i] & (b[i] >> 1) & ODD_MASK;
-
-        // f | g -> vector of all x in b
-        array_t set_x = f_b | s_b;
-
-        // shows if all differing bits between a and b are covered by x in b
-        array_t res = diff & ~set_x;
-
-        if (res) return false;
-    }
-    return true;
+    // if the intersection is equal to A -> all bits in A are superseded by B
+    // otherwise there are x bits in A which supersede B
+    return array_is_eq(a, &tmp, len);
 }
 
 size_t
