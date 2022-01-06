@@ -75,6 +75,8 @@ vec_destroy (struct hs_vec *v)
   }
   if (v->elems) free (v->elems);
   if (v->diff) free (v->diff);
+  v->used = v->alloc = 0;
+  v->elems = NULL; v->diff = NULL;
 #endif
 }
 
