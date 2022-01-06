@@ -91,7 +91,9 @@ bool hs_is_empty(const struct hs *hs);
 bool hs_is_equal(const struct hs *a, const struct hs *b);
 bool hs_is_sub(const struct hs *a, const struct hs *b);
 bool hs_is_sub_eq(const struct hs *a, const struct hs *b);
+bool hs_simple_is_sub_eq(const struct hs *a, const struct hs *b);
 
 void hs_simple_merge(struct hs *a);
+void hs_merge_insert(struct hs *h, const array_t *arr);
 #endif
 

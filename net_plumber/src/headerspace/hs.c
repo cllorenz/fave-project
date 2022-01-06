@@ -22,7 +22,7 @@ vec_append (struct hs_vec *v, array_t *a, bool diff)
 #endif
 {
   if (!a) return;
-  if (v->used == v-> alloc) {
+  if (v->used == v->alloc) {
     const size_t alloc = v->alloc ? 2 * v->alloc : VEC_START_SIZE;
     v->elems = xrealloc (v->elems, alloc * sizeof *v->elems);
     v->alloc = alloc;
@@ -1043,13 +1043,13 @@ hs_rewrite (struct hs *hs, const array_t *mask, const array_t *rewrite)
 
   struct hs_vec *list = &hs->list;
   for (size_t i = 0; i < list->used; i++)
-//    n[i] = 
+//    n[i] =
     array_rewrite(list->elems[i], mask, rewrite, hs->len);
 
   struct hs_vec *diff = &hs->diff;
   for (size_t i = 0; i < diff->used; i++) {
     array_rewrite(diff->elems[i], mask, rewrite, hs->len);
-//    size_t m = 
+//    size_t m =
 //
 //    for (size_t j = 0; j < list->used; j++) {
 //      if (m != n[j] && array_has_isect(diff->elems[i], list->elems[j], hs->len)) {
@@ -1197,28 +1197,62 @@ bool hs_is_equal(const struct hs *a, const struct hs *b) {
     return a_is_sub_eq_b && b_is_sub_eq_a;
 }
 
+
+void hs_merge_insert(struct hs *h, const array_t *arr) {
+    struct hs_vec *v = &h->list;
+
+    const size_t len = h->len;
+
+    for (size_t i = 0; i < v->used; i++) {
+        // v[i] is a superset of arr -> skip insertion and delete arr
+        if (array_is_sub_eq(arr, v->elems[i], len)) {
+            return;
+        }
+
+        // v[i] is a subset of arr -> replace v[i] with arr and delete v[i]
+        if (array_is_sub_eq(v->elems[i], arr, len)) {
+            array_free(v->elems[i]);
+            v->elems[i] = array_copy(arr, len);
+            return;
+        }
+
+        // v[i] and arr can be merged -> replace v[i] with v_merge and delete v[i] and arr
+        array_t *v_merge = array_merge(v->elems[i], arr, len);
+        if (v_merge) {
+            array_free(v->elems[i]);
+            v->elems[i] = v_merge;
+            return;
+        }
+    }
+
+    vec_append(v, array_copy(arr, len), false);
+}
+
+
 void hs_simple_merge(struct hs *a) {
     struct hs_vec *v = &a->list;
 
     size_t len = a->len;
 
     size_t i = 0;
-    while (i<v->used) {
+
+    while (i < v->used) {
         size_t j = i+1;
 
-        while (j<v->used) {
+        while (j < v->used) {
+
             // v[i] is a superset of v[j] -> delete v[j]
-            if (array_is_sub_eq(v->elems[j],v->elems[i],len)) {
+            if (array_is_sub_eq(v->elems[j], v->elems[i], len)) {
                 vec_elem_free(v,j);
                 continue;
             }
             // v[i] is a subset of v[j] -> replace v[i] with v[j] and delete v[j]
-            if (array_is_sub_eq(v->elems[i],v->elems[j],len)) {
+            if (array_is_sub_eq(v->elems[i], v->elems[j], len)) {
                 vec_elem_replace_and_delete(v,i,j);
                 continue;
             }
             // v[i] and v[j] can be merged -> replace v[i] with v_merge and delete v[j]
-            array_t *v_merge = array_merge(v->elems[i],v->elems[j],len);
+            array_t *v_merge = array_merge(v->elems[i], v->elems[j], len);
             if (v_merge) {
                 vec_elem_free(v,j);
 
@@ -1239,6 +1273,30 @@ bool hs_has_diff(const struct hs *a) {
     return (a->list.diff && a->list.diff->used);
 #endif
 }
+
+/*
+ * A \subseteq B where A and B do not have diffs and B is compressed
+ */
+bool hs_simple_is_sub_eq(const struct hs *a, const struct hs *b) {
+    const struct hs_vec v_a = a->list;
+    const struct hs_vec v_b = b->list;
+    size_t len = a->len;
+
+    for (size_t i = 0; i < v_a.used; i++) {
+        bool any = false;
+        for (size_t j = 0; j < v_b.used; j++) {
+
+            any |= array_is_sub_eq(v_a.elems[i], v_b.elems[j], len);
+
+            if (any) break;
+        }
+
+        if (!any) return false;
+    }
+
+    return true;
+}
+
 
 /*
  * A \subseteq B \eq (A \isect B \not= emptyset) \land (A - B = \emptyset)
@@ -1291,22 +1349,11 @@ bool hs_is_sub_eq(const struct hs *a, const struct hs *b) {
         hs_copy(&tmp_b,b);
         hs_simple_merge(&tmp_b);
 
-        struct hs_vec v_a = a->list;
-        struct hs_vec v_b = tmp_b.list;
-        size_t len = a->len;
+        const bool is_sub_eq = hs_simple_is_sub_eq(a, &tmp_b);
 
-        for (size_t i = 0; i < v_a.used; i++) {
-            bool any = false;
-            for (size_t j = 0; j < v_b.used; j++) {
-
-                any |= array_is_sub_eq(v_a.elems[i],v_b.elems[j],len);
-
-                if (any) break;
-            }
-            if (!any) { hs_destroy(&tmp_b); return false; }
-        }
         hs_destroy(&tmp_b);
-        return true;
+
+        return is_sub_eq;
     }
 
     struct hs tmp_a = {a->len, {0, 0, 0, 0}};
