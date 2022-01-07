@@ -99,7 +99,7 @@ void run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t1) );
   NetPlumberPlumbingTest<T1, T2> t2;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t2) );
-#ifdef CHECK_REACH_SHADOW
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
   NetPlumberAnomaliesTest<T1, T2> t3;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t3) );
 #endif

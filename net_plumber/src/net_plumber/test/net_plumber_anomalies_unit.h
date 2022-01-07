@@ -40,14 +40,20 @@ class NetPlumberAnomaliesTest : public CppUnit::TestFixture {
 
   CPPUNIT_TEST_SUITE( decltype(t_npat<T1, T2>) );
   CPPUNIT_TEST(test_rule_shadowing);
+#ifdef CHECK_REACH_SHADOW
   CPPUNIT_TEST(test_rule_reachability);
+#endif
+  CPPUNIT_TEST(test_rule_shadowing_regression);
   CPPUNIT_TEST_SUITE_END();
 
  public:
   void setUp();
   void tearDown();
   void test_rule_shadowing();
+#ifdef CHECK_REACH_SHADOW
   void test_rule_reachability();
+#endif
+  void test_rule_shadowing_regression();
  private:
   static log4cxx::LoggerPtr logger;
 };

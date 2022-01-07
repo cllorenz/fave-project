@@ -159,6 +159,8 @@ namespace net_plumber {
 #ifdef CHECK_REACH_SHADOW
     global_error_callback_t<T1, T2> rule_unreach_callback;
     void *rule_unreach_callback_data;
+#endif
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
     global_error_callback_t<T1, T2> rule_shadow_callback;
     void *rule_shadow_callback_data;
 #endif

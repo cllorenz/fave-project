@@ -50,9 +50,11 @@ LoggerPtr loop_logger(Logger::getLogger("DefaultLoopDetectionLogger"));
 #ifdef CHECK_BLACKHOLES
 LoggerPtr blackhole_logger(Logger::getLogger("DefaultBlackholeDetectionLogger"));
 #endif
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
+LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
+#endif
 #ifdef CHECK_REACH_SHADOW
 LoggerPtr unreach_logger(Logger::getLogger("DefaultUnreachDetectionLogger"));
-LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
 #endif
 #ifdef PIPE_SLICING
 LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
@@ -116,13 +118,13 @@ void default_rule_unreach_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void 
 }
 #endif
 
-#ifdef CHECK_REACH_SHADOW
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
 template<typename T1, typename T2>
 void default_rule_shadow_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void *data) {
   Event e = N->get_last_event();
   stringstream error_msg;
   error_msg << "Shadowed Rule Detected: after event " <<
-    get_event_name(e.type) << " (ID1: " << e.id1 << ")";
+    get_event_name(e.type) << " (ID1: " << e.id1 << ") by rule ID2: " << e.id2;
   LOG4CXX_FATAL(shadow_logger,error_msg.str());
 }
 #endif
@@ -275,18 +277,20 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 
   T1 aggr_hs = T1(this->length);
 #else
-  T1 all_hs = {this->length, {0, 0, 0, 0}};
-  T2 *tmp = array_create(this->length, BIT_X);
-  hs_add(&all_hs, tmp);
+  T2 all_hs[ARRAY_BYTES (this->length) / sizeof (T2)];
+  array_init((T2 *)&all_hs, this->length, BIT_X);
 
   T1 aggr_hs = {this->length, {0, 0, 0, 0}};
 #endif
+#endif
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
+  bool is_shadowed = false;
 #endif
 
   for (auto const &rule_pair: *rules_list) {
     auto rule = rule_pair.second;
 
-    if (rule->node_id == r->node_id) {
+    if (rule->index == r->index) {
 
 #ifdef CHECK_REACH_SHADOW
       // check reachability and shadowing
@@ -300,17 +304,24 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 #else
-      T1 rule_hs = {this->length, {0, 0, 0, 0}};
-      hs_add(&rule_hs, array_copy(r->match, this->length));
+      hs_simple_merge(&aggr_hs);
 
-      if (hs_is_equal(&all_hs, &aggr_hs)) {
-        this->rule_unreach_callback(this,NULL,this->rule_unreach_callback_data);
-      } else if (hs_is_sub_eq(&rule_hs, &aggr_hs)) {
+      hs_vec v = {&r->match, 0, 1, 1};
+      T1 rule_hs = {this->length, v};
+
+      if (aggr_hs.list.used == 1 && array_is_sub_eq(r->match, aggr_hs.list.elems[0], this->length)) {
+        this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
+      } else if (hs_simple_is_sub_eq(&rule_hs, &aggr_hs)) {
         this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
       }
 
-      hs_destroy(&rule_hs);
+      hs_destroy(&aggr_hs);
 #endif
+#endif
+#ifdef CHECK_SIMPLE_SHADOW
+      if (is_shadowed) {
+        this->rule_shadow_callback(this,NULL,this->rule_shadow_callback_data);
+      }
 #endif
 
 #ifdef USE_GROUPS
@@ -337,8 +348,17 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #ifdef GENERIC_PS
       if (rule->index < r->index) aggr_hs.psunion2(rule->match);
 #else
-      if (rule->index < r->index) hs_add(&aggr_hs, array_copy(rule->match, this->length));
+      if (rule->index < r->index) {
+        hs_add(&aggr_hs, array_copy(rule->match, this->length));
+//        hs_merge_insert(&aggr_hs, array_copy(rule->match, this->length));
+      }
 #endif
+#endif
+#ifdef CHECK_SIMPLE_SHADOW
+      if (!is_shadowed && rule->index < r->index) {
+        is_shadowed = array_is_sub_eq(r->match, rule->match, this->length);
+        if (is_shadowed) this->last_event.id2 = rule->node_id;
+      }
 #endif
 
       if (empty) {
@@ -614,6 +634,8 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
 #ifdef CHECK_REACH_SHADOW
   this->rule_unreach_callback = default_rule_unreach_callback;
   this->rule_unreach_callback_data = NULL;
+#endif
+#if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
   this->rule_shadow_callback = default_rule_shadow_callback;
   this->rule_shadow_callback_data = NULL;
 #endif
@@ -1908,7 +1930,7 @@ void NetPlumber<T1, T2>::remove_slice(uint64_t id) {
 
   auto slice = slices.find(id);
   if (slice == slices.end()) return;
-  
+
   /* remove pipelines from slice and add to free space */
   auto pipe = slice->second.pipes->begin();
   for (; pipe != slice->second.pipes->end(); ++pipe) {
@@ -2073,9 +2095,9 @@ void NetPlumber<T1, T2>::dump_slices_pipes(const std::string dir) {
       }
       if (!n_pipes.empty()) pipes.append(pipe);
     }
-    
+
     pipes_wrapper["pipes"] = pipes;
-    
+
     stringstream tmp_pipe_network;
     tmp_pipe_network << dir << "/pipes_slices.json";
     string pipe_network_file_name = tmp_pipe_network.str();
