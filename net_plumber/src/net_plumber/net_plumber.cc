@@ -1652,6 +1652,7 @@ void NetPlumber<T1, T2>::_dump_flow_tree_to_file(const string file_name, SourceN
             char *tmp = hs_to_str(s_flow->hs_object);
             std::string flow = std::string(tmp);
             flow_tree["flow"] = flow;
+            free (tmp);
         }
 #endif
 
