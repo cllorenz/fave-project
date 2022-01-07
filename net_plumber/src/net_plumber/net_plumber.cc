@@ -392,7 +392,6 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 
 #ifndef GENERIC_PS
 #ifdef REACH_SHADOW
-  hs_destroy(&all_hs);
   hs_destroy(&aggr_hs);
 #endif
 #endif
