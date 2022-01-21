@@ -61,11 +61,11 @@ class KripkeUtils:
 
         Rules = Table.xpath(XMLUtils.RULEPATH)
         for Index,Rule in enumerate(Rules):
-            KripkeUtils._HandleRule(Kripke,IfRules,Index,Rule,Table,TKey)
+            KripkeUtils._HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules)
 
 
-    def _HandleRule(Kripke,IfRules,Index,Rule,Table,TKey):
-        RKey = TKey + '_r' + str(Index<<12)
+    def _HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules):
+        RKey = Rule.attrib['key']
         Node = KripkeNode(
             Props=[RKey],
             Gamma=None,
@@ -194,9 +194,12 @@ class KripkeUtils:
             Kripke.Put(RKey,(Target,True))
 
         # false Transition
-        Target = TKey + '_r' + str((Index+1)<<12)
-        if Table.xpath('./'+XMLUtils.RULE+'[@'+XMLUtils.ATTRNAME+'="r' + str((Index+1)<<12) + '"]'):
-            Kripke.Put(RKey,(Target,False))
+        try:
+            Target = Rules[Index+1].attrib['key']
+            if Table.xpath('./'+XMLUtils.RULE+'[@'+XMLUtils.ATTRKEY+'="' + Target + '"]'):
+                Kripke.Put(RKey,(Target,False))
+        except IndexError:
+            pass
 
 
     def _HandleNetwork(Kripke,Network):
