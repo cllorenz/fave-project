@@ -80,6 +80,13 @@ if __name__ == '__main__':
         const='ipv6',
         default='ipv4'
     )
+    parser.add_argument(
+        '-n', '--no-interweaving',
+        dest='use_interweaving',
+        action='store_const',
+        const=False,
+        default=True
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -96,5 +103,7 @@ if __name__ == '__main__':
         extra_files=files,
         length=length,
         ip=args.ip,
-        use_unix=args.use_unix
+        use_unix=args.use_unix,
+        use_interweaving=args.use_interweaving,
+        mapping=args.mapping
     ).run()

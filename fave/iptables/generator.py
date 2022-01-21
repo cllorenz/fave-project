@@ -21,6 +21,8 @@
     rule set ASTs.
 """
 
+import json
+
 from copy import deepcopy as dc
 
 from devices.packet_filter import PacketFilterModel
@@ -116,6 +118,8 @@ def _ast_to_rule(node, ast, idx=0):
 
     value = lambda f: f.get_first().value if f.get_first() is not None else ""
 
+    lineno = ast.get_child("--line-no").get_first().value
+
     if ast.has_child("-A"):
         ast = ast.get_child("-A")
     elif ast.has_child("-P"):
@@ -200,7 +204,8 @@ def _ast_to_rule(node, ast, idx=0):
                         RuleField('packet.upper.sport', sport),
                         RuleField('packet.upper.dport', dport)
                     ]),
-                    actions=actions
+                    actions=actions,
+                    raw_line_no=lineno
                 )
 
         else:
@@ -211,7 +216,8 @@ def _ast_to_rule(node, ast, idx=0):
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[RuleField('packet.upper.sport', sport)]),
-                    actions=actions
+                    actions=actions,
+                    raw_line_no=lineno
                 )
             for i, dport in enumerate(dports, start=len(sports)):
                 rules[idx+i] = Rule(
@@ -220,7 +226,8 @@ def _ast_to_rule(node, ast, idx=0):
                     idx+i,
                     in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[RuleField('packet.upper.dport', dport)]),
-                    actions=actions
+                    actions=actions,
+                    raw_line_no=lineno
                 )
 
     else:
@@ -230,10 +237,11 @@ def _ast_to_rule(node, ast, idx=0):
             idx if not is_default else TABLE_MAX,
             in_ports=[node+'.'+chain+'_in'],
             match=Match(body),
-            actions=actions
+            actions=actions,
+            raw_line_no=lineno
         )
 
-    return {chain : rules}
+    return {chain : rules, chain+'_mappings' : {'original':{i:lineno for i,_r in rules.iteritems()}, 'expanded':{lineno:rules.keys()}}}
 
 
 def _get_rules_from_ast(node, ast, idx=0):
@@ -245,12 +253,17 @@ def _get_rules_from_ast(node, ast, idx=0):
     cnt = 0
     chains = {}
     for subtree in ast:
-        rules = _get_rules_from_ast(node, subtree, idx+cnt+1)
+        rules_and_mappings = _get_rules_from_ast(node, subtree, idx+cnt+1) # XXX?
 
-        for chain, rules in rules.iteritems():
+        for chain, rules in [(c, r) for c, r in rules_and_mappings.iteritems() if not c.endswith('_mappings')]:
             chains.setdefault(chain, {})
             chains[chain].update(rules)
             cnt += len(rules)
+
+        for chain, mappings in [(c, m) for c, m in rules_and_mappings.iteritems() if c.endswith('_mappings')]:
+            chains.setdefault(chain, {'original' : {}, 'expanded' : {}})
+            chains[chain]['original'].update(mappings['original'])
+            chains[chain]['expanded'].update(mappings['expanded'])
 
     return chains
 
@@ -501,7 +514,8 @@ def _transform_ast_to_model(
         ports=None,
         address=None,
         interweaving=True,
-        state_snap=False
+        state_snap=False,
+        store_mappings=False
     ):
 
     if state_snap:
@@ -511,6 +525,11 @@ def _transform_ast_to_model(
         model = PacketFilterModel(node, ports=ports, address=address)
 
     chains = _get_rules_from_ast(node, ast)
+
+    if store_mappings:
+        json.dump({c:m for c, m in chains.iteritems() if c.endswith('_mappings')}, open('mappings.json', 'w'), indent=2)
+
+    chains = {c:r for c, r in chains.iteritems() if not c.endswith('mappings')}
 
     if not interweaving:
         for chain, rules in chains.iteritems():
@@ -590,7 +609,8 @@ def generate(ast, node, address, ports, interweaving=True, state_snap=False):
         ports=ports,
         address=address,
         interweaving=interweaving,
-        state_snap=state_snap
+        state_snap=state_snap,
+        store_mappings=True
     )
 
     return model

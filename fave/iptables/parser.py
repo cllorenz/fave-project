@@ -46,6 +46,7 @@ class IP6TablesParser(BisonParser):
 
     _ast = None
     precedences = ()
+    _linecount = 1
 
     start = 'ruleset'
 
@@ -121,6 +122,9 @@ class IP6TablesParser(BisonParser):
             else:
                 line.add_child('-t').add_child('filter')
 
+            line.add_child('--line-no').add_child(self._linecount)
+            self._linecount += 1
+
             return line
 
         elif option == 2:
@@ -141,6 +145,9 @@ class IP6TablesParser(BisonParser):
                 line.add_child(table)
             else:
                 line.add_child('-t').add_child('filter')
+
+            line.add_child('--line-no').add_child(self._linecount)
+            self._linecount += 1
 
             return line
 

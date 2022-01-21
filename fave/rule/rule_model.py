@@ -373,7 +373,7 @@ class Rule(object):
     """ This class provides a model for switch rules.
     """
 
-    def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None):
+    def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None, raw_line_no=None):
         self.node = node
         self.mtype = "switch_rule"
         self.tid = tid
@@ -381,6 +381,7 @@ class Rule(object):
         self.in_ports = in_ports if in_ports is not None else []
         self.match = match if match else Match()
         self.actions = actions if actions is not None else []
+        self.raw_line_no = raw_line_no
 
 
     def __hash__(self):
@@ -400,7 +401,8 @@ class Rule(object):
             "idx" : self.idx,
             "in_ports" : self.in_ports,
             "match" : self.match.to_json() if self.match else None,
-            "actions" : [action.to_json() for action in self.actions]
+            "actions" : [action.to_json() for action in self.actions],
+            "raw_line_no" : self.raw_line_no
         }
 
 
@@ -427,7 +429,8 @@ class Rule(object):
             idx=int(j["idx"]),
             in_ports=j["in_ports"],
             match=Match.from_json(j["match"]),
-            actions=[actions[action["name"]].from_json(action) for action in j["actions"]]
+            actions=[actions[action["name"]].from_json(action) for action in j["actions"]],
+            raw_line_no=j["raw_line_no"]
         )
 
     def __str__(self):
@@ -450,7 +453,8 @@ class Rule(object):
             self.idx == other.idx,
             self.in_ports == other.in_ports,
             self.match == other.match,
-            self.actions == other.actions
+            self.actions == other.actions,
+            self.raw_line_no == other.raw_line_no
         ])
 
 

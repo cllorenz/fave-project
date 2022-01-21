@@ -56,7 +56,8 @@ class GenericBenchmark(object):
             use_internet=True,
             ip=None,
             length=0,
-            suffix=''
+            suffix='',
+            mapping=None
     ):
         self.prefix = prefix
         files = {
@@ -88,6 +89,7 @@ class GenericBenchmark(object):
         self.ip = ip
         self.length = length
         self.suffix = suffix
+        self.mapping = mapping
 
         self.logger = logger if logger else logging.getLogger(prefix)
         self.logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -181,10 +183,12 @@ class GenericBenchmark(object):
         ] if self.use_unix else [
             "127.0.0.1:%d" % no for no in range(44001, 44001+self.threads)
         ]
+
         os.system(
-            "bash scripts/start_aggr.sh -S %s %s" % (
+            "bash scripts/start_aggr.sh -S %s %s %s" % (
                 ','.join(aggr_args),
-                "-u" if self.use_unix else ""
+                "-u" if self.use_unix else "",
+                "-m %s" % self.mapping if self.mapping else ""
             )
         )
         self.logger.info("started aggregator.")
