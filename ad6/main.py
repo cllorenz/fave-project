@@ -92,7 +92,7 @@ class Main:
             if result == []:
                 unreach.append(node)
 
-            print("reach (%d/%d)" % (i, len(nodes)), end='\r', flush=True)
+            print("reach (%d/%d)" % (i, len(nodes)), end='\r', flush=True, file=sys.stderr)
 
         return results, unreach, instm, solvingm
 
@@ -126,7 +126,9 @@ class Main:
             if result == []:
                 if not reach:
                     unreach.append(node)
-                    print('long path reach (%d/%d)' % (nodes_no - len(nodes), nodes_no), end='\r', flush=True)
+                    print('long path reach (%d/%d)' % (
+                        nodes_no - len(nodes), nodes_no
+                    ), end='\r', flush=True, file=sys.stderr)
                 continue
 
             result = result[0]
@@ -156,12 +158,14 @@ class Main:
                 except ValueError:
                     pass
 
-            print('long path reach (%d/%d)' % (nodes_no - len(nodes), nodes_no), end='\r', flush=True)
+            print('long path reach (%d/%d)' % (
+                nodes_no - len(nodes), nodes_no
+            ), end='\r', flush=True, file=sys.stderr)
 
         print('    saved %s of %s calculations' % (
             len(list(kripke.IterNodes()))-no,
             len(list(kripke.IterNodes()))
-        ), flush=True)
+        ), flush=True, file=sys.stderr)
 
         return results, unreach, instm, solvingm
 
@@ -190,9 +194,13 @@ class Main:
             results[node+'_lppshadow'] = result
             solvingm.append(t2-t1)
 
-            print('long path shadow (%d/%d)' % (i, len(nodes)), end='\r', flush=True)
+            print('long path shadow (%d/%d)' % (
+                i, len(nodes)
+            ), end='\r', flush=True, file=sys.stderr)
 
-        print('    saved %s of %s calculations' % (len(nodes)-no, len(nodes)), flush=True)
+        print('    saved %s of %s calculations' % (
+            len(nodes)-no, len(nodes)
+        ), flush=True, file=sys.stderr)
 
         return results, instm, solvingm
 
@@ -202,6 +210,7 @@ class Main:
         instm = []
         solvingm = []
         nodes = list(kripke.IterNodes())
+
         for i, node in enumerate([n for n in nodes if n not in [
             'tum_fw_input_r0_accept'
         ]], start=1):
@@ -216,7 +225,7 @@ class Main:
             results[node+'_shadow'] = result
             solvingm.append(t2 - t1)
 
-            print("shadow (%d/%d)" % (i, len(nodes)), end='\r', flush=True)
+            print("shadow (%d/%d)" % (i, len(nodes)), end='\r', flush=True, file=sys.stderr)
 
         return results, instm, solvingm
 
@@ -236,19 +245,21 @@ class Main:
             XMLUtils.deannotate(network)
             instantiation = []
 
-            print('Instantiate...', end='', flush=True)
+            print('Instantiate...', end='', flush=True, file=sys.stderr)
             t1 = time.time()
-            kripke,encoding = Instantiator.InstantiateBase(network, Inits=["tum_fw_eth0_in", "tum_fw_eth1_in"])
+            kripke, encoding = Instantiator.InstantiateBase(
+                network, Inits=["tum_fw_eth0_in", "tum_fw_eth1_in"]
+            )
             t2 = time.time()
-            print(' done', flush=True)
+            print(' done', flush=True, file=sys.stderr)
             base = t2-t1
-            print('Base instantiation: {:.4f}'.format(base), flush=True)
+            print('Base instantiation: {:.4f}'.format(base), flush=True, file=sys.stderr)
             instantiation.append(base)
-            print('  nodes: ' + str(len(list(kripke.IterNodes()))), flush=True)
+            print('  nodes: ' + str(len(list(kripke.IterNodes()))), flush=True, file=sys.stderr)
             transitions = []
             for transition in kripke.IterFTransitions():
                 transitions.extend(kripke.IterFTransitions(transition))
-            print('  transitions: ' + str(len(transitions)), flush=True)
+            print('  transitions: ' + str(len(transitions)), flush=True, file=sys.stderr)
 
             solvingm = []
             solvingc = []
