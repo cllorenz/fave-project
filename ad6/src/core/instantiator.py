@@ -87,16 +87,15 @@ class Instantiator:
 
         Intersection = set(LastKripke.IterNodes()).intersection(Diff) if LastKripke is not None else set()
         for Node in Intersection:
-            DB.delete(Node+'_'+Instantiator._BASE)
-            DB.delete(Node+'_'+Instantiator.GAMMA)
-
+            if Node+'_'+Instantiator._BASE in DB: del DB[Node+'_'+Instantiator._BASE]
+            if Node+'_'+Instantiator.GAMMA in DB: del DB[Node+'_'+Instantiator.GAMMA]
 
         Encoding = Instantiator._InstantiateBase(DiffKripke)
         Complement = set(Kripke.IterNodes()).difference(Diff)
         for Node in Complement:
-            Implications = DB.get(Node+'_'+Instantiator._BASE)
+            Implications = DB.get(Node+'_'+Instantiator._BASE, [])
             Encoding[0].extend(Implications)
-            Gammas = DB.get(Node+'_'+Instantiator.GAMMA)
+            Gammas = DB.get(Node+'_'+Instantiator.GAMMA, [])
             Encoding[0].extend(Gammas)
 
         Variables = Encoding.iterdescendants(XMLUtils.VARIABLE)
