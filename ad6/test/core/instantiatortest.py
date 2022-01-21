@@ -21,11 +21,11 @@ class InstantiatorTest(unittest.TestCase):
         expectation = [{
             'net0_n0_fw0_accept_r0_true_net0_n0_eth0_out': False,
             'net0_n0_fw0_output_r0_true_net0_n0_fw0_fwdin_r0': True,
-            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r1': False,
+            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r4096': False,
             'net0_n0_fw0_fwdin_r0_true_net0_n0_fw0_drop_r0': True,
-            'net0_n0_fw0_fwdin_r1_false_net0_n0_fw0_fwdin_r2': False,
-            'net0_n0_fw0_fwdin_r1_true_net0_n0_fw0_accept_r0': False,
-            'net0_n0_fw0_fwdin_r2_true_net0_n0_fw0_drop_r0': False,
+            'net0_n0_fw0_fwdin_r4096_false_net0_n0_fw0_fwdin_r8192': False,
+            'net0_n0_fw0_fwdin_r4096_true_net0_n0_fw0_accept_r0': False,
+            'net0_n0_fw0_fwdin_r8192_true_net0_n0_fw0_drop_r0': False,
             'proto_0=0' : False,
             'proto_0=1' : False,
             'proto_1=0' : False,
@@ -47,6 +47,7 @@ class InstantiatorTest(unittest.TestCase):
 
         solver = PycoSATAdapter()
         instances = Instantiator.Instantiate(examinee)
+
         self.assertEqual(solver.Solve(instances['net0_n0_fw0_drop_r0_reach']),expectation)
 
         expectation = []
@@ -59,11 +60,11 @@ class InstantiatorTest(unittest.TestCase):
         expectation = [{
             'net0_n0_fw0_accept_r0_true_net0_n0_eth0_out': False,
             'net0_n0_fw0_output_r0_true_net0_n0_fw0_fwdin_r0': True,
-            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r1': True,
+            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r4096': True,
             'net0_n0_fw0_fwdin_r0_true_net0_n0_fw0_accept_r0': False,
-            'net0_n0_fw0_fwdin_r1_false_net0_n0_fw0_fwdin_r2': False,
-            'net0_n0_fw0_fwdin_r1_true_net0_n0_fw0_fwdin_r0': True,
-            'net0_n0_fw0_fwdin_r2_true_net0_n0_fw0_drop_r0': False,
+            'net0_n0_fw0_fwdin_r4096_false_net0_n0_fw0_fwdin_r8192': False,
+            'net0_n0_fw0_fwdin_r4096_true_net0_n0_fw0_fwdin_r0': True,
+            'net0_n0_fw0_fwdin_r8192_true_net0_n0_fw0_drop_r0': False,
             'proto_0=0' : True,
             'proto_0=1' : False,
             'proto_1=0' : True,
@@ -94,11 +95,11 @@ class InstantiatorTest(unittest.TestCase):
         expectation = [{
             'net0_n0_fw0_accept_r0_true_net0_n0_eth0_out': False,
             'net0_n0_fw0_output_r0_true_net0_n0_fw0_fwdin_r0': True,
-            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r1': False,
+            'net0_n0_fw0_fwdin_r0_false_net0_n0_fw0_fwdin_r4096': False,
             'net0_n0_fw0_fwdin_r0_true_net0_n0_fw0_accept_r0': True,
-            'net0_n0_fw0_fwdin_r1_false_net0_n0_fw0_fwdin_r2': False,
-            'net0_n0_fw0_fwdin_r1_true_net0_n0_fw0_drop_r0': False,
-            'net0_n0_fw0_fwdin_r2_true_net0_n0_fw0_drop_r0': False,
+            'net0_n0_fw0_fwdin_r4096_false_net0_n0_fw0_fwdin_r8192': False,
+            'net0_n0_fw0_fwdin_r4096_true_net0_n0_fw0_drop_r0': False,
+            'net0_n0_fw0_fwdin_r8192_true_net0_n0_fw0_drop_r0': False,
             'proto_0=0' : True,
             'proto_0=1' : False,
             'proto_1=0' : True,
@@ -125,7 +126,7 @@ class InstantiatorTest(unittest.TestCase):
 
 
         expectation = []
-        self.assertEqual(solver.Solve(instances['net0_n0_fw0_fwdin_r1_shadow']),expectation)
+        self.assertEqual(solver.Solve(instances['net0_n0_fw0_fwdin_r4096_shadow']),expectation)
 
 
     def testCross(self):
@@ -138,14 +139,14 @@ class InstantiatorTest(unittest.TestCase):
             'net0_n0_fw0_output_r0_true_net0_n0_fw0_accept_r0': True,
             'net0_n1_eth0_in_true_net0_n1_fw0_input_r0': True,
             'net0_n1_eth0_out_true_net0_n0_eth0_in': False,
-            'net0_n1_fw0_input_r0_false_net0_n1_fw0_input_r1': False,
+            'net0_n1_fw0_input_r0_false_net0_n1_fw0_input_r4096': False,
             'net0_n1_fw0_input_r0_true_net0_n1_fw0_input_r0_accept': True,
-            'net0_n1_fw0_input_r1_true_net0_n1_fw0_drop_r0': False,
+            'net0_n1_fw0_input_r4096_true_net0_n1_fw0_drop_r0': False,
             'net0_n2_eth0_in_true_net0_n2_fw0_input_r0': True,
             'net0_n2_eth0_out_true_net0_n0_eth0_in': False,
-            'net0_n2_fw0_input_r0_false_net0_n2_fw0_input_r1': False,
+            'net0_n2_fw0_input_r0_false_net0_n2_fw0_input_r4096': False,
             'net0_n2_fw0_input_r0_true_net0_n2_fw0_drop_r0': True,
-            'net0_n2_fw0_input_r1_true_net0_n2_fw0_drop_r0': False,
+            'net0_n2_fw0_input_r4096_true_net0_n2_fw0_drop_r0': False,
             'proto_0=0' : True,
             'proto_0=1' : False,
             'proto_1=0' : True,

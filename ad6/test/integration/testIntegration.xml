@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <config
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="http://config"
 	>
 	<firewalls>
 		<firewall name="fw0" key="net0_start_fw0">
 			<table name="output">
-				<rule name="r0">
+				<rule name="r0" key="net0_start_fw0_output_r0">
 					<action type="jump" target="net0_start_fw0_accept_r0"/>
 				</rule>
 			</table>
@@ -18,7 +18,7 @@
 		</firewall>
 		<firewall name="fw0" key="net0_n0_fw0">
 			<table name="forward">
-				<rule name="r0">
+				<rule name="r0" key="net0_n0_fw0_forward_r0">
 					<port direction="dst">80</port>
 					<ip version="6" direction="dst">
 						<address>2001::2</address>
@@ -26,7 +26,7 @@
 					<proto>tcp</proto>
 					<action type="jump" target="net0_n0_fw0_accept_r0"/>
 				</rule>
-				<rule name="r1">
+				<rule name="r4096" key="net0_n0_fw0_forward_r4096">
 					<port direction="dst">22</port>
 					<ip version="6" direction="dst">
 						<address>2001::3</address>
@@ -34,7 +34,7 @@
 					<proto>tcp</proto>
 					<action type="jump" target="net0_n0_fw0_accept_r0"/>
 				</rule>
-				<rule name="r2">
+				<rule name="r8192" key="net0_n0_fw0_forward_r8192">
 					<action type="jump" target="net0_n0_fw0_drop_r0"/>
 				</rule>
 			</table>
@@ -51,12 +51,12 @@
 		</firewall>
 		<firewall name="fw0" key="net0_n1_fw0">
 			<table name="input">
-				<rule name="r0">
+				<rule name="r0" key="net0_n1_fw0_input_r0">
 					<port direction="dst">80</port>
 					<proto>tcp</proto>
 					<action type="jump" target="net0_n1_fw0_accept_r0"/>
 				</rule>
-				<rule name="r1">
+				<rule name="r4096" key="net0_n1_fw0_input_r4096">
 					<action type="jump" target="net0_n1_fw0_drop_r0"/>
 				</rule>
 			</table>
@@ -73,12 +73,12 @@
 		</firewall>
 		<firewall name="fw0" key="net0_n2_fw0">
 			<table name="input">
-				<rule name="r0">
+				<rule name="r0" key="net0_n2_fw0_input_r0">
 					<port direction="dst">22</port>
 					<proto>tcp</proto>
 					<action type="jump" target="net0_n2_fw0_accept_r0"/>
 				</rule>
-				<rule name="r1">
+				<rule name="r4096" key="net0_n2_fw0_input_r4096">
 					<action type="jump" target="net0_n2_fw0_drop_r0"/>
 				</rule>
 			</table>

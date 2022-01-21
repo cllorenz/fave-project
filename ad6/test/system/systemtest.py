@@ -20,7 +20,7 @@ class SystemTest(unittest.TestCase):
 
 
     def testReach(self):
-        result = self.solver.Solve(self.instances['dmz_gateway_fw0_input_r1_reach'])
+        result = self.solver.Solve(self.instances['dmz_gateway_fw0_input_r4096_reach'])
         self.assertEqual(result,self.expectation)
 
 
@@ -30,7 +30,7 @@ class SystemTest(unittest.TestCase):
 
 
     def testShadow(self):
-        result = self.solver.Solve(self.instances['dmz_gateway_fw0_input_r1_shadow'])
+        result = self.solver.Solve(self.instances['dmz_gateway_fw0_input_r4096_shadow'])
         self.assertEqual(result,self.expectation)
 
 
