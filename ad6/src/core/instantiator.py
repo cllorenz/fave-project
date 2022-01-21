@@ -619,7 +619,12 @@ class Instantiator:
 
         # bring addresses into canonical form and add them to mapping
         for Key in Keys:
-            Addr,CIDR = Key.split('_')[-1].split('/')
+            if '/' in Key:
+                Addr,CIDR = Key.split('_')[-1].split('/')
+            else:
+                Addr = Key.split('_')[-1]
+                CIDR = 32
+
             if Key[6] == '6':
                 SplitAddr = Addr.split(':')
                 CanonAddr = ''.join(map(Canonize6,SplitAddr))
@@ -627,7 +632,7 @@ class Instantiator:
                 SplitAddr = Addr.split('.')
                 CanonAddr = ''.join(map(Canonize4,SplitAddr))
 
-            Split = (CanonAddr,int(CIDR,10))
+            Split = (CanonAddr,int(CIDR))
 
             Splits.append(Split)
             Mapping[Stringify(Split)] = Key
