@@ -554,7 +554,7 @@ if __name__ == "__main__":
         solver = PycoSATAdapter()
 
     networks = [
-        et.ElementTrue(
+        et.ElementTree(
             _gen_tum_config(
                 network,
                 dump_mappings=any([
