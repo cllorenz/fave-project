@@ -324,38 +324,31 @@ class Main:
                 shadowed = [n for n, r in results.items() if n.endswith('_shadow') and r == []]
 
                 mappings = json.load(open('/tmp/mappings.json', 'r'))
-                original = {c:{int(k):v for k, v in oc.items()} for c, oc in mappings['original'].items()}
-                extended = {c:{int(k):v for k, v in ec.items()} for c, ec in mappings['extended'].items()}
+                original = mappings['original']
+                extended = {c : {r : set(e) for r, e in ce.items()} for c, ce in mappings['extended'].items()}
 
-                print('  Shadowed Nodes ({:d})'.format(len(shadowed)))
+                shadowed_rules = {chain : set() for chain in original}
+                shadowed_nodes = set([s[:-7] for s in shadowed])
+                for node in shadowed_nodes:
+                    chain = node.split('_')[-2]
+                    try:
+                        original_rule = original[chain][node]
+                    except KeyError:
+                        continue
+                    extended_rules = extended[chain][original_rule]
 
-                shadowed_ids = {}
+                    if extended_rules.issubset(shadowed_nodes):
+                        shadowed_rules[chain].add(original_rule)
 
-                for node in shadowed:
-                    tokens = node.split('_')
-                    chain = tokens[-3]
-                    id_ = int(tokens[-2].lstrip('r'))
+                print('  Shadowed Rules ({:d})'.format(sum([len(s) for _c, s in shadowed_rules.items()])))
 
-#                    print(chain, id_, flush=True)
-
-                    shadowed_ids.setdefault(chain, [])
-                    shadowed_ids[chain].append(id_)
-
-#                print(original, flush=True)
-#                print(extended, flush=True)
-#                print(shadowed_ids, flush=True)
-
-                for chain, ids in shadowed_ids.items():
-                    for id_ in ids:
-                        original_line = original[chain][id_]
-                        extended_ids = extended[chain][original_line]
-
-#                        print(original_line, extended_ids, flush=True)
-
-                        if all([i in shadowed_ids[chain] for i in extended_ids]):
-                            key = "tum_fw_%s_r%d" % (chain, id_)
-                            print('    ' + str(kripke.GetNode(key).RawRuleNo) + ': ' + kripke.GetNode(key).Desc)
-
+                for chain in shadowed_rules:
+                    for rule in sorted(
+                        shadowed_rules[chain], key=lambda r: int(r.split('_')[-1].lstrip('r'))
+                    ):
+                        print("    {}: {}".format(
+                            kripke.GetNode(rule).RawRuleNo, kripke.GetNode(rule).Desc
+                        ))
 
             if end_to_end:
                 print("end to end", flush=True)
@@ -511,8 +504,8 @@ class Main:
         return res
 
 
-def _gen_tum_config(ruleset):
-    firewall = IP6TablesParser.parse(open(ruleset).read(), 'tum_fw', dump_mappings=True)
+def _gen_tum_config(ruleset, dump_mappings=False):
+    firewall = IP6TablesParser.parse(open(ruleset).read(), 'tum_fw', dump_mappings=dump_mappings)
 
     config = GenUtils.config()
     firewalls = GenUtils.firewalls()
@@ -573,7 +566,7 @@ if __name__ == "__main__":
     ]
 
     networks = [et.ElementTree(_gen_tum_config('bench/tum/tum-ruleset', dump_mappings=True))] # XXX
-#    networks = [et.ElementTree(_gen_tum_config('bench/tum/test-ruleset'))] # XXX
+#    networks = [et.ElementTree(_gen_tum_config('bench/tum/test-ruleset', dump_mappings=True))] # XXX
 #    networks = [
 #        et.parse('./bench/up-legacy/small.xml'),
 #        et.parse('./bench/up-legacy/medium.xml'),
