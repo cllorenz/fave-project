@@ -1,62 +1,62 @@
 <?xml version="1.0"?>
 <config
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns="http://config"
-	>
-	<firewalls>
-		<firewall name="fw0" key="internet_provider_fw0">
-			<table name="output">
-				<rule name="r0" key="internet_provider_fw0_output_r0">
-					<action type="jump" target="internet_provider_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internet_provider_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://config"
+    >
+    <firewalls>
+        <firewall name="fw0" key="internet_provider_fw0">
+            <table name="output">
+                <rule name="r0" key="internet_provider_fw0_output_r0">
+                    <action type="jump" target="internet_provider_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internet_provider_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
 
-		<firewall name="fw0" key="border_gateway_fw0">
-			<table name="forward">
-				<rule name="r0" key="border_gateway_fw0_forward_r0">
-					<action type="jump" target="border_gateway_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="border_gateway_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
+        <firewall name="fw0" key="border_gateway_fw0">
+            <table name="forward">
+                <rule name="r0" key="border_gateway_fw0_forward_r0">
+                    <action type="jump" target="border_gateway_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="border_gateway_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
                 <firewall name="fw0" key="dmz_gateway_fw0">
                         <table name="input">
-				                <rule name="r0" key="dmz_gateway_fw0_input_r0">
+                                <rule name="r0" key="dmz_gateway_fw0_input_r0">
                                         <if direction="in" keyref="dmz_gateway_eth1"/>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r4096" key="dmz_gateway_fw0_input_r4096">
+                                <rule name="r4096" key="dmz_gateway_fw0_input_r4096">
                                         <action type="jump" target="dmz_gateway_fw0_drop_r0"/>
                                 </rule>
                         </table>
                         <table name="forward">
-				                <rule name="r0" key="dmz_gateway_fw0_forward_r0">
+                                <rule name="r0" key="dmz_gateway_fw0_forward_r0">
                                         <if direction="in" keyref="dmz_gateway_eth1"/>
-					<ip version="6" direction="src">
-						<address>2001:123:456:789::0/65</address>
-					</ip>
+                    <ip version="6" direction="src">
+                        <address>2001:123:456:789::0/65</address>
+                    </ip>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r4096" key="dmz_gateway_fw0_forward_r4096">
+                                <rule name="r4096" key="dmz_gateway_fw0_forward_r4096">
                                         <if direction="in" keyref="dmz_gateway_eth0"/>
                                         <ip version="6" direction="dst">
                                                 <address>2001:123:456:789::80</address>
                                         </ip>
                                         <port direction="dst">80</port>
-					<proto>tcp</proto>
+                    <proto>tcp</proto>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r8192" key="dmz_gateway_fw0_forward_r8192">
+                                <rule name="r8192" key="dmz_gateway_fw0_forward_r8192">
                                         <if direction="in" keyref="dmz_gateway_eth0"/>
                                         <ip version="6" direction="dst">
                                                 <address>2001:123:456:789::22</address>
@@ -65,7 +65,7 @@
                                         <proto>tcp</proto>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r12288" key="dmz_gateway_fw0_forward_r12288">
+                                <rule name="r12288" key="dmz_gateway_fw0_forward_r12288">
                                         <if direction="in" keyref="dmz_gateway_eth0"/>
                                         <ip version="6" direction="dst">
                                                 <address>2001:123:456:789::5060</address>
@@ -75,7 +75,7 @@
                                         <port direction="dst">10000</port>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r16384" key="dmz_gateway_fw0_forward_r16384">
+                                <rule name="r16384" key="dmz_gateway_fw0_forward_r16384">
                                         <if direction="in" keyref="dmz_gateway_eth0"/>
                                         <ip version="6" direction="dst">
                                                 <address>2001:123:456:789::587</address>
@@ -84,7 +84,7 @@
                                         <proto>tcp</proto>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r20480" key="dmz_gateway_fw0_forward_r20480">
+                                <rule name="r20480" key="dmz_gateway_fw0_forward_r20480">
                                         <if direction="in" keyref="dmz_gateway_eth0"/>
                                         <ip version="6" direction="dst">
                                                 <address>2001:123:456:789::1149</address>
@@ -93,7 +93,7 @@
                                         <proto>tcp</proto>
                                         <action type="jump" target="dmz_gateway_fw0_accept_r0"/>
                                 </rule>
-				                <rule name="r24576" key="dmz_gateway_fw0_forward_r24576">
+                                <rule name="r24576" key="dmz_gateway_fw0_forward_r24576">
                                         <action type="jump" target="dmz_gateway_fw0_drop_r0"/>
                                 </rule>
                         </table>
@@ -268,7 +268,7 @@
                 <firewall name="fw0" key="internal_gateway_fw0">
                         <table name="input">
                                 <rule name="r0" key="internal_gateway_fw0_input_r0">
-					<if direction="in" keyref="internal_gateway_eth1"/>
+                    <if direction="in" keyref="internal_gateway_eth1"/>
                                         <action type="jump" target="internal_gateway_fw0_accept_r0"/>
                                 </rule>
                                 <rule name="r4096" key="internal_gateway_fw0_input_r4096">
@@ -303,247 +303,247 @@
                                 </rule>
                         </table>
                 </firewall>
-		<firewall name="fw0" key="internal_ws0_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws0_fw0_input_r0">
-					<action type="jump" target="internal_ws0_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws0_fw0_output_r0">
-					<action type="jump" target="internal_ws0_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws0_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws1_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws1_fw0_input_r0">
-					<action type="jump" target="internal_ws1_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws1_fw0_output_r0">
-					<action type="jump" target="internal_ws1_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws1_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws2_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws2_fw0_input_r0">
-					<action type="jump" target="internal_ws2_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws2_fw0_output_r0">
-					<action type="jump" target="internal_ws2_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws2_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws3_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws3_fw0_input_r0">
-					<action type="jump" target="internal_ws3_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws3_fw0_output_r0">
-					<action type="jump" target="internal_ws3_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws3_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws4_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws4_fw0_input_r0">
-					<action type="jump" target="internal_ws4_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws4_fw0_output_r0">
-					<action type="jump" target="internal_ws4_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws4_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws5_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws5_fw0_input_r0">
-					<action type="jump" target="internal_ws5_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws5_fw0_output_r0">
-					<action type="jump" target="internal_ws5_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws5_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws6_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws6_fw0_input_r0">
-					<action type="jump" target="internal_ws6_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws6_fw0_output_r0">
-					<action type="jump" target="internal_ws6_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws6_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws7_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws7_fw0_input_r0">
-					<action type="jump" target="internal_ws7_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws7_fw0_output_r0">
-					<action type="jump" target="internal_ws7_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws7_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws8_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws8_fw0_input_r0">
-					<action type="jump" target="internal_ws8_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws8_fw0_output_r0">
-					<action type="jump" target="internal_ws8_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws8_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-		<firewall name="fw0" key="internal_ws9_fw0">
-			<table name="input">
-				<rule name="r0" key="internal_ws9_fw0_input_r0">
-					<action type="jump" target="internal_ws9_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="output">
-				<rule name="r0" key="internal_ws9_fw0_output_r0">
-					<action type="jump" target="internal_ws9_fw0_accept_r0"/>
-				</rule>
-			</table>
-			<table name="accept">
-				<rule name="r0" key="internal_ws9_fw0_accept_r0">
-					<action type="accept"/>
-				</rule>
-			</table>
-		</firewall>
-	</firewalls>
+        <firewall name="fw0" key="internal_ws0_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws0_fw0_input_r0">
+                    <action type="jump" target="internal_ws0_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws0_fw0_output_r0">
+                    <action type="jump" target="internal_ws0_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws0_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws1_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws1_fw0_input_r0">
+                    <action type="jump" target="internal_ws1_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws1_fw0_output_r0">
+                    <action type="jump" target="internal_ws1_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws1_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws2_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws2_fw0_input_r0">
+                    <action type="jump" target="internal_ws2_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws2_fw0_output_r0">
+                    <action type="jump" target="internal_ws2_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws2_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws3_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws3_fw0_input_r0">
+                    <action type="jump" target="internal_ws3_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws3_fw0_output_r0">
+                    <action type="jump" target="internal_ws3_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws3_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws4_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws4_fw0_input_r0">
+                    <action type="jump" target="internal_ws4_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws4_fw0_output_r0">
+                    <action type="jump" target="internal_ws4_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws4_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws5_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws5_fw0_input_r0">
+                    <action type="jump" target="internal_ws5_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws5_fw0_output_r0">
+                    <action type="jump" target="internal_ws5_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws5_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws6_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws6_fw0_input_r0">
+                    <action type="jump" target="internal_ws6_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws6_fw0_output_r0">
+                    <action type="jump" target="internal_ws6_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws6_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws7_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws7_fw0_input_r0">
+                    <action type="jump" target="internal_ws7_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws7_fw0_output_r0">
+                    <action type="jump" target="internal_ws7_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws7_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws8_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws8_fw0_input_r0">
+                    <action type="jump" target="internal_ws8_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws8_fw0_output_r0">
+                    <action type="jump" target="internal_ws8_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws8_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+        <firewall name="fw0" key="internal_ws9_fw0">
+            <table name="input">
+                <rule name="r0" key="internal_ws9_fw0_input_r0">
+                    <action type="jump" target="internal_ws9_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="output">
+                <rule name="r0" key="internal_ws9_fw0_output_r0">
+                    <action type="jump" target="internal_ws9_fw0_accept_r0"/>
+                </rule>
+            </table>
+            <table name="accept">
+                <rule name="r0" key="internal_ws9_fw0_accept_r0">
+                    <action type="accept"/>
+                </rule>
+            </table>
+        </firewall>
+    </firewalls>
 
-	<networks>
-		<network name="internet">
-			<node name="provider">
-				<interface name="ppp0" key="internet_provider_ppp0">
-					<connections>
-						<interface keyref="border_gateway_ppp0"/>
-					</connections>
-				</interface>
-				<firewall keyref="internet_provider_fw0"/>
-			</node>
-		</network>
-		<network name="border">
-			<node name="gateway">
-				<interface name="ppp0" key="border_gateway_ppp0">
-					<connections>
-						<interface keyref="internet_provider_ppp0"/>
-					</connections>
-					<routes>
-						<ip version="6" direction="dst" negated="true">
-							<address>2001:123:456:789::0/64</address>
-						</ip>
-					</routes>
-				</interface>
-				<interface name="eth0" key="border_gateway_eth0">
-					<connections>
-						<interface keyref="dmz_gateway_eth0"/>
-						<interface keyref="internal_gateway_eth0"/>
-					</connections>
-					<routes>
-						<ip version="6" direction="dst" negated="false">
-							<address>2001:123:456:789::0/65</address>
-						</ip>
-						<ip version="6" direction="dst" negated="false">
-							<address>2001:123:456:789::8000/65</address>
-						</ip>
-					</routes>
-				</interface>
-				<firewall keyref="border_gateway_fw0"/>
-				<ip version="6">
-					<address>2001:123:456:789::1</address>
-				</ip>
-			</node>
-		</network>
+    <networks>
+        <network name="internet">
+            <node name="provider">
+                <interface name="ppp0" key="internet_provider_ppp0">
+                    <connections>
+                        <interface keyref="border_gateway_ppp0"/>
+                    </connections>
+                </interface>
+                <firewall keyref="internet_provider_fw0"/>
+            </node>
+        </network>
+        <network name="border">
+            <node name="gateway">
+                <interface name="ppp0" key="border_gateway_ppp0">
+                    <connections>
+                        <interface keyref="internet_provider_ppp0"/>
+                    </connections>
+                    <routes>
+                        <ip version="6" direction="dst" negated="true">
+                            <address>2001:123:456:789::0/64</address>
+                        </ip>
+                    </routes>
+                </interface>
+                <interface name="eth0" key="border_gateway_eth0">
+                    <connections>
+                        <interface keyref="dmz_gateway_eth0"/>
+                        <interface keyref="internal_gateway_eth0"/>
+                    </connections>
+                    <routes>
+                        <ip version="6" direction="dst" negated="false">
+                            <address>2001:123:456:789::0/65</address>
+                        </ip>
+                        <ip version="6" direction="dst" negated="false">
+                            <address>2001:123:456:789::8000/65</address>
+                        </ip>
+                    </routes>
+                </interface>
+                <firewall keyref="border_gateway_fw0"/>
+                <ip version="6">
+                    <address>2001:123:456:789::1</address>
+                </ip>
+            </node>
+        </network>
                 <network name="dmz">
                         <node name="gateway">
                                 <interface name="eth0" key="dmz_gateway_eth0">
                                         <connections>
                                                 <interface keyref="border_gateway_eth0"/>
                                         </connections>
-					<routes>
-						<ip version="6" direction="dst" negated="true">
-							<address>2001:123:456:789::0/64</address>
-						</ip>
-					</routes>
+                    <routes>
+                        <ip version="6" direction="dst" negated="true">
+                            <address>2001:123:456:789::0/64</address>
+                        </ip>
+                    </routes>
                                 </interface>
                                 <interface name="eth1" key="dmz_gateway_eth1">
-					<connections>
-						<interface keyref="dmz_www_eth0"/>
-						<interface keyref="dmz_mail_eth0"/>
-						<interface keyref="dmz_file_eth0"/>
-						<interface keyref="dmz_voip_eth0"/>
-						<interface keyref="dmz_vpn_eth0"/>
-					</connections>
-					<routes>
-						<ip version="6" direction="dst" negated="false">
-							<address>2001:123:456:789::0/65</address>
-						</ip>
-					</routes>
-				</interface>
+                    <connections>
+                        <interface keyref="dmz_www_eth0"/>
+                        <interface keyref="dmz_mail_eth0"/>
+                        <interface keyref="dmz_file_eth0"/>
+                        <interface keyref="dmz_voip_eth0"/>
+                        <interface keyref="dmz_vpn_eth0"/>
+                    </connections>
+                    <routes>
+                        <ip version="6" direction="dst" negated="false">
+                            <address>2001:123:456:789::0/65</address>
+                        </ip>
+                    </routes>
+                </interface>
                                 <firewall keyref="dmz_gateway_fw0"/>
                                 <ip version="6">
                                         <address>2001:123:456:789::1</address>
@@ -604,20 +604,20 @@
                                         <address>2001:123:456:789::1149</address>
                                 </ip>
                         </node>
-		</network>
+        </network>
                 <network name="internal">
                         <node name="gateway">
                                 <interface name="eth0" key="internal_gateway_eth0">
                                         <connections>
                                                 <interface keyref="border_gateway_eth0"/>
                                         </connections>
-					<routes>
-						<ip version="6" direction="dst" negated="true">
-							<address>2001:123:456:789:8000::0/65</address>
-						</ip>
-					</routes>
+                    <routes>
+                        <ip version="6" direction="dst" negated="true">
+                            <address>2001:123:456:789:8000::0/65</address>
+                        </ip>
+                    </routes>
                                 </interface>
-     				<interface name="eth1" key="internal_gateway_eth1">
+                     <interface name="eth1" key="internal_gateway_eth1">
                                         <connections>
                                                 <interface keyref="internal_ws0_eth0"/>
                                                 <interface keyref="internal_ws1_eth0"/>
@@ -746,6 +746,6 @@
                                         <address>2001:123:456:789:8000::b</address>
                                 </ip>
                         </node>
-		</network>
-	</networks>
+        </network>
+    </networks>
 </config>
