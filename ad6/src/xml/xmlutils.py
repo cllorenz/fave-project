@@ -371,7 +371,10 @@ class XMLUtils:
 
 
     def ConvertPortToVariables(Port,Direction):
-        Port, Prefix = Port.split('/')
+        if '/' in Port:
+            Port, Prefix = Port.split('/')
+        else:
+            Prefix = 16
         BitVector = XMLUtils.CanonizePort(Port, Prefix=int(Prefix)).split(' ')
         XML = XMLUtils.conjunction()
         Prefix = Direction + '_'+XMLUtils.PORT+'_'
