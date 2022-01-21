@@ -1,0 +1,6 @@
+iptables -P FORWARD DROP
+iptables -A FORWARD -m conntrack --state ESTABLISHED -j ACCEPT
+iptables -A FORWARD -p tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -d 1.2.3.0/24 -p tcp --dport 80 -j DROP
+iptables -A FORWARD -d 1.2.3.4/24 -p tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -d 1.2.3.5/24 -p udp --dport 53 -j ACCEPT
