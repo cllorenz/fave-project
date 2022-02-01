@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 
-from enum import IntEnum, IntFlag, auto
+import sys
+
+if sys.version_info.major == 3 and sys.version_info.minor >= 6:
+    from enum import IntFlag, auto
+from enum import IntEnum
 from z3 import Int, And
 from functools import reduce
+
 
 Action = IntEnum('action', 'accept drop')
 State = IntEnum('state', 'NEW ESTABLISHED')
@@ -15,10 +20,18 @@ class Proto(IntEnum):
     esp = 50
     gre = 47
 
-class Flag(IntFlag):
-    SYN = auto()
-    ACK = auto()
-    FIN = auto()
+if sys.version_info.major == 3 and sys.version_info.minor >= 6:
+    class Flag(IntFlag):
+        SYN = auto()
+        ACK = auto()
+        FIN = auto()
+
+else:
+    class Flag(IntEnum):
+        SYN = 1
+        ACK = 2
+        FIN = 4
+
 
 class FieldTuple(tuple):
     def __new__(cls, field):
