@@ -762,3 +762,16 @@ def dump_slices_pipes(socks, odir):
     data["method"] = "dump_slices_pipes"
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))
+
+def check_anomalies(socks, table=0):
+    """ Checks whether a table contains anomalies such as shadowed or unreachable rules.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    table -- The table ID (0 if all tables should be checked)
+    """
+
+    data = _basic_rpc()
+    data["method"] = "check_anomalies"
+    data["params"] = {"table" : table}
+    _asend_recv(socks, json.dumps(data))
