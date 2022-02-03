@@ -194,6 +194,9 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
     FN(dump_flow_trees),
     FN(dump_pipes),
     FN(stop),
+#ifdef CHECK_ANOMALIES
+    FN(check_anomalies),
+#endif
     FN(expand)
   };
   size_t n = sizeof methods / sizeof *methods;
@@ -521,6 +524,14 @@ PROTO(dump_slices)
   RETURN(VOID);
 }
 #endif /* PIPE_SLICING */
+
+#ifdef CHECK_ANOMALIES
+PROTO(check_anomalies)
+  const uint32_t table_id = PARAM(table_id).asUInt();
+  netPlumber->check_anomalies(table_id);
+  RETURN(VOID);
+}
+#endif
 
 #ifdef GENERIC_PS
 template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;

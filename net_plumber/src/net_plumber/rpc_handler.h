@@ -73,6 +73,9 @@ private:
   FN(dump_flow_trees);
   FN(dump_pipes);
   FN(stop);
+#ifdef CHECK_ANOMALIES
+  FN(check_anomalies);
+#endif
 #undef FN
 };
 
