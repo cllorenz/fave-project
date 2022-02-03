@@ -149,6 +149,9 @@ int typed_main(int argc, char* argv[]) {
   bool do_dump_json_files = false;
   bool do_load_policy = false;
   bool do_print_network = false;
+#ifdef CHECK_ANOMALIES
+  bool do_check_anomalies = false;
+#endif
 
   string log_config_file = "";
   string json_files_path = "";
@@ -174,6 +177,9 @@ int typed_main(int argc, char* argv[]) {
       printf("\t --log4j-config <config file> : path to <log4j config> file.\n");
       printf("\t --hdr-len <length> : <length> of packet header (default is 1 byte).\n");
       printf("\t --print : print plumbing network.\n");
+#ifdef CHECK_ANOMALIES
+      printf("\t --anomalies : check all tables for anomalies.\n");
+#endif
       break;
     }
     if ( strncmp(argv[i], "--unix", 6) == 0 ) {
@@ -256,6 +262,12 @@ int typed_main(int argc, char* argv[]) {
     if ( strncmp(argv[i], "--print", 7) == 0 ) {
       do_print_network = true;
     }
+
+#ifdef CHECK_ANOMALIES
+    if ( strncmp(argv[i], "--anomalies", 11) == 0 ) {
+      do_check_anomalies = true;
+    }
+#endif
   }
   //configure log4cxx.
   if (log_config_file != "") {
@@ -299,6 +311,12 @@ int typed_main(int argc, char* argv[]) {
   if (do_load_policy) {
     load_policy_file<T1, T2>(policy_json_file, N, filter);
   }
+
+#ifdef CHECK_ANOMALIES
+  if (do_check_anomalies) {
+    check_all_anomalies(N);
+  }
+#endif
 
   if (do_run_server) {
     run_server<T1, T2>(server_address, server_port, N);

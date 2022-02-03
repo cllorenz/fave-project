@@ -35,4 +35,9 @@ template<typename T1, typename T2>
 void load_policy_file(std::string json_policy_file,
                       net_plumber::NetPlumber<T1, T2> *N, T2 *filter);
 
+#ifdef CHECK_ANOMALIES
+template<typename T1, typename T2>
+void check_all_anomalies(net_plumber::NetPlumber<T1, T2> *N);
+#endif
+
 #endif /* MAIN_PROCESSES_H_ */

@@ -164,6 +164,10 @@ namespace net_plumber {
     global_error_callback_t<T1, T2> rule_shadow_callback;
     void *rule_shadow_callback_data;
 #endif
+#ifdef CHECK_ANOMALIES
+    global_error_callback_t<T1, T2> anomaly_callback;
+    void *anomaly_callback_data;
+#endif
 #ifdef PIPE_SLICING
     global_error_callback_t<T1, T2> slice_overlap_callback;
     void *slice_overlap_callback_data;
@@ -311,6 +315,10 @@ namespace net_plumber {
     void dump_slices(const std::string);
 #endif
 
+#ifdef CHECK_ANOMALIES
+    void check_anomalies(const uint32_t table_id);
+#endif
+
    private:
 #ifdef USE_GROUPS
     void free_group_memory(uint32_t table, uint64_t group);
@@ -341,6 +349,10 @@ namespace net_plumber {
     void check_pipe_for_slice_leakage(Pipeline<T1, T2> *in, Pipeline<T1, T2> *out);
     bool check_leak_exception(uint64_t in, uint64_t out);
     friend class ::NetPlumberSlicingTest<T1, T2>;
+#endif
+
+#ifdef CHECK_ANOMALIES
+    void _check_anomalies(const uint32_t table_id);
 #endif
   };
 }

@@ -56,6 +56,9 @@ LoggerPtr shadow_logger(Logger::getLogger("DefaultShadowDetectionLogger"));
 #ifdef CHECK_REACH_SHADOW
 LoggerPtr unreach_logger(Logger::getLogger("DefaultUnreachDetectionLogger"));
 #endif
+#ifdef CHECK_ANOMALIES
+LoggerPtr anomaly_logger(Logger::getLogger("DefaultAnomalyLogger"));
+#endif
 #ifdef PIPE_SLICING
 LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
 #endif
@@ -104,6 +107,18 @@ void default_blackhole_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, void
   error_msg << "Black Hole Detected: after event " << get_event_name(e.type) <<
       " (ID1: " << e.id1 << ")";
   LOG4CXX_FATAL(blackhole_logger,error_msg.str());
+}
+#endif
+
+#ifdef CHECK_ANOMALIES
+template<typename T1, typename T2>
+void default_anomaly_callback(NetPlumber<T1, T2> *N, Flow<T1, T2> *f, void *data) {
+  Event e = N->get_last_event();
+  std::string *anomaly = (std::string *)data;
+  stringstream error_msg;
+  error_msg << *anomaly << " Rule Detected: after event " <<
+    get_event_name(e.type) << " (ID2: " << e.id2 << ")";
+  LOG4CXX_FATAL(anomaly_logger, error_msg.str());
 }
 #endif
 
@@ -397,6 +412,65 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 #endif
 }
 
+#ifdef CHECK_ANOMALIES
+template<class T1, class T2>
+void NetPlumber<T1, T2>::_check_anomalies(const uint32_t table_id) {
+  auto rules = this->table_to_nodes[table_id];
+
+  T2 all_hs[ARRAY_BYTES (this->length) / sizeof (T2)];
+  array_init((T2 *)&all_hs, this->length, BIT_X);
+
+  T1 aggr_hs = {this->length, {0, 0, 0, 0}};
+
+  bool unreach = false;
+  std::string unreach_str { "Unreachable" };
+  std::string shadow_str { "Shadowed" };
+
+  for (auto const &rule_pair: *rules) {
+    auto rule = rule_pair.second;
+    this->last_event.id2 = rule->node_id;
+
+    if (unreach) {
+      this->anomaly_callback_data = (void *)&unreach_str;
+      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+      continue;
+    }
+
+    if (aggr_hs.list.used == 1 && array_is_eq(rule->match, aggr_hs.list.elems[0], this->length)) {
+      this->anomaly_callback_data = (void *)&unreach_str;
+      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+
+      unreach = true;
+      continue;
+    }
+
+    T1 rule_hs = {this->length, {&rule->match, 0, 1, 1}};
+    if (hs_simple_is_sub_eq(&rule_hs, &aggr_hs)) {
+      this->anomaly_callback_data = (void *)&shadow_str;
+      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+    }
+
+    hs_merge_insert(&aggr_hs, rule->match);
+  }
+
+  hs_destroy(&aggr_hs);
+}
+#endif
+
+#ifdef CHECK_ANOMALIES
+template<class T1, class T2>
+void NetPlumber<T1, T2>::check_anomalies(const uint32_t table_id) {
+  if (table_id == 0) {
+    for (auto const &table: this->table_to_nodes) {
+      this->_check_anomalies(table.first);
+    }
+  } else {
+    this->_check_anomalies(table_id);
+  }
+}
+#endif
+
+
 template<class T1, class T2>
 void NetPlumber<T1, T2>::set_node_pipelines(Node<T1, T2> *n) {
   // set n's forward pipelines.
@@ -637,6 +711,10 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
 #if defined(CHECK_SIMPLE_SHADOW) || defined(CHECK_REACH_SHADOW)
   this->rule_shadow_callback = default_rule_shadow_callback;
   this->rule_shadow_callback_data = NULL;
+#endif
+#ifdef CHECK_ANOMALIES
+  this->anomaly_callback = default_anomaly_callback;
+  this->anomaly_callback_data = NULL;
 #endif
 #ifdef PIPE_SLICING
   T1 *net_space = new T1(this->length);

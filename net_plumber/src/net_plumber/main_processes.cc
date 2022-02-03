@@ -280,6 +280,17 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
   jsfile.close();
 }
 
+#ifdef CHECK_ANOMALIES
+template<typename T1, typename T2>
+void check_all_anomalies(NetPlumber<T1, T2> *N) {
+  double t_start, t_end;
+  t_start = get_cpu_time_us();
+  N->check_anomalies(0);
+  t_end = get_cpu_time_us();
+  printf("Checked anomalies for all tables in %.2lf seconds (%.2lfus)\n", (t_end - t_start)/1000000.0, (t_end - t_start));
+}
+#endif
+
 #ifdef GENERIC_PS
 template void load_netplumber_from_dir<HeaderspacePacketSet, ArrayPacketSet>(
     string,
@@ -309,6 +320,9 @@ template void load_policy_file<BDDPacketSet, BDDPacketSet>(
   NetPlumber<BDDPacketSet, BDDPacketSet> *,
   BDDPacketSet *
 );
+#ifdef CHECK_ANOMALIES
+template void check_all_anomalies(NetPlumber<BDDPacketSet, BDDPacketSet>);
+#endif
 #endif
 #else
 template void load_netplumber_from_dir<hs, array_t>(
@@ -324,4 +338,8 @@ template void load_policy_file<hs, array_t>(
   NetPlumber<hs, array_t> *,
   array_t *
 );
+#ifdef CHECK_ANOMALIES
+template void check_all_anomalies(NetPlumber<hs, array_t>*);
 #endif
+#endif
+
