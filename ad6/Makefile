@@ -1,10 +1,10 @@
 db:
 	bash scripts/startdb.sh
 
-demo: db
+demo: # db
 	python3 src/main.py
 
-test: db
+test: # db
 	python3 test/test.py
 
 clean:
