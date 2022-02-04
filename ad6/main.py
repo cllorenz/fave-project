@@ -538,9 +538,13 @@ if __name__ == "__main__":
     parser.add_argument('--networks', dest='networks', type=str, nargs='+', default=[])
     parser.add_argument('--solver', dest='solver', choices=['clasp', 'mini', 'pyco'], default='pyco')
     parser.add_argument('--profile', dest='profile', action='store_const', const=True, default=False)
-    parser.add_argument('--anomalies', dest='anomalies', action='extend', nargs='+', choices=[
-        'reach', 'cycle', 'shadow', 'cross', 'lppreach', 'lppshadow', 'end_to_end'
-    ], default=[])
+    if sys.version_info.major == 3 and sys.version_info.minor >= 8:
+        parser.add_argument('--anomalies', dest='anomalies', action='extend', nargs='+', choices=[
+            'reach', 'cycle', 'shadow', 'cross', 'lppreach', 'lppshadow', 'end_to_end'
+        ], default=[])
+    else:
+        parser.add_argument('--anomalies', dest='anomalies', default=[], type=lambda a: a.split(','))
+    parser.add_argument('--ruleset', dest='ruleset', default='bench/tum/tum-ruleset')
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -565,8 +569,7 @@ if __name__ == "__main__":
         ) for network in args.networks
     ]
 
-    networks = [et.ElementTree(_gen_tum_config('bench/tum/tum-ruleset', dump_mappings=True))] # XXX
-#    networks = [et.ElementTree(_gen_tum_config('bench/tum/test-ruleset', dump_mappings=True))] # XXX
+    networks = [et.ElementTree(_gen_tum_config(args.ruleset, dump_mappings=True))] # XXX
 #    networks = [
 #        et.parse('./bench/up-legacy/small.xml'),
 #        et.parse('./bench/up-legacy/medium.xml'),
