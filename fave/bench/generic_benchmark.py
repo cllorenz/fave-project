@@ -111,13 +111,15 @@ class GenericBenchmark(object):
         pass
 
 
-    def _preparation(self):
+    def _delete_artifacts(self):
         os.system("mkdir -p %s" % TMPDIR)
         self.logger.info("deleting old logs and measurements...")
         os.system("rm -rf %s/*" % TMPDIR)
         self.logger.info("deleted old logs and measurements.")
         os.system("rm -f %s/../*.socket" % TMPDIR)
 
+
+    def _generate_policy_matrix(self):
         self.logger.info("generate policy matrix...")
         os.system(
             "python2 ../policy_translator/policy_translator.py " + ' '.join(
@@ -136,10 +138,8 @@ class GenericBenchmark(object):
         )
         self.logger.info("generated policy matrix.")
 
-        self.logger.info("generate inventory...")
-        os.system("python2 %s/inventorygen.py" % self.prefix)
-        self.logger.info("generated inventory.")
 
+    def _convert_policy_to_checks(self):
         self.logger.info("convert policy matrix to checks...")
         os.system(
             "python2 bench/reach_csv_to_checks.py " + ' '.join(
@@ -152,6 +152,18 @@ class GenericBenchmark(object):
             )
         )
         self.logger.info("converted policy matrix.")
+
+
+    def _preparation(self):
+        self._delete_artifacts()
+
+        self._generate_policy_matrix()
+
+        self.logger.info("generate inventory...")
+        os.system("python2 %s/inventorygen.py" % self.prefix)
+        self.logger.info("generated inventory.")
+
+        self._convert_policy_to_checks(self):
 
         self.logger.info("generate topology, routes, and probes...")
         os.system("python2 %s/topogen.py" % self.prefix)
