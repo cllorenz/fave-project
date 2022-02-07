@@ -38,3 +38,5 @@ out
 *.so.bak
 
 examples/example-ruleset
+
+*.swp
