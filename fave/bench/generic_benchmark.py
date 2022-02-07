@@ -163,7 +163,7 @@ class GenericBenchmark(object):
         os.system("python2 %s/inventorygen.py" % self.prefix)
         self.logger.info("generated inventory.")
 
-        self._convert_policy_to_checks(self):
+        self._convert_policy_to_checks()
 
         self.logger.info("generate topology, routes, and probes...")
         os.system("python2 %s/topogen.py" % self.prefix)
