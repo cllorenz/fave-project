@@ -213,7 +213,7 @@ class AggregatorService(AbstractAggregator):
         """
 
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
-            lmsg = "open and bind %s socket" % (
+            lmsg = "master: open and bind %s socket" % (
                 'unix' if port == 0 else 'tcp/ip'
             )
             AggregatorService.LOGGER.info(lmsg)
@@ -228,13 +228,13 @@ class AggregatorService(AbstractAggregator):
 
         # start thread to handle incoming config events
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
-            AggregatorService.LOGGER.info("start handler thread")
+            AggregatorService.LOGGER.info("master: start handler thread")
         thread = Thread(target=self._handler)
         thread.daemon = True
         thread.start()
 
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
-            AggregatorService.LOGGER.info("listen on socket")
+            AggregatorService.LOGGER.info("master: listen on socket")
         sock.listen(1)
 
         while not self.stop:
@@ -293,7 +293,7 @@ class AggregatorService(AbstractAggregator):
         """ Stops FaVe's aggregation service.
         """
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
-            AggregatorService.LOGGER.info("initiate stopping")
+            AggregatorService.LOGGER.info("worker: initiate stopping")
         self.stop = True
 
 
