@@ -27,25 +27,22 @@ import os
 import argparse
 import logging
 import time
+import json
 
 
 from bench.generic_benchmark import GenericBenchmark
-from netplumber.jsonrpc import check_anomalies, connect_to_netplumber
-from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_UNIX, NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
-class ShadowBenchmark(GenericBenchmark):
+class ShadowingBenchmark(GenericBenchmark):
     def _reachability(self):
-        net_plumber = connect_to_netplumber(
-            NET_PLUMBER_DEFAULT_UNIX if self.use_unix else NET_PLUMBER_DEFAULT_IP,
-            port=(0 if self.use_unix else NET_PLUMBER_DEFAULT_PORT)
+        fave = connect_to_fave(
+            FAVE_DEFAULT_UNIX
+        ) if self.use_unix else connect_to_fave(
+            FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
         )
-
-        t_start = time.time()
-        check_anomalies(sock)
-        t_end = time.time()
-
-        self.logger.info('Anomaly detection took {:0.4f} seconds.'.format(t_end - t_start))
-
+        fave_sendmsg(fave, json.dumps({'type':'check_anomalies'}))
+        fave.close()
 
     def _post_preparation(self):
         os.system("python2 bench/wl_shadow/topogen.py %s %s" % (
@@ -126,7 +123,7 @@ if __name__ == '__main__':
         "bench/wl_shadow",
         logger=logging.getLogger("shadow"),
         extra_files=files,
-        use_unix=use_unix,
+        use_unix=args.use_unix,
         ip=args.ip,
         use_interweaving=False
     ).run()

@@ -1,0 +1,219 @@
+ip6tables -P FORWARD DROP
+ip6tables -P INPUT DROP
+ip6tables -P OUTPUT DROP
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 6ce6:a1d5::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 3780 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 139 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 138 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 7649 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 1999 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 37 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 3780 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21f1::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21dd::/32 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 1999 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 113 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f6::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 24032 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:27de::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f1::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21dd::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21e0::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21e0::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21d0::/28 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f0::/28 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21f0::/28 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21e0::/28 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s 60fc:21e5::/32 -d 60fc:21e0::/28 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:21d0::/28 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b269:454e::/32 --sport 123 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --sport 750 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 6ce6:a000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc:21e5::/32 -d 60fc:2000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21dd::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21dd::/32 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21dd::/32 --dport 7649 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21dd::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21cf::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21cf::/32 --dport 13 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21cf::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21cf::/32 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21cf::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 139 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 24032 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 24032 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 37 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 7649 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 13 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 137 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 1999 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 540 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 602b:3571::/32 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 602b:357d::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 6ce6:a107::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b269:454e::/32 --sport 67 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b269:454e::/32 --sport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b269:454e::/32 --sport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b269:454e::/32 --sport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:21dd::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:21cf::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2248::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2248::/32 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2248::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2248::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2248::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 137 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27db::/32 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 137 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/32 --dport 754 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27fb::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:276b::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 602b:357c::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 602b:3448::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 6ce6:a10a::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/28 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/28 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/28 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/28 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/28 --dport 24032 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27f0::/28 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 6ce6:a1f0::/28 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 6ce6:a170::/28 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2240::/28 --dport 13 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:2240::/28 --dport 113 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d 60fc:27d0::/28 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -d b269:41e0::/28 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27db::/32 --dports 40000:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:21dd::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:2248::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27d0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -d 60fc:27fb::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b269:454e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b269:454e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s 60fc::/16 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60fc::/16 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s 60fc::/16 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 24032 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 540 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 540 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 3780 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 37 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 139 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 754 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 137 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 7649 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 540 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 6 --dport 13 -j ACCEPT
+ip6tables -A FORWARD -p 17 --dport 137 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sport 161 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sport 123 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s 60f0::/12 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 60f0::/12 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s 6000::/8 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sports 33434:33600 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 1 -s 6000::/8 -j ACCEPT
+ip6tables -A FORWARD -p 17 --sports 1024:65535 --dports 40000:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 6 -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s 6000::/8 -j ACCEPT
+ip6tables -A FORWARD -p 1 -j ACCEPT
+ip6tables -A FORWARD -p 6 -j ACCEPT
+ip6tables -A FORWARD -p 0 -j ACCEPT
