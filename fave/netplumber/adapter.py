@@ -154,6 +154,11 @@ class NetPlumberAdapter(object):
         """
         jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
 
+    def check_anomalies(self):
+        """ Orders NetPlumber to check all tables for anomalies.
+        """
+        jsonrpc.check_anomalies(self.socks)
+
     def _expand(self):
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length

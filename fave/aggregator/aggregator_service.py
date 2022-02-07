@@ -184,6 +184,10 @@ class AggregatorService(AbstractAggregator):
                 lock = PreLockedFileLock("%s/.lock" % odir)
                 lock.release()
 
+            elif j['type'] == 'check_anomalies':
+                task_type = 'check_anomalies'
+                self.net_plumber.check_anomalies()
+
             else:
                 model = model_from_json(j)
                 if model.type == 'topology_command':
