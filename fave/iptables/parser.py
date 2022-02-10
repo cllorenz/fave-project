@@ -449,7 +449,7 @@ class IP6TablesParser(BisonParser):
 
 
     _ipv6_seg = '[[:xdigit:]]{1,4}'
-    _ipv6_cidr = r"(%s)(\/[1-9][[:digit:]]{0,2})?" % "|".join([
+    _ipv6_cidr = r"(%s)(\/[[:digit:]]{1,3})?" % "|".join([
         "((%s:){7}%s)" % (_ipv6_seg, _ipv6_seg),
         "((%s:){1,7}:)" % _ipv6_seg,
         "((%s:){1,6}:%s)" % (_ipv6_seg, _ipv6_seg),
