@@ -246,16 +246,19 @@ class GenericBenchmark(object):
         self.logger.info("sources sent to fave")
 
 
+    def _dump_fave(self):
         self.logger.info("dumping fave and netplumber...")
         dumper.main(["-atnp%s" % ("u" if self.use_unix else "")])
         self.logger.info("fave ordered to dump")
 
 
-    def _compliance(self):
+    def _wait_for_fave(self):
         self.logger.info("wait for fave")
-
-        self.logger.info("checking flow trees...")
         os.system("python2 misc/await_fave.py")
+
+
+    def _compliance(self):
+        self.logger.info("checking flow trees...")
         os.system("bash scripts/check_parallel.sh %s %s %s" % (
             self.files['checks'], self.threads, "np_dump"
         ))
@@ -274,5 +277,7 @@ class GenericBenchmark(object):
         self._startup()
         self._initialization()
         self._reachability()
+        self._dump_fave()
+        self._wait_for_fave()
         self._teardown()
         self._compliance()
