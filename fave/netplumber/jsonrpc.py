@@ -763,7 +763,7 @@ def dump_slices_pipes(socks, odir):
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))
 
-def check_anomalies(socks, table=0):
+def check_anomalies(socks, table=0, use_shadow=True, use_reach=False, use_general=False):
     """ Checks whether a table contains anomalies such as shadowed or unreachable rules.
 
     Keyword arguments:
@@ -773,5 +773,10 @@ def check_anomalies(socks, table=0):
 
     data = _basic_rpc()
     data["method"] = "check_anomalies"
-    data["params"] = {"table" : table}
+    data["params"] = {
+        "table" : table,
+        "use_shadow" : use_shadow,
+        "use_reach" : use_reach,
+        "use_general" : use_general
+    }
     _asend_recv(socks, json.dumps(data))
