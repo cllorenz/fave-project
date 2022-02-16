@@ -1130,19 +1130,19 @@ size_t NetPlumber<T1, T2>::expand(size_t length) {
 #ifdef USE_BDD
     bdd_extvarnum((length - this->length) * 8);
 #else
-    LOG4CXX_DEBUG(logger, "enlarge nodes");
+    LOG4CXX_TRACE(logger, "enlarge nodes");
     for (auto const &node: id_to_node) {//should contain all flows, probes and rules
       node.second->enlarge(length);
     }
 #endif //USE_BDD
 
 #ifdef PIPE_SLICING
-    LOG4CXX_DEBUG(logger, "enlarge slices");
+    LOG4CXX_TRACE(logger, "enlarge slices");
     for (auto const &slice: slices) {
       slice.second.net_space->enlarge(length);
     }
 #endif //PIPE_SLICING
-    LOG4CXX_DEBUG(logger, "persist length");
+    LOG4CXX_TRACE(logger, "persist length");
     this->length = length;
   }
   return this->length;

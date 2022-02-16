@@ -363,12 +363,12 @@ void SourceProbeNode<T1, T2>::enlarge(uint32_t length) {
     if (length <= this->length) {
         return;
     }
-    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
+    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge filter");
     filter->enlarge(length);
-    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): enlarge test");
+    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): enlarge test");
     test->enlarge(length);
     Node<T1, T2>::enlarge(length);
-    if (debug) LOG4CXX_DEBUG(this->logger, "SourceProbeNode::enlarge(): persist length\n");
+    if (tracing) LOG4CXX_TRACE(this->logger, "SourceProbeNode::enlarge(): persist length\n");
     this->length = length;
 }
 
