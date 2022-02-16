@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" This module provides simple utilities to print a TABLE from a NetPlumber dump.
+""" This module provides simple utilities to print a table from a NetPlumber dump.
 """
 
 import sys
@@ -30,7 +30,7 @@ from netplumber.vector import HeaderSpace
 def print_help():
     """ Prints the usage message.
     """
-    print "usage: python2 TABLE_print <FAVE.json> <TABLE.json>"
+    print "usage: python2 table_print <fave.json> <table.json>"
 
 
 if __name__ == '__main__':
@@ -41,11 +41,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     FAVE = json.load(open(ARGV[0], 'r'))
-    MAPPING = FAVE['MAPPING']
+    MAPPING = FAVE['mapping']
 
     TABLE = json.load(open(ARGV[1], 'r'))
 
-    print "TABLE:", FAVE['id_to_TABLE'][str(TABLE['id'])]
+    print "table:", FAVE['id_to_table'][str(TABLE['id'])]
     print "ports:", [FAVE['id_to_port'][str(p)] for p in TABLE['ports']]
 
     for rule in TABLE['rules']:
