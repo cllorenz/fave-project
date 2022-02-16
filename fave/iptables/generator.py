@@ -527,7 +527,7 @@ def _transform_ast_to_model(
     chains = _get_rules_from_ast(node, ast)
 
     if store_mappings:
-        json.dump({c:m for c, m in chains.iteritems() if c.endswith('_mappings')}, open('mappings.json', 'w'), indent=2)
+        json.dump({c:m for c, m in chains.iteritems() if c.endswith('_mappings')}, open('/tmp/mappings.json', 'w'), indent=2)
 
     chains = {c:r for c, r in chains.iteritems() if not c.endswith('mappings')}
 
