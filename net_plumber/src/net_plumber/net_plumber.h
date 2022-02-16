@@ -82,6 +82,11 @@ struct Slice {
 std::string get_event_name(EVENT_TYPE t);
 
 namespace net_plumber {
+  struct anomalies_config_t {
+    bool use_shadow;
+    bool use_reach;
+    bool use_general;
+  };
 
   template<class T1, class T2>
   class NetPlumber;
@@ -316,7 +321,7 @@ namespace net_plumber {
 #endif
 
 #ifdef CHECK_ANOMALIES
-    void check_anomalies(const uint32_t table_id);
+    void check_anomalies(const uint32_t table_id, const struct anomalies_config_t *anomalies);
 #endif
 
    private:
@@ -352,7 +357,7 @@ namespace net_plumber {
 #endif
 
 #ifdef CHECK_ANOMALIES
-    void _check_anomalies(const uint32_t table_id);
+    void _check_anomalies(const uint32_t table_id, const struct anomalies_config_t *anomalies);
 #endif
   };
 }

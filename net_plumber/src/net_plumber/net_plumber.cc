@@ -26,6 +26,7 @@
 #include <sstream>
 #include <fstream>
 #include <climits>
+#include <algorithm>
 #include "net_plumber_utils.h"
 #include "../jsoncpp/json/json.h"
 extern "C" {
@@ -414,7 +415,10 @@ void NetPlumber<T1, T2>::set_table_dependency(RuleNode<T1, T2> *r) {
 
 #ifdef CHECK_ANOMALIES
 template<class T1, class T2>
-void NetPlumber<T1, T2>::_check_anomalies(const uint32_t table_id) {
+void NetPlumber<T1, T2>::_check_anomalies(
+    const uint32_t table_id,
+    const struct anomalies_config_t *anomalies
+) {
   auto rules = this->table_to_nodes[table_id];
 
   T2 all_hs[ARRAY_BYTES (this->length) / sizeof (T2)];
@@ -425,47 +429,74 @@ void NetPlumber<T1, T2>::_check_anomalies(const uint32_t table_id) {
   bool unreach = false;
   std::string unreach_str { "Unreachable" };
   std::string shadow_str { "Shadowed" };
+  std::string generalization_str { "Generalized" };
 
-  for (auto const &rule_pair: *rules) {
-    auto rule = rule_pair.second;
-    this->last_event.id2 = rule->node_id;
+  if (anomalies->use_shadow || anomalies->use_reach) {
+      for (auto const &rule_pair: *rules) {
+        auto rule = rule_pair.second;
+        this->last_event.id2 = rule->node_id;
 
-    if (unreach) {
-      this->anomaly_callback_data = (void *)&unreach_str;
-      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
-      continue;
-    }
+        if (unreach) {
+          this->anomaly_callback_data = (void *)&unreach_str;
+          this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+          continue;
+        }
 
-    if (aggr_hs.list.used == 1 && array_is_eq(rule->match, aggr_hs.list.elems[0], this->length)) {
-      this->anomaly_callback_data = (void *)&unreach_str;
-      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+        if (
+            anomalies->use_reach &&
+            aggr_hs.list.used == 1 &&
+            array_is_eq(rule->match, aggr_hs.list.elems[0], this->length)
+        ) {
+          this->anomaly_callback_data = (void *)&unreach_str;
+          this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
 
-      unreach = true;
-      continue;
-    }
+          unreach = true;
+          continue;
+        }
 
-    T1 rule_hs = {this->length, {&rule->match, 0, 1, 1}};
-    if (hs_simple_is_sub_eq(&rule_hs, &aggr_hs)) {
-      this->anomaly_callback_data = (void *)&shadow_str;
-      this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
-    }
+        T1 rule_hs = {this->length, {&rule->match, 0, 1, 1}};
+        if (anomalies->use_shadow && hs_simple_is_sub_eq(&rule_hs, &aggr_hs)) {
+          this->anomaly_callback_data = (void *)&shadow_str;
+          this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+        }
 
-    hs_merge_insert(&aggr_hs, rule->match);
+        hs_merge_insert(&aggr_hs, rule->match);
+      }
+
+      hs_destroy(&aggr_hs);
   }
 
-  hs_destroy(&aggr_hs);
+  if (anomalies->use_general) {
+      auto rule_pair = rules->rbegin();
+      if (rule_pair != rules->rend()) rule_pair++;
+      for (rule_pair; rule_pair != rules->rend(); ++rule_pair) {
+        auto rule = rule_pair->second;
+        this->last_event.id2 = rule->node_id;
+
+        T1 rule_hs = {this->length, {&rule->match, 0, 1, 1}};
+
+        if (hs_simple_is_sub_eq(&rule_hs, &aggr_hs)) {
+            this->anomaly_callback_data = (void *)&generalization_str;
+            this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
+        }
+
+        hs_merge_insert(&aggr_hs, rule->match);
+      }
+
+      hs_destroy(&aggr_hs);
+  }
 }
 #endif
 
 #ifdef CHECK_ANOMALIES
 template<class T1, class T2>
-void NetPlumber<T1, T2>::check_anomalies(const uint32_t table_id) {
+void NetPlumber<T1, T2>::check_anomalies(const uint32_t table_id, const struct anomalies_config_t *anomalies) {
   if (table_id == 0) {
     for (auto const &table: this->table_to_nodes) {
-      this->_check_anomalies(table.first);
+      this->_check_anomalies(table.first, anomalies);
     }
   } else {
-    this->_check_anomalies(table_id);
+    this->_check_anomalies(table_id, anomalies);
   }
 }
 #endif

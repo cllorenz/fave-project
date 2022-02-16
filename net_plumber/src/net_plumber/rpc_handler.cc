@@ -528,7 +528,11 @@ PROTO(dump_slices)
 #ifdef CHECK_ANOMALIES
 PROTO(check_anomalies)
   const uint32_t table_id = PARAM(table_id).asUInt();
-  netPlumber->check_anomalies(table_id);
+  const bool use_shadow = PARAM(use_shadow).asBool();
+  const bool use_reach = PARAM(use_reach).asBool();
+  const bool use_general = PARAM(use_general).asBool();
+  const struct anomalies_config_t anomalies { use_shadow, use_reach, use_general };
+  netPlumber->check_anomalies(table_id, &anomalies);
   RETURN(VOID);
 }
 #endif
