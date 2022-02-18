@@ -1,386 +1,1003 @@
 ip6tables -P FORWARD DROP
 ip6tables -P INPUT DROP
 ip6tables -P OUTPUT DROP
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --sports 1024:65535 --dport 754 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:8242::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:8242::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:8242::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e0::/32 --sports 1024:65535 --dport 7649 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sports 1024:65535 --dport 7649 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sports 1024:65535 --dport 21 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae50::/32 --sports 1024:65535 --dport 754 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae50::/32 --sports 1024:65535 --dport 119 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae10::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae10::/32 --sports 1024:65535 --dport 443 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:8242::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e0::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e2::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83a8::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83a8::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae50::/32 --sport 24032 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83aa::/32 --sport 162 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae53::/32 --sport 67 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d ad5e:36a3::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae10::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:8242::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:8242::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:8242::/32 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:8242::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:82e0::/32 --dport 37 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae5b::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:83a8::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:83a8::/32 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae50::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:83aa::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae53::/32 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae10::/32 --dport 754 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s cf00:aa6e::/32 -d a417:b8c9::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s cf00:aa6c::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s c017:18ce::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:85af::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:84eb::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:83b9::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:82f3::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:8259::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a702:29c9::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a6e::/32 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e0::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e2::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83a8::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83aa::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83aa::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae53::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae53::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a68::/30 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s cf00:aa60::/29 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be08::/29 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a60::/29 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be10::/28 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a70::/28 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s cf00:aa40::/27 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a792:8580::/27 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be20::/27 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a40::/27 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a01c:7de0::/27 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be40::/26 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:bc00::/23 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae59::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:8242::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:82e0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a792:82e2::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae5b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae50::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae53::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae10::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae59::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:8242::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:82e0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae5b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a792:83a8::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae50::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d cf00:ae53::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s cf8e:859f::/32 -d cf8e:814b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a00::/26 -d cf00:a800::/21 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a00::/26 -d cf00:a800::/21 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a01c:7d80::/26 -d cf00:a800::/21 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sport 750 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sport 53 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sport 123 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be15::/32 --sport 123 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --sport 161 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --sport 123 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --sport 67 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be00::/30 -d cf00:ae10::/32 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be00::/30 -d cf00:ae3e::/32 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be00::/30 -d a417:b8c1::/32 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a68::/30 -d ad5e:36ac::/32 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae5c::/30 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae54::/30 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d ad5e:36a4::/30 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a417:b8c4::/30 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be06::/32 -d a417:b8c4::/30 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a01c:7d80::/26 -d cf00:a800::/21 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be00::/30 -d cf00:ae10::/32 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be00::/30 -d cf00:ae10::/32 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be00::/30 -d cf00:ae3e::/32 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be00::/30 -d a417:b8c1::/32 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a040:1a68::/30 -d ad5e:36ac::/32 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d cf00:ae5c::/30 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be06::/32 -d cf00:ae54::/30 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d cf00:ae54::/30 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d a417:b8c4::/30 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d a417:be10::/30 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d cf00:ae50::/28 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be06::/32 -d a417:be10::/28 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a417:b8d0::/28 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be06::/32 -d a417:b8d0::/28 -j ACCEPT
-ip6tables -A FORWARD -p 1 -s a417:be06::/32 -d a417:b8d0::/28 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s cf00::/12 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a790::/12 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d cf00:ae50::/28 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d cf00:ae10::/28 -j ACCEPT
-ip6tables -A FORWARD -p 47 -s a417:be06::/32 -d a417:b8d0::/28 -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a417:be06::/32 -d a417:b800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a6e::/32 -d cf00:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a040:1a6e::/32 -d ad5e:3000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -s a01c:7dde::/32 -d cf00:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 0 -s a417:be06::/32 -d cf00:ae5c::/30 -j ACCEPT
-ip6tables -A FORWARD -p 0 -s a417:be06::/32 -d a417:b8c4::/30 -j ACCEPT
-ip6tables -A FORWARD -p 0 -s a417:be06::/32 -d a417:be10::/30 -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a417:be06::/32 -d a417:b800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -s a040:1a6e::/32 -d cf00:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 0 -s a417:be06::/32 -d a417:b8d0::/28 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 13 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 143 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 2401 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 139 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 5998 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 754 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 37 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 162 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 1999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 88 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 7326 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be15::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be15::/32 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be15::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 13 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 754 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 88 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 879 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 162 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 88 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be0e::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d 2ccf:d70e::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d 2ccf:d61d::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d 2ccf:d67c::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d 2ccf:d6ff::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 1999 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 2401 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 162 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 754 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 7649 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --dport 1999 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be02::/32 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be08::/32 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be08::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be08::/32 --dport 37 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --dport 88 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d 2ccf:d6d9::/32 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --sport 161 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sport 69 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/32 --sport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --sport 161 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be0e::/32 --sport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:bd20::/27 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:bd00::/27 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be00::/27 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be20::/27 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8ca::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be00::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:be08::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 6 -d a417:b8c9::/32 -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8c9::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:b8ca::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 -d a417:be02::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 47 -d a417:be0e::/32 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 7648 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 179 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 873 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 69 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 37 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 23 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 443 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 67 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 7326 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 162 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 119 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 2401 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 8080 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 2055 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 879 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 88 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 6 --dport 137 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 750 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 67 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 69 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 88 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 161 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sport 162 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 53 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 2105 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 22 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 871 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 80 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 2055 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 5998 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 25 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 110 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 123 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 754 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 21 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 5999 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 37 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 750 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 24032 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 161 -j ACCEPT
-ip6tables -A FORWARD -p 17 --dport 544 -j ACCEPT
-ip6tables -A FORWARD -p 17 --sports 1024:65535 --dports 33434:33600 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 17 --sports 33434:33600 --dports 1024:65535 -m multiport -j ACCEPT
-ip6tables -A FORWARD -p 1 -j ACCEPT
-ip6tables -A FORWARD -p 6 -j ACCEPT
-ip6tables -A FORWARD -p 1 -j ACCEPT
-ip6tables -A FORWARD -p 1 -j ACCEPT
-ip6tables -A FORWARD -p 1 -j ACCEPT
-ip6tables -A FORWARD -p 47 -j ACCEPT
-ip6tables -A FORWARD -p 1 -j ACCEPT
-ip6tables -A FORWARD -p 0 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd4d:83c0::/28 -d befd:e20::/28 --sport 7648 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdcc:5dc0::/28 -d bdcc:5dd0::/28 --sport 69 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdd4:d940::/28 -d beff:91d0::/28 --sport 53 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bda3:2960::/28 -d bda3:2d20::/28 --sport 750 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc12:c4c0::/28 -d bee0:1880::/28 --sport 53 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc09:ea70::/28 -d f4df:a9c0::/28 --sport 123 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b82e:a560::/28 -d f4ff:5570::/28 --sport 53 --dport 1999 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b930:a320::/28 -d bb1e:6ee0::/28 --sport 750 --dport 143 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9c4:b3e0::/28 -d f4bb:5e90::/28 --sport 750 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba84:1cd0::/28 -d ba84:1e70::/28 --sport 69 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba16:c8c0::/28 -d b9b6:e760::/28 --sport 53 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba2e:8cb0::/28 -d ba2e:8bd0::/28 --sport 161 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bba9:a8a0::/28 -d bba9:ace0::/28 --sport 750 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb32:bbb0::/28 -d f49a:1380::/28 --sport 53 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b18a:b70::/28 -d f492:23d0::/28 --sport 750 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1a2:4080::/28 -d f5cf:c140::/28 --sport 123 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b167:35d0::/28 -d b167:32d0::/28 --sport 750 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b05d:c400::/28 -d f5da:9530::/28 --sport 53 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b026:6070::/28 -d bed0:6b60::/28 --sport 53 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b092:2180::/28 -d b092:27d0::/28 --sport 69 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3f4:9790::/28 -d b0f2:bfc0::/28 --sport 162 --dport 8080 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b27d:66a0::/28 -d b0e0:e8d0::/28 --sport 69 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b604:e440::/28 -d b604:e100::/28 --sport 750 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7aa:4e10::/28 -d b53d:bd50::/28 --sport 123 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7b9:2ca0::/28 -d b7b9:2b40::/28 --sport 67 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b794:77b0::/28 -d b794:77a0::/28 --sport 750 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7da:40f0::/28 -d b53e:790::/28 --sport 750 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7d7:9c00::/28 -d b7d7:9930::/28 --sport 161 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b761:3430::/28 -d b761:3240::/28 --sport 7648 --dport 879 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b4a4:8ea0::/28 -d b7bd:8fc0::/28 --sport 750 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b436:dc0::/28 -d f5a9:7c70::/28 --sport 123 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af0c:4f90::/28 -d aca1:e2b0::/28 --sport 7648 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae88:7ea0::/28 -d f53d:6080::/28 --sport 67 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aee0:e160::/28 -d f53b:caf0::/28 --sport 161 --dport 7649 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae4d:1ff0::/28 -d a198:5390::/28 --sport 750 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae5d:cee0::/28 -d a199:2650::/28 --sport 123 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ac00:35b0::/28 -d f509:b600::/28 --sport 24032 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf4d:bb54::/32 -d bf4d:bc3c::/32 --sports 1024:65535 --dport 750 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be35:e628::/32 -d be35:e062::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be6c:860d::/32 -d be6c:861b::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be67:ac45::/32 -d f46b:5ea5::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be45:2191::/32 -d bdb4:717e::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be84:41eb::/32 -d bdb2:efee::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd3e:c828::/32 -d f4c4:893e::/32 --sports 1024:65535 --dport 137 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd69:13c2::/32 -d b334:9819::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd55:cf12::/32 -d bd55:cf02::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd92:c78a::/32 -d bd92:c799::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd9f:af07::/32 -d bef0:c3cf::/32 --sports 1024:65535 --dport 88 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdb2:f4f6::/32 -d f4da:b5db::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc32:2cc0::/32 -d b322:3a9a::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc1f:3766::/32 -d bc1f:3003::/32 --sports 1024:65535 --dport 139 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc06:f638::/32 -d bee3:c1da::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc68:749e::/32 -d f4e9:50ff::/32 --sports 1024:65535 --dport 21 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc60:faf6::/32 -d bc60:ffd5::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bca0:8164::/32 -d b328:8163::/32 --sports 1024:65535 --dport 23 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bca5:356e::/32 -d bee2:705e::/32 --sports 1024:65535 --dport 7326 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc99:2efc::/32 -d f4e0:2ba6::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc8b:db5f::/32 -d f4e6:2aa6::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcf1:98c5::/32 -d f4e4:cbad::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcfd:629c::/32 -d b32a:8299::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcc8:4305::/32 -d f4f2:99f::/32 --sports 1024:65535 --dport 23 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcd9:27f6::/32 -d b371:1cf1::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b84b:68d1::/32 -d f4f7:d478::/32 --sports 1024:65535 --dport 2401 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b865:d020::/32 -d f4fd:c797::/32 --sports 1024:65535 --dport 879 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b816:cbe8::/32 -d b816:ce17::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b81a:bfbc::/32 -d b81a:b847::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b887:423a::/32 -d b887:462d::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8d1:f839::/32 -d f4a2:8973::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8ce:123b::/32 -d f4a5:37a7::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b93d:82c::/32 -d b93d:e53::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b972:141f::/32 -d f4ae:ed66::/32 --sports 1024:65535 --dport 2105 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9a4:3f6a::/32 -d bb05:317a::/32 --sports 1024:65535 --dport 69 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9a1:4c84::/32 -d b9a1:4946::/32 --sports 1024:65535 --dport 110 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9f6:8ad::/32 -d b9f6:e1d::/32 --sports 1024:65535 --dport 443 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bae7:17f9::/32 -d f4b3:85c1::/32 --sports 1024:65535 --dport 110 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba8b:be6c::/32 -d f487:2f1f::/32 --sports 1024:65535 --dport 69 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba04:7cd9::/32 -d b365:9cd3::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba68:1e0a::/32 -d f489:96ea::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bbe7:1cba::/32 -d bbe7:1ca9::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb1c:d387::/32 -d bb1c:d169::/32 --sports 1024:65535 --dport 110 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb77:be10::/32 -d bb77:bb58::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1a5:6397::/32 -d b1a5:6383::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1fe:7fa6::/32 -d b1fe:7fb8::/32 --sports 1024:65535 --dport 21 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b14b:509b::/32 -d b14b:5082::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b056:d1bb::/32 -d b056:d1ac::/32 --sports 1024:65535 --dport 69 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b05b:6f7b::/32 -d b05b:69e4::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b07e:1aae::/32 -d b07e:1ff7::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b00f:7e71::/32 -d b300:6a66::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b08f:7845::/32 -d b304:d55e::/32 --sports 1024:65535 --dport 750 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b33e:21c8::/32 -d b0fb:a77f::/32 --sports 1024:65535 --dport 161 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b30e:9a94::/32 -d b30e:9d14::/32 --sports 1024:65535 --dport 7649 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b397:245c::/32 -d b0fd:94c6::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3be:46e3::/32 -d f5e3:5f8c::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3a1:8f9a::/32 -d b3a1:89a6::/32 --sports 1024:65535 --dport 113 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b2d7:b737::/32 -d bedd:3215::/32 --sports 1024:65535 --dport 69 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b2c5:bb2e::/32 -d bed9:af38::/32 --sports 1024:65535 --dport 162 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b28b:80d4::/32 -d b0e7:c224::/32 --sports 1024:65535 --dport 88 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b265:ed5b::/32 -d b0e3:df38::/32 --sports 1024:65535 --dport 21 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b24d:5c0c::/32 -d f5fb:2741::/32 --sports 1024:65535 --dport 67 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b256:aecb::/32 -d f5f0:74aa::/32 --sports 1024:65535 --dport 123 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b65f:decb::/32 -d f583:98e3::/32 --sports 1024:65535 --dport 69 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b63c:9346::/32 -d b63c:9556::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6f2:236a::/32 -d f58c:c48b::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6ce:7482::/32 -d b6ce:7490::/32 --sports 1024:65535 --dport 544 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b686:11b2::/32 -d f59d:4a56::/32 --sports 1024:65535 --dport 2105 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7a4:7e02::/32 -d b7a4:7c12::/32 --sports 1024:65535 --dport 7648 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b79e:e85::/32 -d becc:7e7c::/32 --sports 1024:65535 --dport 161 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b755:ca1e::/32 -d f5bb:d852::/32 --sports 1024:65535 --dport 750 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b771:cb8::/32 -d b539:c9d9::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b73e:60c9::/32 -d b539:4bb6::/32 --sports 1024:65535 --dport 119 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b70b:d694::/32 -d b70b:d689::/32 --sports 1024:65535 --dport 2105 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b505:6e90::/32 -d b505:6ce9::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b557:10bb::/32 -d b557:141f::/32 --sports 1024:65535 --dport 2401 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b56e:ce50::/32 -d bebb:648d::/32 --sports 1024:65535 --dport 7649 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af56:db43::/32 -d aca5:7d38::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af45:f80b::/32 -d aca3:8631::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af0f:8061::/32 -d af0f:82f6::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aff4:7059::/32 -d f534:f0ae::/32 --sports 1024:65535 --dport 25 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s afed:9838::/32 -d afed:9b42::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af99:4bb::/32 -d af99:20e::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s afae:dd23::/32 -d afae:d8c3::/32 --sports 1024:65535 --dport 22 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae70:521c::/32 -d f503:7d43::/32 --sports 1024:65535 --dport 53 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae13:bb8f::/32 -d f50e:7b16::/32 --sports 1024:65535 --dport 119 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ac05:b074::/32 -d ac05:b7b4::/32 --sports 1024:65535 --dport 80 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf58:8e1e::/32 -d b307:8014::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf00:b1f0::/32 -d f474:522d::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bfdf:8eeb::/32 -d bfdf:8ef7::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bfe4:6c90::/32 -d bdad:f606::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bfb7:5c50::/32 -d f462:e4e7::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be6b:998a::/32 -d f465:23a6::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s beb2:4f17::/32 -d bdb1:38ab::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd3d:9c78::/32 -d b333:5d43::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd77:17e5::/32 -d f4cd:805e::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdd6:4607::/32 -d bef7:9a93::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd84:8212::/32 -d f4d7:b8a0::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdbc:5343::/32 -d f4d6:aaba::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b873:909::/32 -d b873:f42::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b807:2f35::/32 -d b807:2f27::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b822:9787::/32 -d b822:9293::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8ae:a45b::/32 -d f4f8:62fc::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8ac:ee05::/32 -d f4f8:f09c::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8c6:dfbe::/32 -d b374:d7f4::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b931:c04::/32 -d bb1f:1d8b::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b974:e75::/32 -d b974:e66::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9c9:154b::/32 -d b9c9:1706::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9f9:6b96::/32 -d b37d:57d6::/32 --sport 67 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9e5:a9a4::/32 -d f4b0:80a1::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba6c:50f8::/32 -d b9bc:24d8::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba67:b550::/32 -d b9bd:130b::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bbcf:d186::/32 -d f49c:3cd3::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb22:fdea::/32 -d b36d:ba18::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb01:1e09::/32 -d bb01:1ae0::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1a7:4df4::/32 -d f5c8:6b87::/32 --sport 67 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1d6:fe21::/32 -d b1d6:fa66::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b15f:322b::/32 -d f5c2:bbea::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b139:d892::/32 -d b139:df0f::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b074:196c::/32 -d bee8:5c60::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b039:81fd::/32 -d b303:cb50::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b007:9ea7::/32 -d bed3:6167::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b01f:84a1::/32 -d b01f:864d::/32 --sport 24032 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0dc:bd83::/32 -d b301:77f0::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0c4:a4e7::/32 -d f5d5:ea67::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0cd:fde9::/32 -d f5d4:7839::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b331:3ca4::/32 -d b331:3989::/32 --sport 24032 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b311:bb12::/32 -d b311:bd14::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b307:cfa1::/32 -d f5eb:7f1a::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3af:353f::/32 -d bedf:2143::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b2fe:a064::/32 -d f5fd:8df4::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b2ef:6a77::/32 -d b0e5:d83f::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b2b2:24e7::/32 -d b2b2:235b::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b266:60a0::/32 -d b266:6576::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b646:ca15::/32 -d f5f7:8c7e::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b650:4480::/32 -d f580:a9b7::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b624:336d::/32 -d b624:3373::/32 --sport 24032 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b697:51cb::/32 -d b537:c025::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6b2:c811::/32 -d b6b2:c80b::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6b7:c1f9::/32 -d b533:a33e::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7f6:1dde::/32 -d b7f6:1f80::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b773:f87f::/32 -d bea9:1a08::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b4c1:ecd0::/32 -d b4c1:ecc2::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b494:4130::/32 -d b7bf:b8af::/32 --sport 24032 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b40e:5952::/32 -d b40e:5b67::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b50d:3a5::/32 -d b50d:77c::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b55e:1bf5::/32 -d bea6:c418::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b5cf:56a0::/32 -d beb5:d67e::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af79:67cb::/32 -d af79:64cc::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af78:a8b2::/32 -d f522:d732::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af6e:408e::/32 -d aca7:c048::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af1c:12a5::/32 -d acaa:9a87::/32 --sport 53 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af32:2aaf::/32 -d f52d:6301::/32 --sport 750 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aff8:568d::/32 -d f535:8a3a::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af82:65d2::/32 -d af82:61dc::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af9b:a1fa::/32 -d af9b:a459::/32 --sport 88 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aea4:af17::/32 -d f53e:567e::/32 --sport 161 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aec2:6f24::/32 -d f53a:b15f::/32 --sport 69 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae1c:bc22::/32 -d ae1c:b8aa::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae1d:594c::/32 -d f50c:dbdb::/32 --sport 123 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf2c:f29d::/32 -d bf2c:f65d::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf12:95d6::/32 -d bf12:90e6::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf1d:5e42::/32 -d f472:9622::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfd3:91a3::/32 -d bfd3:9222::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bff5:4b55::/32 -d bff5:4f69::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfea:b3be::/32 -d bdac:8e3a::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfbd:9d5f::/32 -d f463:ec74::/32 --dport 69 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be70:eb55::/32 -d be70:ee96::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bead:cda3::/32 -d bdb0:119c::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd37:d91a::/32 -d f4c3:8dd8::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd19:958d::/32 -d b337:5dcd::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd1e:f001::/32 -d f4c7:ba7::/32 --dport 113 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd57:bcf4::/32 -d f4cf:9000::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd48:1d41::/32 -d f4c8:d45e::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdbf:8820::/32 -d b326:e2b5::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bda0:2c81::/32 -d bef1:9659::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc27:d4c1::/32 -d b323:f1b::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcb3:f0f9::/32 -d f4ef:106d::/32 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcc3:b2c2::/32 -d f4f1:8cec::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b83f:fb05::/32 -d f4fb:e336::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b885:5e1::/32 -d bb13:8294::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8b9:3f21::/32 -d b372:2f69::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b92d:26da::/32 -d b377:9ed2::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b913:2882::/32 -d f4a8:856e::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b956:2085::/32 -d b956:279c::/32 --dport 67 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b94e:b13b::/32 -d b376:69a7::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b97c:fa85::/32 -d f4ae:66d7::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b97f:b92d::/32 -d b97f:bd90::/32 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b983:46ec::/32 -d b983:46f7::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b988:fc7c::/32 -d b988:fab3::/32 --dport 2055 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9dd:9e7a::/32 -d f4b4:df70::/32 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9e0:6f41::/32 -d f4b1:bd9c::/32 --dport 2055 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bab5:5011::/32 -d b366:b7e7::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb3c:6a7a::/32 -d f49b:adbf::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb36:ca48::/32 -d bb36:ca5b::/32 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb71:30f5::/32 -d f490:d4f1::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b186:3fc9::/32 -d b312:6dbb::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1b4:6ff2::/32 -d beed:7fca::/32 --dport 119 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1f7:3596::/32 -d f5cc:f3e4::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b10a:536e::/32 -d b31f:2238::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b10c:b975::/32 -d b31e:4784::/32 --dport 873 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b078:81fe::/32 -d b30f:4a7b::/32 --dport 162 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b09d:91e8::/32 -d b09d:9604::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b36a:c74c::/32 -d f5ed:4c64::/32 --dport 7648 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b39a:73d3::/32 -d bede:6bab::/32 --dport 1999 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3a7:5552::/32 -d b3a7:554b::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3e9:76b1::/32 -d b3e9:711f::/32 --dport 119 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3dd:bd13::/32 -d b3dd:b962::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2e8:6d95::/32 -d b0f7:60d6::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b291:216b::/32 -d b291:266b::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b20a:751f::/32 -d b0e1:3a71::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b229:e86d::/32 -d b229:ed82::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b239:4724::/32 -d f5f6:7e26::/32 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b64d:b0c2::/32 -d b64d:b4a7::/32 --dport 5999 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b667:6b18::/32 -d f582:445b::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6bb:a267::/32 -d b532:c0b3::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b79d:5ddc::/32 -d beca:fc96::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7d0:96ed::/32 -d f592:e00e::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7e8:3f2::/32 -d f594:7f01::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7e0:dea1::/32 -d f596:2b01::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7f3:3f08::/32 -d bec9:ccc2::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b772:196b::/32 -d bec8:9550::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b734:6c72::/32 -d f5be:7dd0::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b711:5254::/32 -d b506:5950::/32 --dport 5998 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4ff:be62::/32 -d f5b5:b7ce::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4f2:7fe5::/32 -d b4f2:7a78::/32 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4ed:752::/32 -d f5b6:707c::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4c6:c888::/32 -d b4c6:c896::/32 --dport 8080 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b49e:6149::/32 -d f5b2:8220::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b482:1f50::/32 -d bea0:675d::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4bd:4e15::/32 -d f5a6:4f2e::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b418:59c::/32 -d bea7:31b8::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b41c:80f3::/32 -d b41c:80ec::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b412:226d::/32 -d b412:24d7::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b504:aad6::/32 -d b504:af63::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b529:5e18::/32 -d b529:59a9::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b575:927e::/32 -d b575:95a0::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5ba:a3a6::/32 -d b5ba:a664::/32 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5c9:527::/32 -d beb4:6996::/32 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5d1:95b5::/32 -d b5d1:910b::/32 --dport 161 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af5f:1d6f::/32 -d af5f:1ae5::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af04:9d5a::/32 -d aca8:9cfb::/32 --dport 138 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af21:e7a3::/32 -d af21:e40f::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afb4:90bf::/32 -d f530:ce42::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aee8:159a::/32 -d f53a:3113::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae5a:94c5::/32 -d ae5a:9106::/32 --dport 8080 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae3a:9c7e::/32 -d f506:53f0::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bfa9:7c21::/32 -d bfa9:7bd8::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be5c:fc19::/32 -d b33c:5131::/32 --dport 179 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd17:d5ac::/32 -d f4c6:757a::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc95:808f::/32 -d bc95:850b::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcd0:69ab::/32 -d bcd0:69ba::/32 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b923:854b::/32 -d b923:82b0::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9aa:582e::/32 -d bb04:fc8d::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb86:21e::/32 -d b361:4511::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb43:6db7::/32 -d bb43:69aa::/32 --dport 8080 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1ab:174b::/32 -d beeb:9568::/32 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b071:bca3::/32 -d bee8:b883::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b35c:16b5::/32 -d f5d3:ce6c::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b302:d5e2::/32 -d b302:d1e1::/32 --dport 110 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3f2:640b::/32 -d f5e0:3235::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b29c:d41b::/32 -d b29c:d129::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b66c:974f::/32 -d b52b:2702::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6c9:f4e6::/32 -d b534:9ecd::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b774:1b2a::/32 -d b774:193a::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b723:b5bb::/32 -d b507:9a83::/32 --dport 871 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b71d:5ff4::/32 -d f5bc:13b7::/32 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b493:38c8::/32 -d beac:f709::/32 --dport 179 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b48d:f70d::/32 -d f5b0:e5bc::/32 --dport 443 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b432:d79::/32 -d f5aa:a3a3::/32 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b5aa:f3eb::/32 -d bebf:7a6b::/32 --dport 2401 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b5a2:6997::/32 -d bebc:b186::/32 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af2a:ef14::/32 -d f52b:5725::/32 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae01:4b11::/32 -d ae01:4b0f::/32 --dport 21 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf5b:a9bb::/32 -d bda2:d3c6::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf23:ff52::/32 -d f47b:f48::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf0b:86c5::/32 -d f475:eaba::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be0b:ac13::/32 -d bda8:6524::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be3f:4a06::/32 -d bdaa:feac::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be2e:f639::/32 -d f467:61d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be75:70e5::/32 -d f469:3f67::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be80:2924::/32 -d f46e:dae6::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd35:eb14::/32 -d f4c0:3103::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd2e:1a8c::/32 -d bef8:ffc9::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd67:9aac::/32 -d bd67:9eab::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd61:2224::/32 -d bd61:27bc::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bded:93a::/32 -d befe:6077::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdef:4653::/32 -d bdef:418b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdea:2c43::/32 -d b324:c5e::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd83:2126::/32 -d bef5:5834::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdb5:bf4d::/32 -d bdb5:ba3d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bda5:1976::/32 -d f4dd:5db0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc11:48bb::/32 -d b32d:d497::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc65:fb39::/32 -d f4ec:59ff::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcb7:d6d3::/32 -d b329:4995::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc9f:c3a7::/32 -d beee:c15c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc83:31be::/32 -d bc83:340a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bce9:92d2::/32 -d f4e7:79b5::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b85c:598e::/32 -d b85c:5a89::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b864:d574::/32 -d f4fc:b6bd::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b888:9ecc::/32 -d bb11:b5ec::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8f2:2c5d::/32 -d f4a7:9165::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b934:5133::/32 -d b934:555d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b98c:8e18::/32 -d f4bc:eb58::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9c1:2820::/32 -d b9c1:2ea1::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9d1:3776::/32 -d b9d1:3245::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bae3:aff::/32 -d b37f:296e::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s baa7:8a4d::/32 -d b9b4:e35c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba10:614a::/32 -d ba10:6482::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba40:2805::/32 -d ba40:2d8c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba59:397::/32 -d f48a:571c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba54:8143::/32 -d f48f:da97::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bba1:8ba7::/32 -d b9b9:1e75::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb8d:afcc::/32 -d bb8d:afda::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb10:ce7f::/32 -d bb10:ce61::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1ee:bec8::/32 -d b315:91ac::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b103:5aba::/32 -d bee9:f26c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b11a:b8ae::/32 -d b11a:bdb9::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b061:6b06::/32 -d b308:ce19::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b03e:b7a8::/32 -d b30b:8e6b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b352:da1e::/32 -d b0f9:8e4b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b349:ca4e::/32 -d bed5:2ee9::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3c4:79df::/32 -d f5e0:c61a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2ce:40a9::/32 -d bed8:7f10::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2e5:7c9c::/32 -d f5fe:b014::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b299:5f2e::/32 -d b299:58e3::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b269:6d9b::/32 -d bedb:41de::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b273:e1cf::/32 -d b273:e7a7::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b643:19f5::/32 -d b643:19e5::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b640:9260::/32 -d b640:927f::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b678:bfd1::/32 -d b52d:f995::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b62d:e20d::/32 -d f584:f399::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6ec:a951::/32 -d b527:69e::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6e7:a68e::/32 -d f58a:23d2::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b68e:db52::/32 -d becf:6578::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6aa:d04::/32 -d f59c:64df::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7b6:632d::/32 -d b7b6:658a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b79a:a4ab::/32 -d becb:9bfa::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b79b:c2cf::/32 -d b79b:c74d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7d4:a61a::/32 -d f593:439a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7c3:5d25::/32 -d f595:da45::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b748:21fd::/32 -d b748:24db::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b75c:fdb8::/32 -d b75c:ffd6::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b73c:a715::/32 -d f5bd:d951::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4e9:1433::/32 -d beae:6caa::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4c8:6a7f::/32 -d b7bb:d5ec::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b460:d80::/32 -d f5a2:f968::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b468:4bd2::/32 -d b468:4bc7::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b456:7a78::/32 -d bea3:f4e1::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b45a:6824::/32 -d bea5:20a2::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b430:56ad::/32 -d b430:5140::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b41f:d403::/32 -d bea6:49ea::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b582:b698::/32 -d b7b4:6b67::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5b2:9013::/32 -d f524:cd18::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af72:a1de::/32 -d af72:a52a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af4b:afea::/32 -d aca0:6e40::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af3c:463c::/32 -d a194:d54e::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afaa:4d8f::/32 -d acae:222c::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae81:c43c::/32 -d f53c:66::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae98:28f4::/32 -d f538:7f8a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae9c:3f92::/32 -d ae9c:38cd::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aef8:ba77::/32 -d a192:4661::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aedc:f80c::/32 -d acb7:8e79::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae4e:2636::/32 -d ae4e:22ff::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae26:67a6::/32 -d a19a:655f::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf18:3ab2::/32 -d f473:ee2::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf8c:603c::/32 -d bf8c:666b::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bec1:cad7::/32 -d bec1:cd69::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s befb:d3a1::/32 -d befb:d789::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bee1:b85::/32 -d bee1:b9a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdf8:1e46::/32 -d bdf8:1e59::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdfd:86b::/32 -d f4ca:496d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdc5:ec0c::/32 -d f4d0:2765::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc21:e670::/32 -d bef3:a2e5::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bc0f:9ae::/32 -d f4df:1b99::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b948:f041::/32 -d f4af:c23a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b961:79e5::/32 -d f4be:b223::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9f5:9685::/32 -d f4b6:9fc4::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bbdf:d8c7::/32 -d b36c:a784::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bbf1:1947::/32 -d f499:6e46::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb02:494d::/32 -d bb02:4959::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb50:994e::/32 -d f497:545::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1ff:676b::/32 -d b31a:bb02::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1c0:7c39::/32 -d f5c5:7a2d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0d7:3aae::/32 -d b0d7:3fda::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0c0:75c4::/32 -d b305:1f72::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0cf:316d::/32 -d b0cf:3315::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b084:ab60::/32 -d b084:af22::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b370:466b::/32 -d b370:4082::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b313:3::/32 -d b313:11::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b38b:7b04::/32 -d f5e4:efe::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3ea:fe7d::/32 -d b3ea:fdeb::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b289:3919::/32 -d f5fa:69d0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b271:c2c5::/32 -d bec0:1dfe::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6fe:1270::/32 -d b6fe:15b0::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b68c:fe28::/32 -d b536:c82::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b78b:8257::/32 -d f59b:7f79::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b795:8180::/32 -d b795:8646::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7e4:298f::/32 -d b7e4:2992::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b741:a6c3::/32 -d bec8:241d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b4d2:46d3::/32 -d b7ba:6378::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b4b3:8ffb::/32 -d f5a7:b45f::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af55:5de::/32 -d af55:12::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s af0a:ddd0::/32 -d a197:eb1a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s afdb:509::/32 -d afdb:48::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s afcb:ba5f::/32 -d afcb:bd5f::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aff6:110b::/32 -d aff6:111d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aeb5:8ed5::/32 -d aeb5:8ec6::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aee4:a3a2::/32 -d aee4:a4fd::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae49:bc65::/32 -d acb4:7c3::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae39:54fd::/32 -d acb0:569a::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae06:fac5::/32 -d f504:911d::/32 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b848:3140::/26 -d b848:3000::/21 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8fe:53c0::/26 -d f4a4:f000::/21 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b915:d600::/26 -d bb1a:1800::/21 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b944:1c40::/26 -d f4ac:f000::/21 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9d9:e240::/26 -d f4b5:6800::/21 --dport 23 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbae:2f00::/26 -d bbae:2800::/21 --dport 2105 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1e5:7d40::/26 -d b1e5:7800::/21 --dport 25 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1f2:8e80::/26 -d b317:b800::/21 --dport 750 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1c3:5b40::/26 -d f5c4:3800::/21 --dport 37 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b106:80::/26 -d b106::/21 --dport 123 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b340:7600::/26 -d b340:7000::/21 --dport 53 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b253:9f40::/26 -d b253:9800::/21 --dport 88 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4f3:3d40::/26 -d f5b4::/21 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae95:9340::/26 -d f539:6000::/21 --dport 37 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bf7f:1c33::/32 -d b306:c9cc::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf5a:5461::/32 -d f47a:3080::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bf91:16b3::/32 -d bf91:16ac::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be29:f28b::/32 -d f464:fa28::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be68:4770::/32 -d be68:417c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s be6e:9d33::/32 -d f46a:aab4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd24:1c3d::/32 -d bd24:1c24::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bd00:7a6b::/32 -d b332:def8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdc2:8c78::/32 -d bdc2:88ac::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bdb6:d397::/32 -d f4db:7bc8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdb4:36ac::/32 -d f4d8:c930::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdae:23ef::/32 -d bdae:23f4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc3f:3862::/32 -d bc3f:387c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc00:f862::/32 -d bc00:fe10::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc41:7169::/32 -d b32f:af88::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bc6b:555::/32 -d bc6b:54c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc9b:c357::/32 -d b32b:5a94::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bcee:97c1::/32 -d bcee:9128::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b883:1008::/32 -d b883:1748::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b89c:7d3d::/32 -d f4fa:8a3c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8b3:8a51::/32 -d b8b3:8a40::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b8a7:7ae5::/32 -d b8a7:7ff4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8e2:1b63::/32 -d b8e2:1c5c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b907:ba48::/32 -d bb18:63f0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b94d:5bd2::/32 -d b94d:5ce4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b991:858f::/32 -d b991:82a8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b99f:58ea::/32 -d b378:9f84::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s badd:2295::/32 -d f482:4924::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bad4:bec5::/32 -d bad4:ba54::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb97:4bb7::/32 -d f48e:6cec::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb59:4b77::/32 -d f496:ca04::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1ba:fca0::/32 -d b1ba:fb60::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1f0:574f::/32 -d b316:f1b0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b134:66f9::/32 -d beea:324::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b126:d85c::/32 -d f5c0:ec7c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b12c:bcb9::/32 -d b319:1af8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b118:d561::/32 -d f5d8:d91c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b07c:1b82::/32 -d f5db:9944::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b06d:565f::/32 -d b30d:5914::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b06a:318a::/32 -d b06a:319c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b02d:c343::/32 -d f5df:9884::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b0d9:fb55::/32 -d b0d9:fe9c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b0af:5163::/32 -d f5d0:343c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b367:f5b5::/32 -d b367:f5a4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b39f:de5a::/32 -d b39f:de44::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3ad:6741::/32 -d bedc:feac::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b3ee:b73c::/32 -d b0f3:f890::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b212:b7c2::/32 -d f5f4:51f4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b20b:ac7b::/32 -d b20b:abc8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b677:fc3c::/32 -d bec2:840c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b617:562e::/32 -d b52e:9b1c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6e9:ba3b::/32 -d b525:e4d8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b6e0:ab78::/32 -d f58d:92ec::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4f0:f183::/32 -d beaa:41d0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b49c:62fe::/32 -d f5b3:43b0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b485:fc2d::/32 -d f5a5:4b50::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b540:ce9f::/32 -d beba:cc::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b561:379c::/32 -d b561:3288::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5d5:dcee::/32 -d b5d5:df4c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5e6:afa3::/32 -d f523:ec78::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5f5:1f4a::/32 -d b7b2:7f94::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af67:39bc::/32 -d af67:3ac0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s af5b:fdb6::/32 -d af5b:f960::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s af38:13d0::/32 -d af38:145c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s afd5:cb03::/32 -d afd5:cd90::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s afdd:34d2::/32 -d f529:c79c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af8c:5a29::/32 -d af8c:5a3c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae31:f7d4::/32 -d ae31:f7c8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf2a:b104::/30 -d bda0:10b9::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf32:810::/30 -d bda1:2e4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf0a:a368::/30 -d bf0a:a095::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfe8:7c74::/30 -d bfe8:79af::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be7d:1a0::/30 -d be7d:1b4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bef9:49cc::/30 -d bef9:4a02::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bee4:24c0::/30 -d b330:cfc7::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd7d:59bc::/30 -d b335:8346::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd43:47f4::/30 -d bd43:4082::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bddd:51e0::/30 -d b327:b458::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bda4:356c::/30 -d f4d9:c70d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc4e:4fc8::/30 -d bc4e:4a9f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bc71:14fc::/30 -d bc71:14e3::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc76:67e8::/30 -d b32e:7de0::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bcac:11d8::/30 -d bee7:fb33::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcb5:d848::/30 -d bee6:59c7::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bc91:8f9c::/30 -d bee5:f952::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc96:14d0::/30 -d f4ee:c5d7::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcd2:4f74::/30 -d b32a:1a61::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b857:4d00::/30 -d f4f6:d5b4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b812:9640::/30 -d b812:940d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b898:e1e0::/30 -d b898:e6df::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8aa:81dc::/30 -d b373:c387::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b920:7360::/30 -d bb14:ed31::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b92f:2da0::/30 -d f4ab:2289::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b96a:5578::/30 -d bb03:6d0f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b997:4c54::/30 -d bb00:4ef9::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9c7:f8b4::/30 -d b379:b390::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9fe:68f8::/30 -d b9fe:68ea::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s baa1:c824::/30 -d f480:ebe1::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba98:f8a4::/30 -d ba98:fe69::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba0a:9340::/30 -d ba0a:966c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba72:cfb4::/30 -d b360:a4f6::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbce:2f90::/30 -d bbce:2b90::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbee:2638::/30 -d bbee:2626::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb2e:92b0::/30 -d f494:9e5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb0a:8c04::/30 -d b36e:a28e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb12:aa5c::/30 -d bb12:ac63::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb4c:6144::/30 -d bb4c:655d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb5e:3370::/30 -d b369:66bf::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b194:1df4::/30 -d b310:134a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1b2:464c::/30 -d f5cb:541c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1f4:eb88::/30 -d f5cd:eb80::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b104:f210::/30 -d b318:8552::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b05e:a8fc::/30 -d b31c:55bb::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b0e9:a878::/30 -d f5d7:a0ee::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b0ee:e5f8::/30 -d b0ee:e123::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b0c6:b8b0::/30 -d f5d6:7460::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b094:6904::/30 -d b094:6ea2::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b3b5:4938::/30 -d f5e5:a8aa::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b3eb:464c::/30 -d f5e1:5038::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b28d:22a0::/30 -d b0e6:d6db::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b227:5d88::/30 -d f5f5:fe80::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b638:7720::/30 -d f58e:e68e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b61c:364::/30 -d bec7:48ad::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6d9:ada0::/30 -d b6d9:ab49::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b6c4:b99c::/30 -d f588:c21b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b78c:a70::/30 -d becd:dab6::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7c4:2200::/30 -d b53f:2c63::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b77e:fb24::/30 -d b538:e256::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b739:43f8::/30 -d f5bf:1222::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b492:5cf8::/30 -d f5b0:72b8::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b44e:c44c::/30 -d b44e:c2dd::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b40a:c220::/30 -d b40a:c755::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b513:e1f0::/30 -d b513:e6d3::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b58c:fe6c::/30 -d b58c:fe74::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5b9:fe70::/30 -d f521:be2d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5e2:d980::/30 -d b5e2:dc80::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af1b:8574::/30 -d a195:d0d1::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af25:638c::/30 -d acab:dcbd::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afa1:200c::/30 -d f533:fefe::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s afb6:2c38::/30 -d a193:2e8d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aeba:4920::/30 -d aeba:4c96::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae83:b440::/30 -d acb9:20ed::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aec3:d298::/30 -d acba:d71d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae2f:5c74::/30 -d f507:dcf0::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ae35:f084::/30 -d f505:6cd9::/32 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bef1:50c0::/26 -d bdb7:4000::/21 --dport 2401 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bad3:2300::/26 -d f481:8800::/21 --dport 119 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b1bb:b340::/26 -d f5c9:f800::/21 --dport 113 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b158:dd00::/26 -d f5c3:4800::/21 --dport 80 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b6dd:3980::/26 -d bec4:d000::/21 --dport 22 -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b535:d00::/26 -d b535:800::/21 --dport 544 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bf52:5694::/30 -d bda4:92dc::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bf88:20cc::/30 -d bda9:1ba::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s be08:e708::/30 -d be08:e28a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s be51:b3a0::/30 -d f46c:b9e1::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bd51:5c5c::/30 -d bd51:5bdb::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc78:1318::/30 -d bc78:148f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b87b:f3b8::/30 -d b87b:f513::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b8d5:776c::/30 -d f4a1:5c2c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b903:2de8::/30 -d f4ad:b4ff::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s baf7:d254::/30 -d baf7:d578::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bada:5f14::/30 -d b37e:1e37::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bb82:3a80::/30 -d bb82:38f4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bbc0:a3f4::/30 -d b9ba:72fb::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b1f9:7d60::/30 -d f5c6:4296::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b17f:b6c4::/30 -d b17f:b1d5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b350:65c::/30 -d b0fa:43de::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b3d3:49c4::/30 -d b3d3:4cb1::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2b4:ef5c::/30 -d beda:98e6::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b2b3:1780::/30 -d b2b3:10f4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b6f9:b940::/30 -d bec5:d156::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b7af:c4c::/30 -d f599:91e5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b4d3:a7b0::/30 -d f5b7:3102::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b520:9b3c::/30 -d b520:9c48::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s afc8:878c::/30 -d acac:5c1a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s ae1b:d5c4::/30 -d f50d:cb9d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bed1:7527::/32 -d bed1:7530::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bef6:fadf::/32 -d bef6:fac4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s beef:e823::/32 -d bdb3:404::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc30:9088::/32 -d f4dc:e840::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc6f:5bea::/32 -d bc6f:5bfc::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc9c:8e44::/32 -d beef:26c4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc8d:d7d7::/32 -d bc8d:d234::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b968:fe49::/32 -d b37a:f764::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b98b:8564::/32 -d f4b8:6c9c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s baf2:dc47::/32 -d b37c:9018::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s ba94:efb7::/32 -d ba94:eac0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ba63:7d9f::/32 -d ba63:780c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bbcb:bd0c::/32 -d b9a0:4d1c::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bbec:a3d8::/32 -d bbec:a3c4::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b018:8142::/32 -d f5dd:49d0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b372:9378::/32 -d bed4:3b90::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b393:56b9::/32 -d b393:51b0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b3fc:e245::/32 -d b0f4:6cec::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b262:638d::/32 -d b262:6394::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b607:84c0::/32 -d b522:29e8::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b6da:7ac2::/32 -d f58b:60::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b6d1:e91a::/32 -d b526:c178::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b70c:bac1::/32 -d b70c:bc98::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b480:6ccf::/32 -d f5a4:b618::/30 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b401:10dc::/32 -d b401:13f0::/30 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bf60:2f1d::/32 -d bda6:2ad0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf24:6b5d::/32 -d bf24:6800::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf28:70aa::/32 -d f471:f7b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf2d:ad79::/32 -d f470:5160::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfe0:ac4::/32 -d f477:7410::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be5e:f282::/32 -d be5e:f440::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bedd:47ab::/32 -d f46d:2300::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s beab:f1b5::/32 -d beab:f430::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s beaf:e72::/32 -d beaf:dc0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bea3:9cd9::/32 -d f46f:11e0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd31:446d::/32 -d bd31:4070::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd56:e76d::/32 -d f4c9:4450::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdb0:79d3::/32 -d b321:cbe0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bda7:fdc0::/32 -d bda7:f8c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc52:e654::/32 -d f4ea:d9b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcd8:9c48::/32 -d f4f3:2160::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b895:a68d::/32 -d b895:a690::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b8a9:3e75::/32 -d f4f9:32b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b92b:c3ec::/32 -d f4aa:8f60::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b994:6a9b::/32 -d f4bd:5110::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba9c:cea7::/32 -d f485:b910::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba8e:9ea4::/32 -d b364:1140::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ba1e:758::/32 -d ba1e:1c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba5b:139c::/32 -d b9b8:c460::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bb88:8c7c::/32 -d bb88:8b40::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbd6:5211::/32 -d f49d:eb70::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbf8:5555::/32 -d f498:3d30::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb4b:e790::/32 -d f495:5550::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb4e:a47e::/32 -d bb4e:a2c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bb7f:baea::/32 -d bb7f:baf0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1d4:7d89::/32 -d b1d4:7b70::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b142:f7a4::/32 -d b31b:9ab0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b029:c043::/32 -d b309:5260::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b0e4:ff44::/32 -d b0e4:faf0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b099:e797::/32 -d f5d2:3b50::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b351:c3d7::/32 -d b351:c420::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b399:94d::/32 -d f5e7:2f0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3b0:5262::/32 -d b0fc:3430::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b2eb:7159::/32 -d f5ff:b560::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b29e:3522::/32 -d bedb:c590::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b663:eb28::/32 -d b528:5330::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b67d:f760::/32 -d f587:82d0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b62f:a2fc::/32 -d f586:8b30::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b615:987b::/32 -d b521:4ed0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b606:92c2::/32 -d b523:cf90::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b682:84e3::/32 -d f59f:d240::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7a1:6440::/32 -d f598:3960::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b784:b0cb::/32 -d f590:ef90::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b751:a5bd::/32 -d b53a:8900::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4d9:c977::/32 -d b7b8:5d40::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b498:7a26::/32 -d b498:7d40::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b466:dc35::/32 -d f5a0:d6b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b46b:47c::/32 -d bea2:8360::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b571:6ca3::/32 -d b571:6a00::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b574:ada3::/32 -d f5af:ab60::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5a4:aa18::/32 -d f526:af40::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s af64:c495::/32 -d a1a8:9000::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af51:4ee5::/32 -d aca4:d8c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af13:3486::/32 -d af13:31e0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afd0:a445::/32 -d f528:e540::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s afd8:ed7e::/32 -d afd8:ebc0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af94:565d::/32 -d af94:51a0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afa0:6870::/32 -d f531:5a90::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afb9:855b::/32 -d acaf:610::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aea3:a7cb::/32 -d acbc:1b80::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ae97:3fa2::/32 -d ae97:3af0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aefc:7d6b::/32 -d acbb:b20::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae00:bec3::/32 -d ae00:b870::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfb3:ef80::/28 -d f461:566e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s be16:7870::/28 -d b33d:3398::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be36:7dc0::/28 -d bdab:e206::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s beec:8a60::/28 -d bdb6:30f3::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bea8:4070::/28 -d bea8:436b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd2a:b0::/28 -d bd2a:6d0::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bd7e:c9e0::/28 -d befa:c605::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd62:fed0::/28 -d f4ce:cd24::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdfb:1de0::/28 -d bdfb:1848::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bdab:2760::/28 -d bef2:cd95::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc35:8c40::/28 -d b320:dfae::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc80:ae00::/28 -d f4e1:b75b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcf3:c130::/28 -d beec:a1f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b83b:25f0::/28 -d b83b:25ed::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b91f:bd00::/28 -d bb1b:531::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b94c:dec0::/28 -d b94c:dd4d::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b9e3:26c0::/28 -d b9e3:26d6::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s baf5:8e30::/28 -d b9b0:1b0a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ba0e:cce0::/28 -d ba0e:c85c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba31:f4d0::/28 -d f488:b168::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba52:6140::/28 -d f48c:d070::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb9f:5430::/28 -d bb9f:5053::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb98:c5c0::/28 -d f49f:8fc3::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb3e:e6f0::/28 -d b9a6:4ddb::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb61:51c0::/28 -d b368:3cfc::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b193:4690::/28 -d b193:468e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b1d2:29c0::/28 -d f5c7:5ba4::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b162:8d00::/28 -d b162:8b55::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b046:fc20::/28 -d b31d:5f9e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b016:f1b0::/28 -d b016:f439::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b0e6:de20::/28 -d f5dc:bbf5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b09e:f2e0::/28 -d bed7:232b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2da:fb80::/28 -d b0f5:3538::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b28c:ad70::/28 -d b0e2:125f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b25d:6e40::/28 -d f5f1:47fa::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b25a:1590::/28 -d f5f2:f258::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b648:50d0::/28 -d bec3:381c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b654:68d0::/28 -d f5f7:c26::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b65d:81f0::/28 -d b65d:844b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b60a:8810::/28 -d bec6:e386::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7f0:6f40::/28 -d f597:a3ca::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7f9:2bb0::/28 -d f597:3c21::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b47c:6f20::/28 -d b47c:6f38::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b455:5880::/28 -d b455:5c1a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b42d:9a30::/28 -d f5a8:4411::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b423:d760::/28 -d b423:d773::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b556:ab0::/28 -d b556:d14::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b59f:50a0::/28 -d beb8:d270::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b591:f280::/28 -d bebe:fbdc::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5b0:dc50::/28 -d f525:62a6::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5e4:ad30::/28 -d b5e4:ad26::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af86::/28 -d af86:7f7::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aebe:cd60::/28 -d acbf:9d37::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ae9d:7ca0::/28 -d ae9d:7bf5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bf7a:222b::/32 -d bf7a:2230::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s be62:7ec7::/32 -d f468:70c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s beda:b8f9::/32 -d b33f:6570::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bec2:828e::/32 -d b33e:4000::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bd0b:ff6a::/32 -d f4c5:a70::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bdce:763::/32 -d f4d2:47c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b81e:fd81::/32 -d f4fe:2bc0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b911:cb70::/32 -d f4a9:e760::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9bf:ec7e::/32 -d b9bf:e8c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9f7:9d1f::/32 -d f4b7:9450::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9eb:3b2a::/32 -d f4b2:e100::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bae9:f29a::/32 -d bae9:f430::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s bbe4:ec05::/32 -d b9a3:6970::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b19b:de09::/32 -d f492:afa0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b147:4051::/32 -d b147:4040::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b133:f24b::/32 -d b133:f6c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b02b:94c2::/32 -d b30a:53d0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b0ff:c3c5::/32 -d b0ff:c3d0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b325:34ab::/32 -d b325:34b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b33d:e53::/32 -d b0fe:cd10::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b2ba:b8a8::/32 -d f5f8:ccd0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b296:84cc::/32 -d b296:8160::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b21f:a94::/32 -d b21f:c20::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b674:4b06::/32 -d b52c:f720::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b6ac:3e26::/32 -d b530:1010::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b6a4:87b1::/32 -d b6a4:87a0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b45f:a621::/32 -d b7bc:1440::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b542:21fc::/32 -d b542:2600::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b589:edba::/32 -d b589:e8d0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s af48:6af9::/32 -d af48:6e20::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s af19:8ba5::/32 -d af19:8db0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s af3a:dd90::/32 -d af3a:d960::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s afa6:cd2e::/32 -d a191:f390::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s aed7:3764::/32 -d f500:b8c0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s ae1f:926e::/32 -d a19b:a900::/28 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s ae16:7b76::/32 -d f50f:2f70::/28 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bf2f:2e0::/28 -d bf2f:520::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bf83:69d0::/28 -d f476:8268::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s be2a:a100::/28 -d be2a:a202::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s be4f:1b00::/28 -d be4f:1b13::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bc08:77d0::/28 -d bc08:721f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b841:be60::/28 -d f4f4:4203::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b8a1:4830::/28 -d b375:c936::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b8ed:d090::/28 -d b8ed:d086::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9b3:3540::/28 -d b9b3:3273::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9b1:ed80::/28 -d b9b1:e856::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b9a7:cc60::/28 -d f4ba:4c46::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b9d7:7c50::/28 -d b9d7:7c48::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bafb:f0d0::/28 -d b9b2:96bf::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s ba4e:d850::/28 -d f48b:e60a::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bb84:f590::/28 -d b9bb:918::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s bb66:c1e0::/28 -d f493:fde5::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b18d:ea30::/28 -d b18d:eefa::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b170:68d0::/28 -d f5c1:d1ac::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b03a:fb10::/28 -d b03a:fd63::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b0f0:e120::/28 -d b0f0:e297::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b0b4:64f0::/28 -d bed6:b18c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b329:610::/28 -d f5ec:de69::/32 -j ACCEPT
+ip6tables -A FORWARD -p 1 -s b314:9e90::/28 -d b314:98c1::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b308:af30::/28 -d f5ea:e1bf::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b695:d130::/28 -d b695:d49c::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b4ca:91a0::/28 -d b4ca:9475::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b4cd:ad60::/28 -d b4cd:a85e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s b52a:f240::/28 -d f5ad:3b29::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s af24:efd0::/28 -d f52a:261b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s affc:bfd0::/28 -d affc:b82e::/32 -j ACCEPT
+ip6tables -A FORWARD -p 47 -s afef:99f0::/28 -d acad:813f::/32 -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf74:edde::/32 -d bf74:e800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfff:bf61::/32 -d b339:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfe5:be7b::/32 -d f476:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bf86:d652::/32 -d b338:5000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bfb0:ec96::/32 -d bfb0:e800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s be02:415b::/32 -d be02:4000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bea7:644c::/32 -d f46f:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd22:4909::/32 -d bd22:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bde2:ffce::/32 -d b334:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bde4:7f81::/32 -d befc:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdf2:8::/32 -d bdf2::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdc8:dada::/32 -d f4d1:4000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd8c:20ba::/32 -d bd8c:2000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bd91:c61f::/32 -d bef4:c800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bdba:b768::/32 -d bdba:b000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc22:25ba::/32 -d f4de:b000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc2a:8344::/32 -d bc2a:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc56:5c24::/32 -d f4e8:a000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bcbd:e520::/32 -d bee4::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bc85:df34::/32 -d f4e3:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b876:fd5a::/32 -d b876:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b8e1:6e15::/32 -d b8e1:6800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b927:47ab::/32 -d bb15:c800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b924:1011::/32 -d f4a6:2000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b928:f5dd::/32 -d bb1d:b800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bac9:c8f::/32 -d bac9:800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba83:23e::/32 -d b9b7:8800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ba86:e8af::/32 -d f486:c800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bbbf:93d5::/32 -d f48e:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb87:bf46::/32 -d f49e:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bb1e:edc::/32 -d b36f:d800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b12d:9553::/32 -d b12d:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b06e:97e::/32 -d b06e:800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b017:4320::/32 -d bed2:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b0f8:2e0a::/32 -d b0f8:2800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b357:79fa::/32 -d f5d3::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b31b:b3a2::/32 -d f5e9:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b395:5eb9::/32 -d b395:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b389:ff4c::/32 -d b389:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3e3:b6c4::/32 -d f5e2:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b3de:440e::/32 -d b3de:4000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2df:1e71::/32 -d f5fc:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b2cb:8bf2::/32 -d b0f6:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b281:1d8::/32 -d f5f9:e000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b25b:2c18::/32 -d f5f3:d800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b234:a197::/32 -d b234:a000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b664:8fa::/32 -d b52a:c000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b63e:1efa::/32 -d f585:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b61b:9e0c::/32 -d f58f:5000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b60e:750c::/32 -d b60e:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6ea:e766::/32 -d b524:a000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b690:6b10::/32 -d f588:6000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6a6:dfcc::/32 -d b531:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7bd:81d9::/32 -d f59a:d800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b7ed:9fe7::/32 -d b7ed:9800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b74e:764b::/32 -d b53b:8800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b71e:211::/32 -d b71e::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b70e:3d14::/32 -d b70e:3800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4eb:4913::/32 -d b4eb:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b496:4c9d::/32 -d f5b1:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b4bb:fb07::/32 -d b4bb:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b462:8475::/32 -d f5a3:6800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b470:de9b::/32 -d f5a1::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b53c:70cc::/32 -d b53c:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b54c:e05e::/32 -d b7b7:c800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b573:4941::/32 -d f5ae:6000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b57f:d121::/32 -d b7b5:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5a0:fb98::/32 -d b5a0:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5bf:976f::/32 -d b5bf:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b5ff:f861::/32 -d b7b3:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af69:e671::/32 -d af69:e000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af62:4ad::/32 -d f52f:6800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af31:fc3::/32 -d f52c::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af37:b980::/32 -d af37:b800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afce:5350::/32 -d f536:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s af95:1993::/32 -d f532:d000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s afa4:27cb::/32 -d a190:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s aef4:fb53::/32 -d acb8:5000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s ac02:8e84::/32 -d ac02:8800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf48:84a9::/32 -d bda5:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bf1a:d352::/32 -d bdaf:800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bffd:3767::/32 -d bffd:3000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s be93:bd81::/32 -d be93:b800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bea1:2ca3::/32 -d bea1:2800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bd5e:e37b::/32 -d bd5e:e000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdf7:1494::/32 -d f4cb:2800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bdd2:b2a1::/32 -d f4d5:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s bce3:faec::/32 -d f4e5:d000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bcfb:72a8::/32 -d f4e4:3000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b843:ca09::/32 -d f4f5:f000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8b8:187c::/32 -d b8b8:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8a2:9056::/32 -d b8a2:9000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8da:629d::/32 -d bb17:d800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b8c5:db09::/32 -d bb16:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b979:4058::/32 -d bb19::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b9ed:77f8::/32 -d f4b3:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bae8:8eb6::/32 -d b9b5:6000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba30:13ed::/32 -d b363:8000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba7a:4275::/32 -d b9be:c800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ba58:a804::/32 -d f48d:d800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s bb6e:77b8::/32 -d f491:b000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b063:e18::/32 -d b30c:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b0a6:b5b3::/32 -d f5d1::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b08e:ac88::/32 -d b08e:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b37b:4da2::/32 -d b37b:4800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b33a:1d0c::/32 -d b33a:1800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b3a2:2e96::/32 -d b0f1:6800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b242:e135::/32 -d b242:e000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b676:f6df::/32 -d b52f:f800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b6c1:5dca::/32 -d f589:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7ae:52f5::/32 -d bece:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b7f2:210a::/32 -d b7f2:2000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b75a:3dad::/32 -d b75a:3800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b76c:60ff::/32 -d f5b9:4000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b725:ad77::/32 -d b725:a800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b4cc:6d5a::/32 -d bead:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b48e:e690::/32 -d b7be:6800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b43b:f456::/32 -d bea4:5800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 6 -s b55d:79ec::/32 -d f5ac:2000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b597:fe9b::/32 -d beb9:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b5af:c7be::/32 -d f5af:800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s b5c2:c2e9::/32 -d bebd:800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s afd7:1078::/32 -d afd7:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s aead:7b62::/32 -d f53f:9800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae93:3caa::/32 -d ae93:3800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae7a:6685::/32 -d f502:1000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae7b:75f3::/32 -d ae7b:7000::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 17 -s ae45:79d3::/32 -d ae45:7800::/21 --sports 1024:65535 --dports 1024:65535 -m multiport -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bfc3:2f1a::/32 -d b33b:7710::/30 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bc2e:6a09::/32 -d b32c:1480::/30 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b08c:b908::/32 -d b08c:bb08::/30 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b34f:b488::/32 -d b34f:b380::/30 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b47a:cc1b::/32 -d f5ab:c8ac::/30 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b377:829c::/30 -d f5ee:82b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s ae23:1b28::/30 -d acb5:1673::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bf43:2aa0::/28 -d b307:4db8::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bd08:6260::/28 -d b336:756::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bc8e:4800::/28 -d f4e2:eb8b::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s ba09:bde0::/28 -d b362:5226::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b798:4050::/28 -d f591:e4aa::/32 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s be10:d0da::/32 -d f466:14b0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bc5f:1507::/32 -d bc5f:1090::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bafd:ce76::/32 -d bafd:cba0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s bbf3:da54::/32 -d b9a2:fab0::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b66e:d711::/32 -d b66e:d700::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s b441:a1f::/32 -d b441:e20::/28 -j ACCEPT
+ip6tables -A FORWARD -p 0 -s af06:a407::/32 -d f52e:6a00::/28 -j ACCEPT
