@@ -2,8 +2,6 @@
 
 RES=$1
 
-RESULT=$RES/result.dat
-
 for fw in fw1 fw2 fw3 fw4 fw5 random; do
     for c in 500 1000 2000; do
         echo -n "" > $RES/$fw"_"$c"_raw.dat"
