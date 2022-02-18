@@ -248,7 +248,7 @@ class GenericBenchmark(object):
 
     def _dump_fave(self):
         self.logger.info("dumping fave and netplumber...")
-        dumper.main(["-atnp%s" % ("u" if self.use_unix else "")])
+        dumper.main(["-atn%s" % ("u" if self.use_unix else "")])
         self.logger.info("fave ordered to dump")
 
 
