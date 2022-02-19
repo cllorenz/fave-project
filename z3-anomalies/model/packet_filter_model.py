@@ -31,7 +31,7 @@ class PacketFilterModel(dict):
         )
 
 
-    def analyse(self, chain):
+    def analyse(self, chain, verbose=False):
         chain = self[chain.lower()]
 
         solver = Solver()
@@ -55,13 +55,15 @@ class PacketFilterModel(dict):
 
                 if bf2 == unsat and bf3 == unsat:
                     shadowed_rules.add(rule2)
- #                   print("{} is shadowed by {} (equal match)".format(rule2.index, rule1.index))
- #                   print("\t {}\n\t {}".format(rule1.raw, rule2.raw))
+                    if verbose:
+                        print("{} is shadowed by {} (equal match)".format(rule2.index, rule1.index))
+                        print("\t {}\n\t {}".format(rule1.raw, rule2.raw))
 
                 elif bf2 == unsat and bf3 == sat:
                     shadowed_rules.add(rule2)
-#                    print("{} is shadowed by {} (included match)".format(rule2.index, rule1.index))
-#                    print("\t {}\n\t {}".format(rule2.raw, rule1.raw))
+                    if verbose:
+                        print("{} is shadowed by {} (included match)".format(rule2.index, rule1.index))
+                        print("\t {}\n\t {}".format(rule2.raw, rule1.raw))
 
                 elif bf2 == sat and bf3 == unsat:
                     pass # rule1 is included in rule2 which is not a relevant anomaly

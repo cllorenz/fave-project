@@ -3,7 +3,7 @@
 import argparse
 
 from model.packet_filter_model import PacketFilterModel
-from model.rule import Rule, Flag, Proto, State
+from model.rule import Rule, Flag, Proto, State, Header
 
 
 def _ipv4_to_int_tuple(ip_str):
@@ -29,6 +29,38 @@ def _ipv4_to_int_tuple(ip_str):
     )
 
 
+def _ipv6_to_int_tuple(ip_str):
+    if '/' in ip_str:
+        addr, prefix = ip_str.split('/')
+        prefix = int(prefix)
+    else:
+        addr = ip_str
+        prefix = 128
+
+    if '::' in addr:
+        pre, post = addr.split('::')
+        pre = [int(x, 16) for x in pre.split(':')]
+        post = [int(x, 16) for x in post.split(':')]
+    else:
+        pre = [int(x, 16) for x in addr.split(':')]
+        post = []
+
+    addr = pre + [0]*(8-len(pre)-len(post)) + post
+    assert(len(addr) == 8)
+
+    ip_int = 0
+    for idx, hex_ in enumerate(addr):
+        ip_int += hex_ << ((7-idx)*16)
+
+    return (
+        ip_int >> (128-prefix) << (128-prefix),
+        (ip_int << (128-prefix) >> (128-prefix)) | 0xffffffffffffffff >> prefix
+    ) if prefix != 128 else (
+        ip_int,
+        ip_int
+    )
+
+
 class IP6TablesParser:
     def parse(ruleset):
         parser = argparse.ArgumentParser(prog='ip6tables', description='Parse ip6tables rulesets.')
@@ -43,6 +75,12 @@ class IP6TablesParser:
         parser.add_argument('--dports', dest='dst_ports', action='store')
         parser.add_argument('-m', dest='module', action='append')
         parser.add_argument('--state', dest='ctstate', action='store')
+        parser.add_argument('--ctstate', dest='ctstate', action='store')
+        parser.add_argument('--limit', dest='limit', action='store')
+        parser.add_argument('--header', dest='header', action='store')
+        parser.add_argument('--rt-type', dest='rttype', action='store')
+        parser.add_argument('--rt-segsleft', dest='rtsegs', action='store')
+        parser.add_argument('--icmp6type', dest='icmp6type', action='store')
         parser.add_argument('--tcp-flags', dest='tcp_flags', nargs=2, metavar=('MASK', 'COMP'), action='store')
 
         parser.add_argument('-P', '--policy', dest='policy', nargs=2, metavar=('CHAIN', 'ACTION'), action='store')
@@ -57,7 +95,7 @@ class IP6TablesParser:
 
         for line in [l for l in ruleset.splitlines() if l and not l.startswith('#')]:
             tokens = line.split()
-            ip_version = '6' if tokens[0] == 'ip6tables' else '4'
+            ip_version = 6 if tokens[0] == 'ip6tables' else 4
             args = parser.parse_args(tokens[1:])
             if args.policy:
                 chain, target = args.policy
@@ -101,11 +139,11 @@ class IP6TablesParser:
                 rule.match.add_field('egress_interface', iface)
 
             if args.src_ip:
-                start, end = _ipv4_to_int_tuple(args.src_ip)
+                start, end = _ipv4_to_int_tuple(args.src_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.src_ip)
                 rule.match.add_field_tuple('src_ip', start, end)
 
             if args.dst_ip:
-                start, end = _ipv4_to_int_tuple(args.dst_ip)
+                start, end = _ipv4_to_int_tuple(args.dst_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.dst_ip)
                 rule.match.add_field_tuple('dst_ip', start, end)
 
             if args.proto:
@@ -115,6 +153,26 @@ class IP6TablesParser:
             if args.ctstate:
                 state = State[args.ctstate].value
                 rule.match.add_field('state', state)
+
+            if args.header:
+                header = Header[args.header.replace('-', '_')].value
+                rule.match.add_field('header', header)
+
+#            if args.limit:
+#                limit = int(args.limit)
+#                rule.match.add_field('limit', limit)
+
+            if args.rttype:
+                rttype = int(args.rttype)
+                rule.match.add_field('rttype', rttype)
+
+            if args.rtsegs:
+                rtsegs = int(args.rtsegs)
+                rule.match.add_field('rtsegs', rtsegs)
+
+#            if args.icmp6type:
+#                i6type = ICMP6Type[args.icmp6type].value
+#                rule.match.add_field('rtsegs', i6type)
 
             if args.tcp_flags:
                 mask, comp = args.tcp_flags

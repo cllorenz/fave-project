@@ -32,6 +32,9 @@ else:
         ACK = 2
         FIN = 4
 
+class Header(IntEnum):
+    ipv6_route = 1
+
 
 class FieldTuple(tuple):
     def __new__(cls, field):

@@ -21,6 +21,13 @@ def main(argv):
         const=True,
         default=False
     )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_const',
+        dest='verbose',
+        const=True,
+        default=False
+    )
 
     args = parser.parse_args(argv)
 
@@ -39,7 +46,7 @@ def main(argv):
     if args.measure:
         t_start = time.time()
 
-    model.analyse('FORWARD')
+    model.analyse('FORWARD', verbose=args.verbose)
 
     if args.measure:
         t_end = time.time()
