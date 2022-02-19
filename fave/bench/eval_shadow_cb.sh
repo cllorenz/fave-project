@@ -17,7 +17,7 @@ for fw in fw1 fw2 fw3 fw4 fw5 random; do
 done
 
 for fw in fw1 fw2 fw3 fw4 fw5 random; do
-    FW_RESULT=$RES/result_$fw".dat"
+    FW_RESULT=$RES/$fw".dat"
     echo -e "rules\tmean\tmedian\tstddev" > $FW_RESULT
     for c in 500 1000 2000; do
         RAW=$RES/$fw"_"$c"_raw.dat"
