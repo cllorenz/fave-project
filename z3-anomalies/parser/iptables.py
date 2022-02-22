@@ -61,6 +61,15 @@ def _ipv6_to_int_tuple(ip_str):
     )
 
 
+def _get_negated_fields(tokens):
+    res = []
+    for i, token in enumerate(tokens):
+        if token == '!':
+            res.append(tokens[i+1])
+
+    return res
+
+
 class IP6TablesParser:
     def parse(ruleset):
         parser = argparse.ArgumentParser(prog='ip6tables', description='Parse ip6tables rulesets.')
@@ -95,6 +104,11 @@ class IP6TablesParser:
 
         for line in [l for l in ruleset.splitlines() if l and not l.startswith('#')]:
             tokens = line.split()
+
+            negated_fields = _get_negated_fields(tokens)
+
+            tokens = [t for t in tokens if t != '!']
+
             ip_version = 6 if tokens[0] == 'ip6tables' else 4
             args = parser.parse_args(tokens[1:])
             if args.policy:
@@ -118,45 +132,45 @@ class IP6TablesParser:
                 if '.' in args.iiface:
                     iface, vlan = args.iiface.split('.')
                     vlan = int(vlan)
-                    rule.match.add_field('ingress_vlan', vlan)
+                    rule.match.add_field('ingress_vlan', vlan, negated=('-i' in negated_fields))
                 else:
                     iface = args.iiface
 
                 model.add_interface(iface)
                 iface = model.interfaces[iface]
-                rule.match.add_field('ingress_interface', iface)
+                rule.match.add_field('ingress_interface', iface, negated=('-i' in negated_fields))
 
             if args.oiface:
                 if '.' in args.oiface:
                     iface, vlan = args.oiface.split('.')
                     vlan = int(vlan)
-                    rule.match.add_field('egress_vlan', vlan)
+                    rule.match.add_field('egress_vlan', vlan, negated=('-o' in negated_fields))
                 else:
                     iface = args.oiface
 
                 model.add_interface(iface)
                 iface = model.interfaces[iface]
-                rule.match.add_field('egress_interface', iface)
+                rule.match.add_field('egress_interface', iface, negated=('-o' in negated_fields))
 
             if args.src_ip:
                 start, end = _ipv4_to_int_tuple(args.src_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.src_ip)
-                rule.match.add_field_tuple('src_ip', start, end)
+                rule.match.add_field_tuple('src_ip', start, end, negated=('-s' in negated_fields))
 
             if args.dst_ip:
                 start, end = _ipv4_to_int_tuple(args.dst_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.dst_ip)
-                rule.match.add_field_tuple('dst_ip', start, end)
+                rule.match.add_field_tuple('dst_ip', start, end, negated=('-d' in negated_fields))
 
             if args.proto:
                 proto = Proto[args.proto].value
-                rule.match.add_field('proto', proto)
+                rule.match.add_field('proto', proto, negated=('-p' in negated_fields))
 
             if args.ctstate:
                 state = State[args.ctstate].value
-                rule.match.add_field('state', state)
+                rule.match.add_field('state', state, negated=('--state' in negated_fields or '--ctstate' in negated_fields))
 
             if args.header:
                 header = Header[args.header.replace('-', '_')].value
-                rule.match.add_field('header', header)
+                rule.match.add_field('header', header, negated=('--header' in negated_fields))
 
 #            if args.limit:
 #                limit = int(args.limit)
@@ -164,11 +178,11 @@ class IP6TablesParser:
 
             if args.rttype:
                 rttype = int(args.rttype)
-                rule.match.add_field('rttype', rttype)
+                rule.match.add_field('rttype', rttype, negated=('--rt-type' in negated_fields))
 
             if args.rtsegs:
                 rtsegs = int(args.rtsegs)
-                rule.match.add_field('rtsegs', rtsegs)
+                rule.match.add_field('rtsegs', rtsegs, negated=('--rt-segsleft' in negated_fields))
 
 #            if args.icmp6type:
 #                i6type = ICMP6Type[args.icmp6type].value
@@ -178,23 +192,23 @@ class IP6TablesParser:
                 mask, comp = args.tcp_flags
                 flags = set(mask.split(',')).intersection(set(comp.split(',')))
                 flags_sum = sum([Flag[f] for f in flags])
-                rule.match.add_field('tcp_flags', flags_sum)
+                rule.match.add_field('tcp_flags', flags_sum, negated=('--tcp-flags' in negated_fields))
 
             if args.src_port:
                 src_port = int(args.src_port)
-                rule.match.add_field('src_port', src_port)
+                rule.match.add_field('src_port', src_port, negated=('--sport' in negated_fields))
 
             if args.dst_port:
                 dst_port = int(args.dst_port)
-                rule.match.add_field('dst_port', dst_port)
+                rule.match.add_field('dst_port', dst_port, negated=('--dport' in negated_fields))
 
             if args.src_ports:
                 start, end = args.src_ports.split(':')
-                rule.match.add_field_tuple('src_port', int(start), int(end))
+                rule.match.add_field_tuple('src_port', int(start), int(end), negated=('--sports' in negated_fields))
 
             if args.dst_ports:
                 start, end = args.dst_ports.split(':')
-                rule.match.add_field_tuple('dst_port', int(start), int(end))
+                rule.match.add_field_tuple('dst_port', int(start), int(end), negated=('--dports' in negated_fields))
 
             model.add_rule(rule, chain)
             line_count += 1

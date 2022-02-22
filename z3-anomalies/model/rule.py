@@ -5,7 +5,7 @@ import sys
 if sys.version_info.major == 3 and sys.version_info.minor >= 6:
     from enum import IntFlag, auto
 from enum import IntEnum
-from z3 import Int, And
+from z3 import Int, And, Not
 from functools import reduce
 
 
@@ -37,27 +37,31 @@ class Header(IntEnum):
 
 
 class FieldTuple(tuple):
-    def __new__(cls, field):
+    def __new__(cls, field, negated=False):
         assert(isinstance(field, tuple))
-        assert(len(field) == 3)
-        name, start, end = field
+        assert(len(field) == 4)
+        _name, _negated, start, end = field
         assert(start <= end)
         return super(FieldTuple, cls).__new__(cls, field)
 
 
     def to_z3(self):
-        name, start, end = self
+        name, negated, start, end = self
         var = Int(name)
+
+        neg = lambda f: Not(f) if negated else f
+
         if start == end:
-            return (var == start)
-        return And(var >= start, var <= end)
+            return neg(var == start)
+
+        return neg(And(var >= start, var <= end))
 
 
     def __str__(self):
-        name, start, end = self
+        name, negated, start, end = self
         if start == end:
-            return "{}={}".format(name, start)
-        return "{}={}..{}".format(name, start, end)
+            return "{}={}{}".format(name, "!" if negated else "", start)
+        return "{}={}{}..{}".format(name, "!" if negated else "", start, end)
 
 
 class Match(list):
@@ -67,12 +71,12 @@ class Match(list):
             assert(all([isinstance(f, FieldTuple) for f in match]))
             super(Match, self).__init__(match)
 
-    def add_field_tuple(self, name, start, end):
-        self.append(FieldTuple((name, start, end)))
+    def add_field_tuple(self, name, start, end, negated=False):
+        self.append(FieldTuple((name, negated, start, end)))
 
 
-    def add_field(self, name, value):
-        self.add_field_tuple(name, value, value)
+    def add_field(self, name, value, negated=False):
+        self.add_field_tuple(name, value, value, negated=negated)
 
 
     def __str__(self):
