@@ -201,12 +201,13 @@ class IP6TablesParser:
             else:
                 chains[chain].append(rule)
 
+
             rule_counts[chain] += 1
             line_count += 1
 
         for chain, default in chain_defaults.items():
             target, line, lineno = default
-            idx = ((rule_counts[chain] - len(chain_defaults) + lineno) << 12)
+            idx = (rule_counts[chain] - 1) << 12
             key = "%s_%s_r%d" % (fw_name, chain, idx)
             rule = GenUtils.rule('r'+str(idx), key=key, raw=line, raw_line_no=lineno)
             rule.append(GenUtils.action("jump", target="%s_%s_r0"%(fw_name, target)))
