@@ -284,7 +284,7 @@ void load_policy_file(string json_policy_file, NetPlumber<T1, T2> *N, T2 *filter
 template<typename T1, typename T2>
 void check_all_anomalies(NetPlumber<T1, T2> *N) {
   double t_start, t_end;
-  const struct anomalies_config_t anomalies { true, true, true };
+  const struct anomalies_config_t anomalies { true, false, false };
   t_start = get_cpu_time_us();
   N->check_anomalies(0, &anomalies);
   t_end = get_cpu_time_us();
