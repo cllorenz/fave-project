@@ -36,7 +36,6 @@ class Instantiator:
     _BASE = 'base'
     GAMMA = 'gamma'
 
-    DB = {}
 
     def Instantiate(Config,Reach=True,Cycle=False,Shadow=False,Cross=False):
         """ DEPRECATED: Reads a distributed firewall Configuration and transforms it into model checking Instances.
@@ -64,39 +63,13 @@ class Instantiator:
 
 
     def InstantiateBase(Config, Inits=[]):
-        DB = Instantiator.DB
-
         Kripke = KripkeUtils.ConvertToKripke(Config)
         for Init in Inits:
             InitNode = Kripke.GetNode(Init)
             if XMLUtils.INIT not in InitNode.Props: InitNode.Props.append(XMLUtils.INIT)
             Kripke.PutInit(Init, InitNode)
 
-        LastKripke = DB.get(Instantiator._KRIPKE)
-        Diff = []
-        if LastKripke is not None:
-            LastKripke = LastKripke
-            Diff = Kripke.Diff(LastKripke)
-            DiffKripke = Kripke.SubStructure(Diff)
-        else:
-            Diff = list(Kripke.IterNodes())
-            DiffKripke = Kripke
-
-        if Diff:
-            DB[Instantiator._KRIPKE] = Kripke
-
-        Intersection = set(LastKripke.IterNodes()).intersection(Diff) if LastKripke is not None else set()
-        for Node in Intersection:
-            if Node+'_'+Instantiator._BASE in DB: del DB[Node+'_'+Instantiator._BASE]
-            if Node+'_'+Instantiator.GAMMA in DB: del DB[Node+'_'+Instantiator.GAMMA]
-
-        Encoding = Instantiator._InstantiateBase(DiffKripke)
-        Complement = set(Kripke.IterNodes()).difference(Diff)
-        for Node in Complement:
-            Implications = DB.get(Node+'_'+Instantiator._BASE, [])
-            Encoding[0].extend(Implications)
-            Gammas = DB.get(Node+'_'+Instantiator.GAMMA, [])
-            Encoding[0].extend(Gammas)
+        Encoding = Instantiator._InstantiateBase(Kripke)
 
         Variables = Encoding.iterdescendants(XMLUtils.VARIABLE)
         Handled = {}
@@ -351,7 +324,6 @@ class Instantiator:
 
     def _ConvertNodesToImplications(Kripke):
         Implications = []
-        DB = Instantiator.DB
 
         FTransitions = Kripke.IterFTransitions(None)
         for NodeKey in FTransitions:
@@ -403,7 +375,6 @@ class Instantiator:
                 else:
                     NodeImplications.append(Conjunction)
 
-            DB[NodeKey+'_'+Instantiator._BASE] = NodeImplications
             Implications.extend(NodeImplications)
 
         return Implications
@@ -481,7 +452,6 @@ class Instantiator:
 
 
     def _HandleGammas(Kripke):
-        DB = Instantiator.DB
         Gammas = []
         Nodes = Kripke.IterNodes()
         for NodeKey in Nodes:
@@ -500,10 +470,8 @@ class Instantiator:
 
             if Conjunction.tag == XMLUtils.CONJUNCTION:
                 Gammas.extend(list(Conjunction))
-                DB[NodeKey+'_'+Instantiator.GAMMA] = Conjunction
             else:
                 Gammas.append(Conjunction)
-                DB[NodeKey+'_'+Instantiator.GAMMA] = Conjunction
 
         return Gammas
 
