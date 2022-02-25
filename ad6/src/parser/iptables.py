@@ -41,6 +41,12 @@ class IP6TablesParser:
         parser.add_argument('--dports', dest='dst_ports', action='store')
         parser.add_argument('-m', dest='module', action='append')
         parser.add_argument('--state', dest='ctstate', action='store')
+        parser.add_argument('--ctstate', dest='ctstate', action='store')
+        parser.add_argument('--limit', dest='limit', action='store')
+        parser.add_argument('--header', dest='header', action='store')
+        parser.add_argument('--rt-type', dest='rttype', action='store')
+        parser.add_argument('--rt-segsleft', dest='rtsegs', action='store')
+        parser.add_argument('--icmp6type', dest='icmp6type', action='store')
         parser.add_argument('--tcp-flags', dest='tcp_flags', nargs=2, metavar=('MASK', 'COMP'), action='store')
 
         parser.add_argument('-P', '--policy', dest='policy', nargs=2, metavar=('CHAIN', 'ACTION'), action='store')
@@ -57,6 +63,8 @@ class IP6TablesParser:
 
         for line in [l for l in ruleset.splitlines() if l and not l.startswith('#')]:
             tokens = line.split()
+            negated_fields = _get_negated_fields(tokens)
+            tokens = [t for t in tokens if t != '!']
 
             ip_version = '6' if tokens[0] == 'ip6tables' else '4'
 
@@ -67,7 +75,7 @@ class IP6TablesParser:
                 rule_counts.setdefault(chain, 0)
                 target = target.lower()
                 chains.setdefault(chain, GenUtils.table(chain))
-                chain_defaults.setdefault(chain, (target, line, rule_counts[chain]))
+                chain_defaults.setdefault(chain, (target, line, line_count))
                 rule_counts[chain] += 1
                 line_count += 1
                 continue
@@ -100,41 +108,56 @@ class IP6TablesParser:
             if args.iiface:
                 if '.' in args.iiface:
                     iface, vlan = args.iiface.split('.')
-                    rule.append(GenUtils.vlan(vlan, direction='ingress'))
+                    rule.append(GenUtils.vlan(vlan, direction='ingress', negated=('-i' in negated_fields)))
                 else:
                     iface = args.iiface
-                rule.append(GenUtils.interface(iface, "%s_%s"%(fw_name, iface), direction='in'))
+                rule.append(GenUtils.interface(iface, "%s_%s"%(fw_name, iface), direction='in', negated=('-i' in negated_fields)))
 
             if args.oiface:
                 if '.' in args.oiface:
                     iface, vlan = args.oiface.split('.')
-                    rule.append(GenUtils.vlan(vlan, direction='egress'))
+                    rule.append(GenUtils.vlan(vlan, direction='egress'), negated=('-o' in negated_fields))
                 else:
                     iface = args.oiface
-                rule.append(GenUtils.interface(iface, "%s_%s"%(fw_name, iface), direction='out'))
+                rule.append(GenUtils.interface(iface, "%s_%s"%(fw_name, iface), direction='out', negated=('-o' in negated_fields)))
 
             if args.src_ip:
-                rule.append(GenUtils.address(args.src_ip, direction='src', version=ip_version))
+                rule.append(GenUtils.address(args.src_ip, direction='src', version=ip_version, negated=('-s' in negated_fields)))
 
             if args.dst_ip:
-                rule.append(GenUtils.address(args.dst_ip, direction='dst', version=ip_version))
+                rule.append(GenUtils.address(args.dst_ip, direction='dst', version=ip_version, negated=('-d' in negated_fields)))
 
             if args.proto:
-                rule.append(GenUtils.proto(args.proto))
+                rule.append(GenUtils.proto(args.proto, negated=('-p' in negated_fields)))
 
             if args.ctstate:
-                rule.append(GenUtils.state(args.ctstate))
+                rule.append(GenUtils.state(args.ctstate, negated=('--state' in negated_fields or '--ctstate' in negated_fields)))
+
+            if args.limit:
+                rule.append(GenUtils.icmp6limit(args.limit, negated=('--limit' in negated_fields)))
+
+            if args.header:
+                rule.append(GenUtils.ipv6header(negated=('--header' in negated_fields)))
+
+            if args.rttype:
+                rule.append(GenUtils.rttype(args.rttype, negated=('--rt-type' in negated_fields)))
+
+            if args.rtsegs:
+                rule.append(GenUtils.rtsegsleft(args.rtsegs, negated=('--rt-segsleft' in negated_fields)))
+
+            if args.icmp6type:
+                rule.append(GenUtils.icmp6type(args.icmp6type, negated=('--icmp6type' in negated_fields)))
 
             if args.tcp_flags:
                 mask, comp = args.tcp_flags
                 flags = set(mask.split(',')).intersection(set(comp.split(',')))
-                rule.append(GenUtils.tcp_flags(','.join(list(flags))))
+                rule.append(GenUtils.tcp_flags(','.join(list(flags)), negated=('--tcp-flags' in negated_fields)))
 
             if args.src_port:
-                rule.append(GenUtils.port(args.src_port+'/16', 'src'))
+                rule.append(GenUtils.port(args.src_port+'/16', 'src', negated=('--sport' in negated_fields)))
 
             if args.dst_port:
-                rule.append(GenUtils.port(args.dst_port+'/16', 'dst'))
+                rule.append(GenUtils.port(args.dst_port+'/16', 'dst', negated=('--dport' in negated_fields)))
 
             rules = []
             if args.src_ports:
@@ -148,7 +171,7 @@ class IP6TablesParser:
                     tmp_key = "%s_%s_r%d" % (fw_name, chain, tmp_idx)
                     tmp.attrib['name'] = 'r'+str(tmp_idx)
                     tmp.attrib['key'] = tmp_key
-                    tmp.append(GenUtils.port("%s/%s"%(port, prefix), 'src'))
+                    tmp.append(GenUtils.port("%s/%s"%(port, prefix), 'src', negated=('--sports' in negated_fields)))
                     rules.append(tmp)
                     extended[chain][key].append(tmp_key)
                     original[chain][tmp_key] = key
@@ -167,7 +190,7 @@ class IP6TablesParser:
                         tmp_key = "%s_%s_r%d" % (fw_name, chain, tmp_idx)
                         tmp.attrib['name'] = 'r'+str(tmp_idx)
                         tmp.attrib['key'] = tmp_key
-                        tmp.append(GenUtils.port("%s/%s"%(port, prefix), 'dst'))
+                        tmp.append(GenUtils.port("%s/%s"%(port, prefix), 'dst', negated=('--dports' in negated_fields)))
                         rules.append(tmp)
                         extended[chain][key].append(tmp_key)
                         original.setdefault(chain, {})
@@ -218,6 +241,15 @@ class IP6TablesParser:
             )
 
         return firewall
+
+
+def _get_negated_fields(tokens):
+    res = []
+    for i, token in enumerate(tokens):
+        if token == '!':
+            res.append(tokens[i+1])
+
+    return res
 
 
 _PORT_BITS = 16

@@ -53,58 +53,71 @@ class GenUtils():
             elem.attrib['target'] = target
         return elem
 
-    def proto(name):
+    def proto(name, negated=False):
         elem = et.Element('proto')
         elem.text = name
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def ip(version,direction=""):
+    def ip(version,direction="", negated=False):
         elem = et.Element('ip',{'version':version})
         if direction != "":
             elem.attrib['direction'] = direction
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def address(addr,direction="",version="6"):
+    def address(addr,direction="",version="6", negated=False):
         ip = GenUtils.ip(version,direction)
         address = et.Element('address')
         address.text = addr
         ip.append(address)
+        if negated: ip.attrib['negated'] = 'true'
         return ip
 
-    def port(no,direction):
+    def port(no,direction, negated=False):
         elem = et.Element('port',{'direction':direction})
         elem.text = no
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def icmp6type(typename):
+    def icmp6type(typename, negated=False):
         elem = et.Element('icmp6type')
         elem.text = typename
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def icmp6limit(limit):
+    def icmp6limit(limit, negated=False):
         elem = et.Element('icmp6limit')
         elem.text = limit
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def state(statetype):
+    def state(statetype, negated=False):
         elem = et.Element('state')
         elem.text = statetype
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def tcp_flags(flags):
+    def tcp_flags(flags, negated=False):
         elem = et.Element('tcp-flags')
         elem.text = flags
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
-    def ipv6header():
-        return et.Element('ipv6-header')
+    def ipv6header(negated=False):
+        elem = et.Element('ipv6-header')
+        if negated: elem.attrib['negated'] = 'true'
+        return elem
 
-    def ipv6route():
-        return et.Element('ipv6-route')
+    def ipv6route(negated=False):
+        elem = et.Element('ipv6-route')
+        if negated: elem.attrib['negated'] = 'true'
+        return elem
 
-    def rttype(no):
+    def rttype(no, negated=False):
         elem = et.Element('rt-type')
         elem.text = no
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
     def notrttype(no):
@@ -112,9 +125,10 @@ class GenUtils():
         elem.attrib['negated'] = 'true'
         return elem
 
-    def rtsegsleft(no):
+    def rtsegsleft(no, negated=False):
         elem = et.Element('rt-segs-left')
         elem.text = no
+        if negated: elem.attrib['negated'] = 'true'
         return elem
 
     def notrtsegsleft(no):
@@ -122,19 +136,23 @@ class GenUtils():
         elem.attrib['negated'] = 'true'
         return elem
 
-    def vlan(no, direction=None):
+    def vlan(no, direction=None, negated=False):
         elem = et.Element('vlan')
         elem.text = no
+        if negated: elem.attrib['negated'] = 'true'
         if direction:
             elem.attrib['direction'] = direction
         return elem
 
-    def interface(name, key, direction=None):
+    def interface(name, key, direction=None, negated=False):
         if not direction:
-            return et.Element('interface',{'name':name,'key':key})
+            elem = et.Element('interface',{'name':name,'key':key})
+            if negated: elem.attrib['negated'] = 'true'
+            return elem
         else:
             elem = et.Element('interface',{'direction':direction})
             elem.text = key
+            if negated: elem.attrib['negated'] = 'true'
             return elem
 
     def connections():
