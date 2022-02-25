@@ -445,7 +445,7 @@ void NetPlumber<T1, T2>::_check_anomalies(
         if (
             anomalies->use_reach &&
             aggr_hs.list.used == 1 &&
-            array_is_eq(rule->match, aggr_hs.list.elems[0], this->length)
+            array_is_eq(aggr_hs.list.elems[0], (T2 *)&all_hs, this->length)
         ) {
           this->anomaly_callback_data = (void *)&unreach_str;
           this->anomaly_callback(this, nullptr, this->anomaly_callback_data);
