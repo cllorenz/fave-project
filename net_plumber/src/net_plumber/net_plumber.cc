@@ -468,8 +468,11 @@ void NetPlumber<T1, T2>::_check_anomalies(
 
   if (anomalies->use_general) {
       auto rule_pair = rules->rbegin();
-      if (rule_pair != rules->rend()) rule_pair++;
-      for (rule_pair; rule_pair != rules->rend(); ++rule_pair) {
+      if (
+        rule_pair != rules->rend() &&
+	array_is_eq(rule_pair->second->match, (T2 *)&all_hs, this->length)
+      ) rule_pair++;
+      for (; rule_pair != rules->rend(); ++rule_pair) {
         auto rule = rule_pair->second;
         this->last_event.id2 = rule->node_id;
 
