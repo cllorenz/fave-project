@@ -116,7 +116,7 @@ class IP6TablesParser:
             if args.oiface:
                 if '.' in args.oiface:
                     iface, vlan = args.oiface.split('.')
-                    rule.append(GenUtils.vlan(vlan, direction='egress'), negated=('-o' in negated_fields))
+                    rule.append(GenUtils.vlan(vlan, direction='egress', negated=('-o' in negated_fields)))
                 else:
                     iface = args.oiface
                 rule.append(GenUtils.interface(iface, "%s_%s"%(fw_name, iface), direction='out', negated=('-o' in negated_fields)))
