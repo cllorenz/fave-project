@@ -1,15 +1,15 @@
 ip6tables -P INPUT DROP
 ip6tables -P FORWARD DROP
 ip6tables -P OUTPUT DROP
-ip6tables -A INPUT -i 1 -j DROP
+ip6tables -A INPUT -i eth1 -j DROP
 ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
 ip6tables -A INPUT -s 2001:db8:abc:1::8 -p tcp --dport 22 -j ACCEPT
-ip6tables -A OUTPUT -o 1 -d 2001:db8:abc::0/48 -j DROP
+ip6tables -A OUTPUT -o eth1 -d 2001:db8:abc::0/48 -j DROP
 ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
 ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p udp --dport 53 -j ACCEPT
 ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT
-ip6tables -A FORWARD -i 1 -s 2001:db8:abc::0/48 -j DROP
-ip6tables -A FORWARD -o 1 -d 2001:db8:abc::0/48 -j DROP
+ip6tables -A FORWARD -i eth1 -s 2001:db8:abc::0/48 -j DROP
+ip6tables -A FORWARD -o eth1 -d 2001:db8:abc::0/48 -j DROP
 ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP
 ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP
 ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP
