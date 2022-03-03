@@ -1206,7 +1206,7 @@ void hs_merge_insert(struct hs *h, const array_t *arr) {
     const size_t len = h->len;
 
     for (size_t i = 0; i < v->used; i++) {
-        // v[i] is a superset of arr -> skip insertion and delete arr
+        // v[i] is a superset of arr -> skip insertion
         if (array_is_sub_eq(arr, v->elems[i], len)) {
             return;
         }
@@ -1218,7 +1218,7 @@ void hs_merge_insert(struct hs *h, const array_t *arr) {
             return;
         }
 
-        // v[i] and arr can be merged -> replace v[i] with v_merge and delete v[i] and arr
+        // v[i] and arr can be merged -> replace v[i] with v_merge and delete v[i]
         array_t *v_merge = array_merge(v->elems[i], arr, len);
         if (v_merge) {
             array_free(v->elems[i]);
