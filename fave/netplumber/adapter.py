@@ -154,10 +154,15 @@ class NetPlumberAdapter(object):
         """
         jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
 
-    def check_anomalies(self):
+    def check_anomalies(self, use_shadow=False, use_reach=False, use_general=False):
         """ Orders NetPlumber to check all tables for anomalies.
         """
-        jsonrpc.check_anomalies(self.socks)
+        jsonrpc.check_anomalies(
+            self.socks,
+            use_shadow=use_shadow,
+            use_reach=use_reach,
+            use_general=use_general
+        )
 
     def _expand(self):
         self.logger.debug(

@@ -57,7 +57,8 @@ class GenericBenchmark(object):
             ip=None,
             length=0,
             suffix='',
-            mapping=None
+            mapping=None,
+            anomalies=None
     ):
         self.prefix = prefix
         files = {
@@ -106,6 +107,8 @@ class GenericBenchmark(object):
         )
 
         self.threads = threads
+
+        self.anomalies = anomalies if anomalies is not None else {}
 
     def _pre_preparation(self):
         pass

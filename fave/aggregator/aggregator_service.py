@@ -186,7 +186,11 @@ class AggregatorService(AbstractAggregator):
 
             elif j['type'] == 'check_anomalies':
                 task_type = 'check_anomalies'
-                self.net_plumber.check_anomalies()
+                self.net_plumber.check_anomalies(
+                    use_shadow=j.get('use_shadow', False),
+                    use_reach=j.get('use_reach', False),
+                    use_general=j.get('use_general', False)
+                )
 
             else:
                 model = model_from_json(j)

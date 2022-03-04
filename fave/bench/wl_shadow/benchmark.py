@@ -41,7 +41,9 @@ class ShadowingBenchmark(GenericBenchmark):
         ) if self.use_unix else connect_to_fave(
             FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
         )
-        fave_sendmsg(fave, json.dumps({'type':'check_anomalies'}))
+        msg = {'type':'check_anomalies'}
+        msg.update(self.anomalies)
+        fave_sendmsg(fave, json.dumps(msg))
         fave.close()
 
     def _post_preparation(self):
@@ -112,6 +114,27 @@ if __name__ == '__main__':
         const=4,
         default=6
     )
+    parser.add_argument(
+        '-d', '--disable-shadow',
+        dest='disable_shadow',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '--reach',
+        dest='use_reach',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    parser.add_argument(
+        '--general',
+        dest='use_general',
+        action='store_const',
+        const=True,
+        default=False
+    )
 
     args = parser.parse_args()
 
@@ -119,13 +142,18 @@ if __name__ == '__main__':
         'shadow_ruleset' : args.ruleset
     }
 
+    anomalies = {'use_shadow' : not args.disable_shadow}
+    if args.use_reach: anomalies['use_reach'] = True
+    if args.use_general: anomalies['use_use_general'] = True
+
     ShadowingBenchmark(
         "bench/wl_shadow",
         logger=logging.getLogger("shadow"),
         extra_files=files,
         use_unix=args.use_unix,
         ip=args.ip,
-        use_interweaving=False
+        use_interweaving=False,
+        anomalies=anomalies
     ).run()
 
 #    os.system("python2 bench/wl_generic_fw/benchmark.py -6 -n -r %s -i %s -p %s -m %s %s %s" % (
