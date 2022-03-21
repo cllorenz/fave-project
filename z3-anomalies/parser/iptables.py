@@ -40,7 +40,7 @@ def _ipv6_to_int_tuple(ip_str):
     if '::' in addr:
         pre, post = addr.split('::')
         pre = [int(x, 16) for x in pre.split(':')]
-        post = [int(x, 16) for x in post.split(':')]
+        post = [int(x, 16) for x in post.split(':')] if post else []
     else:
         pre = [int(x, 16) for x in addr.split(':')]
         post = []
@@ -161,7 +161,10 @@ class IP6TablesParser:
                 rule.match.add_field_tuple('dst_ip', start, end, negated=('-d' in negated_fields))
 
             if args.proto:
-                proto = Proto[args.proto].value
+                try:
+                    proto = Proto[args.proto].value
+                except KeyError:
+                    proto = args.proto
                 rule.match.add_field('proto', proto, negated=('-p' in negated_fields))
 
             if args.ctstate:
