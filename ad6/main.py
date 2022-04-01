@@ -413,7 +413,7 @@ class Main:
 
     def __init__(self, networks, solver=PycoSATAdapter(), anomalies={}):
         self._solver = solver
-        self._networks = [network.getroot() for network in networks]
+        self._networks = networks
         self._anomalies = {
             'reach' : False,
             'cycle' : False,
@@ -504,29 +504,21 @@ class Main:
         return res
 
 
-def _gen_tum_config(ruleset, dump_mappings=False):
-    firewall = IP6TablesParser.parse(open(ruleset).read(), 'tum_fw', dump_mappings=dump_mappings)
+def _gen_config(rulesets, network, dump_mappings=False):
+    fws = [
+        IP6TablesParser.parse(
+            open(r).read(),
+            n,
+            dump_mappings=dump_mappings
+        ) for n, r in rulesets.items()
+    ]
+    network = et.parse(network)
 
     config = GenUtils.config()
     firewalls = GenUtils.firewalls()
-    firewalls.append(firewall)
+    firewalls.extend(fws)
     config.append(firewalls)
-
-    networks = GenUtils.networks()
-    network = GenUtils.network('tum')
-
-    eth0 = GenUtils.interface('eth0', 'tum_fw_eth0')
-    eth1 = GenUtils.interface('eth1', 'tum_fw_eth1')
-
-    node = GenUtils.node('fw')
-    node.append(GenUtils.nodeFirewall('tum_fw'))
-    node.append(eth0)
-    node.append(eth1)
-
-    network.append(node)
-    networks.append(network)
-
-    config.append(networks)
+    config.append(network.getroot())
 
     return config
 
@@ -544,7 +536,19 @@ if __name__ == "__main__":
         ], default=[])
     else:
         parser.add_argument('--anomalies', dest='anomalies', default=[], type=lambda a: a.split(','))
-    parser.add_argument('--ruleset', dest='ruleset', default='bench/tum/tum-ruleset')
+    parser.add_argument(
+        '--rulesets',
+        dest='rulesets',
+        type=lambda rs: dict([r.split(':') for r in rs.split(',')]),
+        default={'tum_fw' : 'bench/tum/tum-ruleset'}
+    )
+    parser.add_argument(
+        '--ruleset',
+        dest='rulesets',
+        type=lambda r: dict([r.split(':')]),
+        default={'tum_fw' : 'bench/tum/tum-ruleset'}
+    )
+    parser.add_argument('--network', dest='network', default='bench/tum/tum.xml')
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -569,12 +573,9 @@ if __name__ == "__main__":
         ) for network in args.networks
     ]
 
-    networks = [et.ElementTree(_gen_tum_config(args.ruleset, dump_mappings=True))] # XXX
-#    networks = [
-#        et.parse('./bench/up-legacy/small.xml'),
-#        et.parse('./bench/up-legacy/medium.xml'),
-#        et.parse('./bench/up-legacy/large.xml')
-#    ]
+    networks = [et.ElementTree(
+        _gen_config(args.rulesets, args.network, dump_mappings=True)
+    )]
 
     anomalies = {
         'reach' : False,
@@ -586,16 +587,6 @@ if __name__ == "__main__":
         'end_to_end' : False
     }
     for anomaly in args.anomalies: anomalies[anomaly] = True
-
-    anomalies = { # XXX
-        'reach' : False,
-        'cycle' : False,
-        'shadow' : True,
-        'cross' : False,
-        'lppreach' : False,
-        'lppshadow' : False,
-        'end_to_end' : False
-    }
 
     if args.profile:
         yappi.start()
