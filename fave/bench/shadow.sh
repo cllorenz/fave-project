@@ -26,7 +26,7 @@ mkdir -p $RES_SHADOW
 
 export PYTHONPATH=.
 
-FWS="fw1 fw2 fw3 fw4 fw5"
+FWS="fw1 fw2 fw3 fw4 fw5 random"
 RULES="500 1000 2000 5000 10000 15000"
 
 # random
