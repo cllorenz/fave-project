@@ -1,0 +1,1031 @@
+ip6tables -P INPUT DROP
+ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
+ip6tables -A INPUT -i eth1 -s 2001:db8:abc::0/48 -j DROP
+ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:1::8 -p tcp --dport 22 -j ACCEPT
+ip6tables -A OUTPUT -o eth1 -d 2001:db8:abc::0/48 -j DROP
+ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p udp --dport 53 -j ACCEPT
+ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT
+ip6tables -A FORWARD -i eth1 -s 2001:db8:abc::0/48 -j DROP
+ip6tables -A FORWARD -o eth1 -d 2001:db8:abc::0/48 -j DROP
+ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP
+ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP
+ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 0 --rt-segsleft 0 -j DROP
+ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt --rt-type 2 --rt-segsleft 1 -j DROP
+ip6tables -A FORWARD -m ipv6header --header ipv6-route -m rt ! --rt-segsleft 0 -j DROP
+ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::1 -p tcp --dport 21 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::2 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::3 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::3 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::3 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::3 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::4 -p tcp --dport 389 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::4 -p tcp --dport 636 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::4 -p udp --dport 389 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::4 -p udp --dport 123 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::5 -p tcp --dport 1194 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::5 -p tcp --dport 1723 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::5 -p udp --dport 1194 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::5 -p udp --dport 1723 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::5 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::5 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:1::6 -p udp --dport 53 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::6 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::6 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p tcp --dport 118 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p tcp --dport 156 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p udp --dport 118 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p udp --dport 156 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::7 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::8 -p tcp --dport 161 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::8 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::8 -p udp --dport 161 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:1::8 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:4::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:4::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:5::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:5::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:6::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:6::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:7::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:7::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:8::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:8::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:9::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:9::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:a::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:a::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:b::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:b::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:c::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:c::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:d::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:d::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:e::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:e::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:f::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:f::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:10::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:10::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:11::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:11::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:12::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:12::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:13::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:13::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:14::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:14::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:15::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:15::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:16::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:16::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:17::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:17::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::1 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::2 -p tcp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::2 -p tcp --dport 5061 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::2 -p udp --dport 5060 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::2 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::2 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 25 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 587 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 110 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 465 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 993 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p tcp --dport 995 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p udp --dport 143 -j ACCEPT
+ip6tables -A FORWARD -d 2001:db8:abc:18::3 -p udp --dport 220 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::4 -p tcp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc::0/48 -d 2001:db8:abc:18::4 -p udp --dport 22 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:2::0/64 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:4::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:5::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:6::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:7::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:8::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:9::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:a::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:b::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:c::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:d::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:e::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:f::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:10::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:11::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:12::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:13::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:14::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:15::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:16::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:17::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -d 2001:db8:abc:18::100/120 -j DROP
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:4::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:5::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:6::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:7::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:8::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:9::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:a::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:b::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:c::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:d::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:e::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:f::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:10::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:11::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:12::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:13::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:14::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:15::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:16::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:17::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:18::100/120 -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -p tcp -j ACCEPT
+ip6tables -A FORWARD -s 2001:db8:abc:2::0/64 -j ACCEPT

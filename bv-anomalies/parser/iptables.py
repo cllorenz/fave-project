@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+
+import argparse
+
+from model.packet_filter_model import PacketFilterModel
+from model.rule import Rule, Flag, Proto, State, Header
+
+
+def _ipv4_to_int_tuple(ip_str):
+    if '/' in ip_str:
+        addr, prefix = ip_str.split('/')
+        prefix = int(prefix)
+    else:
+        addr = ip_str
+        prefix = 32
+
+    decs = [int(dec) for dec in addr.split('.')]
+
+    ip_int = 0
+    for idx, dec in enumerate(decs):
+        ip_int += dec << ((3-idx)*8)
+
+    return (
+        ip_int >> (32-prefix) << (32-prefix),
+        (ip_int << (32-prefix) >> (32-prefix)) | 0xffffffff >> prefix
+    ) if prefix != 32 else (
+        ip_int,
+        ip_int
+    )
+
+
+def _ipv6_to_int_tuple(ip_str):
+    if '/' in ip_str:
+        addr, prefix = ip_str.split('/')
+        prefix = int(prefix)
+    else:
+        addr = ip_str
+        prefix = 128
+
+    if '::' in addr:
+        pre, post = addr.split('::')
+        pre = [int(x, 16) for x in pre.split(':')]
+        post = [int(x, 16) for x in post.split(':')] if post else []
+    else:
+        pre = [int(x, 16) for x in addr.split(':')]
+        post = []
+
+    addr = pre + [0]*(8-len(pre)-len(post)) + post
+    assert(len(addr) == 8)
+
+    ip_int = 0
+    for idx, hex_ in enumerate(addr):
+        ip_int += hex_ << ((7-idx)*16)
+
+    return (
+        ip_int >> (128-prefix) << (128-prefix),
+        (ip_int << (128-prefix) >> (128-prefix)) | 0xffffffffffffffff >> prefix
+    ) if prefix != 128 else (
+        ip_int,
+        ip_int
+    )
+
+
+def _get_negated_fields(tokens):
+    res = []
+    for i, token in enumerate(tokens):
+        if token == '!':
+            res.append(tokens[i+1])
+
+    return res
+
+
+class IP6TablesParser:
+    def parse(ruleset):
+        parser = argparse.ArgumentParser(prog='ip6tables', description='Parse ip6tables rulesets.')
+        parser.add_argument('-i', dest='iiface', action='store')
+        parser.add_argument('-o', dest='oiface', action='store')
+        parser.add_argument('-s', dest='src_ip', action='store')
+        parser.add_argument('-d', dest='dst_ip', action='store')
+        parser.add_argument('-p', dest='proto', action='store')
+        parser.add_argument('--sport', dest='src_port', action='store')
+        parser.add_argument('--sports', dest='src_ports', action='store')
+        parser.add_argument('--dport', dest='dst_port', action='store')
+        parser.add_argument('--dports', dest='dst_ports', action='store')
+        parser.add_argument('-m', dest='module', action='append')
+        parser.add_argument('--state', dest='ctstate', action='store')
+        parser.add_argument('--ctstate', dest='ctstate', action='store')
+        parser.add_argument('--limit', dest='limit', action='store')
+        parser.add_argument('--header', dest='header', action='store')
+        parser.add_argument('--rt-type', dest='rttype', action='store')
+        parser.add_argument('--rt-segsleft', dest='rtsegs', action='store')
+        parser.add_argument('--icmp6type', dest='icmp6type', action='store')
+        parser.add_argument('--tcp-flags', dest='tcp_flags', nargs=2, metavar=('MASK', 'COMP'), action='store')
+
+        parser.add_argument('-P', '--policy', dest='policy', nargs=2, metavar=('CHAIN', 'ACTION'), action='store')
+        parser.add_argument('-A', dest='chain', action='store')
+        parser.add_argument('-j', dest='target', action='store')
+
+        model = PacketFilterModel()
+
+        chain_defaults = {}
+
+        line_count = 1
+
+        for line in [l for l in ruleset.splitlines() if l and not l.startswith('#')]:
+            tokens = line.split()
+
+            negated_fields = _get_negated_fields(tokens)
+
+            tokens = [t for t in tokens if t != '!']
+
+            ip_version = 6 if tokens[0] == 'ip6tables' else 4
+            args = parser.parse_args(tokens[1:])
+            if args.policy:
+                chain, target = args.policy
+                chain = chain.lower()
+                target = target.lower()
+                rule = Rule(65535, action=target, raw=line, raw_rule_no=line_count)
+                model.setdefault(chain, [])
+                chain_defaults.setdefault(chain, rule)
+                line_count += 1
+                continue
+            else:
+                chain = args.chain.lower()
+                model.setdefault(chain, [])
+                target = args.target.lower()
+
+            idx = len(model[chain])
+            rule = Rule(idx, target, raw=line, raw_rule_no=line_count)
+
+            if args.iiface:
+                if '.' in args.iiface:
+                    iface, vlan = args.iiface.split('.')
+                    vlan = int(vlan)
+                    rule.match.add_field('ingress_vlan', vlan, negated=('-i' in negated_fields))
+                else:
+                    iface = args.iiface
+
+                model.add_interface(iface)
+                iface = model.interfaces[iface]
+                rule.match.add_field('ingress_interface', iface, negated=('-i' in negated_fields))
+
+            if args.oiface:
+                if '.' in args.oiface:
+                    iface, vlan = args.oiface.split('.')
+                    vlan = int(vlan)
+                    rule.match.add_field('egress_vlan', vlan, negated=('-o' in negated_fields))
+                else:
+                    iface = args.oiface
+
+                model.add_interface(iface)
+                iface = model.interfaces[iface]
+                rule.match.add_field('egress_interface', iface, negated=('-o' in negated_fields))
+
+            if args.src_ip:
+                start, end = _ipv4_to_int_tuple(args.src_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.src_ip)
+                rule.match.add_field_tuple('src_ip', start, end, negated=('-s' in negated_fields))
+
+            if args.dst_ip:
+                start, end = _ipv4_to_int_tuple(args.dst_ip) if ip_version == 4 else _ipv6_to_int_tuple(args.dst_ip)
+                rule.match.add_field_tuple('dst_ip', start, end, negated=('-d' in negated_fields))
+
+            if args.proto:
+                try:
+                    proto = Proto[args.proto].value
+                except KeyError:
+                    proto = args.proto
+                rule.match.add_field('proto', proto, negated=('-p' in negated_fields))
+
+            if args.ctstate:
+                state = State[args.ctstate].value
+                rule.match.add_field('state', state, negated=('--state' in negated_fields or '--ctstate' in negated_fields))
+
+            if args.header:
+                header = Header[args.header.replace('-', '_')].value
+                rule.match.add_field('header', header, negated=('--header' in negated_fields))
+
+#            if args.limit:
+#                limit = int(args.limit)
+#                rule.match.add_field('limit', limit)
+
+            if args.rttype:
+                rttype = int(args.rttype)
+                rule.match.add_field('rttype', rttype, negated=('--rt-type' in negated_fields))
+
+            if args.rtsegs:
+                rtsegs = int(args.rtsegs)
+                rule.match.add_field('rtsegs', rtsegs, negated=('--rt-segsleft' in negated_fields))
+
+#            if args.icmp6type:
+#                i6type = ICMP6Type[args.icmp6type].value
+#                rule.match.add_field('rtsegs', i6type)
+
+            if args.tcp_flags:
+                mask, comp = args.tcp_flags
+                flags = set(mask.split(',')).intersection(set(comp.split(',')))
+                flags_sum = sum([Flag[f] for f in flags])
+                rule.match.add_field('tcp_flags', flags_sum, negated=('--tcp-flags' in negated_fields))
+
+            if args.src_port:
+                src_port = int(args.src_port)
+                rule.match.add_field('src_port', src_port, negated=('--sport' in negated_fields))
+
+            if args.dst_port:
+                dst_port = int(args.dst_port)
+                rule.match.add_field('dst_port', dst_port, negated=('--dport' in negated_fields))
+
+            if args.src_ports:
+                start, end = args.src_ports.split(':')
+                rule.match.add_field_tuple('src_port', int(start), int(end), negated=('--sports' in negated_fields))
+
+            if args.dst_ports:
+                start, end = args.dst_ports.split(':')
+                rule.match.add_field_tuple('dst_port', int(start), int(end), negated=('--dports' in negated_fields))
+
+            model.add_rule(rule, chain)
+            line_count += 1
+
+        for chain, target in chain_defaults.items():
+#            idx = len(model[chain])
+#            rule = Rule(idx, action=target)
+            model.add_rule(target, chain)
+
+        return model
