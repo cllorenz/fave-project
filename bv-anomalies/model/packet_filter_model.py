@@ -4,8 +4,6 @@ import pprint
 
 from model.rule import Rule
 
-from z3 import And, Not, Solver, sat, unsat
-
 class PacketFilterModel(dict):
     def __init__(self, interfaces=None):
         super(PacketFilterModel, self).__init__()
@@ -33,8 +31,6 @@ class PacketFilterModel(dict):
 
     def analyse(self, chain, verbose=False):
         chain = self[chain.lower()]
-
-        solver = Solver()
 
         shadowed_rules = set()
 
