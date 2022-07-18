@@ -489,9 +489,11 @@ class Instantiator:
 
     def _InstantiateBase(Kripke):
         Encoding = XMLUtils.formula()
-        Encoding.append(XMLUtils.conjunction())
-        Encoding[0].extend(Instantiator._ConvertNodesToImplications(Kripke))
-        Encoding[0].extend(Instantiator._HandleGammas(Kripke))
+        Conjunction = XMLUtils.conjunction()
+        Conjunction.extend(Instantiator._ConvertNodesToImplications(Kripke))
+        Conjunction.extend(Instantiator._HandleGammas(Kripke))
+
+        Encoding.append(Conjunction)
 
         return Encoding
 
