@@ -520,7 +520,7 @@ def _gen_config(rulesets, network, dump_mappings=False):
     firewalls = GenUtils.firewalls()
     firewalls.extend(fws)
     config.append(firewalls)
-    config.append(network.getroot())
+    config.extend(network.getroot().getchildren())
 
     return config
 
@@ -533,9 +533,16 @@ if __name__ == "__main__":
     parser.add_argument('--solver', dest='solver', choices=['clasp', 'mini', 'pyco'], default='pyco')
     parser.add_argument('--profile', dest='profile', action='store_const', const=True, default=False)
     if sys.version_info.major == 3 and sys.version_info.minor >= 8:
-        parser.add_argument('--anomalies', dest='anomalies', action='extend', nargs='+', choices=[
-            'reach', 'cycle', 'shadow', 'cross', 'lppreach', 'lppshadow', 'end_to_end'
-        ], default=[])
+        parser.add_argument(
+            '--anomalies',
+            dest='anomalies',
+            action='extend',
+            nargs='+',
+            choices=[
+                'reach', 'cycle', 'shadow', 'cross', 'lppreach', 'lppshadow', 'end_to_end'
+            ],
+            default=[]
+        )
     else:
         parser.add_argument('--anomalies', dest='anomalies', default=[], type=lambda a: a.split(','))
     parser.add_argument(
@@ -551,33 +558,68 @@ if __name__ == "__main__":
         default={'tum_fw' : 'bench/tum/tum-ruleset'}
     )
     parser.add_argument('--network', dest='network', default='bench/tum/tum.xml')
+    parser.add_argument('--config', dest='config')
+    parser.add_argument(
+        '--active-interfaces',
+        dest='inits',
+        type=lambda i: i.split(','),
+        default=["tum_fw_eth0_in", "tum_fw_eth1_in"]
+    )
+    parser.add_argument(
+        '--no-active-interfaces',
+        dest='inits',
+        action='store_const',
+        const=[],
+        default=["tum_fw_eth0_in", "tum_fw_eth1_in"]
+    )
+    parser.add_argument(
+        '--active-hosts',
+        dest='inits',
+        type=lambda hs: [h+'_output_r0' for h in hs.split(',')],
+        default=["tum_fw_eth0_in", "tum_fw_eth1_in"]
+    )
+    parser.add_argument(
+        '--no-default-actives',
+        dest='use_default_actives',
+        action='store_const',
+        const=False,
+        default=True
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
-    if args.solver == 'clasp':
-        solver = ClaspAdapter('/dev/shm/solver.in')
-    elif args.solver == 'mini':
-        solver = MiniSATAdapter('/dev/shm/solver.in','/dev/shm/solver.out')
-    elif args.solver == 'pyco':
+    try:
+        solver = {
+            'clasp' : ClaspAdapter('/dev/shm/solver.in'),
+            'mini' : MiniSATAdapter('/dev/shm/solver.in','/dev/shm/solver.out'),
+            'pyco' : PycoSATAdapter()
+        }[args.solver]
+    except KeyError:
         solver = PycoSATAdapter()
+
+    json.dump({'extended' : {}, 'original' : {}}, open('/tmp/mappings.json', 'w'))
+
+    if args.networks:
+        networks = [
+            et.ElementTree(
+                _gen_config(
+                    args.rulesets,
+                    network,
+                    dump_mappings=any([
+                        'reach' in args.anomalies,
+                        'lppreach' in args.anomalies
+                    ])
+                )
+            ) for network in args.networks
+        ]
+
     else:
-        solver = PycoSATAdapter()
+        networks = [et.ElementTree(
+            _gen_config(args.rulesets, args.network, dump_mappings=True)
+        )]
 
-    networks = [
-        et.ElementTree(
-            _gen_tum_config(
-                network,
-                dump_mappings=any([
-                    'reach' in args.anomalies,
-                    'lppreach' in args.anomalies
-                ])
-            )
-        ) for network in args.networks
-    ]
-
-    networks = [et.ElementTree(
-        _gen_config(args.rulesets, args.network, dump_mappings=True)
-    )]
+    if args.config:
+        networks = [et.parse(args.config)]
 
     anomalies = {
         'reach' : False,
