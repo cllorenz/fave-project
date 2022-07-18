@@ -98,7 +98,7 @@ class IP6TablesParser:
             rule = GenUtils.rule(
                 str(idx),
                 key=key,
-                raw=line,
+                raw="%s (%s)" % (line, fw_name),
                 raw_line_no=raw_line_no
             )
 
@@ -214,7 +214,7 @@ class IP6TablesParser:
             target, line, lineno = default
             idx = (rule_counts[chain] - 1) << 12
             key = "%s_%s_r%d" % (fw_name, chain, idx)
-            rule = GenUtils.rule('r'+str(idx), key=key, raw=line, raw_line_no=lineno)
+            rule = GenUtils.rule('r'+str(idx), key=key, raw="%s (%s)" % (line, fw_name), raw_line_no=lineno)
             rule.append(GenUtils.action("jump", target="%s_%s_r0"%(fw_name, target)))
             chains[chain].append(rule)
             extended.setdefault(chain, {})
