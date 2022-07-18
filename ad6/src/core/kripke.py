@@ -23,21 +23,21 @@ from src.xml.xmlutils import XMLUtils
 from src.core.structure import *
 
 class KripkeUtils:
-    def ConvertToKripke(Config):
-        Kripke = KripkeUtils._GetTransitions(Config)
+    def ConvertToKripke(Config,default_inits=True):
+        Kripke = KripkeUtils._GetTransitions(Config,default_inits=default_inits)
         KripkeUtils._RedirectInputs(Kripke)
         KripkeUtils._ConnectOutputs(Kripke)
 
         return Kripke
 
 
-    def _GetTransitions(Config):
+    def _GetTransitions(Config,default_inits=True):
         Kripke = KripkeStructure({},{},{},{})
         IfRules = []
 
         Firewalls = Config.xpath(XMLUtils.FIREWALLPATH)
         for Firewall in Firewalls:
-            KripkeUtils._HandleFirewall(Kripke,IfRules,Firewall)
+            KripkeUtils._HandleFirewall(Kripke,IfRules,Firewall,default_inits=default_inits)
 
         Networks = Config.xpath(XMLUtils.NETWORKPATH)
         for Network in Networks:
@@ -48,23 +48,23 @@ class KripkeUtils:
         return Kripke
 
 
-    def _HandleFirewall(Kripke,IfRules,Firewall):
+    def _HandleFirewall(Kripke,IfRules,Firewall,default_inits=True):
         FwKey = Firewall.attrib[XMLUtils.ATTRKEY]
 
         Tables = Firewall.xpath(XMLUtils.TABLEPATH)
         for Table in Tables:
-            KripkeUtils._HandleTable(Kripke,IfRules,Table,FwKey)
+            KripkeUtils._HandleTable(Kripke,IfRules,Table,FwKey,default_inits=default_inits)
 
 
-    def _HandleTable(Kripke,IfRules,Table,FwKey):
+    def _HandleTable(Kripke,IfRules,Table,FwKey,default_inits=True):
         TKey = FwKey + '_' + Table.attrib[XMLUtils.ATTRNAME]
 
         Rules = Table.xpath(XMLUtils.RULEPATH)
         for Index,Rule in enumerate(Rules):
-            KripkeUtils._HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules)
+            KripkeUtils._HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules,default_inits=default_inits)
 
 
-    def _HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules):
+    def _HandleRule(Kripke,IfRules,Index,Rule,Table,TKey,Rules,default_inits=True):
         RKey = Rule.attrib['key']
         Node = KripkeNode(
             Props=[RKey],

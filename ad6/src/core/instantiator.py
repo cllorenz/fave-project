@@ -62,8 +62,9 @@ class Instantiator:
         return Instances
 
 
-    def InstantiateBase(Config, Inits=[]):
-        Kripke = KripkeUtils.ConvertToKripke(Config)
+    def InstantiateBase(Config, Inits=[], default_inits=True):
+        Kripke = KripkeUtils.ConvertToKripke(Config, default_inits=default_inits)
+
         for Init in Inits:
             InitNode = Kripke.GetNode(Init)
             if XMLUtils.INIT not in InitNode.Props: InitNode.Props.append(XMLUtils.INIT)

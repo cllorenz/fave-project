@@ -248,7 +248,7 @@ class Main:
             print('Instantiate...', end='', flush=True, file=sys.stderr)
             t1 = time.time()
             kripke, encoding = Instantiator.InstantiateBase(
-                network, Inits=["tum_fw_eth0_in", "tum_fw_eth1_in"]
+                network, Inits=self._inits, default_inits=self._use_default_inits
             )
             t2 = time.time()
             print(' done', flush=True, file=sys.stderr)
@@ -411,9 +411,11 @@ class Main:
         )
 
 
-    def __init__(self, networks, solver=PycoSATAdapter(), anomalies={}):
+    def __init__(self, networks, inits, solver=PycoSATAdapter(), anomalies={}, use_default_inits=True):
         self._solver = solver
         self._networks = networks
+        self._inits = inits
+        self._use_default_inits = use_default_inits
         self._anomalies = {
             'reach' : False,
             'cycle' : False,
@@ -591,7 +593,7 @@ if __name__ == "__main__":
     if args.profile:
         yappi.start()
 
-    main = Main(networks, solver=solver, anomalies=anomalies)
+    main = Main(networks, args.inits, solver=solver, anomalies=anomalies, use_default_inits=args.use_default_actives)
     main.main()
 
     if args.profile:
