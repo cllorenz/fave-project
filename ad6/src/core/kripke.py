@@ -84,7 +84,7 @@ class KripkeUtils:
         if any(map(RuleFilter,TableStarts)):
             Labels = RKey.split('_')
             Node.Props.append(Labels[len(Labels)-2])
-        if XMLUtils.DEFAULTOUTPUT+'_r0' in RKey:
+        if default_inits and XMLUtils.DEFAULTOUTPUT+'_r0' in RKey:
             Node.Props.append(XMLUtils.INIT)
             Kripke.PutInit(RKey,Node)
 
