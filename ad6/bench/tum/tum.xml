@@ -1,0 +1,11 @@
+<config xmlns="http://config">
+<networks>
+<network name="tum">
+  <node name="fw">
+    <firewall keyref="tum_fw"/>
+    <interface name="eth0" key="tum_fw_eth0"/>
+    <interface name="eth1" key="tum_fw_eth1"/>
+  </node>
+</network>
+</networks>
+</config>
