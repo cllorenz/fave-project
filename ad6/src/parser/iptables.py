@@ -21,6 +21,7 @@
 
 import argparse
 import json
+import os
 
 from lxml import etree as et
 from src.xml.genutils import GenUtils
@@ -55,6 +56,10 @@ class IP6TablesParser:
 
         original = {}
         extended = {}
+        if os.access('/tmp/mappings.json', os.F_OK):
+            mappings = json.load(open('/tmp/mappings.json', 'r'))
+            original = mappings['original']
+            extended = mappings['extended']
 
         chains = {}
         chain_defaults = {}
