@@ -33,8 +33,8 @@ class KripkeNode:
 
 
     def tostring(self):
-        Gamma = et.tostring(self.Gamma)
-        return str([self.Props,Gamma])
+        Gamma = et.tostring(self.Gamma) if self.Gamma else []
+        return str((self.Props,Gamma))
 
 
     def fromstring(NodeStr):
@@ -43,7 +43,7 @@ class KripkeNode:
         return KripkeNode(Props,Gamma)
 
     def __str__(self):
-        return "(Props: " + str(self.Props) + ", Gamma: " + str(et.tostring(self.Gamma)) + ")"
+        return "(Props: %s, Gamma %s)" % (self.Props, et.tostring(self.Gamma).decode('utf-8'))
 
 
     def __eq__(self,Other):
@@ -54,10 +54,10 @@ class KripkeNode:
 
 
 class KripkeStructure:
-    NODES = "Nodes"
+    NODES = "nodes"
     FTRANSITIONS = "ftrans"
     BTRANSITIONS = "btrans"
-    INITS = "Inits"
+    INITS = "inits"
 
     def __init__(self,Nodes={},FTransitions={},BTransitions={},Inits={}):
         self._Nodes = Nodes
@@ -67,7 +67,9 @@ class KripkeStructure:
 
 
     def __str__(self):
-        return "Nodes: " + str(self._Nodes) + "\n\nforward Transitions: " + str(self._FTransitions) + "\n\nback Transitions: " + str(self._BTransitions) + "\n\nInits: " + str(self._Inits)
+        return "Nodes: %s\n\nforward Transitions: %s\n\nback Transitions: %s\n\nInits: %s" % (
+            self._Nodes, self._FTransitions, self._BTransitions, self._Inits
+        )
 
 
     def tostring(self):
@@ -92,9 +94,9 @@ class KripkeStructure:
         elif Element == KripkeStructure.BTRANSITIONS:
             pprint(self._BTransitions)
         elif Element == KripkeStructure.INITS:
-            pprint(self._Inits)
+            pprint({Init : self._Nodes[Init].tostring() for Init in self._Inits})
         else:
-            pprint({Node : str(self._Nodes[Node]) for Node in self._Nodes})
+            pprint({Node : self._Nodes[Node].tostring() for Node in self._Nodes})
 
 
     def GetNode(self,Key):
