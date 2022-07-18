@@ -190,8 +190,10 @@ class KripkeStructure:
     def _IterDict(self,Target,Key=None):
         if Key is None:
             return iter(Target)
-        else:
+        elif Key in Target:
             return iter(Target[Key])
+        else:
+            return []
 
 
     def IterNodes(self):
