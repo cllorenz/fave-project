@@ -397,15 +397,14 @@ class Instantiator:
             Others = Variables - {Variable}
 
             for Other in Others:
+                # a xor b = a implies not b = not a or not b
                 Implication = XMLUtils.disjunction()
 
-                var = deepcopy(Variable)
-                XMLUtils.NegateVariable(var)
+                var = XMLUtils.variable(Variable.attrib['name'], value=False)
 
-                Other = deepcopy(Other)
-                XMLUtils.NegateVariable(Other)
+                other = XMLUtils.variable(Other.attrib['name'], value=False)
 
-                Implication.extend([var,Other])
+                Implication.extend([var,other])
                 Implications.append(Implication)
 
         return Implications
