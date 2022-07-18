@@ -339,21 +339,18 @@ class Instantiator:
                 Equality.append(XMLUtils.constant(Flag))
                 Equality.append(XMLUtils.variable(NodeKey+'_'+Instantiator.GAMMA))
 
-                try:
-                    Predecessors = Kripke.IterBTransitions(NodeKey)
-                    Transitions = []
-                    for Predecessor,Flag in Predecessors:
-                        Transition = XMLUtils.CreateTransition(Predecessor,NodeKey,Flag)
-                        Transitions.append(Transition)
+                Predecessors = Kripke.IterBTransitions(NodeKey)
+                Transitions = []
+                for Predecessor,Flag in Predecessors:
+                    Transition = XMLUtils.CreateTransition(Predecessor,NodeKey,Flag)
+                    Transitions.append(Transition)
 
-                    if len(Transitions) > 1:
-                        Disjunction = XMLUtils.disjunction()
-                        Disjunction.extend(Transitions)
-                    elif len(Transitions) == 1:
-                        Disjunction = Transitions[0]
-                    else:
-                        Disjunction = XMLUtils.constant(False)
-                except KeyError:
+                if len(Transitions) > 1:
+                    Disjunction = XMLUtils.disjunction()
+                    Disjunction.extend(Transitions)
+                elif len(Transitions) == 1:
+                    Disjunction = Transitions[0]
+                else:
                     if XMLUtils.INIT in Node.Props:
                         Disjunction = XMLUtils.constant()
                     else:
