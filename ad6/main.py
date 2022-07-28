@@ -265,14 +265,14 @@ class Main:
             solvingc = []
 
             if cycle:
-                print('cycle', flush=True)
+                print('cycle', flush=True, file=sys.stderr)
                 cycle_results, instm, solvingm = self._run_cycle(kripke, encoding)
                 results.update(cycle_results)
                 Main._print_stats("Cycle", instm, solvingm)
 
 
             if cross:
-                print('cross', flush=True)
+                print('cross', flush=True, file=sys.stderr)
                 cross_results, instm, solvingm = self._run_cross(kripke, encoding)
                 results.update(cross_results)
                 Main._print_stats("Cross", instm, solvingm)
@@ -281,26 +281,26 @@ class Main:
             unreach = []
 
             if reach:
-                print('reach', flush=True)
+                print('reach', flush=True, file=sys.stderr)
                 reach_results, unreach, instm, solvingm = self._run_reach(kripke, encoding)
                 results.update(reach_results)
                 Main._print_stats("Reach", instm, solvingm)
-                print('  Unreachable Nodes (' + str(len(unreach)) + '): ')
+                print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
                 for node in unreach:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc))
+                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
 
             if lppreach:
-                print('long path reach', flush=True)
+                print('long path reach', flush=True, file=sys.stderr)
                 reach_results, unreach, instm, solvingm = self._run_long_path_reach(kripke, encoding)
                 results.update(reach_results)
 
                 Main._print_stats("Long Path Reach", instm, solvingm)
-                print('  Unreachable Nodes (' + str(len(unreach)) + '): ')
+                print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
                 for node in unreach:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc))
+                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
 
             if lppshadow and (reach or lppreach):
-                print('long path shadow', flush=True)
+                print('long path shadow', flush=True, file=sys.stderr)
 
                 shadow_results, instm, solvingm = self._run_long_path_shadow(kripke, encoding, unreach)
                 results.update(shadow_results)
@@ -309,12 +309,12 @@ class Main:
                 shadowed = [
                     n for n, r in results.items() if n.endswith('_lppshadow') and r == []
                 ]
-                print('  Shadowed Nodes ({:d})'.format(len(shadowed)))
+                print('  Shadowed Nodes ({:d})'.format(len(shadowed)), file=sys.stderr)
                 for node in shadowed:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node[:-10]).Desc))
+                    print('    ' + node + ': ' + str(kripke.GetNode(node[:-10]).Desc), file=sys.stderr)
 
             if shadow:
-                print('shadow', flush=True)
+                print('shadow', flush=True, file=sys.stderr)
                 instm = []
                 solvingm = []
                 shadow_results, instm, solvingm = self._run_shadow(kripke, encoding)
@@ -340,7 +340,7 @@ class Main:
                     if extended_rules.issubset(shadowed_nodes):
                         shadowed_rules[chain].add(original_rule)
 
-                print('  Shadowed Rules ({:d})'.format(sum([len(s) for _c, s in shadowed_rules.items()])))
+                print('  Shadowed Rules ({:d})'.format(sum([len(s) for _c, s in shadowed_rules.items()])), file=sys.stderr)
 
                 for chain in shadowed_rules:
                     for rule in sorted(
@@ -348,10 +348,10 @@ class Main:
                     ):
                         print("    {}: {}".format(
                             kripke.GetNode(rule).RawRuleNo, kripke.GetNode(rule).Desc
-                        ))
+                        ), file=sys.stderr)
 
             if end_to_end:
-                print("end to end", flush=True)
+                print("end to end", flush=True, file=sys.stderr)
                 instm = []
                 solvingm = []
 
@@ -378,28 +378,28 @@ class Main:
                         results['%s_to_%s' % (src, dst)] = result
 
                         if dst in targets and result:
-                            print('  correct for %s -> %s' % (src, dst), file=sys.stderr, flush=True)
+                            print('  correct for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
                         elif dst in targets and not result:
-                            print('  failed for %s -> %s' % (src, dst), file=sys.stderr, flush=True)
+                            print('  failed for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
                         elif dst not in targets and result:
-                            print('  failed for ! %s -> %s' % (src, dst), file=sys.stderr, flush=True)
+                            print('  failed for ! %s -> %s' % (src, dst), flush=True, file=sys.stderr)
                         elif dst not in targets and not result:
-                            print('  correct for ! %s -> %s' % (src, dst), file=sys.stderr, flush=True)
+                            print('  correct for ! %s -> %s' % (src, dst), flush=True, file=sys.stderr)
                         else:
-                            print('  should never occur but did for %s -> %s' % (src, dst), file=sys.stderr, flush=True)
+                            print('  should never occur but did for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
 
                 Main._print_stats("End to End", instm, solvingm)
 
 
     def _print_stats(anomaly, instantiation, solving):
-        print("  {:21s}\tmean\tmedian\tstddev\tvar\ttotal".format(anomaly))
+        print("\n  {:21s}\tmean\tmedian\tstddev\tvar\ttotal".format(anomaly), file=sys.stderr)
         print("  Instantiation:\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(
             mean(instantiation),
             median(instantiation),
             stdev(instantiation) if len(instantiation) > 1 else 0.0,
             variance(instantiation) if len(instantiation) > 1 else 0.0,
             sum(instantiation)
-        ))
+        ), file=sys.stderr)
         print("  Solving:\t\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(
                 mean(solving),
                 median(solving),
