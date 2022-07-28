@@ -325,7 +325,7 @@ class KripkeUtils:
     def _ConnectOutputs(Kripke):
         Outs = KripkeUtils._GetOutputs(Kripke)
         for Out in Outs:
-            Nodekey = '_'.join(Out.split('_')[:2])
+            Nodekey = '_'.join(Out.split('_')[:-2])
             OutFilter = lambda x: x.startswith(Nodekey) and x.endswith('_'+XMLUtils.OUT)
             for Out in Outs[Out]:
                 Interfaces = filter(OutFilter,Kripke.IterNodes())
