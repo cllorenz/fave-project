@@ -48,6 +48,7 @@ class IP6TablesParser:
         parser.add_argument('--rt-type', dest='rttype', action='store')
         parser.add_argument('--rt-segsleft', dest='rtsegs', action='store')
         parser.add_argument('--icmp6type', dest='icmp6type', action='store')
+        parser.add_argument('--icmpv6-type', dest='icmp6type', action='store')
         parser.add_argument('--tcp-flags', dest='tcp_flags', nargs=2, metavar=('MASK', 'COMP'), action='store')
 
         parser.add_argument('-P', '--policy', dest='policy', nargs=2, metavar=('CHAIN', 'ACTION'), action='store')
