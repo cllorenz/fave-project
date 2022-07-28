@@ -104,6 +104,7 @@ class KripkeUtils:
             Interfaces = list(filter(InterfaceFilter, Gamma))
             InInterfaceList = []
             OutInterfaceList = []
+
             for Interface in Interfaces:
                 Gamma.remove(Interface)
                 if Interface.attrib[XMLUtils.ATTRDIRECTION] == XMLUtils.IN:
@@ -211,7 +212,7 @@ class KripkeUtils:
 
 
     def _HandleNode(Kripke,Node,NetKey):
-        Nodekey = NetKey + '_' + Node.attrib[XMLUtils.ATTRNAME]
+        Nodekey = NetKey + '_' + Node.attrib[XMLUtils.ATTRNAME] if NetKey else Node.attrib[XMLUtils.ATTRNAME]
 
         FwKey = Node.xpath(XMLUtils.FIREWALL)[0].attrib[XMLUtils.ATTRKEYREF]
 
