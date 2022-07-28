@@ -25,7 +25,7 @@ import ast
 from pprint import pprint
 
 class KripkeNode:
-    def __init__(self,Props=[],Gamma=None, Desc=None, RawRuleNo=None):
+    def __init__(self,Props=[], Gamma=None, Desc=None, RawRuleNo=None):
         self.Props = Props
         self.Gamma = Gamma
         self.Desc = Desc
@@ -33,7 +33,7 @@ class KripkeNode:
 
 
     def tostring(self):
-        Gamma = et.tostring(self.Gamma) if self.Gamma else []
+        Gamma = et.tostring(self.Gamma) if self.Gamma is not None else []
         return str((self.Props,Gamma))
 
 
@@ -43,7 +43,10 @@ class KripkeNode:
         return KripkeNode(Props,Gamma)
 
     def __str__(self):
-        return "(Props: %s, Gamma %s)" % (self.Props, et.tostring(self.Gamma).decode('utf-8'))
+        if self.Gamma is not None:
+            return "(Props: %s, Gamma %s)" % (self.Props, et.tostring(self.Gamma).decode('utf-8'))
+        else:
+            return "(Props: %s, empty Gamma)" % self.Props
 
 
     def __eq__(self,Other):
