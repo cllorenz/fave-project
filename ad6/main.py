@@ -355,7 +355,7 @@ class Main:
                 instm = []
                 solvingm = []
 
-                reach = Main._gen_up_reach()
+                reach = self._end_to_end
 
                 source = lambda src: "%s_output_r0" % src
                 target = lambda dst: "%s_input_r0_accept" % dst
@@ -364,7 +364,9 @@ class Main:
                     for dst in reach.keys():
 
                         t1 = time.time()
-                        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source(src), target(dst))
+                        instance = Instantiator.InstantiateEndToEnd(
+                            kripke, encoding, source(src), target(dst)
+                        )
                         t2 = time.time()
                         td = t2 - t1
                         instm.append(td)
@@ -407,11 +409,11 @@ class Main:
                 variance(solving) if len(solving) > 1 else 0.0,
                 sum(solving)
             ),
-            flush=True
+            flush=True, file=sys.stderr
         )
 
 
-    def __init__(self, networks, inits, solver=PycoSATAdapter(), anomalies={}, use_default_inits=True):
+    def __init__(self, networks, inits, solver=PycoSATAdapter(), anomalies={}, use_default_inits=True, end_to_end={}):
         self._solver = solver
         self._networks = networks
         self._inits = inits
@@ -426,84 +428,7 @@ class Main:
             'end_to_end' : False
         }
         self._anomalies.update(anomalies)
-
-
-    def _gen_up_reach():
-        internet = ["internet_provider_fw"]
-        dns = ["ups_dns_fw"]
-        dmz_servers = [
-            "ups_admin_fw", "ups_data_fw", "ups_file_fw",
-            "ups_ldap_fw", "ups_mail_fw", "ups_mail_fw", "ups_vpn_fw",
-            "ups_web_fw"
-        ]
-        subnet_servers = [
-            "api_server_fw", "asta_server_fw", "bgp_server_fw", "chem_server_fw",
-            "cs_server_fw", "geog_server_fw", "geo_server_fw", "hgp_server_fw",
-            "hpi_server_fw", "hssp_server_fw", "intern_server_fw",
-            "intern_server_fw", "jura_server_fw", "ling_server_fw",
-            "math_server_fw", "mmz_server_fw", "physik_server_fw",
-            "pogs_server_fw", "psych_server_fw", "sq_server_fw",
-            "stud_server_fw", "ub_server_fw", "welc_server_fw"
-        ]
-        res = {
-            "api_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "api_server_fw" : dns,
-            "asta_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "asta_server_fw" : dns,
-            "bgp_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "bgp_server_fw" : dns,
-            "chem_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "chem_server_fw" : dns,
-            "cs_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "cs_server_fw" : dns,
-            "geo_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "geog_server_fw" : dns,
-            "geog_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "geo_server_fw" : dns,
-            "hgp_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "hgp_server_fw" : dns,
-            "hpi_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "hpi_server_fw" : dns,
-            "hssp_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "hssp_server_fw" : dns,
-            "intern_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "internet_provider_fw" : internet + dns + dmz_servers + subnet_servers,
-            "intern_server_fw" : dns,
-            "jura_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "jura_server_fw" : dns,
-            "ling_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "ling_server_fw" : dns,
-            "math_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "math_server_fw" : dns,
-            "mmz_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "mmz_server_fw" : dns,
-            "physik_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "physik_server_fw" : dns,
-            "pogs_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "pogs_server_fw" : dns,
-            "psych_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "sq_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "sq_server_fw" : dns,
-            "stud_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "stud_server_fw" : dns,
-            "ub_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "ub_server_fw" : dns,
-            "upc_client0_fw" : internet + dns + dmz_servers + subnet_servers,
-            "upc_client1_fw" : internet + dns + dmz_servers + subnet_servers,
-            "up_gateway_fw" : dns,
-            "ups_admin_fw" : internet + dns + dmz_servers + ["up_gateway_fw"],
-            "ups_data_fw" : dns,
-            "ups_dns_fw" : dns,
-            "ups_file_fw" : dns,
-            "ups_ldap_fw" : dns,
-            "ups_mail_fw" : dns,
-            "ups_vpn_fw" : dns,
-            "ups_web_fw" : dns,
-            "welc_client_fw" : internet + dns + dmz_servers + subnet_servers,
-            "welc_server_fw" : dns
-        }
-
-        return res
+        self._end_to_end = end_to_end
 
 
 def _gen_config(rulesets, network, dump_mappings=False):
@@ -585,6 +510,16 @@ if __name__ == "__main__":
         const=False,
         default=True
     )
+    parser.add_argument(
+        '--end-to-end',
+        dest='end_to_end',
+        type=lambda f: {
+            k:[
+                t.rstrip() for t in v.split(',') if t
+            ] for k,v in [kv.split(':') for kv in open(f,'r').read().split(';') if kv]
+        },
+        default={}
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -635,7 +570,14 @@ if __name__ == "__main__":
     if args.profile:
         yappi.start()
 
-    main = Main(networks, args.inits, solver=solver, anomalies=anomalies, use_default_inits=args.use_default_actives)
+    main = Main(
+        networks,
+        args.inits,
+        solver=solver,
+        anomalies=anomalies,
+        use_default_inits=args.use_default_actives,
+        end_to_end=args.end_to_end
+    )
     main.main()
 
     if args.profile:
