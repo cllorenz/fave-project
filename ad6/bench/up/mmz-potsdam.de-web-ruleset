@@ -1,0 +1,20 @@
+ip6tables -P INPUT DROP
+ip6tables -P FORWARD DROP
+ip6tables -P OUTPUT DROP
+ip6tables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT
+ip6tables -A OUTPUT -d 2001:db8:abc:1::0/64 -j DROP
+ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type neighbour-solicitation -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -p icmpv6 --icmpv6-type neighbour-advertisement -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:1::0/64 -j DROP
+ip6tables -A INPUT -d 2001:db8:abc:12::1 -p tcp --dport 80 -j ACCEPT
+ip6tables -A INPUT -d 2001:db8:abc:12::1 -p tcp --dport 443 -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:12::1 -p tcp --dport 22 -j ACCEPT
+ip6tables -A INPUT -s 2001:db8:abc:12::100/120 -d 2001:db8:abc:12::1 -p udp --dport 22 -j ACCEPT
