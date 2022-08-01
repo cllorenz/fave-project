@@ -213,8 +213,8 @@ class KripkeStructure:
         return self._IterDict(self._BTransitions,Key)
 
 
-    def IterInits(self,Key):
-        return self._IterDict(self._Inits,Key)
+    def IterInits(self,Key=None):
+        return self._IterDict(self._Inits, Key)
 
 
     def Sort(self):

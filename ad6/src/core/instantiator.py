@@ -416,9 +416,8 @@ class Instantiator:
 
     def _CreateInitConstraints(Kripke):
         Constraints = []
-        Inits = list(filter(lambda x: XMLUtils.INIT in Kripke.GetNode(x).Props,Kripke.IterNodes()))
         InitTransitions = []
-        for Init in Inits:
+        for Init in Kripke.IterInits():
             InitTransitions.extend(map(lambda x: (Init,) + x, Kripke.IterFTransitions(Init)))
 
         Length = len(InitTransitions)
