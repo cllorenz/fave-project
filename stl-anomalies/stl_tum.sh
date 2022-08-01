@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-RES=results_tum/bv
+RES=results_tum/stl
 
 mkdir -p $RES
 rm -rf $RES/*
