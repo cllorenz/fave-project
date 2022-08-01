@@ -81,13 +81,13 @@ class GenUtils():
         return elem
 
     def icmp6type(typename, negated=False):
-        elem = et.Element('icmp6type')
+        elem = et.Element('icmp6-type')
         elem.text = typename
         if negated: elem.attrib['negated'] = 'true'
         return elem
 
     def icmp6limit(limit, negated=False):
-        elem = et.Element('icmp6limit')
+        elem = et.Element('icmp6-limit')
         elem.text = limit
         if negated: elem.attrib['negated'] = 'true'
         return elem

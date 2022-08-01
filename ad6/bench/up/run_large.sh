@@ -94,11 +94,31 @@ done
 export PYTHONPATH=.
 python3 $RSPATH/gen_large.py
 
+ANOMALIES="end_to_end"
+
+usage() { echo "usage: $0 [-h] [-a <anomalies>]" 2>&2; }
+
+while getopts "ha:" o; do
+    case "${o}" in
+        h)
+            usage
+            exit 0
+            ;;
+        a)
+            ANOMALIES="${OPTARG}"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 python3 main.py \
     --no-active-interfaces \
     --network bench/up/large.xml \
     --rulesets $RULESETS \
     --end-to-end $TMP_FILE \
-    --anomalies end_to_end
+    --anomalies $ANOMALIES
 
 rm $TMP_FILE

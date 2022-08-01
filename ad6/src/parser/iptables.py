@@ -152,7 +152,8 @@ class IP6TablesParser:
                 rule.append(GenUtils.rtsegsleft(args.rtsegs, negated=('--rt-segsleft' in negated_fields)))
 
             if args.icmp6type:
-                rule.append(GenUtils.icmp6type(args.icmp6type, negated=('--icmp6type' in negated_fields)))
+                negated = '--icmp6type' in negated_fields or '--icmpv6-type' in negated_fields
+                rule.append(GenUtils.icmp6type(args.icmp6type, negated=negated))
 
             if args.tcp_flags:
                 mask, comp = args.tcp_flags

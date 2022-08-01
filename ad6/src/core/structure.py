@@ -33,20 +33,22 @@ class KripkeNode:
 
 
     def tostring(self):
-        Gamma = et.tostring(self.Gamma) if self.Gamma is not None else []
-        return str((self.Props,Gamma))
+        return str(self)
+
+
+    def totuple(self):
+        Gamma = et.tostring(self.Gamma, encoding='unicode', pretty_print=False) if self.Gamma is not None else []
+        return (self.Props, Gamma)
+
+    def __str__(self):
+        Gamma = et.tostring(self.Gamma, encoding='unicode', pretty_print=False) if self.Gamma is not None else []
+        return "(%s, %s)" % (self.Props, Gamma)
 
 
     def fromstring(NodeStr):
         Props,Gamma = ast.literal_eval(NodeStr)
         Gamma = et.fromstring(Gamma)
         return KripkeNode(Props,Gamma)
-
-    def __str__(self):
-        if self.Gamma is not None:
-            return "(Props: %s, Gamma %s)" % (self.Props, et.tostring(self.Gamma).decode('utf-8'))
-        else:
-            return "(Props: %s, empty Gamma)" % self.Props
 
 
     def __eq__(self,Other):
@@ -97,9 +99,9 @@ class KripkeStructure:
         elif Element == KripkeStructure.BTRANSITIONS:
             pprint(self._BTransitions)
         elif Element == KripkeStructure.INITS:
-            pprint({Init : self._Nodes[Init].tostring() for Init in self._Inits})
+            pprint({Name : Node.totuple() for Name, Node in self._Inits.items()})
         else:
-            pprint({Node : self._Nodes[Node].tostring() for Node in self._Nodes})
+            pprint({Name : Node.totuple() for Name, Node in self._Nodes.items()})
 
 
     def GetNode(self,Key):
@@ -211,8 +213,8 @@ class KripkeStructure:
         return self._IterDict(self._BTransitions,Key)
 
 
-    def IterInits(self,Key):
-        return self._IterDict(self._Inits,Key)
+    def IterInits(self,Key=None):
+        return self._IterDict(self._Inits, Key)
 
 
     def Sort(self):

@@ -101,6 +101,10 @@ class Instantiator:
     def InstantiateReach(Kripke,Encoding,Node=""):
         if Node != "":
             Instance = deepcopy(Encoding)
+
+            if XMLUtils.INIT in Kripke.GetNode(Node).Props:
+                return Instance
+
             try:
                 BTransitions = Kripke.IterBTransitions(Node)
                 Transitions = [XMLUtils.CreateTransition(Transition,Node,Flag) for Transition,Flag in BTransitions]
@@ -109,6 +113,7 @@ class Instantiator:
                     Transitions = [XMLUtils.constant()]
                 else:
                     Transitions = [XMLUtils.unsat()]
+
             if len(Transitions) > 1:
                 Disjunction = XMLUtils.disjunction()
                 Disjunction.extend(Transitions)
@@ -122,7 +127,6 @@ class Instantiator:
 
             Conjunction = Instance[0]
             Conjunction.append(Disjunction)
-
 
             return Instance
 
@@ -412,9 +416,8 @@ class Instantiator:
 
     def _CreateInitConstraints(Kripke):
         Constraints = []
-        Inits = list(filter(lambda x: XMLUtils.INIT in Kripke.GetNode(x).Props,Kripke.IterNodes()))
         InitTransitions = []
-        for Init in Inits:
+        for Init in Kripke.IterInits():
             InitTransitions.extend(map(lambda x: (Init,) + x, Kripke.IterFTransitions(Init)))
 
         Length = len(InitTransitions)

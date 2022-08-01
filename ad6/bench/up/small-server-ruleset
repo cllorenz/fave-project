@@ -21,7 +21,6 @@ ip6tables -A INPUT -p tcp --dport 220 -j ACCEPT
 ip6tables -A INPUT -p tcp --dport 465 -j ACCEPT
 ip6tables -A INPUT -p tcp --dport 993 -j ACCEPT
 ip6tables -A INPUT -p tcp --dport 995 -j ACCEPT
-ip6tables -A INPUT -p tcp --dport 80 -j ACCEPT
 ip6tables -A INPUT -s 2001:abc::1 -p tcp --dport 22 -j ACCEPT
 ip6tables -A INPUT -s 2001:abc::1 -p tcp --dport 631 -j ACCEPT
 ip6tables -A INPUT -s 2001:abc::1 -p tcp --dport 137 -j ACCEPT

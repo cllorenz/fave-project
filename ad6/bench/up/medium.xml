@@ -4,7 +4,7 @@
       <node name="client_fw">
         <interface key="up_client_fw_eth0" name="eth0">
           <connections>
-            <interface keyref="up_gateway_fw_eth0"/>
+            <interface keyref="up_gateway_fw_0"/>
           </connections>
           <routes>
             <ip version="6" direction="dst" negated="false">
@@ -18,7 +18,7 @@
         </ip>
       </node>
       <node name="gateway_fw">
-        <interface key="up_gateway_fw_eth0" name="eth0">
+        <interface key="up_gateway_fw_0" name="0">
           <connections>
             <interface keyref="up_client_fw_eth0"/>
           </connections>
@@ -28,7 +28,7 @@
             </ip>
           </routes>
         </interface>
-        <interface key="up_gateway_fw_eth1" name="eth1">
+        <interface key="up_gateway_fw_1" name="1">
           <connections>
             <interface keyref="up_server_fw_eth0"/>
           </connections>
@@ -46,7 +46,7 @@
       <node name="server_fw">
         <interface key="up_server_fw_eth0" name="eth0">
           <connections>
-            <interface keyref="up_gateway_fw_eth1"/>
+            <interface keyref="up_gateway_fw_1"/>
           </connections>
           <routes>
             <ip version="6" direction="dst" negated="true">
