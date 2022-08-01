@@ -432,7 +432,7 @@ class XMLUtils:
 
 
     def ConvertICMP6TypeToVariables(TypeName):
-        Types = ICMP6TYPES
+        Types = XMLUtils.ICMP6TYPES
         Prefix = XMLUtils.ICMP6TYPE+'_'
         try:
             TypeNo = Types[TypeName]
