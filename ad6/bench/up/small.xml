@@ -1,10 +1,26 @@
 <config xmlns="http://config">
   <networks>
-    <network name="api">
+    <network name="up">
       <node name="server_fw">
-        <interface key="api_server_fw_eth0" name="eth0">
+        <interface key="up_server_fw_eth0" name="eth0">
           <connections>
-            <interface keyref="api_client_fw_eth0"/>
+            <interface keyref="up_client_fw_eth0"/>
+          </connections>
+          <routes>
+            <ip version="6" direction="dst" negated="true">
+              <address>2001:abc:def::1</address>
+            </ip>
+          </routes>
+        </interface>
+        <firewall keyref="up_server_fw"/>
+        <ip version="6">
+          <address>2001:abc:def::1</address>
+        </ip>
+      </node>
+      <node name="client_fw">
+        <interface key="up_client_fw_eth0" name="eth0">
+          <connections>
+            <interface keyref="up_server_fw_eth0"/>
           </connections>
           <routes>
             <ip version="6" direction="dst" negated="true">
@@ -12,23 +28,7 @@
             </ip>
           </routes>
         </interface>
-        <firewall keyref="api_server_fw"/>
-        <ip version="6">
-          <address>2001:abc:def::1</address>
-        </ip>
-      </node>
-      <node name="client_fw">
-        <interface key="api_client_fw_eth0" name="eth0">
-          <connections>
-            <interface keyref="api_server_fw_eth0"/>
-          </connections>
-          <routes>
-            <ip version="6" direction="dst" negated="false">
-              <address>2001:abc:def::1</address>
-            </ip>
-          </routes>
-        </interface>
-        <firewall keyref="api_client_fw"/>
+        <firewall keyref="up_client_fw"/>
         <ip version="6">
           <address>2001:abc::1</address>
         </ip>
