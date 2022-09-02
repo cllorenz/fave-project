@@ -1,11 +1,8 @@
-db:
-	bash scripts/startdb.sh
+demo:
+	PYTHONPATH=. python3 main.py
 
-demo: # db
-	python3 src/main.py
-
-test: # db
-	python3 test/test.py
+test:
+	PYTHONPATH=. python3 test/test.py
 
 clean:
 	rm -f solver.in solver.out
@@ -14,4 +11,4 @@ clean:
 
 all: demo
 
-.PHONY: demo test db clean
+.PHONY: demo test clean
