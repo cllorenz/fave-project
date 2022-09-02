@@ -19,23 +19,25 @@
 # You should have received a copy of the GNU General Public License
 # along with ad6.  If not, see <https://www.gnu.org/licenses/>.
 
-import lxml.etree as et
+import argparse
+
+import json
+from statistics import mean, median, stdev, variance
 import sys
 import time
-import argparse
 import yappi
-import json
+
+import lxml.etree as et
+
 
 from src.core.instantiator import Instantiator
 from src.solver.minisat import MiniSATAdapter
 from src.solver.clasp import ClaspAdapter
 from src.solver.pycosat import PycoSATAdapter
-from src.core.kripke import *
-from src.xml.xmlutils import XMLUtils as xml
+from src.xml.xmlutils import XMLUtils
+#from src.core.kripke import *
 from src.xml.genutils import GenUtils
 from src.parser.iptables import IP6TablesParser
-
-from statistics import mean,median,stdev,variance
 
 
 class Main:
@@ -47,27 +49,27 @@ class Main:
 
 
     def _run_cycle(self, kripke, encoding):
-        t1 = time.time()
+        t1_start = time.time()
         instance = Instantiator.InstantiateCycle(kripke,encoding)
-        t2 = time.time()
+        t1_end = time.time()
 
-        t3 = time.time()
+        t2_start = time.time()
         results = self._solver.Solve(instance)
-        t4 = time.time()
+        t2_end = time.time()
 
-        return {'cycle' : results}, [t2-t1], [t4-t3]
+        return {'cycle' : results}, [t1_end-t1_start], [t2_end-t2_start]
 
 
     def _run_cross(self, kripke, encoding):
-        t1 = time.time()
+        t1_start = time.time()
         instance = Instantiator.InstantiateCross(kripke,encoding)
-        t2 = time.time()
+        t1_end = time.time()
 
-        t3 = time.time()
+        t2_start = time.time()
         results = self._solver.Solve(instance)
-        t4 = time.time()
+        t2_end = time.time()
 
-        return {'cross' : results}, [t2-t1], [t4-t3]
+        return {'cross' : results}, [t1_end-t1_start], [t2_end-t2_start]
 
 
     def _run_reach(self, kripke, encoding):
@@ -78,16 +80,16 @@ class Main:
 
         nodes = list(kripke.IterNodes())
         for i, node in enumerate(nodes, start=1):
-            t1 = time.time()
+            t_start = time.time()
             instance = Instantiator.InstantiateReach(kripke,encoding,node)
-            t2 = time.time()
-            instm.append(t2 - t1)
+            t_end = time.time()
+            instm.append(t_end - t_start)
 
-            t1 = time.time()
+            t_start = time.time()
             result = self._solver.Solve(instance)
-            t2 = time.time()
+            t_end = time.time()
             results[node+'_reach'] = result
-            solvingm.append(t2 - t1)
+            solvingm.append(t_end - t_start)
 
             if result == []:
                 unreach.append(node)
@@ -105,30 +107,31 @@ class Main:
 
         nodes = list(kripke.IterNodes())
         nodes_no = len(nodes)
-        no = 0
-        while nodes != []:
-            no += 1
+        no_ = 0
+
+        while nodes:
             node = nodes.pop()
             if 'init' in kripke.GetNode(node).Props:
                 continue
 
-            t1 = time.time()
-            instance = Instantiator.InstantiateReach(kripke,encoding,node)
-            t2 = time.time()
-            instm.append(t2 - t1)
+            no_ += 1
 
-            t1 = time.time()
+            t_start = time.time()
+            instance = Instantiator.InstantiateReach(kripke, encoding, node)
+            t_end = time.time()
+            instm.append(t_end - t_start)
+
+            t_start = time.time()
             result = self._solver.Solve(instance)
-            t2 = time.time()
+            t_end = time.time()
             results[node+'_lppreach'] = result
-            solvingm.append(t2 - t1)
+            solvingm.append(t_end - t_start)
 
-            if result == []:
-                if not reach:
-                    unreach.append(node)
-                    print('long path reach (%d/%d)' % (
-                        nodes_no - len(nodes), nodes_no
-                    ), end='\r', flush=True, file=sys.stderr)
+            if not result:
+                unreach.append(node)
+                print('long path reach (%d/%d)' % (
+                    nodes_no - len(nodes), nodes_no
+                ), end='\r', flush=True, file=sys.stderr)
                 continue
 
             result = result[0]
@@ -163,7 +166,7 @@ class Main:
             ), end='\r', flush=True, file=sys.stderr)
 
         print('    saved %s of %s calculations' % (
-            len(list(kripke.IterNodes()))-no,
+            len(list(kripke.IterNodes())) - no_,
             len(list(kripke.IterNodes()))
         ), flush=True, file=sys.stderr)
 
@@ -176,30 +179,30 @@ class Main:
         solvingm = []
 
         nodes = list(kripke.IterNodes())
-        no = 0
-        for i, node in enumerate(nodes, start=1):
+        no_ = 0
+        for i_, node in enumerate(nodes, start=1):
             if 'init' in kripke.GetNode(node).Props or node in unreach:
                 continue
 
-            no += 1
+            no_ += 1
 
-            t1 = time.time()
+            t_start = time.time()
             instance = Instantiator.InstantiateShadow(kripke,encoding,{},node)
-            t2 = time.time()
-            instm.append(t2 - t1)
+            t_end = time.time()
+            instm.append(t_end - t_start)
 
-            t1 = time.time()
+            t_start = time.time()
             result = self._solver.Solve(instance)
-            t2 = time.time()
+            t_end = time.time()
             results[node+'_lppshadow'] = result
-            solvingm.append(t2-t1)
+            solvingm.append(t_end-t_start)
 
             print('long path shadow (%d/%d)' % (
-                i, len(nodes)
+                i_, len(nodes)
             ), end='\r', flush=True, file=sys.stderr)
 
         print('    saved %s of %s calculations' % (
-            len(nodes)-no, len(nodes)
+            len(nodes) - no_, len(nodes)
         ), flush=True, file=sys.stderr)
 
         return results, instm, solvingm
@@ -214,20 +217,206 @@ class Main:
         for i, node in enumerate([n for n in nodes if n not in [
             'tum_fw_input_r0_accept'
         ]], start=1):
-            t1 = time.time()
+            t_start = time.time()
             instance = Instantiator.InstantiateShadow(kripke,encoding,{},node)
-            t2 = time.time()
-            instm.append(t2 - t1)
+            t_end = time.time()
+            instm.append(t_end - t_start)
 
-            t1 = time.time()
+            t_start = time.time()
             result = self._solver.Solve(instance)
-            t2 = time.time()
+            t_end = time.time()
             results[node+'_shadow'] = result
-            solvingm.append(t2 - t1)
+            solvingm.append(t_end - t_start)
 
             print("shadow (%d/%d)" % (i, len(nodes)), end='\r', flush=True, file=sys.stderr)
 
         return results, instm, solvingm
+
+
+    def _prepare_network(self, network):
+        XMLUtils.deannotate(network)
+#        instantiation = []
+
+        print('Instantiate...', end='', flush=True, file=sys.stderr)
+        t_start = time.time()
+        kripke, encoding = Instantiator.InstantiateBase(
+            network, Inits=self._inits, default_inits=self._use_default_inits
+        )
+        t_end = time.time()
+        print(' done', flush=True, file=sys.stderr)
+#        base = t_end-t_start
+        print('Base instantiation: {:.4f}'.format(t_end-t_start), flush=True, file=sys.stderr)
+#        instantiation.append(base)
+        print('  nodes: ' + str(len(list(kripke.IterNodes()))), flush=True, file=sys.stderr)
+        transitions = []
+        for transition in kripke.IterFTransitions():
+            transitions.extend(kripke.IterFTransitions(transition))
+        print('  transitions: ' + str(len(transitions)), flush=True, file=sys.stderr)
+
+        return kripke, encoding
+
+
+    def _measure_cycle(self, kripke, encoding, results):
+        solvingm = []
+        print('cycle', flush=True, file=sys.stderr)
+        cycle_results, instm, solvingm = self._run_cycle(kripke, encoding)
+        results.update(cycle_results)
+        self._print_stats("Cycle", instm, solvingm)
+
+
+    def _measure_cross(self, kripke, encoding, results):
+        solvingm = []
+        print('cross', flush=True, file=sys.stderr)
+        cross_results, instm, solvingm = self._run_cross(kripke, encoding)
+        results.update(cross_results)
+        self._print_stats("Cross", instm, solvingm)
+
+
+    def _measure_reach(self, kripke, encoding, results):
+        solvingm = []
+        print('reach', flush=True, file=sys.stderr)
+        reach_results, unreach, instm, solvingm = self._run_reach(kripke, encoding)
+        results.update(reach_results)
+        self._print_stats("Reach", instm, solvingm)
+        print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
+        for node in unreach:
+            print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
+
+        return set(unreach)
+
+
+    def _measure_lppreach(self, kripke, encoding, results):
+        solvingm = []
+        print('long path reach', flush=True, file=sys.stderr)
+        reach_results, unreach, instm, solvingm = self._run_long_path_reach(kripke, encoding)
+        results.update(reach_results)
+
+        self._print_stats("Long Path Reach", instm, solvingm)
+        print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
+        for node in unreach:
+            print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
+
+        return set(unreach)
+
+
+    def _measure_lppshadow(self, kripke, encoding, unreach, results):
+        solvingm = []
+        print('long path shadow', flush=True, file=sys.stderr)
+
+        shadow_results, instm, solvingm = self._run_long_path_shadow(kripke, encoding, unreach)
+        results.update(shadow_results)
+
+        self._print_stats("Long Path Shadow", instm, solvingm)
+        shadowed = [
+            n for n, r in results.items() if n.endswith('_lppshadow') and r == []
+        ]
+        print('  Shadowed Nodes ({:d})'.format(len(shadowed)), file=sys.stderr)
+        for node in shadowed:
+            print('    ' + node + ': ' + str(kripke.GetNode(node[:-10]).Desc), file=sys.stderr)
+
+
+    def _measure_shadow(self, kripke, encoding, results):
+        solvingm = []
+        print('shadow', flush=True, file=sys.stderr)
+        shadow_results, instm, solvingm = self._run_shadow(kripke, encoding)
+        results.update(shadow_results)
+
+        self._print_stats("Shadow", instm, solvingm)
+        shadowed = [n for n, r in results.items() if n.endswith('_shadow') and r == []]
+
+        mappings = json.load(open('/tmp/mappings.json', 'r'))
+        original = mappings['original']
+        extended = {
+            c : {
+                r : set(e) for r, e in ce.items()
+            } for c, ce in mappings['extended'].items()
+        }
+
+        shadowed_rules = {chain : set() for chain in original}
+        shadowed_nodes = {s[:-7] for s in shadowed}
+        for node in shadowed_nodes:
+            chain = node.split('_')[-2]
+            try:
+                original_rule = original[chain][node]
+            except KeyError:
+                continue
+
+            if extended[chain][original_rule].issubset(shadowed_nodes):
+                shadowed_rules[chain].add(original_rule)
+
+        print(
+            '  Shadowed Rules ({:d})'.format(sum([
+                    len(s) for _c, s in shadowed_rules.items()
+            ])),
+            file=sys.stderr
+        )
+
+        for chain in shadowed_rules:
+            for rule in sorted(
+                shadowed_rules[chain], key=lambda r: int(r.split('_')[-1].lstrip('r'))
+            ):
+                print("    {}: {}".format(
+                    kripke.GetNode(rule).RawRuleNo, kripke.GetNode(rule).Desc
+                ), file=sys.stderr)
+
+
+    def _measure_end_to_end(self, kripke, encoding, results):
+        print("end to end", flush=True, file=sys.stderr)
+        instm = []
+        solvingm = []
+
+        source = lambda src: "%s_output_r0" % src
+        target = lambda dst: "%s_input_r0_accept" % dst
+
+        for src, targets in self._end_to_end.items():
+            for dst in self._end_to_end.keys():
+
+                t_start = time.time()
+                instance = Instantiator.InstantiateEndToEnd(
+                    kripke, encoding, source(src), target(dst)
+                )
+                t_end = time.time()
+                instm.append(t_end - t_start)
+
+                t_start = time.time()
+                result = self._solver.Solve(instance)
+                t_end = time.time()
+                solvingm.append(t_end - t_start)
+
+                results['%s_to_%s' % (src, dst)] = result
+
+                if dst in targets and result:
+                    print(
+                        '  correct for %s -> %s' % (src, dst),
+                        flush=True,
+                        file=sys.stderr
+                    )
+                elif dst in targets and not result:
+                    print(
+                        '  failed for %s -> %s' % (src, dst),
+                        flush=True,
+                        file=sys.stderr
+                    )
+                elif dst not in targets and result:
+                    print(
+                        '  failed for ! %s -> %s' % (src, dst),
+                        flush=True,
+                        file=sys.stderr
+                    )
+                elif dst not in targets and not result:
+                    print(
+                        '  correct for ! %s -> %s' % (src, dst),
+                        flush=True,
+                        file=sys.stderr
+                    )
+                else:
+                    print(
+                        '  should never occur but did for %s -> %s' % (src, dst),
+                        flush=True,
+                        file=sys.stderr
+                    )
+
+        self._print_stats("End to End", instm, solvingm)
 
 
     def main(self):
@@ -242,158 +431,33 @@ class Main:
         for network in self._networks:
             results = {}
 
-            XMLUtils.deannotate(network)
-            instantiation = []
-
-            print('Instantiate...', end='', flush=True, file=sys.stderr)
-            t1 = time.time()
-            kripke, encoding = Instantiator.InstantiateBase(
-                network, Inits=self._inits, default_inits=self._use_default_inits
-            )
-            t2 = time.time()
-            print(' done', flush=True, file=sys.stderr)
-            base = t2-t1
-            print('Base instantiation: {:.4f}'.format(base), flush=True, file=sys.stderr)
-            instantiation.append(base)
-            print('  nodes: ' + str(len(list(kripke.IterNodes()))), flush=True, file=sys.stderr)
-            transitions = []
-            for transition in kripke.IterFTransitions():
-                transitions.extend(kripke.IterFTransitions(transition))
-            print('  transitions: ' + str(len(transitions)), flush=True, file=sys.stderr)
-
-            solvingm = []
-            solvingc = []
+            kripke, encoding = self._prepare_network(network)
 
             if cycle:
-                print('cycle', flush=True, file=sys.stderr)
-                cycle_results, instm, solvingm = self._run_cycle(kripke, encoding)
-                results.update(cycle_results)
-                Main._print_stats("Cycle", instm, solvingm)
-
+                self._measure_cycle(kripke, encoding, results)
 
             if cross:
-                print('cross', flush=True, file=sys.stderr)
-                cross_results, instm, solvingm = self._run_cross(kripke, encoding)
-                results.update(cross_results)
-                Main._print_stats("Cross", instm, solvingm)
+                self._measure_cross(kripke, encoding, results)
 
-
-            unreach = []
+            unreach = set()
 
             if reach:
-                print('reach', flush=True, file=sys.stderr)
-                reach_results, unreach, instm, solvingm = self._run_reach(kripke, encoding)
-                results.update(reach_results)
-                Main._print_stats("Reach", instm, solvingm)
-                print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
-                for node in unreach:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
+                unreach = self._measure_reach(kripke, encoding, results)
 
             if lppreach:
-                print('long path reach', flush=True, file=sys.stderr)
-                reach_results, unreach, instm, solvingm = self._run_long_path_reach(kripke, encoding)
-                results.update(reach_results)
-
-                Main._print_stats("Long Path Reach", instm, solvingm)
-                print('  Unreachable Nodes (' + str(len(unreach)) + '): ', file=sys.stderr)
-                for node in unreach:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node).Desc), file=sys.stderr)
+                unreach = self._measure_lppreach(kripke, encoding, results)
 
             if lppshadow and (reach or lppreach):
-                print('long path shadow', flush=True, file=sys.stderr)
-
-                shadow_results, instm, solvingm = self._run_long_path_shadow(kripke, encoding, unreach)
-                results.update(shadow_results)
-
-                Main._print_stats("Long Path Shadow", instm, solvingm)
-                shadowed = [
-                    n for n, r in results.items() if n.endswith('_lppshadow') and r == []
-                ]
-                print('  Shadowed Nodes ({:d})'.format(len(shadowed)), file=sys.stderr)
-                for node in shadowed:
-                    print('    ' + node + ': ' + str(kripke.GetNode(node[:-10]).Desc), file=sys.stderr)
+                self._measure_lppshadow(kripke, encoding, list(unreach), results)
 
             if shadow:
-                print('shadow', flush=True, file=sys.stderr)
-                instm = []
-                solvingm = []
-                shadow_results, instm, solvingm = self._run_shadow(kripke, encoding)
-                results.update(shadow_results)
-
-                Main._print_stats("Shadow", instm, solvingm)
-                shadowed = [n for n, r in results.items() if n.endswith('_shadow') and r == []]
-
-                mappings = json.load(open('/tmp/mappings.json', 'r'))
-                original = mappings['original']
-                extended = {c : {r : set(e) for r, e in ce.items()} for c, ce in mappings['extended'].items()}
-
-                shadowed_rules = {chain : set() for chain in original}
-                shadowed_nodes = set([s[:-7] for s in shadowed])
-                for node in shadowed_nodes:
-                    chain = node.split('_')[-2]
-                    try:
-                        original_rule = original[chain][node]
-                    except KeyError:
-                        continue
-                    extended_rules = extended[chain][original_rule]
-
-                    if extended_rules.issubset(shadowed_nodes):
-                        shadowed_rules[chain].add(original_rule)
-
-                print('  Shadowed Rules ({:d})'.format(sum([len(s) for _c, s in shadowed_rules.items()])), file=sys.stderr)
-
-                for chain in shadowed_rules:
-                    for rule in sorted(
-                        shadowed_rules[chain], key=lambda r: int(r.split('_')[-1].lstrip('r'))
-                    ):
-                        print("    {}: {}".format(
-                            kripke.GetNode(rule).RawRuleNo, kripke.GetNode(rule).Desc
-                        ), file=sys.stderr)
+                self._measure_shadow(kripke, encoding, results)
 
             if end_to_end:
-                print("end to end", flush=True, file=sys.stderr)
-                instm = []
-                solvingm = []
-
-                reach = self._end_to_end
-
-                source = lambda src: "%s_output_r0" % src
-                target = lambda dst: "%s_input_r0_accept" % dst
-
-                for src, targets in reach.items():
-                    for dst in reach.keys():
-
-                        t1 = time.time()
-                        instance = Instantiator.InstantiateEndToEnd(
-                            kripke, encoding, source(src), target(dst)
-                        )
-                        t2 = time.time()
-                        td = t2 - t1
-                        instm.append(td)
-
-                        t1 = time.time()
-                        result = self._solver.Solve(instance)
-                        t2 = time.time()
-                        td = t2 - t1
-                        solvingm.append(td)
-
-                        results['%s_to_%s' % (src, dst)] = result
-
-                        if dst in targets and result:
-                            print('  correct for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
-                        elif dst in targets and not result:
-                            print('  failed for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
-                        elif dst not in targets and result:
-                            print('  failed for ! %s -> %s' % (src, dst), flush=True, file=sys.stderr)
-                        elif dst not in targets and not result:
-                            print('  correct for ! %s -> %s' % (src, dst), flush=True, file=sys.stderr)
-                        else:
-                            print('  should never occur but did for %s -> %s' % (src, dst), flush=True, file=sys.stderr)
-
-                Main._print_stats("End to End", instm, solvingm)
+                self._measure_end_to_end(kripke, encoding, results)
 
 
-    def _print_stats(anomaly, instantiation, solving):
+    def _print_stats(self, anomaly, instantiation, solving):
         print("\n  {:21s}\tmean\tmedian\tstddev\tvar\ttotal".format(anomaly), file=sys.stderr)
         print("  Instantiation:\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}".format(
             mean(instantiation),
@@ -413,7 +477,15 @@ class Main:
         )
 
 
-    def __init__(self, networks, inits, solver=PycoSATAdapter(), anomalies={}, use_default_inits=True, end_to_end={}):
+    def __init__(
+        self,
+        networks,
+        inits,
+        solver=PycoSATAdapter(),
+        anomalies={},
+        use_default_inits=True,
+        end_to_end={}
+    ):
         self._solver = solver
         self._networks = networks
         self._inits = inits
@@ -454,9 +526,26 @@ if __name__ == "__main__":
     sys.setrecursionlimit(10**6)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--networks', dest='networks', type=str, nargs='+', default=[])
-    parser.add_argument('--solver', dest='solver', choices=['clasp', 'mini', 'pyco'], default='pyco')
-    parser.add_argument('--profile', dest='profile', action='store_const', const=True, default=False)
+    parser.add_argument(
+        '--networks',
+        dest='networks',
+        type=str,
+        nargs='+',
+        default=[]
+    )
+    parser.add_argument(
+        '--solver',
+        dest='solver',
+        choices=['clasp', 'mini', 'pyco'],
+        default='pyco'
+    )
+    parser.add_argument(
+        '--profile',
+        dest='profile',
+        action='store_const',
+        const=True,
+        default=False
+    )
     if sys.version_info.major == 3 and sys.version_info.minor >= 8:
         parser.add_argument(
             '--anomalies',
@@ -469,7 +558,12 @@ if __name__ == "__main__":
             default=[]
         )
     else:
-        parser.add_argument('--anomalies', dest='anomalies', default=[], type=lambda a: a.split(','))
+        parser.add_argument(
+            '--anomalies',
+            dest='anomalies',
+            default=[],
+            type=lambda a: a.split(',')
+        )
     parser.add_argument(
         '--rulesets',
         dest='rulesets',
@@ -565,7 +659,8 @@ if __name__ == "__main__":
         'lppshadow' : False,
         'end_to_end' : False
     }
-    for anomaly in args.anomalies: anomalies[anomaly] = True
+    for anomaly in args.anomalies:
+        anomalies[anomaly] = True
 
     if args.profile:
         yappi.start()
