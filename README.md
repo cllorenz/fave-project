@@ -1,14 +1,40 @@
-# FaVe - Fast Formal Security Verification
+# FaVe - Fast Formal Network Security Verification
 
-This repo includes the codebase of FaVe.
+This repository contains the codebases of the FaVe project.
+FaVe aims to offer accessible and scalable tooling to support network security management processes.
+It enables to verify the security compliance of network configurations and provides further insights into firewall rule sets, i.e., by detecting firewall anomalies.
+The concept behind FaVe is called _Domain oriented Header Space Analysis_ (DHSA).
+In contrast to the original _Header Space Analysis_ by Kazemian et al. (refer to [1]), DHSA offers more accessible yet compatible means to specify policies and model network configuration.
+Nevertheless, we reuse the fast _NetPlumber_ (originally by Kazemian et al.) verification engine to solve DHSA instances.
+
+We benchmarked DHSA using several different workloads - synthetic and real-world alike - covering a broad variety of scenarios.
+Also, we compared our results with the state of the art by running the benchmark with the tools from [2], [3], [4], and [5].
+See our publication list for the results.
+
+
+## Publications
+
+We published our results in a series of scientific papers:
+
+ - C. Lorenz and B. Schnor, “Policy Anomaly Detection for Distributed IPv6 Firewalls,” in SECRYPT, 2015.
+ - C. Lorenz, S. Kiekheben, and B. Schnor, “FaVe: Modeling IPv6 firewalls for fast formal verification,” in NetSys, 2017.
+ - C. Lorenz, V. Clemens, M. Schrötter, and B. Schnor, “Continuous Verification of Network Security Compliance,” in IEEE TNSM, 2021.
+ - C. Lorenz and B. Schnor, “Firewall Management: Rapid Anomaly Detection,“ in HPCC, 2022 (accepted for publication).
+
+
+## Repository Overview
+
+This repository is organized as follows:
 
  - `fave/` - includes the modeling pipeline and a set of management tools
- - `net_plumber/` - includes the NetPlumber verification backend
+ - `net_plumber/` - includes the NetPlumber verification backend which was published originally in [1]
  - `policy_translator/` - includes the policy management tool [PolicyTranslator](policy_translator/README.md)
  - `ad6` - includes ad6 for anomaly detection in ip6tables rule sets
+ - `z3-anomalies` - includes an implementation of [4] to detect anomalies in ip6tables rule sets using the Z3 SMT solver
+ - `stl-anomalies` - includes an implementation of [5] to detect anomalies in ip6tables rule sets using the STL algorithm
 
 
-## First steps (tested on Ubuntu 20.04)
+## First Steps (tested on Ubuntu 20.04)
 
 First, one needs to install some dependencies to compile NetPlumber. The script
 
@@ -60,13 +86,21 @@ To run a benchmark `BENCH=fave/bench/wl_your_benchmark_here` use the following c
     $> python2 $BENCH/benchmark.py
 
 
-## Open Issues
-
-Refer to the [TODOs](TODO.md) for further issues to repair and solve.
-
-
 ## Credits
 
 The original implementation of NetPlumber by Peyman Kazemian stems from [here](https://bitbucket.org/peymank/hassel-public/wiki/Home).
 
 The original implementation of the PolicyTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
+
+
+## Selected References
+
+[1] P. Kazemian, M. Chan, H. Zeng, G. Varghese, N. McKeown, and S. Whyte, “Real Time Network Policy Checking Using Header Space Analysis,” in NSDI, 2013.
+
+[2] C. Diekmann, J. Michaelis, M. P. L. Haslbeck, and G. Carle, “Verified IPtables Firewall Analysis,” in IFIP Networking, 2016.
+
+[3] D. Dumitrescu, R. Stoenescu, M. Popovici, L. Negreanu, and C. Raiciu, “Dataplane equivalence and its applications,” in NSDI, 2019.
+
+[4] Y. Yin, Y. Tateiwa, Y. Wang, G. Zhang, Y. Katayama, N. Takahashi, and C. Zhang, “An Analysis Method for IPv6 Firewall Policy,” in HPCC, 2019.
+
+[5] N. Basumatary and S. Hazarika, “Model Checking a Firewall for Anomalies,” in ICETACS, 2013.
