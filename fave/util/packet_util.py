@@ -317,7 +317,7 @@ def portrange_to_prefix_list(lower, upper):
 
     while lower < upper:
         postfix = 0
-        for postfix in range(PORT_BITS):
+        for postfix in range(PORT_BITS+1):
             if (lower % (1 << (postfix + 1)) != 0) or (lower + (1 << (postfix + 1)) - 1 > upper):
                 break
 
