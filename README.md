@@ -32,6 +32,7 @@ This repository is organized as follows:
  - `ad6` - includes ad6 for anomaly detection in ip6tables rule sets
  - `z3-anomalies` - includes an implementation of [4] to detect anomalies in ip6tables rule sets using the Z3 SMT solver
  - `stl-anomalies` - includes an implementation of [5] to detect anomalies in ip6tables rule sets using the STL algorithm
+ - `np_reproduction` - includes scripts to reproduce the original HSA benchmark results from [1]
 
 
 ## First Steps (tested on Ubuntu 20.04)
