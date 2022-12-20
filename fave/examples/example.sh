@@ -178,6 +178,8 @@ CNT=0
 
 python2 $ROOTDIR/netplumber/dump_np.py -anpft
 
+python2 $ROOTDIR/netplumber/check_compliance.py -f examples/example.json
+
 # test flow propagation
 echo -n "check flow propagation... "
 
