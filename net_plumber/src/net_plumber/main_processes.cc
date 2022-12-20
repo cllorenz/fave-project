@@ -292,6 +292,60 @@ void check_all_anomalies(NetPlumber<T1, T2> *N) {
 }
 #endif
 
+template<typename T1, typename T2>
+void check_compliance(const string json_policy_file, NetPlumber<T1, T2> *N) {
+  printf("Loading compliance policy file %s\n", json_policy_file.c_str());
+  double start, end;
+  ifstream jsfile;
+  Json::Value root;
+  Json::Reader reader;
+
+  // read topology
+  jsfile.open (json_policy_file.c_str());
+  if (!jsfile.good()) {
+    printf("Error opening the file %s\n",json_policy_file.c_str());
+    return;
+  }
+  printf("Parse policy file: %s...\n", json_policy_file.c_str());
+  reader.parse(jsfile,root,false);
+  printf("Load policy...\n");
+
+  /*
+   * JSON format: {dst:[(src,valid,cond)]}
+   * if there is no condition, then cond == null
+   */
+  std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> rules;
+
+  for (Json::Value::iterator policy_it = root.begin(); policy_it != root.end(); policy_it++) {
+    uint64_t dst = std::stoull(policy_it.key().asString());
+    std::vector<std::tuple<uint64_t, bool, T2*>> src_tpls;
+    auto srcs_json = *policy_it;
+    for (auto rule: srcs_json) { //(Json::ArrayIndex i = 0; i < srcs_json.size(); i++) {
+      uint64_t src = rule[0].asUInt64(); //srcs_json[i][0].asUInt64();
+      bool valid = rule[1].asBool(); //srcs_json[i][1].asBool();
+      T2 *cond = val_to_array<T2>(rule[2]); //srcs_json[i][2]);
+      std::tuple<uint64_t, bool, T2*> src_tpl {src, valid, cond};
+      src_tpls.push_back(src_tpl);
+    }
+    rules[dst] = src_tpls;
+  }
+
+  start = get_cpu_time_us();
+  N->check_compliance(&rules);
+  end = get_cpu_time_us();
+  printf("Checked compliance in %.2lf seconds (%.2lfus)\n", (end - start)/1000000.0, (end - start));
+
+  for (auto policy: rules) {
+    for (auto dst: policy.second) {
+      T2 *cond = std::get<2>(dst);
+      if (cond) array_free(cond);
+      std::get<2>(dst) = nullptr;
+    }
+  }
+
+  jsfile.close();
+}
+
 #ifdef GENERIC_PS
 template void load_netplumber_from_dir<HeaderspacePacketSet, ArrayPacketSet>(
     string,
@@ -324,6 +378,10 @@ template void load_policy_file<BDDPacketSet, BDDPacketSet>(
 #ifdef CHECK_ANOMALIES
 template void check_all_anomalies(NetPlumber<BDDPacketSet, BDDPacketSet>);
 #endif
+template void check_compliance<HeaderspacePacketSet, ArrayPacketSet>(
+    string,
+    NetPlumber<HeaderspacePacketSet, ArrayPacketSet>*
+);
 #endif
 #else
 template void load_netplumber_from_dir<hs, array_t>(
@@ -342,5 +400,5 @@ template void load_policy_file<hs, array_t>(
 #ifdef CHECK_ANOMALIES
 template void check_all_anomalies(NetPlumber<hs, array_t>*);
 #endif
+template void check_compliance<hs, array_t>(string, NetPlumber<hs, array_t>*);
 #endif
-

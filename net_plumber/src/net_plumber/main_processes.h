@@ -40,4 +40,8 @@ template<typename T1, typename T2>
 void check_all_anomalies(net_plumber::NetPlumber<T1, T2> *N);
 #endif
 
+template<typename T1, typename T2>
+void check_compliance(std::string json_compliance_file,
+                      net_plumber::NetPlumber<T1, T2> *N);
+
 #endif /* MAIN_PROCESSES_H_ */

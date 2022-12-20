@@ -152,11 +152,13 @@ int typed_main(int argc, char* argv[]) {
 #ifdef CHECK_ANOMALIES
   bool do_check_anomalies = false;
 #endif
+  bool do_check_compliance = false;
 
   string log_config_file = "";
   string json_files_path = "";
   string dump_files_path = "";
   string policy_json_file = "";
+  string compliance_json_file = "";
   int hdr_len = 1;
   string server_address;
   int server_port = 0;
@@ -180,6 +182,7 @@ int typed_main(int argc, char* argv[]) {
 #ifdef CHECK_ANOMALIES
       printf("\t --anomalies : check all tables for anomalies.\n");
 #endif
+      printf("\t --compliance <file> : check network for compliance with reachability policies from a json file.\n");
       break;
     }
     if ( strncmp(argv[i], "--unix", 6) == 0 ) {
@@ -268,6 +271,15 @@ int typed_main(int argc, char* argv[]) {
       do_check_anomalies = true;
     }
 #endif
+
+    if ( strncmp(argv[i], "--compliance", 12) == 0)  {
+      if (i+1 >= argc) {
+        printf("Please specify policy file after --compliance.\n");
+        return -1;
+      }
+      do_check_compliance = true;
+      compliance_json_file = string(argv[++i]);
+    }
   }
   //configure log4cxx.
   if (log_config_file != "") {
@@ -317,6 +329,10 @@ int typed_main(int argc, char* argv[]) {
     check_all_anomalies(N);
   }
 #endif
+
+  if (do_check_compliance) {
+    check_compliance(compliance_json_file, N);
+  }
 
   if (do_run_server) {
     run_server<T1, T2>(server_address, server_port, N);
