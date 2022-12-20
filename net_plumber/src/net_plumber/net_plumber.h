@@ -88,6 +88,14 @@ namespace net_plumber {
     bool use_general;
   };
 
+  struct compliance_rule_t {
+    uint64_t src;
+    uint64_t dst;
+    bool valid;
+    array_t *cond;
+  };
+
+
   template<class T1, class T2>
   class NetPlumber;
 
@@ -179,6 +187,8 @@ namespace net_plumber {
     global_error_callback_t<T1, T2> slice_leakage_callback;
     void *slice_leakage_callback_data;
 #endif
+    global_error_callback_t<T1, T2> compliance_callback;
+    void *compliance_callback_data;
 
     /*
      * constructor.
@@ -324,6 +334,10 @@ namespace net_plumber {
     void check_anomalies(const uint32_t table_id, const struct anomalies_config_t *anomalies);
 #endif
 
+    void check_compliance(
+      std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> *rules
+    );
+
    private:
 #ifdef USE_GROUPS
     void free_group_memory(uint32_t table, uint64_t group);
@@ -361,5 +375,4 @@ namespace net_plumber {
 #endif
   };
 }
-
 #endif  // SRC_NET_PLUMBER_H_

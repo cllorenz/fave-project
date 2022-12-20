@@ -63,6 +63,7 @@ LoggerPtr anomaly_logger(Logger::getLogger("DefaultAnomalyLogger"));
 #ifdef PIPE_SLICING
 LoggerPtr slice_logger(Logger::getLogger("DefaultSliceLogger"));
 #endif
+LoggerPtr compliance_logger(Logger::getLogger("DefaultComplianceLogger"));
 
 template<class T1, class T2>
 string flow_to_str(Flow<T1, T2> *f) {
@@ -166,6 +167,21 @@ void default_slice_leakage_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, 
   LOG4CXX_FATAL(slice_logger,error_msg.str());
 }
 #endif
+
+template<typename T1, typename T2>
+void default_compliance_callback(NetPlumber<T1, T2> *N, Flow<T1, T2>* /*f*/, void *data) {
+  Event e = N->get_last_event();
+  stringstream error_msg;
+  error_msg << "Compliance check failed: after event " << get_event_name(e.type) <<
+      " (ID1: " << e.id1 << ")";
+  struct compliance_rule_t *rule = (struct compliance_rule_t*)data;
+  error_msg << " rule: " << (rule->valid ? "! " : "") << rule->src << " EF " <<
+    rule->dst;
+  if (rule->cond) {
+    error_msg << " && " << array_to_str(rule->cond, N->get_length(), false);
+  }
+  LOG4CXX_FATAL(compliance_logger, error_msg.str());
+}
 
 string get_event_name(EVENT_TYPE t) {
   switch (t) {
@@ -760,6 +776,7 @@ NetPlumber<T1, T2>::NetPlumber(size_t length) : length(length), last_ssp_id_used
   this->slice_leakage_callback = default_slice_leakage_callback;
   this->slice_leakage_callback_data = NULL;
 #endif
+  this->compliance_callback = default_compliance_callback;
 }
 
 template<class T1, class T2>
@@ -2219,6 +2236,37 @@ void NetPlumber<T1, T2>::dump_slices_pipes(const std::string dir) {
     pipe_network_file.close();
 }
 #endif /*PIPE_SLICING */
+
+/* format: {dst:[(src,valid,cond)]} */
+template<class T1, class T2>
+void NetPlumber<T1, T2>::check_compliance (
+    std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> *rules
+) {
+    for (auto policy: *rules) {
+        uint64_t dst = policy.first;
+        auto src_tpls = policy.second;
+
+        for (auto src_tpl: src_tpls) {
+            uint64_t src = std::get<0>(src_tpl);
+            bool valid = std::get<1>(src_tpl);
+            T2 *cond = std::get<2>(src_tpl);
+
+            bool any = false;
+            for (auto incoming_flow: this->id_to_node[dst]->source_flow) {
+                const bool matching_source = incoming_flow->source == src;
+                const bool overlapping_hs = cond ? hs_overlaps_arr(incoming_flow->hs_object, cond) : true;
+                any |= matching_source && overlapping_hs;
+            }
+
+            if (!valid && any || valid && !any) {
+                struct compliance_rule_t rule {src, dst, valid, cond};
+                this->compliance_callback_data = &rule;
+                this->compliance_callback(this, NULL, this->compliance_callback_data);
+            }
+        }
+    }
+}
+
 
 #ifdef GENERIC_PS
 template class net_plumber::NetPlumber<HeaderspacePacketSet, ArrayPacketSet>;
