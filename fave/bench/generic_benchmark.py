@@ -68,6 +68,7 @@ class GenericBenchmark(object):
             "sources" : "sources.json",
             "policies" : "policies.json",
             "checks" : "checks.json",
+            "cchecks" : "cchecks.json",
             "reach_csv" : "reachability.csv",
             "reach_json" : "reachable.json",
             "roles_services" : "roles_and_services.txt",
@@ -150,6 +151,7 @@ class GenericBenchmark(object):
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
                     '-c', self.files['checks'],
+                    '--cchecks', self.files['cchecks'],
                     '-j', self.files['reach_json']
                 ]
             )

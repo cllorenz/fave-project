@@ -26,6 +26,33 @@ import json
 import argparse
 
 
+def _generate_cchecks(checks):
+    cchecks = {}
+
+    for check in checks:
+        valid = not check.startswith("! ")
+        check = check.lstrip('! ')
+
+        cond = None
+
+        tokens = check.split(" && ")
+        if len(tokens) == 2:
+            src, dst = tokens
+        elif len(tokens) == 3:
+            src, dst, cond = tokens
+            cond = cond.lstrip("f=")
+        else:
+            raise Exception("unsupported amount of operands: %s (%s)" % (len(tokens), tokens))
+
+        src = src.lstrip("s").lstrip('=')
+        dst = dst.lstrip("EF p").lstrip('=')
+
+        cchecks.setdefault(src, [])
+        cchecks[src].append((dst, valid, cond))
+
+    return cchecks
+
+
 if __name__ == '__main__':
     checks = []
 
@@ -35,6 +62,11 @@ if __name__ == '__main__':
         '-c', '--checks',
         dest='checks_file',
         default='checks.json'
+    )
+    parser.add_argument(
+        '--cchecks',
+        dest='cchecks_file',
+        default='cchecks.json'
     )
     parser.add_argument(
         '-j', '--reach-json',
@@ -120,3 +152,8 @@ if __name__ == '__main__':
 
     with open(args.reach_file, 'w') as rf:
         rf.write(json.dumps(reach_json, indent=2) + '\n')
+
+    cchecks = _generate_cchecks(checks)
+
+    with open(args.cchecks_file, "w") as cchecks_file:
+        cchecks_file.write(json.dumps(cchecks, indent=2) + '\n')
