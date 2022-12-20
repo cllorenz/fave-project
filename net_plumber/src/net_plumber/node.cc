@@ -457,6 +457,7 @@ void Node<T1, T2>::propagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::it
       // create a new flow struct to pass to next node in pipeline
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*next->r_pipeline)->node;
+      next_flow->source = (*s_flow)->source;
 #ifdef GENERIC_PS
       next_flow->hs_object = new T1(h.hs.len);
       next_flow->hs_object->hs = h.hs;
@@ -553,6 +554,7 @@ void Node<T1, T2>::propagate_src_flows_on_pipe(typename list<Pipeline<T1, T2> *>
 
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*(*pipe)->r_pipeline)->node;
+      next_flow->source = (*it)->source;
 #ifdef GENERIC_PS
       next_flow->hs_object = new T1(h.hs.len);
       next_flow->hs_object->hs = h.hs;
@@ -788,6 +790,7 @@ void Node<T1, T2>::repropagate_src_flow_on_pipes(typename list<Flow<T1, T2> *>::
       // create a new flow struct to pass to next node in pipeline
       Flow<T1, T2> *next_flow = (Flow<T1, T2> *)malloc(sizeof *next_flow);
       next_flow->node = (*next->r_pipeline)->node;
+      next_flow->source = (*s_flow)->source;
 #ifdef GENERIC_PS
       next_flow->hs_object = new T1(this->length);
       next_flow->hs_object->hs.list = h.hs.list;

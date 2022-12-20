@@ -48,6 +48,7 @@ struct Pipeline;
 template<class T1, class T2>
 struct Flow {
   Node<T1, T2> *node; //pointer to next node
+  uint64_t source; // the originating source node
   T1 *hs_object; //input hs
   T1 *processed_hs; //output hs. could be the same as hs_object
   uint32_t in_port;  //input port this flow is received on
