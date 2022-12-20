@@ -610,12 +610,14 @@ def main(argv):
     parser.add_argument(
         '-s', '--server',
         dest='fave_addr',
-        type=lambda a: a if is_ip(a) or is_domain(a) else FAVE_DEFAULT_IP
+        type=lambda a: a if is_ip(a) or is_domain(a) else FAVE_DEFAULT_IP,
+        default=FAVE_DEFAULT_IP
     )
     parser.add_argument(
         '-p', '--port',
         dest='fave_port',
-        type=lambda p: int(p) if is_port(p) else FAVE_DEFAULT_PORT
+        type=lambda p: int(p) if is_port(p) else FAVE_DEFAULT_PORT,
+        default=FAVE_DEFAULT_PORT
     )
     parser.add_argument(
         '-S', '--servers',
