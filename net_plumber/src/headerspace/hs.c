@@ -1410,3 +1410,21 @@ hs_vec_append (struct hs_vec *v, array_t *a)
 hs_vec_append (struct hs_vec *v, array_t *a, bool diff)
 { vec_append (v, a, diff); }
 #endif
+
+bool
+hs_overlaps_arr(const struct hs *a, const array_t *arr)
+{
+    const size_t len = a->len;
+    for (size_t i = 0; i < a->list.used; i++) {
+        if (array_has_isect(a->list.elems[i], arr, len)) {
+            bool any = false;
+            for (size_t j = 0; j < a->list.diff[i].used; j++) {
+                any |= array_is_sub_eq(arr, a->list.diff[i].elems[j], len);
+                if (any) break;
+            }
+            if (!any) return true;
+        }
+    }
+
+    return false;
+}
