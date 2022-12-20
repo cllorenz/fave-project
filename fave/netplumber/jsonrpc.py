@@ -780,3 +780,16 @@ def check_anomalies(socks, table=0, use_shadow=False, use_reach=False, use_gener
         "use_general" : use_general
     }
     _asend_recv(socks, json.dumps(data))
+
+def check_compliance(socks, rules):
+    """ Checks a set of policy rules for compliance.
+
+    Keyword arguments:
+    socks -- A list of sockets connected to NetPlumber instances
+    rules -- The compliance rules
+    """
+
+    data = _basic_rpc()
+    data["method"] = "check_compliance"
+    data["params"] = {"rules":rules}
+    _asend_recv(socks, json.dumps(data))
