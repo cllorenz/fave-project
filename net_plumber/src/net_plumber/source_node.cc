@@ -50,6 +50,7 @@ SourceNode<T1, T2>::SourceNode(void *n, int length, uint64_t node_id, T1 *hs_obj
   // create the flow;
   Flow<T1, T2> *f = (Flow<T1, T2> *)malloc(sizeof *f);
   f->node = this;
+  f->source = this->node_id;
   f->hs_object = hs_object;
 #ifdef GENERIC_PS
   f->processed_hs = new T1(*hs_object);
