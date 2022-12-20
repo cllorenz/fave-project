@@ -197,6 +197,7 @@ void RpcHandler<T1, T2>::initServer (Server *server) {
 #ifdef CHECK_ANOMALIES
     FN(check_anomalies),
 #endif
+    FN(check_compliance),
     FN(expand)
   };
   size_t n = sizeof methods / sizeof *methods;
@@ -536,6 +537,33 @@ PROTO(check_anomalies)
   RETURN(VOID);
 }
 #endif
+
+PROTO(check_compliance)
+  /*
+   * JSON format: {dst:[(src,valid,cond)]}
+   * if there is no condition, then cond == null
+   */
+  std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> rules;
+
+  auto json_rules = PARAM(rules);
+
+  for (Json::Value::iterator policy_it = json_rules.begin(); policy_it != json_rules.end(); policy_it++) {
+    uint64_t src = std::stoull(policy_it.key().asString());
+    std::vector<std::tuple<uint64_t, bool, T2*>> dst_tpls;
+    auto dsts_json = *policy_it;
+    for (Json::ArrayIndex i = 0; i < dsts_json.size(); i++) {
+
+      uint64_t dst = dsts_json[i][0].asUInt64();
+      bool valid = dsts_json[i][1].asBool();
+      T2 *cond = val_to_array<T2>(dsts_json[i][2]);
+      std::tuple<uint64_t, bool, T2*> dst_tpl {dst, valid, cond};
+      dst_tpls.push_back(dst_tpl);
+    }
+    rules[src] = dst_tpls;
+  }
+  netPlumber->check_compliance(&rules);
+  RETURN(VOID);
+}
 
 #ifdef GENERIC_PS
 template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;

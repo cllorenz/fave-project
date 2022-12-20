@@ -76,6 +76,7 @@ private:
 #ifdef CHECK_ANOMALIES
   FN(check_anomalies);
 #endif
+  FN(check_compliance);
 #undef FN
 };
 
