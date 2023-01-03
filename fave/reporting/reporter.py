@@ -71,12 +71,12 @@ class Reporter(threading.Thread):
         report.append("\n## Compliance Check")
         report.append("The following compliance violations have been found:\n")
 
-        for _, event in compliance_events:
-            from_, to_, cond = event
-            report.append("- {} -> {}{}".format(
-                id_to_generator[from_],
-                id_to_probe[to_],
-                ','.join(
+        for event in compliance_events:
+            _, from_, to_, cond = event
+            report.append("- `{} -> {}{}`".format(
+                id_to_generator[int(from_)],
+                id_to_probe[int(to_)],
+                " && " + ','.join(
                     map(
                         lambda fv: '='.join(fv),
                         _parse_cond(cond, self.fave.net_plumber.mapping)
