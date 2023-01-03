@@ -57,9 +57,15 @@ class Reporter(threading.Thread):
         cur_event = len(self.events)
 
         # fetch recent compliance and anomaly events
-        compliance_events = filter(lambda log, _event: log == Log.Compliance, self.events[self.last_compliance:cur_event])
+        compliance_events = filter(
+            lambda entry: entry[0] == Log.Compliance,
+            self.events[self.last_compliance:cur_event]
+        )
 
-        anomaly_events = filter(lambda log, _event: log == Log.Anomalies, self.events[self.last_anomalies:cur_event])
+        anomaly_events = filter(
+            lambda entry: entry[0] == Log.Anomalies,
+            self.events[self.last_anomalies:cur_event]
+        )
 
         # generate report
         report.append("## Compliance Check")
