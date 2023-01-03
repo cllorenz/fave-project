@@ -6,9 +6,12 @@ import threading
 from util.ip6np_util import bitvector_to_field_value
 from netplumber.mapping import FIELD_SIZES
 from netplumber.vector import Vector, get_field_from_vector
-from enum import Enum
+#from enum import Enum
 
-Log = Enum('Log', ['Compliance', 'Anomalies'])
+#Log = Enum('Log', ['Compliance', 'Anomalies'])
+class Log:
+    Compliance = 0
+    Anomalies = 1
 
 
 def _parse_cond(cond, mapping):
