@@ -169,6 +169,12 @@ class AggregatorService(AbstractAggregator):
                 self.stop_aggr()
                 self.net_plumber.stop()
 
+            elif j['type'] == 'report':
+                report = j
+                self.reporter.dump_report(report['file'])
+                self.reporter.mark_compliance()
+                self.reporter.mark_anomalies()
+
             elif j['type'] == 'dump':
                 dump = j
                 odir = dump['dir']
