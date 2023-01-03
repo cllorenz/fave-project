@@ -28,6 +28,7 @@ if [ $? -eq 0 ]; then
     sudo pacman -S python2-coverage
     sudo pacman -S flex
     sudo pacman -S bison
+    sudo pacman -S pandoc
     sudo ln -s /usr/bin/python2-coverage /usr/bin/coverage2
 fi
 
@@ -43,6 +44,7 @@ if [ $? -eq 0 ]; then
     sudo apt-get install python-coverage
     sudo apt-get install flex
     sudo apt-get install bison
+    sudo apt-get install pandoc
 fi
 
 sudo pip2 install antlr4-python2-runtime
