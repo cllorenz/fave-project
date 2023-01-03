@@ -68,7 +68,7 @@ class Reporter(threading.Thread):
         )
 
         # generate report
-        report.append("## Compliance Check")
+        report.append("\n## Compliance Check")
         report.append("The following compliance violations have been found:\n")
 
         for _, event in compliance_events:
