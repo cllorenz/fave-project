@@ -88,7 +88,7 @@ def main(argv):
         sys.exit(3)
 
     sock = socket.socket(
-        (socket.AF_INET if use_unix else socket.AF_UNIX),
+        (socket.AF_UNIX if use_unix else socket.AF_INET),
         socket.SOCK_STREAM
     )
 
