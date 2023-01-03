@@ -32,6 +32,8 @@ def _parse_cond(cond, mapping):
 
 class Reporter(threading.Thread):
     def __init__(self, fave, np_log):
+        super(Reporter, self).__init__()
+
         self.events = []
         self.last_compliance = 0
         self.last_anomalies = 0
