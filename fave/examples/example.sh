@@ -212,6 +212,10 @@ python2 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;
 #echo "start openflow proxy..."
 #PYTHONPATH=. python2 openflow/ofproxy.py
 
+python2 $ROOTDIR/aggregator/report.py
+
+pandoc report.md -o report.pdf
+
 bash $ROOTDIR/scripts/stop_fave.sh
 
 rm -rf $TMP
