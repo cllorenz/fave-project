@@ -1,0 +1,139 @@
+#!/usr/bin/env python2
+
+import time
+import threading
+
+from util.ip6np_util import bitvector_to_field_value
+from netplumber.mapping import FIELD_SIZES
+from netplumber.vector import Vector, get_field_from_vector
+from enum import Enum
+
+Log = Enum('Log', ['Compliance', 'Anomalies'])
+
+
+def _parse_cond(cond, mapping):
+    vec = Vector.from_vector_str(cond)
+
+    return [
+        (
+            name,
+            bitvector_to_field_value(
+                get_field_from_vector(mapping, vec, name),
+                name
+            ) for name in mapping if get_field_from_vector(
+                mapping, vec, name
+            ) != 'x' * FIELD_SIZES[name]
+        )
+    ]
+
+
+class Reporter(threading.Thread):
+    def __init__(self, fave, np_log):
+        self.events = []
+        self.last_compliance = 0
+        self.last_anomalies = 0
+        self.stop = False
+        self.fave = fave
+        self.np_log = open(np_log, 'r')
+
+
+    def dump_report(self, dump):
+        # name : (idx, sid, model)
+        id_to_generator = {g[1] : n for n, g self.fave.net_plumber.generators.items()}
+        # name : (idx, pid, model)
+        id_to_probe = {g[1] : n for n, g self.fave.net_plumber.probes.items()}
+
+        report = [
+            "# Report",
+            "<introductionary text>"
+        ]
+
+        cur_event = len(self.events)
+
+        # fetch recent compliance and anomaly events
+        compliance_events = filter(lambda log, _event: log == Log.Compliance, self.events[self.last_compliance:cur_event])
+
+        anomaly_events = filter(lambda log, _event: log == Log.Anomalies, self.events[self.last_anomalies:cur_event])
+
+        # generate report
+        report.append("## Compliance Check")
+        report.append("The following compliance violations have been found:\n")
+
+        for _, event in compliance_events:
+            from_, to_, cond = event
+            report.append("- {} -> {}{}".format(
+                id_to_generator[from_],
+                id_to_probe[to_],
+                ','.join(
+                    map(
+                        lambda fv: '='.join(fv),
+                        _parse_cond(cond, fave.mapping)
+                    )
+                ) if cond else ""
+            ))
+
+        report.append("\n## Anomaly Check")
+        report.append("The following anomalies have been found:\n")
+
+
+        inv_rids = {}
+        for fave_rid, np_rids in self.fave.net_plumber.rule_ids.items():
+            for np_rid in np_rids:
+                inv_rids[np_rid] = fave_rid
+
+        shadowed_rids = {}
+        for _, np_rid in anomaly_events:
+            fave_rid = inv_rids[np_rid]
+            shadowed_rids.setdefault(fave_rid, [])
+            shadowed_rids[fave_rid].append(np_rid)
+
+        for fave_rid, np_rids in shadowed_rids.items():
+            if set(np_rids) == set(self.fave.net_plumber.rule_ids[fave_rid]):
+                report.append("- {}".format(fave_rid))
+
+        with open(dump, 'w') as of:
+            of.write('\n'.join(report) + '\n')
+
+
+    def mark_compliance(self):
+        self.last_compliance = len(self.events)
+
+
+    def mark_anomalies(self):
+        self.last_anomalies = len(self.events)
+
+
+    def stop(self):
+        self.stop = True
+
+
+    def run(self):
+        while not self.stop:
+            raw_line = self.np_log.readline()
+
+            if not raw_line:
+                time.sleep(0.001)
+                continue
+
+            # parse line
+            tokens = raw_line.rstrip().split()
+
+            # check if reportable
+            if "DefaultComplianceLogger" in tokens:
+                from_ = tokens[16]
+                to_ = tokens[18]
+                cond = tokens[20] if len(tokens) >= 21 else None
+
+                line = (Log.Compliance, from_, to_, cond)
+            elif "DefaultAnomalyLogger" in tokens:
+                np_rid = tokens[13]
+
+
+                line = (Log.Anomalies, np_rid)
+            else:
+                continue
+
+            # add to event buffer
+            self.events.append(line)
+
+        self.np_log.close()
