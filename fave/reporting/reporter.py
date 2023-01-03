@@ -37,7 +37,7 @@ class Reporter(threading.Thread):
         self.events = []
         self.last_compliance = 0
         self.last_anomalies = 0
-        self.stop = False
+        self.stop_reporter = False
         self.fave = fave
         self.np_log = open(np_log, 'r')
 
@@ -110,11 +110,11 @@ class Reporter(threading.Thread):
 
 
     def stop(self):
-        self.stop = True
+        self.stop_reporter = True
 
 
     def run(self):
-        while not self.stop:
+        while not self.stop_reporter:
             raw_line = self.np_log.readline()
 
             if not raw_line:
@@ -131,9 +131,9 @@ class Reporter(threading.Thread):
                 cond = tokens[20] if len(tokens) >= 21 else None
 
                 line = (Log.Compliance, from_, to_, cond)
+
             elif "DefaultAnomalyLogger" in tokens:
                 np_rid = tokens[13]
-
 
                 line = (Log.Anomalies, np_rid)
             else:
