@@ -27,7 +27,7 @@ import getopt
 import socket
 import json
 
-import netplumber.jsonrpc as jsonrpc
+from netplumber.jsonrpc import check_compliance
 from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
 from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_UNIX
 
@@ -83,23 +83,23 @@ def main(argv):
             print_help()
             sys.exit(1)
 
-    if use_tcp:
-        server = NET_PLUMBER_DEFAULT_IP
-        port = NET_PLUMBER_DEFAULT_PORT
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((server, port))
-
-    elif use_unix:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(NET_PLUMBER_DEFAULT_UNIX)
-
-    else:
+    if not (use_tcp or use_unix):
         print_help()
         sys.exit(3)
 
-    with open(json_file, "r") as f:
-        jsonrpc.check_compliance([sock], json.load(f))
+    sock = socket.socket(
+        (socket.AF_INET if use_unix else socket.AF_UNIX),
+        socket.SOCK_STREAM
+    )
+
+    sock.connect(
+        NET_PLUMBER_DEFAULT_UNIX if use_unix else (
+            NET_PLUMBER_DEFAULT_IP, NET_PLUMBER_DEFAULT_PORT
+        )
+    )
+
+    with open(json_file, "r") as checks:
+        check_compliance([sock], json.load(checks))
 
     sock.close()
 
