@@ -23,10 +23,10 @@ def _parse_cond(cond, mapping):
             bitvector_to_field_value(
                 get_field_from_vector(mapping, vec, name),
                 name
-            ) for name in mapping if get_field_from_vector(
-                mapping, vec, name
-            ) != 'x' * FIELD_SIZES[name]
-        )
+            )
+        ) for name in mapping if get_field_from_vector(
+            mapping, vec, name
+        ) != 'x' * FIELD_SIZES[name]
     ]
 
 
@@ -42,9 +42,10 @@ class Reporter(threading.Thread):
 
     def dump_report(self, dump):
         # name : (idx, sid, model)
-        id_to_generator = {g[1] : n for n, g self.fave.net_plumber.generators.items()}
+        id_to_generator = {g[1] : n for n, g in self.fave.net_plumber.generators.items()}
+
         # name : (idx, pid, model)
-        id_to_probe = {g[1] : n for n, g self.fave.net_plumber.probes.items()}
+        id_to_probe = {g[1] : n for n, g in self.fave.net_plumber.probes.items()}
 
         report = [
             "# Report",
