@@ -79,7 +79,7 @@ class Reporter(threading.Thread):
                 ','.join(
                     map(
                         lambda fv: '='.join(fv),
-                        _parse_cond(cond, fave.mapping)
+                        _parse_cond(cond, self.fave.net_plumber.mapping)
                     )
                 ) if cond else ""
             ))
