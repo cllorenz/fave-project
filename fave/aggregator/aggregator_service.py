@@ -58,6 +58,8 @@ from devices.generator import GeneratorModel
 from devices.probe import ProbeModel
 from topology.topology import LinksModel, TopologyCommand
 
+from reporting.reporter import Reporter
+
 
 def model_from_json(j):
     """ Reconstructs a model from a JSON object.
@@ -108,6 +110,9 @@ class AggregatorService(AbstractAggregator):
             asyncore_socks=asyncore_socks,
             mapping=mapping
         )
+        # XXX: make log file configurable
+        self.reporter = Reporter(self, '/dev/shm/np/stdout.log')
+        self.reporter.daemon = True
 
 
     def print_aggregator(self):
@@ -220,6 +225,8 @@ class AggregatorService(AbstractAggregator):
         """ Operates FaVe's aggregation service.
         """
 
+        self.reporter.start()
+
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
             lmsg = "master: open and bind %s socket" % (
                 'unix' if port == 0 else 'tcp/ip'
@@ -295,6 +302,10 @@ class AggregatorService(AbstractAggregator):
 
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
             AggregatorService.LOGGER.info("master: finished run")
+
+        if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
+            AggregatorService.LOGGER.info("master: stop reporter")
+        self.reporter.stop()
 
 
     def stop_aggr(self):
