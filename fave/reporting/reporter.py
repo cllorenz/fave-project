@@ -94,7 +94,7 @@ class Reporter(threading.Thread):
                 inv_rids[np_rid] = fave_rid
 
         shadowed_rids = {}
-        for _, np_rid in anomaly_events:
+        for np_rid in anomaly_events:
             fave_rid = inv_rids[np_rid]
             shadowed_rids.setdefault(fave_rid, [])
             shadowed_rids[fave_rid].append(np_rid)
