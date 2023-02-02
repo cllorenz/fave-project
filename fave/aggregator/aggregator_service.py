@@ -61,39 +61,6 @@ from topology.topology import LinksModel, TopologyCommand
 from reporting.reporter import Reporter
 
 
-def model_from_json(j):
-    """ Reconstructs a model from a JSON object.
-
-    Keyword arguments:
-    j -- a JSON object
-    """
-
-    AbstractAggregator.LOGGER.debug('reconstruct model')
-    try:
-        models = {
-            "packet_filter" : PacketFilterModel,
-            "snapshot_packet_filter" : SnapshotPacketFilterModel,
-            "switch" : SwitchModel,
-            "switch_command" : SwitchCommand,
-            "state_command" : StateCommand,
-            "topology_command" : TopologyCommand,
-            "slicing_command" : SlicingCommand,
-            "links" : LinksModel,
-            "generator" : GeneratorModel,
-            "probe" : ProbeModel
-        }
-        model = models[j["type"]]
-
-    except KeyError:
-        AbstractAggregator.LOGGER.error(
-            "model type not implemented: %s", j["type"]
-        )
-        raise Exception("model type not implemented: %s" % j["type"])
-
-    else:
-        return model.from_json(j)
-
-
 class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
@@ -113,6 +80,18 @@ class AggregatorService(AbstractAggregator):
         # XXX: make log file configurable
         self.reporter = Reporter(self, '/dev/shm/np/stdout.log')
         self.reporter.daemon = True
+        self.model_types = {
+            "packet_filter" : PacketFilterModel,
+            "snapshot_packet_filter" : SnapshotPacketFilterModel,
+            "switch" : SwitchModel,
+            "switch_command" : SwitchCommand,
+            "state_command" : StateCommand,
+            "topology_command" : TopologyCommand,
+            "slicing_command" : SlicingCommand,
+            "links" : LinksModel,
+            "generator" : GeneratorModel,
+            "probe" : ProbeModel
+        }
 
 
     def print_aggregator(self):
@@ -135,6 +114,27 @@ class AggregatorService(AbstractAggregator):
             "\t%s" % self.net_plumber.probes,
             sep="\n"
         )
+
+
+    def _model_from_json(self, j):
+        """ Reconstructs a model from a JSON object.
+
+        Keyword arguments:
+        j -- a JSON object
+        """
+
+        AbstractAggregator.LOGGER.debug('reconstruct model')
+        try:
+            model = self.model_types[j["type"]]
+
+        except KeyError:
+            AbstractAggregator.LOGGER.error(
+                "model type not implemented: %s", j["type"]
+            )
+            raise Exception("model type not implemented: %s" % j["type"])
+
+        else:
+            return model.from_json(j)
 
 
     def _handler(self):
@@ -204,7 +204,7 @@ class AggregatorService(AbstractAggregator):
                 )
 
             else:
-                model = model_from_json(j)
+                model = self._model_from_json(j)
                 if model.type == 'topology_command':
                     task_type = model.model.type
                 else:
