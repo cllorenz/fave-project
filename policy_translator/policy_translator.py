@@ -26,10 +26,10 @@ import logging
 import csv
 import json
 
-from policy import Policy
-from policy_builder import PolicyBuilder
-from policy_exceptions import PolicyException
-from policy_logger import PT_LOGGER
+from .policy import Policy
+from .policy_builder import PolicyBuilder
+from .policy_exceptions import PolicyException
+from .policy_logger import PT_LOGGER
 
 
 def main(argv):
@@ -109,8 +109,8 @@ def main(argv):
                 PT_LOGGER.debug("create and write iptables output")
                 iptables_file.write(policy.to_iptables())
 
-    except PolicyException, exception:
-        print("Fehler: %s" % exception)
+    except PolicyException as exception:
+        print(("Fehler: %s" % exception))
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -26,13 +26,13 @@ from graphviz import Digraph
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print "no file to visualize. quit."
+        print("no file to visualize. quit.")
         sys.exit(1)
     elif not os.path.isfile(sys.argv[1]):
-        print "not a file: %s. quit." % sys.argv[1]
+        print("not a file: %s. quit." % sys.argv[1])
         sys.exit(2)
     elif not os.path.isfile(sys.argv[2]):
-        print "not a file: %s. quit." % sys.argv[2]
+        print("not a file: %s. quit." % sys.argv[2])
         sys.exit(2)
 
     roles_and_services = sys.argv[1]

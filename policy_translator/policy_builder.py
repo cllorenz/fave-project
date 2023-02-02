@@ -21,8 +21,8 @@
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
-from policy_exceptions import InvalidSyntaxException
-from policy_logger import PT_LOGGER
+from .policy_exceptions import InvalidSyntaxException
+from .policy_logger import PT_LOGGER
 
 class PolicyBuilder(object):
     """Offers class methods to build a policy object from a policy and/or role

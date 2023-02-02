@@ -24,8 +24,8 @@
 import ast
 import copy
 import json
-from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
-from policy_exceptions import ServiceUnknownException, RoleUnknownException
+from .policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
+from .policy_exceptions import ServiceUnknownException, RoleUnknownException
 
 class Policy(object):
     """Represents a security policy for a computer network. Contains roles,
@@ -55,7 +55,7 @@ class Policy(object):
         self.policies = {}
         self.default_policy = False
         for role, attributes in [
-                (r, a) for r, a in  self.default_roles.iteritems() if (
+                (r, a) for r, a in  self.default_roles.items() if (
                     use_internet or r != 'Internet'
                 )
         ]:
@@ -130,7 +130,7 @@ class Policy(object):
             A boolean.
         """
 
-        return name in self.roles.keys()
+        return name in list(self.roles.keys())
 
     def service_exists(self, name):
         """Returns whether a service with the given name exists or not.
@@ -142,7 +142,7 @@ class Policy(object):
             A boolean.
         """
 
-        return name in self.services.keys()
+        return name in list(self.services.keys())
 
     def policy_exists(self, role_from, role_to):
         """Returns whether a reachability policy concerning the two given roles
@@ -156,7 +156,7 @@ class Policy(object):
             A boolean.
         """
 
-        return (role_from, role_to) in self.policies.keys()
+        return (role_from, role_to) in list(self.policies.keys())
 
 
     def conditional_policy_exists(self, role_from, role_to):
@@ -283,7 +283,7 @@ class Policy(object):
             A string that is an HTML file containing a reachability table.
         """
 
-        roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
+        roles = {name: role for name, role in self.roles.items() if type(role) == Role}
 
         html_list = [
             "<!DOCTYPE html>\n",
@@ -312,7 +312,7 @@ class Policy(object):
                 "\t\t\t\t\t\t" + role + "\n"
                 "\t\t\t\t\t\t<span class='tooltiptext_unrotated'>"
             ))
-            for key, value in self.roles[role].attributes.iteritems():
+            for key, value in self.roles[role].attributes.items():
                 html_list.append("%s = %s<br/>" % (key, value))
             html_list.append((
                 "</span>\n"
@@ -347,7 +347,7 @@ class Policy(object):
                     for cond_counter, cond in enumerate(self.policies[(role_from, role_to)].conditions):
                         if not cond_counter == 0:
                             html_list.append("ODER<br/>")
-                        for key, value in cond.iteritems():
+                        for key, value in cond.items():
                             html_list.append("%s = %s<br/>" % (key, value))
                     if self.default_policy:
                         html_list.append(")")
@@ -397,10 +397,10 @@ class Policy(object):
             A string that is a CSV file containing a reachability table.
         """
 
-        roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
+        roles = {name: role for name, role in self.roles.items() if type(role) == Role}
         vlans, csv_list = set(), []
 
-        for _name, role in roles.iteritems():
+        for _name, role in roles.items():
             if "vlan" in role.attributes:
                 vlans.add(role.attributes["vlan"])
 
@@ -436,7 +436,7 @@ class Policy(object):
             A string that is a CSV file containing a reachability table.
         """
 
-        roles = {name: role for name, role in self.roles.iteritems() if type(role) == Role}
+        roles = {name: role for name, role in self.roles.items() if type(role) == Role}
         csv_list = ['']
         csv_list.extend([',' + r for r in sorted(roles)])
         csv_list.append('\n')
@@ -449,7 +449,7 @@ class Policy(object):
                         csv_list.append(',(X)')
                     else:
                         csv_list.append(',(%s)' % '|'.join([';'.join(
-                            ['%s:%s' % (f, v) for f, v in cond.iteritems()]
+                            ['%s:%s' % (f, v) for f, v in cond.items()]
                         ) for cond in self.policies[
                             (role_from, role_to)
                         ].conditions]))
@@ -471,7 +471,7 @@ class Policy(object):
         """
 
         mapping = {
-            name : role.attributes for name, role in self.roles.iteritems() if type(role) == Role
+            name : role.attributes for name, role in self.roles.items() if type(role) == Role
         }
         return json.dumps(mapping, indent=2) + '\n'
 
@@ -857,7 +857,7 @@ class Superrole(Role):
     def add_attribute(self, key, value):
         """Sets an attribute value for all subroles. See base class."""
 
-        for subrole in self.subroles.values():
+        for subrole in list(self.subroles.values()):
             subrole.add_attribute(key, value)
 
     def add_subrole(self, name, service=None):
@@ -889,7 +889,7 @@ class Superrole(Role):
                         self.add_subrole(subrole, service=service)
             else:
                 self.subroles[name] = new_subrole
-                if name not in self.subservices.keys():
+                if name not in list(self.subservices.keys()):
                     self.subservices[name] = {}
                 if service is not None:
                     self.add_subservice(name, service)
@@ -924,9 +924,9 @@ class Superrole(Role):
             service: A string.
         """
 
-        for subrole in self.subroles.values():
+        for subrole in list(self.subroles.values()):
             subrole.add_service(service)
-        for subrole in self.subroles.keys():
+        for subrole in list(self.subroles.keys()):
             self.add_subservice(subrole, service)
 
     def get_roles(self):
@@ -937,7 +937,7 @@ class Superrole(Role):
             A list containing the role names of all subroles.
         """
 
-        return self.subroles.keys()
+        return list(self.subroles.keys())
 
     def get_services(self):
         """Returns a dictionary of all roles that are represented by this role
@@ -1103,10 +1103,10 @@ class ReachabilityPolicy(object):
         for new_condition in new_conditions:
             append = True
             for condition in self.conditions:
-                if condition.viewitems() <= new_condition.viewitems():
+                if condition.items() <= new_condition.items():
                     append = False
                     break
-                elif new_condition.viewitems() < condition.viewitems():
+                elif new_condition.items() < condition.items():
                     self.conditions.remove(condition)
                     break
             if append:
@@ -1158,10 +1158,10 @@ class IgnorePolicy(object):
         for new_condition in new_conditions:
             append = True
             for condition in self.conditions:
-                if condition.viewitems() <= new_condition.viewitems():
+                if condition.items() <= new_condition.items():
                     append = False
                     break
-                elif new_condition.viewitems() < condition.viewitems():
+                elif new_condition.items() < condition.items():
                     self.conditions.remove(condition)
                     break
             if append:
