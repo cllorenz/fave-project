@@ -22,8 +22,8 @@
 export PYTHONPATH=.
 while read line; do
     if [[ $line =~ ^\@.* ]]; then
-        python2 misc/rule_print.py np_dump/fave.json <(echo "$line")
+        python3 misc/rule_print.py np_dump/fave.json <(echo "$line")
     else
-        python2 misc/hs_print.py np_dump/fave.json <(echo "$line")
+        python3 misc/hs_print.py np_dump/fave.json <(echo "$line")
     fi
 done <$1

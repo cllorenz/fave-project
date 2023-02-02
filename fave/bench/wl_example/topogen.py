@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import json
 TOPOLOGY="bench/wl_example/topology.json"

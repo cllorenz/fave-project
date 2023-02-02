@@ -26,7 +26,7 @@ THREADS=$2
 DUMP=$3
 
 for i in $(seq 0 $((THREADS-1))); do
-     python2 test/check_flows.py -b -r -t "$i:$THREADS" -f "$CHECKS" -d $DUMP &
+     python3 test/check_flows.py -b -r -t "$i:$THREADS" -f "$CHECKS" -d $DUMP &
      pids[${i}]=$!
 done
 

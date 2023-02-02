@@ -59,4 +59,4 @@ elif [ -n "$UNIX" ]; then
     SOCK_PARAMS="-u"
 fi
 
-python2 aggregator/stop.py $SOCK_PARAMS
+python3 aggregator/stop.py $SOCK_PARAMS

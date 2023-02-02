@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -30,7 +30,7 @@ from netplumber.vector import HeaderSpace
 def print_help():
     """ Prints the usage message.
     """
-    print("usage: python2 table_print <fave.json> <table.json>")
+    print("usage: python3 table_print <fave.json> <table.json>")
 
 
 if __name__ == '__main__':

@@ -67,7 +67,7 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
-python2 aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
+python3 aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid

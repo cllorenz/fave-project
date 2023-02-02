@@ -59,7 +59,7 @@ for threads in 24 16 8 4 2 1; do
     SERR=$RAW_DIR/stderr.log
     echo -n "run benchmark $i: $BENCH with $threads threads... "
     OPTS="$threads"
-    python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
+    python3 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
     echo "done"
   
     sleep 1

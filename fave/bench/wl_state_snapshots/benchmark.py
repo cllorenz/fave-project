@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """ This module benchmarks FaVe using an generic workload.
 """
@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
     t_start = time.time()
-    os.system("python2 misc/await_fave.py")
+    os.system("python3 misc/await_fave.py")
     t_end = time.time()
 
     os.system("rm -f np_dump/.lock")

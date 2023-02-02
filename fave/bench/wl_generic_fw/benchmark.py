@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -44,13 +44,13 @@ class GenericFirewallBenchmark(GenericBenchmark):
 
     def _post_preparation(self):
         os.system(
-            "python2 bench/wl_generic_fw/topogen.py %s %s" % (
+            "python3 bench/wl_generic_fw/topogen.py %s %s" % (
                 self.ip, self.files['genfw_ruleset']
             )
         )
 
         os.system(
-            "python2 bench/wl_generic_fw/reach_csv_to_checks.py " + ' '.join([
+            "python3 bench/wl_generic_fw/reach_csv_to_checks.py " + ' '.join([
                 '-p', self.files['reach_csv'],
                 '-c', self.files['checks'],
                 '-j', self.files['reach_json']

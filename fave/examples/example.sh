@@ -116,23 +116,23 @@ CNT=0
 # test topology
 echo -n "read topology... "
 # $SWITCH
-python2 $ROOTDIR/topology/topology.py -a -t switch -n $SWITCH -p 2
+python3 $ROOTDIR/topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python2 $ROOTDIR/topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
+python3 $ROOTDIR/topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
-python2 $ROOTDIR/topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
+python3 $ROOTDIR/topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 echo -n "add generators... "
 # generators $HOST1 $HOST2 $FWSOURCE
-python2 $ROOTDIR/topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
+python3 $ROOTDIR/topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python2 $ROOTDIR/topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
+python3 $ROOTDIR/topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -140,45 +140,45 @@ CNT=0
 
 echo -n "add probes... "
 # PROBE1 $PROBE1
-python2 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
+python3 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # PROBE2 $PROBE2
-python2 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
+python3 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # FIREWALL $FWPROBE
-python2 $ROOTDIR/topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
+python3 $ROOTDIR/topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
-python2 $ROOTDIR/topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
+python3 $ROOTDIR/topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
-python2 $ROOTDIR/topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
+python3 $ROOTDIR/topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
 CNT=$(( $? + CNT ))
 # link: $FW INPUT --> PROBE2
-python2 $ROOTDIR/topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
+python3 $ROOTDIR/topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
 CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test rule setting
 echo -n "add switch rules... "
-python2 $ROOTDIR/devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
+python3 $ROOTDIR/devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
-python2 $ROOTDIR/devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
+python3 $ROOTDIR/devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
-python2 $ROOTDIR/devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
-CNT=$(( $? + CNT ))
-
-python2 $ROOTDIR/devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+python3 $ROOTDIR/devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python2 $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
+python3 $ROOTDIR/devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+CNT=$(( $? + CNT ))
+
+python3 $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
-python2 $ROOTDIR/netplumber/dump_np.py -anpft
+python3 $ROOTDIR/netplumber/dump_np.py -anpft
 
-python2 $ROOTDIR/netplumber/check_compliance.py -f examples/example.json
+python3 $ROOTDIR/netplumber/check_compliance.py -f examples/example.json
 
 # test flow propagation
 echo -n "check flow propagation... "
@@ -200,7 +200,7 @@ F11='s='$HOST2' && EF p='$FWPROBE
 F12='s='$FWSOURCE' && EF p='$PROBE1' && f=related:1'
 F13='s='$FWSOURCE' && EF p='$PROBE2' && f=related:1'
 
-python2 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
+python3 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
 [ $? -eq 0 ] && echo "all example flow tests ok" || echo "some example flow tests failed"
 
 # test openflow
@@ -210,9 +210,9 @@ python2 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;
 #echo "ok"
 
 #echo "start openflow proxy..."
-#PYTHONPATH=. python2 openflow/ofproxy.py
+#PYTHONPATH=. python3 openflow/ofproxy.py
 
-python2 $ROOTDIR/aggregator/report.py
+python3 $ROOTDIR/aggregator/report.py
 
 pandoc report.md -o report.pdf
 

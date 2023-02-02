@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -33,7 +33,7 @@ class IFIBenchmark(GenericBenchmark):
     """
 
     def _pre_preparation(self):
-        os.system("python2 bench/wl_ifi/cisco_to_inventory.py")
+        os.system("python3 bench/wl_ifi/cisco_to_inventory.py")
 
 
 

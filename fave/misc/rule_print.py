@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -28,7 +28,7 @@ import json
 def print_help():
     """ Prints usage message.
     """
-    print("usage: python2 hs_print <fave.json> <hs.txt>")
+    print("usage: python3 hs_print <fave.json> <hs.txt>")
 
 
 if __name__ == '__main__':

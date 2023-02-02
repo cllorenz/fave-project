@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import sys
 import re
@@ -27,7 +27,7 @@ def _convert_ipv4_to_ipv6(address):
 
 
 def _print_help():
-    print("usage: python2 %s <in-file> <out-file>" % sys.argv[0])
+    print("usage: python3 %s <in-file> <out-file>" % sys.argv[0])
 
 
 if __name__ == '__main__':

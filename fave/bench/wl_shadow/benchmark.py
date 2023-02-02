@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -47,7 +47,7 @@ class ShadowingBenchmark(GenericBenchmark):
         fave.close()
 
     def _post_preparation(self):
-        os.system("python2 bench/wl_shadow/topogen.py %s %s" % (
+        os.system("python3 bench/wl_shadow/topogen.py %s %s" % (
             self.ip, self.files['shadow_ruleset']
         ))
 
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         anomalies=anomalies
     ).run()
 
-#    os.system("python2 bench/wl_generic_fw/benchmark.py -6 -n -r %s -i %s -p %s -m %s %s %s" % (
+#    os.system("python3 bench/wl_generic_fw/benchmark.py -6 -n -r %s -i %s -p %s -m %s %s %s" % (
 #        args.ruleset,
 #        args.inventory,
 #        args.policy,

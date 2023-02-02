@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """ This module generates FaVe checks from the PolicyTranslator's CSV.
 """

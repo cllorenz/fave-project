@@ -56,7 +56,7 @@ for i in $(seq 1 $RUNS); do
   SOUT=$RAW_DIR/stdout.log
   SERR=$RAW_DIR/stderr.log
   echo -n "run benchmark $i: $BENCH... "
-  python2 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
+  python3 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
   echo "done"
 
   sleep 1

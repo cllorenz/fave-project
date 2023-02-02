@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """ This module benchmarks FaVe by filling a switch table and then enforce a header space expansion.
 """
@@ -144,7 +144,7 @@ def main(argv):
     dumper.main(["-u"] if use_unix else [])
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
-    os.system("python2 misc/await_fave.py")
+    os.system("python3 misc/await_fave.py")
 
     os.system("rm -f np_dump/.lock")
     if verbose: print("Benchmark finished")

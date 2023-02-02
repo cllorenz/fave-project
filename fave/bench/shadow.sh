@@ -36,7 +36,7 @@ for fw in $FWS; do
         mkdir -p $RES_RUN
 	for r in $(seq 1 $RUNS); do
 #            echo $RES_RUN/$r/$fw"_"$c".fw"
-            python2 bench/wl_shadow/benchmark.py -u -r bench/wl_shadow/rulesets/$fw"_"$c".fw"
+            python3 bench/wl_shadow/benchmark.py -u -r bench/wl_shadow/rulesets/$fw"_"$c".fw"
             cp /dev/shm/np/aggregator.log $RES_RUN/$r"_fave.log"
             cp /dev/shm/np/rpc.log $RES_RUN/$r"_np.log"
         done

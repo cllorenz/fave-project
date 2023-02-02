@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
 
@@ -126,7 +126,7 @@ class GenericBenchmark(object):
     def _generate_policy_matrix(self):
         self.logger.info("generate policy matrix...")
         os.system(
-            "python2 ../policy_translator/policy_translator.py " + ' '.join(
+            "python3 ../policy_translator/policy_translator.py " + ' '.join(
                 (["--strict"] if self.strict else []) +
                 (["--no-internet"] if not self.use_internet else []) +
                 (
@@ -146,7 +146,7 @@ class GenericBenchmark(object):
     def _convert_policy_to_checks(self):
         self.logger.info("convert policy matrix to checks...")
         os.system(
-            "python2 bench/reach_csv_to_checks.py " + ' '.join(
+            "python3 bench/reach_csv_to_checks.py " + ' '.join(
                 (['-s', self.suffix] if self.suffix else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
@@ -165,15 +165,15 @@ class GenericBenchmark(object):
         self._generate_policy_matrix()
 
         self.logger.info("generate inventory...")
-        os.system("python2 %s/inventorygen.py" % self.prefix)
+        os.system("python3 %s/inventorygen.py" % self.prefix)
         self.logger.info("generated inventory.")
 
         self._convert_policy_to_checks()
 
         self.logger.info("generate topology, routes, and probes...")
-        os.system("python2 %s/topogen.py" % self.prefix)
-        os.system("python2 %s/routegen.py" % self.prefix)
-        os.system("python2 %s/policygen.py" % self.prefix)
+        os.system("python3 %s/topogen.py" % self.prefix)
+        os.system("python3 %s/routegen.py" % self.prefix)
+        os.system("python3 %s/policygen.py" % self.prefix)
         self.logger.info("generated topology, routes, and probes.")
 
 
@@ -259,7 +259,7 @@ class GenericBenchmark(object):
 
     def _wait_for_fave(self):
         self.logger.info("wait for fave")
-        os.system("python2 misc/await_fave.py")
+        os.system("python3 misc/await_fave.py")
 
 
     def _compliance(self):

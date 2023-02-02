@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 UP = {
     'pgf' : [("pgf.uni-potsdam.de", "2001:db8:abc::1", ["tcp:22", "udp:22"])],

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """ This module benchmarks FaVe using an example workload.
 """
@@ -27,13 +27,13 @@ class TUMBenchmark(GenericBenchmark):
 
     def _post_preparation(self):
         os.system(
-            "python2 bench/wl_tum/topogen.py %s %s" % (self.ip, self.files['tum_ruleset'])
+            "python3 bench/wl_tum/topogen.py %s %s" % (self.ip, self.files['tum_ruleset'])
         )
 
 
     def _compliance(self):
         self.logger.info("wait for fave")
-        os.system("python2 misc/await_fave.py")
+        os.system("python3 misc/await_fave.py")
         self.logger.info("fave stopped successfully")
 
 
