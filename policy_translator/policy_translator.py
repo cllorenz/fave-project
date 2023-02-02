@@ -26,10 +26,10 @@ import logging
 import csv
 import json
 
-from .policy import Policy
-from .policy_builder import PolicyBuilder
-from .policy_exceptions import PolicyException
-from .policy_logger import PT_LOGGER
+from policy import Policy
+from policy_builder import PolicyBuilder
+from policy_exceptions import PolicyException
+from policy_logger import PT_LOGGER
 
 
 def main(argv):

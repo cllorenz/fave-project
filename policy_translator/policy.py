@@ -24,8 +24,8 @@
 import ast
 import copy
 import json
-from .policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
-from .policy_exceptions import ServiceUnknownException, RoleUnknownException
+from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
+from policy_exceptions import ServiceUnknownException, RoleUnknownException
 
 class Policy(object):
     """Represents a security policy for a computer network. Contains roles,
