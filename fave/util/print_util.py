@@ -25,7 +25,7 @@
 
 import sys
 
-def eprint(*args, **kwargs):
+def eprint(args, kwargs):
     """ Prints parametrizably to stderr as in Python3
 
     Keyword arguments:
