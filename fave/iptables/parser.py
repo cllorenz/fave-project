@@ -70,7 +70,7 @@ class IP6TablesParser(BisonParser):
         elif option == 2:
             return self._ast
         else:
-            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
 
 
     def on_comment(self, *_args, **_kwargs):
@@ -152,7 +152,7 @@ class IP6TablesParser(BisonParser):
             return line
 
         else:
-            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
 
     def on_ipt(self, *_args, **kwargs):
         """
@@ -180,7 +180,7 @@ class IP6TablesParser(BisonParser):
             ret.add_child(val)
             return ret
         else:
-            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
 
 
     def on_body(self, *_args, **kwargs):
@@ -200,7 +200,7 @@ class IP6TablesParser(BisonParser):
             body.append(values[2])
             return body
         else:
-            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
 
 
     def on_neg_argument(self, *_args, **kwargs):
@@ -220,7 +220,7 @@ class IP6TablesParser(BisonParser):
         elif option == 1:
             return values[0]
         else:
-            raise "unexpected option for %s: %s with %s and %s", (target, option, names, values)
+            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
 
 
     def on_argument(self, *_args, **kwargs):
