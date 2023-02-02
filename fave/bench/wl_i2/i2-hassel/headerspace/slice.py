@@ -40,7 +40,7 @@ class Slice(object):
         port_list = list(ports)
         self.reservations.append((port_list,hs_copy))
         for port in ports:
-            if "%s"%port not in self.port_to_reservation.keys():
+            if "%s"%port not in list(self.port_to_reservation.keys()):
                 self.port_to_reservation["%s"%port] = []
             self.port_to_reservation["%s"%port].append(hs)
     

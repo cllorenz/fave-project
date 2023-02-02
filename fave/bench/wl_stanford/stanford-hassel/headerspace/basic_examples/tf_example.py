@@ -18,21 +18,21 @@ tf.add_rewrite_rule(TF.create_standard_rule([1,2], "1001xxxx", [5], "00001111", 
 tf.add_fwd_rule(TF.create_standard_rule([1,2], "000011xx", [5], None, None,"",[]))
 tf.add_fwd_rule(TF.create_standard_rule([2,4], "10xxxxxx", [5], None , None,"",[]))
 
-print tf
+print(tf)
  
 # Apply a headerspace object to TF we expect this to match on rule 1,2,4
 hs = headerspace(1)
 hs.add_hs(wildcard_create_from_string("100xxxxx"))
 result = tf.T(hs,2)
-print "Result is:\n---------"
+print("Result is:\n---------")
 for (h,p) in result:
-        print "at port %s:\n%s"%(p,h)
-        print "#"
+        print("at port %s:\n%s"%(p,h))
+        print("#")
         
 # Computing Inverse Transfer function
-print "\n--------\nINVERSE\n--------\n"
+print("\n--------\nINVERSE\n--------\n")
 result = tf.T_inv(hs, 5)
-print "Result is:\n---------"
+print("Result is:\n---------")
 for (h,p) in result:
-    print "at port %s:\n%s"%(p,h)
-    print "#"
+    print("at port %s:\n%s"%(p,h))
+    print("#")

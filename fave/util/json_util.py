@@ -28,7 +28,7 @@ def _ordered(obj):
     res = obj
 
     if isinstance(obj, dict):
-        res = sorted({k:_ordered(v) for k, v in obj.items()})
+        res = sorted({k:_ordered(v) for k, v in list(obj.items())})
     elif isinstance(obj, list):
         res = [_ordered(x) for x in obj]
 

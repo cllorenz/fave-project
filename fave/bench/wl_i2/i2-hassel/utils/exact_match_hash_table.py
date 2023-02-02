@@ -27,9 +27,9 @@ class exact_match_hash_table(hs_hash_table):
         if 'x' in match_key_string:
             match_key_string = "default"
         for port in ports:
-            if str(port) not in self.inport_to_table.keys():
+            if str(port) not in list(self.inport_to_table.keys()):
                 self.inport_to_table[str(port)] = {}
-            if match_key_string not in self.inport_to_table[str(port)].keys():
+            if match_key_string not in list(self.inport_to_table[str(port)].keys()):
                 self.inport_to_table[str(port)][match_key_string] = []
             self.inport_to_table[str(port)][match_key_string].append(obj)
         
@@ -55,7 +55,7 @@ class exact_match_hash_table(hs_hash_table):
                     + self.inport_to_table["%d"%port]["default"]
             else:
                 #partial match
-                for key in self.exact_match_hash["%d"%port].keys():
+                for key in list(self.exact_match_hash["%d"%port].keys()):
                     if key.startswith(match_key_string):
                         rule_set += self.inport_to_table["%d"%port][key]
                 rule_set += self.inport_to_table["%d"%port]["default"]

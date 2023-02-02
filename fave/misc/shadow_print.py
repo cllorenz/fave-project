@@ -44,12 +44,12 @@ def _main(argv):
 
     original_rules = json.load(open('mappings.json'))['forward_filter_mappings']
     original_rules = {
-        'original' : {int(k):v for k, v in original_rules['original'].iteritems()},
-        'expanded' : {int(k):v for k, v in original_rules['expanded'].iteritems()}
+        'original' : {int(k):v for k, v in original_rules['original'].items()},
+        'expanded' : {int(k):v for k, v in original_rules['expanded'].items()}
     }
 
     shadowed_rules = {}
-    for shadowed_id, shadowing_id in shadowed_ids.iteritems():
+    for shadowed_id, shadowing_id in shadowed_ids.items():
         original_shadowed_rule = original_rules['original'][shadowed_id]
         expanded_shadowed_rules = original_rules['expanded'][original_rules['original'][shadowed_id]]
         original_shadowing_rule = original_rules['original'][shadowing_id]
@@ -74,9 +74,9 @@ def _main(argv):
 #            print " -> partly shadowed"
 
 
-    print "  Shadowed Rules (%d):" % len(shadowed_rules)
+    print("  Shadowed Rules (%d):" % len(shadowed_rules))
     for shadowed_rule, shadowing_rule in sorted(shadowed_rules.items()):
-        print "    %d: %s" % (shadowed_rule, rules['forward'][shadowed_rule])
+        print("    %d: %s" % (shadowed_rule, rules['forward'][shadowed_rule]))
 #        print "      by %d: %s" % (shadowing_rule, rules['forward'][shadowing_rule])
 
 #    print rule_counts

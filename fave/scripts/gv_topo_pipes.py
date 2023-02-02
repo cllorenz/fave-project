@@ -169,10 +169,7 @@ class TopologyRenderer(object):
 
         row_influences = build_row(
             'influences', _break_list_table(
-                map(
-                    lambda inf: self._readable_vector(inf, printable=True),
-                    rule['influences'].split(' + ')
-                )
+                [self._readable_vector(inf, printable=True) for inf in rule['influences'].split(' + ')]
             )
         ) if 'influences' in rule and self.use_verbose else ''
 
@@ -287,10 +284,7 @@ class TopologyRenderer(object):
                     nodes.add(tid)
 
                 label = "<%s>" % _break_list_table(
-                    map(
-                        lambda fil: self._readable_vector(fil, printable=True),
-                        target['filter'].split(' + ')
-                    )
+                    [self._readable_vector(fil, printable=True) for fil in target['filter'].split(' + ')]
                 ) if self.use_verbose else ''
 
                 self.pgraph.edge(
@@ -478,7 +472,7 @@ class TopologyRenderer(object):
         res = []
         vec = ''.join(vector.split(','))
 
-        for field, offset in self.fave_mapping.iteritems():
+        for field, offset in self.fave_mapping.items():
             binary = get_field_from_vector(self.fave_mapping, vec, field)
             readable = bitvector_to_field_value(binary, field, **kwargs)
             if readable:

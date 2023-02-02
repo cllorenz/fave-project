@@ -30,7 +30,7 @@ from netplumber.vector import HeaderSpace
 def print_help():
     """ Prints the usage message.
     """
-    print "usage: python2 table_print <fave.json> <table.json>"
+    print("usage: python2 table_print <fave.json> <table.json>")
 
 
 if __name__ == '__main__':
@@ -45,15 +45,15 @@ if __name__ == '__main__':
 
     TABLE = json.load(open(ARGV[1], 'r'))
 
-    print "table:", FAVE['id_to_table'][str(TABLE['id'])]
-    print "ports:", [FAVE['id_to_port'][str(p)] for p in TABLE['ports']]
+    print("table:", FAVE['id_to_table'][str(TABLE['id'])])
+    print("ports:", [FAVE['id_to_port'][str(p)] for p in TABLE['ports']])
 
     for rule in TABLE['rules']:
-        print '\t', 'id:', hex(rule['id'])
-        print '\t', 'position:', rule['position']
-        print '\t', 'in_ports:', [FAVE['id_to_port'][str(p)] for p in rule['in_ports']]
-        print '\t', 'out_ports:', [FAVE['id_to_port'][str(p)] for p in rule['out_ports']]
+        print('\t', 'id:', hex(rule['id']))
+        print('\t', 'position:', rule['position'])
+        print('\t', 'in_ports:', [FAVE['id_to_port'][str(p)] for p in rule['in_ports']])
+        print('\t', 'out_ports:', [FAVE['id_to_port'][str(p)] for p in rule['out_ports']])
         hs = HeaderSpace.from_str(rule['match'])
-        print '\t', 'match:',
+        print('\t', 'match:', end=' ')
         hs.pprint(MAPPING)
-        print ''
+        print('')

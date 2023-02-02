@@ -77,7 +77,7 @@ class GenericBenchmark(object):
         }
 
         self.files = {
-            k : "%s/%s" % (prefix, v) for k, v in files.iteritems()
+            k : "%s/%s" % (prefix, v) for k, v in files.items()
         }
 
         if extra_files:

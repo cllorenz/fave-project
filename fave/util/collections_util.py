@@ -69,7 +69,7 @@ def dict_union(dct1, dct2):
     """
 
     assert isinstance(dct1, dict) and isinstance(dct2, dict)
-    keys = dct1.keys() + dct2.keys()
+    keys = list(dct1.keys()) + list(dct2.keys())
     return {k:dct1[k] if k in dct1 else dct2[k] for k in keys}
 
 

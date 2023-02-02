@@ -35,7 +35,7 @@ class GeneratorModel(object):
                 RuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
                 ) for f in field_list
-            ] for name, field_list in fields.iteritems()
+            ] for name, field_list in fields.items()
         } if fields is not None else {}
 
         self.node = node
@@ -48,7 +48,7 @@ class GeneratorModel(object):
         """
 
         return {
-            "fields" : {n:[f.to_json() for f in fl] for n, fl in self.fields.iteritems()},
+            "fields" : {n:[f.to_json() for f in fl] for n, fl in self.fields.items()},
             "node" : self.node,
             "type" : self.type
         }
@@ -68,7 +68,7 @@ class GeneratorModel(object):
             j["node"], {
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in j["fields"].iteritems()
+                ] for n, fl in j["fields"].items()
             }
         )
 

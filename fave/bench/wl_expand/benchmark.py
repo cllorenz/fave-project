@@ -85,7 +85,7 @@ def main(argv):
         "-u" if use_unix else ""
     ))
 
-    if verbose: print "Initialize topology..."
+    if verbose: print("Initialize topology...")
     devices = [
         (
             "sw0",
@@ -98,7 +98,7 @@ def main(argv):
     links = []
 
     create_topology(devices, links, use_unix=True, interweave=False)
-    if verbose: print "Topology sent to FaVe"
+    if verbose: print("Topology sent to FaVe")
 
 
     pre_rules1 = [
@@ -137,9 +137,9 @@ def main(argv):
     fave_sendmsg(fave, json.dumps(SwitchCommand('sw0', 'add_rules', post_rules).to_json()))
     fave.close()
 
-    if verbose: print "Rules %d sent to FaVe" % (count + 1)
+    if verbose: print("Rules %d sent to FaVe" % (count + 1))
 
-    if verbose: print "Wait for FaVe..."
+    if verbose: print("Wait for FaVe...")
     import netplumber.dump_np as dumper
     dumper.main(["-u"] if use_unix else [])
 
@@ -147,7 +147,7 @@ def main(argv):
     os.system("python2 misc/await_fave.py")
 
     os.system("rm -f np_dump/.lock")
-    if verbose: print "Benchmark finished"
+    if verbose: print("Benchmark finished")
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -67,11 +67,11 @@ for TF in TFS:
             ing_connected = any([p == base_port or str(p) in inv_links for p in in_ports])
             for p in in_ports:
                 if not str(p) in inv_links:
-                    print p
+                    print(p)
 #            print "connected ingress:", ing_connected
             egr_connected = any([str(p - 20000) in links for p in out_ports])
 #            print "connected egress:", egr_connected
             fully_connected = ing_connected and egr_connected
 
             if fully_connected:
-                print "fully connected rule:", line
+                print("fully connected rule:", line)

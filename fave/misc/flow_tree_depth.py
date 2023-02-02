@@ -34,6 +34,6 @@ def tree_depth(tree):
     if "children" not in tree or not tree["children"]:
         return 1
 
-    return max(map(tree_depth, tree["children"])) + 1
+    return max(list(map(tree_depth, tree["children"]))) + 1
 
-print max(map(tree_depth, TREES))
+print(max(list(map(tree_depth, TREES))))

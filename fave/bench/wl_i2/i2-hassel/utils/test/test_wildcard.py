@@ -10,13 +10,13 @@ class Test(unittest.TestCase):
 
     def testCreateAllSame(self):
         w = wildcard_create_bit_repeat(1,3)
-        self.assert_(w.__str__(0) == "xxxxxxxx", "creating all-x failed")
+        self.assertTrue(w.__str__(0) == "xxxxxxxx", "creating all-x failed")
         w = wildcard_create_bit_repeat(1,2)
-        self.assert_(w.__str__(0) == "11111111", "creating all-1 failed")
+        self.assertTrue(w.__str__(0) == "11111111", "creating all-1 failed")
         w = wildcard_create_bit_repeat(1,1)
-        self.assert_(w.__str__(0) == "00000000", "creating all-0 failed")
+        self.assertTrue(w.__str__(0) == "00000000", "creating all-0 failed")
         w = wildcard_create_bit_repeat(1,0)
-        self.assert_(w.__str__(0) == "empty", "creating all-z failed")
+        self.assertTrue(w.__str__(0) == "empty", "creating all-z failed")
       
     def testCreateFromInt(self):
         w = wildcard_create_from_int(0x7531,2)
@@ -46,22 +46,22 @@ class Test(unittest.TestCase):
         w1 = wildcard_create_from_string("1001xxxx")
         w2 = wildcard_create_from_string("1xxx1111")
         w = wildcard_intersect(w1,w2)
-        self.assert_(w.__str__(0) == "10011111", "Incorrect Intersection")
+        self.assertTrue(w.__str__(0) == "10011111", "Incorrect Intersection")
         
         w1 = wildcard_create_from_string("101xxxx1")
         w2 = wildcard_create_from_string("xxxxx001")
         w = wildcard_intersect(w1,w2)
-        self.assert_(w.__str__(0) == "101xx001", "Incorrect Intersection")
+        self.assertTrue(w.__str__(0) == "101xx001", "Incorrect Intersection")
         
         w3 = wildcard_not(wildcard_create_from_string("01000000"))
         w = wildcard_intersect(w1,w3)
-        self.assert_(w.__str__(0) == "10111111", "Incorrect Intersection with Not")
+        self.assertTrue(w.__str__(0) == "10111111", "Incorrect Intersection with Not")
         
     def testEmptyIntersect(self):
         w1 = wildcard_create_bit_repeat(1,2)
         w0 = wildcard_create_bit_repeat(1,1)
         w = wildcard_intersect(w1,w0)
-        self.assert_(w.__str__(0) == "empty", "Expected empty intersection, found non-empty")
+        self.assertTrue(w.__str__(0) == "empty", "Expected empty intersection, found non-empty")
         
     def testSetByteAndBit(self):
         w = wildcard_create_bit_repeat(5,2)
@@ -78,7 +78,7 @@ class Test(unittest.TestCase):
         rewrite = wildcard_create_from_string("00101000")
         (r,card) = wildcard_rewrite(w,mask,rewrite)
         self.assertEqual(card,1)
-        self.assert_(r.__str__(0) == "10101xxx")
+        self.assertTrue(r.__str__(0) == "10101xxx")
        
     def testCompl(self):
       w = wildcard_create_from_string("1001xxxx")
@@ -94,7 +94,7 @@ class Test(unittest.TestCase):
       w = wildcard_create_bit_repeat(1,0)
       aa = wildcard_complement(w)
       self.assertEqual(len(aa), 1)
-      self.assert_(aa[0].__str__(0) == "xxxxxxxx")
+      self.assertTrue(aa[0].__str__(0) == "xxxxxxxx")
                    
     def testDiff(self):
       w = wildcard_create_from_string("1001xxxx")
@@ -111,7 +111,7 @@ class Test(unittest.TestCase):
       # w- empty
       l = wildcard_diff(w,e)
       self.assertEqual(len(l), 1)
-      self.assert_(wildcard_is_equal(l[0],w))
+      self.assertTrue(wildcard_is_equal(l[0],w))
   
         
 if __name__ == "__main__":

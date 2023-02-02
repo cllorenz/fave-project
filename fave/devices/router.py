@@ -80,8 +80,8 @@ class RouterModel(AbstractDeviceModel):
         }
 
         self.ports = dict(
-            internal_ports.items() + input_ports.items() +
-            output_ports.items() + external_ports.items()
+            list(internal_ports.items()) + list(input_ports.items()) +
+            list(output_ports.items()) + list(external_ports.items())
         )
 
         self.wiring = [
@@ -106,7 +106,7 @@ class RouterModel(AbstractDeviceModel):
                     ]),
                     Forward(ports=["%s.pre_routing_out" % node])
                 ]
-            ) for idx, item in enumerate(self.if_to_vlans.iteritems()) if get_vlans(*item) != []
+            ) for idx, item in enumerate(self.if_to_vlans.items()) if get_vlans(*item) != []
         ] + [ # allow all vlans on other ports
             Rule(
                 node, node+".pre_routing", idx,
@@ -209,7 +209,7 @@ class RouterModel(AbstractDeviceModel):
         for table in [self.node+'.acl_in', self.node+'.acl_out', self.node+'.routing']:
             self.tables.setdefault(table, [])
 
-        for vlan, in_ports in self.vlan_to_ports.iteritems():
+        for vlan, in_ports in self.vlan_to_ports.items():
             if vlan.startswith('nat_'):
                 continue
 
@@ -436,7 +436,7 @@ def _build_cidr(address, netmask=None, proto='6', inverse_netmask=False):
         if netmask and netmask == '0.0.0.0':
             prefix = 0
         elif netmask:
-            elems = map(int, netmask.split('.'))
+            elems = list(map(int, netmask.split('.')))
 
             if inverse_netmask:
                 elems = [255 - elem for elem in elems]
@@ -583,7 +583,7 @@ def parse_cisco_interfaces(interface_file):
 
                 elif tokens[1] == 'trunk':
                     _sp, _tr, _al, _vl, vlans = tokens
-                    vlans = map(int, vlans.split(','))
+                    vlans = list(map(int, vlans.split(',')))
                     if_to_vlans[interface].extend(vlans)
 
             else:
@@ -600,9 +600,9 @@ if __name__ == '__main__':
     )
 
     RPORTS = {str(p):p for p in range(1, 17)}
-    for RVLAN, RVPORTS in RVLAN_TO_PORTS.items():
+    for RVLAN, RVPORTS in list(RVLAN_TO_PORTS.items()):
         if not RVPORTS:
-            RVLAN_TO_PORTS[RVLAN] = RPORTS.values()
+            RVLAN_TO_PORTS[RVLAN] = list(RPORTS.values())
 
     R3 = RouterModel(
         "bar",
@@ -613,7 +613,7 @@ if __name__ == '__main__':
         vlan_to_acls=RVLAN_TO_ACLS
     )
 
-    print R3.to_json()
+    print(R3.to_json())
 
     R4 = RouterModel.from_json(R3.to_json())
 

@@ -105,14 +105,14 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
 
     with open(logfile, 'r') as log_file_:
         log = iter(log_file_.read().splitlines())
-        line = log.next()
+        line = next(log)
 
         for probe_id, state in sequence:
             while True:
                 result = _check_probe_log_line(line, probe_id, state)
 
                 if result == "match":
-                    line = log.next()
+                    line = next(log)
                     break
                 elif result == "mismatch":
                     return False
@@ -122,7 +122,7 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
                     pass
 
                 try:
-                    line = log.next()
+                    line = next(log)
                 except StopIteration:
                     return False
 

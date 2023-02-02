@@ -22,7 +22,7 @@
 """ This module provides printing utilities.
 """
 
-from __future__ import print_function
+
 import sys
 
 def eprint(*args, **kwargs):

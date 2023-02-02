@@ -49,7 +49,7 @@ def _port_no_to_port_name(
     table_id = port / 100000
     port_id = port % 100000
 
-    for interval, ttype in intervals.iteritems():
+    for interval, ttype in intervals.items():
         i1, i2 = interval
         if (i1 <= port_id and port_id < i2):
             return '%s.%d' % (
@@ -133,7 +133,7 @@ def rule_to_route(rule, table_id_to_name, mapping, intervals):
 
     match = rule['match'].replace(',', '')
 
-    for field in mapping.keys():
+    for field in list(mapping.keys()):
         short_field, dontcares, conv_func, _rw_default = _CONVERSION[field]
         match_field = _get_field_from_match(
             match, field, short_field, conv_func, mapping, dontcares=dontcares
@@ -148,7 +148,7 @@ def rule_to_route(rule, table_id_to_name, mapping, intervals):
 
         fields = []
 
-        for field in mapping.keys():
+        for field in list(mapping.keys()):
             short_field, dontcares, conv_func, rw_default = _CONVERSION[field]
             rw_field = _get_rewrite(
                 rewrite,
@@ -323,7 +323,7 @@ def prepare_benchmark(
                 probe_links.add((src_port, dst_port, False))
 
             else:
-                print "cannot add link: %s" % (src_port, dst_port)
+                print("cannot add link: %s" % (src_port, dst_port))
 
     probes['links'] = list(probe_links)
 

@@ -104,7 +104,7 @@ if __name__ == '__main__':
 
             row_iter = iter(row)
 
-            source = row_iter.next()
+            source = next(row_iter)
             sources = [s+args.suffix if s != 'Internet' else s for s in mapping[source]] if mapping else [source+args.suffix if source != 'Internet' else source]
 
             if source != 'Internet':

@@ -191,7 +191,7 @@ class juniperRouter(object):
     def get_protocol_number(proto_name):
         dict = {"ah":51, "eigrp":88, "esp":50, "gre":47, "icmp":1, "igmp":2, "igrp":9,
                 "ip": 0, "ipinip":94, "nos":4, "ospf":89, "tcp":6, "udp":17}
-        if proto_name in dict.keys():
+        if proto_name in list(dict.keys()):
             return dict[proto_name]
         else:
             try:
@@ -206,7 +206,7 @@ class juniperRouter(object):
                 "echo":7, "mobile-ip":434, "nameserver":42, "netbios-dgm":137, "netbios-ns":138,
                 "ntp":123, "rip":520, "snmp":161, "snmptrap":162, "sunrpc":111, "syslog":514,
                 "tacacs-ds":49, "talk":517, "tftp":69, "time":37, "who":513, "xdmcp":177}
-        if port_name in dict.keys():
+        if port_name in list(dict.keys()):
             return dict[port_name]
         else:
             try:
@@ -222,7 +222,7 @@ class juniperRouter(object):
                 "irc":194, "klogin":543, "kshell":544, "lpd":515, "nntp":119, "pop2":109,
                 "pop3":110, "smtp":25, "sunrpc":111, "syslog":514, "tacacs-ds":65, "talk":517,
                 "telnet":23, "time": 37, "uucp":540, "whois":43, "www":80}
-        if port_name in dict.keys():
+        if port_name in list(dict.keys()):
             return dict[port_name]
         else:
             try:
@@ -320,7 +320,7 @@ class juniperRouter(object):
         
         action = tokens.pop(0)
         if action.lower() == "permit" or action.lower() == "deny":
-            if not acl_number in self.acl.keys():
+            if not acl_number in list(self.acl.keys()):
                 self.acl[acl_number] = []
             
             new_entry = self.make_acl_dictionary_entry()
@@ -330,7 +330,7 @@ class juniperRouter(object):
             if acl_number_int < 100:
                 new_entry["ip_protocol"] = 0
                 new_ip = parse_ip(tokens)
-                if (len(new_ip.keys()) > 0):
+                if (len(list(new_ip.keys())) > 0):
                     new_entry["src_ip"] = new_ip["ip"]
                     new_entry["src_ip_mask"] = new_ip["ip_mask"]
                     self.acl[acl_number].append(new_entry)
@@ -350,28 +350,28 @@ class juniperRouter(object):
 
                 # src ip address and ip mask
                 new_ip = parse_ip(tokens)
-                if (len(new_ip.keys()) > 0):
+                if (len(list(new_ip.keys())) > 0):
                     new_entry["src_ip"] = new_ip["ip"]
                     new_entry["src_ip_mask"] = new_ip["ip_mask"]
 
                 # src transport port number
                 if len(tokens) > 0:
                     new_ports = parse_port(tokens, new_entry["ip_protocol"])
-                    if len(new_ports.keys()) > 0:
+                    if len(list(new_ports.keys())) > 0:
                         new_entry["transport_src_begin"] = new_ports["port_begin"]
                         new_entry["transport_src_end"] = new_ports["port_end"]
                     
                 # dst ip address and ip mask    
                 if len(tokens) > 0:
                     new_ip = parse_ip(tokens)
-                    if (len(new_ip.keys()) > 0):
+                    if (len(list(new_ip.keys())) > 0):
                         new_entry["dst_ip"] = new_ip["ip"]
                         new_entry["dst_ip_mask"] = new_ip["ip_mask"]
                         
                 # dst transport port number
                 if len(tokens) > 0:
                     new_ports = parse_port(tokens, new_entry["ip_protocol"])
-                    if len(new_ports.keys()) > 0:
+                    if len(list(new_ports.keys())) > 0:
                         new_entry["transport_dst_begin"] = new_ports["port_begin"]
                         new_entry["transport_dst_end"] = new_ports["port_end"]
                         
@@ -396,7 +396,7 @@ class juniperRouter(object):
         ports that exist on the switch but are not part of any vlan or output of 
         forwarding rules.
         '''
-        print "=== Generating port IDs ==="
+        print("=== Generating port IDs ===")
         s = set(additional_ports)
         for elem in self.config_ports:
             s.add(elem)
@@ -406,20 +406,20 @@ class juniperRouter(object):
             self.port_to_id[p] = id
             suffix += 1
         #print self.port_to_id
-        print "=== DONE generating port IDs ==="
+        print("=== DONE generating port IDs ===")
         
     def get_port_id(self,port_name):
-        if port_name in self.port_to_id.keys():
+        if port_name in list(self.port_to_id.keys()):
             return self.port_to_id[port_name]
         else:
             return None
         
     def optimize_forwarding_table(self):
-        print "=== Compressing forwarding table ==="
-        print " * Originally has %d ip fwd entries * "%len(self.fwd_table)
+        print("=== Compressing forwarding table ===")
+        print(" * Originally has %d ip fwd entries * "%len(self.fwd_table))
 
         n = compress_ip_list(self.fwd_table)
-        print " * After compression has %d ip fwd entries * "%len(n)
+        print(" * After compression has %d ip fwd entries * "%len(n))
         self.fwd_table = n
 
         '''
@@ -429,7 +429,7 @@ class juniperRouter(object):
                 str = str + int_to_dotted_ip(e[0]) + "/%d, "%e[1]
             print str
         '''
-        print "=== DONE forwarding table compression ==="
+        print("=== DONE forwarding table compression ===")
         
     def generate_transfer_function(self, tf): 
         '''
@@ -438,12 +438,12 @@ class juniperRouter(object):
         this method may be called to generate transfer function rules corresponding to this box.
         The rules will be added to transfer function tf passed to the function.
         ''' 
-        print "=== Generating Transfer Function ==="
+        print("=== Generating Transfer Function ===")
         # generate the input part of tranfer function from in_port to fwd_port
         # and output part from intermedite ports to output ports
-        print " * Generating ACL transfer function * " 
-        for acl in self.acl_iface.keys():
-            if acl not in self.acl.keys():
+        print(" * Generating ACL transfer function * ") 
+        for acl in list(self.acl_iface.keys()):
+            if acl not in list(self.acl.keys()):
                 continue
             for acl_instance in self.acl_iface[acl]:
                 file_name = acl_instance[3]
@@ -489,7 +489,7 @@ class juniperRouter(object):
         # default rule for all vlans configured on this switch and un-vlan-tagged ports
         intermediate_port = [self.switch_id * self.SWITCH_ID_MULTIPLIER]
         for cnf_vlan in self.config_vlans:
-            if self.vlan_ports.has_key("vlan%d"%cnf_vlan):
+            if "vlan%d"%cnf_vlan in self.vlan_ports:
                 match = byte_array_get_all_x(self.hs_format["length"]*2)
                 self.set_field(match, "vlan", cnf_vlan, 0)
                 all_in_ports = []
@@ -499,7 +499,7 @@ class juniperRouter(object):
                 tf.add_fwd_rule(def_rule)
         # ... un-vlan-tagged port
         all_in_ports = []
-        for port in self.port_to_id.keys():
+        for port in list(self.port_to_id.keys()):
             if port != "self":
                 all_in_ports.append(self.port_to_id[port])
 #        match = byte_array_get_all_x(self.hs_format["length"]*2)
@@ -547,7 +547,7 @@ class juniperRouter(object):
 #                tf.add_fwd_rule(tf_rule)
                    
         ###################################
-        print " * Generating IP forwarding transfer function... * "  
+        print(" * Generating IP forwarding transfer function... * ")  
         self.fwd_table.sort(key=lambda fwd_rule: fwd_rule[1], reverse=True)
    
         # generate the forwarding part of transfer fucntion, from the fwd_prt, to pre-output ports
@@ -596,29 +596,29 @@ class juniperRouter(object):
                         else:
                             # sub-ports: port.vlan
                             if len(m) > 1:
-                                if m[0] in self.port_to_id.keys():
+                                if m[0] in list(self.port_to_id.keys()):
                                     out_ports.append(self.port_to_id[m[0]]+self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = int(m[1])
                                 else:
-                                    print "ERROR: unrecognized port %s"%m[0]
+                                    print("ERROR: unrecognized port %s"%m[0])
                                     return -1
                             # vlan outputs
                             elif output_port.startswith('vlan'):
-                                if output_port in self.vlan_ports.keys():
+                                if output_port in list(self.vlan_ports.keys()):
                                     port_list = self.vlan_ports[output_port]
                                     for p in port_list:
                                         out_ports.append(self.port_to_id[p]+self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = int(output_port[4:])
                                 else:
-                                    print "ERROR: unrecognized vlan %s"%output_port
+                                    print("ERROR: unrecognized vlan %s"%output_port)
                                     return -1
                             # physical ports - no vlan taging
                             else:
-                                if output_port in self.port_to_id.keys():
+                                if output_port in list(self.port_to_id.keys()):
                                     out_ports.append(self.port_to_id[output_port] + self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = 0
                                 else:
-                                    print "ERROR: unrecognized port %s"%output_port
+                                    print("ERROR: unrecognized port %s"%output_port)
                                     return -1
                         
                         # now set the fields
@@ -629,32 +629,32 @@ class juniperRouter(object):
                 
                 self.fwd_table[index] = []
                 #Invalidate fwd_rule      
-        print "=== Successfully Generated Transfer function ==="
+        print("=== Successfully Generated Transfer function ===")
         #print tf
         return 0    
     
     def read_route_file(self, file_path):
-        print "=== Reading Juniper Router FIB File ==="
+        print("=== Reading Juniper Router FIB File ===")
         f = open(file_path,'r')
         line_counter = 0
 
         while True:
             # Garbage in the front
-            line = f.next()
+            line = next(f)
             line_counter += 1
             if line.startswith("Destination"):
                 while True:
-                    line = f.next()
+                    line = next(f)
                     line_counter += 1
                     tokens = line.split()
                     if len(tokens) == 6 and tokens[3]=="indr":
                         ip_subnet = dotted_subnet_to_int(tokens[0])
                         # Interface in the next line
-                        line = f.next()
+                        line = next(f)
                         line_counter += 1
                         port = line.split()[-1]
                         
-                        if port in self.ae_bundles.keys():
+                        if port in list(self.ae_bundles.keys()):
                             ports_new = self.ae_bundles[port]
                             self.fwd_table.append([ip_subnet[0],ip_subnet[1],ports_new,port+file_path,[line_counter]])
                         else:
@@ -662,7 +662,7 @@ class juniperRouter(object):
                     elif len(tokens) == 8:
                         ip_subnet = dotted_subnet_to_int(tokens[0])
                         port = tokens[-1]
-                        if port in self.ae_bundles.keys():
+                        if port in list(self.ae_bundles.keys()):
                             ports_new = self.ae_bundles[port]
                             self.fwd_table.append([ip_subnet[0],ip_subnet[1],ports_new,port+file_path,[line_counter]])
                         else:
@@ -673,7 +673,7 @@ class juniperRouter(object):
                         return
 
     def read_config_file(self, file_path, router_name, ns = "{http://xml.juniper.net/junos/10.4R9/junos-interface}"):
-        print "=== Reading Juniper Router Interface File ==="       
+        print("=== Reading Juniper Router Interface File ===")       
         tree = ElementTree(file=file_path)
         
         routers = tree.findall("router")
@@ -724,12 +724,12 @@ class juniperRouter(object):
                             if vlan not in self.config_vlans:
                                 self.config_vlans.append(vlan)
                             
-                            if not "vlan%d"%vlan in self.vlan_ports.keys():
+                            if not "vlan%d"%vlan in list(self.vlan_ports.keys()):
                                 self.vlan_ports["vlan%d"%vlan] = []
                                 
                             self.vlan_ports["vlan%d"%vlan].append(physical_interface_name)  
                             
-                            if "%d"%vlan not in self.port_subnets.keys():
+                            if "%d"%vlan not in list(self.port_subnets.keys()):
                                 self.port_subnets["%d"%vlan] = []  
                                 
                             ip_address = address.find("{0}interface-address/{0}ifa-local".format(ns))        
@@ -778,8 +778,8 @@ if __name__ == "__main__":
 
   port_map = _read_port_map("port_map.txt")
 
-  for prefix_id, idx in cs_list.iteritems():
-    print """=== Process Router %s ===""" % prefix_id
+  for prefix_id, idx in cs_list.items():
+    print("""=== Process Router %s ===""" % prefix_id)
     jr = juniperRouter(idx)
     jr.set_replaced_vlan(0)
 

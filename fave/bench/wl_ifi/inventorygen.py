@@ -23,16 +23,16 @@ with open("bench/wl_ifi/cisco_to_inventory.json", "r") as vdf:
     has_ip = lambda _vlan, ip: ip is not None
 
     inventory["vlan_to_domain"] = {
-        get_vlan(*v) : d for d, v in mapping.iteritems()
+        get_vlan(*v) : d for d, v in mapping.items()
     }
     inventory["domain_to_vlan"] = {
-        d : get_vlan(*v) for d, v in mapping.iteritems()
+        d : get_vlan(*v) for d, v in mapping.items()
     }
     inventory["domain_to_ip"] = {
-        d : get_ip(*v) for d, v in mapping.iteritems() if has_ip(*v)
+        d : get_ip(*v) for d, v in mapping.items() if has_ip(*v)
     }
     inventory["ip_to_domain"] = {
-        get_ip(*v) : d for d, v in mapping.iteritems() if has_ip(*v)
+        get_ip(*v) : d for d, v in mapping.items() if has_ip(*v)
     }
     inventory["domain_to_ports"] = {
         sub : (idx, idx) for idx, sub in enumerate(SUBNETS, start=3)

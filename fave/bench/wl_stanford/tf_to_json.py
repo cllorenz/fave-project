@@ -39,7 +39,7 @@ with open(sys.argv[1], 'r') as f:
         try:
             action, in_ports, match, mask, rewrite, _, _, out_ports, _, _, _, _, name, _ = line.split('$')
         except:
-            print 'not parseable:', line
+            print('not parseable:', line)
             continue
 
         rid = (tid << 32) + cnt

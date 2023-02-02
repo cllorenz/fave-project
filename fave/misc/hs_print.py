@@ -31,7 +31,7 @@ from netplumber.vector import HeaderSpace
 def print_help():
     """ Prints the usage message.
     """
-    print "usage: python2 hs_print <fave.json> <hs.txt>"
+    print("usage: python2 hs_print <fave.json> <hs.txt>")
 
 
 if __name__ == '__main__':

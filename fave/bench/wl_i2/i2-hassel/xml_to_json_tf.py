@@ -6,6 +6,7 @@ from copy import deepcopy
 
 from util.packet_util import normalize_ipv4_address, normalize_ipv6_address, normalize_vlan_tag
 from netplumber.vector import Vector, set_field_in_vector
+from functools import reduce
 
 ipv6_prefix = normalize_ipv6_address('64:ff9b::/96')[:96]
 
@@ -20,7 +21,7 @@ def make_rule(mapping, ports, ae_bundles, is_ipv4, tid, rid, _len, address, out_
         try:
             fvec = normalize_ipv6_address(address)
         except ValueError:
-            print address
+            print(address)
             raise
 
 #    set_field_in_vector(mapping, match, field, fvec)
@@ -127,7 +128,7 @@ tables = {
 
 ports = {}
 for pair in topology_names['topology']:
-    for port in pair.values():
+    for port in list(pair.values()):
         if port not in ports:
             router, _interface = port.split(':')
             tid, pid = tables[router]
@@ -136,8 +137,8 @@ for pair in topology_names['topology']:
             ports[port] = (tid << 16) + pid + 1
 
 
-for router, bundle in ae_bundles.iteritems():
-    for _ae_name, ae_ports in bundle.iteritems():
+for router, bundle in ae_bundles.items():
+    for _ae_name, ae_ports in bundle.items():
         for ae_port in ae_ports:
             port = router + ':' + ae_port.split('.')[0]
             tid, pid = tables[router]
@@ -165,7 +166,7 @@ for router_file in router_files:
 
         table = iter([l for l in router.childNodes[0].data.split("\n") if l])
         while True:
-            line = table.next()
+            line = next(table)
 
             if line.startswith("Routing table: default.mpls"):
                 break
@@ -186,7 +187,7 @@ for router_file in router_files:
                 continue
 
             elif line.startswith("ISO"):
-                for _ in range(3): table.next()
+                for _ in range(3): next(table)
 
             tokens = line.split()
 
@@ -195,13 +196,13 @@ for router_file in router_files:
 
             elif len(tokens) == 1:
                 dst = tokens[0]
-                line = table.next()
+                line = next(table)
 
                 tokens = line.split()
                 if len(tokens) == 3:
                     _type, _rtref, _next_hop = tokens
 
-                    line = table.next()
+                    line = next(table)
                     tokens = line.split()
 
                     if len(tokens) == 3:
@@ -223,7 +224,7 @@ for router_file in router_files:
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
-                    print "unknown action", len(tokens), tokens
+                    print("unknown action", len(tokens), tokens)
                     break
 
             elif len(tokens) == 3:
@@ -235,11 +236,11 @@ for router_file in router_files:
                     # XXX
 
                 else:
-                    print "unknown action", len(tokens), tokens
+                    print("unknown action", len(tokens), tokens)
 
             elif len(tokens) == 4:
                 dst, _type, _rtref, _next_hop = tokens
-                line = table.next()
+                line = next(table)
                 tokens = line.split()
 
                 if len(tokens) == 4:
@@ -260,7 +261,7 @@ for router_file in router_files:
                 action = tokens[3]
                 if action == 'ucst':
                     dst, _type, _rtref, _type, _index, _nhref = tokens
-                    line = table.next()
+                    line = next(table)
                     _next_hop, _type, _index, _nhref, interface = line.split()
                     if_name = router_name + ':' + interface
                     pif_name = if_name.split('.')[0] if '.' in if_name else if_name
@@ -272,11 +273,11 @@ for router_file in router_files:
 
                 elif action == 'indr':
                     dst, _type, _rtref, _type, _index, _nhref = tokens
-                    line = table.next()
+                    line = next(table)
                     tokens = line.split()
                     if len(tokens) == 1:
                         _next_hop = tokens[0]
-                        line = table.next()
+                        line = next(table)
                         tokens = line.split()
                         _type, _index, _nhref, interface = tokens
                         if_name = router_name + ':' + interface
@@ -304,11 +305,11 @@ for router_file in router_files:
 
                 elif action == 'ulst':
                     dst, _type, _rtref, _type, _index, _nhref = tokens
-                    table.next()
-                    line = table.next()
+                    next(table)
+                    line = next(table)
                     _next_hop, _type, _index, _nhref, if_1 = line.split()
-                    table.next()
-                    line = table.next()
+                    next(table)
+                    line = next(table)
                     _next_hop, _type, _index, _nhref, if_2 = line.split()
                     # XXX
 
@@ -331,7 +332,7 @@ for router_file in router_files:
                         routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
-                    print "unknown action:", action, len(tokens), tokens
+                    print("unknown action:", action, len(tokens), tokens)
                     break
 
 
@@ -367,7 +368,7 @@ for router_file in router_files:
 
 
                 else:
-                    print "unknown action", len(tokens), tokens
+                    print("unknown action", len(tokens), tokens)
                     break
 
 
@@ -434,11 +435,11 @@ for router_file in router_files:
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
-                    print "unknown action", action, len(tokens), tokens
+                    print("unknown action", action, len(tokens), tokens)
                     break
 
             else:
-                print "could not parse:", tokens
+                print("could not parse:", tokens)
 
         table_ipv4 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, True, tid, rid, *items
@@ -474,10 +475,10 @@ for router_file in router_files:
             indent=2
         )
 
-        print router_file, len(table_ipv4 + table_ipv6 + default_rules)
+        print(router_file, len(table_ipv4 + table_ipv6 + default_rules))
         total += len(table_ipv4 + table_ipv6 + default_rules)
 
-print "total:", total
+print("total:", total)
 
 topology_numbers = []
 for pair in topology_names['topology']:

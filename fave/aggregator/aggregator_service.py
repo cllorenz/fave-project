@@ -32,7 +32,7 @@ import time
 
 from pprint import pformat
 from threading import Thread
-from Queue import Queue
+from queue import Queue
 
 from aggregator.aggregator_abstract import AbstractAggregator, TRACE
 from aggregator.aggregator_singleton import AGGREGATOR
@@ -72,7 +72,7 @@ class AggregatorService(AbstractAggregator):
         self.links = {}
         self.stop = False
         self.net_plumber = NetPlumberAdapter(
-            socks.values(),
+            list(socks.values()),
             AggregatorService.LOGGER,
             asyncore_socks=asyncore_socks,
             mapping=mapping
@@ -569,7 +569,7 @@ class AggregatorService(AbstractAggregator):
             j["id_to_probe"] = {self.net_plumber.probes[k][1]:k for k in self.net_plumber.probes}
             j["id_to_port"] = {self.net_plumber.ports[k]:k for k in self.net_plumber.ports}
 
-            j["links"] = [(src, dst) for src, dst in self.links.iteritems()]
+            j["links"] = [(src, dst) for src, dst in self.links.items()]
 
             ofile.write(
                 json.dumps(j, sort_keys=True, indent=4, separators=(',', ': '))

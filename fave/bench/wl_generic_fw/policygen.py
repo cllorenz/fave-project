@@ -19,9 +19,9 @@ _TAGS = {
 
 def _attributes_to_fields(attributes):
     res = []
-    for name, value in {k:v for k, v in attributes.iteritems() if k not in [
+    for name, value in {k:v for k, v in attributes.items() if k not in [
             "description", "hosts", "gateway", "gateway4", "gateway6"
-    ]}.iteritems():
+    ]}.items():
         res.append("%s=%s" % (_TAGS[name], value+'_egress' if name == 'interface' else value))
 
     return res

@@ -27,6 +27,7 @@ from dd.autoref import BDD
 from netplumber.mapping import Mapping
 from netplumber.vector import HeaderSpace, get_field_from_vector
 from util.packet_util import normalize_ipv4_address, normalize_ipv6_address
+from functools import reduce
 
 bdd = BDD()
 
@@ -118,7 +119,7 @@ def _read_fffuux(fffuu, IP_BITS, is_ipv4):
             ranges = line[6:].split(' u ')
             for range in ranges:
                 if range.startswith('{'):
-                    print range
+                    print(range)
                     start, end = range.strip('{}').split(' .. ')
                     if is_ipv4:
                         sv = normalize_ipv4_address(start)
@@ -199,14 +200,14 @@ def main(argv):
     tree = json.load(open(argv[1], 'r'))['flows'][0]
     fave = json.load(open(argv[2], 'r'))
     mapping = Mapping.from_json(fave['mapping'])
-    probe = int(fave['id_to_probe'].keys()[0])
+    probe = int(list(fave['id_to_probe'].keys())[0])
 
     if is_ipv4(mapping):
         IP_BITS=32
     else:
         IP_BITS=128
 
-    bdd.declare(*(range(IP_BITS)))
+    bdd.declare(*(list(range(IP_BITS))))
 
     if is_ipv4(mapping):
         fffuu_nets, fffuu_matrix = _read_fffuu(fffuu)
@@ -216,20 +217,20 @@ def main(argv):
     fave_reach = _read_fave(tree, mapping, probe)
 
     # fave subseteq fffuu6
-    print "result for fave subseteq fffuux:", all([
+    print("result for fave subseteq fffuux:", all([
         any([
             all([
                 _is_subset_eq(source, fffuu_nets[src]),
                 _is_subset_eq(dest, fffuu_nets[dst])
-            ]) for src, dst in fffuu_matrix.items()
+            ]) for src, dst in list(fffuu_matrix.items())
         ]) for source, dest in fave_reach
-    ])
+    ]))
 
     # fffuu6 subseteq fave
 #    fave_aggr_src = reduce(lambda x, y: x | y, [s for s, _d in fave_reach])
 #    fave_aggr_dst = reduce(lambda x, y: x | y, [d for _s, d in fave_reach])
 
-    for source, dest in fffuu_matrix.items():
+    for source, dest in list(fffuu_matrix.items()):
         src_net, dst_net = fffuu_nets[source], fffuu_nets[dest]
 
         for fave_src, fave_dst in fave_reach:
@@ -237,7 +238,7 @@ def main(argv):
             dst_net = bdd.apply('diff', dst_net, fave_dst)
 
         if not src_net == bdd.false or dst_net == bdd.false:
-            print source, dest
+            print(source, dest)
 #            bdd.dump('src.%s.pdf' % source, roots=[src_net])
 #            bdd.dump('dst.%s.pdf' % dest, roots=[dst_net])
 

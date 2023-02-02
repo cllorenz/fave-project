@@ -113,7 +113,7 @@ def _ast_to_rule(node, ast, idx=0):
 
     tag = lambda k: _TAGS[strip_ap(k)]
 
-    is_field = lambda f: _TAGS.has_key(strip_ap(f.value))
+    is_field = lambda f: strip_ap(f.value) in _TAGS
     is_ignored = lambda f: strip_ap(f.value) in ['m', 'module', 'comment']
 
     value = lambda f: f.get_first().value if f.get_first() is not None else ""
@@ -241,7 +241,7 @@ def _ast_to_rule(node, ast, idx=0):
             raw_line_no=lineno
         )
 
-    return {chain : rules, chain+'_mappings' : {'original':{i:lineno for i,_r in rules.iteritems()}, 'expanded':{lineno:rules.keys()}}}
+    return {chain : rules, chain+'_mappings' : {'original':{i:lineno for i,_r in rules.items()}, 'expanded':{lineno:list(rules.keys())}}}
 
 
 def _get_rules_from_ast(node, ast, idx=0):
@@ -255,12 +255,12 @@ def _get_rules_from_ast(node, ast, idx=0):
     for subtree in ast:
         rules_and_mappings = _get_rules_from_ast(node, subtree, idx+cnt+1) # XXX?
 
-        for chain, rules in [(c, r) for c, r in rules_and_mappings.iteritems() if not c.endswith('_mappings')]:
+        for chain, rules in [(c, r) for c, r in rules_and_mappings.items() if not c.endswith('_mappings')]:
             chains.setdefault(chain, {})
             chains[chain].update(rules)
             cnt += len(rules)
 
-        for chain, mappings in [(c, m) for c, m in rules_and_mappings.iteritems() if c.endswith('_mappings')]:
+        for chain, mappings in [(c, m) for c, m in rules_and_mappings.items() if c.endswith('_mappings')]:
             chains.setdefault(chain, {'original' : {}, 'expanded' : {}})
             chains[chain]['original'].update(mappings['original'])
             chains[chain]['expanded'].update(mappings['expanded'])
@@ -346,7 +346,7 @@ def _derive_general_state_shell(rules, state_checking_rules):
                 RuleField('related', '1')
             ]),
             actions=r.actions
-        ) for r in rules if r not in state_checking_rules.values()
+        ) for r in rules if r not in list(state_checking_rules.values())
     ]
 
 
@@ -527,13 +527,13 @@ def _transform_ast_to_model(
     chains = _get_rules_from_ast(node, ast)
 
     if store_mappings:
-        json.dump({c:m for c, m in chains.iteritems() if c.endswith('_mappings')}, open('/tmp/mappings.json', 'w'), indent=2)
+        json.dump({c:m for c, m in chains.items() if c.endswith('_mappings')}, open('/tmp/mappings.json', 'w'), indent=2)
 
-    chains = {c:r for c, r in chains.iteritems() if not c.endswith('mappings')}
+    chains = {c:r for c, r in chains.items() if not c.endswith('mappings')}
 
     if not interweaving:
-        for chain, rules in chains.iteritems():
-            for idx, rule in rules.iteritems():
+        for chain, rules in chains.items():
+            for idx, rule in rules.items():
                 model.tables[
                     rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid
                 ].append(rule)
@@ -547,8 +547,8 @@ def _transform_ast_to_model(
     chain_intervals = {}
     chain_checking_rules = {}
 
-    for chain, rules in chains.iteritems():
-        rules = [r for _i, r in sorted(rules.iteritems(), key=lambda x: x[0])]
+    for chain, rules in chains.items():
+        rules = [r for _i, r in sorted(iter(rules.items()), key=lambda x: x[0])]
         for idx, rule in enumerate(rules, start=1):
             rule.idx = idx
         chain_rules[chain] = rules

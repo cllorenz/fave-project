@@ -46,9 +46,9 @@ def stop_all_np_instances():
     for sock in socklist:
         try:
             jsonrpc.stop(sock)
-            print("Successfully stopped instance: {}".format(sock))
+            print(("Successfully stopped instance: {}".format(sock)))
         except jsonrpc.RPCError as err:
-            print("Could not stop socket {}: {}".format(sock, repr(err)))
+            print(("Could not stop socket {}: {}".format(sock, repr(err))))
 
 
 def _get_socklist():
@@ -63,7 +63,7 @@ def _get_socklist():
                 server['host'], server['port']
             ) for server in serverlist
         ]
-        print("Socklist:", socklist)
+        print(("Socklist:", socklist))
     except jsonrpc.RPCError as err:
         raise ParallelException(
             'get_socklist(): could not connect all sockets: {}'.format(repr(err))

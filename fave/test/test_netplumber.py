@@ -60,8 +60,8 @@ class TestMapping(unittest.TestCase):
 
         self.mapping.extend('packet.ipv6.source')
         self.assertEqual(self.mapping.length, 128)
-        self.assertEqual(self.mapping.keys(), ['packet.ipv6.source'])
-        self.assertEqual(self.mapping.values(), [0])
+        self.assertEqual(list(self.mapping.keys()), ['packet.ipv6.source'])
+        self.assertEqual(list(self.mapping.values()), [0])
 
 
     def test_expand(self):

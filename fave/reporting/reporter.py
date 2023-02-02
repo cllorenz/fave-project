@@ -44,10 +44,10 @@ class Reporter(threading.Thread):
 
     def dump_report(self, dump):
         # name : (idx, sid, model)
-        id_to_generator = {g[1] : n for n, g in self.fave.net_plumber.generators.items()}
+        id_to_generator = {g[1] : n for n, g in list(self.fave.net_plumber.generators.items())}
 
         # name : (idx, pid, model)
-        id_to_probe = {g[1] : n for n, g in self.fave.net_plumber.probes.items()}
+        id_to_probe = {g[1] : n for n, g in list(self.fave.net_plumber.probes.items())}
 
         report = [
             "# Report",
@@ -57,15 +57,9 @@ class Reporter(threading.Thread):
         cur_event = len(self.events)
 
         # fetch recent compliance and anomaly events
-        compliance_events = filter(
-            lambda entry: entry[0] == Log.Compliance,
-            self.events[self.last_compliance:cur_event]
-        )
+        compliance_events = [entry for entry in self.events[self.last_compliance:cur_event] if entry[0] == Log.Compliance]
 
-        anomaly_events = filter(
-            lambda entry: entry[0] == Log.Anomalies,
-            self.events[self.last_anomalies:cur_event]
-        )
+        anomaly_events = [entry for entry in self.events[self.last_anomalies:cur_event] if entry[0] == Log.Anomalies]
 
         # generate report
         report.append("\n## Compliance Check")
@@ -77,10 +71,7 @@ class Reporter(threading.Thread):
                 id_to_generator[int(from_)],
                 id_to_probe[int(to_)],
                 " && " + ','.join(
-                    map(
-                        lambda fv: '='.join(fv),
-                        _parse_cond(cond, self.fave.net_plumber.mapping)
-                    )
+                    ['='.join(fv) for fv in _parse_cond(cond, self.fave.net_plumber.mapping)]
                 ) if cond else ""
             ))
 
@@ -89,7 +80,7 @@ class Reporter(threading.Thread):
 
 
         inv_rids = {}
-        for fave_rid, np_rids in self.fave.net_plumber.rule_ids.items():
+        for fave_rid, np_rids in list(self.fave.net_plumber.rule_ids.items()):
             for np_rid in np_rids:
                 inv_rids[np_rid] = fave_rid
 
@@ -99,7 +90,7 @@ class Reporter(threading.Thread):
             shadowed_rids.setdefault(fave_rid, [])
             shadowed_rids[fave_rid].append(np_rid)
 
-        for fave_rid, np_rids in shadowed_rids.items():
+        for fave_rid, np_rids in list(shadowed_rids.items()):
             if set(np_rids) == set(self.fave.net_plumber.rule_ids[fave_rid]):
                 report.append("- {}".format(fave_rid))
 

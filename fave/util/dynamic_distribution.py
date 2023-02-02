@@ -26,12 +26,12 @@
     a cluster of NetPlumber instances.
 """
 
-import Queue
+import queue
 import asyncore
 import socket
 import logging
 
-NODE_LINK_QUEUE = Queue.Queue()
+NODE_LINK_QUEUE = queue.Queue()
 NODE_LINK_DICT = {}
 
 def add_node_to_dict(idx, node):
@@ -57,7 +57,7 @@ def add_link_to_dict(idx, link):
     NODE_LINK_DICT[idx]['link'] = link
 
 def _prepare_node_link_queue():
-    for pair in NODE_LINK_DICT.values():
+    for pair in list(NODE_LINK_DICT.values()):
         NODE_LINK_QUEUE.put((pair['node'], pair['link']))
 
 def distribute_nodes_and_links():
@@ -65,7 +65,7 @@ def distribute_nodes_and_links():
     """
 
     _prepare_node_link_queue()
-    for _fd, obj in asyncore.socket_map.iteritems():
+    for _fd, obj in asyncore.socket_map.items():
         obj.send_next_pair()
     asyncore.loop()
 
@@ -99,7 +99,7 @@ class NodeLinkDispatcher(asyncore.dispatcher):
         self.port = port
 
         # Keep track of expected messages before closing the channel
-        self.recv_queue = Queue.Queue()
+        self.recv_queue = queue.Queue()
 
         self.raw_msg_buf = ''
 
@@ -122,7 +122,7 @@ class NodeLinkDispatcher(asyncore.dispatcher):
             self.recv_queue.put(node_msg)
             self.recv_queue.put(link_msg)
 
-        except Queue.Empty:
+        except queue.Empty:
             if self.recv_queue.empty():
                 if self.logger.isEnabledFor(logging.DEBUG):
                     debug_msg = "Closing send_next_pair {}".format((self.host, self.port))
@@ -142,7 +142,7 @@ class NodeLinkDispatcher(asyncore.dispatcher):
             try:
                 # Remove one entry for an expected message
                 self.recv_queue.get_nowait()
-            except Queue.Empty:
+            except queue.Empty:
                 # no messages expected anymore, close the channel
                 if self.logger.isEnabledFor(logging.DEBUG):
                     debug_msg = "Closing {}".format((self.host, self.port))

@@ -18,7 +18,7 @@ class Test(unittest.TestCase):
         hs.add_hs(wildcard_create_from_string("1001xxxx"))
         result = tf.T(hs, 1)
         self.assertEqual(len(result), 1)
-        self.assert_(wildcard_is_equal(result[0][0].hs_list[0],\
+        self.assertTrue(wildcard_is_equal(result[0][0].hs_list[0],\
                                        wildcard_create_from_string("1001xxxx")))
         
     def testRW1(self):
@@ -29,7 +29,7 @@ class Test(unittest.TestCase):
         hs.add_hs(wildcard_create_from_string("1001xxxx"))
         result = tf.T(hs, 1)
         self.assertEqual(len(result), 1) 
-        self.assert_(wildcard_is_equal(result[0][0].hs_list[0],\
+        self.assertTrue(wildcard_is_equal(result[0][0].hs_list[0],\
                                        wildcard_create_from_string("1111xxxx")))
               
         
@@ -42,7 +42,7 @@ class Test(unittest.TestCase):
         hs.diff_hs(wildcard_create_from_string("101xxxxx"))
         result = tf.T(hs, 1)
         self.assertEqual(len(result), 1)
-        self.assert_(wildcard_is_equal(result[0][0].hs_list[0],\
+        self.assertTrue(wildcard_is_equal(result[0][0].hs_list[0],\
                                        wildcard_create_from_string("111xxxxx")))
         self.assertEqual(result[0][0].count_diff(),0)
 
@@ -72,10 +72,10 @@ class Test(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0][0].count(),1)
         self.assertEqual(result[0][0].count_diff(),1)
-        self.assert_(wildcard_is_equal(result[0][0].hs_list[0],\
+        self.assertTrue(wildcard_is_equal(result[0][0].hs_list[0],\
                                        wildcard_create_from_string("10xxxxxx"),\
                                        ))
-        self.assert_(wildcard_is_equal(result[0][0].hs_diff[0][0],\
+        self.assertTrue(wildcard_is_equal(result[0][0].hs_diff[0][0],\
                                        wildcard_create_from_string("10x0xxxx"),\
                                        ))
 

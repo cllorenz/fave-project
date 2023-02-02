@@ -83,10 +83,10 @@ class wildcard_dictionary(object):
             idn = "%s\t"%idn
         for i in range(len(table["value"])):
             if table["info"][i][0] == False:
-                print "%sIndex %x: Table is"%(idn,i)
+                print("%sIndex %x: Table is"%(idn,i))
                 self.self_print_table(table["value"][i], indent+1)
             elif len(table["value"][i]) > 0:
-                print "%sIndex %x has value %s"%(idn,i,table["value"][i])
+                print("%sIndex %x has value %s"%(idn,i,table["value"][i]))
 
     def self_print(self):
         self.self_print_table(self.table, 0)

@@ -161,7 +161,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                 raise
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
-            flow_spec_iter.next()
+            next(flow_spec_iter)
             ttype, tname = flow_spec_iter.next().split('=')
             try:
                 crules = (
@@ -200,10 +200,10 @@ def _get_inverse_fave(dump):
             table_id_to_rules[tid] = [int(rid)]
 
     return {
-        "table_to_id" : dict([(v, int(k)) for k, v in fave["id_to_table"].items()]),
+        "table_to_id" : dict([(v, int(k)) for k, v in list(fave["id_to_table"].items())]),
         "table_id_to_rules" : table_id_to_rules,
-        "generator_to_id" : dict([(v, int(k)) for k, v in fave["id_to_generator"].items()]),
-        "probe_to_id" : dict([(v, int(k)) for k, v in fave["id_to_probe"].items()]),
+        "generator_to_id" : dict([(v, int(k)) for k, v in list(fave["id_to_generator"].items())]),
+        "probe_to_id" : dict([(v, int(k)) for k, v in list(fave["id_to_probe"].items())]),
         "mapping" : fave["mapping"]
     }
 
@@ -319,7 +319,7 @@ def _check_flow_trees(flow_spec, flow_trees, inv_fave, cache):
             break
 
     t_end = time.time()
-    print "checked flow in %s ms" % ((t_end - t_start) * 1000.0)
+    print("checked flow in %s ms" % ((t_end - t_start) * 1000.0))
     _MEASUREMENTS.append((t_end - t_start) * 1000.0)
 
     return res
@@ -455,7 +455,7 @@ def main(argv):
         flow_trees = {
             k : "%s/%s.flow_tree.json" % (
                 args.dump, v
-            ) for k, v in inv_fave["generator_to_id"].iteritems()
+            ) for k, v in inv_fave["generator_to_id"].items()
         }
 
     failed = []
@@ -468,7 +468,7 @@ def main(argv):
 
         for src, specs in [
                 item for idx, item in enumerate(
-                    ordered_flow_specs.iteritems()
+                    ordered_flow_specs.items()
                 ) if idx % threads == tid
             ]:
             flow_tree = _get_flow_tree(flow_trees[src], cache)[0]
@@ -495,7 +495,7 @@ def main(argv):
                     failed.append(' '.join([e for e in spec if e != ' ']))
 
             t_end = time.time()
-            print "thread %s: checked flow tree in %s ms" % (tid, ((t_end - t_start) * 1000.0))
+            print("thread %s: checked flow tree in %s ms" % (tid, ((t_end - t_start) * 1000.0)))
             _MEASUREMENTS.append((t_end - t_start) * 1000.0)
 
     else:
@@ -513,24 +513,24 @@ def main(argv):
                 _update_reachability_matrix(reach, flow_spec, True)
 
             if spec_no % 1000 == 0:
-                print "  checked %s flows" % spec_no
+                print("  checked %s flows" % spec_no)
 
-    print (
+    print((
         "success: all %s checked flows matched" % len(args.flow_specs)
     ) if not failed else (
         "failure: the following flows mismatched:\n\t%s\nwhich is %s of %s." % (
             '\n\t'.join(failed), len(failed), len(args.flow_specs)
         )
-    )
+    ))
 
-    print("\n\t".join([
+    print(("\n\t".join([
         "thread %s: runtimes:" % tid,
         "total: %s ms" % sum(_MEASUREMENTS),
         "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
         "median: %s ms" % sorted(_MEASUREMENTS)[len(_MEASUREMENTS)/2],
         "min: %s ms" % min(_MEASUREMENTS),
         "max: %s ms" % max(_MEASUREMENTS)
-    ]))
+    ])))
 
     if args.dump_matrix:
         with open(args.dump+'/reach.csv', 'w') as csvf:

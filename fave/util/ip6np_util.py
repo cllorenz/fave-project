@@ -28,6 +28,7 @@ from util.packet_util import denormalize_ipv4_address, denormalize_ipv6_address
 
 from netplumber.mapping import FIELD_SIZES
 from netplumber.vector import Vector
+from functools import reduce
 
 
 class FieldNotImplementedError(Exception):

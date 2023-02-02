@@ -28,7 +28,7 @@ import json
 def print_help():
     """ Prints usage message.
     """
-    print "usage: python2 hs_print <fave.json> <hs.txt>"
+    print("usage: python2 hs_print <fave.json> <hs.txt>")
 
 
 if __name__ == '__main__':
@@ -50,4 +50,4 @@ if __name__ == '__main__':
 
     TABLE = FAVE['id_to_table'][str(TNO)]
 
-    print "\n@ %s.%s <--\n" % (TABLE, RNO & 0xffff)
+    print("\n@ %s.%s <--\n" % (TABLE, RNO & 0xffff))

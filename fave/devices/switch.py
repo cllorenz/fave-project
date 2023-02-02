@@ -101,10 +101,10 @@ class SwitchModel(AbstractDeviceModel):
         j["tables"] = {
             table : [
                 r.to_json() for r in rules
-            ] for table, rules in self.tables.iteritems()
+            ] for table, rules in self.tables.items()
         }
         if hasattr(self, 'table_ids'):
-            j["table_ids"] = {t:i for t, i in self.table_ids.iteritems()}
+            j["table_ids"] = {t:i for t, i in self.table_ids.items()}
         return j
 
     @staticmethod
@@ -124,7 +124,7 @@ class SwitchModel(AbstractDeviceModel):
         ofm.tables = {
             table : [
                 Rule.from_json(r) for r in rules
-            ] for table, rules in j['tables'].iteritems()
+            ] for table, rules in j['tables'].items()
         }
         ofm.ports = j['ports']
 

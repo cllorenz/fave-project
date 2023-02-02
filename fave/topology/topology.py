@@ -82,7 +82,7 @@ class LinksModel(object):
             j = json.loads(j)
 
         links = []
-        for src, dst in j["links"].iteritems():
+        for src, dst in j["links"].items():
             links.extend([(src, d, b) for d, b in dst])
 
         return LinksModel(links)
@@ -271,7 +271,7 @@ def _parse_ports(arg):
     ports = []
 
     try:
-        ports = range(1, int(arg)+1)
+        ports = list(range(1, int(arg)+1))
     except ValueError:
         ports = [str(i) for i in ast.literal_eval(arg)]
 
@@ -455,7 +455,7 @@ def main(argv):
                 args.node,
                 {f : [
                     RuleField(f, v) for v in fl
-                ] for f, fl in args.fields.iteritems()}
+                ] for f, fl in args.fields.items()}
             ),
             'generators' : lambda: GeneratorsModel(
                 [GeneratorModel(d, f) for d, f in args.generators]
@@ -463,7 +463,7 @@ def main(argv):
             'probe' : lambda: ProbeModel(
                 args.node,
                 args.quantor,
-                Match([RuleField(f, *v) for f, v in args.fields.iteritems()]),
+                Match([RuleField(f, *v) for f, v in args.fields.items()]),
                 filter_fields=args.filter_fields,
                 test_fields=args.test_fields,
                 test_path=args.test_path

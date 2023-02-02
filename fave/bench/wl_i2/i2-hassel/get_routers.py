@@ -36,7 +36,7 @@ for xrouter in xrouters:
 
 
 with open("bench/wl_i2/i2_tfs/routers.json", "w") as pf:
-    jrouters = [{'name' : n, 'ports' : p} for n, p in routers.iteritems()]
+    jrouters = [{'name' : n, 'ports' : p} for n, p in routers.items()]
     pf.write(json.dumps({'routers' : jrouters}, indent=2))
 
 with open("bench/wl_i2/i2_tfs/bundles.json", "w") as bf:
@@ -63,7 +63,7 @@ with open("bench/wl_i2/i2/backbone_topology.tf", "r") as tf:
         try:
             _, src, _, _, _, _, _, dst, _, _, _, _, _, _ = line.split('$')
         except:
-            print 'not parseable:', line
+            print('not parseable:', line)
             continue
 
         src = src.strip('[]')

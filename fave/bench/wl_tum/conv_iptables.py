@@ -7,6 +7,7 @@ import argparse
 import pprint
 
 from copy import deepcopy as dc
+from functools import reduce
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
@@ -201,7 +202,7 @@ if __name__ == '__main__':
             except ArgumentParserError:
                 continue
 
-            parsed_rules.append([(x, y) for x, y in vars(ns).viewitems() if y is not None])
+            parsed_rules.append([(x, y) for x, y in vars(ns).items() if y is not None])
 
         custom_chains = {}
         standard_chains = {

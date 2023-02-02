@@ -47,13 +47,13 @@ cchecks = json.load(open(sys.args[0], 'r'))
 fave = json.load(open(sys.args[1], 'r'))
 
 mapping = fave['mapping']
-generator_to_id = {v:k for k,v in fave['id_to_generator'].items()}
+generator_to_id = {v:k for k,v in list(fave['id_to_generator'].items())}
 
-probe_to_id = {v:k for k,v in fave['id_to_probe'].items()}
+probe_to_id = {v:k for k,v in list(fave['id_to_probe'].items())}
 
 np_cchecks = {}
 
-for src, rules in cchecks.items():
+for src, rules in list(cchecks.items()):
     src = _node_to_id(src, generator_to_id)
 
     for rule in rules:

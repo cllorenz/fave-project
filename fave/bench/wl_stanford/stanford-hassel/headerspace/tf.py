@@ -108,16 +108,16 @@ class TF(object):
         an intersection with the rule, in two separate lists.
         '''
         for rule in self.rules:
-            print "%s Rule Match: %s,%s"%(rule["action"],rule["match"],\
-                                          rule["in_ports"])
-            print "Affected by:"
+            print("%s Rule Match: %s,%s"%(rule["action"],rule["match"],\
+                                          rule["in_ports"]))
+            print("Affected by:")
             for aff in rule["affected_by"]:
-                print "\t%s: On Ports %s, Intersect= %s"%\
-                        (aff[0]["match"],aff[2],aff[1])
-            print "Influence on:"
+                print("\t%s: On Ports %s, Intersect= %s"%\
+                        (aff[0]["match"],aff[2],aff[1]))
+            print("Influence on:")
             for aff in rule["influence_on"]:
-                print "\t%s"%aff["match"]
-            print "-"*20
+                print("\t%s"%aff["match"])
+            print("-"*20)
             
     def to_string(self):
         strings = []
@@ -311,13 +311,13 @@ class TF(object):
         #input port based lookup table
         for p in in_ports:
             port = "%d"%p
-            if port not in self.inport_to_rule.keys():
+            if port not in list(self.inport_to_rule.keys()):
                 self.inport_to_rule[port] = []
             self.inport_to_rule[port].append(new_rule)
         #output port based lookup table
         for p in out_ports:
             port = "%d"%p
-            if port not in self.outport_to_rule.keys():
+            if port not in list(self.outport_to_rule.keys()):
                 self.outport_to_rule[port] = []
             self.outport_to_rule[port].append(new_rule)
         #rule-id based lookup table
@@ -329,13 +329,13 @@ class TF(object):
                                              new_rule)
         
     def _get_rules_for_inport(self,inport):
-        if (str(inport) in self.inport_to_rule.keys()):
+        if (str(inport) in list(self.inport_to_rule.keys())):
             return self.inport_to_rule[str(inport)]
         else:
             return []
         
     def _get_rules_for_outport(self,outport):
-        if (str(outport) in self.outport_to_rule.keys()):
+        if (str(outport) in list(self.outport_to_rule.keys())):
             return self.outport_to_rule[str(outport)]
         else:
             return []
@@ -558,7 +558,7 @@ class TF(object):
             #check if this rule qualifies for lazy evaluation
             if self.lazy_eval_active and self._is_qualified_for_lazy_eval(rule):
                 for p in rule["out_ports"]:
-                    if str(p) not in lazy_tf_rule_ids.keys():
+                    if str(p) not in list(lazy_tf_rule_ids.keys()):
                         lazy_tf_rule_ids[str(p)] = []
                     lazy_tf_rule_ids[str(p)].append(rule)
                     
@@ -579,7 +579,7 @@ class TF(object):
     
         #lazy tf rules:
         if (self.lazy_eval_active):
-            for p in lazy_tf_rule_ids.keys():
+            for p in list(lazy_tf_rule_ids.keys()):
                 lazy_outport = int(p)
                 lazy_hs = hs.copy()
                 lazy_hs.add_lazy_tf_rule(self,lazy_tf_rule_ids[p],port)
@@ -597,7 +597,7 @@ class TF(object):
         Output is a list of [hs,list_of_out_ports].
         '''
         result = []
-        if self.id_to_rule.has_key(rule_id):
+        if rule_id in self.id_to_rule:
             rule = self.id_to_rule[rule_id]
             if rule['action'] == "link":
                 result = self.apply_link_rule(rule, hs, port)
@@ -709,7 +709,7 @@ class TF(object):
         Output is a list of [hs,list_of_out_ports].
         '''
         result = []
-        if self.id_to_rule.has_key(rule_id):
+        if rule_id in self.id_to_rule:
             rule = self.id_to_rule[rule_id]
             if rule['action'] == "link":
                 result = self.apply_inv_link_rule(rule, hs, port)
@@ -745,7 +745,7 @@ class TF(object):
         '''
         saves all the non-custom transfer function rules to a json file
         '''
-        print "=== Saving transfer function to json file %s ==="%file
+        print("=== Saving transfer function to json file %s ==="%file)
         func = {}
         func["length"] = self.length
         func["prefix_id"] = self.prefix_id
@@ -780,14 +780,14 @@ class TF(object):
         f = open(file, 'w')
         f.write(json.dumps(func, indent=1))
         f.close()
-        print "=== Transfer function saved to json file %s ==="%file
+        print("=== Transfer function saved to json file %s ==="%file)
         
     def save_object_to_file(self, file):
         '''
         Depreciated
         saves all the non-custom transfer function rules to a file
         '''
-        print "=== Saving transfer function to file %s ==="%file
+        print("=== Saving transfer function to file %s ==="%file)
         f = open(file, 'w')
         f.write("%d$%s$%d$%d$%d$\n"%(2*self.length,\
                                      self.prefix_id,\
@@ -821,10 +821,10 @@ class TF(object):
                 f.write("%d,"%ln)
             f.write("$%s$\n"%rule["id"])
         f.close()
-        print "=== Transfer function saved to file %s ==="%file
+        print("=== Transfer function saved to file %s ==="%file)
         
     def load_from_json(self, file):
-        print "=== Loading transfer function from file %s ==="%file
+        print("=== Loading transfer function from file %s ==="%file)
         f = open(file,'r')
         func = json.load(f)
         self.rules = []
@@ -859,7 +859,7 @@ class TF(object):
         Depreciated
         load object from file, and replace the current object.
         '''
-        print "=== Loading transfer function from file %s ==="%file
+        print("=== Loading transfer function from file %s ==="%file)
         f = open(file,'r')
         self.rules = []
         first_line = f.readline()
@@ -956,7 +956,7 @@ class TF(object):
             rule["affected_by"] = affects
             self._set_fast_lookup_pointers(indx)
             
-        print "=== Transfer function loaded from file %s ==="%file
+        print("=== Transfer function loaded from file %s ==="%file)
             
     def __str__(self):
         strs = self.to_string()

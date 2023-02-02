@@ -91,7 +91,7 @@ if __name__ == '__main__':
         "-u" if use_unix else ""
     ))
 
-    if verbose: print "Initialize topology..."
+    if verbose: print("Initialize topology...")
     devices = [
         (
             "fw0",
@@ -105,19 +105,19 @@ if __name__ == '__main__':
     links = []
 
     create_topology(devices, links, use_unix=True, interweave=False)
-    if verbose: print "Topology sent to FaVe"
+    if verbose: print("Topology sent to FaVe")
 
     if with_policy:
-        if verbose: print "Initialize routes..."
+        if verbose: print("Initialize routes...")
         routes = [
             ('fw0', 1, TABLE_MAX, [], ["fd=fw0.eth0"], []),
             ('fw0', 1, 0, ["ipv6_dst=2001:db8::2"], ["fd=fw0.eth1"], []),
         ]
 
         add_routes(routes, use_unix=use_unix)
-        if verbose: print "Routes sent to FaVe"
+        if verbose: print("Routes sent to FaVe")
 
-        if verbose: print "Initialize sources..."
+        if verbose: print("Initialize sources...")
         sources = [(
             "source.Internet",
             "generator",
@@ -138,9 +138,9 @@ if __name__ == '__main__':
         ]
 
         add_sources(sources, links, use_unix=use_unix)
-        if verbose: print "Sources sent to FaVe"
+        if verbose: print("Sources sent to FaVe")
 
-        if verbose: print "Initialize probes..."
+        if verbose: print("Initialize probes...")
         probes = [(
             "probe.Internet",
             "probe",
@@ -165,13 +165,13 @@ if __name__ == '__main__':
         ]
 
         add_policies(probes, links, use_unix=use_unix)
-        if verbose: print "Probes sent to FaVe"
+        if verbose: print("Probes sent to FaVe")
 
     time.sleep(1)
 
     sleep_interval = 1.0 / no_req
     total_req = duration * no_req
-    if verbose: print "Send %d states with a rate of %d req/s (interval: %.04fs)..." % (total_req, no_req, sleep_interval)
+    if verbose: print("Send %d states with a rate of %d req/s (interval: %.04fs)..." % (total_req, no_req, sleep_interval))
     fave = connect_to_fave(FAVE_DEFAULT_UNIX) if use_unix else connect_to_fave(FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT)
     requests = [
         _generate_request('fw0', i) for i in range(total_req)
@@ -184,9 +184,9 @@ if __name__ == '__main__':
         time.sleep(sleep_interval)
         fave_sendmsg(fave, req)
     fave.close()
-    if verbose: print "States sent to FaVe"
+    if verbose: print("States sent to FaVe")
 
-    if verbose: print "Wait for fave..."
+    if verbose: print("Wait for fave...")
     import netplumber.dump_np as dumper
     dumper.main([] + (["-u" if use_unix else []]))
 
@@ -196,5 +196,5 @@ if __name__ == '__main__':
     t_end = time.time()
 
     os.system("rm -f np_dump/.lock")
-    if verbose: print "Benchmark finished... ",
-    print "waited for %.4f seconds" % (t_end - t_start)
+    if verbose: print("Benchmark finished... ", end=' ')
+    print("waited for %.4f seconds" % (t_end - t_start))

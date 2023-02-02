@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
         header = reader.next()[1:]
         for role in header:
-            if not role in roles: print role
+            if not role in roles: print(role)
             assert role in roles
 
     with open("bench/wl_up/inventory.json", 'w') as f:

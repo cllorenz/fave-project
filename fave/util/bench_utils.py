@@ -161,7 +161,7 @@ def create_topology(devices, links, use_unix=False, verbose=False, interweave=Tr
             t_start = time.time()
             _DEVICES[dtype](*device, use_unix=use_unix, interweave=interweave)
             t_end = time.time()
-            if verbose: print "parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0)
+            if verbose: print("parse device %s: %s ms" % (dtype, (t_end - t_start) * 1000.0))
         except KeyError as e:
             raise #Exception("No such device type: %s" % e.message)
 
@@ -182,7 +182,7 @@ def add_routes(routes, use_unix=False):
         tables.setdefault(table, [])
         tables[table].append(route)
 
-    for table, routes in tables.iteritems():
+    for table, routes in tables.items():
         _add_rules(routes, use_unix=use_unix)
 
 

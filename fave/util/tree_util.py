@@ -19,6 +19,7 @@
 
 """ This module provides an AST structure.
 """
+from functools import reduce
 
 class Tree(list):
     """ This class provides storing and manipulation capabilities for an AST.
@@ -146,7 +147,7 @@ class Tree(list):
     def print_tree(self):
         """ Pretty prints the tree to stdout.
         """
-        print self.stringify()
+        print(self.stringify())
 
 
     def stringify(self, depth=0):

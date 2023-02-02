@@ -150,8 +150,8 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
         plen = len(ports)
 
         self.ports = dict(
-            self.internal_ports.items() + input_ports.items() +
-            output_ports.items() + external_ports.items()
+            list(self.internal_ports.items()) + list(input_ports.items()) +
+            list(output_ports.items()) + list(external_ports.items())
         )
 
         self.tables[node + ".post_routing"] = [ # low priority: forward packets according to

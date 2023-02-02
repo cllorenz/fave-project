@@ -648,7 +648,7 @@ class NetPlumberAdapter(object):
 
         if self.logger.isEnabledFor(TRACE):
             tables = "\n".join(
-                ["\t%s=%s" % (t, len(r)) for t, r in model.tables.iteritems()]
+                ["\t%s=%s" % (t, len(r)) for t, r in model.tables.items()]
             )
             self.logger.trace(
                 "worker: update rules for model %s with tables:\n%s" % (
@@ -849,7 +849,7 @@ class NetPlumberAdapter(object):
         """
 
         for model in models:
-            self._update_mapping(set([f for f in model.fields.iterkeys()]))
+            self._update_mapping(set([f for f in model.fields.keys()]))
 
         generators = [self._prepare_generator(m) for m in models]
         idx_to_model = {}

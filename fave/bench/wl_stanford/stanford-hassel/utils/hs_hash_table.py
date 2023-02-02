@@ -5,11 +5,10 @@ Created on Jul 10, 2012
 '''
 from abc import ABCMeta,abstractproperty,abstractmethod
 
-class hs_hash_table:
+class hs_hash_table(metaclass=ABCMeta):
     '''
     The base class for all hash tables
     '''
-    __metaclass__ = ABCMeta
     
     @abstractproperty
     def length(self):
