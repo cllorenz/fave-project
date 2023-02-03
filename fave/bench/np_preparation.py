@@ -46,7 +46,7 @@ def _port_no_to_port_name(
         skip_table_name=False
     ):
 
-    table_id = port / 100000
+    table_id = int(port / 100000)
     port_id = port % 100000
 
     for interval, ttype in intervals.items():
@@ -63,24 +63,24 @@ def _port_no_to_port_name(
 
 def _probe_port_to_port_name(port, tables, first=False):
     if first:
-        return 'probe.%s.1' % (tables[((port % 10000) / 100) - 1])
+        return 'probe.%s.1' % (tables[int((port % 10000) / 100) - 1])
     else:
-        return 'probe.%s.%d.1' % (tables[((port % 10000) / 100) - 1], port)
+        return 'probe.%s.%d.1' % (tables[int((port % 10000) / 100) - 1], port)
 
 
 def _source_port_to_port_name(port, tables):
-    return 'source.%s.1' % (tables[((port % 20000) / 100) - 1])
+    return 'source.%s.1' % (tables[int((port % 20000) / 100) - 1])
 
 
 def _probe_id_to_name(id, tables, first=False):
     if first:
-        return 'probe.%s' % (tables[((id % 10000) / 100) - 1])
+        return 'probe.%s' % (tables[int((id % 10000) / 100) - 1])
     else:
-        return 'probe.%s.%d' % (tables[((id % 10000) / 100) - 1], id)
+        return 'probe.%s.%d' % (tables[int((id % 10000) / 100) - 1], id)
 
 
 def _source_id_to_name(id, tables):
-    return 'source.%s' % tables[((id % 20000) / 100) - 1]
+    return 'source.%s' % tables[int((id % 20000) / 100) - 1]
 
 
 def get_start_end(field, mapping):
