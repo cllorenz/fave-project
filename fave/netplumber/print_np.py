@@ -28,20 +28,20 @@ import socket
 
 import netplumber.jsonrpc as jsonrpc
 
-from util.print_util import eprint
 
 def print_help():
     """ Prints usage to stderr.
     """
 
-    eprint(
+    print(
         "print_np -hsutn",
         "\t-h print this help and exit",
         "\t-n print net_plumber network",
         "\t-t print the topology",
         "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=1234)",
         "\t-u connect to net_plumber via unix socket (/tmp/net_plumber.socket)",
-        sep="\n"
+        sep="\n",
+        file=sys.stderr
     )
 
 

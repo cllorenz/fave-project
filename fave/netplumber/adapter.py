@@ -23,6 +23,7 @@
 import itertools
 import logging
 import json
+import sys
 
 from copy import deepcopy
 
@@ -34,7 +35,6 @@ from netplumber.vector import set_field_in_vector
 from netplumber.vector import Vector, HeaderSpace
 
 from util.ip6np_util import field_value_to_bitvector
-from util.print_util import eprint
 from rule.rule_model import Rule, Match, Forward, Rewrite, RuleField
 
 
@@ -1020,7 +1020,7 @@ class NetPlumberAdapter(object):
             }
 
         else:
-            eprint("Error while add probe: no test fields or path. Aborting.")
+            print("Error while add probe: no test fields or path. Aborting.", file=sys.stderr)
             return
 
         if self.logger.isEnabledFor(logging.DEBUG):

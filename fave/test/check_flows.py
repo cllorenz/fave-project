@@ -34,7 +34,6 @@ from filelock import SoftFileLock
 
 from rule.rule_model import RuleField
 from util.ip6np_util import field_value_to_bitvector
-from util.print_util import eprint
 from netplumber.vector import get_field_from_vector
 from netplumber.vector import HeaderSpace
 from netplumber.mapping import FIELD_SIZES
@@ -157,7 +156,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             try:
                 crule = ('START', [inv_fave["generator_to_id"][tname]])
             except KeyError as key_error:
-                eprint("skip unknown generator: %s" % key_error.message)
+                print("skip unknown generator: %s" % key_error.message, file=sys.stderr)
                 raise
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
@@ -170,7 +169,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                     inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
                 )
             except KeyError as key_error:
-                eprint("skip unknown entity: %s" % key_error.message)
+                print("skip unknown entity: %s" % key_error.message, file=sys.stderr)
                 raise
             nflow.append(crules)
 
@@ -444,7 +443,7 @@ def main(argv):
 
 
     if not args.flow_specs:
-        eprint("missing flow check specifications")
+        print("missing flow check specifications", file=sys.stderr)
         parser.print_help()
         return 2
 

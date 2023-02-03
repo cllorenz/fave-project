@@ -30,7 +30,6 @@ import json
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 
-from util.print_util import eprint
 from util.lock_util import PersistentFileLock
 
 
@@ -38,7 +37,7 @@ def print_help():
     """ Prints usage message to stderr.
     """
 
-    eprint(
+    print(
         "dump_np -ahfnp -o <dir>",
         "\t-a dump fave aggregator",
         "\t-h print this help and exit",
@@ -49,7 +48,8 @@ def print_help():
         "\t-t dump flow trees",
         "\t-s dump simple flow trees",
         "\t-u connect via UNIX domain socket",
-        sep="\n"
+        sep="\n",
+        file=sys.stderr
     )
 
 
@@ -77,7 +77,7 @@ def main(argv):
 
     for opt, arg in opts:
         if opt == '-h':
-            eprint("usage:")
+            print("usage:", file=sys.stderr)
             print_help()
             sys.exit(0)
 
@@ -107,7 +107,7 @@ def main(argv):
             use_unix = True
 
         else:
-            eprint("unknown option: %s, usage:" % opt)
+            print("unknown option: %s, usage:" % opt, file=sys.stderr)
             print_help()
             sys.exit(1)
 

@@ -38,7 +38,6 @@ from aggregator.aggregator_abstract import AbstractAggregator, TRACE
 from aggregator.aggregator_singleton import AGGREGATOR
 from aggregator.aggregator_signals import register_signals
 
-from util.print_util import eprint
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.aggregator_utils import fave_recvmsg
 from util.lock_util import PreLockedFileLock
@@ -97,7 +96,7 @@ class AggregatorService(AbstractAggregator):
     def print_aggregator(self):
         """ Prints the state to stderr.
         """
-        eprint(
+        print(
             "Aggregator:",
             self.net_plumber.mapping,
             "tables:",
@@ -112,6 +111,7 @@ class AggregatorService(AbstractAggregator):
             "\t%s" % self.net_plumber.generators,
             "probes:",
             "\t%s" % self.net_plumber.probes,
+            file=sys.stderr,
             sep="\n"
         )
 
@@ -335,10 +335,10 @@ class AggregatorService(AbstractAggregator):
                 model = device
 
             else:
-                eprint(
+                print(
                     "Error while processing flow modification: no such dp:",
                     str(model.node),
-                    sep=" "
+                    file=sys.stderr
                 )
                 return
 
@@ -682,7 +682,7 @@ def main(argv):
                 asyncore_socks[(np_server, np_port)] = asyncore_sock
         except jsonrpc.RPCError as err:
             AggregatorService.LOGGER.error(err.message)
-            eprint("could not connect to server: %s %s" % (np_server, np_port))
+            print("could not connect to server: %s %s" % (np_server, np_port), file=sys.stderr)
             parser.print_help()
             sys.exit(1)
 
