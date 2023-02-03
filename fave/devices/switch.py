@@ -305,7 +305,7 @@ def main(argv):
                     _commands_to_actions(commands)
                 ) for node, table, idx, in_ports, fields, commands in args.rules
             ]
-            cmd = SwitchCommand(node, 'add_rules', switch_rules)
+            cmd = SwitchCommand(args.node, 'add_rules', switch_rules)
         else:
             rule = Rule(
                 args.node, table, args.index,
