@@ -33,14 +33,18 @@ def _generate_cchecks(checks):
         valid = not check.startswith("! ")
         check = check.lstrip('! ')
 
-        cond = None
+        cond = []
 
         tokens = check.split(" && ")
         if len(tokens) == 2:
             src, dst = tokens
         elif len(tokens) == 3:
             src, dst, cond = tokens
-            cond = cond.lstrip("f=")
+            cond = [cond.lstrip("f=")]
+        elif len(tokens) > 3:
+            src = tokens[0]
+            dst = tokens[1]
+            cond = [c.lstrip("f=") for c in tokens[2:]]
         else:
             raise Exception("unsupported amount of operands: %s (%s)" % (len(tokens), tokens))
 
