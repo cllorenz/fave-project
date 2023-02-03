@@ -40,3 +40,5 @@ out
 examples/example-ruleset
 
 *.swp
+
+report.md
