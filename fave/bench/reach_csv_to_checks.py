@@ -98,7 +98,7 @@ if __name__ == '__main__':
     with open(args.policy_file, 'r') as csv_file:
         reader = csv.reader(csv_file, delimiter=',')
 
-        header = reader.next()[1:]
+        header = next(reader)[1:]
 
         for row in reader:
 
