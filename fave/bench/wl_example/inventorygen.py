@@ -26,7 +26,7 @@ if __name__ == '__main__':
     with open("bench/wl_example/reachability.csv", 'r') as f:
         reader = csv.reader(f, delimiter=',')
 
-        header = reader.next()[1:]
+        header = next(reader)[1:]
         for role in header:
             if not role in roles: print(role)
             assert role in roles
