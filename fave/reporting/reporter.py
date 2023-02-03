@@ -123,9 +123,10 @@ class Reporter(threading.Thread):
 
             # check if reportable
             if "DefaultComplianceLogger" in tokens:
-                from_ = tokens[16]
-                to_ = tokens[18]
-                cond = tokens[20] if len(tokens) >= 21 else None
+                negated = 1 if tokens[16] == '!' else 0
+                from_ = tokens[16 + negated]
+                to_ = tokens[18 + negated]
+                cond = tokens[20 + negated] if len(tokens) >= 21 + negated else None
 
                 line = (Log.Compliance, from_, to_, cond)
 
