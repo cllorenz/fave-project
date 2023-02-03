@@ -63,36 +63,40 @@ class Reporter(threading.Thread):
 
         # generate report
         report.append("\n## Compliance Check")
-        report.append("The following compliance violations have been found:\n")
-
-        for event in compliance_events:
-            _, from_, to_, cond = event
-            report.append("- `{} -> {}{}`".format(
-                id_to_generator[int(from_)],
-                id_to_probe[int(to_)],
-                " && " + ','.join(
-                    ['='.join(fv) for fv in _parse_cond(cond, self.fave.net_plumber.mapping)]
-                ) if cond else ""
-            ))
+        if compliance_events:
+            report.append("The following compliance violations have been found:\n")
+            for event in compliance_events:
+                _, from_, to_, cond = event
+                report.append("- `{} -> {}{}`".format(
+                    id_to_generator[int(from_)],
+                    id_to_probe[int(to_)],
+                    " && " + ','.join(
+                        ['='.join(fv) for fv in _parse_cond(cond, self.fave.net_plumber.mapping)]
+                    ) if cond else ""
+                ))
+        else:
+            report.append("No compliance violations have been found.")
 
         report.append("\n## Anomaly Check")
-        report.append("The following anomalies have been found:\n")
+        if anomaly_events:
+            report.append("The following anomalies have been found:\n")
 
+            inv_rids = {}
+            for fave_rid, np_rids in list(self.fave.net_plumber.rule_ids.items()):
+                for np_rid in np_rids:
+                    inv_rids[np_rid] = fave_rid
 
-        inv_rids = {}
-        for fave_rid, np_rids in list(self.fave.net_plumber.rule_ids.items()):
-            for np_rid in np_rids:
-                inv_rids[np_rid] = fave_rid
+            shadowed_rids = {}
+            for np_rid in anomaly_events:
+                fave_rid = inv_rids[np_rid]
+                shadowed_rids.setdefault(fave_rid, [])
+                shadowed_rids[fave_rid].append(np_rid)
 
-        shadowed_rids = {}
-        for np_rid in anomaly_events:
-            fave_rid = inv_rids[np_rid]
-            shadowed_rids.setdefault(fave_rid, [])
-            shadowed_rids[fave_rid].append(np_rid)
-
-        for fave_rid, np_rids in list(shadowed_rids.items()):
-            if set(np_rids) == set(self.fave.net_plumber.rule_ids[fave_rid]):
-                report.append("- {}".format(fave_rid))
+            for fave_rid, np_rids in list(shadowed_rids.items()):
+                if set(np_rids) == set(self.fave.net_plumber.rule_ids[fave_rid]):
+                    report.append("- {}".format(fave_rid))
+        else:
+            report.append("No anomalies have been found.")
 
         with open(dump, 'w') as of:
             of.write('\n'.join(report) + '\n')
