@@ -212,7 +212,7 @@ python3 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;
 #echo "start openflow proxy..."
 #PYTHONPATH=. python3 openflow/ofproxy.py
 
-python3 $ROOTDIR/aggregator/report.py
+python3 $ROOTDIR/reporting/report.py
 
 pandoc report.md -o report.pdf
 
