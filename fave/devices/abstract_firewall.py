@@ -33,9 +33,9 @@ from util.model_util import TABLE_MAX
 from util.packet_util import is_ip as is_ipv4
 
 _BASE_ROUTING_EXACT = 0
-_BASE_ROUTING_WRONG_IO = TABLE_MAX / 4 * 1
-_BASE_ROUTING_WRONG_AP = TABLE_MAX / 4 * 2
-_BASE_ROUTING_RULE = TABLE_MAX / 4 * 3
+_BASE_ROUTING_WRONG_IO = int((TABLE_MAX + 1) / 4) * 1
+_BASE_ROUTING_WRONG_AP = int((TABLE_MAX + 1) / 4) * 2
+_BASE_ROUTING_RULE = int((TABLE_MAX + 1) / 4) * 3
 
 
 class AbstractFirewallModel(AbstractDeviceModel):
