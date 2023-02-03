@@ -562,14 +562,23 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
         """
 
         self._ast = Tree('root')
-        ast = self.run(file=str(ruleset), debug=(1 if debug else 0))
+
+        with open(ruleset, 'r') as f:
+            ast = self.parse_string(f.read(), debug=debug)
+
         return ast
 
 
 if __name__ == '__main__':
-    RULESET = "bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset"
-    DEBUG = False
-    if len(sys.argv) >= 2: RULESET = sys.argv[1]
-    if len(sys.argv) >= 3 and sys.argv[2] == '-d': DEBUG = True
+    import argparse
+    parser = argparse.ArgumentParser(prog="Pybison Parser for IP6Tables")
+    parser.add_argument("-k", "--keepfiles", action="store_true")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("RULESET", default="bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset")
+    args = parser.parse_args()
 
-    IP6TablesParser().parse(RULESET, debug=DEBUG).print_tree()
+    IP6TablesParser(
+        keepfiles=args.keepfiles,
+        verbose=args.verbose
+    ).parse(args.RULESET, debug=args.debug).print_tree()
