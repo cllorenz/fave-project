@@ -32,7 +32,14 @@ class IP6TablesParser(BisonParser):
     """ This class provides a fast ip6tables parser.
     """
 
-    bisonEngineLibName = "iptables/ip6tables-parser"
+    options = [
+        "%define api.pure full",
+        "%define api.push-pull push",
+        "%lex-param {yyscan_t scanner}",
+        "%parse-param {yyscan_t scanner}",
+        "%define api.value.type {void *}",
+    ]
+
     interactive = False
 
     tokens = [
@@ -481,16 +488,18 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
     _proto = '[[:digit:]]{1,3}'
 
     lexscript = r"""
+    %option reentrant bison-bridge bison-locations
     %{
-    #include <stdio.h>
-    #include <string.h>
     #include "Python.h"
-    #define YYSTYPE void *
-    #include "tokens.h"
+    #include "tmp.tab.h"
     extern void *py_parser;
     extern void (*py_input)(PyObject *parser, char *buf, int *result, int max_size);
-    #define returntoken(tok) yylval = PyString_FromString(strdup(yytext)); return (tok);
-    #define YY_INPUT(buf,result,max_size) { (*py_input)(py_parser, buf, &result, max_size); }
+    PyMODINIT_FUNC PyInit_Parser(void) { /* windows needs this function */ }
+    #define returntoken(tok) \
+            *yylval = (void*)PyUnicode_FromString(strdup(yytext)); return (tok);
+    #define YY_INPUT(buf,result,max_size) { \
+        (*py_input)(py_parser, buf, &result, max_size); \
+    }
     %}
 
     %%
@@ -541,7 +550,7 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
 
     %%
 
-    int yywrap() { return(1); }
+    int yywrap(yyscan_t scanner) { return(1); }
     """
 
 
