@@ -293,7 +293,6 @@ def main(argv):
 
     if args.command == 'add':
         if args.rules:
-
             switch_rules = []
             switch_rules = [
                 Rule(
@@ -305,7 +304,7 @@ def main(argv):
                     _commands_to_actions(commands)
                 ) for node, table, idx, in_ports, fields, commands in args.rules
             ]
-            cmd = SwitchCommand(args.node, 'add_rules', switch_rules)
+            cmd = SwitchCommand(switch_rules[0].node, 'add_rules', switch_rules)
         else:
             rule = Rule(
                 args.node, table, args.index,
