@@ -38,7 +38,7 @@ NET_PLUMBER_DEFAULT_PORT = 44001
 def _sendrecv(sock, msg):
     """ Synchronous RPC call.
     """
-    sock.sendall(msg)
+    sock.sendall(msg.encode('utf8'))
     result = ''
     while True:
         part = sock.recv(4096)
@@ -54,7 +54,7 @@ def _async_send(socks, msg):
     """
 
     for sock in socks:
-        sock.sendall(msg+'\n')
+        sock.sendall((msg+'\n').encode('utf8'))
 
 
 def _parse_msg(msg):
@@ -70,14 +70,14 @@ def _sync_recv(socks):
     for sock in socks:
         result = ''
         while True:
-            chunk = sock.recv(4096, socket.MSG_PEEK)
+            chunk = sock.recv(4096, socket.MSG_PEEK).decode('utf8')
             pos = chunk.find('\n')
 
             if pos == -1:
-                result += sock.recv(4096)
+                result += sock.recv(4096).decode('utf8')
             else:
                 result += chunk[:pos]
-                sock.recv(pos+1)
+                sock.recv(pos+1).decode('utf8')
                 break
 
         results.append(_parse_msg(result))

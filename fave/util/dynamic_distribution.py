@@ -113,11 +113,11 @@ class NodeLinkDispatcher(asyncore.dispatcher):
             if self.logger.isEnabledFor(logging.DEBUG):
                 debug_msg = "Sending node message: {}".format(node_msg)
                 self.logger.debug(debug_msg)
-            self.send(node_msg + '\n')
+            self.send((node_msg + '\n').encode('utf8'))
             if self.logger.isEnabledFor(logging.DEBUG):
                 debug_msg = "Sending link message: {}".format(link_msg)
                 self.logger.debug(debug_msg)
-            self.send(link_msg + '\n')
+            self.send((link_msg + '\n').encode('utf8'))
             # Add "message expected" signal to recv queue
             self.recv_queue.put(node_msg)
             self.recv_queue.put(link_msg)
@@ -154,7 +154,7 @@ class NodeLinkDispatcher(asyncore.dispatcher):
     def _recv_whole_buffer(self):
         results = []
         raw = self.recv(4096)
-        chunk = self.raw_msg_buf + raw
+        chunk = self.raw_msg_buf + raw.decode('utf8')
         self.raw_msg_buf = ''
 
         pos = chunk.rfind('\n')

@@ -69,7 +69,7 @@ def fave_sendmsg(conn, data):
     data -- the message as string
     """
 
-    msg = struct.pack('>I', len(data)) + data
+    msg = struct.pack('>I', len(data)) + data.encode('utf8')
     return conn.sendall(msg)
 
 
@@ -100,4 +100,4 @@ def _recvall(conn, msglen, logger=None):
             logger.warn("fave_recvmsg: received empty data. data so far: %s" % len(data))
             return None
         data.extend(part)
-    return str(data)
+    return data.decode('utf8')
