@@ -527,7 +527,7 @@ def main(argv):
         "thread %s: runtimes:" % tid,
         "total: %s ms" % sum(_MEASUREMENTS),
         "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
-        "median: %s ms" % sorted(_MEASUREMENTS)[len(_MEASUREMENTS)/2],
+        "median: %s ms" % sorted(_MEASUREMENTS)[int(len(_MEASUREMENTS)/2)],
         "min: %s ms" % min(_MEASUREMENTS),
         "max: %s ms" % max(_MEASUREMENTS)
     ])))
