@@ -234,9 +234,9 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
                 actions=quintuple.actions
             )
 
-            self.adds.setdefault(quintuple.tid, [])
-            self.adds[quintuple.tid].append(quintuple)
-            self.adds[reverse_quintuple.tid].append(reverse_quintuple)
+            self._adds.setdefault(quintuple.tid, [])
+            self._adds[quintuple.tid].append(quintuple)
+            self._adds[reverse_quintuple.tid].append(reverse_quintuple)
 
 
     @staticmethod

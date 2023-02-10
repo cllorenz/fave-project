@@ -193,5 +193,5 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
             for action in [a for a in rule.actions if isinstance(a, Forward) and a.ports]:
                 action.ports = [self.node+'.relay_out']
 
-            self.adds.setdefault(rule.tid, [])
-            self.adds[rule.tid].append(rule)
+            self._adds.setdefault(rule.tid, [])
+            self._adds[rule.tid].append(rule)

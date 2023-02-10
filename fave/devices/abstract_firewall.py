@@ -61,7 +61,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
             self.type,
             ports=self.ports
         )
-        npf.tables = copy(self.adds)
+        npf.tables = copy(self._adds)
 
         return npf
 

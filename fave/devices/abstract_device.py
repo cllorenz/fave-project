@@ -46,8 +46,8 @@ class AbstractDeviceModel(object):
         self.tables = tables if tables is not None else {}
         self.ports = ports if ports is not None else {}
         self.wiring = wiring if wiring is not None else []
-        self.adds = {t : [] for t in self.tables}
-        self.deletes = []
+        self._adds = {t : [] for t in self.tables}
+        self._deletes = []
 
 
     def __str__(self):
@@ -63,8 +63,8 @@ class AbstractDeviceModel(object):
     def reset(self):
         """ Resets add and delete buffers.
         """
-        self.adds = {t : [] for t in self.tables}
-        self.deletes = []
+        self._adds = {t : [] for t in self.tables}
+        self._deletes = []
 
 
     def add_rule(self, rule):
@@ -83,14 +83,14 @@ class AbstractDeviceModel(object):
         rules -- list of ports to be added
         """
         for rule in rules:
-            self.adds.setdefault(rule.tid, [])
-            self.adds[rule.tid].append(rule)
+            self._adds.setdefault(rule.tid, [])
+            self._adds[rule.tid].append(rule)
 
 
     def remove_rule(self, idx):
         """ Add rule to delete buffer.
         """
-        self.deletes.append(idx)
+        self._deletes.append(idx)
 
 
     def ingress_port(self, port):

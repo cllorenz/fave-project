@@ -422,7 +422,7 @@ class RouterModel(AbstractDeviceModel):
             ports=self.ports
         )
 
-        res.tables = copy(self.adds)
+        res.tables = copy(self._adds)
 
         return res
 

@@ -466,9 +466,9 @@ class AggregatorService(AbstractAggregator):
         if model.node in self.models:
             # calculate items to remove and items to add
             add = model - self.models[model.node]
-            for table in model.adds:
+            for table in model._adds: # TODO: better interface :-/
                 model.tables.setdefault(table, [])
-                model.tables[table].extend(model.adds[table])
+                model.tables[table].extend(model._adds[table])
 
             model.reset()
 
