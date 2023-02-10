@@ -44,10 +44,10 @@ class Reporter(threading.Thread):
 
     def dump_report(self, dump):
         # name : (idx, sid, model)
-        id_to_generator = {g[1] : n for n, g in list(self.fave.net_plumber.generators.items())}
+        id_to_generator = {g[1] : n for n, g in list(self.fave.verification_engine.generators.items())}
 
         # name : (idx, pid, model)
-        id_to_probe = {g[1] : n for n, g in list(self.fave.net_plumber.probes.items())}
+        id_to_probe = {g[1] : n for n, g in list(self.fave.verification_engine.probes.items())}
 
         report = [
             "# Report",
@@ -71,7 +71,7 @@ class Reporter(threading.Thread):
                     id_to_generator[int(from_)],
                     id_to_probe[int(to_)],
                     " && " + ','.join(
-                        ['='.join(fv) for fv in _parse_cond(cond, self.fave.net_plumber.mapping)]
+                        ['='.join(fv) for fv in _parse_cond(cond, self.fave.verification_engine.mapping)]
                     ) if cond else ""
                 ))
         else:
@@ -82,7 +82,7 @@ class Reporter(threading.Thread):
             report.append("The following anomalies have been found:\n")
 
             inv_rids = {}
-            for fave_rid, np_rids in list(self.fave.net_plumber.rule_ids.items()):
+            for fave_rid, np_rids in list(self.fave.verification_engine.rule_ids.items()):
                 for np_rid in np_rids:
                     inv_rids[np_rid] = fave_rid
 
@@ -93,7 +93,7 @@ class Reporter(threading.Thread):
                 shadowed_rids[fave_rid].append(np_rid)
 
             for fave_rid, np_rids in list(shadowed_rids.items()):
-                if set(np_rids) == set(self.fave.net_plumber.rule_ids[fave_rid]):
+                if set(np_rids) == set(self.fave.verification_engine.rule_ids[fave_rid]):
                     report.append("- {}".format(fave_rid))
         else:
             report.append("No anomalies have been found.")
