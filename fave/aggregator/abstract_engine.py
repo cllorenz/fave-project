@@ -1,59 +1,59 @@
 #!/usr/bin/env python3
 
 class AbstractVerificationEngine(object):
-    def add_generator(self):
+    def add_generator(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_generators_bulk(self):
+    def add_generators_bulk(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_link(self):
+    def add_link(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_links_bulk(self):
+    def add_links_bulk(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_probe(self):
+    def add_probe(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_rules(self):
+    def add_rules(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_slice(self):
+    def add_slice(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_tables(self):
+    def add_tables(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def add_wiring(self):
+    def add_wiring(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def check_anomalies(self):
+    def check_anomalies(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def delete_generator(self):
+    def delete_generator(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def delete_probe(self):
+    def delete_probe(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def del_slice(self):
+    def del_slice(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def dump_flows(self):
+    def dump_flows(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def dump_flow_trees(self):
+    def dump_flow_trees(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def dump_pipes(self):
+    def dump_pipes(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def dump_plumbing_network(self):
+    def dump_plumbing_network(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def remove_link(self):
+    def remove_link(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def stop(self):
+    def stop(self, *args, **kwargs):
         raise NotImplementedError()
