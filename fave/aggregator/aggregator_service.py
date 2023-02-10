@@ -70,7 +70,7 @@ class AggregatorService(AbstractAggregator):
         self.port_to_model = {}
         self.links = {}
         self.stop = False
-        self.net_plumber = NetPlumberAdapter(
+        self.verification_engine = NetPlumberAdapter(
             list(socks.values()),
             AggregatorService.LOGGER,
             asyncore_socks=asyncore_socks,
@@ -98,19 +98,19 @@ class AggregatorService(AbstractAggregator):
         """
         print(
             "Aggregator:",
-            self.net_plumber.mapping,
+            self.verification_engine.mapping,
             "tables:",
-            "\t%s" % self.net_plumber.tables,
+            "\t%s" % self.verification_engine.tables,
             "ports:",
-            "\t%s" % self.net_plumber.ports,
+            "\t%s" % self.verification_engine.ports,
             "rule ids:",
-            "\t%s" % self.net_plumber.rule_ids,
+            "\t%s" % self.verification_engine.rule_ids,
             "links:",
-            "\t%s" % self.net_plumber.links,
+            "\t%s" % self.verification_engine.links,
             "generators:",
-            "\t%s" % self.net_plumber.generators,
+            "\t%s" % self.verification_engine.generators,
             "probes:",
-            "\t%s" % self.net_plumber.probes,
+            "\t%s" % self.verification_engine.probes,
             file=sys.stderr,
             sep="\n"
         )
@@ -167,7 +167,7 @@ class AggregatorService(AbstractAggregator):
             if j['type'] == 'stop':
                 task_type = 'stop'
                 self.stop_aggr()
-                self.net_plumber.stop()
+                self.verification_engine.stop()
 
             elif j['type'] == 'report':
                 report = j
@@ -184,20 +184,20 @@ class AggregatorService(AbstractAggregator):
                 if dump['fave']:
                     self._dump_aggregator(odir)
                 if dump['flows']:
-                    self.net_plumber.dump_flows(odir)
+                    self.verification_engine.dump_flows(odir)
                 if dump['network']:
-                    self.net_plumber.dump_plumbing_network(odir)
+                    self.verification_engine.dump_plumbing_network(odir)
                 if dump['pipes']:
-                    self.net_plumber.dump_pipes(odir)
+                    self.verification_engine.dump_pipes(odir)
                 if dump['trees']:
-                    self.net_plumber.dump_flow_trees(odir, dump['simple'])
+                    self.verification_engine.dump_flow_trees(odir, dump['simple'])
 
                 lock = PreLockedFileLock("%s/.lock" % odir)
                 lock.release()
 
             elif j['type'] == 'check_anomalies':
                 task_type = 'check_anomalies'
-                self.net_plumber.check_anomalies(
+                self.verification_engine.check_anomalies(
                     use_shadow=j.get('use_shadow', False),
                     use_reach=j.get('use_reach', False),
                     use_general=j.get('use_general', False)
@@ -361,8 +361,8 @@ class AggregatorService(AbstractAggregator):
                         raise
 
 
-                    sportno = self.net_plumber.global_port(smodel.egress_port(sport))
-                    dportno = self.net_plumber.global_port(dmodel.ingress_port(dport))
+                    sportno = self.verification_engine.global_port(smodel.egress_port(sport))
+                    dportno = self.verification_engine.global_port(dmodel.ingress_port(dport))
 
                     if cmd.command == "add":
                         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
@@ -379,11 +379,11 @@ class AggregatorService(AbstractAggregator):
                             links.append(nlink)
                         self.links.setdefault(sport, [])
                         self.links[sport].append(dport)
-                        self.net_plumber.links.setdefault(sportno, [])
-                        self.net_plumber.links[sportno].append(dportno)
+                        self.verification_engine.links.setdefault(sportno, [])
+                        self.verification_engine.links[sportno].append(dportno)
 
                         if not bulk:
-                            self.net_plumber.add_link(*nlink)
+                            self.verification_engine.add_link(*nlink)
 
                     elif cmd.command == "del":
                         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
@@ -391,16 +391,16 @@ class AggregatorService(AbstractAggregator):
                                 "worker: remove link from netplumber from %s to %s",
                                 sport, dport
                             )
-                        self.net_plumber.remove_link(sportno, dportno)
+                        self.verification_engine.remove_link(sportno, dportno)
                         self.links[sport].remove(dport)
                         if not self.links[sport]: del self.links[sport]
 
                 if links:
                     if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
                         AggregatorService.LOGGER.debug("worker: add all bulk links")
-                    self.net_plumber.add_links_bulk(
+                    self.verification_engine.add_links_bulk(
                         links,
-                        use_dynamic=(self.net_plumber.asyncore_socks != {})
+                        use_dynamic=(self.verification_engine.asyncore_socks != {})
                     )
 
                 return
@@ -417,9 +417,9 @@ class AggregatorService(AbstractAggregator):
             elif cmd.mtype == "generator":
                 if cmd.command == "add":
                     self._add_ports(cmd.model)
-                    self.net_plumber.add_generator(cmd.model)
+                    self.verification_engine.add_generator(cmd.model)
                 elif cmd.command == "del":
-                    self.net_plumber.delete_generator(cmd.node)
+                    self.verification_engine.delete_generator(cmd.node)
 
                 return
 
@@ -428,9 +428,9 @@ class AggregatorService(AbstractAggregator):
                     for generator in cmd.model.generators:
                         self._add_ports(generator)
 
-                    self.net_plumber.add_generators_bulk(
+                    self.verification_engine.add_generators_bulk(
                         cmd.model.generators,
-                        use_dynamic=(self.net_plumber.asyncore_socks != {})
+                        use_dynamic=(self.verification_engine.asyncore_socks != {})
                     )
 
 # TODO: implement deletion
@@ -443,9 +443,9 @@ class AggregatorService(AbstractAggregator):
                 if cmd.command == "add":
                     self._add_ports(cmd.model)
                     self._align_ports_for_probe(cmd.model)
-                    self.net_plumber.add_probe(cmd.model)
+                    self.verification_engine.add_probe(cmd.model)
                 elif cmd.command == "del":
-                    self.net_plumber.delete_probe(cmd.node)
+                    self.verification_engine.delete_probe(cmd.node)
 
                 return
 
@@ -456,9 +456,9 @@ class AggregatorService(AbstractAggregator):
         if model.type == "slicing_command":
             cmd = model
             if cmd.command == 'add_slice':
-                self.net_plumber.add_slice(cmd.slice)
+                self.verification_engine.add_slice(cmd.slice)
             elif cmd.command == 'del_slice':
-                self.net_plumber.del_slice(cmd.slice)
+                self.verification_engine.del_slice(cmd.slice)
 
             return
 
@@ -516,9 +516,9 @@ class AggregatorService(AbstractAggregator):
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             lmsg = "worker: delete %s: %s" % (model.type, model.node)
             AggregatorService.LOGGER.debug(lmsg)
-        self.net_plumber.delete_rules(model)
-        self.net_plumber.delete_wiring(model)
-        self.net_plumber.delete_tables(model)
+        self.verification_engine.delete_rules(model)
+        self.verification_engine.delete_wiring(model)
+        self.verification_engine.delete_tables(model)
 
 
     def _add_model(self, model):
@@ -526,9 +526,9 @@ class AggregatorService(AbstractAggregator):
             lmsg = "worker: apply %s: %s" % (model.type, model.node)
             AggregatorService.LOGGER.debug(lmsg)
 
-        self.net_plumber.add_tables(model)
-        self.net_plumber.add_wiring(model)
-        self.net_plumber.add_rules(model)
+        self.verification_engine.add_tables(model)
+        self.verification_engine.add_wiring(model)
+        self.verification_engine.add_rules(model)
         self._add_ports(model)
 
 
@@ -543,9 +543,9 @@ class AggregatorService(AbstractAggregator):
 
 
     def _delete_model(self, model):
-        self.net_plumber.delete_rules(model)
-        self.net_plumber.delete_wiring(model)
-        self.net_plumber.delete_tables(model)
+        self.verification_engine.delete_rules(model)
+        self.verification_engine.delete_wiring(model)
+        self.verification_engine.delete_tables(model)
         self._del_ports(model)
 
 
@@ -555,19 +555,19 @@ class AggregatorService(AbstractAggregator):
 
         with open("%s/fave.json" % odir, "w") as ofile:
             j = {}
-            j["mapping"] = self.net_plumber.mapping.to_json()
-            j["id_to_table"] = {self.net_plumber.tables[k]:k for k in self.net_plumber.tables}
+            j["mapping"] = self.verification_engine.mapping.to_json()
+            j["id_to_table"] = {self.verification_engine.tables[k]:k for k in self.verification_engine.tables}
 
             j["id_to_rule"] = {}
-            for key in self.net_plumber.rule_ids:
-                for elem in self.net_plumber.rule_ids[key]:
+            for key in self.verification_engine.rule_ids:
+                for elem in self.verification_engine.rule_ids[key]:
                     j["id_to_rule"][elem] = key >> 16
 
             j["id_to_generator"] = {
-                self.net_plumber.generators[k][1]:k for k in self.net_plumber.generators
+                self.verification_engine.generators[k][1]:k for k in self.verification_engine.generators
             }
-            j["id_to_probe"] = {self.net_plumber.probes[k][1]:k for k in self.net_plumber.probes}
-            j["id_to_port"] = {self.net_plumber.ports[k]:k for k in self.net_plumber.ports}
+            j["id_to_probe"] = {self.verification_engine.probes[k][1]:k for k in self.verification_engine.probes}
+            j["id_to_port"] = {self.verification_engine.ports[k]:k for k in self.verification_engine.ports}
 
             j["links"] = [(src, dst) for src, dst in self.links.items()]
 
