@@ -28,6 +28,7 @@ import sys
 from copy import deepcopy
 
 from aggregator.aggregator_abstract import TRACE
+from aggregator.abstract_engine import AbstractVerificationEngine
 
 import netplumber.jsonrpc as jsonrpc
 from netplumber.mapping import Mapping, FIELD_SIZES
@@ -98,7 +99,7 @@ def _expand_field(field):
 
 
 
-class NetPlumberAdapter(object):
+class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
     """
 
