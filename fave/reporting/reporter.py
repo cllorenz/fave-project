@@ -66,8 +66,9 @@ class Reporter(threading.Thread):
         if compliance_events:
             report.append("The following compliance violations have been found:\n")
             for event in compliance_events:
-                _, from_, to_, cond = event
-                report.append("- `{} -> {}{}`".format(
+                _, negated, from_, to_, cond = event
+                report.append("- `{}{} -> {}{}`".format(
+                    "!" if negated else "",
                     id_to_generator[int(from_)],
                     id_to_probe[int(to_)],
                     " && " + ','.join(
@@ -127,12 +128,13 @@ class Reporter(threading.Thread):
 
             # check if reportable
             if "DefaultComplianceLogger" in tokens:
+                print(tokens)
                 negated = 1 if tokens[16] == '!' else 0
                 from_ = tokens[16 + negated]
                 to_ = tokens[18 + negated]
                 cond = tokens[20 + negated] if len(tokens) >= 21 + negated else None
 
-                line = (Log.Compliance, from_, to_, cond)
+                line = (Log.Compliance, negated == 1, from_, to_, cond)
 
             elif "DefaultAnomalyLogger" in tokens:
                 np_rid = tokens[13]

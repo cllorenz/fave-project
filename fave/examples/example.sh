@@ -81,13 +81,13 @@ echo "ok"
 export PYTHONPATH="$ROOTDIR:${PYTHONPATH}"
 
 echo -n "start netplumber... "
-bash $ROOTDIR/scripts/start_np.sh -l $ROOTDIR/examples/example.conf
+bash $ROOTDIR/scripts/start_np.sh -l $ROOTDIR/examples/example.conf -L 55
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 sleep 1
 
 echo -n "start aggregator... "
-bash $ROOTDIR/scripts/start_aggr.sh -a
+bash $ROOTDIR/scripts/start_aggr.sh -a -m $ROOTDIR/examples/example_mapping.json
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
 ##
@@ -178,7 +178,7 @@ CNT=0
 
 python3 $ROOTDIR/netplumber/dump_np.py -anpft
 
-python3 $ROOTDIR/netplumber/check_compliance.py -f examples/example.json
+python3 $ROOTDIR/netplumber/check_compliance.py -f $ROOTDIR/examples/example_checks.json
 
 # test flow propagation
 echo -n "check flow propagation... "

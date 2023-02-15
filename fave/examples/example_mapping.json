@@ -1,0 +1,16 @@
+{
+    "in_port": 408,
+    "length": 440,
+    "module.ipv6header.header": 104,
+    "module.ipv6header.rt.segsleft": 96,
+    "module.ipv6header.rt.type": 112,
+    "module.limit": 0,
+    "out_port": 376,
+    "packet.ipv6.destination": 248,
+    "packet.ipv6.icmpv6.type": 64,
+    "packet.ipv6.proto": 40,
+    "packet.ipv6.source": 120,
+    "packet.upper.dport": 48,
+    "packet.upper.sport": 80,
+    "related": 32
+}
