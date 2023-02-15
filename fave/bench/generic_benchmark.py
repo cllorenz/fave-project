@@ -272,6 +272,13 @@ class GenericBenchmark(object):
         os.system("rm -f np_dump/.lock")
 
 
+    def _report(self):
+        self.logger.info("generating report...")
+        os.system("python3 reporting/report.py -u")
+        os.system("pandoc report.md -o report.pdf")
+        self.logger.info("report generated.")
+
+
     def run(self):
         """ Runs the benchmark.
         """
@@ -282,6 +289,7 @@ class GenericBenchmark(object):
         self._startup()
         self._initialization()
         self._reachability()
+        self._report()
         self._dump_fave()
         self._wait_for_fave()
         self._teardown()
