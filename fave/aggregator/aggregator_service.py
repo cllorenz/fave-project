@@ -59,6 +59,7 @@ from topology.topology import LinksModel, TopologyCommand
 
 from reporting.reporter import Reporter
 
+from rule.rule_model import RuleField
 
 class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
@@ -174,6 +175,15 @@ class AggregatorService(AbstractAggregator):
                 self.reporter.dump_report(report['file'])
                 self.reporter.mark_compliance()
                 self.reporter.mark_anomalies()
+
+            elif j['type'] == 'check_compliance':
+                rules = {}
+                for dst, src_rules in j['rules'].items():
+                    rules.setdefault(dst, [])
+                    for src, negated, cond in src_rules:
+                        rules[dst].append(src, negated, [RuleField.from_json(f) for f in cond])
+
+                self.verification_engine.check_compliance(rules)
 
             elif j['type'] == 'dump':
                 dump = j

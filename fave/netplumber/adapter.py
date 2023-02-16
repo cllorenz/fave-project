@@ -165,6 +165,28 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             use_general=use_general
         )
 
+
+    def _create_compliance_rules(self, rules):
+        res = {}
+        for dst, src_rules in rules.items():
+            _, dst_id, _ = self.probes[dst]
+            res.setdefault(dst_id, [])
+            for src_rule in src_rules:
+                src, negated, cond = src_rule
+                _, src_id, _ = self.generators[src]
+                res[dst_id].append(src_id, negated, self._build_vector(cond))
+
+        return res
+
+
+    def check_compliance(self, rules):
+        """ Orders NetPlumber to check all tables for anomalies.
+        """
+        jsonrpc.check_compliance(
+            self.socks,
+            self._create_compliance_rules(rules)
+        )
+
     def _expand(self):
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length
