@@ -181,7 +181,7 @@ class AggregatorService(AbstractAggregator):
                 for dst, src_rules in j['rules'].items():
                     rules.setdefault(dst, [])
                     for src, negated, cond in src_rules:
-                        rules[dst].append(src, negated, [RuleField.from_json(f) for f in cond])
+                        rules[dst].append((src, negated, [RuleField.from_json(f) for f in cond]))
 
                 self.verification_engine.check_compliance(rules)
 

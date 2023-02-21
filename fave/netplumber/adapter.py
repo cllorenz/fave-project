@@ -174,7 +174,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             for src_rule in src_rules:
                 src, negated, cond = src_rule
                 _, src_id, _ = self.generators[src]
-                res[dst_id].append(src_id, negated, self._build_vector(cond))
+                res[dst_id].append((src_id, negated, self._build_vector(cond).vector if cond else None))
 
         return res
 
