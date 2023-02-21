@@ -264,12 +264,16 @@ class GenericBenchmark(object):
 
     def _compliance(self):
         self.logger.info("checking flow trees...")
-        os.system("bash scripts/check_parallel.sh %s %s %s" % (
-            self.files['checks'], self.threads, "np_dump"
+#        os.system("bash scripts/check_parallel.sh %s %s %s" % (
+#            self.files['checks'], self.threads, "np_dump"
+#        ))
+        os.system("python3 bench/compliance_checker.py %s %s" % (
+            "-u" if self.use_unix else "",
+            self.files['checks']
         ))
         self.logger.info("checked flow trees.")
 
-        os.system("rm -f np_dump/.lock")
+#        os.system("rm -f np_dump/.lock")
 
 
     def _report(self):
@@ -289,8 +293,8 @@ class GenericBenchmark(object):
         self._startup()
         self._initialization()
         self._reachability()
+        self._compliance()
         self._report()
-        self._dump_fave()
+#        self._dump_fave()
         self._wait_for_fave()
         self._teardown()
-        self._compliance()
