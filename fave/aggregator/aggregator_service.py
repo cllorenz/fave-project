@@ -171,12 +171,14 @@ class AggregatorService(AbstractAggregator):
                 self.verification_engine.stop()
 
             elif j['type'] == 'report':
+                task_type = 'report'
                 report = j
                 self.reporter.dump_report(report['file'])
                 self.reporter.mark_compliance()
                 self.reporter.mark_anomalies()
 
             elif j['type'] == 'check_compliance':
+                task_type = 'check_compliance'
                 rules = {}
                 for dst, src_rules in j['rules'].items():
                     rules.setdefault(dst, [])
