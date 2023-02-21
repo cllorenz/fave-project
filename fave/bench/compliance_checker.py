@@ -20,6 +20,13 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse
+import json
+
+
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
+
 
 def _parse_check(check):
     tokens = check.split()
@@ -35,16 +42,28 @@ def _parse_check(check):
         elif token.startswith('p='): dst = token[2:]
         elif token.startswith('f='):
             field, value = token[2:].split(':')
-            cond.append({'name' : field, 'value' : value, 'negated' : False})
+            cond.append({'name' : OXM_FIELD_TO_MATCH_FIELD[field], 'value' : value, 'negated' : False})
 
     assert src is not None and dst is not None
 
     return (src, dst, negated, cond)
 
 
-
 if __name__ == '__main__':
-    checks = json.load(open(sys.argv[1], 'r'))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('checks_file')
+    parser.add_argument(
+        '-u', '--use-unix',
+        dest='use_unix',
+        action='store_const',
+        const=True,
+        default=False
+    )
+
+
+    args = parser.parse_args()
+
+    checks = json.load(open(args.checks_file, 'r'))
 
     rules = {}
 
@@ -52,7 +71,22 @@ if __name__ == '__main__':
         src, dst, negated, cond = _parse_check(check)
 
         rules.setdefault(dst, [])
-        rules[dst].append((src, negated, cond if cond else None))
+        rules[dst].append((src, negated, cond))
 
-    fave = connect_to_fave()
-    fave.sendmsg({'type' : 'check_compliance', 'rules' : rules})
+    fave = connect_to_fave(
+        *(
+            (
+                FAVE_DEFAULT_UNIX, 0
+            ) if args.use_unix else (
+                FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+            )
+        )
+    )
+
+    fave.setblocking(1)
+
+    fave_sendmsg(
+        fave, json.dumps({'type' : 'check_compliance', 'rules' : rules})
+    )
+
+    fave.close()
