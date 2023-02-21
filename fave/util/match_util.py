@@ -21,6 +21,7 @@
 """
 
 OXM_FIELD_TO_MATCH_FIELD = {
+    'related' : "related",
     'eth_src' : "packet.ether.source",
     'eth_dst' : "packet.ether.destination",
     'eth_type' : "packet.ether.type",
@@ -32,6 +33,7 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'ipv6_src' : "packet.ipv6.source",
     'ipv6_dst' : "packet.ipv6.destination",
     'ip_proto' : "packet.ipv6.proto",
+    'protocol' : "packet.ipv6.proto",
     'icmpv6_type' : "packet.ipv6.icmpv6.type",
     'ipv6_exthdr' : "module.ipv6header.header",
     'tcp_dst' : "packet.upper.dport",
@@ -58,5 +60,6 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'packet.ipv6.icmpv6.type' : "packet.ipv6.icmpv6.type",
     'module.ipv6header.header' : "module.ipv6header.header",
     'packet.upper.dport' : "packet.upper.dport",
-    'packet.upper.sport' : "packet.upper.sport"
+    'packet.upper.sport' : "packet.upper.sport",
+    'port' : 'packet.upper.dport'
 }

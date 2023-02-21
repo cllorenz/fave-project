@@ -34,6 +34,7 @@ from filelock import SoftFileLock
 
 from rule.rule_model import RuleField
 from util.ip6np_util import field_value_to_bitvector
+from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from netplumber.vector import get_field_from_vector
 from netplumber.vector import HeaderSpace
 from netplumber.mapping import FIELD_SIZES
@@ -41,11 +42,12 @@ from netplumber.mapping import FIELD_SIZES
 
 _MEASUREMENTS = []
 
-_NORMALIZE_FIELD = {
-    'related' : 'related',
-    'protocol' : 'packet.ipv6.proto',
-    'port' : 'packet.upper.dport'
-}
+_NORMALIZE_FIELD = OXM_FIELD_TO_MATCH_FIELD
+# {
+#    'related' : 'related',
+#    'protocol' : 'packet.ipv6.proto',
+#    'port' : 'packet.upper.dport'
+#}
 
 
 def check_field(flow, field, value, mapping):
