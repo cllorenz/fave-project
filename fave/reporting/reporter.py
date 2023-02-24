@@ -67,11 +67,11 @@ class Reporter(threading.Thread):
             report.append("The following compliance violations have been found:\n")
             for event in compliance_events:
                 _, negated, from_, to_, cond = event
-                report.append("- `{}{} -> {}{}`".format(
-                    "!" if negated else "",
+                report.append("- `{}` {} `{}`{}".format(
                     id_to_generator[int(from_)],
+                    "reaches " if negated else "does not reach",
                     id_to_probe[int(to_)],
-                    " && " + ','.join(
+                    " with \n    - " + '\n    - '.join(
                         ['='.join(fv) for fv in _parse_cond(cond, self.fave.verification_engine.mapping)]
                     ) if cond else ""
                 ))
