@@ -2255,7 +2255,10 @@ void NetPlumber<T1, T2>::check_compliance (
             for (auto incoming_flow: this->id_to_node[dst]->source_flow) {
                 const bool matching_source = incoming_flow->source == src;
                 const bool overlapping_hs = cond ? hs_overlaps_arr(incoming_flow->hs_object, cond) : true;
-                any |= matching_source && overlapping_hs;
+                if (matching_source && overlapping_hs) {
+                    any = true;
+                    break;
+                }
             }
 
             if (!valid && any || valid && !any) {
