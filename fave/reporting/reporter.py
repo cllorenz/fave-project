@@ -142,7 +142,6 @@ class Reporter(threading.Thread):
 
             # check if reportable
             if "DefaultComplianceLogger" in tokens:
-                print(tokens)
                 negated = 1 if tokens[16] == '!' else 0
                 from_ = tokens[16 + negated]
                 to_ = tokens[18 + negated]
