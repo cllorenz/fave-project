@@ -88,14 +88,28 @@ class Reporter(threading.Thread):
                     inv_rids[np_rid] = fave_rid
 
             shadowed_rids = {}
-            for np_rid in anomaly_events:
+            for _, np_rid in anomaly_events:
                 fave_rid = inv_rids[np_rid]
                 shadowed_rids.setdefault(fave_rid, [])
                 shadowed_rids[fave_rid].append(np_rid)
 
+            id_to_table = {
+                self.fave.verification_engine.tables[k]:k for k in self.fave.verification_engine.tables
+            }
+
             for fave_rid, np_rids in list(shadowed_rids.items()):
                 if set(np_rids) == set(self.fave.verification_engine.rule_ids[fave_rid]):
-                    report.append("- {}".format(fave_rid))
+                    table_id = fave_rid >> 32
+                    model_name = '.'.join(id_to_table[table_id].split('.')[:-1])
+                    rule_id = (fave_rid & 0xffffffff) >> 12
+                    rules = self.fave.models[model_name].tables[id_to_table[table_id]]
+                    rule = [r for r in rules if r.idx == rule_id and r.raw_line is not None]
+
+                    if not rule:
+                        continue
+
+                    report.append("- shadowed rule at line {}:\n\n    `{}`".format(rule[0].raw_line_no, rule[0].raw_line))
+
         else:
             report.append("No anomalies have been found.")
 
