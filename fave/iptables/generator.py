@@ -119,6 +119,7 @@ def _ast_to_rule(node, ast, idx=0):
     value = lambda f: f.get_first().value if f.get_first() is not None else ""
 
     lineno = ast.get_child("--line-no").get_first().value
+    raw_line = ast.value
 
     if ast.has_child("-A"):
         ast = ast.get_child("-A")
@@ -205,7 +206,8 @@ def _ast_to_rule(node, ast, idx=0):
                         RuleField('packet.upper.dport', dport)
                     ]),
                     actions=actions,
-                    raw_line_no=lineno
+                    raw_line_no=lineno,
+                    raw_line=raw_line
                 )
 
         else:
@@ -217,7 +219,8 @@ def _ast_to_rule(node, ast, idx=0):
                     in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[RuleField('packet.upper.sport', sport)]),
                     actions=actions,
-                    raw_line_no=lineno
+                    raw_line_no=lineno,
+                    raw_line=raw_line
                 )
             for i, dport in enumerate(dports, start=len(sports)):
                 rules[idx+i] = Rule(
@@ -227,7 +230,8 @@ def _ast_to_rule(node, ast, idx=0):
                     in_ports=[node+'.'+chain+'_in'],
                     match=Match(body+[RuleField('packet.upper.dport', dport)]),
                     actions=actions,
-                    raw_line_no=lineno
+                    raw_line_no=lineno,
+                    raw_line=raw_line
                 )
 
     else:
@@ -238,7 +242,8 @@ def _ast_to_rule(node, ast, idx=0):
             in_ports=[node+'.'+chain+'_in'],
             match=Match(body),
             actions=actions,
-            raw_line_no=lineno
+            raw_line_no=lineno,
+            raw_line=raw_line
         )
 
     return {chain : rules, chain+'_mappings' : {'original':{i:lineno for i,_r in rules.items()}, 'expanded':{lineno:list(rules.keys())}}}
@@ -345,7 +350,9 @@ def _derive_general_state_shell(rules, state_checking_rules):
             ] + [
                 RuleField('related', '1')
             ]),
-            actions=r.actions
+            actions=r.actions,
+            raw_line_no=r.raw_line_no,
+            raw_line=r.raw_line
         ) for r in rules if r not in list(state_checking_rules.values())
     ]
 
@@ -386,7 +393,9 @@ def _calculate_blocks(rules, intervals):
                 2*idx*rules_size+rule.idx,
                 in_ports=rule.in_ports,
                 match=match,
-                actions=rule.actions
+                actions=rule.actions,
+                raw_line_no=rule.raw_line_no,
+                raw_line=rule.raw_line
             ))
 
             processed += 1
@@ -484,7 +493,9 @@ def _interweave_state_shell(intervals, blocks, conditional_state_shells):
                 cnt,
                 in_ports=rule.in_ports,
                 match=Match([f for f in rule.match if not is_conntrack(f)]),
-                actions=rule.actions
+                actions=rule.actions,
+                raw_line_no=rule.raw_line_no,
+                raw_line=rule.raw_line
             ))
             cnt += 1
 
