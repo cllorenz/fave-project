@@ -31,20 +31,12 @@ import json
 
 
 from bench.generic_benchmark import GenericBenchmark
-from util.aggregator_utils import connect_to_fave, fave_sendmsg
-from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+
 
 class ShadowingBenchmark(GenericBenchmark):
     def _reachability(self):
-        fave = connect_to_fave(
-            FAVE_DEFAULT_UNIX
-        ) if self.use_unix else connect_to_fave(
-            FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
-        )
-        msg = {'type':'check_anomalies'}
-        msg.update(self.anomalies)
-        fave_sendmsg(fave, json.dumps(msg))
-        fave.close()
+        pass
+
 
     def _post_preparation(self):
         os.system("python3 bench/wl_shadow/topogen.py %s %s" % (
