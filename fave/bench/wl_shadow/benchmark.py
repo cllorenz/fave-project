@@ -147,12 +147,3 @@ if __name__ == '__main__':
         use_interweaving=False,
         anomalies=anomalies
     ).run()
-
-#    os.system("python3 bench/wl_generic_fw/benchmark.py -6 -n -r %s -i %s -p %s -m %s %s %s" % (
-#        args.ruleset,
-#        args.inventory,
-#        args.policy,
-#        args.interfaces,
-#        "-u" if args.use_unix else "",
-#        "-v" if args.verbose else ""
-#    ))
