@@ -31,6 +31,8 @@ import json
 import netplumber.dump_np as dumper
 
 from util.bench_utils import create_topology, add_routes, add_sources, add_policies
+from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 TMPDIR = "/dev/shm/np"
 
@@ -274,6 +276,20 @@ class GenericBenchmark(object):
         self.logger.info("checked flow trees.")
 
 #        os.system("rm -f np_dump/.lock")
+
+
+    def _anomalies(self):
+        self.logger.info("checking for anomalies...")
+        fave = connect_to_fave(
+            FAVE_DEFAULT_UNIX
+        ) if self.use_unix else connect_to_fave(
+            FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+        )
+        msg = {'type':'check_anomalies'}
+        msg.update(self.anomalies)
+        fave_sendmsg(fave, json.dumps(msg))
+        fave.close()
+        self.logger.info("checked for anomalies.")
 
 
     def _report(self):
