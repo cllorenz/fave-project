@@ -294,7 +294,7 @@ class GenericBenchmark(object):
 
     def _report(self):
         self.logger.info("generating report...")
-        os.system("python3 reporting/report.py -u")
+        os.system("python3 reporting/report.py %s" % ("-u" if self.use_unix else ""))
         os.system("pandoc report.md -o report.pdf")
         self.logger.info("report generated.")
 
