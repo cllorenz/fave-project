@@ -84,6 +84,8 @@ class IP6TablesParser(BisonParser):
         """
         comment : COMMENT NEWLINE
         """
+
+        self._linecount += 1
         return None
 
 
