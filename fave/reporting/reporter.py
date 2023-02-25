@@ -137,7 +137,7 @@ class Reporter(threading.Thread):
                 line = (Log.Compliance, negated == 1, from_, to_, cond)
 
             elif "DefaultAnomalyLogger" in tokens:
-                np_rid = tokens[13]
+                np_rid = int(tokens[14].rstrip(')'))
 
                 line = (Log.Anomalies, np_rid)
             else:
