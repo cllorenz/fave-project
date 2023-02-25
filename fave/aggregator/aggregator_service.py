@@ -573,7 +573,7 @@ class AggregatorService(AbstractAggregator):
             j["id_to_rule"] = {}
             for key in self.verification_engine.rule_ids:
                 for elem in self.verification_engine.rule_ids[key]:
-                    j["id_to_rule"][elem] = key >> 16
+                    j["id_to_rule"][elem] = key >> 12
 
             j["id_to_generator"] = {
                 self.verification_engine.generators[k][1]:k for k in self.verification_engine.generators
