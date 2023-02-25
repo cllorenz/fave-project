@@ -621,7 +621,7 @@ def generate(ast, node, address, ports, interweaving=True, state_snap=False):
         address=address,
         interweaving=interweaving,
         state_snap=state_snap,
-        store_mappings=True
+        store_mappings=False
     )
 
     return model
