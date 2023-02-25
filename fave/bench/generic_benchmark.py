@@ -310,6 +310,7 @@ class GenericBenchmark(object):
         self._initialization()
         self._reachability()
         self._compliance()
+        self._anomalies()
         self._report()
 #        self._dump_fave()
         self._wait_for_fave()
