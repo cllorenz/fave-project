@@ -69,7 +69,7 @@ class Reporter(threading.Thread):
                 _, negated, from_, to_, cond = event
                 report.append("- `{}` {} `{}`{}".format(
                     id_to_generator[int(from_)],
-                    "reaches " if negated else "does not reach",
+                    "reaches" if not negated else "does not reach",
                     id_to_probe[int(to_)],
                     " with \n    - " + '\n    - '.join(
                         ['='.join(fv) for fv in _parse_cond(cond, self.fave.verification_engine.mapping)]
