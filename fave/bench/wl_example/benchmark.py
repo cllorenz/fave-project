@@ -6,4 +6,7 @@
 from bench.generic_benchmark import GenericBenchmark
 
 if __name__ == "__main__":
-    GenericBenchmark("bench/wl_example").run()
+    GenericBenchmark(
+        "bench/wl_example",
+        anomalies={'use_shadow' : True}
+    ).run()
