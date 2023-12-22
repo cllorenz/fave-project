@@ -233,7 +233,89 @@ def parse_fpl(raw_policy: str, use_tests=False):
     else:
         res = fpl.parseString(raw_policy)
         assert res
-        pprint(res.asList(), indent=4)
+        return res.asList()
+
+head_tail = lambda lst: (lst[0], lst[1:])
+
+prosa_list = lambda lst: (', '.join(lst[:-1]) + ', and ' + lst[-1]) if len(lst) > 2 else ' and '.join(lst)
+
+operator_to_str = {
+    '--->' : 'unidirectionally',
+    '<-->' : 'bidirectionally',
+    '<->>' : 'statefully',
+    '--/->' : 'unidirectionally',
+    '<-/->' : 'bidirectionally',
+    '<-/->>' : 'statefully'
+}
+
+
+def print_prosa(fpl_policy):
+    for entry in fpl_policy:
+        head, tail = head_tail(entry)
+
+        if head == 'role':
+            role_name, attributes = head_tail(tail)
+            includes = [v for a,v in attributes if a == 'includes']
+            services = [v for a,v in attributes if a == 'offers']
+            attributes = [f"{a}={v}" for a,v in attributes if a not in [
+                'includes', 'offers', 'description'
+            ]]
+
+            includes_str = (
+                'includes the roles ' + prosa_list(includes)
+            ) if includes else ''
+            offers_str = (
+                'offers the services ' + prosa_list(services)
+            ) if services else ''
+            attributes_str = (
+                'has the attributes ' + prosa_list(attributes)
+            ) if attributes else ''
+
+            print(
+                f"The role {role_name} {prosa_list([s for s in [includes_str, offers_str, attributes_str] if s != ''])}."
+            )
+
+        elif head == 'service':
+            service_name, attributes = head_tail(tail)
+            try:
+                proto, port = attributes
+                _, proto_str = proto
+                _, port = port
+                port_str = f' port {port}'
+            except ValueError:
+                proto = attributes[0]
+                _, proto_str = proto.upper()
+                port_str = ''
+
+            print(
+                f"The service {service_name} runs on {proto_str.upper()}{port_str}."
+            )
+
+        elif head == 'policies':
+            default, rules = head_tail(tail)
+            print(f"By default the policy {'allows' if default == 'allow' else 'denies'} accesses.")
+
+            default_str = 'may' if default == 'deny' else 'may not'
+
+            for rule in rules:
+                subject, operator, object_ = rule
+                try:
+                    object_, service = object_
+                    object_str = f"the role {object_}"
+                    service_str = f"service {service} offered by " if service != '*' else 'all services offered by '
+                except ValueError:
+                    object_str = f"the role {object_.pop()}"
+                    service_str = ''
+
+                operator_str = ' ' + operator_to_str[operator]
+
+                print(
+                    f"The role {subject} {default_str} access {service_str}{object_str}{operator_str}."
+                )
+
+        else:
+            print(f"cannot handle entry: {entry}. Abort!")
+            break
 
 
 def main(argv):
@@ -256,11 +338,25 @@ def main(argv):
         help='run self tests'
     )
 
+    parser.add_argument(
+        '-p',
+        '--prosa',
+        dest='use_prosa',
+        action='store_const',
+        const=True,
+        default=False,
+        help='print a prosaic representation'
+    )
+
     args = parser.parse_args(argv)
 
     for fpl_file in args.files:
         with open(fpl_file, 'r') as f:
-            parse_fpl(f.read(), use_tests=args.use_tests)
+            res = parse_fpl(f.read(), use_tests=args.use_tests)
+            if args.use_prosa:
+                print_prosa(res)
+            else:
+                pprint(res, indent=4)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
