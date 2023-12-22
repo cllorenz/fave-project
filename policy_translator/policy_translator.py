@@ -36,7 +36,7 @@ def main(argv):
     """Builds a Policy object out of an inventory and policy file and optionally
     generates reachability tables in HTML or CSV formats."""
 
-    parser = argparse.ArgumentParser(description='Liest Policies aus einer Datei und übersetzt sie wahlweise in HTML oder CSV.')
+    parser = argparse.ArgumentParser(description='Reads policies from file and translates them to HTML, CSV, IPTables, or prosa.')
     parser.add_argument('files', metavar='FILE', nargs='+', help='Either an inventory file followed by a policy file, or a single file that combines both.')
     parser.add_argument('-c', '--csv', dest='generate_csv', action='store_const', const=True, default=False, help='Generate the csv file.')
     parser.add_argument('-d', '--debug', dest='debug', action='store_const', const=True, default=False, help='Enable debug output.')
