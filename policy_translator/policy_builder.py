@@ -262,6 +262,8 @@ class PolicyBuilder(object):
                 role_from, role_to, op_, service_to = match.group("role_from"), match.group("role_to"), match.group("op"), match.group("service_to")
                 PT_LOGGER.debug("single policy: %s %s %s", role_from, op_, ("%s.%s" % (role_to, service_to) if service_to else role_to))
 
+                policy.raw_policies.add((role_from, role_to, service_to, op_))
+
                 if not policy.default_policy:
                     if op_ == "<->>":
                         policy.add_reachability_policy(role_from, role_to, service_to)

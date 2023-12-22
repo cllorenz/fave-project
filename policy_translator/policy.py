@@ -53,6 +53,7 @@ class Policy(object):
         self.roles = {}
         self.services = {}
         self.policies = {}
+        self.raw_policies = set()
         self.default_policy = False
         for role, attributes in [
                 (r, a) for r, a in  self.default_roles.items() if (
@@ -682,6 +683,17 @@ class Policy(object):
             ip4rule = ip6rule = False
             eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = serviceinfo = comment = ""
         return "\n".join(iptable_rules)
+
+
+    def to_prosa(self):
+        """ Creates a list of prosaic rules for the given policies
+
+        Returns:
+            A String that contains the prosaic rules
+        """
+        for role_from, role_to, service_to, operator in self.raw_policies:
+            print(role_from, role_to, service_to, operator)
+        return '\n'.join([])
 
 
     def roles_to_json(self):

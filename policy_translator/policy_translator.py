@@ -49,6 +49,7 @@ def main(argv):
     parser.add_argument('-t', '--trace', dest='trace', action='store_const', const=True, default=False, help='Enable trace output.')
     parser.add_argument('-w', '--html', dest='generate_html', action='store_const', const=True, default=False, help='Generate the html file.')
     parser.add_argument('-fw', '--firewall', dest='generate_iptables', action='store_const', const=True, default=False, help='Generate the iptables file.')
+    parser.add_argument('-p', '--prosa', dest='generate_prosa', action='store_const', const=True, default=False, help='Generate prosaic representation.')
     args = parser.parse_args(argv)
 
     if args.trace:
@@ -108,6 +109,11 @@ def main(argv):
             with open(args.out_file, 'w') as iptables_file:
                 PT_LOGGER.debug("create and write iptables output")
                 iptables_file.write(policy.to_iptables())
+
+        if args.generate_prosa:
+            with open(args.out_file, 'w') as prosa_file:
+                PT_LOGGER.debug("create and write prosaic output")
+                prosa_file.write(policy.to_prosa())
 
     except PolicyException as exception:
         print(("Fehler: %s" % exception))
