@@ -215,7 +215,7 @@ class Policy(object):
                     services = [service_to] if service_to is not None else []
 
                 for service in services:
-                    if self.roles[role_to].offers_service(service):
+                    if self.roles[role_to_].offers_service(service):
                         conditions.append(copy.deepcopy(self.services[service].attributes))
                     else:
                         raise ServiceUnknownException(service, role_to_)
