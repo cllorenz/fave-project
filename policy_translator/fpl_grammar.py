@@ -157,7 +157,7 @@ def parse_fpl(raw_policy: str, use_tests=False):
     )
     policy.setName('policy')
 
-    fpl = comment | pp.Optional(inventory) + pp.Optional(policy)
+    fpl = pp.Suppress(pp.ZeroOrMore(comment)) + inventory + policy
     fpl.setName('fpl')
 
     if use_tests:
