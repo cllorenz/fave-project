@@ -283,7 +283,7 @@ def print_prosa(fpl_policy):
                 port_str = f' port {port}'
             except ValueError:
                 proto = attributes[0]
-                _, proto_str = proto.upper()
+                _, proto_str = proto
                 port_str = ''
 
             print(
