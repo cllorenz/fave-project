@@ -633,7 +633,7 @@ class Policy(object):
                         provider = cond['provider']
                     if 'protocol' in cond:
                         serviceport = " --sport " if provider == policy[0] else " --dport "
-                        serviceinfo = " --protocol " + cond['protocol'] + serviceport + cond['port']
+                        serviceinfo = " --protocol " + cond['protocol'] + serviceport + str(cond['port'])
                     else:
                         serviceinfo = ""
                     # check for states
