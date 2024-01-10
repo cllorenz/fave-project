@@ -232,7 +232,6 @@ def parse_fpl(raw_policy: str, use_tests=False):
 
     else:
         res = fpl.parseString(raw_policy)
-        assert res
         return res.asList()
 
 head_tail = lambda lst: (lst[0], lst[1:])
