@@ -46,6 +46,10 @@ function stats {
   echo "" >> $RESULTS
 }
 
+# without this, mawk converts floats to the format specified as locale,
+# e.g., using a comma instead of a dot in German
+export LC_NUMERIC=C
+
 RDIR=$1
 
 RUNS=10
@@ -72,7 +76,7 @@ for i in $(seq 1 $RUNS); do
   grep "parse device" $RDIR/fave/$i.raw/stdout.log |
     awk 'BEGIN { result = 0; } { result += $4; } END { print result; }' >> $PARSING
 
-  FAVE_INIT_TMP=`grep "seconds" $RDIR/fave/$i.raw/np/aggregator.log | grep -v "dump\|stop" | \
+  FAVE_INIT_TMP=`grep "seconds" $RDIR/fave/$i.raw/np/aggregator.log | grep -v "dump\|stop\|anomalies\|report\|compliance" | \
     awk 'BEGIN {
       done = 0; result = 0;
     } {
@@ -90,7 +94,7 @@ for i in $(seq 1 $RUNS); do
   echo $FAVE_INIT_TMP >> $FAVE_INIT
 
   FAVE_REACH_TMP=`grep "seconds" $RDIR/fave/$i.raw/np/aggregator.log |
-    grep -v "dump\|stop" | \
+    grep -v "dump\|stop\|anomalies\|report\|compliance" | \
     awk 'BEGIN {
       start = 0;
       result = 0;
@@ -106,12 +110,16 @@ for i in $(seq 1 $RUNS); do
         }
       }
     } END {
-      print result * 1000.0
+      print result * 1000.0;
     }'`
   echo $FAVE_REACH_TMP >> $FAVE_REACH
 
-  FAVE_CHECKS_TMP=`grep "checked flow tree in" $RDIR/fave/$i.raw/stdout.log | \
-    awk 'BEGIN { result = 0; } { result += $7; } END { print result; }'`
+  FAVE_CHECKS_TMP=`grep "check_compliance in" $RDIR/fave/$i.raw/np/aggregator.log | \
+    awk '{ print $6 * 1000.0; }'
+    #cut -d' ' -f6`
+
+#  FAVE_CHECKS_TMP=`grep "checked flow tree in" $RDIR/fave/$i.raw/np/aggregator.log | \
+#    awk 'BEGIN { result = 0; } { result += $7; } END { print result; }'`
   echo $FAVE_CHECKS_TMP >> $CHECKS
 
   echo "$FAVE_INIT_TMP + $FAVE_REACH_TMP + $FAVE_CHECKS_TMP" | bc >> $FAVE_TOTAL
@@ -123,6 +131,9 @@ echo -n "" > $NP_INIT
 NP_REACH=$RDIR/raw_np_reach.dat
 echo -n "" > $NP_REACH
 
+NP_CHECK=$RDIR/raw_np_check.dat
+echo -n "" > $NP_CHECK
+
 NP_TOTAL=$RDIR/raw_np_total.dat
 echo -n "" > $NP_TOTAL
 
@@ -130,11 +141,14 @@ for i in $(seq 1 $RUNS); do
   NP_INIT_TMP=`grep "total" $RDIR/np/$i.raw/stdout.log | \
     awk '{ print $4/1000.0; }'`
   echo $NP_INIT_TMP >> $NP_INIT
-  NP_REACH_TMP=`grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | \
+  NP_REACH_TMP=`grep "policy file in" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | \
     awk '{ print $7/1000.0; }'`
   echo $NP_REACH_TMP >> $NP_REACH
-  echo "$NP_INIT_TMP + $NP_REACH_TMP" | bc >> $NP_TOTAL
+  NP_CHECK_TMP=`grep "compliance in" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | \
+    awk '{ print $6/1000.0; }'`
+  echo $NP_CHECK_TMP >> $NP_CHECK
+  echo "$NP_INIT_TMP + $NP_REACH_TMP + $NP_CHECK_TMP" | bc >> $NP_TOTAL
 done
 
 stats "FaVe" $FAVE_INIT $FAVE_REACH $CHECKS $FAVE_TOTAL
-stats "NetPlumber" $NP_INIT $NP_REACH <(echo -e "0\n0") $NP_TOTAL
+stats "NetPlumber" $NP_INIT $NP_REACH $NP_CHECK $NP_TOTAL #<(echo -e "0\n0")

@@ -33,6 +33,10 @@ function stats {
   echo "$TOOL $MEAN $MEDIAN $MIN $MAX $VAR $STDDEV" >> $RESULTS
 }
 
+# without this, mawk converts floats to the format specified as locale,
+# e.g., using a comma instead of a dot in German
+export LC_NUMERIC=C
+
 RDIR=$1
 
 RUNS=10
@@ -52,14 +56,17 @@ NP_RAW_INIT=$RDIR/raw_np_init.dat
 echo -n "" > $NP_RAW_INIT
 NP_RAW_REACH=$RDIR/raw_np_reach.dat
 echo -n "" > $NP_RAW_REACH
+NP_RAW_CHECK=$RDIR/raw_np_check.dat
+echo -n "" > $NP_RAW_CHECK
 
 for i in $(seq 1 $RUNS); do
   grep "total" $RDIR/np/$i.raw/stdout.log | awk '{ print $4/1000.0; }' >> $NP_RAW_INIT
-  grep "seconds" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW_REACH
+  grep "policy file in" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW_REACH
+  grep "compliance in" $RDIR/np/$i.raw/stdout.log | tr -d '()us' | awk '{ print $7/1000.0; }' >> $NP_RAW_CHECK
 done
 
 NP_RAW=$RDIR/raw_np.dat
-paste $NP_RAW_INIT $NP_RAW_REACH | awk '{ sum = $1 + $2; print sum; }' > $NP_RAW
+paste $NP_RAW_INIT $NP_RAW_REACH $NP_RAW_CHECK | awk '{ sum = $1 + $2 + $3; print sum; }' > $NP_RAW
 
 stats FaVe $FAVE_RAW
 stats NP $NP_RAW
