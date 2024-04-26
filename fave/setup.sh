@@ -31,28 +31,34 @@ if [ $? -eq 0 ]; then
     sudo pacman -S bison
     sudo pacman -S pandoc
 #    sudo ln -s /usr/bin/python3-coverage /usr/bin/coverage2
+    sudo pip3 install graphviz
+    sudo pip3 install filelock
+    sudo pip3 install pyparsing
+    sudo pip3 install cachetools
+    sudo pip3 install dd
+    sudo pip3 install pybison
 fi
 
 apt-get --version 2> /dev/null
 if [ $? -eq 0 ]; then
     sudo apt-get install python3
     sudo apt-get install python3-dev
-    sudo apt-get install python-daemon
-    sudo apt-get install python-pip
+    sudo apt-get install python3-daemon
+    sudo apt-get install python3-pip
     sudo apt-get install pylint
     sudo apt-get install inkscape
-    sudo apt-get install python-coverage
+    sudo apt-get install python3-coverage
     sudo apt-get install flex
     sudo apt-get install bison
     sudo apt-get install pandoc
+    sudo apt-get install python3-filelock
+    sudo apt-get install python3-cachetools
+    sudo apt-get install python3-graphviz
+    sudo apt-get install python3-pyparsing
+    ##sudo apt-get install python3-pybison
+    ##sudo apt-get install python3-dd
 fi
 
-sudo pip3 install graphviz
-sudo pip3 install filelock
-sudo pip3 install pyparsing
-sudo pip3 install cachetools
-sudo pip3 install dd
-sudo pip3 install pybison
 
 #wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz
 #tar xfz Pyrex-0.9.9.tar.gz
