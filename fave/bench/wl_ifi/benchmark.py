@@ -47,7 +47,8 @@ if __name__ == '__main__':
         "bench/wl_ifi",
         logger=logging.getLogger('ifi'),
         extra_files=files,
-        suffix='.ifi'
+        suffix='.ifi',
+        use_dump=True
     ).run()
 
 
