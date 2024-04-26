@@ -34,7 +34,7 @@ class PreLockedFileLock(SoftFileLock):
 
         open_mode = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         try:
-            lock_file_fd = os.open(self._lock_file, open_mode)
+            lock_file_fd = os.open(self.lock_file, open_mode)
         except (IOError, OSError):
             pass
         else:
