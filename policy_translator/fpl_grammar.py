@@ -74,13 +74,13 @@ def parse_fpl(raw_policy: str, use_tests=False):
                  pp.Literal('desc')
     definition.setName('definition')
 
-    role_name = pp.Word(pp.alphas, pp.alphanums)
+    role_name = pp.Word(pp.alphas, pp.alphanums+'_')
     role_name.setName('role_name')
 
     include = pp.Group('includes' + role_name)
     include.setName('include')
 
-    service_name = pp.Word(pp.alphas, pp.alphanums)
+    service_name = pp.Word(pp.alphas, pp.alphanums+'_')
     service_name.setName('service_name')
 
     offer = pp.Group('offers' + service_name)
@@ -221,9 +221,10 @@ def parse_fpl(raw_policy: str, use_tests=False):
             (object_, test_object_ast),
             (rule, test_rule),
             (policy, test_policy),
-            (fpl, test_fpl_comment),
-            (fpl, test_fpl_inventory),
-            (fpl, test_policy),
+            #(fpl, test_fpl_comment),
+            #(fpl, test_fpl_inventory),
+            #(fpl, test_policy),
+            (inventory, test_fpl_inventory + '\n\n' + test_role_field),
             (fpl, test_fpl_inventory + '\n\n' + test_policy)
         ]
 
