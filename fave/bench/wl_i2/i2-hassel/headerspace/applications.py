@@ -12,9 +12,9 @@ from utils.wildcard import wildcard_create_bit_repeat
 
 def print_p_node(p_node):
     print("-----")
-    print(p_node["hdr"])
-    print(p_node["port"])
-    print(p_node["visits"])
+    print((p_node["hdr"]))
+    print((p_node["port"]))
+    print((p_node["visits"]))
     print("-----")
 
 def find_reachability(NTF, TTF, in_port, out_ports,input_pkt):
@@ -30,9 +30,9 @@ def find_reachability(NTF, TTF, in_port, out_ports,input_pkt):
     loop_count = 0
     while len(propagation)>0:
         #get the next node in propagation graph and apply it to NTF and TTF
-        print("Propagation has length: %d"%len(propagation))
+        print(("Propagation has length: %d"%len(propagation)))
         tmp_propagate = []
-        print("loops: %d"%loop_count)
+        print(("loops: %d"%loop_count))
         for p_node in propagation:
             next_hp = NTF.T(p_node["hdr"],p_node["port"])
             for (next_h,next_ps) in next_hp:
@@ -72,7 +72,7 @@ def find_reachability(NTF, TTF, in_port, out_ports,input_pkt):
 def detect_loop(NTF, TTF, ports, test_packet = None, out_port_offset = 0):
     loops = []
     for port in ports:
-        print("port %d is being checked"%port)
+        print(("port %d is being checked"%port))
         propagation = []
         
         # put all-x test packet in propagation graph
@@ -91,7 +91,7 @@ def detect_loop(NTF, TTF, ports, test_packet = None, out_port_offset = 0):
         propagation.append(p_node)
         while len(propagation)>0:
             #get the next node in propagation graph and apply it to NTF and TTF
-            print("Propagation has length: %d"%len(propagation))
+            print(("Propagation has length: %d"%len(propagation)))
             tmp_propag = []
             for p_node in propagation:
                 next_hp = NTF.T(p_node["hdr"],p_node["port"])
@@ -132,14 +132,14 @@ def print_paths(paths, reverse_map):
             else:
                 str = "%s ---> %s"%(str,reverse_map["%d"%port])
         str = "%s ---> %s"%(str,reverse_map["%d"%p_node["port"]])
-        print("Path: %s"%str)
+        print(("Path: %s"%str))
         rl_id =  "applied rules: "
         for (n,r,s) in p_node["hdr"].applied_rules:
             rl_id = rl_id + " -> %s"%r
         print(rl_id)
         for i in range(len(p_node["hs_history"])):
-            print("*** %d) AT PORT: %s\nHS: %s\n"%(i,reverse_map["%d"%p_node["visits"][i]],p_node["hs_history"][i]))
-        print("*** %d) AT PORT: %s\nHS: %s\n"%(i+1,reverse_map["%d"%p_node["port"]],p_node["hdr"]))
+            print(("*** %d) AT PORT: %s\nHS: %s\n"%(i,reverse_map["%d"%p_node["visits"][i]],p_node["hs_history"][i])))
+        print(("*** %d) AT PORT: %s\nHS: %s\n"%(i+1,reverse_map["%d"%p_node["port"]],p_node["hdr"])))
         print("----------------------------------------------")
         
         

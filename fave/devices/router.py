@@ -209,7 +209,7 @@ class RouterModel(AbstractDeviceModel):
         for table in [self.node+'.acl_in', self.node+'.acl_out', self.node+'.routing']:
             self.tables.setdefault(table, [])
 
-        for vlan, in_ports in self.vlan_to_ports.items():
+        for vlan, in_ports in list(self.vlan_to_ports.items()):
             if vlan.startswith('nat_'):
                 continue
 
@@ -613,7 +613,7 @@ if __name__ == '__main__':
         vlan_to_acls=RVLAN_TO_ACLS
     )
 
-    print(R3.to_json())
+    print((R3.to_json()))
 
     R4 = RouterModel.from_json(R3.to_json())
 

@@ -390,5 +390,5 @@ class HeaderSpace(object):
                 hsd.append(hsdv)
 
 
-        print('hs_list:', '\n + '.join([', '.join(hslv) for hslv in hsl]))
-        if hsd: print('hs_diff:', '\n + '.join([', '.join(hsdv) for hsdv in hsd]))
+        print(('hs_list:', '\n + '.join([', '.join(hslv) for hslv in hsl])))
+        if hsd: print(('hs_diff:', '\n + '.join([', '.join(hsdv) for hsdv in hsd])))

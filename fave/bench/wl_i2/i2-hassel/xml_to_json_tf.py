@@ -137,8 +137,8 @@ for pair in topology_names['topology']:
             ports[port] = (tid << 16) + pid + 1
 
 
-for router, bundle in ae_bundles.items():
-    for _ae_name, ae_ports in bundle.items():
+for router, bundle in list(ae_bundles.items()):
+    for _ae_name, ae_ports in list(bundle.items()):
         for ae_port in ae_ports:
             port = router + ':' + ae_port.split('.')[0]
             tid, pid = tables[router]
@@ -224,7 +224,7 @@ for router_file in router_files:
                     routing_table.append((int(dst.split('/')[1]), dst, [if_name]))
 
                 else:
-                    print("unknown action", len(tokens), tokens)
+                    print(("unknown action", len(tokens), tokens))
                     break
 
             elif len(tokens) == 3:
@@ -236,7 +236,7 @@ for router_file in router_files:
                     # XXX
 
                 else:
-                    print("unknown action", len(tokens), tokens)
+                    print(("unknown action", len(tokens), tokens))
 
             elif len(tokens) == 4:
                 dst, _type, _rtref, _next_hop = tokens
@@ -332,7 +332,7 @@ for router_file in router_files:
                         routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
-                    print("unknown action:", action, len(tokens), tokens)
+                    print(("unknown action:", action, len(tokens), tokens))
                     break
 
 
@@ -368,7 +368,7 @@ for router_file in router_files:
 
 
                 else:
-                    print("unknown action", len(tokens), tokens)
+                    print(("unknown action", len(tokens), tokens))
                     break
 
 
@@ -435,11 +435,11 @@ for router_file in router_files:
                     routing_table.append((int(dst.split('/')[1]), dst, []))
 
                 else:
-                    print("unknown action", action, len(tokens), tokens)
+                    print(("unknown action", action, len(tokens), tokens))
                     break
 
             else:
-                print("could not parse:", tokens)
+                print(("could not parse:", tokens))
 
         table_ipv4 = reduce(lambda x, y: x + y, [make_rule(
             mapping, ports, ae_bundles, True, tid, rid, *items
@@ -475,10 +475,10 @@ for router_file in router_files:
             indent=2
         )
 
-        print(router_file, len(table_ipv4 + table_ipv6 + default_rules))
+        print((router_file, len(table_ipv4 + table_ipv6 + default_rules)))
         total += len(table_ipv4 + table_ipv6 + default_rules)
 
-print("total:", total)
+print(("total:", total))
 
 topology_numbers = []
 for pair in topology_names['topology']:

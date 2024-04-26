@@ -696,9 +696,9 @@ class cisco_router(object):
     
   def optimize_forwarding_table(self):
     print("=== Compressing forwarding table ===")
-    print(" * Originally has %d ip fwd entries * "%len(self.fwd_table))
+    print((" * Originally has %d ip fwd entries * "%len(self.fwd_table)))
     n = compress_ip_list(self.fwd_table)
-    print(" * After compression has %d ip fwd entries * "%len(n))
+    print((" * After compression has %d ip fwd entries * "%len(n)))
     self.fwd_table = n
     print("=== DONE forwarding table compression ===")
     
@@ -968,7 +968,7 @@ class cisco_router(object):
                 
                 vlan = int(m[1])
               else:
-                print("ERROR: unrecognized port %s"%m[0])
+                print(("ERROR: unrecognized port %s"%m[0]))
                 return -1
             # vlan outputs
             elif fwd_rule[2].startswith('vlan'):
@@ -980,7 +980,7 @@ class cisco_router(object):
                                    self.INTERMEDIATE_PORT_TYPE_CONST)
                 vlan = int(fwd_rule[2][4:])
               else:
-                print("ERROR: unrecognized vlan %s"%fwd_rule[2])
+                print(("ERROR: unrecognized vlan %s"%fwd_rule[2]))
                 return -1
             # physical ports - no vlan taging
             else:
@@ -990,7 +990,7 @@ class cisco_router(object):
                                  self.INTERMEDIATE_PORT_TYPE_CONST)
                 vlan = 0
               else:
-                print("ERROR: unrecognized port %s"%fwd_rule[2])
+                print(("ERROR: unrecognized port %s"%fwd_rule[2]))
                 return -1
             # now set the fields
             self.set_field(mask, 'vlan', 0, 0)
@@ -1050,7 +1050,7 @@ class cisco_router(object):
                                  self.PORT_TYPE_MULTIPLIER * \
                                  self.OUTPUT_PORT_TYPE_CONST)
               else:
-                print("ERROR: unrecognized port %s"%m[0])
+                print(("ERROR: unrecognized port %s"%m[0]))
                 return -1
             # vlan outputs
             elif fwd_rule[2].startswith('vlan'):
@@ -1062,7 +1062,7 @@ class cisco_router(object):
                                  self.PORT_TYPE_MULTIPLIER * \
                                  self.OUTPUT_PORT_TYPE_CONST)
               else:
-                print("ERROR: unrecognized vlan %s"%fwd_rule[2])
+                print(("ERROR: unrecognized vlan %s"%fwd_rule[2]))
                 return -1
             # physical ports - no vlan taging
             else:
@@ -1071,7 +1071,7 @@ class cisco_router(object):
                                  self.PORT_TYPE_MULTIPLIER * \
                                  self.OUTPUT_PORT_TYPE_CONST)
               else:
-                print("ERROR: unrecognized port %s"%fwd_rule[2])
+                print(("ERROR: unrecognized port %s"%fwd_rule[2]))
                 return -1
   
             tf_rule = TF.create_standard_rule(in_ports, match, \
@@ -1090,7 +1090,7 @@ if __name__ == "__main__":
     'goza_rtr', 'gozb_rtr', 'poza_rtr', 'pozb_rtr', 'roza_rtr', 'rozb_rtr',
     'soza_rtr', 'sozb_rtr', 'yoza_rtr', 'yozb_rtr'
   ], start=1):
-    print("""=== Process Router %s ===""" % prefix_id)
+    print(("""=== Process Router %s ===""" % prefix_id))
     cs = cisco_router(idx)
     L = cs.hs_format["length"]
     tf = TF(L)

@@ -202,7 +202,7 @@ if __name__ == '__main__':
             except ArgumentParserError:
                 continue
 
-            parsed_rules.append([(x, y) for x, y in vars(ns).items() if y is not None])
+            parsed_rules.append([(x, y) for x, y in list(vars(ns).items()) if y is not None])
 
         custom_chains = {}
         standard_chains = {

@@ -108,16 +108,16 @@ class TF(object):
         an intersection with the rule, in two separate lists.
         '''
         for rule in self.rules:
-            print("%s Rule Match: %s,%s"%(rule["action"],rule["match"],\
-                                          rule["in_ports"]))
+            print(("%s Rule Match: %s,%s"%(rule["action"],rule["match"],\
+                                          rule["in_ports"])))
             print("Affected by:")
             for aff in rule["affected_by"]:
-                print("\t%s: On Ports %s, Intersect= %s"%\
-                        (aff[0]["match"],aff[2],aff[1]))
+                print(("\t%s: On Ports %s, Intersect= %s"%\
+                        (aff[0]["match"],aff[2],aff[1])))
             print("Influence on:")
             for aff in rule["influence_on"]:
-                print("\t%s"%aff["match"])
-            print("-"*20)
+                print(("\t%s"%aff["match"]))
+            print(("-"*20))
             
     def to_string(self):
         strings = []
@@ -745,7 +745,7 @@ class TF(object):
         '''
         saves all the non-custom transfer function rules to a json file
         '''
-        print("=== Saving transfer function to json file %s ==="%file)
+        print(("=== Saving transfer function to json file %s ==="%file))
         func = {}
         func["length"] = self.length
         func["prefix_id"] = self.prefix_id
@@ -780,14 +780,14 @@ class TF(object):
         f = open(file, 'w')
         f.write(json.dumps(func, indent=1))
         f.close()
-        print("=== Transfer function saved to json file %s ==="%file)
+        print(("=== Transfer function saved to json file %s ==="%file))
         
     def save_object_to_file(self, file):
         '''
         Depreciated
         saves all the non-custom transfer function rules to a file
         '''
-        print("=== Saving transfer function to file %s ==="%file)
+        print(("=== Saving transfer function to file %s ==="%file))
         f = open(file, 'w')
         f.write("%d$%s$%d$%d$%d$\n"%(2*self.length,\
                                      self.prefix_id,\
@@ -821,10 +821,10 @@ class TF(object):
                 f.write("%d,"%ln)
             f.write("$%s$\n"%rule["id"])
         f.close()
-        print("=== Transfer function saved to file %s ==="%file)
+        print(("=== Transfer function saved to file %s ==="%file))
         
     def load_from_json(self, file):
-        print("=== Loading transfer function from file %s ==="%file)
+        print(("=== Loading transfer function from file %s ==="%file))
         f = open(file,'r')
         func = json.load(f)
         self.rules = []
@@ -859,7 +859,7 @@ class TF(object):
         Depreciated
         load object from file, and replace the current object.
         '''
-        print("=== Loading transfer function from file %s ==="%file)
+        print(("=== Loading transfer function from file %s ==="%file))
         f = open(file,'r')
         self.rules = []
         first_line = f.readline()
@@ -956,7 +956,7 @@ class TF(object):
             rule["affected_by"] = affects
             self._set_fast_lookup_pointers(indx)
             
-        print("=== Transfer function loaded from file %s ==="%file)
+        print(("=== Transfer function loaded from file %s ==="%file))
             
     def __str__(self):
         strs = self.to_string()

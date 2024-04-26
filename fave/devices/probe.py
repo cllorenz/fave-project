@@ -37,7 +37,7 @@ class ProbeModel(object):
                 RuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
                 ) for f in field_list
-            ] for name, field_list in fields.items()
+            ] for name, field_list in list(fields.items())
         }
 
 
@@ -88,13 +88,13 @@ class ProbeModel(object):
             "filter_fields" : {
                 n : [
                     f.to_json() for f in fl
-                ] for n, fl in self.filter_fields.items()
+                ] for n, fl in list(self.filter_fields.items())
             },
             "filter_path" : self.filter_path.to_json(),
             "test_fields" : {
                 n : [
                     f.to_json() for f in fl
-                ] for n, fl in self.test_fields.items()
+                ] for n, fl in list(self.test_fields.items())
             },
             "test_path" : self.test_path.to_json()
         }
@@ -117,13 +117,13 @@ class ProbeModel(object):
             filter_fields={
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in j['filter_fields'].items()
+                ] for n, fl in list(j['filter_fields'].items())
             },
             filter_path=Path.from_json(j["filter_path"]),
             test_fields={
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in j['test_fields'].items()
+                ] for n, fl in list(j['test_fields'].items())
             },
             test_path=Path.from_json(j["test_path"])
         )

@@ -74,4 +74,4 @@ for TF in TFS:
             fully_connected = ing_connected and egr_connected
 
             if fully_connected:
-                print("fully connected rule:", line)
+                print(("fully connected rule:", line))

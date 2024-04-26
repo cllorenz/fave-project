@@ -17,23 +17,23 @@ w4 = wildcard_create_from_string("101xxxxx")
 print(w4)
 
 wc = copy.deepcopy([w1])
-print("deep copy",wc[0])
+print(("deep copy",wc[0]))
     
-print("and ", wildcard_and(w2, w3))
-print("or ", wildcard_or(w2, w3))
-print("not ", wildcard_not(w3).__str__(0))
-print("not not " , wildcard_not(wildcard_not(w3)).__str__(0))
+print(("and ", wildcard_and(w2, w3)))
+print(("or ", wildcard_or(w2, w3)))
+print(("not ", wildcard_not(w3).__str__(0)))
+print(("not not " , wildcard_not(wildcard_not(w3)).__str__(0)))
 
-print("isect " , wildcard_intersect(w2, w4))
+print(("isect " , wildcard_intersect(w2, w4)))
 print("complement ")
 for elem in wildcard_complement(w2):
-    print("\t", elem)
+    print(("\t", elem))
         
 print("diff ")
 for elem in wildcard_diff(w2, w4):
-    print("\t", elem)
+    print(("\t", elem))
 
 w4[0] = 0xff55
-print("after rewriting first byte",w4)
+print(("after rewriting first byte",w4))
 w4[(0,2)] = 3
-print("after rewriting third bit",w4)
+print(("after rewriting third bit",w4))

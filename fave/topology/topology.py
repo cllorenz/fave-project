@@ -81,7 +81,7 @@ class LinksModel(object):
             j = json.loads(j)
 
         links = []
-        for src, dst in j["links"].items():
+        for src, dst in list(j["links"].items()):
             links.extend([(src, d, b) for d, b in dst])
 
         return LinksModel(links)
@@ -454,7 +454,7 @@ def main(argv):
                 args.node,
                 {f : [
                     RuleField(f, v) for v in fl
-                ] for f, fl in args.fields.items()}
+                ] for f, fl in list(args.fields.items())}
             ),
             'generators' : lambda: GeneratorsModel(
                 [GeneratorModel(d, f) for d, f in args.generators]
@@ -462,7 +462,7 @@ def main(argv):
             'probe' : lambda: ProbeModel(
                 args.node,
                 args.quantor,
-                Match([RuleField(f, *v) for f, v in args.fields.items()]),
+                Match([RuleField(f, *v) for f, v in list(args.fields.items())]),
                 filter_fields=args.filter_fields,
                 test_fields=args.test_fields,
                 test_path=args.test_path

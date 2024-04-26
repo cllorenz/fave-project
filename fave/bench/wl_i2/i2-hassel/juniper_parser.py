@@ -416,10 +416,10 @@ class juniperRouter(object):
         
     def optimize_forwarding_table(self):
         print("=== Compressing forwarding table ===")
-        print(" * Originally has %d ip fwd entries * "%len(self.fwd_table))
+        print((" * Originally has %d ip fwd entries * "%len(self.fwd_table)))
 
         n = compress_ip_list(self.fwd_table)
-        print(" * After compression has %d ip fwd entries * "%len(n))
+        print((" * After compression has %d ip fwd entries * "%len(n)))
         self.fwd_table = n
 
         '''
@@ -600,7 +600,7 @@ class juniperRouter(object):
                                     out_ports.append(self.port_to_id[m[0]]+self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = int(m[1])
                                 else:
-                                    print("ERROR: unrecognized port %s"%m[0])
+                                    print(("ERROR: unrecognized port %s"%m[0]))
                                     return -1
                             # vlan outputs
                             elif output_port.startswith('vlan'):
@@ -610,7 +610,7 @@ class juniperRouter(object):
                                         out_ports.append(self.port_to_id[p]+self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = int(output_port[4:])
                                 else:
-                                    print("ERROR: unrecognized vlan %s"%output_port)
+                                    print(("ERROR: unrecognized vlan %s"%output_port))
                                     return -1
                             # physical ports - no vlan taging
                             else:
@@ -618,7 +618,7 @@ class juniperRouter(object):
                                     out_ports.append(self.port_to_id[output_port] + self.PORT_TYPE_MULTIPLIER * self.OUTPUT_PORT_TYPE_CONST)
                                     vlan = 0
                                 else:
-                                    print("ERROR: unrecognized port %s"%output_port)
+                                    print(("ERROR: unrecognized port %s"%output_port))
                                     return -1
                         
                         # now set the fields
@@ -778,8 +778,8 @@ if __name__ == "__main__":
 
   port_map = _read_port_map("port_map.txt")
 
-  for prefix_id, idx in cs_list.items():
-    print("""=== Process Router %s ===""" % prefix_id)
+  for prefix_id, idx in list(cs_list.items()):
+    print(("""=== Process Router %s ===""" % prefix_id))
     jr = juniperRouter(idx)
     jr.set_replaced_vlan(0)
 

@@ -137,7 +137,7 @@ def main(argv):
     fave_sendmsg(fave, json.dumps(SwitchCommand('sw0', 'add_rules', post_rules).to_json()))
     fave.close()
 
-    if verbose: print("Rules %d sent to FaVe" % (count + 1))
+    if verbose: print(("Rules %d sent to FaVe" % (count + 1)))
 
     if verbose: print("Wait for FaVe...")
     import netplumber.dump_np as dumper

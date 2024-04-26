@@ -33,7 +33,7 @@ VLAN_TO_DOMAIN, _VTP, VLAN_TO_IPS, _VTA, _ITV = parse_cisco_interfaces(CISCO_CON
 
 RES = {}
 
-for VLAN, DOMAIN in VLAN_TO_DOMAIN.items():
+for VLAN, DOMAIN in list(VLAN_TO_DOMAIN.items()):
     DNAME = DOMAIN + '.ifi' if not DOMAIN in ['Internet'] else DOMAIN
     RES[DNAME] = (VLAN, VLAN_TO_IPS.get(VLAN, None))
 

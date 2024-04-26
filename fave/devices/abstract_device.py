@@ -139,7 +139,7 @@ class AbstractDeviceModel(object):
             "tables" : {
                 tk:[
                     r.to_json() for r in t
-                ]  for tk, t in self.tables.items()
+                ]  for tk, t in list(self.tables.items())
             },
             "ports" : self.ports,
             "wiring" : self.wiring

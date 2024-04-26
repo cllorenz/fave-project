@@ -44,9 +44,9 @@ def _generate_reachability_tests():
     for next in stests:
         if prev == next:
             cnt += 1
-            print("  duplicate: %s" % prev)
+            print(("  duplicate: %s" % prev))
         prev = next
-    print("number of tests:\t%s\nduplicates:\t%s" % (len(tests), cnt))
+    print(("number of tests:\t%s\nduplicates:\t%s" % (len(tests), cnt)))
 
     return tests
 

@@ -26,7 +26,7 @@ hs.add_hs(wildcard_create_from_string("100xxxxx"))
 result = tf.T(hs,2)
 print("Result is:\n---------")
 for (h,p) in result:
-        print("at port %s:\n%s"%(p,h))
+        print(("at port %s:\n%s"%(p,h)))
         print("#")
         
 # Computing Inverse Transfer function
@@ -34,5 +34,5 @@ print("\n--------\nINVERSE\n--------\n")
 result = tf.T_inv(hs, 5)
 print("Result is:\n---------")
 for (h,p) in result:
-    print("at port %s:\n%s"%(p,h))
+    print(("at port %s:\n%s"%(p,h)))
     print("#")

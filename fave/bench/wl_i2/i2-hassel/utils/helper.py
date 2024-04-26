@@ -117,12 +117,12 @@ class node(object):
         for i in self.ips:
             str_ip = str_ip + int_to_dotted_ip(i[0]) + "/%d"%i[1] + ", "
         print(str_ip)
-        print("%sAction: %s"%(ind,self.action))
+        print(("%sAction: %s"%(ind,self.action)))
         if self.zero != None:
-            print("%sZero:"%(ind))
+            print(("%sZero:"%(ind)))
             self.zero.printSelf(indent+1)
         if self.one != None:
-            print("%sOne:"%(ind))
+            print(("%sOne:"%(ind)))
             self.one.printSelf(indent+1)
     
     def is_leaf(self):

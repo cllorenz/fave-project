@@ -65,7 +65,7 @@ def distribute_nodes_and_links():
     """
 
     _prepare_node_link_queue()
-    for _fd, obj in asyncore.socket_map.items():
+    for _fd, obj in list(asyncore.socket_map.items()):
         obj.send_next_pair()
     asyncore.loop()
 

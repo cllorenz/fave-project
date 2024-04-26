@@ -217,14 +217,14 @@ def main(argv):
     fave_reach = _read_fave(tree, mapping, probe)
 
     # fave subseteq fffuu6
-    print("result for fave subseteq fffuux:", all([
+    print(("result for fave subseteq fffuux:", all([
         any([
             all([
                 _is_subset_eq(source, fffuu_nets[src]),
                 _is_subset_eq(dest, fffuu_nets[dst])
             ]) for src, dst in list(fffuu_matrix.items())
         ]) for source, dest in fave_reach
-    ]))
+    ])))
 
     # fffuu6 subseteq fave
 #    fave_aggr_src = reduce(lambda x, y: x | y, [s for s, _d in fave_reach])
@@ -238,7 +238,7 @@ def main(argv):
             dst_net = bdd.apply('diff', dst_net, fave_dst)
 
         if not src_net == bdd.false or dst_net == bdd.false:
-            print(source, dest)
+            print((source, dest))
 #            bdd.dump('src.%s.pdf' % source, roots=[src_net])
 #            bdd.dump('dst.%s.pdf' % dest, roots=[dst_net])
 

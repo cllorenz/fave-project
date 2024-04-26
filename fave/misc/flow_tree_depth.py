@@ -36,4 +36,4 @@ def tree_depth(tree):
 
     return max(list(map(tree_depth, tree["children"]))) + 1
 
-print(max(list(map(tree_depth, TREES))))
+print((max(list(map(tree_depth, TREES)))))

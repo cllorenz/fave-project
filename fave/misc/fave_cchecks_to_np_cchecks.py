@@ -33,18 +33,20 @@ def _node_to_id(node, node_ids):
 
 
 def _cond_to_vector(cond, mapping):
-    if cond is None: return None
+    if not cond: return None
 
     vec = Vector(mapping['length'])
 
-    field = RuleField(*cond.split(':'))
+    cond = cond.pop()
+    field = RuleField(*(cond.split(':')))
 
     set_field_in_vector(mapping, vec, field.name, field_value_to_bitvector(field).vector)
 
     return vec.vector
 
-cchecks = json.load(open(sys.args[0], 'r'))
-fave = json.load(open(sys.args[1], 'r'))
+argv = sys.argv[1:]
+cchecks = json.load(open(argv[0], 'r'))
+fave = json.load(open(argv[1], 'r'))
 
 mapping = fave['mapping']
 generator_to_id = {v:k for k,v in list(fave['id_to_generator'].items())}
@@ -63,4 +65,4 @@ for src, rules in list(cchecks.items()):
         np_cchecks.setdefault(dst, [])
         np_cchecks[dst].append((src, valid, _cond_to_vector(cond, mapping)))
 
-json.dump(np_cchecks, open(sys.args[2], 'w'))
+json.dump(np_cchecks, open(argv[2], 'w'))

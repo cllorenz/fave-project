@@ -49,7 +49,7 @@ def _port_no_to_port_name(
     table_id = int(port / 100000)
     port_id = port % 100000
 
-    for interval, ttype in intervals.items():
+    for interval, ttype in list(intervals.items()):
         i1, i2 = interval
         if (i1 <= port_id and port_id < i2):
             return '%s.%d' % (
@@ -323,7 +323,7 @@ def prepare_benchmark(
                 probe_links.add((src_port, dst_port, False))
 
             else:
-                print("cannot add link: %s" % (src_port, dst_port))
+                print(("cannot add link: %s" % (src_port, dst_port)))
 
     probes['links'] = list(probe_links)
 

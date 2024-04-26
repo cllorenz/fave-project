@@ -50,4 +50,4 @@ if __name__ == '__main__':
 
     TABLE = FAVE['id_to_table'][str(TNO)]
 
-    print("\n@ %s.%s <--\n" % (TABLE, RNO & 0xffff))
+    print(("\n@ %s.%s <--\n" % (TABLE, RNO & 0xffff)))

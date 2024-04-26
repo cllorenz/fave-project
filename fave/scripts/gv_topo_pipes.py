@@ -472,7 +472,7 @@ class TopologyRenderer(object):
         res = []
         vec = ''.join(vector.split(','))
 
-        for field, offset in self.fave_mapping.items():
+        for field, offset in list(self.fave_mapping.items()):
             binary = get_field_from_vector(self.fave_mapping, vec, field)
             readable = bitvector_to_field_value(binary, field, **kwargs)
             if readable:
