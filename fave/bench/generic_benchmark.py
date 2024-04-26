@@ -49,6 +49,7 @@ class GenericBenchmark(object):
             self,
             prefix,
             extra_files=None,
+            use_dump=False,
             use_unix=True,
             use_tcp_np=False,
             logger=None,
@@ -85,6 +86,7 @@ class GenericBenchmark(object):
         if extra_files:
             self.files.update(extra_files)
 
+        self.use_dump = use_dump
         self.use_unix = use_unix
         self.use_tcp_np = use_tcp_np
         self.use_interweaving = use_interweaving
@@ -312,6 +314,6 @@ class GenericBenchmark(object):
         self._compliance()
         self._anomalies()
         self._report()
-#        self._dump_fave()
-        self._wait_for_fave()
+        if self.use_dump: self._dump_fave()
+        else: self._wait_for_fave()
         self._teardown()
