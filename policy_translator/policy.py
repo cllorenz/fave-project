@@ -546,38 +546,43 @@ class Policy(object):
 
         # create iptable rule(s) for every Policy
         for policy in self.policies:
+            PT_LOGGER.debug(f"handle policy rule: {policy}")
+
+            from_, to_ = policy
+            from_role = self.roles[from_]
+            to_role = self.roles[to_]
 
             # check if one is Internet
-            eth_from = " -i eth1" if (policy[0] == "Internet") else ""
-            eth_to = " -o eth1" if (policy[1] == "Internet") else ""
+            eth_from = " -i eth1" if (from_ == "Internet") else ""
+            eth_to = " -o eth1" if (to_ == "Internet") else ""
 
             # Check for interface and vlan
             if not eth_from:
                 eth_from_interface = (
-                    " -i " + self.roles[policy[0]].attributes["interface"]
-                ) if ("interface" in self.roles[policy[0]].attributes) else ""
+                    " -i " + from_role.attributes["interface"]
+                ) if ("interface" in from_role.attributes) else ""
                 eth_from_vlan = (
-                    "." + self.roles[policy[0]].attributes["vlan"]
-                ) if ("vlan" in self.roles[policy[0]].attributes and "interface" in self.roles[policy[0]].attributes) else ""
+                    "." + from_role.attributes["vlan"]
+                ) if ("vlan" in from_role.attributes and "interface" in from_role.attributes) else ""
                 eth_from = eth_from_interface + eth_from_vlan
             if not eth_to:
                 eth_to_interface = (
-                    " -o " + self.roles[policy[1]].attributes["interface"]
-                ) if ("interface" in self.roles[policy[1]].attributes) else ""
+                    " -o " + to_role.attributes["interface"]
+                ) if ("interface" in to_role.attributes) else ""
                 eth_to_vlan = (
-                    "." + self.roles[policy[1]].attributes["vlan"]
-                ) if ("vlan" in self.roles[policy[1]].attributes and "interface" in self.roles[policy[1]].attributes) else ""
+                    "." + to_role.attributes["vlan"]
+                ) if ("vlan" in to_role.attributes and "interface" in to_role.attributes) else ""
                 eth_to = eth_to_interface + eth_to_vlan
 
             #test if this policy is a relatedrule
             relatedrule = ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions)
 
             #test for strict rules A--->A to convert to A<-->A later on
-            strictrule = policy[0] == policy[1]
+            strictrule = from_ == to_
 
             #test for single way policy
             singleway = True
-            revpol = (policy[1], policy[0])
+            revpol = (to_, from_)
             if revpol in self.policies:
                 revrelatedrule = ({'state' : 'RELATED,ESTABLISHED'} in self.policies[revpol].conditions)
                 singleway = not revrelatedrule
@@ -587,21 +592,21 @@ class Policy(object):
 
             # Only create ip4table rules if not relatedrule, both have ipv4 or one is Internet and the other one has ipv4
             ip4rule = (not relatedrule) and (
-                ("ipv4" in self.roles[policy[0]].attributes) and ("ipv4" in self.roles[policy[1]].attributes)  or
-                (policy[0] == "Internet" or policy[1] == "Internet") and (
-                    ("ipv4" in self.roles[policy[0]].attributes) or ("ipv4" in self.roles[policy[1]].attributes)
+                ("ipv4" in from_role.attributes) and ("ipv4" in to_role.attributes)  or
+                (from_ == "Internet" or to_ == "Internet") and (
+                    ("ipv4" in from_role.attributes) or ("ipv4" in to_role.attributes)
                 )
             )
 
             # get ipv4 source and destination adress
-            ip4_srcs = self.roles[policy[0]].attributes.get("ipv4", [])
+            ip4_srcs = from_role.attributes.get("ipv4", [])
             ip4_from = [
                 " -s " + ip4_src for ip4_src in ip4_srcs
             ] if isinstance(ip4_srcs, list) else [
                 " -s " + ip4_srcs
             ]
 
-            ip4_dsts = self.roles[policy[1]].attributes.get("ipv4", [])
+            ip4_dsts = to_role.attributes.get("ipv4", [])
             ip4_to = [
                 " -d " + ip4_dst for ip4_dst in ip4_dsts
             ] if isinstance(ip4_dsts, list) else [
@@ -610,24 +615,24 @@ class Policy(object):
 
             # Only create ip6table rules if not relatedrule and both have ipv6 or one is Internet and the other one has ipv6
             ip6rule = (not relatedrule) and (
-                ("ipv6" in self.roles[policy[0]].attributes) and
-                ("ipv6" in self.roles[policy[1]].attributes) or
-                (policy[0] == "Internet" or policy[1] == "Internet") and
+                ("ipv6" in from_role.attributes) and
+                ("ipv6" in to_role.attributes) or
+                (from_ == "Internet" or to_ == "Internet") and
                 (
-                    ("ipv6" in self.roles[policy[0]].attributes) or
-                    ("ipv6" in self.roles[policy[1]].attributes)
+                    ("ipv6" in from_role.attributes) or
+                    ("ipv6" in to_role.attributes)
                 )
             )
 
             # get ipv6 source and destination adress
-            ip6_srcs = self.roles[policy[0]].attributes.get("ipv6", [])
+            ip6_srcs = from_role.attributes.get("ipv6", [])
             ip6_from = [
                 " -s " + ip6_src for ip6_src in ip6_srcs
             ] if isinstance(ip6_srcs, list) else [
                 " -s " + ip6_srcs
             ]
 
-            ip6_dsts = self.roles[policy[1]].attributes.get("ipv6", [])
+            ip6_dsts = to_role.attributes.get("ipv6", [])
             ip6_to = [
                 " -d " + ip6_dst for ip6_dst in ip6_dsts
             ] if isinstance(ip6_dsts, list) else [
@@ -635,7 +640,7 @@ class Policy(object):
             ]
 
             # add comment for human readability
-            comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
+            comment = " -m comment --comment \"" + from_ + " to " + to_ + "\""
 
             # add statemodule plus new if singlerule add notrack
             module = " -m conntrack --ctstate NEW"
@@ -649,7 +654,7 @@ class Policy(object):
                     if 'provider' in cond:
                         provider = cond['provider']
                     if 'protocol' in cond:
-                        serviceport = " --sport " if provider == policy[0] else " --dport "
+                        serviceport = " --sport " if provider == from_ else " --dport "
                         serviceinfo = " --protocol " + cond['protocol'] + serviceport + str(cond['port'])
                     else:
                         serviceinfo = ""
@@ -708,7 +713,12 @@ class Policy(object):
             ip4rule = ip6rule = False
             eth_to = eth_from = serviceinfo = comment = ""
             ip4_from = ip4_to = ip6_from = ip6_to = []
-        return "\n".join(iptables_rules) + '\n'
+            PT_LOGGER.debug(f"finished policy rule: {policy}")
+
+        PT_LOGGER.debug('compile iptables rule set')
+        result = "\n".join(iptables_rules) + '\n'
+        PT_LOGGER.trace(result)
+        return result
 
 
     def to_prosa(self):
