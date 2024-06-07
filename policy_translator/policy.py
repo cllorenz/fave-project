@@ -643,8 +643,9 @@ class Policy(object):
             comment = " -m comment --comment \"" + from_ + " to " + to_ + "\""
 
             # add statemodule plus new if singlerule add notrack
-            module = " -m conntrack --ctstate NEW"
-            module = " -m conntrack --ctstate NEW,NOTRACK" if (singleway and not strictrule) else module
+            module = " -m conntrack --ctstate NEW" + (
+                ",NOTRACK" if (singleway and not strictrule) else ""
+            )
 
             #if there are condition handle them
             if self.policies[policy].conditions:
