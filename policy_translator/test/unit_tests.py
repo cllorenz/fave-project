@@ -29,6 +29,7 @@ import unittest
 from test.test_policy import TestPolicy, TestRole, TestSuperrole, TestService
 from test.test_policy import TestReachabilityPolicy
 from test.test_policy_builder import TestPolicyBuilder
+from test.test_to_iptables import TestToIptables
 
 if __name__ == '__main__':
     SUITE = unittest.TestSuite()
@@ -55,6 +56,10 @@ if __name__ == '__main__':
 
     SUITE.addTests(
         unittest.defaultTestLoader.loadTestsFromTestCase(TestPolicyBuilder)
+    )
+
+    SUITE.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestToIptables)
     )
 
     unittest.TextTestRunner(verbosity=2).run(SUITE)
