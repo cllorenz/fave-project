@@ -162,15 +162,14 @@ class TestToIptables(unittest.TestCase):
         # simple policy test
         self.policy.add_reachability_policy("Internal", "External")
         self.policy.add_reachability_policy("External", "Internal")
-        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
-        self.expdeny.append(rule)
-        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j ACCEPT"
-        self.expdeny.append(rule)
         rule = "iptables -t raw -A PREROUTING -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j NOTRACK"
         self.expdeny.append(rule)
         rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"Internal to External\" -j ACCEPT"
         self.expdeny.append(rule)
-
+        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
+        self.expdeny.append(rule)
+        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j ACCEPT"
+        self.expdeny.append(rule)
         self.check(self.expdeny)
 
     def test_defaultallowsimple(self):
@@ -186,13 +185,13 @@ class TestToIptables(unittest.TestCase):
         self.policy.set_default_policy("allow")
         self.policy.add_reachability_policy("Internal", "External")
         self.policy.add_reachability_policy("External", "Internal")
-        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
-        self.expallow.append(rule)
-        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j DROP"
-        self.expallow.append(rule)
         rule = "iptables -t raw -A PREROUTING -s 1.2.3.4 -d 4.3.2.1 -m comment --comment \"Internal to External\" -j NOTRACK"
         self.expallow.append(rule)
         rule = "iptables -A FORWARD -s 1.2.3.4 -d 4.3.2.1 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"Internal to External\" -j DROP"
+        self.expallow.append(rule)
+        rule = "iptables -t raw -A PREROUTING -s 4.3.2.1 -d 1.2.3.4 -m comment --comment \"External to Internal\" -j NOTRACK"
+        self.expallow.append(rule)
+        rule = "iptables -A FORWARD -s 4.3.2.1 -d 1.2.3.4 -m conntrack --ctstate NEW,NOTRACK -m comment --comment \"External to Internal\" -j DROP"
         self.expallow.append(rule)
         self.check(self.expallow)
 
@@ -258,7 +257,7 @@ class TestToIptables(unittest.TestCase):
         self.check(self.expdeny)
 
     def check(self, exp):
-        x = "\n".join(str(e) for e in exp)
+        x = "\n".join(str(e) for e in exp) + "\n"
         res = self.policy.to_iptables()
         self.assertEqual(res, x)
 
