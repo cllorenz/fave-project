@@ -483,14 +483,14 @@ class Policy(object):
             A String that contains the iptables rules
         """
         # set needed Variables
-        iptable_rules = []
+        iptables_rules = []
         ip4rule = False
         ip6rule = False
 
         #defaultrules rules and best practices
         defaultruletarget = " ACCEPT" if self.default_policy else " DROP"
         default4rule = "iptables -P FORWARD" + defaultruletarget
-        iptable_rules.append(default4rule)
+        iptables_rules.append(default4rule)
 
         #Anti-Spoofing Ipv4
         for role in self.get_atomic_roles():
@@ -500,57 +500,47 @@ class Policy(object):
                 iptable_rules.append(bp4rules)
 
         bp4rules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
-        iptable_rules.append(bp4rules)
+        iptables_rules.append(bp4rules)
 
         default6rule = "ip6tables -P FORWARD" + defaultruletarget
-        iptable_rules.append(default6rule)
+        iptables_rules.append(default6rule)
 
         #Anti-Spoofing Ipv6
         for role in self.get_atomic_roles():
             if 'ipv6' in self.roles[role].attributes:
-                src = self.roles[role].attributes['ipv6']
-                bp6rules = "ip6tables -A FORWARD -i eth1 -s " + src + " -j DROP"
-                iptable_rules.append(bp6rules)
+                srcs = self.roles[role].attributes['ipv6']
+                srcs = srcs if isinstance(srcs, list) else [srcs]
+                for src in srcs:
+                    bp6rules = "ip6tables -A FORWARD -i eth1 -s " + src + " -j DROP"
+                    iptables_rules.append(bp6rules)
 
 
-        #ICMP Traffic
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT"
-        iptable_rules.append(bp6rules)
+        # ICMP Traffic
+        iptables_rules += [
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-request -m limit --limit 900/min -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type echo-reply -m limit --limit 900/min -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type ttl-zero-during-transit -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-header-type -j ACCEPT",
+            "ip6tables -A FORWARD -p icmpv6 --icmpv6-type unknown-option -j ACCEPT"
+        ]
 
         #Routing-Header
-        bp6rules = "ip6tables -N routinghdr"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 0 --rt-segsleft 0 -j RETURN"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A routinghdr -m rt --rt-type 2 --rt-segsleft 1 -j RETURN"
-        iptable_rules.append(bp6rules)
-        bp6rules = "ip6tables -A routinghdr -m rt ! --rt-segsleft 0 --j DROP"
-        iptable_rules.append(bp6rules)
+        iptables_rules += [
+            "ip6tables -N routinghdr",
+            "ip6tables -A routinghdr -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP",
+            "ip6tables -A routinghdr -m rt --rt-type 2 ! --rt-segsleft 1 -j DROP",
+            "ip6tables -A routinghdr -m rt --rt-type 0 --rt-segsleft 0 -j RETURN",
+            "ip6tables -A routinghdr -m rt --rt-type 2 --rt-segsleft 1 -j RETURN",
+            "ip6tables -A routinghdr -m rt ! --rt-segsleft 0 --j DROP",
+            "ip6tables -A FORWARD -m ipv6header --header ipv6-route --soft -j routinghdr"
+        ]
 
-        bp6rules = "ip6tables -A FORWARD -m ipv6header --header ipv6-route --soft -j routinghdr"
-        iptable_rules.append(bp6rules)
+        iptables_rules.append("ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT")
 
-        bp6rules = "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
-        iptable_rules.append(bp6rules)
         # create iptable rule(s) for every Policy
         for policy in self.policies:
-
 
             # check if one is Internet
             eth_from = " -i eth1" if (policy[0] == "Internet") else ""
