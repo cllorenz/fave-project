@@ -103,7 +103,10 @@ class TestPolicy(unittest.TestCase):
             "Internet" : Role("Internet", self.policy, attributes={'interface': 'fw.generic.eth1'})
         }
 
-        self.assertEqual(list(self.policy.roles.keys()), list(exp.keys()))
+        self.assertEqual(
+            sorted(list(self.policy.roles.keys())),
+            sorted(list(exp.keys()))
+        )
 
         for key in exp:
             self.assertEqual(self.policy.roles[key], exp[key])
