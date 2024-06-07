@@ -26,6 +26,7 @@ import copy
 import json
 from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
+from policy_logger import PT_LOGGER
 
 class Policy(object):
     """Represents a security policy for a computer network. Contains roles,
