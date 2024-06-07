@@ -705,7 +705,7 @@ class Policy(object):
             ip4rule = ip6rule = False
             eth_to = eth_from = serviceinfo = comment = ""
             ip4_from = ip4_to = ip6_from = ip6_to = []
-        return "\n".join(iptables_rules)
+        return "\n".join(iptables_rules) + '\n'
 
 
     def to_prosa(self):
