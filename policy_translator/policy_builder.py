@@ -121,6 +121,7 @@ class PolicyBuilder(object):
         """
 
         PT_LOGGER.debug("match roles and services")
+        PT_LOGGER.trace("use policy string:\n"+policy_chars)
         role_service_match = cls.match(cls.role_service_regex, policy_chars)
         if role_service_match:
             for role_service in role_service_match:
@@ -238,6 +239,7 @@ class PolicyBuilder(object):
         """
 
         PT_LOGGER.debug("match policy regex")
+        PT_LOGGER.trace("use policy string:\n"+policy_chars)
         policy_matches = cls.match(cls.policies_regex, policy_chars)
         if policy_matches:
             for policy_match in policy_matches:
