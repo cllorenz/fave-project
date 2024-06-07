@@ -546,7 +546,7 @@ class Policy(object):
 
         # create iptable rule(s) for every Policy
         for policy in self.policies:
-            PT_LOGGER.debug(f"handle policy rule: {policy}")
+            PT_LOGGER.debug(f"handle policy rule: {policy} with conditions: {self.policies[policy].conditions}")
 
             from_, to_ = policy
             from_role = self.roles[from_]
@@ -648,6 +648,7 @@ class Policy(object):
 
             #if there are condition handle them
             if self.policies[policy].conditions:
+                PT_LOGGER.debug(f"handle conditions: {self.policies[policy].conditions}")
                 for cond in self.policies[policy].conditions:
                     provider = []
                     #check if services are given
@@ -691,6 +692,7 @@ class Policy(object):
 
             #if there are no conditions
             else:
+                PT_LOGGER.debug(f"no conditions to handle")
                 if ip4rule:
                     if singleway and not strictrule:
                         iptables_rules += [(
