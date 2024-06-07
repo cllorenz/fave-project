@@ -408,9 +408,11 @@ class Policy(object):
         reachable = {(id, id) for id in vlans}
 
         for policy in self.policies:
-            if ("vlan" in self.roles[policy[0]].attributes) and ("vlan" in self.roles[policy[1]].attributes):
-                vlan_from = self.roles[policy[0]].attributes["vlan"]
-                vlan_to = self.roles[policy[1]].attributes["vlan"]
+            from_role = self.roles[policy[0]]
+            to_role = self.roles[policy[1]]
+            if ("vlan" in from_role.attributes) and ("vlan" in to_role.attributes):
+                vlan_from = from_role.attributes["vlan"]
+                vlan_to = to_role.attributes["vlan"]
                 reachable.add((vlan_from, vlan_to))
 
         for vlan in sorted(vlans):
