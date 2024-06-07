@@ -495,9 +495,11 @@ class Policy(object):
         #Anti-Spoofing Ipv4
         for role in self.get_atomic_roles():
             if 'ipv4' in self.roles[role].attributes:
-                src = self.roles[role].attributes['ipv4']
-                bp4rules = "iptables -A FORWARD -i eth1 -s " + src + " -j DROP"
-                iptable_rules.append(bp4rules)
+                srcs = self.roles[role].attributes['ipv4']
+                srcs = srcs if isinstance(srcs, list) else [srcs]
+                for src in srcs:
+                    bp4rules = "iptables -A FORWARD -i eth1 -s " + src + " -j DROP"
+                    iptables_rules.append(bp4rules)
 
         bp4rules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         iptables_rules.append(bp4rules)
@@ -589,8 +591,19 @@ class Policy(object):
             )
 
             # get ipv4 source and destination adress
-            ip4_from = (" -s " + self.roles[policy[0]].attributes["ipv4"]) if ("ipv4" in self.roles[policy[0]].attributes) else ""
-            ip4_to = (" -d " + self.roles[policy[1]].attributes["ipv4"]) if ("ipv4" in self.roles[policy[1]].attributes) else ""
+            ip4_srcs = self.roles[policy[0]].attributes.get("ipv4", [])
+            ip4_from = [
+                " -s " + ip4_src for ip4_src in ip4_srcs
+            ] if isinstance(ip4_srcs, list) else [
+                " -s " + ip4_srcs
+            ]
+
+            ip4_dsts = self.roles[policy[1]].attributes.get("ipv4", [])
+            ip4_to = [
+                " -d " + ip4_dst for ip4_dst in ip4_dsts
+            ] if isinstance(ip4_dsts, list) else [
+                " -d " + ip4_dsts
+            ]
 
             # Only create ip6table rules if not relatedrule and both have ipv6 or one is Internet and the other one has ipv6
             ip6rule = (not relatedrule) and (
@@ -604,8 +617,19 @@ class Policy(object):
             )
 
             # get ipv6 source and destination adress
-            ip6_from = (" -s " + self.roles[policy[0]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[0]].attributes) else ""
-            ip6_to = (" -d " + self.roles[policy[1]].attributes["ipv6"]) if ("ipv6" in self.roles[policy[1]].attributes) else ""
+            ip6_srcs = self.roles[policy[0]].attributes.get("ipv6", [])
+            ip6_from = [
+                " -s " + ip6_src for ip6_src in ip6_srcs
+            ] if isinstance(ip6_srcs, list) else [
+                " -s " + ip6_srcs
+            ]
+
+            ip6_dsts = self.roles[policy[1]].attributes.get("ipv6", [])
+            ip6_to = [
+                " -d " + ip6_dst for ip6_dst in ip6_dsts
+            ] if isinstance(ip6_dsts, list) else [
+                " -d " + ip6_dsts
+            ]
 
             # add comment for human readability
             comment = " -m comment --comment \"" + policy[0] + " to " + policy[1] + "\""
@@ -630,8 +654,9 @@ class Policy(object):
                     if 'state' in cond:
                         # a-/-->> rules
                         if cond['state'] == 'NEW,INVALID':
-                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + " -m conntrack --ctstate NEW" + comment + jumptarget
-                            iptable_rules.append(rule)
+                            iptables_rules += [(
+                                "iptables -A FORWARD" + eth_from + serviceinfo + ip4_src + eth_to + ip4_dst + " -m conntrack --ctstate NEW" + comment + jumptarget
+                            ) for ip4_src in ip4_from for ip4_dst in ip4_to]
 
                     #if serviceinfo is set create rule
                     if serviceinfo:
@@ -639,40 +664,48 @@ class Policy(object):
                             #create prerouting rule if neccesary
                             #TODO remove ALL strictrule when Policy creation(A<->A insted of A->A) is fixed
                             if singleway and not self.default_policy and not strictrule:
-                                rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
-                                iptable_rules.append(rule)
-                            rule = "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
-                            iptable_rules.append(rule)
+                                iptables_rules += [(
+                                    "iptables -t raw -A PREROUTING" + eth_from + ip4_src + eth_to + ip4_dst + comment + " -j NOTRACK"
+                                ) for ip4_src in ip4_from for ip4_dst in ip4_to]
+                            iptables_rules += [(
+                                "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
+                            ) for ip4_src in ip4_from for ip4_dst in ip4_to]
 
                         if ip6rule:
                             #create prerouting rule if neccesary
                             if singleway and not self.default_policy and not strictrule:
-                                rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + " -j NOTRACK"
-                                iptable_rules.append(rule)
-                            rule = "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + module + comment + jumptarget
-                            iptable_rules.append(rule)
-
+                                iptables_rules += [(
+                                    "ip6tables -t raw -A PREROUTING" + eth_from + ip6_src + eth_to + ip6_dst + comment + " -j NOTRACK"
+                                ) for ip6_src in ip6_from for ip6_dst in ip6_to]
+                            iptables_rules += [(
+                                "ip6tables -A FORWARD" + eth_from + serviceinfo + ip6_from + eth_to + ip6_to + module + comment + jumptarget
+                            ) for ip6_src in ip6_from for ip6_dst in ip6_to]
 
             #if there are no conditions
             else:
                 if ip4rule:
                     if singleway and not strictrule:
-                        rule = "iptables -t raw -A PREROUTING" + eth_from + ip4_from + eth_to + ip4_to + comment + " -j NOTRACK"
-                        iptable_rules.append(rule)
-                    rule = "iptables -A FORWARD" + eth_from + ip4_from + eth_to + ip4_to + module + comment + jumptarget
-                    iptable_rules.append(rule)
+                        iptables_rules += [(
+                            "iptables -t raw -A PREROUTING" + eth_from + ip4_src + eth_to + ip4_dst + comment + " -j NOTRACK"
+                        ) for ip4_src in ip4_from for ip4_dst in ip4_to]
+                    iptables_rules += [(
+                        "iptables -A FORWARD" + eth_from + ip4_src + eth_to + ip4_dst + module + comment + jumptarget
+                    ) for ip4_src in ip4_from for ip4_dst in ip4_to]
 
                 if ip6rule:
                     if singleway and not strictrule:
-                        rule = "ip6tables -t raw -A PREROUTING" + eth_from + ip6_from + eth_to + ip6_to + comment + " -j NOTRACK"
-                        iptable_rules.append(rule)
-                    rule = "ip6tables -A FORWARD" + eth_from + ip6_from + eth_to + ip6_to + module + comment + jumptarget
-                    iptable_rules.append(rule)
+                        iptables_rules += [(
+                            "ip6tables -t raw -A PREROUTING" + eth_from + ip6_src + eth_to + ip6_dst + comment + " -j NOTRACK"
+                        ) for ip6_src in ip6_from for ip6_dst in ip6_to]
+                    iptables_rules += [(
+                        "ip6tables -A FORWARD" + eth_from + ip6_src + eth_to + ip6_dst + module + comment + jumptarget
+                    ) for ip6_src in ip6_from for ip6_dst in ip6_to]
 
             # reset variables for next run
             ip4rule = ip6rule = False
-            eth_to = eth_from = ip4_from = ip4_to = ip6_from = ip6_to = serviceinfo = comment = ""
-        return "\n".join(iptable_rules)
+            eth_to = eth_from = serviceinfo = comment = ""
+            ip4_from = ip4_to = ip6_from = ip6_to = []
+        return "\n".join(iptables_rules)
 
 
     def to_prosa(self):
