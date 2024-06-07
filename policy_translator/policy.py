@@ -599,14 +599,14 @@ class Policy(object):
             )
 
             # get ipv4 source and destination adress
-            ip4_srcs = from_role.attributes.get("ipv4", [])
+            ip4_srcs = from_role.attributes.get("ipv4", [""])
             ip4_from = [
                 " -s " + ip4_src for ip4_src in ip4_srcs
             ] if isinstance(ip4_srcs, list) else [
                 " -s " + ip4_srcs
             ]
 
-            ip4_dsts = to_role.attributes.get("ipv4", [])
+            ip4_dsts = to_role.attributes.get("ipv4", [""])
             ip4_to = [
                 " -d " + ip4_dst for ip4_dst in ip4_dsts
             ] if isinstance(ip4_dsts, list) else [
@@ -625,14 +625,14 @@ class Policy(object):
             )
 
             # get ipv6 source and destination adress
-            ip6_srcs = from_role.attributes.get("ipv6", [])
+            ip6_srcs = from_role.attributes.get("ipv6", [""])
             ip6_from = [
                 " -s " + ip6_src for ip6_src in ip6_srcs
             ] if isinstance(ip6_srcs, list) else [
                 " -s " + ip6_srcs
             ]
 
-            ip6_dsts = to_role.attributes.get("ipv6", [])
+            ip6_dsts = to_role.attributes.get("ipv6", [""])
             ip6_to = [
                 " -d " + ip6_dst for ip6_dst in ip6_dsts
             ] if isinstance(ip6_dsts, list) else [
