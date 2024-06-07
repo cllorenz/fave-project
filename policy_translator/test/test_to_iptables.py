@@ -33,10 +33,10 @@ class TestToIptables(unittest.TestCase):
 
     """ This class provides unit tests for the Policy class.
     """
-    exp = []
-    expallow = []
-    expdeny =[]
     def setUp(self):
+        self.exp = []
+        self.expallow = []
+        self.expdeny = []
         self.policy = Policy()
         self.policy.set_default_policy("deny")
         self.policy.add_role("Internal")
@@ -115,12 +115,6 @@ class TestToIptables(unittest.TestCase):
         rule = "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         self.expallow.append(rule)
         self.expdeny.append(rule)
-
-    def tearDown(self):
-        TestToIptables.exp = []
-        TestToIptables.expallow = []
-        TestToIptables.expdeny = []
-        del self.policy
 
     def test_defaultPolicieDeny(self):
         #testing default ruleset for deny
