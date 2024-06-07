@@ -677,7 +677,7 @@ class Policy(object):
                                     "iptables -t raw -A PREROUTING" + eth_from + ip4_src + eth_to + ip4_dst + comment + " -j NOTRACK"
                                 ) for ip4_src in ip4_from for ip4_dst in ip4_to]
                             iptables_rules += [(
-                                "iptables -A FORWARD" + eth_from + serviceinfo + ip4_from + eth_to + ip4_to + module + comment + jumptarget
+                                "iptables -A FORWARD" + eth_from + serviceinfo + ip4_src + eth_to + ip4_dst + module + comment + jumptarget
                             ) for ip4_src in ip4_from for ip4_dst in ip4_to]
 
                         if ip6rule:
