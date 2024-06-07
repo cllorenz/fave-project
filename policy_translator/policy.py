@@ -627,14 +627,14 @@ class Policy(object):
             # get ipv6 source and destination adress
             ip6_srcs = from_role.attributes.get("ipv6", [""])
             ip6_from = [
-                " -s " + ip6_src for ip6_src in ip6_srcs
+                (" -s " + ip6_src if ip6_src else ip6_src) for ip6_src in ip6_srcs
             ] if isinstance(ip6_srcs, list) else [
                 " -s " + ip6_srcs
             ]
 
             ip6_dsts = to_role.attributes.get("ipv6", [""])
             ip6_to = [
-                " -d " + ip6_dst for ip6_dst in ip6_dsts
+                (" -d " + ip6_dst if ip6_dst else ip6_dst) for ip6_dst in ip6_dsts if ip6_dst
             ] if isinstance(ip6_dsts, list) else [
                 " -d " + ip6_dsts
             ]
