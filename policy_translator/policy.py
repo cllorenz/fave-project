@@ -601,14 +601,14 @@ class Policy(object):
             # get ipv4 source and destination adress
             ip4_srcs = from_role.attributes.get("ipv4", [""])
             ip4_from = [
-                " -s " + ip4_src for ip4_src in ip4_srcs
+                (" -s " + ip4_src if ip4_src else ip4_src) for ip4_src in ip4_srcs
             ] if isinstance(ip4_srcs, list) else [
                 " -s " + ip4_srcs
             ]
 
             ip4_dsts = to_role.attributes.get("ipv4", [""])
             ip4_to = [
-                " -d " + ip4_dst for ip4_dst in ip4_dsts
+                (" -d " + ip4_dst if ip4_dst else ip4_dst) for ip4_dst in ip4_dsts
             ] if isinstance(ip4_dsts, list) else [
                 " -d " + ip4_dsts
             ]
