@@ -59,14 +59,16 @@ def main(argv):
 
     files = []
     try:
-        for i in range(min(2, len(args.files))):
-            files.append(open(args.files[i], 'r'))
+        PT_LOGGER.debug(args.files)
+        for file_ in args.files:
+            PT_LOGGER.debug(f"read file {file_}")
+            files.append(open(file_, 'r'))
     except IOError:
         print("Fehler: Datei(en) konnte(n) nicht gelesen werden.")
         sys.exit(1)
 
     PT_LOGGER.debug("fetch data from files")
-    policy_chars = "".join([f.read() for f in files])
+    policy_chars = "\n".join([f.read() for f in files])
     for file_ in files:
         file_.close()
     if args.report_csv:
