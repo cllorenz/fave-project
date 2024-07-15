@@ -50,7 +50,7 @@ def parse_fpl(raw_policy: str, use_tests=False):
 
     value_word = pp.Word(pp.alphanums+".:/-_")
     value_word.setName('value_word')
-    value_text = pp.Word(pp.alphanums+".:/-_ ")
+    value_text = pp.Word(pp.alphanums+".:/-_ ,")
     value_text.setName('value_text')
     quoted_value = pp.Suppress(quote) + value_text + pp.Suppress(quote)
     quoted_value.setName('quoted_value')
