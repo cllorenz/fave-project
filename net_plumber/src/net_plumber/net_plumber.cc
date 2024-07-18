@@ -486,7 +486,7 @@ void NetPlumber<T1, T2>::_check_anomalies(
       auto rule_pair = rules->rbegin();
       if (
         rule_pair != rules->rend() &&
-	array_is_eq(rule_pair->second->match, (T2 *)&all_hs, this->length)
+        array_is_eq(rule_pair->second->match, (T2 *)&all_hs, this->length)
       ) rule_pair++;
       for (; rule_pair != rules->rend(); ++rule_pair) {
         auto rule = rule_pair->second;
