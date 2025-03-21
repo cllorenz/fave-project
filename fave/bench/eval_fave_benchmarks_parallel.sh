@@ -19,10 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+export LC_NUMERIC=C
+
+THREADS=$(ls $1/fave  | sort -n)
+
 function fave_stats {
   TOOL=$1
 
-  for threads in 1 2 4 8 16 24; do
+  for threads in $THREADS; do
       echo -n "$TOOL$threads" >> $RESULTS
 
       for DATA in ${@:2}; do
@@ -97,7 +101,7 @@ echo -n "" > $FAVE_TOTAL
 CHECKS=$RDIR/raw_checks.dat
 echo -n "" > $CHECKS
 
-for threads in 1 2 4 8 16 24; do
+for threads in $THREADS; do
     for i in $(seq 1 $RUNS); do
       grep "parse device" $RDIR/fave/$threads/$i.raw/stdout.log | cut -d' ' -f4 | \
         awk 'BEGIN { result = 0; } { result += $1; } END { print result; }' >> $PARSING
