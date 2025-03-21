@@ -157,7 +157,7 @@ def parse_fpl(raw_policy: str, use_tests=False):
     )
     policy.setName('policy')
 
-    fpl = pp.Suppress(pp.ZeroOrMore(comment)) + inventory + policy
+    fpl = pp.Suppress(pp.ZeroOrMore(comment)) + (inventory ^ policy)
     fpl.setName('fpl')
 
     if use_tests:
@@ -233,6 +233,7 @@ def parse_fpl(raw_policy: str, use_tests=False):
 
     else:
         res = fpl.parseString(raw_policy)
+        print(res.asList())
         return res.asList()
 
 head_tail = lambda lst: (lst[0], lst[1:])

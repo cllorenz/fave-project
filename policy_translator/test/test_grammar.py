@@ -32,7 +32,7 @@ class TestCodeUnderTest:
     # Successfully parse a simple FPL policy
     def test_parse_simple_fpl_policy(self):
         raw_policy = "def role Servers\n\tipv6 = 2001:db8::100/120\nend"
-        expected_result = [['role', 'Servers', [['ipv6', '2001:db8::100/120']]]]
+        expected_result = [['role', 'Servers', ['ipv6', '2001:db8::100/120']]]
     
         result = parse_fpl(raw_policy)
     
