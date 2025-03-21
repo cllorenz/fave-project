@@ -52,7 +52,7 @@ export LC_NUMERIC=C
 
 RDIR=$1
 
-RUNS=10
+RUNS=$(ls $RDIR/fave | cut -d'.' -f1 | sort -n | tail -n1)
 
 RESULTS=$RDIR/results.dat
 [ ! -f $RESULTS ] && echo "Tool Initialization Reachability Compliance Total \"Initialization StdDev.\" \"Reachability StdDev.\" \"Compliance StdDev.\" \"Total StdDev.\"" > $RESULTS
