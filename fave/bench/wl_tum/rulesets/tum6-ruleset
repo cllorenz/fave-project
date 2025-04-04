@@ -1,5 +1,5 @@
 ip6tables -P FORWARD DROP
-ip6tables -A FORWARD -m state --state ESTABLISHED,RELATED,UNTRACKED -j ACCEPT
+ip6tables -A FORWARD -m state --state ESTABLISHED -j ACCEPT
 ip6tables -A FORWARD -i eth1.110 -s 64:ff9b::839f:0e00/119 -j DROP
 ip6tables -A FORWARD -i eth1.110 -s 64:ff9b::839f:1400/119 -j DROP
 ip6tables -A FORWARD -i eth1.110 -s 64:ff9b::c0a8:d400/119 -j DROP
