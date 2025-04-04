@@ -1,0 +1,13 @@
+{
+    "in_port": 336,
+    "length": 400,
+    "out_port": 144,
+    "packet.ether.dvlan": 368,
+    "packet.ether.svlan": 320,
+    "packet.ipv6.destination": 16,
+    "packet.ipv6.proto": 0,
+    "packet.ipv6.source": 192,
+    "packet.upper.dport": 176,
+    "packet.upper.sport": 384,
+    "related": 8
+}
