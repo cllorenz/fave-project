@@ -181,6 +181,84 @@ void NetPlumberAnomaliesTest<T1, T2>::test_rule_shadowing_regression() {
   CPPUNIT_ASSERT(shadow_called == false);
 }
 
+#ifdef CHECK_ANOMALIES
+template<class T1, class T2>
+void NetPlumberAnomaliesTest<T1, T2>::test_anomalies() {
+  printf("\n");
+
+  List_t r1in = make_sorted_list(1, 1);
+  List_t r1out = make_sorted_list(1, 2);
+  List_t r2in = make_sorted_list(1, 1);
+  List_t r2out = make_sorted_list(1, 2);
+  List_t r3in = make_sorted_list(1, 1);
+  List_t r3out = make_sorted_list(1, 2);
+  List_t r4in = make_sorted_list(1, 1);
+  List_t r4out = make_sorted_list(1, 2);
+  List_t table_ports = make_sorted_list(2, 1, 2);
+
+  this->n->add_table(1, table_ports);
+
+  struct anomalies anomalies { false; false; false; };
+
+  // simple shadowing
+  T2 *m1 = array_from_str("xxxxxxx1");
+  T2 *m2 = array_from_str("xxxxxx01");
+
+  this->n->add_rule(1, 1, r1in, r1out, m1, nullptr, nullptr);
+  this->n->add_rule(1, 2, r2in, r2out, m2, nullptr, nullptr);
+
+  anomalies.shadow = true;
+  this->n->check_anomalies(0, &anomalies);
+
+  CPPUNIT_ASSERT(shadow_called == true);
+
+  // aggregated shadowing
+  reset_shadow();
+
+  T2 *m3 = array_from_str("xxxxxx00");
+  T2 *m4 = array_from_str("xxxxxx0x");
+
+  this->n->add_rule(1, 3, r3in, r3out, m3, nullptr, nullptr);
+  this->n->add_rule(1, 4, r4in, r4out, m4, nullptr, nullptr);
+
+  this->n->check_anomalies(0, &anomalies);
+
+  CPPUNIT_ASSERT(shadow_called == true);
+
+  // reachability
+  reset_reach();
+
+  anomalies.shadow = false;
+  anomalies.reach = true;
+
+  T2 *m5 = array_from_str("xxxxxxx0");
+  T2 *m6 = array_from_str("xxxxx1xx");
+
+  this->n->add_rule(1, 5, r5in, r5out, m5, nullptr, nullptr);
+  this->n->add_rule(1, 6, r6in, r6out, m6, nullptr, nullptr);
+
+  this->n->check_anomalies(0, &anomalies);
+  CPPUNIT_ASSERT(reach_called == true);
+
+
+  // simple generalization
+  reset_general();
+
+  anomalies.reach = false;
+  anomalies.general = true;
+
+  this->n->check_anomalies(0, &anomalies);
+  CPPUNIT_ASSERT(general_called == true);
+
+  // aggregated generalization
+  reset_general();
+
+
+  this->n->check_anomalies(0, &anomalies);
+  CPPUNIT_ASSERT(general_called == true);
+}
+#endif // CHECK_ANOMALIES
+
 #ifdef GENERIC_PS
 template class NetPlumberAnomaliesTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD

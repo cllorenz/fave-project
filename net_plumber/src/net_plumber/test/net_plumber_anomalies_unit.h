@@ -44,6 +44,9 @@ class NetPlumberAnomaliesTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_rule_reachability);
 #endif
   CPPUNIT_TEST(test_rule_shadowing_regression);
+#ifdef CHECK_ANOMALIES
+  CPPUNIT_TEST(test_anomalies);
+#endif
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -54,6 +57,9 @@ class NetPlumberAnomaliesTest : public CppUnit::TestFixture {
   void test_rule_reachability();
 #endif
   void test_rule_shadowing_regression();
+#ifdef CHECK_ANOMALIES
+  void test_anomalies();
+#endif
  private:
   static log4cxx::LoggerPtr logger;
 };
