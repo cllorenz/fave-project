@@ -214,6 +214,8 @@ class GenericBenchmark(object):
         )
         self.logger.info("started aggregator.")
 
+        self._wait_for_fave()
+
 
     def _teardown(self):
         self.logger.info("stopping fave and netplumber...")
