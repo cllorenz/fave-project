@@ -1,6 +1,6 @@
 # Container for building, testing, and benchmarking FaVe
 
-FROM debian
+FROM ubuntu:24.04
 LABEL Description="This image is used to build, test, and benchmark the FaVe verification system."
 
 ENV APT_CONFS="--no-install-recommends -y"
@@ -12,45 +12,59 @@ RUN apt-get $APT_CONFS install apt-utils
 RUN apt-get $APT_CONFS install build-essential
 RUN apt-get $APT_CONFS install wget
 RUN apt-get $APT_CONFS install git
-RUN apt-get $APT_CONFS install python2
-RUN apt-get $APT_CONFS install python2-dev
-RUN apt-get $APT_CONFS install python-pip
-RUN apt-get $APT_CONFS install python-daemon
+RUN apt-get $APT_CONFS install python3
+RUN apt-get $APT_CONFS install python3-dev
+RUN apt-get $APT_CONFS install python3-daemon
 RUN apt-get $APT_CONFS install python3-pip
+RUN apt-get $APT_CONFS install python3-venv
 RUN apt-get $APT_CONFS install pylint
 RUN apt-get $APT_CONFS install inkscape
-RUN apt-get $APT_CONFS install python-coverage
+RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison
-RUN apt-get $APT_CONFS install liblog4cxx10v5
+RUN apt-get $APT_CONFS install liblog4cxx15
 RUN apt-get $APT_CONFS install liblog4cxx-dev
-RUN apt-get $APT_CONFS install libcppunit-1.14-0
+RUN apt-get $APT_CONFS install libcppunit-1.15-0
 RUN apt-get $APT_CONFS install libcppunit-dev
 
-RUN git clone https://github.com/jgcoded/BuDDy.git && \
-    cd BuDDy && \
-    sh configure && \
-    make -j && \
-    make install && \
-    ldconfig && \
-    cd ..
+#RUN git clone https://github.com/jgcoded/BuDDy.git && \
+#    cd BuDDy && \
+#    sh configure && \
+#    make -j && \
+#    make install && \
+#    ldconfig && \
+#    cd ..
 
-RUN pip2 install wheel
-RUN pip2 install graphviz
-RUN pip2 install filelock
-RUN pip2 install pyparsing
-RUN pip2 install cachetools
-RUN pip2 install dd
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-RUN wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz && \
-    tar xfz Pyrex-0.9.9.tar.gz && \
-    cd Pyrex-0.9.9 && \
-    python2 setup.py install && \
-    cd ..
+RUN pip3 install wheel
+RUN pip3 install graphviz
+RUN pip3 install filelock
+RUN pip3 install pyparsing
+RUN pip3 install cachetools
+RUN pip3 install dd
+RUN pip3 install pybison
 
-RUN git clone https://github.com/smvv/pybison.git && \
-    cd pybison && \
-    python2 setup.py install && \
-    cd ..
+#RUN wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz && \
+#    tar xfz Pyrex-0.9.9.tar.gz && \
+#    cd Pyrex-0.9.9 && \
+#    python3 setup.py install && \
+#    cd ..
+
+#RUN git clone https://github.com/smvv/pybison.git && \
+#    cd pybison && \
+#    python3 setup.py install && \
+#    cd ..
 
 COPY . $DIRPATH/
+
+RUN cd net_plumber/build && \
+    make all && \
+    make install && \
+    cd ../..
+
+ENV PYTHONPATH=$DIRPATH/fave
+RUN python3 fave/test/unit_tests.py
+
+#RUN bash fave/example/example.sh
