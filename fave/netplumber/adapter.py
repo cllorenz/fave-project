@@ -103,7 +103,12 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
     """
 
-    def __init__(self, socks, logger, asyncore_socks=None, mapping=None):
+    def __init__(
+        self,
+        socks, logger,
+        asyncore_socks=None,
+        mapping=None
+    ):
         self.socks = socks
         self.asyncore_socks = asyncore_socks if asyncore_socks else {}
         self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)

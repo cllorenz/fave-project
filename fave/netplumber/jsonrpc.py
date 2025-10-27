@@ -28,7 +28,7 @@ import json
 import time
 import socket
 
-import util.dynamic_distribution as dynamic_distribution
+#import util.dynamic_distribution as dynamic_distribution  # XXX
 
 NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
 NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
@@ -351,7 +351,7 @@ def add_links_bulk(socks, links, use_dynamic=False):
 
             msg = json.dumps(data)
 
-            dynamic_distribution.add_link_to_dict(idx, msg)
+            #dynamic_distribution.add_link_to_dict(idx, msg) # XXX
         else:
             if idx != -1:
                 _sync_recv(socks[idx % len(socks):idx % len(socks)+1])
@@ -359,7 +359,7 @@ def add_links_bulk(socks, links, use_dynamic=False):
                 _sync_recv(socks)
 
     if use_dynamic:
-        dynamic_distribution.distribute_nodes_and_links()
+        pass #dynamic_distribution.distribute_nodes_and_links()  # XXX
 
 
 def remove_link(socks, from_port, to_port):
@@ -408,7 +408,7 @@ def add_source(socks, idx, hs_list, hs_diff, ports, use_dynamic=False):
     msg = json.dumps(data)
 
     if use_dynamic:
-        dynamic_distribution.add_node_to_dict(idx, msg)
+        #dynamic_distribution.add_node_to_dict(idx, msg) # XXX
         return idx
 
     res = _asend_recv(socks[idx%len(socks):idx%len(socks)+1], json.dumps(data))
@@ -450,7 +450,7 @@ def add_sources_bulk(socks, sources, use_dynamic=False):
         msg = json.dumps(data)
 
         if use_dynamic:
-            dynamic_distribution.add_node_to_dict(idx, msg)
+            #dynamic_distribution.add_node_to_dict(idx, msg) # XXX
             sids[idx] = idx
         else:
             _async_send(socks[idx % len(socks):idx % len(socks)+1], msg)

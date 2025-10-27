@@ -27,7 +27,7 @@
 """
 
 import queue
-import asyncore
+#import asyncore # XXX
 import socket
 import logging
 
