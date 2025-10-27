@@ -61,6 +61,9 @@ from reporting.reporter import Reporter
 
 from rule.rule_model import RuleField
 
+def _has_asyncore_socks(socks):
+    return socks != {} and all(v is not None for v in socks.values())
+
 class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
@@ -206,6 +209,7 @@ class AggregatorService(AbstractAggregator):
 
                 lock = PreLockedFileLock("%s/.lock" % odir)
                 lock.release()
+
 
             elif j['type'] == 'check_anomalies':
                 task_type = 'check_anomalies'
@@ -412,7 +416,7 @@ class AggregatorService(AbstractAggregator):
                         AggregatorService.LOGGER.debug("worker: add all bulk links")
                     self.verification_engine.add_links_bulk(
                         links,
-                        use_dynamic=(self.verification_engine.asyncore_socks != {})
+                        use_dynamic=_has_asyncore_socks(self.verification_engine.asyncore_socks)
                     )
 
                 return
@@ -442,7 +446,7 @@ class AggregatorService(AbstractAggregator):
 
                     self.verification_engine.add_generators_bulk(
                         cmd.model.generators,
-                        use_dynamic=(self.verification_engine.asyncore_socks != {})
+                        use_dynamic=_has_asyncore_socks(self.verification_engine.asyncore_socks)
                     )
 
 # TODO: implement deletion
