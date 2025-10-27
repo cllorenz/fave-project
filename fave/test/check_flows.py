@@ -163,7 +163,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
             next(flow_spec_iter)
-            ttype, tname = flow_spec_iter.next().split('=')
+            ttype, tname = next(flow_spec_iter).split('=')
             try:
                 crules = (
                     tok,
