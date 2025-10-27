@@ -56,7 +56,7 @@ class RuleField(object):
 
         return {
             "name" : self.name,
-            "value" : self.value.vector if isinstance(self.value, Vector) else self.value,
+            "value" : self.value,
             "negated" : self.negated
         }
 
@@ -75,10 +75,6 @@ class RuleField(object):
         name = j["name"]
         value = j["value"]
         negated = j["negated"]
-
-        if Vector.is_vector(value, name=name):
-            value = Vector.from_vector_str(value)
-            assert value.length == FIELD_SIZES[name]
 
 
         return RuleField(
@@ -213,8 +209,12 @@ class Rewrite(RuleAction):
         if not isinstance(other, Rewrite):
             return False
 
-        return len(self.rewrite) == len(other.rewrite) or \
+        return len(self.rewrite) == len(other.rewrite) and \
             all([a == b for a, b in zip(self.rewrite, other.rewrite)])
+
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class Miss(RuleAction):
