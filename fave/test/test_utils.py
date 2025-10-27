@@ -126,11 +126,11 @@ class TestCollectionsUtilList(unittest.TestCase):
         """ Tests list union.
         """
 
-        self.assertItemsEqual(list_union(self.lst1, self.lst2), ['a', 'b', 'c'])
-        self.assertItemsEqual(list_union(self.lst2, self.lst1), ['a', 'b', 'c'])
-        self.assertItemsEqual(
-            list_union(self.lst1, self.lst2),
-            list_union(self.lst2, self.lst1)
+        self.assertEqual(sorted(list_union(self.lst1, self.lst2)), ['a', 'b', 'c'])
+        self.assertEqual(sorted(list_union(self.lst2, self.lst1)), ['a', 'b', 'c'])
+        self.assertEqual(
+            sorted(list_union(self.lst1, self.lst2)),
+            sorted(list_union(self.lst2, self.lst1))
         )
 
 
@@ -138,11 +138,11 @@ class TestCollectionsUtilList(unittest.TestCase):
         """ Tests list difference.
         """
 
-        self.assertItemsEqual(list_diff(self.lst1, self.lst2), ['b', 'c'])
-        self.assertItemsEqual(list_diff(self.lst2, self.lst1), ['b', 'c'])
-        self.assertItemsEqual(
-            list_diff(self.lst1, self.lst2),
-            list_diff(self.lst2, self.lst1)
+        self.assertEqual(sorted(list_diff(self.lst1, self.lst2)), ['b', 'c'])
+        self.assertEqual(sorted(list_diff(self.lst2, self.lst1)), ['b', 'c'])
+        self.assertEqual(
+            sorted(list_diff(self.lst1, self.lst2)),
+            sorted(list_diff(self.lst2, self.lst1))
         )
 
 

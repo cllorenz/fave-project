@@ -111,6 +111,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [{
@@ -138,6 +140,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [],
@@ -155,6 +159,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [],
@@ -172,6 +178,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }
                     ],
@@ -252,6 +260,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [{
@@ -279,6 +289,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [],
@@ -296,6 +308,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }, {
                             'actions': [],
@@ -313,6 +327,8 @@ class TestPacketFilterModel(unittest.TestCase):
                                 }]
                             },
                             'node': 'foo',
+                            'raw_line' : None,
+                            'raw_line_no' : None,
                             'tid': 'post_routing'
                         }
                     ],
@@ -358,6 +374,8 @@ class TestSwitchModel(unittest.TestCase):
             self.model.to_json(),
             {
                 'node': 'foo',
+                'raw_line' : None,
+                'raw_line_no' : None,
                 'ports': {},
                 'tables': {"foo.1" : []},
                 'type': 'switch',
@@ -373,6 +391,8 @@ class TestSwitchModel(unittest.TestCase):
         self.assertEqual(
             SwitchModel.from_json({
                 'node': 'foo',
+                'raw_line' : None,
+                'raw_line_no' : None,
                 'ports': {},
                 'tables': {"foo.1" : []},
                 'type': 'switch',
@@ -471,6 +491,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 0,
                 in_ports=['foo.input_filter_in'],
                 match=Match([]),
+                raw_line="ip6tables -P INPUT DROP",
+                raw_line_no=2,
                 actions=[]
             )
         ]
@@ -481,6 +503,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 0,
                 in_ports=['foo.output_filter_in'],
                 match=Match([]),
+                raw_line="ip6tables -P OUTPUT DROP",
+                raw_line_no=3,
                 actions=[]
             )
         ]
@@ -516,6 +540,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                     RuleField('packet.ipv6.proto', 'tcp'),
                     RuleField('packet.upper.dport', '80')
                 ]),
+                raw_line="ip6tables -A FORWARD -d 2001:db8::0/64 -p tcp --dport 80 -j ACCEPT",
+                raw_line_no=5,
                 actions=[Forward(['foo.forward_filter_accept'])]
             ),
             Rule(
@@ -524,6 +550,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 3,
                 in_ports=['foo.forward_filter_in'],
                 match=Match([]),
+                raw_line="ip6tables -P FORWARD DROP",
+                raw_line_no=1,
                 actions=[]
             )
         ]
@@ -597,6 +625,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.input_filter',
                 3,
+                raw_line='ip6tables -A INPUT -s 2001:db8:abc:1::0/64 -j DROP',
+                raw_line_no=8,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
                     RuleField('packet.ipv6.source', '2001:db8:abc:1::0/64')
@@ -607,6 +637,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.input_filter',
                 4,
+                raw_line='ip6tables -A INPUT -d 2001:db8:abc::0/64 -p tcp --dport 22 -j ACCEPT',
+                raw_line_no=9,
                 in_ports=['foo.input_filter_in'],
                 match=Match([
                     RuleField('packet.ipv6.destination', '2001:db8:abc::0/64'),
@@ -619,6 +651,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.input_filter',
                 5,
+                raw_line='ip6tables -P INPUT DROP',
+                raw_line_no=2,
                 in_ports=['foo.input_filter_in'],
                 match=Match([]),
                 actions=[]
@@ -661,6 +695,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.output_filter',
                 3,
+                raw_line='ip6tables -A OUTPUT -d 2001:db8:abc:1::6 -p tcp --dport 53 -j ACCEPT',
+                raw_line_no=5,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
                     RuleField('packet.ipv6.destination', '2001:db8:abc:1::6'),
@@ -673,6 +709,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.output_filter',
                 4,
+                raw_line='ip6tables -A OUTPUT -d 2001:db8:abc:1::0/64 -j DROP',
+                raw_line_no=6,
                 in_ports=['foo.output_filter_in'],
                 match=Match([
                     RuleField('packet.ipv6.destination', '2001:db8:abc:1::0/64')
@@ -683,6 +721,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.output_filter',
                 5,
+                raw_line='ip6tables -P OUTPUT DROP',
+                raw_line_no=3,
                 in_ports=['foo.output_filter_in'],
                 match=Match([]),
                 actions=[]
@@ -693,6 +733,8 @@ class TestPacketFilterGenerator(unittest.TestCase):
                 node,
                 'foo.forward_filter',
                 0,
+                raw_line='ip6tables -P FORWARD DROP',
+                raw_line_no=1,
                 in_ports=['foo.forward_filter_in'],
                 match=Match([]),
                 actions=[]

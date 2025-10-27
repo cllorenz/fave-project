@@ -350,10 +350,10 @@ class TestModel(unittest.TestCase):
             self.model.to_json_str(), \
 '{\
 "node": "foo", \
-"tables": {"foo.1": []}, \
-"wiring": [], \
 "type": "model", \
-"ports": {"foo.2": "foo.1", "foo.1": "foo.1"}\
+"tables": {"foo.1": []}, \
+"ports": {"foo.1": "foo.1", "foo.2": "foo.1"}, \
+"wiring": []\
 }'
         )
 
@@ -382,6 +382,8 @@ class TestModel(unittest.TestCase):
             AbstractDeviceModel.from_string(
                 '{\
                     "node":"foo", \
+                    "raw_line" : null, \
+                    "raw_line_no" : null, \
                     "type":"model", \
                     "tables":{"foo.1":[]}, \
                     "ports":{"foo.1":"foo.1", "foo.2":"foo.1"}, \

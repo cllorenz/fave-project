@@ -367,6 +367,8 @@ class TestRule(unittest.TestCase):
                         "negated" : False
                     }]
                 },
+                "raw_line" : None,
+                "raw_line_no" : None,
                 "actions" : [{"name" : "forward", "ports" : [2]}]
             }
         )
@@ -394,6 +396,8 @@ class TestRule(unittest.TestCase):
                         "negated" : False
                     }]
                 },
+                "raw_line" : None,
+                "raw_line_no" : None,
                 "actions" : [{"name" : "forward", "ports" : [2]}]
             }),
             self.rule

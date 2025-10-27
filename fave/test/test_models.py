@@ -87,6 +87,8 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.acl_in'
                     }, {
                         'actions': [],
@@ -102,6 +104,8 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.acl_in'
                     }],
                     'foo.acl_out': [],
@@ -129,6 +133,8 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.post_routing'
                     }, {
                         'actions': [{
@@ -154,6 +160,8 @@ class TestRouterModel(unittest.TestCase):
                             'negated' : False
                         }]},
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.post_routing'
                     }, {
                         'actions': [],
@@ -171,6 +179,8 @@ class TestRouterModel(unittest.TestCase):
                             }]
                         },
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.post_routing'
                     }, {
                         'actions': [],
@@ -188,6 +198,8 @@ class TestRouterModel(unittest.TestCase):
                             }]
                         },
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.post_routing'
                     }],
                     'foo.pre_routing': [{
@@ -206,6 +218,8 @@ class TestRouterModel(unittest.TestCase):
                         'in_ports': ['foo.1_ingress'],
                         'match': None,
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.pre_routing'
                     }, {
                         'actions': [{
@@ -223,6 +237,8 @@ class TestRouterModel(unittest.TestCase):
                         'in_ports': ['foo.2_ingress'],
                         'match': None,
                         'node': 'foo',
+                        'raw_line' : None,
+                        'raw_line_no' : None,
                         'tid': 'foo.pre_routing'
                     }],
                     'foo.routing': []
@@ -244,6 +260,8 @@ class TestRouterModel(unittest.TestCase):
 
         router = RouterModel.from_json({
             'node': 'foo',
+            'raw_line' : None,
+            'raw_line_no' : None,
             'ports': {
                 'foo.acl_in_in': 'foo.acl_in',
                 'foo.acl_in_out': 'foo.acl_in',
@@ -275,6 +293,8 @@ class TestRouterModel(unittest.TestCase):
                         'negated' : False
                     }]},
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.acl_in'
                 }, {
                     'actions': [],
@@ -290,6 +310,8 @@ class TestRouterModel(unittest.TestCase):
                         'negated' : False
                     }]},
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.acl_in'
                 }],
                 'foo.acl_out': [],
@@ -317,6 +339,8 @@ class TestRouterModel(unittest.TestCase):
                         'negated' : False
                     }]},
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.post_routing'
                 }, {
                     'actions': [{
@@ -342,6 +366,8 @@ class TestRouterModel(unittest.TestCase):
                         'negated' : False
                     }]},
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.post_routing'
                 }, {
                     'actions': [],
@@ -359,6 +385,8 @@ class TestRouterModel(unittest.TestCase):
                         }]
                     },
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.post_routing'
                 }, {
                     'actions': [],
@@ -376,6 +404,8 @@ class TestRouterModel(unittest.TestCase):
                         }]
                     },
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.post_routing'
                 }],
                 'foo.pre_routing': [{
@@ -394,6 +424,8 @@ class TestRouterModel(unittest.TestCase):
                     'in_ports': ['foo.1_ingress'],
                     'match': None,
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.pre_routing'
                 }, {
                     'actions': [{
@@ -411,6 +443,8 @@ class TestRouterModel(unittest.TestCase):
                     'in_ports': ['foo.2_ingress'],
                     'match': None,
                     'node': 'foo',
+                    'raw_line' : None,
+                    'raw_line_no' : None,
                     'tid': 'foo.pre_routing'
                 }],
                 'foo.routing': []
@@ -497,6 +531,8 @@ class TestGenericModel(unittest.TestCase):
         self.assertEqual(
             AbstractDeviceModel.from_json({
                 'node': 'foo',
+                'raw_line' : None,
+                'raw_line_no' : None,
                 'ports': {},
                 'tables': {},
                 'type': 'model',
@@ -564,6 +600,8 @@ class TestSwitchModel(unittest.TestCase):
         self.assertEqual(
             SwitchModel.from_json({
                 'node': 'foo',
+                'raw_line' : None,
+                'raw_line_no' : None,
                 'ports': {},
                 'tables': {"foo.1" : []},
                 'type': 'switch',
