@@ -40,7 +40,7 @@ USER_FLAGS += -DSTRICT_RW
 #DEBUG_FLAGS += $(COV_FLAGS)
 #DEBUG_FLAGS += -pg
 
-GCFLAGS =-Wall -Wextra -Wpedantic -O3 $(DEBUG_FLAGS) $(USER_FLAGS)
+GCFLAGS =-Wall -Wextra -Wpedantic -O3 -std=c++11 $(DEBUG_FLAGS) $(USER_FLAGS)
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
