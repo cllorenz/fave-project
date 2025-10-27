@@ -30,7 +30,7 @@ import argparse
 import cachetools
 import pyparsing as pp
 
-from filelock import SoftFileLock
+from filelock import FileLock
 
 from rule.rule_model import RuleField
 from util.ip6np_util import field_value_to_bitvector
@@ -451,7 +451,7 @@ def main(argv):
 
     tid, threads = args.threads
 
-    with SoftFileLock("%s/.lock" % args.dump, timeout=-1):
+    with FileLock("%s/.lock" % args.dump, timeout=-1):
         inv_fave = _get_inverse_fave(args.dump)
         flow_trees = {
             k : "%s/%s.flow_tree.json" % (
