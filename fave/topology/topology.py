@@ -376,7 +376,7 @@ def main(argv):
         dest="generators",
         type=_parse_generators,
         default={},
-        help="add list of generators of |-separated generators of the form <name/flow> where the flows follow the form of fields"
+        help="add list of generators of |-separated generators of the form <name\flow> where the flows follow the form of fields"
     )
     parser.add_argument(
         '-P', '--test-path',

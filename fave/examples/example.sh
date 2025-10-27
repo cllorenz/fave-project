@@ -176,9 +176,13 @@ python3 $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
+echo -n "dump fave and netplumber... "
 python3 $ROOTDIR/netplumber/dump_np.py -anpft
+[ $? -eq 0 ] && echo "ok" || echo "failure"
 
+echo -n "initiate compliance check inside netplumber... "
 python3 $ROOTDIR/netplumber/check_compliance.py -f $ROOTDIR/examples/example_checks.json
+[ $? -eq 0 ] && echo "ok" || echo "failure"
 
 # test flow propagation
 echo -n "check flow propagation... "
