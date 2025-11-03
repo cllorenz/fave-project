@@ -140,7 +140,7 @@ def connect_to_netplumber(server, port=0):
 
     sock.setblocking(1)
 
-    tries = 10
+    tries = 100 # wait for up to ten seconds
     while tries > 0:
         try:
             sock.connect(backend)
