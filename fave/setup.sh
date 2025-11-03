@@ -41,36 +41,35 @@
 
 apt-get --version 2> /dev/null
 if [ $? -eq 0 ]; then
-    sudo apt-get install python3
-    sudo apt-get install python3-dev
-    sudo apt-get install python3-daemon
-    sudo apt-get install python3-pip
-    sudo apt-get install pylint
-    sudo apt-get install inkscape
-    sudo apt-get install python3-coverage
-    sudo apt-get install flex
-    sudo apt-get install bison
-    sudo apt-get install pandoc
-    sudo apt-get install python3-filelock
-    sudo apt-get install python3-cachetools
-    sudo apt-get install python3-graphviz
-    sudo apt-get install python3-pyparsing
-    ##sudo apt-get install python3-pybison
-    ##sudo apt-get install python3-dd
+    export APT_CONFS="--no-install-recommends -y"
+    sudo apt-get $APT_CONFS install apt-utils
+    sudo apt-get $APT_CONFS install build-essential
+    sudo apt-get $APT_CONFS install wget
+    sudo apt-get $APT_CONFS install git
+    sudo apt-get $APT_CONFS install python3
+    sudo apt-get $APT_CONFS install python3-dev
+    sudo apt-get $APT_CONFS install python3-daemon
+    sudo apt-get $APT_CONFS install python3-pip
+    sudo apt-get $APT_CONFS install python3-venv
+    sudo apt-get $APT_CONFS install pylint
+    sudo apt-get $APT_CONFS install inkscape
+    sudo apt-get $APT_CONFS install python3-coverage
+    sudo apt-get $APT_CONFS install flex
+    sudo apt-get $APT_CONFS install bison
+    sudo apt-get $APT_CONFS install pandoc
+    sudo apt-get $APT_CONFS install liblog4cxx15
+    sudo apt-get $APT_CONFS install liblog4cxx-dev
+    sudo apt-get $APT_CONFS install libcppunit-1.15-0
+    sudo apt-get $APT_CONFS install libcppunit-dev
+
+    python3 -m venv ~/.venv
+    export PATH="~/.venv/bin:$PATH"
+
+    pip3 install wheel
+    pip3 install graphviz
+    pip3 install filelock
+    pip3 install pyparsing
+    pip3 install cachetools
+    pip3 install dd
+    pip3 install pybison
 fi
-
-
-#wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz
-#tar xfz Pyrex-0.9.9.tar.gz
-#cd Pyrex-0.9.9
-#2to3 -x import -w -n .
-#sudo python3 setup.py install
-#cd ..
-#rm Pyrex.0.9.9.tar.gz
-#sudo rm -rf Pyrex-0.9.9
-#
-#git clone https://github.com/smvv/pybison.git
-#cd pybison
-#sudo python3 setup.py install
-#cd ..
-#sudo rm -rf pybison
