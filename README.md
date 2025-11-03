@@ -66,8 +66,10 @@ To set up FaVe one can use the script
 
 Afterwards, one can test the installation running
 
-    $> export PYTHONPATH=fave
-    $> bash fave/example/example.sh
+    $> cd fave
+    $> export PYTHONPATH=.
+    $> source ~/.venv/bin/activate
+    $> bash example/example.sh
 
 Typically, a session comprises of two processes: `aggregator_service.py` and `net_plumber`.
 These can be stopped or started using their respective scripts in `fave/scripts`.
@@ -90,12 +92,14 @@ To run a benchmark `BENCH=fave/bench/wl_your_benchmark_here` use the following c
 
     $> cd fave
     $> export PYTHONPATH=.
+    $> source ~/.venv/bin/activate
     $> python3 $BENCH/benchmark.py
 
 For instance, run the `example` benchmark as follows:
 
     $> cd fave
     $> export PYTHONPATH=.
+    $> source ~/.venv/bin/activate
     $> python3 bench/wl_example/benchmark.py
 
 
