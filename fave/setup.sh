@@ -19,25 +19,25 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-pacman --version 2> /dev/null
-if [ $? -eq 0 ]; then
-    sudo pacman -S python3
-    sudo pacman -S python3-daemon
-    sudo pacman -S python3-pip
-    sudo pacman -S python3-pylint
-    sudo pacman -S inkscape
-    sudo pacman -S python3-coverage
-    sudo pacman -S flex
-    sudo pacman -S bison
-    sudo pacman -S pandoc
-#    sudo ln -s /usr/bin/python3-coverage /usr/bin/coverage2
-    sudo pip3 install graphviz
-    sudo pip3 install filelock
-    sudo pip3 install pyparsing
-    sudo pip3 install cachetools
-    sudo pip3 install dd
-    sudo pip3 install pybison
-fi
+#pacman --version 2> /dev/null
+#if [ $? -eq 0 ]; then
+#    sudo pacman -S python3
+#    sudo pacman -S python3-daemon
+#    sudo pacman -S python3-pip
+#    sudo pacman -S python3-pylint
+#    sudo pacman -S inkscape
+#    sudo pacman -S python3-coverage
+#    sudo pacman -S flex
+#    sudo pacman -S bison
+#    sudo pacman -S pandoc
+##    sudo ln -s /usr/bin/python3-coverage /usr/bin/coverage2
+#    sudo pip3 install graphviz
+#    sudo pip3 install filelock
+#    sudo pip3 install pyparsing
+#    sudo pip3 install cachetools
+#    sudo pip3 install dd
+#    sudo pip3 install pybison
+#fi
 
 apt-get --version 2> /dev/null
 if [ $? -eq 0 ]; then
