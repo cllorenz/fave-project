@@ -85,8 +85,6 @@ echo -n "start netplumber... "
 bash $ROOTDIR/scripts/start_np.sh -l $ROOTDIR/examples/example.conf -L 55
 [ $? -eq 0 ] && echo "ok" || echo "fail"
 
-sleep 5 # XXX
-
 echo -n "start aggregator... "
 bash $ROOTDIR/scripts/start_aggr.sh -a -m $ROOTDIR/examples/example_mapping.json
 [ $? -eq 0 ] && echo "ok" || echo "fail"
