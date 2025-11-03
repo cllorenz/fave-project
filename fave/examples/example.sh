@@ -21,6 +21,7 @@
 
 ROOTDIR=$(pwd)
 
+rm -f np_dump/.lock
 rm -rf /dev/shm/np
 rm -f /dev/shm/*.socket
 
@@ -227,3 +228,7 @@ rm -rf $TMP
 git checkout $ROOTDIR/examples/example.conf 2> /dev/null
 
 #kill -s KILL $RYU
+
+rm -f np_dump/.lock
+
+exit 0
