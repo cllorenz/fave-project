@@ -27,14 +27,6 @@ RUN apt-get $APT_CONFS install liblog4cxx-dev
 RUN apt-get $APT_CONFS install libcppunit-1.15-0
 RUN apt-get $APT_CONFS install libcppunit-dev
 
-#RUN git clone https://github.com/jgcoded/BuDDy.git && \
-#    cd BuDDy && \
-#    sh configure && \
-#    make -j && \
-#    make install && \
-#    ldconfig && \
-#    cd ..
-
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -45,17 +37,6 @@ RUN pip3 install pyparsing
 RUN pip3 install cachetools
 RUN pip3 install dd
 RUN pip3 install pybison
-
-#RUN wget http://www.cosc.canterbury.ac.nz/greg.ewing/python/Pyrex/Pyrex-0.9.9.tar.gz && \
-#    tar xfz Pyrex-0.9.9.tar.gz && \
-#    cd Pyrex-0.9.9 && \
-#    python3 setup.py install && \
-#    cd ..
-
-#RUN git clone https://github.com/smvv/pybison.git && \
-#    cd pybison && \
-#    python3 setup.py install && \
-#    cd ..
 
 COPY . $DIRPATH/
 
