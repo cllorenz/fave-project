@@ -35,13 +35,15 @@ This repository is organized as follows:
  - `np_reproduction` - includes scripts to reproduce the original HSA benchmark results from [1]
 
 
-## First Steps (tested on Ubuntu 20.04)
+## First Steps (tested on Ubuntu 24.04)
 
-First, one needs to install some dependencies to compile NetPlumber. The script
+First, one needs to install some dependencies to compile NetPlumber.
+The script
 
     #> net_plumber/setup-ubuntu.sh
 
-performs the necessary steps on an Ubuntu machine. Afterwards, one needs to switch to
+performs the necessary steps on an Ubuntu machine.
+Afterwards, one needs to switch to
 
     $> cd net_plumber/build/
 
@@ -65,9 +67,12 @@ To set up FaVe one can use the script
 Afterwards, one can test the installation running
 
     $> export PYTHONPATH=fave
-    $> python2 fave/test/example.sh
+    $> bash fave/example/example.sh
 
-Typically, a session comprises of two processes: `aggregator_service.py` and `net_plumber`. These can be stopped or started using their respective scripts in `fave/scripts`. If one process dies one needs to restart both - first NetPlumber and then FaVe. Logfiles are stored in `/dev/shm/np`.
+Typically, a session comprises of two processes: `aggregator_service.py` and `net_plumber`.
+These can be stopped or started using their respective scripts in `fave/scripts`.
+If one process dies one needs to restart both - first NetPlumber and then FaVe.
+Logfiles are stored in `/dev/shm/np`.
 
 
 ## Benchmarks
@@ -83,8 +88,15 @@ There exist some benchmarks showing the capabilities of FaVe:
 
 To run a benchmark `BENCH=fave/bench/wl_your_benchmark_here` use the following commands:
 
-    $> export PYTHONPATH=fave
-    $> python2 $BENCH/benchmark.py
+    $> cd fave
+    $> export PYTHONPATH=.
+    $> python3 $BENCH/benchmark.py
+
+For instance, run the `example` benchmark as follows:
+
+    $> cd fave
+    $> export PYTHONPATH=.
+    $> python3 bench/wl_example/benchmark.py
 
 
 ## Credits
