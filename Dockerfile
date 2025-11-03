@@ -48,4 +48,14 @@ RUN cd net_plumber/build && \
 ENV PYTHONPATH=$DIRPATH/fave
 RUN python3 fave/test/unit_tests.py
 
-#RUN bash fave/example/example.sh
+RUN cd fave && \
+    bash examples/example.sh && \
+    cd ..
+
+RUN cd fave && \
+    python3 bench/wl_example/benchmark.py \
+    cd ..
+
+RUN cd fave && \
+    python3 bench/wl_ifi/benchmark.py \
+    cd ..
