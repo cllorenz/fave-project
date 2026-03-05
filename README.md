@@ -109,6 +109,7 @@ Feel free to contact us if issues occur to you.
 
 - Peng Zhang (p-zhang@xjtu.edu.cn)
 - Xu Liu (x.liu.reason@outlook.com)
+- Ning Kang (kangning2018@foxmail.com)
 
 ## License
 APKeep is released under [license](LICENSE).
