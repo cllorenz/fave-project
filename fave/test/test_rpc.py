@@ -171,7 +171,7 @@ class TestRPC(unittest.TestCase):
         """ Fixture to prepare clean test environment.
         """
 
-        os.system('scripts/start_np.sh')
+        os.system('scripts/start_np.sh -p 1234')
         server = ('localhost', 1234)
         self.sock = connect_to_netplumber(*server)
         init(self.sock, 1)
