@@ -25,25 +25,17 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 
 ## High priority — make the QA itself trustworthy
 
-### 0. Migration to GitHub CI
-- [ ] **Migrate CI from GitLab to GitHub Actions**
-- **Decision:** GitLab CI is inactive and will remain so. The project moves to GitHub Actions. The old `.gitlab-ci.yml` is the reference for *what* to run, but should be retired once the GitHub workflow is in place.
-- **Source of truth for steps:** the existing `.gitlab-ci.yml` (stages `pre → build → test → deploy → bench`) and the `Dockerfile` (already Python 3, builds NetPlumber, runs unit tests + example + benches).
-
-  Implementation steps:
-  - [ ] **Create the workflow skeleton.** Add `.github/workflows/ci.yml` triggered on `push` and `pull_request` (and `workflow_dispatch` for manual runs). Pin `runs-on: ubuntu-24.04` to match the `Dockerfile` base and the README's tested platform.
-  - [ ] **Build the container once, reuse it.** Add a `build-image` job that builds the `Dockerfile` and pushes it to GHCR (`ghcr.io/<owner>/fave`), using `docker/build-push-action` with GitHub Actions layer caching (`cache-from`/`cache-to: type=gha`). Downstream jobs run with `container: ghcr.io/<owner>/fave:<sha>` so they don't rebuild. (Replaces the GitLab `build_docker` job and the `sudo docker run …` pattern in every job.)
-  - [ ] **Map jobs to `test.sh` tiers with `needs:`** (GitHub has no global `stages:` — use job dependencies). CI invokes `test.sh`, it does *not* redefine tests:
-    - [ ] `build-np` → `make -j -C net_plumber/build` (depends on `build-image`).
-    - [ ] `lint-fave` → `bash fave/test/lint_test.sh` (see item 2 — must actually gate).
-    - [ ] `test-fast` → `./test.sh fast` (can even run outside the image, on a plain `pip install -r requirements.txt`).
-    - [ ] `test-integration` → `COVERAGE=1 ./test.sh integration` inside the image (covers C++ `make test`, bison tests, RPC, smoke; emits coverage).
-    - [ ] `bench` → `./test.sh bench` (non-blocking — see gating below).
-  - [ ] **Set env once.** Use a workflow-level `env:` for `DIRPATH` and `PYTHONPATH` (job-level override for `test-fpl`). Drop all `python2`/bare `python` calls in favor of `python3`.
-  - [ ] **Gate vs. non-gate.** Make `build`, `lint`, and `test` jobs required for merge (branch protection). Make the heavy `bench-*` jobs non-blocking — either `workflow_dispatch`-only, scheduled (`on: schedule`), or `continue-on-error: true` — so PRs aren't held up by long benchmark runs.
-  - [ ] **Artifacts & reporting.** Upload the coverage report and pylint logs via `actions/upload-artifact`. Optionally add a coverage summary to the job step summary.
-  - [ ] **Verify, then retire GitLab.** Once the GitHub workflow is green, delete `.gitlab-ci.yml` and update the README/badges to point at GitHub Actions.
-- **Depends on / pairs with:** item 1 (Python 3 only), item 2 (lint must gate), item 3 (coverage report), item 4 (a `requirements.txt` would let the workflow install deps without rebuilding the whole image for pure-Python jobs).
+### 0. Migration to GitHub CI — DONE (workflow added; needs real-CI validation of heavy tiers)
+- [x] **GitHub Actions workflow added: `.github/workflows/ci.yml`, jobs invoke `test.sh <tier>`.**
+  - [x] Skeleton: triggers `push: [main]` + `pull_request` + `workflow_dispatch`; `runs-on: ubuntu-24.04` (matches Dockerfile base / README platform).
+  - [x] **Native runner, not a baked image.** Chose a native runner over building/pushing the `Dockerfile` to GHCR: the Dockerfile `COPY`s the repo and builds+tests at *image-build* time, which fights per-PR testing (a `container:` job would mount a fresh checkout over the pre-built tree). Native install matches the tier philosophy (fast=native, integration=full stack) and tests the actual checkout. System deps are installed inline with the Ubuntu-24.04 package names from the Dockerfile (`liblog4cxx15`, `libcppunit-1.15-0`, `flex`, `bison`, `build-essential`).
+  - [x] Jobs → tiers: `fast` → `bash test.sh fast` (pure-Python; the merge gate); `lint` → `lint_test.sh` (non-gating, `continue-on-error` until item 2); `integration` → `COVERAGE=1 bash test.sh integration` (builds+installs NetPlumber, then C++ tests + bison tests + smoke); `bench` → `bash test.sh bench` (`workflow_dispatch` only).
+  - [x] Coverage artifact uploaded from the integration job; gating intent documented (fast = required gate).
+  - [x] **`fast` job validated end-to-end locally** (clean venv + `pip install -r requirements.txt` + `bash test.sh fast` → 46 + 80 passed).
+  - [ ] **Validate `integration`/`bench` on real CI** — NOT runnable in the dev sandbox (no log4cxx/cppunit, no NetPlumber build, no pybison). Risk areas: pybison build on 3.12, and smoke/`example.sh` process orchestration (`/dev/shm/np`, "restart both if one dies") may be CI-flaky. Iterate on first real run.
+  - [ ] **Then retire GitLab:** once the GitHub workflow is green, delete `.gitlab-ci.yml` and update README/badges. Left in-tree for now (conservative — don't delete the old CI before the new one is proven).
+  - [ ] **Branch protection** (repo setting, not in YAML): mark `fast` (and later `lint`, `integration`) as required for merge.
+- **Follow-up:** `net_plumber/setup-ubuntu.sh` is stale (Ubuntu-20.04 package names `liblog4cxx10v5`/`libcppunit-1.14-0`, and builds BuDDy which the "don't link libbdd by default" change made unnecessary). The workflow inlines the correct 24.04 deps instead; consider updating `setup-ubuntu.sh` to 24.04 and having both it and CI share one dep list (DRY).
 
 ### 1. Resolve Python 2 vs 3 drift (CONFIRMED: drop Python 2) — DONE
 - [x] **Drop Python 2 entirely; make everything Python 3**
