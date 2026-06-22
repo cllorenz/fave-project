@@ -6,7 +6,7 @@ RESULTS=$2
 
 BDIR=$BENCH"_json_vanilla"
 export PYTHONIOENCODING=utf8
-HDR_LEN=$(cat $BDIR/config.json | python2 -c "import sys, json; print json.load(sys.stdin)['length']")
+HDR_LEN=$(cat $BDIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['length'])")
 
 mkdir -p $RESULTS/$BENCH
 

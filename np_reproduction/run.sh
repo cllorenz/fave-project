@@ -39,6 +39,9 @@ HDR_LEN=`grep "length" $VANILLA_DIR/config.json | tr -d ' ,' | cut -d: -f2`
 echo "generate tfs"
 rm -rf $TF_DIR
 mkdir -p $TF_DIR
+# NOTE: the TF/JSON generators are the original upstream Hassel reference
+# implementation (hsa-python), which is Python 2 only. These two calls must
+# stay on python2; only FaVe's own scripts below are ported to python3.
 PYTHONPATH=$HASSEL_DIR/hsa-python \
 python2 $TF_GENERATOR $BENCH"_orig" $TF_DIR > $TF_LOG
 cat $TF_LOG >> $LOG
@@ -54,13 +57,13 @@ python2 $JSON_GENERATOR \
 cat $JSON_LOG >> $LOG
 
 echo "generate policy"
-python2 create_policy.py $VANILLA_DIR >> $LOG
+python3 create_policy.py $VANILLA_DIR >> $LOG
 
 echo "rename tfs"
 bash rename_workload.sh $VANILLA_DIR
 
 echo "transform to favenp workload"
-python2 transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
+python3 transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
 
 echo "run vanillanp on vanilla workload"
 $HASSEL_DIR/net_plumber/Ubuntu-NetPlumber-Release/net_plumber \
@@ -91,7 +94,7 @@ echo "init: "$(echo $LOAD_FAVENP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_FAVENP s"
 
 echo "compare results"
-python2 analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
+python3 analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
 
 echo "run favenp on favenp dump"
 net_plumber \
@@ -108,7 +111,7 @@ echo "init: "$(echo $LOAD_DUMP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_DUMP s"
 
 echo "compare results"
-python2 analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
+python3 analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
 
 FAVE_DIR=$BENCH"_json_fave"
 cp -r $FAVENP_DIR $FAVE_DIR
@@ -123,7 +126,7 @@ echo "run fave on favenp workload"
 
 cd ../fave
 
-PYTHONPATH=. python2 bench/wl_$BENCH/benchmark.py > $FAVE_LOG
+PYTHONPATH=. python3 bench/wl_$BENCH/benchmark.py > $FAVE_LOG
 cat $FAVE_LOG >> $LOG
 
 FAVE_INIT=`grep "seconds" /dev/shm/np/aggregator.log | grep -v "dump\|stop" | \
@@ -183,4 +186,4 @@ echo "init: "$(echo $LOAD_FAVE_DUMP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_FAVE_DUMP s"
 
 echo "compare results"
-python2 analyze_output.py $BENCH $FAVENP_LOG $FAVE_DUMP_LOG
+python3 analyze_output.py $BENCH $FAVENP_LOG $FAVE_DUMP_LOG

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import os
 import json
@@ -13,11 +13,11 @@ def toggle_mask_bits(mask):
 config_json = json.load(open("%s/config.json" % src_dir))
 
 for tid, table in enumerate(config_json['tables'], start=1):
-    print "table", table
+    print("table", table)
     for ttid, ttype in enumerate(config_json['table_types']):
         etid = tid * 10 + ttid
-        print "  ttype", ttype
-        print "    read from", '%s/%s.tf.json' % (src_dir, etid)
+        print("  ttype", ttype)
+        print("    read from", '%s/%s.tf.json' % (src_dir, etid))
         tab = json.load(open('%s/%s.tf.json' % (src_dir, etid)))
 
         assert etid == tab['id']
@@ -28,7 +28,7 @@ for tid, table in enumerate(config_json['tables'], start=1):
             rule['id'] = (etid << 32) + rid + 1
             rule['mask'] = toggle_mask_bits(rule['mask'])
 
-        print "    write to %s/%s.tf.json" % (dst_dir, etid)
+        print("    write to %s/%s.tf.json" % (dst_dir, etid))
         json.dump(tab, open('%s/%s.tf.json' % (dst_dir, etid), 'w'), indent=1)
 
 os.system('cp %s/config.json %s/config.json' % (src_dir, dst_dir))

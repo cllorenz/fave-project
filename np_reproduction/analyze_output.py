@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 
 import sys
@@ -61,9 +61,9 @@ for output_file in output_files:
 
 
 for output_file in output_files:
-    print "%s found %s active probes" % (output_file, len(all_probes[output_file])),
-    print " with a total of %d incoming flows" % sum([all_probes[output_file][probe_id] for probe_id in all_probes[output_file]])
-    print "%s found %s loops" % (output_file, len(all_loops[output_file]))
+    print("%s found %s active probes" % (output_file, len(all_probes[output_file])), end=' ')
+    print(" with a total of %d incoming flows" % sum([all_probes[output_file][probe_id] for probe_id in all_probes[output_file]]))
+    print("%s found %s loops" % (output_file, len(all_loops[output_file])))
 
 def _check_no_differences(output_files, all_probes, all_loops):
     sums = [sum([all_probes[output_file][probe_id] for probe_id in all_probes[output_file]]) for output_file in output_files]
@@ -72,4 +72,4 @@ def _check_no_differences(output_files, all_probes, all_loops):
 
 if not _check_no_differences:
     for k1, k2 in zip(sorted(all_probes[output_files[0]].keys()), sorted(all_probes[output_files[1]].keys())):
-        print k1, k2, all_probes[output_files[0]][k1], all_probes[output_files[1]][k2]
+        print(k1, k2, all_probes[output_files[0]][k1], all_probes[output_files[1]][k2])
