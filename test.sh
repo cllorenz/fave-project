@@ -44,6 +44,14 @@ FAVE_NATIVE_TESTS=(
     test/test_rpc.py             # needs a running net_plumber backend
 )
 
+# When measuring coverage, pin the data file to an absolute path. `coverage run
+# -p` runs from different CWDs (repo root for the fast tier, fave/ for the
+# integration tier); without this the parallel data files land in different
+# directories and `coverage combine` (run from $ROOT) finds nothing.
+if [ "$COVERAGE" = "1" ]; then
+    export COVERAGE_FILE="$ROOT/.coverage"
+fi
+
 # ---- pytest plumbing --------------------------------------------------------
 
 # Echo a pytest invocation, optionally wrapped in coverage (parallel mode so
