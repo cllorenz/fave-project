@@ -2,14 +2,14 @@
 
 ## How to run
 
-The Policy Translator was developed and tested with Python version 2.7.
+The Policy Translator runs on Python 3.
 
 ### Usage by example
 
 The following command lets the Policy Translator convert a policy matrix from
 `examples/` to HTML in the same directory:
 
-``python2 policy_translator.py -w -o examples/ifi.html examples/ifi-policy.txt``
+``python3 policy_translator.py -w -o examples/ifi.html examples/ifi-policy.txt``
 
 The matrix can be investigated through any modern browser, e.g,
 
@@ -27,13 +27,13 @@ to `false` in `about:config`.
 
 The Policy Translator can be executed using the command
 
-``python2 policy_translator.py [options] COMBO-FILE``
+``python3 policy_translator.py [options] COMBO-FILE``
 
 (the specified file must contain an inventory first, followed by policies)
 
 or
 
-``python2 policy_translator.py [options] INVENTORY-FILE POLICY-FILE``
+``python3 policy_translator.py [options] INVENTORY-FILE POLICY-FILE``
 
 (if inventory and policies are in separate files).
 
@@ -93,7 +93,7 @@ Two example files that contain both an inventory and policies are enclosed with 
 
 They can be used as input files for the Policy Translator using the first command specified in the section above.
 
-Example: ``python2 policy_translator.py --firewall --output ifi.fw examples/ifi-policy.txt``
+Example: ``python3 policy_translator.py --firewall --output ifi.fw examples/ifi-policy.txt``
 
 ## Language specification of FPL
 
