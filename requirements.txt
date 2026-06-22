@@ -1,0 +1,26 @@
+# FaVe Python dependencies -- pure-Python, pinned for reproducibility.
+#
+# Installing this into a clean virtualenv is all that the native "fast" test
+# tier needs (no system packages required):
+#
+#     python3 -m venv .venv
+#     . .venv/bin/activate
+#     pip install -r requirements.txt
+#     ./test.sh fast
+#
+# NOTE: The integration tier additionally needs `pybison`, which is a NATIVE
+# build requiring the system `flex` and `bison` packages. It is intentionally
+# NOT listed here so that the fast tier stays pure-Python and runnable anywhere.
+# pybison is installed in the Docker image (see Dockerfile), which is the
+# environment used for the integration/smoke/bench tiers.
+
+# --- runtime ---
+cachetools==7.1.4
+dd==0.6.0
+filelock==3.29.4
+graphviz==0.21
+pyparsing==3.3.2
+
+# --- testing ---
+coverage==7.14.2
+pytest==9.1.1
