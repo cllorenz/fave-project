@@ -66,7 +66,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential flex bison \
             liblog4cxx15 liblog4cxx-dev \
-            libcppunit-1.15-0 libcppunit-dev
+            libcppunit-1.15-0 libcppunit-dev \
+            pandoc inkscape
       - name: Install Python dependencies
         run: pip install -r requirements.txt pybison
       - name: Build and install NetPlumber
@@ -99,7 +100,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential flex bison \
             liblog4cxx15 liblog4cxx-dev \
-            libcppunit-1.15-0 libcppunit-dev
+            libcppunit-1.15-0 libcppunit-dev \
+            pandoc inkscape
       - name: Install Python dependencies
         run: pip install -r requirements.txt pybison
       - name: Build and install NetPlumber
