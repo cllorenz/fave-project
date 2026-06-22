@@ -19,6 +19,7 @@ RUN apt-get $APT_CONFS install python3-pip
 RUN apt-get $APT_CONFS install python3-venv
 RUN apt-get $APT_CONFS install pylint
 RUN apt-get $APT_CONFS install inkscape
+RUN apt-get $APT_CONFS install pandoc
 RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison
