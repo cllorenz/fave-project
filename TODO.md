@@ -33,14 +33,12 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   Implementation steps:
   - [ ] **Create the workflow skeleton.** Add `.github/workflows/ci.yml` triggered on `push` and `pull_request` (and `workflow_dispatch` for manual runs). Pin `runs-on: ubuntu-24.04` to match the `Dockerfile` base and the README's tested platform.
   - [ ] **Build the container once, reuse it.** Add a `build-image` job that builds the `Dockerfile` and pushes it to GHCR (`ghcr.io/<owner>/fave`), using `docker/build-push-action` with GitHub Actions layer caching (`cache-from`/`cache-to: type=gha`). Downstream jobs run with `container: ghcr.io/<owner>/fave:<sha>` so they don't rebuild. (Replaces the GitLab `build_docker` job and the `sudo docker run …` pattern in every job.)
-  - [ ] **Map GitLab stages to jobs with `needs:`** (GitHub has no global `stages:` — use job dependencies):
+  - [ ] **Map jobs to `test.sh` tiers with `needs:`** (GitHub has no global `stages:` — use job dependencies). CI invokes `test.sh`, it does *not* redefine tests:
     - [ ] `build-np` → `make -j -C net_plumber/build` (depends on `build-image`).
     - [ ] `lint-fave` → `bash fave/test/lint_test.sh` (see item 2 — must actually gate).
-    - [ ] `test-np` → `make -j -C net_plumber/build test`.
-    - [ ] `test-fave` → `python3 -m coverage run fave/test/unit_tests.py` then `python3 -m coverage report` (see items 1 & 3; no more `python2-coverage`).
-    - [ ] `test-fpl` → `python3 policy_translator/test/unit_tests.py` with `PYTHONPATH=policy_translator`.
-    - [ ] `deploy-fave` → `make install` + `python3 fave/test/test_rpc.py` + `bash fave/examples/example.sh`.
-    - [ ] `bench-*` → the example/ifi/up/tum benchmark invocations (`python3 …/benchmark.py`).
+    - [ ] `test-fast` → `./test.sh fast` (can even run outside the image, on a plain `pip install -r requirements.txt`).
+    - [ ] `test-integration` → `COVERAGE=1 ./test.sh integration` inside the image (covers C++ `make test`, bison tests, RPC, smoke; emits coverage).
+    - [ ] `bench` → `./test.sh bench` (non-blocking — see gating below).
   - [ ] **Set env once.** Use a workflow-level `env:` for `DIRPATH` and `PYTHONPATH` (job-level override for `test-fpl`). Drop all `python2`/bare `python` calls in favor of `python3`.
   - [ ] **Gate vs. non-gate.** Make `build`, `lint`, and `test` jobs required for merge (branch protection). Make the heavy `bench-*` jobs non-blocking — either `workflow_dispatch`-only, scheduled (`on: schedule`), or `continue-on-error: true` — so PRs aren't held up by long benchmark runs.
   - [ ] **Artifacts & reporting.** Upload the coverage report and pylint logs via `actions/upload-artifact`. Optionally add a coverage summary to the job step summary.
@@ -62,32 +60,57 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 - **Verification:** `policy_translator` unit tests pass under py3 (39/39). All ported np_reproduction files pass `python3 -m py_compile`. No `python2` references remain except the intentional Hassel-generator calls in `run.sh`. (`fave` unit suite needs `pybison`, only present in the Docker image — not runnable in this shell.)
 - **Follow-up (separate from py2 work):** `fave/iptables/parser.py:487` emits a py3 `SyntaxWarning: invalid escape sequence '\-'` (regex should be a raw string). Minor py3-cleanliness; tracked as a small item, not fixed here to avoid scope creep.
 
+### 1b. Local tiered test runner — `test.sh` — DONE (foundation for item 0)
+- [x] **One suite, one entry point (`./test.sh`), tiered by dependency footprint**
+  - [x] `fast` — pure-Python, no native deps, runs natively in <1s (inner-loop gate). Auto-discovers via `pytest` over `policy_translator/test` + `fave/test`, *ignoring* the native-dep exceptions (so new pure-Python tests are picked up automatically — no registry to forget).
+  - [x] `smoke` — `example.sh` + `wl_example` + `wl_ifi` (quick end-to-end; needs native stack).
+  - [x] `integration` — NetPlumber C++ `make test` + bison-dependent fave tests (`test_topology`, `test_packet_filter`, `test_iptables_parser`) + `test_rpc` (needs live backend) + smoke.
+  - [x] `bench` — `wl_up`/`wl_tum`/`wl_stanford`/`wl_i2`. `all` = fast + integration.
+  - [x] `COVERAGE=1` toggle wraps Python tiers in `coverage` and prints a report (parallel-mode + combine).
+  - [x] Documented in top-level `README.md` (`## Testing`). `.gitignore` updated for py/test artifacts.
+- **Design decisions (confirmed with user):** one suite / two entry points (local + CI run the *same* command, CI only selects a tier); Docker for integration, native for fast; tier = dependency footprint, not runtime (so the quick `example`/`wl_ifi` benches are *smoke/integration*, not fast).
+- **Verification:** `./test.sh fast` is **deterministically green across hash seeds** — `fave`: `80 passed`; `policy_translator`: `34 passed` with the two quarantined files showing as xfail/xpass (`test_grammar` item 1c, `test_to_iptables` item 1d) and **0 failures** under fixed seeds 0/1/42 and the default. `COVERAGE=1` reports ~72% from the fast tier. Bad tier → usage + exit 2. (smoke/integration/bench need the native stack/Docker — implemented but not runnable in the dev shell.)
+- **NOTE / correction:** an earlier run looked like "46 passed" — that was a *lucky cold run*; `test_to_iptables` is hash-seed-flaky (item 1d). Wiring up the suite is exactly what exposed it.
+- **This absorbs items 3, 4, 5** (see those items).
+
+### 1c. Orphaned AI-generated grammar tests — RESOLVED (deprecated)
+- [x] **Move the orphaned `test_grammar.py` out of the active suite**
+  - [x] `git mv policy_translator/test/test_grammar.py → policy_translator/deprecated/test_grammar.py` (outside the pytest collection root).
+  - [x] Removed the (mis-framed) `xfail` quarantine marker; replaced with a deprecation header + `policy_translator/deprecated/README.md`.
+  - [x] Added `pytest.ini` with `norecursedirs = *deprecated*` (mirrors `lint_test.sh`) so no future `deprecated/` dir is ever collected.
+- **Context (per user):** not test debt — an unfinished CodiumAI experiment left orphaned in the repo (never wired in, never ran; expectations don't match `fpl_grammar.parse_fpl()`). Deprecated rather than deleted in case proper FPL-grammar tests are revisited. Verified: `test_grammar` is no longer collected (count 0); fast tier stays green.
+
+### 1d. Bug: `Policy.to_iptables()` emits rules in non-deterministic order — NEEDS FIX
+- [ ] **Make iptables rule emission deterministic, then un-quarantine `test_to_iptables`**
+  - [ ] Sort the unsorted set iterations feeding rule output: `Role.get_roles()` returns a `set` (`policy.py:262`), and `Policy.raw_policies` is a `set` iterated at `policy.py:733`. Emit in a stable (sorted) order.
+  - [ ] Re-run `test_to_iptables` under several `PYTHONHASHSEED` values to confirm determinism, then remove the module-level `xfail` (item added in `test_to_iptables.py`).
+- **Finding:** `test_to_iptables` asserts on exact generated-rule text, but emission order depends on `PYTHONHASHSEED` (string-hash-randomized set iteration). It passes only for seeds that happen to match the baked-in ordering — "green on a lucky cold run, red on repeat / under any fixed seed." This is a real determinism bug in the generator (a security tool emitting rules in random order), not just fragile tests. Quarantined `xfail` so the gate is deterministic; **fix is small but is app behavior — do with review.**
+
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
   - [ ] Commit a `.pylintrc` (pin the rules that matter).
   - [ ] Make `fave/test/lint_test.sh` exit non-zero when `$FAILS` is non-empty (or gate on a minimum score).
 - **Finding:** `fave/test/lint_test.sh` records pass/fail counts but always exits 0, so `lint_fave` can never fail. No committed `.pylintrc`, so pylint runs on defaults with no enforced floor.
 
-### 3. Re-enable coverage reporting
-- [ ] **Report (and optionally gate) coverage**
-  - [ ] Re-enable and print `coverage report` in the test job.
-  - [ ] Optionally add `--fail-under` so coverage cannot silently regress.
-- **Finding:** CI runs `coverage run` but `coverage report` is commented out (`# && python2-coverage report`). Coverage is paid for but never seen.
+### 3. Re-enable coverage reporting — mostly absorbed by item 1b
+- [x] **Report coverage** — `COVERAGE=1 ./test.sh <tier>` runs under `coverage` and prints a report (72% from the fast tier today).
+  - [ ] Optionally add `--fail-under` so coverage cannot silently regress (deferred until a baseline is agreed).
+  - [ ] Wire `COVERAGE=1` into the GitHub `test-*` jobs + upload the report as an artifact (belongs to item 0).
+- **Finding:** CI ran `coverage run` but `coverage report` was commented out (`# && python2-coverage report`). Coverage was paid for but never seen.
 
 ---
 
 ## Medium priority — structural improvements
 
-### 4. Add a dependency manifest
-- [ ] **Add a pinned dependency manifest**
-  - [ ] Add a pinned `requirements.txt` (or `pyproject.toml`).
-  - [ ] Have the `Dockerfile` install from it instead of unpinned inline `pip` lines.
-- **Finding:** No `requirements.txt` / `pyproject.toml` anywhere; dependencies live only as unpinned `apt`/`pip` lines in the `Dockerfile`. Env is not reproducible outside Docker.
+### 4. Add a dependency manifest — mostly DONE (item 1b)
+- [x] Add a pinned `requirements.txt` (pure-Python: `cachetools`, `dd`, `filelock`, `graphviz`, `pyparsing`, `coverage`, `pytest`). `pybison` deliberately excluded (native build; documented as integration-only, stays in the Dockerfile) so the fast tier is pure-Python.
+  - [ ] Have the `Dockerfile` install from `requirements.txt` instead of its unpinned inline `pip install` lines (and keep the `pybison` line). Not yet done.
+- **Finding:** Dependencies lived only as unpinned `apt`/`pip` lines in the `Dockerfile`; env was not reproducible outside Docker.
 
-### 5. Replace the manual test registry with discovery
-- [ ] **Use test discovery instead of a hand-maintained registry**
-- **Finding:** `fave/test/unit_tests.py` hand-imports and hand-registers every `TestCase`; new tests silently don't run until someone edits this file.
-- **Fix:** Switch to `unittest` discovery (`python3 -m unittest discover`) or adopt `pytest` (better output, fixtures, parametrization).
+### 5. Replace the manual test registry with discovery — DONE (item 1b)
+- [x] **Use test discovery instead of a hand-maintained registry** — `test.sh` uses `pytest` discovery; the old hand-maintained `unit_tests.py` is bypassed. Discovery immediately surfaced 8 hidden `policy_translator` tests (incl. the never-run `test_grammar`, now item 1c) that the registry omitted.
+  - [ ] Delete/retire the now-redundant `fave/test/unit_tests.py` and `policy_translator/test/unit_tests.py` registries once item 0 no longer references them.
+- **Finding:** `fave/test/unit_tests.py` hand-imported and hand-registered every `TestCase`; new tests silently didn't run until someone edited this file. (Confirmed: `policy_translator`'s registry was hiding 8 tests.)
 
 ### 6. Add static type checking
 - [ ] **Add `mypy` to the lint stage for core modules**
@@ -120,6 +143,8 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 
 ## Suggested order of work
 
-1. Item **0** (GitHub CI migration) together with items **1–3** (Python 3, gating lint, coverage) — the new workflow should embed these fixes rather than port the broken ones.
-2. Items **4–6** (structural).
-3. Items **7–8** (deeper, verification-specific).
+1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
+2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint).
+3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
+4. Items **7–8** (deeper, verification-specific).
+5. *Then:* expand coverage with new, more sophisticated tests (user's stated next phase).
