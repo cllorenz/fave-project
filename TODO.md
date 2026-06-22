@@ -47,14 +47,20 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   - [ ] **Verify, then retire GitLab.** Once the GitHub workflow is green, delete `.gitlab-ci.yml` and update the README/badges to point at GitHub Actions.
 - **Depends on / pairs with:** item 1 (Python 3 only), item 2 (lint must gate), item 3 (coverage report), item 4 (a `requirements.txt` would let the workflow install deps without rebuilding the whole image for pure-Python jobs).
 
-### 1. Resolve Python 2 vs 3 drift (CONFIRMED: drop Python 2)
-- [ ] **Drop Python 2 entirely; make everything Python 3**
-  - [ ] Delete the remaining 10 py2 shebangs.
-  - [ ] Replace any `python2`/bare `python` references with `python3` wherever found (scripts, docs, CI).
-  - [ ] Reconcile `fave/examples/example.sh` vs `example/example.sh` path drift.
-  - [ ] Fold corrected commands into the new GitHub workflow rather than the retired `.gitlab-ci.yml`.
+### 1. Resolve Python 2 vs 3 drift (CONFIRMED: drop Python 2) — DONE
+- [x] **Drop Python 2 entirely; make everything Python 3**
+  - [x] Delete the remaining 10 py2 shebangs (`policy_translator/*`, `np_reproduction/*`, `ad6/bench/up/inventory.py` — all already py3-compatible).
+  - [x] Port the two genuinely-Python-2 scripts (`np_reproduction/transform.py`, `np_reproduction/analyze_output.py`): `print` statements → `print()` (preserved the py2 soft-space on the trailing-comma `print` via `end=' '`).
+  - [x] Replace inline `python2 -c "print …"` one-liners in `rename_workload.sh` and `run_vanilla.sh` with `python3 -c "print(…)"`; convert FaVe's own `python2` script calls in `run.sh` to `python3`.
+  - [x] **Kept** `run.sh` TF/JSON generator calls on `python2` — they invoke the upstream Hassel reference impl (`~/hassel-public/hsa-python`, py2-only); added an explanatory comment. (Not ours to port.)
+  - [x] Update docs: `policy_translator/README.md` (`python2 …` → `python3 …`, "developed/tested with 2.7" → "runs on Python 3").
+  - [x] Reconcile path drift: `README.md` `example/example.sh` → `examples/example.sh` (actual dir is `examples/`).
+  - [x] Fixed a broken shebang found in passing: `run_vanilla.sh` `#!/use/bin/env bash` → `#!/usr/bin/env bash`.
+  - [ ] Fold corrected commands into the new GitHub workflow (deferred to item 0; `.gitlab-ci.yml` is being retired, not edited).
 - **Finding:** Code is Python 3 (129 py3 shebangs vs 10 py2; `Dockerfile` installs `python3*` and runs `python3 fave/test/unit_tests.py`; README uses `python3`). The old `.gitlab-ci.yml` still calls `python2`, `python2-coverage`, and bare `python` in 9 places.
 - **Decision:** GitLab CI is inactive and stays that way → migrate to GitHub CI (see item 0). Drop Python 2 entirely.
+- **Verification:** `policy_translator` unit tests pass under py3 (39/39). All ported np_reproduction files pass `python3 -m py_compile`. No `python2` references remain except the intentional Hassel-generator calls in `run.sh`. (`fave` unit suite needs `pybison`, only present in the Docker image — not runnable in this shell.)
+- **Follow-up (separate from py2 work):** `fave/iptables/parser.py:487` emits a py3 `SyntaxWarning: invalid escape sequence '\-'` (regex should be a raw string). Minor py3-cleanliness; tracked as a small item, not fixed here to avoid scope creep.
 
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
