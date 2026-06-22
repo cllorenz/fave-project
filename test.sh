@@ -9,17 +9,21 @@
 # Usage:
 #   ./test.sh fast          Pure-Python unit tests, no native deps. Runs
 #                           natively in <1s. The inner-loop gate (run on save).
-#   ./test.sh smoke         Quick end-to-end: example.sh + wl_example + wl_ifi.
-#                           Seconds, but needs the full native stack.
-#   ./test.sh integration   NetPlumber C++ tests + bison-dependent FaVe tests
-#                           + RPC + smoke. Needs the Docker image / native stack.
+#   ./test.sh integration   NetPlumber C++ tests + bison-dependent FaVe tests.
+#                           Needs build + pybison, but NO running backend, so it
+#                           is deterministic -- suitable to gate merges.
+#   ./test.sh e2e           Tests needing a live net_plumber backend: test_rpc
+#                           + smoke (example.sh + wl_example + wl_ifi). Process
+#                           orchestration / /dev/shm state -> non-gating first.
+#   ./test.sh smoke         Just the smoke subset of e2e (example.sh + benches).
 #   ./test.sh bench         Large benchmarks (wl_up/wl_tum/wl_stanford/wl_i2).
 #                           CI / nightly only.
-#   ./test.sh all           fast + integration (excludes bench).
+#   ./test.sh all           fast + integration + e2e (excludes bench).
 #
-# Tier membership is decided by DEPENDENCY FOOTPRINT, not runtime: anything that
-# needs a compiled net_plumber, pybison, or /dev/shm state is integration, even
-# if it is quick.
+# Tier membership is decided by DEPENDENCY FOOTPRINT, not runtime:
+#   fast        = pure Python
+#   integration = needs build + pybison, but NOT a live backend (deterministic)
+#   e2e         = needs a running net_plumber process + /dev/shm state
 #
 # Environment:
 #   PYTHON     Python interpreter to use (default: python3). For the fast tier,
@@ -36,13 +40,18 @@ COVERAGE="${COVERAGE:-0}"
 # FaVe test modules that are NOT pure-Python and so are excluded from `fast`.
 # Listing the *exceptions* (rather than an allow-list of fast tests) means new
 # pure-Python tests are auto-discovered into the fast tier -- no registry to
-# forget to update.
-FAVE_NATIVE_TESTS=(
-    test/test_topology.py        # needs pybison (iptables parser)
-    test/test_packet_filter.py   # needs pybison (iptables parser)
-    test/test_iptables_parser.py # needs pybison (iptables parser)
-    test/test_rpc.py             # needs a running net_plumber backend
+# forget to update. They are split by what they need so the deterministic
+# `integration` tier and the backend-dependent `e2e` tier run independently.
+FAVE_INTEGRATION_TESTS=(   # need pybison, but NOT a running backend (deterministic)
+    test/test_topology.py
+    test/test_packet_filter.py
+    test/test_iptables_parser.py
 )
+FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
+    test/test_rpc.py
+)
+# Everything excluded from the fast tier (pure-Python discovery ignores these).
+FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
 # -p` runs from different CWDs (repo root for the fast tier, fave/ for the
@@ -106,8 +115,18 @@ run_integration() {
     echo "== integration: NetPlumber C++ unit tests =="
     make -j -C "$ROOT/net_plumber/build" test || rc=1
 
-    echo "== integration: fave native-dep tests =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_NATIVE_TESTS[@]}" ) || rc=1
+    echo "== integration: fave bison-dependent tests (no backend) =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
+
+    return $rc
+}
+
+run_e2e() {
+    local rc=0 pt
+    pt="$(pytest_cmd)"
+
+    echo "== e2e: fave tests needing a live net_plumber backend =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_E2E_TESTS[@]}" ) || rc=1
 
     run_smoke || rc=1
     return $rc
@@ -130,10 +149,11 @@ case "$tier" in
     fast)        run_fast || rc=1 ;;
     smoke)       run_smoke || rc=1 ;;
     integration) run_integration || rc=1 ;;
+    e2e)         run_e2e || rc=1 ;;
     bench)       run_bench || rc=1 ;;
-    all)         run_fast || rc=1; run_integration || rc=1 ;;
+    all)         run_fast || rc=1; run_integration || rc=1; run_e2e || rc=1 ;;
     *)
-        echo "usage: $0 {fast|smoke|integration|bench|all}" >&2
+        echo "usage: $0 {fast|smoke|integration|e2e|bench|all}" >&2
         exit 2
         ;;
 esac
