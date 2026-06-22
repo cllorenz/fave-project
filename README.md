@@ -69,7 +69,7 @@ Afterwards, one can test the installation running
     $> cd fave
     $> export PYTHONPATH=.
     $> source ~/.venv/bin/activate
-    $> bash example/example.sh
+    $> bash examples/example.sh
 
 Typically, a session comprises of two processes: `aggregator_service.py` and `net_plumber`.
 These can be stopped or started using their respective scripts in `fave/scripts`.
