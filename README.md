@@ -77,6 +77,31 @@ If one process dies one needs to restart both - first NetPlumber and then FaVe.
 Logfiles are stored in `/dev/shm/np`.
 
 
+## Testing
+
+Tests are run through a single entry point, `test.sh`, organized into tiers by
+dependency footprint. The same command is used locally and by CI — CI only
+selects a tier, it never defines its own tests.
+
+    $> ./test.sh fast          # pure-Python unit tests, no native deps (<1s)
+    $> ./test.sh smoke         # quick end-to-end: example.sh + wl_example + wl_ifi
+    $> ./test.sh integration   # NetPlumber C++ tests + bison-dependent + RPC + smoke
+    $> ./test.sh bench         # large benchmarks (wl_up/wl_tum/wl_stanford/wl_i2)
+    $> ./test.sh all           # fast + integration
+
+The `fast` tier needs only the pure-Python dependencies and is meant to run on
+every change before pushing:
+
+    $> python3 -m venv .venv
+    $> . .venv/bin/activate
+    $> pip install -r requirements.txt
+    $> ./test.sh fast
+
+The heavier tiers need the full native stack (compiled NetPlumber, `pybison`),
+i.e. the Docker image described above. Set `COVERAGE=1` to additionally print a
+coverage report (`COVERAGE=1 ./test.sh fast`).
+
+
 ## Benchmarks
 
 There exist some benchmarks showing the capabilities of FaVe:
