@@ -2,8 +2,11 @@ name: CI
 
 # One suite, one entry point: every job invokes `test.sh <tier>`. CI selects a
 # tier; it never defines its own tests. Tiers are split by dependency footprint:
-#   - fast        : pure-Python, no native deps -> runs natively, the merge gate
-#   - integration : NetPlumber (C++) + bison-dependent tests + smoke -> full stack
+#   - fast        : pure-Python, no native deps -> the merge gate
+#   - integration : NetPlumber (C++) + bison-dependent tests, NO live backend
+#                   -> deterministic, gates merges
+#   - e2e         : tests needing a live net_plumber backend (test_rpc + smoke)
+#                   -> process/`/dev/shm` orchestration, non-gating for now
 #   - bench       : large benchmarks -> manual only (workflow_dispatch)
 #
 # Replaces the retired .gitlab-ci.yml (kept in-tree until this workflow is
@@ -19,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  # --- Fast tier: the always-on merge gate. Pure Python, no system packages. ---
+  # --- Fast tier: always-on merge gate. Pure Python, no system packages. ---
   fast:
     name: fast tests (native)
     runs-on: ubuntu-24.04
@@ -51,29 +54,13 @@ jobs:
       - name: Lint
         run: cd fave && PYTHONPATH=. bash test/lint_test.sh
 
-  # --- Integration tier: NetPlumber C++ tests + bison tests + smoke. ---
+  # --- Integration tier: deterministic (build + C++ tests + bison tests). Gates. ---
   integration:
-    name: integration tests (full stack)
+    name: integration tests (deterministic)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential flex bison \
-            liblog4cxx15 liblog4cxx-dev \
-            libcppunit-1.15-0 libcppunit-dev \
-            pandoc inkscape
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt pybison
-      - name: Build and install NetPlumber
-        run: |
-          make -j -C net_plumber/build all
-          sudo make -C net_plumber/build install
+      - uses: ./.github/actions/setup-fave-native
       - name: Run integration tier (with coverage)
         run: COVERAGE=1 bash test.sh integration
       - name: Upload coverage data
@@ -84,6 +71,17 @@ jobs:
           path: .coverage
           if-no-files-found: ignore
 
+  # --- E2E tier: needs a live net_plumber backend. Non-gating for now. ---
+  e2e:
+    name: e2e tests (live backend)
+    runs-on: ubuntu-24.04
+    continue-on-error: true  # backend/process orchestration; promote to gating once reliable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-fave-native
+      - name: Run e2e tier (test_rpc + smoke)
+        run: bash test.sh e2e
+
   # --- Benchmarks: heavy; manual only so PRs are not held up. ---
   bench:
     name: benchmarks (manual)
@@ -91,22 +89,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential flex bison \
-            liblog4cxx15 liblog4cxx-dev \
-            libcppunit-1.15-0 libcppunit-dev \
-            pandoc inkscape
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt pybison
-      - name: Build and install NetPlumber
-        run: |
-          make -j -C net_plumber/build all
-          sudo make -C net_plumber/build install
+      - uses: ./.github/actions/setup-fave-native
       - name: Run benchmarks
         run: bash test.sh bench

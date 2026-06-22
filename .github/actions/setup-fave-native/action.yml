@@ -1,0 +1,32 @@
+name: Set up FaVe native build
+description: >
+  Install the system + Python dependencies and build/install NetPlumber on an
+  Ubuntu 24.04 runner. Used by the integration, e2e, and bench jobs so the heavy
+  setup is defined once. Requires the repository to be checked out first.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          build-essential flex bison \
+          liblog4cxx15 liblog4cxx-dev \
+          libcppunit-1.15-0 libcppunit-dev \
+          pandoc inkscape
+
+    - name: Install Python dependencies
+      shell: bash
+      run: pip install -r requirements.txt pybison
+
+    - name: Build and install NetPlumber
+      shell: bash
+      run: |
+        make -j -C net_plumber/build all
+        sudo make -C net_plumber/build install
