@@ -32,9 +32,19 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   - [x] Jobs → tiers: `fast` → `bash test.sh fast` (pure-Python; the merge gate); `lint` → `lint_test.sh` (non-gating, `continue-on-error` until item 2); `integration` → `COVERAGE=1 bash test.sh integration` (builds+installs NetPlumber, then C++ tests + bison tests + smoke); `bench` → `bash test.sh bench` (`workflow_dispatch` only).
   - [x] Coverage artifact uploaded from the integration job; gating intent documented (fast = required gate).
   - [x] **`fast` job validated end-to-end locally** (clean venv + `pip install -r requirements.txt` + `bash test.sh fast` → 46 + 80 passed).
-  - [ ] **Validate `integration`/`bench` on real CI** — NOT runnable in the dev sandbox (no log4cxx/cppunit, no NetPlumber build, no pybison). Risk areas: pybison build on 3.12, and smoke/`example.sh` process orchestration (`/dev/shm/np`, "restart both if one dies") may be CI-flaky. Iterate on first real run.
+  - [x] **First real CI run analyzed** (run 75323499335). `fast` + `lint` ran fine; NetPlumber built; `integration` FAILED. Diagnosis below.
+  - [ ] **Validate `integration`/`bench` on real CI** — first run failed; quick fixes applied (below), RPC/C++ items still open.
   - [ ] **Then retire GitLab:** once the GitHub workflow is green, delete `.gitlab-ci.yml` and update README/badges. Left in-tree for now (conservative — don't delete the old CI before the new one is proven).
   - [ ] **Branch protection** (repo setting, not in YAML): mark `fast` (and later `lint`, `integration`) as required for merge.
+
+#### First integration-run diagnosis (run 75323499335)
+The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`); everything else was non-fatal or silent. pandoc was a red herring for the *failure* (real gap, but non-fatal).
+- **Quick fixes — DONE:**
+  - [x] Fixed `netplumber/jsonrpc.py` `%`-format bug: `"%s" % (server, port)` (a 2-tuple → `TypeError: not all arguments converted`) → wrap as 1-tuple. This was masking the real "could not connect" error in `test_rpc`. Verified both socket/port forms.
+  - [x] Fixed `test.sh` coverage CWD bug ("No data to combine"): `export COVERAGE_FILE="$ROOT/.coverage"` so `coverage run -p` (from `fave/` in the integration tier) and `coverage combine` (from `$ROOT`) agree. Verified cross-dir.
+  - [x] Added `pandoc` + `inkscape` to the CI `integration`/`bench` jobs; added `pandoc` to the `Dockerfile` (it was never there — `inkscape` already was). `inkscape` absence is the likely cause of the wl_ifi German "Datei(en) konnte(n) nicht gelesen werden" during policy-matrix viz.
+- **Open — to discuss (RPC + C++):** see items 1g, 1h below.
+- **Open — gating gaps (silent failures):** see item 1i.
 - **Follow-up:** `net_plumber/setup-ubuntu.sh` is stale (Ubuntu-20.04 package names `liblog4cxx10v5`/`libcppunit-1.14-0`, and builds BuDDy which the "don't link libbdd by default" change made unnecessary). The workflow inlines the correct 24.04 deps instead; consider updating `setup-ubuntu.sh` to 24.04 and having both it and CI share one dep list (DRY).
 
 ### 1. Resolve Python 2 vs 3 drift (CONFIRMED: drop Python 2) — DONE
@@ -88,6 +98,23 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 ### 1f. Generator structure diverges from Algorithm 7.1 (Suppress list) — OBSERVE, defer
 - [ ] **Reconcile `to_iptables()` structure with Algorithm 7.1's `Suppress + Main`.**
 - **Finding:** Algorithm 7.1 (thesis §7.3) prepends a separate `Suppress` list and returns `Suppress + Main`. The code instead inlines stateless suppression as `raw PREROUTING ... -j NOTRACK` rules adjacent to each access rule, rather than as a prepended block. Different table/chain, so semantically equivalent, but the *structure* differs from the documented concept. Not material to item 1d; flagged for later review (does the concept or the code need updating?).
+
+### 1g. `test_rpc` needs a live NetPlumber backend — TO DISCUSS
+- [ ] **Decide how `test_rpc` fits CI** (it failed 4× in the first run).
+- **Finding:** `test_rpc.setUp` does `os.system('scripts/start_np.sh')` then connects to `127.0.0.1:44001`; in CI the connect failed (`OSError 107: Transport endpoint is not connected`). The `jsonrpc.py` format bug (now fixed) was masking this as a `TypeError`. With that fixed it will now raise a clean "could not connect", but the underlying issue remains: the backend isn't reliably up in CI.
+- **Options to discuss:** (a) make backend startup reliable in CI (wait-for-port, correct binary path/PATH after `make install`, teardown); (b) split "needs-running-backend" checks (`test_rpc`, `example.sh` smoke) into a separate, clearly-marked tier that is *not* the default merge gate; (c) both.
+
+### 1h. C++ `test_compact_regression` fails (2 assertions) — TO DISCUSS
+- [ ] **Triage `HeaderspaceTest::test_compact_regression` (`hs_unit.cc:1936`, `:1965`).**
+- **Finding:** `make test` reported "Run: 92, Failures: 2" but **exited 0**, so the failures were silent (did not fail the job). Real C++ test failures on Ubuntu 24.04 — need to determine if code regression or test/platform assumption.
+
+### 1i. Silent failures / non-gating commands — TO ADDRESS
+- [ ] **Make `make test` propagate C++ failures** (currently exits 0 despite failures — see 1h) so `test.sh integration` actually gates on them.
+- [ ] **Surface `example.sh` flow-test failures**: the script does `... || echo "some example flow tests failed"` and exits 0. "some example flow tests failed" appeared in CI but was swallowed. Decide: make it fail, or move to the backend-dependent tier (1g).
+- **Theme:** same "checks that don't gate" smell as the lint script (item 2) and the old coverage report (item 3).
+
+### 1j. `\-` SyntaxWarning (py3 cleanliness) — confirmed in two files
+- [ ] **Make the regex strings raw strings.** `fave/iptables/parser.py:487` and `policy_translator/policy_builder.py:33` both emit `SyntaxWarning: invalid escape sequence '\-'`. Trivial; batch with a broader raw-string sweep if desired.
 
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
