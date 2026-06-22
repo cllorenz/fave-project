@@ -69,8 +69,7 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   - [x] `COVERAGE=1` toggle wraps Python tiers in `coverage` and prints a report (parallel-mode + combine).
   - [x] Documented in top-level `README.md` (`## Testing`). `.gitignore` updated for py/test artifacts.
 - **Design decisions (confirmed with user):** one suite / two entry points (local + CI run the *same* command, CI only selects a tier); Docker for integration, native for fast; tier = dependency footprint, not runtime (so the quick `example`/`wl_ifi` benches are *smoke/integration*, not fast).
-- **Verification:** `./test.sh fast` is **deterministically green across hash seeds** — `fave`: `80 passed`; `policy_translator`: `34 passed` with the two quarantined files showing as xfail/xpass (`test_grammar` item 1c, `test_to_iptables` item 1d) and **0 failures** under fixed seeds 0/1/42 and the default. `COVERAGE=1` reports ~72% from the fast tier. Bad tier → usage + exit 2. (smoke/integration/bench need the native stack/Docker — implemented but not runnable in the dev shell.)
-- **NOTE / correction:** an earlier run looked like "46 passed" — that was a *lucky cold run*; `test_to_iptables` is hash-seed-flaky (item 1d). Wiring up the suite is exactly what exposed it.
+- **Verification:** `./test.sh fast` is **deterministically green across hash seeds** — `policy_translator`: `46 passed`; `fave`: `80 passed`; **no `xfail`/`xpass` remaining** (the `test_grammar` orphan was deprecated → item 1c; `test_to_iptables` was rewritten block-wise → items 1d/1e). Stable under seeds 0/1/7/42 and default, and across repeated runs. `COVERAGE=1` reports ~72% from the fast tier. Bad tier → usage + exit 2. (smoke/integration/bench need the native stack/Docker — implemented but not runnable in the dev shell.)
 - **This absorbs items 3, 4, 5** (see those items).
 
 ### 1c. Orphaned AI-generated grammar tests — RESOLVED (deprecated)
@@ -80,11 +79,23 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   - [x] Added `pytest.ini` with `norecursedirs = *deprecated*` (mirrors `lint_test.sh`) so no future `deprecated/` dir is ever collected.
 - **Context (per user):** not test debt — an unfinished CodiumAI experiment left orphaned in the repo (never wired in, never ran; expectations don't match `fpl_grammar.parse_fpl()`). Deprecated rather than deleted in case proper FPL-grammar tests are revisited. Verified: `test_grammar` is no longer collected (count 0); fast tier stays green.
 
-### 1d. Bug: `Policy.to_iptables()` emits rules in non-deterministic order — NEEDS FIX
-- [ ] **Make iptables rule emission deterministic, then un-quarantine `test_to_iptables`**
-  - [ ] Sort the unsorted set iterations feeding rule output: `Role.get_roles()` returns a `set` (`policy.py:262`), and `Policy.raw_policies` is a `set` iterated at `policy.py:733`. Emit in a stable (sorted) order.
-  - [ ] Re-run `test_to_iptables` under several `PYTHONHASHSEED` values to confirm determinism, then remove the module-level `xfail` (item added in `test_to_iptables.py`).
-- **Finding:** `test_to_iptables` asserts on exact generated-rule text, but emission order depends on `PYTHONHASHSEED` (string-hash-randomized set iteration). It passes only for seeds that happen to match the baked-in ordering — "green on a lucky cold run, red on repeat / under any fixed seed." This is a real determinism bug in the generator (a security tool emitting rules in random order), not just fragile tests. Quarantined `xfail` so the gate is deterministic; **fix is small but is app behavior — do with review.**
+### 1d. Make `test_to_iptables` concept-aligned (block-wise) — DONE
+- [x] **Rewrote `test_to_iptables` to test what §7.3 / Algorithm 7.1 actually guarantees; removed the `xfail`.**
+  - [x] Asserts **block order** exactly (canonical sequence of the nine section headers; catches missing/extra/interleaved blocks).
+  - [x] Asserts each block's rules as an **order-independent multiset** (`assertCountEqual`) — intra-block order is non-semantic by the concept.
+  - [x] Removed the module-level `pytest.mark.xfail`.
+- **Decision (with user):** the generator's non-deterministic intra-block order is **NOT a bug** — §7.3 permits it (each block is single-action; block order is fixed; verified against `to_iptables()`). **Output stays as-is**; consumers must not rely on intra-block order. The defect was in the *tests*, which over-specified exact line order — fixed there, not in `policy.py`.
+- **Verification:** `test_to_iptables` now passes **12/12 deterministically under seeds 0/1/7/42 and default**. Full fast tier: 46 + 80 passed, repeatable, **no `xfail`/`xpass` anywhere**.
+
+### 1e. Block-membership indicators — RESOLVED (section headers as an output feature)
+- [x] **Emit `# === <name> ===` section headers in the generated rule set; tests use them as authoritative block boundaries.**
+  - [x] Added nine headers to `Policy.to_iptables()` (IPv4/IPv6 × default/anti-spoofing/state, plus IPv6 ICMP, IPv6 hardening, access). Semantically inert (shell/`iptables-restore` comments).
+  - [x] Tests parse blocks by header (`parse_blocks`) — no fragile rule-shape pattern-matching (per user's reservation that pattern-matching could miss future rule-shape changes).
+- **Decision (with user):** chose explicit output headers over a test-side pattern classifier. Justified as an independent **readability/audit** feature for human reviewers, not test-only scaffolding. Headers reflect the *current* (per-protocol) block structure; they will be revised together with item 1f if the generator is restructured to match Algorithm 7.1's functional blocks.
+
+### 1f. Generator structure diverges from Algorithm 7.1 (Suppress list) — OBSERVE, defer
+- [ ] **Reconcile `to_iptables()` structure with Algorithm 7.1's `Suppress + Main`.**
+- **Finding:** Algorithm 7.1 (thesis §7.3) prepends a separate `Suppress` list and returns `Suppress + Main`. The code instead inlines stateless suppression as `raw PREROUTING ... -j NOTRACK` rules adjacent to each access rule, rather than as a prepended block. Different table/chain, so semantically equivalent, but the *structure* differs from the documented concept. Not material to item 1d; flagged for later review (does the concept or the code need updating?).
 
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
