@@ -152,8 +152,9 @@ def connect_to_netplumber(server, port=0):
     try:
         sock.getpeername()
     except socket.error:
+        endpoint = server if port == 0 else (server, port)
         raise RPCError(
-            "could not connect to net_plumber at %s" % (server if port == 0 else (server, port))
+            "could not connect to net_plumber at %s" % (endpoint,)
         )
 
     return sock
