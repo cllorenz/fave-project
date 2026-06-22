@@ -26,6 +26,17 @@ import pyparsing as pp
 from unittest.mock import patch
 from fpl_grammar import parse_fpl, print_prosa
 
+# DEPRECATED -- not part of the active test suite.
+#
+# This file was AI-generated (CodiumAI) as an unfinished experiment and left
+# orphaned in the repo; it was never wired into any test runner and never ran.
+# Its expected parse trees do not match fpl_grammar.parse_fpl() output (15/19
+# assertions fail, identically under pyparsing 2.4.7 and 3.3.2 -- stale
+# expectations, not a dependency-version issue). It lives under deprecated/ so it
+# is outside the pytest collection root, kept only for reference should a proper
+# FPL-grammar test effort be revisited. See policy_translator/deprecated/README.md.
+
+
 class TestCodeUnderTest:
 
 
