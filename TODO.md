@@ -29,7 +29,7 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 - [x] **GitHub Actions workflow added: `.github/workflows/ci.yml`, jobs invoke `test.sh <tier>`.**
   - [x] Skeleton: triggers `push: [main]` + `pull_request` + `workflow_dispatch`; `runs-on: ubuntu-24.04` (matches Dockerfile base / README platform).
   - [x] **Native runner, not a baked image.** Chose a native runner over building/pushing the `Dockerfile` to GHCR: the Dockerfile `COPY`s the repo and builds+tests at *image-build* time, which fights per-PR testing (a `container:` job would mount a fresh checkout over the pre-built tree). Native install matches the tier philosophy (fast=native, integration=full stack) and tests the actual checkout. System deps are installed inline with the Ubuntu-24.04 package names from the Dockerfile (`liblog4cxx15`, `libcppunit-1.15-0`, `flex`, `bison`, `build-essential`).
-  - [x] Jobs → tiers: `fast` → `bash test.sh fast` (pure-Python; the merge gate); `lint` → `lint_test.sh` (non-gating, `continue-on-error` until item 2); `integration` → `COVERAGE=1 bash test.sh integration` (builds+installs NetPlumber, then C++ tests + bison tests + smoke); `bench` → `bash test.sh bench` (`workflow_dispatch` only).
+  - [x] Jobs → tiers (updated in item 1g): `fast` → `bash test.sh fast` (pure-Python; **gates**); `lint` → `lint_test.sh` (non-gating until item 2); `integration` → `COVERAGE=1 bash test.sh integration` (build + C++ tests + bison tests, no live backend; **gates**); `e2e` → `bash test.sh e2e` (test_rpc + smoke; **non-gating**, `continue-on-error`); `bench` → `bash test.sh bench` (`workflow_dispatch` only). Heavy native setup shared via composite action `.github/actions/setup-fave-native`.
   - [x] Coverage artifact uploaded from the integration job; gating intent documented (fast = required gate).
   - [x] **`fast` job validated end-to-end locally** (clean venv + `pip install -r requirements.txt` + `bash test.sh fast` → 46 + 80 passed).
   - [x] **First real CI run analyzed** (run 75323499335). `fast` + `lint` ran fine; NetPlumber built; `integration` FAILED. Diagnosis below.
@@ -99,10 +99,15 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **Reconcile `to_iptables()` structure with Algorithm 7.1's `Suppress + Main`.**
 - **Finding:** Algorithm 7.1 (thesis §7.3) prepends a separate `Suppress` list and returns `Suppress + Main`. The code instead inlines stateless suppression as `raw PREROUTING ... -j NOTRACK` rules adjacent to each access rule, rather than as a prepended block. Different table/chain, so semantically equivalent, but the *structure* differs from the documented concept. Not material to item 1d; flagged for later review (does the concept or the code need updating?).
 
-### 1g. `test_rpc` needs a live NetPlumber backend — TO DISCUSS
-- [ ] **Decide how `test_rpc` fits CI** (it failed 4× in the first run).
-- **Finding:** `test_rpc.setUp` does `os.system('scripts/start_np.sh')` then connects to `127.0.0.1:44001`; in CI the connect failed (`OSError 107: Transport endpoint is not connected`). The `jsonrpc.py` format bug (now fixed) was masking this as a `TypeError`. With that fixed it will now raise a clean "could not connect", but the underlying issue remains: the backend isn't reliably up in CI.
-- **Options to discuss:** (a) make backend startup reliable in CI (wait-for-port, correct binary path/PATH after `make install`, teardown); (b) split "needs-running-backend" checks (`test_rpc`, `example.sh` smoke) into a separate, clearly-marked tier that is *not* the default merge gate; (c) both.
+### 1g. `test_rpc` backend dependency — RESOLVED via e2e tier split
+- [x] **Introduced an `e2e` tier and made `integration` deterministic + gating.**
+  - [x] `test.sh` now has three native-stack tiers split by dependency footprint: `integration` = NetPlumber C++ `make test` + bison tests (`test_topology`, `test_packet_filter`, `test_iptables_parser`) — needs build + pybison but **no live backend** → deterministic, **gates**; `e2e` = `test_rpc` + smoke (`example.sh`, `wl_example`, `wl_ifi`) — needs a running net_plumber + `/dev/shm` → **non-gating** for now.
+  - [x] Fixed the `test_rpc` port mismatch: it called `start_np.sh` (defaults to `44001`) but connected to `1234`. Now starts with `-p 1234` to match the connect port. (The `jsonrpc.py` format bug fixed earlier was masking this as a `TypeError`.)
+  - [x] Fixed `test_packet_filter::TestSwitchModel` (`test_to_json`/`test_from_json`): removed `raw_line`/`raw_line_no` from the **device-level** expected dicts. **Root cause confirmed via git history (user-verified):** origin tracking is a *rule* property — added to the `Rule` model by `ee07118f` and correctly emitted there. Commit `de8e5311` ("Fix broken tests due to model changes") updated test expectations for the new rule-level field but **over-applied** it to the device/switch-level dicts (before `'type':'switch'`); `AbstractDeviceModel`/`SwitchModel` never carried those fields (no commit ever touched `raw_line` under `fave/devices/`). The broken assertions went unnoticed because `test_packet_filter` (bison-dependent) wasn't being run. Confirmed design: **rules carry origin, devices don't.** All remaining `raw_line` in the file is rule-level and correct. (Verified by reading + history, not run — needs pybison; next CI run confirms.)
+  - [x] CI: `integration` job gates (no `continue-on-error`); new `e2e` job is `continue-on-error: true`. Extracted a composite action `.github/actions/setup-fave-native` so integration/e2e/bench share the heavy native setup (DRY).
+  - [ ] **Client-contract test (agreed, still TODO):** add a fast-tier mock-socket test for `jsonrpc.py` (validates request encoding / response parsing without a backend). See item 1k.
+  - [ ] **Promote `e2e` to gating** once backend startup is proven reliable on real CI.
+- **Note:** `integration` gating is currently effective for the build + bison Python tests; the C++ `make test` failures are still *silent* (exit 0), so the gate does not yet catch them — see items 1h (triage) and 1i (make `make test` propagate).
 
 ### 1h. C++ `test_compact_regression` fails (2 assertions) — TO DISCUSS
 - [ ] **Triage `HeaderspaceTest::test_compact_regression` (`hs_unit.cc:1936`, `:1965`).**
@@ -115,6 +120,13 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 
 ### 1j. `\-` SyntaxWarning (py3 cleanliness) — confirmed in two files
 - [ ] **Make the regex strings raw strings.** `fave/iptables/parser.py:487` and `policy_translator/policy_builder.py:33` both emit `SyntaxWarning: invalid escape sequence '\-'`. Trivial; batch with a broader raw-string sweep if desired.
+
+### 1k. Fast-tier RPC client-contract test — TODO (agreed)
+- [ ] **Add a mock-socket test for `netplumber/jsonrpc.py` in the fast tier.**
+- **Rationale (with user):** mocking is the right tool for the *client/protocol* surface (does each RPC function emit the correct JSON request, and parse responses?), but NOT for replacing `test_rpc` (whose log assertions validate NetPlumber's engine — a mock there would either assert nothing or reimplement the engine → false confidence). The mock must be derived from the **JSON-RPC interface contract**, not the C++ internals (keeps the maintenance surface small/stable). Fast, local, no backend.
+
+### 1l. NetPlumber port convention is inconsistent — TODO
+- [ ] **Pick one default port and apply it consistently.** `1234` is used by `test_rpc`, `scripts/test_all.sh`, `print_np.py`, `check_compliance.py`, `demo_slicing.py`; `44001` is `jsonrpc.NET_PLUMBER_DEFAULT_PORT` and `start_np.sh`'s default. `test_rpc` was relying on a mismatch (now patched locally with `-p 1234`). Consolidate to avoid the next surprise.
 
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
