@@ -1,0 +1,110 @@
+name: CI
+
+# One suite, one entry point: every job invokes `test.sh <tier>`. CI selects a
+# tier; it never defines its own tests. Tiers are split by dependency footprint:
+#   - fast        : pure-Python, no native deps -> runs natively, the merge gate
+#   - integration : NetPlumber (C++) + bison-dependent tests + smoke -> full stack
+#   - bench       : large benchmarks -> manual only (workflow_dispatch)
+#
+# Replaces the retired .gitlab-ci.yml (kept in-tree until this workflow is
+# confirmed green on real CI, then delete it -- see TODO.md item 0).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Fast tier: the always-on merge gate. Pure Python, no system packages. ---
+  fast:
+    name: fast tests (native)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Run fast tier
+        run: bash test.sh fast
+
+  # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
+  lint:
+    name: lint (pylint, informational)
+    runs-on: ubuntu-24.04
+    continue-on-error: true  # TODO item 2: make lint_test.sh exit non-zero, then gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flex bison
+          pip install -r requirements.txt pybison pylint
+      - name: Lint
+        run: cd fave && PYTHONPATH=. bash test/lint_test.sh
+
+  # --- Integration tier: NetPlumber C++ tests + bison tests + smoke. ---
+  integration:
+    name: integration tests (full stack)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential flex bison \
+            liblog4cxx15 liblog4cxx-dev \
+            libcppunit-1.15-0 libcppunit-dev
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pybison
+      - name: Build and install NetPlumber
+        run: |
+          make -j -C net_plumber/build all
+          sudo make -C net_plumber/build install
+      - name: Run integration tier (with coverage)
+        run: COVERAGE=1 bash test.sh integration
+      - name: Upload coverage data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage
+          if-no-files-found: ignore
+
+  # --- Benchmarks: heavy; manual only so PRs are not held up. ---
+  bench:
+    name: benchmarks (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential flex bison \
+            liblog4cxx15 liblog4cxx-dev \
+            libcppunit-1.15-0 libcppunit-dev
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pybison
+      - name: Build and install NetPlumber
+        run: |
+          make -j -C net_plumber/build all
+          sudo make -C net_plumber/build install
+      - name: Run benchmarks
+        run: bash test.sh bench
