@@ -492,10 +492,12 @@ class Policy(object):
 
         #defaultrules rules and best practices
         defaultruletarget = " ACCEPT" if self.default_policy else " DROP"
+        iptables_rules.append("# === IPv4 Default Policy ===")
         default4rule = "iptables -P FORWARD" + defaultruletarget
         iptables_rules.append(default4rule)
 
         #Anti-Spoofing Ipv4
+        iptables_rules.append("# === IPv4 Anti-Spoofing ===")
         for role in self.get_atomic_roles():
             if 'ipv4' in self.roles[role].attributes:
                 srcs = self.roles[role].attributes['ipv4']
@@ -504,13 +506,16 @@ class Policy(object):
                     bp4rules = "iptables -A FORWARD -i eth1 -s " + src + " -j DROP"
                     iptables_rules.append(bp4rules)
 
+        iptables_rules.append("# === IPv4 State Tracking ===")
         bp4rules = "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT"
         iptables_rules.append(bp4rules)
 
+        iptables_rules.append("# === IPv6 Default Policy ===")
         default6rule = "ip6tables -P FORWARD" + defaultruletarget
         iptables_rules.append(default6rule)
 
         #Anti-Spoofing Ipv6
+        iptables_rules.append("# === IPv6 Anti-Spoofing ===")
         for role in self.get_atomic_roles():
             if 'ipv6' in self.roles[role].attributes:
                 srcs = self.roles[role].attributes['ipv6']
@@ -521,6 +526,7 @@ class Policy(object):
 
 
         # ICMP Traffic
+        iptables_rules.append("# === IPv6 ICMP ===")
         iptables_rules += [
             "ip6tables -A FORWARD -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT",
             "ip6tables -A FORWARD -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT",
@@ -532,6 +538,7 @@ class Policy(object):
         ]
 
         #Routing-Header
+        iptables_rules.append("# === IPv6 Hardening ===")
         iptables_rules += [
             "ip6tables -N routinghdr",
             "ip6tables -A routinghdr -m rt --rt-type 0 ! --rt-segsleft 0 -j DROP",
@@ -542,9 +549,11 @@ class Policy(object):
             "ip6tables -A FORWARD -m ipv6header --header ipv6-route --soft -j routinghdr"
         ]
 
+        iptables_rules.append("# === IPv6 State Tracking ===")
         iptables_rules.append("ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT")
 
         # create iptable rule(s) for every Policy
+        iptables_rules.append("# === Access Rules ===")
         for policy in self.policies:
             PT_LOGGER.debug(f"handle policy rule: {policy} with conditions: {self.policies[policy].conditions}")
 

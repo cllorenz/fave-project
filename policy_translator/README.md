@@ -95,6 +95,12 @@ They can be used as input files for the Policy Translator using the first comman
 
 Example: ``python3 policy_translator.py --firewall --output ifi.fw examples/ifi-policy.txt``
 
+The generated rule set is organized into labeled blocks, each introduced by a
+``# === <name> ===`` section-header comment (e.g. anti-spoofing, IPv6 ICMP,
+access rules). These headers aid human review and mark the block boundaries; per
+the concept (thesis Sec. 7.3) the blocks are emitted in a fixed order while the
+order of rules *within* a block is not significant.
+
 ## Language specification of FPL
 
 **TODO**
