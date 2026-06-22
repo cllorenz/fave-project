@@ -374,8 +374,6 @@ class TestSwitchModel(unittest.TestCase):
             self.model.to_json(),
             {
                 'node': 'foo',
-                'raw_line' : None,
-                'raw_line_no' : None,
                 'ports': {},
                 'tables': {"foo.1" : []},
                 'type': 'switch',
@@ -391,8 +389,6 @@ class TestSwitchModel(unittest.TestCase):
         self.assertEqual(
             SwitchModel.from_json({
                 'node': 'foo',
-                'raw_line' : None,
-                'raw_line_no' : None,
                 'ports': {},
                 'tables': {"foo.1" : []},
                 'type': 'switch',
