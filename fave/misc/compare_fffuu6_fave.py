@@ -75,7 +75,7 @@ def _range_to_bdd(start, end, IP_BITS):
     return res
 
 
-def _prefix_addr_to_bdd(addr):
+def _prefix_addr_to_bdd(addr, IP_BITS):
     res = bdd.true
     cnt = 0
     while cnt < IP_BITS and addr[cnt] != 'x':
