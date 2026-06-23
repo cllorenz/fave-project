@@ -256,9 +256,9 @@ hs_from_str(const char *s) {
         while (*c == ' ') c++; // skip optional spaces
 
         char tmp[len+1];
-        strncpy(&tmp, c, len);
+        strncpy(tmp, c, len);
         tmp[len] = '\0';
-        array_t *a = array_from_str(&tmp);
+        array_t *a = array_from_str(tmp);
 
         vec_append(&res->list, a, false);
 
@@ -273,9 +273,9 @@ hs_from_str(const char *s) {
             while (*c == ' ') c++; // skip optional space
             while (*c != ')') { // parse diff vector
                 char tmp2[len+1];
-                strncpy(&tmp2, c, len);
+                strncpy(tmp2, c, len);
                 tmp2[len] = '\0';
-                a = array_from_str(&tmp2);
+                a = array_from_str(tmp2);
 
                 vec_append(&res->list.diff[res->list.used-1], a, true);
                 c += len; // skip array
@@ -310,10 +310,10 @@ hs_get_array_from_string(const char *s) {
     len += commas;
 
     char tmp[len+1];
-    strncpy(&tmp, c, len);
+    strncpy(tmp, c, len);
     tmp[len] = '\0';
 
-    return array_from_str(&tmp);
+    return array_from_str(tmp);
 }
 
 

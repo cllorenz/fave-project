@@ -267,7 +267,7 @@ array_has_z (const array_t *a, size_t len)
 bool
 array_has_isect(const array_t *a, const array_t *b, size_t len) {
     array_t tmp[SIZE(len)];
-    return array_isect(a, b, len, &tmp);
+    return array_isect(a, b, len, tmp);
 }
 
 inline bool
@@ -326,13 +326,13 @@ array_is_sub_eq (const array_t *a, const array_t *b, size_t len)
 
     // no intersection? -> disjoint operands
     array_t tmp[ARRAY_BYTES (len) / sizeof (array_t)];
-    const bool has_isect = array_isect (a, b, len, &tmp);
+    const bool has_isect = array_isect (a, b, len, tmp);
 
     if (!has_isect) return false;
 
     // if the intersection is equal to A -> all bits in A are superseded by B
     // otherwise there are x bits in A which supersede B
-    return array_is_eq(a, &tmp, len);
+    return array_is_eq(a, tmp, len);
 }
 
 size_t
@@ -847,7 +847,7 @@ array_isect_a (const array_t *a, const array_t *b, size_t len)
   if (!a || !b) return NULL;
 
   array_t tmp[ARRAY_BYTES (len) / sizeof (array_t)];
-  if (!array_isect (a, b, len, &tmp)) return NULL;
+  if (!array_isect (a, b, len, tmp)) return NULL;
   return xmemdup(tmp, sizeof(tmp));
 }
 
@@ -995,7 +995,7 @@ array_unroll_superset(const array_t *subset, array_t *superset, size_t len, size
   for (size_t i = 0; i < (1 << exp); i++) {
     array_t *r = array_copy (subset, len);
     // set bits at superset positions using current counter as bitmask
-    array_set_bitmask(r, i, &tmp, len);
+    array_set_bitmask(r, i, tmp, len);
     res[i] = r;
   }
 
