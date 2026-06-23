@@ -162,11 +162,14 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **Verify the full build on Ubuntu 26.04.** `array.c`/`hs.c` are the only compiled C files; the rest are C++ (`g++`), where these C-specific promotions don't apply, but GCC 15's `g++` may surface its own stricter diagnostics — if so, address separately. I couldn't run the full link here (no log4cxx/cppunit; sandbox is GCC 13/24.04).
 - **Optional hardening:** these were latent type bugs; consider de-VLA-ing the `array_t tmp[SIZE(len)]` buffers (heap/bounded) as a separate cleanup — not required for the build.
 
-### 2. Make linting gate the pipeline
-- [ ] **Make lint failures fail CI**
-  - [ ] Commit a `.pylintrc` (pin the rules that matter).
-  - [ ] Make `fave/test/lint_test.sh` exit non-zero when `$FAILS` is non-empty (or gate on a minimum score).
-- **Finding:** `fave/test/lint_test.sh` records pass/fail counts but always exits 0, so `lint_fave` can never fail. No committed `.pylintrc`, so pylint runs on defaults with no enforced floor.
+### 2. Make linting gate the pipeline — DONE (pending user review + a real CI run)
+- [x] **`lint_test.sh` gates on pylint ERROR/FATAL only** (style reported, non-gating; exit-bit `RC&3`). Verified categorization (undefined-var → gate fail; convention-only → no gate). IGNORE additions: `examples/demo_slicing.py` (stale demo, 89 findings) and `util/dynamic_distribution.py` (orphaned, built on `asyncore` which is removed in 3.12 — every importer is commented out; needs an `asyncio`/`selectors` port to revive). Reuses existing `fave/.pylintrc` via `--rcfile`.
+- [x] **Fixed all ~12 genuine error-level findings** (the gate surfaced real latent bugs). Re-scan (E/F, import-error excluded) over the 127 linted files: **0 error/fatal findings remain** → gate green.
+  - Core: `mapping.py` `super().__cmp__` → dict-equality (also un-inverted the logic); `topology.py` undefined `dtype` → `args.type`; `aggregator_service.py` `err.message` → `str(err)`.
+  - Other: `check_flows.py` `.message`×2 → `str(...)` + misplaced-paren `json.load(open(p),"r")` → `open(p,"r")`; `switch.py` `add_rules(idx,[rule])` → `add_rules([rule])` (would have crashed); `np_preparation.py` `%s`→`%s %s`; `compare_fffuu6_fave.py` add `IP_BITS` param; `checkgen.py`×2 loop var `next`→`cur` (shadowed builtin → UnboundLocalError).
+- [x] **CI lint job now gates** (removed `continue-on-error` in `.github/workflows/ci.yml`).
+- [ ] **Confirm on a real CI run.** Couldn't fully replicate the CI lint env here (no `pybison`), so the scan excluded `import-error`; in CI the deps are installed so legit imports resolve. Residual risk: if a module imports something not in the lint job's deps, E0401 would gate — fix the dep or import if it appears.
+- **Finding (original):** `lint_test.sh` recorded counts but always exited 0, so `lint_fave` could never fail.
 
 ### 3. Re-enable coverage reporting — mostly absorbed by item 1b
 - [x] **Report coverage** — `COVERAGE=1 ./test.sh <tier>` runs under `coverage` and prints a report (72% from the fast tier today).
