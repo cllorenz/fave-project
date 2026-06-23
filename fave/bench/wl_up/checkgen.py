@@ -130,11 +130,11 @@ def _generate_reachability_tests(config):
     stests = iter(sorted(tests))
     prev = next(stests)
     cnt = 0
-    for next in stests:
-        if prev == next:
+    for cur in stests:
+        if prev == cur:
             cnt += 1
             print(("  duplicate: %s" % prev))
-        prev = next
+        prev = cur
     print(("number of tests:\t%s\nduplicates:\t%s" % (len(tests), cnt)))
 
     return tests
