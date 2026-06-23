@@ -79,6 +79,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-fave-native
+        with:
+          report-tools: 'true'
       - name: Run e2e tier (test_rpc + smoke)
         run: bash test.sh e2e
 
@@ -90,5 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-fave-native
+        with:
+          report-tools: 'true'
       - name: Run benchmarks
         run: bash test.sh bench

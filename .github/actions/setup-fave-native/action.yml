@@ -4,6 +4,14 @@ description: >
   Ubuntu 24.04 runner. Used by the integration, e2e, and bench jobs so the heavy
   setup is defined once. Requires the repository to be checked out first.
 
+inputs:
+  report-tools:
+    description: >
+      Install report/visualization tooling (pandoc, inkscape, minimal LaTeX).
+      Only the e2e/bench tiers generate reports, so the deterministic
+      integration gate leaves this off (default) to stay lean.
+    default: 'false'
+
 runs:
   using: composite
   steps:
@@ -11,15 +19,26 @@ runs:
       with:
         python-version: '3.12'
 
-    - name: Install system dependencies (Ubuntu 24.04, matches Dockerfile)
+    - name: Install core system dependencies (Ubuntu 24.04, matches Dockerfile)
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
           build-essential flex bison \
           liblog4cxx15 liblog4cxx-dev \
-          libcppunit-1.15-0 libcppunit-dev \
-          pandoc inkscape
+          libcppunit-1.15-0 libcppunit-dev
+
+    # Report (pandoc -> PDF via pdflatex) and policy visualization (inkscape).
+    # Minimal LaTeX: the generated report is plain markdown (headings, lists,
+    # inline code -- no tables/images/math), so base + recommended + fonts is
+    # enough; texlive-latex-extra (tables/longtable etc.) is intentionally omitted.
+    - name: Install report/visualization tools
+      if: inputs.report-tools == 'true'
+      shell: bash
+      run: |
+        sudo apt-get install -y --no-install-recommends \
+          pandoc inkscape \
+          texlive-latex-base texlive-latex-recommended texlive-fonts-recommended
 
     - name: Install Python dependencies
       shell: bash

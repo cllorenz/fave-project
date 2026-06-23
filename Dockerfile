@@ -20,6 +20,11 @@ RUN apt-get $APT_CONFS install python3-venv
 RUN apt-get $APT_CONFS install pylint
 RUN apt-get $APT_CONFS install inkscape
 RUN apt-get $APT_CONFS install pandoc
+# Minimal LaTeX for pandoc -> PDF reports (plain markdown: no tables/images/math,
+# so texlive-latex-extra is intentionally omitted).
+RUN apt-get $APT_CONFS install texlive-latex-base
+RUN apt-get $APT_CONFS install texlive-latex-recommended
+RUN apt-get $APT_CONFS install texlive-fonts-recommended
 RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison
