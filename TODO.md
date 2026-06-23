@@ -148,6 +148,12 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 ### 1n. wl_ifi smoke: PolicyTranslator input not read + swallowed failure — TODO (e2e/non-gating)
 - [ ] **Fix the wl_ifi policy-matrix input path (CI) and stop the benchmark swallowing the failure.** `policy_translator.py:67` prints `"Fehler: Datei(en) konnte(n) nicht gelesen werden."` and `sys.exit(1)` when it can't open its input files; in CI the wl_ifi benchmark passes a path that doesn't resolve (likely CWD/relative-path), yet proceeds ("generated policy matrix") — the non-zero exit is ignored. Two sub-issues: (a) the input path resolution in CI; (b) the benchmark swallowing a failed sub-step (same "silent failure" theme as 1i). Minor extra: the error string is hardcoded German in an otherwise-English codebase.
 
+### 1o. NetPlumber build breaks on GCC 14+ (Ubuntu 26.04) — FIXED (verify on 26.04)
+- [x] **Fixed `-Wincompatible-pointer-types` errors in the C headerspace code.** GCC 14 promoted a family of C warnings to **default errors** (`-Wincompatible-pointer-types`, `-Wint-conversion`, `-Wimplicit-function-declaration`, `-Wimplicit-int`, `-Wreturn-mismatch`). On Ubuntu 24.04 (GCC 13) these only *warned*; on 26.04 (GCC 15) they fail the build. The reported error (`array.c:329`) was `&tmp` (a `char[]`/`array_t[]`) passed where the callee wants a plain `T*` — same address, wrong type. Dropped the erroneous `&` at: `array.c:270,329,335,850`; `hs.c:259,261,276,278,313,316` (compiled), plus `array.c:998` (in the dead `#ifdef NEW_HS` path, for completeness).
+- **Validated locally** by forcing the GCC-14 diagnostics to errors on GCC 13 (`-Werror=incompatible-pointer-types -Werror=int-conversion -Werror=implicit-function-declaration -Werror=implicit-int -fsyntax-only`): `array.c` and `hs.c` both compile clean (rc=0). This also caught two sites a naive grep missed (`hs.c:276,278`, `&tmp2`).
+- [ ] **Verify the full build on Ubuntu 26.04.** `array.c`/`hs.c` are the only compiled C files; the rest are C++ (`g++`), where these C-specific promotions don't apply, but GCC 15's `g++` may surface its own stricter diagnostics — if so, address separately. I couldn't run the full link here (no log4cxx/cppunit; sandbox is GCC 13/24.04).
+- **Optional hardening:** these were latent type bugs; consider de-VLA-ing the `array_t tmp[SIZE(len)]` buffers (heap/bounded) as a separate cleanup — not required for the build.
+
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
   - [ ] Commit a `.pylintrc` (pin the rules that matter).
