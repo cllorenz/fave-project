@@ -697,7 +697,7 @@ def main(argv):
                 asyncore_sock = None # NodeLinkDispatcher(np_server, np_port)
                 asyncore_socks[(np_server, np_port)] = asyncore_sock
         except jsonrpc.RPCError as err:
-            AggregatorService.LOGGER.error(err.message)
+            AggregatorService.LOGGER.error(str(err))
             print("could not connect to server: %s %s" % (np_server, np_port), file=sys.stderr)
             parser.print_help()
             sys.exit(1)
