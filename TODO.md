@@ -42,7 +42,9 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **Quick fixes — DONE:**
   - [x] Fixed `netplumber/jsonrpc.py` `%`-format bug: `"%s" % (server, port)` (a 2-tuple → `TypeError: not all arguments converted`) → wrap as 1-tuple. This was masking the real "could not connect" error in `test_rpc`. Verified both socket/port forms.
   - [x] Fixed `test.sh` coverage CWD bug ("No data to combine"): `export COVERAGE_FILE="$ROOT/.coverage"` so `coverage run -p` (from `fave/` in the integration tier) and `coverage combine` (from `$ROOT`) agree. Verified cross-dir.
-  - [x] Added `pandoc` + `inkscape` to the CI `integration`/`bench` jobs; added `pandoc` to the `Dockerfile` (it was never there — `inkscape` already was). `inkscape` absence is the likely cause of the wl_ifi German "Datei(en) konnte(n) nicht gelesen werden" during policy-matrix viz.
+  - [x] Added `pandoc` + `inkscape` to the CI `integration`/`bench` jobs; added `pandoc` to the `Dockerfile` (it was never there — `inkscape` already was).
+  - [x] **Verified on CI run 75331175825** (after the quick-fix commit, before the e2e split): jsonrpc fix landed (error is now a clean `RPCError: could not connect ... ('localhost', 1234)`, not the old `TypeError`); coverage fix landed ("Combined 1 file", no more "No data"); pandoc now installed; `fast` PASSED (46 + 80). The remaining integration failures in that run (`test_to_json`, 4× `test_rpc`) are addressed by the *later* e2e-split commits and await the next CI run.
+  - **CORRECTION (inkscape hypothesis was wrong):** the wl_ifi German "Datei(en) konnte(n) nicht gelesen werden" persisted *with inkscape installed*. Root cause is **our own code**: `policy_translator.py:67` prints that (German) string and `sys.exit(1)` when it cannot read its input file(s). The wl_ifi benchmark feeds it a path that doesn't resolve in CI, and the benchmark swallows the non-zero exit (prints "generated policy matrix" regardless). See item 1n. (inkscape is still legitimately used by the visualizers, so adding it is not wasted — it just wasn't this bug.)
 - **Open — to discuss (RPC + C++):** see items 1g, 1h below.
 - **Open — gating gaps (silent failures):** see item 1i.
 - **Follow-up:** `net_plumber/setup-ubuntu.sh` is stale (Ubuntu-20.04 package names `liblog4cxx10v5`/`libcppunit-1.14-0`, and builds BuDDy which the "don't link libbdd by default" change made unnecessary). The workflow inlines the correct 24.04 deps instead; consider updating `setup-ubuntu.sh` to 24.04 and having both it and CI share one dep list (DRY).
@@ -127,6 +129,12 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 
 ### 1l. NetPlumber port convention is inconsistent — TODO
 - [ ] **Pick one default port and apply it consistently.** `1234` is used by `test_rpc`, `scripts/test_all.sh`, `print_np.py`, `check_compliance.py`, `demo_slicing.py`; `44001` is `jsonrpc.NET_PLUMBER_DEFAULT_PORT` and `start_np.sh`'s default. `test_rpc` was relying on a mismatch (now patched locally with `-p 1234`). Consolidate to avoid the next surprise.
+
+### 1m. pandoc PDF report needs a LaTeX engine — TODO (low priority, e2e/non-gating)
+- [ ] **Decide how report PDFs are produced in CI.** With pandoc now installed, `pandoc report.md -o report.pdf` fails: `pdflatex not found ... install pdflatex`. Our `--no-install-recommends` skipped the recommended `texlive-*`. Options: install a LaTeX engine (e.g. `texlive-latex-base`/`texlive-xetex`), switch pandoc to a non-PDF target (HTML) or `--pdf-engine`, or accept it as non-fatal (it is — only the smoke report PDF). Lives in the e2e tier, so non-blocking.
+
+### 1n. wl_ifi smoke: PolicyTranslator input not read + swallowed failure — TODO (e2e/non-gating)
+- [ ] **Fix the wl_ifi policy-matrix input path (CI) and stop the benchmark swallowing the failure.** `policy_translator.py:67` prints `"Fehler: Datei(en) konnte(n) nicht gelesen werden."` and `sys.exit(1)` when it can't open its input files; in CI the wl_ifi benchmark passes a path that doesn't resolve (likely CWD/relative-path), yet proceeds ("generated policy matrix") — the non-zero exit is ignored. Two sub-issues: (a) the input path resolution in CI; (b) the benchmark swallowing a failed sub-step (same "silent failure" theme as 1i). Minor extra: the error string is hardcoded German in an otherwise-English codebase.
 
 ### 2. Make linting gate the pipeline
 - [ ] **Make lint failures fail CI**
