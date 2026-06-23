@@ -323,7 +323,7 @@ def prepare_benchmark(
                 probe_links.add((src_port, dst_port, False))
 
             else:
-                print(("cannot add link: %s" % (src_port, dst_port)))
+                print(("cannot add link: %s -> %s" % (src_port, dst_port)))
 
     probes['links'] = list(probe_links)
 
