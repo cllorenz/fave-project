@@ -38,9 +38,10 @@ jobs:
 
   # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
   lint:
-    name: lint (pylint, informational)
+    name: lint (pylint errors/fatals)
     runs-on: ubuntu-24.04
-    continue-on-error: true  # TODO item 2: make lint_test.sh exit non-zero, then gate
+    # Gating: lint_test.sh exits non-zero on pylint error/fatal findings
+    # (style is reported but does not gate).
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
