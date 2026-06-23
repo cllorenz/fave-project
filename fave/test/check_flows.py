@@ -158,7 +158,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
             try:
                 crule = ('START', [inv_fave["generator_to_id"][tname]])
             except KeyError as key_error:
-                print("skip unknown generator: %s" % key_error.message, file=sys.stderr)
+                print("skip unknown generator: %s" % str(key_error), file=sys.stderr)
                 raise
             nflow.append(crule)
         elif tok in ['EX', 'EF']:
@@ -171,7 +171,7 @@ def check_flow(flow_spec, flow_tree, inv_fave):
                     inv_fave["table_id_to_rules"].get(inv_fave["table_to_id"][tname], [])
                 )
             except KeyError as key_error:
-                print("skip unknown entity: %s" % key_error.message, file=sys.stderr)
+                print("skip unknown entity: %s" % str(key_error), file=sys.stderr)
                 raise
             nflow.append(crules)
 
@@ -210,7 +210,7 @@ def _get_inverse_fave(dump):
 
 
 def _get_flow_trees(dump):
-    return json.load(open(dump+"/flow_trees.json"), "r")["flows"]
+    return json.load(open(dump+"/flow_trees.json", "r"))["flows"]
 
 
 def _get_flow_tree(dump, cache):
