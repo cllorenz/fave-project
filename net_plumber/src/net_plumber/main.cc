@@ -94,7 +94,7 @@ void run_server(string address, int port, NetPlumber<T1, T2> *N) {
 }
 
 template<class T1, class T2>
-void run_tests() {
+bool run_tests() {
   NetPlumberBasicTest<T1, T2> t1;
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t1) );
   NetPlumberPlumbingTest<T1, T2> t2;
@@ -139,6 +139,9 @@ void run_tests() {
   // output results in compiler-format
   CPPUNIT_NS::CompilerOutputter compileroutputter(&collectedresults, std::cerr);
   compileroutputter.write ();
+
+  // report success so the caller (and `make test`) can fail on test failures
+  return collectedresults.wasSuccessful ();
 }
 
 template<class T1, class T2>
@@ -289,7 +292,9 @@ int typed_main(int argc, char* argv[]) {
   }
 
   if (do_run_test) {
-    run_tests<T1, T2>();
+    // exit immediately with a non-zero status on any test failure, so that
+    // `make test` / CI gates on it (no point starting a server after --test).
+    return run_tests<T1, T2>() ? 0 : 1;
   }
 
 #ifdef USE_BDD
