@@ -130,13 +130,11 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **No second bug.** An earlier note here claimed `hs_compact` still over-merged after the `array.c` fix — that was a **transcription error** in a throwaway harness (compared `compact(a)` against the 6-diff `c_correct` set but labeled it `b_wrong` and expected inequality). Re-checked with the *exact* `test_compact_regression` data (b = the 5-diff wrong set): `hs_is_equal(compact(a), b_wrong)=false` and `hs_is_equal(compact(a), c_correct)=true` — both assertions pass. The masking fix was the complete fix.
 - **Microtests added to the suite** (`array_unit.{h,cc}`): `test_array_isect_len4_regression`, `test_array_is_sub_eq_len4_regression` — fail until the `array.c` fix lands, then pass. Standalone harnesses live in `test/hs_micro.c` (+ scratchpad oracles) for fast iteration.
 
-### 1i. `./net_plumber --test` does not propagate failures — gating gap
-- [ ] **Make the C++ test runner exit non-zero on CPPUNIT failures** (`net_plumber/src/net_plumber/main.cc --test` path) so `test.sh integration` gates on C++ regressions.
-- **Coupling with 1h:** doing this alone turns `integration` RED (the 1h failures). Options: (a) fix 1h first; (b) explicitly quarantine the 2 known-failing tests (comment their `CPPUNIT_TEST(...)` lines in `hs_unit.h`) with a prominent "KNOWN SOUNDNESS BUG — see 1h" note, then make the runner propagate → gate catches *all other* C++ regressions, and the failure is visible-as-disabled rather than silently passing. Same theme as items 2 (lint) and 1n (swallowed exit).
+### 1i. C++ test runner propagates failures — DONE
+- [x] **`run_tests()` now returns `collectedresults.wasSuccessful()`; `main` does `return run_tests<...>() ? 0 : 1` on `--test`** (`net_plumber/src/net_plumber/main.cc`). Chain: `./net_plumber --test` exits non-zero on any CppUnit failure → `make test` fails (target has no error suppression) → `test.sh integration` sets `rc=1` → the **gating** `integration` CI job fails. Safe now that the suite is green (1h fixed): it exits 0 today and stays green, but will catch any future C++ regression. (Verified the chain by inspection; couldn't link here — no cppunit/log4cxx — so rebuild + `make test` to confirm.)
 
-### 1i. Silent failures / non-gating commands — TO ADDRESS
-- [ ] **Make `make test` propagate C++ failures** (currently exits 0 despite failures — see 1h) so `test.sh integration` actually gates on them.
-- [ ] **Surface `example.sh` flow-test failures**: the script does `... || echo "some example flow tests failed"` and exits 0. "some example flow tests failed" appeared in CI but was swallowed. Decide: make it fail, or move to the backend-dependent tier (1g).
+### 1p. Surface swallowed `example.sh` flow-test failures — TO ADDRESS
+- [ ] **`example.sh` does `... || echo "some example flow tests failed"` and exits 0** — the failure is reported but swallowed (seen in CI). Decide: make it fail the script (so the e2e tier reflects it), or accept it while e2e stays non-gating. (The C++ `make test` propagation half of the old item is done — see 1i.)
 - **Theme:** same "checks that don't gate" smell as the lint script (item 2) and the old coverage report (item 3).
 
 ### 1j. `\-` SyntaxWarning (py3 cleanliness) — confirmed in two files
