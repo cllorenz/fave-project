@@ -25,6 +25,9 @@ RUN apt-get $APT_CONFS install pandoc
 RUN apt-get $APT_CONFS install texlive-latex-base
 RUN apt-get $APT_CONFS install texlive-latex-recommended
 RUN apt-get $APT_CONFS install texlive-fonts-recommended
+# lmodern.sty is needed by pandoc's default template; it is a standalone package
+# only *recommended* by texlive-fonts-recommended, so install it explicitly.
+RUN apt-get $APT_CONFS install lmodern
 RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison

@@ -32,13 +32,17 @@ runs:
     # Minimal LaTeX: the generated report is plain markdown (headings, lists,
     # inline code -- no tables/images/math), so base + recommended + fonts is
     # enough; texlive-latex-extra (tables/longtable etc.) is intentionally omitted.
+    # `lmodern` is listed explicitly: pandoc's default template needs lmodern.sty,
+    # which is a standalone package that texlive-fonts-recommended only
+    # *recommends* -- so --no-install-recommends would otherwise skip it.
     - name: Install report/visualization tools
       if: inputs.report-tools == 'true'
       shell: bash
       run: |
         sudo apt-get install -y --no-install-recommends \
           pandoc inkscape \
-          texlive-latex-base texlive-latex-recommended texlive-fonts-recommended
+          texlive-latex-base texlive-latex-recommended texlive-fonts-recommended \
+          lmodern
 
     - name: Install Python dependencies
       shell: bash
