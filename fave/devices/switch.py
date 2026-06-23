@@ -156,7 +156,7 @@ class SwitchModel(AbstractDeviceModel):
         """
 
         self.remove_rule(idx)
-        self.add_rules(idx, [rule])
+        self.add_rules([rule])
 
 
     def __sub__(self, other):
