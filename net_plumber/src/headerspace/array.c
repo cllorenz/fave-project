@@ -239,9 +239,14 @@ array_has_x (const array_t *a, size_t len)
     array_t tmp = a[i];
     // for the last round mask incomplete bits in array_t
     if (i == SIZE (len) - 1) {
-      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
-      // unset leading bits while keeping originally set bits
-      tmp &= (-1ull >> ((sizeof *a * 8) - set_bits));
+      const size_t rem = len % (sizeof *a / 2);
+      // only mask leading bits when the last word is NOT fully used; rem==0
+      // means it is full -> (sizeof*a*8 - 0) would be an undefined >>64 shift.
+      if (rem) {
+        const size_t set_bits = rem * 16;
+        // unset leading bits while keeping originally set bits
+        tmp &= (-1ull >> ((sizeof *a * 8) - set_bits));
+      }
     }
     if (has_x (tmp)) return true;
   }
@@ -255,9 +260,14 @@ array_has_z (const array_t *a, size_t len)
     array_t tmp = a[i];
     // for the last round mask incomplete bits in array_t
     if (i == SIZE (len) - 1) {
-      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
-      // set leading bits while keeping originally set bits
-      tmp |= ((-1ull >> set_bits) << set_bits);
+      const size_t rem = len % (sizeof *a / 2);
+      // only mask leading bits when the last word is NOT fully used; rem==0
+      // means it is full -> set_bits==0 would OR in all-ones and corrupt it.
+      if (rem) {
+        const size_t set_bits = rem * 16;
+        // set leading bits while keeping originally set bits
+        tmp |= ((-1ull >> set_bits) << set_bits);
+      }
     }
     if (has_z (tmp)) return true;
   }
@@ -624,9 +634,14 @@ array_isect (const array_t *a, const array_t *b, size_t len, array_t *res)
     tmp = a[i] & b[i];
     // for the last round mask incomplete bits in array_t
     if (i == SIZE (len) - 1) {
-      const size_t set_bits = (len % (sizeof *a / 2)) * 16;
-      // set leading bits while keeping originally set bits
-      tmp |= ((-1ull >> set_bits) << set_bits);
+      const size_t rem = len % (sizeof *a / 2);
+      // only mask leading bits when the last word is NOT fully used; rem==0
+      // means it is full -> set_bits==0 would OR in all-ones and corrupt it.
+      if (rem) {
+        const size_t set_bits = rem * 16;
+        // set leading bits while keeping originally set bits
+        tmp |= ((-1ull >> set_bits) << set_bits);
+      }
     }
     res[i] = tmp;
     if (has_z (tmp)) return false;
