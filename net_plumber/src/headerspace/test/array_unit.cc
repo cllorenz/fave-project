@@ -951,6 +951,54 @@ void ArrayTest::test_array_isect() {
 }
 
 
+/*
+ * Regression: array_isect over-masks the result when `len` is an exact multiple
+ * of sizeof(array_t)/2 (= 4 header bytes per 64-bit word), e.g. len == 4. In
+ * that case the "mask incomplete leading bits" path computes set_bits == 0 and
+ * ORs the whole word with all-ones, turning the intersection into all-x.
+ * The existing test_array_isect only uses len == 2, so it never exercised this.
+ *
+ * A concrete point that is a subset of a cube must intersect to the point
+ * itself, NOT to all-x.
+ */
+void ArrayTest::test_array_isect_len4_regression() {
+  printf("\n");
+
+  array_t *point = array_from_str("00001010,00000000,00000100,00000000");
+  array_t *cube  = array_from_str("00001010,00000000,000xx10x,xxxxxxxx");
+  array_t *res   = array_create(4, BIT_UNDEF);
+
+  const bool isect = array_isect(point, cube, 4, res);
+
+  CPPUNIT_ASSERT(isect);                      // they do intersect
+  CPPUNIT_ASSERT(array_is_eq(point, res, 4)); // intersection == point, not all-x
+
+  array_free(point);
+  array_free(cube);
+  array_free(res);
+}
+
+
+/*
+ * Regression: array_is_sub_eq builds on array_isect, so the len % 4 == 0 bug
+ * above makes subset checks wrong for len == 4 (a concrete point wrongly
+ * reported as NOT a subset of a cube that contains it). This in turn breaks
+ * hs_is_sub_eq / hs_is_equal (see test_is_equal_regression2 in hs_unit.cc).
+ */
+void ArrayTest::test_array_is_sub_eq_len4_regression() {
+  printf("\n");
+
+  array_t *point = array_from_str("00001010,00000000,00000100,00000000");
+  array_t *cube  = array_from_str("00001010,00000000,000xx10x,xxxxxxxx");
+
+  CPPUNIT_ASSERT(array_is_sub_eq(point, cube, 4));   // point is a subset of cube
+  CPPUNIT_ASSERT(!array_is_sub_eq(cube, point, 4));  // cube is not a subset of point
+
+  array_free(point);
+  array_free(cube);
+}
+
+
 void ArrayTest::test_array_not() {
   printf("\n");
 

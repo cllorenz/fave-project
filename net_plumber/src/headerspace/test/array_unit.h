@@ -37,6 +37,8 @@ class ArrayTest : public CppUnit::TestFixture {
         CPPUNIT_TEST(test_array_generic_resize);
         CPPUNIT_TEST(test_array_combine_regression);
         CPPUNIT_TEST(test_array_has_xz_regression);
+        CPPUNIT_TEST(test_array_isect_len4_regression);
+        CPPUNIT_TEST(test_array_is_sub_eq_len4_regression);
 
         CPPUNIT_TEST_SUITE_END();
 
@@ -60,6 +62,8 @@ class ArrayTest : public CppUnit::TestFixture {
         void test_array_generic_resize();
         void test_array_combine_regression();
         void test_array_has_xz_regression();
+        void test_array_isect_len4_regression();
+        void test_array_is_sub_eq_len4_regression();
 };
 
 #endif  // SRC_NET_PLUMBER_TEST_ARRAY_UNIT_H_
