@@ -139,7 +139,7 @@ class Mapping(dict):
             return False
         if self.length != other.length:
             return False
-        if not super(Mapping, self).__cmp__(super(Mapping, other)):
+        if dict(self) != dict(other):
             return False
         return True
 
