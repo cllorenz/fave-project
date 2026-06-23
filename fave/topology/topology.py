@@ -479,7 +479,7 @@ def main(argv):
         topo = TopologyCommand(args.node, args.command, model=model)
 
     elif args.command == 'del':
-        if dtype == 'links':
+        if args.type == 'links':
             model = LinksModel(args.links)
             topo = TopologyCommand("links", args.command, model)
         else:
