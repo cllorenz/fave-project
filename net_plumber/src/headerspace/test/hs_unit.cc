@@ -1901,6 +1901,8 @@ void HeaderspaceTest::test_merge() {
 }
 
 void HeaderspaceTest::test_compact_regression() {
+    printf("\n");
+
     struct hs a = {4, {0, 0, 0, 0}};
     hs_vec_append(&a.list, array_from_str("xxxxxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx"), false);
     hs_vec_append(&a.list.diff[0], array_from_str("00001010,00000000,0001001x,xxxxxxxx"), true); // dip = 10.0.18.0/23
