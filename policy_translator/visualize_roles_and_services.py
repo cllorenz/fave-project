@@ -24,6 +24,8 @@ import os
 import graphviz
 from graphviz import Digraph
 
+from typing import Dict, List
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("no file to visualize. quit.")
@@ -34,9 +36,9 @@ if __name__ == '__main__':
 
     roles_and_services = sys.argv[1]
 
-    roles = {}
-    services = {}
-    offers = {}
+    roles: Dict[str, List[str]] = {}
+    services: Dict[str, Dict[str, str]] = {}
+    offers: Dict[str, List[str]] = {}
     with open(roles_and_services, 'r') as f:
         current_role = ''
         current_service = ''

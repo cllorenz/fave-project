@@ -24,6 +24,8 @@ import os
 import graphviz
 from graphviz import Digraph
 
+from typing import Any, Dict, List
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("no file to visualize. quit.")
@@ -38,7 +40,7 @@ if __name__ == '__main__':
     roles_and_services = sys.argv[1]
     policies = sys.argv[2]
 
-    roles = {'Internet' : []}
+    roles: Dict[str, List[str]] = {'Internet' : []}
     with open(roles_and_services, 'r') as f:
         for line in f.read().split('\n'):
             if line.startswith('#'): continue
@@ -51,7 +53,7 @@ if __name__ == '__main__':
                 roles[current_role].append(token[1])
 
     default = 'deny'
-    reach = {}
+    reach: Dict[str, List[Any]] = {}
     with open(policies, 'r') as f:
         for line in f.read().split('\n'):
             if line.startswith('#'): continue

@@ -20,11 +20,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import sys
 import argparse
 import logging
 import csv
 import json
+
+from typing import Any, List
 
 from policy import Policy
 from policy_builder import PolicyBuilder
@@ -32,7 +36,7 @@ from policy_exceptions import PolicyException
 from policy_logger import PT_LOGGER
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     """Builds a Policy object out of an inventory and policy file and optionally
     generates reachability tables in HTML or CSV formats."""
 
@@ -53,11 +57,11 @@ def main(argv):
     args = parser.parse_args(argv)
 
     if args.trace:
-        PT_LOGGER.setLevel(logging.TRACE)
+        PT_LOGGER.setLevel(logging.TRACE)  # type: ignore[attr-defined]
     elif args.debug:
         PT_LOGGER.setLevel(logging.DEBUG)
 
-    files = []
+    files: List[Any] = []
     try:
         PT_LOGGER.debug(args.files)
         for file_ in args.files:
@@ -72,7 +76,7 @@ def main(argv):
     for file_ in files:
         file_.close()
     if args.report_csv:
-        with open(args.report_csv, 'rb') as csv_file:
+        with open(args.report_csv, 'r') as csv_file:  # py3 csv.reader needs text, not 'rb'
             rows = csv.reader(csv_file, delimiter=' ', quotechar='|')
             report_csv = [row[0].split(',') for row in rows]
 
