@@ -1092,9 +1092,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
         # find links towards probe
         port2 = self.global_port(node+'.1')
-        # FIXME: self.ports[sport] is a single int, so `port2 in ...` is a bug
-        # (likely meant self.links[sport]); left as-is pending confirmation.
-        sports = [sport for sport in self.links if port2 in self.ports[sport]]  # type: ignore[operator]
+        sports = [sport for sport in self.links if port2 in self.links[sport]]
 
         for port1 in sports:
             if self.logger.isEnabledFor(logging.DEBUG):

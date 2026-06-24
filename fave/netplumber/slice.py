@@ -64,10 +64,8 @@ class Slice(object):
 
         jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        # FIXME: ns_diff reads jd["ns_list"] -- looks like a copy-paste bug
-        # (should be jd["ns_diff"]); left as-is pending confirmation.
         return Slice(
-            jd["sid"], ns_list=jd["ns_list"], ns_diff=jd["ns_list"]
+            jd["sid"], ns_list=jd["ns_list"], ns_diff=jd["ns_diff"]
         )
 
 
