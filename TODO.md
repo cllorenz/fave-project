@@ -137,8 +137,8 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **`example.sh` does `... || echo "some example flow tests failed"` and exits 0** — the failure is reported but swallowed (seen in CI). Decide: make it fail the script (so the e2e tier reflects it), or accept it while e2e stays non-gating. (The C++ `make test` propagation half of the old item is done — see 1i.)
 - **Theme:** same "checks that don't gate" smell as the lint script (item 2) and the old coverage report (item 3).
 
-### 1j. `\-` SyntaxWarning (py3 cleanliness) — confirmed in two files
-- [ ] **Make the regex strings raw strings.** `fave/iptables/parser.py:487` and `policy_translator/policy_builder.py:33` both emit `SyntaxWarning: invalid escape sequence '\-'`. Trivial; batch with a broader raw-string sweep if desired.
+### 1j. `\-` SyntaxWarning (py3 cleanliness) — DONE
+- [x] **Made the regex strings raw strings.** `fave/iptables/parser.py:487` (`_word`) and `policy_translator/policy_builder.py:33` (`value_pattern`) → `r'...'`. A repo-wide sweep (excluding venv/hassel/deprecated) confirmed these were the only two. Verified behavior-preserving: raw strings leave the exact bytes the regex engine receives unchanged (the `\"`-vs-`"` in `policy_builder`'s class is regex-equivalent — both match `"`), and a char-by-char comparison of old vs new showed no difference. Re-sweep: 0 invalid-escape warnings remain.
 
 ### 1k. Fast-tier RPC client-contract test — TODO (agreed)
 - [ ] **Add a mock-socket test for `netplumber/jsonrpc.py` in the fast tier.**
