@@ -101,6 +101,19 @@ The heavier tiers need the full native stack (compiled NetPlumber, `pybison`),
 i.e. the Docker image described above. Set `COVERAGE=1` to additionally print a
 coverage report (`COVERAGE=1 ./test.sh fast`).
 
+Alongside the test tiers there is a static type-checking gate that runs `mypy`
+over the typed modules and fails on any type error (`mypy` ships in
+`requirements.txt`, so the `fast`-tier venv already has it):
+
+    $> bash fave/test/typecheck_test.sh
+
+Like the `fast` tier it is pure-Python (mypy analyses statically, so no native
+stack is needed). `fave` and `PolicyTranslator` are independent tools and are
+checked independently — each with its own `mypy.ini` and source root — and the
+gate fails if either does. Which modules are checked is governed by the
+per-module sections in the respective `mypy.ini`, so typing a new module is a
+matter of adding its section. In CI this runs as a gating `typecheck` job.
+
 
 ## Benchmarks
 
