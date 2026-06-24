@@ -535,6 +535,7 @@ class AggregatorService(AbstractAggregator):
         self.verification_engine.delete_rules(model)
         self.verification_engine.delete_wiring(model)
         self.verification_engine.delete_tables(model)
+        self._del_ports(model)
 
 
     def _add_model(self, model):
@@ -556,13 +557,6 @@ class AggregatorService(AbstractAggregator):
     def _del_ports(self, model):
         for port in model.ports:
             del self.port_to_model[port]
-
-
-    def _delete_model(self, model):
-        self.verification_engine.delete_rules(model)
-        self.verification_engine.delete_wiring(model)
-        self.verification_engine.delete_tables(model)
-        self._del_ports(model)
 
 
     def _dump_aggregator(self, odir):
