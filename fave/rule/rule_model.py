@@ -30,17 +30,13 @@ import json
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
+from util.typing_util import JSONDict
 
 from netplumber.vector import Vector, intersect_vectors
 from netplumber.mapping import FIELD_SIZES
 
-# --- typing aliases (pilot-local; see TODO item 6) ---------------------------
-# A decoded JSON object. The from_json factories accept either a JSON string or
-# an already-decoded object, so the public parameter type is Union[str, JSONDict]
-# (and Optional where an empty match is allowed). Promote to TypedDict later if
-# per-field precision is wanted. When the migration grows beyond this pilot,
-# these aliases should move to a shared module (e.g. util/typing.py).
-JSONDict = Dict[str, Any]
+# --- typing aliases ----------------------------------------------------------
+# JSONDict (the decoded-JSON boundary type) is shared via util.typing_util.
 # A field value may be a textual value, a header-space Vector, or None. The None
 # case is real: Match.intersect feeds RuleField.intersect's result (which is
 # bitvector_to_field_value(...), None for an all-ignore vector) back into a
