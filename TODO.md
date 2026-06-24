@@ -144,8 +144,13 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [x] **Added `fave/test/test_jsonrpc_client.py`** — 10 mock-socket contract tests for `netplumber/jsonrpc.py`, no backend, auto-discovered into the fast tier (now 90 passed, <1s). Covers: request encoding (method+params+`jsonrpc:"2.0"`) for `init`/`destroy`/`add_table`/`add_link`/`remove_rule`/`add_rule`; response parsing (`add_rule` returns the `result` node id); error handling (`error.code != 0` → `RPCError`; `code == 0` → ok); multi-socket broadcast; and a **regression guard** for the `connect_to_netplumber` `%`-format fix (mocks `socket`/`time.sleep` so the 100-retry loop is instant). A `FakeSocket` models the `MSG_PEEK`-then-consume recv pattern.
 - **Rationale (with user):** mocking fits the *client/protocol* surface (correct JSON requests, response parsing); it does NOT replace `test_rpc` (whose log assertions validate NetPlumber's engine). Derived from the JSON-RPC interface contract, not C++ internals — small, stable maintenance surface.
 
-### 1l. NetPlumber port convention is inconsistent — TODO
-- [ ] **Pick one default port and apply it consistently.** `1234` is used by `test_rpc`, `scripts/test_all.sh`, `print_np.py`, `check_compliance.py`, `demo_slicing.py`; `44001` is `jsonrpc.NET_PLUMBER_DEFAULT_PORT` and `start_np.sh`'s default. `test_rpc` was relying on a mismatch (now patched locally with `-p 1234`). Consolidate to avoid the next surprise.
+### 1l. NetPlumber port convention — DONE (consolidated on 44001)
+- [x] **Standardized on `44001` = `NET_PLUMBER_DEFAULT_PORT`** (already the default for `start_np.sh`, the benchmarks, the aggregator, and `check_compliance`'s real default). Fixed the stragglers:
+  - `print_np.py` — actual default `port = 1234`/`server = "127.0.0.1"` → `jsonrpc.NET_PLUMBER_DEFAULT_PORT`/`NET_PLUMBER_DEFAULT_IP` (single source of truth); stale help text `port=1234` → `44001`.
+  - `check_compliance.py` — stale help text `port=1234` → `44001` (its real default already used the constant).
+  - `test_rpc.py` — now starts `start_np.sh` with its default (44001) and connects to `NET_PLUMBER_DEFAULT_PORT` (dropped the earlier self-consistent `-p 1234` patch).
+  - `scripts/test_all.sh` — `NPPORT=44001`; `examples/demo_slicing.py` — `PORT=44001`.
+  - Verified: no `1234` remains in `fave/` (excl. venv/hassel); changed files compile; `print_np.py` lints clean.
 
 ### 1m. pandoc PDF report needs a LaTeX engine — minimal install added (verify on CI)
 - [x] **Installed a minimal LaTeX set** (`texlive-latex-base` + `texlive-latex-recommended` + `texlive-fonts-recommended`) for `pandoc report.md -o report.pdf` (which needs `pdflatex`). `texlive-latex-extra`/`texlive-full` intentionally omitted — the generated `report.md` is plain markdown (headings, lists, inline code; no tables/images/math), so pandoc won't pull in `longtable`/`booktabs`. Added to the composite action and the `Dockerfile`.
