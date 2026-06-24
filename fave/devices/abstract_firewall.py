@@ -25,7 +25,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
+from typing import Collection, Iterable, List, Optional
 
 from copy import copy, deepcopy
 
@@ -50,7 +50,10 @@ class AbstractFirewallModel(AbstractDeviceModel):
     ) -> None:
         super(AbstractFirewallModel, self).__init__(node, pf_type)
 
-        self.internal_ports: List[str] = []
+        # Used only for `in` membership checks (ingress_port/egress_port).
+        # Subclasses store either a list (here) or a dict (e.g. PacketFilterModel),
+        # so the honest shared type is Collection[str], not List[str].
+        self.internal_ports: Collection[str] = []
         self.ports = {
             node + '.' + str(port) : "" for port in (
                 ports if ports is not None else ["1", "2"]

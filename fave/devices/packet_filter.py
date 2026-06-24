@@ -23,17 +23,25 @@
     fields, rules and packet filter models.
 """
 
+from __future__ import annotations
+
 import json
+
+from typing import List, Optional, Union
 
 from devices.abstract_firewall import AbstractFirewallModel
 from rule.rule_model import Rule, Forward, Match, RuleField, Rewrite
+from util.typing_util import JSONDict
 
 
 class PacketFilterModel(AbstractFirewallModel):
     """ This class stores packet filter models.
     """
 
-    def __init__(self, node, ports=None, address=None):
+    def __init__(
+            self, node: str, ports: Optional[List[str]] = None,
+            address: Optional[str] = None
+    ) -> None:
         super(PacketFilterModel, self).__init__(node, "packet_filter")
 
         ports = ports if ports is not None else ["1", "2"]
@@ -125,22 +133,21 @@ class PacketFilterModel(AbstractFirewallModel):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "PacketFilterModel":
         """ Construct a packet filter model from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        npf = PacketFilterModel(j["node"])
+        npf = PacketFilterModel(jd["node"])
         npf.tables = {}
-        tables = j["tables"]
+        tables = jd["tables"]
         for table in tables:
             npf.tables[table] = [Rule.from_json(r) for r in tables[table]]
 
-        npf.ports = j["ports"]
-        npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]
+        npf.ports = jd["ports"]
+        npf.wiring = [(p1, p2) for p1, p2 in jd["wiring"]]
         return npf
