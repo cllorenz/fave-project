@@ -30,7 +30,7 @@ class PolicyBuilder(object):
 
     define_pattern = "(def | define | describe)"
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
-    value_pattern = "[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
+    value_pattern = r"[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
     comment_pattern = r"[ \t]* \# [ \t]* .* (\r\n|[\r\n])"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""

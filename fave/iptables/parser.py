@@ -484,7 +484,7 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
 )'
     _states = r"%s(,%s)*" % (_state, _state)
 
-    _word = '[[:alnum:]_\-/]+'
+    _word = r'[[:alnum:]_\-/]+'
     _wordlist = '%s(,%s)*' % (_word, _word)
 
     _proto = '[[:digit:]]{1,3}'
