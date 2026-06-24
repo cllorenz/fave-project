@@ -37,7 +37,7 @@ from rule.rule_model import RuleField, RuleAction, Match, Forward, Rule, Rewrite
 from util.typing_util import JSONDict
 
 
-CAPACITY = 2**16 / 2**12 # XXX: ugly workaround
+CAPACITY = 2**16 // 2**12 # 16 (integer division; see TODO 1q)
 
 class RouterModel(AbstractDeviceModel):
     """ This class provides a model for routers.
@@ -243,12 +243,7 @@ class RouterModel(AbstractDeviceModel):
                         acl_in_ports = [acl_table+'_in']
 
                     rule = Rule(
-                        # aid is a float because CAPACITY uses `/` (see the XXX
-                        # above); idx ends up e.g. 16.0. Rule.from_json int()-
-                        # coerces on round-trip and __eq__ is numeric, so this
-                        # works but is sloppy. Preserving behaviour (serialises
-                        # as "16.0"); fixing needs `//` + e2e check. See TODO 6.
-                        self.node, acl_table, aid+rid,  # type: ignore[arg-type]
+                        self.node, acl_table, aid+rid,
                         in_ports=acl_in_ports,
                         match=Match(fields=vlan_match + [
                             RuleField(
