@@ -26,9 +26,11 @@ import argparse
 import sys
 import pyparsing as pp
 
+from typing import Any, List
+
 from pprint import pprint, pformat
 
-def run_test(subject_under_test, input_):
+def run_test(subject_under_test: Any, input_: str) -> None:
     print(
         "test parsing %s with input '%s'" % (subject_under_test, input_)
     )
@@ -38,7 +40,7 @@ def run_test(subject_under_test, input_):
         "\ntest result: %s\n" % pformat(res.asList(), indent=4)
     )
 
-def parse_fpl(raw_policy: str, use_tests=False):
+def parse_fpl(raw_policy: str, use_tests: bool = False) -> Any:
     comment = pp.Char('#') + pp.SkipTo(pp.LineEnd())
     comment.setName('comment')
 
@@ -250,7 +252,7 @@ operator_to_str = {
 }
 
 
-def print_prosa(fpl_policy):
+def print_prosa(fpl_policy: Any) -> None:
     for entry in fpl_policy:
         head, tail = head_tail(entry)
 
@@ -319,7 +321,7 @@ def print_prosa(fpl_policy):
             break
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     parser = argparse.ArgumentParser(
         description='Parses FPL inventories and policies.'
     )
