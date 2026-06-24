@@ -207,7 +207,7 @@ def destroy(socks: List[socket.socket]) -> None:
     _asend_recv(socks, json.dumps(data))
 
 
-def add_table(socks: List[socket.socket], t_idx: int, ports: List[str]) -> None:
+def add_table(socks: List[socket.socket], t_idx: int, ports: Any) -> None:
     """ Adds a table.
 
     Keyword arguments:
@@ -236,7 +236,7 @@ def remove_table(socks: List[socket.socket], t_idx: int) -> None:
     _asend_recv(socks, json.dumps(data))
 
 
-def add_rule(socks: List[socket.socket], t_idx: int, r_idx: int, in_ports: List[str], out_ports: List[str], match: str, mask: str, rewrite: str) -> Any:
+def add_rule(socks: List[socket.socket], t_idx: int, r_idx: int, in_ports: Any, out_ports: Any, match: Any, mask: Any, rewrite: Any) -> Any:
     """ Adds a rule to a table.
 
     Keyword arguments:
@@ -313,7 +313,7 @@ def remove_rule(socks: List[socket.socket], r_idx: int) -> None:
     _asend_recv(socks, json.dumps(data))
 
 
-def add_link(socks: List[socket.socket], from_port: str, to_port: str) -> None:
+def add_link(socks: List[socket.socket], from_port: Any, to_port: Any) -> None:
     """ Adds a directed link between two ports.
 
     Keyword arguments:
@@ -369,7 +369,7 @@ def add_links_bulk(socks: List[socket.socket], links: Iterable[Any], use_dynamic
         pass #dynamic_distribution.distribute_nodes_and_links()  # XXX
 
 
-def remove_link(socks: List[socket.socket], from_port: str, to_port: str) -> None:
+def remove_link(socks: List[socket.socket], from_port: Any, to_port: Any) -> None:
     """ Removes a link.
 
     Keyword arguments:
@@ -384,7 +384,7 @@ def remove_link(socks: List[socket.socket], from_port: str, to_port: str) -> Non
     _asend_recv(socks, json.dumps(data))
 
 
-def add_source(socks: List[socket.socket], idx: int, hs_list: List[str], hs_diff: List[str], ports: List[str], use_dynamic: bool = False) -> Any:
+def add_source(socks: List[socket.socket], idx: int, hs_list: Any, hs_diff: Any, ports: Any, use_dynamic: bool = False) -> Any:
     """ Adds a source node.
 
     Keyword arguments:
@@ -485,7 +485,7 @@ def remove_source(socks: List[socket.socket], s_idx: int) -> None:
     _asend_recv(socks, json.dumps(data))
 
 
-def add_source_probe(socks: List[socket.socket], ports: List[str], mode: str, match: Any, filterexp: Any, test: Any, idx: int) -> Any:
+def add_source_probe(socks: List[socket.socket], ports: Any, mode: str, match: Any, filterexp: Any, test: Any, idx: int) -> Any:
     """ Adds a probe node.
 
     Keyword arguments:
@@ -525,7 +525,7 @@ def remove_source_probe(socks: List[socket.socket], sp_idx: int) -> None:
     _asend_recv(socks, json.dumps(data))
 
 
-def add_slice(socks: List[socket.socket], nid: int, ns_list: List[str], ns_diff: List[str]) -> None:
+def add_slice(socks: List[socket.socket], nid: int, ns_list: Any, ns_diff: Any) -> None:
     """ Adds a network slice.
 
     Keyword arguments:

@@ -20,10 +20,14 @@
 """ This module implements an adapter from FaVe to NetPlumber.
 """
 
+from __future__ import annotations
+
 import itertools
 import logging
 import json
 import sys
+
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from copy import deepcopy
 
@@ -39,7 +43,7 @@ from util.ip6np_util import field_value_to_bitvector
 from rule.rule_model import Rule, Match, Forward, Rewrite, RuleField
 
 
-def _calc_port(tab, model, port):
+def _calc_port(tab: int, model: Any, port: str) -> int:
     """ Calculates a port number for a table.
 
     Keyword arguments:
@@ -56,7 +60,7 @@ _TABLE_IDX_MAX = 2**32-1
 _RULE_IDX_MAX = 2**24-1
 _NEG_IDX_MAX = 2**12-1
 
-def _calc_rule_index(r_idx, t_idx=0, n_idx=0):
+def _calc_rule_index(r_idx: int, t_idx: int = 0, n_idx: int = 0) -> int:
     """ Calculates the rule index within a table
 
     Keyword arguments:
@@ -72,7 +76,7 @@ def _calc_rule_index(r_idx, t_idx=0, n_idx=0):
     return (t_idx<<32)+(r_idx<<12)+n_idx
 
 
-def _expand_field(field):
+def _expand_field(field: RuleField) -> List[Vector]:
     """ Expands a negated field to a set of vectors.
 
     Keyword argument:
@@ -105,30 +109,31 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
     def __init__(
         self,
-        socks, logger,
-        asyncore_socks=None,
-        mapping=None
-    ):
+        socks: List[Any],
+        logger: Any,
+        asyncore_socks: Optional[Dict[Any, Any]] = None,
+        mapping: Optional[Any] = None
+    ) -> None:
         self.socks = socks
         self.asyncore_socks = asyncore_socks if asyncore_socks else {}
         self.mapping = Mapping.from_json(mapping) if mapping else Mapping(0)
-        self.mapping_keys = set(self.mapping.keys())
-        self.tables = {}
-        self.model_types = {}
-        self.links = {}
+        self.mapping_keys: Set[str] = set(self.mapping.keys())
+        self.tables: Dict[str, int] = {}
+        self.model_types: Dict[str, str] = {}
+        self.links: Dict[Any, List[Any]] = {}
         self.fresh_table_index = 1
-        self.ports = {}
-        self.rule_ids = {}
-        self.generators = {}
-        self.probes = {}
+        self.ports: Dict[str, int] = {}
+        self.rule_ids: Dict[int, List[Any]] = {}
+        self.generators: Dict[str, Any] = {}
+        self.probes: Dict[str, Any] = {}
         self.logger = logger
 
-    def stop(self):
+    def stop(self) -> None:
         """ Stops NetPlumber.
         """
         jsonrpc.stop(self.socks)
 
-    def dump_flows(self, odir):
+    def dump_flows(self, odir: str) -> None:
         """ Dumps flows.
 
         Arguments:
@@ -136,7 +141,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         """
         jsonrpc.dump_flows(self.socks, odir)
 
-    def dump_plumbing_network(self, odir):
+    def dump_plumbing_network(self, odir: str) -> None:
         """ Dumps plumbing network.
 
         Arguments:
@@ -144,7 +149,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         """
         jsonrpc.dump_plumbing_network(self.socks, odir)
 
-    def dump_pipes(self, odir):
+    def dump_pipes(self, odir: str) -> None:
         """ Dumps pipes.
 
         Arguments:
@@ -152,7 +157,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         """
         jsonrpc.dump_pipes(self.socks, odir)
 
-    def dump_flow_trees(self, odir, keep_simple=False):
+    def dump_flow_trees(self, odir: str, keep_simple: bool = False) -> None:
         """ Dumps flow trees.
 
         Arguments:
@@ -160,7 +165,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         """
         jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
 
-    def check_anomalies(self, use_shadow=False, use_reach=False, use_general=False):
+    def check_anomalies(self, use_shadow: bool = False, use_reach: bool = False, use_general: bool = False) -> None:
         """ Orders NetPlumber to check all tables for anomalies.
         """
         jsonrpc.check_anomalies(
@@ -171,8 +176,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         )
 
 
-    def _create_compliance_rules(self, rules):
-        res = {}
+    def _create_compliance_rules(self, rules: Any) -> Dict[Any, Any]:
+        res: Dict[Any, Any] = {}
         for dst, src_rules in rules.items():
             _, dst_id, _ = self.probes[dst]
             res.setdefault(dst_id, [])
@@ -184,7 +189,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return res
 
 
-    def check_compliance(self, rules):
+    def check_compliance(self, rules: Any) -> None:
         """ Orders NetPlumber to check all tables for anomalies.
         """
         jsonrpc.check_compliance(
@@ -192,16 +197,16 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self._create_compliance_rules(rules)
         )
 
-    def _expand(self):
+    def _expand(self) -> None:
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length
         )
         jsonrpc.expand(self.socks, self.mapping.length)
 
-    def _get_index_for_src(self, src):
+    def _get_index_for_src(self, src: str) -> Any:
         return self.generators.get(src.rstrip('1').rstrip('.'), [-1, 0, 0])[0]
 
-    def add_links_bulk(self, links, use_dynamic=False):
+    def add_links_bulk(self, links: Iterable[Any], use_dynamic: bool = False) -> None:
         """ Add a bulk of links.
 
         Arguments:
@@ -221,7 +226,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             use_dynamic=use_dynamic
         )
 
-    def add_link(self, sport, dport):
+    def add_link(self, sport: str, dport: str) -> None:
         """ Add a link.
 
         Arguments:
@@ -231,7 +236,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         jsonrpc.add_link(self.socks, self.global_port(sport), self.global_port(dport))
 
 
-    def remove_link(self, sport, dport):
+    def remove_link(self, sport: Any, dport: Any) -> None:
         """ Remove a link.
 
         Arguments:
@@ -243,7 +248,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         if not self.links[sport]: del self.links[sport]
 
 
-    def _expand_negations(self, match):
+    def _expand_negations(self, match: Match) -> List[Vector]:
         """ Expands a match with negated fields to a set of vectors.
 
         Keyword arguments:
@@ -277,7 +282,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return matches
 
 
-    def _update_mapping(self, field_names):
+    def _update_mapping(self, field_names: Set[str]) -> None:
         diff = field_names - self.mapping_keys
 
         if diff:
@@ -287,7 +292,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self._expand()
 
 
-    def _build_vector(self, fields, preset='x'):
+    def _build_vector(self, fields: Iterable[RuleField], preset: str = 'x') -> Vector:
         self._update_mapping(set([f.name for f in fields]))
 
         vec = Vector(length=self.mapping.length, preset=preset)
@@ -302,7 +307,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return vec
 
 
-    def add_slice(self, slicem):
+    def add_slice(self, slicem: Any) -> None:
         """ Add a network slice.
 
         Arguments:
@@ -325,7 +330,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         jsonrpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
 
 
-    def del_slice(self, sid):
+    def del_slice(self, sid: Any) -> None:
         """ Remove a network slice.
 
         Arguments:
@@ -339,7 +344,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         jsonrpc.remove_slice(self.socks, sid)
 
 
-    def add_tables(self, model):
+    def add_tables(self, model: Any) -> None:
         """ Add model tables.
 
         Arguments:
@@ -376,7 +381,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 jsonrpc.add_table(self.socks, idx, ports)
 
 
-    def add_wiring(self, model):
+    def add_wiring(self, model: Any) -> None:
         """ Add internal model wirings.
 
         Arguments:
@@ -418,7 +423,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.links[gport1].append(gport2)
 
 
-    def _add_pre_routing_rules(self, model):
+    def _add_pre_routing_rules(self, model: Any) -> None:
         table = model.node+'.pre_routing'
         tid = self.tables[table]
 
@@ -491,7 +496,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _add_post_routing_rules(self, model):
+    def _add_post_routing_rules(self, model: Any) -> None:
         table = model.node+'.post_routing'
         tid = self.tables[table]
 
@@ -561,7 +566,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _prepare_generic_rule(self, rule):
+    def _prepare_generic_rule(self, rule: Any) -> List[Any]:
         tid = self.tables[rule.tid]
         rid = rule.idx
         out_ports = []
@@ -626,7 +631,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return res
 
 
-    def _add_generic_table(self, model, table):
+    def _add_generic_table(self, model: Any, table: str) -> None:
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("worker: add %s rules to %s:" % (len(model.tables[table]), table))
 
@@ -667,7 +672,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 self.rule_ids[np_rid].append(r_id)
 
 
-    def add_rules(self, model):
+    def add_rules(self, model: Any) -> None:
         """ Add model rules.
 
         Arguments:
@@ -705,7 +710,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self._add_pre_routing_rules(model)
 
 
-    def add_rules_batch(self, rules):
+    def add_rules_batch(self, rules: List[Any]) -> None:
         """ Add a batch of rules.
 
         rules -- a list of rules
@@ -749,7 +754,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def delete_rules(self, model):
+    def delete_rules(self, model: Any) -> None:
         """ Deletes all rules from a device model.
 
         Arguments:
@@ -770,7 +775,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 del self.rule_ids[_calc_rule_index(rid, t_idx=tid)]
 
 
-    def delete_wiring(self, model):
+    def delete_wiring(self, model: Any) -> None:
         """ Remove all internal wiring of a device model.
 
         Arguments:
@@ -799,7 +804,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             )
 
 
-    def delete_tables(self, model):
+    def delete_tables(self, model: Any) -> None:
         """ Deletes all tables of a device model.
 
         Arguments:
@@ -819,7 +824,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 del self.tables[table]
 
 
-    def _prepare_generator(self, model):
+    def _prepare_generator(self, model: Any) -> Tuple[Any, int, int, HeaderSpace]:
         name = model.node
         if name in self.generators:
             self.delete_generator(name)
@@ -838,7 +843,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return (name, idx, portno, outgoing)
 
 
-    def add_generator(self, model):
+    def add_generator(self, model: Any) -> None:
         """ Add a generator model.
 
         Arguments:
@@ -866,7 +871,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self.generators[name] = (idx, sid, model)
 
 
-    def add_generators_bulk(self, models, use_dynamic=False):
+    def add_generators_bulk(self, models: Iterable[Any], use_dynamic: bool = False) -> None:
         """ Add a bulk of generator models.
 
         Arguments:
@@ -912,7 +917,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.generators[name] = (idx, sids[idx], idx_to_model[idx])
 
 
-    def delete_generator(self, node):
+    def delete_generator(self, node: str) -> None:
         """ Deletes a generator model.
 
         Arguments:
@@ -947,14 +952,14 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         del self.tables[node]
 
 
-    def _get_model_table(self, node):
+    def _get_model_table(self, node: str) -> int:
         mtype = self.model_types[node]
         return self.tables[
             node+'.post_routing' if mtype == 'packet_filter' else node+'.1'
         ]
 
 
-    def _build_headerspace(self, fields):
+    def _build_headerspace(self, fields: Dict[str, Any]) -> HeaderSpace:
         keys = sorted(fields.keys())
         combinations = itertools.product(*(fields[k] for k in keys))
 
@@ -971,7 +976,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         return HeaderSpace(self.mapping.length, hs_list=hs_list)
 
 
-    def add_probe(self, model):
+    def add_probe(self, model: Any) -> None:
         """ Add a probe model.
 
         Arguments:
@@ -1073,7 +1078,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self.probes[name] = (idx, pid, model)
 
 
-    def delete_probe(self, node):
+    def delete_probe(self, node: str) -> None:
         """ Delete a probe model
 
         Arguments:
@@ -1085,7 +1090,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
         # find links towards probe
         port2 = self.global_port(node+'.1')
-        sports = [sport for sport in self.links if port2 in self.ports[sport]]
+        # NOTE: self.ports[sport] is a single int (a global port), so `port2 in
+        # ...` is a latent bug (likely intended self.links[sport]); preserved
+        # as-is and flagged for the author.
+        sports = [sport for sport in self.links if port2 in self.ports[sport]]  # type: ignore[operator]
 
         for port1 in sports:
             if self.logger.isEnabledFor(logging.DEBUG):
@@ -1107,10 +1115,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         del self.tables[node]
 
 
-    def global_port(self, port):
+    def global_port(self, port: Any) -> int:
         """ Get global port ID.
 
         Arguments:
-        port -- a port name
+        port -- a port name (callers also pass RuleField values, hence Any)
         """
         return self.ports[port]
