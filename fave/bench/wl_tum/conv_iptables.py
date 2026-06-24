@@ -41,12 +41,6 @@ def _get_action_from_rule(rule):
     #raise Exception("no action in rule: " + str(rule))
 
 
-def _get_chain_from_rule(rule):
-    for opt, arg in rule:
-        if opt == 'append':
-            return arg[0]
-
-
 def _get_body_from_rule(rule):
     return [(opt, arg) for opt, arg in rule if opt not in ['append', 'jump']]
 
