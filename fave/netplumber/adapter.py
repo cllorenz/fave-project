@@ -357,7 +357,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             name = table
 
             if name not in self.tables:
-                if hasattr(model, 'table_ids'):
+                # SwitchModel always binds `table_ids` now (None when unset), so
+                # test truthiness rather than mere presence: a None/absent value
+                # means "assign a fresh index".
+                if getattr(model, 'table_ids', None):
                     idx = model.table_ids[name.rstrip('.1')]
                     self.fresh_table_index = idx + 1 # XXX: only works if tables appear in order
                 else:
