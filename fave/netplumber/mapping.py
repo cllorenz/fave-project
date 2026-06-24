@@ -22,9 +22,15 @@
 """ This module provides data structures for mappings of header fields.
 """
 
+from __future__ import annotations
+
 import json
 
-FIELD_SIZES = {
+from typing import Dict, Optional, Union, cast
+
+from util.typing_util import JSONDict
+
+FIELD_SIZES: Dict[str, int] = {
     "related" : 8,
     "packet.ether.source" : 48,
     "packet.ether.destination" : 48,
@@ -74,11 +80,13 @@ FIELD_SIZES = {
 }
 
 
-class Mapping(dict):
+class Mapping(Dict[str, int]):
     """ This class stores mappings of fields giving meaning to bits on a vector.
     """
 
-    def __init__(self, length=0, mapping=None):
+    def __init__(
+            self, length: int = 0, mapping: Optional[Dict[str, int]] = None
+    ) -> None:
         """ Contructs a mapping object.
 
         Keyword arguments:
@@ -93,7 +101,7 @@ class Mapping(dict):
         self.length = length
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         """ Provides a string representation of the mapping.
         """
 
@@ -103,32 +111,33 @@ class Mapping(dict):
         )
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the mapping to JSON.
         """
 
-        tmp = dict(self)
+        tmp: JSONDict = dict(self)
         tmp["length"] = self.length
         return tmp
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Mapping":
         """ Constructs a mapping from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        length = j["length"]
-        del j["length"]
-        return Mapping(length=length, mapping=j)
+        length = jd["length"]
+        del jd["length"]
+        # The remaining JSON values are field bit-offsets (ints); cast across
+        # the untyped JSON boundary.
+        return Mapping(length=length, mapping=cast(Dict[str, int], jd))
 
 
-    def __cmp__(self, other):
+    def __cmp__(self, other: object) -> bool:
         """ Compares the mapping with another.
 
         Keyword arguments:
@@ -144,7 +153,7 @@ class Mapping(dict):
         return True
 
 
-    def extend(self, field):
+    def extend(self, field: str) -> None:
         """ Extends the mapping with a field.
 
         Keyword arguments:
@@ -157,7 +166,7 @@ class Mapping(dict):
         self.length += FIELD_SIZES[field]
 
 
-    def __add__(self, other):
+    def __add__(self, other: "Mapping") -> "Mapping":
         """ Adds another mapping.
 
         Keyword arguments:
@@ -169,7 +178,7 @@ class Mapping(dict):
         return mapping
 
 
-    def expand(self, other):
+    def expand(self, other: "Mapping") -> None:
         """ Expands the mapping by adding fields from another mapping.
 
         Keyword arguments:
