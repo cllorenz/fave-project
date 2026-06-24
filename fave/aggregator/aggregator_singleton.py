@@ -22,6 +22,5 @@
 
 from typing import Any
 
-# Reassigned to the running Aggregator instance at startup; Any avoids a
-# circular import with aggregator_service.
+# reassigned to the Aggregator instance at startup; Any avoids an import cycle
 AGGREGATOR: Any = None

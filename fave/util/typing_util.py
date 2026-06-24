@@ -19,13 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" Shared typing aliases for the FaVe type-checking migration (TODO item 6).
+""" Shared typing aliases for FaVe.
 """
 
 from typing import Any, Dict
 
-# A decoded JSON object. The model classes' from_json factories accept either a
-# JSON string or an already-decoded object; the public parameter type is
-# therefore Union[str, JSONDict] (Optional where an empty value is allowed).
-# Promote to TypedDict per record later if per-field precision is wanted.
+# A decoded JSON object, as produced by json.loads / consumed by from_json.
 JSONDict = Dict[str, Any]

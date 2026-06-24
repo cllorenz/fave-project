@@ -62,8 +62,7 @@ class AbstractDeviceModel(object):
         self.tables: Dict[str, List["Rule"]] = tables if tables is not None else {}
         self.ports: Dict[str, Any] = ports if ports is not None else {}
         self.wiring: List[Tuple[str, str]] = wiring if wiring is not None else []
-        # _adds is keyed by table name (str) on reset, but add_rules inserts by
-        # rule.tid (int or str) -> keep the key type loose.
+        # keyed by table name on reset but by rule.tid (int or str) on insert
         self._adds: Dict[Any, List["Rule"]] = {t : [] for t in self.tables}
         self._deletes: List[int] = []
 

@@ -19,21 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-# GATING POLICY: run mypy over the typed "core slice" and fail (non-zero) on any
-# error. mypy is binary -- it passes or it does not; there is no style/error
-# split as in lint_test.sh. The catch-all `[mypy-*] ignore_errors = True` in
-# mypy.ini scopes reporting to the core modules, so not-yet-typed siblings that
-# the core imports do not produce noise.
-#
-# SINGLE SOURCE OF TRUTH: the set of checked files is DERIVED from the strict
-# per-module sections in mypy.ini (`[mypy-<pkg>.<mod>]` / `[mypy-<pkg>.*]`).
-# Adding a module to the migration is therefore one edit (its mypy.ini section)
-# and it is automatically covered here -- no second list to keep in sync.
-#
-# mypy runs ONCE over the whole set (not per-file) so cross-module inference
-# works. It analyses statically, so this needs no native stack (pybison etc. are
-# handled by ignore_missing_imports in mypy.ini) and runs in the pure-Python
-# environment, like the `fast` tier.
+# Run mypy over the typed modules and fail (non-zero) on any error. The set of
+# checked files is derived from the strict per-module sections in mypy.ini, so
+# adding a module to a section is all that is needed to cover it here. mypy runs
+# once over the whole set (for cross-module inference) and statically, so no
+# native stack is required.
 
 set -uo pipefail
 

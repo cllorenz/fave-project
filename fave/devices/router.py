@@ -37,7 +37,7 @@ from rule.rule_model import RuleField, RuleAction, Match, Forward, Rule, Rewrite
 from util.typing_util import JSONDict
 
 
-CAPACITY = 2**16 // 2**12 # 16 (integer division; see TODO 1q)
+CAPACITY = 2**16 // 2**12 # == 16; integer division (py3 `/` would give a float)
 
 class RouterModel(AbstractDeviceModel):
     """ This class provides a model for routers.

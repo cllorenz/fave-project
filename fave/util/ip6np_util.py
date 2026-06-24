@@ -35,9 +35,8 @@ from netplumber.vector import Vector
 from functools import reduce
 
 if TYPE_CHECKING:
-    # Imported for typing only: rule.rule_model imports this module at runtime,
-    # so a real import here would be circular. Annotations are strings (PEP 563)
-    # so this is never evaluated at runtime.
+    # typing only: rule.rule_model imports this module, so a runtime import
+    # would be circular.
     from rule.rule_model import RuleField
 
 
@@ -188,8 +187,7 @@ def field_value_to_bitvector(field: "RuleField") -> Vector:
 
     if isinstance(value, Vector):
         return value
-    # The remaining paths require a concrete (non-None) field value; a None
-    # value (e.g. an empty Match.intersect result) has no bitvector.
+    # the remaining paths need a concrete value; None has no bitvector
     assert value is not None
 
     if Vector.is_vector(str(value), name=name):
@@ -201,8 +199,7 @@ def field_value_to_bitvector(field: "RuleField") -> Vector:
         vec[:] = ('{0:0%sb}' % size).format(int(value))
         return vec
 
-    # Dispatch table field name -> normalizer. Heterogeneous by construction
-    # (each normalizer has its own signature), so Any is the honest type here.
+    # field name -> normalizer; signatures vary, hence Callable[[Any], Any].
     normalizers: Dict[str, Callable[[Any], Any]] = {
         "related" : _normalize_related,
         "packet.ether.vlan" : normalize_vlan_tag,
@@ -269,7 +266,7 @@ def bitvector_to_field_value(
     printable -- return hex representation if the field is a port type (default: False)
     """
 
-    # An empty intersection (intersect_vectors -> None) has no field value.
+    # an empty intersection (intersect_vectors -> None) has no field value
     if vector is None:
         return None
 

@@ -42,8 +42,7 @@ NET_PLUMBER_DEFAULT_PORT = 44001
 def _sendrecv(sock: socket.socket, msg: str) -> str:
     """ Synchronous RPC call.
     """
-    # NOTE: currently unused. Accumulate bytes and decode once: under py2
-    # sock.recv returned str so `result += part` worked, but py3 returns bytes.
+    # currently unused; accumulate bytes then decode (py3 recv returns bytes)
     sock.sendall(msg.encode('utf8'))
     result = b''
     while True:

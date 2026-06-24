@@ -39,8 +39,7 @@ class ProbeModel(object):
     def _normalize_fields(
             fields: Optional[Dict[str, List[RuleField]]]
     ) -> Dict[str, List[RuleField]]:
-        # Callers may pass None (the __init__ defaults); treat as empty, as
-        # GeneratorModel does inline, rather than crashing on None.items().
+        # __init__ defaults pass None; treat as empty (as GeneratorModel does)
         if fields is None:
             return {}
         return {

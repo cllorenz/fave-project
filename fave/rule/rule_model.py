@@ -35,12 +35,8 @@ from util.typing_util import JSONDict
 from netplumber.vector import Vector, intersect_vectors
 from netplumber.mapping import FIELD_SIZES
 
-# --- typing aliases ----------------------------------------------------------
-# JSONDict (the decoded-JSON boundary type) is shared via util.typing_util.
-# A field value may be a textual value, a header-space Vector, or None. The None
-# case is real: Match.intersect feeds RuleField.intersect's result (which is
-# bitvector_to_field_value(...), None for an all-ignore vector) back into a
-# RuleField. Construction sites elsewhere always pass str.
+# A field value: text, a header-space Vector, or None. The None case is real --
+# Match.intersect can feed an all-ignore intersection back into a RuleField.
 FieldValue = Union[str, "Vector", None]
 
 
@@ -445,9 +441,7 @@ class Rule(object):
 
         jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        # Dispatch table name -> action class. Heterogeneous by construction
-        # (each from_json returns its own concrete type), so Any is the honest
-        # value type here.
+        # name -> action class; heterogeneous, hence Any.
         actions: Dict[str, Any] = {
             "forward" : Forward,
             "rewrite" : Rewrite,

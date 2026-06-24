@@ -132,8 +132,7 @@ class Mapping(Dict[str, int]):
 
         length = jd["length"]
         del jd["length"]
-        # The remaining JSON values are field bit-offsets (ints); cast across
-        # the untyped JSON boundary.
+        # remaining JSON values are field bit-offsets (ints)
         return Mapping(length=length, mapping=cast(Dict[str, int], jd))
 
 

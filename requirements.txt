@@ -25,10 +25,7 @@ pyparsing==3.3.2
 coverage==7.14.2
 pytest==9.1.1
 
-# --- static type checking (TODO item 6) ---
-# Intentionally UNPINNED: we prefer to benefit from improved type checking in
-# newer mypy releases over version stability. If a new mypy surfaces a real
-# problem, fix the code promptly rather than pinning around it. The typecheck
-# gate covers the core slice (the strict sections in mypy.ini); see
-# fave/test/typecheck_test.sh.
+# --- static type checking ---
+# Intentionally UNPINNED: prefer newer mypy's improved checking over version
+# stability; fix the code if a new release surfaces a real problem.
 mypy

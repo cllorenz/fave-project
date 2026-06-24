@@ -231,8 +231,7 @@ def json_to_pathlet(j: JSONDict) -> str:
     """
 
     ptype = j["type"]
-    # The dispatch yields a value derived from the (untyped) JSON object; it is
-    # always a pathlet string by construction.
+    # the dispatch always yields a pathlet string
     return cast(str, {
         'start' : lambda: ptype,
         'end' : lambda: ptype,

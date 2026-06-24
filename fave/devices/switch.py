@@ -99,8 +99,7 @@ class SwitchModel(AbstractDeviceModel):
         self.ports = {node+"."+str(p) : node+".1" for p in ports}
         self.tables = {node+".1" : rules if rules is not None else []}
 
-        # Optional attribute: always bound (None when absent) so its type is
-        # known; to_json emits it only when truthy (matches the old hasattr).
+        # always bound (None when absent); to_json emits it only when truthy
         self.table_ids: Optional[Dict[str, int]] = table_ids if table_ids else None
 
 
@@ -332,8 +331,7 @@ def main(argv: List[str]) -> None:
             match=Match([]),
             actions=[]
         )
-        # rules is a list everywhere else (and to_json iterates it); the bare
-        # `rule` here was a latent bug -- a single Rule is not iterable.
+        # wrap in a list: to_json iterates rules (a bare Rule is not iterable)
         cmd = SwitchCommand(args.node, 'remove_rule', [rule])
 
 

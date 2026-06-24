@@ -54,7 +54,7 @@ def main() -> None:
 
         # receive data from unix domain socket
         nbytes = buf_size
-        data = b""  # py3: conn.recv returns bytes (was str under py2)
+        data = b""  # conn.recv returns bytes (py3)
         while nbytes == buf_size:
             tmp = conn.recv(buf_size)
             nbytes = len(tmp)

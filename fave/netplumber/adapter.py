@@ -357,9 +357,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             name = table
 
             if name not in self.tables:
-                # SwitchModel always binds `table_ids` now (None when unset), so
-                # test truthiness rather than mere presence: a None/absent value
-                # means "assign a fresh index".
+                # truthiness, not presence: SwitchModel always binds table_ids
+                # (None when unset); a None/absent value means fresh index.
                 if getattr(model, 'table_ids', None):
                     idx = model.table_ids[name.rstrip('.1')]
                     self.fresh_table_index = idx + 1 # XXX: only works if tables appear in order
@@ -1093,9 +1092,8 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
         # find links towards probe
         port2 = self.global_port(node+'.1')
-        # NOTE: self.ports[sport] is a single int (a global port), so `port2 in
-        # ...` is a latent bug (likely intended self.links[sport]); preserved
-        # as-is and flagged for the author.
+        # FIXME: self.ports[sport] is a single int, so `port2 in ...` is a bug
+        # (likely meant self.links[sport]); left as-is pending confirmation.
         sports = [sport for sport in self.links if port2 in self.ports[sport]]  # type: ignore[operator]
 
         for port1 in sports:
