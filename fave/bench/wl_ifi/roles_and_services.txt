@@ -1,0 +1,182 @@
+def role external
+    description = 'Services for external view'
+    hosts       = ['cs.uni-potsdam.de']
+    ipv4        = '141.89.48.0/24'
+    ipv6        = '2001:638:807:30::0/64'
+    gateway     = '141.89.48.254'
+    vlan        = 48
+end
+
+def role internal
+    description = 'Services for internal view'
+    hosts       = ['internal.cs.uni-potsdam.de']
+    ipv4        = '10.3.12.0/23'
+    gateway     = '10.3.13.254'
+    vlan        = 463
+end
+
+def role admin
+    description = 'Hosts of administrators'
+    hosts       = ['admin.cs.uni-potsdam.de']
+    ipv4        = '10.3.14.0/23'
+    gateway     = '10.3.15.254'
+    vlan        = 464
+end
+
+def role office
+    description = 'Hosts of secretariats'
+    hosts       = ['office.cs.uni-potsdam.de']
+    ipv4        = '10.3.16.0/23'
+    gateway     = '10.3.17.254'
+    vlan        = 465
+end
+
+def role staff_1
+    description = 'Hosts of employee'
+    hosts       = ['staff.cs.uni-potsdam.de']
+    ipv4        = '10.3.18.0/23'
+    gateway     = '10.3.19.254'
+    vlan        = 466
+end
+
+def role staff_2
+    description = 'Hosts of employee'
+    hosts       = ['staff.cs.uni-potsdam.de']
+    ipv4        = '10.3.20.0/23'
+    gateway     = '10.3.21.254'
+    vlan        = 467
+end
+
+def role pool
+    description = 'Hosts of the computer pools'
+    hosts       = ['pool.cs.uni-potsdam.de']
+    ipv4        = '10.3.22.0/23'
+    gateway     = '10.3.23.254'
+    vlan        = 468
+end
+
+def role lab
+    description = 'Hosts of the laboratories'
+    hosts       = ['lab.cs.uni-potsdam.de']
+    ipv4        = '10.3.24.0/23'
+    gateway     = '10.3.25.254'
+    vlan        = 469
+end
+
+def role hpc_mgt
+    description = 'Management network of the hpc'
+    hosts       = ['mgt.hpc']
+    ipv4        = '10.3.26.0/23'
+    vlan        = 470
+end
+
+def role hpc_ic
+    description = 'Interconnect network of the hpc'
+    hosts       = ['ic.hpc']
+    ipv4        = '10.3.28.0/23'
+    vlan        = 471
+end
+
+def role slb
+    description = 'Server load balancing network'
+    hosts       = ['slb.cs.uni-potsdam.de']
+    ipv4        = '10.3.30.0/23'
+    gateway     = '10.3.31.254'
+    vlan        = 472
+end
+
+def role mgt
+    description = 'Management network'
+    hosts       = ['mgt.cs.uni-potsdam.de']
+    ipv4        = '10.3.32.0/23'
+    gateway     = '10.3.33.254'
+    vlan        = 473
+end
+
+def role san
+    description = 'Storage area network'
+    hosts       = ['san.cs.uni-potsdam.de']
+    ipv4        = '10.3.34.0/23'
+    vlan        = 474
+end
+
+def role vmo
+    description = 'VMware vMotion network'
+    hosts       = ['vmo.cs.uni-potsdam.de']
+    ipv4        = '10.3.36.0/23'
+    vlan        = 475
+end
+
+def role prt
+    description = 'Printer network'
+    hosts       = ['prt.cs.uni-potsdam.de']
+    ipv4        = '10.3.38.0/23'
+    vlan        = 476
+end
+
+def role cam
+    description = 'Camera network'
+    hosts       = ['cam.cs.uni-potsdam.de']
+    ipv4        = '10.3.40.0/23'
+    vlan        = 477
+end
+
+
+def role access_to_external
+    description = 'Access to the external services'
+    includes Internet
+    includes admin
+    includes office
+    includes staff_1
+    includes staff_2
+    includes pool
+    includes lab
+    includes slb
+end
+
+def role access_to_internal
+    description = 'Access to the internal services'
+    includes admin
+    includes office
+    includes staff_1
+    includes staff_2
+    includes pool
+    includes lab
+    includes slb
+end
+
+def role access_from_admin
+    description = 'Access from the admin network'
+    includes internal
+    includes office
+    includes staff_1
+    includes staff_2
+    includes pool
+    includes lab
+    includes slb
+end
+
+def role access_to_internet
+    description = 'Access to the internet'
+    includes admin
+    includes office
+    includes staff_1
+    includes staff_2
+    includes pool
+    includes lab
+end
+
+
+def policies (default: deny)
+    # Access to the external services
+    access_to_external  <->>  external
+
+    # Access to the internal services
+    access_to_internal  <->>  internal
+
+    # Access from the admin network
+    admin  <->>  access_from_admin
+
+    # Access to the internet
+    access_to_internet  <->>  Internet
+end

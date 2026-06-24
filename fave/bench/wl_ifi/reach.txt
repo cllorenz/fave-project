@@ -1,0 +1,13 @@
+def policies (default: deny)
+    # Access to the external services
+    access_to_external  <->>  external
+
+    # Access to the internal services
+    access_to_internal  <->>  internal
+
+    # Access from the admin network
+    admin  <->>  access_from_admin
+
+    # Access to the internet
+    access_to_internet  <->>  Internet
+end
