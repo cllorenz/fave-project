@@ -21,15 +21,20 @@
     a command line tool to manipulate the topology in FaVe.
 """
 
+from __future__ import annotations
+
 import sys
 import json
 import ast
 import argparse
 
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+
 from itertools import product
 
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util.typing_util import JSONDict
 from rule.rule_model import RuleField, Match
 
 from devices.switch import SwitchModel
@@ -47,7 +52,7 @@ class LinksModel(object):
     """ This class provides a model to store links in FaVe.
     """
 
-    def __init__(self, links):
+    def __init__(self, links: Iterable[Tuple[Any, Any, Any]]) -> None:
         """ Creates a link model.
 
         Keyword arguments:
@@ -58,10 +63,10 @@ class LinksModel(object):
         self.links = [(p1, p2, bulk) for p1, p2, bulk in links]
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the model to JSON.
         """
-        links = {}
+        links: Dict[Any, List[Any]] = {}
         for src, dst, bulk in self.links:
             links.setdefault(src, [])
             links[src].append((dst, bulk))
@@ -70,28 +75,27 @@ class LinksModel(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "LinksModel":
         """ Creates a links model from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         links = []
-        for src, dst in list(j["links"].items()):
+        for src, dst in list(jd["links"].items()):
             links.extend([(src, d, b) for d, b in dst])
 
         return LinksModel(links)
 
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[Any, Any, Any]]:
         return self.links.__iter__()
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, LinksModel)
         return \
             self.type == other.type and \
@@ -103,7 +107,7 @@ class GeneratorsModel(object):
     """ This class provides a model to store generators in FaVe.
     """
 
-    def __init__(self, generators):
+    def __init__(self, generators: List[GeneratorModel]) -> None:
         """ Creates a generators model.
 
         Keyword arguments:
@@ -114,33 +118,32 @@ class GeneratorsModel(object):
         self.generators = generators
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the model to JSON.
         """
         return {"type" : self.type, "generators" : [g.to_json() for g in self.generators]}
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "GeneratorsModel":
         """ Creates a generators model from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         return GeneratorsModel(
-            [GeneratorModel.from_json(g) for g in j["generators"]]
+            [GeneratorModel.from_json(g) for g in jd["generators"]]
         )
 
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[GeneratorModel]:
         return self.generators.__iter__()
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, GeneratorsModel)
         return self.type == other.type and \
             len(self.generators) == len(other.generators) and \
@@ -156,7 +159,7 @@ class TopologyCommand(object):
         topology in Fave.
     """
 
-    def __init__(self, node, command, model=None, mtype=""):
+    def __init__(self, node: str, command: str, model: Any = None, mtype: str = "") -> None:
         """ Constructs a command for manipulating the topology in FaVe.
 
         Keyword arguments:
@@ -175,11 +178,11 @@ class TopologyCommand(object):
             self.mtype = model.type
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the command to JSON.
         """
 
-        j = {
+        j: JSONDict = {
             "node" : self.node,
             "type" : self.type,
             "command" : self.command,
@@ -193,19 +196,19 @@ class TopologyCommand(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "TopologyCommand":
         """ Constructs a command from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        model = None
-        if "model" in j:
-            model = {
+        model: Any = None
+        if "model" in jd:
+            # name -> model class; heterogeneous, hence Any.
+            model_types: Dict[str, Any] = {
                 "switch" : SwitchModel,
                 "packet_filter" : PacketFilterModel,
                 "snapshot_packet_filter" : SnapshotPacketFilterModel,
@@ -215,21 +218,22 @@ class TopologyCommand(object):
                 "generators" : GeneratorsModel,
                 "probe" : ProbeModel,
                 "router" : RouterModel
-            }[j["model"]["type"]].from_json(j["model"])
+            }
+            model = model_types[jd["model"]["type"]].from_json(jd["model"])
 
         mtype = ""
-        if "mtype" in j:
-            mtype = j["mtype"]
+        if "mtype" in jd:
+            mtype = jd["mtype"]
 
         return TopologyCommand(
-            j["node"],
-            j["command"],
+            jd["node"],
+            jd["command"],
             model=model,
             mtype=mtype
         )
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, TopologyCommand)
         return self.node == other.node and \
             self.type == other.type and \
@@ -237,12 +241,12 @@ class TopologyCommand(object):
             self.model == other.model
 
 
-def _parse_links(arg):
+def _parse_links(arg: str) -> List[Tuple[str, str, bool]]:
     to_link = lambda s, d, b: (s, d, b == 'True')
     return [to_link(*link.split(':')) for link in arg.split(',')]
 
 
-def _parse_fields(arg):
+def _parse_fields(arg: str) -> Dict[str, List[str]]:
     fields = {}
     for field in arg.split(';'):
         key, body = field.split('=')
@@ -256,7 +260,7 @@ def _parse_fields(arg):
     return fields
 
 
-def _parse_probe_fields(arg):
+def _parse_probe_fields(arg: str) -> Dict[str, List[RuleField]]:
     fields = {}
     for field in arg.split(';'):
         key, body = field.split('=')
@@ -266,8 +270,8 @@ def _parse_probe_fields(arg):
     return fields
 
 
-def _parse_ports(arg):
-    ports = []
+def _parse_ports(arg: str) -> List[Any]:
+    ports: List[Any] = []
 
     try:
         ports = list(range(1, int(arg)+1))
@@ -277,7 +281,7 @@ def _parse_ports(arg):
     return ports
 
 
-def _parse_generators(arg):
+def _parse_generators(arg: str) -> List[Tuple[str, Dict[str, List[RuleField]]]]:
     generators = []
 
     for generator in arg.split('|'):
@@ -293,12 +297,12 @@ def _parse_generators(arg):
 
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     """ Command line tool to manipulate the topology in FaVe.
     """
 
 
-    topo = None
+    topo: Optional[TopologyCommand] = None
 
     parser = argparse.ArgumentParser(
         description="Command line too to manipulate the topology in FaVe."
@@ -485,6 +489,7 @@ def main(argv):
         else:
             topo = TopologyCommand(args.node, args.command)
 
+    assert topo is not None
     fave = connect_to_fave(
         FAVE_DEFAULT_UNIX
     ) if args.use_unix else connect_to_fave(
