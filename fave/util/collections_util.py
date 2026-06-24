@@ -22,7 +22,16 @@
 """ This module provides set operations for dicts and lists.
 """
 
-def dict_sub(dct1, dct2):
+from __future__ import annotations
+
+from typing import Any, Dict, List, TypeVar
+
+_K = TypeVar('_K')
+_V = TypeVar('_V')
+_T = TypeVar('_T')
+
+
+def dict_sub(dct1: Dict[_K, _V], dct2: Dict[Any, Any]) -> Dict[_K, _V]:
     """ Subtracts a dict from another.
 
     Keyword arguments:
@@ -35,7 +44,7 @@ def dict_sub(dct1, dct2):
     return {k:dct1[k] for k in dct1 if k not in common}
 
 
-def dict_diff(dct1, dct2):
+def dict_diff(dct1: Dict[_K, _V], dct2: Dict[_K, _V]) -> Dict[_K, _V]:
     """ Returns the diff of two dicts.
 
     Keyword arguments:
@@ -47,7 +56,7 @@ def dict_diff(dct1, dct2):
     return dict_sub(dict_union(dct1, dct2), dict_isect(dct1, dct2))
 
 
-def dict_isect(dct1, dct2):
+def dict_isect(dct1: Dict[_K, _V], dct2: Dict[Any, Any]) -> Dict[_K, _V]:
     """ Intersects two dicts.
 
     Keyword arguments:
@@ -60,7 +69,7 @@ def dict_isect(dct1, dct2):
     return {k:dct1[k] for k in common}
 
 
-def dict_union(dct1, dct2):
+def dict_union(dct1: Dict[_K, _V], dct2: Dict[_K, _V]) -> Dict[_K, _V]:
     """ Unions two dicts.
 
     Keyword arguments:
@@ -73,7 +82,7 @@ def dict_union(dct1, dct2):
     return {k:dct1[k] if k in dct1 else dct2[k] for k in keys}
 
 
-def list_sub(lst1, lst2):
+def list_sub(lst1: List[_T], lst2: List[Any]) -> List[_T]:
     """ Subtracts a list from another.
 
     Keyword arguments:
@@ -85,7 +94,7 @@ def list_sub(lst1, lst2):
     return [e for e in lst1 if e not in lst2]
 
 
-def list_diff(lst1, lst2):
+def list_diff(lst1: List[_T], lst2: List[_T]) -> List[_T]:
     """ Returns the diff of two lists.
 
     Keyword arguments:
@@ -97,7 +106,7 @@ def list_diff(lst1, lst2):
     return list_sub(list_union(lst1, lst2), list_isect(lst1, lst2))
 
 
-def list_isect(lst1, lst2):
+def list_isect(lst1: List[_T], lst2: List[Any]) -> List[_T]:
     """ Intersects two lists.
 
     Keyword arguments:
@@ -109,7 +118,7 @@ def list_isect(lst1, lst2):
     return [e for e in lst1 if e in lst2]
 
 
-def list_union(lst1, lst2):
+def list_union(lst1: List[_T], lst2: List[_T]) -> List[_T]:
     """ Unions two lists.
 
     Keyword arguments:

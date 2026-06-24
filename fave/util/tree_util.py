@@ -19,13 +19,17 @@
 
 """ This module provides an AST structure.
 """
+from __future__ import annotations
+
+from typing import Any, Iterable, Optional, List
+
 from functools import reduce
 
-class Tree(list):
+class Tree(List["Tree"]):
     """ This class provides storing and manipulation capabilities for an AST.
     """
 
-    def __init__(self, value=None, parent=None):
+    def __init__(self, value: Any = None, parent: Optional["Tree"] = None) -> None:
         """ Constructs an AST object.
 
         Keyword arguments:
@@ -39,7 +43,7 @@ class Tree(list):
         self._negated = False
 
 
-    def has_child(self, value):
+    def has_child(self, value: Any) -> bool:
         """ Checks whether the tree is parent of a certain child.
 
         Keyword arguments:
@@ -52,13 +56,13 @@ class Tree(list):
         return False
 
 
-    def has_children(self):
+    def has_children(self) -> bool:
         """ Checks whether the tree is parent of any children.
         """
         return len(self) > 0
 
 
-    def add_child(self, elem):
+    def add_child(self, elem: Any) -> "Tree":
         """ Appends a child leaf or tree to the tree.
 
         Keyword arguments:
@@ -72,7 +76,7 @@ class Tree(list):
         return self.add_child(Tree(value=elem))
 
 
-    def add_children(self, elems):
+    def add_children(self, elems: Iterable[Any]) -> None:
         """ Appends a list of children to the tree.
 
         Keyword arguments:
@@ -82,7 +86,7 @@ class Tree(list):
             self.add_child(elem)
 
 
-    def get_child(self, value):
+    def get_child(self, value: Any) -> Optional["Tree"]:
         """ Fetches a child from the tree.
 
         Keyword arguments:
@@ -95,13 +99,13 @@ class Tree(list):
         return None
 
 
-    def is_negated(self):
+    def is_negated(self) -> bool:
         """ Checks whether the tree is negated.
         """
         return self._negated
 
 
-    def set_negated(self, neg=True):
+    def set_negated(self, neg: bool = True) -> "Tree":
         """ Sets the tree's negation.
 
         Keyword arguments:
@@ -114,7 +118,7 @@ class Tree(list):
         return self
 
 
-    def get_first(self):
+    def get_first(self) -> Optional["Tree"]:
         """ Fetches the tree's first child.
         """
 
@@ -124,7 +128,7 @@ class Tree(list):
             return None
 
 
-    def get_last(self):
+    def get_last(self) -> Optional["Tree"]:
         """ Fetches the tree's last child.
         """
         try:
@@ -133,24 +137,26 @@ class Tree(list):
             return None
 
 
-    def __eq__(self, obj):
+    def __eq__(self, obj: object) -> bool:
+        if not isinstance(obj, Tree):
+            return NotImplemented
         return all(
             [self.value == obj.value, self._negated == obj.is_negated()] +
             [a == b for a, b in zip(self, obj)]
         )
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.value)
 
 
-    def print_tree(self):
+    def print_tree(self) -> None:
         """ Pretty prints the tree to stdout.
         """
         print((self.stringify()))
 
 
-    def stringify(self, depth=0):
+    def stringify(self, depth: int = 0) -> str:
         """ Converts the tree to a pretty string.
 
         Keyword arguments:
