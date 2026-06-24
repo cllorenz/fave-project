@@ -25,29 +25,40 @@ import json
 
 from copy import deepcopy as dc
 
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from devices.abstract_firewall import AbstractFirewallModel
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
-from rule.rule_model import RuleField, Match, Rule, Forward
+from rule.rule_model import RuleField, RuleAction, Match, Rule, Forward
 from util.model_util import TABLE_MAX
 from util.packet_util import is_ip as is_ipv4
 from util.packet_util import portrange_to_prefixed_bitvectors
+from util.tree_util import Tree
 
-def _is_rule(ast):
+
+def _req(node: Optional[Tree]) -> Tree:
+    """ Assert a Tree lookup found a child the grammar guarantees is present. """
+    assert node is not None
+    return node
+
+
+def _is_rule(ast: Tree) -> bool:
     return ast.has_child("-A") or ast.has_child("-I") or ast.has_child("-P")
 
 
-def _is_state_checking_rule(rule):
+def _is_state_checking_rule(rule: Rule) -> bool:
     return any([
         f.name == 'module.conntrack.ctstate' and f.value == 'ESTABLISHED' for f in rule.match
     ])
 
-def _is_new_state_rule(rule):
+def _is_new_state_rule(rule: Rule) -> bool:
     return any([
         f.name == 'module.conntrack.ctstate' and f.value == 'NEW' for f in rule.match
     ])
 
 
-def _has_multiports(body):
+def _has_multiports(body: Iterable[RuleField]) -> bool:
     return any([f.name in ['sports', 'dports'] for f in body])
 
 
@@ -107,7 +118,7 @@ _TAGS = {
     "dvlan" : "packet.ether.dvlan"
 }
 
-def _ast_to_rule(node, ast, idx=0):
+def _ast_to_rule(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
     is_default = False
     strip_ap = lambda x: x.lstrip('-')
 
@@ -116,48 +127,50 @@ def _ast_to_rule(node, ast, idx=0):
     is_field = lambda f: strip_ap(f.value) in _TAGS
     is_ignored = lambda f: strip_ap(f.value) in ['m', 'module', 'comment']
 
-    value = lambda f: f.get_first().value if f.get_first() is not None else ""
+    def value(f: Tree) -> Any:
+        first = f.get_first()
+        return first.value if first is not None else ""
 
-    lineno = ast.get_child("--line-no").get_first().value
+    lineno = _req(_req(ast.get_child("--line-no")).get_first()).value
     raw_line = ast.value
 
     if ast.has_child("-A"):
-        ast = ast.get_child("-A")
+        ast = _req(ast.get_child("-A"))
     elif ast.has_child("-P"):
-        ast = ast.get_child("-P")
+        ast = _req(ast.get_child("-P"))
         is_default = True
 
     if not ast:
         return {}
 
     if ast.has_child("-i"):
-        tmp = ast.get_child("-i")
+        tmp = _req(ast.get_child("-i"))
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
-            tmp.get_first().value = node+'.'+iface+'_ingress'
+            _req(tmp.get_first()).value = node+'.'+iface+'_ingress'
             vast = ast.add_child("svlan")
             vast.add_child(vlan)
         else:
-            tmp.get_first().value = node+'.'+value(tmp)+'_ingress'
+            _req(tmp.get_first()).value = node+'.'+value(tmp)+'_ingress'
     if ast.has_child("-o"):
-        tmp = ast.get_child("-o")
+        tmp = _req(ast.get_child("-o"))
         if "." in value(tmp):
             iface, vlan = value(tmp).split(".")
-            tmp.get_first().value = node+'.'+iface+'_egress'
+            _req(tmp.get_first()).value = node+'.'+iface+'_egress'
             vast = ast.add_child("dvlan")
             vast.add_child(vlan)
         else:
-            tmp.get_first().value = node+'.'+value(tmp)+'_egress'
+            _req(tmp.get_first()).value = node+'.'+value(tmp)+'_egress'
 
     has_src = ast.has_child("-s")
     has_dst = ast.has_child("-d")
     if has_src:
-        tmp = ast.get_child("-s")
-        if is_ipv4(tmp.get_first().value):
+        tmp = _req(ast.get_child("-s"))
+        if is_ipv4(_req(tmp.get_first()).value):
             tmp.value = "s4"
     if has_dst:
-        tmp = ast.get_child("-d")
-        if is_ipv4(tmp.get_first().value):
+        tmp = _req(ast.get_child("-d"))
+        if is_ipv4(_req(tmp.get_first()).value):
             tmp.value = "d4"
 
     body = [
@@ -167,22 +180,23 @@ def _ast_to_rule(node, ast, idx=0):
     chain = _get_chain_from_ast(ast)
 
     action = _get_action_from_ast(ast)
-    actions = [] if action == 'DROP' else [Forward(ports=[node+'.'+chain+'_'+action.lower()])]
+    actions: List[RuleAction] = [] if action == 'DROP' else [Forward(ports=[node+'.'+chain+'_'+action.lower()])]
 
-    rules = {}
+    rules: Dict[int, Rule] = {}
     multiports = []
     if ast.has_child('--sports'):
         multiports.append(
-            RuleField('sports', value(ast.get_child('--sports')))
+            RuleField('sports', value(_req(ast.get_child('--sports'))))
         )
     if ast.has_child('--dports'):
         multiports.append(
-            RuleField('dports', value(ast.get_child('--dports')))
+            RuleField('dports', value(_req(ast.get_child('--dports'))))
         )
     if multiports:
-        sports = []
-        dports = []
+        sports: List[str] = []
+        dports: List[str] = []
         for ports in multiports:
+            assert isinstance(ports.value, str)
             start, end = ports.value.split(':')
             prefixed_ports = portrange_to_prefixed_bitvectors(int(start), int(end))
 
@@ -249,14 +263,14 @@ def _ast_to_rule(node, ast, idx=0):
     return {chain : rules, chain+'_mappings' : {'original':{i:lineno for i,_r in list(rules.items())}, 'expanded':{lineno:list(rules.keys())}}}
 
 
-def _get_rules_from_ast(node, ast, idx=0):
+def _get_rules_from_ast(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
     if _is_rule(ast):
         return _ast_to_rule(node, ast, idx)
     elif not ast.has_children():
         return {}
 
     cnt = 0
-    chains = {}
+    chains: Dict[str, Any] = {}
     for subtree in ast:
         rules_and_mappings = _get_rules_from_ast(node, subtree, idx+cnt+1) # XXX?
 
@@ -273,14 +287,14 @@ def _get_rules_from_ast(node, ast, idx=0):
     return chains
 
 
-def _get_chain_from_ast(ast):
+def _get_chain_from_ast(ast: Tree) -> str:
     """ Retrieves a chain from an AST.
 
     Keyword arguments:
     ast -- an abstract syntax tree
     """
 
-    chain = ast.get_first().value
+    chain = _req(ast.get_first()).value
     return {
         "input":"input_filter",
         "output":"output_filter",
@@ -288,7 +302,7 @@ def _get_chain_from_ast(ast):
     }[chain.lower()]
 
 
-def _get_action_from_ast(ast):
+def _get_action_from_ast(ast: Tree) -> Any:
     """ Retrieves an action from an AST.
 
     Keyword arguments:
@@ -296,12 +310,12 @@ def _get_action_from_ast(ast):
     """
 
     if ast.has_child("-j"):
-        return ast.get_child("-j").get_first().value
+        return _req(_req(ast.get_child("-j")).get_first()).value
 
-    return ast.get_first().get_first().value
+    return _req(_req(ast.get_first()).get_first()).value
 
 
-def _get_state_checking_rules(rules):
+def _get_state_checking_rules(rules: Iterable[Rule]) -> Dict[int, Rule]:
     return {r.idx : r for r in rules if _is_state_checking_rule(r)}
 
 
@@ -321,16 +335,19 @@ _SWAP_FIELDS = {
 }
 
 
-def _swap_port_value_direction(field):
+def _swap_port_value_direction(field: RuleField) -> Any:
+    value = field.value
     if field.name == 'in_port':
-        return field.value.replace('_ingress', '_egress')
+        assert isinstance(value, str)
+        return value.replace('_ingress', '_egress')
     elif field.name == 'out_port':
-        return field.value.replace('_egress', '_ingress')
+        assert isinstance(value, str)
+        return value.replace('_egress', '_ingress')
 
-    return field.value
+    return value
 
 
-def _swap_direction(field):
+def _swap_direction(field: RuleField) -> RuleField:
     value = _swap_port_value_direction(field)
 
     return RuleField(
@@ -338,7 +355,7 @@ def _swap_direction(field):
     )
 
 
-def _derive_general_state_shell(rules, state_checking_rules):
+def _derive_general_state_shell(rules: Iterable[Rule], state_checking_rules: Dict[int, Rule]) -> List[Rule]:
     return [
         Rule(
             r.node,
@@ -357,7 +374,7 @@ def _derive_general_state_shell(rules, state_checking_rules):
     ]
 
 
-def _get_block_intervals(state_checking_rules, rules_size):
+def _get_block_intervals(state_checking_rules: Dict[int, Rule], rules_size: int) -> List[Tuple[int, int, int]]:
     intervals = []
     last = 0
     cnt = 0
@@ -372,7 +389,7 @@ def _get_block_intervals(state_checking_rules, rules_size):
     return intervals
 
 
-def _calculate_blocks(rules, intervals):
+def _calculate_blocks(rules: List[Rule], intervals: List[Tuple[int, int, int]]) -> List[List[Rule]]:
     rules_size = len(rules)
     blocks = []
 
@@ -406,11 +423,12 @@ def _calculate_blocks(rules, intervals):
     return blocks
 
 
-def _adjust_interfaces(match, chain):
+def _adjust_interfaces(match: Match, chain: str) -> Match:
     if chain == 'forward_filter': return match
 
     for field in match:
         if field.name in ['in_port', 'out_port']:
+            assert isinstance(field.value, str)
             if chain == 'input_filter':
                 field.value = field.value.replace('egress', 'ingress')
             elif chain == 'output_filter':
@@ -419,22 +437,26 @@ def _adjust_interfaces(match, chain):
     return match
 
 
-def _adjust_ports(ports, chain):
+def _adjust_ports(ports: List[str], chain: str) -> List[str]:
     if chain == 'forward_filter': return ports
     elif chain == 'input_filter': return [p.replace('output', 'input') for p in ports]
     elif chain == 'output_filter': return [p.replace('input', 'output') for p in ports]
     raise Exception('cannot adjust ports for unknown chain: %s' % chain)
 
 
-def _adjust_action(action, chain):
+def _adjust_action(action: RuleAction, chain: str) -> RuleAction:
     if isinstance(action, Forward):
         action.ports = _adjust_ports(action.ports, chain)
     return action
 
 
 def _derive_conditional_state_shells(
-        intervals, general_state_shell, state_checking_rules, rules_size, chain
-    ):
+        intervals: List[Tuple[int, int, int]],
+        general_state_shell: List[Rule],
+        state_checking_rules: Dict[int, Rule],
+        rules_size: int,
+        chain: str
+    ) -> List[List[Rule]]:
     cond_shells = []
 
     for idx, _start, end in intervals:
@@ -454,9 +476,11 @@ def _derive_conditional_state_shells(
             in_ports = _adjust_ports(rule.in_ports, chain)
 
             if not any([f.value is None for f in match]):
-                actions = [
+                first_action = state_checking_rule.actions[0]
+                assert isinstance(first_action, Forward)  # state-check rule forwards
+                actions: List[RuleAction] = [
                     Forward([])
-                ] if state_checking_rule.actions[0].ports == [] else [
+                ] if first_action.ports == [] else [
                     _adjust_action(dc(a), chain) for a in rule.actions
                 ]
 
@@ -474,7 +498,7 @@ def _derive_conditional_state_shells(
     return cond_shells
 
 
-def _interweave_state_shell(intervals, blocks, conditional_state_shells):
+def _interweave_state_shell(intervals: List[Tuple[int, int, int]], blocks: List[List[Rule]], conditional_state_shells: List[List[Rule]]) -> List[Rule]:
     interwoven_state_shell = []
     cnt = 0
 
@@ -520,15 +544,16 @@ _SWAP_CHAIN = {
 }
 
 def _transform_ast_to_model(
-        ast,
-        node,
-        ports=None,
-        address=None,
-        interweaving=True,
-        state_snap=False,
-        store_mappings=False
-    ):
+        ast: Tree,
+        node: str,
+        ports: Optional[List[str]] = None,
+        address: Optional[str] = None,
+        interweaving: bool = True,
+        state_snap: bool = False,
+        store_mappings: bool = False
+    ) -> AbstractFirewallModel:
 
+    model: AbstractFirewallModel
     if state_snap:
         model = SnapshotPacketFilterModel(node, ports=ports, address=address)
         interweaving = False
@@ -551,12 +576,12 @@ def _transform_ast_to_model(
 
         return model
 
-    chain_rules = {}
-    chain_blocks = {}
-    chain_general_shells = {}
-    chain_cond_shells = {}
-    chain_intervals = {}
-    chain_checking_rules = {}
+    chain_rules: Dict[str, List[Rule]] = {}
+    chain_blocks: Dict[str, List[List[Rule]]] = {}
+    chain_general_shells: Dict[str, List[Rule]] = {}
+    chain_cond_shells: Dict[str, List[List[Rule]]] = {}
+    chain_intervals: Dict[str, List[Tuple[int, int, int]]] = {}
+    chain_checking_rules: Dict[str, Dict[int, Rule]] = {}
 
     for chain, rules in list(chains.items()):
         rules = [r for _i, r in sorted(iter(list(rules.items())), key=lambda x: x[0])]
@@ -598,12 +623,14 @@ def _transform_ast_to_model(
         )
 
         for rule in interwoven_state_shell:
-            model.tables[rule.tid if rule.tid.startswith(node) else node+'.'+rule.tid].append(rule)
+            tid = rule.tid
+            assert isinstance(tid, str)  # interwoven rules carry a "<node>.<chain>" tid
+            model.tables[tid if tid.startswith(node) else node+'.'+tid].append(rule)
 
     return model
 
 
-def generate(ast, node, address, ports, interweaving=True, state_snap=False):
+def generate(ast: Tree, node: str, address: Optional[str], ports: Optional[List[str]], interweaving: bool = True, state_snap: bool = False) -> AbstractFirewallModel:
     """ Generates a packet filter model from a rule set AST.
 
     Keyword arguments:
