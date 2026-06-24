@@ -203,10 +203,28 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
   - [ ] Delete/retire the now-redundant `fave/test/unit_tests.py` and `policy_translator/test/unit_tests.py` registries once item 0 no longer references them.
 - **Finding:** `fave/test/unit_tests.py` hand-imported and hand-registered every `TestCase`; new tests silently didn't run until someone edited this file. (Confirmed: `policy_translator`'s registry was hiding 8 tests.)
 
-### 6. Add static type checking
-- [ ] **Add `mypy` to the lint stage for core modules**
-- **Finding:** Only 3 files use type hints. A silent type/shape error undermines the soundness story of a verification tool.
-- **Fix:** Add `mypy` (even lenient) to the lint stage, focused on core `rule/`, `devices/`, `netplumber/` modules.
+### 6. Add static type checking — PLANNED (scope + migration strategy below)
+- [ ] **Add `mypy` to the lint stage for core modules, typed leaf-first and gated core-only.**
+- **Finding (re-measured):** FaVe's own code is effectively **0% typed** — across ~1,149 function defs there are **zero** return annotations. The TODO's earlier "only 3 files use type hints" overcounts: two of those are vendored Hassel benchmark code (`bench/wl_i2/i2-hassel/headerspace/tf.py`, `bench/wl_stanford/stanford-hassel/headerspace/tf.py`) and only `iptables/parser.py` is ours. This is a green-field typing effort, not a top-up. A silent type/shape error undermines the soundness story of a verification tool (same rationale as the `array.c` fix, item 1h).
+
+#### Criteria for a "core module" (intersection of three filters — not any one alone)
+1. **Soundness-critical (on the verification path):** bugs here change verdicts → `rule/`, `netplumber/{vector,mapping,adapter,slice}.py`, `devices/`.
+2. **High fan-in / foundational (leaf dependencies):** typing leverage flows bottom-up — you cannot meaningfully type a consumer whose params are untyped objects from another module. The internal import graph ranks these: `rule.rule_model`, `netplumber.vector`, `netplumber.mapping`, and the `util/` helpers (`ip6np_util`, `packet_util`, `match_util`, `model_util`, `collections_util`).
+3. **Stable and actively maintained:** **reuse the lint exclusion list** (item 2) — exclude vendored Hassel trees, `deprecated/`, demo/example scripts, `np_reproduction/`, and the sibling detectors (`ad6`, `z3-anomalies`, `stl-anomalies` are separate codebases). Do NOT invent a second notion of "in scope."
+- **Litmus test for borderline modules:** "If this returned the wrong shape, would a verification verdict silently change?" Yes → core. Glue/orchestration/reporting → not core (type opportunistically later).
+- **Resulting core slice (~5–6k LOC of the ~12k in `fave/`):** `rule/rule_model.py`, `netplumber/{vector,mapping,adapter,slice,jsonrpc}.py`, `devices/*.py`, plus the `util/` helpers they import.
+
+#### Migration strategy (the work is "make the code mypy-legible + wire it in like the lint gate", not just writing annotations)
+- [ ] **a. Strictness ramp via per-module config, not a global `--strict`.** Repo defaults lenient; opt *core* into strict via `[mypy-rule.*]`, `[mypy-netplumber.*]`, `[mypy-devices.*]` sections. "Core module" becomes a literal, reviewable line in `mypy.ini`; the rest of the tree stays quiet (`ignore_errors`) during migration.
+- [ ] **b. Type leaves first, in dependency order:** `vector.py`/`mapping.py` → `rule_model.py` → `devices/` → `adapter`/`aggregator`. Each layer annotates against already-typed dependencies.
+- [ ] **c. Decide the JSON-boundary convention up front** (`to_json`/`from_json` are pervasive): start with `JSONDict = Dict[str, Any]`; promote the most important records to `TypedDict` later if precision is wanted. Resolve `from_json(j)` accepting *either* a JSON `str` or an already-parsed object — prefer splitting parsing from construction (a small refactor) over `@overload`, since it recurs.
+- [ ] **d. Third-party stubs / missing-import handling:** `dd`, `cachetools`, `graphviz`, `pyparsing` need `types-*` stubs or per-module `ignore_missing_imports`. **`pybison` is native/integration-only → must `ignore_missing_imports`** so mypy runs in the pure-Python `fast` tier (mypy analyzes without importing, so it fits the fast tier cleanly).
+- [ ] **e. Catalog the dynamic patterns that need refactor-or-`type: ignore`:** `Match(list)` subclassing the builtin `list`; the static-method `from_json` factories; polymorphic attributes (e.g. `RuleField.value` is `str` *or* `Vector`); any `setattr`/dict-as-record passing. This is where the real time goes; the rest is mechanical.
+- [ ] **f. Wire in like pylint (item 2): non-gating → fix → gate, core-only.** Add mypy to `lint_test.sh`/CI non-gating, drive *core* findings to zero, then gate **only the strict sections**. Mirrors the project's "don't gate until green" discipline; keeps the rest of the tree from blocking merges.
+
+#### Suggested first step (pilot to calibrate effort before committing to the whole slice)
+- [ ] **Pilot on `rule/rule_model.py`** (467 LOC, foundational, clean classes; surfaces both friction points — the JSON `str`-or-parsed union and the polymorphic `RuleField.value`). Deliverables: (1) a `mypy.ini` skeleton with a `[mypy-rule.*]` strict section, (2) `rule_model.py` fully typed, (3) the JSON-boundary convention decided against real code, (4) a measured effort-per-KLOC read. Then extend module by module.
+- **Open decision before code:** pilot-first (calibrate on `rule_model.py`) vs. lock the full scope list + JSON convention as decisions first. (Recommended: pilot-first.)
 
 ---
 
