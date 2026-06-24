@@ -16,10 +16,10 @@ See our publication list for the results.
 
 We published our results in a series of scientific papers:
 
- - C. Lorenz and B. Schnor, “Policy Anomaly Detection for Distributed IPv6 Firewalls,” in SECRYPT, 2015, [https://doi.org/10.5220/0005517402100219](DOI: 10.5220/0005517402100219).
- - C. Lorenz, S. Kiekheben, and B. Schnor, “FaVe: Modeling IPv6 firewalls for fast formal verification,” in NetSys, 2017, [https://doi.org/10.1109/NETSYS.2017.7903956](DOI: 10.1109/NETSYS.2017.7903956).
- - C. Lorenz, V. Clemens, M. Schrötter, and B. Schnor, “Continuous Verification of Network Security Compliance,” in IEEE TNSM, 2021, [https://doi.org/10.1109/TNSM.2021.3130290](DOI: 10.1109/TNSM.2021.3130290).
- - C. Lorenz and B. Schnor, “Firewall Management: Rapid Anomaly Detection,“ in HPCC, 2022, [ihttps://doi.org/10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226](DOI: 10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226).
+ - C. Lorenz and B. Schnor, “Policy Anomaly Detection for Distributed IPv6 Firewalls,” in SECRYPT, 2015, [DOI: 10.5220/0005517402100219](https://doi.org/10.5220/0005517402100219).
+ - C. Lorenz, S. Kiekheben, and B. Schnor, “FaVe: Modeling IPv6 firewalls for fast formal verification,” in NetSys, 2017, [DOI: 10.1109/NETSYS.2017.7903956](https://doi.org/10.1109/NETSYS.2017.7903956).
+ - C. Lorenz, V. Clemens, M. Schrötter, and B. Schnor, “Continuous Verification of Network Security Compliance,” in IEEE TNSM, 2021, [DOI: 10.1109/TNSM.2021.3130290](https://doi.org/10.1109/TNSM.2021.3130290).
+ - C. Lorenz and B. Schnor, “Firewall Management: Rapid Anomaly Detection,“ in HPCC, 2022, [DOI: 10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226](https://doi.org/10.1109/HPCC-DSS-SmartCity-DependSys57074.2022.00226).
 
 
 ## Repository Overview
