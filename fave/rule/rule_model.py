@@ -23,19 +23,38 @@
     switch rules.
 """
 
+from __future__ import annotations
+
 import json
+
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
 
 from netplumber.vector import Vector, intersect_vectors
 from netplumber.mapping import FIELD_SIZES
 
+# --- typing aliases (pilot-local; see TODO item 6) ---------------------------
+# A decoded JSON object. The from_json factories accept either a JSON string or
+# an already-decoded object, so the public parameter type is Union[str, JSONDict]
+# (and Optional where an empty match is allowed). Promote to TypedDict later if
+# per-field precision is wanted. When the migration grows beyond this pilot,
+# these aliases should move to a shared module (e.g. util/typing.py).
+JSONDict = Dict[str, Any]
+# A field value may be a textual value, a header-space Vector, or None. The None
+# case is real: Match.intersect feeds RuleField.intersect's result (which is
+# bitvector_to_field_value(...), None for an all-ignore vector) back into a
+# RuleField. Construction sites elsewhere always pass str.
+FieldValue = Union[str, "Vector", None]
+
 
 class RuleField(object):
     """ This class provides a model for switch rules.
     """
 
-    def __init__(self, name, value, negated=False):
+    def __init__(
+            self, name: str, value: FieldValue, negated: bool = False
+    ) -> None:
         self.name = name
         self.value = value
         self.negated = negated
@@ -50,7 +69,7 @@ class RuleField(object):
 #            self.vector = field_value_to_bitvector(self)
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the field to JSON.
         """
 
@@ -62,19 +81,18 @@ class RuleField(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "RuleField":
         """ Creates a switch rule field from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        name = j["name"]
-        value = j["value"]
-        negated = j["negated"]
+        name = jd["name"]
+        value = jd["value"]
+        negated = jd["negated"]
 
 
         return RuleField(
@@ -84,7 +102,7 @@ class RuleField(object):
         )
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if other is None: return False
         assert isinstance(other, RuleField)
 
@@ -94,7 +112,7 @@ class RuleField(object):
             self.negated == other.negated
 
 
-    def intersect(self, other):
+    def intersect(self, other: "RuleField") -> FieldValue:
         """ Intersect field with another of the same type.
 
         Arguments:
@@ -113,11 +131,17 @@ class RuleAction(object):
     """ Abstract class for switch rule action models.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
 
-    def values_to_vector_str(self):
+    def to_json(self) -> JSONDict:
+        """ Converts the action to JSON. Concrete actions override this.
+        """
+        raise NotImplementedError
+
+
+    def values_to_vector_str(self) -> None:
         """ Transforms all field values into vector strings.
         """
         pass
@@ -127,16 +151,16 @@ class Forward(RuleAction):
     """ This class provides a forward action.
     """
 
-    def __init__(self, ports=None):
+    def __init__(self, ports: Optional[List[str]] = None) -> None:
         super(Forward, self).__init__("forward")
-        self.ports = ports if ports is not None else []
+        self.ports: List[str] = ports if ports is not None else []
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "forward:[%s]" % ",".join([str(p) for p in self.ports])
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the action to JSON.
         """
 
@@ -147,19 +171,18 @@ class Forward(RuleAction):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Forward":
         """ Constructs a forward action from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        return Forward(ports=j["ports"])
+        return Forward(ports=jd["ports"])
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Forward):
             return False
 
@@ -170,16 +193,16 @@ class Rewrite(RuleAction):
     """ This class provides a rewrite action.
     """
 
-    def __init__(self, rewrite=None):
+    def __init__(self, rewrite: Optional[List[RuleField]] = None) -> None:
         super(Rewrite, self).__init__("rewrite")
-        self.rewrite = rewrite if rewrite is not None else [] # type: [Field()]
+        self.rewrite: List[RuleField] = rewrite if rewrite is not None else []
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "rewrite:%s" % ",".join(["%s->%s" % (f.name, f.value) for f in self.rewrite])
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the action to JSON.
         """
 
@@ -190,22 +213,21 @@ class Rewrite(RuleAction):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Rewrite":
         """ Constructs a rewrite action from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         return Rewrite(
-            rewrite=[RuleField.from_json(field) for field in j["rw"]]
+            rewrite=[RuleField.from_json(field) for field in jd["rw"]]
         )
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Rewrite):
             return False
 
@@ -213,7 +235,7 @@ class Rewrite(RuleAction):
             all([a == b for a, b in zip(self.rewrite, other.rewrite)])
 
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
 
@@ -221,15 +243,15 @@ class Miss(RuleAction):
     """ This class provides a miss action.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Miss, self).__init__("miss")
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the action to JSON.
         """
 
@@ -239,25 +261,25 @@ class Miss(RuleAction):
 
 
     @staticmethod
-    def from_json(_j):
+    def from_json(_j: object) -> "Miss":
         """ Constructs a miss action from JSON.
         """
         return Miss()
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Miss)
 
 
-class Match(list):
+class Match(List[RuleField]):
     """ This class provides models for switch rule matches.
     """
 
-    def __init__(self, fields=None):
+    def __init__(self, fields: Optional[Iterable[RuleField]] = None) -> None:
         super(Match, self).__init__(fields if fields is not None else [])
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the match to JSON.
         """
 
@@ -266,12 +288,12 @@ class Match(list):
         }
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ",".join(["%s=%s" % (f.name, f.value) for f in self])
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict, None]) -> "Match":
         """ Construct a match from JSON.
 
         Keyword arguments:
@@ -281,15 +303,14 @@ class Match(list):
         if not j:
             return Match()
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         return Match(
-            fields=[RuleField.from_json(f) for f in j["fields"]]
+            fields=[RuleField.from_json(f) for f in jd["fields"]]
         )
 
 
-    def filter(self, field):
+    def filter(self, field: Union[RuleField, str]) -> None:
         """ Remove field from match if present.
 
         Arguments:
@@ -308,7 +329,7 @@ class Match(list):
                 self.remove(fld)
 
 
-    def get(self, field):
+    def get(self, field: str) -> RuleField:
         """ Get field from match.
 
         Arguments:
@@ -323,7 +344,7 @@ class Match(list):
         raise Exception("no such field: %s" % field)
 
 
-    def intersect(self, other):
+    def intersect(self, other: "Match") -> "Match":
         """ Intersect match with another.
 
         Arguments:
@@ -373,19 +394,29 @@ class Rule(object):
     """ This class provides a model for switch rules.
     """
 
-    def __init__(self, node, tid, idx, in_ports=None, match=None, actions=None, raw_line_no=None, raw_line=None):
+    def __init__(
+            self,
+            node: str,
+            tid: Union[int, str],
+            idx: int,
+            in_ports: Optional[List[str]] = None,
+            match: Optional[Match] = None,
+            actions: Optional[List[RuleAction]] = None,
+            raw_line_no: Optional[int] = None,
+            raw_line: Optional[str] = None
+    ) -> None:
         self.node = node
         self.mtype = "switch_rule"
         self.tid = tid
         self.idx = idx
-        self.in_ports = in_ports if in_ports is not None else []
-        self.match = match if match else Match()
-        self.actions = actions if actions is not None else []
+        self.in_ports: List[str] = in_ports if in_ports is not None else []
+        self.match: Match = match if match else Match()
+        self.actions: List[RuleAction] = actions if actions is not None else []
         self.raw_line_no = raw_line_no
         self.raw_line = raw_line
 
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             "%s.%s" % (self.tid, self.idx) +
             str(self.match) +
@@ -393,7 +424,7 @@ class Rule(object):
         )
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the rule to JSON.
         """
         return {
@@ -409,34 +440,36 @@ class Rule(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Rule":
         """ Constructs a switch rule from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        actions = {
+        # Dispatch table name -> action class. Heterogeneous by construction
+        # (each from_json returns its own concrete type), so Any is the honest
+        # value type here.
+        actions: Dict[str, Any] = {
             "forward" : Forward,
             "rewrite" : Rewrite,
             "miss" : Miss
         }
 
         return Rule(
-            node=j["node"],
-            tid=int(j["tid"]) if isinstance(j["tid"], str) and j["tid"].isdigit() else j["tid"],
-            idx=int(j["idx"]),
-            in_ports=j["in_ports"],
-            match=Match.from_json(j["match"]),
-            actions=[actions[action["name"]].from_json(action) for action in j["actions"]],
-            raw_line_no=j["raw_line_no"],
-            raw_line=j["raw_line"]
+            node=jd["node"],
+            tid=int(jd["tid"]) if isinstance(jd["tid"], str) and jd["tid"].isdigit() else jd["tid"],
+            idx=int(jd["idx"]),
+            in_ports=jd["in_ports"],
+            match=Match.from_json(jd["match"]),
+            actions=[actions[action["name"]].from_json(action) for action in jd["actions"]],
+            raw_line_no=jd["raw_line_no"],
+            raw_line=jd["raw_line"]
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "%s\nnode:%s\ntid: %s\nidx: %s\nmatch:\n\t%s\nactions:\n\t%s\n" % (
             self.mtype,
             self.node,
@@ -447,7 +480,7 @@ class Rule(object):
         )
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Rule)
 
         return all([
@@ -462,6 +495,6 @@ class Rule(object):
         ])
 
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         assert isinstance(other, Rule)
         return not self == other
