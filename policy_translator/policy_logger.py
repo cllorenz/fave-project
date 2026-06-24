@@ -19,6 +19,8 @@
 
 import logging
 
+from typing import Any
+
 PT_LOGGER = logging.getLogger("PolicyTranslator")
 PT_LOGGER.addHandler(logging.StreamHandler())
 PT_LOGGER.setLevel(logging.INFO)
@@ -26,11 +28,11 @@ PT_LOGGER.setLevel(logging.INFO)
 # add custom trace logging method
 TRACE_LEVEL_NUM = 9
 logging.addLevelName(TRACE_LEVEL_NUM, 'TRACE')
-logging.TRACE = TRACE_LEVEL_NUM
+logging.TRACE = TRACE_LEVEL_NUM  # type: ignore[attr-defined]
 logging.__all__ += ['TRACE']
 
-def trace(self, message, *args, **kws):
+def trace(self: logging.Logger, message: Any, *args: Any, **kws: Any) -> None:
     if self.isEnabledFor(TRACE_LEVEL_NUM):
         self._log(TRACE_LEVEL_NUM, message, args, **kws)
 
-logging.Logger.trace = trace
+logging.Logger.trace = trace  # type: ignore[attr-defined]

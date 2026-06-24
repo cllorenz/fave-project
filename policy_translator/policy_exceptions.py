@@ -17,33 +17,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+from typing import Any, Optional
+
+
 class PolicyException(Exception):
-    def __str__(self):
+    message: str
+
+    def __str__(self) -> str:
         return self.message
 
 class NameTakenException(PolicyException):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.message = "Name %s bereits vergeben." % name
 
 class RoleUnknownException(PolicyException):
-    def __init__(self, role):
+    def __init__(self, role: str) -> None:
         self.message = "Rolle %s unbekannt." % role
 
 class ServiceUnknownException(PolicyException):
-    def __init__(self, service, role=None):
+    def __init__(self, service: str, role: Optional[str] = None) -> None:
         if role is not None:
             self.message = "Service %s.%s unbekannt." % (role, service)
         else:
             self.message = "Service %s unbekannt." % service
 
 class InvalidSyntaxException(PolicyException):
-    def __init__(self):
+    def __init__(self) -> None:
         self.message = "Ungültige Syntax."
 
 class InvalidAttributeException(PolicyException):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.message = "Attribut %s ist ungültig." % name
 
 class InvalidValueException(PolicyException):
-    def __init__(self, attribute, value):
+    def __init__(self, attribute: str, value: Any) -> None:
         self.message = "Attributwert %s = %s ist ungültig." % (attribute, value)

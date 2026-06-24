@@ -39,23 +39,31 @@ if ! "$PYTHON" -m mypy --version >/dev/null 2>&1; then
 fi
 
 # Collect the strict per-module sections from mypy.ini, excluding the global
-# [mypy] section and the [mypy-*] catch-all, then map module specs to files:
-#   pkg.mod  -> fave/pkg/mod.py
-#   pkg.*    -> every fave/pkg/*.py (minus __init__.py)
+# [mypy] section and the [mypy-*] catch-all, then map module specs to files,
+# searching each source root (fave and the separate policy_translator package):
+#   pkg.mod  -> <root>/pkg/mod.py
+#   pkg.*    -> every <root>/pkg/*.py (minus __init__.py)
+ROOTS=(fave policy_translator)
 FILES=()
 while read -r spec; do
     [ -z "$spec" ] && continue
     [ "$spec" = "*" ] && continue
     if [[ "$spec" == *.\* ]]; then
-        dir="fave/${spec%.\*}"
-        dir="${dir//.//}"
-        for f in "$dir"/*.py; do
-            [ -e "$f" ] || continue
-            [ "$(basename "$f")" = "__init__.py" ] && continue
-            FILES+=("$f")
+        rel="${spec%.\*}"
+        rel="${rel//.//}"
+        for root in "${ROOTS[@]}"; do
+            [ -d "$root/$rel" ] || continue
+            for f in "$root/$rel"/*.py; do
+                [ -e "$f" ] || continue
+                [ "$(basename "$f")" = "__init__.py" ] && continue
+                FILES+=("$f")
+            done
         done
     else
-        FILES+=("fave/${spec//.//}.py")
+        rel="${spec//.//}.py"
+        for root in "${ROOTS[@]}"; do
+            [ -e "$root/$rel" ] && FILES+=("$root/$rel")
+        done
     fi
 done < <(grep -oE '^\[mypy-[^]]+\]' "$CONFIG" | sed -E 's/^\[mypy-//; s/\]$//')
 
@@ -78,4 +86,4 @@ done
 echo "typecheck: mypy over ${#FILES[@]} core modules"
 # Note: mypy may print a benign 'unused section(s): [mypy-*]' note (the catch-all
 # is not matched by any explicitly-checked file); it does not affect the result.
-PYTHONPATH=fave "$PYTHON" -m mypy --config-file "$CONFIG" "${FILES[@]}"
+PYTHONPATH=fave:policy_translator "$PYTHON" -m mypy --config-file "$CONFIG" "${FILES[@]}"
