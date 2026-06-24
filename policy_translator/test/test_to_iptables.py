@@ -44,6 +44,7 @@ from policy import Policy, Role, Superrole, Service, ReachabilityPolicy
 
 
 # Section headers emitted by Policy.to_iptables(), in canonical order.
+H_SUPPRESS = "# === Suppress (stateless NOTRACK) ==="
 H_V4_DEFAULT = "# === IPv4 Default Policy ==="
 H_V4_ANTISPOOF = "# === IPv4 Anti-Spoofing ==="
 H_V4_STATE = "# === IPv4 State Tracking ==="
@@ -55,6 +56,7 @@ H_V6_STATE = "# === IPv6 State Tracking ==="
 H_ACCESS = "# === Access Rules ==="
 
 CANON_ORDER = [
+    H_SUPPRESS,
     H_V4_DEFAULT,
     H_V4_ANTISPOOF,
     H_V4_STATE,
@@ -110,7 +112,15 @@ class TestToIptables(unittest.TestCase):
         """
         target = "DROP" if default == "deny" else "ACCEPT"
 
+        # Algorithm 7.1: NOTRACK (raw/PREROUTING) rules form a leading Suppress
+        # block; the remaining access rules are the FORWARD rules. self.access
+        # holds both kinds, so partition it here (block comparison is a multiset,
+        # so the partition order does not matter).
+        suppress = [r for r in self.access if "-t raw -A PREROUTING" in r]
+        forward = [r for r in self.access if "-t raw -A PREROUTING" not in r]
+
         blocks = OrderedDict()
+        blocks[H_SUPPRESS] = suppress
         blocks[H_V4_DEFAULT] = [f"iptables -P FORWARD {target}"]
         blocks[H_V4_ANTISPOOF] = [
             "iptables -A FORWARD -i eth1 -s 1.2.3.4 -j DROP",
@@ -143,7 +153,7 @@ class TestToIptables(unittest.TestCase):
         blocks[H_V6_STATE] = [
             "ip6tables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT",
         ]
-        blocks[H_ACCESS] = list(self.access)
+        blocks[H_ACCESS] = forward
         return blocks
 
     # -- tests ---------------------------------------------------------------
