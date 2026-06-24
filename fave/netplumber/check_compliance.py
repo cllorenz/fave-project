@@ -40,7 +40,7 @@ def print_help():
         "print_np -hsuf",
         "\t-h print this help and exit",
         "\t-f use this JSON file for compliance checking",
-        "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=1234)",
+        "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=44001)",
         "\t-u connect to net_plumber via unix socket (/tmp/net_plumber.socket)",
         sep="\n",
         file=sys.stderr

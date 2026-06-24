@@ -22,7 +22,7 @@
 import socket
 from netplumber.jsonrpc import *
 
-def connect(HOST='127.0.0.1', PORT=1234):
+def connect(HOST='127.0.0.1', PORT=44001):
     s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST,PORT))
     return s

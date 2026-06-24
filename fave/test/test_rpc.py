@@ -28,7 +28,7 @@ import os
 import re
 import random
 
-from netplumber.jsonrpc import connect_to_netplumber
+from netplumber.jsonrpc import connect_to_netplumber, NET_PLUMBER_DEFAULT_PORT
 from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand
 from netplumber.jsonrpc import add_table, add_link
 from netplumber.jsonrpc import add_rule, remove_rule
@@ -171,8 +171,8 @@ class TestRPC(unittest.TestCase):
         """ Fixture to prepare clean test environment.
         """
 
-        os.system('scripts/start_np.sh -p 1234')
-        server = ('localhost', 1234)
+        os.system('scripts/start_np.sh')
+        server = ('localhost', NET_PLUMBER_DEFAULT_PORT)
         self.sock = connect_to_netplumber(*server)
         init(self.sock, 1)
 

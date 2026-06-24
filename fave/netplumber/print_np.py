@@ -38,7 +38,7 @@ def print_help():
         "\t-h print this help and exit",
         "\t-n print net_plumber network",
         "\t-t print the topology",
-        "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=1234)",
+        "\t-s connect to net_plumber via tcp (ip=127.0.0.1, port=44001)",
         "\t-u connect to net_plumber via unix socket (/tmp/net_plumber.socket)",
         sep="\n",
         file=sys.stderr
@@ -86,8 +86,8 @@ def main(argv):
             sys.exit(1)
 
     if use_tcp:
-        server = "127.0.0.1"
-        port = 1234
+        server = jsonrpc.NET_PLUMBER_DEFAULT_IP
+        port = jsonrpc.NET_PLUMBER_DEFAULT_PORT
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((server, port))

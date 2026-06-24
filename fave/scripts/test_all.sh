@@ -20,7 +20,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 NPADDR=127.0.0.1
-NPPORT=1234
+NPPORT=44001
 
 TMPDIR=/tmp/np
 mkdir -p $TMPDIR
