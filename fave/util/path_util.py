@@ -21,8 +21,14 @@
     a regex string representation.
 """
 
+from __future__ import annotations
+
 import json
 import re
+
+from typing import List, Optional, Tuple, Union, cast
+
+from util.typing_util import JSONDict
 
 PATH_PATHLETS = ['end', 'start', 'skip', 'skip_next']
 STR_PATHLETS = ['^', '$', '.', '.*']
@@ -60,7 +66,7 @@ SNTABLES_REGEX = re.compile("^%s" % SNTABLES)
 SLTABLES_REGEX = re.compile("^%s" % SLTABLES)
 
 
-def check_pathlet(pathlet):
+def check_pathlet(pathlet: str) -> bool:
     """ Checks if a pathlet is valid.
 
     Keyword arguments:
@@ -76,7 +82,7 @@ def check_pathlet(pathlet):
         re.match(LTABLES_REGEX, pathlet) is not None
 
 
-def check_str_pathlet(pathlet):
+def check_str_pathlet(pathlet: str) -> bool:
     """ Checks if a string represents a valid pathlet.
 
     Keyword arguments:
@@ -92,7 +98,7 @@ def check_str_pathlet(pathlet):
         re.match(SLTABLES_REGEX, pathlet) is not None
 
 
-def pathlet_to_str(pathlet):
+def pathlet_to_str(pathlet: str) -> Optional[str]:
     """ Converts a pathlet to a string.
 
     Keyword arguments:
@@ -133,8 +139,10 @@ def pathlet_to_str(pathlet):
     if match:
         return ".*(t in (%s))$" % match.group('value')
 
+    return None
 
-def str_to_pathlet(paths):
+
+def str_to_pathlet(paths: str) -> Optional[Tuple[str, int]]:
     """ Converts a path string to a pathlet.
 
     Keyword arguments:
@@ -174,9 +182,11 @@ def str_to_pathlet(paths):
     elif paths.startswith('.'):
         return 'skip', 1
 
+    return None
 
 
-def pathlet_to_json(pathlet):
+
+def pathlet_to_json(pathlet: str) -> Optional[JSONDict]:
     """ Converts a pathlet to JSON.
 
     Keyword arguments:
@@ -210,8 +220,10 @@ def pathlet_to_json(pathlet):
     if match:
         return {"type":"last_tables", "tables":match.group('value').split(',')}
 
+    return None
 
-def json_to_pathlet(j):
+
+def json_to_pathlet(j: JSONDict) -> str:
     """ Creates a pathlet from JSON.
 
     Keyword arguments:
@@ -219,7 +231,9 @@ def json_to_pathlet(j):
     """
 
     ptype = j["type"]
-    return {
+    # The dispatch yields a value derived from the (untyped) JSON object; it is
+    # always a pathlet string by construction.
+    return cast(str, {
         'start' : lambda: ptype,
         'end' : lambda: ptype,
         'skip' : lambda: ptype,
@@ -230,12 +244,14 @@ def json_to_pathlet(j):
         'table' : lambda: ".*(table=%s)" % j["table"],
         'next_tables' : lambda: "(table in (%s))" % ','.join(j["tables"]),
         'last_tables' : lambda: ".*(table in (%s))$" % ','.join(j["tables"])
-    }[ptype]()
+    }[ptype]())
 
 
-def _normalize_pathlet(pathlet):
+def _normalize_pathlet(pathlet: str) -> str:
     if check_str_pathlet(pathlet):
-        return str_to_pathlet(pathlet)[0]
+        result = str_to_pathlet(pathlet)
+        assert result is not None  # guaranteed by check_str_pathlet
+        return result[0]
     elif check_pathlet(pathlet):
         return pathlet
     else:
@@ -246,7 +262,7 @@ class Path(object):
     """ This class stores a path.
     """
 
-    def __init__(self, pathlets=None):
+    def __init__(self, pathlets: Optional[List[str]] = None) -> None:
         """ Constructs a path from a list of pathlets.
 
         Keyword arguments:
@@ -259,7 +275,7 @@ class Path(object):
             self.pathlets = []
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the path to JSON.
         """
         return {
@@ -268,25 +284,29 @@ class Path(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Path":
         """ Creates a path from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        return Path(pathlets=[json_to_pathlet(p) for p in j['pathlets']])
+        return Path(pathlets=[json_to_pathlet(p) for p in jd['pathlets']])
 
 
-    def __str__(self):
-        return ''.join([pathlet_to_str(p) for p in self.pathlets])
+    def __str__(self) -> str:
+        parts = []
+        for pathlet in self.pathlets:
+            part = pathlet_to_str(pathlet)
+            assert part is not None  # pathlets are normalized/valid by construction
+            parts.append(part)
+        return ''.join(parts)
 
 
     @staticmethod
-    def from_string(paths):
+    def from_string(paths: str) -> "Path":
         """ Creates path from regex string.
 
         Keyword arguments:
@@ -295,11 +315,15 @@ class Path(object):
 
         pathlets = []
         while paths:
-            pathlet, end = str_to_pathlet(paths)
+            result = str_to_pathlet(paths)
+            assert result is not None  # non-empty path must yield a pathlet
+            pathlet, end = result
             pathlets.append(pathlet)
             paths = paths[end:]
         return Path(pathlets=pathlets)
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Path):
+            return NotImplemented
         return self.pathlets == other.pathlets
