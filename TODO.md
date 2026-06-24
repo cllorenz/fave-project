@@ -174,7 +174,7 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
   - **Logs not verbose (user's idea):** failures printed only `FAIL` + a `/tmp/...log` path that never reached the CI log. Now prints the actual error/fatal messages in a consolidated section at the end (single-threaded, E/F only — not the style noise).
   - **Also pruned in-repo virtualenvs** (`*/.venv/*`, `*/venv/*`, `*/site-packages/*`): a local `.venv` inside `fave/` was being swept by `find` (804 files, 94 venv-internal "failures"). CI didn't hit this (uses `setup-python`, no in-repo venv), but it's a real robustness gap. Removed the stale `examples/example-traverse.py` ignore (file no longer exists).
 - [x] **Local gate is GREEN:** `skipped 2, ok 16, style-only 111, failed 0` over the 129 real fave files — even without `pybison` locally (CI has it, so will be ≥ as clean). All 14 original CI failures addressed.
-- [ ] **Confirm on the next CI run.**
+- [x] **CONFIRMED green on real CI** (user-verified). The `lint` job now gates. This was the last "check that doesn't gate" — `fast`, `integration`, and `lint` all gate; `e2e`/`bench` are non-blocking by design.
 - **Finding (original):** `lint_test.sh` recorded counts but always exited 0, so `lint_fave` could never fail.
 
 ### 3. Re-enable coverage reporting — mostly absorbed by item 1b
