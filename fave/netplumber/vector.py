@@ -381,6 +381,9 @@ class HeaderSpace(object):
 
         from util.ip6np_util import bitvector_to_field_value
 
+        # pprint requires a mapping; the None default is never used by callers.
+        assert mapping is not None
+
         fields = list([f for f in mapping if f != 'length'])
 
         hsl = []
