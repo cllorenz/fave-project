@@ -22,6 +22,8 @@
 """ This module provides FaVe's central aggregation service.
 """
 
+from __future__ import annotations
+
 import socket
 import os
 import json
@@ -30,9 +32,13 @@ import sys
 import argparse
 import time
 
+from typing import Any, Dict, List, Optional, Tuple
+
 from pprint import pformat
 from threading import Thread
 from queue import Queue
+
+from util.typing_util import JSONDict
 
 from aggregator.aggregator_abstract import AbstractAggregator, TRACE
 from aggregator.aggregator_singleton import AGGREGATOR
@@ -61,18 +67,21 @@ from reporting.reporter import Reporter
 
 from rule.rule_model import RuleField
 
-def _has_asyncore_socks(socks):
+def _has_asyncore_socks(socks: Dict[Any, Any]) -> bool:
     return socks != {} and all(v is not None for v in socks.values())
 
 class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
 
-    def __init__(self, socks, asyncore_socks, mapping=None):
-        self.queue = Queue()
-        self.models = {}
-        self.port_to_model = {}
-        self.links = {}
+    def __init__(
+            self, socks: Dict[Any, Any], asyncore_socks: Dict[Any, Any],
+            mapping: Optional[Any] = None
+    ) -> None:
+        self.queue: Queue[Any] = Queue()
+        self.models: Dict[str, Any] = {}
+        self.port_to_model: Dict[str, Any] = {}
+        self.links: Dict[Any, List[Any]] = {}
         self.stop = False
         self.verification_engine = NetPlumberAdapter(
             list(socks.values()),
@@ -83,7 +92,7 @@ class AggregatorService(AbstractAggregator):
         # XXX: make log file configurable
         self.reporter = Reporter(self, '/dev/shm/np/stdout.log')
         self.reporter.daemon = True
-        self.model_types = {
+        self.model_types: Dict[str, Any] = {
             "packet_filter" : PacketFilterModel,
             "snapshot_packet_filter" : SnapshotPacketFilterModel,
             "switch" : SwitchModel,
@@ -97,7 +106,7 @@ class AggregatorService(AbstractAggregator):
         }
 
 
-    def print_aggregator(self):
+    def print_aggregator(self) -> None:
         """ Prints the state to stderr.
         """
         print(
@@ -120,7 +129,7 @@ class AggregatorService(AbstractAggregator):
         )
 
 
-    def _model_from_json(self, j):
+    def _model_from_json(self, j: JSONDict) -> Any:
         """ Reconstructs a model from a JSON object.
 
         Keyword arguments:
@@ -141,7 +150,7 @@ class AggregatorService(AbstractAggregator):
             return model.from_json(j)
 
 
-    def _handler(self):
+    def _handler(self) -> None:
         t_start = time.time()
 
         while not self.stop:
@@ -166,7 +175,7 @@ class AggregatorService(AbstractAggregator):
                 return
 
             if AggregatorService.LOGGER.isEnabledFor(TRACE):
-                AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
+                AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))  # type: ignore[attr-defined]
 
             if j['type'] == 'stop':
                 task_type = 'stop'
@@ -182,7 +191,7 @@ class AggregatorService(AbstractAggregator):
 
             elif j['type'] == 'check_compliance':
                 task_type = 'check_compliance'
-                rules = {}
+                rules: Dict[Any, List[Any]] = {}
                 for dst, src_rules in j['rules'].items():
                     rules.setdefault(dst, [])
                     for src, negated, cond in src_rules:
@@ -243,7 +252,7 @@ class AggregatorService(AbstractAggregator):
             AggregatorService.LOGGER.info("worker: stop handler after %s seconds.", t_stop-t_start)
 
 
-    def run(self, server, port=0):
+    def run(self, server: str, port: int = 0) -> None:
         """ Operates FaVe's aggregation service.
         """
 
@@ -330,7 +339,7 @@ class AggregatorService(AbstractAggregator):
         self.reporter.stop()
 
 
-    def stop_aggr(self):
+    def stop_aggr(self) -> None:
         """ Stops FaVe's aggregation service.
         """
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
@@ -338,7 +347,7 @@ class AggregatorService(AbstractAggregator):
         self.stop = True
 
 
-    def _sync_diff(self, model):
+    def _sync_diff(self, model: Any) -> None:
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             AggregatorService.LOGGER.debug('worker: synchronize model')
 
@@ -502,12 +511,13 @@ class AggregatorService(AbstractAggregator):
         self.models.setdefault(model.node, model)
 
 
-    def _align_ports_for_probe(self, model):
+    def _align_ports_for_probe(self, model: Any) -> None:
         if model.test_path is None: return
 
         new_path = []
         for pathlet in model.test_path.pathlets:
             tmp = pathlet_to_json(pathlet)
+            assert tmp is not None  # a normalized pathlet always converts
             if tmp['type'] == 'port':
                 new_pl = json_to_pathlet({
                     'type' : 'port',
@@ -528,7 +538,7 @@ class AggregatorService(AbstractAggregator):
         model.test_path = Path(new_path)
 
 
-    def _delete_model(self, model):
+    def _delete_model(self, model: Any) -> None:
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             lmsg = "worker: delete %s: %s" % (model.type, model.node)
             AggregatorService.LOGGER.debug(lmsg)
@@ -538,7 +548,7 @@ class AggregatorService(AbstractAggregator):
         self._del_ports(model)
 
 
-    def _add_model(self, model):
+    def _add_model(self, model: Any) -> None:
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             lmsg = "worker: apply %s: %s" % (model.type, model.node)
             AggregatorService.LOGGER.debug(lmsg)
@@ -549,22 +559,22 @@ class AggregatorService(AbstractAggregator):
         self._add_ports(model)
 
 
-    def _add_ports(self, model):
+    def _add_ports(self, model: Any) -> None:
         for port in model.ports:
             self.port_to_model.setdefault(port, model)
 
 
-    def _del_ports(self, model):
+    def _del_ports(self, model: Any) -> None:
         for port in model.ports:
             del self.port_to_model[port]
 
 
-    def _dump_aggregator(self, odir):
+    def _dump_aggregator(self, odir: str) -> None:
         os.system("mkdir -p %s" % odir)
         os.system("rm -f %s/*" % odir)
 
         with open("%s/fave.json" % odir, "w") as ofile:
-            j = {}
+            j: Dict[str, Any] = {}
             j["mapping"] = self.verification_engine.mapping.to_json()
             j["id_to_table"] = {self.verification_engine.tables[k]:k for k in self.verification_engine.tables}
 
@@ -585,14 +595,14 @@ class AggregatorService(AbstractAggregator):
                 json.dumps(j, sort_keys=True, indent=4, separators=(',', ': '))
             )
 
-def _parse_servers(arg):
+def _parse_servers(arg: str) -> List[Tuple[str, int]]:
     servers = []
 
     for host in arg.split(','):
         try:
-            np_host, np_port = host.split(':')
+            np_host, np_port_str = host.split(':')
             assert is_host(host)
-            np_port = int(np_port)
+            np_port = int(np_port_str)
         except ValueError:
             np_host = host
             assert is_unix(host)
@@ -602,17 +612,17 @@ def _parse_servers(arg):
     return servers
 
 
-def main(argv):
+def main(argv: List[str]) -> None:
     """ Connects to net_plumber backend and starts aggregator.
     """
 
     log_level = logging.INFO
-    socks = {}
-    asyncore_socks = {}
+    socks: Dict[Any, Any] = {}
+    asyncore_socks: Dict[Any, Any] = {}
 
     logging._srcfile = None
-    logging.logThreads = 0
-    logging.logProcesses = 0
+    logging.logThreads = False
+    logging.logProcesses = False
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
