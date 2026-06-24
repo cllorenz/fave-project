@@ -20,7 +20,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import re
+
+from typing import Any, Callable, List, Optional
+
+from policy import Policy, Superrole
 from policy_exceptions import InvalidSyntaxException
 from policy_logger import PT_LOGGER
 
@@ -90,7 +96,7 @@ class PolicyBuilder(object):
     """ % (comment_pattern, name_pattern, name_pattern, name_pattern), re.X)
 
     @classmethod
-    def build(cls, policy_chars, policy):
+    def build(cls, policy_chars: str, policy: "Policy") -> None:
         """Builds a complete Policy object by reading both a role and a policy
         file.
 
@@ -107,7 +113,7 @@ class PolicyBuilder(object):
         cls.build_policies(policy_chars[pos:], policy)
 
     @classmethod
-    def build_roles_and_services(cls, policy_chars, policy):
+    def build_roles_and_services(cls, policy_chars: str, policy: "Policy") -> int:
         """Adds roles and services to a Policy object as specified by an
         inventory file.
 
@@ -201,8 +207,10 @@ class PolicyBuilder(object):
             if role_incl_matches:
                 policy.add_superrole(role)
                 PT_LOGGER.debug("policy: added superrole %s", role)
+                superrole = policy.roles[role]
+                assert isinstance(superrole, Superrole)  # just added via add_superrole
                 for match_ in role_incl_matches:
-                    policy.roles[role].add_subrole(match_.group("role"), service=match_.group("service"))
+                    superrole.add_subrole(match_.group("role"), service=match_.group("service"))
                     PT_LOGGER.debug("%s: added subrole %s", role, match_.group("role"))
 
 #            if len(role_uses_matches) > 0:
@@ -229,7 +237,7 @@ class PolicyBuilder(object):
         return role_service_match[0].end()
 
     @classmethod
-    def build_policies(cls, policy_chars, policy):
+    def build_policies(cls, policy_chars: str, policy: "Policy") -> None:
         """Adds reachability policies to a Policy object as specified by a
         policy file.
 
@@ -303,7 +311,7 @@ class PolicyBuilder(object):
 
 
     @classmethod
-    def replace_policy_with_csv(cls, csv, policy):
+    def replace_policy_with_csv(cls, csv: List[List[str]], policy: "Policy") -> None:
         """Replaces reachability policies of a Policy object as specified by a
         policy csv file.
 
@@ -327,7 +335,7 @@ class PolicyBuilder(object):
 
 
     @classmethod
-    def match(cls, regex, chars, function=None):
+    def match(cls, regex: "re.Pattern[str]", chars: str, function: Optional[Callable[..., Any]] = None) -> List[Any]:
         """Returns all matches of a regular expression in a character string.
 
         Returns all Match objects found using either a match function (for
@@ -345,7 +353,9 @@ class PolicyBuilder(object):
             A list of Match objects.
         """
 
-        match, matches, start_pos = True, [], 0
+        match: Any = True
+        matches: List[Any] = []
+        start_pos = 0
         function = regex.match if function is None else function
 
         while match:
