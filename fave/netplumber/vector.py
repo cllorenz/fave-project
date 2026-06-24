@@ -23,10 +23,19 @@
     vectors as well as header spaces.
 """
 
-import json
-from netplumber.mapping import FIELD_SIZES
+from __future__ import annotations
 
-def align_headerspace(smapping, tmapping, hspace):
+import json
+
+from typing import List, Optional, Union
+
+from netplumber.mapping import FIELD_SIZES, Mapping
+from util.typing_util import JSONDict
+
+
+def align_headerspace(
+        smapping: Mapping, tmapping: Mapping, hspace: "HeaderSpace"
+) -> "HeaderSpace":
     """ Aligns a headerspace to conform a target mapping.
 
     Keyword arguments:
@@ -46,7 +55,9 @@ def align_headerspace(smapping, tmapping, hspace):
     return HeaderSpace(tmapping.length, hs_list, hs_diff)
 
 
-def align_vector(smapping, tmapping, vector):
+def align_vector(
+        smapping: Mapping, tmapping: Mapping, vector: "Vector"
+) -> "Vector":
     """ Aligns a vector to conform a target mapping.
 
     Keyword arguments:
@@ -62,7 +73,10 @@ def align_vector(smapping, tmapping, vector):
     return vec
 
 
-def copy_field_between_vectors(s_map, t_map, s_vec, t_vec, field):
+def copy_field_between_vectors(
+        s_map: Mapping, t_map: Mapping, s_vec: "Vector", t_vec: "Vector",
+        field: str
+) -> None:
     """ Copies a field from one vector to another respecting their mappings.
 
     Keyword arguments:
@@ -77,7 +91,7 @@ def copy_field_between_vectors(s_map, t_map, s_vec, t_vec, field):
     set_field_in_vector(t_map, t_vec, field, value)
 
 
-def get_field_from_vector(mapping, vector, field):
+def get_field_from_vector(mapping: Mapping, vector: "Vector", field: str) -> str:
     """ Retrieves field value from vector.
 
     Keyword arguments:
@@ -91,7 +105,9 @@ def get_field_from_vector(mapping, vector, field):
     return vector[start:stop]
 
 
-def set_field_in_vector(mapping, vector, field, value):
+def set_field_in_vector(
+        mapping: Mapping, vector: "Vector", field: str, value: str
+) -> None:
     """ Sets a field in a vector.
 
     Keyword arguments:
@@ -106,7 +122,7 @@ def set_field_in_vector(mapping, vector, field, value):
     vector[start:stop] = value
 
 
-def intersect_vectors(vec1, vec2):
+def intersect_vectors(vec1: str, vec2: str) -> Optional[str]:
     """ Intersects two vectors.
 
     Arguments:
@@ -136,7 +152,7 @@ class Vector(object):
     """ This class stores vectors.
     """
 
-    def __init__(self, length=0, preset="x"):
+    def __init__(self, length: int = 0, preset: str = "x") -> None:
         """ Constructs a vector of a certain length and presetting.
 
         Keyword arguments:
@@ -151,7 +167,7 @@ class Vector(object):
 
 
     @staticmethod
-    def is_vector(vectors, name=None):
+    def is_vector(vectors: object, name: Optional[str] = None) -> bool:
         """ Checks whether a string represents a vector.
 
         Keyword arguments:
@@ -174,7 +190,7 @@ class Vector(object):
 
 
     @staticmethod
-    def from_vector_str(vectors):
+    def from_vector_str(vectors: str) -> "Vector":
         """ Creates a vector from a vector string.
 
         Keyword arguments:
@@ -192,7 +208,7 @@ class Vector(object):
         return vec
 
 
-    def enlarge(self, size):
+    def enlarge(self, size: int) -> None:
         """ Enlarges the vector.
 
         Keyword arguments:
@@ -202,7 +218,7 @@ class Vector(object):
         self.vector += "x"*size
 
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: slice, value: str) -> None:
         assert isinstance(key, slice)
         start = key.start if key.start else 0
         stop = key.stop if key.stop else self.length
@@ -213,19 +229,19 @@ class Vector(object):
         assert len(self.vector) == self.length
 
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: slice) -> str:
         assert isinstance(key, slice)
         return self.vector[key]
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "vector:\n\t%s\nlength:\n\t%s" % (self.vector, self.length)
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.length
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Vector)
         return self.length == other.length and self.vector == other.vector
 
@@ -234,7 +250,10 @@ class HeaderSpace(object):
     """ This class stores header spaces.
     """
 
-    def __init__(self, length, hs_list, hs_diff=None):
+    def __init__(
+            self, length: int, hs_list: List["Vector"],
+            hs_diff: Optional[List["Vector"]] = None
+    ) -> None:
         """ Constructs a header space object.
 
         Keyword arguments:
@@ -260,7 +279,7 @@ class HeaderSpace(object):
         self.hs_diff = hs_diff
 
 
-    def enlarge(self, size):
+    def enlarge(self, size: int) -> None:
         """ Enlarges the vectors in the header space.
 
         Keyword arguments:
@@ -274,19 +293,19 @@ class HeaderSpace(object):
             vec.enlarge(size)
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.length
 
 
     @staticmethod
-    def from_str(str_):
+    def from_str(str_: str) -> "HeaderSpace":
         """ Constructs header space from string representation.
 
         Arguments:
         str_ -- a string
         """
         lists = str_.rstrip('\n').split(' - ')
-        hsd = None
+        hsd: Optional[str] = None
         if len(lists) == 1:
             hsl = lists.pop()
         elif len(lists) == 2:
@@ -306,7 +325,7 @@ class HeaderSpace(object):
         return HeaderSpace(length, hs_list, hs_diff)
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the header space to JSON.
         """
 
@@ -318,26 +337,25 @@ class HeaderSpace(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "HeaderSpace":
         """ Create a header space from JSON.
 
         Keyword arguments:
         j -- a header space represented as JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        length = int(j['length'])
-        hs_list = []
-        hs_diff = []
+        length = int(jd['length'])
+        hs_list: List[Vector] = []
+        hs_diff: List[Vector] = []
 
-        for vector in j['hs_list']:
+        for vector in jd['hs_list']:
             vec = Vector(length)
             vec[:] = vector
             hs_list.append(vec)
 
-        for vector in j['hs_diff']:
+        for vector in jd['hs_diff']:
             vec = Vector(length)
             vec[:] = vector
             hs_diff.append(vec)
@@ -345,7 +363,7 @@ class HeaderSpace(object):
         return HeaderSpace(length, hs_list, hs_diff)
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, HeaderSpace)
         return all([
             self.length == other.length,
@@ -354,7 +372,7 @@ class HeaderSpace(object):
         ])
 
 
-    def pprint(self, mapping=None):
+    def pprint(self, mapping: Optional[Mapping] = None) -> None:
         """ Prints header space prettily.
 
         Keyword arguments:
