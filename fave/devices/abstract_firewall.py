@@ -23,6 +23,10 @@
     fields, rules and packet filter models.
 """
 
+from __future__ import annotations
+
+from typing import Iterable, List, Optional
+
 from copy import copy, deepcopy
 
 from devices.abstract_device import AbstractDeviceModel
@@ -41,10 +45,12 @@ _BASE_ROUTING_RULE = int((TABLE_MAX + 1) / 4) * 3
 class AbstractFirewallModel(AbstractDeviceModel):
     """ An abstract model for firewalls that groups common characteristica.
     """
-    def __init__(self, node, pf_type, ports=None):
+    def __init__(
+            self, node: str, pf_type: str, ports: Optional[Iterable[str]] = None
+    ) -> None:
         super(AbstractFirewallModel, self).__init__(node, pf_type)
 
-        self.internal_ports = []
+        self.internal_ports: List[str] = []
         self.ports = {
             node + '.' + str(port) : "" for port in (
                 ports if ports is not None else ["1", "2"]
@@ -52,7 +58,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
         }
 
 
-    def __sub__(self, other):
+    def __sub__(self, other: "AbstractDeviceModel") -> "AbstractFirewallModel":
         assert self.node == other.node
         assert self.type == other.type
 
@@ -66,21 +72,21 @@ class AbstractFirewallModel(AbstractDeviceModel):
         return npf
 
 
-    def ingress_port(self, port):
+    def ingress_port(self, port: str) -> str:
         if port in self.internal_ports:
             return port
 
         return port + "_ingress"
 
 
-    def egress_port(self, port):
+    def egress_port(self, port: str) -> str:
         if port in self.internal_ports:
             return port
 
         return port + "_egress"
 
 
-    def set_address(self, address):
+    def set_address(self, address: str) -> None:
         """ Set the packet filter's address.
         """
 
@@ -110,16 +116,16 @@ class AbstractFirewallModel(AbstractDeviceModel):
         ]
 
 
-    def add_rules(self, rules):
+    def add_rules(self, rules: Iterable["Rule"]) -> None:
         """ Add a rule to the post_routing chain.
 
         Keyword arguments:
         rule -- new rule
         """
 
-        exact_rules = []
-        wrong_io_rules = []
-        normal_rules = []
+        exact_rules: List[Rule] = []
+        wrong_io_rules: List[Rule] = []
+        normal_rules: List[Rule] = []
 
         for rule in rules:
             assert isinstance(rule, Rule)
@@ -128,7 +134,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
 
             rule.in_ports = [self.node+'.routing_in']
 
-            output_ports = []
+            output_ports: List[str] = []
             for action in [a for a in rule.actions if isinstance(a, Forward)]:
 
                 for port in action.ports:
@@ -178,7 +184,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
         super(AbstractFirewallModel, self).add_rules(normal_rules)
 
 
-    def remove_rule(self, idx):
+    def remove_rule(self, idx: int) -> None:
         """ Remove a rule from the post_routing chain.
 
         Keyword arguments:
@@ -191,7 +197,7 @@ class AbstractFirewallModel(AbstractDeviceModel):
         del self.tables[self.node+".routing"][_BASE_ROUTING_RULE + rule.idx]
 
 
-    def update_rule(self, idx, rule):
+    def update_rule(self, idx: int, rule: "Rule") -> None:
         """ Update a rule in the post_routing chain.
 
         Keyword arguments:

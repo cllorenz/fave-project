@@ -22,15 +22,31 @@
 """ This module provides a basic node model to be stored in NetPlumber.
 """
 
+from __future__ import annotations
+
 import json
+
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+
 from util.collections_util import list_sub, dict_sub
+from util.typing_util import JSONDict
+
+if TYPE_CHECKING:
+    from rule.rule_model import Rule
 
 
 class AbstractDeviceModel(object):
     """ This class stores a basic model for a node.
     """
 
-    def __init__(self, node, mtype="model", tables=None, ports=None, wiring=None):
+    def __init__(
+            self,
+            node: str,
+            mtype: str = "model",
+            tables: Optional[Dict[str, List["Rule"]]] = None,
+            ports: Optional[Dict[str, Any]] = None,
+            wiring: Optional[List[Tuple[str, str]]] = None
+    ) -> None:
         """ Constructs a basic NetPlumber model.
 
         Keyword arguments:
@@ -43,14 +59,16 @@ class AbstractDeviceModel(object):
 
         self.node = node
         self.type = mtype
-        self.tables = tables if tables is not None else {}
-        self.ports = ports if ports is not None else {}
-        self.wiring = wiring if wiring is not None else []
-        self._adds = {t : [] for t in self.tables}
-        self._deletes = []
+        self.tables: Dict[str, List["Rule"]] = tables if tables is not None else {}
+        self.ports: Dict[str, Any] = ports if ports is not None else {}
+        self.wiring: List[Tuple[str, str]] = wiring if wiring is not None else []
+        # _adds is keyed by table name (str) on reset, but add_rules inserts by
+        # rule.tid (int or str) -> keep the key type loose.
+        self._adds: Dict[Any, List["Rule"]] = {t : [] for t in self.tables}
+        self._deletes: List[int] = []
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "node: %s\ntype: %s\ntables:\n\t%s\nports:\n\t%s\nwiring:\n\t%s" % (
             self.node,
             self.type,
@@ -60,14 +78,14 @@ class AbstractDeviceModel(object):
         )
 
 
-    def reset(self):
+    def reset(self) -> None:
         """ Resets add and delete buffers.
         """
         self._adds = {t : [] for t in self.tables}
         self._deletes = []
 
 
-    def add_rule(self, rule):
+    def add_rule(self, rule: "Rule") -> None:
         """ Add rule to add buffer.
 
         Positional arguments:
@@ -76,7 +94,7 @@ class AbstractDeviceModel(object):
         self.add_rules([rule])
 
 
-    def add_rules(self, rules):
+    def add_rules(self, rules: Iterable["Rule"]) -> None:
         """ Add rules to rule buffer.
 
         Positional arguments:
@@ -87,13 +105,13 @@ class AbstractDeviceModel(object):
             self._adds[rule.tid].append(rule)
 
 
-    def remove_rule(self, idx):
+    def remove_rule(self, idx: int) -> None:
         """ Add rule to delete buffer.
         """
         self._deletes.append(idx)
 
 
-    def ingress_port(self, port):
+    def ingress_port(self, port: str) -> str:
         """ Returns the model's corresponding ingress port.
 
         Keyword arguments:
@@ -102,7 +120,7 @@ class AbstractDeviceModel(object):
         return port
 
 
-    def egress_port(self, port):
+    def egress_port(self, port: str) -> str:
         """ Returns the model's corresponding egress port.
 
         Keyword arguments:
@@ -111,7 +129,7 @@ class AbstractDeviceModel(object):
         return port
 
 
-    def table_index(self, table):
+    def table_index(self, table: str) -> int:
         """ Returns an unambigious index of an internal table.
 
         Keyword arguments:
@@ -120,7 +138,7 @@ class AbstractDeviceModel(object):
         return sorted(self.tables.keys()).index(table)
 
 
-    def port_index(self, port):
+    def port_index(self, port: str) -> int:
         """ Returns an unambigious index of a port of the model.
 
         Keyword arguments:
@@ -129,7 +147,7 @@ class AbstractDeviceModel(object):
         return sorted(self.ports.keys()).index(port)
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the model to a JSON object.
         """
 
@@ -146,14 +164,14 @@ class AbstractDeviceModel(object):
         }
 
 
-    def to_json_str(self):
+    def to_json_str(self) -> str:
         """ Converts the model to a JSON string.
         """
         return json.dumps(self.to_json())
 
 
     @staticmethod
-    def from_string(jsons):
+    def from_string(jsons: str) -> "AbstractDeviceModel":
         """ Creates a model from a JSON string.
 
         Keyword arguments:
@@ -167,7 +185,7 @@ class AbstractDeviceModel(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: JSONDict) -> "AbstractDeviceModel":
         """ Creates a model from a JSON object.
 
         Keyword arguments:
@@ -184,11 +202,11 @@ class AbstractDeviceModel(object):
 
         return model
 
-    def __sub__(self, other):
+    def __sub__(self, other: "AbstractDeviceModel") -> "AbstractDeviceModel":
         assert self.node == other.node
         assert self.type == other.type
 
-        tables = {}
+        tables: Dict[str, List["Rule"]] = {}
         for tab in self.tables:
             if tab in other.tables:
                 table = list_sub(self.tables[tab], other.tables[tab])
@@ -207,7 +225,7 @@ class AbstractDeviceModel(object):
         )
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, AbstractDeviceModel)
 
         return all([
@@ -218,6 +236,6 @@ class AbstractDeviceModel(object):
             self.wiring == other.wiring,
         ])
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         assert isinstance(other, AbstractDeviceModel)
         return not self == other
