@@ -20,7 +20,11 @@
 """ This module provides packet constants and utilities.
 """
 
+from __future__ import annotations
+
 import re
+
+from typing import Callable, List, Optional, Tuple
 
 ETHER_TYPE_IPV4 = '00000100' # 4
 ETHER_TYPE_IPV6 = '00000110' # 6
@@ -43,7 +47,7 @@ IPV6_NONE = '00111011'       # 59
 IPV6_PROT = '11111111'       # 255
 
 
-def is_ip(ips):
+def is_ip(ips: str) -> bool:
     """ Checks if a string represents a valid IPv4 CIDR.
 
     Keyword arguments:
@@ -71,7 +75,7 @@ def is_ip(ips):
     return True
 
 
-def is_domain(domains):
+def is_domain(domains: str) -> bool:
     """ Checks if a string is a valid domain name.
 
     Keyword arguments:
@@ -82,7 +86,7 @@ def is_domain(domains):
     return all([re.match(label, l) for l in labels])
 
 
-def is_unix(unixs):
+def is_unix(unixs: str) -> bool:
     """ Checks if a string is a valid unix domain socket address.
 
     Keyword arguments:
@@ -91,7 +95,7 @@ def is_unix(unixs):
     return '\0' not in unixs
 
 
-def is_port(ports):
+def is_port(ports: str) -> bool:
     """ Checks if a string is a valid port number.
 
     Keyword arguments:
@@ -106,7 +110,7 @@ def is_port(ports):
     return False
 
 
-def is_ext_port(ports):
+def is_ext_port(ports: str) -> bool:
     """ Checks if a string is a valid interface number.
 
     Keyword arguments:
@@ -115,7 +119,7 @@ def is_ext_port(ports):
     return is_port(ports)
 
 
-def is_host(hosts):
+def is_host(hosts: str) -> bool:
     """ Checks if a string is a valid host identifier consisting of either of
         the form <domain>:<port> or <ip>:port.
     Keyword arguments:
@@ -129,7 +133,7 @@ def is_host(hosts):
     return (is_ip(host) or is_domain(host)) and is_port(port)
 
 
-def normalize_vlan_tag(vlan):
+def normalize_vlan_tag(vlan: str) -> str:
     """ Normalizes vlan tags.
 
     Keyword arguments:
@@ -142,7 +146,7 @@ def normalize_vlan_tag(vlan):
     return '{:016b}'.format(vlan_tag) if vlan_tag != 0 else 'x'*16
 
 
-def normalize_upper_port(port):
+def normalize_upper_port(port: str) -> str:
     """ Normalizes upper protocol port numbers.
 
     Keyword arguments:
@@ -155,7 +159,7 @@ def normalize_upper_port(port):
     return '{:016b}'.format(portno)
 
 
-def normalize_ipv4_address(address):
+def normalize_ipv4_address(address: str) -> str:
     """ Normalizes an IPv4 address.
 
     Keyword arguments:
@@ -166,6 +170,7 @@ def normalize_ipv4_address(address):
     if not match:
         raise ValueError("%s is not an ipv4 address" % address)
 
+    cidr: Optional[str]
     try:
         addr, cidr = address.split('/')
     except ValueError:
@@ -175,19 +180,20 @@ def normalize_ipv4_address(address):
     addr = ''.join(["{:08b}".format(int(x)) for x in addr.split('.')])
 
     if cidr and int(cidr) < 32:
-        cidr = int(cidr)
-        addr = addr[:cidr] + 'x'*(32-cidr)
+        clen = int(cidr)
+        addr = addr[:clen] + 'x'*(32-clen)
 
     return addr
 
 
-def normalize_ipv6_address(address):
+def normalize_ipv6_address(address: str) -> str:
     """ Normalizes an IPv6 address.
 
     Keyword arguments:
     address -- an IPv6 address in full, cidr, or short notation
     """
 
+    cidr: Optional[str]
     try:
         addr, cidr = address.split("/")
     except ValueError:
@@ -200,27 +206,20 @@ def normalize_ipv6_address(address):
         laddr = addr
         raddr = ''
 
-    if laddr:
-        laddr = laddr.split(":")
-    else:
-        laddr = []
+    lblocks = laddr.split(":") if laddr else []
+    rblocks = raddr.split(":") if raddr else []
 
-    if raddr:
-        raddr = raddr.split(":")
-    else:
-        raddr = []
-
-    laddr += ["0"] * (8-len(laddr)-len(raddr)) + raddr
-    addr = "".join(["{:016b}".format(int(block, 16)) for block in laddr])
+    blocks = lblocks + ["0"] * (8-len(lblocks)-len(rblocks)) + rblocks
+    addr = "".join(["{:016b}".format(int(block, 16)) for block in blocks])
 
     if cidr and int(cidr) < 128:
-        cidr = int(cidr)
-        addr = addr[:cidr] + 'x'*(128-cidr)
+        clen = int(cidr)
+        addr = addr[:clen] + 'x'*(128-clen)
 
     return addr
 
 
-def normalize_ipv6_proto(proto):
+def normalize_ipv6_proto(proto: str) -> str:
     """ Normalizes the IPv6 upper protocol field (last next header field in chain).
 
     Keyword arguments:
@@ -236,7 +235,7 @@ def normalize_ipv6_proto(proto):
     }[proto]
 
 
-def normalize_ipv6header_header(header):
+def normalize_ipv6header_header(header: str) -> str:
     """ Normalizes the IPv6 next header field.
 
     Keyword arguments:
@@ -258,7 +257,9 @@ def normalize_ipv6header_header(header):
 
 
 
-def _denormalize_ip_address(vector, alen, blen, bform, delim):
+def _denormalize_ip_address(
+        vector: str, alen: int, blen: int, bform: Callable[[int], str], delim: str
+) -> str:
     baddr = ""
     for bit in vector:
         if bit == 'x':
@@ -280,7 +281,7 @@ def _denormalize_ip_address(vector, alen, blen, bform, delim):
     return delim.join(res) + (("/%s"%cidr) if cidr != alen else "")
 
 
-def denormalize_ipv4_address(vector):
+def denormalize_ipv4_address(vector: str) -> str:
     """ Converts a ternary bit vector to an IPv4 prefix representation
 
     Keyword arguments:
@@ -290,7 +291,7 @@ def denormalize_ipv4_address(vector):
     return _denormalize_ip_address(vector, 32, 8, str, '.')
 
 
-def denormalize_ipv6_address(vector):
+def denormalize_ipv6_address(vector: str) -> str:
     """ Converts a ternary bit vector to an IPv6 prefix representation
 
     Keyword arguments:
@@ -301,7 +302,7 @@ def denormalize_ipv6_address(vector):
 
 
 PORT_BITS = 16
-def portrange_to_prefix_list(lower, upper):
+def portrange_to_prefix_list(lower: int, upper: int) -> List[Tuple[int, int]]:
     """ Converts a range of ports to a list of prefixes.
 
     Keyword arguments:
@@ -327,7 +328,7 @@ def portrange_to_prefix_list(lower, upper):
     return res
 
 
-def portrange_to_prefixed_bitvectors(lower, upper):
+def portrange_to_prefixed_bitvectors(lower: int, upper: int) -> List[str]:
     """ Transforms a port range to a set of prefixed bit vectors.
 
     Arguments:
