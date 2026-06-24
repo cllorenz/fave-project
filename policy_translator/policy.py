@@ -487,6 +487,10 @@ class Policy(object):
         """
         # set needed Variables
         iptables_rules = []
+        # Suppress list (raw/PREROUTING NOTRACK rules). Per Algorithm 7.1 (thesis
+        # Sec. 7.3) these stateless-suppression rules are collected separately and
+        # prepended to the main list (return Suppress + Main).
+        suppress_rules = []
         ip4rule = False
         ip6rule = False
 
@@ -683,7 +687,7 @@ class Policy(object):
                             #create prerouting rule if neccesary
                             #TODO remove ALL strictrule when Policy creation(A<->A insted of A->A) is fixed
                             if singleway and not self.default_policy and not strictrule:
-                                iptables_rules += [(
+                                suppress_rules += [(
                                     "iptables -t raw -A PREROUTING" + eth_from + ip4_src + eth_to + ip4_dst + comment + " -j NOTRACK"
                                 ) for ip4_src in ip4_from for ip4_dst in ip4_to]
                             iptables_rules += [(
@@ -693,7 +697,7 @@ class Policy(object):
                         if ip6rule:
                             #create prerouting rule if neccesary
                             if singleway and not self.default_policy and not strictrule:
-                                iptables_rules += [(
+                                suppress_rules += [(
                                     "ip6tables -t raw -A PREROUTING" + eth_from + ip6_src + eth_to + ip6_dst + comment + " -j NOTRACK"
                                 ) for ip6_src in ip6_from for ip6_dst in ip6_to]
                             iptables_rules += [(
@@ -705,7 +709,7 @@ class Policy(object):
                 PT_LOGGER.debug(f"no conditions to handle")
                 if ip4rule:
                     if singleway and not strictrule:
-                        iptables_rules += [(
+                        suppress_rules += [(
                             "iptables -t raw -A PREROUTING" + eth_from + ip4_src + eth_to + ip4_dst + comment + " -j NOTRACK"
                         ) for ip4_src in ip4_from for ip4_dst in ip4_to]
                     iptables_rules += [(
@@ -714,7 +718,7 @@ class Policy(object):
 
                 if ip6rule:
                     if singleway and not strictrule:
-                        iptables_rules += [(
+                        suppress_rules += [(
                             "ip6tables -t raw -A PREROUTING" + eth_from + ip6_src + eth_to + ip6_dst + comment + " -j NOTRACK"
                         ) for ip6_src in ip6_from for ip6_dst in ip6_to]
                     iptables_rules += [(
@@ -728,7 +732,12 @@ class Policy(object):
             PT_LOGGER.debug(f"finished policy rule: {policy}")
 
         PT_LOGGER.debug('compile iptables rule set')
-        result = "\n".join(iptables_rules) + '\n'
+        # Algorithm 7.1 (thesis Sec. 7.3) returns Suppress + Main: prepend the
+        # stateless-suppression (raw/PREROUTING NOTRACK) rules as a leading block.
+        # (Equivalent to inlining them, since netfilter evaluates the raw table
+        # before filter regardless of command order -- but this mirrors the spec.)
+        out = ["# === Suppress (stateless NOTRACK) ==="] + suppress_rules + iptables_rules
+        result = "\n".join(out) + '\n'
         PT_LOGGER.trace(result)
         return result
 
