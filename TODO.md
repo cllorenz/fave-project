@@ -95,11 +95,11 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [x] **Emit `# === <name> ===` section headers in the generated rule set; tests use them as authoritative block boundaries.**
   - [x] Added nine headers to `Policy.to_iptables()` (IPv4/IPv6 × default/anti-spoofing/state, plus IPv6 ICMP, IPv6 hardening, access). Semantically inert (shell/`iptables-restore` comments).
   - [x] Tests parse blocks by header (`parse_blocks`) — no fragile rule-shape pattern-matching (per user's reservation that pattern-matching could miss future rule-shape changes).
-- **Decision (with user):** chose explicit output headers over a test-side pattern classifier. Justified as an independent **readability/audit** feature for human reviewers, not test-only scaffolding. Headers reflect the *current* (per-protocol) block structure; they will be revised together with item 1f if the generator is restructured to match Algorithm 7.1's functional blocks.
+- **Decision (with user):** chose explicit output headers over a test-side pattern classifier. Justified as an independent **readability/audit** feature for human reviewers, not test-only scaffolding. Headers reflect the per-protocol block structure; item 1f later added the leading `Suppress` block to match Algorithm 7.1's `Suppress + Main`.
 
-### 1f. Generator structure diverges from Algorithm 7.1 (Suppress list) — OBSERVE, defer
-- [ ] **Reconcile `to_iptables()` structure with Algorithm 7.1's `Suppress + Main`.**
-- **Finding:** Algorithm 7.1 (thesis §7.3) prepends a separate `Suppress` list and returns `Suppress + Main`. The code instead inlines stateless suppression as `raw PREROUTING ... -j NOTRACK` rules adjacent to each access rule, rather than as a prepended block. Different table/chain, so semantically equivalent, but the *structure* differs from the documented concept. Not material to item 1d; flagged for later review (does the concept or the code need updating?).
+### 1f. Generator structure matches Algorithm 7.1 (Suppress list) — DONE (refactored)
+- [x] **Refactored `to_iptables()` to the two-list `Suppress + Main` form.** Decision (with user): FaVe is a *reference implementation* of the thesis, so the generated artifact should mirror Algorithm 7.1 rather than just be equivalent. Collected the stateless-suppression `raw/PREROUTING ... -j NOTRACK` rules into a `suppress_rules` list and prepended them as a leading `# === Suppress (stateless NOTRACK) ===` block; the access block now holds only the FORWARD rules.
+- **Behavior unchanged:** purely organizational — netfilter evaluates the `raw` table before `filter` regardless of command order, so inline vs. prepended produce identical packet filtering. Verified via the block-wise `test_to_iptables` (now includes the leading Suppress block; 12/12 deterministic across seeds 0/1/42/default; fast tier 46 + 90 green).
 
 ### 1g. `test_rpc` backend dependency — RESOLVED via e2e tier split
 - [x] **Introduced an `e2e` tier and made `integration` deterministic + gating.**
