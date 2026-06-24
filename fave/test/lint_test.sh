@@ -19,84 +19,75 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-# GATING POLICY: this script fails (exit 1) only on pylint ERROR (E) and FATAL
-# (F) messages -- i.e. genuine bugs (undefined names, bad calls, broken imports).
-# Warnings / conventions / refactors (style) are reported but do NOT gate, so the
-# build is not held hostage to style on a research codebase. pylint's exit code
-# is a bitmask: 1=fatal, 2=error, 4=warning, 8=refactor, 16=convention, 32=usage.
+# GATING POLICY: fail (exit 1) only on pylint ERROR (E) / FATAL (F) messages --
+# genuine bugs (undefined names, bad calls, syntax). Style (warning/convention/
+# refactor) is reported but does NOT gate. Import/name-resolution checks
+# (import-error E0401, no-name-in-module E0611) are NOT gated: pylint resolves
+# imports differently from the runtime PYTHONPATH, so they are env-fragile and
+# noisy here; genuinely broken imports are caught by the fast/integration tiers.
+# pylint exit bitmask: 1=fatal 2=error 4=warning 8=refactor 16=convention 32=usage.
 
 export TMP=$(mktemp -d -p /tmp pylint.XXXXXX)
 export RCFILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.pylintrc"
 
-# to be ignored (generated / vendored / stale demo code):
-export IGNORE="\
-examples/example-traverse.py \
-examples/demo_slicing.py \
-util/dynamic_distribution.py \
-deprecated/* \
-bench/wl_stanford/stanford-hassel/utils/*.py \
-bench/wl_stanford/stanford-hassel/utils//test/*.py \
-bench/wl_stanford/stanford-hassel/headerspace/*.py \
-bench/wl_stanford/stanford-hassel/headerspace/test/*.py \
-bench/wl_stanford/stanford-hassel/c-bytearray/*.py
-bench/wl_stanford/stanford-hassel/cisco_router_parser.py \
-bench/wl_i2/i2-hassel/utils/*.py \
-bench/wl_i2/i2-hassel/utils/test/*.py \
-bench/wl_i2/i2-hassel/headerspace/*.py \
-bench/wl_i2/i2-hassel/headerspace/test/*.py \
-bench/wl_i2/i2-hassel/c-bytearray/*.py \
-bench/wl_i2/i2-hassel/juniper_parser.py
+# Specific files to skip, by exact path relative to the fave/ directory.
+# (Vendored Hassel trees and deprecated/ are pruned at the find stage below.)
+export IGNORE_FILES="\
+./examples/demo_slicing.py \
+./util/dynamic_distribution.py \
 "
-export OKS="$TMP/ok_files"
-touch $OKS
-export SKIPS="$TMP/skipped_files"
-touch $SKIPS
-export STYLE="$TMP/style_files"
-touch $STYLE
-export FAILS="$TMP/failed_files"
-touch $FAILS
+
+# pylint checks that must not gate (env-fragile import/name resolution).
+export NONGATING="import-error,no-name-in-module"
+
+export OKS="$TMP/ok_files";     touch $OKS
+export SKIPS="$TMP/skipped";    touch $SKIPS
+export STYLE="$TMP/style";      touch $STYLE
+export FAILS="$TMP/failed";     touch $FAILS
 
 lint_file() {
     PYFILE=$1
     SPY=`echo $PYFILE | cut -d/ -f2- | tr '/' '_'`
     LOG=$TMP/lint_$SPY.log
-
     PRE="lint $PYFILE:"
 
-    if [[ $IGNORE =~ $(echo "$PYFILE" | cut -d/ -f2-) ]]; then
-        echo "$PRE skip"
-        echo $PYFILE >> $SKIPS
-        return 0
-    fi
+    for ig in $IGNORE_FILES; do
+        if [ "$PYFILE" = "$ig" ]; then
+            echo "$PRE skip"
+            echo "$PYFILE" >> $SKIPS
+            return 0
+        fi
+    done
 
-    PYTHONPATH=. pylint --rcfile="$RCFILE" $PYFILE > $LOG 2>&1
+    PYTHONPATH=. pylint --rcfile="$RCFILE" --disable="$NONGATING" "$PYFILE" > $LOG 2>&1
     RC=$?
-    REPORT=/tmp/lint_$SPY.log
 
-    if [ $((RC & 32)) -ne 0 ]; then
-        # pylint usage error (e.g. could not run) -> treat as a gate failure
-        cp $LOG $REPORT
-        echo "$PRE FAIL (pylint usage error; report at $REPORT)"
-        echo $PYFILE >> $FAILS
-    elif [ $((RC & 3)) -ne 0 ]; then
-        # fatal (1) and/or error (2) -> genuine bug -> gate failure
-        cp $LOG $REPORT
-        echo "$PRE FAIL (error/fatal; report at $REPORT)"
-        echo $PYFILE >> $FAILS
+    if [ $((RC & 32)) -ne 0 ] || [ $((RC & 3)) -ne 0 ]; then
+        # pylint usage error, fatal, or error -> gate failure
+        echo "$PRE FAIL (error/fatal)"
+        echo "$PYFILE" >> $FAILS
     elif [ $RC -ne 0 ]; then
         # warning/convention/refactor only -> reported, does not gate
         SCORE=`grep "Your code has been rated at" $LOG | cut -d' ' -f7-`
         echo "$PRE style ($SCORE)"
-        echo $PYFILE >> $STYLE
+        echo "$PYFILE" >> $STYLE
     else
         echo "$PRE ok"
-        echo $PYFILE >> $OKS
+        echo "$PYFILE" >> $OKS
     fi
 }
 export -f lint_file
 
 
-PYFILES=`find . -not -path "deprecated" -not -name "__init__.py" -name "*.py"`
+# Lint everything except __init__.py, deprecated/, in-repo virtualenvs /
+# site-packages (a local .venv must not be linted), and the vendored Hassel trees.
+PYFILES=$(find . -name '*.py' -not -name '__init__.py' \
+    -not -path './deprecated/*' \
+    -not -path '*/.venv/*' \
+    -not -path '*/venv/*' \
+    -not -path '*/site-packages/*' \
+    -not -path '*/stanford-hassel/*' \
+    -not -path '*/i2-hassel/*')
 
 MAX_PROCS=$(nproc)
 echo $PYFILES | xargs --max-procs $MAX_PROCS -n 1 bash -c 'lint_file "$@"' _
@@ -111,8 +102,15 @@ and failed $(wc -l < $FAILS) (errors/fatals)\
 
 NFAILS=$(wc -l < $FAILS)
 if [ "$NFAILS" -gt 0 ]; then
-    echo "Files with error/fatal findings (gating):"
-    sed 's/^/  /' $FAILS
+    # Print the actual error/fatal messages so CI logs are debuggable
+    # (done once, single-threaded, after the parallel run to avoid interleaving).
+    echo "===== error/fatal findings (these gate the build) ====="
+    while read -r f; do
+        SPY=`echo "$f" | cut -d/ -f2- | tr '/' '_'`
+        echo "--- $f ---"
+        grep -E ":[0-9]+:[0-9]+: [EF][0-9]+" "$TMP/lint_$SPY.log" | sed 's/^/  /'
+    done < $FAILS
+    echo "======================================================="
 fi
 
 rm -rf $TMP
