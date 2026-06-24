@@ -25,6 +25,8 @@
 
 import sys
 
+from typing import Any, Optional
+
 from bison import BisonParser
 from util.tree_util import Tree
 
@@ -51,13 +53,13 @@ class IP6TablesParser(BisonParser):
         'NEWLINE', 'WS', 'COMMENT', 'FLAGS', 'STATES', 'DPORTS', 'SPORTS', 'SENTENCE', 'PROTONO'
     ]
 
-    _ast = None
+    _ast: Optional[Tree] = None
     precedences = ()
     _linecount = 1
 
     start = 'ruleset'
 
-    def on_ruleset(self, *_args, **kwargs):
+    def on_ruleset(self, *_args: Any, **kwargs: Any) -> Any:
         """
         ruleset :
                 | ruleset line
@@ -68,6 +70,8 @@ class IP6TablesParser(BisonParser):
         names = kwargs["names"]
         values = kwargs["values"]
 
+        assert self._ast is not None  # set by parse() before any handler runs
+
         if option == 0:
             return []
         elif option == 1:
@@ -77,10 +81,10 @@ class IP6TablesParser(BisonParser):
         elif option == 2:
             return self._ast
         else:
-            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
+            raise Exception("unexpected option for %s: %s with %s and %s" % (target, option, names, values))
 
 
-    def on_comment(self, *_args, **_kwargs):
+    def on_comment(self, *_args: Any, **_kwargs: Any) -> Any:
         """
         comment : COMMENT NEWLINE
         """
@@ -89,7 +93,7 @@ class IP6TablesParser(BisonParser):
         return None
 
 
-    def on_line(self, *_args, **kwargs):
+    def on_line(self, *_args: Any, **kwargs: Any) -> Any:
         """
         line : NEWLINE
              | ipt WS table APPEND_CMD WS IDENT body WS jump NEWLINE
@@ -161,9 +165,9 @@ class IP6TablesParser(BisonParser):
             return line
 
         else:
-            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
+            raise Exception("unexpected option for %s: %s with %s and %s" % (target, option, names, values))
 
-    def on_ipt(self, *_args, **kwargs):
+    def on_ipt(self, *_args: Any, **kwargs: Any) -> Any:
         """
         ipt : IPT6
             | IPT
@@ -171,7 +175,7 @@ class IP6TablesParser(BisonParser):
         return kwargs['values'][0]
 
 
-    def on_table(self, *_args, **kwargs):
+    def on_table(self, *_args: Any, **kwargs: Any) -> Any:
         """
         table :
               | TABLE WS IDENT WS
@@ -189,10 +193,10 @@ class IP6TablesParser(BisonParser):
             ret.add_child(val)
             return ret
         else:
-            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
+            raise Exception("unexpected option for %s: %s with %s and %s" % (target, option, names, values))
 
 
-    def on_body(self, *_args, **kwargs):
+    def on_body(self, *_args: Any, **kwargs: Any) -> Any:
         """
         body :
              | body WS neg_argument
@@ -209,10 +213,10 @@ class IP6TablesParser(BisonParser):
             body.append(values[2])
             return body
         else:
-            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
+            raise Exception("unexpected option for %s: %s with %s and %s" % (target, option, names, values))
 
 
-    def on_neg_argument(self, *_args, **kwargs):
+    def on_neg_argument(self, *_args: Any, **kwargs: Any) -> Any:
         """
         neg_argument : NEGATION WS argument
                      | argument
@@ -229,10 +233,10 @@ class IP6TablesParser(BisonParser):
         elif option == 1:
             return values[0]
         else:
-            raise "unexpected option for %s: %s with %s and %s" % (target, option, names, values)
+            raise Exception("unexpected option for %s: %s with %s and %s" % (target, option, names, values))
 
 
-    def on_argument(self, *_args, **kwargs):
+    def on_argument(self, *_args: Any, **kwargs: Any) -> Any:
         """
         argument : saddr
                  | daddr
@@ -249,7 +253,7 @@ class IP6TablesParser(BisonParser):
         return kwargs["values"][0]
 
 
-    def on_saddr(self, *_args, **kwargs):
+    def on_saddr(self, *_args: Any, **kwargs: Any) -> Any:
         """
         saddr : SRC_SHORT WS IPV6_CIDR
               | SRC_LONG WS IPV6_CIDR
@@ -264,7 +268,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_daddr(self, *_args, **kwargs):
+    def on_daddr(self, *_args: Any, **kwargs: Any) -> Any:
         """
         daddr : DST_SHORT WS IPV6_CIDR
               | DST_LONG WS IPV6_CIDR
@@ -279,7 +283,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_sport(self, *_args, **kwargs):
+    def on_sport(self, *_args: Any, **kwargs: Any) -> Any:
         """
         sport : SPORT WS PORTNO
         """
@@ -291,7 +295,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_dport(self, *_args, **kwargs):
+    def on_dport(self, *_args: Any, **kwargs: Any) -> Any:
         """
         dport : DPORT WS PORTNO
         """
@@ -303,7 +307,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_sports(self, *_args, **kwargs):
+    def on_sports(self, *_args: Any, **kwargs: Any) -> Any:
         """
         sports : SPORTS WS PORTRANGE
         """
@@ -315,7 +319,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_dports(self, *_args, **kwargs):
+    def on_dports(self, *_args: Any, **kwargs: Any) -> Any:
         """
         dports : DPORTS WS PORTRANGE
         """
@@ -327,7 +331,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_proto(self, *_args, **kwargs):
+    def on_proto(self, *_args: Any, **kwargs: Any) -> Any:
         """
         proto : PROTO_SHORT WS IDENT
               | PROTO_SHORT WS PROTONO
@@ -346,7 +350,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_sinf(self, *_args, **kwargs):
+    def on_sinf(self, *_args: Any, **kwargs: Any) -> Any:
         """
         sinf : IN_SHORT WS PORTNO
              | IN_LONG WS PORTNO
@@ -361,7 +365,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_oinf(self, *_args, **kwargs):
+    def on_oinf(self, *_args: Any, **kwargs: Any) -> Any:
         """
         oinf : OUT_SHORT WS PORTNO
              | OUT_LONG WS PORTNO
@@ -376,7 +380,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_module(self, *_args, **kwargs):
+    def on_module(self, *_args: Any, **kwargs: Any) -> Any:
         """
         module : MOD_SHORT WS IDENT
                | MOD_LONG WS IDENT
@@ -389,7 +393,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_generic_argument(self, *_args, **kwargs):
+    def on_generic_argument(self, *_args: Any, **kwargs: Any) -> Any:
         """
         generic_argument : ARG_SHORT WS IDENT
                          | ARG_LONG WS IDENT
@@ -402,7 +406,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_module_body(self, *_args, **kwargs):
+    def on_module_body(self, *_args: Any, **kwargs: Any) -> Any:
         """
         module_body : ARG_SHORT WS FLAGS WS FLAGS
                     | ARG_LONG WS FLAGS WS FLAGS
@@ -435,7 +439,7 @@ class IP6TablesParser(BisonParser):
         return ret
 
 
-    def on_jump(self, *_args, **kwargs):
+    def on_jump(self, *_args: Any, **kwargs: Any) -> Any:
         """
         jump : JUMP_SHORT WS action
              | JUMP_LONG WS action
@@ -447,7 +451,7 @@ class IP6TablesParser(BisonParser):
         return jump
 
 
-    def on_action(self, *_args, **kwargs):
+    def on_action(self, *_args: Any, **kwargs: Any) -> Any:
         """
         action : ACCEPT
                | DROP
@@ -556,7 +560,7 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
     """
 
 
-    def parse(self, ruleset, debug=False):
+    def parse(self, ruleset: str, debug: bool = False) -> Any:
         """ Retrieve an AST for an ip6tables rule set.
 
         Keyword arguments:

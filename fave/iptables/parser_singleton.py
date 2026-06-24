@@ -20,7 +20,9 @@
 """ This module provides a constant to a global PyBison parser.
 """
 
-PARSER = None
+from typing import Any
+
+PARSER: Any = None
 
 if PARSER is None:
     from iptables.parser import IP6TablesParser
