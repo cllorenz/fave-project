@@ -19,11 +19,15 @@
 
 import logging
 
-from typing import Any
+from typing import Any, cast
 
-PT_LOGGER = logging.getLogger("PolicyTranslator")
-PT_LOGGER.addHandler(logging.StreamHandler())
-PT_LOGGER.setLevel(logging.INFO)
+
+class TraceLogger(logging.Logger):
+    """ A logging.Logger that also exposes the trace() level patched in below.
+        Annotation/cast target only; loggers are created via getLogger().
+    """
+    def trace(self, message: object, *args: Any, **kws: Any) -> None: ...
+
 
 # add custom trace logging method
 TRACE_LEVEL_NUM = 9
@@ -36,3 +40,7 @@ def trace(self: logging.Logger, message: Any, *args: Any, **kws: Any) -> None:
         self._log(TRACE_LEVEL_NUM, message, args, **kws)
 
 logging.Logger.trace = trace  # type: ignore[attr-defined]
+
+PT_LOGGER: TraceLogger = cast(TraceLogger, logging.getLogger("PolicyTranslator"))
+PT_LOGGER.addHandler(logging.StreamHandler())
+PT_LOGGER.setLevel(logging.INFO)

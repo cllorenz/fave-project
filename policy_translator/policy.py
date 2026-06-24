@@ -21,9 +21,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import ast
 import copy
 import json
+
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
 from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
 from policy_logger import PT_LOGGER
@@ -47,14 +52,14 @@ class Policy(object):
     # XXX: make interface configurable or use more sane default
     default_roles = {"Internet" : [('interface', '"fw.generic.eth1"')]}
 
-    def __init__(self, strict=False, use_internet=True):
+    def __init__(self, strict: bool = False, use_internet: bool = True) -> None:
         """Initialises a Policy object with role "Internet", no services, no
         policies and default policy "deny"."""
 
-        self.roles = {}
-        self.services = {}
-        self.policies = {}
-        self.raw_policies = set()
+        self.roles: Dict[str, Role] = {}
+        self.services: Dict[str, Service] = {}
+        self.policies: Dict[Tuple[str, str], Any] = {}
+        self.raw_policies: Set[Any] = set()
         self.default_policy = False
         for role, attributes in [
                 (r, a) for r, a in  self.default_roles.items() if (
@@ -67,7 +72,7 @@ class Policy(object):
                 tmp.add_attribute(key, value)
         self.strict = strict
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Policy)
 
         return all([
@@ -76,7 +81,7 @@ class Policy(object):
             self.default_policy == other.default_policy
         ])
 
-    def add_role(self, name):
+    def add_role(self, name: str) -> None:
         """Adds a role.
 
         Args:
@@ -92,7 +97,7 @@ class Policy(object):
 
         self.roles[name] = Role(name, self)
 
-    def add_superrole(self, name):
+    def add_superrole(self, name: str) -> None:
         """Adds a superrole.
 
         Args:
@@ -107,7 +112,7 @@ class Policy(object):
 
         self.roles[name] = Superrole(name, self)
 
-    def add_service(self, name):
+    def add_service(self, name: str) -> None:
         """Adds a service.
 
         Args:
@@ -122,7 +127,7 @@ class Policy(object):
 
         self.services[name] = Service(name, self)
 
-    def role_exists(self, name):
+    def role_exists(self, name: str) -> bool:
         """Returns whether a role with the given name exists or not.
 
         Args:
@@ -134,7 +139,7 @@ class Policy(object):
 
         return name in list(self.roles.keys())
 
-    def service_exists(self, name):
+    def service_exists(self, name: str) -> bool:
         """Returns whether a service with the given name exists or not.
 
         Args:
@@ -146,7 +151,7 @@ class Policy(object):
 
         return name in list(self.services.keys())
 
-    def policy_exists(self, role_from, role_to):
+    def policy_exists(self, role_from: str, role_to: str) -> bool:
         """Returns whether a reachability policy concerning the two given roles
         exists or not.
 
@@ -161,7 +166,7 @@ class Policy(object):
         return (role_from, role_to) in list(self.policies.keys())
 
 
-    def conditional_policy_exists(self, role_from, role_to):
+    def conditional_policy_exists(self, role_from: str, role_to: str) -> bool:
         """Returns whether a conditional reachability policy concerning the two
         given roles exists or not.
 
@@ -177,7 +182,7 @@ class Policy(object):
             self.policies[(role_from, role_to)].conditions != []
 
 
-    def add_reachability_policy(self, role_from, role_to, service_to=None, condition=None):
+    def add_reachability_policy(self, role_from: str, role_to: str, service_to: Optional[str] = None, condition: Optional[Dict[str, Any]] = None) -> None:
         """Adds or updates a reachability policy concerning two roles.
 
         If one or both of the roles are superroles, reachability policies will
@@ -209,9 +214,9 @@ class Policy(object):
             for role_to_ in self.roles[role_to].get_roles():
                 conditions = [copy.deepcopy(condition)] if condition is not None else []
 
+                services: Iterable[str]
                 if service_to == "*":
-                    services = self.roles[role_to_].get_services()
-                    services = services[role_to_]
+                    services = self.roles[role_to_].get_services()[role_to_]
                 else:
                     services = [service_to] if service_to is not None else []
 
@@ -229,7 +234,7 @@ class Policy(object):
                     self.policies[(role_from_, role_to_)].update_conditions(conditions)
 
 
-    def add_ignore_policy(self, role_from, role_to):
+    def add_ignore_policy(self, role_from: str, role_to: str) -> None:
 
         if not self.role_exists(role_from):
             raise RoleUnknownException(role_from)
@@ -239,13 +244,13 @@ class Policy(object):
         self.policies[(role_from, role_to)] = IgnorePolicy(role_from, role_to, self)
 
 
-    def clear_reachability(self):
+    def clear_reachability(self) -> None:
         """ Resets the reachability policy while keeping the roles and inventory.
         """
         self.policies = {}
 
 
-    def set_default_policy(self, default):
+    def set_default_policy(self, default: str) -> None:
         """Sets the default policy.
 
         Args:
@@ -258,7 +263,7 @@ class Policy(object):
             self.default_policy = True
 
 
-    def get_atomic_roles_rec(self, roles):
+    def get_atomic_roles_rec(self, roles: Iterable[str]) -> Set[str]:
         res = set([])
         for role in roles:
             r_tmp = self.roles[role]
@@ -270,11 +275,11 @@ class Policy(object):
         return res
 
 
-    def get_atomic_roles(self):
+    def get_atomic_roles(self) -> Set[str]:
         return self.get_atomic_roles_rec(self.roles)
 
 
-    def to_html(self):
+    def to_html(self) -> str:
         """Creates a reachability table in HTML format using roles (not
         superroles) as table headings.
 
@@ -391,7 +396,7 @@ class Policy(object):
 
         return "".join(html_list)
 
-    def vlans_to_csv(self):
+    def vlans_to_csv(self) -> str:
         """Creates a reachability table in CSV format using VLANs as table
         headings.
 
@@ -432,7 +437,7 @@ class Policy(object):
 
         return "".join(csv_list)
 
-    def roles_to_csv(self):
+    def roles_to_csv(self) -> str:
         """Creates a reachability table in CSV format using role names as table
         headings.
 
@@ -467,7 +472,7 @@ class Policy(object):
         return ''.join(csv_list)
 
 
-    def to_mapping(self):
+    def to_mapping(self) -> str:
         """ Creates a mapping between role names and technical attributes.
 
         Returns:
@@ -479,7 +484,7 @@ class Policy(object):
         }
         return json.dumps(mapping, indent=2) + '\n'
 
-    def to_iptables(self):
+    def to_iptables(self) -> str:
         """ Creates a list of iptables rules for the given Policies
 
         Returns:
@@ -664,7 +669,7 @@ class Policy(object):
             if self.policies[policy].conditions:
                 PT_LOGGER.debug(f"handle conditions: {self.policies[policy].conditions}")
                 for cond in self.policies[policy].conditions:
-                    provider = []
+                    provider: Any = []
                     #check if services are given
                     if 'provider' in cond:
                         provider = cond['provider']
@@ -742,7 +747,7 @@ class Policy(object):
         return result
 
 
-    def to_prosa(self):
+    def to_prosa(self) -> str:
         """ Creates a list of prosaic rules for the given policies
 
         Returns:
@@ -753,7 +758,7 @@ class Policy(object):
         return '\n'.join([])
 
 
-    def roles_to_json(self):
+    def roles_to_json(self) -> List[Any]:
         """ Dumps atomic roles as json.
         """
         return [self.roles[r].to_json() for r in self.get_atomic_roles()]
@@ -783,7 +788,7 @@ class Role(object):
         "interface"
     ]
 
-    def __init__(self, name, policy, attributes=None, services=None):
+    def __init__(self, name: str, policy: "Policy", attributes: Optional[Dict[str, Any]] = None, services: Optional[Dict[str, "Service"]] = None) -> None:
         """Initialises a Role object with the given name, policy, attributes and
         services.
 
@@ -799,14 +804,14 @@ class Role(object):
         self.attributes = attributes if attributes is not None else {}
         self.services = services if services is not None else {}
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Role)
 
         return self.name == other.name and self.attributes == other.attributes and all([
             service == other_service for service, other_service in zip(self.services, other.services)
         ])
 
-    def add_attribute(self, key, value):
+    def add_attribute(self, key: str, value: str) -> None:
         """Sets an attribute value. If already set, it will be overwritten.
 
         Args:
@@ -828,7 +833,7 @@ class Role(object):
         else:
             raise InvalidAttributeException(key)
 
-    def add_service(self, name):
+    def add_service(self, name: str) -> None:
         """Adds an existing service to the role.
 
         Args:
@@ -844,7 +849,7 @@ class Role(object):
         else:
             raise ServiceUnknownException(name)
 
-    def get_roles(self):
+    def get_roles(self) -> List[str]:
         """Returns a list of all roles that are represented by this role, i.e.,
         a list containing only itself.
 
@@ -854,7 +859,7 @@ class Role(object):
 
         return [self.name]
 
-    def get_services(self):
+    def get_services(self) -> Dict[str, Dict[str, "Service"]]:
         """Returns a dictionary of all roles that are represented by this role
         as keys, i.e., only itself, and a dictionary of all services of those
         roles, i.e., its services.
@@ -866,7 +871,7 @@ class Role(object):
 
         return {self.name: self.services}
 
-    def offers_services(self):
+    def offers_services(self) -> bool:
         """Checks whether this role offers services or not.
 
         Returns:
@@ -875,7 +880,7 @@ class Role(object):
 
         return len(self.services) > 0
 
-    def offers_service(self, name):
+    def offers_service(self, name: str) -> bool:
         """Checks whether this role offers a certain service or not.
 
         Returns:
@@ -885,7 +890,7 @@ class Role(object):
         return name in self.services
 
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """ Dumps the role to json.
         """
         return {
@@ -908,7 +913,7 @@ class Superrole(Role):
              containing service names as keys and Service objects as values.
     """
 
-    def __init__(self, name, policy, subroles=None, subservices=None):
+    def __init__(self, name: str, policy: "Policy", subroles: Optional[Dict[str, "Role"]] = None, subservices: Optional[Dict[str, Dict[str, "Service"]]] = None) -> None:
         """Initialises a Superrole object with the given name, policy, subroles
         and subservices.
 
@@ -924,7 +929,7 @@ class Superrole(Role):
         self.subroles = subroles if subroles is not None else {}
         self.subservices = subservices if subservices is not None else {}
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Superrole)
 
         return self.name == other.name and all([
@@ -933,13 +938,13 @@ class Superrole(Role):
             service == other_service for service, other_service in zip(self.subservices, other.subservices)
         ])
 
-    def add_attribute(self, key, value):
+    def add_attribute(self, key: str, value: str) -> None:
         """Sets an attribute value for all subroles. See base class."""
 
         for subrole in list(self.subroles.values()):
             subrole.add_attribute(key, value)
 
-    def add_subrole(self, name, service=None):
+    def add_subrole(self, name: str, service: Optional[str] = None) -> None:
         """Adds a subrole along with a service as subservice (optional).
 
         If the subrole added is a superrole, all of its subroles will be added
@@ -975,7 +980,7 @@ class Superrole(Role):
         else:
             raise RoleUnknownException(name)
 
-    def add_subservice(self, subrole, service):
+    def add_subservice(self, subrole: str, service: str) -> None:
         """Adds one or all services of a subrole as subservices.
 
         Args:
@@ -995,7 +1000,7 @@ class Superrole(Role):
         else:
             raise ServiceUnknownException(service, subrole)
 
-    def add_service(self, service):
+    def add_service(self, service: str) -> None:
         """Adds a service to all subroles and adds that service as subservice
         for all roles.
 
@@ -1005,10 +1010,10 @@ class Superrole(Role):
 
         for subrole in list(self.subroles.values()):
             subrole.add_service(service)
-        for subrole in list(self.subroles.keys()):
-            self.add_subservice(subrole, service)
+        for subrole_name in list(self.subroles.keys()):
+            self.add_subservice(subrole_name, service)
 
-    def get_roles(self):
+    def get_roles(self) -> List[str]:
         """Returns a list of all roles that are represented by this role, i.e.,
         a list containing all subroles.
 
@@ -1018,7 +1023,7 @@ class Superrole(Role):
 
         return list(self.subroles.keys())
 
-    def get_services(self):
+    def get_services(self) -> Dict[str, Dict[str, "Service"]]:
         """Returns a dictionary of all roles that are represented by this role
         as keys, i.e., all subroles, and a dictionary of subservices of those
         roles.
@@ -1030,7 +1035,7 @@ class Superrole(Role):
 
         return self.subservices
 
-    def offers_services(self):
+    def offers_services(self) -> bool:
         """Checks whether this role offers services or not.
 
         Returns:
@@ -1039,7 +1044,7 @@ class Superrole(Role):
 
         return False
 
-    def offers_service(self, name):
+    def offers_service(self, name: str) -> bool:
         """Checks whether this role offers a certain service or not.
 
         Returns:
@@ -1061,7 +1066,7 @@ class Service(object):
 
     valid_service_attr = ["protocol", "port"]
 
-    def __init__(self, name, policy, attributes=None):
+    def __init__(self, name: str, policy: "Policy", attributes: Optional[Dict[str, Any]] = None) -> None:
         """Initialises a Service object with the given name, policy, attributes
         and    services.
 
@@ -1075,7 +1080,7 @@ class Service(object):
         self.policy = policy
         self.attributes = attributes if attributes is not None else {}
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, Service)
 
         return all([
@@ -1083,7 +1088,7 @@ class Service(object):
             self.attributes == other.attributes
         ])
 
-    def add_attribute(self, key, value):
+    def add_attribute(self, key: str, value: str) -> None:
         """Sets an attribute value. If already set, it will be overwritten.
 
         Args:
@@ -1105,7 +1110,7 @@ class Service(object):
         else:
             raise InvalidAttributeException(key)
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """ Dump service as json.
         """
         return {
@@ -1132,7 +1137,7 @@ class ReachabilityPolicy(object):
             conditions under which reachability will be denied.
     """
 
-    def __init__(self, role_from, role_to, policy, conditions=None):
+    def __init__(self, role_from: str, role_to: str, policy: "Policy", conditions: Optional[List[Dict[str, Any]]] = None) -> None:
         """Initialises a ReachabilityPolicy object with the given role names,
         policy and conditions.
 
@@ -1147,7 +1152,7 @@ class ReachabilityPolicy(object):
         self.policy = policy
         self.conditions = copy.deepcopy(conditions) if conditions is not None else []
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, ReachabilityPolicy)
 
         return all([
@@ -1156,7 +1161,7 @@ class ReachabilityPolicy(object):
             self.conditions == other.conditions
         ])
 
-    def update_conditions(self, new_conditions):
+    def update_conditions(self, new_conditions: List[Dict[str, Any]]) -> None:
         """Adds or removes conditions.
 
         Each new condition is considered separately.
@@ -1194,14 +1199,14 @@ class ReachabilityPolicy(object):
 
 class IgnorePolicy(object):
 
-    def __init__(self, role_from, role_to, policy, conditions=None):
+    def __init__(self, role_from: str, role_to: str, policy: "Policy", conditions: Optional[List[Dict[str, Any]]] = None) -> None:
         self.role_from = role_from
         self.role_to = role_to
         self.policy = policy
         self.conditions = copy.deepcopy(conditions) if conditions is not None else []
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         assert isinstance(other, IgnorePolicy)
 
         return all([
@@ -1211,7 +1216,7 @@ class IgnorePolicy(object):
         ])
 
 
-    def update_conditions(self, new_conditions):
+    def update_conditions(self, new_conditions: List[Dict[str, Any]]) -> None:
         """Adds or removes conditions.
 
         Each new condition is considered separately.
