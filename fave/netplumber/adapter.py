@@ -31,7 +31,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from copy import deepcopy
 
-from aggregator.aggregator_abstract import TRACE
+from aggregator.aggregator_abstract import TRACE, TraceLogger
 from aggregator.abstract_engine import AbstractVerificationEngine
 
 import netplumber.jsonrpc as jsonrpc
@@ -110,7 +110,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     def __init__(
         self,
         socks: List[Any],
-        logger: Any,
+        logger: TraceLogger,
         asyncore_socks: Optional[Dict[Any, Any]] = None,
         mapping: Optional[Any] = None
     ) -> None:

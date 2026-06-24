@@ -175,7 +175,7 @@ class AggregatorService(AbstractAggregator):
                 return
 
             if AggregatorService.LOGGER.isEnabledFor(TRACE):
-                AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))  # type: ignore[attr-defined]
+                AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
 
             if j['type'] == 'stop':
                 task_type = 'stop'

@@ -24,7 +24,7 @@
 
 import logging
 
-from typing import Any
+from typing import Any, cast
 
 TRACE = 9
 if not hasattr(logging.Logger, 'trace'):
@@ -36,9 +36,18 @@ if not hasattr(logging.Logger, 'trace'):
             self._log(TRACE, message, args, **kws)
     logging.Logger.trace = trace  # type: ignore[attr-defined]
 
+
+class TraceLogger(logging.Logger):
+    """ A logging.Logger that also exposes the trace() level patched in above.
+        Used only as an annotation/cast target -- loggers are still created via
+        logging.getLogger() and carry trace() at runtime.
+    """
+    def trace(self, message: object, *args: Any, **kws: Any) -> None: ...
+
+
 class AbstractAggregator(object):
     """ This abstract class provides class members for buffer sizes and a logger.
     """
 
     BUF_SIZE = 4096
-    LOGGER = logging.getLogger('Aggregator')
+    LOGGER: TraceLogger = cast(TraceLogger, logging.getLogger('Aggregator'))
