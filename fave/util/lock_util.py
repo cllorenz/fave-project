@@ -29,7 +29,7 @@ class PreLockedFileLock(SoftFileLock):
     """ This class provides a pre locked file lock.
     """
 
-    def __init__(self, lock_file, timeout=-1):
+    def __init__(self, lock_file: str, timeout: float = -1) -> None:
         super(PreLockedFileLock, self).__init__(lock_file, timeout)
 
         open_mode = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -41,7 +41,7 @@ class PreLockedFileLock(SoftFileLock):
             self._lock_file_fd = lock_file_fd
 
 
-    def release(self, force=True):
+    def release(self, force: bool = True) -> None:
         """ Releases the file lock.
 
         :arg bool force:
@@ -55,5 +55,5 @@ class PersistentFileLock(SoftFileLock):
     """ This class provides a persistent file lock.
     """
 
-    def __del__(self):
+    def __del__(self) -> None:
         return None

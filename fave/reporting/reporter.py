@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import time
 import threading
 
+from typing import Any, Dict, List, Tuple
+
 from util.ip6np_util import bitvector_to_field_value
-from netplumber.mapping import FIELD_SIZES
+from netplumber.mapping import FIELD_SIZES, Mapping
 from netplumber.vector import Vector, get_field_from_vector
 #from enum import Enum
 
@@ -14,27 +18,24 @@ class Log:
     Anomalies = 1
 
 
-def _parse_cond(cond, mapping):
+def _parse_cond(cond: str, mapping: Mapping) -> List[Tuple[str, str]]:
     vec = Vector.from_vector_str(cond)
 
-    return [
-        (
-            name,
-            bitvector_to_field_value(
-                get_field_from_vector(mapping, vec, name),
-                name
-            )
-        ) for name in mapping if get_field_from_vector(
-            mapping, vec, name
-        ) != 'x' * FIELD_SIZES[name]
-    ]
+    result = []
+    for name in mapping:
+        field = get_field_from_vector(mapping, vec, name)
+        if field != 'x' * FIELD_SIZES[name]:
+            value = bitvector_to_field_value(field, name)
+            assert value is not None  # a non-all-x field has a concrete value
+            result.append((name, value))
+    return result
 
 
 class Reporter(threading.Thread):
-    def __init__(self, fave, np_log):
+    def __init__(self, fave: Any, np_log: str) -> None:
         super(Reporter, self).__init__()
 
-        self.events = []
+        self.events: List[Any] = []
         self.last_compliance = 0
         self.last_anomalies = 0
         self.stop_reporter = False
@@ -42,7 +43,7 @@ class Reporter(threading.Thread):
         self.np_log = open(np_log, 'r')
 
 
-    def dump_report(self, dump):
+    def dump_report(self, dump: str) -> None:
         # name : (idx, sid, model)
         id_to_generator = {g[1] : n for n, g in list(self.fave.verification_engine.generators.items())}
 
@@ -87,7 +88,7 @@ class Reporter(threading.Thread):
                 for np_rid in np_rids:
                     inv_rids[np_rid] = fave_rid
 
-            shadowed_rids = {}
+            shadowed_rids: Dict[Any, List[Any]] = {}
             for _, np_rid in anomaly_events:
                 fave_rid = inv_rids[np_rid]
                 shadowed_rids.setdefault(fave_rid, [])
@@ -117,19 +118,19 @@ class Reporter(threading.Thread):
             of.write('\n'.join(report) + '\n')
 
 
-    def mark_compliance(self):
+    def mark_compliance(self) -> None:
         self.last_compliance = len(self.events)
 
 
-    def mark_anomalies(self):
+    def mark_anomalies(self) -> None:
         self.last_anomalies = len(self.events)
 
 
-    def stop(self):
+    def stop(self) -> None:
         self.stop_reporter = True
 
 
-    def run(self):
+    def run(self) -> None:
         while not self.stop_reporter:
             raw_line = self.np_log.readline()
 
@@ -147,7 +148,7 @@ class Reporter(threading.Thread):
                 to_ = tokens[18 + negated]
                 cond = tokens[20 + negated] if len(tokens) >= 21 + negated else None
 
-                line = (Log.Compliance, negated == 1, from_, to_, cond)
+                line: Tuple[Any, ...] = (Log.Compliance, negated == 1, from_, to_, cond)
 
             elif "DefaultAnomalyLogger" in tokens:
                 np_rid = int(tokens[14].rstrip(')'))
