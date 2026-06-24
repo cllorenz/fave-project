@@ -28,6 +28,10 @@ import json
 import time
 import socket
 
+from typing import Any, Dict, Iterable, List
+
+from util.typing_util import JSONDict
+
 #import util.dynamic_distribution as dynamic_distribution  # XXX
 
 NET_PLUMBER_DEFAULT_UNIX = '/dev/shm/np1.socket'
@@ -35,21 +39,23 @@ NET_PLUMBER_DEFAULT_IP = '127.0.0.1'
 NET_PLUMBER_DEFAULT_PORT = 44001
 
 
-def _sendrecv(sock, msg):
+def _sendrecv(sock: socket.socket, msg: str) -> str:
     """ Synchronous RPC call.
     """
+    # NOTE: currently unused. Accumulate bytes and decode once: under py2
+    # sock.recv returned str so `result += part` worked, but py3 returns bytes.
     sock.sendall(msg.encode('utf8'))
-    result = ''
+    result = b''
     while True:
         part = sock.recv(4096)
         result += part
         if len(part) < 4096:
             break
 
-    return result
+    return result.decode('utf8')
 
 
-def _async_send(socks, msg):
+def _async_send(socks: List[socket.socket], msg: str) -> None:
     """ Asynchronous RPC call send.
     """
 
@@ -57,7 +63,7 @@ def _async_send(socks, msg):
         sock.sendall((msg+'\n').encode('utf8'))
 
 
-def _parse_msg(msg):
+def _parse_msg(msg: str) -> JSONDict:
     data = json.loads(msg)
     if "error" in data and data["error"]["code"] != 0:
         raise RPCError(data["error"]["message"])
@@ -65,7 +71,7 @@ def _parse_msg(msg):
     return data
 
 
-def _sync_recv(socks):
+def _sync_recv(socks: List[socket.socket]) -> List[JSONDict]:
     results = []
     for sock in socks:
         result = ''
@@ -85,31 +91,31 @@ def _sync_recv(socks):
     return results
 
 
-def _asend_recv(socks, msg):
+def _asend_recv(socks: List[socket.socket], msg: str) -> List[JSONDict]:
     _async_send(socks, msg)
     return _sync_recv(socks)
 
 
 
-def _extract_node(msg):
+def _extract_node(msg: JSONDict) -> Any:
     """ Extracts the node ID from node-related RPC call results.
     """
     return msg["result"]
 
 
-def _extract_nodes(msg):
+def _extract_nodes(msg: JSONDict) -> Any:
     """ Extracts the node IDs from node-related batch RPC call results.
     """
     return msg["result"]
 
 
-def _extract_index(msg):
+def _extract_index(msg: JSONDict) -> Any:
     """ Extracts the index encoded in the message ID.
     """
     return msg["id"]
 
 
-def _basic_rpc(idx=0):
+def _basic_rpc(idx: int = 0) -> JSONDict:
     """ Creates basic RPC structure.
     """
     return {"id" : idx, "jsonrpc" : "2.0"}
@@ -120,7 +126,7 @@ class RPCError(Exception):
     """
     pass
 
-def connect_to_netplumber(server, port=0):
+def connect_to_netplumber(server: str, port: int = 0) -> socket.socket:
     """ Creates a connected socket to NetPlumber.
 
     Keyword arguements:
@@ -138,7 +144,7 @@ def connect_to_netplumber(server, port=0):
             "could not create socket for %s" % ('unix' if port == 0 else 'tcp/ip')
         )
 
-    sock.setblocking(1)
+    sock.setblocking(True)
 
     tries = 100 # wait for up to ten seconds
     while tries > 0:
@@ -160,7 +166,7 @@ def connect_to_netplumber(server, port=0):
     return sock
 
 
-def stop(socks):
+def stop(socks: List[socket.socket]) -> None:
     """ Stops the NetPlumber service.
 
     Keyword arguments:
@@ -175,7 +181,7 @@ def stop(socks):
         sock.close()
 
 
-def init(socks, length):
+def init(socks: List[socket.socket], length: int) -> None:
     """ Initializes NetPlumber instances with vectors of a certain length.
 
     Keyword arguments:
@@ -189,7 +195,7 @@ def init(socks, length):
     _asend_recv(socks, json.dumps(data))
 
 
-def destroy(socks):
+def destroy(socks: List[socket.socket]) -> None:
     """ Destroys the active NetPlumber instances.
 
     Keyword arguments:
@@ -201,7 +207,7 @@ def destroy(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_table(socks, t_idx, ports):
+def add_table(socks: List[socket.socket], t_idx: int, ports: List[str]) -> None:
     """ Adds a table.
 
     Keyword arguments:
@@ -216,7 +222,7 @@ def add_table(socks, t_idx, ports):
     _asend_recv(socks, json.dumps(data))
 
 
-def remove_table(socks, t_idx):
+def remove_table(socks: List[socket.socket], t_idx: int) -> None:
     """ Removes a table.
 
     Keyword arguments:
@@ -230,7 +236,7 @@ def remove_table(socks, t_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
+def add_rule(socks: List[socket.socket], t_idx: int, r_idx: int, in_ports: List[str], out_ports: List[str], match: str, mask: str, rewrite: str) -> Any:
     """ Adds a rule to a table.
 
     Keyword arguments:
@@ -259,7 +265,7 @@ def add_rule(socks, t_idx, r_idx, in_ports, out_ports, match, mask, rewrite):
     return _extract_node(res[0])
 
 
-def add_rules_batch(socks, rules):
+def add_rules_batch(socks: List[socket.socket], rules: Iterable[Any]) -> Any:
     """ Adds a list of rules.
 
     Keyword arguments:
@@ -293,7 +299,7 @@ def add_rules_batch(socks, rules):
     return _extract_nodes(res[0])
 
 
-def remove_rule(socks, r_idx):
+def remove_rule(socks: List[socket.socket], r_idx: int) -> None:
     """ Removes a rule.
 
     Keyword arguments:
@@ -307,7 +313,7 @@ def remove_rule(socks, r_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_link(socks, from_port, to_port):
+def add_link(socks: List[socket.socket], from_port: str, to_port: str) -> None:
     """ Adds a directed link between two ports.
 
     Keyword arguments:
@@ -322,7 +328,7 @@ def add_link(socks, from_port, to_port):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_links_bulk(socks, links, use_dynamic=False):
+def add_links_bulk(socks: List[socket.socket], links: Iterable[Any], use_dynamic: bool = False) -> None:
     """ Adds directed links.
 
     Keyword arguments:
@@ -363,7 +369,7 @@ def add_links_bulk(socks, links, use_dynamic=False):
         pass #dynamic_distribution.distribute_nodes_and_links()  # XXX
 
 
-def remove_link(socks, from_port, to_port):
+def remove_link(socks: List[socket.socket], from_port: str, to_port: str) -> None:
     """ Removes a link.
 
     Keyword arguments:
@@ -378,7 +384,7 @@ def remove_link(socks, from_port, to_port):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_source(socks, idx, hs_list, hs_diff, ports, use_dynamic=False):
+def add_source(socks: List[socket.socket], idx: int, hs_list: List[str], hs_diff: List[str], ports: List[str], use_dynamic: bool = False) -> Any:
     """ Adds a source node.
 
     Keyword arguments:
@@ -416,7 +422,7 @@ def add_source(socks, idx, hs_list, hs_diff, ports, use_dynamic=False):
     return _extract_node(res[0])
 
 
-def add_sources_bulk(socks, sources, use_dynamic=False):
+def add_sources_bulk(socks: List[socket.socket], sources: Iterable[Any], use_dynamic: bool = False) -> Dict[Any, Any]:
     """ Adds source nodes as bulk operation.
 
     Keyword arguments:
@@ -465,7 +471,7 @@ def add_sources_bulk(socks, sources, use_dynamic=False):
     return sids
 
 
-def remove_source(socks, s_idx):
+def remove_source(socks: List[socket.socket], s_idx: int) -> None:
     """ Removes a source node.
 
     Keyword arguments:
@@ -479,7 +485,7 @@ def remove_source(socks, s_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_source_probe(socks, ports, mode, match, filterexp, test, idx):
+def add_source_probe(socks: List[socket.socket], ports: List[str], mode: str, match: Any, filterexp: Any, test: Any, idx: int) -> Any:
     """ Adds a probe node.
 
     Keyword arguments:
@@ -505,7 +511,7 @@ def add_source_probe(socks, ports, mode, match, filterexp, test, idx):
     return _extract_node(res[0])
 
 
-def remove_source_probe(socks, sp_idx):
+def remove_source_probe(socks: List[socket.socket], sp_idx: int) -> None:
     """ Removes probe node.
 
     Keyword arguments:
@@ -519,7 +525,7 @@ def remove_source_probe(socks, sp_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_slice(socks, nid, ns_list, ns_diff):
+def add_slice(socks: List[socket.socket], nid: int, ns_list: List[str], ns_diff: List[str]) -> None:
     """ Adds a network slice.
 
     Keyword arguments:
@@ -541,7 +547,7 @@ def add_slice(socks, nid, ns_list, ns_diff):
     _asend_recv(socks, json.dumps(data))
 
 
-def remove_slice(socks, nid):
+def remove_slice(socks: List[socket.socket], nid: int) -> None:
     """ Removes a network slice.
 
     Keyword arguments:
@@ -555,7 +561,7 @@ def remove_slice(socks, nid):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_slice_matrix(socks, matrix):
+def add_slice_matrix(socks: List[socket.socket], matrix: str) -> None:
     """ Adds a reachability matrix to a network slice.
 
     The (directed) matrix represents pairs of slice ids
@@ -572,7 +578,7 @@ def add_slice_matrix(socks, matrix):
     _asend_recv(socks, json.dumps(data))
 
 
-def remove_slice_matrix(socks):
+def remove_slice_matrix(socks: List[socket.socket]) -> None:
     """ Clears all contents from reachability matrix
         for network slices.
 
@@ -585,7 +591,7 @@ def remove_slice_matrix(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def add_slice_allow(socks, id1, id2):
+def add_slice_allow(socks: List[socket.socket], id1: int, id2: int) -> None:
     """ Adds a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
 
@@ -602,7 +608,7 @@ def add_slice_allow(socks, id1, id2):
     _asend_recv(socks, json.dumps(data))
 
 
-def remove_slice_allow(socks, id1, id2):
+def remove_slice_allow(socks: List[socket.socket], id1: int, id2: int) -> None:
     """ Removes a specific (directional) allowed pair
         id1->id2 between which reachability is allowed
 
@@ -619,7 +625,7 @@ def remove_slice_allow(socks, id1, id2):
     _asend_recv(socks, json.dumps(data))
 
 
-def print_slice_matrix(socks):
+def print_slice_matrix(socks: List[socket.socket]) -> None:
     """ Prints the reachability matrix to slice logger.
 
     Keyword arguments:
@@ -631,7 +637,7 @@ def print_slice_matrix(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def print_table(socks, t_idx):
+def print_table(socks: List[socket.socket], t_idx: int) -> None:
     """ Prints a table using NetPlumber's default logger.
 
     Keyword arguments:
@@ -645,7 +651,7 @@ def print_table(socks, t_idx):
     _asend_recv(socks, json.dumps(data))
 
 
-def print_topology(socks):
+def print_topology(socks: List[socket.socket]) -> None:
     """ Prints NetPlumber's topology using its default logger.
 
     Keyword arguments:
@@ -658,7 +664,7 @@ def print_topology(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def print_plumbing_network(socks):
+def print_plumbing_network(socks: List[socket.socket]) -> None:
     """ Prints NetPlumber's plumbing network using its default logger.
 
     Keyword arguments:
@@ -670,7 +676,7 @@ def print_plumbing_network(socks):
     data["params"] = None
     _asend_recv(socks, json.dumps(data))
 
-def reset_plumbing_network(socks):
+def reset_plumbing_network(socks: List[socket.socket]) -> None:
     """ Resets NetPlumber to its defaults.
 
     Keyword arguments:
@@ -683,7 +689,7 @@ def reset_plumbing_network(socks):
     _asend_recv(socks, json.dumps(data))
 
 
-def expand(socks, new_length):
+def expand(socks: List[socket.socket], new_length: int) -> None:
     """ Expands NetPlumber's vectors to a new length.
 
     Keyword arguments:
@@ -697,7 +703,7 @@ def expand(socks, new_length):
     _asend_recv(socks, json.dumps(data))
 
 
-def dump_plumbing_network(socks, odir):
+def dump_plumbing_network(socks: List[socket.socket], odir: str) -> None:
     """ Dumps NetPlumber's plumbing network as JSON including tables and rules.
 
     Keyword arguments:
@@ -711,7 +717,7 @@ def dump_plumbing_network(socks, odir):
     _asend_recv(socks[:1], json.dumps(data))
 
 
-def dump_flows(socks, odir):
+def dump_flows(socks: List[socket.socket], odir: str) -> None:
     """ Dumps the flows residing in NetPlumber.
 
     Keyword arguments:
@@ -724,7 +730,7 @@ def dump_flows(socks, odir):
     _asend_recv(socks, json.dumps(data))
 
 
-def dump_flow_trees(socks, odir, keep_simple=False):
+def dump_flow_trees(socks: List[socket.socket], odir: str, keep_simple: bool = False) -> None:
     """ Dumps the flows residing in NetPlumber as trees.
 
     Keyword arguments:
@@ -737,7 +743,7 @@ def dump_flow_trees(socks, odir, keep_simple=False):
     _asend_recv(socks, json.dumps(data))
 
 
-def dump_pipes(socks, odir):
+def dump_pipes(socks: List[socket.socket], odir: str) -> None:
     """ Dumps the pipelines residing in NetPlumber.
 
     Keyword arguments:
@@ -751,7 +757,7 @@ def dump_pipes(socks, odir):
     _asend_recv(socks, json.dumps(data))
 
 
-def dump_slices_pipes(socks, odir):
+def dump_slices_pipes(socks: List[socket.socket], odir: str) -> None:
     """ Dumps the pipelines with slice information residing in NetPlumber.
 
     Keyword arguments:
@@ -764,7 +770,7 @@ def dump_slices_pipes(socks, odir):
     data["params"] = {"dir" : odir}
     _asend_recv(socks, json.dumps(data))
 
-def check_anomalies(socks, table=0, use_shadow=False, use_reach=False, use_general=False):
+def check_anomalies(socks: List[socket.socket], table: int = 0, use_shadow: bool = False, use_reach: bool = False, use_general: bool = False) -> None:
     """ Checks whether a table contains anomalies such as shadowed or unreachable rules.
 
     Keyword arguments:
@@ -782,7 +788,7 @@ def check_anomalies(socks, table=0, use_shadow=False, use_reach=False, use_gener
     }
     _asend_recv(socks, json.dumps(data))
 
-def check_compliance(socks, rules):
+def check_compliance(socks: List[socket.socket], rules: Any) -> None:
     """ Checks a set of policy rules for compliance.
 
     Keyword arguments:

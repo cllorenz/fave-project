@@ -23,22 +23,30 @@
     commands.
 """
 
+from __future__ import annotations
+
 import json
 
+from typing import Any, List, Optional, Union
+
 from netplumber.mapping import Mapping
+from util.typing_util import JSONDict
 
 
 class Slice(object):
     """ This class represents a slice model.
     """
 
-    def __init__(self, sid, ns_list=None, ns_diff=None):
+    def __init__(
+            self, sid: int, ns_list: Optional[List[Any]] = None,
+            ns_diff: Optional[List[Any]] = None
+    ) -> None:
         self.sid = sid
         self.ns_list = ns_list if ns_list else []
         self.ns_diff = ns_diff if ns_diff else []
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Convert the slice to a json representation.
         """
 
@@ -50,15 +58,16 @@ class Slice(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "Slice":
         """ Retrieve a slice from its json representation.
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
+        # NOTE: ns_diff reads j["ns_list"] -- looks like a copy-paste bug
+        # (should be j["ns_diff"]); preserved as-is, flagged for the author.
         return Slice(
-            j["sid"], ns_list=j["ns_list"], ns_diff=j["ns_list"]
+            jd["sid"], ns_list=jd["ns_list"], ns_diff=jd["ns_list"]
         )
 
 
@@ -66,7 +75,10 @@ class SlicingCommand(object):
     """ This class represents a slicing command.
     """
 
-    def __init__(self, command, mapping=None, slicem=None):
+    def __init__(
+            self, command: str, mapping: Optional[Mapping] = None,
+            slicem: Optional[Slice] = None
+    ) -> None:
         assert command in ['add_slice', 'del_slice']
 
         self.command = command
@@ -83,7 +95,7 @@ class SlicingCommand(object):
             self.mapping.extend(fld)
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Convert a slice command to its json representation.
         """
 
@@ -95,15 +107,14 @@ class SlicingCommand(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "SlicingCommand":
         """ Retrieve a slice command from its json representation.
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         return SlicingCommand(
-            j["command"],
-            mapping=Mapping.from_json(j["mapping"]),
-            slicem=Slice.from_json(j["slice"])
+            jd["command"],
+            mapping=Mapping.from_json(jd["mapping"]),
+            slicem=Slice.from_json(jd["slice"])
         )
