@@ -223,8 +223,23 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **f. Wire in like pylint (item 2): non-gating → fix → gate, core-only.** Add mypy to `lint_test.sh`/CI non-gating, drive *core* findings to zero, then gate **only the strict sections**. Mirrors the project's "don't gate until green" discipline; keeps the rest of the tree from blocking merges.
 
 #### Suggested first step (pilot to calibrate effort before committing to the whole slice)
-- [ ] **Pilot on `rule/rule_model.py`** (467 LOC, foundational, clean classes; surfaces both friction points — the JSON `str`-or-parsed union and the polymorphic `RuleField.value`). Deliverables: (1) a `mypy.ini` skeleton with a `[mypy-rule.*]` strict section, (2) `rule_model.py` fully typed, (3) the JSON-boundary convention decided against real code, (4) a measured effort-per-KLOC read. Then extend module by module.
-- **Open decision before code:** pilot-first (calibrate on `rule_model.py`) vs. lock the full scope list + JSON convention as decisions first. (Recommended: pilot-first.)
+- [x] **Pilot on `rule/rule_model.py` — DONE.** Fully typed (467 LOC, ~100 insertions / 68 deletions); `mypy.ini` skeleton added with a strict `[mypy-rule.*]` section; `PYTHONPATH=fave mypy --config-file mypy.ini fave/rule/rule_model.py` → **Success: no issues**; `./test.sh fast` still **46 + 90 passed** (behavior preserved).
+- **Calibration read (effort):** ~1 hour for 467 LOC including investigation. The mechanical annotation is fast; the time goes into (a) reading consumers to fix polymorphic types right and (b) the small refactors mypy forces. Extrapolating, the ~5–6k-LOC core slice is on the order of a few focused days — *if* leaves are typed first so consumers aren't fighting `Any`.
+- **Conventions decided against real code (now in place):**
+  - `from __future__ import annotations` at module top (lazy annotations; clean forward refs).
+  - JSON boundary: `JSONDict = Dict[str, Any]`; `from_json(j: Union[str, JSONDict])` with the `str`-or-parsed union resolved by a small refactor — `jd: JSONDict = json.loads(j) if isinstance(j, str) else j` (split parse-from-construct, not `@overload`), exactly as planned in 6c. Aliases are pilot-local; **move to a shared `util/typing.py` when the migration expands** (6d).
+  - `FieldValue = Union[str, Vector, None]` — the `None` arm is **real, not defensive**: `Match.intersect` feeds `RuleField.intersect`'s result (`bitvector_to_field_value(...)`, `None` for an all-ignore vector) straight back into a `RuleField`. Construction sites elsewhere always pass `str`.
+- **Type-model gaps mypy surfaced (genuine, fixed in the pilot):**
+  - `RuleAction` (explicitly the *abstract* base) had no `to_json`, yet `Rule.to_json` calls it on every `List[RuleAction]` element → added an abstract `to_json` raising `NotImplementedError` (subclasses already override; semantically inert).
+  - The `from_json` dispatch dict `{"forward": Forward, ...}` can't be proven to carry `.from_json` on the joined class type → annotated `Dict[str, Any]` (a constructor dispatch table is honestly heterogeneous).
+  - Invalid legacy type-comment `# type: [Field()]` on `Rewrite.rewrite` (mypy rejects it) → real annotation `self.rewrite: List[RuleField]`.
+  - `Match(list)` → `Match(List[RuleField])` so element access is typed.
+- **Decisions to carry forward:**
+  - `warn_return_any` is **OFF** in `[mypy-rule.*]` for now: `rule_model` calls still-untyped leaves (`util.ip6np_util`, `netplumber.vector`) that return `Any`; flipping it on is gated behind typing those leaves (6b). This is concrete evidence for the **leaf-first** ordering.
+  - mypy is **not yet in `requirements.txt`/CI** — install is dev-only for the pilot. Add a dev/test dependency + a non-gating `lint`-tier mypy step when wiring in (6f).
+  - **Latent bug noted, NOT fixed (out of scope):** `Match.intersect` sorts `self` twice (`match2 = sorted(self, ...)` should be `sorted(other, ...)`) and indexes `match1[idx1]` before the `idx1 < len(...)` guard. Typing doesn't catch logic bugs; flag for the author.
+  - **Unused import noted, NOT removed:** `FIELD_SIZES` is imported but unused in `rule_model.py` (pre-existing). Left as a pylint-tier cleanup to avoid changing import side-effects in a typing change.
+- **Open decision (unchanged):** continue leaf-first into `netplumber/vector.py` + `netplumber/mapping.py` (then turn on `warn_return_any` for `rule.*`), or lock the full core scope list first. (Recommended: continue leaf-first — the pilot validated the approach.)
 
 ---
 
