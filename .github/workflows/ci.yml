@@ -55,6 +55,21 @@ jobs:
       - name: Lint
         run: cd fave && PYTHONPATH=. bash test/lint_test.sh
 
+  # --- Type check: gates on mypy errors over the typed core slice (the strict
+  # sections in mypy.ini). Pure Python, no system packages (mypy is static). ---
+  typecheck:
+    name: typecheck (mypy, core slice)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Type-check core modules
+        run: bash fave/test/typecheck_test.sh
+
   # --- Integration tier: deterministic (build + C++ tests + bison tests). Gates. ---
   integration:
     name: integration tests (deterministic)
