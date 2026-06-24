@@ -20,4 +20,8 @@
 """ This module provides a constant to FaVe.
 """
 
-AGGREGATOR = None
+from typing import Any
+
+# Reassigned to the running Aggregator instance at startup; Any avoids a
+# circular import with aggregator_service.
+AGGREGATOR: Any = None

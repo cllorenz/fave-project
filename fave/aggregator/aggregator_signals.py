@@ -24,22 +24,24 @@
 
 import signal
 
+from typing import Any
+
 from aggregator.aggregator_singleton import AGGREGATOR
 
-def handle_sigterm(_signum, _frame):
+def handle_sigterm(_signum: int, _frame: Any) -> None:
     """ Handler for SIGTERM signals.
     """
     if AGGREGATOR:
         AGGREGATOR.stop_aggr()
 
 
-def handle_sigint(signum, frame):
+def handle_sigint(signum: int, frame: Any) -> None:
     """ Handler for SIGINT signals.
     """
     handle_sigterm(signum, frame)
 
 
-def register_signals():
+def register_signals() -> None:
     """ Registers SIGTERM and SIGINT handlers.
     """
 

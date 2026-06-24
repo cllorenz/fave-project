@@ -24,15 +24,17 @@
 
 import logging
 
+from typing import Any
+
 TRACE = 9
 if not hasattr(logging.Logger, 'trace'):
     logging.addLevelName(TRACE, "trace")
-    def trace(self, message, *args, **kws):
+    def trace(self: logging.Logger, message: Any, *args: Any, **kws: Any) -> None:
         """ Logging function for tracing.
         """
         if self.isEnabledFor(TRACE):
             self._log(TRACE, message, args, **kws)
-    logging.Logger.trace = trace
+    logging.Logger.trace = trace  # type: ignore[attr-defined]
 
 class AbstractAggregator(object):
     """ This abstract class provides class members for buffer sizes and a logger.

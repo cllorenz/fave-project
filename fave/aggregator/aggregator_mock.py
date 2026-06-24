@@ -27,7 +27,7 @@ import os
 
 from util.aggregator_utils import FAVE_DEFAULT_UNIX
 
-def main():
+def main() -> None:
     """ Starts mocking by accepting all incoming FaVe events.
     """
 
@@ -54,7 +54,7 @@ def main():
 
         # receive data from unix domain socket
         nbytes = buf_size
-        data = ""
+        data = b""  # py3: conn.recv returns bytes (was str under py2)
         while nbytes == buf_size:
             tmp = conn.recv(buf_size)
             nbytes = len(tmp)
