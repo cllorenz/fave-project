@@ -20,10 +20,15 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import json
+
+from typing import Dict, List, Optional, Union
 
 from util.path_util import Path
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
+from util.typing_util import JSONDict
 from rule.rule_model import RuleField, Match
 
 class ProbeModel(object):
@@ -31,7 +36,13 @@ class ProbeModel(object):
     """
 
     @staticmethod
-    def _normalize_fields(fields):
+    def _normalize_fields(
+            fields: Optional[Dict[str, List[RuleField]]]
+    ) -> Dict[str, List[RuleField]]:
+        # Callers may pass None (the __init__ defaults); treat as empty, as
+        # GeneratorModel does inline, rather than crashing on None.items().
+        if fields is None:
+            return {}
         return {
             OXM_FIELD_TO_MATCH_FIELD[name] : [
                 RuleField(
@@ -43,14 +54,14 @@ class ProbeModel(object):
 
     def __init__(
             self,
-            node,
-            quantor,
-            match=None,
-            filter_fields=None,
-            filter_path=None,
-            test_fields=None,
-            test_path=None
-        ):
+            node: str,
+            quantor: str,
+            match: Optional[Match] = None,
+            filter_fields: Optional[Dict[str, List[RuleField]]] = None,
+            filter_path: Optional[Union[Path, List[str]]] = None,
+            test_fields: Optional[Dict[str, List[RuleField]]] = None,
+            test_path: Optional[Union[Path, List[str]]] = None
+        ) -> None:
 
         self.node = node
         self.type = "probe"
@@ -76,7 +87,7 @@ class ProbeModel(object):
             self.test_path = Path()
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the probe to JSON.
         """
 
@@ -100,38 +111,37 @@ class ProbeModel(object):
         }
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "ProbeModel":
         """ Creates a probe from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         model = ProbeModel(
-            j["node"],
-            j["quantor"],
-            Match.from_json(j["match"]),
+            jd["node"],
+            jd["quantor"],
+            Match.from_json(jd["match"]),
             filter_fields={
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in list(j['filter_fields'].items())
+                ] for n, fl in list(jd['filter_fields'].items())
             },
-            filter_path=Path.from_json(j["filter_path"]),
+            filter_path=Path.from_json(jd["filter_path"]),
             test_fields={
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in list(j['test_fields'].items())
+                ] for n, fl in list(jd['test_fields'].items())
             },
-            test_path=Path.from_json(j["test_path"])
+            test_path=Path.from_json(jd["test_path"])
         )
 
         return model
 
 
-    def port_index(self, port):
+    def port_index(self, port: str) -> int:
         """ Returns an unambigious index of a port of the model.
 
         Keyword arguments:
@@ -140,7 +150,7 @@ class ProbeModel(object):
         return self.ports[port]
 
 
-    def ingress_port(self, port):
+    def ingress_port(self, port: str) -> str:
         """ Returns the model's corresponding ingress port.
 
         Keyword arguments:
@@ -149,7 +159,7 @@ class ProbeModel(object):
         return port
 
 
-    def egress_port(self, port):
+    def egress_port(self, port: str) -> str:
         """ Returns the model's corresponding egress port.
 
         Keyword arguments:

@@ -20,17 +20,25 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import json
+
+from typing import Dict, List, Optional, Union
 
 from rule.rule_model import RuleField
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
+from util.typing_util import JSONDict
 
 class GeneratorModel(object):
     """ This class provides a flow generator model.
     """
 
-    def __init__(self, node, fields=None):
-        self.fields = {
+    def __init__(
+            self, node: str,
+            fields: Optional[Dict[str, List[RuleField]]] = None
+    ) -> None:
+        self.fields: Dict[str, List[RuleField]] = {
             OXM_FIELD_TO_MATCH_FIELD[name] : [
                 RuleField(
                     OXM_FIELD_TO_MATCH_FIELD[f.name], f.value
@@ -43,7 +51,7 @@ class GeneratorModel(object):
         self.ports = {node+'.1' : 1}
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the flow generator to JSON.
         """
 
@@ -54,28 +62,27 @@ class GeneratorModel(object):
         }
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "GeneratorModel":
         """ Creates a flow generator from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         model = GeneratorModel(
-            j["node"], {
+            jd["node"], {
                 n : [
                     RuleField.from_json(f) for f in fl
-                ] for n, fl in list(j["fields"].items())
+                ] for n, fl in list(jd["fields"].items())
             }
         )
 
         return model
 
 
-    def port_index(self, port):
+    def port_index(self, port: str) -> int:
         """ Returns an unambigious index of a port of the model.
 
         Keyword arguments:
@@ -84,7 +91,7 @@ class GeneratorModel(object):
         return self.ports[port]
 
 
-    def ingress_port(self, port):
+    def ingress_port(self, port: str) -> str:
         """ Returns the model's corresponding ingress port.
 
         Keyword arguments:
@@ -93,7 +100,7 @@ class GeneratorModel(object):
         return port
 
 
-    def egress_port(self, port):
+    def egress_port(self, port: str) -> str:
         """ Returns the model's corresponding egress port.
 
         Keyword arguments:
