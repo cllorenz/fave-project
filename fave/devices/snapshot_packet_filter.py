@@ -23,13 +23,18 @@
     fields, rules and packet filter models.
 """
 
+from __future__ import annotations
+
 import json
 
+from typing import Iterable, List, Optional, Tuple, Union
+
 from devices.abstract_firewall import AbstractFirewallModel
-from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
+from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite, FieldValue
+from util.typing_util import JSONDict
 
 
-def _swap_field(field):
+def _swap_field(field: RuleField) -> Tuple[str, FieldValue]:
     if 'source' in field.name:
         return field.name.replace('source', 'destination'), field.value
     elif 'destination' in field.name:
@@ -42,7 +47,7 @@ def _swap_field(field):
     return field.name, field.value
 
 
-def _reverse_quintuple(quintuple):
+def _reverse_quintuple(quintuple: Match) -> Match:
     return Match([
         RuleField(
             *_swap_field(field)
@@ -54,14 +59,14 @@ class StateCommand(object):
     """ This class provides state commands for FaVe.
     """
 
-    def __init__(self, node, command, rules):
+    def __init__(self, node: str, command: str, rules: List[Rule]) -> None:
         self.node = node
         self.type = "state_command"
         self.command = command
         self.rules = rules
 
 
-    def to_json(self):
+    def to_json(self) -> JSONDict:
         """ Converts the state command to JSON.
         """
         return {
@@ -73,20 +78,19 @@ class StateCommand(object):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "StateCommand":
         """ Constructs a state command from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
         return StateCommand(
-            j["node"],
-            j["command"],
-            [Rule.from_json(r) for r in j["rules"]]
+            jd["node"],
+            jd["command"],
+            [Rule.from_json(r) for r in jd["rules"]]
         )
 
 
@@ -95,7 +99,10 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
         of state deduction.
     """
 
-    def __init__(self, node, ports=None, address=None):
+    def __init__(
+            self, node: str, ports: Optional[List[str]] = None,
+            address: Optional[str] = None
+    ) -> None:
         super(SnapshotPacketFilterModel, self).__init__(node, "snapshot_packet_filter")
 
         ports = ports if ports is not None else ["1", "2"]
@@ -215,7 +222,7 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
             self.set_address(address)
 
 
-    def add_state(self, quintuples):
+    def add_state(self, quintuples: Iterable[Rule]) -> None:
         """ Adds state entries to the packet filter.
 
         Positional arguments:
@@ -229,7 +236,7 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
                 quintuple.node,
                 quintuple.tid,
                 quintuple.idx+1,
-                in_ports=[quintuple.tid+'_in'],
+                in_ports=[str(quintuple.tid)+'_in'],
                 match=_reverse_quintuple(quintuple.match),
                 actions=quintuple.actions
             )
@@ -240,22 +247,21 @@ class SnapshotPacketFilterModel(AbstractFirewallModel):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "SnapshotPacketFilterModel":
         """ Construct a packet filter model from JSON.
 
         Keyword arguments:
         j -- a JSON string or object
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        npf = SnapshotPacketFilterModel(j["node"])
+        npf = SnapshotPacketFilterModel(jd["node"])
         npf.tables = {}
-        tables = j["tables"]
+        tables = jd["tables"]
         for table in tables:
             npf.tables[table] = [Rule.from_json(r) for r in tables[table]]
 
-        npf.ports = j["ports"]
-        npf.wiring = [(p1, p2) for p1, p2 in j["wiring"]]
+        npf.ports = jd["ports"]
+        npf.wiring = [(p1, p2) for p1, p2 in jd["wiring"]]
         return npf
