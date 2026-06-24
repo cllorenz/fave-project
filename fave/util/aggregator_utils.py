@@ -20,16 +20,20 @@
 """ This module provides aggregator functionality utilized across Fave.
 """
 
+from __future__ import annotations
+
 import time
 import socket
 import struct
 import logging
 
+from typing import Optional
+
 FAVE_DEFAULT_UNIX = "/dev/shm/np_aggregator.socket"
 FAVE_DEFAULT_IP = '127.0.0.1'
 FAVE_DEFAULT_PORT = 44000
 
-def connect_to_fave(server, port=0):
+def connect_to_fave(server: str, port: int = 0) -> socket.socket:
     """ Creates a connected socket to FaVe.
     """
 
@@ -61,7 +65,7 @@ def connect_to_fave(server, port=0):
     return sock
 
 
-def fave_sendmsg(conn, data):
+def fave_sendmsg(conn: socket.socket, data: str) -> None:
     """ Send a message to FaVe.
 
     Arguments:
@@ -73,7 +77,9 @@ def fave_sendmsg(conn, data):
     return conn.sendall(msg)
 
 
-def fave_recvmsg(conn, logger=None):
+def fave_recvmsg(
+        conn: socket.socket, logger: Optional[logging.Logger] = None
+) -> Optional[str]:
     """ Receive a message from FaVe.
 
     Arguments:
@@ -85,19 +91,23 @@ def fave_recvmsg(conn, logger=None):
 
     raw_msglen = conn.recv(4)
     if not raw_msglen:
-        logger.warn("fave_recvmsg: failed to read message length")
+        if logger:
+            logger.warn("fave_recvmsg: failed to read message length")
         return None
     msglen = struct.unpack('>I', raw_msglen)[0]
     if logger and logger.isEnabledFor(logging.DEBUG):
         logger.debug("fave_recvmsg: message length is %s" % msglen)
     return _recvall(conn, msglen, logger=logger)
 
-def _recvall(conn, msglen, logger=None):
+def _recvall(
+        conn: socket.socket, msglen: int, logger: Optional[logging.Logger] = None
+) -> Optional[str]:
     data = bytearray()
     while len(data) < msglen:
         part = conn.recv(msglen - len(data))
         if not part:
-            logger.warn("fave_recvmsg: received empty data. data so far: %s" % len(data))
+            if logger:
+                logger.warn("fave_recvmsg: received empty data. data so far: %s" % len(data))
             return None
         data.extend(part)
     return data.decode('utf8')
