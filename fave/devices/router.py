@@ -22,14 +22,19 @@
 """ This module provides a model for routers.
 """
 
+from __future__ import annotations
+
 import json
 import math
+
+from typing import Any, Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 from copy import copy
 
 from devices.abstract_device import AbstractDeviceModel
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from rule.rule_model import RuleField, Match, Forward, Rule, Rewrite
+from rule.rule_model import RuleField, RuleAction, Match, Forward, Rule, Rewrite
+from util.typing_util import JSONDict
 
 
 CAPACITY = 2**16 / 2**12 # XXX: ugly workaround
@@ -40,14 +45,14 @@ class RouterModel(AbstractDeviceModel):
 
     def __init__(
             self,
-            node,
-            ports=None,
-            acls=None,
-            vlan_to_ports=None,
-            routes=None,
-            vlan_to_acls=None,
-            if_to_vlans=None
-    ):
+            node: str,
+            ports: Optional[Collection[str]] = None,
+            acls: Optional[Dict[str, Any]] = None,
+            vlan_to_ports: Optional[Dict[str, Any]] = None,
+            routes: Optional[List[Any]] = None,
+            vlan_to_acls: Optional[Dict[str, Any]] = None,
+            if_to_vlans: Optional[Dict[str, Any]] = None
+    ) -> None:
         super(RouterModel, self).__init__(node, "router")
 
         # { port_id : [vlans] }
@@ -198,7 +203,7 @@ class RouterModel(AbstractDeviceModel):
 
 
     # is idempotent
-    def persist(self):
+    def persist(self) -> None:
         """ Persists ACLs and routes.
         """
 
@@ -238,7 +243,12 @@ class RouterModel(AbstractDeviceModel):
                         acl_in_ports = [acl_table+'_in']
 
                     rule = Rule(
-                        self.node, acl_table, aid+rid,
+                        # aid is a float because CAPACITY uses `/` (see the XXX
+                        # above); idx ends up e.g. 16.0. Rule.from_json int()-
+                        # coerces on round-trip and __eq__ is numeric, so this
+                        # works but is sloppy. Preserving behaviour (serialises
+                        # as "16.0"); fixing needs `//` + e2e check. See TODO 6.
+                        self.node, acl_table, aid+rid,  # type: ignore[arg-type]
                         in_ports=acl_in_ports,
                         match=Match(fields=vlan_match + [
                             RuleField(
@@ -313,15 +323,15 @@ class RouterModel(AbstractDeviceModel):
                 self.tables[self.node+".routing"].append(rule)
 
 
-    def ingress_port(self, port):
+    def ingress_port(self, port: str) -> str:
         return port + "_ingress"
 
 
-    def egress_port(self, port):
+    def egress_port(self, port: str) -> str:
         return port + "_egress"
 
 
-    def to_json(self, persist=False):
+    def to_json(self, persist: bool = False) -> JSONDict:
         """ Converts router model to JSON.
         """
 
@@ -336,25 +346,24 @@ class RouterModel(AbstractDeviceModel):
 
 
     @staticmethod
-    def from_json(j):
+    def from_json(j: Union[str, JSONDict]) -> "RouterModel":
         """ Builds router model from JSON.
         """
 
-        if isinstance(j, str):
-            j = json.loads(j)
+        jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        router = RouterModel(j["node"])
+        router = RouterModel(jd["node"])
         router.tables = {
             t:[
-                Rule.from_json(r) for r in j["tables"][t]
-            ] for t in j["tables"]
+                Rule.from_json(r) for r in jd["tables"][t]
+            ] for t in jd["tables"]
         }
-        router.ports = j["ports"]
+        router.ports = jd["ports"]
 
         return router
 
 
-    def add_rules(self, rules):
+    def add_rules(self, rules: Iterable[Rule]) -> None:
         """ Add a rule to the routing table
 
         Keyword arguments:
@@ -367,8 +376,8 @@ class RouterModel(AbstractDeviceModel):
 
             rule.in_ports = [self.node+'.routing_in']
 
-            actions = []
-            rewrites = []
+            actions: List[RuleAction] = []
+            rewrites: List[RuleField] = []
             for action in [a for a in rule.actions]:
                 if isinstance(action, Forward):
                     for port in action.ports:
@@ -389,7 +398,7 @@ class RouterModel(AbstractDeviceModel):
         super(RouterModel, self).add_rules(rules)
 
 
-    def remove_rule(self, idx):
+    def remove_rule(self, idx: int) -> None:
         """ Remove a rule from the post_routing chain.
 
         Keyword arguments:
@@ -399,7 +408,7 @@ class RouterModel(AbstractDeviceModel):
         del self.tables[self.node+".routing"][idx]
 
 
-    def update_rule(self, idx, rule):
+    def update_rule(self, idx: int, rule: Rule) -> None:
         """ Update a rule in the post_routing chain.
 
         Keyword arguments:
@@ -413,7 +422,7 @@ class RouterModel(AbstractDeviceModel):
         self.add_rule(rule)
 
 
-    def __sub__(self, other):
+    def __sub__(self, other: "AbstractDeviceModel") -> "RouterModel":
         assert self.node == other.node
         assert self.type == other.type
 
@@ -427,7 +436,10 @@ class RouterModel(AbstractDeviceModel):
         return res
 
 
-def _build_cidr(address, netmask=None, proto='6', inverse_netmask=False):
+def _build_cidr(
+        address: str, netmask: Optional[str] = None, proto: str = '6',
+        inverse_netmask: bool = False
+) -> str:
     if proto == '6':
         return "%s/128" % address if '/' not in address else address
 
@@ -456,7 +468,7 @@ def _build_cidr(address, netmask=None, proto='6', inverse_netmask=False):
         raise Exception("No such protocol: %s" % proto)
 
 
-def parse_cisco_acls(acl_file):
+def parse_cisco_acls(acl_file: str) -> Optional[Dict[str, Any]]:
     """ Parses a Cisco ACL file.
 
     Keyword arguments:
@@ -466,7 +478,7 @@ def parse_cisco_acls(acl_file):
     if not acl_file:
         return None
 
-    acls = {}
+    acls: Dict[str, Any] = {}
 
     with open(acl_file, 'r') as aclf:
         raw = aclf.read().splitlines()
@@ -506,23 +518,25 @@ def parse_cisco_acls(acl_file):
     return acls
 
 
-def parse_cisco_interfaces(interface_file):
+def parse_cisco_interfaces(
+        interface_file: str
+) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
     """ Parses a Cisco interface file.
 
     Keyword arguments:
     interface_file - a path to an interface file.
     """
-    vlan_to_ports = {}
-    vlan_to_acls = {}
-    vlan_to_ips = {}
-    vlan_to_domain = {}
-    if_to_vlans = {}
+    vlan_to_ports: Dict[str, Any] = {}
+    vlan_to_acls: Dict[str, Any] = {}
+    vlan_to_ips: Dict[str, Any] = {}
+    vlan_to_domain: Dict[str, Any] = {}
+    if_to_vlans: Dict[str, Any] = {}
 
     with open(interface_file, 'r') as inf:
         raw = inf.read().splitlines()
 
-        vlan = None
-        interface = None
+        vlan: Optional[str] = None
+        interface: Optional[str] = None
         for line in raw:
             nline = line.lstrip(' ')
 
@@ -544,15 +558,18 @@ def parse_cisco_interfaces(interface_file):
 
             elif nline.startswith("description"):
                 _desc, domain = nline.split(' ')
+                assert vlan is not None  # preceded by an `interface ... <vlan>` line
                 vlan_to_domain[vlan] = domain
 
             elif nline.startswith('ip address'):
                 _proto, _label, daddr, dmask = nline.split(' ')
+                assert vlan is not None  # preceded by an `interface ... <vlan>` line
                 vlan_to_ips[vlan] = _build_cidr(
                     daddr, dmask, '4', inverse_netmask=True
                 ) #XXX: not protocol agnostic
 
             elif nline.startswith('no ip address'):
+                assert vlan is not None  # preceded by an `interface ... <vlan>` line
                 vlan_to_ips[vlan] = None
 
             elif nline.startswith("ip nat pool"):
@@ -565,10 +582,12 @@ def parse_cisco_interfaces(interface_file):
 
             elif nline.startswith('ip access-group'):
                 _proto, _label, acl, direction = nline.split(' ')
+                assert vlan is not None  # preceded by an `interface ... <vlan>` line
                 vlan_to_acls[vlan].append("%s_%s" % (direction, acl))
 
             elif nline.startswith("switchport"):
                 tokens = nline.split(' ')
+                assert interface is not None  # preceded by an `interface <name>` line
                 if len(tokens) < 3:
                     continue
                 elif tokens[1] == 'access':
@@ -582,8 +601,8 @@ def parse_cisco_interfaces(interface_file):
                     continue
 
                 elif tokens[1] == 'trunk':
-                    _sp, _tr, _al, _vl, vlans = tokens
-                    vlans = list(map(int, vlans.split(',')))
+                    _sp, _tr, _al, _vl, vlans_str = tokens
+                    vlans = list(map(int, vlans_str.split(',')))
                     if_to_vlans[interface].extend(vlans)
 
             else:
