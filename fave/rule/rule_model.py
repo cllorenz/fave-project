@@ -354,7 +354,7 @@ class Match(List[RuleField]):
         match1 = sorted(self, key=lambda f: f.name)
         match2 = sorted(other, key=lambda f: f.name)
 
-        while match1[idx1].name != match2[idx2].name and idx1 < len(match1):
+        while idx1 < len(match1) and match1[idx1].name != match2[idx2].name:
             isect.append(match1[idx1])
             idx1 += 1
 
