@@ -469,5 +469,95 @@ class TestRule(unittest.TestCase):
         self.assertNotEqual(self.rule, rule5)
 
 
+class TestRuleFieldIntersect(unittest.TestCase):
+    """ Tests RuleField.intersect (round-trips through the bit-vector layer).
+
+    Uses the 8-bit ``related`` field with explicit vector-string values so the
+    intersection result is predictable without depending on address
+    normalization.
+    """
+
+    def test_wildcard_refines_to_concrete(self):
+        """ An all-x field intersected with a concrete one yields the concrete
+        value (decoded back to its decimal field value). """
+        wild = RuleField("related", "xxxxxxxx")
+        one = RuleField("related", "00000001")
+        self.assertEqual(wild.intersect(one), "1")
+        self.assertEqual(one.intersect(wild), "1")
+
+    def test_all_wildcard_intersection_is_ignore(self):
+        """ x ∩ x stays all-x, which decodes to None (the all-ignore value). """
+        wild1 = RuleField("related", "xxxxxxxx")
+        wild2 = RuleField("related", "xxxxxxxx")
+        self.assertIsNone(wild1.intersect(wild2))
+
+    def test_conflicting_values_are_empty(self):
+        """ A bit conflict makes the intersection empty (None). """
+        one = RuleField("related", "00000001")
+        two = RuleField("related", "00000010")
+        self.assertIsNone(one.intersect(two))
+
+    def test_mismatched_names_assert(self):
+        """ Intersecting fields of different names is a contract violation. """
+        with self.assertRaises(AssertionError):
+            RuleField("related", "xxxxxxxx").intersect(
+                RuleField("packet.ipv6.proto", "xxxxxxxx")
+            )
+
+
+class TestMatchIntersect(unittest.TestCase):
+    """ Tests Match.intersect.
+
+    Field names sort as: 'module.state' < 'packet.ipv6.proto'
+    < 'packet.upper.sport' < 'related'.
+
+    NOTE: only the cases that are *correct* under the current implementation are
+    asserted here. A known edge case (both matches carrying a unique leading
+    field plus a shared field) is currently mishandled and is intentionally left
+    out pending a decision on the fix -- see the testing-strategy follow-up.
+    """
+
+    def test_empty_self_returns_other(self):
+        other = Match([RuleField("related", "00000001")])
+        result = Match([]).intersect(other)
+        self.assertEqual([f.name for f in result], ["related"])
+
+    def test_empty_other_returns_self(self):
+        this = Match([RuleField("related", "00000001")])
+        result = this.intersect(Match([]))
+        self.assertEqual([f.name for f in result], ["related"])
+
+    def test_disjoint_fields_union(self):
+        """ Matches with no field in common merge to the union of their fields. """
+        a = Match([RuleField("packet.ipv6.proto", "00000110")])
+        b = Match([RuleField("related", "00000001")])
+        result = a.intersect(b)
+        self.assertEqual(
+            sorted(f.name for f in result), ["packet.ipv6.proto", "related"]
+        )
+
+    def test_shared_field_is_intersected(self):
+        """ A field present in both is replaced by the intersection of its values. """
+        a = Match([RuleField("related", "xxxxxxxx")])
+        b = Match([RuleField("related", "00000001")])
+        result = a.intersect(b)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "related")
+        self.assertEqual(result[0].value, "1")
+
+    def test_common_engine_case_single_other_field(self):
+        """ The shape generator.py uses: other is a single (state) field that
+        self also carries -> intersect that field, keep the rest. No duplicates. """
+        this = Match([
+            RuleField("module.state", "xxxxxxxx"),
+            RuleField("packet.ipv6.proto", "00000110"),
+        ])
+        other = Match([RuleField("module.state", "00000001")])
+        result = this.intersect(other)
+        names = [f.name for f in result]
+        self.assertEqual(sorted(names), ["module.state", "packet.ipv6.proto"])
+        self.assertEqual(len(names), len(set(names)))  # no duplicated field
+
+
 if __name__ == '__main__':
     unittest.main()
