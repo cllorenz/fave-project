@@ -300,10 +300,11 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **Sanitizer/coverage builds (the original item-7 content).** CI job building with `-fsanitize=address,undefined` running `make test` (catches bug #C1's UB directly); longer term `gcov`/`lcov` C++ coverage.
 - **Finding:** NetPlumber is the soundness-critical core; no sanitizers/coverage in CI, and the public API + algebra semantics are under-pinned for safe refactoring.
 
-#### Confirmed bugs found during analysis (→ characterize→fix→flip; full context in `TESTING_STRATEGY_CXX.md`)
-- [ ] **#C1 `net_plumber.cc:915-920` (`remove_link`)** — second loop iterates `inv_topology[to_port]` but `erase`s from `topology[from_port]` with a foreign iterator (**UB**) and compares against `to_port` instead of `from_port`; inverse topology never cleaned. High.
-- [ ] **#C2 `net_plumber.cc:2255` (`check_compliance`)** — `id_to_node[dst]->source_flow` via `std::map::operator[]` inserts+derefs a `nullptr` for an unknown `dst` → **null-deref crash** on the live verification path. High.
-- [ ] **#C3 (smell) `net_plumber.cc:2264`** — `if (!valid && any || valid && !any)` relies on `&&`/`||` precedence; correct today, add parens before refactoring. Low.
+#### Confirmed bugs found during analysis (→ characterize→fix→flip; full context in `TESTING_STRATEGY_CXX.md`) — FIXED (commit `a74b6b31`, 2026-06-25)
+All three fixed in one commit with public-API regression tests in `NetPlumberBasicTest` (`test_remove_link`, `test_check_compliance_unknown_dst`). Both new tests **fail pre-fix** (assertion / SIGSEGV resp.) and pass after; `net_plumber --test` → **OK (96)**, up from 94. Verified pre-fix-red via a stash-revert-rebuild cycle.
+- [x] **#C1 `net_plumber.cc:915-920` (`remove_link`)** — second loop iterated `inv_topology[to_port]` but `erase`d from `topology[from_port]` with a foreign iterator (**UB**) and compared against `to_port` instead of `from_port`; inverse topology never cleaned. Fixed: erase from `v_inv`, compare `from_port`.
+- [x] **#C2 `net_plumber.cc:2255` (`check_compliance`)** — `id_to_node[dst]->source_flow` via `std::map::operator[]` inserted+dereferenced a `nullptr` for an unknown `dst` → null-deref crash. Fixed: look up with `find()`; an absent dst has no incoming flows (`any` stays false — correct compliance semantics).
+- [x] **#C3 (smell) `net_plumber.cc:2264`** — added parens: `(!valid && any) || (valid && !any)` (no behavior change).
 
 #### Future considerations (NOT testing — for the author's decision)
 - [ ] **Shrink the `#ifdef` surface.** ~74 `#ifdef` sites in `net_plumber.cc` alone come from abandoned/experimental/legacy flags that are never built but every refactor must reason about. Deleting the genuinely-dead ones (`NEW_HS` dead-end, `GENERIC_PS`/`USE_BDD` abandoned PacketSet experiment, `USE_DEPRECATED` legacy) would collapse the surface and make refactoring markedly safer; keep whatever is wanted for thesis reproducibility. Code-removal decision, independent of the tests above.
