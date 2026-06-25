@@ -29,6 +29,19 @@ from iptables.parser_singleton import PARSER
 from util.tree_util import Tree
 
 
+def _strip_line_no(tree):
+    """ Recursively drop the parser's `--line-no` annotation subtrees.
+
+    The parser tags every command with a `--line-no` child (the source line
+    number, consumed by the generator). The structural fixtures below assert the
+    rule shape, not line numbers, so strip the annotations before comparing.
+    Line-number emission itself is covered by test_line_no_annotation. """
+    tree[:] = [child for child in tree if child.value != '--line-no']
+    for child in tree:
+        _strip_line_no(child)
+    return tree
+
+
 class TestParser(unittest.TestCase):
     """ This class provides tests for the AST parser.
     """
@@ -57,7 +70,18 @@ class TestParser(unittest.TestCase):
         else:
             tree = TestParser._build_tree_from_tuples(tpls[0])
             for tpl in tpls[1:]:
-                tree.add_child(TestParser._build_tree_from_tuples(tpl))
+                # A child spec whose head is itself a tuple is a *group* of
+                # option subtrees (e.g. ((-A, ...), (-t, ...))) that belong as
+                # siblings under the command, not nested one inside another. In
+                # a well-formed spec the head is always the node value (a str),
+                # so this only flattens the grouped-options convention some
+                # fixtures use; it does not mask a parser regression (the
+                # resulting expected tree still has -t as a command sibling).
+                if isinstance(tpl, tuple) and tpl and isinstance(tpl[0], tuple):
+                    for sub in tpl:
+                        tree.add_child(TestParser._build_tree_from_tuples(sub))
+                else:
+                    tree.add_child(TestParser._build_tree_from_tuples(tpl))
             return tree
 
     @staticmethod
@@ -88,18 +112,41 @@ class TestParser(unittest.TestCase):
             res = self.parser.parse(name)
             os.remove(name)
 
+        # The command's options (-P and -t) are siblings under the command node.
         exp = TestParser._build_tree_from_tuples((
             "root", (
-                ruleset, (
-                    "-P", (
-                        "FORWARD", ("ACCEPT",)
-                    ),
-                    "-t", ("filter",)
-                )
+                ruleset,
+                ("-P", ("FORWARD", ("ACCEPT",))),
+                ("-t", ("filter",)),
             )
         ))
 
-        self.assertEqual(res, exp)
+        self.assertEqual(_strip_line_no(res), exp)
+
+
+    def test_line_no_annotation(self):
+        """ The parser tags each command with a `--line-no` child carrying its
+        1-based source line number (consumed downstream by the generator). """
+        ruleset = (
+            "ip6tables -P FORWARD DROP\n"
+            "ip6tables -A FORWARD -d 2001:db8::1 -j ACCEPT\n"
+            "ip6tables -A FORWARD -d 2001:db8::2 -j ACCEPT\n"
+        )
+        name = "/tmp/ruleset-lineno"
+        try:
+            with open(name, 'w') as rfile:
+                rfile.write(ruleset)
+        finally:
+            res = self.parser.parse(name)
+            os.remove(name)
+
+        line_nos = []
+        for command in res:                       # each command under root
+            child = command.get_child("--line-no")
+            self.assertIsNotNone(child, "every command must carry a --line-no")
+            line_nos.append(child.get_first().value)
+
+        self.assertEqual(line_nos, [1, 2, 3])
 
 
     def test_small_ruleset(self):
@@ -134,36 +181,32 @@ ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT
         exp.add_child(command)
 
         command = TestParser._build_tree_from_tuples((
-            "ip6tables -t filter -A FORWARD -d 2001:db8::1 -j ACCEPT", (
-                (
-                    "-A",
-                    ("FORWARD",),
-                    ("-d", ("2001:db8::1",)),
-                    ("-j", ("ACCEPT",))
-                ), (
-                    "-t", ("filter",)
-                )
-            )
+            "ip6tables -t filter -A FORWARD -d 2001:db8::1 -j ACCEPT",
+            (
+                "-A",
+                ("FORWARD",),
+                ("-d", ("2001:db8::1",)),
+                ("-j", ("ACCEPT",))
+            ),
+            ("-t", ("filter",))
         ))
         exp.add_child(command)
 
         command = TestParser._build_tree_from_tuples((
-            "ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT", (
-                (
-                    "-A",
-                    ("FORWARD",),
-                    ("-d", ("2001:db8::2",)),
-                    ("-m", ("tcp",)),
-                    ("--dport", ("80",)),
-                    ("-j", ("ACCEPT",))
-                ), (
-                    "-t", ("filter",)
-                )
-            )
+            "ip6tables -A FORWARD -d 2001:db8::2 -m tcp --dport 80 -j ACCEPT",
+            (
+                "-A",
+                ("FORWARD",),
+                ("-d", ("2001:db8::2",)),
+                ("-m", ("tcp",)),
+                ("--dport", ("80",)),
+                ("-j", ("ACCEPT",))
+            ),
+            ("-t", ("filter",))
         ))
         exp.add_child(command)
 
-        self.assertEqual(res, exp)
+        self.assertEqual(_strip_line_no(res), exp)
 
 
     @staticmethod
@@ -496,7 +539,7 @@ ip6tables -A FORWARD -p udp --dport 80 -j ACCEPT
         TestParser._build_output(exp)
         TestParser._build_forward(exp)
 
-        self.assertEqual(res, exp)
+        self.assertEqual(_strip_line_no(res), exp)
 
 
 if __name__ == '__main__':
