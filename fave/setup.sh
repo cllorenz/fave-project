@@ -57,6 +57,16 @@ if [ $? -eq 0 ]; then
     sudo apt-get $APT_CONFS install flex
     sudo apt-get $APT_CONFS install bison
     sudo apt-get $APT_CONFS install pandoc
+    # Minimal LaTeX for pandoc -> PDF reports (`pandoc report.md -o report.pdf`
+    # needs pdflatex). The generated report is plain markdown (headings, lists,
+    # inline code; no tables/images/math), so texlive-latex-extra is omitted.
+    # lmodern.sty is needed by pandoc's default template and is only
+    # *recommended* by texlive-fonts-recommended, so install it explicitly
+    # (otherwise --no-install-recommends skips it).
+    sudo apt-get $APT_CONFS install texlive-latex-base
+    sudo apt-get $APT_CONFS install texlive-latex-recommended
+    sudo apt-get $APT_CONFS install texlive-fonts-recommended
+    sudo apt-get $APT_CONFS install lmodern
     sudo apt-get $APT_CONFS install liblog4cxx15
     sudo apt-get $APT_CONFS install liblog4cxx-dev
     sudo apt-get $APT_CONFS install libcppunit-1.15-0
