@@ -34,6 +34,10 @@ from devices.snapshot_packet_filter import (
 from devices.application_layer_gateway import ApplicationLayerGatewayModel
 from devices.generator import GeneratorModel
 from devices.probe import ProbeModel
+from devices.abstract_firewall import (
+    _BASE_ROUTING_EXACT, _BASE_ROUTING_WRONG_IO, _BASE_ROUTING_RULE
+)
+from rule.rule_model import Rule, Forward
 
 
 def _wiring_endpoints_missing_from_ports(model):
@@ -120,6 +124,36 @@ class TestProbeModel(unittest.TestCase):
         self.assertEqual(
             ProbeModel.from_json(model.to_json()).to_json(), model.to_json()
         )
+
+
+class TestFirewallAddRules(unittest.TestCase):
+    """ Tests the firewall routing-rule priority-band expansion.
+
+    AbstractFirewallModel.add_rules splits each routing rule into three
+    priority bands (exact / wrong-io / normal) by offsetting rule.idx with the
+    _BASE_ROUTING_* bases, all under the '<node>.routing' table.
+    """
+
+    def test_routing_rule_expands_into_three_bands(self):
+        firewall = PacketFilterModel('fw', ports=['1', '2'])
+        rule = Rule(
+            'fw', 'fw.routing', 0,
+            in_ports=['fw.1'],
+            match=Match([RuleField('packet.ipv6.destination', '2001:db8::1')]),
+            actions=[Forward(ports=['1'])],
+        )
+
+        firewall.add_rules([rule])
+
+        banded = firewall._adds.get('fw.routing', [])
+        self.assertEqual(len(banded), 3)
+        # The three copies sit at the three band bases (rule idx was 0).
+        self.assertEqual(
+            sorted(r.idx for r in banded),
+            sorted([_BASE_ROUTING_EXACT, _BASE_ROUTING_WRONG_IO, _BASE_ROUTING_RULE])
+        )
+        # All land in the routing table.
+        self.assertTrue(all(r.tid == 'fw.routing' for r in banded))
 
 
 class TestSnapshotHelpers(unittest.TestCase):
