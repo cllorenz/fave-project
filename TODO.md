@@ -288,11 +288,26 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 
 ## Verification-engine-specific (high leverage, longer term)
 
-### 7. C++ hardening for NetPlumber
-- [ ] **Add sanitizer (and later coverage) builds for NetPlumber**
-  - [ ] CI job building with `-fsanitize=address,undefined` running `make test`.
-  - [ ] Longer term, add `gcov`/`lcov` C++ coverage.
-- **Finding:** NetPlumber is the soundness-critical core; no sanitizers/coverage in CI.
+### 7. C++ hardening for NetPlumber — PLAN (see [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md))
+**Scope: `net_plumber/` C++ backend, the *canonical* build only** — `NetPlumber<hs, array_t>` with the default `USER_FLAGS` (`-DWITH_EXTRA_NEW -DCHECK_ANOMALIES -DSTRICT_RW`). Per the author, that is the supported feature set evaluated in the PhD thesis; the `GENERIC_PS`/`PacketSet`, `USE_BDD`, `NEW_HS`, `PIPE_SLICING`, `CHECK_*_SHADOW`, `DENSE_LOOPS`, `SORTED_*`, `USE_DEPRECATED`, and `USE_GROUPS` paths are abandoned/experimental/legacy and **out of scope**. The full analysis, principles, oracle design, and prioritized roadmap live in `TESTING_STRATEGY_CXX.md`; this item is the actionable checklist. Builds on items 1h/1i.
+
+- **State:** `array_unit.cc` (1129) + `hs_unit.cc` (2009) test the `array_t`/`hs` C API (the real verification data structure) on hand-picked cases; CppUnit harness via `net_plumber --test`, 94 green. But the orchestrator API has ~3 of ~30 public methods tested, the algebra has **no law/oracle coverage** (wrong-but-self-consistent refactors pass), the plumbing tests are internals-coupled + interdependent (`test_probe_transition_* → test_routing_*` chains), and two confirmed bugs sit in untested paths.
+- **Guiding principles:** (1) harden the one canonical build, no test matrix; (2) pin *semantics* with a concrete-packet oracle (enumerate all `2ⁿ` packets for small headers, compare against symbolic `hs`/`array_t`), not snapshots; (3) test contracts via the public API, not internal state; (4) property/algebraic-law testing for the algebra; (5) characterize→fix→flip for confirmed bugs.
+
+- [ ] **P0 — header-space algebra: oracle + laws (highest leverage).** Concrete-packet oracle harness for `len ∈ {1,2}` bytes over `isect`/`cmpl`/`minus`/`rewrite`/`add`/`compact`; algebraic laws (De Morgan, double-negation, `minus ≡ isect∘cmpl`, idempotence, identity/annihilator, `is_empty ⇔ empty`, `==` ⇔ mutual subset, `STRICT_RW` rewrite identities); `compact`/`comp_diff` membership-invariance (guards the item-1h over-merge class).
+- [ ] **P1 — orchestrator API contracts + the two bugs (below).** Topology symmetry of `add_link`/`remove_link` (catches bug #C1); `check_compliance` contract incl. unknown-`dst` (bug #C2); registry/lifecycle (id determinism, rule replacement frees old rule, removed entities gone); error-path contracts (invalid port/table/node, duplicate source id → documented outcome); event API (`get_last_event`/`set_last_event`); de-chain `test_probe_transition_*` from `test_routing_*`.
+- [ ] **P2 — conditions (pure logic) + RPC boundary.** Boolean-composition laws (`And`/`Or`/`Not`, De Morgan, short-circuit) + missing `HeaderCondition` empty-intersection→false; `to_json`↔`val_to_cond` round-trips; RPC request→response contract tests with malformed input + depth guards on the recursive `val_to_cond`/`val_to_path` parsers; harden `check_compliance`'s parser (unchecked indices, throwing `stoull`).
+- [ ] **Sanitizer/coverage builds (the original item-7 content).** CI job building with `-fsanitize=address,undefined` running `make test` (catches bug #C1's UB directly); longer term `gcov`/`lcov` C++ coverage.
+- **Finding:** NetPlumber is the soundness-critical core; no sanitizers/coverage in CI, and the public API + algebra semantics are under-pinned for safe refactoring.
+
+#### Confirmed bugs found during analysis (→ characterize→fix→flip; full context in `TESTING_STRATEGY_CXX.md`)
+- [ ] **#C1 `net_plumber.cc:915-920` (`remove_link`)** — second loop iterates `inv_topology[to_port]` but `erase`s from `topology[from_port]` with a foreign iterator (**UB**) and compares against `to_port` instead of `from_port`; inverse topology never cleaned. High.
+- [ ] **#C2 `net_plumber.cc:2255` (`check_compliance`)** — `id_to_node[dst]->source_flow` via `std::map::operator[]` inserts+derefs a `nullptr` for an unknown `dst` → **null-deref crash** on the live verification path. High.
+- [ ] **#C3 (smell) `net_plumber.cc:2264`** — `if (!valid && any || valid && !any)` relies on `&&`/`||` precedence; correct today, add parens before refactoring. Low.
+
+#### Future considerations (NOT testing — for the author's decision)
+- [ ] **Shrink the `#ifdef` surface.** ~74 `#ifdef` sites in `net_plumber.cc` alone come from abandoned/experimental/legacy flags that are never built but every refactor must reason about. Deleting the genuinely-dead ones (`NEW_HS` dead-end, `GENERIC_PS`/`USE_BDD` abandoned PacketSet experiment, `USE_DEPRECATED` legacy) would collapse the surface and make refactoring markedly safer; keep whatever is wanted for thesis reproducibility. Code-removal decision, independent of the tests above.
+- **PacketSet/BDD stays parked.** Reviving the `PacketSet` abstraction is gated on first solving the BDD masked-rewrite problem (non-trivial; also caused a perf regression vs. pure header-spaces); both **low priority**. If revived, the P0 concrete-packet oracle is directly reusable as the BDD backend's validation harness.
 
 ### 8. Differential / oracle testing across detectors
 - [ ] **Cross-check FaVe verdicts against Z3/STL oracles**
@@ -340,5 +355,5 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint).
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
-4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend).
+4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is now planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md); start with the two confirmed-bug regressions (#C1/#C2) then the P0 header-space oracle + laws.
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
