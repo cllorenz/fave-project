@@ -27,7 +27,7 @@ import os
 import tempfile
 import unittest
 
-from devices.router import _build_cidr, parse_cisco_acls
+from devices.router import _build_cidr, parse_cisco_acls, parse_cisco_interfaces
 
 
 class TestBuildCidr(unittest.TestCase):
@@ -121,6 +121,56 @@ class TestParseCiscoAcls(unittest.TestCase):
     def test_unknown_rule_format_raises(self):
         with self.assertRaises(Exception):
             self._parse('access-list 1 permit\n')  # too few tokens
+
+
+class TestParseCiscoInterfaces(unittest.TestCase):
+    """ Tests Cisco interface-config parsing into the five vlan/if maps. """
+
+    def _parse(self, content):
+        with tempfile.NamedTemporaryFile(
+            'w', suffix='.cfg', delete=False
+        ) as inf:
+            inf.write(content)
+            path = inf.name
+        try:
+            return parse_cisco_interfaces(path)
+        finally:
+            os.unlink(path)
+
+    def test_full_config(self):
+        # A vlan interface ('interface <label> <vlan>', 3 tokens) vs a physical
+        # interface ('interface <name>', 2 tokens) with switchport membership.
+        cfg = '\n'.join([
+            'interface Vlan 10',
+            '  description example.com',
+            '  ip address 10.0.0.1 255.255.255.0',
+            '  ip access-group 101 in',
+            'interface Vlan 20',
+            '  no ip address',
+            'interface GigabitEthernet0/1',
+            '  switchport access vlan 10',
+            'interface GigabitEthernet0/2',
+            '  switchport trunk allowed vlan 10,20',
+            '',
+        ])
+        domain, ports, ips, acls, if_to_vlans = self._parse(cfg)
+
+        self.assertEqual(domain, {'10': 'example.com'})
+        self.assertEqual(ports, {'10': [], '20': []})
+        # Standard netmask -> CIDR (via _build_cidr inverse); 'no ip address' -> None.
+        self.assertEqual(ips, {'10': '10.0.0.1/24', '20': None})
+        # access-group direction is prefixed to the acl id.
+        self.assertEqual(acls, {'10': ['in_101'], '20': []})
+        # access vlan -> single membership; trunk allowed vlan -> the list.
+        self.assertEqual(if_to_vlans, {
+            'GigabitEthernet0/1': [10],
+            'GigabitEthernet0/2': [10, 20],
+        })
+
+    def test_description_before_interface_raises(self):
+        """ A vlan-scoped line with no preceding 'interface <vlan>' asserts. """
+        with self.assertRaises(AssertionError):
+            self._parse('  description example.com\n')
 
 
 if __name__ == '__main__':
