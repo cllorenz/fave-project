@@ -26,6 +26,7 @@ import unittest
 
 from test.check_flows import check_flow, _parse_flow_spec
 from test.check_flows import _get_parser as get_default_parser
+from test.check_flows import _parse_one_flow_spec, _classify, FlowCheck
 
 class TestChecker(unittest.TestCase):
     """ This class provides tests for the flow checking tool.
@@ -128,6 +129,44 @@ class TestChecker(unittest.TestCase):
                 check_flow(flow_spec, self.flow_tree, self.inv_fave),
                 result
             )
+
+
+class TestFindingClassification(unittest.TestCase):
+    """ Tests the assertion-vs-finding split: a '?'-marked check is an expected
+    finding (reported, non-gating); everything else is an assertion (gates). """
+
+    def setUp(self):
+        self.parser = get_default_parser()
+
+    def test_marker_tags_finding_and_parses_rest(self):
+        plain = _parse_one_flow_spec("s=source1 && EF p=probe1", self.parser)
+        finding = _parse_one_flow_spec("?! s=source1 && EF p=probe2", self.parser)
+        self.assertFalse(plain.is_finding)
+        self.assertTrue(finding.is_finding)
+        # The '?' is stripped before parsing; the rest of the spec is intact.
+        self.assertIn('!', list(finding))
+        self.assertTrue(any(t.startswith('s=') for t in finding))
+
+    def _classify_one(self, deviated, is_finding):
+        failed, findings, unexpected = [], [], []
+        _classify('lbl', deviated, is_finding, failed, findings, unexpected)
+        return failed, findings, unexpected
+
+    def test_assertion_deviation_fails(self):
+        failed, findings, unexpected = self._classify_one(True, is_finding=False)
+        self.assertEqual((failed, findings, unexpected), (['lbl'], [], []))
+
+    def test_finding_deviation_is_reported_not_failed(self):
+        failed, findings, unexpected = self._classify_one(True, is_finding=True)
+        self.assertEqual((failed, findings, unexpected), ([], ['lbl'], []))
+
+    def test_assertion_holding_is_silent(self):
+        failed, findings, unexpected = self._classify_one(False, is_finding=False)
+        self.assertEqual((failed, findings, unexpected), ([], [], []))
+
+    def test_finding_no_longer_deviating_is_unexpected(self):
+        failed, findings, unexpected = self._classify_one(False, is_finding=True)
+        self.assertEqual((failed, findings, unexpected), ([], [], ['lbl']))
 
 
 if __name__ == '__main__':
