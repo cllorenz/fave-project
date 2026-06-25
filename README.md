@@ -107,7 +107,10 @@ every change before pushing:
 The heavier tiers need the full native stack (compiled NetPlumber, `pybison`),
 as installed by `net_plumber/setup-ubuntu.sh` + `fave/setup.sh` or provided by
 the `Dockerfile`. Set `COVERAGE=1` to additionally print a coverage report
-(`COVERAGE=1 ./test.sh fast`).
+(`COVERAGE=1 ./test.sh fast`). Additionally setting `COVERAGE_MIN=<pct>` gates
+on coverage (`coverage report --fail-under`): the tier fails if total coverage
+drops below the floor. CI runs the `fast` tier this way as a ratchet — bump the
+floor up as coverage rises, never down.
 
 Alongside the test tiers there is a static type-checking gate that runs `mypy`
 over the typed modules and fails on any type error (`mypy` ships in

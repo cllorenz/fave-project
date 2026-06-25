@@ -33,8 +33,11 @@ jobs:
           python-version: '3.12'
       - name: Install Python dependencies
         run: pip install -r requirements.txt
-      - name: Run fast tier
-        run: bash test.sh fast
+      # Run under coverage with the ratchet floor: the fast tier holds the bulk
+      # of the Python tests, so it is the deterministic place to gate coverage.
+      # COVERAGE_MIN is the floor -- bump it up as coverage rises, never down.
+      - name: Run fast tier (with coverage ratchet)
+        run: COVERAGE=1 COVERAGE_MIN=67 bash test.sh fast
 
   # --- Lint: non-gating until TODO item 2 makes lint_test.sh fail on errors. ---
   lint:
