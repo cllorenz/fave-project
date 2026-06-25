@@ -303,8 +303,8 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 
 ## Python codebase test expansion (fave/ + policy_translator/)
 
-### 9. Expand Python test coverage per the testing strategy — PLAN (see [`TESTING_STRATEGY_PYTHON.md.md`](TESTING_STRATEGY_PYTHON.md.md))
-**Scope: `fave/` and `policy_translator/` only — NOT `net_plumber/`** (the C++ backend's testing is items 7–8 and 1h/1i). The full module-by-module analysis, coverage table, principles, and prioritized roadmap live in `TESTING_STRATEGY_PYTHON.md.md`; this item is the actionable checklist.
+### 9. Expand Python test coverage per the testing strategy — PLAN (see [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md))
+**Scope: `fave/` and `policy_translator/` only — NOT `net_plumber/`** (the C++ backend's testing is items 7–8 and 1h/1i). The full module-by-module analysis, coverage table, principles, and prioritized roadmap live in `TESTING_STRATEGY_PYTHON.md`; this item is the actionable checklist.
 
 - **State:** ~69% measured coverage (`COVERAGE=1 ./test.sh all`), but `netplumber/adapter.py` and `aggregator/aggregator_service.py` are at **~0% (never imported by fast/integration)**, much coverage is symmetric golden-dict round-trips that hide wrong-but-consistent values, and several `__eq__`/`__hash__` methods are buggy so some tests pass by accident.
 - **Guiding principles:** (1) prioritize pure verification-critical logic reachable without the native backend; (2) exploit existing seams — `FakeSocket`, `abstract_engine` (MockEngine), hand-built `Tree` ASTs (no pybison), `socket.socketpair()`; (3) assert behavior/invariants, not snapshots; (4) fix the `__eq__`/`__hash__` foundations first; (5) characterize→fix→flip for the confirmed bugs.
@@ -318,7 +318,7 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - [ ] **Native/e2e tier:** fix `test_rpc` (single-socket→list; same defect in `print_np.py:104`); negative parser tests (malformed lines, silent bad-char path); make benchmark/`example.sh` sub-steps fail loudly (ties to 1p/1n).
 - [ ] **Coverage ratchet:** once P0–P2 import adapter/aggregator, gate on "total must not drop" rather than a hard threshold.
 
-#### Confirmed bugs (→ characterize→fix→flip regression tests; full table in `TESTING_STRATEGY_PYTHON.md.md`)
+#### Confirmed bugs (→ characterize→fix→flip regression tests; full table in `TESTING_STRATEGY_PYTHON.md`)
 - [ ] **#1 `rule/rule_model.py:354-355`** — `Match.intersect` sorts `self` twice, ignores `other`; **live via `iptables/generator.py:472`** (conntrack). High — corrupts stateful verification.
 - [ ] **#2 `devices/application_layer_gateway.py:160`** — wires `relays_out` but port is `relay_out` (`:103`). High — breaks ALG connectivity.
 - [ ] **#3 `util/tree_util.py:143`** — `Tree.__eq__` `zip` ignores length (prefix == longer tree). Medium.
@@ -341,4 +341,4 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint).
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend).
-5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md.md`](TESTING_STRATEGY_PYTHON.md.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
+5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
