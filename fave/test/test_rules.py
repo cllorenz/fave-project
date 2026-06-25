@@ -469,6 +469,44 @@ class TestRule(unittest.TestCase):
         self.assertNotEqual(self.rule, rule5)
 
 
+class TestRuleFieldCanonicalization(unittest.TestCase):
+    """ RuleField canonicalizes address/protocol values at construction, so
+    equivalent representations are stored identically and compare equal -- this
+    is what keeps the aggregator's value-string diff reliable. """
+
+    def test_proto_name_and_number_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.proto", "tcp"),
+            RuleField("packet.ipv6.proto", "6")
+        )
+
+    def test_ipv6_syntax_variants_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.source", "2001:db8::1"),
+            RuleField("packet.ipv6.source", "2001:db8:0:0:0:0:0:1")
+        )
+
+    def test_cidr_compact_and_expanded_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.destination", "2001:db8::0/64"),
+            RuleField("packet.ipv6.destination", "2001:db8:0:0:0:0:0:0/64")
+        )
+
+    def test_canonicalization_preserves_bitvector(self):
+        """ The canonical value must yield the same header space as the input,
+        so verification semantics are unchanged. """
+        from util.ip6np_util import field_value_to_bitvector
+        for name, a, b in [
+            ("packet.ipv6.proto", "tcp", "6"),
+            ("packet.ipv6.source", "2001:db8::1", "2001:db8:0:0:0:0:0:1"),
+            ("packet.ipv6.destination", "2001:db8::0/64", "2001:db8:0:0:0:0:0:0/64"),
+        ]:
+            self.assertEqual(
+                field_value_to_bitvector(RuleField(name, a)).vector,
+                field_value_to_bitvector(RuleField(name, b)).vector
+            )
+
+
 class TestEqualityTypeMismatch(unittest.TestCase):
     """ Equality with a foreign type must return False, never raise.
 

@@ -30,6 +30,7 @@ import json
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
+from util.packet_util import canonicalize_field_value
 from util.typing_util import JSONDict
 
 from netplumber.vector import Vector, intersect_vectors
@@ -48,7 +49,11 @@ class RuleField(object):
             self, name: str, value: FieldValue, negated: bool = False
     ) -> None:
         self.name = name
-        self.value = value
+        # Canonicalize at the construction boundary so equivalent
+        # representations (IPv6 syntax variants, CIDR compact/expanded, protocol
+        # name vs IANA number) are stored identically -- model equality, and
+        # thus the aggregator's incremental diff, then compares values reliably.
+        self.value = canonicalize_field_value(name, value)
         self.negated = negated
 
 

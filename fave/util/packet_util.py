@@ -23,8 +23,9 @@
 from __future__ import annotations
 
 import re
+import ipaddress
 
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 ETHER_TYPE_IPV4 = '00000100' # 4
 ETHER_TYPE_IPV6 = '00000110' # 6
@@ -45,6 +46,61 @@ IPV6_AUTH = '00110011'       # 51
 IPV6_ESP = '00110010'        # 50
 IPV6_NONE = '00111011'       # 59
 IPV6_PROT = '11111111'       # 255
+
+
+# --- canonicalization --------------------------------------------------------
+#
+# A field value can be written several equivalent ways: an IPv6 address has many
+# syntaxes (2001:db8::1 == 2001:db8:0:0:0:0:0:1), a CIDR can be compact or
+# expanded, and a protocol can be given by name or IANA number (tcp == 6).
+# These collapse to one bit-vector downstream, but model *equality* (the
+# aggregator's incremental diff) compares the raw value strings -- so two
+# equivalent rules written differently would be treated as different rules.
+# canonicalize_field_value() maps each value to one representation at the
+# boundary (RuleField construction) so equality is representation-independent.
+
+_PROTO_NAME_TO_IANA = {
+    'icmp': '1', 'tcp': '6', 'udp': '17', 'gre': '47', 'esp': '50', 'icmpv6': '58',
+}
+
+_IP_ADDRESS_FIELDS = frozenset([
+    'packet.ipv4.source', 'packet.ipv4.destination',
+    'packet.ipv6.source', 'packet.ipv6.destination',
+])
+
+
+def _canonical_ip(value: str) -> str:
+    """ Compressed canonical form of an IP address or CIDR. A value that is not
+    a parseable address (a wildcard/bit-vector string, a partial, 'any', ...) is
+    returned unchanged. """
+    try:
+        if '/' in value:
+            net = ipaddress.ip_network(value, strict=False)
+            return '%s/%d' % (net.network_address.compressed, net.prefixlen)
+        return ipaddress.ip_address(value).compressed
+    except ValueError:
+        return value
+
+
+def canonicalize_field_value(name: str, value: Any) -> Any:
+    """ Map a field value to a single canonical representation so equivalent
+    inputs compare equal: IPv4/IPv6 address fields to their compressed form and
+    the protocol field to its IANA number.
+
+    Idempotent and total: a non-string value (e.g. a Vector or None), a
+    non-address/non-protocol field, an unparseable address, or an unknown
+    protocol name is returned unchanged. The canonical value always yields the
+    same bit-vector as the input, so verification semantics are unaffected.
+    Field types whose values are read by keyword elsewhere (module.state,
+    module, port names) are deliberately left untouched.
+    """
+    if not isinstance(value, str):
+        return value
+    if name in _IP_ADDRESS_FIELDS:
+        return _canonical_ip(value)
+    if name == 'packet.ipv6.proto':
+        return _PROTO_NAME_TO_IANA.get(value, value)
+    return value
 
 
 def is_ip(ips: str) -> bool:

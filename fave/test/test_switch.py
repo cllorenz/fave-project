@@ -43,11 +43,12 @@ class TestFieldsToMatch(unittest.TestCase):
     """ Tests parsing a ';'-separated field string into a Match. """
 
     def test_injects_ip_proto_for_transport_fields(self):
-        """ A tcp_*/udp_* field also yields an ip_proto match. """
+        """ A tcp_*/udp_* field also yields an ip_proto match. The protocol is
+        canonicalized to its IANA number at RuleField construction (tcp -> 6). """
         match = _fields_to_match('tcp_dst=80')
         self.assertEqual(
             [(f.name, f.value) for f in match],
-            [('packet.upper.dport', '80'), ('packet.ipv6.proto', 'tcp')]
+            [('packet.upper.dport', '80'), ('packet.ipv6.proto', '6')]
         )
 
     def test_plain_field_has_no_proto_injection(self):

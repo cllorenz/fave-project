@@ -32,33 +32,11 @@ from devices.switch import SwitchModel
 from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
-from util.ip6np_util import field_value_to_bitvector
 
-
-def _canonicalize_field_values(obj):
-    """ Recursively replace every RuleField value in a model's JSON with its
-    bit-vector -- the canonical form NetPlumber actually consumes.
-
-    Field values are compared semantically, not as strings: IPv6 syntax variants
-    (``2001:db8::1`` vs ``2001:db8:0:0:0:0:0:1``), CIDR compact/expanded forms,
-    and a protocol by name vs number (``tcp`` vs ``6``) all map to the same
-    bit-vector, so an equivalent rule set written differently still compares
-    equal. A value with no bit-vector encoding is left untouched.
-    """
-    if isinstance(obj, dict):
-        if 'name' in obj and 'value' in obj and 'negated' in obj:
-            field = dict(obj)
-            try:
-                field['value'] = field_value_to_bitvector(
-                    RuleField(obj['name'], obj['value'])
-                ).vector
-            except Exception:  # pylint: disable=broad-except
-                pass  # no bit-vector encoding -> compare the raw value
-            return field
-        return {key: _canonicalize_field_values(val) for key, val in obj.items()}
-    if isinstance(obj, list):
-        return [_canonicalize_field_values(item) for item in obj]
-    return obj
+# NOTE: field values (IPv6/IPv4 addresses, protocol) are canonicalized at
+# RuleField construction (see util.packet_util.canonicalize_field_value), so
+# equivalent representations are already stored identically here -- these model
+# comparisons need no special handling.
 
 
 class TestPacketFilterModel(unittest.TestCase):
@@ -586,10 +564,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
         ast = parser.parse(iptables_file)
         result = generate(ast, node, address, ports)
 
-        self.assertEqual(
-            _canonicalize_field_values(result.to_json()),
-            _canonicalize_field_values(self.model.to_json())
-        )
+        self.assertEqual(result.to_json(), self.model.to_json())
 
 
     def test_input_output_filters(self):
@@ -774,10 +749,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
         ast = parser.parse(iptables_file)
         result = generate(ast, node, address, ports)
 
-        self.assertEqual(
-            _canonicalize_field_values(result.to_json()),
-            _canonicalize_field_values(self.model.to_json())
-        )
+        self.assertEqual(result.to_json(), self.model.to_json())
 
 
 if __name__ == '__main__':

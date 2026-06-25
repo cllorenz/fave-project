@@ -39,6 +39,7 @@ from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
 from util.packet_util import normalize_ipv6header_header, normalize_upper_port
 from util.packet_util import portrange_to_prefix_list
 from util.packet_util import portrange_to_prefixed_bitvectors
+from util.packet_util import canonicalize_field_value
 from util.packet_util import denormalize_ipv4_address, denormalize_ipv6_address
 from util.packet_util import normalize_vlan_tag
 from util.packet_util import is_ip, is_domain, is_port, is_ext_port, is_host, is_unix
@@ -516,6 +517,64 @@ class TestIp6npUtil(unittest.TestCase):
         self.assertEqual(
             _normalize_icmpv6_type('echo-request'), '10000000xxxxxxxx'
         )
+
+
+class TestCanonicalizeFieldValue(unittest.TestCase):
+    """ Tests value canonicalization at the field boundary: IPv4/IPv6 addresses
+    to compressed form and the protocol field to its IANA number, so equivalent
+    representations are stored identically. """
+
+    def test_ipv6_address_compressed(self):
+        for form in ('2001:db8::1', '2001:db8:0:0:0:0:0:1', '2001:db8::0:1'):
+            self.assertEqual(
+                canonicalize_field_value('packet.ipv6.source', form), '2001:db8::1'
+            )
+
+    def test_ipv6_cidr_compressed(self):
+        for form in ('2001:db8::0/64', '2001:db8:0:0:0:0:0:0/64'):
+            self.assertEqual(
+                canonicalize_field_value('packet.ipv6.destination', form),
+                '2001:db8::/64'
+            )
+
+    def test_ipv4_address_and_cidr(self):
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv4.source', '10.0.0.0/8'), '10.0.0.0/8'
+        )
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv4.destination', '192.168.1.1'),
+            '192.168.1.1'
+        )
+
+    def test_proto_name_to_iana_number(self):
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'tcp'), '6')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'udp'), '17')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'icmpv6'), '58')
+
+    def test_proto_already_numeric_and_unknown_pass_through(self):
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', '6'), '6')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', '99'), '99')
+
+    def test_keyword_read_fields_left_untouched(self):
+        """ Fields read by keyword elsewhere must not be canonicalized. """
+        self.assertEqual(
+            canonicalize_field_value('module.conntrack.ctstate', 'ESTABLISHED'),
+            'ESTABLISHED'
+        )
+        self.assertEqual(canonicalize_field_value('module', 'conntrack'), 'conntrack')
+        self.assertEqual(
+            canonicalize_field_value('in_port', 'sw.1_ingress'), 'sw.1_ingress'
+        )
+
+    def test_total_and_idempotent(self):
+        # Non-string and non-parseable values pass through unchanged ...
+        self.assertIsNone(canonicalize_field_value('packet.ipv6.source', None))
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv6.source', 'x' * 128), 'x' * 128
+        )
+        # ... and canonicalizing an already-canonical value is a no-op.
+        once = canonicalize_field_value('packet.ipv6.source', '2001:db8:0:0::1')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.source', once), once)
 
 
 class TestPathUtil(unittest.TestCase):
