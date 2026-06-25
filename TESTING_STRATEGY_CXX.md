@@ -140,17 +140,29 @@ at `packet_set_unit.cc:91-92`), and the entire `net_plumber_slicing_unit.cc`
 
 ## Prioritized roadmap
 
-### P0 — Header-space algebra: oracle + laws · highest leverage
+### P0 — Header-space algebra: oracle + laws · highest leverage — DONE (2026-06-25)
 The `array_t`/`hs` engine is the soundness-critical core and the thing most
 likely to be refactored. Lock its *semantics*.
-- [ ] **Concrete-packet oracle harness** (new fixture): enumerate all packets
-  for `len ∈ {1,2}` bytes; for random `array_t`/`hs` operands, assert
-  `isect`/`cmpl`/`minus`/`rewrite`/`add`/`compact` agree with brute-force
-  membership. Wildcard (`x`) and empty (`z`) handling are the high-risk cases.
-- [ ] **Algebraic-law tests** (principle 4) layered over `array_unit`/`hs_unit`.
-- [ ] **`compact`/`comp_diff` membership-invariance**: `hs_compact(A)` preserves
-  the packet set (`is_equal` pre/post), and `unroll`∘`compact` is identity on
-  membership — directly guards the item-1h class of over-merge regressions.
+- [x] **Concrete-packet oracle harness** — `src/headerspace/test/oracle_util.h`
+  decodes `array_t`/`hs` into characteristic vectors over all `2^(8·len)`
+  packets via the raw 2-bit layout only (never the algebra under test), for
+  `len ∈ {1,2}`. `OracleTest` (`oracle_unit.{h,cc}`) checks `isect`/`cmpl`/
+  `rewrite` and the predicate laws against it.
+- [x] **Algebraic-law tests** — De Morgan and `minus ≡ isect∘cmpl` as pure
+  API-vs-API laws compared in the concrete domain; commutativity/idempotence
+  and the `STRICT_RW` rewrite identities (zero-mask = identity, full-mask =
+  constant).
+- [x] **`hs_compact` membership-invariance** — set preserved across `compact`,
+  directly guarding the item-1h over-merge class.
+- **Outcome:** `net_plumber --test` → **OK (110)**. The oracle found and fixed
+  two engine bugs — see #C4/#C5 below. **Lessons that shaped the tests:**
+  `array_is_sub_eq(a,b)` means *a ⊆ b* (first arg is the subset; the header
+  comment is misleading), and the bitwise predicates (`is_empty`/`is_eq`/
+  `is_sub_eq`) do **not** treat a z-bit cube as empty (emptiness is via
+  `array_has_z`/`isect`), so the predicate laws use normalised non-z cubes.
+- *Not done (minor):* `array_minus`/`comp_diff` and `unroll∘compact` identity
+  were left out — `minus`/`comp_diff` are NEW_HS-oriented and out of the
+  canonical scope.
 
 ### P1 — Orchestrator API contracts + the two confirmed bugs · `<hs, array_t>`
 Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
@@ -186,9 +198,12 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
 
 ## Confirmed bugs found during analysis
 
-Source-verified in the canonical build (→ characterize→fix→flip regressions):
+Source-verified in the canonical build (→ characterize→fix→flip regressions).
+**All FIXED (2026-06-25).** #1/#2/#3 are TODO items #C1/#C2/#C3; #4/#5 (found by
+the P0 oracle) are #C4/#C5. #C4/#C5 touch soundness-critical engine code
+(`hs.c`) and warrant author review.
 
-- [ ] **#1 — `net_plumber.cc:915-920` (`remove_link`)**: the second loop iterates
+- [x] **#1 — `net_plumber.cc:915-920` (`remove_link`)**: the second loop iterates
   `v_inv = inv_topology[to_port]` but calls `v->erase(it)` — erasing from
   `topology[from_port]` with an iterator into a *different* vector (**undefined
   behavior**), and compares `(*it) == to_port` when `v_inv` holds source ports
@@ -198,9 +213,19 @@ Source-verified in the canonical build (→ characterize→fix→flip regression
   ->source_flow` uses `std::map::operator[]`, which inserts a `nullptr` for a
   missing `dst` and dereferences it → **null-pointer crash** on a compliance
   query naming an unknown destination. High (on the live verification path).
-- [ ] **#3 (smell, not yet a bug) — `net_plumber.cc:2264`**:
-  `if (!valid && any || valid && !any)` relies on `&&`-over-`||` precedence.
-  Correct today, but a parens-free landmine for refactors; add parens.
+- [x] **#3 (smell) — `net_plumber.cc:2264`**:
+  `if (!valid && any || valid && !any)` relied on `&&`-over-`||` precedence.
+  Parenthesised (no behavior change).
+- [x] **#4 — `hs.c hs_cmpl` (non-NEW_HS)**: a universe (`xxxxxxxx`) element among
+  other positive cubes was `continue`d past, but `~(⋃cᵢ)=⋂~cᵢ` is an
+  intersection so an empty factor must zero the result. `~(c1 + xxxxxxxx + c3)`
+  gave `~c1 ∩ ~c3` (236 packets) instead of ∅; reachable on compacted hs, and
+  propagates into `hs_minus`. **Soundness.** Fixed: empty the result and stop.
+- [x] **#5 — `hs.c hs_add_hs` (non-NEW_HS)**: a diff-bearing source desynchronised
+  the parallel `elems`/`diff` arrays (diff cubes appended via
+  `vec_append(...,true)`, which grows `elems` but not `diff`) → out-of-bounds
+  **crash**. Fixed: append each source element with its diff cubes into the new
+  element's diff slot.
 
 ---
 
