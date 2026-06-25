@@ -39,6 +39,11 @@ class NetPlumberBasicTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_create_rule_id);
   CPPUNIT_TEST(test_remove_link);
   CPPUNIT_TEST(test_check_compliance_unknown_dst);
+  // P1: orchestrator public-API contract tests
+  CPPUNIT_TEST(test_event_api);
+  CPPUNIT_TEST(test_rule_id_determinism_and_replacement);
+  CPPUNIT_TEST(test_query_and_error_paths);
+  CPPUNIT_TEST(test_source_lifecycle);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -49,6 +54,10 @@ class NetPlumberBasicTest : public CppUnit::TestFixture {
   void test_create_rule_id();
   void test_remove_link();
   void test_check_compliance_unknown_dst();
+  void test_event_api();
+  void test_rule_id_determinism_and_replacement();
+  void test_query_and_error_paths();
+  void test_source_lifecycle();
 };
 
 #endif  // NET_PLUMBER_BASIC_UNIT_H_

@@ -231,6 +231,117 @@ void NetPlumberBasicTest<T1, T2>::test_check_compliance_unknown_dst() {
   delete n;
 }
 
+// The event API is a public contract (consumed by callbacks/anomaly reporting):
+// get/set round-trip, and each mutating operation records its event.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_event_api() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+
+  Event e; e.type = ADD_TABLE; e.id1 = 7; e.id2 = 9;
+  n->set_last_event(e);
+  Event got = n->get_last_event();
+  CPPUNIT_ASSERT(got.type == ADD_TABLE && got.id1 == 7 && got.id2 == 9);
+
+  n->add_link(3, 4);
+  got = n->get_last_event();
+  CPPUNIT_ASSERT(got.type == ADD_LINK && got.id1 == 3 && got.id2 == 4);
+
+  n->add_table(5, make_sorted_list(2, 3, 4));
+  got = n->get_last_event();
+  CPPUNIT_ASSERT(got.type == ADD_TABLE && got.id1 == 5);
+
+  n->remove_table(5);
+  got = n->get_last_event();
+  CPPUNIT_ASSERT(got.type == REMOVE_TABLE && got.id1 == 5);
+
+  delete n;
+}
+
+// Rule ids are deterministic ((table<<32)|index) and re-adding at an existing
+// index replaces in place (old rule freed internally), returning the same id.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_rule_id_determinism_and_replacement() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+  n->add_table(1, make_sorted_list(3, 1, 2, 3));
+
+  List_t in = make_sorted_list(1, 1);
+  List_t out = make_sorted_list(1, 2);
+#ifdef GENERIC_PS
+  T2 *m1 = new T2("xxxxxxxx");
+#else
+  T2 *m1 = array_from_str("xxxxxxxx");
+#endif
+  uint64_t id = n->add_rule(1, 10, in, out, m1, NULL, NULL);
+  CPPUNIT_ASSERT(id == (((uint64_t)1 << 32) + 10));
+
+  // replace at the same index -> same id, ADD_RULE event with that id
+  in = make_sorted_list(1, 1);
+  out = make_sorted_list(1, 3);
+#ifdef GENERIC_PS
+  T2 *m2 = new T2("xxxxxxxx");
+#else
+  T2 *m2 = array_from_str("xxxxxxxx");
+#endif
+  uint64_t id2 = n->add_rule(1, 10, in, out, m2, NULL, NULL);
+  CPPUNIT_ASSERT(id2 == id);
+  CPPUNIT_ASSERT(n->get_last_event().type == ADD_RULE && n->get_last_event().id1 == id);
+
+  delete n;
+}
+
+// Query/error contracts: unknown ports return NULL; removing entities that do
+// not exist is a safe no-op (logs a warning) rather than a crash.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_query_and_error_paths() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+
+  CPPUNIT_ASSERT(n->get_dst_ports(42) == NULL);
+  CPPUNIT_ASSERT(n->get_src_ports(42) == NULL);
+
+  // add_rule to a non-existent table returns 0 (and frees the passed arrays).
+#ifdef GENERIC_PS
+  T2 *m = new T2("xxxxxxxx");
+#else
+  T2 *m = array_from_str("xxxxxxxx");
+#endif
+  uint64_t bad = n->add_rule(99, 0, make_sorted_list(1, 1), make_sorted_list(1, 2),
+                             m, NULL, NULL);
+  CPPUNIT_ASSERT(bad == 0);
+
+  // removing things that were never added must not crash
+  n->remove_rule(((uint64_t)9 << 32) + 9);
+  n->remove_source(12345);
+  CPPUNIT_ASSERT(n->get_dst_ports(42) == NULL);  // still consistent afterwards
+
+  delete n;
+}
+
+// Source lifecycle: add returns the requested id and records ADD_SOURCE; remove
+// records REMOVE_SOURCE; a second remove of the same id is a safe no-op.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_source_lifecycle() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+#ifdef GENERIC_PS
+  T1 *h = new T1("xxxxxxxx");
+#else
+  T1 *h = hs_from_str("xxxxxxxx");
+#endif
+  uint64_t sid = n->add_source(h, make_sorted_list(1, 1), 100);
+  CPPUNIT_ASSERT(sid == 100);
+  CPPUNIT_ASSERT(n->get_last_event().type == ADD_SOURCE && n->get_last_event().id1 == 100);
+
+  n->remove_source(100);
+  CPPUNIT_ASSERT(n->get_last_event().type == REMOVE_SOURCE && n->get_last_event().id1 == 100);
+
+  n->remove_source(100);  // safe no-op (already gone)
+
+  delete n;
+}
+
 #ifdef GENERIC_PS
 template class NetPlumberBasicTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
