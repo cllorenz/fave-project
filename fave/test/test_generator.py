@@ -30,8 +30,11 @@ interweaving path structurally.
 import unittest
 
 from util.tree_util import Tree
-from rule.rule_model import Forward
-from iptables.generator import generate
+from rule.rule_model import Forward, RuleField
+from iptables.generator import (
+    generate, _swap_direction, _swap_port_value_direction,
+    _get_chain_from_ast, _get_action_from_ast,
+)
 
 _FILTER_TABLES = {
     'fw.pre_routing', 'fw.input_filter', 'fw.output_filter',
@@ -141,6 +144,56 @@ class TestGenerateInterweaving(unittest.TestCase):
             len(woven.tables['fw.input_filter']),
             len(plain.tables['fw.input_filter'])
         )
+
+
+class TestGeneratorHelpers(unittest.TestCase):
+    """ Tests the pure AST/field helpers used by the generator. """
+
+    def _swap(self, name, value):
+        result = _swap_direction(RuleField(name, value))
+        return (result.name, result.value)
+
+    def test_swap_direction_swaps_addresses_and_ports(self):
+        self.assertEqual(
+            self._swap('packet.ipv6.source', 'v'), ('packet.ipv6.destination', 'v')
+        )
+        self.assertEqual(
+            self._swap('packet.upper.sport', 'v'), ('packet.upper.dport', 'v')
+        )
+
+    def test_swap_direction_flips_port_field_and_value(self):
+        # in_port<->out_port, and the value's _ingress/_egress suffix flips too.
+        self.assertEqual(
+            self._swap('in_port', 'sw.1_ingress'), ('out_port', 'sw.1_egress')
+        )
+        self.assertEqual(
+            self._swap('out_port', 'sw.1_egress'), ('in_port', 'sw.1_ingress')
+        )
+
+    def test_swap_direction_leaves_other_fields_untouched(self):
+        self.assertEqual(
+            self._swap('packet.ipv6.proto', '00000110'), ('packet.ipv6.proto', '00000110')
+        )
+
+    def test_swap_port_value_direction_only_touches_port_fields(self):
+        self.assertEqual(
+            _swap_port_value_direction(RuleField('in_port', 'a_ingress')), 'a_egress'
+        )
+        self.assertEqual(
+            _swap_port_value_direction(RuleField('packet.ipv6.source', 'x')), 'x'
+        )
+
+    def test_get_chain_from_ast(self):
+        ast = Tree('-A')
+        ast.add_child('FORWARD')
+        self.assertEqual(_get_chain_from_ast(ast), 'forward_filter')
+
+    def test_get_action_from_ast_with_jump(self):
+        ast = Tree('-A')
+        ast.add_child('FORWARD')
+        jump = ast.add_child('-j')
+        jump.add_child('ACCEPT')
+        self.assertEqual(_get_action_from_ast(ast), 'ACCEPT')
 
 
 if __name__ == '__main__':
