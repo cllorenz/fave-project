@@ -530,10 +530,6 @@ class TestMatchIntersect(unittest.TestCase):
     Field names sort as: 'module.state' < 'packet.ipv6.proto'
     < 'packet.upper.sport' < 'related'.
 
-    NOTE: only the cases that are *correct* under the current implementation are
-    asserted here. A known edge case (both matches carrying a unique leading
-    field plus a shared field) is currently mishandled and is intentionally left
-    out pending a decision on the fix -- see the testing-strategy follow-up.
     """
 
     def test_empty_self_returns_other(self):
@@ -576,6 +572,31 @@ class TestMatchIntersect(unittest.TestCase):
         names = [f.name for f in result]
         self.assertEqual(sorted(names), ["module.state", "packet.ipv6.proto"])
         self.assertEqual(len(names), len(set(names)))  # no duplicated field
+
+    def test_both_sides_unique_plus_shared_field(self):
+        """ Regression: when each match has a unique field AND a shared field,
+        the shared field must be intersected once -- not duplicated.
+
+        The previous implementation advanced only over self's leading fields
+        (comparing against other[0]), blowing past the shared field and emitting
+        it twice. This is the ordered-merge fix.
+        """
+        this = Match([
+            RuleField("packet.upper.sport", "x"*16),
+            RuleField("related", "00000001"),
+        ])
+        other = Match([
+            RuleField("packet.ipv6.proto", "00000110"),
+            RuleField("packet.upper.sport", "0"*16),
+        ])
+        result = this.intersect(other)
+        names = [f.name for f in result]
+        # Union of field names, each appearing exactly once.
+        self.assertEqual(
+            names,
+            ["packet.ipv6.proto", "packet.upper.sport", "related"]
+        )
+        self.assertEqual(len(names), len(set(names)))
 
 
 if __name__ == '__main__':

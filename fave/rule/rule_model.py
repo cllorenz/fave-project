@@ -354,25 +354,26 @@ class Match(List[RuleField]):
         match1 = sorted(self, key=lambda f: f.name)
         match2 = sorted(other, key=lambda f: f.name)
 
-        while idx1 < len(match1) and match1[idx1].name != match2[idx2].name:
-            isect.append(match1[idx1])
-            idx1 += 1
-
+        # Ordered merge over the two name-sorted field lists. A field present in
+        # only one match is carried over unchanged; a field present in both is
+        # replaced by the intersection of its values (in_port/out_port are not
+        # value-intersected -- they are kept only when both sides agree).
         while idx1 < len(match1) and idx2 < len(match2):
             field1 = match1[idx1]
             field2 = match2[idx2]
-            if field1.name == field2.name and field1.name not in ['in_port', 'out_port']:
-                isect.append(RuleField(field1.name, field1.intersect(field2)))
-                idx1 += 1
-                idx2 += 1
-            elif field1.name == field2.name:
-                if field1.value == field2.value:
+            if field1.name == field2.name:
+                if field1.name not in ['in_port', 'out_port']:
+                    isect.append(RuleField(field1.name, field1.intersect(field2)))
+                elif field1.value == field2.value:
                     isect.append(RuleField(field1.name, field1.value))
-
                 idx1 += 1
                 idx2 += 1
+            elif field1.name < field2.name:
+                isect.append(field1)
+                idx1 += 1
             else:
-                break
+                isect.append(field2)
+                idx2 += 1
 
         if idx1 < len(match1):
             isect.extend(match1[idx1:])

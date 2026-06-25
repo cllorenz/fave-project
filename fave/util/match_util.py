@@ -40,7 +40,7 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'tcp_src' : "packet.upper.sport",
     'tcp_flags' : 'packet.upper.tcp.flags',
     'udp_dst' : "packet.upper.dport",
-    'upd_src' : "packet.upper.sport",
+    'udp_src' : "packet.upper.sport",
     'in_port' : 'in_port',
     'out_port' : 'out_port',
     'interface' : 'interface',

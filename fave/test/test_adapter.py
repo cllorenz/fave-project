@@ -76,15 +76,15 @@ class TestCalcPort(unittest.TestCase):
         self.assertEqual(_calc_port(1, self.model, 'foo.2'), (1 << 16) + 1)
         self.assertEqual(_calc_port(3, self.model, 'foo.1'), (3 << 16) + 0)
 
-    def test_missing_port_currently_raises_valueerror(self):
-        """ KNOWN ISSUE: the `except KeyError` fallback to (tab<<16)+1 in
-        _calc_port is unreachable -- AbstractDeviceModel.port_index uses
-        list.index(), which raises ValueError, not KeyError. A missing port
-        therefore propagates a ValueError instead of taking the fallback.
-        This test pins the current behavior; see the testing-strategy follow-up.
+    def test_missing_port_takes_fallback(self):
+        """ A port that is not in the model falls back to (tab<<16)+1.
+
+        Regression: port_index raises ValueError (via list.index), so the
+        fallback's `except` must catch ValueError as well as KeyError -- it
+        previously caught only KeyError, making the fallback unreachable.
         """
-        with self.assertRaises(ValueError):
-            _calc_port(1, self.model, 'does.not.exist')
+        self.assertEqual(_calc_port(1, self.model, 'does.not.exist'), (1 << 16) + 1)
+        self.assertEqual(_calc_port(5, self.model, 'nope'), (5 << 16) + 1)
 
 
 class TestExpandField(unittest.TestCase):
