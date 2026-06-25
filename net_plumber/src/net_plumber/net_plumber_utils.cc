@@ -60,7 +60,10 @@ List_t make_sorted_list_from_array (uint32_t count, uint32_t elems[]) {
   for (size_t i = 0; i < count; i++) {
     result.list[i] = elems[i];
   }
-  qsort(result.list, result.size, sizeof(uint32_t), compare);
+  // Guard: qsort(NULL, 0, ...) passes a NULL pointer to a nonnull-declared
+  // argument (UB, flagged by UBSan) even though it is a no-op in practice.
+  if (result.size > 0)
+    qsort(result.list, result.size, sizeof(uint32_t), compare);
   return result;
 }
 
@@ -78,7 +81,10 @@ List_t make_sorted_list(uint32_t count,...) {
     result.list[i] = va_arg(ports,uint32_t);
   }
   va_end(ports);
-  qsort(result.list, result.size, sizeof(uint32_t), compare);
+  // Guard: qsort(NULL, 0, ...) passes a NULL pointer to a nonnull-declared
+  // argument (UB, flagged by UBSan) even though it is a no-op in practice.
+  if (result.size > 0)
+    qsort(result.list, result.size, sizeof(uint32_t), compare);
   return result;
 }
 
@@ -106,10 +112,10 @@ List_t intersect_sorted_lists(List_t a, List_t b) {
   result.shared = false;
   if (count > 0) {
     result.list = (uint32_t *)malloc(count * sizeof(uint32_t));
+    memcpy(result.list, v, count * sizeof(uint32_t));
   } else {
     result.list = NULL;
   }
-  memcpy(result.list, v, count * sizeof(uint32_t));
   free(v);
   return result;
 }
@@ -143,7 +149,8 @@ bool lists_has_intersection(List_t a, List_t b) {
 List_t copy_list(List_t l) {
   List_t result = l;
   result.list = (uint32_t *)malloc(l.size * sizeof(uint32_t));
-  memcpy(result.list, l.list, l.size * sizeof(uint32_t));
+  if (l.size > 0)
+    memcpy(result.list, l.list, l.size * sizeof(uint32_t));
   return result;
 }
 #endif

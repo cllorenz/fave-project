@@ -90,6 +90,32 @@ jobs:
           path: .coverage
           if-no-files-found: ignore
 
+  # --- Sanitizers: build NetPlumber with ASan+UBSan (+LeakSanitizer) and run
+  # the C++ unit suite. Deterministic, like integration. Catches memory-safety
+  # and undefined-behaviour regressions (e.g. the remove_link foreign-iterator
+  # UB and the hs_add_hs out-of-bounds write) that a plain build silently
+  # tolerates. The suite is currently clean under all three sanitizers. ---
+  sanitizers:
+    name: sanitizers (asan+ubsan, C++ suite)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-fave-native
+      - name: Rebuild NetPlumber with ASan+UBSan
+        # DEBUG_FLAGS feeds GCFLAGS, which the build applies at both compile and
+        # link. -fno-sanitize-recover=all makes UBSan abort (non-zero exit) on
+        # the first finding instead of only logging it, so the job actually gates.
+        run: |
+          make -C net_plumber/build clean
+          make -j -C net_plumber/build \
+            DEBUG_FLAGS="-g -fsanitize=address,undefined -fno-sanitize-recover=all" all
+      - name: Run C++ unit suite under sanitizers
+        # Leak detection stays on (the suite is leak-clean); print_stacktrace
+        # symbolises UBSan findings (we built with -g).
+        run: |
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 \
+            net_plumber/build/net_plumber --test
+
   # --- E2E tier: needs a live net_plumber backend. Non-gating for now. ---
   e2e:
     name: e2e tests (live backend)

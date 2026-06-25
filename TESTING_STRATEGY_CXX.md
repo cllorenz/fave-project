@@ -203,8 +203,12 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
   pre-existing `cond`-array leak. Pinned by `test_compliance_rules_parse`.
 
 ### Cross-cutting — sanitizer/coverage builds (TODO item 7)
-- [ ] CI job building with `-fsanitize=address,undefined` running `make test`
-  — the confirmed `remove_link` UB is exactly what ASan/UBSan catch.
+- [x] **Sanitizer CI job (DONE)** — `sanitizers` job in `ci.yml` rebuilds with
+  `-fsanitize=address,undefined -fno-sanitize-recover=all` (via `DEBUG_FLAGS`)
+  and runs `net_plumber --test` under ASan+UBSan+LeakSanitizer. The suite is
+  clean under all three; bringing it up fixed three benign pre-existing UBs in
+  `net_plumber_utils.cc` (#C8). This is the class of guard that catches the
+  `remove_link` UB / `hs_add_hs` OOB automatically on every change.
 - [ ] Longer term, `gcov`/`lcov` C++ coverage to measure the above.
 
 ---
@@ -249,6 +253,9 @@ the P0 oracle) are #C4/#C5. #C4/#C5 touch soundness-critical engine code
   (`asUInt64`/`asCString` assert on short/ill-typed tuples) **crashed the server
   on malformed input**, and every parsed `cond` array **leaked**. Fixed by
   extracting a validated two-pass `val_to_compliance_rules` (+ free helper).
+- [x] **#8 — `net_plumber_utils.cc`** (found by the sanitizer job): `qsort(NULL,
+  0, …)` / `memcpy(NULL, …, 0)` on empty lists — NULL to a `nonnull` argument
+  (UB, UBSan). Guarded on `size > 0`.
 
 ---
 
