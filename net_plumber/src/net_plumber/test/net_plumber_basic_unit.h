@@ -37,6 +37,8 @@ class NetPlumberBasicTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_rule_node_create);
   CPPUNIT_TEST(test_create_topology);
   CPPUNIT_TEST(test_create_rule_id);
+  CPPUNIT_TEST(test_remove_link);
+  CPPUNIT_TEST(test_check_compliance_unknown_dst);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -45,6 +47,8 @@ class NetPlumberBasicTest : public CppUnit::TestFixture {
   void test_rule_node_create();
   void test_create_topology();
   void test_create_rule_id();
+  void test_remove_link();
+  void test_check_compliance_unknown_dst();
 };
 
 #endif  // NET_PLUMBER_BASIC_UNIT_H_

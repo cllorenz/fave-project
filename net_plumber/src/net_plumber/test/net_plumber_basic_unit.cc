@@ -26,8 +26,28 @@
 #ifdef USE_BDD
 #include "../bdd_packet_set.h"
 #endif
+#include <map>
+#include <vector>
+#include <tuple>
 
 using namespace net_plumber;
+
+namespace {
+  // Records compliance-callback invocations so a test can assert on them
+  // instead of the default callback's FATAL log. Reset at the start of a test.
+  int g_compliance_calls = 0;
+  uint64_t g_last_compliance_src = 0;
+  uint64_t g_last_compliance_dst = 0;
+
+  template<class T1, class T2>
+  void recording_compliance_callback(NetPlumber<T1, T2>* /*N*/,
+                                     Flow<T1, T2>* /*f*/, void *data) {
+    auto *rule = (struct compliance_rule_t*)data;
+    g_compliance_calls++;
+    g_last_compliance_src = rule->src;
+    g_last_compliance_dst = rule->dst;
+  }
+} // anonymous namespace
 
 template<class T1, class T2>
 void NetPlumberBasicTest<T1, T2>::setUp() {
@@ -145,6 +165,69 @@ void NetPlumberBasicTest<T1, T2>::test_create_rule_id() {
 #endif
   uint64_t id4 = n->add_rule(1,10,in_ports,out_ports,match,NULL,NULL);
   CPPUNIT_ASSERT(id4==0);
+  delete n;
+}
+
+// Regression for bug #C1: remove_link must clean BOTH the forward topology
+// (topology[from] -> to) and the inverse topology (inv_topology[to] -> from).
+// The old code erased from the wrong vector with a foreign iterator and
+// compared the wrong port, so the inverse topology was never updated.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_remove_link() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+  n->add_link(1, 2);
+  n->add_link(1, 3);
+  n->add_link(4, 2);
+  // forward: 1 -> {2,3};  inverse: 2 -> {1,4}, 3 -> {1}
+  CPPUNIT_ASSERT(n->get_dst_ports(1)->size() == 2);
+  CPPUNIT_ASSERT(n->get_src_ports(2)->size() == 2);
+
+  n->remove_link(1, 2);
+
+  // forward direction: 1 no longer reaches 2 (still reaches 3)
+  std::vector<uint32_t> *dst_of_1 = n->get_dst_ports(1);
+  CPPUNIT_ASSERT(dst_of_1->size() == 1);
+  CPPUNIT_ASSERT((*dst_of_1)[0] == 3);
+
+  // inverse direction (the bug): 2 no longer lists 1 as a source (still 4)
+  std::vector<uint32_t> *src_of_2 = n->get_src_ports(2);
+  CPPUNIT_ASSERT(src_of_2->size() == 1);
+  CPPUNIT_ASSERT((*src_of_2)[0] == 4);
+
+  delete n;
+}
+
+// Regression for bug #C2: check_compliance must not crash when a policy rule
+// references a destination node that is not in the network. operator[] on the
+// id_to_node map used to insert+dereference a nullptr. The correct contract:
+// an unknown dst has no incoming flows, so a require-reachable rule
+// (valid=true) is violated and the callback fires exactly once.
+template<class T1, class T2>
+void NetPlumberBasicTest<T1, T2>::test_check_compliance_unknown_dst() {
+  printf("\n");
+  auto *n = new NetPlumber<T1, T2>(1);
+  n->compliance_callback = recording_compliance_callback<T1, T2>;
+  g_compliance_calls = 0;
+  g_last_compliance_src = 0;
+  g_last_compliance_dst = 0;
+
+  // require src 42 to reach dst 99; 99 was never added to the network.
+  std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> rules;
+  rules[99] = { std::make_tuple((uint64_t)42, true, (T2*)NULL) };
+
+  n->check_compliance(&rules);
+
+  CPPUNIT_ASSERT(g_compliance_calls == 1);
+  CPPUNIT_ASSERT(g_last_compliance_src == 42);
+  CPPUNIT_ASSERT(g_last_compliance_dst == 99);
+
+  // The unknown dst must not have been inserted into id_to_node as a side
+  // effect, so a second run is still exactly one fresh violation.
+  g_compliance_calls = 0;
+  n->check_compliance(&rules);
+  CPPUNIT_ASSERT(g_compliance_calls == 1);
+
   delete n;
 }
 
