@@ -355,6 +355,18 @@ void ConditionsTest<T1, T2>::test_cond_parse_malformed() {
   Condition<T1, T2> *p = val_to_cond<T1, T2>(path, 1);
   CPPUNIT_ASSERT(p != nullptr);
   delete p;
+
+  // Deeply nested and/or/not must hit the recursion depth guard and return
+  // nullptr rather than overflowing the stack.
+  Json::Value deep;
+  deep["type"] = "true";
+  for (int i = 0; i < 5000; i++) {
+    Json::Value n;
+    n["type"] = "not";
+    n["arg"] = deep;
+    deep = n;
+  }
+  CPPUNIT_ASSERT((val_to_cond<T1, T2>(deep, 1) == nullptr));
 }
 
 #ifdef GENERIC_PS

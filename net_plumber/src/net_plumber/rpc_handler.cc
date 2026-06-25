@@ -34,6 +34,11 @@ using namespace std;
 
 namespace net_plumber {
 
+// Maximum nesting depth for and/or/not condition trees parsed from RPC. Far
+// above any legitimate policy, far below the call-stack limit. Deeper input is
+// rejected (nullptr) rather than risking a stack-overflow DoS.
+#define MAX_CONDITION_DEPTH 256
+
 LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
 template<typename T>
@@ -149,7 +154,10 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
 }
 
 template<typename T1, typename T2>
-Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length) {
+Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length, unsigned depth) {
+  // Bound the and/or/not recursion: deeply nested input would otherwise blow
+  // the call stack. A too-deep subtree degrades to nullptr and propagates up.
+  if (depth > MAX_CONDITION_DEPTH) return nullptr;
   // A condition must be an object carrying a string "type". Anything else
   // (null, missing/non-string type, unknown type) degrades to nullptr rather
   // than asserting inside asCString() and crashing the server on bad input.
@@ -159,12 +167,19 @@ Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length) {
   if (!strcasecmp(type, "false")) return new FalseCondition<T1, T2>();
   if (!strcasecmp(type, "path")) return val_to_path<T1, T2>(val["pathlets"]);
   if (!strcasecmp(type, "header")) return new HeaderCondition<T1, T2>(val_to_hs<T1, T2>(val["header"], length));
-  if (!strcasecmp(type, "not")) return new NotCondition<T1, T2>(val_to_cond<T1, T2>(val["arg"], length));
+  if (!strcasecmp(type, "not")) {
+    Condition<T1, T2> *c = val_to_cond<T1, T2>(val["arg"], length, depth + 1);
+    if (!c) return nullptr;  // malformed/too-deep operand -> reject the whole node
+    return new NotCondition<T1, T2>(c);
+  }
   if (!strcasecmp(type, "and") || !strcasecmp(type, "or")) {
-    Condition<T1, T2> *c1 = val_to_cond<T1, T2>(val["arg1"], length);
-    Condition<T1, T2> *c2 = val_to_cond<T1, T2>(val["arg2"], length);
+    Condition<T1, T2> *c1 = val_to_cond<T1, T2>(val["arg1"], length, depth + 1);
+    Condition<T1, T2> *c2 = val_to_cond<T1, T2>(val["arg2"], length, depth + 1);
+    // Reject rather than build a node with a null operand (which would crash in
+    // check()); delete on nullptr is a no-op.
+    if (!c1 || !c2) { delete c1; delete c2; return nullptr; }
     if (!strcasecmp(type, "and")) return new AndCondition<T1, T2>(c1, c2);
-    else return new OrCondition<T1, T2>(c1, c2);
+    return new OrCondition<T1, T2>(c1, c2);
   }
   return nullptr;
 }
@@ -577,7 +592,7 @@ template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;
 template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
 template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
-template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
+template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t, unsigned);
 
 #ifdef USE_BDD
 template class RpcHandler<BDDPacketSet, BDDPacketSet>;
@@ -585,7 +600,7 @@ template class RpcHandler<BDDPacketSet, BDDPacketSet>;
 template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
 template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
-template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
+template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t, unsigned);
 #endif
 #else
 template class RpcHandler<hs, array_t>;
@@ -593,7 +608,7 @@ template class RpcHandler<hs, array_t>;
 template array_t* val_to_array<array_t>(const Json::Value&);
 template hs* val_to_hs<hs, array_t>(const Json::Value&, const size_t);
 template Condition<hs, array_t>* val_to_path<hs, array_t>(const Json::Value&);
-template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t);
+template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t, unsigned);
 #endif
 } /* namespace net_plumber */
 

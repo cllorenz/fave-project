@@ -189,9 +189,12 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
   pathlet still parses). This exposed and fixed a crash on bad RPC input
   (#C6 — `val_to_cond`/`val_to_path` aborted via an `assert` in `asCString`).
 - **Outcome:** `net_plumber --test` → **OK (117)**.
-- [ ] **Deferred:** a recursion **depth guard** on `val_to_cond`/`val_to_path`
-  (unbounded → stack-overflow DoS) and `check_compliance`-parser hardening
-  (unchecked indices / throwing `stoull`). Both touch signatures/flow; follow-up.
+- [x] **Recursion depth guard (DONE)** — `val_to_cond` bounds `and`/`or`/`not`
+  nesting at `MAX_CONDITION_DEPTH` (256) and propagates null/too-deep operands
+  to `nullptr` (no node with a null child). `val_to_path` is iterative, so it
+  needs none. `test_cond_parse_malformed` asserts a 5000-deep chain → `nullptr`.
+- [ ] **Deferred:** `check_compliance`-parser hardening (unchecked indices /
+  throwing `stoull`).
 
 ### Cross-cutting — sanitizer/coverage builds (TODO item 7)
 - [ ] CI job building with `-fsanitize=address,undefined` running `make test`

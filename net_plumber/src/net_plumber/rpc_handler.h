@@ -35,8 +35,10 @@ T1 *val_to_hs(const Json::Value &val, const size_t len);
 List_t val_to_list(const Json::Value &val);
 template<class T1, class T2>
 Condition<T1, T2> *val_to_path(const Json::Value &pathlets);
+// `depth` bounds the and/or/not recursion to guard against stack-overflow on
+// hostile/deeply-nested input; callers use the default.
 template<class T1, class T2>
-Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length);
+Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length, unsigned depth = 0);
 
 template<class T1, class T2>
 class RpcHandler {
