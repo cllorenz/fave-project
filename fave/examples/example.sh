@@ -196,23 +196,52 @@ F6='s='$HOST2' && EX t='$SWITCH'_1 && EX t='$FIREWALL'_pre_routing && EX t='$FIR
 
 F7='s='$HOST2' && EF p='$PROBE1
 F8='s='$HOST1' && EF p='$PROBE2' && f=related:1'
-# Expected FINDING (marked with a leading '?'), not an assertion: the stated
-# intent is that $HOST1 reaches $PROBE2 only for RELATED traffic, but the rule
-# set ACCEPTs NEW ICMPv6 in the FORWARD chain (a deliberate, standard practice),
-# so NEW (related:0) ICMPv6 legitimately reaches $PROBE2. FaVe correctly detects
-# this policy-vs-config discrepancy; it is reported, not failed.
-F9='?! s='$HOST1' && EF p='$PROBE2' && f=related:0'
+F9='! s='$HOST1' && EF p='$PROBE2' && f=related:0'
 
 F10='s='$HOST1' && EF p='$FWPROBE
 F11='s='$HOST2' && EF p='$FWPROBE
 F12='s='$FWSOURCE' && EF p='$PROBE1' && f=related:1'
 F13='s='$FWSOURCE' && EF p='$PROBE2' && f=related:1'
 
-python3 $ROOTDIR/test/check_flows.py -b -c "$F1;$F2;$F3;$F4;$F5;$F6;$F7;$F8;$F9;$F10;$F11;$F12;$F13"
-# Gate on assertions only (TODO 1p): check_flows exits non-zero iff a flow
-# *assertion* failed; expected findings (e.g. F9) are reported but exit 0.
-FLOW_RC=$?
-[ $FLOW_RC -eq 0 ] && echo "example flow assertions ok (expected findings, if any, reported above)" || echo "example flow ASSERTIONS failed"
+# check_flows.py stays a pure oracle: it reports whether each flow assertion
+# holds (exit 0) or not (exit non-zero), nothing more. The *expectation* lives
+# here, in the caller. Each spec is paired with whether we expect it to hold
+# ('pass') or to fail ('fail'). Comparing actual vs expected:
+#   pass + expect pass -> ok          fail + expect fail -> soft_ok (known finding)
+#   fail + expect pass -> FAILURE     pass + expect fail -> FAILURE (finding vanished)
+# Only a FAILURE (actual != expected) gates the run.
+#
+# F9 is expected to 'fail': it asserts NEW (related:0) traffic does not reach
+# $PROBE2, but the rule set deliberately ACCEPTs NEW ICMPv6 in FORWARD, so NEW
+# ICMPv6 legitimately reaches $PROBE2. FaVe correctly detects this policy-vs-
+# config discrepancy; we record it as an expected finding, not a failure.
+NAMES=(F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13)
+SPECS=("$F1" "$F2" "$F3" "$F4" "$F5" "$F6" "$F7" "$F8" "$F9" "$F10" "$F11" "$F12" "$F13")
+EXPECT=(pass pass pass pass pass pass pass pass fail pass pass pass pass)
+
+FLOW_FAILURES=0
+for i in "${!SPECS[@]}"; do
+    if python3 $ROOTDIR/test/check_flows.py -b -c "${SPECS[$i]}" > /dev/null 2>&1; then
+        actual=pass
+    else
+        actual=fail
+    fi
+
+    if [ "$actual" = "${EXPECT[$i]}" ]; then
+        if [ "${EXPECT[$i]}" = "fail" ]; then
+            echo "  ${NAMES[$i]}: SOFT_OK (expected finding confirmed): ${SPECS[$i]}"
+        fi
+    else
+        echo "  ${NAMES[$i]}: FAILURE (expected ${EXPECT[$i]}, got $actual): ${SPECS[$i]}"
+        FLOW_FAILURES=$(( FLOW_FAILURES + 1 ))
+    fi
+done
+
+if [ $FLOW_FAILURES -eq 0 ]; then
+    echo "example flow checks ok (assertions held; expected findings confirmed)"
+else
+    echo "example flow checks FAILED: $FLOW_FAILURES unexpected result(s)"
+fi
 
 # test openflow
 #echo -n "start ryu... "
@@ -237,5 +266,7 @@ git checkout $ROOTDIR/examples/example.conf 2> /dev/null
 
 rm -f np_dump/.lock
 
-# Fail loudly iff a flow assertion failed (findings do not gate -- TODO 1p).
-exit $FLOW_RC
+# Fail loudly iff a flow assertion gave an unexpected result (TODO 1p);
+# expected findings (e.g. F9) are reported but do not gate.
+[ $FLOW_FAILURES -eq 0 ]
+exit $?

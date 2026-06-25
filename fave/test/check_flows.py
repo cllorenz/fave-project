@@ -281,52 +281,8 @@ def _get_parser():
     return expr
 
 
-class FlowCheck(list):
-    """ A parsed flow-check spec (the token list) plus its category.
-
-    - An *assertion* (the default) must hold; a deviation is a real failure that
-      gates the smoke tier.
-    - A *known finding* (marked with a leading '?') is *expected* to deviate --
-      it records a discrepancy FaVe legitimately detects (e.g. a rule set that
-      permits traffic the stated policy does not), so it is reported but does
-      NOT fail the run. A finding that stops deviating is surfaced separately as
-      an unexpected change worth revisiting.
-
-    It subclasses list so every existing consumer (which treats a flow spec as a
-    list of tokens) keeps working unchanged.
-    """
-
-    def __init__(self, tokens, is_finding=False):
-        super().__init__(tokens)
-        self.is_finding = is_finding
-
-
 def _parse_flow_spec(flow, parser):
     return parser.parseString(flow)
-
-
-def _parse_one_flow_spec(flow, parser):
-    """ Parse one raw flow spec into a FlowCheck, honouring a leading '?' marker
-    that tags it as an expected finding rather than an assertion. """
-    is_finding = False
-    stripped = flow.lstrip()
-    if stripped.startswith('?'):
-        is_finding = True
-        flow = stripped[1:].lstrip()
-    return FlowCheck(_parse_flow_spec(flow, parser), is_finding)
-
-
-def _classify(label, deviated, is_finding, failed, findings, unexpected):
-    """ Route one check's outcome into the right bucket.
-
-    deviated -- the check did not hold as a naive assertion would expect.
-    assertion + deviated  -> failed (gates), finding + deviated -> findings
-    (expected), finding + not deviated -> unexpected (a known finding vanished).
-    """
-    if deviated:
-        (findings if is_finding else failed).append(label)
-    elif is_finding:
-        unexpected.append(label)
 
 
 def _get_source(flow_spec):
@@ -418,18 +374,18 @@ def _update_reachability_matrix(matrix, spec, success, exception=False):
 def _parse_flow_spec_files(arg):
     parser = _get_parser()
     return [
-        _parse_one_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow
+        _parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r')) if flow
     ]
 
 
 def _parse_flow_spec_strings(arg):
     parser = _get_parser()
-    return [_parse_one_flow_spec(flow, parser) for flow in arg.split(';') if flow]
+    return [_parse_flow_spec(flow, parser) for flow in arg.split(';') if flow]
 
 
 def _parse_flow_spec_json(arg):
     parser = _get_parser()
-    return [_parse_one_flow_spec(flow, parser) for flow in json.load(open(arg, 'r'))]
+    return [_parse_flow_spec(flow, parser) for flow in json.load(open(arg, 'r'))]
 
 
 def _parse_threads(arg):
@@ -503,9 +459,7 @@ def main(argv):
             ) for k, v in inv_fave["generator_to_id"].items()
         }
 
-    failed = []        # assertions that did not hold -> gate the run
-    findings = []      # known findings that deviated as expected -> reported only
-    unexpected = []    # known findings that no longer deviate -> revisit
+    failed = []
     reach = {'' : {'' : ''}}
     cache = cachetools.LRUCache(10)
     if args.broad:
@@ -525,25 +479,21 @@ def main(argv):
             flow_tree_leaves = _get_flow_tree_leaves(flow_tree)
 
             for dst, neg, flds, spec in specs:
-                label = ' '.join([e for e in spec if e != ' '])
 
-                # "deviated" = the check did not hold as a naive assertion would
-                # expect. (Conditions preserved exactly from the original: a
-                # positive check deviates iff the probe is unreachable; a negated
-                # check deviates iff the probe is reached and the fields match.)
                 if not inv_fave['probe_to_id'][dst] in flow_tree_leaves:
-                    deviated = not neg
-                else:
-                    leaf = flow_tree_leaves[inv_fave['probe_to_id'][dst]]
-                    res = True
-                    for fld in flds:
-                        field, value = fld.split(':')
-                        res = res and check_field(leaf['flow'], field, value, mapping)
-                    deviated = bool(res and neg)
+                    if not neg:
+                        failed.append(' '.join([e for e in spec if e != ' ']))
+                    continue
 
-                _classify(
-                    label, deviated, spec.is_finding, failed, findings, unexpected
-                )
+                leaf = flow_tree_leaves[inv_fave['probe_to_id'][dst]]
+                res = True
+
+                for fld in flds:
+                    field, value = fld.split(':')
+                    res = res and check_field(leaf['flow'], field, value, mapping)
+
+                if res and neg:
+                    failed.append(' '.join([e for e in spec if e != ' ']))
 
             t_end = time.time()
             print("thread %s: checked flow tree in %s ms" % (tid, ((t_end - t_start) * 1000.0)))
@@ -557,49 +507,35 @@ def main(argv):
                 _update_reachability_matrix(reach, flow_spec, False, exception=True)
                 continue
 
-            label = ' '.join([e for e in flow_spec if e != ' '])
-            _classify(
-                label, not successful, flow_spec.is_finding,
-                failed, findings, unexpected
-            )
-            _update_reachability_matrix(reach, flow_spec, successful)
+            if not successful:
+                failed.append(' '.join([e for e in flow_spec if e != ' ']))
+                _update_reachability_matrix(reach, flow_spec, False)
+            else:
+                _update_reachability_matrix(reach, flow_spec, True)
 
             if spec_no % 1000 == 0:
                 print("  checked %s flows" % spec_no)
 
-    total = len(args.flow_specs)
-    n_assertions = total - len(findings) - len(unexpected)
-    if failed:
-        print(
-            "FAILURE: %s of %s flow assertion(s) did not hold:\n\t%s" % (
-                len(failed), n_assertions, '\n\t'.join(failed)
-            )
+    print((
+        "success: all %s checked flows matched" % len(args.flow_specs)
+    ) if not failed else (
+        "failure: the following flows mismatched:\n\t%s\nwhich is %s of %s." % (
+            '\n\t'.join(failed), len(failed), len(args.flow_specs)
         )
-    else:
-        print("success: all %s flow assertion(s) held" % n_assertions)
+    ))
 
-    # Findings are discrepancies FaVe is *meant* to detect (the model deviating
-    # from the stated expectation) -- reported, but not a failure.
-    if findings:
-        print(
-            "findings: %s expected discrepancy/ies detected (not a failure):\n\t%s" % (
-                len(findings), '\n\t'.join(findings)
-            )
-        )
-    if unexpected:
-        print(
-            "NOTE: %s known finding(s) no longer observed -- revisit the "
-            "expectation:\n\t%s" % (len(unexpected), '\n\t'.join(unexpected))
-        )
-
-    print(("\n\t".join([
-        "thread %s: runtimes:" % tid,
-        "total: %s ms" % sum(_MEASUREMENTS),
-        "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
-        "median: %s ms" % sorted(_MEASUREMENTS)[int(len(_MEASUREMENTS)/2)],
-        "min: %s ms" % min(_MEASUREMENTS),
-        "max: %s ms" % max(_MEASUREMENTS)
-    ])))
+    # Guard against an empty measurement set: a run that performs no checks
+    # (e.g. a broad-mode spec with no probe destination) would otherwise crash
+    # the stats with a ZeroDivisionError instead of reporting its result.
+    if _MEASUREMENTS:
+        print(("\n\t".join([
+            "thread %s: runtimes:" % tid,
+            "total: %s ms" % sum(_MEASUREMENTS),
+            "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
+            "median: %s ms" % sorted(_MEASUREMENTS)[int(len(_MEASUREMENTS)/2)],
+            "min: %s ms" % min(_MEASUREMENTS),
+            "max: %s ms" % max(_MEASUREMENTS)
+        ])))
 
     if args.dump_matrix:
         with open(args.dump+'/reach.csv', 'w') as csvf:
