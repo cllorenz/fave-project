@@ -176,7 +176,10 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
   source id — assert the *documented* outcome (return 0 / log / no-op) so it
   stops being implementation-defined.
 - [ ] **Event API**: `get_last_event`/`set_last_event` (zero coverage today).
-- [ ] **De-chain `test_probe_transition_*`** from `test_routing_*` (principle 3).
+- [x] **De-chained `test_probe_transition_*`** from `test_routing_*` (principle 3,
+  DONE) — extracted assertion-free `setup_routing_*` builders; the six
+  probe-transition preconditions now call those instead of the asserting
+  `test_routing_*` methods, so a routing regression no longer cascades.
 
 ### P2 — Conditions (pure logic) + RPC boundary — DONE (2026-06-25; depth guard deferred)
 - [x] **Boolean-composition laws** for `And`/`Or`/`Not` + De Morgan

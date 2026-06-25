@@ -442,8 +442,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_pipeline_shared_ports() {
 }
 
 template<class T1, class T2>
-void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
-  printf("\n");
+void NetPlumberPlumbingTest<T1, T2>::setup_routing_add_source() {
   N->add_link(100,1);
 #ifdef GENERIC_PS
   T1 *h = new T1(1);
@@ -453,6 +452,12 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
   T1 *h = hs_from_str("1xxxxxxx");
 #endif
   N->add_source(h, make_sorted_list(1,100), 1);
+}
+
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::test_routing_add_source() {
+  printf("\n");
+  this->setup_routing_add_source();
   int stats[7][2] = {
       {1,0},
       {1,0},
@@ -602,9 +607,8 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_rw_rule_lower_priority() {
 }
 
 template<class T1, class T2>
-void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_higher_priority() {
-  printf("\n");
-  this->test_routing_add_source();
+void NetPlumberPlumbingTest<T1, T2>::setup_routing_add_fwd_rule_higher_priority() {
+  this->setup_routing_add_source();
   node_ids.push_back(N->add_rule(1,0,
               make_sorted_list(1,1),
               make_sorted_list(2,2,3),
@@ -615,6 +619,12 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_higher_priority()
 #endif
               NULL,
               NULL));
+}
+
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::test_routing_add_fwd_rule_higher_priority() {
+  printf("\n");
+  this->setup_routing_add_fwd_rule_higher_priority();
   int stats[8][2] = {
 #ifdef USE_BDD
       {2,0},
@@ -986,8 +996,8 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_remove_rw_rule_higher_priority
 }
 
 template<class T1, class T2>
-void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
-  this->test_routing_add_fwd_rule_higher_priority();
+void NetPlumberPlumbingTest<T1, T2>::setup_routing_add_link() {
+  this->setup_routing_add_fwd_rule_higher_priority();
   node_ids.push_back(N->add_rule(3,0,
               make_sorted_list(1,12),
               make_sorted_list(1,7),
@@ -1003,6 +1013,11 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
   ));
   N->add_link(11,12);
   N->add_link(7,8);
+}
+
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
+  this->setup_routing_add_link();
   int stats[9][2] = {
 #ifdef USE_BDD
       {2,0},
@@ -1037,6 +1052,13 @@ void NetPlumberPlumbingTest<T1, T2>::test_routing_add_link() {
   };
   //N->print_plumbing_network();
   this->verify_source_flow_stats("test_routing_add_link", stats);
+}
+
+template<class T1, class T2>
+void NetPlumberPlumbingTest<T1, T2>::setup_routing_remove_link() {
+  this->setup_routing_add_link();
+  N->remove_link(7,8);
+  N->remove_link(11,12);
 }
 
 template<class T1, class T2>
@@ -1257,7 +1279,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_reachability() {
 
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_no_update_add_rule() {
-  this->test_routing_add_source();
+  this->setup_routing_add_source();
   N->add_link(13,200);
   memset(&A,0,sizeof A);
   probe_counter_t r = {2,0,0,0,0,0,0,0};
@@ -1291,7 +1313,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_no_update_remove_rule
 
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule1() {
-  this->test_routing_add_source();
+  this->setup_routing_add_source();
   N->add_link(13,200);
   memset(&A,0,sizeof A);
 // XXX: dirty fix
@@ -1335,7 +1357,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule1
 
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_with_update_add_rule2() {
-  this->test_routing_add_source();
+  this->setup_routing_add_source();
   N->add_link(13,200);
   memset(&A,0,sizeof A);
   probe_counter_t r = {2,0,1,0,0,0,0,1};
@@ -1378,7 +1400,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_link() {
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
          c, probe_fire_counter, &A, 3);
-  this->test_routing_add_link();
+  this->setup_routing_add_link();
   //N->print_plumbing_network();
   this->check_probe_counter("test_probe_transition_add_link", A, r);
 }
@@ -1394,7 +1416,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_remove_link() {
   N->add_source_probe(
          make_sorted_list(1,200), EXISTENTIAL, nullptr, new TrueCondition<T1, T2>(),
          c, probe_fire_counter, &A, 3);
-  this->test_routing_remove_link();
+  this->setup_routing_remove_link();
   //N->print_plumbing_network();
   this->check_probe_counter("test_probe_transition_remove_link", A, r);
 }
@@ -1402,7 +1424,7 @@ void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_remove_link() {
 template<class T1, class T2>
 void NetPlumberPlumbingTest<T1, T2>::test_probe_transition_add_source() {
   printf("\n");
-  this->test_routing_add_source();
+  this->setup_routing_add_source();
   N->add_link(13,200);
   N->add_link(300,4);
   memset(&A,0,sizeof A);
