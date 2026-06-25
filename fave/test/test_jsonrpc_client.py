@@ -173,6 +173,113 @@ class TestJsonRpcClientRequests(unittest.TestCase):
         self.assertEqual(result, [111, 222])
 
 
+class TestJsonRpcMoreEncoders(unittest.TestCase):
+    """ Request-shape coverage for the remaining single-socket RPC encoders. """
+
+    def setUp(self):
+        self.sock = FakeSocket()
+        self.socks = [self.sock]
+
+    def _call(self, fn, *args, **kwargs):
+        self.sock.queue_response(_ok())
+        fn(self.socks, *args, **kwargs)
+        return self.sock.last_request()
+
+    def test_stop(self):
+        req = self._call(jsonrpc.stop)
+        self.assertEqual(req["method"], "stop")
+        self.assertIsNone(req["params"])
+
+    def test_reset_plumbing_network(self):
+        req = self._call(jsonrpc.reset_plumbing_network)
+        self.assertEqual(req["method"], "reset_plumbing_network")
+        self.assertIsNone(req["params"])
+
+    def test_remove_table(self):
+        req = self._call(jsonrpc.remove_table, 7)
+        self.assertEqual((req["method"], req["params"]), ("remove_table", {"id": 7}))
+
+    def test_remove_link(self):
+        req = self._call(jsonrpc.remove_link, 3, 4)
+        self.assertEqual(req["params"], {"from_port": 3, "to_port": 4})
+
+    def test_remove_source(self):
+        req = self._call(jsonrpc.remove_source, 11)
+        self.assertEqual((req["method"], req["params"]), ("remove_source", {"id": 11}))
+
+    def test_remove_source_probe(self):
+        req = self._call(jsonrpc.remove_source_probe, 12)
+        self.assertEqual(
+            (req["method"], req["params"]), ("remove_source_probe", {"id": 12})
+        )
+
+    def test_remove_slice(self):
+        req = self._call(jsonrpc.remove_slice, 5)
+        self.assertEqual((req["method"], req["params"]), ("remove_slice", {"id": 5}))
+
+    def test_expand(self):
+        req = self._call(jsonrpc.expand, 16)
+        self.assertEqual((req["method"], req["params"]), ("expand", {"length": 16}))
+
+    def test_add_slice(self):
+        req = self._call(jsonrpc.add_slice, 9, ["1xxx"], ["0xxx"])
+        self.assertEqual(req["method"], "add_slice")
+        self.assertEqual(req["params"], {
+            "id": 9,
+            "net_space": {"type": "header", "list": ["1xxx"], "diff": ["0xxx"]},
+        })
+
+    def test_add_source_probe_request_and_return(self):
+        self.sock.queue_response(_ok(result=555))
+        node = jsonrpc.add_source_probe(
+            self.socks, [11], "universal", "xxxxxxxx", "filt", "tst", 42
+        )
+        req = self.sock.last_request()
+        self.assertEqual(req["method"], "add_source_probe")
+        self.assertEqual(req["params"], {
+            "ports": [11], "mode": "universal", "match": "xxxxxxxx",
+            "filter": "filt", "test": "tst", "id": 42,
+        })
+        self.assertEqual(node, 555)
+
+    def test_check_anomalies_defaults_and_flags(self):
+        req = self._call(jsonrpc.check_anomalies, 3, use_shadow=True)
+        self.assertEqual(req["method"], "check_anomalies")
+        self.assertEqual(req["params"], {
+            "table": 3, "use_shadow": True,
+            "use_reach": False, "use_general": False,
+        })
+
+    def test_check_compliance(self):
+        req = self._call(jsonrpc.check_compliance, [{"foo": 1}])
+        self.assertEqual(
+            (req["method"], req["params"]),
+            ("check_compliance", {"rules": [{"foo": 1}]})
+        )
+
+    def test_dump_flows(self):
+        req = self._call(jsonrpc.dump_flows, "/tmp/out")
+        self.assertEqual((req["method"], req["params"]), ("dump_flows", {"dir": "/tmp/out"}))
+
+    def test_dump_flow_trees_simple_flag(self):
+        req = self._call(jsonrpc.dump_flow_trees, "/tmp/out", True)
+        self.assertEqual(req["method"], "dump_flow_trees")
+        self.assertEqual(req["params"], {"dir": "/tmp/out", "simple": True})
+
+    def test_dump_pipes_and_plumbing(self):
+        self.assertEqual(self._call(jsonrpc.dump_pipes, "/d")["params"], {"dir": "/d"})
+        self.assertEqual(
+            self._call(jsonrpc.dump_plumbing_network, "/d")["params"], {"dir": "/d"}
+        )
+
+    def test_print_topology_and_plumbing(self):
+        self.assertEqual(self._call(jsonrpc.print_topology)["method"], "print_topology")
+        self.assertEqual(
+            self._call(jsonrpc.print_plumbing_network)["method"],
+            "print_plumbing_network"
+        )
+
+
 class TestJsonRpcLinkSharding(unittest.TestCase):
     """ add_links_bulk shards each link to socks[idx % len], or broadcasts on -1. """
 

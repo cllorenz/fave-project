@@ -205,5 +205,40 @@ class TestSnapshotHelpers(unittest.TestCase):
         ])
 
 
+class TestSnapshotAddState(unittest.TestCase):
+    """ Tests SnapshotPacketFilterModel.add_state: each connection quintuple
+    yields the forward rule (idx doubled) plus a reverse-flow rule at idx+1 with
+    the source/destination and sport/dport swapped. """
+
+    def test_add_state_creates_forward_and_reverse(self):
+        model = SnapshotPacketFilterModel('spf', ports=['1', '2'])
+        quintuple = Rule(
+            'spf', 'spf.input_state', 3,
+            in_ports=['spf.input_state_in'],
+            match=Match([
+                RuleField('packet.ipv6.source', '2001:db8::1'),
+                RuleField('packet.upper.sport', '0'*16),
+            ]),
+            actions=[Forward(['spf.x'])],
+        )
+
+        model.add_state([quintuple])
+
+        added = model._adds['spf.input_state']
+        self.assertEqual(len(added), 2)
+
+        forward, reverse = added
+        # idx is doubled in place; the reverse sits at idx+1.
+        self.assertEqual(forward.idx, 6)
+        self.assertEqual(reverse.idx, 7)
+        # the reverse rule swaps source<->destination and sport<->dport.
+        self.assertEqual(
+            [(f.name, f.value) for f in reverse.match],
+            [('packet.ipv6.destination', '2001:db8::1'),
+             ('packet.upper.dport', '0'*16)]
+        )
+        self.assertEqual(reverse.in_ports, ['spf.input_state_in'])
+
+
 if __name__ == '__main__':
     unittest.main()
