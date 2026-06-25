@@ -128,6 +128,78 @@ class TestJsonRpcClientRequests(unittest.TestCase):
         })
         self.assertEqual(node, 987654321)   # response parsing
 
+    def test_add_source_single_vector_form(self):
+        """ One vector and no diff -> compact 'hs': <vector> payload. """
+        self.sock.queue_response(_ok(result=7))
+        node = jsonrpc.add_source(self.socks, 0, ['1xxxxxxx'], [], [5])
+        req = self.sock.last_request()
+        self.assertEqual(req["method"], "add_source")
+        self.assertEqual(req["params"], {"id": 0, "hs": "1xxxxxxx", "ports": [5]})
+        self.assertEqual(node, 7)
+
+    def test_add_source_list_form_for_multiple_vectors(self):
+        """ More than one vector -> 'hs': {list, diff} payload. """
+        self.sock.queue_response(_ok(result=8))
+        jsonrpc.add_source(self.socks, 0, ['1xxxxxxx', '0xxxxxxx'], [], [5])
+        req = self.sock.last_request()
+        self.assertEqual(
+            req["params"]["hs"], {"list": ['1xxxxxxx', '0xxxxxxx'], "diff": []}
+        )
+
+    def test_add_source_list_form_when_diff_present(self):
+        """ A non-empty diff forces the list form even with one list vector. """
+        self.sock.queue_response(_ok(result=9))
+        jsonrpc.add_source(self.socks, 0, ['1xxxxxxx'], ['0xxxxxxx'], [5])
+        req = self.sock.last_request()
+        self.assertEqual(
+            req["params"]["hs"], {"list": ['1xxxxxxx'], "diff": ['0xxxxxxx']}
+        )
+
+    def test_add_rules_batch_maps_tuples_to_params(self):
+        """ Each 8-tuple becomes a rule dict; the first field (np rid) is dropped. """
+        self.sock.queue_response(_ok(result=[111, 222]))
+        rules = [
+            (None, 1, 0, [1], [2], "xxxxxxx0", None, None),
+            (None, 1, 1, [3], [4], "xxxxxxx1", "1"*8, "0"*8),
+        ]
+        result = jsonrpc.add_rules_batch(self.socks, rules)
+        req = self.sock.last_request()
+        self.assertEqual(req["method"], "add_rules")
+        self.assertEqual(req["params"]["rules"][0], {
+            "table": 1, "index": 0, "in": [1], "out": [2],
+            "match": "xxxxxxx0", "mask": None, "rw": None,
+        })
+        self.assertEqual(req["params"]["rules"][1]["index"], 1)
+        self.assertEqual(result, [111, 222])
+
+
+class TestJsonRpcLinkSharding(unittest.TestCase):
+    """ add_links_bulk shards each link to socks[idx % len], or broadcasts on -1. """
+
+    def _methods(self, sock):
+        return [json.loads(s)["method"] for s in sock.sent]
+
+    def test_links_sharded_by_index(self):
+        s0, s1 = FakeSocket(), FakeSocket()
+        # add_links_bulk sends, then reads one ack per link from its shard.
+        s0.queue_response(_ok())
+        s1.queue_response(_ok())
+        jsonrpc.add_links_bulk([s0, s1], [(0, 'a', 'b'), (1, 'c', 'd')])
+        # idx 0 -> sock 0, idx 1 -> sock 1 (no cross-talk).
+        self.assertEqual(len(s0.sent), 1)
+        self.assertEqual(len(s1.sent), 1)
+        self.assertEqual(json.loads(s0.sent[0])["params"]["from_port"], 'a')
+        self.assertEqual(json.loads(s1.sent[0])["params"]["from_port"], 'c')
+
+    def test_index_minus_one_broadcasts(self):
+        s0, s1 = FakeSocket(), FakeSocket()
+        # -1 broadcasts the send and reads an ack from every socket.
+        s0.queue_response(_ok())
+        s1.queue_response(_ok())
+        jsonrpc.add_links_bulk([s0, s1], [(-1, 'x', 'y')])
+        self.assertEqual(len(s0.sent), 1)
+        self.assertEqual(len(s1.sent), 1)
+
 
 class TestJsonRpcClientResponses(unittest.TestCase):
     """ Response parsing and error handling. """
