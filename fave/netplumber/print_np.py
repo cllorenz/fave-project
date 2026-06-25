@@ -100,11 +100,12 @@ def main(argv):
         print_help()
         sys.exit(3)
 
+    # jsonrpc functions take a *list* of sockets (multi-NetPlumber support).
     if print_topo:
-        jsonrpc.print_topology(sock)
+        jsonrpc.print_topology([sock])
 
     if print_nw:
-        jsonrpc.print_plumbing_network(sock)
+        jsonrpc.print_plumbing_network([sock])
 
     sock.close()
 

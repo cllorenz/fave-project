@@ -38,6 +38,11 @@ from util.packet_util import normalize_ipv4_address
 from util.packet_util import normalize_ipv6_address, normalize_ipv6_proto
 from util.packet_util import normalize_ipv6header_header, normalize_upper_port
 from util.packet_util import portrange_to_prefix_list
+from util.packet_util import portrange_to_prefixed_bitvectors
+from util.packet_util import canonicalize_field_value
+from util.packet_util import denormalize_ipv4_address, denormalize_ipv6_address
+from util.packet_util import normalize_vlan_tag
+from util.packet_util import is_ip, is_domain, is_port, is_ext_port, is_host, is_unix
 
 from util.path_util import Path
 from util.path_util import check_pathlet
@@ -45,6 +50,11 @@ from util.path_util import json_to_pathlet, pathlet_to_json
 from util.path_util import pathlet_to_str, str_to_pathlet
 
 from util.json_util import equal
+
+from util.ip6np_util import field_value_to_bitvector, bitvector_to_field_value
+from util.ip6np_util import FieldNotImplementedError, VectorConstructionError
+from util.ip6np_util import _normalize_states, _normalize_icmpv6_type
+from rule.rule_model import RuleField
 
 class TestCollectionsUtilDict(unittest.TestCase):
     """ This class provides unit tests for dictionary utilities.
@@ -167,7 +177,7 @@ class TestMatchUtil(unittest.TestCase):
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['tcp_dst'], 'packet.upper.dport')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['tcp_src'], 'packet.upper.sport')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['udp_dst'], 'packet.upper.dport')
-        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['upd_src'], 'packet.upper.sport')
+        self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['udp_src'], 'packet.upper.sport')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['in_port'], 'in_port')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['out_port'], 'out_port')
         self.assertEqual(OXM_FIELD_TO_MATCH_FIELD['interface'], 'interface')
@@ -347,6 +357,224 @@ class TestPacketUtil(unittest.TestCase):
             portrange_to_prefix_list(65535, 65534)
             portrange_to_prefix_list(-1, 65536)
             portrange_to_prefix_list(0, -1)
+
+
+    def test_portrange_to_prefixed_bitvectors(self):
+        """ Tests rendering a port range as prefixed ternary bit vectors. """
+        # A single port -> one fully-specified 16-bit vector.
+        self.assertEqual(
+            portrange_to_prefixed_bitvectors(80, 80), ['0000000001010000']
+        )
+        # 0..1 collapses to a single /15 prefix (low bit wildcarded).
+        self.assertEqual(
+            portrange_to_prefixed_bitvectors(0, 1), ['000000000000000x']
+        )
+        # A range that needs two prefixes yields two vectors.
+        self.assertEqual(
+            portrange_to_prefixed_bitvectors(1024, 2049),
+            ['000001xxxxxxxxxx', '000010000000000x']
+        )
+
+
+    def test_denormalize_ipv4_address(self):
+        """ Tests converting a ternary vector back to an IPv4 prefix. """
+        # Contiguous prefix -> dotted-quad with /cidr.
+        self.assertEqual(denormalize_ipv4_address('00001010' + 'x'*24), '10.0.0.0/8')
+        # Fully specified -> no /cidr suffix.
+        self.assertEqual(denormalize_ipv4_address('00001010'*4), '10.10.10.10')
+        # All wildcard -> the any-address.
+        self.assertEqual(denormalize_ipv4_address('x'*32), '0.0.0.0/0')
+        # Non-contiguous mask (a set bit after the wildcard run) is not a prefix:
+        # the raw vector is returned unchanged.
+        non_contiguous = '00001010' + 'x' + '0'*23
+        self.assertEqual(denormalize_ipv4_address(non_contiguous), non_contiguous)
+        # Wrong length is a contract violation.
+        with self.assertRaises(AssertionError):
+            denormalize_ipv4_address('0'*31)
+
+
+    def test_denormalize_ipv6_address(self):
+        """ Tests converting a ternary vector back to an IPv6 prefix. """
+        self.assertEqual(
+            denormalize_ipv6_address('0000000000001010' + 'x'*112),
+            'a:0:0:0:0:0:0:0/16'
+        )
+        with self.assertRaises(AssertionError):
+            denormalize_ipv6_address('0'*127)
+
+
+    def test_denormalize_is_inverse_of_normalize(self):
+        """ Round-trip property: denormalize(normalize(addr)) == addr. """
+        for addr in ['10.0.0.0/8', '192.168.1.0/24', '10.10.10.10']:
+            self.assertEqual(
+                denormalize_ipv4_address(normalize_ipv4_address(addr)), addr
+            )
+
+
+    def test_normalize_vlan_tag(self):
+        """ Tests vlan-tag normalization, incl. the zero special case. """
+        # vlan 0 is treated as "any" -> all wildcard.
+        self.assertEqual(normalize_vlan_tag('0'), 'x'*16)
+        self.assertEqual(normalize_vlan_tag('1'), '0000000000000001')
+        self.assertEqual(normalize_vlan_tag('4095'), '0000111111111111')
+        # Out-of-range tags violate the contract.
+        with self.assertRaises(AssertionError):
+            normalize_vlan_tag('4096')
+
+
+    def test_address_and_port_predicates(self):
+        """ Tests the is_* validators for addresses, ports, and hosts. """
+        # is_ip accepts dotted-quad with optional valid CIDR.
+        self.assertTrue(is_ip('10.0.0.0/8'))
+        self.assertTrue(is_ip('192.168.1.1'))
+        self.assertFalse(is_ip('256.0.0.0'))    # octet out of range
+        self.assertFalse(is_ip('10.0.0'))       # too few octets
+        self.assertFalse(is_ip('10.0.0.0/33'))  # cidr out of range
+
+        # is_port / is_ext_port accept 0..65535.
+        self.assertTrue(is_port('80'))
+        self.assertTrue(is_port('0'))
+        self.assertTrue(is_port('65535'))
+        self.assertFalse(is_port('70000'))
+        self.assertFalse(is_port('http'))
+        self.assertTrue(is_ext_port('22'))
+
+        # is_domain validates RFC1035-style labels.
+        self.assertTrue(is_domain('example.com'))
+        self.assertFalse(is_domain('-bad'))
+
+        # is_host requires <ip|domain>:<port>.
+        self.assertTrue(is_host('10.0.0.1:80'))
+        self.assertTrue(is_host('example.com:443'))
+        self.assertFalse(is_host('10.0.0.1'))    # no port
+        self.assertFalse(is_host('10.0.0.1:99999'))
+
+        # is_unix rejects embedded NULs.
+        self.assertTrue(is_unix('/tmp/sock'))
+        self.assertFalse(is_unix('/tmp/so\0ck'))
+
+
+class TestIp6npUtil(unittest.TestCase):
+    """ Tests the field-value <-> bit-vector encoding (ip6np_util).
+
+    This is the central per-field encoding layer feeding rule/header-space
+    construction; a wrong encoding silently mis-models a rule.
+    """
+
+    def test_field_to_bitvector_state_names(self):
+        """ Connection-tracking state names map to the state bitmap. """
+        self.assertEqual(
+            field_value_to_bitvector(RuleField('module.state', 'NEW')).vector,
+            '00000001'
+        )
+        # Comma-separated states are OR-ed together (RELATED=2 | ESTABLISHED=4).
+        self.assertEqual(
+            field_value_to_bitvector(
+                RuleField('module.state', 'RELATED,ESTABLISHED')
+            ).vector,
+            '00000110'
+        )
+
+    def test_field_to_bitvector_proto_name_and_int_agree(self):
+        """ A protocol by name and by number encode identically. """
+        by_name = field_value_to_bitvector(RuleField('packet.ipv6.proto', 'tcp')).vector
+        by_int = field_value_to_bitvector(RuleField('packet.ipv6.proto', '6')).vector
+        self.assertEqual(by_name, by_int)
+        self.assertEqual(by_name, '00000110')
+
+    def test_field_to_bitvector_accepts_vector_string(self):
+        """ A value that is already a valid field-width vector passes through. """
+        self.assertEqual(
+            field_value_to_bitvector(RuleField('related', '00000001')).vector,
+            '00000001'
+        )
+
+    def test_field_to_bitvector_unknown_field_raises(self):
+        """ A field with no normalizer (and a non-vector value) is unimplemented. """
+        with self.assertRaises(FieldNotImplementedError):
+            field_value_to_bitvector(RuleField('packet.ether.source', 'notavec'))
+
+    def test_field_to_bitvector_unparsable_value_raises(self):
+        """ A normalizer ValueError on a non-vector value is a construction error. """
+        with self.assertRaises(VectorConstructionError):
+            field_value_to_bitvector(RuleField('module.limit', 'abc/sec'))
+
+    def test_bitvector_to_field_value(self):
+        """ A fully specified vector decodes to its decimal field value. """
+        self.assertEqual(bitvector_to_field_value('00000110', 'related'), '6')
+
+    def test_bitvector_to_field_value_empty_and_ignore(self):
+        """ None (empty intersection) and all-wildcard both decode to None. """
+        self.assertIsNone(bitvector_to_field_value(None, 'related'))
+        self.assertIsNone(bitvector_to_field_value('x'*8, 'related'))
+
+    def test_normalize_states_multiflag(self):
+        """ _normalize_states OR-combines multiple flags (NEW=1 | ESTABLISHED=4). """
+        self.assertEqual(_normalize_states('NEW,ESTABLISHED'), '00000101')
+
+    def test_normalize_icmpv6_type(self):
+        """ ICMPv6 type names map to their type/code vector. """
+        self.assertEqual(
+            _normalize_icmpv6_type('echo-request'), '10000000xxxxxxxx'
+        )
+
+
+class TestCanonicalizeFieldValue(unittest.TestCase):
+    """ Tests value canonicalization at the field boundary: IPv4/IPv6 addresses
+    to compressed form and the protocol field to its IANA number, so equivalent
+    representations are stored identically. """
+
+    def test_ipv6_address_compressed(self):
+        for form in ('2001:db8::1', '2001:db8:0:0:0:0:0:1', '2001:db8::0:1'):
+            self.assertEqual(
+                canonicalize_field_value('packet.ipv6.source', form), '2001:db8::1'
+            )
+
+    def test_ipv6_cidr_compressed(self):
+        for form in ('2001:db8::0/64', '2001:db8:0:0:0:0:0:0/64'):
+            self.assertEqual(
+                canonicalize_field_value('packet.ipv6.destination', form),
+                '2001:db8::/64'
+            )
+
+    def test_ipv4_address_and_cidr(self):
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv4.source', '10.0.0.0/8'), '10.0.0.0/8'
+        )
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv4.destination', '192.168.1.1'),
+            '192.168.1.1'
+        )
+
+    def test_proto_name_to_iana_number(self):
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'tcp'), '6')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'udp'), '17')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', 'icmpv6'), '58')
+
+    def test_proto_already_numeric_and_unknown_pass_through(self):
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', '6'), '6')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.proto', '99'), '99')
+
+    def test_keyword_read_fields_left_untouched(self):
+        """ Fields read by keyword elsewhere must not be canonicalized. """
+        self.assertEqual(
+            canonicalize_field_value('module.conntrack.ctstate', 'ESTABLISHED'),
+            'ESTABLISHED'
+        )
+        self.assertEqual(canonicalize_field_value('module', 'conntrack'), 'conntrack')
+        self.assertEqual(
+            canonicalize_field_value('in_port', 'sw.1_ingress'), 'sw.1_ingress'
+        )
+
+    def test_total_and_idempotent(self):
+        # Non-string and non-parseable values pass through unchanged ...
+        self.assertIsNone(canonicalize_field_value('packet.ipv6.source', None))
+        self.assertEqual(
+            canonicalize_field_value('packet.ipv6.source', 'x' * 128), 'x' * 128
+        )
+        # ... and canonicalizing an already-canonical value is a no-op.
+        once = canonicalize_field_value('packet.ipv6.source', '2001:db8:0:0::1')
+        self.assertEqual(canonicalize_field_value('packet.ipv6.source', once), once)
 
 
 class TestPathUtil(unittest.TestCase):

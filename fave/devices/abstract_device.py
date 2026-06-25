@@ -225,7 +225,8 @@ class AbstractDeviceModel(object):
 
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, AbstractDeviceModel)
+        if not isinstance(other, AbstractDeviceModel):
+            return NotImplemented
 
         return all([
             self.node == other.node,
@@ -236,5 +237,5 @@ class AbstractDeviceModel(object):
         ])
 
     def __ne__(self, other: object) -> bool:
-        assert isinstance(other, AbstractDeviceModel)
-        return not self == other
+        result = self.__eq__(other)
+        return result if result is NotImplemented else not result

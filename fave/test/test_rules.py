@@ -469,5 +469,173 @@ class TestRule(unittest.TestCase):
         self.assertNotEqual(self.rule, rule5)
 
 
+class TestRuleFieldCanonicalization(unittest.TestCase):
+    """ RuleField canonicalizes address/protocol values at construction, so
+    equivalent representations are stored identically and compare equal -- this
+    is what keeps the aggregator's value-string diff reliable. """
+
+    def test_proto_name_and_number_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.proto", "tcp"),
+            RuleField("packet.ipv6.proto", "6")
+        )
+
+    def test_ipv6_syntax_variants_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.source", "2001:db8::1"),
+            RuleField("packet.ipv6.source", "2001:db8:0:0:0:0:0:1")
+        )
+
+    def test_cidr_compact_and_expanded_are_equal(self):
+        self.assertEqual(
+            RuleField("packet.ipv6.destination", "2001:db8::0/64"),
+            RuleField("packet.ipv6.destination", "2001:db8:0:0:0:0:0:0/64")
+        )
+
+    def test_canonicalization_preserves_bitvector(self):
+        """ The canonical value must yield the same header space as the input,
+        so verification semantics are unchanged. """
+        from util.ip6np_util import field_value_to_bitvector
+        for name, a, b in [
+            ("packet.ipv6.proto", "tcp", "6"),
+            ("packet.ipv6.source", "2001:db8::1", "2001:db8:0:0:0:0:0:1"),
+            ("packet.ipv6.destination", "2001:db8::0/64", "2001:db8:0:0:0:0:0:0/64"),
+        ]:
+            self.assertEqual(
+                field_value_to_bitvector(RuleField(name, a)).vector,
+                field_value_to_bitvector(RuleField(name, b)).vector
+            )
+
+
+class TestEqualityTypeMismatch(unittest.TestCase):
+    """ Equality with a foreign type must return False, never raise.
+
+    Regression guard: __eq__/__ne__ previously asserted isinstance(...).
+    """
+
+    def test_rulefield_vs_foreign(self):
+        rf = RuleField("related", "00000001")
+        self.assertFalse(rf == "related")
+        self.assertTrue(rf != "related")
+        self.assertFalse(rf == None)  # noqa: E711 -- exercising __eq__, not identity
+
+    def test_rule_vs_foreign(self):
+        rule = Rule("foo", 1, 0)
+        self.assertFalse(rule == "foo")
+        self.assertTrue(rule != 123)
+        self.assertFalse(rule == None)  # noqa: E711
+
+
+class TestRuleFieldIntersect(unittest.TestCase):
+    """ Tests RuleField.intersect (round-trips through the bit-vector layer).
+
+    Uses the 8-bit ``related`` field with explicit vector-string values so the
+    intersection result is predictable without depending on address
+    normalization.
+    """
+
+    def test_wildcard_refines_to_concrete(self):
+        """ An all-x field intersected with a concrete one yields the concrete
+        value (decoded back to its decimal field value). """
+        wild = RuleField("related", "xxxxxxxx")
+        one = RuleField("related", "00000001")
+        self.assertEqual(wild.intersect(one), "1")
+        self.assertEqual(one.intersect(wild), "1")
+
+    def test_all_wildcard_intersection_is_ignore(self):
+        """ x ∩ x stays all-x, which decodes to None (the all-ignore value). """
+        wild1 = RuleField("related", "xxxxxxxx")
+        wild2 = RuleField("related", "xxxxxxxx")
+        self.assertIsNone(wild1.intersect(wild2))
+
+    def test_conflicting_values_are_empty(self):
+        """ A bit conflict makes the intersection empty (None). """
+        one = RuleField("related", "00000001")
+        two = RuleField("related", "00000010")
+        self.assertIsNone(one.intersect(two))
+
+    def test_mismatched_names_assert(self):
+        """ Intersecting fields of different names is a contract violation. """
+        with self.assertRaises(AssertionError):
+            RuleField("related", "xxxxxxxx").intersect(
+                RuleField("packet.ipv6.proto", "xxxxxxxx")
+            )
+
+
+class TestMatchIntersect(unittest.TestCase):
+    """ Tests Match.intersect.
+
+    Field names sort as: 'module.state' < 'packet.ipv6.proto'
+    < 'packet.upper.sport' < 'related'.
+
+    """
+
+    def test_empty_self_returns_other(self):
+        other = Match([RuleField("related", "00000001")])
+        result = Match([]).intersect(other)
+        self.assertEqual([f.name for f in result], ["related"])
+
+    def test_empty_other_returns_self(self):
+        this = Match([RuleField("related", "00000001")])
+        result = this.intersect(Match([]))
+        self.assertEqual([f.name for f in result], ["related"])
+
+    def test_disjoint_fields_union(self):
+        """ Matches with no field in common merge to the union of their fields. """
+        a = Match([RuleField("packet.ipv6.proto", "00000110")])
+        b = Match([RuleField("related", "00000001")])
+        result = a.intersect(b)
+        self.assertEqual(
+            sorted(f.name for f in result), ["packet.ipv6.proto", "related"]
+        )
+
+    def test_shared_field_is_intersected(self):
+        """ A field present in both is replaced by the intersection of its values. """
+        a = Match([RuleField("related", "xxxxxxxx")])
+        b = Match([RuleField("related", "00000001")])
+        result = a.intersect(b)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "related")
+        self.assertEqual(result[0].value, "1")
+
+    def test_common_engine_case_single_other_field(self):
+        """ The shape generator.py uses: other is a single (state) field that
+        self also carries -> intersect that field, keep the rest. No duplicates. """
+        this = Match([
+            RuleField("module.state", "xxxxxxxx"),
+            RuleField("packet.ipv6.proto", "00000110"),
+        ])
+        other = Match([RuleField("module.state", "00000001")])
+        result = this.intersect(other)
+        names = [f.name for f in result]
+        self.assertEqual(sorted(names), ["module.state", "packet.ipv6.proto"])
+        self.assertEqual(len(names), len(set(names)))  # no duplicated field
+
+    def test_both_sides_unique_plus_shared_field(self):
+        """ Regression: when each match has a unique field AND a shared field,
+        the shared field must be intersected once -- not duplicated.
+
+        The previous implementation advanced only over self's leading fields
+        (comparing against other[0]), blowing past the shared field and emitting
+        it twice. This is the ordered-merge fix.
+        """
+        this = Match([
+            RuleField("packet.upper.sport", "x"*16),
+            RuleField("related", "00000001"),
+        ])
+        other = Match([
+            RuleField("packet.ipv6.proto", "00000110"),
+            RuleField("packet.upper.sport", "0"*16),
+        ])
+        result = this.intersect(other)
+        names = [f.name for f in result]
+        # Union of field names, each appearing exactly once.
+        self.assertEqual(
+            names,
+            ["packet.ipv6.proto", "packet.upper.sport", "related"]
+        )
+        self.assertEqual(len(names), len(set(names)))
+
+
 if __name__ == '__main__':
     unittest.main()

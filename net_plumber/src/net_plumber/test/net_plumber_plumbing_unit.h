@@ -135,6 +135,14 @@ class NetPlumberPlumbingTest : public CppUnit::TestFixture {
   void test_routing_remove_group_rule_mid_priority();
   void test_routing_add_link();
   void test_routing_remove_link();
+  // Non-asserting builders for the routing scenarios the probe-transition tests
+  // reuse as preconditions. Extracted so those tests no longer call the
+  // test_routing_* methods (which run their own assertions) -- a failure in a
+  // routing test then no longer cascades into every probe-transition test.
+  void setup_routing_add_source();
+  void setup_routing_add_fwd_rule_higher_priority();
+  void setup_routing_add_link();
+  void setup_routing_remove_link();
   // test correctness of detecting errors
   void test_detect_loop();
   void test_false_probe();

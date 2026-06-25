@@ -29,7 +29,7 @@ import re
 import random
 
 from netplumber.jsonrpc import connect_to_netplumber, NET_PLUMBER_DEFAULT_PORT
-from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand
+from netplumber.jsonrpc import init, destroy, reset_plumbing_network, expand, stop
 from netplumber.jsonrpc import add_table, add_link
 from netplumber.jsonrpc import add_rule, remove_rule
 from netplumber.jsonrpc import add_source, add_source_probe
@@ -95,7 +95,7 @@ def _check_probe_log_line(line, probe_id, state):
     return "skip"
 
 
-def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
+def check_probe_log(sequence, logfile="/dev/shm/np/stdout.log"):
     """ Checks probe output in log file.
 
     Keyword parameters:
@@ -129,7 +129,7 @@ def check_probe_log(sequence, logfile="/tmp/np/stdout.log"):
     return True
 
 
-def _check_generic_log(logger, logfile="/tmp/np/stdout.log"):
+def _check_generic_log(logger, logfile="/dev/shm/np/stdout.log"):
     with open(logfile, 'r') as log_file_:
         log = log_file_.read().splitlines()
         for line in log:
@@ -139,25 +139,25 @@ def _check_generic_log(logger, logfile="/tmp/np/stdout.log"):
         return False
 
 
-def check_cycle_log(logfile="/tmp/np/stdout.log"):
+def check_cycle_log(logfile="/dev/shm/np/stdout.log"):
     """ Check log output for loop.
     """
     return _check_generic_log("DefaultLoopDetectionLogger", logfile=logfile)
 
 
-def check_unreach_log(logfile="/tmp/np/stdout.log"):
+def check_unreach_log(logfile="/dev/shm/np/stdout.log"):
     """ Check log output for unreachable rule.
     """
     return _check_generic_log("DefaultUnreachDetectionLogger", logfile=logfile)
 
 
-def check_shadow_log(logfile="/tmp/np/stdout.log"):
+def check_shadow_log(logfile="/dev/shm/np/stdout.log"):
     """ Check log output for shadowed rule.
     """
     return _check_generic_log("DefaultShadowDetectionLogger", logfile=logfile)
 
 
-def check_blackhole_log(logfile="/tmp/np/stdout.log"):
+def check_blackhole_log(logfile="/dev/shm/np/stdout.log"):
     """ Check log output for black hole.
     """
     return _check_generic_log("DefaultBlackholeDetectionLogger", logfile=logfile)
@@ -171,19 +171,31 @@ class TestRPC(unittest.TestCase):
         """ Fixture to prepare clean test environment.
         """
 
+        # start_np.sh appends (>>) to the log; clear it first so each test sees
+        # only its own probe output (check_probe_log scans from the top, so
+        # stale entries from a previous test would otherwise match).
+        os.system('rm -f /dev/shm/np/stdout.log')
         os.system('scripts/start_np.sh')
         server = ('localhost', NET_PLUMBER_DEFAULT_PORT)
-        self.sock = connect_to_netplumber(*server)
-        init(self.sock, 1)
+        # jsonrpc operates on a *list* of NetPlumber sockets (multi-instance
+        # support); a single connection is just a one-element list.
+        self.socks = [connect_to_netplumber(*server)]
+        # net_plumber auto-initializes on startup; clear that so the backend is
+        # in a known *uninitialized* state. Each test then init()s with the
+        # vector length it needs (destroy() is idempotent on an uninitialized
+        # instance, so a test that destroy()+init()s of its own is unaffected).
+        destroy(self.socks)
 
 
     def tearDown(self):
         """ Fixture to destroy test environment.
         """
 
-        reset_plumbing_network(self.sock)
-        self.sock.close()
-        os.system('scripts/stop_np.sh')
+        reset_plumbing_network(self.socks)
+        # stop() sends the shutdown RPC (terminating net_plumber so the next
+        # test's start_np.sh gets a clean port) and closes the sockets. The old
+        # scripts/stop_np.sh did not exist, so net_plumber was never stopped.
+        stop(self.socks)
 
 
     def prepare_network(self, tables, links, sources, probes):
@@ -199,22 +211,31 @@ class TestRPC(unittest.TestCase):
 
         for t_idx, t_ports, table in tables:
             nodes['tables'].append([])
-            add_table(self.sock, t_idx, t_ports)
+            add_table(self.socks, t_idx, t_ports)
 
             for rule in table:
-                result = add_rule(self.sock, t_idx, *rule)
+                result = add_rule(self.socks, t_idx, *rule)
                 nodes['tables'][t_idx-1].append(result)
 
         for link in links:
-            add_link(self.sock, *link)
+            add_link(self.socks, *link)
+
+        # Source and probe nodes need an explicit node id (as the adapter
+        # supplies from its fresh-index counter). Use a high base so these ids
+        # do not collide with the table indices above.
+        node_idx = 1000
 
         for source in sources:
-            result = add_source(self.sock, *source)
+            # add_source(socks, idx, hs_list, hs_diff, ports)
+            result = add_source(self.socks, node_idx, *source)
             nodes['sources'].append(result)
+            node_idx += 1
 
         for probe in probes:
-            result = add_source_probe(self.sock, *probe)
+            # add_source_probe(socks, ports, mode, match, filterexp, test, idx)
+            result = add_source_probe(self.socks, *probe, node_idx)
             nodes['probes'].append(result)
+            node_idx += 1
 
         return nodes
 
@@ -261,7 +282,7 @@ class TestRPC(unittest.TestCase):
             }
         )
 
-        init(self.sock, 1)
+        init(self.socks, 1)
 
         nodes = self.prepare_network(tables, links, [source], [probe])
 
@@ -271,13 +292,13 @@ class TestRPC(unittest.TestCase):
         self.assertTrue(check_probe_log(plogs))
 
         # results in true probe condition
-        remove_rule(self.sock, nodes['tables'][0][1])
+        remove_rule(self.socks, nodes['tables'][0][1])
 
         plogs.append((probe_id, True))
         self.assertTrue(check_probe_log(plogs))
 
         # results in false probe condition
-        add_rule(self.sock, 1, 2, [1], [3], "xxxxxxx1", None, None)
+        add_rule(self.socks, 1, 2, [1], [3], "xxxxxxx1", None, None)
 
         plogs.append((probe_id, False))
         self.assertTrue(check_probe_log(plogs))
@@ -383,8 +404,8 @@ class TestRPC(unittest.TestCase):
             }
         )
 
-        destroy(self.sock)
-        init(self.sock, 2)
+        destroy(self.socks)
+        init(self.socks, 2)
 
         nodes = self.prepare_network(tables, links, sources, [probe])
 
@@ -394,17 +415,17 @@ class TestRPC(unittest.TestCase):
         check_probe_log(plogs)
 
         # results in false probe condition
-        remove_rule(self.sock, nodes['tables'][2][2])
+        remove_rule(self.socks, nodes['tables'][2][2])
         result = add_rule(
-            self.sock, 3, 3, [31], [33], "xxxx1001xxxxxx11", "1"*16, "xxxx1000xxxxxx11"
+            self.socks, 3, 3, [31], [33], "xxxx1001xxxxxx11", "1"*16, "xxxx1000xxxxxx11"
         )
 
         plogs.append((probe_id, False))
         check_probe_log(plogs)
 
         # results in true probe condition
-        remove_rule(self.sock, result)
-        add_rule(self.sock, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "1"*16, None)
+        remove_rule(self.socks, result)
+        add_rule(self.socks, 3, 4, [31], [34], "xxxx1001xxxxxxxx", "1"*16, None)
 
         plogs.append((probe_id, True))
         check_probe_log(plogs)
@@ -425,14 +446,14 @@ class TestRPC(unittest.TestCase):
         sources = [(["x"*8], None, [99])]
         probes = []
 
-        init(self.sock, 1)
+        init(self.socks, 1)
 
         self.prepare_network(tables, links, sources, probes)
 
         self.assertFalse(check_cycle_log())
 
         # add new rule to close the cycle
-        add_rule(self.sock, *(2, 1, [3], [4], "x"*8, None, None))
+        add_rule(self.socks, *(2, 1, [3], [4], "x"*8, None, None))
 
         self.assertTrue(check_cycle_log())
 
@@ -454,29 +475,29 @@ class TestRPC(unittest.TestCase):
         sources = []
         probes = []
 
-        init(self.sock, 1)
+        init(self.socks, 1)
 
         self.prepare_network(tables, links, sources, probes)
 
         # add new rule which will be put in new slice
-        add_rule(self.sock, *(1, 2, [1], [2], "xxxxx111", None, None))
+        add_rule(self.socks, *(1, 2, [1], [2], "xxxxx111", None, None))
 
         # setup slice
-        add_slice(self.sock, 1, *(["xxxxx1x1"], None))
+        add_slice(self.socks, 1, *(["xxxxx1x1"], None))
 
         # add slice to introduce overlap
-        add_slice(self.sock, 2, *(["xxxxx111"], None))
-        remove_slice(self.sock, 2)
+        add_slice(self.socks, 2, *(["xxxxx111"], None))
+        remove_slice(self.socks, 2)
 
-        result = add_rule(self.sock, *(1, 3, [1], [2], "xxxxxx1x", None, None))
-        remove_rule(self.sock, result)
+        result = add_rule(self.socks, *(1, 3, [1], [2], "xxxxxx1x", None, None))
+        remove_rule(self.socks, result)
 
         # add rule to introduce leakage
-        result = add_rule(self.sock, *(2, 2, [3], [4], "xxxxx111", "1"*8, "xxxxx110"))
-        remove_rule(self.sock, result)
+        result = add_rule(self.socks, *(2, 2, [3], [4], "xxxxx111", "1"*8, "xxxxx110"))
+        remove_rule(self.socks, result)
 
         # remove slice
-        remove_slice(self.sock, 1)
+        remove_slice(self.socks, 1)
 
 
 #    def _test_fw(self):
@@ -496,37 +517,37 @@ class TestRPC(unittest.TestCase):
 #        sources = [(["x"*8], None, [1])]
 #        probes = []
 #
-#        init(self.sock, 1)
+#        init(self.socks, 1)
 #
 #        nodes = self.prepare_network(tables, links, sources, probes)
 #
 #        # add new rule which drops some traffic
-#        rule2 = add_fw_rule(self.sock, *(2, 2, [3], [], {"list":["x"*8], "diff":None}))
+#        rule2 = add_fw_rule(self.socks, *(2, 2, [3], [], {"list":["x"*8], "diff":None}))
 #        self.assertTrue(rule2 != 0)
 #
 #        # add new rule which allows some traffic
-#        rule1 = add_fw_rule(self.sock, *(2, 1, [3], [4], {"list":["xxxxxx11"], "diff":None}))
+#        rule1 = add_fw_rule(self.socks, *(2, 1, [3], [4], {"list":["xxxxxx11"], "diff":None}))
 #        self.assertTrue(rule1 != 0)
 #
 #        # try to add normal rule to firewall,  should fail
-#        rule3 = add_rule(self.sock, *(2, 3, [3], [4], "x"*8, None, None))
+#        rule3 = add_rule(self.socks, *(2, 3, [3], [4], "x"*8, None, None))
 #        self.assertEqual(rule3, 0)
 #
 #        # try to add firewall rule to normal table,  should fail
-#        rule4 = add_fw_rule(self.sock, *(1, 2, [1], [2], {"list":["x"*8], "diff":None}))
+#        rule4 = add_fw_rule(self.socks, *(1, 2, [1], [2], {"list":["x"*8], "diff":None}))
 #        self.assertEqual(rule4, 0)
 #
-#        remove_fw_rule(self.sock, rule1)
+#        remove_fw_rule(self.socks, rule1)
 #
 #        # try to add firewall rule to former normal table,  should succeed
-#        remove_rule(self.sock, nodes[0][0])
-#        rule5 = add_fw_rule(self.sock, 1, 1, [1], [2], {"list":["x"*8], "diff":None})
+#        remove_rule(self.socks, nodes[0][0])
+#        rule5 = add_fw_rule(self.socks, 1, 1, [1], [2], {"list":["x"*8], "diff":None})
 #        self.assertTrue(rule5 != 0)
 #
-#        remove_fw_rule(self.sock, rule2)
+#        remove_fw_rule(self.socks, rule2)
 #
 #        # try to add normal rule to former firewall table,  should succeed
-#        rule6 = add_rule(self.sock, 2, 1, [3], [4], "x"*8, None, None)
+#        rule6 = add_rule(self.socks, 2, 1, [3], [4], "x"*8, None, None)
 #        self.assertTrue(rule6 != 0)
 
 
@@ -547,26 +568,26 @@ class TestRPC(unittest.TestCase):
 #        sources = [(["x"*8], None, [99])]
 #        probes = []
 #
-#        init(self.sock, 1)
+#        init(self.socks, 1)
 #
 #        self.prepare_network(tables, links, sources, probes)
 #
 #        # add policy probe node
-#        add_policy_probe(self.sock, [7])
-#        add_link(self.sock, 6, 7)
-#        add_link(self.sock, 99, 1)
+#        add_policy_probe(self.socks, [7])
+#        add_link(self.socks, 6, 7)
+#        add_link(self.socks, 99, 1)
 #
 #        # add policy rules
-#        add_policy_rule(self.sock, 2, {"list":["xxxxxx11"], "diff":None}, "allow")
-#        add_policy_rule(self.sock, 2, {"list":["x"*8], "diff":None}, "deny")
+#        add_policy_rule(self.socks, 2, {"list":["xxxxxx11"], "diff":None}, "allow")
+#        add_policy_rule(self.socks, 2, {"list":["x"*8], "diff":None}, "deny")
 #
 #        # add uncritical rule
-#        add_rule(self.sock, *(2, 1, [3], [4], "xxxxx111", None, None))
+#        add_rule(self.socks, *(2, 1, [3], [4], "xxxxx111", None, None))
 #
 #        # add critical rule
-#        add_rule(self.sock, *(2, 2, [3], [4], "xxxxxx11", "1"*8, "xxxxxx10"))
+#        add_rule(self.socks, *(2, 2, [3], [4], "xxxxxx11", "1"*8, "xxxxxx10"))
 #
-#        print_plumbing_network(self.sock)
+#        print_plumbing_network(self.socks)
 
 
     def _test_rule_unreachability(self):
@@ -582,16 +603,16 @@ class TestRPC(unittest.TestCase):
             ])
         ]
 
-        init(self.sock, 1)
+        init(self.socks, 1)
         self.prepare_network(tables, [], [], [])
 
         # add rule that completes the matching
-        add_rule(self.sock, *(1, 4, [], [2], "11xxxxxx", None, None))
+        add_rule(self.socks, *(1, 4, [], [2], "11xxxxxx", None, None))
 
         self.assertFalse(check_unreach_log())
 
         # add unreachable rule
-        add_rule(self.sock, *(1, 5, [], [2], "xx1xxxxx", None, None))
+        add_rule(self.socks, *(1, 5, [], [2], "xx1xxxxx", None, None))
 
         self.assertTrue(check_unreach_log())
 
@@ -609,18 +630,18 @@ class TestRPC(unittest.TestCase):
             ])
         ]
 
-        init(self.sock, 1)
+        init(self.socks, 1)
         self.prepare_network(tables, [], [], [])
 
         self.assertFalse(check_shadow_log())
 
         # add shadowed rule
-        add_rule(self.sock, *(1, 4, [], [2], "011xxxxx", None, None))
+        add_rule(self.socks, *(1, 4, [], [2], "011xxxxx", None, None))
 
         self.assertTrue(check_shadow_log())
 
         # add unshadowed rule
-        add_rule(self.sock, *(1, 5, [], [2], "11xxxxxx", None, None))
+        add_rule(self.socks, *(1, 5, [], [2], "11xxxxxx", None, None))
 
         self.assertTrue(check_shadow_log())
 
@@ -639,18 +660,18 @@ class TestRPC(unittest.TestCase):
         sources = [(["x"*160], None, [99])]
         probes = []
 
-        init(self.sock, 1)
+        init(self.socks, 1)
         # initially expand wildcard vector size
-        expand(self.sock, 160)
+        expand(self.socks, 160)
 
         self.prepare_network(tables, links, sources, probes)
 
         # double wildcard size
-        expand(self.sock, 320)
+        expand(self.socks, 320)
 
         # add rule with new size
         rule = generate_random_rule(100, [1, 2], [1, 2], 320)
-        add_rule(self.sock, 1, *rule)
+        add_rule(self.socks, 1, *rule)
 
 
 if __name__ == '__main__':

@@ -913,8 +913,8 @@ void NetPlumber<T1, T2>::remove_link(uint32_t from_port, uint32_t to_port) {
       }
     }
     for (auto it = v_inv->begin(); it != v_inv->end(); it++) {
-      if ((*it) == to_port) {
-        v->erase(it);
+      if ((*it) == from_port) {
+        v_inv->erase(it);
         break;
       }
     }
@@ -2252,16 +2252,23 @@ void NetPlumber<T1, T2>::check_compliance (
             T2 *cond = std::get<2>(src_tpl);
 
             bool any = false;
-            for (auto incoming_flow: this->id_to_node[dst]->source_flow) {
-                const bool matching_source = incoming_flow->source == src;
-                const bool overlapping_hs = cond ? hs_overlaps_arr(incoming_flow->hs_object, cond) : true;
-                if (matching_source && overlapping_hs) {
-                    any = true;
-                    break;
+            // NOTE: look the destination up with find() rather than operator[].
+            // operator[] would insert a default (nullptr) entry for an unknown
+            // dst and then dereference it -> crash. A dst that is not in the
+            // network simply has no incoming flows, so `any` stays false.
+            auto dst_it = this->id_to_node.find(dst);
+            if (dst_it != this->id_to_node.end() && dst_it->second) {
+                for (auto incoming_flow: dst_it->second->source_flow) {
+                    const bool matching_source = incoming_flow->source == src;
+                    const bool overlapping_hs = cond ? hs_overlaps_arr(incoming_flow->hs_object, cond) : true;
+                    if (matching_source && overlapping_hs) {
+                        any = true;
+                        break;
+                    }
                 }
             }
 
-            if (!valid && any || valid && !any) {
+            if ((!valid && any) || (valid && !any)) {
                 struct compliance_rule_t rule {src, dst, valid, cond};
                 this->compliance_callback_data = &rule;
                 this->compliance_callback(this, NULL, this->compliance_callback_data);

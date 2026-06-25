@@ -33,6 +33,11 @@ from rule.rule_model import Forward, Rewrite, Rule, Match, RuleField
 from util.model_util import TABLE_MAX
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
+# NOTE: field values (IPv6/IPv4 addresses, protocol) are canonicalized at
+# RuleField construction (see util.packet_util.canonicalize_field_value), so
+# equivalent representations are already stored identically here -- these model
+# comparisons need no special handling.
+
 
 class TestPacketFilterModel(unittest.TestCase):
     """ This class provides tests for the packet filter model.
@@ -744,7 +749,7 @@ class TestPacketFilterGenerator(unittest.TestCase):
         ast = parser.parse(iptables_file)
         result = generate(ast, node, address, ports)
 
-        self.assertEqual(result, self.model)
+        self.assertEqual(result.to_json(), self.model.to_json())
 
 
 if __name__ == '__main__':

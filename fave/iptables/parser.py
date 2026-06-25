@@ -568,6 +568,11 @@ INVALID|NEW|ESTABLISHED|RELATED|UNTRACKED|SNAT|DNAT|NONE|EXPECTED|SEEN_REPLY|ASS
         """
 
         self._ast = Tree('root')
+        # Reset the source-line counter so line numbers are relative to *this*
+        # rule set. Without this the counter (a class attribute) accumulates
+        # across parse() calls on the shared parser, mis-numbering every rule
+        # set after the first.
+        self._linecount = 1
 
         with open(ruleset, 'r') as f:
             ast = self.parse_string(f.read(), debug=debug)

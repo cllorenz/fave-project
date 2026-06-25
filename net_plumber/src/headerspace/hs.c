@@ -656,15 +656,24 @@ void hs_add_hs (struct hs *dst, const struct hs *src) {
     vec_append(&dst->diff, array_copy(src->diff.elems[i], len));
 
 #else
-    struct hs_vec list = src->list;
-    for (size_t i = 0; i < list.used; i++)
-        vec_append(&dst->list,array_copy(list.elems[i],src->len),false);
-
-    if (!list.diff) return;
-
-    for (size_t i = 0; i < list.used; i++)
-        for (size_t j = 0; j < list.diff[i].used; j++)
-            vec_append(&dst->list,array_copy(list.diff[i].elems[j],src->len),true);
+    /* dst becomes dst U src. Each src element is (elems[i] \ diff[i]); append it
+     * to dst's list together with its own diff cubes placed in the freshly-added
+     * element's diff slot. The previous code appended the diff cubes as bare
+     * elements via vec_append(...,true): that both lost the subtraction
+     * semantics and desynchronised the parallel elems/diff arrays (the diff=true
+     * path grows elems but not diff), causing out-of-bounds access / crashes
+     * whenever the source carried diff lists. */
+    const struct hs_vec *list = &src->list;
+    const size_t n = list->used;
+    for (size_t i = 0; i < n; i++) {
+        vec_append(&dst->list, array_copy(list->elems[i], src->len), false);
+        if (list->diff) {
+            const size_t idx = dst->list.used - 1;
+            for (size_t j = 0; j < list->diff[i].used; j++)
+                vec_append(&dst->list.diff[idx],
+                           array_copy(list->diff[i].elems[j], src->len), true);
+        }
+    }
 #endif
 }
 
@@ -863,7 +872,15 @@ hs_cmpl (struct hs *hs)
       for (size_t j = 0; j < d->used; j++)
         vec_append (&tmp, array_copy(d->elems[j],hs->len), false);
     } else if (empty_cmpl) {
-        continue;
+        /* This element is the universe (its complement is empty) with no diff.
+         * The overall complement is the INTERSECTION of the per-element
+         * complements, so an empty factor makes the whole result empty. The
+         * old code did `continue`, which wrongly treated ~universe as the
+         * identity for intersection and under-approximated the complement
+         * (e.g. ~(c1 + xxxxxxxx + c3) came out as ~c1 & ~c3 instead of empty).
+         */
+        vec_destroy (&new_list);
+        break;
     }
 
     if (!empty_cmpl) tmp.diff = xcalloc (tmp.alloc, sizeof *tmp.diff);

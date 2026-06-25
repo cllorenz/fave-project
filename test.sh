@@ -30,6 +30,11 @@
 #              point this at a venv that has `pip install -r requirements.txt`.
 #   COVERAGE   If set to 1, Python tests run under coverage and a report is
 #              printed at the end (used by CI; off by default to keep it fast).
+#   COVERAGE_MIN  If set (with COVERAGE=1), gate on total coverage via
+#              `coverage report --fail-under=$COVERAGE_MIN`; the tier FAILS if
+#              coverage drops below it. The ratchet floor -- bump it up as
+#              coverage rises, never down. Opt-in: CI sets it for the fast tier;
+#              a bare COVERAGE=1 run just prints the report.
 
 set -uo pipefail
 
@@ -73,10 +78,17 @@ pytest_cmd() {
     fi
 }
 
+# Print the combined coverage report. If COVERAGE_MIN is set, gate on it
+# (`coverage report --fail-under`) and return non-zero when total coverage drops
+# below the floor -- the ratchet. COVERAGE_MIN is opt-in (CI sets it for the
+# fast tier); a bare `COVERAGE=1` local run just prints the report, no gate.
 coverage_report() {
     [ "$COVERAGE" = "1" ] || return 0
     echo "== coverage report =="
-    ( cd "$ROOT" && "$PYTHON" -m coverage combine && "$PYTHON" -m coverage report )
+    local fail_under=()
+    [ -n "${COVERAGE_MIN:-}" ] && fail_under=(--fail-under "$COVERAGE_MIN")
+    ( cd "$ROOT" && "$PYTHON" -m coverage combine && \
+        "$PYTHON" -m coverage report "${fail_under[@]}" )
 }
 
 # ---- tiers ------------------------------------------------------------------
@@ -158,7 +170,7 @@ case "$tier" in
         ;;
 esac
 
-coverage_report
+coverage_report || rc=1
 
 if [ "$rc" -eq 0 ]; then
     echo "RESULT: $tier PASSED"

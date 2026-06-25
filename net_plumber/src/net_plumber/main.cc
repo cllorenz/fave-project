@@ -25,6 +25,7 @@
 #include "test/conditions_unit.h"
 #include "../headerspace/test/array_unit.h"
 #include "../headerspace/test/hs_unit.h"
+#include "../headerspace/test/oracle_unit.h"
 #ifdef USE_BDD
 #include "bdd_packet_set.h"
 #endif
@@ -111,6 +112,7 @@ bool run_tests() {
   CPPUNIT_TEST_SUITE_REGISTRATION( decltype(t5) );
   CPPUNIT_TEST_SUITE_REGISTRATION( ArrayTest );
   CPPUNIT_TEST_SUITE_REGISTRATION( HeaderspaceTest );
+  CPPUNIT_TEST_SUITE_REGISTRATION( OracleTest );
 
 #ifdef GENERIC_PS
   PacketSetTest<T1, T2> t5;

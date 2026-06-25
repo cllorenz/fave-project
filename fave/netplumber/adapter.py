@@ -53,7 +53,9 @@ def _calc_port(tab: int, model: Any, port: str) -> int:
     """
     try:
         return (tab<<16)+model.port_index(port)
-    except KeyError:
+    except (KeyError, ValueError):
+        # port_index may raise KeyError (dict lookup) or ValueError
+        # (list.index) for an unknown port; both mean "port not found".
         return (tab<<16)+1
 
 _TABLE_IDX_MAX = 2**32-1

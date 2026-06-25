@@ -291,5 +291,62 @@ class TestToIptables(unittest.TestCase):
             )
 
 
+class TestToIptablesEdges(unittest.TestCase):
+    """ Targeted coverage of to_iptables paths the block test does not exercise:
+    IPv6 roles (anti-spoofing + access) and list-valued addresses. Asserts
+    presence of the expected rule lines rather than full-block equality.
+    """
+
+    def _rules(self, policy):
+        return policy.to_iptables().splitlines()
+
+    def test_ipv6_antispoofing_and_access(self):
+        policy = Policy(use_internet=False)
+        policy.set_default_policy("deny")
+        policy.add_role("A")
+        policy.add_role("B")
+        policy.roles["A"].add_attribute('ipv6', '"2001:db8:1::1"')
+        policy.roles["B"].add_attribute('ipv6', '"2001:db8:2::1"')
+        policy.add_reachability_policy("A", "B")
+
+        rules = self._rules(policy)
+        # IPv6 anti-spoofing drops spoofed sources on the ingress interface.
+        self.assertIn(
+            "ip6tables -A FORWARD -i eth1 -s 2001:db8:1::1 -j DROP", rules
+        )
+        self.assertIn(
+            "ip6tables -A FORWARD -i eth1 -s 2001:db8:2::1 -j DROP", rules
+        )
+        # IPv6 access rule for A -> B.
+        self.assertIn(
+            'ip6tables -A FORWARD -s 2001:db8:1::1 -d 2001:db8:2::1 '
+            '-m conntrack --ctstate NEW,NOTRACK -m comment --comment "A to B" -j ACCEPT',
+            rules
+        )
+
+    def test_list_valued_source_expands_to_cartesian_rules(self):
+        policy = Policy(use_internet=False)
+        policy.set_default_policy("deny")
+        policy.add_role("A")
+        policy.add_role("B")
+        policy.roles["A"].add_attribute('ipv4', "['1.1.1.1','2.2.2.2']")
+        policy.roles["B"].add_attribute('ipv4', '"3.3.3.3"')
+        policy.add_reachability_policy("A", "B")
+
+        rules = self._rules(policy)
+        # Each source address yields its own NOTRACK + FORWARD rule.
+        for src in ("1.1.1.1", "2.2.2.2"):
+            self.assertIn(
+                'iptables -t raw -A PREROUTING -s %s -d 3.3.3.3 '
+                '-m comment --comment "A to B" -j NOTRACK' % src,
+                rules
+            )
+            self.assertIn(
+                'iptables -A FORWARD -s %s -d 3.3.3.3 -m conntrack '
+                '--ctstate NEW,NOTRACK -m comment --comment "A to B" -j ACCEPT' % src,
+                rules
+            )
+
+
 if __name__ == '__main__':
     unittest.main()

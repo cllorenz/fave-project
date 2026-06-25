@@ -59,6 +59,35 @@ class TestTree(unittest.TestCase):
         self.assertEqual(self.tree, Tree("foo"))
 
 
+    def test_equals_respects_child_count(self):
+        """ A tree must not compare equal to one that merely shares its prefix.
+
+        Regression guard: __eq__ previously zip()-ed children, which silently
+        ignored a length mismatch.
+        """
+        self.tree.value = "foo"
+        self.tree.add_child("a")
+        self.tree.add_child("b")
+
+        shorter = Tree("foo")
+        shorter.add_child("a")
+
+        self.assertNotEqual(self.tree, shorter)
+        self.assertNotEqual(shorter, self.tree)
+
+        longer = Tree("foo")
+        longer.add_child("a")
+        longer.add_child("b")
+        self.assertEqual(self.tree, longer)
+
+
+    def test_equals_rejects_non_tree(self):
+        """ Comparing a Tree to a non-Tree is False, not a crash. """
+        self.tree.value = "foo"
+        self.assertNotEqual(self.tree, "foo")
+        self.assertFalse(self.tree == 42)
+
+
     def test_add_child(self):
         """ Tests the adding of child nodes.
         """

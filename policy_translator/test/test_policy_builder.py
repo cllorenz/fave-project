@@ -26,6 +26,10 @@ import unittest
 
 from policy import Policy
 from policy_builder import PolicyBuilder
+from policy_exceptions import (
+    NameTakenException, InvalidValueException, InvalidSyntaxException,
+    RoleUnknownException,
+)
 
 class TestPolicyBuilder(unittest.TestCase):
 
@@ -100,12 +104,21 @@ class TestPolicyBuilder(unittest.TestCase):
 
         PolicyBuilder.build_policies(self.policy_str + '\n', self.policy)
 
+        # 'Internet <->> WebService.HTTP' under default-deny expands to (see
+        # PolicyBuilder.build_policies): a forward policy carrying the HTTP
+        # service, a *reverse* RELATED,ESTABLISHED policy for the return path,
+        # and -- in non-strict mode -- an implicit self-reachability policy per
+        # atomic role. (The previous expectation put the state condition on the
+        # forward direction and omitted self-reachability; it only passed
+        # because Policy.__eq__ did not compare the policies dict.)
         self.expectation.add_reachability_policy(
             "Internet", "WebService", service_to="HTTP"
         )
         self.expectation.add_reachability_policy(
-            "Internet", "WebService", condition={"state": "RELATED,ESTABLISHED"}
+            "WebService", "Internet", condition={"state": "RELATED,ESTABLISHED"}
         )
+        self.expectation.add_reachability_policy("WebService", "WebService")
+        self.expectation.add_reachability_policy("Internet", "Internet")
 
         self.assertEqual(self.policy, self.expectation)
 
@@ -124,6 +137,113 @@ class TestPolicyBuilder(unittest.TestCase):
         )
 
         self.assertEqual(policy, self.expectation)
+
+
+class TestPolicyOperators(unittest.TestCase):
+    """ Tests the reachability semantics of each FPL operator.
+
+    Uses strict mode so the implicit self-reachability policies are suppressed,
+    leaving only the operator's own effect on the policies dict. Conditions are
+    asserted directly (not via Policy equality).
+    """
+
+    def _build(self, default, operator_line):
+        policy = Policy(strict=True)
+        policy.add_role('A')
+        policy.add_role('B')
+        PolicyBuilder.build_policies(
+            'define policies (default: %s)\n\t%s\nend\n' % (default, operator_line),
+            policy
+        )
+        return {key: value.conditions for key, value in policy.policies.items()}
+
+    # --- default-deny operators ---------------------------------------------
+
+    def test_stateful_bidirectional_deny(self):
+        """ '<->>': forward (unconditional) + reverse RELATED,ESTABLISHED. """
+        self.assertEqual(self._build('deny', 'A <->> B'), {
+            ('A', 'B'): [],
+            ('B', 'A'): [{'state': 'RELATED,ESTABLISHED'}],
+        })
+
+    def test_unidirectional_deny(self):
+        """ '--->': a single forward policy. """
+        self.assertEqual(self._build('deny', 'A ---> B'), {('A', 'B'): []})
+
+    def test_bidirectional_deny(self):
+        """ '<-->': forward and reverse, both unconditional. """
+        self.assertEqual(self._build('deny', 'A <--> B'), {
+            ('A', 'B'): [],
+            ('B', 'A'): [],
+        })
+
+    def test_deny_only_operators_ignored_under_allow(self):
+        """ A deny-default operator is silently ignored under default allow. """
+        self.assertEqual(self._build('allow', 'A ---> B'), {})
+
+    # --- default-allow operators ---------------------------------------------
+
+    def test_unidirectional_forbid(self):
+        """ '--/->': a single forbidden (forward) policy. """
+        self.assertEqual(self._build('allow', 'A --/-> B'), {('A', 'B'): []})
+
+    def test_bidirectional_forbid(self):
+        """ '<-/->': forbidden forward and reverse. """
+        self.assertEqual(self._build('allow', 'A <-/-> B'), {
+            ('A', 'B'): [],
+            ('B', 'A'): [],
+        })
+
+    def test_stateful_forbid(self):
+        """ '-/->>': conditionally forbidden NEW,INVALID. """
+        self.assertEqual(self._build('allow', 'A -/->> B'), {
+            ('A', 'B'): [{'state': 'NEW,INVALID'}],
+        })
+
+    def test_allow_only_operator_ignored_under_deny(self):
+        """ An allow-default operator is silently ignored under default deny. """
+        self.assertEqual(self._build('deny', 'A --/-> B'), {})
+
+    def test_self_reachability_added_in_non_strict_mode(self):
+        """ Non-strict mode adds an implicit role->role policy per atomic role. """
+        policy = Policy(strict=False, use_internet=False)
+        policy.add_role('A')
+        policy.add_role('B')
+        PolicyBuilder.build_policies(
+            'define policies (default: deny)\n\tA ---> B\nend\n', policy
+        )
+        self.assertIn(('A', 'A'), policy.policies)
+        self.assertIn(('B', 'B'), policy.policies)
+
+
+class TestPolicyBuilderErrors(unittest.TestCase):
+    """ Tests the FPL error/exception paths (previously untested). """
+
+    def test_duplicate_role_raises(self):
+        policy = Policy()
+        policy.add_role('A')
+        with self.assertRaises(NameTakenException):
+            policy.add_role('A')
+
+    def test_invalid_attribute_value_raises(self):
+        policy = Policy()
+        policy.add_role('A')
+        with self.assertRaises(InvalidValueException):
+            policy.roles['A'].add_attribute('vlan', 'not-a-number')
+
+    def test_malformed_roles_block_raises(self):
+        policy = Policy()
+        with self.assertRaises(InvalidSyntaxException):
+            PolicyBuilder.build_roles_and_services('this is not valid fpl\n', policy)
+
+    def test_policy_referencing_unknown_role_raises(self):
+        policy = Policy(strict=True)
+        policy.add_role('A')
+        with self.assertRaises(RoleUnknownException):
+            PolicyBuilder.build_policies(
+                'define policies (default: deny)\n\tA ---> Nonexistent\nend\n',
+                policy
+            )
 
 
 if __name__ == '__main__':

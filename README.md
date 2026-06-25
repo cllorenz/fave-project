@@ -84,10 +84,17 @@ dependency footprint. The same command is used locally and by CI — CI only
 selects a tier, it never defines its own tests.
 
     $> ./test.sh fast          # pure-Python unit tests, no native deps (<1s)
-    $> ./test.sh smoke         # quick end-to-end: example.sh + wl_example + wl_ifi
-    $> ./test.sh integration   # NetPlumber C++ tests + bison-dependent + RPC + smoke
+    $> ./test.sh integration   # NetPlumber C++ tests + bison-dependent FaVe tests (no live backend)
+    $> ./test.sh e2e           # live-backend tests: test_rpc + smoke
+    $> ./test.sh smoke         # just the smoke subset of e2e: example.sh + wl_example + wl_ifi
     $> ./test.sh bench         # large benchmarks (wl_up/wl_tum/wl_stanford/wl_i2)
-    $> ./test.sh all           # fast + integration
+    $> ./test.sh all           # fast + integration + e2e (excludes bench)
+
+Tiers are split by dependency footprint. `fast` is pure Python. `integration`
+needs the build + `pybison` but **no running backend**, so it is deterministic
+and suitable to gate merges. `e2e` additionally needs a live `net_plumber`
+process and `/dev/shm` state (process orchestration), so it is non-gating.
+`bench` runs the large benchmarks (CI / nightly only).
 
 The `fast` tier needs only the pure-Python dependencies and is meant to run on
 every change before pushing:
@@ -98,8 +105,12 @@ every change before pushing:
     $> ./test.sh fast
 
 The heavier tiers need the full native stack (compiled NetPlumber, `pybison`),
-i.e. the Docker image described above. Set `COVERAGE=1` to additionally print a
-coverage report (`COVERAGE=1 ./test.sh fast`).
+as installed by `net_plumber/setup-ubuntu.sh` + `fave/setup.sh` or provided by
+the `Dockerfile`. Set `COVERAGE=1` to additionally print a coverage report
+(`COVERAGE=1 ./test.sh fast`). Additionally setting `COVERAGE_MIN=<pct>` gates
+on coverage (`coverage report --fail-under`): the tier fails if total coverage
+drops below the floor. CI runs the `fast` tier this way as a ratchet — bump the
+floor up as coverage rises, never down.
 
 Alongside the test tiers there is a static type-checking gate that runs `mypy`
 over the typed modules and fails on any type error (`mypy` ships in

@@ -524,14 +524,18 @@ def main(argv):
         )
     ))
 
-    print(("\n\t".join([
-        "thread %s: runtimes:" % tid,
-        "total: %s ms" % sum(_MEASUREMENTS),
-        "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
-        "median: %s ms" % sorted(_MEASUREMENTS)[int(len(_MEASUREMENTS)/2)],
-        "min: %s ms" % min(_MEASUREMENTS),
-        "max: %s ms" % max(_MEASUREMENTS)
-    ])))
+    # Guard against an empty measurement set: a run that performs no checks
+    # (e.g. a broad-mode spec with no probe destination) would otherwise crash
+    # the stats with a ZeroDivisionError instead of reporting its result.
+    if _MEASUREMENTS:
+        print(("\n\t".join([
+            "thread %s: runtimes:" % tid,
+            "total: %s ms" % sum(_MEASUREMENTS),
+            "mean: %s ms" % (sum(_MEASUREMENTS)/len(_MEASUREMENTS)),
+            "median: %s ms" % sorted(_MEASUREMENTS)[int(len(_MEASUREMENTS)/2)],
+            "min: %s ms" % min(_MEASUREMENTS),
+            "max: %s ms" % max(_MEASUREMENTS)
+        ])))
 
     if args.dump_matrix:
         with open(args.dump+'/reach.csv', 'w') as csvf:

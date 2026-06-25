@@ -35,6 +35,11 @@ class ConditionsTest : public CppUnit::TestFixture {
   CPPUNIT_TEST(test_path_length);
   CPPUNIT_TEST(test_lasts);
   CPPUNIT_TEST(test_header);
+  // P2: boolean-composition laws + RPC condition-parser contracts
+  CPPUNIT_TEST(test_boolean_conditions);
+  CPPUNIT_TEST(test_cond_json_roundtrip);
+  CPPUNIT_TEST(test_cond_parse_malformed);
+  CPPUNIT_TEST(test_compliance_rules_parse);
   CPPUNIT_TEST_SUITE_END();
 
  public:
@@ -47,6 +52,10 @@ class ConditionsTest : public CppUnit::TestFixture {
   void test_path_length();
   void test_lasts();
   void test_header();
+  void test_boolean_conditions();
+  void test_cond_json_roundtrip();
+  void test_cond_parse_malformed();
+  void test_compliance_rules_parse();
 
   static std::list<Flow<T1, T2> *>* create_flow(List_t ports, List_t tables);
   static void free_flow(std::list<Flow<T1, T2> *>* flows);

@@ -34,6 +34,11 @@ using namespace std;
 
 namespace net_plumber {
 
+// Maximum nesting depth for and/or/not condition trees parsed from RPC. Far
+// above any legitimate policy, far below the call-stack limit. Deeper input is
+// rejected (nullptr) rather than risking a stack-overflow DoS.
+#define MAX_CONDITION_DEPTH 256
+
 LoggerPtr rpc_logger(Logger::getLogger("JsonRpc"));
 
 template<typename T>
@@ -125,6 +130,9 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
   PathCondition<T1, T2> *path = new PathCondition<T1, T2>();
   for (Json::Value::ArrayIndex i = 0; i < pathlets.size(); i++) {
     const Json::Value &val = pathlets[i];
+    // Skip malformed pathlets: a missing/non-string "type" would make
+    // asCString() assert (and crash the server on bad RPC input).
+    if (!val.isObject() || !val["type"].isString()) continue;
     const char *type = val["type"].asCString();
     PathSpecifier<T1, T2> *p = nullptr;
     if (!strcasecmp(type, "port")) p = new PortSpecifier<T1, T2>(val["port"].asUInt());
@@ -140,25 +148,38 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
     else if (!strcasecmp(type, "skip_next")) p = new SkipNextArbSpecifier<T1, T2>();
     else if (!strcasecmp(type, "skip")) p = new SkipNextSpecifier<T1, T2>();
     else if (!strcasecmp(type, "end")) p = new EndPathSpecifier<T1, T2>();
-    path->add_pathlet(p);
+    if (p) path->add_pathlet(p);  // ignore unrecognised pathlet types
   }
   return path;
 }
 
 template<typename T1, typename T2>
-Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length) {
-  if (val.isNull()) return nullptr;
+Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length, unsigned depth) {
+  // Bound the and/or/not recursion: deeply nested input would otherwise blow
+  // the call stack. A too-deep subtree degrades to nullptr and propagates up.
+  if (depth > MAX_CONDITION_DEPTH) return nullptr;
+  // A condition must be an object carrying a string "type". Anything else
+  // (null, missing/non-string type, unknown type) degrades to nullptr rather
+  // than asserting inside asCString() and crashing the server on bad input.
+  if (!val.isObject() || !val["type"].isString()) return nullptr;
   const char *type = val["type"].asCString();
   if (!strcasecmp(type, "true")) return new TrueCondition<T1, T2>();
   if (!strcasecmp(type, "false")) return new FalseCondition<T1, T2>();
   if (!strcasecmp(type, "path")) return val_to_path<T1, T2>(val["pathlets"]);
   if (!strcasecmp(type, "header")) return new HeaderCondition<T1, T2>(val_to_hs<T1, T2>(val["header"], length));
-  if (!strcasecmp(type, "not")) return new NotCondition<T1, T2>(val_to_cond<T1, T2>(val["arg"], length));
+  if (!strcasecmp(type, "not")) {
+    Condition<T1, T2> *c = val_to_cond<T1, T2>(val["arg"], length, depth + 1);
+    if (!c) return nullptr;  // malformed/too-deep operand -> reject the whole node
+    return new NotCondition<T1, T2>(c);
+  }
   if (!strcasecmp(type, "and") || !strcasecmp(type, "or")) {
-    Condition<T1, T2> *c1 = val_to_cond<T1, T2>(val["arg1"], length);
-    Condition<T1, T2> *c2 = val_to_cond<T1, T2>(val["arg2"], length);
+    Condition<T1, T2> *c1 = val_to_cond<T1, T2>(val["arg1"], length, depth + 1);
+    Condition<T1, T2> *c2 = val_to_cond<T1, T2>(val["arg2"], length, depth + 1);
+    // Reject rather than build a node with a null operand (which would crash in
+    // check()); delete on nullptr is a no-op.
+    if (!c1 || !c2) { delete c1; delete c2; return nullptr; }
     if (!strcasecmp(type, "and")) return new AndCondition<T1, T2>(c1, c2);
-    else return new OrCondition<T1, T2>(c1, c2);
+    return new OrCondition<T1, T2>(c1, c2);
   }
   return nullptr;
 }
@@ -538,30 +559,79 @@ PROTO(check_anomalies)
 }
 #endif
 
-PROTO(check_compliance)
-  /*
-   * JSON format: {dst:[(src,valid,cond)]}
-   * if there is no condition, then cond == null
-   */
-  std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> rules;
+// Parse {"<src>": [[dst, valid, cond], ...]} with full validation. Two passes:
+// pass 1 validates the whole structure WITHOUT allocating, so a malformed input
+// returns false with nothing to clean up; pass 2 builds (allocating cond arrays)
+// only once the input is known-good.
+template<typename T2>
+bool val_to_compliance_rules(const Json::Value &json_rules, compliance_rules_t<T2> &rules) {
+  if (!json_rules.isObject()) return false;
 
-  auto json_rules = PARAM(rules);
+  // pass 1: validate
+  for (auto it = json_rules.begin(); it != json_rules.end(); ++it) {
+    const std::string key = it.key().asString();
+    size_t pos = 0;
+    try {
+      std::stoull(key, &pos);
+    } catch (const std::exception &) {
+      return false;  // non-numeric src key
+    }
+    if (pos != key.size()) return false;  // trailing non-digits
 
-  for (Json::Value::iterator policy_it = json_rules.begin(); policy_it != json_rules.end(); policy_it++) {
-    uint64_t src = std::stoull(policy_it.key().asString());
+    const Json::Value &dsts = *it;
+    if (!dsts.isArray()) return false;
+    for (Json::ArrayIndex i = 0; i < dsts.size(); i++) {
+      const Json::Value &t = dsts[i];
+      if (!t.isArray() || t.size() < 3) return false;
+      if (!t[0].isIntegral()) return false;                 // dst
+      if (!(t[1].isBool() || t[1].isIntegral())) return false; // valid
+      if (!(t[2].isNull() || t[2].isString())) return false;   // cond
+    }
+  }
+
+  // pass 2: build
+  for (auto it = json_rules.begin(); it != json_rules.end(); ++it) {
+    const uint64_t src = std::stoull(it.key().asString());
+    const Json::Value &dsts = *it;
     std::vector<std::tuple<uint64_t, bool, T2*>> dst_tpls;
-    auto dsts_json = *policy_it;
-    for (Json::ArrayIndex i = 0; i < dsts_json.size(); i++) {
-
-      uint64_t dst = dsts_json[i][0].asUInt64();
-      bool valid = dsts_json[i][1].asBool();
-      T2 *cond = val_to_array<T2>(dsts_json[i][2]);
-      std::tuple<uint64_t, bool, T2*> dst_tpl {dst, valid, cond};
-      dst_tpls.push_back(dst_tpl);
+    for (Json::ArrayIndex i = 0; i < dsts.size(); i++) {
+      const Json::Value &t = dsts[i];
+      dst_tpls.push_back(std::make_tuple(
+          t[0].asUInt64(), t[1].asBool(), val_to_array<T2>(t[2])));
     }
     rules[src] = dst_tpls;
   }
+  return true;
+}
+
+template<typename T2>
+void free_compliance_rules(compliance_rules_t<T2> &rules) {
+  for (auto &kv : rules)
+    for (auto &t : kv.second) {
+      T2 *cond = std::get<2>(t);
+      if (!cond) continue;
+#ifdef GENERIC_PS
+      delete cond;
+#else
+      array_free(cond);
+#endif
+    }
+}
+
+PROTO(check_compliance)
+  /*
+   * JSON format: {"<src>": [[dst, valid, cond], ...]}
+   * if there is no condition, then cond == null
+   */
+  compliance_rules_t<T2> rules;
+  if (!val_to_compliance_rules<T2>(PARAM(rules), rules))
+    ERROR("check_compliance: malformed 'rules' "
+          "(expected {\"<src>\": [[dst, valid, cond], ...]})");
+
   netPlumber->check_compliance(&rules);
+  // We own the cond arrays: check_compliance only reads them. (The old code
+  // leaked them.)
+  free_compliance_rules<T2>(rules);
   RETURN(VOID);
 }
 
@@ -571,7 +641,9 @@ template class RpcHandler<HeaderspacePacketSet, ArrayPacketSet>;
 template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
 template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
-template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t);
+template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<ArrayPacketSet>(const Json::Value&, compliance_rules_t<ArrayPacketSet>&);
+template void free_compliance_rules<ArrayPacketSet>(compliance_rules_t<ArrayPacketSet>&);
 
 #ifdef USE_BDD
 template class RpcHandler<BDDPacketSet, BDDPacketSet>;
@@ -579,7 +651,9 @@ template class RpcHandler<BDDPacketSet, BDDPacketSet>;
 template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
 template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
-template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
+template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<BDDPacketSet>(const Json::Value&, compliance_rules_t<BDDPacketSet>&);
+template void free_compliance_rules<BDDPacketSet>(compliance_rules_t<BDDPacketSet>&);
 #endif
 #else
 template class RpcHandler<hs, array_t>;
@@ -587,7 +661,9 @@ template class RpcHandler<hs, array_t>;
 template array_t* val_to_array<array_t>(const Json::Value&);
 template hs* val_to_hs<hs, array_t>(const Json::Value&, const size_t);
 template Condition<hs, array_t>* val_to_path<hs, array_t>(const Json::Value&);
-template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t);
+template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<array_t>(const Json::Value&, compliance_rules_t<array_t>&);
+template void free_compliance_rules<array_t>(compliance_rules_t<array_t>&);
 #endif
 } /* namespace net_plumber */
 

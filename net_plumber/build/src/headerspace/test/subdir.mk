@@ -5,15 +5,18 @@
 # Add inputs and outputs from these tool invocations to the build variables
 CC_SRCS += \
 ../src/headerspace/test/array_unit.cc \
-../src/headerspace/test/hs_unit.cc
+../src/headerspace/test/hs_unit.cc \
+../src/headerspace/test/oracle_unit.cc
 
 OBJS += \
 ./src/headerspace/test/array_unit.o \
-./src/headerspace/test/hs_unit.o
+./src/headerspace/test/hs_unit.o \
+./src/headerspace/test/oracle_unit.o
 
 CC_DEPS += \
 ./src/headerspace/test/array_unit.d \
-./src/headerspace/test/hs_unit.d
+./src/headerspace/test/hs_unit.d \
+./src/headerspace/test/oracle_unit.d
 
 
 # Each subdirectory must supply rules for building sources it contributes

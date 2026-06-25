@@ -29,6 +29,7 @@ from netplumber.mapping import Mapping
 from netplumber.vector import Vector, HeaderSpace
 from netplumber.vector import get_field_from_vector, set_field_in_vector
 from netplumber.vector import copy_field_between_vectors
+from netplumber.vector import intersect_vectors, align_vector, align_headerspace
 from devices.abstract_device import AbstractDeviceModel
 
 
@@ -394,6 +395,13 @@ class TestModel(unittest.TestCase):
         )
 
 
+    def test_eq_rejects_foreign_type(self):
+        """ Comparing a device model to a foreign type is False, not a crash. """
+        self.assertFalse(self.model == 'foo')
+        self.assertTrue(self.model != 42)
+        self.assertFalse(self.model == None)  # noqa: E711
+
+
     def test_sub(self):
         """ Tests the subtraction of a model from another.
         """
@@ -411,6 +419,118 @@ class TestModel(unittest.TestCase):
         )
 
         self.assertEqual(self.model - other, result)
+
+
+class TestIntersectVectors(unittest.TestCase):
+    """ Tests the pure wildcard-intersection of two vector strings.
+
+    intersect_vectors is the mathematical core of header-space verification:
+    per position x ∩ b = b, b ∩ b = b, and 0 ∩ 1 = empty (None).
+    """
+
+    def test_identity_all_x(self):
+        """ Intersecting all-x with anything yields the other operand. """
+        self.assertEqual(intersect_vectors('xxxx', '10xx'), '10xx')
+        self.assertEqual(intersect_vectors('10xx', 'xxxx'), '10xx')
+
+    def test_equal_vectors(self):
+        """ Intersecting a vector with itself is the identity. """
+        self.assertEqual(intersect_vectors('1010', '1010'), '1010')
+        self.assertEqual(intersect_vectors('xxxx', 'xxxx'), 'xxxx')
+
+    def test_x_refines_to_bit(self):
+        """ x on either side takes the concrete bit from the other side. """
+        self.assertEqual(intersect_vectors('1x0x', 'x1x0'), '1100')
+
+    def test_empty_intersection_returns_none(self):
+        """ A 0-vs-1 conflict at any position yields the empty set (None). """
+        self.assertIsNone(intersect_vectors('1010', '1011'))
+        self.assertIsNone(intersect_vectors('0', '1'))
+        self.assertIsNone(intersect_vectors('1xxx', '0xxx'))
+
+    def test_single_position(self):
+        """ Truth table on length-1 vectors. """
+        self.assertEqual(intersect_vectors('x', '0'), '0')
+        self.assertEqual(intersect_vectors('x', '1'), '1')
+        self.assertEqual(intersect_vectors('x', 'x'), 'x')
+        self.assertEqual(intersect_vectors('0', '0'), '0')
+        self.assertEqual(intersect_vectors('1', '1'), '1')
+        self.assertIsNone(intersect_vectors('0', '1'))
+
+    def test_length_mismatch_asserts(self):
+        """ Intersecting vectors of differing length is a contract violation. """
+        with self.assertRaises(AssertionError):
+            intersect_vectors('10', '101')
+
+
+class TestVectorStatics(unittest.TestCase):
+    """ Tests Vector.is_vector and Vector.from_vector_str. """
+
+    def test_is_vector_accepts_vector_instance(self):
+        self.assertTrue(Vector.is_vector(Vector(8)))
+
+    def test_is_vector_accepts_valid_string(self):
+        self.assertTrue(Vector.is_vector('01x01x'))
+
+    def test_is_vector_rejects_bad_character(self):
+        self.assertFalse(Vector.is_vector('01z'))
+
+    def test_is_vector_rejects_non_string(self):
+        self.assertFalse(Vector.is_vector(123))
+
+    def test_is_vector_respects_field_length(self):
+        """ With a field name, the length must match FIELD_SIZES[name]. """
+        self.assertTrue(Vector.is_vector('x'*8, name='related'))
+        self.assertFalse(Vector.is_vector('x'*7, name='related'))
+
+    def test_from_vector_str_strips_commas(self):
+        """ Comma group separators are stripped before parsing. """
+        vec = Vector.from_vector_str('1010,0101')
+        self.assertEqual(vec.vector, '10100101')
+        self.assertEqual(vec.length, 8)
+
+
+class TestAlignVector(unittest.TestCase):
+    """ Tests realigning vectors/header spaces between reordered mappings.
+
+    align_vector reconciles a vector laid out for one mapping to the bit layout
+    of another; an offset error here would mislabel packet-header bits.
+    """
+
+    def setUp(self):
+        # Two 8-bit fields in opposite order between the two mappings.
+        self.map1 = Mapping()
+        self.map1.extend('related')              # offset 0 in map1
+        self.map1.extend('packet.ipv6.proto')    # offset 8 in map1
+
+        self.map2 = Mapping()
+        self.map2.extend('packet.ipv6.proto')    # offset 0 in map2
+        self.map2.extend('related')              # offset 8 in map2
+
+        self.vector = Vector(self.map1.length)
+        set_field_in_vector(self.map1, self.vector, 'related', '11110000')
+        set_field_in_vector(self.map1, self.vector, 'packet.ipv6.proto', '00001111')
+
+    def test_align_vector_preserves_field_values(self):
+        """ Field values survive the realignment, by field name. """
+        aligned = align_vector(self.map1, self.map2, self.vector)
+        self.assertEqual(
+            get_field_from_vector(self.map2, aligned, 'related'), '11110000'
+        )
+        self.assertEqual(
+            get_field_from_vector(self.map2, aligned, 'packet.ipv6.proto'), '00001111'
+        )
+
+    def test_align_vector_reorders_raw_bits(self):
+        """ The raw bit layout follows the target mapping (proto then related). """
+        aligned = align_vector(self.map1, self.map2, self.vector)
+        self.assertEqual(aligned.vector, '00001111' + '11110000')
+
+    def test_align_headerspace_realigns_each_vector(self):
+        """ align_headerspace applies align_vector across the whole space. """
+        hspace = HeaderSpace(self.map1.length, [self.vector])
+        aligned = align_headerspace(self.map1, self.map2, hspace)
+        self.assertEqual(aligned.hs_list[0].vector, '00001111' + '11110000')
 
 
 if __name__ == '__main__':

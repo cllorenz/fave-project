@@ -73,7 +73,11 @@ def fave_sendmsg(conn: socket.socket, data: str) -> None:
     data -- the message as string
     """
 
-    msg = struct.pack('>I', len(data)) + data.encode('utf8')
+    # The length prefix must count *bytes*, not characters: len(data) and
+    # len(encoded) differ for any non-ASCII payload, which would truncate the
+    # frame and corrupt the receiver's decode.
+    encoded = data.encode('utf8')
+    msg = struct.pack('>I', len(encoded)) + encoded
     return conn.sendall(msg)
 
 
