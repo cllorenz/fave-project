@@ -125,6 +125,9 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
   PathCondition<T1, T2> *path = new PathCondition<T1, T2>();
   for (Json::Value::ArrayIndex i = 0; i < pathlets.size(); i++) {
     const Json::Value &val = pathlets[i];
+    // Skip malformed pathlets: a missing/non-string "type" would make
+    // asCString() assert (and crash the server on bad RPC input).
+    if (!val.isObject() || !val["type"].isString()) continue;
     const char *type = val["type"].asCString();
     PathSpecifier<T1, T2> *p = nullptr;
     if (!strcasecmp(type, "port")) p = new PortSpecifier<T1, T2>(val["port"].asUInt());
@@ -140,14 +143,17 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets) {
     else if (!strcasecmp(type, "skip_next")) p = new SkipNextArbSpecifier<T1, T2>();
     else if (!strcasecmp(type, "skip")) p = new SkipNextSpecifier<T1, T2>();
     else if (!strcasecmp(type, "end")) p = new EndPathSpecifier<T1, T2>();
-    path->add_pathlet(p);
+    if (p) path->add_pathlet(p);  // ignore unrecognised pathlet types
   }
   return path;
 }
 
 template<typename T1, typename T2>
 Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length) {
-  if (val.isNull()) return nullptr;
+  // A condition must be an object carrying a string "type". Anything else
+  // (null, missing/non-string type, unknown type) degrades to nullptr rather
+  // than asserting inside asCString() and crashing the server on bad input.
+  if (!val.isObject() || !val["type"].isString()) return nullptr;
   const char *type = val["type"].asCString();
   if (!strcasecmp(type, "true")) return new TrueCondition<T1, T2>();
   if (!strcasecmp(type, "false")) return new FalseCondition<T1, T2>();

@@ -22,6 +22,7 @@
 #include "../net_plumber_utils.h"
 #include "../source_node.h"
 #include "../rule_node.h"
+#include "../rpc_handler.h"   // val_to_cond / val_to_path (free functions)
 #include <stdarg.h>
 #include "../array_packet_set.h"
 #include "../hs_packet_set.h"
@@ -31,6 +32,15 @@
 
 using namespace std;
 using namespace net_plumber;
+
+namespace {
+  // Build a leaf condition: true -> TrueCondition, false -> FalseCondition.
+  template<class T1, class T2>
+  Condition<T1, T2> *leaf(bool v) {
+    return v ? static_cast<Condition<T1, T2> *>(new TrueCondition<T1, T2>())
+             : static_cast<Condition<T1, T2> *>(new FalseCondition<T1, T2>());
+  }
+}
 
 
 template<class T1, class T2>
@@ -266,6 +276,85 @@ void ConditionsTest<T1, T2>::free_flow(list<Flow<T1, T2> *>* flows) {
     free(*it);
   }
   delete flows;
+}
+
+// Boolean-composition truth tables and De Morgan's law for And/Or/Not, using
+// True/False leaves (whose check() ignores the flow). Conditions own their
+// children, so each tree is built fresh and destroyed via its root.
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_boolean_conditions() {
+  printf("\n");
+  list<Flow<T1, T2> *>* flows = create_flow(make_unsorted_list(1, 1),
+                                            make_unsorted_list(1, 100));
+  Flow<T1, T2> *f = *(flows->begin());
+
+  { NotCondition<T1, T2> c(leaf<T1, T2>(true));  CPPUNIT_ASSERT(!c.check(f)); }
+  { NotCondition<T1, T2> c(leaf<T1, T2>(false)); CPPUNIT_ASSERT(c.check(f)); }
+
+  for (int a = 0; a < 2; a++) for (int b = 0; b < 2; b++) {
+    { AndCondition<T1, T2> c(leaf<T1, T2>(a), leaf<T1, T2>(b));
+      CPPUNIT_ASSERT(c.check(f) == (bool)(a && b)); }
+    { OrCondition<T1, T2> c(leaf<T1, T2>(a), leaf<T1, T2>(b));
+      CPPUNIT_ASSERT(c.check(f) == (bool)(a || b)); }
+    // De Morgan: !(a & b) == (!a | !b)
+    NotCondition<T1, T2> lhs(new AndCondition<T1, T2>(leaf<T1, T2>(a), leaf<T1, T2>(b)));
+    OrCondition<T1, T2> rhs(new NotCondition<T1, T2>(leaf<T1, T2>(a)),
+                            new NotCondition<T1, T2>(leaf<T1, T2>(b)));
+    CPPUNIT_ASSERT(lhs.check(f) == rhs.check(f));
+  }
+
+  free_flow(flows);
+}
+
+// to_json and val_to_cond must round-trip: a condition tree serialised and
+// reparsed serialises identically. Guards the condition (de)serialisation
+// contract against drift.
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_cond_json_roundtrip() {
+  printf("\n");
+  // and(or(true,false), not(false))
+  Condition<T1, T2> *c = new AndCondition<T1, T2>(
+      new OrCondition<T1, T2>(leaf<T1, T2>(true), leaf<T1, T2>(false)),
+      new NotCondition<T1, T2>(leaf<T1, T2>(false)));
+  Json::Value j1; c->to_json(j1);
+  delete c;
+
+  Condition<T1, T2> *c2 = val_to_cond<T1, T2>(j1, 1);
+  CPPUNIT_ASSERT(c2 != nullptr);
+  Json::Value j2; c2->to_json(j2);
+  delete c2;
+
+  CPPUNIT_ASSERT(j1 == j2);
+}
+
+// Malformed condition JSON must degrade to nullptr rather than crash (the
+// asCString()-on-missing-"type" assert). Also: a path with a malformed pathlet
+// is parsed by skipping the bad pathlet, not crashing.
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_cond_parse_malformed() {
+  printf("\n");
+  // NOTE: the extra parens shield the template-argument comma from the
+  // CPPUNIT_ASSERT macro (which would otherwise read two arguments).
+  Json::Value null_val;                       // null
+  CPPUNIT_ASSERT((val_to_cond<T1, T2>(null_val, 1) == nullptr));
+
+  Json::Value unknown;  unknown["type"] = "bogus";
+  CPPUNIT_ASSERT((val_to_cond<T1, T2>(unknown, 1) == nullptr));
+
+  Json::Value no_type;  no_type["arg"] = "x";  // object without "type"
+  CPPUNIT_ASSERT((val_to_cond<T1, T2>(no_type, 1) == nullptr));
+
+  Json::Value bad_type; bad_type["type"] = 42;  // non-string "type"
+  CPPUNIT_ASSERT((val_to_cond<T1, T2>(bad_type, 1) == nullptr));
+
+  // A path containing a malformed pathlet must still parse (bad one skipped).
+  Json::Value path;
+  path["type"] = "path";
+  path["pathlets"][0]["no_type"] = 1;          // malformed pathlet
+  path["pathlets"][1]["type"] = "end";         // valid pathlet
+  Condition<T1, T2> *p = val_to_cond<T1, T2>(path, 1);
+  CPPUNIT_ASSERT(p != nullptr);
+  delete p;
 }
 
 #ifdef GENERIC_PS

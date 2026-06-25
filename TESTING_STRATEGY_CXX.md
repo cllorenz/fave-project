@@ -178,16 +178,20 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
 - [ ] **Event API**: `get_last_event`/`set_last_event` (zero coverage today).
 - [ ] **De-chain `test_probe_transition_*`** from `test_routing_*` (principle 3).
 
-### P2 — Conditions (pure logic) + RPC boundary
-- [ ] **Boolean-composition laws** for `And`/`Or`/`Not` (De Morgan, short-
-  circuit) and the **missing `HeaderCondition` empty-intersection→false** case.
-- [ ] **`to_json` ↔ `val_to_cond` round-trips** (none exist) — a refactor-proof
-  serialization guard for the condition language.
-- [ ] **RPC request→response contract tests** with malformed input, and **depth
-  guards** on the recursive `val_to_cond`/`val_to_path` parsers
-  (`rpc_handler.cc`) — unbounded recursion is a stack-overflow risk on hostile
-  input. Harden `check_compliance`'s parser (unchecked indices, throwing
-  `stoull`).
+### P2 — Conditions (pure logic) + RPC boundary — DONE (2026-06-25; depth guard deferred)
+- [x] **Boolean-composition laws** for `And`/`Or`/`Not` + De Morgan
+  (`test_boolean_conditions`). (`HeaderCondition` empty-intersection→false was
+  already covered by the existing `test_header`.)
+- [x] **`to_json` ↔ `val_to_cond` round-trip** — `test_cond_json_roundtrip`
+  (serialise → reparse → serialise must be stable).
+- [x] **Malformed-input parser tests** — `test_cond_parse_malformed`
+  (null/unknown/missing/non-string `type` → `nullptr`; a path with a malformed
+  pathlet still parses). This exposed and fixed a crash on bad RPC input
+  (#C6 — `val_to_cond`/`val_to_path` aborted via an `assert` in `asCString`).
+- **Outcome:** `net_plumber --test` → **OK (117)**.
+- [ ] **Deferred:** a recursion **depth guard** on `val_to_cond`/`val_to_path`
+  (unbounded → stack-overflow DoS) and `check_compliance`-parser hardening
+  (unchecked indices / throwing `stoull`). Both touch signatures/flow; follow-up.
 
 ### Cross-cutting — sanitizer/coverage builds (TODO item 7)
 - [ ] CI job building with `-fsanitize=address,undefined` running `make test`
@@ -226,6 +230,11 @@ the P0 oracle) are #C4/#C5. #C4/#C5 touch soundness-critical engine code
   `vec_append(...,true)`, which grows `elems` but not `diff`) → out-of-bounds
   **crash**. Fixed: append each source element with its diff cubes into the new
   element's diff slot.
+- [x] **#6 — `rpc_handler.cc val_to_cond`/`val_to_path`** (found by P2): a
+  condition/pathlet object without a string `"type"` reached
+  `val["type"].asCString()`, whose `JSON_ASSERT` is a live `assert()` →
+  **`abort()` on malformed RPC input** (DoS). Fixed: guard with
+  `isObject`/`isMember`/`isString`, degrade to `nullptr`, skip unknown pathlets.
 
 ---
 
