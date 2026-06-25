@@ -99,6 +99,36 @@ class TestRenderers(unittest.TestCase):
         csv = policy.roles_to_csv()
         self.assertEqual(csv, ',A,B\nA,,X\nB,,\n')   # A reaches B; nothing else
 
+    def _html_policy(self, default):
+        policy = Policy(use_internet=False, strict=True)
+        policy.set_default_policy(default)
+        policy.add_role('A')
+        policy.add_role('B')
+        policy.add_service('HTTP')
+        policy.services['HTTP'].add_attribute('port', '80')
+        policy.services['HTTP'].add_attribute('protocol', "'tcp'")
+        policy.add_reachability_policy('A', 'B')
+        return policy
+
+    def test_to_html_is_a_well_formed_doc_with_the_role_matrix(self):
+        html = self._html_policy('deny').to_html()
+        # A complete HTML document ...
+        self.assertTrue(html.lstrip().startswith('<!DOCTYPE html>'))
+        self.assertIn('<html>', html)
+        self.assertIn('</html>', html)
+        # ... rendering the reachability matrix with both roles.
+        self.assertIn('<table>', html)
+        self.assertIn('</table>', html)
+        self.assertIn('A', html)
+        self.assertIn('B', html)
+
+    def test_to_html_renders_under_allow_default(self):
+        """ The allow default flips the matrix semantics (XOR path); it must
+        still render a complete document. """
+        html = self._html_policy('allow').to_html()
+        self.assertTrue(html.lstrip().startswith('<!DOCTYPE html>'))
+        self.assertIn('</html>', html)
+
 
 class TestUpdateConditions(unittest.TestCase):
     """ Tests ReachabilityPolicy.update_conditions merge semantics.
