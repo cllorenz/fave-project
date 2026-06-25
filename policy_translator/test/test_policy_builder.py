@@ -100,12 +100,21 @@ class TestPolicyBuilder(unittest.TestCase):
 
         PolicyBuilder.build_policies(self.policy_str + '\n', self.policy)
 
+        # 'Internet <->> WebService.HTTP' under default-deny expands to (see
+        # PolicyBuilder.build_policies): a forward policy carrying the HTTP
+        # service, a *reverse* RELATED,ESTABLISHED policy for the return path,
+        # and -- in non-strict mode -- an implicit self-reachability policy per
+        # atomic role. (The previous expectation put the state condition on the
+        # forward direction and omitted self-reachability; it only passed
+        # because Policy.__eq__ did not compare the policies dict.)
         self.expectation.add_reachability_policy(
             "Internet", "WebService", service_to="HTTP"
         )
         self.expectation.add_reachability_policy(
-            "Internet", "WebService", condition={"state": "RELATED,ESTABLISHED"}
+            "WebService", "Internet", condition={"state": "RELATED,ESTABLISHED"}
         )
+        self.expectation.add_reachability_policy("WebService", "WebService")
+        self.expectation.add_reachability_policy("Internet", "Internet")
 
         self.assertEqual(self.policy, self.expectation)
 

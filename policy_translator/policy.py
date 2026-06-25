@@ -73,11 +73,13 @@ class Policy(object):
         self.strict = strict
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, Policy)
+        if not isinstance(other, Policy):
+            return NotImplemented
 
         return all([
             self.roles == other.roles,
             self.services == other.services,
+            self.policies == other.policies,
             self.default_policy == other.default_policy
         ])
 
@@ -805,10 +807,16 @@ class Role(object):
         self.services = services if services is not None else {}
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, Role)
+        if not isinstance(other, Role):
+            return NotImplemented
 
-        return self.name == other.name and self.attributes == other.attributes and all([
-            service == other_service for service, other_service in zip(self.services, other.services)
+        # Compare the services dicts directly: the previous zip(self.services,
+        # other.services) iterated dict *keys* and ignored both the service
+        # values and any length mismatch.
+        return all([
+            self.name == other.name,
+            self.attributes == other.attributes,
+            self.services == other.services,
         ])
 
     def add_attribute(self, key: str, value: str) -> None:
@@ -930,12 +938,16 @@ class Superrole(Role):
         self.subservices = subservices if subservices is not None else {}
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, Superrole)
+        if not isinstance(other, Superrole):
+            return NotImplemented
 
-        return self.name == other.name and all([
-            role == other_role for role, other_role in zip(self.subroles, other.subroles)
-        ]) and all([
-            service == other_service for service, other_service in zip(self.subservices, other.subservices)
+        # Compare the subrole/subservice dicts directly: the previous
+        # zip(self.subroles, other.subroles) iterated dict *keys* and ignored
+        # both the values and any length mismatch.
+        return all([
+            self.name == other.name,
+            self.subroles == other.subroles,
+            self.subservices == other.subservices,
         ])
 
     def add_attribute(self, key: str, value: str) -> None:
