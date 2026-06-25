@@ -157,7 +157,7 @@ class ApplicationLayerGatewayModel(AbstractFirewallModel):
         self.wiring = [
             (node + ".pre_routing_input", node + ".input_filter_in"),
             (node + ".input_filter_accept", node + ".relay_in"),
-            (node + ".relays_out", node + ".output_filter_in"),
+            (node + ".relay_out", node + ".output_filter_in"),
             (node + ".output_filter_accept", node + ".routing_in"),
             (node + ".routing_out", node + ".post_routing_in")
         ]
