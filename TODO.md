@@ -301,6 +301,33 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 
 ---
 
+## Python codebase test expansion (fave/ + policy_translator/)
+
+### 9. Expand Python test coverage per the testing strategy — PLAN (see [`TESTING_STRATEGY_PYTHON.md.md`](TESTING_STRATEGY_PYTHON.md.md))
+**Scope: `fave/` and `policy_translator/` only — NOT `net_plumber/`** (the C++ backend's testing is items 7–8 and 1h/1i). The full module-by-module analysis, coverage table, principles, and prioritized roadmap live in `TESTING_STRATEGY_PYTHON.md.md`; this item is the actionable checklist.
+
+- **State:** ~69% measured coverage (`COVERAGE=1 ./test.sh all`), but `netplumber/adapter.py` and `aggregator/aggregator_service.py` are at **~0% (never imported by fast/integration)**, much coverage is symmetric golden-dict round-trips that hide wrong-but-consistent values, and several `__eq__`/`__hash__` methods are buggy so some tests pass by accident.
+- **Guiding principles:** (1) prioritize pure verification-critical logic reachable without the native backend; (2) exploit existing seams — `FakeSocket`, `abstract_engine` (MockEngine), hand-built `Tree` ASTs (no pybison), `socket.socketpair()`; (3) assert behavior/invariants, not snapshots; (4) fix the `__eq__`/`__hash__` foundations first; (5) characterize→fix→flip for the confirmed bugs.
+
+- [ ] **Foundation: fix `__eq__`/`__hash__` (gates the equality-based tests below).** Return `NotImplemented`/`False` instead of asserting on type mismatch (`RuleField`/`Rule`/`AbstractDeviceModel`); fix zip-over-dict in `Tree.__eq__`, `Role`/`Superrole.__eq__`, and `Policy.__eq__` ignoring `policies`; reconcile `Rule.__hash__`↔`__eq__`.
+- [ ] **P0 — pure verification core (fast tier):** `vector.intersect_vectors` (0 tests); `Match.intersect`/`RuleField.intersect` (broken, bug #1); `adapter._calc_rule_index`/`_calc_port` bit-packing via `FakeSocket`; `packet_util` denormalize/predicates/portrange; `ip6np_util` normalizers + dispatch.
+- [ ] **P1 — device models (fast tier, behavioral/invariant):** firewall `add_rules` priority bands + `remove_rule` (bug #5); router `_build_cidr` + Cisco parsers (assert content); snapshot `_swap_field`/`add_state`; a wiring-invariant test across all devices (catches ALG bug #2); probe/generator round-trips.
+- [ ] **P2 — bridge via seams (fast tier):** finish `jsonrpc` encoders (`add_source(s_bulk)` branch, `add_rules_batch`, `add_links_bulk` sharding); `adapter._expand_negations`/`_build_headerspace`; aggregator `_sync_diff`/`_handler` via a `MockEngine` + pure `_parse_servers`; `aggregator_utils` framing via `socketpair`.
+- [ ] **P3 — iptables generator (fast tier, no pybison):** `generate()` on hand-built ASTs, `interweaving=False` then conntrack `interweaving=True` (locks the state-shell algorithm; home for bug #1 regression).
+- [ ] **P4 — PolicyTranslator (fast tier):** all 6 FPL operators' effect on `policy.policies` (assert dict directly); `to_iptables` edges (IPv6-only, list addresses, provider sport/dport); malformed-FPL/exception paths; promote gated `fpl_grammar` inline tests to real cases.
+- [ ] **Native/e2e tier:** fix `test_rpc` (single-socket→list; same defect in `print_np.py:104`); negative parser tests (malformed lines, silent bad-char path); make benchmark/`example.sh` sub-steps fail loudly (ties to 1p/1n).
+- [ ] **Coverage ratchet:** once P0–P2 import adapter/aggregator, gate on "total must not drop" rather than a hard threshold.
+
+#### Confirmed bugs (→ characterize→fix→flip regression tests; full table in `TESTING_STRATEGY_PYTHON.md.md`)
+- [ ] **#1 `rule/rule_model.py:354-355`** — `Match.intersect` sorts `self` twice, ignores `other`; **live via `iptables/generator.py:472`** (conntrack). High — corrupts stateful verification.
+- [ ] **#2 `devices/application_layer_gateway.py:160`** — wires `relays_out` but port is `relay_out` (`:103`). High — breaks ALG connectivity.
+- [ ] **#3 `util/tree_util.py:143`** — `Tree.__eq__` `zip` ignores length (prefix == longer tree). Medium.
+- [ ] **#4 `util/match_util.py:43`** — `'upd_src'` typo (→ `udp_src`); enshrined by `test/test_utils.py:170`. Medium.
+- [ ] **#5 `devices/abstract_firewall.py:194`** — `remove_rule` reads `node+'_routing'` (underscore) → KeyError. Medium (confirm).
+- Lower-severity (flagged): `bench_utils.py:134` dead `-s` append; `router._build_cidr:456` unsound `round(log2)`; router `persist` CAPACITY=16 VLAN `aid` collision; dead `else: raise` in two `ip6np_util` normalizers.
+
+---
+
 ## Resolved questions
 
 - **Is the GitLab pipeline still the active CI?** No — GitLab CI is inactive and will remain so. Migrating to GitHub Actions (item 0).
@@ -313,5 +340,5 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
 2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint).
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
-4. Items **7–8** (deeper, verification-specific).
-5. *Then:* expand coverage with new, more sophisticated tests (user's stated next phase).
+4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend).
+5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md.md`](TESTING_STRATEGY_PYTHON.md.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
