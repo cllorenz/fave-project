@@ -469,6 +469,25 @@ class TestRule(unittest.TestCase):
         self.assertNotEqual(self.rule, rule5)
 
 
+class TestEqualityTypeMismatch(unittest.TestCase):
+    """ Equality with a foreign type must return False, never raise.
+
+    Regression guard: __eq__/__ne__ previously asserted isinstance(...).
+    """
+
+    def test_rulefield_vs_foreign(self):
+        rf = RuleField("related", "00000001")
+        self.assertFalse(rf == "related")
+        self.assertTrue(rf != "related")
+        self.assertFalse(rf == None)  # noqa: E711 -- exercising __eq__, not identity
+
+    def test_rule_vs_foreign(self):
+        rule = Rule("foo", 1, 0)
+        self.assertFalse(rule == "foo")
+        self.assertTrue(rule != 123)
+        self.assertFalse(rule == None)  # noqa: E711
+
+
 class TestRuleFieldIntersect(unittest.TestCase):
     """ Tests RuleField.intersect (round-trips through the bit-vector layer).
 

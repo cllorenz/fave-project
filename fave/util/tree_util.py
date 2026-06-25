@@ -140,8 +140,14 @@ class Tree(List["Tree"]):
     def __eq__(self, obj: object) -> bool:
         if not isinstance(obj, Tree):
             return NotImplemented
+        # len() guards against zip() silently ignoring extra children: without
+        # it a tree compares equal to any tree that merely shares its prefix.
         return all(
-            [self.value == obj.value, self._negated == obj.is_negated()] +
+            [
+                self.value == obj.value,
+                self._negated == obj.is_negated(),
+                len(self) == len(obj),
+            ] +
             [a == b for a, b in zip(self, obj)]
         )
 

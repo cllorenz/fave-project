@@ -395,6 +395,13 @@ class TestModel(unittest.TestCase):
         )
 
 
+    def test_eq_rejects_foreign_type(self):
+        """ Comparing a device model to a foreign type is False, not a crash. """
+        self.assertFalse(self.model == 'foo')
+        self.assertTrue(self.model != 42)
+        self.assertFalse(self.model == None)  # noqa: E711
+
+
     def test_sub(self):
         """ Tests the subtraction of a model from another.
         """

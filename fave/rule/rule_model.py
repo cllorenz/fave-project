@@ -95,8 +95,8 @@ class RuleField(object):
 
 
     def __eq__(self, other: object) -> bool:
-        if other is None: return False
-        assert isinstance(other, RuleField)
+        if not isinstance(other, RuleField):
+            return NotImplemented
 
         return \
             self.name == other.name and \
@@ -471,7 +471,8 @@ class Rule(object):
 
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, Rule)
+        if not isinstance(other, Rule):
+            return NotImplemented
 
         return all([
             self.node == other.node,
@@ -486,5 +487,5 @@ class Rule(object):
 
 
     def __ne__(self, other: object) -> bool:
-        assert isinstance(other, Rule)
-        return not self == other
+        result = self.__eq__(other)
+        return result if result is NotImplemented else not result
