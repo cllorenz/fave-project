@@ -116,6 +116,52 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 \
             net_plumber/build/net_plumber --test
 
+  # --- C++ coverage: build NetPlumber with gcov instrumentation, run the C++
+  # unit suite, and publish an lcov/genhtml report as an artifact. REPORT-ONLY:
+  # it never fails on the coverage percentage (mirrors the Python coverage,
+  # which is uploaded from the integration job rather than gated). ---
+  coverage-cxx:
+    name: C++ coverage (gcov/lcov)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-fave-native
+      - name: Install lcov
+        shell: bash
+        run: sudo apt-get install -y --no-install-recommends lcov
+      - name: Rebuild NetPlumber with gcov instrumentation
+        # --coverage instruments (compile + link, via GCFLAGS); -O0 keeps the
+        # line mapping accurate. The makefile's own `coverage` target is NOT used
+        # -- its COV_FLAGS never reach GCFLAGS (the sources.mk line is commented),
+        # so it would run gcov over an uninstrumented build.
+        run: |
+          make -C net_plumber/build clean
+          make -j -C net_plumber/build DEBUG_FLAGS="--coverage -O0 -g" all
+      - name: Run C++ unit suite (generates .gcda)
+        run: net_plumber/build/net_plumber --test
+      - name: Capture and report coverage (engine code only)
+        # lcov 2.0 on Ubuntu 24.04 is strict; ignore the benign template/header
+        # inconsistencies. Exclude vendored jsoncpp, system headers, and the test
+        # sources -- we measure coverage of the engine, not of the tests.
+        run: |
+          cd net_plumber/build
+          lcov --capture --directory . --base-directory ../src \
+            --gcov-tool gcov --rc geninfo_unexecuted_blocks=1 \
+            --ignore-errors mismatch,gcov,source,unused \
+            --output-file coverage.info
+          lcov --remove coverage.info '*/jsoncpp/*' '/usr/*' '*/test/*' \
+            --ignore-errors unused --output-file coverage.info
+          lcov --summary coverage.info
+          genhtml coverage.info --output-directory coverage_html \
+            --ignore-errors source,inconsistent,corrupt,category
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cxx-coverage-html
+          path: net_plumber/build/coverage_html
+          if-no-files-found: ignore
+
   # --- E2E tier: needs a live net_plumber backend. Non-gating for now. ---
   e2e:
     name: e2e tests (live backend)

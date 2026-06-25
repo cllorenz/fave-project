@@ -209,7 +209,11 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
   clean under all three; bringing it up fixed three benign pre-existing UBs in
   `net_plumber_utils.cc` (#C8). This is the class of guard that catches the
   `remove_link` UB / `hs_add_hs` OOB automatically on every change.
-- [ ] Longer term, `gcov`/`lcov` C++ coverage to measure the above.
+- [x] **`gcov`/`lcov` C++ coverage (DONE)** — report-only `coverage-cxx` job:
+  `--coverage -O0` build, `net_plumber --test`, then `lcov` capture/filter
+  (engine code only) + `genhtml`, uploaded as an artifact. Not gated on a
+  percentage (mirrors the Python coverage). Engine line coverage is ~54%
+  (`array.c`/`hs.c` ~12-14% — a target for future law/scenario expansion).
 
 ---
 
