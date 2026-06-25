@@ -559,30 +559,79 @@ PROTO(check_anomalies)
 }
 #endif
 
-PROTO(check_compliance)
-  /*
-   * JSON format: {dst:[(src,valid,cond)]}
-   * if there is no condition, then cond == null
-   */
-  std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>> rules;
+// Parse {"<src>": [[dst, valid, cond], ...]} with full validation. Two passes:
+// pass 1 validates the whole structure WITHOUT allocating, so a malformed input
+// returns false with nothing to clean up; pass 2 builds (allocating cond arrays)
+// only once the input is known-good.
+template<typename T2>
+bool val_to_compliance_rules(const Json::Value &json_rules, compliance_rules_t<T2> &rules) {
+  if (!json_rules.isObject()) return false;
 
-  auto json_rules = PARAM(rules);
+  // pass 1: validate
+  for (auto it = json_rules.begin(); it != json_rules.end(); ++it) {
+    const std::string key = it.key().asString();
+    size_t pos = 0;
+    try {
+      std::stoull(key, &pos);
+    } catch (const std::exception &) {
+      return false;  // non-numeric src key
+    }
+    if (pos != key.size()) return false;  // trailing non-digits
 
-  for (Json::Value::iterator policy_it = json_rules.begin(); policy_it != json_rules.end(); policy_it++) {
-    uint64_t src = std::stoull(policy_it.key().asString());
+    const Json::Value &dsts = *it;
+    if (!dsts.isArray()) return false;
+    for (Json::ArrayIndex i = 0; i < dsts.size(); i++) {
+      const Json::Value &t = dsts[i];
+      if (!t.isArray() || t.size() < 3) return false;
+      if (!t[0].isIntegral()) return false;                 // dst
+      if (!(t[1].isBool() || t[1].isIntegral())) return false; // valid
+      if (!(t[2].isNull() || t[2].isString())) return false;   // cond
+    }
+  }
+
+  // pass 2: build
+  for (auto it = json_rules.begin(); it != json_rules.end(); ++it) {
+    const uint64_t src = std::stoull(it.key().asString());
+    const Json::Value &dsts = *it;
     std::vector<std::tuple<uint64_t, bool, T2*>> dst_tpls;
-    auto dsts_json = *policy_it;
-    for (Json::ArrayIndex i = 0; i < dsts_json.size(); i++) {
-
-      uint64_t dst = dsts_json[i][0].asUInt64();
-      bool valid = dsts_json[i][1].asBool();
-      T2 *cond = val_to_array<T2>(dsts_json[i][2]);
-      std::tuple<uint64_t, bool, T2*> dst_tpl {dst, valid, cond};
-      dst_tpls.push_back(dst_tpl);
+    for (Json::ArrayIndex i = 0; i < dsts.size(); i++) {
+      const Json::Value &t = dsts[i];
+      dst_tpls.push_back(std::make_tuple(
+          t[0].asUInt64(), t[1].asBool(), val_to_array<T2>(t[2])));
     }
     rules[src] = dst_tpls;
   }
+  return true;
+}
+
+template<typename T2>
+void free_compliance_rules(compliance_rules_t<T2> &rules) {
+  for (auto &kv : rules)
+    for (auto &t : kv.second) {
+      T2 *cond = std::get<2>(t);
+      if (!cond) continue;
+#ifdef GENERIC_PS
+      delete cond;
+#else
+      array_free(cond);
+#endif
+    }
+}
+
+PROTO(check_compliance)
+  /*
+   * JSON format: {"<src>": [[dst, valid, cond], ...]}
+   * if there is no condition, then cond == null
+   */
+  compliance_rules_t<T2> rules;
+  if (!val_to_compliance_rules<T2>(PARAM(rules), rules))
+    ERROR("check_compliance: malformed 'rules' "
+          "(expected {\"<src>\": [[dst, valid, cond], ...]})");
+
   netPlumber->check_compliance(&rules);
+  // We own the cond arrays: check_compliance only reads them. (The old code
+  // leaked them.)
+  free_compliance_rules<T2>(rules);
   RETURN(VOID);
 }
 
@@ -593,6 +642,8 @@ template HeaderspacePacketSet* val_to_hs<HeaderspacePacketSet, ArrayPacketSet>(c
 template ArrayPacketSet* val_to_array<ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet>* val_to_path<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&);
 template Condition<HeaderspacePacketSet, ArrayPacketSet> *val_to_cond<HeaderspacePacketSet, ArrayPacketSet>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<ArrayPacketSet>(const Json::Value&, compliance_rules_t<ArrayPacketSet>&);
+template void free_compliance_rules<ArrayPacketSet>(compliance_rules_t<ArrayPacketSet>&);
 
 #ifdef USE_BDD
 template class RpcHandler<BDDPacketSet, BDDPacketSet>;
@@ -601,6 +652,8 @@ template BDDPacketSet* val_to_array<BDDPacketSet>(const Json::Value&);
 template BDDPacketSet* val_to_hs<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t);
 template Condition<BDDPacketSet, BDDPacketSet>* val_to_path<BDDPacketSet, BDDPacketSet>(const Json::Value&);
 template Condition<BDDPacketSet, BDDPacketSet> *val_to_cond<BDDPacketSet, BDDPacketSet>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<BDDPacketSet>(const Json::Value&, compliance_rules_t<BDDPacketSet>&);
+template void free_compliance_rules<BDDPacketSet>(compliance_rules_t<BDDPacketSet>&);
 #endif
 #else
 template class RpcHandler<hs, array_t>;
@@ -609,6 +662,8 @@ template array_t* val_to_array<array_t>(const Json::Value&);
 template hs* val_to_hs<hs, array_t>(const Json::Value&, const size_t);
 template Condition<hs, array_t>* val_to_path<hs, array_t>(const Json::Value&);
 template Condition<hs, array_t> *val_to_cond<hs, array_t>(const Json::Value&, const size_t, unsigned);
+template bool val_to_compliance_rules<array_t>(const Json::Value&, compliance_rules_t<array_t>&);
+template void free_compliance_rules<array_t>(compliance_rules_t<array_t>&);
 #endif
 } /* namespace net_plumber */
 

@@ -23,6 +23,9 @@
 
 #include "net_plumber.h"
 #include "../jsoncpp/jsonrpc.h"
+#include <map>
+#include <vector>
+#include <tuple>
 
 #define LIST_MAX 1024
 
@@ -39,6 +42,22 @@ Condition<T1, T2> *val_to_path(const Json::Value &pathlets);
 // hostile/deeply-nested input; callers use the default.
 template<class T1, class T2>
 Condition<T1, T2> *val_to_cond(const Json::Value &val, const size_t length, unsigned depth = 0);
+
+// Compliance rules parsed from the RPC `rules` param: src -> [(dst, valid, cond)].
+template<typename T2>
+using compliance_rules_t =
+    std::map<uint64_t, std::vector<std::tuple<uint64_t, bool, T2*>>>;
+
+// Parse/validate the compliance `rules` JSON ({"<src>": [[dst, valid, cond], ...]})
+// into `rules`. Returns false (leaving `rules` empty) on any malformed input --
+// non-object, non-numeric key, short/ill-typed tuple -- rather than throwing
+// (std::stoull) or asserting (asUInt64/asCString on the wrong type), either of
+// which would crash the server on bad RPC input. The caller owns the allocated
+// `cond` arrays and must free them with free_compliance_rules().
+template<typename T2>
+bool val_to_compliance_rules(const Json::Value &json_rules, compliance_rules_t<T2> &rules);
+template<typename T2>
+void free_compliance_rules(compliance_rules_t<T2> &rules);
 
 template<class T1, class T2>
 class RpcHandler {

@@ -193,8 +193,11 @@ Raise `NetPlumber` from ~3 to broad public-method coverage, contract-style.
   nesting at `MAX_CONDITION_DEPTH` (256) and propagates null/too-deep operands
   to `nullptr` (no node with a null child). `val_to_path` is iterative, so it
   needs none. `test_cond_parse_malformed` asserts a 5000-deep chain → `nullptr`.
-- [ ] **Deferred:** `check_compliance`-parser hardening (unchecked indices /
-  throwing `stoull`).
+- [x] **`check_compliance`-parser hardening (DONE, #C7)** — extracted a
+  validated, testable `val_to_compliance_rules` (+ `free_compliance_rules`):
+  rejects malformed input (non-object / non-numeric key / short / ill-typed
+  tuple) instead of throwing (`stoull`) or asserting (`asUInt64`), and fixes the
+  pre-existing `cond`-array leak. Pinned by `test_compliance_rules_parse`.
 
 ### Cross-cutting — sanitizer/coverage builds (TODO item 7)
 - [ ] CI job building with `-fsanitize=address,undefined` running `make test`
@@ -238,6 +241,11 @@ the P0 oracle) are #C4/#C5. #C4/#C5 touch soundness-critical engine code
   `val["type"].asCString()`, whose `JSON_ASSERT` is a live `assert()` →
   **`abort()` on malformed RPC input** (DoS). Fixed: guard with
   `isObject`/`isMember`/`isString`, degrade to `nullptr`, skip unknown pathlets.
+- [x] **#7 — `rpc_handler.cc check_compliance`** (P2 follow-up): `std::stoull` on
+  the policy key (throws on non-numeric) and `dsts[i][0..2]` accesses
+  (`asUInt64`/`asCString` assert on short/ill-typed tuples) **crashed the server
+  on malformed input**, and every parsed `cond` array **leaked**. Fixed by
+  extracting a validated two-pass `val_to_compliance_rules` (+ free helper).
 
 ---
 

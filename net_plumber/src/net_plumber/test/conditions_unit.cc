@@ -369,6 +369,41 @@ void ConditionsTest<T1, T2>::test_cond_parse_malformed() {
   CPPUNIT_ASSERT((val_to_cond<T1, T2>(deep, 1) == nullptr));
 }
 
+// The compliance-rules RPC parser must accept well-formed input and reject
+// malformed input (non-object, non-numeric key, short/ill-typed tuple) with
+// `false` and no partial state -- never throwing (stoull) or asserting
+// (asUInt64 on the wrong type), which would crash the server.
+template<class T1, class T2>
+void ConditionsTest<T1, T2>::test_compliance_rules_parse() {
+  printf("\n");
+
+  // valid: src 1 -> [dst=2, valid=true, cond="xxxxxxxx"] and a null-cond entry
+  Json::Value valid;
+  valid["1"][0][0] = 2; valid["1"][0][1] = true; valid["1"][0][2] = "xxxxxxxx";
+  valid["1"][1][0] = 3; valid["1"][1][1] = false; valid["1"][1][2] = Json::Value();
+  compliance_rules_t<T2> rules;
+  CPPUNIT_ASSERT((val_to_compliance_rules<T2>(valid, rules)));
+  CPPUNIT_ASSERT(rules.size() == 1 && rules.count(1) == 1 && rules[1].size() == 2);
+  CPPUNIT_ASSERT(std::get<0>(rules[1][0]) == 2 && std::get<1>(rules[1][0]) == true);
+  CPPUNIT_ASSERT(std::get<2>(rules[1][0]) != nullptr);   // cond allocated
+  CPPUNIT_ASSERT(std::get<2>(rules[1][1]) == nullptr);   // null cond
+  free_compliance_rules<T2>(rules);                      // must not leak/double-free
+
+  // malformed -> false, and `rules` left empty (validated before building)
+  compliance_rules_t<T2> r;
+  Json::Value not_obj; not_obj[0] = 1;                   // array, not object
+  CPPUNIT_ASSERT((!val_to_compliance_rules<T2>(not_obj, r)));
+  Json::Value bad_key;
+  bad_key["abc"][0][0] = 1; bad_key["abc"][0][1] = true; bad_key["abc"][0][2] = Json::Value();
+  CPPUNIT_ASSERT((!val_to_compliance_rules<T2>(bad_key, r)));
+  Json::Value short_tpl; short_tpl["1"][0][0] = 2;       // tuple has size 1
+  CPPUNIT_ASSERT((!val_to_compliance_rules<T2>(short_tpl, r)));
+  Json::Value bad_cond;
+  bad_cond["1"][0][0] = 2; bad_cond["1"][0][1] = true; bad_cond["1"][0][2] = 42; // cond not str/null
+  CPPUNIT_ASSERT((!val_to_compliance_rules<T2>(bad_cond, r)));
+  CPPUNIT_ASSERT(r.empty());
+}
+
 #ifdef GENERIC_PS
 template class ConditionsTest<HeaderspacePacketSet, ArrayPacketSet>;
 #ifdef USE_BDD
