@@ -11,6 +11,8 @@ We benchmarked DHSA using several different workloads - synthetic and real-world
 Also, we compared our results with the state of the art by running the benchmark with the tools from [2], [3], [4], and [5].
 See our publication list for the results.
 
+**AI assistance:** Portions of this codebase were developed with the help of Claude Code (Anthropic) under human review. The author retains full editorial and scientific responsibility. This first commit with AI assistence is 54b2d39dd6a718681ba028deac622737bc9350c0.
+
 
 ## Publications
 
