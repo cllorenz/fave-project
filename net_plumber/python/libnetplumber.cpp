@@ -153,6 +153,17 @@ static Json::Value parse_json(const std::string &s) {
     return v;
 }
 
+// A compliance violation, as reported by NetPlumber's compliance_callback.
+// Mirrors the fields the DefaultComplianceLogger emits (and the Reporter
+// parses): (valid, src, dst, cond) -- but delivered in-process (option b),
+// with no log-tailing round-trip.
+struct ComplianceViolation {
+    uint64_t src;
+    uint64_t dst;
+    bool valid;
+    std::string cond;  // "" when there was no header condition
+};
+
 // ---------------------------------------------------------------------------
 // The bound class.
 // ---------------------------------------------------------------------------
@@ -160,10 +171,33 @@ static Json::Value parse_json(const std::string &s) {
 class LibNetPlumber {
     NetPlumber<hs, array_t> *np_;
     size_t length_;  // bytes (the core's unit)
+    std::vector<ComplianceViolation> compliance_results_;
+
+    // NetPlumber's callbacks are plain C function pointers with no closure, so
+    // route them to the active instance via a thread_local. check_compliance is
+    // synchronous and single-threaded, so this is safe.
+    static thread_local LibNetPlumber *active_;
+
+    // Replaces default_compliance_callback: instead of logging via log4cxx, it
+    // records the violation (read from compliance_callback_data, a
+    // compliance_rule_t set by check_compliance) into the results buffer.
+    static void collect_compliance(NetPlumber<hs, array_t> *N,
+                                   Flow<hs, array_t> * /*f*/, void *data) {
+        LibNetPlumber *self = active_;
+        if (!self || !data) return;
+        net_plumber::compliance_rule_t *r = (net_plumber::compliance_rule_t *)data;
+        std::string cond;
+        if (r->cond) {
+            char *s = array_to_str(r->cond, N->get_length(), false);
+            if (s) { cond = s; free(s); }
+        }
+        self->compliance_results_.push_back({r->src, r->dst, r->valid, cond});
+    }
 
   public:
     explicit LibNetPlumber(size_t length) : length_(length) {
         np_ = new NetPlumber<hs, array_t>(length);
+        np_->compliance_callback = &LibNetPlumber::collect_compliance;
     }
     ~LibNetPlumber() { delete np_; }
 
@@ -245,11 +279,26 @@ class LibNetPlumber {
             }
             m[kv.first] = std::move(v);
         }
+        active_ = this;
         np_->check_compliance(&m);
+        active_ = nullptr;
         for (auto &kv : m)
             for (auto &t : kv.second)
                 if (std::get<2>(t)) array_free(std::get<2>(t));
     }
+
+    // Compliance violations collected since the last clear_results(), as
+    // (src, dst, valid, cond) tuples (cond "" when none). Same records the
+    // Reporter would have parsed from the log, delivered in-process.
+    std::vector<std::tuple<uint64_t, uint64_t, bool, std::string>>
+    get_compliance_results() const {
+        std::vector<std::tuple<uint64_t, uint64_t, bool, std::string>> out;
+        out.reserve(compliance_results_.size());
+        for (const auto &r : compliance_results_)
+            out.emplace_back(r.src, r.dst, r.valid, r.cond);
+        return out;
+    }
+    void clear_results() { compliance_results_.clear(); }
 
     void dump_plumbing_network(const std::string &dir) { np_->dump_plumbing_network(dir); }
     void dump_flows(const std::string &dir) { np_->dump_flows(dir); }
@@ -258,6 +307,8 @@ class LibNetPlumber {
     }
     void dump_pipes(const std::string &dir) { np_->dump_pipes(dir); }
 };
+
+thread_local LibNetPlumber *LibNetPlumber::active_ = nullptr;
 
 PYBIND11_MODULE(libnetplumber, m) {
     m.doc() = "In-process bindings over NetPlumber's C++ core (FaVe P1).";
@@ -282,6 +333,10 @@ PYBIND11_MODULE(libnetplumber, m) {
              py::arg("test_json"), py::arg("id"))
         .def("remove_source_probe", &LibNetPlumber::remove_source_probe, py::arg("id"))
         .def("check_compliance", &LibNetPlumber::check_compliance, py::arg("rules"))
+        .def("get_compliance_results", &LibNetPlumber::get_compliance_results,
+             "Compliance violations collected since the last clear_results(), "
+             "as (src, dst, valid, cond) tuples.")
+        .def("clear_results", &LibNetPlumber::clear_results)
         .def("dump_plumbing_network", &LibNetPlumber::dump_plumbing_network, py::arg("dir"))
         .def("dump_flows", &LibNetPlumber::dump_flows, py::arg("dir"))
         .def("dump_flow_trees", &LibNetPlumber::dump_flow_trees, py::arg("dir"),
