@@ -179,3 +179,107 @@ Lower-severity, flagged for follow-up (not yet line-verified end-to-end):
 native stack, unlocks the verification core, and pins bug #1. Then P1–P3 in
 order, with P4 (PolicyTranslator) runnable in parallel since it is an
 independent tool.
+
+---
+
+# Phase 2 — the backend/orchestration layer (2026-06-26)
+
+Phase 1 (foundation + P0–P4) covered the verification **data layer** well
+(`rule_model` 89%, `vector` 80%, `mapping`/`ip6np_util` 79%, parser 82%,
+`policy.py` 82%, device models 70–90%). A fresh coverage pass shows the
+remaining gap is the **bridge and orchestration layer** — three core modules
+that sit at ~17–20% in *every* tier because nothing exercises them
+**in-process**: they run only inside e2e *subprocesses* (the aggregator daemon
+and the benchmarks), which coverage does not capture, and only on happy paths.
+
+| Module | Coverage | Verification role |
+|---|---|---|
+| `netplumber/adapter.py` | **20%** (342 missed) | translates FaVe models → NetPlumber JSON-RPC |
+| `aggregator/aggregator_service.py` | **17%** (318 missed) | event dispatch + incremental model diff (the brain) |
+| `reporting/reporter.py` | **19%** (76 missed) | parses the NetPlumber log → compliance/anomaly report |
+
+**Guiding principle (unchanged):** each is unit-testable **without a live
+backend** through a seam; assert the *contract* (what RPC the adapter emits,
+what ops the engine is told to do, what event a log line yields) — not backend
+behavior. The boundary of the unit test is the seam.
+
+**Shared fixture — `MockEngine`.** A recording `AbstractVerificationEngine`
+subclass (records every `add_*`/`delete_*`/`check_*` call + args) is the seam
+for the aggregator and a convenience for asserting adapter-equivalent ops.
+Define it once in a test helper and reuse.
+
+### Phase-2a — `adapter.py` (no production change needed; do first)
+- **Seam:** the constructor already injects `socks` and `logger` (clean DI). Test
+  by constructing `NetPlumberAdapter([fake], logger, mapping=...)` and either
+  (recommended) `mock.patch('netplumber.adapter.jsonrpc')` to assert the calls
+  directly, or drive the existing `FakeSocket` (from `test_jsonrpc_client`) and
+  inspect the wire bytes. Mocking `jsonrpc` is cleaner here: the unit under test
+  is the model→RPC *translation*, not the wire protocol (already covered in P2).
+- **What to assert, per public method:** the `jsonrpc.*` calls (method + args)
+  **and** the adapter's bookkeeping (`self.tables`, `self.ports`,
+  `self.rule_ids`, `self.generators`, `self.probes`):
+  - `add_tables` → one `add_table(idx, ports)` per new table; idx assignment;
+    port packing; `self.tables[name]=idx`.
+  - `add_wiring` → `add_link`/`add_links_bulk` for the model's links.
+  - `add_rules` / `add_rules_batch` → rule-index packing (the `_calc_rule_index`
+    integration) and `rule_ids` bookkeeping, exercised on a real
+    `PacketFilterModel`/`SwitchModel`.
+  - `add_generator(s)` / `add_probe` → source/probe id assignment + header-space
+    payloads (`_build_headerspace`).
+  - `delete_rules`/`delete_wiring`/`delete_tables`/`delete_generator`/`delete_probe`
+    → the removal bookkeeping (the part most likely to drift).
+  - `add_slice`.
+- **Fold in the flagged regression:** `add_tables`'s `rstrip('.1')` and
+  `_get_index_for_src`'s `rstrip('1').rstrip('.')` strip *character sets*, not
+  suffixes — pin the behavior for a multi-digit node (e.g. `foo.11`).
+- **Why first:** biggest single gap, verification-critical, and needs **zero**
+  production change — the seam is already there.
+
+### Phase-2b — `aggregator_service.py` (small DI seam first)
+- **Obstacle → minimal refactor:** `__init__` hard-constructs
+  `NetPlumberAdapter(...)` **and** `Reporter(self, '/dev/shm/np/stdout.log')` (a
+  daemon thread that opens a real file). Add optional injection —
+  `__init__(self, ..., engine=None, reporter=None)` — defaulting to today's
+  construction, so a test can pass a `MockEngine` and skip the `Reporter`.
+  Behavior-preserving; the default path is unchanged.
+- **What to test (driving the logic directly, not via the socket server/thread):**
+  - `_parse_servers` — pure host:port-vs-unix parsing (testable **now**, no seam).
+  - `_model_from_json` — type dispatch + unknown-type raise.
+  - `_sync_diff` — with a `MockEngine` + seeded `self.models`: assert the diff
+    (`model - stored`) produces the right `add_*`/`delete_*` engine calls,
+    including the reflective `getattr(device, model.command)` dispatch and the
+    `_adds` re-merge + `model.reset()` path.
+  - the `_dump_aggregator` rule-id decode (`key >> 12`) ↔ adapter's
+    `_calc_rule_index` (`<< 12`) — a cross-module coupling worth a regression test.
+  - `_handler` — enqueue typed events and assert dispatch (`stop`, add/delete
+    model, ports, links); if the per-event handling is inlined in the thread
+    loop, factor it into a callable so it can be driven without sockets.
+- **Risk:** the Reporter coupling is the gate — do the DI seam first; the rest
+  is straightforward with the `MockEngine`.
+
+### Phase-2c — `reporter.py` (extract the line parser)
+- **Seam/refactor:** `run()` is a thread loop that `readline()`s and parses by
+  **fixed token index** (`tokens[16]`, `tokens[16+negated]`, …). Extract the
+  per-line `tokens → event` logic into a pure helper (e.g.
+  `_parse_log_line(tokens)`); `run()` becomes a thin loop over it.
+- **What to test:**
+  - the extracted `_parse_log_line` — crafted compliance/anomaly token lists,
+    including the negation offset and the `int(tokens[14])` rule-id; this pins
+    the brittle log-format contract (highest value — it's fragile).
+  - `_parse_cond` — pure (`cond` string + a `Mapping`), testable now.
+  - `dump_report` — with a lightweight fake `fave` (a `SimpleNamespace` exposing
+    `verification_engine.{generators,probes,mapping,rule_ids,tables}` + `models`):
+    assert the rule-id bit-decode (`>> 32`, `& 0xffffffff >> 12`) resolves the
+    right table/rule and the report markdown content.
+- **Risk:** low; the extraction is behavior-preserving and decouples parsing
+  from the file/thread loop.
+
+### Sequencing, tier, and ratchet
+1. **2a adapter** (no refactor, seam exists) → 2. **2b aggregator** (DI seam) →
+   3. **2c reporter** (parser extraction). Each is an independent commit.
+2. All three become **fast-tier** tests (no backend, no pybison) once the seams
+   exist, so they raise the fast-tier coverage ratchet — **bump `COVERAGE_MIN`
+   after each** (rough targets: adapter 20→~70, aggregator 17→~60, reporter
+   19→~70; fast-tier total ~72 → ~80+).
+3. Production changes are limited to two small, default-preserving seams
+   (aggregator DI; reporter line-parser extraction); `adapter` needs none.
