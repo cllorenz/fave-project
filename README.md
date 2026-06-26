@@ -30,6 +30,7 @@ This repository is organized as follows:
 
  - `fave/` - includes the modeling pipeline and a set of management tools
  - `net_plumber/` - includes the NetPlumber verification backend which was published originally in [1]
+ - `apkeep/` - includes the APKeep verification backend which is being integrated as an alternative to NetPlumber and has been published originally in [6]
  - `policy_translator/` - includes the policy management tool [PolicyTranslator](policy_translator/README.md)
  - `ad6` - includes ad6 for anomaly detection in ip6tables rule sets
  - `z3-anomalies` - includes an implementation of [4] to detect anomalies in ip6tables rule sets using the Z3 SMT solver
@@ -160,7 +161,7 @@ The original implementation of NetPlumber by Peyman Kazemian stems from [here](h
 
 The original implementation of the PolicyTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
 
-The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep verifier by Peng Zhang et al. (refer to [6]), originally from [here](https://github.com/XJTU-NetVerify/apkeep) (MIT). It is being integrated as an alternative verification backend — see [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md). APKeep depends on the JDD BDD library by Arash Vahidi (zlib/public-domain), vendored under `apkeep/local-maven-repo/`.
+The original implementation of APKeep by Peng Zhang et al. stems from [here](https://github.com/XJTU-NetVerify/apkeep).
 
 
 ## Selected References
