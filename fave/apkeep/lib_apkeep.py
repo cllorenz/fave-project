@@ -80,6 +80,8 @@ class LibAPKeep:
         _ensure_jvm()
         self._APKeep = jpype.JClass("apkeep.main.APKeep")
         self._ArrayList = jpype.JClass("java.util.ArrayList")
+        self._ReachabilityChecker = jpype.JClass("apkeep.checker.ReachabilityChecker")
+        self._PositionTuple = jpype.JClass("common.PositionTuple")
         self._net: Any = None
         self._eva: Any = None
 
@@ -100,6 +102,20 @@ class LibAPKeep:
         for rule in rules:
             java_rules.add(str(rule).strip())
         self._net.run(self._eva, java_rules)
+
+    def is_reachable(self, src_device: str, src_port: str,
+                     dst_device: str, dst_port: str) -> bool:
+        """ Existential reachability over the current PPM: can traffic injected
+        at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
+        apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
+        source->probe compliance checks reduce to. """
+        if self._net is None:
+            raise RuntimeError("init_snapshot() must be called first")
+        checker = self._ReachabilityChecker(self._net)
+        return bool(checker.isReachable(
+            self._PositionTuple(src_device, src_port),
+            self._PositionTuple(dst_device, dst_port),
+        ))
 
     def get_loops(self) -> List[str]:
         """ Detected forwarding loops, one normalised "loop found for [...]: ||
