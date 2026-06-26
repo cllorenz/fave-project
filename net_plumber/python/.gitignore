@@ -1,0 +1,2 @@
+# Built pybind11 extension module (artifact)
+*.so
