@@ -160,7 +160,7 @@ The original implementation of NetPlumber by Peyman Kazemian stems from [here](h
 
 The original implementation of the PolicyTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
 
-The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep verifier by Peng Zhang et al., originally from [here](https://github.com/XJTU-NetVerify/apkeep) (MIT). It is being integrated as an alternative verification backend — see [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md). APKeep depends on the JDD BDD library by Arash Vahidi (zlib/public-domain), vendored under `apkeep/local-maven-repo/`.
+The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep verifier by Peng Zhang et al. (refer to [6]), originally from [here](https://github.com/XJTU-NetVerify/apkeep) (MIT). It is being integrated as an alternative verification backend — see [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md). APKeep depends on the JDD BDD library by Arash Vahidi (zlib/public-domain), vendored under `apkeep/local-maven-repo/`.
 
 
 ## Selected References
@@ -174,3 +174,5 @@ The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep veri
 [4] Y. Yin, Y. Tateiwa, Y. Wang, G. Zhang, Y. Katayama, N. Takahashi, and C. Zhang, “An Analysis Method for IPv6 Firewall Policy,” in HPCC, 2019.
 
 [5] N. Basumatary and S. Hazarika, “Model Checking a Firewall for Anomalies,” in ICETACS, 2013.
+
+[6] P. Zhang, X. Liu, H. Yang, N. Kang, Z. Gu, and H. Li, “APKeep: Realtime Verification for Real Networks,” in NSDI, 2020.
