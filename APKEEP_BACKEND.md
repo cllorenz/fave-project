@@ -269,7 +269,30 @@ live).
   (§6).
 - **`JDD` license:** verify once before publishing the fork (§7).
 
-## 11. References
+## 11. Build & toolchain notes (P0 — done)
+
+APKeep needs **JDK 11 + Maven** (its documented toolchain). Build with
+`cd apkeep && mvn package` → `target/apkeep-1.0.0.jar` (fat jar). The
+`fave/test/apkeep_smoke.sh` harness (integration tier) builds it, runs the
+bundled Stanford snapshot through the CLI, and pins the forwarding-loop set.
+
+Upstream's build was **not reproducible** and required fork-local fixes (all in
+`apkeep/`, kept as one subtree-isolated commit):
+
+- **JDD could not be resolved at all.** `org.bitbucket.vahidi:JDD:108` is a tag
+  that was never published (JDD's tags start at 109), JDD is not on Maven
+  Central, and JitPack serves only JDD's `.pom`, never a `.jar` (JDD is a
+  Gradle/Ant project producing no JitPack-resolvable artifact). Fix: vendor a
+  JDD jar built from the author's Bitbucket source at tag **111** (zlib/
+  public-domain) into an in-tree file repository, `apkeep/local-maven-repo/`,
+  referenced from `pom.xml`. The build is now hermetic (no network/JitPack).
+- **Java version.** Maven's super-POM binds `maven-compiler-plugin` 3.1, which
+  predates the `release` option and defaults to Java 1.5 (rejected by JDK 11).
+  Fix: pin `maven-compiler-plugin` 3.11.0 with `release=11`.
+
+JDK 11 + Maven are added to the CI composite action and the `Dockerfile`.
+
+## 12. References
 
 1. P. Zhang et al., "APKeep: Realtime Verification for Real Networks," NSDI 2020.
    <https://www.usenix.org/system/files/nsdi20-paper-zhang-peng.pdf>
