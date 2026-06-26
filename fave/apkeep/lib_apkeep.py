@@ -39,8 +39,9 @@ network from a FaVe model in-memory is P4. The reachability solver is P3.
 from __future__ import annotations
 
 import os
+import tempfile as _tempfile
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _APKEEP_JAR = os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar")
@@ -79,6 +80,8 @@ class LibAPKeep:
     def __init__(self) -> None:
         _ensure_jvm()
         self._APKeep = jpype.JClass("apkeep.main.APKeep")
+        self._Network = jpype.JClass("apkeep.core.Network")
+        self._Evaluator = jpype.JClass("apkeep.utils.Evaluator")
         self._ArrayList = jpype.JClass("java.util.ArrayList")
         self._ReachabilityChecker = jpype.JClass("apkeep.checker.ReachabilityChecker")
         self._PositionTuple = jpype.JClass("common.PositionTuple")
@@ -87,11 +90,49 @@ class LibAPKeep:
 
     def init_snapshot(self, snapshot_dir: str) -> None:
         """ Build the network from an APKeep snapshot directory (topo/acls/vlan/
-        parameters). P4 will replace this with in-memory construction from a
-        FaVe model. """
+        parameters), via APKeep's own file loader. """
         self._APKeep.init(snapshot_dir)
         self._net = self._APKeep.net
         self._eva = self._APKeep.eva
+
+    def init_in_memory(self, name: str, l1_links: List[str],
+                       fwd_devices: Optional[List[str]] = None,
+                       device_acls: Optional[Dict[str, List[str]]] = None) -> None:
+        """ Build the network from IN-MEMORY collections (no snapshot files):
+        the path the APKeepAdapter uses to construct an APKeep network from a
+        FaVe model (APKEEP_BACKEND.md, P4).
+
+        l1_links    -- directed topology edges as "dev1 port1 dev2 port2" strings
+        fwd_devices -- ForwardElement device names not already implied by a link
+        device_acls -- {device: [acl_name, ...]} -> ACLElements "device_aclname"
+                       (None when there are no ACLs)
+
+        Bypasses APKeep's name-dependent file parsers (readACLs/readVlans), so
+        the collections must already be in APKeep's internal shape. VLANs are
+        intentionally omitted (redundant with distinct per-role IP ranges).
+        """
+        links = self._ArrayList()
+        for edge in l1_links:
+            links.add(str(edge))
+        devices = self._ArrayList()
+        for dev in (fwd_devices or []):
+            devices.add(str(dev))
+
+        acls_map = None
+        if device_acls:
+            HashMap = jpype.JClass("java.util.HashMap")
+            HashSet = jpype.JClass("java.util.HashSet")
+            acls_map = HashMap()
+            for dev, names in device_acls.items():
+                names_set = HashSet()
+                for n in names:
+                    names_set.add(str(n))
+                acls_map.put(str(dev), names_set)
+
+        self._net = self._Network(name)
+        # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)
+        self._net.initializeNetwork(links, devices, acls_map, None, None)
+        self._eva = self._Evaluator(name, _tempfile.mktemp())
 
     def run(self, rules: List[str]) -> None:
         """ Apply a batch of rule updates IN MEMORY (a Python list of APKeep
