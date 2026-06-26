@@ -52,6 +52,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_packet_filter.py
     test/test_iptables_parser.py
     test/test_apkeep_lib.py   # libapkeep + reachability (JPype + apkeep jar); skips if unavailable
+    test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py

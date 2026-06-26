@@ -97,7 +97,8 @@ class LibAPKeep:
 
     def init_in_memory(self, name: str, l1_links: List[str],
                        fwd_devices: Optional[List[str]] = None,
-                       device_acls: Optional[Dict[str, List[str]]] = None) -> None:
+                       device_acls: Optional[Dict[str, List[str]]] = None,
+                       bdd_table_size: int = 1_000_000) -> None:
         """ Build the network from IN-MEMORY collections (no snapshot files):
         the path the APKeepAdapter uses to construct an APKeep network from a
         FaVe model (APKEEP_BACKEND.md, P4).
@@ -128,6 +129,11 @@ class LibAPKeep:
                 for n in names:
                     names_set.add(str(n))
                 acls_map.put(str(dev), names_set)
+
+        # Size the BDD table for a FaVe-scale network (not APKeep's 100M
+        # snapshot default), so several in-process networks can coexist under
+        # the resident JVM without exhausting it.
+        jpype.JClass("apkeep.utils.Parameters").BDD_TABLE_SIZE = int(bdd_table_size)
 
         self._net = self._Network(name)
         # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)
