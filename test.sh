@@ -54,6 +54,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison, but NOT a running backend (determinis
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
+    test/test_lib_equivalence.py  # libnetplumber vs net_plumber-RPC (skips if .so unbuilt)
 )
 # Everything excluded from the fast tier (pure-Python discovery ignores these).
 FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
