@@ -4,9 +4,24 @@
   <artifactId>apkeep</artifactId>
   <version>1.0.0</version>
   <name>apkeep</name>
-  
+
+  <!-- FaVe fork: upstream set no Java version, so the compiler plugin defaulted
+       to 1.5, which JDK 11 (APKeep's documented target) rejects. Pin to 11. -->
+  <properties>
+      <maven.compiler.release>11</maven.compiler.release>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
   <build>
       <plugins>
+          <!-- FaVe fork: pin a modern compiler plugin. Maven's super-POM binds
+               maven-compiler-plugin 3.1, which predates the `release` option and
+               defaults to Java 1.5 (rejected by JDK 11). 3.11.0 honors release=11. -->
+          <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.11.0</version>
+          </plugin>
           <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-shade-plugin</artifactId>
@@ -34,11 +49,28 @@
       </plugins>
   </build>
   
+  <!-- FaVe fork: JDD is not on Maven Central, and JitPack only serves its .pom
+       (never a .jar - JDD is a Gradle/Ant project that produces no resolvable
+       Maven artifact). Upstream's `mvn package` therefore could not resolve JDD
+       at all. We vendor a JDD jar (built from the author's Bitbucket source) in
+       an in-tree file repository so the build is hermetic (no network/JitPack).
+       See local-maven-repo/README for provenance (zlib/public-domain license). -->
+  <repositories>
+      <repository>
+          <id>fave-vendored-jdd</id>
+          <url>file://${project.basedir}/local-maven-repo</url>
+      </repository>
+  </repositories>
+
   <dependencies>
   		<dependency>
 		    <groupId>org.bitbucket.vahidi</groupId>
 		    <artifactId>JDD</artifactId>
-		    <version>108</version>
+		    <!-- FaVe fork: upstream pinned 108, but that tag was never published on
+		         the JDD repo (tags start at 109). 111 is the nearest tag from the
+		         same author (2019); the BDD API used here (and/not/ref/deref/exists/
+		         or/diff) is long-stable across it. Vendored in local-maven-repo/. -->
+		    <version>111</version>
 		</dependency>
 		<dependency>
             <groupId>org.jline</groupId>
