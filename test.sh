@@ -47,10 +47,11 @@ COVERAGE="${COVERAGE:-0}"
 # pure-Python tests are auto-discovered into the fast tier -- no registry to
 # forget to update. They are split by what they need so the deterministic
 # `integration` tier and the backend-dependent `e2e` tier run independently.
-FAVE_INTEGRATION_TESTS=(   # need pybison, but NOT a running backend (deterministic)
+FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (deterministic)
     test/test_topology.py
     test/test_packet_filter.py
     test/test_iptables_parser.py
+    test/test_apkeep_lib.py   # libapkeep (JPype + apkeep jar); skips if unavailable
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -128,11 +129,13 @@ run_integration() {
     echo "== integration: NetPlumber C++ unit tests =="
     make -j -C "$ROOT/net_plumber/build" test || rc=1
 
-    echo "== integration: fave bison-dependent tests (no backend) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
-
+    # Build APKeep (+ CLI golden pin) BEFORE the fave pytest step, so the
+    # libapkeep test (test_apkeep_lib) finds the jar; it skips otherwise.
     echo "== integration: APKeep build + bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
+
+    echo "== integration: fave bison-dependent tests (no backend) =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
 
     return $rc
 }

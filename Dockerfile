@@ -51,6 +51,8 @@ RUN pip3 install pyparsing
 RUN pip3 install cachetools
 RUN pip3 install dd
 RUN pip3 install pybison
+# JPype1 drives the APKeep backend in-process (fave/apkeep/lib_apkeep.py).
+RUN pip3 install JPype1
 
 COPY . $DIRPATH/
 
