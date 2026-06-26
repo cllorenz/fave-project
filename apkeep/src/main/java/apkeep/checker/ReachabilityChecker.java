@@ -69,6 +69,13 @@ public class ReachabilityChecker {
         if (connected_ports == null) return false;
 
         for (PositionTuple connected_pt : connected_ports) {
+            // Arrival at a link-destination (ingress) port: traffic forwarded
+            // out cur_hop is delivered to connected_pt over the L1 link, with
+            // the current packet space (before the next element forwards). A
+            // target may be either an egress port (a cur_hop above) or such an
+            // ingress port (e.g. a probe attached to a device input).
+            if (connected_pt.equals(target) && Element.hasOverlap(fwd_aps, acl_aps)) return true;
+
             Element e = getElement(connected_pt.getDeviceName());
             for (String port : e.getPorts()) {
                 if (port.equals(connected_pt.getPortName())) continue;
