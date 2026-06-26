@@ -158,6 +158,8 @@ The original implementation of NetPlumber by Peyman Kazemian stems from [here](h
 
 The original implementation of the PolicyTranslator by Vera Clemens stems from [here](https://github.com/veracl/fave-policy-translator.git).
 
+The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep verifier by Peng Zhang et al., originally from [here](https://github.com/XJTU-NetVerify/apkeep) (MIT). It is being integrated as an alternative verification backend — see [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md). APKeep depends on the JDD BDD library by Arash Vahidi (zlib/public-domain), vendored under `apkeep/local-maven-repo/`.
+
 
 ## Selected References
 

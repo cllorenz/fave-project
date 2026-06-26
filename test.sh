@@ -130,6 +130,9 @@ run_integration() {
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
 
+    echo "== integration: APKeep build + bundled-Stanford golden pin =="
+    bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
+
     return $rc
 }
 

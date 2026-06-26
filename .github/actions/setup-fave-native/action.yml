@@ -26,7 +26,8 @@ runs:
         sudo apt-get install -y --no-install-recommends \
           build-essential flex bison \
           liblog4cxx15 liblog4cxx-dev \
-          libcppunit-1.15-0 libcppunit-dev
+          libcppunit-1.15-0 libcppunit-dev \
+          openjdk-11-jdk-headless maven
 
     # Report (pandoc -> PDF via pdflatex) and policy visualization (inkscape).
     # Minimal LaTeX: the generated report is plain markdown (headings, lists,

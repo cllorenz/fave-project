@@ -31,6 +31,9 @@ RUN apt-get $APT_CONFS install lmodern
 RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison
+# APKeep backend (apkeep/): JDK 11 + Maven to build/run it in the integration tier.
+RUN apt-get $APT_CONFS install openjdk-11-jdk-headless
+RUN apt-get $APT_CONFS install maven
 RUN apt-get $APT_CONFS install liblog4cxx15
 RUN apt-get $APT_CONFS install liblog4cxx-dev
 RUN apt-get $APT_CONFS install libcppunit-1.15-0
