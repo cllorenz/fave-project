@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import threading
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from util.ip6np_util import bitvector_to_field_value
 from netplumber.mapping import FIELD_SIZES, Mapping
@@ -16,6 +16,28 @@ from netplumber.vector import Vector, get_field_from_vector
 class Log:
     Compliance = 0
     Anomalies = 1
+
+
+def _parse_log_line(tokens: List[str]) -> Optional[Tuple[Any, ...]]:
+    """ Turn a tokenised NetPlumber log line into an event tuple, or None.
+
+    The positional indices mirror NetPlumber's DefaultComplianceLogger /
+    DefaultAnomalyLogger output format. Extracted from Reporter.run() so the
+    (fragile, position-dependent) parse can be tested without the log-tailing
+    thread; run() just appends whatever this returns.
+    """
+    if "DefaultComplianceLogger" in tokens:
+        negated = 1 if tokens[16] == '!' else 0
+        from_ = tokens[16 + negated]
+        to_ = tokens[18 + negated]
+        cond = tokens[20 + negated] if len(tokens) >= 21 + negated else None
+        return (Log.Compliance, negated == 1, from_, to_, cond)
+
+    if "DefaultAnomalyLogger" in tokens:
+        np_rid = int(tokens[14].rstrip(')'))
+        return (Log.Anomalies, np_rid)
+
+    return None
 
 
 def _parse_cond(cond: str, mapping: Mapping) -> List[Tuple[str, str]]:
@@ -142,19 +164,8 @@ class Reporter(threading.Thread):
             tokens = raw_line.rstrip().split()
 
             # check if reportable
-            if "DefaultComplianceLogger" in tokens:
-                negated = 1 if tokens[16] == '!' else 0
-                from_ = tokens[16 + negated]
-                to_ = tokens[18 + negated]
-                cond = tokens[20 + negated] if len(tokens) >= 21 + negated else None
-
-                line: Tuple[Any, ...] = (Log.Compliance, negated == 1, from_, to_, cond)
-
-            elif "DefaultAnomalyLogger" in tokens:
-                np_rid = int(tokens[14].rstrip(')'))
-
-                line = (Log.Anomalies, np_rid)
-            else:
+            line = _parse_log_line(tokens)
+            if line is None:
                 continue
 
             # add to event buffer
