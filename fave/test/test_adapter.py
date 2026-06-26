@@ -215,6 +215,23 @@ class TestAdapterAddRules(_AdapterTestBase):
         expected_key = _calc_rule_index(0, t_idx=self.adapter.tables['sw.1'])
         self.assertEqual(self.adapter.rule_ids[expected_key], [101])
 
+    def test_packet_filter_routing_rules_emit_pre_and_post_rules(self):
+        """ A firewall's pre_routing/post_routing tables are translated via the
+        dedicated _add_pre/post_routing_rules path (jsonrpc.add_rule), not the
+        batch path. """
+        self.jsonrpc.add_rules_batch.return_value = []
+        self.jsonrpc.add_rule.return_value = 1
+        model = PacketFilterModel('fw', ports=['1', '2'])
+        model.set_address('2001:db8::1')   # populates pre_routing
+
+        self.adapter.add_tables(model)
+        self.adapter.add_wiring(model)
+        self.adapter.add_rules(model)
+
+        # pre_routing + post_routing rules are emitted individually and recorded.
+        self.assertTrue(self.jsonrpc.add_rule.called)
+        self.assertTrue(self.adapter.rule_ids)
+
 
 class TestAdapterEndpoints(_AdapterTestBase):
     """ Tests generator/probe source-node translation. """
