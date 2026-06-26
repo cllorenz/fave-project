@@ -129,11 +129,16 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self.generators: Dict[str, Any] = {}
         self.probes: Dict[str, Any] = {}
         self.logger = logger
+        # Transport seam: all backend calls go through self._rpc so a subclass
+        # can swap the JSON-RPC-over-socket transport for another (e.g. the
+        # in-process libnetplumber binding). For this class it IS the jsonrpc
+        # module, so behaviour is unchanged.
+        self._rpc: Any = jsonrpc
 
     def stop(self) -> None:
         """ Stops NetPlumber.
         """
-        jsonrpc.stop(self.socks)
+        self._rpc.stop(self.socks)
 
     def dump_flows(self, odir: str) -> None:
         """ Dumps flows.
@@ -141,7 +146,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         Arguments:
         odir -- the target directory
         """
-        jsonrpc.dump_flows(self.socks, odir)
+        self._rpc.dump_flows(self.socks, odir)
 
     def dump_plumbing_network(self, odir: str) -> None:
         """ Dumps plumbing network.
@@ -149,7 +154,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         Arguments:
         odir -- the target directory
         """
-        jsonrpc.dump_plumbing_network(self.socks, odir)
+        self._rpc.dump_plumbing_network(self.socks, odir)
 
     def dump_pipes(self, odir: str) -> None:
         """ Dumps pipes.
@@ -157,7 +162,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         Arguments:
         odir -- the target directory
         """
-        jsonrpc.dump_pipes(self.socks, odir)
+        self._rpc.dump_pipes(self.socks, odir)
 
     def dump_flow_trees(self, odir: str, keep_simple: bool = False) -> None:
         """ Dumps flow trees.
@@ -165,12 +170,12 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         Arguments:
         odir -- the target directory
         """
-        jsonrpc.dump_flow_trees(self.socks, odir, keep_simple)
+        self._rpc.dump_flow_trees(self.socks, odir, keep_simple)
 
     def check_anomalies(self, use_shadow: bool = False, use_reach: bool = False, use_general: bool = False) -> None:
         """ Orders NetPlumber to check all tables for anomalies.
         """
-        jsonrpc.check_anomalies(
+        self._rpc.check_anomalies(
             self.socks,
             use_shadow=use_shadow,
             use_reach=use_reach,
@@ -194,7 +199,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
     def check_compliance(self, rules: Any) -> None:
         """ Orders NetPlumber to check all tables for anomalies.
         """
-        jsonrpc.check_compliance(
+        self._rpc.check_compliance(
             self.socks,
             self._create_compliance_rules(rules)
         )
@@ -203,7 +208,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self.logger.debug(
             "worker: expand vector length to %s", self.mapping.length
         )
-        jsonrpc.expand(self.socks, self.mapping.length)
+        self._rpc.expand(self.socks, self.mapping.length)
 
     def _get_index_for_src(self, src: str) -> Any:
         return self.generators.get(src.rstrip('1').rstrip('.'), [-1, 0, 0])[0]
@@ -218,7 +223,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         use_dynamic -- use a dynamic instead of a round robin distribution (default: False)
         """
 
-        jsonrpc.add_links_bulk(
+        self._rpc.add_links_bulk(
             self.socks,
             [(
                 self._get_index_for_src(src),
@@ -235,7 +240,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         sport -- the source port
         dport -- the destination port
         """
-        jsonrpc.add_link(self.socks, self.global_port(sport), self.global_port(dport))
+        self._rpc.add_link(self.socks, self.global_port(sport), self.global_port(dport))
 
 
     def remove_link(self, sport: Any, dport: Any) -> None:
@@ -245,7 +250,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         sport -- the source port
         dport -- the destination port
         """
-        jsonrpc.remove_link(self.socks, sport, dport)
+        self._rpc.remove_link(self.socks, sport, dport)
         self.links[sport].remove(dport)
         if not self.links[sport]: del self.links[sport]
 
@@ -329,7 +334,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 ns_diff if ns_diff else None
             )
 
-        jsonrpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
+        self._rpc.add_slice(self.socks, sid, ns_list, ns_diff if ns_diff else None)
 
 
     def del_slice(self, sid: Any) -> None:
@@ -343,7 +348,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.logger.debug(
                 "worker: remove slice %s from netplumber", sid
             )
-        jsonrpc.remove_slice(self.socks, sid)
+        self._rpc.remove_slice(self.socks, sid)
 
 
     def add_tables(self, model: Any) -> None:
@@ -382,7 +387,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                         "worker: add table to netplumber: %s with index %s and ports %s",
                         name, idx, [hex(p) for p in ports]
                     )
-                jsonrpc.add_table(self.socks, idx, ports)
+                self._rpc.add_table(self.socks, idx, ports)
 
 
     def add_wiring(self, model: Any) -> None:
@@ -421,7 +426,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     "worker: add link to netplumber from %s:%s to %s:%s",
                     port1, hex(gport1), port2, hex(gport2)
                 )
-            jsonrpc.add_link(self.socks, gport1, gport2)
+            self._rpc.add_link(self.socks, gport1, gport2)
 
             self.links.setdefault(gport1, [])
             self.links[gport1].append(gport2)
@@ -485,7 +490,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     rewrite.vector if rewrite else "*",
                     [hex(p) for p in out_ports]
                 )
-            r_id = jsonrpc.add_rule(
+            r_id = self._rpc.add_rule(
                 self.socks,
                 self.tables[table],
                 _calc_rule_index(rid),
@@ -555,7 +560,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     rvec.vector if rvec else "*",
                     [hex(p) for p in out_ports]
                 )
-            r_id = jsonrpc.add_rule(
+            r_id = self._rpc.add_rule(
                 self.socks,
                 tid,
                 _calc_rule_index(rid),
@@ -663,7 +668,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                         [hex(p) for p in out_ports],
                         rewrite if rewrite else "*"
                     )
-                r_id = jsonrpc.add_rule(
+                r_id = self._rpc.add_rule(
                     self.socks,
                     tid,
                     fave_rid,
@@ -751,7 +756,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
         rids = []
         if batch != []:
-            rids = jsonrpc.add_rules_batch(self.socks, batch)
+            rids = self._rpc.add_rules_batch(self.socks, batch)
 
         for r_id, rule in zip(rids, batch):
             np_rid, _tid, _fave_rid, _in, _out, _match, _mask, _rewrite = rule
@@ -775,7 +780,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                         self.logger.debug(
                             "worker: remove rule %s from netplumber", r_id
                         )
-                    jsonrpc.remove_rule(self.socks, r_id)
+                    self._rpc.remove_rule(self.socks, r_id)
                 del self.rule_ids[_calc_rule_index(rid, t_idx=tid)]
 
 
@@ -801,7 +806,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     _calc_port(idx1, model, port1),
                     _calc_port(idx2, model, port2)
                 )
-            jsonrpc.remove_link(
+            self._rpc.remove_link(
                 self.socks,
                 _calc_port(idx1, model, port1),
                 _calc_port(idx2, model, port2)
@@ -824,7 +829,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                         table,
                         self.tables[table]
                     )
-                jsonrpc.remove_table(self.socks, self.tables[table])
+                self._rpc.remove_table(self.socks, self.tables[table])
                 del self.tables[table]
 
 
@@ -864,7 +869,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 [v.vector for v in outgoing.hs_list],
                 [v.vector for v in outgoing.hs_diff]
             )
-        sid = jsonrpc.add_source(
+        sid = self._rpc.add_source(
             self.socks,
             idx,
             [v.vector for v in outgoing.hs_list],
@@ -904,7 +909,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     [v.vector for v in outgoing.hs_diff]
                 )
 
-        sids = jsonrpc.add_sources_bulk(
+        sids = self._rpc.add_sources_bulk(
             self.socks,
             [
                 (
@@ -939,7 +944,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 self.logger.debug(
                     "worker: remove link from %s to %s from netplumber", port1, port2
                 )
-            jsonrpc.remove_link(self.socks, port1, port2)
+            self._rpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
 
@@ -951,7 +956,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.logger.debug(
                 "worker: remove source %s with id %s from netplumber", node, sid
             )
-        jsonrpc.remove_source(self.socks, sid)
+        self._rpc.remove_source(self.socks, sid)
 
         del self.tables[node]
 
@@ -1064,7 +1069,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.logger.debug(
                 "worker: add probe %s and port %s", name, portno
             )
-        pid = jsonrpc.add_source_probe(
+        pid = self._rpc.add_source_probe(
             self.socks,
             [portno],
             model.quantor,
@@ -1101,7 +1106,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 self.logger.debug(
                     "worker: remove link from %s to %s from netplumber", port1, port2
                 )
-            jsonrpc.remove_link(self.socks, port1, port2)
+            self._rpc.remove_link(self.socks, port1, port2)
 
             self.links[port1].remove(port2)
             if not self.links[port1]: del self.links[port1]
@@ -1111,7 +1116,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.logger.debug(
                 "worker: remove probe %s from netplumber", sid
             )
-        jsonrpc.remove_source_probe(self.socks, sid)
+        self._rpc.remove_source_probe(self.socks, sid)
 
         del self.tables[node]
 
