@@ -165,14 +165,14 @@ The `apkeep/` directory vendors (via git-subtree, from our fork) the APKeep veri
 
 ## Selected References
 
-[1] P. Kazemian, M. Chan, H. Zeng, G. Varghese, N. McKeown, and S. Whyte, “Real Time Network Policy Checking Using Header Space Analysis,” in NSDI, 2013.
+[1] P. Kazemian, M. Chan, H. Zeng, G. Varghese, N. McKeown, and S. Whyte, “Real Time Network Policy Checking Using Header Space Analysis,” in NSDI, 2013, [USENIX](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/kazemian).
 
-[2] C. Diekmann, J. Michaelis, M. P. L. Haslbeck, and G. Carle, “Verified IPtables Firewall Analysis,” in IFIP Networking, 2016.
+[2] C. Diekmann, J. Michaelis, M. P. L. Haslbeck, and G. Carle, “Verified IPtables Firewall Analysis,” in IFIP Networking, 2016, [DOI: 10.1109/IFIPNetworking.2016.7497196](https://doi.org/10.1109/IFIPNetworking.2016.7497196).
 
-[3] D. Dumitrescu, R. Stoenescu, M. Popovici, L. Negreanu, and C. Raiciu, “Dataplane equivalence and its applications,” in NSDI, 2019.
+[3] D. Dumitrescu, R. Stoenescu, M. Popovici, L. Negreanu, and C. Raiciu, “Dataplane equivalence and its applications,” in NSDI, 2019, [USENIX](https://www.usenix.org/conference/nsdi19/presentation/dumitrescu).
 
-[4] Y. Yin, Y. Tateiwa, Y. Wang, G. Zhang, Y. Katayama, N. Takahashi, and C. Zhang, “An Analysis Method for IPv6 Firewall Policy,” in HPCC, 2019.
+[4] Y. Yin, Y. Tateiwa, Y. Wang, G. Zhang, Y. Katayama, N. Takahashi, and C. Zhang, “An Analysis Method for IPv6 Firewall Policy,” in HPCC, 2019, [DOI: 10.1109/HPCC/SmartCity/DSS.2019.00241](https://doi.org/10.1109/HPCC/SmartCity/DSS.2019.00241).
 
-[5] N. Basumatary and S. Hazarika, “Model Checking a Firewall for Anomalies,” in ICETACS, 2013.
+[5] N. Basumatary and S. Hazarika, “Model Checking a Firewall for Anomalies,” in ICETACS, 2013, [DOI: 10.1109/ICETACS.2013.6691402](https://doi.org/10.1109/ICETACS.2013.6691402).
 
-[6] P. Zhang, X. Liu, H. Yang, N. Kang, Z. Gu, and H. Li, “APKeep: Realtime Verification for Real Networks,” in NSDI, 2020.
+[6] P. Zhang, X. Liu, H. Yang, N. Kang, Z. Gu, and H. Li, “APKeep: Realtime Verification for Real Networks,” in NSDI, 2020, [USENIX](https://www.usenix.org/conference/nsdi20/presentation/zhang-peng).
