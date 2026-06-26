@@ -27,7 +27,8 @@ runs:
           build-essential flex bison \
           liblog4cxx15 liblog4cxx-dev \
           libcppunit-1.15-0 libcppunit-dev \
-          openjdk-11-jdk-headless maven
+          openjdk-11-jdk-headless maven \
+          pybind11-dev
 
     # Report (pandoc -> PDF via pdflatex) and policy visualization (inkscape).
     # Minimal LaTeX: the generated report is plain markdown (headings, lists,
@@ -52,5 +53,16 @@ runs:
     - name: Build and install NetPlumber
       shell: bash
       run: |
-        make -j -C net_plumber/build all
+        # Build with -fPIC so the same objects link both the net_plumber
+        # executable AND the libnetplumber shared module (the binding links the
+        # core .o files; a non-PIC build cannot go into a .so). PIC executables
+        # behave identically, so the C++ tests are unaffected.
+        make -j -C net_plumber/build DEBUG_FLAGS=-fPIC all
         sudo make -C net_plumber/build install
+
+    # libnetplumber: in-process binding used by the e2e equivalence test
+    # (test_lib_equivalence). LIBNP_ASSUME_PIC=1 skips its own -fPIC rebuild
+    # since the step above already produced PIC objects.
+    - name: Build libnetplumber binding
+      shell: bash
+      run: LIBNP_ASSUME_PIC=1 bash net_plumber/python/build_libnetplumber.sh

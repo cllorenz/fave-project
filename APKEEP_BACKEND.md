@@ -292,6 +292,27 @@ Upstream's build was **not reproducible** and required fork-local fixes (all in
 
 JDK 11 + Maven are added to the CI composite action and the `Dockerfile`.
 
+### libnetplumber build integration (P1)
+
+The binding (`net_plumber/python/libnetplumber.cpp`) needs `pybind11` + Python
+headers (`pybind11-dev`, plus `python3-dev` for the system interpreter); these
+are added to the CI composite, the `Dockerfile`, and `net_plumber/setup-ubuntu.sh`.
+
+Because the binding links NetPlumber's core objects into a shared module, those
+objects must be **position-independent**. NetPlumber is therefore built with
+`make DEBUG_FLAGS=-fPIC all` (the same `DEBUG_FLAGS` hook the sanitizer build
+uses; PIC executables behave identically, so the C++ tests are unaffected), and
+`net_plumber/python/build_libnetplumber.sh` is then run with
+`LIBNP_ASSUME_PIC=1` to link against those objects without a second rebuild.
+The CI composite (`setup-fave-native`) and the `Dockerfile` do both steps, so
+every integration/e2e/bench job and the image have the `.so`.
+
+The built module is imported off `sys.path` — `netplumber/lib_adapter.py` adds
+`net_plumber/python/` to `sys.path` and `import`s `libnetplumber`, failing only
+when a `NetPlumberLibAdapter` is actually constructed (so importing the module,
+e.g. during test collection, is safe when the `.so` is absent). The equivalence
+test (`fave/test/test_lib_equivalence.py`, e2e tier) `skipIf`s when it is unbuilt.
+
 ## 12. References
 
 1. P. Zhang et al., "APKeep: Realtime Verification for Real Networks," NSDI 2020.

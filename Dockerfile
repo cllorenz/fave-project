@@ -34,6 +34,8 @@ RUN apt-get $APT_CONFS install bison
 # APKeep backend (apkeep/): JDK 11 + Maven to build/run it in the integration tier.
 RUN apt-get $APT_CONFS install openjdk-11-jdk-headless
 RUN apt-get $APT_CONFS install maven
+# libnetplumber binding (net_plumber/python): pybind11 headers (python3-dev above).
+RUN apt-get $APT_CONFS install pybind11-dev
 RUN apt-get $APT_CONFS install liblog4cxx15
 RUN apt-get $APT_CONFS install liblog4cxx-dev
 RUN apt-get $APT_CONFS install libcppunit-1.15-0
@@ -52,10 +54,14 @@ RUN pip3 install pybison
 
 COPY . $DIRPATH/
 
+# Build with -fPIC so the same objects link both the net_plumber executable and
+# the libnetplumber shared module; then build the binding (LIBNP_ASSUME_PIC=1
+# reuses these PIC objects instead of rebuilding).
 RUN cd net_plumber/build && \
-    make all && \
+    make DEBUG_FLAGS=-fPIC all && \
     make install && \
-    cd ../..
+    cd ../.. && \
+    LIBNP_ASSUME_PIC=1 bash net_plumber/python/build_libnetplumber.sh
 
 ENV PYTHONPATH=$DIRPATH/fave
 RUN python3 fave/test/unit_tests.py
