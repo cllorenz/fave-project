@@ -79,6 +79,13 @@ class SlicingCommand(object):
     ) -> None:
         assert command in ['add_slice', 'del_slice']
 
+        # The aggregator dispatches control-plane objects on `.type` (see
+        # AggregatorService._handler / _sync_diff). Every sibling command
+        # (switch_command, state_command, relay_command, topology_command)
+        # sets it; SlicingCommand must too, or routing a slice through the
+        # aggregator raises AttributeError before reaching add_slice/del_slice.
+        self.type = "slicing_command"
+
         self.command = command
 
         self.mapping = mapping if mapping else Mapping(0)

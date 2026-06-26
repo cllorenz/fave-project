@@ -76,21 +76,28 @@ class AggregatorService(AbstractAggregator):
 
     def __init__(
             self, socks: Dict[Any, Any], asyncore_socks: Dict[Any, Any],
-            mapping: Optional[Any] = None
+            mapping: Optional[Any] = None,
+            engine: Optional[Any] = None, reporter: Optional[Any] = None
     ) -> None:
         self.queue: Queue[Any] = Queue()
         self.models: Dict[str, Any] = {}
         self.port_to_model: Dict[str, Any] = {}
         self.links: Dict[Any, List[Any]] = {}
         self.stop = False
-        self.verification_engine = NetPlumberAdapter(
+        # `engine`/`reporter` are injection seams (default None -> the production
+        # objects). Tests pass a recording engine and a stub reporter to drive
+        # the dispatch/diff logic without a live backend or the log-tailing
+        # daemon (which opens /dev/shm/np/stdout.log).
+        self.verification_engine = engine if engine is not None else NetPlumberAdapter(
             list(socks.values()),
             AggregatorService.LOGGER,
             asyncore_socks=asyncore_socks,
             mapping=mapping
         )
         # XXX: make log file configurable
-        self.reporter = Reporter(self, '/dev/shm/np/stdout.log')
+        self.reporter = reporter if reporter is not None else Reporter(
+            self, '/dev/shm/np/stdout.log'
+        )
         self.reporter.daemon = True
         self.model_types: Dict[str, Any] = {
             "packet_filter" : PacketFilterModel,
