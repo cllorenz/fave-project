@@ -80,8 +80,10 @@ class TestAPKeepAdapter(unittest.TestCase):
         cls.adapter.add_probe(SimpleNamespace(node='probe.C'))
 
     def test_translation(self):
-        self.assertIn("+ fwd r 167772160 8 2 1", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 2
-        self.assertIn("+ fwd sw 167772160 8 3 2", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 3
+        # "+ fwd <dev> <prefix> <len> <port> <priority>"; priority == prefix len
+        # so longest-prefix-match wins regardless of rule arrival order.
+        self.assertIn("+ fwd r 167772160 8 2 8", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 2
+        self.assertIn("+ fwd sw 167772160 8 3 8", self.adapter._fwd_rules)  # 10.0.0.0/8 -> port 3
         self.assertIn("source.A 1 r 1", self.adapter._edges)
         self.assertIn("sw 3 probe.B 1", self.adapter._edges)
 

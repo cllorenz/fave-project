@@ -61,7 +61,16 @@ def _cidr_to_apkeep(cidr: str) -> Tuple[int, int]:
 
 def _split_port(fave_port: str) -> Tuple[str, str]:
     """ Map a FaVe port "device.port" to APKeep (device, port). The device may
-    itself contain dots (e.g. "source.external.ifi.1"), so split on the last. """
+    itself contain dots (e.g. "source.external.ifi.1"), so split on the last.
+
+    The aggregator hands routers' link endpoints through RouterModel.ingress_/
+    egress_port, which suffix the physical port with "_ingress"/"_egress"
+    (e.g. "ifi.2_ingress"); strip that so the APKeep port is the bare number.
+    Switch/generator/probe ports are passed through unchanged. """
+    for suffix in ("_ingress", "_egress"):
+        if fave_port.endswith(suffix):
+            fave_port = fave_port[:-len(suffix)]
+            break
     device, _, port = fave_port.rpartition('.')
     return device, port
 
@@ -78,10 +87,19 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._edges: List[str] = []          # topology "dev port dev port"
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
-        self._links: Dict[Any, List[Any]] = {}
-        self._prio = 0
         self._built = False
         self._results: List[Tuple[int, int, bool, str]] = []
+        # Surface the aggregator's dispatch (aggregator_service._sync_diff)
+        # touches on the engine when wiring links: a `links` adjacency dict it
+        # mutates directly, an `asyncore_socks` map it checks for dynamic
+        # distribution (empty -> static, like a single-process NetPlumber), and
+        # `global_port` to key that adjacency. APKeep addresses ports by name,
+        # so global_port is identity.
+        self.links: Dict[Any, List[Any]] = {}
+        self.asyncore_socks: Dict[Any, Any] = {}
+
+    def global_port(self, port: Any) -> Any:
+        return port
 
     # --- translation helpers -------------------------------------------------
 
@@ -103,17 +121,25 @@ class APKeepAdapter(AbstractVerificationEngine):
         return []
 
     def _translate_fwd_rule(self, device: str, rule: Any) -> None:
+        out_ports = self._out_ports(rule)
+        if not out_ports:
+            return  # nothing to forward (e.g. an ACL drop or pure-match rule)
         dst = None
-        for field in rule.match:
+        for field in (rule.match or []):
             if field.name == _DST:
                 dst = field.value
-        if dst is None:
-            return  # not a dst-IP forwarding rule (e.g. pre/post-routing plumbing)
-        prefix, plen = _cidr_to_apkeep(str(dst))
-        for port in self._out_ports(rule):
-            self._prio += 1
+        # A forwarding rule with no dst match is the default route (FIB idx
+        # 65535 / match=null): a 0.0.0.0/0 catch-all. APKeep's prefix trie does
+        # the longest-prefix match, so /0 naturally loses to any specific route.
+        prefix, plen = (0, 0) if dst is None else _cidr_to_apkeep(str(dst))
+        # APKeep's ForwardElement is higher-priority-wins, so the priority must
+        # encode longest-prefix-match: a longer prefix must outrank a shorter
+        # one regardless of rule arrival order. Use the prefix length directly
+        # -- otherwise a later-added default route (/0) can shadow a specific
+        # route and the device forwards everything to its default port.
+        for port in out_ports:
             self._fwd_rules.append(
-                "+ fwd %s %d %d %s %d" % (device, prefix, plen, port, self._prio)
+                "+ fwd %s %d %d %s %d" % (device, prefix, plen, port, plen)
             )
 
     # --- AbstractVerificationEngine: model construction (buffered) -----------
@@ -123,9 +149,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._fwd_devices.add(model.node)
 
     def add_rules(self, model: Any) -> None:
+        # Only the router's routing table and the switch's flat table hold real
+        # dst-IP forwarding. The router's pre_routing/post_routing carry VLAN/
+        # egress plumbing, and acl_in/acl_out carry ACL rules that "forward" to
+        # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
+        # would emit bogus APKeep ports. So restrict to the forwarding tables.
+        fwd_tables = (model.node + '.routing', model.node + '.1')
         for table, rules in model.tables.items():
-            # skip the router's VLAN-assignment / egress-filter plumbing tables
-            if table in (model.node + '.pre_routing', model.node + '.post_routing'):
+            if table not in fwd_tables:
                 continue
             for rule in rules:
                 self._translate_fwd_rule(model.node, rule)
@@ -140,7 +171,6 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_link(self, sport: str, dport: str) -> None:
         self._edges.append("%s %s %s %s" % (_split_port(sport) + _split_port(dport)))
-        self._links.setdefault(sport, []).append(dport)
 
     def add_links_bulk(self, links: Any, use_dynamic: bool = False) -> None:
         for sport, dport in links:
@@ -214,9 +244,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         pass
 
     def remove_link(self, sport: Any, dport: Any) -> None:
-        # buffered-build model: removal before build just edits the buffer
-        if sport in self._links and dport in self._links[sport]:
-            self._links[sport].remove(dport)
+        # buffered-build model: removal before build just edits the adjacency
+        if sport in self.links and dport in self.links[sport]:
+            self.links[sport].remove(dport)
 
     def delete_generator(self, node: str) -> None:
         self._generators.pop(node, None)
