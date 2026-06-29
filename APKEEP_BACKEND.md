@@ -240,6 +240,12 @@ we build the correctness gate ourselves, leveraging the dual-backend setup
 differential NetPlumber-vs-APKeep run → **`e2e`/`bench`** (needs both backends
 live).
 
+**Hardening the APKeep core itself (before extending it).** The above is the
+*integration* gate. Extending the APKeep engine (P6–P9, §9) requires unit-level
+coverage of its Java core, which currently has none — that strategy (harness,
+coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
+[`TESTING_STRATEGY_JAVA.md`](TESTING_STRATEGY_JAVA.md).
+
 ## 9. Roadmap (mirrors `TODO.md` item 10)
 
 - **P0 — Vendoring & build.** Fork + subtree APKeep into `apkeep/`; `mvn package`
@@ -267,16 +273,71 @@ live).
     The crossover is decisive at scale: header-space flow propagation is the
     bottleneck (NetPlumber's 341 s is almost entirely model build), atomic
     predicates are not. This is the result the comparison was built to show.
-  - **wl_stanford:** not modellable by the dst-IP adapter -- its HSA out-tables
-    forward by *input port* and it has transport-layer (tcp/proto/flags) ACLs,
-    neither expressible in APKeep's destination-IP `ForwardElement`. Left as
-    future work (in-port-aware forwarding + 5-tuple ACLs); i2 covers scale.
+  - **wl_stanford:** not modellable by the *current* dst-IP adapter -- its HSA
+    out-tables forward by *input port* and it has transport-layer (tcp/proto/flags)
+    ACLs, neither expressible in our destination-IP `ForwardElement` usage. i2
+    covers scale; stanford is taken up as an extension (P7 below).
+
+### Capability reassessment (APKeep paper, NSDI '20) — what is *conceptually* in scope
+
+Reading the paper (Zhang et al., NSDI '20; copy in repo root) overturns the
+earlier "out of scope" framing for state and extra header fields. The APKeep
+*technique* is far more general than our as-shipped usage:
+
+- **Arbitrary header is `h` bits of BDD variables** (§3.2): the model is
+  header-agnostic. §4 states explicitly that one can *"encode these match
+  conditions by adding more fields … the fields to add do not have to be packet
+  headers"* — i.e. a **virtual, propagatable field is sanctioned**, which is
+  exactly what FaVe's **state-shell interweaving** needs. So statelessness is not
+  a blocker: interweaving compiles state into stateless rules over an extra
+  field, the same way NetPlumber (also stateless) consumes it.
+- **Packet rewrites are first-class** (§3.4, Alg. 3): rewriting elements encode
+  header modification via existential quantification; NAT updates measured < 1 ms
+  (§5.5). The state-shell's field transitions are therefore expressible.
+- **Multi-field / policy-based-routing forwarding is element composition** (§4):
+  in-port- or VLAN-conditioned forwarding is modelled by cascading match
+  elements, not by a new primitive.
+- **The one real cost is empirical, and the authors flag it** (§7): "a tradeoff
+  between model granularity and the number of ECs." APKeep maintains the
+  *minimum* EC set (Thm 1; Stanford 15M→515 ECs), so a richer/propagated header
+  grows ECs only by the intrinsic number of distinct state×behaviour classes —
+  the same lower bound any verifier faces. Whether APKeep keeps its scale edge
+  under FaVe's full interwoven header is the measurable open question.
+
+So the remaining workloads are **bounded engineering on an extensible model**,
+not conceptual walls. Each extension is gated test-first by the APKeep core
+hardening pass — see [`TESTING_STRATEGY_JAVA.md`](TESTING_STRATEGY_JAVA.md).
+
+- **P6 — APKeep core test hardening (PREREQUISITE).** The core has zero Java unit
+  tests. Add a JUnit5 + jacoco harness (`mvn test` in `apkeep_smoke.sh`, coverage
+  ratchet) and characterization/unit tests for the reachability-critical path
+  (`BDDACLWrapper`, `ForwardElement`, `ACLElement` incl. the untested 5-tuple,
+  `APKeeper`, `Network`, `ReachabilityChecker`). Pins the reverse-engineered
+  semantics (priority=higher-wins, permit/deny, the src-IP seed). Gates P7–P9.
+- **P7 — wl_stanford (IPv4, stateless; best value/effort).** (a) 5-tuple ACL
+  emission in the adapter (proto/ports; `tcp_flags` has no APKeep field →
+  approximate); (b) in-port/multi-field forwarding via element composition
+  (PBR-style, paper §4); (c) exact-match integration gate vs `reachable.json`.
+- **P8 — state-shell rewrites.** Test `NATElement`/`RewriteRule` first; wire the
+  state field's rewrites through the adapter + `ReachabilityChecker`; validate by
+  reproducing wl_ifi's `related:` cchecks (currently skipped) exactly. Enables the
+  stateful part of wl_tum.
+- **P9 — header-field extension (VLAN-as-decision, then IPv6).** Add BDD fields
+  (layout locked by P6); IPv6 is the real lift (implement the scaffolded
+  `ForwardingRule6` + an IPv6 ACL path). Enables wl_up (IPv6 + state-shell).
+- **Per-workload:** wl_stanford = P6+P7; wl_tum = P6+P7+P8 (1 device, low scale
+  value); wl_up = P6+P8+P9 (highest effort). **Recommendation:** P6 then P7;
+  treat P8/P9 (wl_tum/wl_up) as optional — i2 already carries the scale result.
 
 ## 10. Open questions / decisions log
 
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
-- **IPv6:** postponed; out of scope for APKeep as-built (§4.1).
+- **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
+  `h` BDD bits and explicitly extensible (§9 reassessment). It's an
+  implementation lift (P9): add the IPv6 fields + wire the scaffolded
+  `ForwardingRule6` / IPv6 ACL path. Out of scope *as currently coded*, not as a
+  technique.
 - **Non-reachability (`AG`) invariants:** not in the target benchmarks; trivial
   complement if needed later (§5).
 - **GraalVM native-image for APKeep:** optional future polish, not the baseline
