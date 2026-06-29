@@ -56,6 +56,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable
     test/test_apkeep_wl_ifi.py   # APKeepAdapter driven by the real wl_ifi models (P4); skips if unavailable
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
+    test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -143,6 +144,11 @@ run_integration() {
     # runs no live benchmark. Regenerated from tracked inputs (no backend).
     echo "== integration: generate wl_ifi inputs (for test_apkeep_wl_ifi) =="
     bash "$ROOT/fave/test/gen_wl_ifi_inputs.sh" || rc=1
+
+    # Generate the wl_i2 inputs (HSA transfer functions -> FaVe model + oracle)
+    # for the APKeep scale test; from tracked inputs, no live backend.
+    echo "== integration: generate wl_i2 inputs (for test_apkeep_i2) =="
+    bash "$ROOT/fave/test/gen_wl_i2_inputs.sh" || rc=1
 
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
