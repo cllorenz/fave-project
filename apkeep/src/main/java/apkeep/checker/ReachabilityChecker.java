@@ -52,6 +52,28 @@ public class ReachabilityChecker {
         return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
     }
 
+    /**
+     * Reachability for traffic injected with a specific source-IP prefix.
+     *
+     * When ACL elements are present they typically filter on the source IP, so
+     * seeding the ACL packet space with the full space ({@code BDDTrue}) would
+     * over-approximate: a flow would count as reachable whenever *any* source is
+     * permitted to the destination. Seeding the ACL AP set with exactly the
+     * atomic predicates overlapping {@code src/srcPrefixLen} restricts the query
+     * to the injected source. Forwarding is source-independent, so the
+     * forwarding AP set still starts at the full space and is narrowed by the
+     * per-hop destination forwarding. A {@code srcPrefixLen <= 0} means the full
+     * space (no source constraint).
+     */
+    public boolean isReachable(PositionTuple source, PositionTuple target,
+                               long src, int srcPrefixLen) {
+        Set<Integer> fwd_aps = new HashSet<>();
+        fwd_aps.add(BDDACLWrapper.BDDTrue);
+        Set<Integer> acl_aps = net.getACLSeedAPs(src, srcPrefixLen);
+        if (acl_aps.isEmpty()) return false;
+        return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
+    }
+
     private boolean traverse(PositionTuple cur_hop, Set<Integer> fwd_aps, Set<Integer> acl_aps,
                              PositionTuple target, List<PositionTuple> history, boolean moved) {
         if (fwd_aps.isEmpty() || acl_aps.isEmpty()) return false;

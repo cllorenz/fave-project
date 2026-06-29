@@ -143,7 +143,23 @@ public class Network {
 	public HashSet<PositionTuple> getConnectedPorts(PositionTuple pt){
 		return topology.get(pt);
 	}
-	
+
+	/**
+	 * The ACL-partition atomic predicates overlapping a source-IP prefix -- the
+	 * seed a reachability query uses to restrict the ACL packet space to the
+	 * injected source (see ReachabilityChecker). With no ACL division active, or
+	 * no source constraint (prefixlen &lt;= 0), this is the full space {BDDTrue}.
+	 */
+	public Set<Integer> getACLSeedAPs(long srcip, int srcprefixlen) {
+		if (!division_activated || acl_apk == null || srcprefixlen <= 0) {
+			HashSet<Integer> all = new HashSet<>();
+			all.add(BDDACLWrapper.BDDTrue);
+			return all;
+		}
+		int srcbdd = bdd_engine.encodeSrcIPPrefix(srcip, srcprefixlen);
+		return acl_apk.getAPExp(srcbdd);
+	}
+
 	/*
 	 * add ForwardElement from layer ONE topology
 	 */
