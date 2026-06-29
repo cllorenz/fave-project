@@ -252,11 +252,18 @@ live).
   add/query, no file parsing); JPype binding with a resident JVM.
 - **P3 — reachability solver.** Existential port-to-port reachability over the
   PPM (adapt `traversePPM`); shadow detection via `hit_bdd` (optional).
-- **P4 — `APKeepAdapter` + model translator.** Implement the Tier-A/B methods;
-  fast-tier translator tests; Tier-C stubs.
-- **P5 — Differential gate + benchmark.** Wire the NetPlumber-vs-APKeep
-  reachability differential; build the from-zero benchmark harness with the
-  warm-up handling of §6; record results.
+- **P4 — `APKeepAdapter` + model translator. DONE.** Forwarding + ACL
+  translation; FaVe+APKeep matches the policy oracle `reachable.json` exactly on
+  wl_ifi (`test_apkeep_wl_ifi`). ACLs wired as per-port ACLElements (VLAN made
+  structural) with source-IP-seeded reachability.
+- **P5 — Differential gate + benchmark. DONE.** `test_backend_differential`
+  (integration): APKeep and NetPlumber compute identical wl_ifi reachability and
+  both match `reachable.json`. `bench/apkeep_vs_netplumber.py`: from-zero
+  comparison (in-process, §6 warm-up handling). wl_ifi steady-state ~49 ms
+  (NetPlumber) vs ~140 ms (APKeep) -- at this small scale NetPlumber's low
+  constant overhead wins; APKeep's atomic-predicate advantage is expected at
+  larger scale (wl_stanford/wl_i2 -- follow-up, needs the adapter validated on
+  those models).
 
 ## 10. Open questions / decisions log
 
