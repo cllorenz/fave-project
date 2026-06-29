@@ -35,7 +35,8 @@ and report the steady-state (median of post-warm-up runs) AND the cold single
 shot, separately and labelled. The compliance workload is the full all-pairs
 source->probe reachability matrix (cond-free), identical for both backends.
 
-Usage:  PYTHONPATH=. python3 bench/apkeep_vs_netplumber.py [iterations] [warmup]
+Usage:  PYTHONPATH=. python3 bench/apkeep_vs_netplumber.py [workload] [iterations] [warmup]
+        workload in {wl_ifi, wl_i2, wl_stanford}  (default wl_ifi)
 Manual/nightly only (needs the APKeep jar + libnetplumber .so built).
 """
 
@@ -46,9 +47,21 @@ import sys
 
 from time import perf_counter
 
-_PREFIX = "bench/wl_ifi"
-_INPUTS = ["%s/%s" % (_PREFIX, f) for f in
-           ("topology.json", "routes.json", "sources.json", "policies.json")]
+# workload -> (prefix, replay-file overrides, default iterations). wl_i2 uses the
+# HSA in/out-switch model (device_topology.json + probes.json) and is much larger
+# (77k dst-IP routes), so fewer iterations -- it is the scale comparison.
+#
+# wl_stanford is intentionally absent: its HSA model forwards by INPUT PORT (the
+# out-tables fan a single header-class out to different egress ports keyed on the
+# ingress port) and carries transport-layer (tcp/proto/flags) ACLs -- neither is
+# expressible in APKeep's destination-IP ForwardElement, so the dst-IP adapter
+# does not faithfully model it (see APKEEP_BACKEND.md). i2's out-tables are a
+# clean dst-IP FIB, so it translates exactly.
+_WORKLOADS = {
+    "wl_ifi": ("bench/wl_ifi", None, 12),
+    "wl_i2": ("bench/wl_i2/i2-json",
+              {"topology": "device_topology.json", "policies": "probes.json"}, 1),
+}
 
 
 def _logger():
@@ -65,24 +78,24 @@ def _names(engine):
     return sorted(engine.generators), sorted(engine.probes)
 
 
-def _from_zero_run(make_engine):
-    """ One from-zero run: construct the engine, build the whole wl_ifi model,
-    and run the full reachability compliance -- timed end to end. """
+def _from_zero_run(make_engine, prefix, files):
+    """ One from-zero run: construct the engine, build the whole model, and run
+    the full reachability compliance -- timed end to end. """
     from util.in_process_driver import InProcessFaVe
     start = perf_counter()
     engine = make_engine()
     with InProcessFaVe(engine) as fave:
-        fave.replay(_PREFIX)
+        fave.replay(prefix, files=files)
         sources, probes = _names(engine)
         rules = {p: [[s, False, []] for s in sources] for p in probes}
         fave.check_compliance(rules)
     return perf_counter() - start
 
 
-def _benchmark(label, make_engine, iterations, warmup):
+def _benchmark(label, make_engine, prefix, files, iterations, warmup):
     times = []
     for i in range(iterations):
-        times.append(_from_zero_run(make_engine))
+        times.append(_from_zero_run(make_engine, prefix, files))
     cold = times[0]
     steady = times[warmup:] or times
     print("%-12s cold=%7.1f ms   steady(median)=%7.1f ms   min=%7.1f ms   "
@@ -95,12 +108,26 @@ def _benchmark(label, make_engine, iterations, warmup):
 
 
 def main(argv):
-    iterations = int(argv[0]) if len(argv) > 0 else 12
-    warmup = int(argv[1]) if len(argv) > 1 else 3
+    workload = argv[0] if len(argv) > 0 and argv[0] in _WORKLOADS else "wl_ifi"
+    rest = [a for a in argv if a not in _WORKLOADS]
+    prefix, files, default_iters = _WORKLOADS[workload]
+    iterations = int(rest[0]) if len(rest) > 0 else default_iters
+    warmup = int(rest[1]) if len(rest) > 1 else min(3, iterations - 1)
 
-    if not all(os.path.isfile(f) for f in _INPUTS):
-        print("wl_ifi inputs missing; generating ...")
-        subprocess.check_call(["bash", "test/gen_wl_ifi_inputs.sh"])
+    names = {"topology": "topology.json", "routes": "routes.json",
+             "policies": "policies.json", "sources": "sources.json"}
+    if files:
+        names.update(files)
+    inputs = ["%s/%s" % (prefix, v) for v in names.values()]
+    if not all(os.path.isfile(f) for f in inputs):
+        if workload == "wl_ifi":
+            print("wl_ifi inputs missing; generating ...")
+            subprocess.check_call(["bash", "test/gen_wl_ifi_inputs.sh"])
+        else:
+            print("%s inputs missing under %s; run `PYTHONPATH=. python3 "
+                  "bench/%s/benchmark.py` once to generate them."
+                  % (workload, prefix, workload))
+            return 1
 
     from apkeep.adapter import APKeepAdapter, available as apkeep_available
     from netplumber import lib_adapter
@@ -114,11 +141,11 @@ def main(argv):
     from netplumber.lib_adapter import NetPlumberLibAdapter
 
     log = _logger()
-    print("from-zero comparison on wl_ifi (model build + full reachability), "
-          "in-process, %d iterations:\n" % iterations)
+    print("from-zero comparison on %s (model build + full reachability), "
+          "in-process, %d iterations:\n" % (workload, iterations))
     # NetPlumber first (no warm-up); then APKeep (first run pays JVM boot+JIT).
-    _benchmark("NetPlumber", lambda: NetPlumberLibAdapter(log), iterations, warmup)
-    _benchmark("APKeep", lambda: APKeepAdapter(log), iterations, warmup)
+    _benchmark("NetPlumber", lambda: NetPlumberLibAdapter(log), prefix, files, iterations, warmup)
+    _benchmark("APKeep", lambda: APKeepAdapter(log), prefix, files, iterations, warmup)
     print("\nNote: APKeep 'cold' includes JVM boot + JIT (one-time per process); "
           "'steady' is the warm-JVM from-zero. NetPlumber has no warm-up.")
     return 0

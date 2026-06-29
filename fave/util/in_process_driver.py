@@ -111,15 +111,22 @@ class InProcessFaVe:
 
     # -- driving --------------------------------------------------------------
 
-    def replay(self, prefix: str) -> None:
+    def replay(self, prefix: str, files: Optional[Dict[str, str]] = None) -> None:
         """ Build and dispatch a benchmark's topology, routes, probes and
         sources (its real device models) from <prefix>/{topology,routes,
-        policies,sources}.json, then block until the engine has applied them. """
+        policies,sources}.json, then block until the engine has applied them.
+
+        `files` overrides the per-role base filenames (keys topology/routes/
+        policies/sources) for benchmarks that name them differently -- e.g.
+        wl_i2/wl_stanford use device_topology.json and probes.json. """
         from util.bench_utils import (
             create_topology, add_routes, add_policies, add_sources
         )
 
-        files = {k: "%s/%s" % (prefix, v) for k, v in _BENCH_FILES}
+        names = dict(_BENCH_FILES)
+        if files:
+            names.update(files)
+        files = {k: "%s/%s" % (prefix, v) for k, v in names.items()}
 
         with open(files["topology"]) as raw:
             topo = json.load(raw)
