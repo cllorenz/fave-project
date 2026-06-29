@@ -259,11 +259,18 @@ live).
 - **P5 — Differential gate + benchmark. DONE.** `test_backend_differential`
   (integration): APKeep and NetPlumber compute identical wl_ifi reachability and
   both match `reachable.json`. `bench/apkeep_vs_netplumber.py`: from-zero
-  comparison (in-process, §6 warm-up handling). wl_ifi steady-state ~49 ms
-  (NetPlumber) vs ~140 ms (APKeep) -- at this small scale NetPlumber's low
-  constant overhead wins; APKeep's atomic-predicate advantage is expected at
-  larger scale (wl_stanford/wl_i2 -- follow-up, needs the adapter validated on
-  those models).
+  comparison (in-process, §6 warm-up handling).
+  - **wl_ifi (18 devices):** steady-state ~49 ms (NetPlumber) vs ~140 ms
+    (APKeep) -- at small scale NetPlumber's low constant overhead wins.
+  - **wl_i2 (Internet2, 77k dst-IP routes): NetPlumber 341 s vs APKeep 14 s,
+    ~24x faster** -- APKeep verified exactly (reachability == reachable.json).
+    The crossover is decisive at scale: header-space flow propagation is the
+    bottleneck (NetPlumber's 341 s is almost entirely model build), atomic
+    predicates are not. This is the result the comparison was built to show.
+  - **wl_stanford:** not modellable by the dst-IP adapter -- its HSA out-tables
+    forward by *input port* and it has transport-layer (tcp/proto/flags) ACLs,
+    neither expressible in APKeep's destination-IP `ForwardElement`. Left as
+    future work (in-port-aware forwarding + 5-tuple ACLs); i2 covers scale.
 
 ## 10. Open questions / decisions log
 
