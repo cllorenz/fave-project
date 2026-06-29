@@ -137,6 +137,12 @@ run_integration() {
     echo "== integration: APKeep build + bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
 
+    # Generate the wl_ifi benchmark inputs (gitignored artifacts) the APKeep
+    # wl_ifi test consumes -- a clean checkout has none, and the integration tier
+    # runs no live benchmark. Regenerated from tracked inputs (no backend).
+    echo "== integration: generate wl_ifi inputs (for test_apkeep_wl_ifi) =="
+    bash "$ROOT/fave/test/gen_wl_ifi_inputs.sh" || rc=1
+
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
 

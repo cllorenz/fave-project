@@ -39,11 +39,24 @@ filtered; it is excluded from the comparison, exactly as reachable.json omits it
 
 import json
 import logging
+import os
 import unittest
 
 from apkeep.adapter import APKeepAdapter, available
 
 _PREFIX = "bench/wl_ifi"
+
+# The wl_ifi model JSON are gitignored generated artifacts; the integration tier
+# produces them via test/gen_wl_ifi_inputs.sh before this test runs. Skip cleanly
+# (rather than erroring) when invoked without that generation step.
+_INPUTS = [
+    "%s/%s" % (_PREFIX, f) for f in
+    ("topology.json", "routes.json", "sources.json", "policies.json", "reachable.json")
+]
+
+
+def _inputs_present():
+    return all(os.path.isfile(f) for f in _INPUTS)
 
 
 def _base(name):
@@ -53,6 +66,8 @@ def _base(name):
 
 
 @unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
+@unittest.skipUnless(_inputs_present(),
+                     "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
 class TestAPKeepWlIfi(unittest.TestCase):
     """ Real wl_ifi (forwarding + ACLs) -> APKeepAdapter -> reachability, which
     must match reachable.json exactly. """
