@@ -39,7 +39,7 @@ import json
 import threading
 
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 _BENCH_FILES = (
     ("topology", "topology.json"),
