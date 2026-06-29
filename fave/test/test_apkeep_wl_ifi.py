@@ -23,18 +23,18 @@
 
 Unlike test_apkeep_adapter (a hand-built two-device model), this drives the
 *real* wl_ifi device models -- the router `ifi`, its 16 switches, 17 generators
-and 17 probes -- through the *real* aggregator dispatch (InProcessFaVe wraps an
-in-process AggregatorService whose engine is the APKeepAdapter), then computes
-the full source->probe reachability matrix and checks it against the benchmark's
-ground-truth reachable.json.
+and 17 probes, including the router's acl_in/acl_out -- through the *real*
+aggregator dispatch (InProcessFaVe wraps an in-process AggregatorService whose
+engine is the APKeepAdapter), then computes the full source->probe reachability
+matrix and checks it against the benchmark's ground-truth reachable.json (which
+is produced by the NetPlumber-backed pipeline).
 
-The translation is forwarding-only: ACLs are not yet modelled. Dropping ACLs can
-only *add* forwarding paths, so the invariant we can assert exactly is
-COMPLETENESS -- every pair the full (ACL-enforcing) FaVe model finds reachable
-must also be reachable here. The remaining "extra" pairs are precisely (a) intra-
-switch self-reach (source.X -> probe.X), which the policy matrix never asks
-about, and (b) flows the router ACLs drop. Both are quantified below; closing
-the gap to an exact match is the ACL-translation step of P4.
+With ACL translation the match is EXACT: the router ACLs are wired as per-port
+APKeep ACLElements (the VLAN becomes structural -- which port's element), and a
+query is seeded with the source's src-IP so source-matching ACLs bite. The only
+reachability the policy matrix never asks about is intra-switch self-reach
+(source.X -> probe.X), which never traverses the router and so cannot be ACL-
+filtered; it is excluded from the comparison, exactly as reachable.json omits it.
 """
 
 import json
@@ -54,7 +54,8 @@ def _base(name):
 
 @unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
 class TestAPKeepWlIfi(unittest.TestCase):
-    """ Real wl_ifi -> APKeepAdapter -> reachability, vs reachable.json. """
+    """ Real wl_ifi (forwarding + ACLs) -> APKeepAdapter -> reachability, which
+    must match reachable.json exactly. """
 
     @classmethod
     def setUpClass(cls):
@@ -76,10 +77,12 @@ class TestAPKeepWlIfi(unittest.TestCase):
         not_reachable = {
             (s, p) for (s, p, _mr, _c) in cls.engine.get_compliance_results()
         }
-        # base-name reachability matrix: probe_base -> {source_base reachable}
+        # base-name reachability matrix, excluding intra-switch self-reach (the
+        # policy matrix never asks source.X -> probe.X; it never hits the router).
         cls.reach = {
             _base(p): set(
-                _base(s) for s in cls.sources if (s, p) not in not_reachable
+                _base(s) for s in cls.sources
+                if (s, p) not in not_reachable and _base(s) != _base(p)
             )
             for p in cls.probes
         }
@@ -87,48 +90,30 @@ class TestAPKeepWlIfi(unittest.TestCase):
             cls.expected = json.load(raw)
 
     def test_network_built(self):
-        # 1 router + 16 switches, all dst-IP ForwardElements.
+        # 1 router + 16 switches; 17 generators; 17 probes.
         self.assertEqual(len(self.engine._fwd_devices), 17)
         self.assertEqual(len(self.sources), 17)
         self.assertEqual(len(self.probes), 17)
-        # routes were actually translated (router + switch FIBs are non-empty).
-        self.assertTrue(any(r.split()[2] == 'ifi' for r in self.engine._fwd_rules))
         self.assertGreater(len(self.engine._fwd_rules), 17)
 
-    def test_forwarding_completeness(self):
-        """ Every pair reachable.json marks reachable must be reachable here;
-        dropping ACLs cannot remove a forwarding path. """
-        missing = {}
-        for probe, exp_sources in self.expected.items():
-            got = self.reach.get(probe, set())
-            absent = set(exp_sources) - got
-            if absent:
-                missing[probe] = sorted(absent)
-        self.assertEqual(missing, {}, "forwarding lost reachable pairs: %s" % missing)
+    def test_acls_translated(self):
+        # the router's ACLs were captured and translated.
+        self.assertEqual(self.engine._acl_device, 'ifi')
+        self.assertTrue(self.engine._acl_in)
+        self.assertTrue(self.engine._acl_out)
 
-    def test_extra_is_self_reach_and_acl_filtered(self):
-        """ The reachability APKeep finds beyond reachable.json is exactly intra-
-        switch self-reach plus ACL-dropped flows -- the network has no path that
-        is neither. """
-        self_reach = 0
-        acl_filtered = 0
-        for probe, got in self.reach.items():
-            exp = set(self.expected.get(probe, []))
-            for source in got - exp:
-                if source == probe:
-                    self_reach += 1
-                else:
-                    acl_filtered += 1
-        # 16 lateral switches each reach their own probe (the router's own
-        # subnet, "Internet", has no source.X==probe.X pairing).
-        self.assertEqual(self_reach, 16)
-        # The rest are flows the router ACLs drop; forwarding-only admits them.
-        self.assertGreater(acl_filtered, 0)
-        # Sanity: the roles reachable.json says are reachable by nobody are still
-        # forwardable here (pure routing reaches them; only ACLs isolate them).
-        isolated = [k for k, v in self.expected.items() if not v]
-        for role in isolated:
-            self.assertTrue(self.reach.get(role), "%s unreachable even by forwarding" % role)
+    def test_reachability_matches_ground_truth(self):
+        """ Exact match to reachable.json (self-reach excluded). """
+        diffs = {}
+        for role in sorted(set(self.reach) | set(self.expected)):
+            got = self.reach.get(role, set())
+            exp = set(self.expected.get(role, []))
+            if got != exp:
+                diffs[role] = {
+                    "missing": sorted(exp - got),  # reachable.json says reachable, APKeep doesn't
+                    "extra": sorted(got - exp),    # APKeep reachable, reachable.json doesn't
+                }
+        self.assertEqual(diffs, {}, "reachability differs from reachable.json: %s" % diffs)
 
 
 if __name__ == '__main__':

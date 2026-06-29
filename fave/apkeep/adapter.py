@@ -59,6 +59,41 @@ def _cidr_to_apkeep(cidr: str) -> Tuple[int, int]:
     return prefix, plen
 
 
+_VLAN = 'packet.ether.vlan'
+_SRC = 'packet.ipv4.source'
+# Cisco first-match ACLs map to APKeep's higher-priority-wins ACLElement by
+# inverting the FaVe rule index: a lower index (earlier, higher precedence) must
+# get a higher APKeep priority. The base exceeds the largest FaVe ACL index.
+_ACL_PRIO_BASE = 70000
+
+
+def _cidr_to_cisco(cidr: Optional[str]) -> Tuple[str, str]:
+    """ "10.0.14.0/23" -> ("10.0.14.0", "0.0.1.255") (cisco inverse-mask
+    wildcard). None or 0.0.0.0/0 -> match-any ("0.0.0.0", "255.255.255.255"). """
+    if cidr is None:
+        return "0.0.0.0", "255.255.255.255"
+    addr, _, length = cidr.partition('/')
+    plen = int(length) if length else 32
+    wild = (1 << (32 - plen)) - 1
+    wstr = "%d.%d.%d.%d" % (
+        (wild >> 24) & 255, (wild >> 16) & 255, (wild >> 8) & 255, wild & 255
+    )
+    return addr, wstr
+
+
+def _acl_rule_string(element: str, permit: bool, src: Optional[str],
+                     dst: Optional[str], idx: int) -> str:
+    """ One FaVe ACL rule -> an APKeep "+ acl <element> ..." update string
+    (accessList/number are dummies; protocol any = 0..255; ports unconstrained;
+    the source/destination become cisco IP+wildcard pairs). """
+    sip, swild = _cidr_to_cisco(src)
+    dip, dwild = _cidr_to_cisco(dst)
+    return "+ acl %s acl 0 %s 0 255 %s %s null null %s %s null null %d" % (
+        element, "permit" if permit else "deny",
+        sip, swild, dip, dwild, _ACL_PRIO_BASE - int(idx)
+    )
+
+
 def _split_port(fave_port: str) -> Tuple[str, str]:
     """ Map a FaVe port "device.port" to APKeep (device, port). The device may
     itself contain dots (e.g. "source.external.ifi.1"), so split on the last.
@@ -89,6 +124,17 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
         self._built = False
         self._results: List[Tuple[int, int, bool, str]] = []
+        # ACL translation (router acl_in/acl_out -> per-port APKeep ACLElements).
+        # The VLAN is structural -- which port's element -- not a match field,
+        # so it never reaches APKeep (which has no VLAN). acl_in/acl_out group
+        # the FaVe ACL rules by their (ingress/egress) VLAN.
+        self._acl_device: Optional[str] = None
+        self._acl_in: Dict[str, List[Tuple[int, bool, Optional[str], Optional[str]]]] = {}
+        self._acl_out: Dict[str, List[Tuple[int, bool, Optional[str], Optional[str]]]] = {}
+        self._vlan_to_eport: Dict[str, str] = {}  # egress VLAN -> router port
+        self._iport_vlan: Dict[str, str] = {}     # ingress port -> VLAN (pre_routing)
+        self._gen_src: Dict[str, str] = {}        # source node -> src CIDR
+        self._gen_vlan: Dict[str, str] = {}       # source node -> ingress VLAN
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
         # touches on the engine when wiring links: a `links` adjacency dict it
         # mutates directly, an `asyncore_socks` map it checks for dynamic
@@ -155,11 +201,68 @@ class APKeepAdapter(AbstractVerificationEngine):
         # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
         fwd_tables = (model.node + '.routing', model.node + '.1')
+        acl_in_t = model.node + '.acl_in'
+        acl_out_t = model.node + '.acl_out'
         for table, rules in model.tables.items():
-            if table not in fwd_tables:
+            if table in fwd_tables:
+                for rule in rules:
+                    self._translate_fwd_rule(model.node, rule)
+                    self._capture_vlan_port(rule)
+            elif table == acl_in_t:
+                self._acl_device = model.node
+                self._capture_acl(self._acl_in, rules)
+            elif table == acl_out_t:
+                self._acl_device = model.node
+                self._capture_acl(self._acl_out, rules)
+            elif table == model.node + '.pre_routing':
+                self._capture_iport_vlan(rules)
+
+    def _capture_iport_vlan(self, rules: Any) -> None:
+        """ pre_routing assigns an ingress VLAN per ingress port (e.g. the
+        Internet/transit port gets 4095). Other ports carry the VLAN from the
+        source generator instead; this only records the ones pre_routing sets,
+        which is how the anti-spoofing acl_in lands on the right port. """
+        for rule in rules:
+            if not rule.in_ports:
                 continue
-            for rule in rules:
-                self._translate_fwd_rule(model.node, rule)
+            port = _split_port(rule.in_ports[0])[1]
+            for action in rule.actions:
+                if isinstance(action, Rewrite):
+                    for field in action.rewrite:
+                        if field.name == _VLAN:
+                            self._iport_vlan[port] = str(field.value)
+
+    def _capture_vlan_port(self, rule: Any) -> None:
+        """ A routing rule rewrites the egress VLAN and the out_port; record the
+        VLAN -> egress port so acl_out groups can be wired to the right port. """
+        vlan = None
+        for action in rule.actions:
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    if field.name == _VLAN:
+                        vlan = str(field.value)
+        if vlan is None:
+            return
+        ports = self._out_ports(rule)
+        if ports:
+            self._vlan_to_eport[vlan] = ports[0]
+
+    @staticmethod
+    def _capture_acl(store: Dict[str, List[Any]], rules: Any) -> None:
+        """ Group FaVe ACL rules by their VLAN match into (idx, permit, src, dst)
+        tuples. permit == forwards to a (non-empty) internal pipeline port; an
+        empty/absent forward is a drop. """
+        for rule in rules:
+            vlan = src = dst = None
+            for field in (rule.match or []):
+                if field.name == _VLAN:
+                    vlan = str(field.value)
+                elif field.name == _SRC:
+                    src = field.value
+                elif field.name == _DST:
+                    dst = field.value
+            permit = any(isinstance(a, Forward) and a.ports for a in rule.actions)
+            store.setdefault(vlan, []).append((rule.idx, permit, src, dst))
 
     def add_wiring(self, model: Any) -> None:
         # The device-internal pipeline (pre_routing->acl->routing->post_routing)
@@ -178,6 +281,18 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     def add_generator(self, model: Any) -> None:
         self._generators[model.node] = model.node + '.1'
+        # Capture the injected source IP (for ACL src-seeding) and ingress VLAN
+        # (to wire acl_in onto this source's ingress port). Hand-built generators
+        # without fields are forwarding-only and need neither.
+        fields = getattr(model, 'fields', None)
+        if fields:
+            for fname, rfields in fields.items():
+                if not rfields:
+                    continue
+                if fname == _SRC:
+                    self._gen_src[model.node] = rfields[0].value
+                elif fname == _VLAN:
+                    self._gen_vlan[model.node] = str(rfields[0].value)
 
     def add_generators_bulk(self, models: Any, use_dynamic: bool = False) -> None:
         for model in models:
@@ -191,11 +306,94 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _build(self) -> None:
         if self._built:
             return
+        edges = list(self._edges)
+        device_acls = None
+        acl_rules: List[str] = []
+        if self._acl_device is not None:
+            edges, device_acls, acl_rules = self._splice_acls(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
-        self._lib.init_in_memory("fave", self._edges, sorted(self._fwd_devices))
-        self._lib.run(self._fwd_rules)
+        self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices), device_acls)
+        self._lib.run(self._fwd_rules + acl_rules)
         self._built = True
+
+    def _splice_acls(self, edges: List[str]):
+        """ Wire the router's acl_in/acl_out as per-port APKeep ACLElements.
+
+        APKeep has no VLAN field, so the VLAN becomes structural: each ingress/
+        egress router port gets its own ACLElement carrying that port's VLAN
+        group, spliced into the L1 link via APKeep's naming convention -- an
+        "<dev>_<acl>_{in,out}" node whose "permit" port leads onward and whose
+        "deny" port is unwired (denied traffic dies). Returns the rewritten edge
+        list, the device_acls map and the "+ acl ..." rule strings.
+        """
+        dev = self._acl_device
+
+        # Trace each source to its ingress router port: source -> switch (or the
+        # router directly, e.g. the Internet source) -> router port.
+        src_next: Dict[str, Tuple[str, str]] = {}
+        switch_rport: Dict[str, str] = {}
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if s_dev in self._generators:
+                src_next[s_dev] = (d_dev, d_port)
+            if d_dev == dev and s_dev != dev:
+                switch_rport[s_dev] = d_port  # switch's router-facing port
+
+        def ingress_port(source: str) -> Optional[str]:
+            nxt = src_next.get(source)
+            if nxt is None:
+                return None
+            ndev, nport = nxt
+            return nport if ndev == dev else switch_rport.get(ndev)
+
+        # Map router ports -> the VLAN group to enforce there. Ports whose
+        # ingress VLAN is set by pre_routing (e.g. the Internet port -> 4095)
+        # come first; the rest are traced from each source's generator VLAN.
+        in_port_vlan: Dict[str, str] = {
+            port: vlan for port, vlan in self._iport_vlan.items()
+            if vlan in self._acl_in
+        }
+        for source, vlan in self._gen_vlan.items():
+            if vlan in self._acl_in:
+                port = ingress_port(source)
+                if port is not None:
+                    in_port_vlan[port] = vlan
+        out_port_vlan: Dict[str, str] = {
+            port: vlan for vlan, port in self._vlan_to_eport.items()
+            if vlan in self._acl_out
+        }
+
+        # Emit ACLElements + their rules.
+        acl_names: set = set()
+        acl_rules: List[str] = []
+        for port, vlan in in_port_vlan.items():
+            element = "%s_inACLp%s" % (dev, port)
+            acl_names.add("inACLp%s" % port)
+            for idx, permit, src, dst in self._acl_in[vlan]:
+                acl_rules.append(_acl_rule_string(element, permit, src, dst, idx))
+        for port, vlan in out_port_vlan.items():
+            element = "%s_outACLp%s" % (dev, port)
+            acl_names.add("outACLp%s" % port)
+            for idx, permit, src, dst in self._acl_out[vlan]:
+                acl_rules.append(_acl_rule_string(element, permit, src, dst, idx))
+
+        # Splice the ACL nodes into the router's directed edges.
+        new_edges: List[str] = []
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if d_dev == dev and d_port in in_port_vlan:        # ingress hop
+                node = "%s_inACLp%s_in" % (dev, d_port)
+                new_edges.append("%s %s %s inport" % (s_dev, s_port, node))
+                new_edges.append("%s permit %s %s" % (node, dev, d_port))
+            elif s_dev == dev and s_port in out_port_vlan:     # egress hop
+                node = "%s_outACLp%s_out" % (dev, s_port)
+                new_edges.append("%s %s %s inport" % (s_dev, s_port, node))
+                new_edges.append("%s permit %s %s" % (node, d_dev, d_port))
+            else:
+                new_edges.append(edge)
+
+        return new_edges, {dev: sorted(acl_names)}, acl_rules
 
     def check_compliance(self, rules: Any) -> None:
         """ rules: {probe_name: [(source_name, negated, cond), ...]}. For each
@@ -206,7 +404,16 @@ class APKeepAdapter(AbstractVerificationEngine):
             pdev, pport = _split_port(self._probes[probe_name])
             for source_name, negated, cond in src_rules:
                 sdev, sport = _split_port(self._generators[source_name])
-                reachable = self._lib.is_reachable(sdev, sport, pdev, pport)
+                # With ACLs present, seed reachability with the source's actual
+                # src-IP so source-matching ACLs bite (a 0.0.0.0/0 source -> len
+                # 0 -> full space, the unconstrained case).
+                src_cidr = self._gen_src.get(source_name)
+                if self._acl_device is not None and src_cidr is not None:
+                    prefix, plen = _cidr_to_apkeep(src_cidr)
+                    reachable = self._lib.is_reachable(
+                        sdev, sport, pdev, pport, prefix, plen)
+                else:
+                    reachable = self._lib.is_reachable(sdev, sport, pdev, pport)
                 # `negated` True means "must not reach"; violation if the
                 # observed reachability contradicts the expectation.
                 must_reach = not negated
