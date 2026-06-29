@@ -151,18 +151,28 @@ class LibAPKeep:
         self._net.run(self._eva, java_rules)
 
     def is_reachable(self, src_device: str, src_port: str,
-                     dst_device: str, dst_port: str) -> bool:
+                     dst_device: str, dst_port: str,
+                     src_prefix: Optional[int] = None, src_len: int = 0) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
-        source->probe compliance checks reduce to. """
+        source->probe compliance checks reduce to.
+
+        When ACL elements are present they filter on the source IP, so a query
+        must inject the source's actual src-IP prefix (src_prefix as a uint32 +
+        src_len); otherwise the ACL packet space is the full space and a flow
+        counts as reachable whenever *any* source is permitted. Pass src_prefix
+        None (the default) for forwarding-only networks (no ACL division). """
         if self._net is None:
             raise RuntimeError("init_snapshot() must be called first")
         checker = self._ReachabilityChecker(self._net)
-        return bool(checker.isReachable(
-            self._PositionTuple(src_device, src_port),
-            self._PositionTuple(dst_device, dst_port),
-        ))
+        src = self._PositionTuple(src_device, src_port)
+        dst = self._PositionTuple(dst_device, dst_port)
+        if src_prefix is not None:
+            return bool(checker.isReachable(
+                src, dst, jpype.JLong(src_prefix), jpype.JInt(src_len)
+            ))
+        return bool(checker.isReachable(src, dst))
 
     def get_loops(self) -> List[str]:
         """ Detected forwarding loops, one normalised "loop found for [...]: ||
