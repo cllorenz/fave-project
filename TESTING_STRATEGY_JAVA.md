@@ -113,6 +113,26 @@ Each class pins the behavior the extension phases depend on:
 packages; floor enforced in CI. P1 (`NATElement`/`RewriteRule`) is written when
 Phase 2 (state-shell) begins.
 
+### Phase 0 — DONE (2026-06-30, commits `f50f6ab8`, `5ee99fba`)
+
+Harness (JUnit5 + surefire + jacoco) added to `apkeep/pom.xml`; tests run in the
+`test` phase of the existing `mvn package` (so the integration tier gates on
+them). All six critical-path classes landed — **16 tests, green**. Coverage
+achieved (instruction):
+
+| Class | Cov | Class | Cov |
+|---|---|---|---|
+| `ReachabilityChecker` (ours) | **94%** | `Element` | 61% |
+| `Network` | 66% | `ForwardElement` | 55% |
+| `APKeeper` | 56% | `ACLElement` | 57% |
+| `ACLRule` | 70% | `BDDACLWrapper`* | 24% |
+
+*\*`BDDACLWrapper` is a 3k-instruction file mostly of snapshot/MPLS/IPv6 paths we
+do not use; the encoders we rely on are covered.* Whole-bundle instruction
+coverage **35.8%** (dragged by deliberately-untested dead code). **Ratchet floor:
+BUNDLE instruction ≥ 30%**, enforced by `jacoco:check` bound to `test` — a
+regression backstop, raised as later phases add tests, never lowered.
+
 ## Sequencing & gating
 
 Phase 0 is a **prerequisite** for every extension phase in `APKEEP_BACKEND.md`
