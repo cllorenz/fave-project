@@ -1,0 +1,83 @@
+package common;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import apkeep.utils.Parameters;
+
+/**
+ * Pins the BDD encoders + header variable layout that everything else rests on.
+ *
+ * The "layout lock" is deliberately behavioural (prefix containment, disjointness,
+ * src/dst independence) rather than asserting raw BDD node ids: it survives
+ * refactors but still catches the dangerous regression -- a later header-field
+ * addition (IPv6/VLAN/state, see TESTING_STRATEGY_JAVA.md) that silently shifts
+ * the BDD variables of existing fields.
+ */
+class BDDACLWrapperTest {
+
+    @BeforeAll
+    static void shrinkBddTable() {
+        Parameters.BDD_TABLE_SIZE = 100_000;
+    }
+
+    @Test
+    void headerFieldWidthsAreTheExpectedContract() {
+        // IPv4 5-tuple widths; IPv6 dst is present (128 bits) though unused today.
+        assertEquals(8, BDDACLWrapper.protocolBits);
+        assertEquals(16, BDDACLWrapper.portBits);
+        assertEquals(32, BDDACLWrapper.ipBits);
+        assertEquals(128, BDDACLWrapper.ip6Bits);
+    }
+
+    @Test
+    void prefixEncodingSemantics() {
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int slash0 = bdd.encodeDstIPPrefix(0L, 0);
+        assertEquals(BDDACLWrapper.BDDTrue, slash0, "0.0.0.0/0 is the full space");
+
+        int slash8 = bdd.encodeDstIPPrefix(0x0A000000L, 8);   // 10.0.0.0/8
+        int host = bdd.encodeDstIPPrefix(0x0A000005L, 32);    // 10.0.0.5/32
+        // the host is contained in the /8: (host AND /8) == host.
+        assertEquals(host, bdd.and(host, slash8), "10.0.0.5/32 subset of 10.0.0.0/8");
+
+        int other8 = bdd.encodeDstIPPrefix(0x0B000000L, 8);   // 11.0.0.0/8
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(slash8, other8), "disjoint /8s do not overlap");
+    }
+
+    @Test
+    void sourceAndDestinationUseIndependentVariables() {
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int dst10 = bdd.encodeDstIPPrefix(0x0A000000L, 8);
+        int src10 = bdd.encodeSrcIPPrefix(0x0A000000L, 8);
+        assertNotEquals(dst10, src10, "src and dst of the same bits must differ");
+        // independent fields: dst=10/8 AND src=10/8 is a non-empty strict subset of each.
+        int both = bdd.and(dst10, src10);
+        assertNotEquals(BDDACLWrapper.BDDFalse, both, "src and dst are independent (intersection non-empty)");
+        assertNotEquals(dst10, both);
+        assertNotEquals(src10, both);
+    }
+
+    @Test
+    void aclRuleEncodesProtocolAndPortTuple() {
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int tcp22 = bdd.ConvertACLRule(aclMatch("6 6", "22 22"));
+        int tcp80 = bdd.ConvertACLRule(aclMatch("6 6", "80 80"));
+        int udp22 = bdd.ConvertACLRule(aclMatch("17 17", "22 22"));
+        // different dst port -> disjoint; different protocol -> disjoint.
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(tcp22, tcp80), "TCP:22 vs TCP:80 disjoint (port)");
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(tcp22, udp22), "TCP:22 vs UDP:22 disjoint (proto)");
+        assertTrue(tcp22 != BDDACLWrapper.BDDFalse && tcp22 != BDDACLWrapper.BDDTrue,
+                "a 5-tuple match is a proper, non-trivial predicate");
+    }
+
+    /** A 5-tuple match (protocol range, dst-port range; any IP, any src port). */
+    private static ACLRule aclMatch(String proto, String dport) {
+        return new ACLRule("p 0 x " + proto + " 0.0.0.0 255.255.255.255 null null "
+                + "0.0.0.0 255.255.255.255 " + dport + " 0");
+    }
+}
