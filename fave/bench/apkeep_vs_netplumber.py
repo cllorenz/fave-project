@@ -51,16 +51,19 @@ from time import perf_counter
 # HSA in/out-switch model (device_topology.json + probes.json) and is much larger
 # (77k dst-IP routes), so fewer iterations -- it is the scale comparison.
 #
-# wl_stanford is intentionally absent: its HSA model forwards by INPUT PORT (the
-# out-tables fan a single header-class out to different egress ports keyed on the
-# ingress port) and carries transport-layer (tcp/proto/flags) ACLs -- neither is
-# expressible in APKeep's destination-IP ForwardElement, so the dst-IP adapter
-# does not faithfully model it (see APKEEP_BACKEND.md). i2's out-tables are a
-# clean dst-IP FIB, so it translates exactly.
+# wl_stanford's HSA model splits each router into in./mid./out. switches; the
+# out. stage forwards by INPUT PORT (a permutation a dst-IP ForwardElement cannot
+# express), so the adapter collapses it into the topology (mid. egress interface
+# -> external neighbour; see APKeepAdapter._collapse_out_stage). This reproduces
+# the shipped all-to-all reachability oracle exactly (P7). The transport-layer /
+# VLAN ACLs it carries are NOT modelled here -- the fully-connected oracle has no
+# deny cases to exercise them (the ACL cross-check vs NetPlumber is separate).
 _WORKLOADS = {
     "wl_ifi": ("bench/wl_ifi", None, 12),
     "wl_i2": ("bench/wl_i2/i2-json",
               {"topology": "device_topology.json", "policies": "probes.json"}, 1),
+    "wl_stanford": ("bench/wl_stanford/stanford-json",
+                    {"topology": "device_topology.json", "policies": "probes.json"}, 5),
 }
 
 
@@ -119,10 +122,16 @@ def main(argv):
     if files:
         names.update(files)
     inputs = ["%s/%s" % (prefix, v) for v in names.values()]
+    gen_scripts = {
+        "wl_ifi": "test/gen_wl_ifi_inputs.sh",
+        "wl_i2": "test/gen_wl_i2_inputs.sh",
+        "wl_stanford": "test/gen_wl_stanford_inputs.sh",
+    }
     if not all(os.path.isfile(f) for f in inputs):
-        if workload == "wl_ifi":
-            print("wl_ifi inputs missing; generating ...")
-            subprocess.check_call(["bash", "test/gen_wl_ifi_inputs.sh"])
+        gen = gen_scripts.get(workload)
+        if gen is not None and os.path.isfile(gen):
+            print("%s inputs missing; generating (%s) ..." % (workload, gen))
+            subprocess.check_call(["bash", gen])
         else:
             print("%s inputs missing under %s; run `PYTHONPATH=. python3 "
                   "bench/%s/benchmark.py` once to generate them."
