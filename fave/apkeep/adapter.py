@@ -110,6 +110,19 @@ def _split_port(fave_port: str) -> Tuple[str, str]:
     return device, port
 
 
+def _dedup(items: List[str]) -> List[str]:
+    """ Order-preserving de-duplication. The wl_stanford in. (ingress) stage
+    emits one identical pass-through forward per ACL rule (thousands of copies
+    of the same default route to the mid.-facing port); collapse them. """
+    seen: set = set()
+    out: List[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
 class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
@@ -135,6 +148,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._iport_vlan: Dict[str, str] = {}     # ingress port -> VLAN (pre_routing)
         self._gen_src: Dict[str, str] = {}        # source node -> src CIDR
         self._gen_vlan: Dict[str, str] = {}       # source node -> ingress VLAN
+        # wl_stanford: the HSA model splits every router into in./mid./out.
+        # switches. in.=ingress ACL (pass-through here), mid.=dst-IP FIB, and
+        # out.=an input-port->output-port permutation (a pure wire) that a dst-IP
+        # ForwardElement cannot express. We recognise the out. stage and collapse
+        # it into the topology (mid egress port -> external neighbour) at build.
+        self._stanford = False
+        self._out_perm: Dict[str, Dict[str, set]] = {}  # out_dev -> {inPort: {outPort}}
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
         # touches on the engine when wiring links: a `links` adjacency dict it
         # mutates directly, an `asyncore_socks` map it checks for dynamic
@@ -191,7 +211,12 @@ class APKeepAdapter(AbstractVerificationEngine):
     # --- AbstractVerificationEngine: model construction (buffered) -----------
 
     def add_tables(self, model: Any) -> None:
-        # Routers and switches both become dst-IP ForwardElements.
+        # Routers and switches both become dst-IP ForwardElements -- except the
+        # wl_stanford out. stage, which is an in-port permutation (not a FIB) and
+        # is collapsed into the topology at build, so it gets no ForwardElement.
+        if model.node.split('.', 1)[0] == 'out':
+            self._stanford = True
+            return
         self._fwd_devices.add(model.node)
 
     def add_rules(self, model: Any) -> None:
@@ -200,6 +225,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         # egress plumbing, and acl_in/acl_out carry ACL rules that "forward" to
         # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
+        if model.node.split('.', 1)[0] == 'out':
+            self._capture_out_perm(model)   # in-port permutation, collapsed later
+            return
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -216,6 +244,21 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._capture_acl(self._acl_out, rules)
             elif table == model.node + '.pre_routing':
                 self._capture_iport_vlan(rules)
+
+    def _capture_out_perm(self, model: Any) -> None:
+        """ wl_stanford out. stage: each rule maps an input port (fed by a mid.
+        egress interface) to a physical output port (an external wire), possibly
+        under an ACL/VLAN match. For forwarding we only need the port
+        permutation input->output; the egress ACL/VLAN-rewrite are ignored here.
+        """
+        perm = self._out_perm.setdefault(model.node, {})
+        for _table, rules in model.tables.items():
+            for rule in rules:
+                out_ports = self._out_ports(rule)
+                if not out_ports or not rule.in_ports:
+                    continue  # a drop (empty action) or a rule with no in port
+                in_port = _split_port(rule.in_ports[0])[1]
+                perm.setdefault(in_port, set()).update(out_ports)
 
     def _capture_iport_vlan(self, rules: Any) -> None:
         """ pre_routing assigns an ingress VLAN per ingress port (e.g. the
@@ -309,13 +352,45 @@ class APKeepAdapter(AbstractVerificationEngine):
         edges = list(self._edges)
         device_acls = None
         acl_rules: List[str] = []
+        if self._stanford:
+            edges = self._collapse_out_stage(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
         self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices), device_acls)
-        self._lib.run(self._fwd_rules + acl_rules)
+        self._lib.run(_dedup(self._fwd_rules) + acl_rules)
         self._built = True
+
+    def _collapse_out_stage(self, edges: List[str]) -> List[str]:
+        """ Remove the wl_stanford out. stage, splicing its port permutation into
+        the topology. The physical path is mid.X.<110n> -> out.X.<130n> (internal
+        link) -> out.X.<120m> (permutation rule) -> in.Y.<p> / probe (external
+        link). ForwardElements route by dst-IP and cannot honour the in-port
+        permutation, so we resolve the chain statically and wire the mid. egress
+        interface straight to the external neighbour(s), dropping out. entirely.
+        """
+        mid_to_out: Dict[Tuple[str, str], Tuple[str, str]] = {}  # (out_dev,inport)->(mid_dev,port)
+        out_ext: Dict[Tuple[str, str], List[Tuple[str, str]]] = {}  # (out_dev,outport)->[(dev,port)]
+        kept: List[str] = []
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if d_dev.split('.', 1)[0] == 'out':        # mid.X -> out.X (internal)
+                mid_to_out[(d_dev, d_port)] = (s_dev, s_port)
+            elif s_dev.split('.', 1)[0] == 'out':      # out.X -> in.Y / probe (external)
+                out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
+            else:
+                kept.append(edge)
+        for out_dev, perm in self._out_perm.items():
+            for in_port, out_ports in perm.items():
+                mid = mid_to_out.get((out_dev, in_port))
+                if mid is None:
+                    continue
+                m_dev, m_port = mid
+                for out_port in out_ports:
+                    for d_dev, d_port in out_ext.get((out_dev, out_port), []):
+                        kept.append("%s %s %s %s" % (m_dev, m_port, d_dev, d_port))
+        return kept
 
     def _splice_acls(self, edges: List[str]):
         """ Wire the router's acl_in/acl_out as per-port APKeep ACLElements.
