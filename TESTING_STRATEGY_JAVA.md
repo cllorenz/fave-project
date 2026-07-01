@@ -133,6 +133,30 @@ coverage **35.8%** (dragged by deliberately-untested dead code). **Ratchet floor
 BUNDLE instruction ≥ 30%**, enforced by `jacoco:check` bound to `test` — a
 regression backstop, raised as later phases add tests, never lowered.
 
+## Phase 1 — P9a: VLAN match field (tests-first, before the core change)
+
+P9a adds a VLAN field to `BDDACLWrapper`'s variable layout + `ACLRule`/
+`encodeACLBDD` so ACLs can match VLAN (the reduced multi-field case; prerequisite
+for wl_stanford / P7 — see `APKEEP_BACKEND.md` §9). Per *test before extend*,
+write these first; the P6 `BDDACLWrapper` layout-lock is the safety net that the
+field addition must not break.
+
+1. **Extend `BDDACLWrapperTest`** — the existing field-width + prefix-containment +
+   src/dst-independence assertions must still hold *after* the VLAN variables are
+   added (proves no silent field-shift). Add: VLAN encodes into a distinct,
+   independent variable range (a VLAN match is disjoint for different tags and
+   independent of IP/proto/port).
+2. **Extend `ACLElementTest`** — a rule matching `(vlan, 5-tuple)` permits/denies
+   exactly the packets of that VLAN (and a different-VLAN packet is unaffected).
+3. **New `VlanFloodTest`** (covers the *other* VLAN role) — a `ForwardElement`
+   forwarding to a `vlanN` port + a `vlan_ports` map floods to the mapped physical
+   ports; `ReachabilityChecker` reaches a target behind any flooded port. This
+   pins the `getVlanPorts` traversal branch, currently untested (i2/wl_ifi used no
+   `vlan_ports`), which P7 relies on for the L2 spanning-tree flooding.
+
+Then raise the ratchet floor to the new achieved level. P1 (`NATElement`/
+`RewriteRule`) remains deferred to Phase 2 (state-shell).
+
 ## Sequencing & gating
 
 Phase 0 is a **prerequisite** for every extension phase in `APKEEP_BACKEND.md`

@@ -308,26 +308,72 @@ So the remaining workloads are **bounded engineering on an extensible model**,
 not conceptual walls. Each extension is gated test-first by the APKeep core
 hardening pass — see [`TESTING_STRATEGY_JAVA.md`](TESTING_STRATEGY_JAVA.md).
 
-- **P6 — APKeep core test hardening (PREREQUISITE).** The core has zero Java unit
-  tests. Add a JUnit5 + jacoco harness (`mvn test` in `apkeep_smoke.sh`, coverage
-  ratchet) and characterization/unit tests for the reachability-critical path
-  (`BDDACLWrapper`, `ForwardElement`, `ACLElement` incl. the untested 5-tuple,
-  `APKeeper`, `Network`, `ReachabilityChecker`). Pins the reverse-engineered
-  semantics (priority=higher-wins, permit/deny, the src-IP seed). Gates P7–P9.
-- **P7 — wl_stanford (IPv4, stateless; best value/effort).** (a) 5-tuple ACL
-  emission in the adapter (proto/ports; `tcp_flags` has no APKeep field →
-  approximate); (b) in-port/multi-field forwarding via element composition
-  (PBR-style, paper §4); (c) exact-match integration gate vs `reachable.json`.
+- **P6 — APKeep core test hardening. DONE (2026-06-30).** JUnit5 + jacoco harness
+  (`mvn test` runs in `apkeep_smoke.sh`'s `mvn package`) + 16 unit tests on the
+  reachability-critical path (`BDDACLWrapper` incl. a **variable-layout lock**,
+  `ForwardElement` LPM/priority, `ACLElement` 5-tuple, `APKeeper` min-EC,
+  `Network` wiring, `ReachabilityChecker` 0→94%); ratchet floor (BUNDLE
+  instruction ≥ 30%). See `TESTING_STRATEGY_JAVA.md`. Gates P7–P9.
+
+### wl_stanford modeling — decided via investigation (2026-06-30)
+
+stanford is FaVe's HSA **3-stage pipeline** (`in`/`mid`/`out` switches per router)
+of the same network APKeep models natively at router level. Investigation
+(original configs + the hassel parser + APKeep's own snapshot) settled the
+approach and retired two feared "wrinkles":
+
+- **The "multicast" is L2 spanning-tree flooding**, original to the benchmark: a
+  route's egress interface is a VLAN SVI (`172.20.4.0/23 → …, Vlan2`) and the
+  hassel parser fans it out to the VLAN's spanning-tree ports. APKeep models the
+  *same* flooding **compactly** — `ForwardElement` forwards to a single `vlanN`
+  port and `vlan_ports`/`getVlanPorts` floods it at traversal (our
+  `ReachabilityChecker` already does this). So it is a representation difference,
+  not a limitation: reconstruct the factored form from FaVe's expanded multi-fd
+  (`+ fwd dev <prefix> <len> vlanN <prio>` + a `vlan_ports` map).
+- **VLAN has two roles** — a *flood* construct (above; APKeep already has it) and
+  an ACL *match* field (the ingress/egress ACLs are keyed by VLAN). Adding the
+  latter is the clean fix for per-interface ACL scoping (avoids splitting into
+  ~46 ACLElements per edge router) **and** the minimal multi-field rehearsal for
+  wl_up — so we add it (P9a).
+
+- **P9a — VLAN as a header *match* field in APKeep core (prerequisite for P7; the
+  reduced multi-field case).** Add a VLAN field to `BDDACLWrapper`'s variable
+  layout + `ACLRule`/`encodeACLBDD` so ACLs can match VLAN; the `ForwardElement`
+  FIB is unchanged. **Test-first** (`TESTING_STRATEGY_JAVA.md`): the P6
+  `BDDACLWrapper` layout-lock already guards against silently shifting existing
+  fields; add VLAN-encode + VLAN-independence assertions, an `ACLElement`
+  VLAN-match test, and a `vlan_ports` flood-reachability test (the `getVlanPorts`
+  traversal branch is currently untested). `apkeep` subtree commit, kept separate.
+- **P7 — wl_stanford (IPv4, stateless), built on P9a.** Adapter translation of the
+  in/mid/out model:
+  - `in.X` → an ingress `ACLElement` matching `(src, dst, vlan)` permit/deny —
+    one element per device via the VLAN field, not ~46;
+  - `mid.X` → a `ForwardElement` (dst-IP FIB) forwarding to `vlanN` ports + a
+    reconstructed `vlan_ports` flood map;
+  - `out.X` → collapse the `in_port→out_port` permutation (a deterministic wire)
+    into topology; the egress ACL on the big edge routers (yoza/yozb: 1584/354
+    5-tuple rules) → an egress `ACLElement`;
+  - emit the 5-tuple (proto/ports; `tcp_flags` has no APKeep field → approximate,
+    logged).
+  - **Open design point:** the egress ACL is keyed by the *egress* VLAN, which
+    `mid` sets via `rw=vlan` — matching it natively would need a VLAN **rewrite**
+    (the P8 mechanism). Resolve by either **(i)** scoping the egress ACL
+    *structurally per egress port* (egress port ⟺ egress VLAN; no rewrite, reuses
+    the wl_ifi per-port-ACL trick) or **(ii)** pulling the VLAN rewrite forward
+    from P8. **Lean (i)** to keep P7 rewrite-free.
+  - Gate: `test_apkeep_stanford.py` exact-match vs `reachable.json` +
+    `gen_wl_stanford_inputs.sh` (from the tracked `*.tf.json`).
 - **P8 — state-shell rewrites.** Test `NATElement`/`RewriteRule` first; wire the
-  state field's rewrites through the adapter + `ReachabilityChecker`; validate by
-  reproducing wl_ifi's `related:` cchecks (currently skipped) exactly. Enables the
-  stateful part of wl_tum.
-- **P9 — header-field extension (VLAN-as-decision, then IPv6).** Add BDD fields
-  (layout locked by P6); IPv6 is the real lift (implement the scaffolded
-  `ForwardingRule6` + an IPv6 ACL path). Enables wl_up (IPv6 + state-shell).
-- **Per-workload:** wl_stanford = P6+P7; wl_tum = P6+P7+P8 (1 device, low scale
-  value); wl_up = P6+P8+P9 (highest effort). **Recommendation:** P6 then P7;
-  treat P8/P9 (wl_tum/wl_up) as optional — i2 already carries the scale result.
+  state field's rewrites through the adapter + `ReachabilityChecker`; reproduce
+  wl_ifi's `related:` cchecks (currently skipped). Also supplies the VLAN rewrite
+  if P7 chose route (ii). Enables the stateful part of wl_tum.
+- **P9b — general header extension / IPv6.** Generalize P9a to arbitrary fields +
+  implement the scaffolded `ForwardingRule6` + an IPv6 ACL path. Enables wl_up
+  (IPv6 + state-shell).
+- **Per-workload:** wl_stanford = P6 + P9a + P7; wl_tum = + P8 (1 device, low scale
+  value); wl_up = + P8 + P9b (highest effort). **Recommendation:** P9a → P7
+  (wl_stanford); treat P8/P9b (wl_tum/wl_up) as optional — i2 already carries the
+  scale result.
 
 ## 10. Open questions / decisions log
 
