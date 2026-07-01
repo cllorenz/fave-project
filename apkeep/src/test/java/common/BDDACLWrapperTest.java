@@ -75,9 +75,33 @@ class BDDACLWrapperTest {
                 "a 5-tuple match is a proper, non-trivial predicate");
     }
 
+    @Test
+    void vlanEncodesAsAnIndependentField() {
+        // P9a: VLAN is a new header match field (the reduced multi-field case).
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int v10 = bdd.ConvertACLRule(vlanOnly(10));
+        int v20 = bdd.ConvertACLRule(vlanOnly(20));
+        assertNotEquals(v10, v20, "different VLAN tags differ");
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(v10, v20), "different VLANs are disjoint");
+        // independent of the IP fields: vlan=10 AND dst=10/8 is a non-empty strict
+        // subset of each (and, with the P6 layout-lock still passing, adding VLAN
+        // did not shift the existing fields).
+        int dst = bdd.encodeDstIPPrefix(0x0A000000L, 8);
+        int both = bdd.and(v10, dst);
+        assertNotEquals(BDDACLWrapper.BDDFalse, both, "VLAN is independent of dst-IP");
+        assertNotEquals(v10, both);
+        assertNotEquals(dst, both);
+    }
+
     /** A 5-tuple match (protocol range, dst-port range; any IP, any src port). */
     private static ACLRule aclMatch(String proto, String dport) {
         return new ACLRule("p 0 x " + proto + " 0.0.0.0 255.255.255.255 null null "
                 + "0.0.0.0 255.255.255.255 " + dport + " 0");
+    }
+
+    /** Any 5-tuple, VLAN as the optional trailing token. */
+    private static ACLRule vlanOnly(int vlan) {
+        return new ACLRule("p 0 x 0 255 0.0.0.0 255.255.255.255 null null "
+                + "0.0.0.0 255.255.255.255 null null 0 " + vlan);
     }
 }

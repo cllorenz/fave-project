@@ -42,8 +42,16 @@ public abstract class ApkeepTestBase {
     protected Network buildNetwork(String name, List<String> links, List<String> devices,
                                    Map<String, Set<String>> deviceAcls, List<String> rules)
             throws Exception {
+        return buildNetwork(name, links, devices, deviceAcls, null, rules);
+    }
+
+    /** As above, plus a device -> {vlan -> physical ports} flood map (addVLANs). */
+    protected Network buildNetwork(String name, List<String> links, List<String> devices,
+                                   Map<String, Set<String>> deviceAcls,
+                                   Map<String, Map<String, Set<String>>> vlanPorts,
+                                   List<String> rules) throws Exception {
         Network net = new Network(name);
-        net.initializeNetwork(new ArrayList<>(links), devices, deviceAcls, null, null);
+        net.initializeNetwork(new ArrayList<>(links), devices, deviceAcls, vlanPorts, null);
         Evaluator eva = new Evaluator(name, File.createTempFile("apkeep-" + name, ".out").getAbsolutePath());
         net.run(eva, rules);
         return net;

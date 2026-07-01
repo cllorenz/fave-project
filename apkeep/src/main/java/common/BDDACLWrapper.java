@@ -79,6 +79,11 @@ public class BDDACLWrapper implements Serializable{
       // mplsLabel[0] - least significant bit
       int[] mplsLabel;
       public final static int ip6Bits = 128;
+      // FaVe fork (P9a): VLAN as a header match field (802.1Q id, 0-4095). Its
+      // BDD variables are declared AFTER all existing fields (see the ctor) so
+      // adding it does not shift their variable indices.
+      public final static int vlanBits = 12;
+      int[] vlan;
       int[] dstIP6;
 
       public int mplsLabelField;
@@ -95,6 +100,7 @@ public class BDDACLWrapper implements Serializable{
       int dstPortBit;
       int dstIP6Bit;
       int protocolBit;
+      int vlanBit;
       int dstIPInnerBit;
 
       Permutation push_perm;
@@ -126,6 +132,7 @@ public class BDDACLWrapper implements Serializable{
             dstIPInner = new int[ipBits];
             mplsLabel = new int[mplsBits];
             dstIP6 = new int[ip6Bits];
+            vlan = new int[vlanBits];
 
             /**
              * will try more orders of variables
@@ -138,6 +145,7 @@ public class BDDACLWrapper implements Serializable{
             DeclareProtocol();
             DeclareMPLSLabel();
             DeclareDstIP6();
+            DeclareVLAN();  // last: keeps every existing field's variables in place
 
             mplsLabelField = AndInBatch(mplsLabel);
             mplsLabelFieldDecoration = 
@@ -964,6 +972,12 @@ public class BDDACLWrapper implements Serializable{
             mplsLabelBit = aclBDD.createVar();
       }
 
+      private void DeclareVLAN()
+      {
+            DeclareVars(vlan, vlanBits);
+            vlanBit = aclBDD.createVar();
+      }
+
       /**
        * @param vars - a list of bdd nodes that we do not need anymore
        */
@@ -1251,15 +1265,24 @@ public class BDDACLWrapper implements Serializable{
             /**
              * dst IP
              */
-            int dstIPNode = ConvertIPAddress(aclr.destination, 
+            int dstIPNode = ConvertIPAddress(aclr.destination,
                         aclr.destinationWildcard, dstIP);
 
+            /**
+             * VLAN (FaVe fork, P9a): unconstrained unless the rule carries a tag.
+             */
+            int vlanNode = BDDTrue;
+            if(aclr.vlan != null && !aclr.vlan.equalsIgnoreCase("any"))
+            {
+                  vlanNode = ConvertVLAN(Integer.parseInt(aclr.vlan));
+            }
+
             //put them together
-            int [] fiveFields = {protocolNode,srcPortNode,dstPortNode,
-                        srcIPNode,dstIPNode};
-            int tempnode = AndInBatch(fiveFields);
+            int [] fields = {protocolNode,srcPortNode,dstPortNode,
+                        srcIPNode,dstIPNode,vlanNode};
+            int tempnode = AndInBatch(fields);
             //clean up internal nodes
-            DerefInBatch(fiveFields);
+            DerefInBatch(fields);
 
             return tempnode;
       }
@@ -1408,6 +1431,14 @@ public class BDDACLWrapper implements Serializable{
       {
             return ConvertRange(r, protocol, protocolBits);
 
+      }
+
+      /**
+       * convert an exact VLAN id to a bdd representation (FaVe fork, P9a).
+       */
+      public int ConvertVLAN(int vlanId)
+      {
+            return ConvertRange(new Range(vlanId, vlanId), vlan, vlanBits);
       }
 
       /**

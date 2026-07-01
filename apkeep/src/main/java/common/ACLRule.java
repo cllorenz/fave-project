@@ -78,6 +78,8 @@ public class ACLRule implements Serializable {
 	public String destinationWildcard;
 	public String destinationPortLower;
 	public String destinationPortUpper;
+	// FaVe fork (P9a): optional VLAN match (802.1Q id), null when unconstrained.
+	public String vlan;
 	public String precedenceKeyword;
 	public String precedence;
 	public String tosKeyword;
@@ -204,11 +206,17 @@ public class ACLRule implements Serializable {
 		if (!tokens[12].equals("null")) {
 			destinationPortUpper = tokens[12];
 		}
-		if(tokens.length == 14) {
+		if(tokens.length >= 14) {
 			priority = Integer.valueOf(tokens[13]);
 		}
 		else {
 			priority = 65535;
+		}
+		// FaVe fork (P9a): an optional trailing token carries the VLAN match, so
+		// the historic 14-token format is unchanged (vlan stays null = any).
+		if(tokens.length >= 15 && !tokens[14].equals("null")
+				&& !tokens[14].equalsIgnoreCase("any")) {
+			vlan = tokens[14];
 		}
 	}
 

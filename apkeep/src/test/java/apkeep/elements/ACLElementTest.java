@@ -67,4 +67,34 @@ class ACLElementTest extends ApkeepTestBase {
         assertTrue(Element.hasOverlap(permit, udp22), "UDP:22 should be permitted");
         assertFalse(Element.hasOverlap(deny, udp22), "UDP:22 must not be denied");
     }
+
+    @Test
+    void vlanScopesTheMatch() throws Exception {
+        // P9a: deny VLAN 10 (any 5-tuple, VLAN as the trailing token); permit the
+        // rest. The VLAN tag alone must distinguish denied from permitted traffic.
+        Network net = aclNetwork("acl-vlan", List.of(
+                "+ acl fw_acl acl 0 deny 0 255 0.0.0.0 255.255.255.255 null null "
+                        + "0.0.0.0 255.255.255.255 null null 200 10",
+                "+ acl fw_acl acl 0 permit 0 255 0.0.0.0 255.255.255.255 null null "
+                        + "0.0.0.0 255.255.255.255 null null 100"));
+        Element acl = net.getElement("fw_acl");
+        Set<Integer> permit = acl.forwardAPs("permit", seedTrue());
+        Set<Integer> deny = acl.forwardAPs("deny", seedTrue());
+
+        HashSet<Integer> v10 = vlanPacket(net, 10);
+        HashSet<Integer> v20 = vlanPacket(net, 20);
+        assertTrue(Element.hasOverlap(deny, v10), "VLAN 10 should be denied");
+        assertFalse(Element.hasOverlap(permit, v10), "VLAN 10 must not be permitted");
+        assertTrue(Element.hasOverlap(permit, v20), "VLAN 20 should be permitted");
+        assertFalse(Element.hasOverlap(deny, v20), "VLAN 20 must not be denied");
+    }
+
+    /** A one-packet BDD for a VLAN tag (any 5-tuple). */
+    private static HashSet<Integer> vlanPacket(Network net, int vlan) {
+        common.ACLRule r = new common.ACLRule("p 0 x 0 255 0.0.0.0 255.255.255.255 "
+                + "null null 0.0.0.0 255.255.255.255 null null 0 " + vlan);
+        HashSet<Integer> s = new HashSet<>();
+        s.add(net.bdd_engine.ConvertACLRule(r));
+        return s;
+    }
 }
