@@ -133,13 +133,14 @@ coverage **35.8%** (dragged by deliberately-untested dead code). **Ratchet floor
 BUNDLE instruction ≥ 30%**, enforced by `jacoco:check` bound to `test` — a
 regression backstop, raised as later phases add tests, never lowered.
 
-## Phase 1 — P9a: VLAN match field (tests-first, before the core change)
+## Phase 1 — P9a: VLAN match field (tests-first, before the core change) — DONE (2026-07-01, commit `350e6f33`)
 
 P9a adds a VLAN field to `BDDACLWrapper`'s variable layout + `ACLRule`/
 `encodeACLBDD` so ACLs can match VLAN (the reduced multi-field case; prerequisite
 for wl_stanford / P7 — see `APKEEP_BACKEND.md` §9). Per *test before extend*,
-write these first; the P6 `BDDACLWrapper` layout-lock is the safety net that the
-field addition must not break.
+these were written first (RED), then the field implemented (green); the P6
+`BDDACLWrapper` layout-lock held throughout (no field-shift). All three landed —
+**19 tests green**, jacoco ratchet raised 30% → 33% (now 36.6%):
 
 1. **Extend `BDDACLWrapperTest`** — the existing field-width + prefix-containment +
    src/dst-independence assertions must still hold *after* the VLAN variables are

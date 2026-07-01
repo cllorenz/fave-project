@@ -336,14 +336,18 @@ approach and retired two feared "wrinkles":
   ~46 ACLElements per edge router) **and** the minimal multi-field rehearsal for
   wl_up — so we add it (P9a).
 
-- **P9a — VLAN as a header *match* field in APKeep core (prerequisite for P7; the
-  reduced multi-field case).** Add a VLAN field to `BDDACLWrapper`'s variable
-  layout + `ACLRule`/`encodeACLBDD` so ACLs can match VLAN; the `ForwardElement`
-  FIB is unchanged. **Test-first** (`TESTING_STRATEGY_JAVA.md`): the P6
-  `BDDACLWrapper` layout-lock already guards against silently shifting existing
-  fields; add VLAN-encode + VLAN-independence assertions, an `ACLElement`
-  VLAN-match test, and a `vlan_ports` flood-reachability test (the `getVlanPorts`
-  traversal branch is currently untested). `apkeep` subtree commit, kept separate.
+- **P9a — VLAN as a header *match* field in APKeep core. DONE (2026-07-01,
+  commit `350e6f33`).** Added a 12-bit `vlan` field to `BDDACLWrapper` whose BDD
+  variables are declared *last* (after `DstIP6`), so no existing field shifts —
+  the P6 layout-lock proves it; `ConvertVLAN` (exact value via `ConvertRange`) is
+  AND-ed into `ConvertACLRule` only when a rule carries a tag. `ACLRule` gained an
+  *optional trailing* VLAN token, so the historic 14-token format is unchanged
+  (existing wl_ifi ACLs + the Python integration are unaffected); the
+  `ForwardElement` FIB is untouched. Test-first: `BDDACLWrapperTest` (VLAN
+  independent/distinct + the layout-lock still passing), `ACLElementTest`
+  (VLAN-scoped deny/permit), and a new `VlanFloodTest` pinning the previously
+  untested `getVlanPorts` flood branch P7 needs. 19 tests green; jacoco ratchet
+  raised 30% → 33% (now 36.6%).
 - **P7 — wl_stanford (IPv4, stateless), built on P9a.** Adapter translation of the
   in/mid/out model:
   - `in.X` → an ingress `ACLElement` matching `(src, dst, vlan)` permit/deny —
