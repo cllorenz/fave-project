@@ -452,8 +452,11 @@ class APKeepAdapter(AbstractVerificationEngine):
             edges, device_acls, acl_rules = self._splice_acls(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
+        # The faithful VLAN model builds far more BDD nodes (per-route rewrites +
+        # per-VLAN ACLs); give it a larger table.
+        bdd_table = 16_000_000 if (self._stanford and self._faithful_vlan) else 1_000_000
         self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices),
-                                 device_acls, device_nats)
+                                 device_acls, device_nats, bdd_table_size=bdd_table)
         # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
         # on VLAN, and the NAT rewrite table must be built over that final
         # partition (a later ACL split would leave APs the NAT never rewrites).

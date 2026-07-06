@@ -145,11 +145,10 @@ class LibAPKeep:
         # the resident JVM without exhausting it.
         params = jpype.JClass("apkeep.utils.Parameters")
         params.BDD_TABLE_SIZE = int(bdd_table_size)
-        # AP merging is a size optimization whose rewrite-aware path is buggy for
-        # elements with multiple VLAN-rewrite rules (APNotFoundException). Disable
-        # it when NATs are present; reachability is unaffected (P7b).
-        if nats_map is not None:
-            params.MergeAP = False
+        # AP merging stays ON with NATs now that the multi-rule-NAT merge crash is
+        # fixed (stale-AP guards in APKeeper.tryMergeAP / Element.updatePortPredicateMap);
+        # merging is what keeps the atomic-predicate count (and memory) bounded at
+        # scale, so faithful wl_stanford no longer OOMs (P7b).
         # With VLAN rewrites (NATs), ACLs must share the forwarding AP universe so
         # a VLAN admission composes with the rewrite -- ACL "division" would put
         # them in separate universes that disagree on the rewritten VLAN. Keep
