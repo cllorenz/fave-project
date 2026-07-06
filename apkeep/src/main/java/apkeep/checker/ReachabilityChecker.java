@@ -161,8 +161,14 @@ public class ReachabilityChecker {
 
                 Set<Integer> next_fwd = fwd_aps;
                 Set<Integer> next_acl = acl_aps;
-                if (e instanceof ACLElement) {
+                if (e instanceof ACLElement && net.isDivisionActivated()) {
                     next_acl = e.forwardAPs(port, acl_aps);
+                } else if (e instanceof ACLElement) {
+                    // Single-universe (no division): the ACL lives in the same AP
+                    // universe as forwarding/NAT, so it filters the forwarding set
+                    // directly -- letting a VLAN admission compose with an upstream
+                    // VLAN rewrite (the divergence division would cause).
+                    next_fwd = e.forwardAPs(port, fwd_aps);
                 } else {
                     next_fwd = e.forwardAPs(port, fwd_aps);
                 }

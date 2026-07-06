@@ -3,6 +3,12 @@ package apkeep.utils;
 public class Parameters {
 
 	public static boolean MergeAP = true;
+	// P7b spike: when false, ACLElements are NOT put in a separate atomic-predicate
+	// universe (no "division") -- they live in the forwarding APKeeper alongside
+	// NATElements, so a VLAN rewrite (NAT) and a VLAN admission (ACL) compose in
+	// ONE universe. Division makes the fwd/acl universes disagree on a rewritten
+	// field; single-universe reachability (see ReachabilityChecker) avoids that.
+	public static boolean USE_DIVISION = true;
 
 	public static int BDD_TABLE_SIZE = 100000000;
 //	public static int BDD_TABLE_SIZE = 100000000; // works well for airtel

@@ -209,9 +209,17 @@ public class Network {
 		}
 	}
 	
+	public boolean isDivisionActivated() {
+		return division_activated;
+	}
+
 	private void addACLs(Map<String, Set<String>> device_acls) {
 		if(device_acls == null) return;
-		division_activated = true;
+		// P7b: division puts ACLs in a separate AP universe; disable it (via
+		// Parameters.USE_DIVISION) to keep ACLs in the forwarding universe so a
+		// VLAN rewrite (NAT) and VLAN admission (ACL) compose. Import guarded so
+		// existing callers (src-IP ACLs, wl_ifi) keep division by default.
+		division_activated = apkeep.utils.Parameters.USE_DIVISION;
 		for(String device : device_acls.keySet()) {
 			for(String aclname : device_acls.get(device)) {
 				String element = device+"_"+aclname;

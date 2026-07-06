@@ -103,4 +103,42 @@ class NATReachabilityTest extends ApkeepTestBase {
             Parameters.MergeAP = saved;
         }
     }
+
+    @Test
+    void ingressAdmissionComposesWithRewriteInOneUniverse() throws Exception {
+        // The wl_stanford ordering: an ingress ACL (VLAN admission) UPSTREAM of the
+        // mid VLAN rewrite, then a downstream ACL matching the rewritten VLAN. With
+        // ACL division this collapses (fwd/acl universes disagree on the rewritten
+        // VLAN). Single-universe (USE_DIVISION=false) keeps ACL+NAT in one AP set
+        // so they compose: src(any vlan) -> in-ACL(permit vlan 10) -> r(FIB) ->
+        // NAT(dst 10/8 => vlan 20) -> {out-ACL vlan 20 -> X, out-ACL vlan 30 -> Y}.
+        // Expect X reachable (rewritten to 20) and Y not (it is 20, not 30).
+        boolean savedM = Parameters.MergeAP, savedD = Parameters.USE_DIVISION;
+        Parameters.MergeAP = false;
+        Parameters.USE_DIVISION = false;
+        try {
+            String any = "0 255 0.0.0.0 255.255.255.255 null null "
+                    + "0.0.0.0 255.255.255.255 null null 100 ";
+            Network net = buildWithNAT("nat-1uni",
+                    List.of("src 1 ia_0_p_in inport", "ia_0_p_in permit r 2",
+                            "r 1 od_0_p_in inport", "od_0_p_in permit X 1",
+                            "r 1 oe_0_p_in inport", "oe_0_p_in permit Y 1"),
+                    List.of("r"),
+                    Map.of("ia", Set.of("0"), "od", Set.of("0"), "oe", Set.of("0")),
+                    Map.of("r", Set.of("1")),
+                    List.of("+ fwd r 167772160 8 1 8",          // 10/8 -> port 1
+                            "+ nat r 1 vlan 10.0.0.0 8 20",      // dst 10/8 => vlan 20
+                            "+ acl ia_0 acl 0 permit " + any + "10",   // ingress: permit vlan 10
+                            "+ acl od_0 acl 0 permit " + any + "20",   // egress X: permit vlan 20
+                            "+ acl oe_0 acl 0 permit " + any + "30")); // egress Y: permit vlan 30
+            ReachabilityChecker rc = new ReachabilityChecker(net);
+            assertTrue(rc.isReachable(pt("src", "1"), pt("X", "1")),
+                    "vlan-10 admitted, rewritten to 20, permitted by the vlan-20 ACL -> X");
+            assertFalse(rc.isReachable(pt("src", "1"), pt("Y", "1")),
+                    "after the rewrite the traffic is vlan 20, so the vlan-30 ACL drops it -> Y");
+        } finally {
+            Parameters.MergeAP = savedM;
+            Parameters.USE_DIVISION = savedD;
+        }
+    }
 }
