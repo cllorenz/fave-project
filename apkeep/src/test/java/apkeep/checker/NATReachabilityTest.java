@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import apkeep.ApkeepTestBase;
 import apkeep.core.Network;
 import apkeep.utils.Evaluator;
+import apkeep.utils.Parameters;
 import common.PositionTuple;
 
 /**
@@ -66,5 +67,40 @@ class NATReachabilityTest extends ApkeepTestBase {
                 "10/8 rewritten to vlan 20 is permitted by the vlan-20 ACL -> B");
         assertFalse(rc.isReachable(pt("src", "1"), pt("C", "1")),
                 "after the rewrite the traffic is vlan 20, so the vlan-30 ACL drops it -> C unreachable");
+    }
+
+    @Test
+    void multipleVlanRewritesOnOneNat() throws Exception {
+        // Two rewrite rules on the SAME NAT (dst 10.0/9 => vlan 20, dst 10.128/9
+        // => vlan 30) -- this crashed AP merging (updateMergeAP dereferenced an
+        // already-merged AP -> APNotFoundException). AP merging is a size-only
+        // optimization, so we disable it when NATs are present; reachability is
+        // unchanged. Pin both: no crash, and each route keeps its own rewrite.
+        boolean saved = Parameters.MergeAP;
+        Parameters.MergeAP = false;
+        try {
+            String permitVlan = "0 255 0.0.0.0 255.255.255.255 null null "
+                    + "0.0.0.0 255.255.255.255 null null 100 ";
+            Network net = buildWithNAT("nat-multi",
+                    List.of("src 1 r 2",
+                            "r 1 d_inACL_p1_in inport", "d_inACL_p1_in permit X 1",
+                            "r 1 e_inACL_p1_in inport", "e_inACL_p1_in permit Y 1"),
+                    List.of("r"),
+                    Map.of("d", Set.of("inACL"), "e", Set.of("inACL")),
+                    Map.of("r", Set.of("1")),
+                    List.of("+ fwd r 167772160 9 1 9",              // 10.0.0.0/9   -> port 1
+                            "+ fwd r 176160768 9 1 9",              // 10.128.0.0/9 -> port 1
+                            "+ nat r 1 vlan 10.0.0.0 9 20",         // 10.0/9   => vlan 20
+                            "+ nat r 1 vlan 10.128.0.0 9 30",       // 10.128/9 => vlan 30
+                            "+ acl d_inACL acl 0 permit " + permitVlan + "20",
+                            "+ acl e_inACL acl 0 permit " + permitVlan + "30"));
+            ReachabilityChecker rc = new ReachabilityChecker(net);
+            assertTrue(rc.isReachable(pt("src", "1"), pt("X", "1")),
+                    "10.0/9 -> vlan 20 -> permitted by the vlan-20 ACL -> X");
+            assertTrue(rc.isReachable(pt("src", "1"), pt("Y", "1")),
+                    "10.128/9 -> vlan 30 -> permitted by the vlan-30 ACL -> Y");
+        } finally {
+            Parameters.MergeAP = saved;
+        }
     }
 }

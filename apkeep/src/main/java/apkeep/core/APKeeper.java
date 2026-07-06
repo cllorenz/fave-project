@@ -24,8 +24,15 @@ import jdd.bdd.BDD;
  * Computes Atomic Predicates using BDDs.
  */
 public class APKeeper {
-	private final static boolean MergeAP = Parameters.MergeAP;
-	
+	// P7b: read the AP-merge flag dynamically (was a load-time-cached final), so
+	// callers can disable it at runtime. AP merging is a pure size optimization
+	// (it coalesces atomic predicates with identical port behaviour); it does not
+	// affect reachability. Its rewrite-aware merge path (updateMergeAP via
+	// tryMergeAP) is buggy for elements with multiple VLAN-rewrite rules -- it
+	// dereferences an already-merged AP (APNotFoundException). FaVe disables it
+	// when NATElements are present (see LibAPKeep); reachability is unchanged.
+	private static boolean MergeAP() { return Parameters.MergeAP; }
+
 	public static BDDACLWrapper bddengine;
 	private Set<Integer> AP;
 	
@@ -213,7 +220,7 @@ public class APKeeper {
 			
 			ap_ports.remove(origin);
 			
-			if (MergeAP) {
+			if (MergeAP()) {
 				ports_aps.get(ports).remove(origin);
 				ports_aps.get(ports).add(parta);
 				ports_aps.get(ports).add(partb);
@@ -240,7 +247,7 @@ public class APKeeper {
 		
 		ArrayList<String> ports = ap_ports.get(ap);
 
-		if (!MergeAP) {
+		if (!MergeAP()) {
 			ports.set(element_ids.get(pt2.getDeviceName()), pt2.getPortName());
 		}
 		else {
@@ -306,7 +313,7 @@ public class APKeeper {
 	}
 	
 	public int tryMergeAP(int ap) throws Exception {
-		if (!MergeAP) return ap;
+		if (!MergeAP()) return ap;
 		
 		ArrayList<String> ports = ap_ports.get(ap);
 		HashSet<Integer> aps = ports_aps.get(ports);
