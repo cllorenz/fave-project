@@ -609,12 +609,17 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # src-IP so source-matching ACLs bite (a 0.0.0.0/0 source -> len
                 # 0 -> full space, the unconstrained case).
                 src_cidr = self._gen_src.get(source_name)
+                # wl_stanford probes accept only vlan=0 (traffic whose egress VLAN
+                # the out-stage reset to 0); the faithful model enforces that at
+                # the probe as a target-header constraint.
+                tvlan = 0 if (self._stanford and self._faithful_vlan) else None
                 if self._acl_device is not None and src_cidr is not None:
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
-                        sdev, sport, pdev, pport, prefix, plen)
+                        sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan)
                 else:
-                    reachable = self._lib.is_reachable(sdev, sport, pdev, pport)
+                    reachable = self._lib.is_reachable(
+                        sdev, sport, pdev, pport, target_vlan=tvlan)
                 # `negated` True means "must not reach"; violation if the
                 # observed reachability contradicts the expectation.
                 must_reach = not negated

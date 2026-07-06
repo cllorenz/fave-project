@@ -85,6 +85,7 @@ class LibAPKeep:
         self._ArrayList = jpype.JClass("java.util.ArrayList")
         self._ReachabilityChecker = jpype.JClass("apkeep.checker.ReachabilityChecker")
         self._PositionTuple = jpype.JClass("common.PositionTuple")
+        self._APKeeper = jpype.JClass("apkeep.core.APKeeper")
         self._net: Any = None
         self._eva: Any = None
 
@@ -167,7 +168,8 @@ class LibAPKeep:
 
     def is_reachable(self, src_device: str, src_port: str,
                      dst_device: str, dst_port: str,
-                     src_prefix: Optional[int] = None, src_len: int = 0) -> bool:
+                     src_prefix: Optional[int] = None, src_len: int = 0,
+                     target_vlan: Optional[int] = None) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
@@ -183,6 +185,16 @@ class LibAPKeep:
         checker = self._ReachabilityChecker(self._net)
         src = self._PositionTuple(src_device, src_port)
         dst = self._PositionTuple(dst_device, dst_port)
+        # target_vlan (P7b): require the packets reaching the probe to carry this
+        # VLAN (wl_stanford probes only accept vlan=0). Uses the 5-arg checker
+        # overload; the source seed defaults to the full space when unconstrained.
+        if target_vlan is not None:
+            vlan_bdd = self._APKeeper.bddengine.ConvertVLAN(jpype.JInt(target_vlan))
+            prefix = 0 if src_prefix is None else src_prefix
+            plen = 0 if src_prefix is None else src_len
+            return bool(checker.isReachable(
+                src, dst, jpype.JLong(prefix), jpype.JInt(plen), jpype.JInt(vlan_bdd)
+            ))
         if src_prefix is not None:
             return bool(checker.isReachable(
                 src, dst, jpype.JLong(src_prefix), jpype.JInt(src_len)
