@@ -396,22 +396,28 @@ approach and retired two feared "wrinkles":
     effective egress VLAN) + probe `vlan=0` target-header filter.
   - **Result: 240 → 77, a SOUND superset of NetPlumber's 10** (verified in
     separate processes: NP-only/under-approx = 0). The probe filter is correct.
-  - **BLOCKED (2026-07-01): the remaining 77 → 10 needs per-hop VLAN *admission*
-    (drop transit VLANs a router's ingress does not permit), and that hits a wall
-    in APKeep's element model.** VLAN admission is a *drop-by-field* filter; the
-    only element that drops is `ACLElement`, which activates **AP division** — a
-    SEPARATE atomic-predicate universe for the ACL space. But the mid VLAN rewrite
-    is a `NATElement` in the *forwarding* universe, so after it the two universes
-    disagree on the VLAN (fwd = rewritten egress VLAN, acl = original ingress
-    VLAN), and `fwd ∩ acl ∩ vlan=0` at the probe is empty → the model collapses
-    (measured: in-admission alone 217, probe alone 77, **both 0**, plus spurious
-    under-approximation). A forwarding-universe workaround also fails: a `NAT` can
-    only relabel, not drop, and the next `mid.` overwrites the VLAN anyway;
-    `ForwardElement` matches dst-IP only. So faithful VLAN admission needs EITHER
-    (a) a new forwarding-universe *drop-by-field* element, or (b) the VLAN rewrite
-    applied consistently across both AP universes. This is a genuine APKeep-core
-    extension, deferred; the sound over-approximation (77) is the current state.
-    `arrives` was already made division-safe (BDD intersection) for when (b) lands.
+  - **VLAN admission (77 → 10): correct, but blocked on PERFORMANCE, not
+    modelling.** VLAN admission is a *drop-by-field* filter, and the only element
+    that drops is `ACLElement`, which by default activates **AP division** (a
+    separate ACL AP universe that disagrees with the forwarding-universe VLAN
+    rewrite → `fwd ∩ acl ∩ vlan=0` empty; measured: in-admission alone 217, probe
+    alone 77, **both 0**). Fix: a **single-universe** mode
+    (`Parameters.USE_DIVISION=false`) keeps ACLElements in the forwarding APKeeper
+    so admission and rewrite compose in one universe; `ReachabilityChecker` then
+    filters the forwarding AP set at ACLs. **Confirmed correct** by
+    `NATReachabilityTest.ingressAdmissionComposesWithRewriteInOneUniverse` (ingress
+    ACL upstream of the rewrite, egress ACL downstream). The adapter splices a
+    per-router ingress ACL (`iacl_<idx>`, admitting the in-stage's VLANs) onto the
+    `in.X → mid.X` edge.
+  - **BLOCKED (2026-07-01) on OOM:** at full wl_stanford scale the faithful build
+    exhausts the BDD heap (~3.8 G). Root cause: **AP merging is disabled** (the
+    workaround for the `NATElement` multi-rule AP-merge crash), so ~3372 NAT +
+    ~1800 per-VLAN ACL rules explode the atomic-predicate count with no coalescing.
+    So the exact 10/240 is gated on **re-enabling AP merging = fixing the
+    multi-rule-NAT merge crash** (`updateMergeAP`/`tryMergeAP` dereferences an
+    already-merged AP), NOT on the VLAN model (which is correct + composes). The
+    ingress-admission adapter path is gated off; the sound over-approximation (77,
+    probe filter only) remains the enabled faithful state.
   - Note: NetPlumber's `.so` diff is reproducible locally (needs `liblog4cxx`);
     APKeep vs NP must be run in SEPARATE processes (the resident JVM + NP in one
     process cross-contaminates -- NP wrongly reports 240).
