@@ -110,15 +110,28 @@ public class NATElement extends Element {
 	@Override
 	public Rule encodeOneRule(String rule) {
 		String[] tokens = rule.split(" ");
+		// P7b: VLAN rewrite -- "+ nat <dev> <natid> vlan <dstIP> <dstlen> <vlanN>".
+		// The match is the dst-IP route (the mid-stage FIB entry); the rewrite
+		// sets the egress VLAN. So the matched field (dst-IP) differs from the
+		// rewritten field (VLAN) -- use the field-selecting RewriteRule.
+		if (tokens[4].equals("vlan")) {
+			long dst_prefix = Utility.IPStringToLong(tokens[5]);
+			int dst_prefixlen = Integer.valueOf(tokens[6]);
+			int vlan_id = Integer.valueOf(tokens[7]);
+			int match_bdd = apk.encodePrefixBDD(dst_prefix, dst_prefixlen);
+			int new_bdd = apkeep.core.APKeeper.bddengine.ConvertVLAN(vlan_id);
+			return new RewriteRule(match_bdd, match_bdd, new_bdd,
+					common.Fields.vlan, "vlan" + vlan_id, 65535);
+		}
 		long old_prefix = Utility.IPStringToLong(tokens[4]);
 		int old_prefixlen = Integer.valueOf(tokens[5]);
 		String new_ip = tokens[6];
 		long new_prefix = Utility.IPStringToLong(tokens[6]);
 		int new_prefixlen = Integer.valueOf(tokens[7]);
-		
+
 		int old_bdd = apk.encodePrefixBDD(old_prefix, old_prefixlen);
 		int new_bdd = apk.encodePrefixBDD(new_prefix, new_prefixlen);
-		
+
 		return new RewriteRule(old_bdd, new_bdd, new_ip, 65535);
 	}
 

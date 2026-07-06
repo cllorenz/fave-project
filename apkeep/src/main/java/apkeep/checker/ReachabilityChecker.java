@@ -9,6 +9,7 @@ import apkeep.core.Network;
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
 import apkeep.elements.ForwardElement;
+import apkeep.elements.NATElement;
 import common.BDDACLWrapper;
 import common.PositionTuple;
 
@@ -99,6 +100,25 @@ public class ReachabilityChecker {
             if (connected_pt.equals(target) && Element.hasOverlap(fwd_aps, acl_aps)) return true;
 
             Element e = getElement(connected_pt.getDeviceName());
+
+            // A rewrite element (e.g. the Stanford mid-stage setting the egress
+            // VLAN) transforms the actual packets: relabel BOTH the forwarding and
+            // the ACL-permitted AP sets so the header change is reflected
+            // consistently downstream (rewriteAPs passes unmatched APs through),
+            // then continue out the NAT's inline output ("outport") to the
+            // original downstream. Note the rewrite needs real atomic predicates,
+            // so a NAT must sit downstream of a forwarding element (the {BDDTrue}
+            // seed is not a network AP and rewrites to itself).
+            if (e instanceof NATElement) {
+                Set<Integer> rw_fwd = ((NATElement) e).rewriteAPs(new HashSet<>(fwd_aps));
+                Set<Integer> rw_acl = ((NATElement) e).rewriteAPs(new HashSet<>(acl_aps));
+                PositionTuple out = new PositionTuple(connected_pt.getDeviceName(), "outport");
+                List<PositionTuple> new_history = new ArrayList<>(history);
+                new_history.add(connected_pt);
+                if (traverse(out, rw_fwd, rw_acl, target, new_history, true)) return true;
+                continue;
+            }
+
             for (String port : e.getPorts()) {
                 if (port.equals(connected_pt.getPortName())) continue;
 

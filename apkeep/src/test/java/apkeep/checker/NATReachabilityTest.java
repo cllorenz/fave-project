@@ -1,0 +1,70 @@
+package apkeep.checker;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.junit.jupiter.api.Test;
+
+import apkeep.ApkeepTestBase;
+import apkeep.core.Network;
+import apkeep.utils.Evaluator;
+import common.PositionTuple;
+
+/**
+ * P7b: reachability through a VLAN-rewriting NATElement -- the mechanism the
+ * faithful wl_stanford model needs (mid-stage rewrites the egress VLAN keyed by
+ * the dst-IP route, and that VLAN gates a downstream ACL).
+ *
+ * Topology: src -> r (FIB: 10/8 -> p1) -> NAT r_p1 (dst 10/8 => vlan:=20) -> two
+ * downstream ACLs, one permitting only vlan 20 (-> B) and one only vlan 30 (-> C).
+ * The rewrite makes B reachable and C UNREACHABLE; without it C would be reachable
+ * too (wildcard VLAN overlaps vlan 30). C's unreachability is the discriminating
+ * assertion that the rewrite actually happened.
+ */
+class NATReachabilityTest extends ApkeepTestBase {
+
+    private static PositionTuple pt(String dev, String port) {
+        return new PositionTuple(dev, port);
+    }
+
+    private static Network buildWithNAT(String name, List<String> links, List<String> devices,
+            Map<String, Set<String>> acls, Map<String, Set<String>> nats, List<String> rules)
+            throws Exception {
+        Network net = new Network(name);
+        net.initializeNetwork(new ArrayList<>(links), devices, acls, null, nats);
+        Evaluator eva = new Evaluator(name, File.createTempFile("apkeep-" + name, ".out").getAbsolutePath());
+        net.run(eva, rules);
+        return net;
+    }
+
+    @Test
+    void vlanRewriteGatesDownstreamAcl() throws Exception {
+        // permit-only-vlan-N ACL rule (P9a trailing VLAN token).
+        String permitVlan = "0 255 0.0.0.0 255.255.255.255 null null "
+                + "0.0.0.0 255.255.255.255 null null 100 ";
+        Network net = buildWithNAT("nat-vlan",
+                List.of("src 1 r 2",
+                        // r.1 fans to both ACLs; device_nats inserts the NAT inline
+                        // on r.1, so this downstream moves to the NAT's outport.
+                        "r 1 d_inACL_p1_in inport", "d_inACL_p1_in permit B 1",
+                        "r 1 e_inACL_p1_in inport", "e_inACL_p1_in permit C 1"),
+                List.of("r"),
+                Map.of("d", Set.of("inACL"), "e", Set.of("inACL")),
+                Map.of("r", Set.of("1")),
+                List.of("+ fwd r 167772160 8 1 8",              // r: 10/8 -> port 1
+                        "+ nat r 1 vlan 10.0.0.0 8 20",         // NAT: dst 10/8 => vlan:=20
+                        "+ acl d_inACL acl 0 permit " + permitVlan + "20",   // permit vlan 20
+                        "+ acl e_inACL acl 0 permit " + permitVlan + "30")); // permit vlan 30
+        ReachabilityChecker rc = new ReachabilityChecker(net);
+        assertTrue(rc.isReachable(pt("src", "1"), pt("B", "1")),
+                "10/8 rewritten to vlan 20 is permitted by the vlan-20 ACL -> B");
+        assertFalse(rc.isReachable(pt("src", "1"), pt("C", "1")),
+                "after the rewrite the traffic is vlan 20, so the vlan-30 ACL drops it -> C unreachable");
+    }
+}

@@ -192,8 +192,19 @@ public class Network {
 				NATElement nat = new NATElement(nat_name);
 				elements.put(nat_name, nat);
 				nat_element_names.add(nat_name);
-				
+
+				// Insert the NAT inline on device.port: redirect that port's
+				// existing downstream through the rewrite. device.port -> nat.inport,
+				// and nat.outport -> {the original downstream}. Reachability applies
+				// the rewrite at the NAT and continues out "outport" (see
+				// ReachabilityChecker). If the port had no downstream yet, this
+				// degrades to the original device.port -> nat.inport edge.
+				PositionTuple dev_pt = new PositionTuple(device, port);
+				HashSet<PositionTuple> downstream = topology.remove(dev_pt);
 				addDirectedEdge(device, port, nat_name, "inport");
+				if (downstream != null) {
+					topology.put(new PositionTuple(nat_name, "outport"), downstream);
+				}
 			}
 		}
 	}
