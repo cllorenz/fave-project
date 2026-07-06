@@ -142,7 +142,13 @@ class LibAPKeep:
         # Size the BDD table for a FaVe-scale network (not APKeep's 100M
         # snapshot default), so several in-process networks can coexist under
         # the resident JVM without exhausting it.
-        jpype.JClass("apkeep.utils.Parameters").BDD_TABLE_SIZE = int(bdd_table_size)
+        params = jpype.JClass("apkeep.utils.Parameters")
+        params.BDD_TABLE_SIZE = int(bdd_table_size)
+        # AP merging is a size optimization whose rewrite-aware path is buggy for
+        # elements with multiple VLAN-rewrite rules (APNotFoundException). Disable
+        # it when NATs are present; reachability is unaffected (P7b).
+        if nats_map is not None:
+            params.MergeAP = False
 
         self._net = self._Network(name)
         # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)

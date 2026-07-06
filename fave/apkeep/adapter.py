@@ -61,6 +61,8 @@ def _cidr_to_apkeep(cidr: str) -> Tuple[int, int]:
 
 _VLAN = 'packet.ether.vlan'
 _SRC = 'packet.ipv4.source'
+_PROTO = 'packet.ipv6.proto'      # shared IPv4/IPv6 protocol field (Stanford ACLs)
+_DPORT = 'packet.upper.dport'
 # Cisco first-match ACLs map to APKeep's higher-priority-wins ACLElement by
 # inverting the FaVe rule index: a lower index (earlier, higher precedence) must
 # get a higher APKeep priority. The base exceeds the largest FaVe ACL index.
@@ -82,15 +84,18 @@ def _cidr_to_cisco(cidr: Optional[str]) -> Tuple[str, str]:
 
 
 def _acl_rule_string(element: str, permit: bool, src: Optional[str],
-                     dst: Optional[str], idx: int) -> str:
+                     dst: Optional[str], idx: int,
+                     vlan: Optional[str] = None) -> str:
     """ One FaVe ACL rule -> an APKeep "+ acl <element> ..." update string
     (accessList/number are dummies; protocol any = 0..255; ports unconstrained;
-    the source/destination become cisco IP+wildcard pairs). """
+    the source/destination become cisco IP+wildcard pairs). An optional VLAN tag
+    (P9a) is appended as the trailing token when given. """
     sip, swild = _cidr_to_cisco(src)
     dip, dwild = _cidr_to_cisco(dst)
-    return "+ acl %s acl 0 %s 0 255 %s %s null null %s %s null null %d" % (
+    vlan_tok = "" if vlan is None else " " + str(vlan)
+    return "+ acl %s acl 0 %s 0 255 %s %s null null %s %s null null %d%s" % (
         element, "permit" if permit else "deny",
-        sip, swild, dip, dwild, _ACL_PRIO_BASE - int(idx)
+        sip, swild, dip, dwild, _ACL_PRIO_BASE - int(idx), vlan_tok
     )
 
 
@@ -126,9 +131,18 @@ def _dedup(items: List[str]) -> List[str]:
 class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
-    def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None) -> None:
+    def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
+                 faithful_vlan: bool = False) -> None:
         self.logger = logger
         self._lib = LibAPKeep()
+        # P7b: when set, model the wl_stanford VLAN semantics faithfully (mid-stage
+        # VLAN rewrite via NAT + probe vlan=0 filter) instead of the forwarding-only
+        # out-stage collapse (P7a, which only matches the artificial all-to-all
+        # policy). Off by default so the P7a path/test are unchanged.
+        self._faithful_vlan = faithful_vlan
+        # mid.X -> [(dst_cidr, egress_port, vlan_N)] ; out.X reset set {(inport130, vlan)}
+        self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
+        self._out_reset: Dict[str, set] = {}
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
@@ -227,6 +241,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
         if model.node.split('.', 1)[0] == 'out':
             self._capture_out_perm(model)   # in-port permutation, collapsed later
+            if self._faithful_vlan:
+                self._capture_out_reset(model)
             return
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
@@ -236,6 +252,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 for rule in rules:
                     self._translate_fwd_rule(model.node, rule)
                     self._capture_vlan_port(rule)
+                    if self._faithful_vlan and model.node.split('.', 1)[0] == 'mid':
+                        self._capture_mid_rewrite(model.node, rule)
             elif table == acl_in_t:
                 self._acl_device = model.node
                 self._capture_acl(self._acl_in, rules)
@@ -259,6 +277,47 @@ class APKeepAdapter(AbstractVerificationEngine):
                     continue  # a drop (empty action) or a rule with no in port
                 in_port = _split_port(rule.in_ports[0])[1]
                 perm.setdefault(in_port, set()).update(out_ports)
+
+    def _capture_mid_rewrite(self, node: str, rule: Any) -> None:
+        """ P7b: a mid-stage rule forwards a dst-IP prefix to an egress port and
+        rewrites the egress VLAN (rw=vlan:N). Record (dst_cidr, egress_port, N) so
+        the build can emit an inline NAT that sets vlan:=N on that route. """
+        vlan_n = None
+        for action in rule.actions:
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    if field.name == _VLAN:
+                        vlan_n = str(field.value)
+        if vlan_n is None:
+            return
+        ports = self._out_ports(rule)
+        if not ports:
+            return
+        dst = None
+        for field in (rule.match or []):
+            if field.name == _DST:
+                dst = str(field.value)
+        self._mid_rw.setdefault(node, []).append((dst, ports[0], vlan_n))
+
+    def _capture_out_reset(self, model: Any) -> None:
+        """ P7b: the out-stage mostly passes the mid-assigned VLAN through, but a
+        few rules reset it to 0 (rw=vlan:0) -- and probes require vlan=0. Record
+        the (in_port, vlan) pairs that reset, so the mid NAT can fold the reset
+        into the effective egress VLAN for those routes. """
+        reset = self._out_reset.setdefault(model.node, set())
+        for _table, rules in model.tables.items():
+            for rule in rules:
+                resets = any(
+                    isinstance(a, Rewrite)
+                    and any(f.name == _VLAN and str(f.value) == '0' for f in a.rewrite)
+                    for a in rule.actions
+                )
+                if not resets or not rule.in_ports:
+                    continue
+                in_port = _split_port(rule.in_ports[0])[1]
+                for field in (rule.match or []):
+                    if field.name == _VLAN:
+                        reset.add((in_port, str(field.value)))
 
     def _capture_iport_vlan(self, rules: Any) -> None:
         """ pre_routing assigns an ingress VLAN per ingress port (e.g. the
@@ -351,16 +410,68 @@ class APKeepAdapter(AbstractVerificationEngine):
             return
         edges = list(self._edges)
         device_acls = None
+        device_nats = None
         acl_rules: List[str] = []
-        if self._stanford:
+        nat_rules: List[str] = []
+        if self._stanford and self._faithful_vlan:
+            edges, device_nats, nat_rules = self._build_stanford_faithful(edges)
+        elif self._stanford:
             edges = self._collapse_out_stage(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
-        self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices), device_acls)
-        self._lib.run(_dedup(self._fwd_rules) + acl_rules)
+        self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices),
+                                 device_acls, device_nats)
+        self._lib.run(_dedup(self._fwd_rules) + nat_rules + acl_rules)
         self._built = True
+
+    def _build_stanford_faithful(self, edges: List[str]):
+        """ P7b: faithful wl_stanford VLAN model. Collapse the out-stage into the
+        topology (as P7a) AND emit the mid-stage VLAN rewrite as inline NATs.
+
+        The egress VLAN of a mid route is folded with the out-stage reset: the
+        effective egress VLAN is 0 iff the out-stage resets (in_port, N) to 0
+        (probes require vlan=0), else N (the transit VLAN that propagates on).
+        Returns (collapsed_edges, device_nats, nat_rules). """
+        mid_to_out: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        mid_port_to_outin: Dict[Tuple[str, str], str] = {}
+        out_ext: Dict[Tuple[str, str], List[Tuple[str, str]]] = {}
+        kept: List[str] = []
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if d_dev.split('.', 1)[0] == 'out':          # mid.X -> out.X (internal)
+                mid_to_out[(d_dev, d_port)] = (s_dev, s_port)
+                mid_port_to_outin[(s_dev, s_port)] = d_port
+            elif s_dev.split('.', 1)[0] == 'out':        # out.X -> in.Y / probe
+                out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
+            else:
+                kept.append(edge)
+        for out_dev, perm in self._out_perm.items():
+            for in_port, out_ports in perm.items():
+                mid = mid_to_out.get((out_dev, in_port))
+                if mid is None:
+                    continue
+                m_dev, m_port = mid
+                for out_port in out_ports:
+                    for d_dev, d_port in out_ext.get((out_dev, out_port), []):
+                        kept.append("%s %s %s %s" % (m_dev, m_port, d_dev, d_port))
+
+        device_nats: Dict[str, set] = {}
+        nat_rules: List[str] = []
+        for mid_dev, rws in self._mid_rw.items():
+            router = mid_dev.split('.', 1)[1]
+            reset = self._out_reset.get('out.' + router, set())
+            for dst, egress_port, vlan_n in rws:
+                out_inport = mid_port_to_outin.get((mid_dev, egress_port))
+                effective = '0' if (out_inport is not None
+                                    and (out_inport, vlan_n) in reset) else vlan_n
+                ip = "0.0.0.0" if dst is None else dst.partition('/')[0]
+                plen = 0 if dst is None else int((dst.partition('/')[2] or "32"))
+                device_nats.setdefault(mid_dev, set()).add(egress_port)
+                nat_rules.append("+ nat %s %s vlan %s %d %s" % (
+                    mid_dev, egress_port, ip, plen, effective))
+        return kept, {d: sorted(p) for d, p in device_nats.items()}, nat_rules
 
     def _collapse_out_stage(self, edges: List[str]) -> List[str]:
         """ Remove the wl_stanford out. stage, splicing its port permutation into
