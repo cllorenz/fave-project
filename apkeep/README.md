@@ -1,5 +1,10 @@
 # APKeep
 
+> **FaVe fork.** This is a vendored, modified copy of upstream APKeep. All FaVe
+> changes (reachability queries, VLAN match/rewrite fields, a multi-rule-NAT
+> AP-merge fix, build & test infrastructure) are recorded in
+> [`FAVE_CHANGES.md`](FAVE_CHANGES.md). The rest of this README is upstream's.
+
 APKeep is a data plane verification tool that checks network invariants for network updates.
 The work is published in the [NSDI'20 paper](https://www.usenix.org/conference/nsdi20/presentation/zhang-peng) "APKeep: Realtime Verification for Real Networks".
 This branch provides a prototype implementation of APKeep.
