@@ -363,7 +363,8 @@ approach and retired two feared "wrinkles":
   - **But the "exact match vs `reachable.json`" is policy-only, NOT a data-plane
     correctness check.** `reachable.json` is the artificial *all-to-all* policy;
     forwarding-only APKeep trivially satisfies it.
-- **P7b — wl_stanford faithful VLAN+ACL (= P8 rewrite). NEXT.** The NetPlumber
+- **P7b — wl_stanford faithful VLAN+ACL (= P8 rewrite). PARTIAL: 240 → 77 (sound),
+  VLAN admission blocked on an APKeep-core limitation.** The NetPlumber
   cross-check (the reference oracle) quantifies the gap the policy oracle hid:
 
   | backend | reachable pairs |
@@ -385,14 +386,35 @@ approach and retired two feared "wrinkles":
     VLAN is set by the *previous* router's route-dependent rewrite, which only
     resolves at flow-propagation time); **the VLAN rewrite (route ii = P8) is
     required.**
-  - Plan: (1) Java core — add `Fields.vlan` + `get_field_bdd(vlan)` over the P9a
-    VLAN bits and a VLAN `RewriteRule`/`NATElement` encode path mirroring the
-    dst-IP one (the BDD `exists`/`replace` primitives are already field-generic;
-    only the field selection is hardcoded); JUnit test first. (2) Adapter — stop
-    collapsing `out.`; model `in.`/`out.` as `(vlan+5-tuple)` `ACLElement`s and
-    `mid.` as dst-IP forward **+ per-route VLAN rewrite**. `tcp_flags` has no
-    APKeep field → approximate, logged. (3) **Validate against NetPlumber (target
-    10/240)**, not `reachable.json`.
+  - **DONE (2026-07-01):** (1) Java VLAN-rewrite core — `Fields.vlan`,
+    `get_field_bdd(vlan)`, field-selecting `RewriteRule` (commit on subtree).
+    (2) NAT-in-reachability — `NATElement.encodeOneRule` VLAN form, inline NAT
+    insertion in `Network.addNATs`, `ReachabilityChecker` rewrites through NATs;
+    the AP-merge crash on multi-rule NATs fixed (disable-able `MergeAP`).
+    (3) LibAPKeep `device_nats` + `target_vlan`. (4) Adapter faithful path
+    (`faithful_vlan`): mid VLAN-rewrite NATs (folding the out-stage reset into the
+    effective egress VLAN) + probe `vlan=0` target-header filter.
+  - **Result: 240 → 77, a SOUND superset of NetPlumber's 10** (verified in
+    separate processes: NP-only/under-approx = 0). The probe filter is correct.
+  - **BLOCKED (2026-07-01): the remaining 77 → 10 needs per-hop VLAN *admission*
+    (drop transit VLANs a router's ingress does not permit), and that hits a wall
+    in APKeep's element model.** VLAN admission is a *drop-by-field* filter; the
+    only element that drops is `ACLElement`, which activates **AP division** — a
+    SEPARATE atomic-predicate universe for the ACL space. But the mid VLAN rewrite
+    is a `NATElement` in the *forwarding* universe, so after it the two universes
+    disagree on the VLAN (fwd = rewritten egress VLAN, acl = original ingress
+    VLAN), and `fwd ∩ acl ∩ vlan=0` at the probe is empty → the model collapses
+    (measured: in-admission alone 217, probe alone 77, **both 0**, plus spurious
+    under-approximation). A forwarding-universe workaround also fails: a `NAT` can
+    only relabel, not drop, and the next `mid.` overwrites the VLAN anyway;
+    `ForwardElement` matches dst-IP only. So faithful VLAN admission needs EITHER
+    (a) a new forwarding-universe *drop-by-field* element, or (b) the VLAN rewrite
+    applied consistently across both AP universes. This is a genuine APKeep-core
+    extension, deferred; the sound over-approximation (77) is the current state.
+    `arrives` was already made division-safe (BDD intersection) for when (b) lands.
+  - Note: NetPlumber's `.so` diff is reproducible locally (needs `liblog4cxx`);
+    APKeep vs NP must be run in SEPARATE processes (the resident JVM + NP in one
+    process cross-contaminates -- NP wrongly reports 240).
 - **P8 — state-shell rewrites (subsumes the P7b VLAN rewrite).** The VLAN rewrite
   above *is* the general runtime-rewrite mechanism: `NATElement`/`RewriteRule`
   generalized off dst-IP to any declared field. Test-first. Once it exists, wire
