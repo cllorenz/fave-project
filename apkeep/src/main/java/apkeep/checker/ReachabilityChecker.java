@@ -92,24 +92,21 @@ public class ReachabilityChecker {
     }
 
     /** Arrival test: the traffic forwarded here AND ACL-permitted is non-empty,
-     *  and (if a target header constraint is set) overlaps it. Atomic predicates
-     *  are disjoint, so a shared AP is the intersection; BDDTrue on a side means
-     *  "the full space" (an unforwarded seed / no ACL division). */
+     *  and (if a target header constraint is set) overlaps it. Under ACL division
+     *  the forwarding and ACL AP sets live in SEPARATE atomic-predicate universes,
+     *  so overlap is a BDD intersection (bdd.and), not a shared index -- exactly
+     *  what Element.hasOverlap does; we just additionally intersect the target
+     *  header. BDDTrue on a side is the full space and intersects to the other. */
     private boolean arrives(Set<Integer> fwd_aps, Set<Integer> acl_aps) {
         if (targetHeader == BDDACLWrapper.BDDTrue) {
             return Element.hasOverlap(fwd_aps, acl_aps);
         }
         BDDACLWrapper bdd = APKeeper.bddengine;
-        boolean fwdAll = fwd_aps.contains(BDDACLWrapper.BDDTrue);
-        boolean aclAll = acl_aps.contains(BDDACLWrapper.BDDTrue);
-        if (fwdAll && aclAll) return true;  // full space overlaps any real header
-        for (int ap : (fwdAll ? acl_aps : fwd_aps)) {
-            if (ap == BDDACLWrapper.BDDTrue) continue;
-            boolean forwarded = fwdAll || fwd_aps.contains(ap);
-            boolean permitted = aclAll || acl_aps.contains(ap);
-            if (forwarded && permitted
-                    && bdd.and(ap, targetHeader) != BDDACLWrapper.BDDFalse) {
-                return true;
+        for (int f : fwd_aps) {
+            for (int a : acl_aps) {
+                int both = bdd.and(f, a);   // packets forwarded here AND permitted
+                if (both == BDDACLWrapper.BDDFalse) continue;
+                if (bdd.and(both, targetHeader) != BDDACLWrapper.BDDFalse) return true;
             }
         }
         return false;
