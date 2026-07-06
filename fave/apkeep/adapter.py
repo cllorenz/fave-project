@@ -534,9 +534,12 @@ class APKeepAdapter(AbstractVerificationEngine):
                 acl_names.add(str(idx))
                 spliced.append("%s %s %s inport" % (s_dev, s_port, node))
                 spliced.append("%s permit %s %s" % (node, d_dev, d_port))
-                for i, vlan in enumerate(sorted(self._in_vlans[s_dev], key=int)):
-                    acl_rules.append(_acl_rule_string(
-                        "iacl_%d" % idx, True, None, None, i, vlan=vlan))
+                # One permit rule matching the whole admitted-VLAN SET (APKeep ORs
+                # the comma-separated tags), not ~114 per-VLAN rules -- far fewer
+                # atomic-predicate splits, so the faithful build stays tractable.
+                vlan_set = ",".join(sorted(self._in_vlans[s_dev], key=int))
+                acl_rules.append(_acl_rule_string(
+                    "iacl_%d" % idx, True, None, None, 0, vlan=vlan_set))
             else:
                 spliced.append(edge)
         if acl_names:
