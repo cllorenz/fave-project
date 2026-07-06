@@ -66,6 +66,24 @@ class ReachabilityCheckerTest extends ApkeepTestBase {
     }
 
     @Test
+    void targetHeaderConstrainsArrival() throws Exception {
+        // P7b: a query may require the packets that reach the target to overlap a
+        // header BDD (wl_stanford probes accept only vlan=0). r forwards 10/8 -> B.
+        Network net = buildNetwork("rc-target",
+                List.of("src 1 r 2", "r 1 B 1"),
+                List.of("r"), null,
+                List.of("+ fwd r 167772160 8 1 8"));
+        ReachabilityChecker rc = new ReachabilityChecker(net);
+        int match10 = net.bdd_engine.encodeDstIPPrefix(0x0A000000L, 8);  // 10/8
+        int match11 = net.bdd_engine.encodeDstIPPrefix(0x0B000000L, 8);  // 11/8
+        // the arriving traffic is 10/8: it overlaps the 10/8 constraint, not 11/8.
+        assertTrue(rc.isReachable(pt("src", "1"), pt("B", "1"), 0L, 0, match10),
+                "10/8 traffic satisfies the 10/8 target header");
+        assertFalse(rc.isReachable(pt("src", "1"), pt("B", "1"), 0L, 0, match11),
+                "10/8 traffic does not satisfy an 11/8 target header");
+    }
+
+    @Test
     @Timeout(30)
     void terminatesOnAForwardingLoop() throws Exception {
         // r forwards everything to r:2, which links back to r:1 -- a self-loop.

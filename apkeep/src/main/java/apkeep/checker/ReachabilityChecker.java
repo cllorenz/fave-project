@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import apkeep.core.APKeeper;
 import apkeep.core.Network;
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
@@ -39,6 +40,10 @@ import common.PositionTuple;
 public class ReachabilityChecker {
 
     private final Network net;
+    // A header constraint the arriving traffic must satisfy at the target (P7b):
+    // wl_stanford probes only accept vlan=0, so a query can require the packets
+    // that reach the probe to overlap a given header BDD. BDDTrue = no constraint.
+    private int targetHeader = BDDACLWrapper.BDDTrue;
 
     public ReachabilityChecker(Network net) {
         this.net = net;
@@ -75,6 +80,41 @@ public class ReachabilityChecker {
         return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
     }
 
+    /**
+     * As above, but the packets that reach {@code target} must also overlap
+     * {@code targetHeaderBDD} (e.g. vlan=0 for a wl_stanford probe). BDDTrue
+     * imposes no constraint (equivalent to the 4-arg overload).
+     */
+    public boolean isReachable(PositionTuple source, PositionTuple target,
+                               long src, int srcPrefixLen, int targetHeaderBDD) {
+        this.targetHeader = targetHeaderBDD;
+        return isReachable(source, target, src, srcPrefixLen);
+    }
+
+    /** Arrival test: the traffic forwarded here AND ACL-permitted is non-empty,
+     *  and (if a target header constraint is set) overlaps it. Atomic predicates
+     *  are disjoint, so a shared AP is the intersection; BDDTrue on a side means
+     *  "the full space" (an unforwarded seed / no ACL division). */
+    private boolean arrives(Set<Integer> fwd_aps, Set<Integer> acl_aps) {
+        if (targetHeader == BDDACLWrapper.BDDTrue) {
+            return Element.hasOverlap(fwd_aps, acl_aps);
+        }
+        BDDACLWrapper bdd = APKeeper.bddengine;
+        boolean fwdAll = fwd_aps.contains(BDDACLWrapper.BDDTrue);
+        boolean aclAll = acl_aps.contains(BDDACLWrapper.BDDTrue);
+        if (fwdAll && aclAll) return true;  // full space overlaps any real header
+        for (int ap : (fwdAll ? acl_aps : fwd_aps)) {
+            if (ap == BDDACLWrapper.BDDTrue) continue;
+            boolean forwarded = fwdAll || fwd_aps.contains(ap);
+            boolean permitted = aclAll || acl_aps.contains(ap);
+            if (forwarded && permitted
+                    && bdd.and(ap, targetHeader) != BDDACLWrapper.BDDFalse) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean traverse(PositionTuple cur_hop, Set<Integer> fwd_aps, Set<Integer> acl_aps,
                              PositionTuple target, List<PositionTuple> history, boolean moved) {
         if (fwd_aps.isEmpty() || acl_aps.isEmpty()) return false;
@@ -83,7 +123,7 @@ public class ReachabilityChecker {
         // Arrival: target reached (after >=1 hop) with non-empty forwarding AND
         // ACL packet space. Checked before the loop guard so a self-reaching
         // (looping) port is still detected.
-        if (moved && cur_hop.equals(target) && Element.hasOverlap(fwd_aps, acl_aps)) return true;
+        if (moved && cur_hop.equals(target) && arrives(fwd_aps, acl_aps)) return true;
 
         if (history.contains(cur_hop)) return false;  // simple-path pruning
         history.add(cur_hop);
@@ -97,7 +137,7 @@ public class ReachabilityChecker {
             // the current packet space (before the next element forwards). A
             // target may be either an egress port (a cur_hop above) or such an
             // ingress port (e.g. a probe attached to a device input).
-            if (connected_pt.equals(target) && Element.hasOverlap(fwd_aps, acl_aps)) return true;
+            if (connected_pt.equals(target) && arrives(fwd_aps, acl_aps)) return true;
 
             Element e = getElement(connected_pt.getDeviceName());
 
