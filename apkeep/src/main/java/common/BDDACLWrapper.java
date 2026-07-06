@@ -1277,7 +1277,19 @@ public class BDDACLWrapper implements Serializable{
             int vlanNode = BDDTrue;
             if(aclr.vlan != null && !aclr.vlan.equalsIgnoreCase("any"))
             {
-                  vlanNode = ConvertVLAN(Integer.parseInt(aclr.vlan));
+                  // FaVe fork (P7b): the VLAN token may be a comma-separated SET
+                  // (e.g. an ingress admits many VLANs); match their union in ONE
+                  // rule. This collapses ~114 per-VLAN permits per router into a
+                  // single admission rule -- far fewer atomic-predicate splits, so
+                  // the faithful wl_stanford model builds tractably.
+                  String[] vlans = aclr.vlan.split(",");
+                  int[] vlanNodes = new int[vlans.length];
+                  for(int i = 0; i < vlans.length; i++)
+                  {
+                        vlanNodes[i] = ConvertVLAN(Integer.parseInt(vlans[i].trim()));
+                  }
+                  vlanNode = OrInBatch(vlanNodes);
+                  DerefInBatch(vlanNodes);
             }
 
             //put them together
