@@ -150,6 +150,11 @@ class LibAPKeep:
         # it when NATs are present; reachability is unaffected (P7b).
         if nats_map is not None:
             params.MergeAP = False
+        # With VLAN rewrites (NATs), ACLs must share the forwarding AP universe so
+        # a VLAN admission composes with the rewrite -- ACL "division" would put
+        # them in separate universes that disagree on the rewritten VLAN. Keep
+        # division for the NAT-free src-IP ACL path (wl_ifi). (P7b)
+        params.USE_DIVISION = nats_map is None
 
         self._net = self._Network(name)
         # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)
