@@ -184,23 +184,13 @@ public class NATElement extends Element {
 		port_aps_raw.get(to_port).add(delta);
 		
 		if (rewrite_table.containsKey(delta)) {
+			// P7b: drop this input AP's old rewrite outputs. Do NOT eager-merge
+			// them here -- eager merging mid-transfer removed APs the split loop
+			// and the end-of-update batch merge still referenced, cascading into
+			// stale-AP crashes. All coalescing now happens once, in the batch merge
+			// (Network.softMergeAPBatch -> updateAPSetMergeBatch).
 			HashSet<Integer> old_aps = rewrite_table.get(delta);
 			output_aps.removeAll(old_aps);
-			while (true) {
-				HashSet<Integer> new_aps = new HashSet<Integer>(old_aps); 
-				for (int one_ap : new_aps) {
-					if (apk.hasAP(one_ap)) {
-						try {
-							apk.tryMergeAP(one_ap);
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-				}
-				if (old_aps.size() == new_aps.size())
-					break;
-			}
-				
 			old_aps.clear();
 		}
 		else {
