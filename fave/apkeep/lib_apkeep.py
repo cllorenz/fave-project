@@ -98,19 +98,23 @@ class LibAPKeep:
     def init_in_memory(self, name: str, l1_links: List[str],
                        fwd_devices: Optional[List[str]] = None,
                        device_acls: Optional[Dict[str, List[str]]] = None,
+                       device_nats: Optional[Dict[str, List[str]]] = None,
                        bdd_table_size: int = 1_000_000) -> None:
         """ Build the network from IN-MEMORY collections (no snapshot files):
         the path the APKeepAdapter uses to construct an APKeep network from a
-        FaVe model (APKEEP_BACKEND.md, P4).
+        FaVe model (APKEEP_BACKEND.md, P4/P7b).
 
         l1_links    -- directed topology edges as "dev1 port1 dev2 port2" strings
         fwd_devices -- ForwardElement device names not already implied by a link
         device_acls -- {device: [acl_name, ...]} -> ACLElements "device_aclname"
                        (None when there are no ACLs)
+        device_nats -- {device: [port, ...]} -> a NATElement "device_port" inserted
+                       inline on device.port (rewrites, e.g. VLAN; see P7b). Its
+                       "+ nat <device> <port> vlan <dstIP> <dstlen> <vlanN>" rules
+                       go through run(). None when there are no rewrites.
 
         Bypasses APKeep's name-dependent file parsers (readACLs/readVlans), so
-        the collections must already be in APKeep's internal shape. VLANs are
-        intentionally omitted (redundant with distinct per-role IP ranges).
+        the collections must already be in APKeep's internal shape.
         """
         links = self._ArrayList()
         for edge in l1_links:
@@ -119,16 +123,21 @@ class LibAPKeep:
         for dev in (fwd_devices or []):
             devices.add(str(dev))
 
-        acls_map = None
-        if device_acls:
+        def _str_set_map(mapping: Optional[Dict[str, List[str]]]) -> Any:
+            if not mapping:
+                return None
             HashMap = jpype.JClass("java.util.HashMap")
             HashSet = jpype.JClass("java.util.HashSet")
-            acls_map = HashMap()
-            for dev, names in device_acls.items():
+            jmap = HashMap()
+            for dev, names in mapping.items():
                 names_set = HashSet()
                 for n in names:
                     names_set.add(str(n))
-                acls_map.put(str(dev), names_set)
+                jmap.put(str(dev), names_set)
+            return jmap
+
+        acls_map = _str_set_map(device_acls)
+        nats_map = _str_set_map(device_nats)
 
         # Size the BDD table for a FaVe-scale network (not APKeep's 100M
         # snapshot default), so several in-process networks can coexist under
@@ -137,7 +146,7 @@ class LibAPKeep:
 
         self._net = self._Network(name)
         # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)
-        self._net.initializeNetwork(links, devices, acls_map, None, None)
+        self._net.initializeNetwork(links, devices, acls_map, None, nats_map)
         self._eva = self._Evaluator(name, _tempfile.mktemp())
 
     def run(self, rules: List[str]) -> None:
