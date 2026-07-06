@@ -273,10 +273,12 @@ coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
     The crossover is decisive at scale: header-space flow propagation is the
     bottleneck (NetPlumber's 341 s is almost entirely model build), atomic
     predicates are not. This is the result the comparison was built to show.
-  - **wl_stanford:** not modellable by the *current* dst-IP adapter -- its HSA
-    out-tables forward by *input port* and it has transport-layer (tcp/proto/flags)
-    ACLs, neither expressible in our destination-IP `ForwardElement` usage. i2
-    covers scale; stanford is taken up as an extension (P7 below).
+  - **wl_stanford:** the *forwarding* is now modelled (P7a: the `in_port` out-stage
+    collapse), and it matches the bundled `reachable.json`. But `reachable.json` is
+    the **artificial all-to-all policy** (from the HSA/NetPlumber papers), not the
+    data plane -- so that match only proves forwarding *completeness*. The faithful
+    data plane needs the VLAN-coupled ACLs, which require a VLAN **rewrite** (P7b =
+    P8); see the P7 subsection for the NetPlumber cross-check that quantifies this.
 
 ### Capability reassessment (APKeep paper, NSDI '20) — what is *conceptually* in scope
 
@@ -348,36 +350,64 @@ approach and retired two feared "wrinkles":
   (VLAN-scoped deny/permit), and a new `VlanFloodTest` pinning the previously
   untested `getVlanPorts` flood branch P7 needs. 19 tests green; jacoco ratchet
   raised 30% → 33% (now 36.6%).
-- **P7 — wl_stanford (IPv4, stateless), built on P9a.** Adapter translation of the
-  in/mid/out model:
-  - `in.X` → an ingress `ACLElement` matching `(src, dst, vlan)` permit/deny —
-    one element per device via the VLAN field, not ~46;
-  - `mid.X` → a `ForwardElement` (dst-IP FIB) forwarding to `vlanN` ports + a
-    reconstructed `vlan_ports` flood map;
-  - `out.X` → collapse the `in_port→out_port` permutation (a deterministic wire)
-    into topology; the egress ACL on the big edge routers (yoza/yozb: 1584/354
-    5-tuple rules) → an egress `ACLElement`;
-  - emit the 5-tuple (proto/ports; `tcp_flags` has no APKeep field → approximate,
-    logged).
-  - **Open design point:** the egress ACL is keyed by the *egress* VLAN, which
-    `mid` sets via `rw=vlan` — matching it natively would need a VLAN **rewrite**
-    (the P8 mechanism). Resolve by either **(i)** scoping the egress ACL
-    *structurally per egress port* (egress port ⟺ egress VLAN; no rewrite, reuses
-    the wl_ifi per-port-ACL trick) or **(ii)** pulling the VLAN rewrite forward
-    from P8. **Lean (i)** to keep P7 rewrite-free.
-  - Gate: `test_apkeep_stanford.py` exact-match vs `reachable.json` +
-    `gen_wl_stanford_inputs.sh` (from the tracked `*.tf.json`).
-- **P8 — state-shell rewrites.** Test `NATElement`/`RewriteRule` first; wire the
-  state field's rewrites through the adapter + `ReachabilityChecker`; reproduce
-  wl_ifi's `related:` cchecks (currently skipped). Also supplies the VLAN rewrite
-  if P7 chose route (ii). Enables the stateful part of wl_tum.
+- **P7a — wl_stanford forwarding (out-stage collapse). DONE (2026-07-01).** The
+  `out.X` stage is an `in_port→out_port` permutation a dst-IP `ForwardElement`
+  cannot express; the generic path collapsed it to one /0 default and forwarding
+  broke (baseline: missing=204/240). `APKeepAdapter._collapse_out_stage` resolves
+  the `mid.X.<110n> → out.X.<130n> → [perm] → out.X.<120m> → in.Y/probe` chain
+  statically and wires the `mid.` egress interface straight to the external
+  neighbour, dropping `out.` (48 switches → 32 `ForwardElement`s). `in.` is a
+  pass-through, `mid.` the dst-IP FIB. Gate: `test_apkeep_stanford.py` +
+  `gen_wl_stanford_inputs.sh`; from-zero wired into `apkeep_vs_netplumber.py`
+  (steady ~1.3 s, comparable to NetPlumber ~1.4 s).
+  - **But the "exact match vs `reachable.json`" is policy-only, NOT a data-plane
+    correctness check.** `reachable.json` is the artificial *all-to-all* policy;
+    forwarding-only APKeep trivially satisfies it.
+- **P7b — wl_stanford faithful VLAN+ACL (= P8 rewrite). NEXT.** The NetPlumber
+  cross-check (the reference oracle) quantifies the gap the policy oracle hid:
+
+  | backend | reachable pairs |
+  |---|---|
+  | APKeep (forwarding-only) | **240 / 240** |
+  | NetPlumber (faithful HSA) | **10 / 240** (all edge→core) |
+
+  APKeep over-approximates on **230/240** pairs; the whole gap is the VLAN.
+  Rule-structure evidence (feasibility spike, 2026-07-01):
+  - `in.` **matches** `(in_port, vlan, 5-tuple)`, never rewrites (511 distinct
+    VLANs matched); `mid.` **rewrites** `vlan→N` keyed by dst-route (3372 rules,
+    **190 distinct N**, up to 17 VLANs per egress port — so VLAN is *not*
+    port-determined); `out.` mostly **passes N through** (only 45 rules reset →0),
+    so VLAN **propagates across router boundaries**; probes require `vlan=0`
+    (only the 45 resets produce it — hence 10/240).
+  - **All 190 mid-assigned VLANs are consumed by a downstream `in.` stage** — the
+    rewrite couples routers along the whole path. This resolves the old open design
+    point: **static per-port composition (route i) is infeasible** (the arriving
+    VLAN is set by the *previous* router's route-dependent rewrite, which only
+    resolves at flow-propagation time); **the VLAN rewrite (route ii = P8) is
+    required.**
+  - Plan: (1) Java core — add `Fields.vlan` + `get_field_bdd(vlan)` over the P9a
+    VLAN bits and a VLAN `RewriteRule`/`NATElement` encode path mirroring the
+    dst-IP one (the BDD `exists`/`replace` primitives are already field-generic;
+    only the field selection is hardcoded); JUnit test first. (2) Adapter — stop
+    collapsing `out.`; model `in.`/`out.` as `(vlan+5-tuple)` `ACLElement`s and
+    `mid.` as dst-IP forward **+ per-route VLAN rewrite**. `tcp_flags` has no
+    APKeep field → approximate, logged. (3) **Validate against NetPlumber (target
+    10/240)**, not `reachable.json`.
+- **P8 — state-shell rewrites (subsumes the P7b VLAN rewrite).** The VLAN rewrite
+  above *is* the general runtime-rewrite mechanism: `NATElement`/`RewriteRule`
+  generalized off dst-IP to any declared field. Test-first. Once it exists, wire
+  the state field's rewrites through the adapter + `ReachabilityChecker` and
+  reproduce wl_ifi's `related:` cchecks (currently skipped). Enables the stateful
+  part of wl_tum.
 - **P9b — general header extension / IPv6.** Generalize P9a to arbitrary fields +
   implement the scaffolded `ForwardingRule6` + an IPv6 ACL path. Enables wl_up
   (IPv6 + state-shell).
-- **Per-workload:** wl_stanford = P6 + P9a + P7; wl_tum = + P8 (1 device, low scale
-  value); wl_up = + P8 + P9b (highest effort). **Recommendation:** P9a → P7
-  (wl_stanford); treat P8/P9b (wl_tum/wl_up) as optional — i2 already carries the
-  scale result.
+- **Per-workload:** wl_stanford = P6 + P9a + P7a (forwarding) + **P7b/P8 (faithful,
+  VLAN rewrite required)**; wl_tum = + P8 (1 device, low scale value); wl_up = + P8
+  + P9b (highest effort). The stanford cross-check retired the "stanford is
+  rewrite-free" assumption: its faithful model needs the same P8 rewrite mechanism
+  as wl_tum/wl_up, so P8 is now on the critical path, not optional. i2 already
+  carries the scale result independently.
 
 ## 10. Open questions / decisions log
 
