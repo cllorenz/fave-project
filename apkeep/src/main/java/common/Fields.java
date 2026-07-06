@@ -41,6 +41,6 @@
 package common;
 
 public enum Fields {
-	src_ip, dst_ip, src_port, dst_port, mpls_label, dst_ip_inner
+	src_ip, dst_ip, src_port, dst_port, mpls_label, dst_ip_inner, vlan
 
 }

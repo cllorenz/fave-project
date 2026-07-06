@@ -89,6 +89,7 @@ public class BDDACLWrapper implements Serializable{
       public int mplsLabelField;
       public int mplsLabelFieldDecoration;
       int dstIPField;
+      int vlanField;   // P7b: all VLAN variables AND-ed, for VLAN rewrites (nat)
       //int dstIPInnerField;
 
       // these bits (bdd variables) are used to indicate whether a particular field exists 
@@ -151,6 +152,7 @@ public class BDDACLWrapper implements Serializable{
             mplsLabelFieldDecoration = 
                         aclBDD.ref(aclBDD.and(mplsLabelField, mplsLabelBit));
             dstIPField = AndInBatch(dstIP);
+            vlanField = AndInBatch(vlan);   // P7b: existential-quantification set for VLAN rewrites
             //dstIPInnerField = AndInBatch(dstIPInner);
       }
       
@@ -164,6 +166,7 @@ public class BDDACLWrapper implements Serializable{
       {
             switch(field_name){
             case dst_ip: return dstIPField;
+            case vlan: return vlanField;
             default: return BDDFalse;
             }
       }

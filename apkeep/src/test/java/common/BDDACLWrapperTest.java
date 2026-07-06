@@ -93,6 +93,28 @@ class BDDACLWrapperTest {
         assertNotEquals(dst, both);
     }
 
+    @Test
+    void vlanRewriteReplacesTheTagAndPreservesOtherFields() {
+        // P7b: the Stanford mid-stage rewrites the egress VLAN (nat over the VLAN
+        // field), keyed by the dst-IP route. Pin that primitive: nat(pkt, vlanField,
+        // vlan=N) must set VLAN to N, drop the old tag, and leave dst-IP untouched.
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int vlanField = bdd.get_field_bdd(Fields.vlan);
+        assertNotEquals(BDDACLWrapper.BDDFalse, vlanField, "VLAN field BDD must be non-trivial");
+
+        int v10 = bdd.ConvertVLAN(10);
+        int v20 = bdd.ConvertVLAN(20);
+        int dst = bdd.encodeDstIPPrefix(0x0A000000L, 8);   // 10.0.0.0/8
+        int pkt = bdd.and(v10, dst);                        // vlan=10 AND dst=10/8
+
+        int rewritten = bdd.nat(pkt, vlanField, v20);       // vlan 10 -> 20
+
+        assertEquals(rewritten, bdd.and(rewritten, v20), "result is entirely within vlan=20");
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(rewritten, v10), "no vlan=10 remains");
+        assertEquals(rewritten, bdd.and(rewritten, dst), "dst-IP is preserved across the rewrite");
+        assertNotEquals(BDDACLWrapper.BDDFalse, rewritten, "the rewritten packet set is non-empty");
+    }
+
     /** A 5-tuple match (protocol range, dst-port range; any IP, any src port). */
     private static ACLRule aclMatch(String proto, String dport) {
         return new ACLRule("p 0 x " + proto + " 0.0.0.0 255.255.255.255 null null "
