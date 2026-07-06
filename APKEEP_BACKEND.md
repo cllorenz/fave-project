@@ -454,6 +454,64 @@ approach and retired two feared "wrinkles":
   as wl_tum/wl_up, so P8 is now on the critical path, not optional. i2 already
   carries the scale result independently.
 
+### Performance analysis: BDDs vs APs, and the VLAN AP-count impact (2026-07-01)
+
+Why is the faithful wl_stanford build intractable while APKeep's own stanford runs
+in <1 s? The answer is architectural, and it corrects a tempting misconception
+("adding a 12-bit field must add many APs").
+
+**How APKeep uses BDDs vs. APs (from the code).** An atomic predicate is a
+`Set<Integer>` whose ids *are* BDD-node ids used as **labels**; `ap_ports` /
+`ports_aps` are integer-keyed maps. BDD operations occur only at **boundaries**:
+
+| Path | Operation | Cost |
+|---|---|---|
+| reachability transfer | `Element.forwardAPs` = `retainAll` | **AP-set (fast)** |
+| reachability arrival | `Element.hasOverlap` = `bdd.and` per AP-pair | BDD — *only under ACL "division"* (two AP universes) |
+| source seeding | `APKeeper.getAPExp(pred)` = `bdd.and` over all APs | BDD, O(\|AP\|) |
+| rule insert | per-rule `hit_bdd` via `bdd.and`/`diff` | BDD, per rule × affected rules |
+| AP maintenance | `updateSplitAP` = `bdd.and`/`diff` **per AP a delta cuts** | BDD, per rule × APs |
+| rewrite / merge | `nat` (exists+and), `OrInBatch` | BDD |
+
+The **analysis/query** path is already essentially BDD-free (`retainAll`); the
+only avoidable BDD there is `hasOverlap`, which needs `bdd.and` *only because
+division* splits forwarding and ACL predicates into two AP universes — a
+**single-universe** mode (`Parameters.USE_DIVISION=false`, added in P7b) makes it a
+plain set intersection. The **build/insert** path is inherently BDD-based: splitting
+the AP partition when a rule cuts existing predicates *requires* BDD `and`/`diff`.
+
+**Measured AP counts (`getAPNum`):**
+
+| model | VLAN usage | APs | build |
+|---|---|---|---|
+| wl_stanford forwarding-only | 12-bit field declared, **unused** | **133** | 1 s |
+| wl_i2 (77k routes) | none | 216 | 11 s |
+| APKeep's own stanford (upstream) | no VLAN field | 515 | <1 s |
+| wl_stanford + mid VLAN **rewrites**, merge OFF | rewritten per route | **7916** | 57 s |
+| wl_stanford + mid VLAN rewrites, merge ON | rewritten per route | (coalesces) | >400 s (times out) |
+
+**Conclusions.**
+1. **Header *width* costs nothing.** With the 12-bit VLAN field declared but not
+   matched, wl_stanford stays at **133 APs** — APs count *distinct behaviours*, not
+   header bits; unused variables leave the AP predicates unconstrained. So "extend
+   by 12 bits → more APs" is false for VLAN as a *match* field.
+2. **VLAN as a *rewritten* field explodes APs ~60× (133 → 7916)** — each mid-stage
+   rewrites VLAN per dst-route, fragmenting every forwarding class into
+   (dst, egress-VLAN) sub-classes. This is a property of the *per-route-NAT
+   modelling*, not of VLAN: APKeep's native stanford holds the same network at 515
+   APs by not encoding VLAN reassignment as thousands of per-route rewrites.
+3. **The AP increase does not slow the AP-set (query) path** — `retainAll` over a
+   few thousand ids is microseconds. It blows up the **build**: AP splitting is a
+   BDD op *per AP*, so insertion is ~O(rules × APs × BDD); at 7916 APs the admission
+   ACLs fragment further → OOM (merge off), or, with merge on to coalesce back
+   toward ~515, the per-rule batch merge over ~3372 rewrites is itself too slow.
+
+**So the bottleneck is BDD work at build time + AP fragmentation from the modelling,
+not the 12-bit width and not the AP-set analysis path.** The tractable levers are a
+**compact rewrite encoding** (coarser VLAN reassignment → far fewer APs, approaching
+the native 515) and/or a faster batch merge — not reducing header width. The
+avoidable query-side BDD (division) is already removed via single-universe.
+
 ## 10. Open questions / decisions log
 
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
