@@ -418,16 +418,23 @@ approach and retired two feared "wrinkles":
     sites + `updateAPSetMergeBatch` rewrite-table maintenance). 24 unit tests green
     with merge ON; the full wl_stanford faithful build no longer crashes or OOMs.
   - **NOW BLOCKED on build PERFORMANCE (2026-07-01).** The faithful build does not
-    finish in 25 min. The sound-77 model (no admission ACLs) builds in ~50 s, so
-    the ~1800 per-VLAN *ingress-admission* ACL rules (each `ConvertVLAN`-exact →
-    heavy AP splitting) + the per-rule batch merge over ~7000 rules are the
-    30×+ slowdown. This is impractical for the from-zero benchmark (NetPlumber
-    builds wl_stanford in ~1.4 s). Next lever: a **compact admission encoding** --
-    one ACL rule per router matching the admitted-VLAN *set* (OR of `ConvertVLAN`)
-    instead of ~114 per-VLAN permits, which needs a raw-BDD ACL match path in
-    APKeep. The VLAN model itself is correct and composes throughout; every blocker
-    has been an APKeep-core scale/perf issue. Gated off; the sound
-    over-approximation (77, probe filter only) remains the enabled faithful state.
+    finish in 25 min. **Tried and ruled out** as the primary cause: (a) the per-rule
+    batch merge (merge on vs off — both >400 s); (b) the ~1800 per-VLAN admission
+    ACL rules — a **compact encoding** (one ACL rule per router over the admitted
+    VLAN *set*, ~1800→16 rules; `ConvertACLRule` now ORs a comma-separated set) did
+    NOT make it tractable either. The mid-NATs *alone* build in ~50 s (the sound-77
+    model), so the dominant cost is the **interaction of the ~3372 per-route VLAN
+    rewrites (NATs) with the VLAN-set ACLs in one AP universe** — the rewrites over
+    the ACL-split predicates blow up BDD/AP work. This is impractical for the
+    from-zero benchmark (NetPlumber builds wl_stanford in ~1.4 s), and it is a
+    *modelling*-efficiency wall, not a bug: **APKeep's own stanford snapshot builds
+    in <1 s (515 APs)** because it does NOT model the VLAN reassignment as
+    thousands of per-route NAT rewrites. Reaching a tractable exact 10/240 needs a
+    fundamentally more efficient stanford encoding (closer to APKeep's native form)
+    — a separate, larger effort. The VLAN model itself is correct and composes
+    throughout (unit-tested); every blocker has been an APKeep-core scale/perf
+    issue. **Recommendation: ship the sound over-approximation (77 ⊇ NP's 10) for
+    the benchmark**; the faithful path stays gated, correct-but-intractable.
   - Note: NetPlumber's `.so` diff is reproducible locally (needs `liblog4cxx`);
     APKeep vs NP must be run in SEPARATE processes (the resident JVM + NP in one
     process cross-contaminates -- NP wrongly reports 240).
