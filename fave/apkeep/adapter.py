@@ -225,12 +225,11 @@ class APKeepAdapter(AbstractVerificationEngine):
     # --- AbstractVerificationEngine: model construction (buffered) -----------
 
     def add_tables(self, model: Any) -> None:
-        # Routers and switches both become dst-IP ForwardElements -- except the
-        # wl_stanford out. stage, which is an in-port permutation (not a FIB) and
-        # is collapsed into the topology at build, so it gets no ForwardElement.
-        if model.node.split('.', 1)[0] == 'out':
-            self._stanford = True
-            return
+        # Routers and switches all become dst-IP ForwardElements. The wl_stanford
+        # out. stage is an in-port permutation (not a FIB) collapsed into the
+        # topology at build -- but that is decided THERE, keyed on the mid. stage
+        # (unique to stanford; wl_i2 is in/out only and its out. stage is a real
+        # dst-IP FIB that must be kept). Add every device here.
         self._fwd_devices.add(model.node)
 
     def add_rules(self, model: Any) -> None:
@@ -240,10 +239,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
         if model.node.split('.', 1)[0] == 'out':
-            self._capture_out_perm(model)   # in-port permutation, collapsed later
+            # wl_stanford: record the in-port permutation (+ VLAN resets) for the
+            # build-time collapse. Harmless for wl_i2 (never collapsed). Fall
+            # through so the out. rules are ALSO translated as a FIB -- correct for
+            # wl_i2; the stanford permutation forwards are dropped at collapse.
+            self._capture_out_perm(model)
             if self._faithful_vlan:
                 self._capture_out_reset(model)
-            return
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -408,22 +410,35 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _build(self) -> None:
         if self._built:
             return
+        # wl_stanford (and only it) has a mid. stage; its out. stage is an in-port
+        # permutation to collapse. wl_i2 is in/out only -- its out. stage is a real
+        # FIB, so it must NOT be collapsed. Decide here, now all devices are known.
+        self._stanford = any(d.split('.', 1)[0] == 'mid' for d in self._fwd_devices)
         edges = list(self._edges)
+        fwd_rules = list(self._fwd_rules)
         device_acls = None
         device_nats = None
         acl_rules: List[str] = []
         nat_rules: List[str] = []
-        if self._stanford and self._faithful_vlan:
-            edges, device_nats, nat_rules = self._build_stanford_faithful(edges)
-        elif self._stanford:
-            edges = self._collapse_out_stage(edges)
+        if self._stanford:
+            # The out. stage is not a ForwardElement: drop its devices and the
+            # (broken /0) forwards translated from its permutation rules; the
+            # collapse re-wires the mid. egress interfaces to the neighbours.
+            self._fwd_devices = {d for d in self._fwd_devices
+                                 if d.split('.', 1)[0] != 'out'}
+            fwd_rules = [r for r in fwd_rules
+                         if r.split()[2].split('.', 1)[0] != 'out']
+            if self._faithful_vlan:
+                edges, device_nats, nat_rules = self._build_stanford_faithful(edges)
+            else:
+                edges = self._collapse_out_stage(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
         self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices),
                                  device_acls, device_nats)
-        self._lib.run(_dedup(self._fwd_rules) + nat_rules + acl_rules)
+        self._lib.run(_dedup(fwd_rules) + nat_rules + acl_rules)
         self._built = True
 
     def _build_stanford_faithful(self, edges: List[str]):
