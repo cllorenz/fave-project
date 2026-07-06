@@ -255,6 +255,10 @@ public abstract class Element {
 			// split AP when intersect
 			Set<Integer> apset = new HashSet<Integer>(port_aps_raw.get(from_port));
 			for(int ap : apset) {
+				// P7b: this snapshot can go stale mid-loop -- an eager NAT merge
+				// (below) may have merged `ap` away already; skip it (its space is
+				// now covered by the merged AP) rather than splitting a gone AP.
+				if (!apk.hasAP(ap)) continue;
 				int intersect = bdd.and(delta, ap);
 				if(intersect != BDDACLWrapper.BDDFalse) {
 					if(intersect != ap) {

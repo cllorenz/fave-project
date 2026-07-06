@@ -72,12 +72,13 @@ class NATReachabilityTest extends ApkeepTestBase {
     @Test
     void multipleVlanRewritesOnOneNat() throws Exception {
         // Two rewrite rules on the SAME NAT (dst 10.0/9 => vlan 20, dst 10.128/9
-        // => vlan 30) -- this crashed AP merging (updateMergeAP dereferenced an
-        // already-merged AP -> APNotFoundException). AP merging is a size-only
-        // optimization, so we disable it when NATs are present; reachability is
-        // unchanged. Pin both: no crash, and each route keeps its own rewrite.
+        // => vlan 30). This used to crash AP merging (updateMergeAP dereferenced
+        // an already-merged AP -> APNotFoundException). Runs with AP merging ON to
+        // pin the fix: the stale-AP guards in tryMergeAP/updatePortPredicateMap
+        // keep the eager NAT merge from touching an already-merged predicate. No
+        // crash, and each route keeps its own rewrite.
         boolean saved = Parameters.MergeAP;
-        Parameters.MergeAP = false;
+        Parameters.MergeAP = true;
         try {
             String permitVlan = "0 255 0.0.0.0 255.255.255.255 null null "
                     + "0.0.0.0 255.255.255.255 null null 100 ";
@@ -114,7 +115,7 @@ class NATReachabilityTest extends ApkeepTestBase {
         // NAT(dst 10/8 => vlan 20) -> {out-ACL vlan 20 -> X, out-ACL vlan 30 -> Y}.
         // Expect X reachable (rewritten to 20) and Y not (it is 20, not 30).
         boolean savedM = Parameters.MergeAP, savedD = Parameters.USE_DIVISION;
-        Parameters.MergeAP = false;
+        Parameters.MergeAP = true;
         Parameters.USE_DIVISION = false;
         try {
             String any = "0 255 0.0.0.0 255.255.255.255 null null "

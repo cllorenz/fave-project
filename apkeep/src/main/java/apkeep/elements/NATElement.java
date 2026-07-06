@@ -9,6 +9,7 @@ import java.util.Set;
 
 import apkeep.core.ChangeItem;
 import apkeep.exception.APNotFoundException;
+import apkeep.exception.APSetNotFoundException;
 import apkeep.rules.RewriteRule;
 import apkeep.rules.Rule;
 import apkeep.utils.Logger;
@@ -346,11 +347,54 @@ public class NATElement extends Element {
 
 	@Override
 	protected int tryMergeIfNATElement(int delta) {
-		try {
-			return apk.tryMergeAP(delta);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		// P7b: do NOT eager-merge mid-update. Eager per-AP merging removed APs
+		// while the split loop / other rules still referenced them, corrupting the
+		// AP<->ports_aps<->AP-set consistency at scale (stale-AP crashes that just
+		// moved when patched). Like every other element, defer merging to the
+		// end-of-update batch (Network.softMergeAPBatch -> updateAPSetMergeBatch,
+		// overridden below to keep the rewrite table consistent).
 		return delta;
+	}
+
+	// P7b: batch AP-merge maintenance for the rewrite table (the set analogue of
+	// updateAPSetMerge). Without this the base method would merge the port APs but
+	// leave the rewrite table referencing the pre-merge APs. All merged APs share
+	// this port's rewrite rule, so re-derive a single rewrite for the merged AP.
+	@Override
+	public void updateAPSetMergeBatch(String port, int merged_ap, HashSet<Integer> aps) throws Exception {
+		Set<Integer> apset = port_aps_raw.get(port);
+		if (!apset.containsAll(aps)) {
+			throw new APSetNotFoundException(aps);
+		}
+		apset.removeAll(aps);
+		apset.add(merged_ap);
+
+		// merged APs appearing as rewrite OUTPUTS: collapse the group to merged_ap.
+		for (HashSet<Integer> outs : rewrite_table.values()) {
+			if (outs.containsAll(aps)) {
+				outs.removeAll(aps);
+				outs.add(merged_ap);
+				output_aps.removeAll(aps);
+				output_aps.add(merged_ap);
+			}
+		}
+
+		// merged APs that are rewrite INPUTS (keys): drop them and re-derive one
+		// rewrite for the merged AP via this port's rule.
+		boolean anyKey = false;
+		for (int ap : aps) {
+			if (rewrite_table.containsKey(ap)) { anyKey = true; break; }
+		}
+		if (!anyKey) return;
+		for (int ap : aps) {
+			HashSet<Integer> outs = rewrite_table.remove(ap);
+			if (outs != null) output_aps.removeAll(outs);
+		}
+		RewriteRule rule = (RewriteRule) rule_map.get(port);
+		int merged_rewrite = bdd.nat(merged_ap, rule.getField_bdd(), rule.getNew_pkt_bdd());
+		HashSet<Integer> merged_apset = new HashSet<Integer>();
+		merged_apset.add(merged_rewrite);
+		rewrite_table.put(merged_ap, merged_apset);
+		output_aps.add(merged_rewrite);
 	}
 }

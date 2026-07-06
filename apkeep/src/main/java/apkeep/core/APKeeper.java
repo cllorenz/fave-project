@@ -314,7 +314,12 @@ public class APKeeper {
 	
 	public int tryMergeAP(int ap) throws Exception {
 		if (!MergeAP()) return ap;
-		
+		// P7b: within one update batch an AP can already have been merged away by
+		// an earlier eager merge (multi-rule NATs merge per-AP as they transfer).
+		// Merging it again would dereference a gone predicate (APNotFoundException
+		// in updateMergeAP); a stale AP is simply a no-op here.
+		if (!AP.contains(ap)) return ap;
+
 		ArrayList<String> ports = ap_ports.get(ap);
 		HashSet<Integer> aps = ports_aps.get(ports);
 		if (aps.size()>1) {
