@@ -409,15 +409,21 @@ approach and retired two feared "wrinkles":
     ACL upstream of the rewrite, egress ACL downstream). The adapter splices a
     per-router ingress ACL (`iacl_<idx>`, admitting the in-stage's VLANs) onto the
     `in.X → mid.X` edge.
-  - **BLOCKED (2026-07-01) on OOM:** at full wl_stanford scale the faithful build
-    exhausts the BDD heap (~3.8 G). Root cause: **AP merging is disabled** (the
-    workaround for the `NATElement` multi-rule AP-merge crash), so ~3372 NAT +
-    ~1800 per-VLAN ACL rules explode the atomic-predicate count with no coalescing.
-    So the exact 10/240 is gated on **re-enabling AP merging = fixing the
-    multi-rule-NAT merge crash** (`updateMergeAP`/`tryMergeAP` dereferences an
-    already-merged AP), NOT on the VLAN model (which is correct + composes). The
-    ingress-admission adapter path is gated off; the sound over-approximation (77,
-    probe filter only) remains the enabled faithful state.
+  - **BLOCKED (2026-07-01) on APKeep's NAT+merge AP-maintenance (scale).** At full
+    wl_stanford scale the faithful build needs AP merging to bound memory (merge
+    OFF → ~3372 NAT + ~1800 per-VLAN ACL rules explode the AP count → BDD heap OOM
+    ~3.8 G). But merging with multi-rule NATs is buggy: `NATElement` merges atomic
+    predicates **eagerly mid-update**, removing APs the split loop / batch merge
+    still reference → cascading stale-AP crashes (`APNotFound`/`APSetNotFound`) and
+    a JDD `quant_rec` use-after-free. Partial fix landed (guards + defer input-side
+    merge to the batch + `updateAPSetMergeBatch` rewrite-table maintenance;
+    unit-tested with merge ON, 24 tests), but `NATElement.transferOneAP` ALSO
+    eager-merges (output-side), so the full build still crashes. The NAT+merge path
+    has **several intertwined eager-merge sites** that need consolidating into the
+    single end-of-update batch merge -- a dedicated APKeep-core hardening effort,
+    not a point fix. This is the ONLY remaining blocker: the VLAN model itself is
+    correct and composes. Gated off; the sound over-approximation (77, probe filter
+    only) remains the enabled faithful state.
   - Note: NetPlumber's `.so` diff is reproducible locally (needs `liblog4cxx`);
     APKeep vs NP must be run in SEPARATE processes (the resident JVM + NP in one
     process cross-contaminates -- NP wrongly reports 240).
