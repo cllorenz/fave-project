@@ -700,6 +700,33 @@ five successively-disproven mechanisms here.
 router-pair. A 3-router aggregation subset (`{bbra, roza, rozb}`, where `bbra→rozb`
 should flip to reachable) and a header-set comparison remain the next confidence steps.
 
+### Known limitation: APKeep does not model discard / `Null0` drop rules (2026-07-10)
+
+The adapter's `_translate_fwd_rule` skips any rule with no forward action
+(`if not out_ports: return`) — including Cisco **`Null0` / discard** routes (e.g.
+`192.168.0.0/16 → Null0`, a standard aggregate/anti-bogon discard) and pure-match
+drops. NetPlumber (and the real routers) honour these, so **APKeep over-approximates
+for destination ranges that reality genuinely discards** — it will report packets to
+those ranges as forwardable when they would be dropped. Direction of unsoundness: this
+is *safe* for isolation / "must-not-reach" policies (a false *alarm* — private space
+stays private) but *unsound* for reachability / "must-reach" guarantees (false
+assurance of connectivity that can mask an outage). Operationally, the false alarms are
+costly (manual investigation) and erode trust, so it is a genuine deficiency to fix.
+A prototype exists (env `DROP_RULES=1`: model a *dst-only* discard as a blackhole
+forward at LPM priority; env-gated, uncommitted).
+
+**Scope — this is NOT the cause of the `bbra→rozb` false positive above.** Three pieces
+of evidence rule that out: (1) NP does *not* drop `.204` — injecting it from bbra, the
+flow reaches `probe.bbra`, so it is forwarded, not discarded; (2) NP applies LPM
+correctly and the `192.168.208.0/20` **forward** (more specific) beats the `/16`
+discard, so `.204` matches the forward; (3) the `DROP_RULES=1` prototype left
+`bbra→rozb` reachable (unchanged), because under correct LPM the `/16` cannot shadow the
+`/20`. Moreover `.204` lies inside the *forwarded* `/20` (internally-routed private
+space), **not** the bogon remainder the `Null0` swallows — a real packet to `.204` is
+forwarded at bbra (toward `172.20.5.33`), not dropped. So the discard-skip is a **real,
+independent** modelling gap; the `bbra→rozb` pair is caused by the separate,
+still-unpinned out-stage/segment-crossing gap.
+
 ## 10. Open questions / decisions log
 
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
