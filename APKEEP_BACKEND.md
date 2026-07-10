@@ -634,53 +634,71 @@ original config validates the **whole FaVe→NetPlumber pipeline** (config → H
 FaVe JSON *translation* **and** the NP *engine*), not just self-consistency. We
 hand-derived reachability for the `{bbra_rtr, rozb_rtr}` subset from the route tables:
 
-**`bbra → rozb`: genuinely UNREACHABLE in the subset.** Every route from bbra toward a
-rozb-local destination has an L3 next-hop that is a *third* router, all removed in the
-subset:
+**Verdict (SOLID, confirmed at NP flow level):** `bbra→rozb` is genuinely UNREACHABLE
+and `rozb→bbra` genuinely REACHABLE in the subset. NetPlumber is **sound AND complete**
+on this pair (forwards the right flow, drops the wrong ones, drops nothing legitimate,
+forwards nothing spurious); APKeep over-approximates with the `bbra→rozb` false positive.
+The independent-oracle framing above means this validates the FaVe translation + NP
+engine end-to-end, not just self-consistency.
 
-| rozb destination | bbra route → next-hop | next-hop owner |
-|---|---|---|
-| `171.64.103.0/24` (host, Vlan700), `171.64.115.0/24`, … | `172.20.4.65` | **roza** (rozb's aggregation sibling) |
-| `192.168.208.0/20` ⊃ `192.168.209.204/30` (rozb's Tunnel10) | `172.20.5.33` | a backbone router (≠ bbra/rozb) |
-| default `0.0.0.0/0` | `172.20.4.2` | a backbone router (≠ bbra/rozb) |
+> **Correction (2026-07-10, flow-level).** An earlier draft of this section attributed
+> `bbra→rozb`'s unreachability to a *routing* mechanism — bbra's routes to rozb-local
+> subnets take L3 next-hops (`172.20.4.65`=roza, `172.20.5.33`, `172.20.4.2`) owned by
+> *third* routers absent in the subset — and framed APKeep's error as "dst-only
+> forwarding ignoring the L3 next-hop on the shared `/23` segment." **That mechanism was
+> wrong** (NP excludes `bbra→rozb` in the *full* topology too, where those routers are
+> present; and instrumenting APKeep's checker + walking NP's own flow trees told a
+> different story). The routing facts are still true, but they are **not** the operative
+> reason. The corrected, flow-grounded mechanism follows.
 
-The **only** destinations bbra forwards *directly* to rozb (`172.20.4.66`) are three
-control-plane `/32`s (`172.20.0.5`, `172.20.0.66`, rozb's own `.4.66`) — "receive"/
-loopback, not host-edge, so not probe-visible. No data-plane flow reaches a rozb host.
+**What NP actually does (from `dump_flow_trees`, the authoritative per-hop record):**
 
-**`rozb → bbra`: genuinely REACHABLE.** rozb's **default route `0.0.0.0/0 → 172.20.4.1`
-is bbra directly** (also `128.12.0.0 → 172.20.4.1`), and bbra has real attached host
-subnets (`128.12.1.80/29 Vlan564`, `171.64.1.x`, …), so rozb → bbra → local delivery is
-a real path. The asymmetry is rooted in the routing: a leaf (rozb) defaults straight to
-the backbone (bbra); the backbone reaches leaf subnets via the leaf's *aggregation*
-router (roza), never the leaf directly. Shared segment: `172.20.4.0/23` (Vlan2, dot1Q 2)
-carries bbra `.4.1`, roza `.4.65`, rozb `.4.66`.
+- `source.bbra` **does inject and reach `mid.bbra`** (869 flow branches) — so an earlier
+  "bbra can't source (its ingress port has no rule)" idea is **also retracted**; bbra
+  sources fine. But its flow **crosses to no neighbor**: 868 branches die at the
+  `mid.bbra → out.bbra` transition, 1 reaches `probe.bbra` (self). It never touches any
+  rozb table.
+- `source.rozb` **does cross**: `in.rozb → mid.rozb → out.rozb → in.bbra → mid.bbra →
+  out.bbra → probe.bbra` (the real `rozb→bbra` pair).
 
-**Verdict against the four soundness/completeness conditions:**
+So the divergence is the **out-stage crossing**, not the in-stage and not a routing
+next-hop. Both cross-links exist in NP's plumbing (`out.bbra→in.rozb` **and**
+`out.rozb→in.bbra`), so it is **not a missing edge**. At a dying `mid.bbra` branch the
+downstream `out.bbra` in-port **has a rule**, yet **no pipe forms** — i.e. a
+**header-overlap failure at the out-stage** (NP builds a pipe only where the upstream
+output header-space intersects the downstream rule's match). APKeep, by contrast,
+**collapses the out-stage** (`_collapse_out_stage` / `_out_perm` wire each `mid` egress
+straight to the neighbour), bypassing whatever header condition the out-stage enforces —
+so it forwards `bbra`'s transit across to rozb and reports the false positive. **This is
+P7c gap 2 (out-stage / transfer-function fidelity), now localized to the out-stage
+crossing by NP's flows.**
 
-- **NetPlumber = `{rozb→bbra}` — correct on all four for this pair:** forwards the
-  right flow (`rozb→bbra`), drops the right flows (all `bbra→rozb`), drops no legitimate
-  flow, forwards no spurious flow. **The baseline is sound *and* complete here**, and
-  since the oracle is the original config, this validates the FaVe translation + NP
-  engine end-to-end.
-- **APKeep = `{rozb→bbra, bbra→rozb}` — violates "forward no wrong flow"** (the
-  `bbra→rozb` false positive). Config-grounded mechanism: APKeep's witness dst is
-  `192.168.209.204/30` (rozb's Tunnel10 subnet); bbra's real LPM for it is
-  `192.168.208.0/20 → 172.20.5.33` (a backbone router, absent in the subset), but the
-  `/23` Vlan2 backbone is a **shared L2 segment** where bbra and rozb both have
-  interfaces, so the FaVe topology has a direct `bbra↔rozb` link and APKeep's **dst-only
-  `ForwardElement` forwards the `/20` straight across it, ignoring the L3 next-hop**.
-  This is **P7c gap 2 made concrete**: next-hop-agnostic forwarding on a shared segment
-  ("reachable by dst-prefix on the segment" ≠ "the L3 next-hop actually points here").
+**Still open — the exact out-stage field.** The condition is confirmed to be an
+out-stage *header-overlap* failure, but the precise discriminating field/value is **not
+yet isolated**: decoding NP's packed 48-bit header vectors was unreliable, and the
+plain rule-text reading is self-contradictory (by the rule text — `mid` rewrites vlan→2,
+`out.bbra.130001` matches any-vlan → `120001` → `in.rozb` which admits vlan 2 — the flow
+*should* cross, yet NP builds no pipe). That contradiction means the discriminator lives
+in NP's header-vector/pipe computation and needs proper vector decoding (or making
+APKeep honour the out-stage and checking convergence against the NP flow oracle). **Do
+not assert a specific VLAN value until this is decoded.**
 
-**Caveats (scope of this validation):** (1) *existential* reachability — we confirmed a
-*path* exists for `rozb→bbra`, not that the exact reachable header *set* is correct
-(conditions 1/3 at flow granularity need a header-set diff); (2) one router-pair.
-Both directions of `{bbra, rozb}` are settled; extending to a 3-router aggregation
-subset (`{bbra, roza, rozb}`, where `bbra→rozb` *should* flip to reachable) and a
-header-set comparison are the natural next confidence steps. **Net: we now trust
-NetPlumber as a sound+complete baseline on the validated subset, and APKeep's `bbra→rozb`
-over-approximation is confirmed against reality, not merely against NP.**
+**GRE is a red herring for this pair** (the operator flagged that GRE/tunnels are not
+natively supported and its handling was uncertain): the witness dst `192.168.209.204/30`
+is rozb's Tunnel10 subnet, but NP's flow dies at `mid.bbra` long *before* any tunnel
+delivery — so tunnel handling is irrelevant to `bbra→rozb`. (It may still matter for
+other pairs; not chased here.)
+
+**Method note / how the picture was obtained.** The `ReachabilityChecker` was
+instrumented with a `witnessPath`/`witnessFwd` capture (public fields set on first
+arrival) to dump APKeep's exact 18-hop path; NP's side used the libnetplumber binding's
+`dump_flow_trees` / `dump_plumbing_network`. NP's flow dump is now the reliable per-hop
+oracle for developing the gap-2 fix — replacing static rule inspection, which produced
+five successively-disproven mechanisms here.
+
+**Caveats:** existential reachability (a *path*, not the exact header *set*); one
+router-pair. A 3-router aggregation subset (`{bbra, roza, rozb}`, where `bbra→rozb`
+should flip to reachable) and a header-set comparison remain the next confidence steps.
 
 ## 10. Open questions / decisions log
 
