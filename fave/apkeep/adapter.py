@@ -204,7 +204,31 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _translate_fwd_rule(self, device: str, rule: Any) -> None:
         out_ports = self._out_ports(rule)
         if not out_ports:
-            return  # nothing to forward (e.g. an ACL drop or pure-match rule)
+            # A forwarding-table rule with no forward action is a DISCARD (Cisco
+            # Null0 / anti-bogon aggregate, e.g. `192.168.0.0/16 -> Null0`).
+            # NetPlumber and real routers honour these; not modelling them lets
+            # APKeep forward traffic to genuinely-discarded ranges (an
+            # over-approximation -> reachability false positives). Model a
+            # *dst-only* discard as a blackhole forward to a dead "__drop__" port
+            # (no topology link => a sink) at LPM priority, so it shadows
+            # shorter-prefix forwards while a longer-prefix forward still wins by
+            # LPM -- exactly the forwarding semantics NetPlumber applies.
+            # Soundness guard: skip discards that constrain non-dst fields
+            # (source/proto/dport) -- a dst-LPM ForwardElement cannot express
+            # those and a dst-only approximation would over-drop (false
+            # negatives); those need ACLElements (out of scope). VLAN admission is
+            # modelled separately, so a dst(+vlan) discard is safe to key on dst.
+            # A match-all discard (no dst) needs no rule -- unmatched space is
+            # already un-forwarded.
+            fnames = {f.name for f in (rule.match or [])}
+            if _DST not in fnames or (fnames - {_DST, _VLAN}):
+                return  # not a pure dst(/vlan) discard
+            dst = next(f.value for f in rule.match if f.name == _DST)
+            prefix, plen = _cidr_to_apkeep(str(dst))
+            self._fwd_rules.append(
+                "+ fwd %s %d %d __drop__ %d" % (device, prefix, plen, plen)
+            )
+            return
         dst = None
         for field in (rule.match or []):
             if field.name == _DST:
