@@ -702,18 +702,29 @@ should flip to reachable) and a header-set comparison remain the next confidence
 
 ### Known limitation: APKeep does not model discard / `Null0` drop rules (2026-07-10)
 
-The adapter's `_translate_fwd_rule` skips any rule with no forward action
+The adapter's `_translate_fwd_rule` **used to** skip any rule with no forward action
 (`if not out_ports: return`) — including Cisco **`Null0` / discard** routes (e.g.
-`192.168.0.0/16 → Null0`, a standard aggregate/anti-bogon discard) and pure-match
-drops. NetPlumber (and the real routers) honour these, so **APKeep over-approximates
-for destination ranges that reality genuinely discards** — it will report packets to
-those ranges as forwardable when they would be dropped. Direction of unsoundness: this
-is *safe* for isolation / "must-not-reach" policies (a false *alarm* — private space
-stays private) but *unsound* for reachability / "must-reach" guarantees (false
-assurance of connectivity that can mask an outage). Operationally, the false alarms are
-costly (manual investigation) and erode trust, so it is a genuine deficiency to fix.
-A prototype exists (env `DROP_RULES=1`: model a *dst-only* discard as a blackhole
-forward at LPM priority; env-gated, uncommitted).
+`192.168.0.0/16 → Null0`, a standard aggregate/anti-bogon discard). NetPlumber (and the
+real routers) honour these, so APKeep would **over-approximate for destination ranges
+that reality genuinely discards** — reporting packets to those ranges as forwardable
+when they would be dropped. Direction of unsoundness: *safe* for isolation /
+"must-not-reach" policies (a false *alarm* — private space stays private) but *unsound*
+for reachability / "must-reach" guarantees (false assurance of connectivity that can
+mask an outage); operationally the false alarms are costly and erode trust.
+
+**FIXED for dst-only discards (2026-07-10, commit `886a2082`).** `_translate_fwd_rule`
+now models a *dst-only* discard as a blackhole forward to a dead `__drop__` port (no
+topology link ⇒ a sink) at LPM priority — it shadows shorter-prefix forwards while a
+longer-prefix forward still wins by LPM, matching NetPlumber (uses APKeep's existing
+`ForwardElement`; no core change). Default-on. **Soundness guard:** discards that
+constrain non-dst fields (source/proto/dport) are still skipped (a dst-LPM
+`ForwardElement` can't express them; a dst-only approximation would over-drop →
+false negatives); those need `ACLElement`s (out of scope). **Validated — no
+regressions:** wl_ifi 3/3, wl_i2 2/2 (77k-route build + exact oracle match), wl_stanford
+P7a 2/2, adapter/acl/lib 9/9, backend-differential 3/3 (APKeep ≡ NetPlumber on wl_ifi).
+wl_ifi and wl_i2 have **zero** dst-only discards, so the change is a no-op there; it
+exercises on stanford, which still matches its oracle. **Residual:** the
+source/proto/dport discards above remain unmodelled.
 
 **Scope — this is NOT the cause of the `bbra→rozb` false positive above.** Three pieces
 of evidence rule that out: (1) NP does *not* drop `.204` — injecting it from bbra, the
