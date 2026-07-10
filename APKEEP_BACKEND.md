@@ -623,6 +623,65 @@ superset** of NP, not equivalence. **Reproducing NP's exact 10/240 requires both
 The subset `{bbra_rtr, rozb_rtr}`, with its single known discrepancy (`bbra→rozb`),
 is a fast minimal regression oracle (both backends in seconds) for developing gap 2.
 
+### Baseline validation: NetPlumber vs config-derived ground truth (2026-07-10)
+
+Before trusting NetPlumber as *the* oracle, we validated it against an **independent
+ground truth** — the original Stanford Cisco data (`bench/wl_stanford/stanford-hassel/
+*_config.txt` + `*_route.txt`), **not** against itself and **not** against
+`reachable.json` (which is the artificial *all-to-all* policy — checking NP against it
+would "confirm" NP by comparing to a known-bad answer). Deriving truth from the
+original config validates the **whole FaVe→NetPlumber pipeline** (config → Hassel TF →
+FaVe JSON *translation* **and** the NP *engine*), not just self-consistency. We
+hand-derived reachability for the `{bbra_rtr, rozb_rtr}` subset from the route tables:
+
+**`bbra → rozb`: genuinely UNREACHABLE in the subset.** Every route from bbra toward a
+rozb-local destination has an L3 next-hop that is a *third* router, all removed in the
+subset:
+
+| rozb destination | bbra route → next-hop | next-hop owner |
+|---|---|---|
+| `171.64.103.0/24` (host, Vlan700), `171.64.115.0/24`, … | `172.20.4.65` | **roza** (rozb's aggregation sibling) |
+| `192.168.208.0/20` ⊃ `192.168.209.204/30` (rozb's Tunnel10) | `172.20.5.33` | a backbone router (≠ bbra/rozb) |
+| default `0.0.0.0/0` | `172.20.4.2` | a backbone router (≠ bbra/rozb) |
+
+The **only** destinations bbra forwards *directly* to rozb (`172.20.4.66`) are three
+control-plane `/32`s (`172.20.0.5`, `172.20.0.66`, rozb's own `.4.66`) — "receive"/
+loopback, not host-edge, so not probe-visible. No data-plane flow reaches a rozb host.
+
+**`rozb → bbra`: genuinely REACHABLE.** rozb's **default route `0.0.0.0/0 → 172.20.4.1`
+is bbra directly** (also `128.12.0.0 → 172.20.4.1`), and bbra has real attached host
+subnets (`128.12.1.80/29 Vlan564`, `171.64.1.x`, …), so rozb → bbra → local delivery is
+a real path. The asymmetry is rooted in the routing: a leaf (rozb) defaults straight to
+the backbone (bbra); the backbone reaches leaf subnets via the leaf's *aggregation*
+router (roza), never the leaf directly. Shared segment: `172.20.4.0/23` (Vlan2, dot1Q 2)
+carries bbra `.4.1`, roza `.4.65`, rozb `.4.66`.
+
+**Verdict against the four soundness/completeness conditions:**
+
+- **NetPlumber = `{rozb→bbra}` — correct on all four for this pair:** forwards the
+  right flow (`rozb→bbra`), drops the right flows (all `bbra→rozb`), drops no legitimate
+  flow, forwards no spurious flow. **The baseline is sound *and* complete here**, and
+  since the oracle is the original config, this validates the FaVe translation + NP
+  engine end-to-end.
+- **APKeep = `{rozb→bbra, bbra→rozb}` — violates "forward no wrong flow"** (the
+  `bbra→rozb` false positive). Config-grounded mechanism: APKeep's witness dst is
+  `192.168.209.204/30` (rozb's Tunnel10 subnet); bbra's real LPM for it is
+  `192.168.208.0/20 → 172.20.5.33` (a backbone router, absent in the subset), but the
+  `/23` Vlan2 backbone is a **shared L2 segment** where bbra and rozb both have
+  interfaces, so the FaVe topology has a direct `bbra↔rozb` link and APKeep's **dst-only
+  `ForwardElement` forwards the `/20` straight across it, ignoring the L3 next-hop**.
+  This is **P7c gap 2 made concrete**: next-hop-agnostic forwarding on a shared segment
+  ("reachable by dst-prefix on the segment" ≠ "the L3 next-hop actually points here").
+
+**Caveats (scope of this validation):** (1) *existential* reachability — we confirmed a
+*path* exists for `rozb→bbra`, not that the exact reachable header *set* is correct
+(conditions 1/3 at flow granularity need a header-set diff); (2) one router-pair.
+Both directions of `{bbra, rozb}` are settled; extending to a 3-router aggregation
+subset (`{bbra, roza, rozb}`, where `bbra→rozb` *should* flip to reachable) and a
+header-set comparison are the natural next confidence steps. **Net: we now trust
+NetPlumber as a sound+complete baseline on the validated subset, and APKeep's `bbra→rozb`
+over-approximation is confirmed against reality, not merely against NP.**
+
 ## 10. Open questions / decisions log
 
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
