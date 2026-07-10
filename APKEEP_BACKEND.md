@@ -397,7 +397,12 @@ approach and retired two feared "wrinkles":
   - **Result: 240 → 77, a SOUND superset of NetPlumber's 10** (verified in
     separate processes: NP-only/under-approx = 0). The probe filter is correct.
   - **VLAN admission (77 → 10): correct, but blocked on PERFORMANCE, not
-    modelling.** VLAN admission is a *drop-by-field* filter, and the only element
+    modelling.** *(Superseded — see "Deferred merge, split/merge cost model, and
+    the two-gap finding (2026-07-07 … 07-10)" below: a bounded-subset cross-check
+    shows `77 → 10` is NOT only VLAN admission and NOT only performance; there is a
+    second, orthogonal transfer-function-fidelity gap, so even a tractable faithful
+    model stays a sound superset of NP.)* VLAN admission is a *drop-by-field*
+    filter, and the only element
     that drops is `ACLElement`, which by default activates **AP division** (a
     separate ACL AP universe that disagrees with the forwarding-universe VLAN
     rewrite → `fwd ∩ acl ∩ vlan=0` empty; measured: in-admission alone 217, probe
@@ -511,6 +516,112 @@ not the 12-bit width and not the AP-set analysis path.** The tractable levers ar
 **compact rewrite encoding** (coarser VLAN reassignment → far fewer APs, approaching
 the native 515) and/or a faster batch merge — not reducing header width. The
 avoidable query-side BDD (division) is already removed via single-universe.
+
+### Deferred merge, split/merge cost model, and the two-gap finding (2026-07-07 … 07-10)
+
+This extends the analysis above and **corrects** the earlier P7b claim that the
+`77 → 10` gap is *only* VLAN admission blocked on *performance* (see the P7b bullet
+"VLAN admission (77 → 10): correct, but blocked on PERFORMANCE, not modelling"). A
+bounded-subset cross-check against NetPlumber shows there are in fact **two
+orthogonal gaps**, and closing the performance one alone does **not** reach 10.
+
+**(a) Deferred per-table merge — tried, ruled out.** The from-zero build does a
+merge pass per rule; a batch-style variant defers the per-rule merge and merges
+once per FaVe "table" (`Parameters.DEFER_MERGE` + `Network.mergeAPs()`;
+adapter groups rules by device and calls `run()`+`merge()` per group). Still
+> 400 s. Per-group logging pinned the cost exactly:
+
+| rule class | count | header shape | cost |
+|---|---|---|---|
+| admission ACL (`iacl_*`) | **16** | **all 16 whole-space-except-VLAN** (any src/dst/proto/ports) | **~25 s each** (`iacl_0` measured 25.3 s) |
+| `fwd`/`nat` specific | ~6790 | dst prefix, mode /24 | cheap (dst-local) |
+| `fwd`/`nat` default `/0` | 48 | whole dst-space | broad but partition-local |
+
+Each admission ACL is wildcard on every field but VLAN, so its `ChangeItem` delta
+lands on the port holding **every** AP → `Element.updatePortPredicateMap` scans the
+whole ~8000-AP partition (`bdd.and` per AP) and *splits* ~1141 APs, **growing** the
+partition for the next ACL. ~16 × ~25 s ≈ the whole timeout.
+
+**(b) Insertion order — tried, ruled out.** Inserting the 16 ACLs *first* (trivial
+partition) drops them to **0.0 s each**, but then every one of the 3372 dst-wildcard-
+on-VLAN FIB rules sweeps the VLAN-split partition: `mid.bbra` alone went 2.7 s / 1963
+APs → **157 s / 5932 APs**. The final partition is the **VLAN×dst cross-product**
+(order-independent); *some* rule class must sweep it, and there are ~200× more FIB
+rules than ACLs, so moving the cost onto them is strictly worse. **No free lunch in
+merge timing or insertion order.**
+
+**(c) Split/merge cost model (from the code).** A single `updateSplitAP`/
+`updateMergeAP` is **cheap and AP-count-independent**: a handful of header-bounded
+BDD `ref`/`deref`/`or` ops + `O(#elements)` integer bookkeeping (clone the
+ports-vector, update each element's `port_aps_raw`). AP count enters runtime **only**
+through what *drives* splits — `updatePortPredicateMap` does one `bdd.and(delta, ap)`
+per AP at the affected port, so a whole-space rule is `O(|AP|)` and a full build is
+`≈ Σ_rules O(|AP| at that point) ≈ O(rules × |AP|)`. The **query** path is
+`retainAll` (integer sets, microseconds) + `O(|AP|)` seed. So: **a large AP count is
+fine for analysis and a long one-time build would be acceptable *if* |AP| were
+bounded** — the wall is the `O(rules × |AP|)` build term, binding here because |AP|
+is both large *and* un-mergeable (the per-route NAT rewrite outputs share no
+ports-vector, so `NATElement.isMergable` refuses to coalesce them). The earlier OOM
+was transient allocation churn during that sweep, not live state (~10⁶ live
+nodes/entries, well under the 16 M table).
+
+**(d) Structural VLAN (option 1) — tractable, but a sound *over-approximation*.**
+Folding each mid route's effective egress VLAN into the *identity* of its egress port
+(`<port>v<vlan>`) and encoding admission structurally (a qualified edge exists only
+where the downstream admits that VLAN) sidesteps the NAT cross-product entirely — the
+partition stays dst-based and coalesces. Measured (throwaway, env-gated
+`STRUCTURAL_VLAN=1`, not committed): **337 APs, ~2 s build, ~3 s for all 240 queries,
+reachable = 77** — again a **sound superset** of NP's 10 (all 10 present, 0 missing).
+Adding faithful in-stage source/dst uRPF ACLs (per-`(router, arriving-VLAN)`
+`ACLElement`s, first-match, default-deny, single-universe) left it at **77** — so the
+in-stage 5-tuple ACLs are **not** the `77 → 10` mechanism.
+
+**(e) Bounded-subset faithful cross-check (2026-07-09) — the decisive experiment.**
+`subset_check.py` restricts wl_stanford to a router subset (induced sub-topology:
+keep a link only if both endpoints are in-subset), writes an identical subset
+snapshot, and runs **either** backend (separate processes — the resident JVM + NP
+cross-contaminate). This makes the **faithful header-field NAT model tractable** so it
+can be compared to NP directly. On the 2-router subset `{bbra_rtr, rozb_rtr}`:
+
+| backend | reachable | pairs | size / time |
+|---|---|---|---|
+| **faithful APKeep** (`faithful_vlan`, VLAN = header field) | **2** | `bbra→rozb`, `rozb→bbra` | **2552 APs**, 6 s |
+| **NetPlumber** (reference) | **1** | `rozb→bbra` only | 0.2 s |
+
+(The 2552 APs for *two* routers is exactly the per-router NAT cross-product that
+makes the full 16-router build ~8000 and intractable.) **The faithful VLAN model
+over-approximates NetPlumber even when tractable, and is again a sound superset.**
+This corrects the earlier assumption that a tractable faithful model would reproduce
+NP's 10 — it would not.
+
+**(f) Root cause: a second, orthogonal fidelity gap.** Tracing the false pair
+`bbra→rozb` hop by hop on the subset ruled out every ACL/admission cause — on this
+subset `in.rozb` has 76 permit-all VLANs and **0** refined rules, `out.rozb` has **0**
+source matches, `in.rozb` **does** admit the transit VLAN (2) on the bbra link, and
+all ingress funnels to `mid.rozb.1220000`, exactly the in-port the probe-delivery rule
+requires. Every hop is individually *permissive in the model*. The over-approximation
+is **cumulative**: **all 6109 mid+in transfer-function rules are in-port-qualified**,
+but the adapter models them with **decoupled per-field elements** — `ForwardElement`
+routes by **dst only** (in-port dropped), VLAN admission is per-VLAN (not
+per-`(in_port, VLAN, dst)`), and the out-stage collapse **drops out-stage VLAN
+matches** — whereas NetPlumber propagates `(in_port, vlan, src, dst, proto, dport)` as
+one **jointly-correlated** packet set and finds no *single coherent header* traverses
+`bbra→rozb`. It is not one rule; it is the decoupling.
+
+**Conclusion — two independent gaps between FaVe+APKeep and NetPlumber:**
+
+1. **VLAN tractability** — the un-mergeable NAT cross-product (2552 APs / 2 routers).
+   Fix = make rewrite outputs coalesce (**`NATElement.isMergable` generalization**,
+   "option 2"), which would also serve wl_up's stateful rewrites.
+2. **Transfer-function fidelity** — the adapter approximates the in-port-qualified,
+   jointly-correlated Stanford TF with decoupled per-field elements. Fix = faithful
+   in-port-qualified forwarding + out-stage VLAN in the **adapter** (independent of
+   option 2).
+
+Closing **only** gap 1 yields a model that *scales* but still reports a **sound
+superset** of NP, not equivalence. **Reproducing NP's exact 10/240 requires both.**
+The subset `{bbra_rtr, rozb_rtr}`, with its single known discrepancy (`bbra→rozb`),
+is a fast minimal regression oracle (both backends in seconds) for developing gap 2.
 
 ## 10. Open questions / decisions log
 
