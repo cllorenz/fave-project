@@ -738,6 +738,51 @@ forwarded at bbra (toward `172.20.5.33`), not dropped. So the discard-skip is a 
 independent** modelling gap; the `bbra→rozb` pair is caused by the separate,
 still-unpinned out-stage/segment-crossing gap.
 
+### NetPlumber `Node::propagate` read — split-horizon exists but is dormant (2026-08-11)
+
+Read NP's flow propagation to explain the `bbra→rozb` out-stage crossing:
+`RuleNode::process_src_flow` (`rule_node.cc`), `Node::propagate_src_flow_on_pipes`
+(`node.cc:395`), and `should_block_flow` (`node.cc:385`).
+
+**Finding 1 — NP *does* have split-horizon (the operator's original hypothesis was
+right; an earlier dismissal here was wrong).** At the output-layer emission,
+`node.cc:406`: `if (is_output_layer && should_block_flow(*s_flow, next->local_port))
+continue;`. `should_block_flow` recurses up the flow's provenance chain (`p_flow`) to
+the **input-layer** node and returns `f->in_port == out_port` — *don't emit a flow out
+the interface it entered on*. The ingress port is carried as **flow metadata**, not a
+header field — which is why the earlier "the header has no port field ⇒ no
+split-horizon" reasoning missed it. **Retract that dismissal.**
+
+**Finding 2 — but split-horizon is DORMANT in the FaVe 3-stage Stanford model
+(verified).** Port structure (subset `{bbra, rozb}`): `source.bbra` **and** the
+`out.rozb → in.bbra` link both land on `in.bbra.100001`; `source.rozb` **and** the
+`out.bbra → in.rozb` link both land on `in.rozb.1200001` — i.e. each source sits on its
+*peer-facing* interface. If split-horizon fired it would block **both** directions
+symmetrically; but `rozb→bbra` **is** reachable, so `should_block_flow` is **not
+firing**. Reason: the 3-stage model numbers an interface's input vs output ports
+differently (`100001` in vs `120001` out — offset by the port-type multiplier), so
+`in_port == out_port` is never true. So the feature is present but inactive here —
+**neither the cause of `bbra→rozb` nor an active APKeep gap on Stanford.** (It is still
+worth an adapter equivalent for *general* correctness / other topologies.)
+
+**Finding 3 — the two *active* propagation mechanisms**, and the honest limit. A flow
+propagates only where (a) its rewritten space intersects the next **pipe** filter
+(`propagate_src_flow_on_pipes`: `has_isect` gate, `node.cc:437`) and (b) it survives
+**higher-priority subtraction** (`process_src_flow`: for each `influenced_by` rule whose
+ports include `f->in_port`, `hs_diff` it out — `rule_node.cc:350`). NP's `bbra` flow
+dies at the **mid** stage. After tracing this pair through the model, the adapter, NP's
+flow dumps, and NP's C++, every mechanism is named (split-horizon [dormant],
+pipe-intersection, priority-subtraction, shared-`/23`-segment forwarding, the adapter's
+out-stage collapse) but **it could not be reduced to a single clean root cause** — it is
+a genuine tangle of the shared L2 segment × 3-stage HSA × subset-removal.
+
+**Decision — pursue soundness by *convergence*, not proof.** Root-causing this one pair
+has hit hard diminishing returns. The path to eliminating the over-approximation is to
+make APKeep's forwarding **faithful to NP's** and iterate against NP as the oracle:
+**(1)** a faithful out-stage (respect the L3 next-hop; stop the collapse fabricating
+direct segment-neighbour edges), and **(2)** an adapter split-horizon for general
+correctness. Work on (1) starts next.
+
 ## 10. Open questions / decisions log
 
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
