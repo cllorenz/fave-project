@@ -45,8 +45,22 @@ public class ReachabilityChecker {
     // that reach the probe to overlap a given header BDD. BDDTrue = no constraint.
     private int targetHeader = BDDACLWrapper.BDDTrue;
 
+    // Witness capture (FaVe fork, gap-2 diagnosis): on the first arrival, record
+    // the exact hop sequence and the surviving forwarding APs, so we can compare
+    // APKeep's over-approximating path against NetPlumber hop by hop. Public so a
+    // JPype caller can read them after isReachable(...) returns true.
+    public List<PositionTuple> witnessPath = null;
+    public Set<Integer> witnessFwd = null;
+
     public ReachabilityChecker(Network net) {
         this.net = net;
+    }
+
+    private boolean arrive(List<PositionTuple> history, PositionTuple last, Set<Integer> fwd) {
+        witnessPath = new ArrayList<>(history);
+        witnessPath.add(last);
+        witnessFwd = new HashSet<>(fwd);
+        return true;
     }
 
     /** True iff traffic injected at {@code source} can reach {@code target}. */
@@ -55,6 +69,7 @@ public class ReachabilityChecker {
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = new HashSet<>();
         acl_aps.add(BDDACLWrapper.BDDTrue);
+        witnessPath = null;
         return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
     }
 
@@ -77,6 +92,7 @@ public class ReachabilityChecker {
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = net.getACLSeedAPs(src, srcPrefixLen);
         if (acl_aps.isEmpty()) return false;
+        witnessPath = null;
         return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
     }
 
@@ -120,7 +136,8 @@ public class ReachabilityChecker {
         // Arrival: target reached (after >=1 hop) with non-empty forwarding AND
         // ACL packet space. Checked before the loop guard so a self-reaching
         // (looping) port is still detected.
-        if (moved && cur_hop.equals(target) && arrives(fwd_aps, acl_aps)) return true;
+        if (moved && cur_hop.equals(target) && arrives(fwd_aps, acl_aps))
+            return arrive(history, cur_hop, fwd_aps);
 
         if (history.contains(cur_hop)) return false;  // simple-path pruning
         history.add(cur_hop);
@@ -134,7 +151,8 @@ public class ReachabilityChecker {
             // the current packet space (before the next element forwards). A
             // target may be either an egress port (a cur_hop above) or such an
             // ingress port (e.g. a probe attached to a device input).
-            if (connected_pt.equals(target) && arrives(fwd_aps, acl_aps)) return true;
+            if (connected_pt.equals(target) && arrives(fwd_aps, acl_aps))
+                return arrive(history, connected_pt, fwd_aps);
 
             Element e = getElement(connected_pt.getDeviceName());
 

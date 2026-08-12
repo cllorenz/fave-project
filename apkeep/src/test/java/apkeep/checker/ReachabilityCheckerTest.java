@@ -1,6 +1,9 @@
 package apkeep.checker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -81,6 +84,33 @@ class ReachabilityCheckerTest extends ApkeepTestBase {
                 "10/8 traffic satisfies the 10/8 target header");
         assertFalse(rc.isReachable(pt("src", "1"), pt("B", "1"), 0L, 0, match11),
                 "10/8 traffic does not satisfy an 11/8 target header");
+    }
+
+    @Test
+    void witnessPathRecordsTheReachingHops() throws Exception {
+        // Same topology as forwardingReachableAndUnreachable: src:1 -> r:2, r
+        // forwards 10/8 -> r:1 -> B:1; C hangs off r:3 (never forwarded to). The
+        // witness capture records the exact hop sequence + surviving APs on the
+        // first arrival, for diagnosing over-approximation against NetPlumber.
+        Network net = buildNetwork("rc-witness",
+                List.of("src 1 r 2", "r 1 B 1", "r 3 C 1"),
+                List.of("r"), null,
+                List.of("+ fwd r 167772160 8 1 8"));
+        ReachabilityChecker rc = new ReachabilityChecker(net);
+
+        // A reachable query records the hop sequence (source .. target) and the
+        // surviving forwarding APs.
+        assertTrue(rc.isReachable(pt("src", "1"), pt("B", "1")));
+        assertNotNull(rc.witnessPath, "a reachable query records a witness path");
+        assertEquals(pt("src", "1"), rc.witnessPath.get(0), "path starts at the source");
+        assertEquals(pt("B", "1"), rc.witnessPath.get(rc.witnessPath.size() - 1),
+                "path ends at the target");
+        assertNotNull(rc.witnessFwd);
+        assertFalse(rc.witnessFwd.isEmpty(), "the surviving forwarding APs are recorded");
+
+        // An unreachable query resets the witness (arrival never happens).
+        assertFalse(rc.isReachable(pt("src", "1"), pt("C", "1")));
+        assertNull(rc.witnessPath, "an unreachable query leaves no witness path");
     }
 
     @Test

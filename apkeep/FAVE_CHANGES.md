@@ -46,6 +46,14 @@ substrate — without changing the update algorithm.
   len, targetHeaderBDD)`: the packets that reach the target must overlap a header
   predicate (e.g. a probe that only accepts `vlan=0`). Commits `21360933`,
   `ca4ff2ad`.
+- **Witness capture** — on a reachable query the checker records the concrete
+  arriving path and surviving forwarding APs in public fields `witnessPath`
+  (`source .. target` hop sequence) and `witnessFwd` (the atomic predicates that
+  reached the target); both reset to `null` at the start of every query and stay
+  `null` when the target is unreachable. This is diagnostic-only — it does not
+  change any reachability verdict — and exists to walk the exact path APKeep
+  admits when reconciling its over-approximation against NetPlumber
+  (`APKEEP_BACKEND.md`, wl_stanford convergence work).
 
 ## 2. Extra and rewritable header fields  **[NEW]**
 
