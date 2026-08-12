@@ -28,12 +28,21 @@ until we have an evidence-backed spec of what "faithful" means** (Phase 0c gate)
 
 ## Phase 0 — Foundations & guardrails (no core changes)
 
-### 0a. Freeze a regression safety net
+### 0a. Freeze a regression safety net — DONE (2026-08-12)
 Pin the proven-exact behaviour as the tripwire for every later step: `wl_ifi`
-(`missing=0/extra=0`), `wl_i2` (77k build, exact oracle), `wl_stanford` P7a, the 24
+(`missing=0/extra=0`), `wl_i2` (77k build, exact oracle), `wl_stanford` P7a, the 25
 Java unit tests, the backend-differential test.
 - **Quality gate:** one command runs all green; becomes the mandatory pre-commit check.
 - **Retires:** silent regression of the workloads APKeep already gets exactly right.
+- **Artifact:** `fave/test/exactness_gate.sh` — composes (does not redefine) the
+  exactness-critical subset into one green/red command that prints
+  `EXACTNESS GATE: PASS/FAIL`: (1) APKeep Java core unit tests (`mvn test`, 25
+  green), (2) bundled-Stanford loop golden pin, (3) regenerate wl_ifi/wl_i2/
+  wl_stanford inputs from tracked sources, (4) the four exactness pytests
+  (`test_apkeep_wl_ifi`, `test_apkeep_i2`, `test_apkeep_stanford`,
+  `test_backend_differential`). Run as
+  `PYTHON=/path/to/venv/python bash fave/test/exactness_gate.sh` (~40 s). Confirmed
+  PASS at this commit. This is the mandatory pre-commit tripwire for every later step.
 
 ### 0b. Build the convergence harness (the objective metric)
 Differential harness: APKeep vs NP over a *family* of induced subsets (2-, 3-, k-router)
