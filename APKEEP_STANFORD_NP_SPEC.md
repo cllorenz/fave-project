@@ -235,11 +235,45 @@ is ordered the exact opposite of what the canonical toolchain produces and what 
 needs. The fix is to restore longest-first order for the mid-stage FIB (sort by prefix
 length in `np_preparation.py`, or regenerate the `.tf.json` from the LPM-ordered `.tf`).
 
-Residual (minor, not blocking the conclusion): *why* the committed `.tf.json` is
-shortest-first — a reversal in the (now-absent) `.rules.json` split tool, or an imported
-vanilla-NP dataset that was itself shortest-first (which would mean upstream vanilla NP is
-also non-LPM on Stanford, since it shares the lower-index-wins convention). Either way the
-FaVe backend, as fed, is non-LPM and APKeep's LPM forwarding is the faithful one.
+### Phase 1c — the reversal is located: `np_reproduction/transform.py` (2026-08-12)
+
+The shortest-first order is produced by an explicit **`tab['rules'].reverse()`**. Traced
+through `np_reproduction/run.sh`:
+
+1. Upstream Hassel (`generate_stanford_backbone_tf.py` + `generate_rules_json_file.py`,
+   Python 2, `~/hassel-public`) generates the **vanilla NP dataset** `stanford_json_vanilla/`.
+2. `python3 transform.py $VANILLA_DIR $FAVENP_DIR` converts it to the FaVe dataset; its two
+   operations are **`tab['rules'].reverse()`** and `toggle_mask_bits(rule['mask'])`.
+3. `run.sh` then `cp`s that output into the repo:
+   `cp $FAVE_DIR/*.json ../fave/bench/wl_stanford/stanford-json/`.
+
+So **FaVe's `stanford-json/*.tf.json` is literally the vanilla dataset with its rule order
+reversed** (and masks toggled). Since FaVe's is shortest-first, **the vanilla dataset is
+longest-first** (LPM-order), consistent with the `cisco_router_parser` trie output.
+
+**Why reverse at all?** The paired `toggle_mask_bits` shows vanilla NetPlumber and FaVe's
+net_plumber use **different conventions**; the reverse is the priority-order half of that
+adaptation. FaVe's net_plumber is verified **first-rule/lower-index-wins**
+(`net_plumber.cc:396`; and empirically the shortest-first data yields the non-LPM `10`). Two
+readings, which I could **not** decide because `~/hassel-public` is absent (vanilla NP cannot
+be run here):
+- **(A) reverse is a correct convention adaptation** → vanilla NP is last-rule/higher-index-
+  wins, so on its longest-first data it also selects the default for overlapping prefixes →
+  vanilla NP **also gives the non-LPM `10`**. Then non-LPM is canonical to the HSA/NetPlumber
+  Stanford analysis, and *neither* NetPlumber matches the real LPM data plane — APKeep is
+  uniquely faithful. (Supported by: the reproduction is committed as "aligned", and the
+  mask-toggle proves conventions differ.)
+- **(B) reverse is a semantic bug** → vanilla NP is lower-index-wins (like the upstream
+  Hassel `tf.py _find_influences`), so on longest-first data it does **LPM (`~165`)** while
+  FaVe's gives `10` — they disagree and the FaVe pipeline broke LPM. (Supported by: the
+  upstream Python `tf.py` uses lower-index-wins, and vanilla net_plumber is the same Hassel
+  lineage.)
+
+**What is certain regardless of A/B:** the shortest-first order in the FaVe backend comes
+from `transform.py`'s `rules.reverse()`; the vanilla dataset is longest-first; and the FaVe
+net_plumber **as fed is non-LPM (`10`)** while the real Cisco FIB and APKeep are LPM. To
+decide A vs B, run vanilla NetPlumber on `stanford_json_vanilla/` (needs `~/hassel-public`)
+and compare its reachability to `165` vs `10`.
 
 **Open question for the user (supersedes the earlier Decision Point):** the natural next
 step is fixing the FaVe Stanford model's rule priority to LPM (sort the mid-stage FIB
