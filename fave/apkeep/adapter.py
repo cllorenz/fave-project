@@ -144,6 +144,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
         self._out_reset: Dict[str, set] = {}
         self._in_vlans: Dict[str, set] = {}   # in.X -> admitted (permit) VLAN tags
+        # in.X -> set of physical ingress ports with an admission rule (None once
+        # an in-port-agnostic rule is seen => the device admits every port). Traffic
+        # entering an in-stage port ABSENT from this set is admitted by no rule, so
+        # a real router drops it; APKeep's in-port-agnostic ForwardElement would
+        # forward it. See _gate_dead_ingress (fixes the wl_stanford dead-port
+        # over-approximation, e.g. a source on an unconfigured interface).
+        self._in_admit: Dict[str, Optional[set]] = {}
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
@@ -283,6 +290,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                         self._capture_mid_rewrite(model.node, rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'in':
                         self._capture_in_admission(model.node, rule)
+                    if model.node.split('.', 1)[0] == 'in':
+                        self._capture_in_admit(model.node, rule)
             elif table == acl_in_t:
                 self._acl_device = model.node
                 self._capture_acl(self._acl_in, rules)
@@ -306,6 +315,51 @@ class APKeepAdapter(AbstractVerificationEngine):
                     continue  # a drop (empty action) or a rule with no in port
                 in_port = _split_port(rule.in_ports[0])[1]
                 perm.setdefault(in_port, set()).update(out_ports)
+
+    def _capture_in_admit(self, node: str, rule: Any) -> None:
+        """ Record which physical ingress ports an in-stage device admits. Each
+        wl_stanford in-stage rule is in-port-qualified (it lists the ingress
+        ports it permits for a VLAN); the union over all rules is the set of
+        ports the router accepts traffic on. A rule with no in-port qualifies
+        every port, so it marks the device admit-all (None) -- never gated. """
+        cur = self._in_admit.get(node, set())
+        if cur is None:
+            return
+        if not rule.in_ports:
+            self._in_admit[node] = None
+            return
+        for port in rule.in_ports:
+            cur.add(_split_port(port)[1])
+        self._in_admit[node] = cur
+
+    def _gate_dead_ingress(self, edges: List[str]) -> List[str]:
+        """ Drop topology edges delivering traffic to an in-stage device on a
+        physical port that no admission rule covers.
+
+        The wl_stanford in-stage is in-port-qualified: a port absent from every
+        rule (an unconfigured interface, member of no VLAN -- e.g. roza gi4/8)
+        admits nothing, so a real router and NetPlumber both drop traffic
+        entering there. APKeep's dst-only ForwardElement is in-port-agnostic and
+        would forward it -- the sole source of the wl_stanford APKeep-over-NP
+        residual (5 sources attached to dead ports => 75 spurious pairs). Honour
+        the admission by removing those ingress edges. No-op where the in-stage
+        admits all ports (None) or the target port is admitted; inter-router
+        links land on real (admitted) trunk ports and are unaffected. """
+        kept: List[str] = []
+        dropped = 0
+        for edge in edges:
+            _s_dev, _s_port, d_dev, d_port = edge.split()
+            admit = self._in_admit.get(d_dev)
+            if admit is not None and d_port not in admit:
+                dropped += 1
+                continue
+            kept.append(edge)
+        if dropped:
+            self.logger.debug(
+                "apkeep: gated %d ingress edge(s) to unadmitted in-stage ports",
+                dropped
+            )
+        return kept
 
     def _capture_mid_rewrite(self, node: str, rule: Any) -> None:
         """ P7b: a mid-stage rule forwards a dst-IP prefix to an egress port and
@@ -474,6 +528,10 @@ class APKeepAdapter(AbstractVerificationEngine):
                 edges = self._collapse_out_stage(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
+        # Honour in-stage admission: drop traffic entering an ingress port no rule
+        # admits (a real router drops it; our in-port-agnostic ForwardElement would
+        # not). No-op unless an in-stage device has a finite admitted-port set.
+        edges = self._gate_dead_ingress(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
         # The faithful VLAN model builds far more BDD nodes (per-route rewrites +

@@ -22,36 +22,48 @@
 """ APKeep on wl_stanford (Stanford backbone HSA) -- APKEEP_BACKEND.md, P7.
 
 wl_stanford decomposes each of 16 routers into in./mid./out. switches. mid. is a
-dst-IP FIB; in. is the ingress ACL (a pass-through for forwarding); out. is an
-input-port->output-port permutation (a pure wire) that a dst-IP ForwardElement
-cannot express. The adapter collapses the out. stage into the topology, wiring
-each mid. egress interface straight to its external neighbour (see
-APKeepAdapter._collapse_out_stage), so 48 switches become 32 ForwardElements.
+dst-IP FIB; in. is the ingress admission (in-port-qualified: it lists which
+physical ports admit which VLANs); out. is an input-port->output-port permutation
+(a pure wire) that a dst-IP ForwardElement cannot express. The adapter collapses
+the out. stage into the topology, wiring each mid. egress interface straight to
+its external neighbour (see APKeepAdapter._collapse_out_stage), so 48 switches
+become 32 ForwardElements, and honours in-stage admission by dropping traffic
+entering a port no rule admits (APKeepAdapter._gate_dead_ingress).
 
-This pins forwarding correctness: FaVe+APKeep reachability == the shipped policy
-oracle reachable.json (missing=0, extra=0). NOTE that reachable.json is the
-all-to-all existential reachability from the original HSA/NetPlumber papers -- it
-is fully connected (240/240 router pairs), so it validates forwarding
-completeness but has NO deny cases and therefore does not exercise the ingress/
-egress ACLs the forwarding model ignores. The ACL-sensitive, forbidden-
-reachability cross-check against NetPlumber lives in test_apkeep_stanford_deny.py.
+This pins forwarding correctness against the FAITHFUL data plane: FaVe+APKeep
+reachability == FaVe+NetPlumber reachability (the two backends must agree exactly,
+missing=0/extra=0). Both compute 165/240 router pairs: 5 source routers are
+attached (by the shipped policy.json) to unconfigured interfaces that admit no
+traffic -- e.g. roza gi4/8 (`no ip address`, member of no VLAN) -- so a real
+router, NetPlumber, and (since the in-port admission fix) APKeep all drop them.
 
-The model JSON are gitignored generated artifacts; test/gen_wl_stanford_inputs.sh
-produces them from tracked inputs before this runs (no live backend).
+NOTE: this is deliberately NOT compared to reachable.json. That oracle is the
+all-to-all *policy* (reach.txt: `All <--> All`, 240/240) from the original HSA/
+NetPlumber papers -- an intended must-reach spec, not the data plane. The real
+data plane violates it on exactly those 75 dead-port pairs; asserting APKeep==240
+would require the in-port over-approximation the admission fix removes. The
+separate-process APKeep-vs-NP differential is bench/apkeep_convergence.py.
+
+NP must run in its OWN process (a resident JVM in-process makes NetPlumber
+misreport), so its matrix is computed via the convergence harness's netplumber
+worker subprocess. The model JSON are gitignored generated artifacts;
+test/gen_wl_stanford_inputs.sh produces them from tracked inputs (no live backend).
 """
 
-import json
 import logging
 import os
+import sys
+import tempfile
 import unittest
 
 from apkeep.adapter import APKeepAdapter, available
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
+
 _PREFIX = "bench/wl_stanford/stanford-json"
 _FILES = {"topology": "device_topology.json", "policies": "probes.json"}
-_ORACLE = "bench/wl_stanford/reachable.json"
 _INPUTS = ["%s/%s" % (_PREFIX, f) for f in
-           ("device_topology.json", "routes.json", "sources.json", "probes.json")] + [_ORACLE]
+           ("device_topology.json", "routes.json", "sources.json", "probes.json")]
 
 
 def _base(name):
@@ -62,7 +74,8 @@ def _base(name):
 @unittest.skipUnless(all(os.path.isfile(f) for f in _INPUTS),
                      "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
 class TestAPKeepStanford(unittest.TestCase):
-    """ Real wl_stanford -> APKeepAdapter (out-stage collapsed) -> reach == oracle. """
+    """ Real wl_stanford -> APKeepAdapter (out-stage collapsed, in-stage admitted)
+    -> reachability == FaVe+NetPlumber (the faithful data plane). """
 
     @classmethod
     def setUpClass(cls):
@@ -89,8 +102,6 @@ class TestAPKeepStanford(unittest.TestCase):
             )
             for p in cls.probes
         }
-        with open(_ORACLE) as raw:
-            cls.expected = json.load(raw)
 
     def test_out_stage_collapsed(self):
         # 16 routers x {in, mid, out}; the out. stage is collapsed into the
@@ -100,14 +111,24 @@ class TestAPKeepStanford(unittest.TestCase):
         self.assertEqual(len(self.sources), 16)
         self.assertEqual(len(self.probes), 16)
 
-    def test_reachability_matches_ground_truth(self):
+    def test_reachability_matches_netplumber(self):
+        # NetPlumber in a SEPARATE process (see module docstring); reuse the
+        # convergence harness's netplumber worker to get its reachability matrix.
+        import apkeep_convergence as conv
+        with tempfile.TemporaryDirectory(prefix="stanford_np_") as tmp:
+            np_matrix = conv._emit_worker("netplumber", None,
+                                          os.path.join(tmp, "np.json"))
+        np_reach = {role: set(srcs) for role, srcs in np_matrix.items()}
         diffs = {}
-        for role in sorted(set(self.reach) | set(self.expected)):
+        for role in sorted(set(self.reach) | set(np_reach)):
             got = self.reach.get(role, set())
-            exp = set(self.expected.get(role, []))
+            exp = np_reach.get(role, set())
             if got != exp:
-                diffs[role] = {"missing": sorted(exp - got), "extra": sorted(got - exp)}
-        self.assertEqual(diffs, {}, "stanford reachability differs from reachable.json: %s" % diffs)
+                diffs[role] = {"apkeep_only": sorted(got - exp),
+                               "np_only": sorted(exp - got)}
+        self.assertEqual(diffs, {},
+                         "APKeep and NetPlumber disagree on the wl_stanford data "
+                         "plane: %s" % diffs)
 
 
 if __name__ == '__main__':
