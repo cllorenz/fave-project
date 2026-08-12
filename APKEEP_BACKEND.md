@@ -620,6 +620,61 @@ one **jointly-correlated** packet set and finds no *single coherent header* trav
 
 Closing **only** gap 1 yields a model that *scales* but still reports a **sound
 superset** of NP, not equivalence. **Reproducing NP's exact 10/240 requires both.**
+
+### Full per-(port,VLAN) admission tractability — dedicated investigation (2026-08-12)
+
+Context reset by the LPM + in-port fixes: NP and APKeep now **agree exactly at 165**
+on wl_stanford *without* any VLAN modelling (the source spans all VLANs, so admission
+is non-binding for the all-pairs query, and the in-port dead-port gate
+`_gate_dead_ingress` captured the only binding ingress effect). This investigation
+asks whether full per-`(port, VLAN)` admission — needed for VLAN-specific / deny
+queries and other workloads — is tractable *and* exact. Measurements (`getAPNum` +
+build timing, `faithful_vlan=True`, full 16 routers unless noted):
+
+| regime | APs | build | reachable | note |
+|---|---|---|---|---|
+| forwarding-only (+ in-port gate) | 177 | 0.6 s | 165 | matches NP; VLAN unused |
+| **admission-only** (VLAN ACLs, **no rewrite**) | 249 | **0.8 s** | **56** | tractable but **UNDER-approximates** |
+| full faithful (admission **+** rewrite) | ~8000 | **>480 s (no completion)** | — | intractable |
+
+1. **Admission itself is cheap; the coupled *rewrite* is the wall.** Admission-only
+   builds in 0.8 s — but drops to **56** reachable, a severe *under*-approximation:
+   without the per-hop VLAN rewrite the source VLAN stays frozen, so a packet must be
+   admitted at *every* hop (an intersection), whereas real routers rewrite VLAN per
+   hop, so the arriving VLAN at hop N is the previous hop's rewrite output. **Faithful
+   admission therefore *requires* the rewrite, and the rewrite is the intractable
+   part** — admission and rewrite cannot be decoupled.
+2. **The rewrite is genuinely per-destination, not per-port** — so it cannot be
+   compacted to a cheap per-egress-port NAT. Egress VLAN = f(dst subnet): **79 egress
+   ports carry >1 VLAN** (trunks; e.g. mid.bbra port 110012 → {2,22,42,564,566}).
+   Coalescing NATs by `(port, vlan)` cuts only 3372 → 1561 (~2×); there are **190
+   distinct egress VLANs** genuinely fragmenting the space.
+3. **Super-linear build growth**, even on the *small*-FIB edge routers (faithful,
+   edge-only subsets): n=2/3/4 → 752/2477/2625 APs at **4.5 / 28.3 / 63.5 s**; n=6
+   >120 s; full 16 (incl. the big backbone FIBs) >480 s. Consistent with the
+   `O(rules × |AP|)` build term and the un-mergeable per-route-NAT cross-product.
+4. **Exact quotient lever (novel, but only ~3×).** Reachability only cares whether an
+   arriving VLAN *passes the next admission*, not its exact value, so VLANs with the
+   same admission signature (which routers admit them) are interchangeable. The 190
+   egress VLANs collapse to **64 admission-equivalence classes** — an *exactness-
+   preserving* reduction (unlike structural VLAN). But the class-size distribution is
+   long-tailed (26,18,17,17,16, then many singletons), so it buys only ~3× (~190→64 in
+   the VLAN dimension ⇒ est. ~2700 APs / ~160 s) — still impractical vs NetPlumber's
+   ~1.4 s, and nowhere near the ~15× needed to approach APKeep's native 515-AP regime.
+5. **The only *tractable* encodings sacrifice exactness or faithfulness:** structural
+   VLAN (finding d) — 337 APs / 2 s but a sound *over*-approximation that folds VLAN
+   into port identity (no header-based admission); admission-only (above) —
+   *under*-approximation.
+
+**Verdict.** Full per-`(port, VLAN)` admission, done faithfully (with the per-hop
+rewrite it inescapably requires), is **intractable at 16-router scale in APKeep's
+per-route-rewrite AP model** — a fundamental property of the dst×VLAN cross-product,
+not a merge-timing or insertion-order artifact (both ruled out, findings a/b). The
+exactness-preserving admission-equivalence quotient is the right lever if one must push
+on it, but expect ~3×, not orders of magnitude; genuine scale needs a fundamentally
+different (non-per-route-rewrite) VLAN encoding akin to APKeep's native snapshot.
+**Practically, it is not required for wl_stanford** (both backends already exact at
+165); it is a prerequisite only for VLAN-discriminating queries / other workloads.
 The subset `{bbra_rtr, rozb_rtr}`, with its single known discrepancy (`bbra→rozb`),
 is a fast minimal regression oracle (both backends in seconds) for developing gap 2.
 
