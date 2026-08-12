@@ -110,7 +110,21 @@ source flow out the default egress, never the specific transit route toward rozb
 
 ---
 
-## Phase 1 — Design against the spec
+> **PLAN PIVOT (2026-08-12, Phase 1 ground truth).** Phases 1–4 below were written
+> assuming APKeep over-approximates and must be made faithful to NetPlumber. The 0c/Phase-1
+> investigation **disproved the premise**: the real Stanford data plane does
+> longest-prefix-match, so **APKeep's forwarding is faithful and NetPlumber's `10/240` is a
+> priority artifact** of the FaVe model feeding rules in file order (see
+> [`APKEEP_STANFORD_NP_SPEC.md`](APKEEP_STANFORD_NP_SPEC.md) Phase 1: NP LPM-reprioritised =
+> `165`, not `10`). The corrected programme is: **(i)** fix the FaVe Stanford model's rule
+> priority to LPM so NetPlumber is a faithful oracle again (a model fix, not APKeep core
+> surgery), then **(ii)** measure APKeep's genuine residual (VLAN/ACL, the P7b gap) against
+> the *corrected* oracle. The out-stage/VLAN-centric steps below are superseded; the 0a
+> exactness gate and 0b harness remain the tripwire and metric. **Awaiting user direction
+> on (i) vs first auditing whether the mis-ordering is a FaVe decomposition bug or upstream
+> in the Hassel `.tf`.**
+
+## Phase 1 — Design against the spec  *(superseded — see PLAN PIVOT above)*
 
 ### 1a. Identify the minimal missing capability
 From the 0c spec, name the smallest gap (candidates: in-port-qualified out-stage
