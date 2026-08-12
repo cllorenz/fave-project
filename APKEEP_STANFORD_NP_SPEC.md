@@ -203,9 +203,46 @@ attributed the block to a **out-stage header-overlap failure**. That conclusion 
 So P7c's "NetPlumber is the reference oracle, sound and complete" is the exact premise this
 Phase-1 investigation overturns.
 
+### Phase 1b — where the non-LPM order comes from (the `.tf` provenance, 2026-08-12)
+
+Traced end to end through the transformation scripts:
+
+1. **Original data** — `stanford-hassel/<rtr>_rtr_route.txt` are real Cisco `sh ip cef`
+   routing tables (longest-prefix-match FIBs).
+2. **Canonical Hassel parser** — `stanford-hassel/cisco_router_parser.py` reads them
+   (`read_route_file`) and compresses the FIB with a **binary trie**
+   (`utils/helper.py compress_ip_list`). Its `node.output_compressed` is a **post-order**
+   walk (children before parent), so it emits rules **longest-prefix-first**. Verified on
+   the regenerated `stanford-tfs/bbra_rtr.tf`: the FIB `rw` rules run `/32 … /18 (line 962)
+   … /14 (line 983) … default last` — longest-first.
+3. **Priority convention is consistent and LPM-correct.** Both the Hassel `tf.py`
+   (`_find_influences`, lines 277-288) and C++ NetPlumber (`net_plumber.cc:396`) treat
+   **lower index = higher priority** (each rule is diffed against lower-index overlappers).
+   Longest-first input + lower-index-wins = **correct longest-prefix-match**. The canonical
+   toolchain, used as designed, does LPM.
+4. **But the files NetPlumber actually consumes are inverted.** `bench/np_preparation.py`
+   reads `stanford-json/*.tf.json` (renamed by commit `b2ad4fa4` from
+   `<rtr>_rtr.{in,mid,out}.rules.json`, "aligned with vanilla NP"). `11.tf.json`
+   (`mid.bbra`) holds the **same 861 FIB rules** as `bbra_rtr.tf` (full set intersection)
+   but ordered **shortest-prefix-first** — `match-all default at position 0`, ascending to
+   `/32` at the end. With lower-index-wins, the position-0 default shadows every specific
+   route → the non-LPM `10`.
+
+**So the non-LPM ordering is an inversion in the specific committed `stanford-json/*.tf.json`
+dataset — NOT in the original Cisco data (LPM), the canonical parser (longest-first), or the
+priority convention (lower-index-wins, which needs longest-first for LPM).** The `.tf.json`
+is ordered the exact opposite of what the canonical toolchain produces and what NetPlumber
+needs. The fix is to restore longest-first order for the mid-stage FIB (sort by prefix
+length in `np_preparation.py`, or regenerate the `.tf.json` from the LPM-ordered `.tf`).
+
+Residual (minor, not blocking the conclusion): *why* the committed `.tf.json` is
+shortest-first — a reversal in the (now-absent) `.rules.json` split tool, or an imported
+vanilla-NP dataset that was itself shortest-first (which would mean upstream vanilla NP is
+also non-LPM on Stanford, since it shares the lower-index-wins convention). Either way the
+FaVe backend, as fed, is non-LPM and APKeep's LPM forwarding is the faithful one.
+
 **Open question for the user (supersedes the earlier Decision Point):** the natural next
-step is fixing the FaVe Stanford model's rule priority to LPM so NetPlumber is a faithful
-oracle, then measuring APKeep's real (VLAN/ACL) residual against it — do you want to
-proceed that way, or investigate the model-vs-canonical-`.tf` ordering question first
-(is this a FaVe decomposition bug, or does the upstream Hassel `.tf` itself carry non-LPM
-order)?
+step is fixing the FaVe Stanford model's rule priority to LPM (sort the mid-stage FIB
+longest-first) so NetPlumber is a faithful oracle, then measuring APKeep's real (VLAN/ACL)
+residual against it. Per the 2026-08-12 decision this is **paused** pending your call on
+how it reframes the thesis.
