@@ -169,6 +169,50 @@ def rule_to_route(rule, table_id_to_name, mapping, intervals):
     return (table_name, 1, rid, match_fields, actions, in_ports)
 
 
+def _prefix_len(match_fields):
+    """ IP-prefix length of a route's ipv4_dst match; -1 for match-all/no-dst
+    (so the default/wildcard route sorts to the lowest priority). """
+    for clause in match_fields:
+        if clause.startswith('ipv4_dst='):
+            pfx = clause.split('=', 1)[1]
+            return int(pfx.split('/')[1]) if '/' in pfx else 32
+    return -1
+
+
+def _reprioritise_mid_lpm(routes):
+    """ FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d).
+
+    NetPlumber resolves rule priority by rule index (lower index = higher
+    priority). The FaVe stanford dataset feeds the mid-stage FIB in FILE ORDER
+    (shortest prefix first), so the `0.0.0.0/0` default outranks the specific
+    routes and NP forwards by the WRONG rule -- a non-LPM artifact (wl_stanford
+    reachability collapses to ~10 pairs). Vanilla NetPlumber avoids this because
+    its `--load` front-inserts every rule, reversing the file order back to
+    longest-first; the FaVe fork's list->map `--load` keys priority by the
+    stored rule id/file-position instead and dropped that reversal.
+
+    This restores longest-prefix-match on the FaVe side by reassigning each
+    `mid.*` FIB table's rule index so that longer dst prefixes get the lower
+    index (= higher NP priority), stable within a prefix length. In/out ACL
+    stages are untouched, and benchmarks without a `mid` stage (e.g. wl_i2,
+    table_types ['in','out']) have no `mid.*` device, so this is a structural
+    no-op there. Mirrors bench/stanford_priority_check.py `_reprioritise_lpm`,
+    the transform proven to lift NP's wl_stanford count 10 -> ~165 (agreeing
+    with vanilla NetPlumber and APKeep and the real Cisco FIBs).
+    """
+    by_dev = {}
+    for pos, route in enumerate(routes):
+        by_dev.setdefault(route[0], []).append(pos)
+
+    for dev, positions in by_dev.items():
+        if not dev.startswith('mid.'):
+            continue
+        order = sorted(positions, key=lambda p: -_prefix_len(routes[p][3]))
+        for new_idx, p in enumerate(order, start=1):
+            t = routes[p]
+            routes[p] = (t[0], t[1], new_idx, t[3], t[4], t[5])
+
+
 def prepare_benchmark(
         json_dir,
         topology_file,
@@ -229,6 +273,11 @@ def prepare_benchmark(
                 routes.append(
                     rule_to_route(rule, table_id_to_name, mapping, intervals)
                 )
+
+    # FaVe-backend LPM fix: re-prioritise mid-stage FIBs by prefix length so
+    # NetPlumber forwards by longest-prefix-match (structural no-op for models
+    # without a `mid` stage). See _reprioritise_mid_lpm / Phase 1d.
+    _reprioritise_mid_lpm(routes)
 
 
     # transform policy

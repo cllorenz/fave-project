@@ -317,21 +317,38 @@ priority-order bug introduced when the list→map refactor replaced vanilla's `-
 front-insertion with id-based indexing, removing the reversal that the canonical
 shortest-first Stanford dataset relies on.
 
-### The fix (FaVe backend)
+### The fix (FaVe backend) — IMPLEMENTED & VALIDATED 2026-08-12
 
-Restore the load-side reversal for the FaVe backend so its priority matches vanilla's
-front-insertion. Options, cheapest first:
-- **`np_preparation.py`:** reverse each table's `rules` list before assigning indices (or
-  reassign each rule's index to `len(rules)-1-position`), so the mid-stage FIB's longer
-  prefixes get the lower (higher-priority) NP index. This is a one-table-loop change and
-  matches what `transform.py` does for the reproduction. (A prefix-length sort would also
-  work and is order-independent, but a plain reverse is the minimal faithful change.)
-- **Or** reinstate front-insertion semantics in the FaVe `net_plumber` `--load`/adapter path
-  (add rules at descending index) so id-based loading reproduces vanilla's behaviour.
-- **Gate:** the Phase-0b harness should then show the FaVe backend's wl_stanford reachability
-  rise from 10 toward the LPM ~165 and agree with vanilla NP and APKeep; the 0a exactness
-  suite (wl_ifi/wl_i2) must stay green (those have no overlapping-prefix routes, so the
-  reversal is a no-op there — verify).
+**Done in `bench/np_preparation.py`** (commit follows this doc update). Rather than a blind
+`rules.reverse()` — which only yields LPM if every FIB table happens to be monotonically
+prefix-sorted, and which would silently invert the *intended* priority of any shared
+benchmark — the fix replicates the exact transform already proven in
+`bench/stanford_priority_check.py::_reprioritise_lpm` (the one that lifted NP 10 → ~165):
+
+- New `_reprioritise_mid_lpm(routes)` re-assigns each **`mid.*`** FIB table's rule index so
+  that a **longer `ipv4_dst` prefix gets the lower (higher-priority) NP index**, stable within
+  a prefix length; the match-all/default (`-1` prefix) sinks to the lowest priority. In/out
+  ACL stages are left untouched. Called once at the end of `prepare_benchmark`.
+- **Scope is self-limiting, no flag needed:** only the Stanford model has a `mid` stage
+  (`table_types ['in','mid','out']`). wl_i2 is `['in','out']` and wl_ifi does not use
+  `prepare_benchmark` at all, so for them the pass finds no `mid.*` device and is a
+  *structural* no-op. (Chosen over a `prepare_benchmark` flag precisely because the mid-scoping
+  already guarantees the no-op — verified below — so the cleaner unconditional form is safe.)
+
+**Gate results (both green):**
+- **0b convergence** (`bench/apkeep_convergence.py`, full 16-router): NetPlumber **10 → 165**,
+  APKeep 240, **under-approx 0 (SOUND)**, over-approx **155 → 75**. The old 230-pair gap
+  decomposes exactly as predicted: `165−10 = 155` was the NP non-LPM artifact (now gone),
+  leaving `240−165 = 75` as the *genuine* APKeep VLAN/ACL over-reach — the real P7b residual,
+  now measured against the **corrected LPM oracle (165)** instead of the artifact (10).
+- **0a exactness** (`fave/test/exactness_gate.sh`): **PASS** — Java core, bundled-Stanford
+  golden pin, wl_ifi, wl_i2 (77k routes, exact — confirms the mid-scoped pass is a true no-op
+  there), wl_stanford P7a, and the backend differential all green. Regeneration diff confirmed
+  only `mid.*` routes changed (3844/8792), only the index field, zero non-mid changes.
+
+Alternative not taken: reinstating front-insertion in the FaVe `net_plumber` `--load`/adapter
+path. The model-side reprioritisation is the smaller, testable change and keeps the C++ fork
+aligned with its id-keyed hash-map storage.
 
 Reproduce vanilla-NP LPM: clone `bitbucket.org/peymank/hassel-public`, build
 `net_plumber/Ubuntu-NetPlumber-Release` with `-std=gnu++11`, build python2.7, run
@@ -355,8 +372,11 @@ textual (the real Cisco route tables) — none rests on a raw-bit interpretation
 for later: if the mask change ever affected VLAN-rewrite *correctness*, that bears on the
 separate VLAN/ACL residual (P7b), not on the priority/LPM finding.
 
-**Open question for the user (supersedes the earlier Decision Point):** the natural next
-step is fixing the FaVe Stanford model's rule priority to LPM (sort the mid-stage FIB
-longest-first) so NetPlumber is a faithful oracle, then measuring APKeep's real (VLAN/ACL)
-residual against it. Per the 2026-08-12 decision this is **paused** pending your call on
-how it reframes the thesis.
+**Status update (2026-08-12):** the FaVe-backend LPM fix is now **implemented and validated**
+(see "The fix (FaVe backend) — IMPLEMENTED" above): NetPlumber is a faithful LPM oracle (165),
+and APKeep's residual over-reach against it is a concrete **75 pairs** — the genuine VLAN/ACL
+gap (P7b) to characterise next. The remaining open item is the **thesis framing**: prior P7c
+("bbra→rozb genuinely UNREACHABLE; NP sound *and* complete") is overturned — the FaVe-backend
+NP was under-reporting via a priority artifact, and APKeep's forwarding was the faithful one.
+Next measurable step (P7b): enumerate and attribute the 75 APKeep-only pairs to specific
+VLAN/ACL semantics APKeep's forwarding-only model ignores.
