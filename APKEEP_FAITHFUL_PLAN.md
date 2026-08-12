@@ -44,7 +44,7 @@ Java unit tests, the backend-differential test.
   `PYTHON=/path/to/venv/python bash fave/test/exactness_gate.sh` (~40 s). Confirmed
   PASS at this commit. This is the mandatory pre-commit tripwire for every later step.
 
-### 0b. Build the convergence harness (the objective metric)
+### 0b. Build the convergence harness (the objective metric) — DONE (2026-08-12)
 Differential harness: APKeep vs NP over a *family* of induced subsets (2-, 3-, k-router)
 reporting the over-approximation as a tracked number (`bbra→rozb` present; full-stanford
 77 vs 10), plus a per-flipped-pair check against **config-derived ground truth**.
@@ -52,6 +52,23 @@ reporting the over-approximation as a tracked number (`bbra→rozb` present; ful
   watch shrink; committed and runnable.
 - **Retires:** "did my change help / break soundness?" being opinion. Every later step
   is judged by this number.
+- **Artifact:** `fave/bench/apkeep_convergence.py`. Drives wl_stanford through BOTH
+  backends (each in its own subprocess — the JVM/NP cross-contamination and APKeep's
+  one-network-per-process limit forbid sharing) and prints the tracked
+  `CONVERGENCE: over_approx=N under_approx=M SOUND/UNSOUND` line. Reference oracle = NP
+  (reachable.json is the artificial all-to-all policy, not the data plane).
+  **Confirmed at this commit:** full 16-router model APKeep=240 vs NP=10 →
+  `over_approx=230 under_approx=0 SOUND`. Soundness is a HARD gate: `under_approx` (a
+  real NP path APKeep drops) must stay 0; the harness exits non-zero otherwise — that is
+  the "never introduce a false negative" tripwire, so NP itself serves as the
+  config-derived ground truth for every flipped pair (NP is the reference, cross-
+  validated against APKeep on wl_ifi where they agree exactly).
+  `--routers a,b,...` induces a subnetwork. **Reproducer for 0c:** `--routers
+  bbra_rtr,rozb_rtr` isolates the over-approximation to the single pair `bbra→rozb`
+  (NP reaches rozb→bbra but not bbra→rozb; APKeep reaches both). CAVEAT: a naive subset
+  poses a new self-contained forwarding problem, not a slice preserving the full-model
+  verdict — it is a minimizer of the divergence, not a reproducer of a specific pair's
+  full-model answer.
 
 ### 0c. Nail the NP semantics — HARD GO/NO-GO GATE
 Produce a written, evidence-backed spec of the exact NP forwarding behaviour we must
