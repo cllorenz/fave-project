@@ -433,11 +433,38 @@ interfaces, which the full-mesh policy oracle simultaneously assumes are live.
 - The genuine APKeep limitation exposed here is **in-port-qualified forwarding/admission**
   (P7c gap 2), *not* VLAN rewrite (P7b's earlier `240→77` VLAN work) and *not* IP ACLs. VLAN
   rewrite and 5-tuple ACLs contribute **0** of these 75 pairs.
-- Two independent ways to drive the 75 → 0: **(a)** make APKeep in-port-aware (qualify
-  `ForwardElement`/admission by ingress port — the real fidelity fix), or **(b)** re-place the
-  5 source generators on live (VLAN-configured) ingress ports, which would make NP agree with
-  the 240 policy oracle and expose whether *any* residual VLAN/ACL over-reach remains
-  underneath (current evidence: none — the mesh is otherwise fully reachable in both).
+- Diagnostic confirmed the residual is *entirely* this one mechanism: re-placing the 5 sources
+  onto covered in-ports makes NP reach the full **240** (each formerly-blocked source → 15),
+  so **no VLAN/ACL residual hides beneath** — on live ports the two backends agree completely.
 - Reproduce: `bench/apkeep_convergence.py` (counts + over-set); the discriminator and the
   gi4/8 config are a read over `stanford-json/*0.tf.json` in_ports vs `sources.json` links and
   `stanford-hassel/port_map.txt` + `roza_rtr_config.txt`.
+
+### Phase 2 fix — APKeep made in-port-faithful (IMPLEMENTED & VALIDATED 2026-08-12)
+
+Per the principle "if APKeep deviates from reality, fix APKeep — don't bend the benchmark,"
+the fix went into the **APKeep adapter**, not the source placement (roza gi4/8 genuinely
+admits nothing, so NP's drop is faithful and APKeep forwarding it is the deviation).
+
+- **`fave/apkeep/adapter.py`:** `_capture_in_admit` records each in-stage device's admitted
+  physical-port set (from the in-port-qualified in-stage rules; `None` if an in-port-agnostic
+  rule admits all). `_gate_dead_ingress` (called in `_build` before `init_in_memory`) drops
+  topology edges delivering to an unadmitted ingress port. No-op where the in-stage admits all
+  ports or the target is admitted; inter-router links land on admitted trunk ports and survive;
+  wl_i2 (no dead-port sources) is unaffected.
+- **Result:** APKeep **240 → 165**, converging **exactly** with NetPlumber
+  (`apkeep_convergence.py`: over_approx=0, under_approx=0, SOUND). Both backends now compute the
+  same faithful data plane.
+- **`test_apkeep_stanford` recalibrated (user decision, Option A):** it asserted
+  APKeep == `reachable.json` (the all-to-all *policy*, 240) — which the faithful data plane does
+  not satisfy. It now asserts **APKeep == FaVe+NetPlumber** (both 165), NP computed in a separate
+  process (a resident JVM in-process makes NP misreport). `reachable.json` stays the intended
+  must-reach policy; the 75 dead-port pairs are genuine policy *violations* a faithful verifier
+  reports. Exactness gate green (10/10, wl_i2 77k exact unchanged).
+- **Scope note:** the fix models the *dead-port* admission case (a port admitting nothing),
+  which is 100% of this residual. Full per-(port,VLAN) admission is the separate P7b concern
+  (correct-but-intractable at scale); it is not needed here.
+- **Thesis takeaway:** with both the LPM fix and this in-port fix, **NetPlumber and APKeep agree
+  exactly on wl_stanford (165 = the faithful data plane)**. The all-to-all 240 was never the
+  data plane — it is the policy, violated by 5 sources on unconfigured interfaces. Prior P7c/P7b
+  framings that treated 240 or NP's non-LPM 10 as ground truth are both superseded.
