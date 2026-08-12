@@ -110,19 +110,25 @@ source flow out the default egress, never the specific transit route toward rozb
 
 ---
 
-> **PLAN PIVOT (2026-08-12, Phase 1 ground truth).** Phases 1–4 below were written
-> assuming APKeep over-approximates and must be made faithful to NetPlumber. The 0c/Phase-1
-> investigation **disproved the premise**: the real Stanford data plane does
-> longest-prefix-match, so **APKeep's forwarding is faithful and NetPlumber's `10/240` is a
-> priority artifact** of the FaVe model feeding rules in file order (see
-> [`APKEEP_STANFORD_NP_SPEC.md`](APKEEP_STANFORD_NP_SPEC.md) Phase 1: NP LPM-reprioritised =
-> `165`, not `10`). The corrected programme is: **(i)** fix the FaVe Stanford model's rule
-> priority to LPM so NetPlumber is a faithful oracle again (a model fix, not APKeep core
-> surgery), then **(ii)** measure APKeep's genuine residual (VLAN/ACL, the P7b gap) against
-> the *corrected* oracle. The out-stage/VLAN-centric steps below are superseded; the 0a
-> exactness gate and 0b harness remain the tripwire and metric. **Awaiting user direction
-> on (i) vs first auditing whether the mis-ordering is a FaVe decomposition bug or upstream
-> in the Hassel `.tf`.**
+> **PLAN PIVOT (2026-08-12, Phase 1 ground truth; refined through Phase 1d).** Phases 1–4
+> below were written assuming APKeep over-approximates and must be made faithful to
+> NetPlumber. The 0c/Phase-1 investigation **disproved that premise**: the real Stanford
+> data plane does longest-prefix-match, so **APKeep's forwarding is faithful.** The final,
+> corrected resolution (see [`APKEEP_STANFORD_NP_SPEC.md`](APKEEP_STANFORD_NP_SPEC.md)
+> Phase 1d): **vanilla NetPlumber also does LPM (~165)** — its `--load` front-insertion
+> pairs with the canonical generator's `insert(0)`. **The `10` is a bug in the FaVe backend
+> NP**, introduced when the list→map refactor changed `--load` to key priority by the rule's
+> stored id/file-position instead of vanilla's `index=0` front-insertion, dropping the
+> load-side reversal — so the FaVe backend loads the shortest-first canonical dataset with
+> the `/0` default at highest priority → non-LPM.
+> - **Corrected programme: (i)** fix the FaVe backend's rule priority — reverse each
+>   mid-stage table's rules in `np_preparation.py` before index assignment (`index =
+>   len-1-position`; or a prefix-length sort), the minimal change that makes the FaVe backend
+>   NP do LPM and agree with vanilla NP + APKeep; then **(ii)** measure APKeep's genuine
+>   residual (VLAN/ACL, the P7b gap) against the corrected oracle.
+> - **Gate:** 0b harness shows FaVe stanford `10→~165`; 0a (wl_ifi/wl_i2 — no overlapping
+>   prefixes, reversal is a no-op) stays green. The out-stage/VLAN-centric steps below are
+>   superseded; 0a gate + 0b harness remain the tripwire and metric.
 
 ## Phase 1 — Design against the spec  *(superseded — see PLAN PIVOT above)*
 

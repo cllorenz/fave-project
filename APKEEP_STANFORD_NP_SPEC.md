@@ -117,9 +117,17 @@ exact and the 0b over-approx count dropping.
 
 ## Phase 1 — GROUND TRUTH RESOLVED (2026-08-12): the true data plane is LPM; NP's 10 is an artifact
 
+> **Read this section together with Phase 1d below (the final, corrected resolution).**
+> "NP" / "NetPlumber's `10`" throughout Phases 1–1c means **the FaVe backend NP as it loads
+> the wl_stanford dataset** — that is the `10`, and it is non-LPM. **Vanilla NetPlumber,
+> loaded via its own `--load` front-insertion, does LPM (~165)** — see Phase 1d. So the `10`
+> is a **FaVe-backend load-order bug** (list→map `--load` dropped the front-insertion
+> reversal), not canonical HSA behaviour. The "faithful data plane is LPM" conclusion stands
+> and is strengthened (APKeep *and* vanilla NP agree at LPM).
+
 The user chose to verify which priority model is faithful *before* any fix. The answer is
-now definitive and it **inverts the premise**: NetPlumber's canonical `10/240` is **not**
-the true data plane.
+now definitive and it **inverts the premise**: the FaVe backend's `10/240` is **not** the
+true data plane (the true data plane is LPM; vanilla NP and APKeep both compute it).
 
 **1. The real Stanford routers do longest-prefix-match.** The raw Hassel FIB dumps
 (`bench/wl_stanford/stanford-hassel/<rtr>_rtr_route.txt`) are real Cisco routing tables.
@@ -251,49 +259,85 @@ So **FaVe's `stanford-json/*.tf.json` is literally the vanilla dataset with its 
 reversed** (and masks toggled). Since FaVe's is shortest-first, **the vanilla dataset is
 longest-first** (LPM-order), consistent with the `cisco_router_parser` trie output.
 
-### Phase 1d — A/B SETTLED by running vanilla NetPlumber: scenario A (2026-08-12)
+### Phase 1d — A/B SETTLED (2026-08-12): vanilla NetPlumber does LPM (~165); the FaVe backend has the bug
+
+> **This supersedes an earlier draft of this section that wrongly concluded "scenario A:
+> vanilla = 10."** That draft ran vanilla NP on a *reconstruction* (`reverse(fave-dataset)`)
+> that did **not** account for the canonical generator's own reversal, so it fed vanilla NP
+> the wrong order. Correcting it flips the conclusion.
 
 Got `~/hassel-public` (Peyman Kazemian's original HSA/NetPlumber,
-`bitbucket.org/peymank/hassel-public`), built its `net_plumber` (only fix needed: the old
-code uses dynamic exception specs, so compile `-std=gnu++11`), and ran it. Since the Python-2
-upstream generators aren't runnable here, the **canonical vanilla dataset was reconstructed
-by inverting `transform.py`** (reverse the rules back to longest-first, toggle the masks back)
-— and it faithfully reproduces the documented canonical result, so the reconstruction is
-sound. Reachability measured per-source (one `add_source` + all 16 probes, counting probes
-that reach "Met Probe Condition", self excluded):
+`bitbucket.org/peymank/hassel-public`), built its `net_plumber` (`-std=gnu++11` for the old
+dynamic-exception-spec code), **built python2.7 from source**, and ran the authentic
+`generate_stanford_backbone_tf.py`. Findings:
 
-| run | reachable pairs |
+1. **The authentic `.tf.json` FIB is longest-first** (`/32` host routes first, `/15` last).
+2. **The canonical generator `generate_rules_json_file.py` does `insert(0)`** (front-inserts
+   each rule into the per-stage list), i.e. it **reverses** the FIB to **shortest-first**
+   when writing the vanilla `*.rules.json` dataset.
+3. **Vanilla NP's `--load` front-inserts too** — `main_processes.cc` calls
+   `add_rule(table, index=0, …)` and `_add_rule` inserts at the list front, so the in-memory
+   list is the **reverse of the file order** → back to **longest-first** → **LPM**.
+
+So the generator's `insert(0)` and the loader's front-insertion are a **matched pair** (two
+reversals that cancel), and **vanilla NetPlumber computes LPM**. Confirmed empirically on the
+authentic shortest-first dataset: source `bbra` reaches **15/16** routers (and router 12
+reaches 15) — LPM — vs **0** on the reversed order.
+
+| run | result |
 |---|---|
-| **vanilla NP, canonical (longest-first) vanilla dataset** | **10** — the same edge→core set (→ bbra/bbrb) as FaVe |
-| vanilla NP, reversed (shortest-first) order | LPM (e.g. source bbra reaches **15** routers) |
-| FaVe net_plumber (production adapter path) | 10 |
+| **vanilla NP, authentic (shortest-first) canonical dataset** | **LPM (~165)** — core routers reach ~all |
+| vanilla NP, reversed (longest-first) order | non-LPM (10) |
+| **FaVe backend (np_preparation → adapter → NP)** | **non-LPM (10)** |
 
-**So vanilla NetPlumber gives `10`, identical to FaVe — scenario A.** The non-LPM result is
-**canonical to the HSA/NetPlumber Stanford analysis**, *not* a FaVe-introduced artifact, and
-`transform.py`'s `rules.reverse()` is a **correct** adaptation (both engines end at `10`), not
-a bug.
+**So vanilla NetPlumber's front-insertion is NOT a bug** — it is the designed counterpart of
+the generator's `insert(0)`. Vanilla NP, APKeep, and the real Cisco FIB **all agree: LPM
+(~165)**.
 
-**Mechanism (now fully pinned).** Vanilla NP is *also* lower-position-wins, but its `--load`
-path calls `add_rule(table, index=0, …)` for every rule, and `_add_rule` **front-inserts**
-when `index < size` — so the in-memory rule list is the **reverse of the file order**. The
-canonical vanilla file is longest-first, so front-insertion puts the `/0` default at the
-list front (highest priority) → the default shadows the specific routes → non-LPM. FaVe
-reaches the identical `10` by a different route (`transform.py` reverses the file to
-shortest-first, and FaVe's adapter/`--load` keys priority by index directly). The order is
-provably the sole driver: same rules + same engine, only the file order differs, gives
-`10` vs LPM (confirmed both directions above).
+**The bug is in the FaVe backend, and it stems from the list→map change.** Vanilla's `--load`
+ignores each rule's stored id and passes `index=0` (front-insert); FaVe's fork changed
+`--load` to pass the rule's **stored id / file position** as the index
+(`net_plumber/src/net_plumber/main_processes.cc:144,157`, commits `e91676ec` 2019 +
+`c0593fc4` 2021 "Fix node id handling when dumping and loading nodes") — because a hash-map
+keys by index and cannot front-insert with `index=0` (collisions). That **dropped the
+load-side reversal**. FaVe's `stanford-json/*.tf.json` is the vanilla `mid.rules.json`
+**renamed** (`b2ad4fa4`) — the shortest-first canonical data **without** the compensating
+reverse — and `np_preparation.py:114` also uses the `.tf.json` position as the NP index. So
+the FaVe backend loads shortest-first *as priority order* → the `/0` default is highest
+priority → shadows the specifics → **non-LPM (10)**.
 
-**Bottom line.** Both NetPlumbers (vanilla and FaVe) compute the non-LPM `10` on the
-canonical Stanford dataset; the real Cisco FIB does longest-prefix-match (`~165`); APKeep's
-LPM forwarding is faithful to the real router, while **neither NetPlumber is** for these
-overlapping FIB routes. Whether the canonical HSA pipeline's non-LPM outcome is an intended
-model choice or a latent load-order issue in NetPlumber is a separate question — but it is
-canonical (reproduced by the original tool), not something the FaVe port introduced.
+`transform.py`'s `rules.reverse()` (which the user added, `059d13bd`) is a **correct**
+compensation for the *reproduction* harness: it pre-reverses the dataset so that FaVe's
+id-indexed `--load` reproduces vanilla's front-inserted order, and both give LPM (165) and
+agree. The production **backend** simply never got that reverse.
 
-Reproduce: clone `bitbucket.org/peymank/hassel-public`, build `net_plumber/Ubuntu-NetPlumber-Release`
-with `-std=gnu++11`, reconstruct the vanilla dataset by inverting `np_reproduction/transform.py`
-on `fave/bench/wl_stanford/stanford-json/*.tf.json`, and run
-`net_plumber --hdr-len 16 --load <dir> --policy <dir>/policy.json` one source at a time.
+**Bottom line (corrected).** APKeep (LPM), vanilla NetPlumber (LPM ~165), and the real Cisco
+FIB all agree and are faithful. **The FaVe backend (10) is the only non-LPM one** — a
+priority-order bug introduced when the list→map refactor replaced vanilla's `--load`
+front-insertion with id-based indexing, removing the reversal that the canonical
+shortest-first Stanford dataset relies on.
+
+### The fix (FaVe backend)
+
+Restore the load-side reversal for the FaVe backend so its priority matches vanilla's
+front-insertion. Options, cheapest first:
+- **`np_preparation.py`:** reverse each table's `rules` list before assigning indices (or
+  reassign each rule's index to `len(rules)-1-position`), so the mid-stage FIB's longer
+  prefixes get the lower (higher-priority) NP index. This is a one-table-loop change and
+  matches what `transform.py` does for the reproduction. (A prefix-length sort would also
+  work and is order-independent, but a plain reverse is the minimal faithful change.)
+- **Or** reinstate front-insertion semantics in the FaVe `net_plumber` `--load`/adapter path
+  (add rules at descending index) so id-based loading reproduces vanilla's behaviour.
+- **Gate:** the Phase-0b harness should then show the FaVe backend's wl_stanford reachability
+  rise from 10 toward the LPM ~165 and agree with vanilla NP and APKeep; the 0a exactness
+  suite (wl_ifi/wl_i2) must stay green (those have no overlapping-prefix routes, so the
+  reversal is a no-op there — verify).
+
+Reproduce vanilla-NP LPM: clone `bitbucket.org/peymank/hassel-public`, build
+`net_plumber/Ubuntu-NetPlumber-Release` with `-std=gnu++11`, build python2.7, run
+`generate_stanford_backbone_tf.py`; run vanilla `net_plumber --hdr-len 16 --load <shortest-first dir>
+--policy <dir>/policy.json` one source at a time (the FaVe `stanford-json` *is* that
+shortest-first dir, with masks toggled to the vanilla convention).
 
 ### Note on the mask-semantics change (does bit-comparison mislead this?)
 
