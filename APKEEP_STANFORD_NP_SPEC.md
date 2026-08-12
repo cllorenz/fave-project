@@ -177,6 +177,32 @@ prefix-length re-sort; ties and the drop/`Null0` handling need care before they 
 as final. The qualitative conclusion — LPM is faithful, NP's `10` is an artifact — is
 airtight (real Cisco FIB + the reproducible flip).
 
+### Reconciliation with the prior P7c conclusion (which said the opposite)
+
+Earlier committed work (TODO.md P7c, 2026-07-10) concluded `bbra→rozb` is "genuinely
+UNREACHABLE, NetPlumber sound AND complete on this pair; APKeep over-approximates," and
+attributed the block to a **out-stage header-overlap failure**. That conclusion is
+**wrong**, and the reason it was reached is instructive:
+
+- P7c **trusted NetPlumber's forwarding as ground truth** and read its flow dumps to locate
+  where bbra's flow "dies." But NP-as-fed uses **file-order** rule priority, so its flow
+  dumps already encode the priority bug — reading them to find the mechanism is circular.
+- P7c **assumed NP implements longest-prefix-match** — TODO.md line 388 reasons "LPM `/20`
+  forward beats the `/16` discard." NP-as-fed does **not** do LPM (that is the whole
+  finding), so this assumption was false and hid the real cause.
+- The flow *does* die at the `mid.bbra→out.bbra` transition (P7c saw this correctly), but
+  the cause is **mid-stage priority-subtraction** eating the specific transit routes, not an
+  out-stage pipe/overlap failure. Re-prioritising only the mid-stage by prefix length flips
+  `bbra→rozb` to reachable in the **full** 16-router model (`10→165` reachable pairs) — with
+  the out-stage untouched — which an out-stage mechanism could not explain.
+- Ground truth is the **real Cisco FIB** (`bbra_rtr_route.txt`), not NP: it forwards
+  `172.28.0.0/14` (longer than the `/12` Null0 and `/0` default) out a shared segment
+  (`out.bbra.120001 → {in.boza, in.rozb}`) that includes rozb. Under real LPM the pair is
+  reachable.
+
+So P7c's "NetPlumber is the reference oracle, sound and complete" is the exact premise this
+Phase-1 investigation overturns.
+
 **Open question for the user (supersedes the earlier Decision Point):** the natural next
 step is fixing the FaVe Stanford model's rule priority to LPM so NetPlumber is a faithful
 oracle, then measuring APKeep's real (VLAN/ACL) residual against it — do you want to
