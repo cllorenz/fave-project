@@ -70,7 +70,7 @@ reporting the over-approximation as a tracked number (`bbra→rozb` present; ful
   verdict — it is a minimizer of the divergence, not a reproducer of a specific pair's
   full-model answer.
 
-### 0c. Nail the NP semantics — HARD GO/NO-GO GATE
+### 0c. Nail the NP semantics — HARD GO/NO-GO GATE — DONE (2026-08-12): GO, with a pivot
 Produce a written, evidence-backed spec of the exact NP forwarding behaviour we must
 replicate — the artifact we could **not** produce this session. Get NP to *tell* us
 what it does, via one of:
@@ -85,6 +85,28 @@ what it does, via one of:
 - **NO-GO rule:** if 0c cannot produce the spec within a bounded effort, **stop and
   reassess** (fall back to option 1 or 3) rather than do core surgery blind. This gate
   is the plan's main risk control.
+
+**RESULT — spec produced: [`APKEEP_STANFORD_NP_SPEC.md`](APKEEP_STANFORD_NP_SPEC.md).**
+The 0b harness gave a far better reproducer than options (a)/(b) anticipated — the
+2-router `{bbra_rtr,rozb_rtr}` subset with `bbra→rozb` as the *sole* divergence, driven
+through NP-lib (no TRACE segfault, no hand-built C++ needed). Using egress-tap bisection
+(`bench/np_egress_trace.py`) + NP's core code, the mechanism is **priority-subtraction**:
+NetPlumber resolves rule priority by **rule index / position** (lower index = higher
+priority; `net_plumber.cc:396`, `rule_node.cc process_src_flow` diffs higher-priority
+overlapping rules), and the Stanford mid-stage's match-all `/0` default sits at position 0
+(highest priority), so it shadows the specific dst-IP routes. bbra forwards its whole
+source flow out the default egress, never the specific transit route toward rozb →
+`bbra→rozb` unreachable. **Decisive evidence:** source.bbra restricted to `dst=172.28.0.0/14`
+(which HAS a specific route toward rozb) leaves bbra via the `/0` default egress, not the
+`/14` specific — NP is **not** doing longest-prefix-match.
+- **This PIVOTS the plan.** The mechanism is NOT the out-stage in-port permutation / VLAN
+  coupling / split-horizon that Phases 1–4 were framed around. It is a **priority-model
+  disagreement**: NP index-order vs APKeep prefix-length LPM (`apkeep/adapter.py:213,227`).
+  The remedy (option 2) becomes concrete and *smaller* than feared — make the APKeep
+  adapter honour rule-index priority for the HSA Stanford tables instead of LPM — but it
+  hinges on a **semantic call for the user** (is NP's index-order the faithful data plane,
+  or is LPM?) recorded as the Decision Point in the spec. **GATE = GO, but Phases 1–4
+  below must be re-scoped around priority, not the out-stage.**
 
 ---
 
