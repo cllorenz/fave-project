@@ -275,6 +275,22 @@ net_plumber **as fed is non-LPM (`10`)** while the real Cisco FIB and APKeep are
 decide A vs B, run vanilla NetPlumber on `stanford_json_vanilla/` (needs `~/hassel-public`)
 and compare its reachability to `165` vs `10`.
 
+### Note on the mask-semantics change (does bit-comparison mislead this?)
+
+The FaVe net_plumber changed the semantics of masking bits at some point, and `transform.py`
+carries a paired `toggle_mask_bits`. That does **not** affect the priority/LPM conclusion,
+because NetPlumber's priority/overlap computation uses the rule **`match`** array *only* —
+`net_plumber.cc add_rule` builds influences from `r->match ∩ rule->match` (never the mask) —
+while the **mask** is used solely by the `rw` action to apply the VLAN rewrite
+(`rule_node.cc array_rewrite(inv_match, mask, rewrite)`). So the mask change touches
+VLAN-*rewrite* behaviour, which is orthogonal to the forwarding-*priority* (LPM) issue, and
+to the separate `rules.reverse()`. The shortest-first ordering was re-confirmed from
+`np_preparation`'s own `ipv4_dst=X/N` decode (current FaVe conventions, not raw bits), and
+all load-bearing results are behavioural (the current net_plumber's own computation) or
+textual (the real Cisco route tables) — none rests on a raw-bit interpretation. Caveat kept
+for later: if the mask change ever affected VLAN-rewrite *correctness*, that bears on the
+separate VLAN/ACL residual (P7b), not on the priority/LPM finding.
+
 **Open question for the user (supersedes the earlier Decision Point):** the natural next
 step is fixing the FaVe Stanford model's rule priority to LPM (sort the mid-stage FIB
 longest-first) so NetPlumber is a faithful oracle, then measuring APKeep's real (VLAN/ACL)
