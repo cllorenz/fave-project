@@ -380,3 +380,64 @@ gap (P7b) to characterise next. The remaining open item is the **thesis framing*
 NP was under-reporting via a priority artifact, and APKeep's forwarding was the faithful one.
 Next measurable step (P7b): enumerate and attribute the 75 APKeep-only pairs to specific
 VLAN/ACL semantics APKeep's forwarding-only model ignores.
+
+## Phase 2 — attribution of the 75-pair APKeep residual (2026-08-12)
+
+**Result: the 75 pairs are NOT VLAN-rewrite and NOT 5-tuple ACL filtering. They are one
+mechanism — _in-port-qualified ingress admission_ — and they reduce to 5 source routers
+attached to unconfigured interfaces.**
+
+**Decomposition.** The 75 = **exactly 5 source routers × 15 destinations**. Per-source counts
+(`bench/apkeep_convergence.py --emit`): `bbrb_rtr, boza_rtr, goza_rtr, roza_rtr, yozb_rtr`
+each reach **0** in NP but **15** (everything) in APKeep; the other 11 routers reach 15 in
+both. APKeep reaches the full **240**-pair mesh; NP reaches **165 = 11 × 15**. So the residual
+is entirely **source-side**: NP blocks 5 sources completely, at ingress.
+
+**It is not the egress VLAN filter.** Dropping the probe's `vlan=0` test field and regenerating
+left NP unchanged at 165 (the 5 sources still 0) — the flows never arrive at any probe, so the
+block is upstream of egress, not the `vlan=0` filter.
+
+**Mechanism — in-port-qualified admission (verified, 16/16 discriminator).** A source is
+blocked in NP **iff its source in-port has no matching rule in that router's in-stage table.**
+The in-stage (`X0.tf.json`) rules are `(in_port, vlan) → fwd to mid`: the router's L2 input
+processing (which VLANs each physical port admits). The source generators attach at:
+`roza→1100032, boza→300032, goza→700032, bbrb→200001, yozb→1600001` — and **none of those
+ports appears in its in-stage `in_ports`**, so NetPlumber (which propagates the `in_port`
+field and honours in-port-qualified rules) drops the flow at ingress, for every destination.
+The 11 live sources' ports are all covered. This is exactly P7c "gap 2 — transfer-function
+fidelity": the in/mid TF rules are in-port-qualified, but APKeep's `_translate_fwd_rule`
+(`fave/apkeep/adapter.py:204`) keys **only on the dst field and ignores `rule.in_ports`**, so
+the in-stage collapses to a `/0` forward-all that admits traffic on *any* port. APKeep has no
+way to express "this ingress port admits nothing," so it forwards where NP drops.
+
+**Root config cause — unconfigured ports (VLAN membership).** Via `stanford-hassel/port_map.txt`,
+roza's source port 32 = interface **gi4/8**, whose entire config is `no ip address / no cdp
+enable` — no `switchport`, no VLAN membership, no IP. It is a member of no VLAN, so the
+authoritative Stanford parser (`cisco_router_parser.py`) emits no in-stage admission rule for
+it and a host there is genuinely dead. So the underlying reason is L2 (VLAN membership), but
+the mechanism NP uses to drop is the `in_port` qualification — *input-port admission*, not
+VLAN rewrite and not an IP/5-tuple ACL.
+
+**The oracle twist (which engine is "right" depends on the question).** `reachable.json` is the
+**intended policy** (derived from `roles.txt`/`reach.txt`), a full **240**-mesh — not a
+data-plane computation. Measured against it: **APKeep = 240 = exactly the oracle**; **NP = 165
+under-reports**, flagging the 5 dead-port sources as 75 policy *violations* (`oracle \ NP` = 75,
+`NP \ oracle` = 0). Measured against the **real data plane**: those 5 sources sit on genuinely
+unconfigured interfaces, so **NP's drop is faithful and APKeep over-approximates**. Both
+statements are true; they answer different questions. Net: the 75-pair "APKeep over-reach" is
+half an APKeep fidelity gap (no in-port-qualified admission) and half a **benchmark
+source-placement artifact** — the committed `policy.json` attaches these 5 sources to dead
+interfaces, which the full-mesh policy oracle simultaneously assumes are live.
+
+**Bottom line for the thesis / next work.**
+- The genuine APKeep limitation exposed here is **in-port-qualified forwarding/admission**
+  (P7c gap 2), *not* VLAN rewrite (P7b's earlier `240→77` VLAN work) and *not* IP ACLs. VLAN
+  rewrite and 5-tuple ACLs contribute **0** of these 75 pairs.
+- Two independent ways to drive the 75 → 0: **(a)** make APKeep in-port-aware (qualify
+  `ForwardElement`/admission by ingress port — the real fidelity fix), or **(b)** re-place the
+  5 source generators on live (VLAN-configured) ingress ports, which would make NP agree with
+  the 240 policy oracle and expose whether *any* residual VLAN/ACL over-reach remains
+  underneath (current evidence: none — the mesh is otherwise fully reachable in both).
+- Reproduce: `bench/apkeep_convergence.py` (counts + over-set); the discriminator and the
+  gi4/8 config are a read over `stanford-json/*0.tf.json` in_ports vs `sources.json` links and
+  `stanford-hassel/port_map.txt` + `roza_rtr_config.txt`.
