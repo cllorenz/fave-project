@@ -25,17 +25,13 @@ wl_tum is a single stateful IPv4 firewall (fw.tum, ~3.8k rules) and ships an
 *empty* oracle, so NetPlumber is the reference. This test is the CI face of the
 bench/apkeep_tum_diff.py differential.
 
-CHARACTERIZATION (characterize -> fix -> flip). As of Phase 1 the APKeepAdapter
-has no model for the conntrack `related` state field, the packet-filter
-svlan/dvlan match fields, or the in_port/out_port rewrite, so it UNDER-
-approximates: NetPlumber reaches source.tum -> probe.tum (an injected tcp/80
-packet traverses fw.tum's forward filter to the accept point), APKeep drops it.
-This test pins that exact, known divergence so the gap is gated and visible.
-
-It is a self-tripping ratchet: the moment Phases 2-3 teach the adapter the state/
-VLAN/port model, this assertion FAILS (the divergence is gone) -- that is the
-signal to FLIP it to `assertEqual(apkeep, netplumber)` and gate convergence
-(Phase 4), exactly as test_apkeep_stanford gates the wl_stanford data plane.
+CONVERGENCE GATE (Phase 2/4). The APKeepAdapter models fw.tum's forward_filter
+via a FilterElement (multi-field first-match forward-to-out_port / drop), so
+FaVe+APKeep and FaVe+NetPlumber must compute the SAME wl_tum reachability
+(source.tum -> probe.tum: an injected tcp/80 packet traverses fw.tum's forward
+filter to the accept point). This began as a characterize->fix->flip ratchet
+pinning the Phase-1 under-approximation; the Phase-2 FilterElement converged it,
+so it now asserts exact agreement (like test_apkeep_stanford gates wl_stanford).
 
 NP must run in its OWN process (a resident JVM in-process makes NetPlumber
 misreport), so its matrix comes from the differential harness's netplumber
@@ -58,9 +54,6 @@ _INPUTS = ["%s/%s" % (_PREFIX, f) for f in
            ("topology.json", "routes.json", "policies.json", "sources.json",
             "rulesets/tum-ruleset")]
 
-# The single known under-approximation as of Phase 1 (see module docstring).
-_KNOWN_UNDER = {("source.tum", "probe.tum")}
-
 
 @require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 @require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
@@ -78,18 +71,15 @@ class TestAPKeepTumDifferential(unittest.TestCase):
             cls.netplumber = diff._pairs(
                 diff._emit_worker("netplumber", os.path.join(tmp, "np.json")))
 
-    def test_known_state_gap(self):
+    def test_reachability_matches_netplumber(self):
         over = self.apkeep - self.netplumber
         under = self.netplumber - self.apkeep
-        # Phase 1 characterization -- FLIP to assertEqual(apkeep, netplumber) once
-        # the state/VLAN/port model lands (Phases 2-3); this failing is the cue.
         self.assertEqual(over, set(),
-                         "APKeep over-approximates wl_tum (unexpected): %s" % sorted(over))
-        self.assertEqual(
-            under, _KNOWN_UNDER,
-            "wl_tum divergence changed. If the adapter gained the state/VLAN/port "
-            "model, FLIP this test to assertEqual(apkeep, netplumber) and gate "
-            "convergence (Phase 4). Got under=%s" % sorted(under))
+                         "APKeep over-approximates wl_tum (reachable, NP drops): %s" % sorted(over))
+        self.assertEqual(under, set(),
+                         "APKeep under-approximates wl_tum (NP reaches, APKeep drops): %s" % sorted(under))
+        self.assertEqual(self.apkeep, self.netplumber,
+                         "APKeep and NetPlumber disagree on wl_tum reachability")
 
 
 if __name__ == '__main__':

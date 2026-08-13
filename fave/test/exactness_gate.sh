@@ -44,6 +44,7 @@ EXACT_TESTS=(
     test/test_apkeep_wl_ifi.py
     test/test_apkeep_i2.py
     test/test_apkeep_stanford.py
+    test/test_apkeep_tum.py
     test/test_backend_differential.py
 )
 
@@ -60,6 +61,7 @@ step "3/6 regenerate exactness inputs (wl_ifi, wl_i2, wl_stanford)"
 bash "$ROOT/fave/test/gen_wl_ifi_inputs.sh"      || rc=1
 bash "$ROOT/fave/test/gen_wl_i2_inputs.sh"       || rc=1
 bash "$ROOT/fave/test/gen_wl_stanford_inputs.sh" || rc=1
+bash "$ROOT/fave/test/gen_wl_tum_inputs.sh"      || rc=1
 
 step "4/6 exactness pytest subset"
 ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" -m pytest -q "${EXACT_TESTS[@]}" ) || rc=1

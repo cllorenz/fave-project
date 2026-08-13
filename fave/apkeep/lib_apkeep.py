@@ -100,6 +100,7 @@ class LibAPKeep:
                        fwd_devices: Optional[List[str]] = None,
                        device_acls: Optional[Dict[str, List[str]]] = None,
                        device_nats: Optional[Dict[str, List[str]]] = None,
+                       device_filters: Optional[List[str]] = None,
                        bdd_table_size: int = 1_000_000) -> None:
         """ Build the network from IN-MEMORY collections (no snapshot files):
         the path the APKeepAdapter uses to construct an APKeep network from a
@@ -140,6 +141,15 @@ class LibAPKeep:
         acls_map = _str_set_map(device_acls)
         nats_map = _str_set_map(device_nats)
 
+        # device_filters: packet-filter devices modelled by a FilterElement
+        # (multi-field first-match forward_filter) instead of a dst-IP FIB.
+        filters_set = None
+        if device_filters:
+            HashSet = jpype.JClass("java.util.HashSet")
+            filters_set = HashSet()
+            for dev in device_filters:
+                filters_set.add(str(dev))
+
         # Size the BDD table for a FaVe-scale network (not APKeep's 100M
         # snapshot default), so several in-process networks can coexist under
         # the resident JVM without exhausting it.
@@ -156,8 +166,9 @@ class LibAPKeep:
         params.USE_DIVISION = nats_map is None
 
         self._net = self._Network(name)
-        # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats)
-        self._net.initializeNetwork(links, devices, acls_map, None, nats_map)
+        # initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats,
+        #                   device_filters)
+        self._net.initializeNetwork(links, devices, acls_map, None, nats_map, filters_set)
         self._eva = self._Evaluator(name, _tempfile.mktemp())
 
     def run(self, rules: List[str]) -> None:

@@ -130,17 +130,47 @@ gap. This re-scopes tasks #3/#4 (recorded there).
     byte-for-byte. Wired into `run_integration` before the pytest step (mirrors
     the wl_stanford gen). This closes the "required test hard-fails on a clean
     checkout because inputs are gitignored" hole.
-- **Phase 2 — model the conntrack `related` state field** (as a match dimension
-  first; leverage the P7b VLAN-rewrite core generalized off dst-IP). Test-first
-  (JUnit + adapter). `getAPNum` feasibility check (expected tractable — match, few
-  distinct values, not a per-route rewrite). Task #3 (blocked by #2).
-- **Phase 3 — model `svlan`/`dvlan` match + `in_port`/`out_port` rewrite** in the
-  adapter/core (port-metadata rewrite is bounded → coalesces → tractable).
-  Test-first. Task #4 (blocked by #2).
-- **Phase 4 — wl_tum convergence + scale result.** APKeep ≡ NP (differential
-  green); guardrail exactness gate stays green on ifi/i2/stanford; measure &
-  document from-zero build time APKeep vs NP on the 3.8k-rule firewall (the
-  wl_i2-analogue headline for firewalls); promote to CI. Task #5 (blocked by #3,#4).
+- **Phase 2 — model the packet_filter forward_filter forwarding via `FilterElement`.
+  DONE (2026-08-13).** Java core `FilterElement` (commit `9e6f3ae8`, 27 Java tests)
+  + adapter/lib wiring: `add_rules` translates each `forward_filter` rule to a
+  `+ filter` string (ACCEPT → the `forward_filter_accept` out_port, DROP → the
+  `__drop__` sink), `_build` registers `fw.tum` as a `device_filters` FilterElement
+  (not a dst-FIB ForwardElement). **Distinct-value measurement decided the field
+  set:** `out_port`/`in_port`/`sport` are *constant* (1 value → non-discriminating,
+  safely ignored); the discriminating fields are the 5-tuple (proto/src/dst/dport)
+  plus `related`(2) and `svlan`/`dvlan`(21 each). The **5-tuple-only** translation
+  already **converges** the wl_tum pair (`related`/VLAN drops are not load-bearing
+  for this existential query), so they move to the wl_up/reverse-flow track.
+- **Phase 3 — packet_filter field fidelity (deferred to the wl_up track):** the
+  `related` state field (new BDD var, P9a-style), `svlan`/`dvlan` (adapter knows
+  only `packet.ether.vlan`). NOT needed for wl_tum (converged without them);
+  required for wl_up's richer/stateless-oracle queries and Phase 5. Task #4.
+
+  **Phase 2 design (core map complete 2026-08-13).** No existing APKeep element
+  both matches a multi-field header AND forwards to a chosen port: `ForwardElement`
+  = dst-LPM→port; `ACLElement` = 5-tuple+vlan→permit/deny (gate only, `deny` is a
+  traversal dead-end); `NATElement` = rewrite on a fixed inport→outport wire. So
+  general packet-filter forwarding is a **new `Element` subclass `FilterElement`**
+  composing ACLElement's first-match multi-field match (reuse
+  `BDDACLWrapper.ConvertACLRule` — proto/src/dst/sport/dport/vlan already
+  supported) with ForwardElement's placement of each rule's disjoint hit-predicate
+  on a real named `out_port` (`port_aps_raw` + `forwardAPs`); the action is a
+  concrete out_port (ACCEPT) or a drop sink (DROP, like ACL `deny`). Contract:
+  `initialize`/`encodeOneRule`/`insertOneRule`/`removeOneRule`/
+  `tryMergeIfNATElement` (delta unchanged); reuse base `identifyChangesInsert`
+  (LinkedList first-match overload) + `updatePortPredicateMap`. Register a `filter`
+  type in `Network.updateRule` dispatch + `elements`/`setAPC`. Field gaps
+  (`related` BDD var, `in_port` positional) → Phase 3. Separate apkeep-subtree
+  commit + FAVE_CHANGES.md (MIT vendoring).
+- **Phase 4 — wl_tum convergence + scale result. DONE (2026-08-13).** The
+  differential converges: **APKeep == NP, `over_approx=0 under_approx=0 SOUND`**.
+  The Phase-1 characterization test tripped as designed and was flipped to the
+  convergence gate `test_apkeep_tum::test_reachability_matches_netplumber`
+  (`assertEqual(apkeep, netplumber)`); added to the exactness gate. The exactness
+  gate stays green on wl_ifi/i2/stanford (10 passed) — no regression. **Scale
+  result:** from-zero build **APKeep 2.2 s vs NetPlumber 6.5 s (~3× faster)** on
+  the 3.8k-rule stateful firewall — the wl_i2 headline repeated for a firewall.
+  Task #5.
 - **Phase 5 — stateful reverse-flow `related:` rewrites.** The one piece needing
   the true state-*rewrite*: wire the state field's rewrites through the adapter +
   `ReachabilityChecker` and reproduce wl_ifi's skipped `related:` cchecks.

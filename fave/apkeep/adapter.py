@@ -99,6 +99,47 @@ def _acl_rule_string(element: str, permit: bool, src: Optional[str],
     )
 
 
+_SPORT = 'packet.upper.sport'
+_OUT_PORT = 'out_port'
+# forward_filter is first-match on rule index (lower index wins); APKeep's
+# FilterElement is higher-priority-wins, so invert the index. The base exceeds
+# the largest forward_filter index (a TUM ruleset has ~5k rules).
+_FILTER_PRIO_BASE = 10_000_000
+
+
+def _ternary_port_range(val: Any) -> Tuple[int, int]:
+    """ A FaVe transport-port match value -> (lo, hi). It is either a decimal
+    ("22") or a 16-bit ternary bitmask ("000000000000001x", the trailing-x prefix
+    masks a port range decomposes into). For a prefix mask x->0 is the low bound
+    and x->1 the high bound (exact for the contiguous prefix ranges FaVe emits). """
+    s = str(val)
+    if len(s) == 16 and set(s) <= {'0', '1', 'x'}:   # 16-bit ternary bitmask
+        return int(s.replace('x', '0'), 2), int(s.replace('x', '1'), 2)
+    return int(s), int(s)                            # plain decimal port
+
+
+_FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.DROP_PORT)
+
+
+def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
+                        src: Optional[str], dst: Optional[str],
+                        sport: Optional[Any], dport: Optional[Any], idx: int) -> str:
+    """ One forward_filter rule -> an APKeep "+ filter <device> ..." update string
+    for a FilterElement. Identical token layout to an ACL rule (accessList number
+    action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
+    priority) except the action slot carries the out_port (ACCEPT) or __drop__.
+    5-tuple only (Phase 2); the discriminating related/VLAN fields come next. """
+    sip, swild = _cidr_to_cisco(src)
+    dip, dwild = _cidr_to_cisco(dst)
+    plo, phi = ("0", "255") if proto is None else (str(proto), str(proto))
+    slo, shi = ("null", "null") if sport is None else tuple(str(p) for p in _ternary_port_range(sport))
+    dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
+    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d" % (
+        device, out_port, plo, phi, sip, swild, slo, shi, dip, dwild, dlo, dhi,
+        _FILTER_PRIO_BASE - int(idx)
+    )
+
+
 def _split_port(fave_port: str) -> Tuple[str, str]:
     """ Map a FaVe port "device.port" to APKeep (device, port). The device may
     itself contain dots (e.g. "source.external.ifi.1"), so split on the last.
@@ -153,6 +194,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._in_admit: Dict[str, Optional[set]] = {}
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
+        self._filter_devices: set = set()    # packet_filter device names (FilterElement)
+        self._filter_rules: List[str] = []   # "+ filter <device> ..." update strings
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
         self._edges: List[str] = []          # topology "dev port dev port"
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
@@ -300,6 +343,36 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._capture_acl(self._acl_out, rules)
             elif table == model.node + '.pre_routing':
                 self._capture_iport_vlan(rules)
+            elif table == model.node + '.forward_filter':
+                # A packet_filter device: its forward_filter is a first-match,
+                # multi-field table (accept -> out_port / drop), modelled by a
+                # FilterElement, not a dst-IP FIB (APKEEP_TUM_UP_PLAN.md Phase 2).
+                self._filter_devices.add(model.node)
+                for rule in rules:
+                    self._translate_filter_rule(model.node, rule)
+
+    def _translate_filter_rule(self, device: str, rule: Any) -> None:
+        """ One forward_filter rule -> a "+ filter" string. ACCEPT (a Forward to
+        the internal forward_filter_accept port) forwards there; a rule with no
+        forward action is a DROP (-> the __drop__ sink). 5-tuple match only for
+        now (out_port/in_port are constant here; related/VLAN are Phase 3). """
+        proto = src = dst = sport = dport = None
+        for field in (rule.match or []):
+            if field.name == _PROTO:
+                proto = field.value
+            elif field.name == _SRC:
+                src = field.value
+            elif field.name == _DST:
+                dst = field.value
+            elif field.name == _SPORT:
+                sport = field.value
+            elif field.name == _DPORT:
+                dport = field.value
+        out_ports = self._out_ports(rule)
+        out_port = out_ports[0] if out_ports else _FILTER_DROP
+        self._filter_rules.append(
+            _filter_rule_string(device, out_port, proto, src, dst, sport, dport, rule.idx)
+        )
 
     def _capture_out_perm(self, model: Any) -> None:
         """ wl_stanford out. stage: each rule maps an input port (fed by a mid.
@@ -537,12 +610,17 @@ class APKeepAdapter(AbstractVerificationEngine):
         # The faithful VLAN model builds far more BDD nodes (per-route rewrites +
         # per-VLAN ACLs); give it a larger table.
         bdd_table = 16_000_000 if (self._stanford and self._faithful_vlan) else 1_000_000
-        self._lib.init_in_memory("fave", edges, sorted(self._fwd_devices),
-                                 device_acls, device_nats, bdd_table_size=bdd_table)
+        # packet_filter devices become FilterElements, not dst-IP ForwardElements.
+        filter_devices = sorted(self._filter_devices)
+        fwd_devices = sorted(self._fwd_devices - self._filter_devices)
+        self._lib.init_in_memory("fave", edges, fwd_devices,
+                                 device_acls, device_nats,
+                                 device_filters=filter_devices or None,
+                                 bdd_table_size=bdd_table)
         # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
         # on VLAN, and the NAT rewrite table must be built over that final
         # partition (a later ACL split would leave APs the NAT never rewrites).
-        self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules)
+        self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules + self._filter_rules)
         self._built = True
 
     def _build_stanford_faithful(self, edges: List[str]):
