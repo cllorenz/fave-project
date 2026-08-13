@@ -21,9 +21,12 @@
 # Usage:   PYTHON=/path/to/venv/python bash fave/test/exactness_gate.sh
 #
 # Exits 0 only if every step is green; prints one EXACTNESS GATE: PASS/FAIL line.
-# Requires JDK + Maven + pybison (integration-tier toolchain); the pytest steps
-# skip themselves if the backends are unavailable, so a skip is NOT a pass here
-# -- run this in the full integration environment.
+# Requires JDK + Maven + pybison (integration-tier toolchain). The pytest steps
+# would normally skip themselves if the backends are unavailable, and a skip is
+# NOT a pass here -- so FAVE_REQUIRE_BACKENDS=1 (see fave/test/backend_gate.py)
+# turns any such skip into a hard failure, mechanically enforcing "run this in
+# the full integration environment" instead of relying on the reader to notice a
+# silent skip.
 
 set -uo pipefail
 
@@ -31,6 +34,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 PYTHON="${PYTHON:-python3}"
 export PYTHON
+
+# This gate is meaningless if a backend-dependent test silently skips; demand
+# they all actually run (backend-unavailable -> failure, not skip).
+export FAVE_REQUIRE_BACKENDS=1
 
 # The exactness-critical pytest files (a subset of FAVE_INTEGRATION_TESTS).
 EXACT_TESTS=(
