@@ -82,11 +82,26 @@ modeling**, not AP-explosion.
 ## Phased plan (tracked as tasks #1–#7)
 
 - **Phase 0 — diagnostic probe. DONE** (above). Task #1.
-- **Phase 1 — wl_tum APKeep-vs-NP differential + gated test.** wl_tum ships an
-  empty oracle, so NP is the reference. Build the differential (extend
-  `bench/apkeep_convergence.py` or a sibling), add a gated integration test
-  (`require_or_skip` + `FAVE_REQUIRE_BACKENDS`, from the P5 CI-gate work) asserting
-  APKeep == NP. This is the objective metric for Phases 2–4. Task #2.
+- **Phase 1 — wl_tum APKeep-vs-NP differential + gated test. DONE (2026-08-13).**
+  wl_tum ships an empty oracle, so NP is the reference.
+  - `fave/bench/apkeep_tum_diff.py` — the differential harness (sibling of
+    `apkeep_convergence.py`; subprocess-per-backend). Compares by **full node
+    name** with no same-base self-reach exclusion — wl_tum's only pair
+    `source.tum → probe.tum` shares the base `tum`, which the stanford harness's
+    base-keyed exclusion would wrongly drop. Current metric: `over_approx=0
+    under_approx=1 UNSOUND` (exit 1) — the honest starting point.
+  - `fave/test/test_apkeep_tum.py` — gated integration test (`require_or_skip` +
+    `FAVE_REQUIRE_BACKENDS`). A **characterize→fix→flip** ratchet: it pins the
+    single known under-approximation (`source.tum → probe.tum`) so the gap is
+    green/gated/visible, and it auto-trips the instant Phases 2-3 change the
+    behaviour — the cue to FLIP it to `assertEqual(apkeep, netplumber)` and gate
+    convergence (Phase 4). Added to `FAVE_INTEGRATION_TESTS`.
+  - `fave/test/gen_wl_tum_inputs.sh` — regenerates the gitignored wl_tum model
+    JSON (`bench/wl_tum/*.json`) from tracked sources (routegen/policygen/topogen,
+    IPv4 + tum-ruleset), no live backend; reproduces the committed files
+    byte-for-byte. Wired into `run_integration` before the pytest step (mirrors
+    the wl_stanford gen). This closes the "required test hard-fails on a clean
+    checkout because inputs are gitignored" hole.
 - **Phase 2 — model the conntrack `related` state field** (as a match dimension
   first; leverage the P7b VLAN-rewrite core generalized off dst-IP). Test-first
   (JUnit + adapter). `getAPNum` feasibility check (expected tractable — match, few

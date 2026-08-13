@@ -58,6 +58,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
+    test/test_apkeep_tum.py      # APKeep vs NP on wl_tum stateful firewall (Phase 1 characterization); skips if unavailable
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -155,6 +156,12 @@ run_integration() {
     # APKeep out-stage-collapse test; from tracked inputs, no live backend.
     echo "== integration: generate wl_stanford inputs (for test_apkeep_stanford) =="
     bash "$ROOT/fave/test/gen_wl_stanford_inputs.sh" || rc=1
+
+    # Generate the wl_tum inputs (fw.tum stateful firewall model) for the APKeep
+    # wl_tum differential; from tracked sources (the ruleset + generators), no
+    # live backend.
+    echo "== integration: generate wl_tum inputs (for test_apkeep_tum) =="
+    bash "$ROOT/fave/test/gen_wl_tum_inputs.sh" || rc=1
 
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
