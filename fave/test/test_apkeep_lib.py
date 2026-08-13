@@ -43,13 +43,14 @@ import unittest
 import os
 
 from apkeep.lib_apkeep import LibAPKeep, available
+from test.backend_gate import require_or_skip
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _SNAPSHOT = os.path.join(_REPO_ROOT, "apkeep", "networks", "stanford")
 _GOLDEN = os.path.join(_REPO_ROOT, "fave", "test", "apkeep_stanford_loops.golden")
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestLibAPKeep(unittest.TestCase):
     """ All checks share one in-process APKeep network (one per process). """
 

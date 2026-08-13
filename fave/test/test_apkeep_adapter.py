@@ -36,6 +36,7 @@ from types import SimpleNamespace
 
 from rule.rule_model import Rule, Match, RuleField, Forward, Rewrite
 from apkeep.adapter import APKeepAdapter, available
+from test.backend_gate import require_or_skip
 
 _DST = 'packet.ipv4.destination'
 
@@ -47,7 +48,7 @@ def _logger():
     return log
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestAPKeepAdapter(unittest.TestCase):
     """ A router r (dst 10/8 -> port 2) and switch sw (dst 10/8 -> port 3),
     wired source.A -> r -> sw -> probe.B; probe.C hangs off an unused switch

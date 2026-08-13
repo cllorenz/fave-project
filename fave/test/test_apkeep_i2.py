@@ -41,6 +41,7 @@ import os
 import unittest
 
 from apkeep.adapter import APKeepAdapter, available
+from test.backend_gate import require_or_skip
 
 _PREFIX = "bench/wl_i2/i2-json"
 _FILES = {"topology": "device_topology.json", "policies": "probes.json"}
@@ -53,9 +54,9 @@ def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
-@unittest.skipUnless(all(os.path.isfile(f) for f in _INPUTS),
-                     "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
+                 "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
 class TestAPKeepI2(unittest.TestCase):
     """ Real wl_i2 (77k dst-IP routes) -> APKeepAdapter -> reachability == oracle. """
 

@@ -57,6 +57,7 @@ import tempfile
 import unittest
 
 from apkeep.adapter import APKeepAdapter, available
+from test.backend_gate import require_or_skip
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bench"))
 
@@ -70,9 +71,9 @@ def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
-@unittest.skipUnless(all(os.path.isfile(f) for f in _INPUTS),
-                     "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
+                 "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
 class TestAPKeepStanford(unittest.TestCase):
     """ Real wl_stanford -> APKeepAdapter (out-stage collapsed, in-stage admitted)
     -> reachability == FaVe+NetPlumber (the faithful data plane). """

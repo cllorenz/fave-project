@@ -43,6 +43,7 @@ import os
 import unittest
 
 from apkeep.adapter import APKeepAdapter, available
+from test.backend_gate import require_or_skip
 
 _PREFIX = "bench/wl_ifi"
 
@@ -65,9 +66,9 @@ def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
-@unittest.skipUnless(_inputs_present(),
-                     "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(_inputs_present(),
+                 "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
 class TestAPKeepWlIfi(unittest.TestCase):
     """ Real wl_ifi (forwarding + ACLs) -> APKeepAdapter -> reachability, which
     must match reachable.json exactly. """

@@ -38,9 +38,10 @@ import logging
 import unittest
 
 from apkeep.lib_apkeep import LibAPKeep, available
+from test.backend_gate import require_or_skip
 
 
-@unittest.skipUnless(available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(available(), "JPype or the APKeep jar is unavailable")
 class TestAPKeepACL(unittest.TestCase):
 
     @classmethod

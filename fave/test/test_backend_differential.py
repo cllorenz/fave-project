@@ -43,6 +43,7 @@ import unittest
 
 from apkeep.adapter import APKeepAdapter, available as apkeep_available
 from netplumber import lib_adapter
+from test.backend_gate import require_or_skip
 
 _PREFIX = "bench/wl_ifi"
 _INPUTS = ["%s/%s" % (_PREFIX, f) for f in
@@ -99,10 +100,10 @@ def _matrix(engine):
     }
 
 
-@unittest.skipUnless(apkeep_available(), "JPype or the APKeep jar is unavailable")
-@unittest.skipUnless(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
-@unittest.skipUnless(all(os.path.isfile(f) for f in _INPUTS),
-                     "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
+@require_or_skip(apkeep_available(), "JPype or the APKeep jar is unavailable")
+@require_or_skip(lib_adapter.libnetplumber is not None, "libnetplumber is not built")
+@require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
+                 "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
 class TestBackendDifferential(unittest.TestCase):
     """ FaVe+APKeep and FaVe+NetPlumber must agree on wl_ifi reachability and
     both match reachable.json. """
