@@ -458,6 +458,12 @@ approach and retired two feared "wrinkles":
   rewrite-free" assumption: its faithful model needs the same P8 rewrite mechanism
   as wl_tum/wl_up, so P8 is now on the critical path, not optional. i2 already
   carries the scale result independently.
+  - **wl_tum/wl_up now have a dedicated plan + Phase-0 evidence:
+    [`APKEEP_TUM_UP_PLAN.md`](APKEEP_TUM_UP_PLAN.md)** — the audited profiles, the
+    "state is a *match*, not a per-route rewrite" reframing (so no AP-explosion),
+    the diagnostic probe (APKeep builds wl_tum's 3.8k stateful rules in 1.77 s but
+    under-approximates: no `related`/`svlan`/`dvlan`/port-rewrite model), and the
+    phased plan (wl_tum first; reverse-flow `related:` rewrites in scope).
 
 ### Performance analysis: BDDs vs APs, and the VLAN AP-count impact (2026-07-01)
 
