@@ -77,6 +77,34 @@ processes** — the resident JVM cross-contaminates NP):
 This confirms the reframing: the gap is **P8 state-shell + packet-filter
 modeling**, not AP-explosion.
 
+### Phase 2 pre-surgery finding (2026-08-13) — the root cause is packet-filter forwarding, not the state field
+
+Instrumenting `APKeepAdapter.add_rules` on the wl_tum run (ground truth) shows the
+adapter receives, for `fw.tum`:
+
+| table | rules | adapter action |
+|---|---|---|
+| `fw.tum.pre_routing` | 4 | captured (VLAN) |
+| `fw.tum.forward_filter` | **5108** | **IGNORED** |
+| `fw.tum.post_routing` | 4 | ignored |
+| `fw.tum.routing` | **0** | (the only fwd table it reads — empty) |
+| input_filter/output_filter/internals | 0 | — |
+
+`add_rules` only acts on `<node>.routing`/`.1` (FIB), `.acl_in`/`.acl_out`, and
+`.pre_routing` — the **router/switch** table shapes. A **`packet_filter`**'s
+filtering lives in `forward_filter` (accept→`out_port` / drop), which matches none
+of those, so all 5108 rules are dropped and no forwarding path forms →
+under-approx. The match fields inside those ignored rules (counts): `out_port`
+4510, `packet.ether.dvlan` 4506, `related` 4504, `ipv4.destination` 4405,
+`ipv6.proto` 4002, `ipv4.source` 3830, `upper.dport` 3076, `in_port` 608,
+`ether.svlan` 606, `upper.sport` 9.
+
+**So the real Phase 2 is "model the `packet_filter` device"** (the multi-field,
+first-match `forward_filter` that forwards accepted packets to `out_port` and drops
+the rest), using the 5-tuple APKeep already supports; the `related` state field and
+`svlan`/`dvlan` are fidelity refinements layered on top (Phase 3), not the primary
+gap. This re-scopes tasks #3/#4 (recorded there).
+
 ---
 
 ## Phased plan (tracked as tasks #1–#7)
