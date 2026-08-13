@@ -181,7 +181,22 @@ faithful path.
 - **3b. Scale/perf:** measure AP count + build time under the faithful path against the
   Phase-1b bound; must stay tractable (the whole point of APKeep) or be documented.
 - **3c. Lock it in:** promote the differential result to a CI gate (APKeep ≡ NP on the
-  validated set).
+  validated set). **DONE (2026-08-13).** The differential is already asserted by
+  `test_backend_differential` (wl_ifi: APKeep == NP == oracle) and
+  `test_apkeep_stanford::test_reachability_matches_netplumber` (full 16-router
+  wl_stanford: APKeep == NP, the 165≡165 faithful data plane, NP driven in its own
+  process via the 0b harness worker), both in the `integration` tier the CI
+  integration job runs. The missing piece was **enforcement**: every APKeep/differential
+  test is `skipUnless(available())`, and pytest scores a skip as a pass, so a jar-build /
+  JPype / libnetplumber failure would let the gate go green **vacuously**. Fix:
+  `fave/test/backend_gate.py` adds `require_or_skip(...)` — a drop-in for
+  `unittest.skipUnless` that, when `FAVE_REQUIRE_BACKENDS=1`, turns a backend-unavailable
+  *skip* into a hard *failure* (local runs without the flag stay skip-friendly, mirroring
+  the `COVERAGE_MIN` "CI sets the floor" idiom). All seven backend tests use it; the CI
+  integration job and `exactness_gate.sh` export the flag. Validated: helper semantics
+  (met→run / unmet+no-flag→skip / unmet+flag→fail) under both the unittest runner and
+  pytest exit codes; all 21 backend tests run+pass with zero skips under the flag; fast
+  tier + typecheck unaffected.
 - **Quality gates:** harness number at target; perf within bound; new CI test committed.
 
 ---

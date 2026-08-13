@@ -80,8 +80,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-fave-native
-      - name: Run integration tier (with coverage)
-        run: COVERAGE=1 bash test.sh integration
+      # FAVE_REQUIRE_BACKENDS=1 turns the APKeep/differential tests' backend-
+      # unavailable *skips* into hard *failures* (see fave/test/backend_gate.py):
+      # this job builds the full APKeep + libnetplumber stack, so the cross-
+      # backend differential (FaVe+APKeep == FaVe+NetPlumber on wl_ifi/wl_i2/
+      # wl_stanford) is the gate here and must actually run, never skip green.
+      - name: Run integration tier (with coverage; backends required)
+        run: COVERAGE=1 FAVE_REQUIRE_BACKENDS=1 bash test.sh integration
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@v4
