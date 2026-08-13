@@ -76,17 +76,42 @@ public class Network {
 		checker = new Checker(this);
 	}
 	
-	public void initializeNetwork(ArrayList<String> l1_links, 
+	public void initializeNetwork(ArrayList<String> l1_links,
 			List<String> devices,
 			Map<String, Set<String>> device_acls,
 			Map<String, Map<String, Set<String>>> vlan_ports,
 			Map<String, Set<String>> device_nats) {
+		initializeNetwork(l1_links, devices, device_acls, vlan_ports, device_nats, null);
+	}
+
+	/** As above, plus device_filters: devices whose forwarding is a multi-field
+	 *  first-match packet filter (a {@link apkeep.elements.FilterElement}), not a
+	 *  dst-IP FIB (FaVe fork; APKEEP_TUM_UP_PLAN.md Phase 2). */
+	public void initializeNetwork(ArrayList<String> l1_links,
+			List<String> devices,
+			Map<String, Set<String>> device_acls,
+			Map<String, Map<String, Set<String>>> vlan_ports,
+			Map<String, Set<String>> device_nats,
+			Set<String> device_filters) {
+		addFilters(device_filters); // BEFORE constructTopology so a link does not overwrite it with a ForwardElement
 		constructTopology(l1_links); // create ForwardElements, if any
 		addFWDElement(devices); // create ForwardElement not in topo, if any
 		addNATs(device_nats); // create NATElement and insert it to topology, if any
 		addACLs(device_acls); // create ACLElements, if any
 		addVLANs(vlan_ports); // create VLAN to physic port mapping, if any
 		initializeAPK();
+	}
+
+	/*
+	 * add FilterElement (multi-field first-match forwarding) for packet-filter devices
+	 */
+	private void addFilters(Set<String> device_filters) {
+		if(device_filters == null) return;
+		for(String device : device_filters) {
+			if(elements.containsKey(device)) continue;
+			apkeep.elements.FilterElement e = new apkeep.elements.FilterElement(device);
+			elements.put(device, e);
+		}
 	}
 	
 	/*

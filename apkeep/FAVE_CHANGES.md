@@ -147,6 +147,29 @@ and our `ReachabilityChecker` / `NATElement` additions. A JaCoCo ratchet floor
 phase of `mvn package`, so the FaVe integration tier gates on them.
 Commits `f50f6ab8`, `5ee99fba` (+ test additions alongside each change above).
 
+## 7. Multi-field packet-filter forwarding (`FilterElement`)  **[NEW]**
+
+`apkeep/elements/FilterElement.java` (+ `APKeeper`/`Network` wiring). A new
+`Element` subclass for a packet filter's `forward_filter` table — the FaVe
+`packet_filter` device (wl_tum, wl_up). No stock element fit: `ForwardElement`
+matches only a dst-IP prefix, `ACLElement` matches the full 5-tuple (+VLAN) but
+only gates into permit/deny. `FilterElement` combines the two — `ACLElement`'s
+first-match match encoding (`BDDACLWrapper.ConvertACLRule`) with
+`ForwardElement`'s placement of each rule's hit-predicate on a real named
+`out_port` — so a rule forwards accepted traffic out a chosen port and unmatched
+traffic falls to a `__drop__` sink (a traversal dead-end, wired to nothing). It
+extends `Element` directly (not `ACLElement`) so it lives in the forwarding AP
+universe. Rule string: `+ filter <device> <accessList> <accessListNumber>
+<out_port> <protoLo> <protoHi> <src> <srcWild> <sportLo> <sportHi> <dst>
+<dstWild> <dportLo> <dportHi> <priority> [vlan]` — an ACL rule whose permitDeny
+slot is the out_port. Wiring: a 6-arg `Network.initializeNetwork(...,
+device_filters)` overload + `addFilters` (registers a `FilterElement` per
+packet-filter device *before* `constructTopology`, so a topology link does not
+overwrite it with a `ForwardElement`); `APKeeper.initialize` seeds a filter
+device's initial all-space AP on its `__drop__` port. Tests: `FilterElementTest`
+(first-match forward-to-out_port vs drop; multi-out_port priority). 27 Java tests
+green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 2.
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

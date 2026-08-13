@@ -57,6 +57,19 @@ public abstract class ApkeepTestBase {
         return net;
     }
 
+    /** As above, plus device_filters: devices modelled as multi-field first-match
+     *  packet filters (FilterElement) rather than dst-IP FIBs. */
+    protected Network buildNetworkWithFilters(String name, List<String> links, List<String> devices,
+                                              Map<String, Set<String>> deviceAcls,
+                                              Set<String> deviceFilters,
+                                              List<String> rules) throws Exception {
+        Network net = new Network(name);
+        net.initializeNetwork(new ArrayList<>(links), devices, deviceAcls, null, null, deviceFilters);
+        Evaluator eva = new Evaluator(name, File.createTempFile("apkeep-" + name, ".out").getAbsolutePath());
+        net.run(eva, rules);
+        return net;
+    }
+
     /** The full-space seed: forwardAPs(port, {BDDTrue}) returns all of a port's APs. */
     protected static HashSet<Integer> seedTrue() {
         HashSet<Integer> s = new HashSet<>();

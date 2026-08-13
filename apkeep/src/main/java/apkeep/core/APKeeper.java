@@ -8,6 +8,7 @@ import java.util.Set;
 
 import apkeep.elements.ACLElement;
 import apkeep.elements.Element;
+import apkeep.elements.FilterElement;
 import apkeep.elements.NATElement;
 import apkeep.exception.APNotFoundException;
 import apkeep.exception.APSetNotFoundException;
@@ -85,6 +86,10 @@ public class APKeeper {
 			int element_id = element_ids.get(ename);
 			if (e instanceof ACLElement) {
 				ports.set(element_id, "deny");
+			}
+			else if (e instanceof FilterElement) {
+				// a packet filter starts with all traffic on its drop sink
+				ports.set(element_id, FilterElement.DROP_PORT);
 			}
 			else if (e instanceof NATElement) {
 				nat_names.add(ename);
