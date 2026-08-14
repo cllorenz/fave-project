@@ -154,6 +154,22 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
     )
 
 
+def _fib_name(device: str) -> str:
+    """ Companion ForwardElement/FIB device name for a transit packet_filter. """
+    return device + '.fib'
+
+
+def _fib_rule_string(fib_dev: str, egress: str, dst: Optional[str], plen: int) -> str:
+    """ One routing entry -> a "+ filter" string on the companion dst-LPM FIB
+    element: match dst only (proto/src/ports wildcard), forward out `egress` (or
+    __drop__). Priority = prefix length so a longer prefix outranks a shorter one
+    (FilterElement resolves overlaps higher-priority-wins => longest-prefix-match). """
+    dip, dwild = _addr_tokens(dst)
+    sip, swild = _addr_tokens(None)
+    return "+ filter %s filter 0 %s 0 255 %s %s null null %s %s null null %d" % (
+        fib_dev, egress, sip, swild, dip, dwild, plen)
+
+
 def _split_port(fave_port: str) -> Tuple[str, str]:
     """ Map a FaVe port "device.port" to APKeep (device, port). The device may
     itself contain dots (e.g. "source.external.ifi.1"), so split on the last.
@@ -209,7 +225,28 @@ class APKeepAdapter(AbstractVerificationEngine):
         # buffered FaVe model -> APKeep input
         self._fwd_devices: set = set()       # ForwardElement device names
         self._filter_devices: set = set()    # packet_filter device names (FilterElement)
-        self._filter_rules: List[str] = []   # "+ filter <device> ..." update strings
+        # A FaVe packet_filter is an internal pipeline of filter chains
+        # (input/output/forward) + a routing table, wired via internal ports (see
+        # devices/packet_filter.py). We reproduce it as a small subgraph of APKeep
+        # FilterElements per device (_build_pf_pipeline). Per (device, chain) we
+        # buffer the parsed rules; the element they land on and the internal links
+        # are decided at build from the device's role (host sink/origin vs transit
+        # router), which the L1 links reveal. device -> chain -> [(out_port, proto,
+        # src, dst, sport, dport, idx)].
+        self._pf_rules: Dict[str, Dict[str, List[Tuple]]] = {}
+        # A plain router that routes IPv6 cannot use APKeep's dst-IP ForwardElement
+        # (its trie is 32/64-bit). Such devices become dst-LPM FilterElement FIBs;
+        # here we buffer their routes and mark them. device -> [(dst, egress, plen)].
+        self._router_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
+        self._ipv6_fib_devices: set = set()
+        # A transit packet_filter (wl_up: pgf, dept routers) both filters AND routes:
+        # its forward_filter accepts to the internal `forward_filter_accept` port,
+        # which FaVe wires (internally) to a routing table (dst-IP LPM -> physical
+        # egress). A terminal filter (wl_tum: fw.tum) instead has an L1 link
+        # accept->probe, so no routing is needed. For transit filters we model the
+        # routing as a companion FilterElement (a first-match dst-LPM FIB) chained
+        # off the accept port -- see _build_pf_pipeline. device -> [(dst, egress, plen)].
+        self._filter_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
         self._edges: List[str] = []          # topology "dev port dev port"
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
@@ -294,12 +331,32 @@ class APKeepAdapter(AbstractVerificationEngine):
             )
             return
         dst = None
+        dst6 = None
         for field in (rule.match or []):
             if field.name == _DST:
                 dst = field.value
+            elif field.name == _DST6:
+                dst6 = field.value
+        # An IPv6 route cannot go on APKeep's dst-IP ForwardElement (its trie is
+        # 32/64-bit prefix based). Buffer it as a dst-LPM FIB (realised as a
+        # FilterElement at build -- _build, see _router_fib) and mark the device.
+        # Ordinary IPv4 routers keep the ForwardElement fast path below.
+        if dst6 is not None:
+            tail = str(dst6).partition('/')[2]
+            plen6 = int(tail) if tail else 128
+            for port in out_ports:
+                self._router_fib.setdefault(device, []).append((dst6, port, plen6))
+            self._ipv6_fib_devices.add(device)
+            return
         # A forwarding rule with no dst match is the default route (FIB idx
         # 65535 / match=null): a 0.0.0.0/0 catch-all. APKeep's prefix trie does
         # the longest-prefix match, so /0 naturally loses to any specific route.
+        # Also buffer a no-dst default in the generic FIB so an IPv6 router (whose
+        # specific routes went to _router_fib above) still gets its default; it is
+        # ignored for ordinary IPv4 routers (which use the ForwardElement below).
+        if dst is None:
+            for port in out_ports:
+                self._router_fib.setdefault(device, []).append((None, port, 0))
         prefix, plen = (0, 0) if dst is None else _cidr_to_apkeep(str(dst))
         # APKeep's ForwardElement is higher-priority-wins, so the priority must
         # encode longest-prefix-match: a longer prefix must outrank a shorter
@@ -341,6 +398,16 @@ class APKeepAdapter(AbstractVerificationEngine):
         for table, rules in model.tables.items():
             if table in fwd_tables:
                 for rule in rules:
+                    # A packet_filter device's `routing` table is NOT a plain dst-IP
+                    # FIB: its egress is selected by an `out_port` MATCH field (over
+                    # IPv6 dst), feeding the internal forward_filter_accept -> routing
+                    # pipeline. Capture it as a companion FIB (used at build only for
+                    # devices that turn out to be filters -- see
+                    # _build_pf_pipeline). This is a no-op for ordinary routers,
+                    # whose routing rewrites out_port (not an out_port match). The
+                    # dst-FIB `_translate_fwd_rule` still runs but its filter-device
+                    # output is dropped at build.
+                    self._translate_fib_rule(model.node, rule)
                     self._translate_fwd_rule(model.node, rule)
                     self._capture_vlan_port(rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'mid':
@@ -357,19 +424,23 @@ class APKeepAdapter(AbstractVerificationEngine):
                 self._capture_acl(self._acl_out, rules)
             elif table == model.node + '.pre_routing':
                 self._capture_iport_vlan(rules)
-            elif table == model.node + '.forward_filter':
-                # A packet_filter device: its forward_filter is a first-match,
-                # multi-field table (accept -> out_port / drop), modelled by a
-                # FilterElement, not a dst-IP FIB (APKEEP_TUM_UP_PLAN.md Phase 2).
+            elif table in (model.node + '.input_filter',
+                           model.node + '.output_filter',
+                           model.node + '.forward_filter'):
+                # A packet_filter chain: a first-match, multi-field table
+                # (accept -> chain-accept port / drop). Buffer per chain; the
+                # elements + internal wiring are built in _build_pf_pipeline.
                 self._filter_devices.add(model.node)
+                chain = table.rsplit('.', 1)[1]
                 for rule in rules:
-                    self._translate_filter_rule(model.node, rule)
+                    self._capture_pf_rule(model.node, chain, rule)
 
-    def _translate_filter_rule(self, device: str, rule: Any) -> None:
-        """ One forward_filter rule -> a "+ filter" string. ACCEPT (a Forward to
-        the internal forward_filter_accept port) forwards there; a rule with no
-        forward action is a DROP (-> the __drop__ sink). 5-tuple match only for
-        now (out_port/in_port are constant here; related/VLAN are Phase 3). """
+    def _capture_pf_rule(self, device: str, chain: str, rule: Any) -> None:
+        """ Buffer one packet_filter chain rule (input/output/forward). ACCEPT is a
+        Forward to the chain's internal accept port (e.g. <dev>.forward_filter_accept);
+        a rule with no forward action is a DROP (-> __drop__). 5-tuple match only for
+        now (the discriminating related/icmpv6.type/VLAN fields are Phase 3 -- ignoring
+        them widens accepts, an over-approximation to be closed later). """
         proto = src = dst = sport = dport = None
         for field in (rule.match or []):
             if field.name == _PROTO:
@@ -384,9 +455,36 @@ class APKeepAdapter(AbstractVerificationEngine):
                 dport = field.value
         out_ports = self._out_ports(rule)
         out_port = out_ports[0] if out_ports else _FILTER_DROP
-        self._filter_rules.append(
-            _filter_rule_string(device, out_port, proto, src, dst, sport, dport, rule.idx)
-        )
+        self._pf_rules.setdefault(device, {}).setdefault(chain, []).append(
+            (out_port, proto, src, dst, sport, dport, rule.idx))
+
+    def _translate_fib_rule(self, device: str, rule: Any) -> None:
+        """ One packet_filter `routing` rule -> a companion-FIB entry
+        (dst-prefix -> physical egress). The routing rule carries the egress in an
+        `out_port` MATCH field (e.g. "<dev>.2") and forwards to the internal
+        routing_out; a rule with a dst but no out_port and no action is an internal
+        "route unknown -> drop" (FaVe FIB idx 65534). dst may be IPv4 or IPv6; a
+        rule with no dst is the default route (0/0). Stored as (dst, egress, plen)
+        and realised as a dst-LPM FilterElement in _build_pf_pipeline. """
+        dst = None
+        egress = None
+        for field in (rule.match or []):
+            if field.name in (_DST, _DST6):
+                dst = field.value
+            elif field.name == _OUT_PORT:
+                egress = _split_port(str(field.value))[1]
+        if egress is None:
+            has_action = bool(rule.actions)
+            if dst is not None and not has_action:
+                egress = _FILTER_DROP     # internal "route unknown" discard
+            else:
+                return                    # nothing routable (e.g. pipeline plumbing)
+        if dst is None:
+            plen = 0
+        else:
+            tail = str(dst).partition('/')[2]
+            plen = int(tail) if tail else (128 if ':' in str(dst) else 32)
+        self._filter_fib.setdefault(device, []).append((dst, egress, plen))
 
     def _capture_out_perm(self, model: Any) -> None:
         """ wl_stanford out. stage: each rule maps an input port (fed by a mid.
@@ -624,15 +722,25 @@ class APKeepAdapter(AbstractVerificationEngine):
         # The faithful VLAN model builds far more BDD nodes (per-route rewrites +
         # per-VLAN ACLs); give it a larger table.
         bdd_table = 16_000_000 if (self._stanford and self._faithful_vlan) else 1_000_000
-        # packet_filter devices become FilterElements, not dst-IP ForwardElements.
-        filter_devices = sorted(self._filter_devices)
-        fwd_devices = sorted(self._fwd_devices - self._filter_devices)
-        # A filter device's forwarding IS its FilterElement (forward_filter). Its
-        # internal routing table also emits a dst-FIB default `+ fwd <dev> ...`,
-        # which -- since a `+ fwd` rule dispatches by device name -- would land on
-        # that device's FilterElement and fail to parse (a fwd rule is not an ACL
-        # rule). Drop dst-FIB rules for filter devices; the FilterElement forwards.
-        fwd_rules = [r for r in fwd_rules if r.split()[2] not in self._filter_devices]
+        # Each packet_filter becomes a small subgraph of FilterElements (its
+        # input/output/forward chains + a dst-LPM routing FIB), wired per the
+        # device's role. Terminal filters (wl_tum) stay a single FilterElement.
+        edges, pf_elems, pf_rules = self._build_pf_pipeline(
+            edges, sorted(self._filter_devices))
+        # Plain IPv6 routers become dst-LPM FilterElement FIBs (the device itself);
+        # their IPv4-collapsed `+ fwd` rules are dropped below.
+        ipv6_routers = sorted(self._ipv6_fib_devices - self._filter_devices)
+        router_fib_rules: List[str] = []
+        for dev in ipv6_routers:
+            for dst, egress, plen in self._router_fib.get(dev, []):
+                router_fib_rules.append(_fib_rule_string(dev, egress, dst, plen))
+        filter_devices = pf_elems + ipv6_routers
+        as_filter = self._filter_devices | set(ipv6_routers)
+        fwd_devices = sorted(self._fwd_devices - as_filter)
+        # A device modelled as a FilterElement must not also carry its (IPv4-only,
+        # here mis-collapsed) `+ fwd` dst-FIB rules -- a `+ fwd` dispatches by device
+        # name and would land on the FilterElement and fail to parse. Drop them.
+        fwd_rules = [r for r in fwd_rules if r.split()[2] not in as_filter]
         self._lib.init_in_memory("fave", edges, fwd_devices,
                                  device_acls, device_nats,
                                  device_filters=filter_devices or None,
@@ -640,8 +748,130 @@ class APKeepAdapter(AbstractVerificationEngine):
         # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
         # on VLAN, and the NAT rewrite table must be built over that final
         # partition (a later ACL split would leave APs the NAT never rewrites).
-        self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules + self._filter_rules)
+        self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules
+                      + pf_rules + router_fib_rules)
         self._built = True
+
+    def _build_pf_pipeline(self, edges: List[str], filter_devices: List[str]):
+        """ Realise each FaVe packet_filter's internal pipeline as a subgraph of
+        APKeep FilterElements. FaVe wires a packet_filter as
+            phys-ingress -> pre_routing -> {input_filter (to-self) |
+                                            forward_filter (transit)}
+            forward_filter_accept / output_filter_accept -> routing -> phys-egress
+            input_filter_accept -> host (probe)
+            source -> output_filter_in -> output_filter
+        and exposes the boundary ports (physical N, output_filter_in,
+        input_filter_accept, forward_filter_in/accept) as L1 links.
+
+        Per device we pick, from its L1 links, the chains that are actually on a
+        path and map each to an element, adding the internal links:
+
+          * host SINK (has `<dev> input_filter_accept ...`): physical ingress ->
+            element <dev> = INPUT filter; accept -> input_filter_accept -> probe.
+          * host ORIGIN (has `... <dev> output_filter_in`): source -> element
+            <dev>.out = OUTPUT filter; accept -> routing.
+          * TRANSIT router (physical egress, no input sink -- e.g. pgf): physical
+            ingress -> element <dev> = FORWARD filter; accept -> routing.
+          * routing (any device with physical egress): element <dev>.fib = a
+            dst-LPM FIB FilterElement (priority = prefix length); physical egress
+            edges are moved onto it.
+          * TERMINAL filter (wl_tum fw.tum: forward_filter_in/accept wired by L1,
+            no physical egress/routing): a single element <dev> = FORWARD filter,
+            left exactly as before.
+
+        Returns (edges, all_filter_elements, all_filter_rule_strings). """
+        all_elems: List[str] = []
+        rule_strings: List[str] = []
+
+        def emit(elem: str, chain: str) -> None:
+            all_elems.append(elem)
+            for (out_port, proto, src, dst, sport, dport, idx) in \
+                    self._pf_rules.get(dev, {}).get(chain, []):
+                rule_strings.append(_filter_rule_string(
+                    elem, out_port, proto, src, dst, sport, dport, idx))
+
+        new_edges = list(edges)
+        for dev in filter_devices:
+            has_input_sink = any(e.split()[0] == dev
+                                 and e.split()[1] == 'input_filter_accept'
+                                 for e in new_edges)
+            has_output_src = any(e.split()[2] == dev
+                                 and e.split()[3] == 'output_filter_in'
+                                 for e in new_edges)
+            phys_egress = [e for e in new_edges if e.split()[0] == dev
+                           and e.split()[1].isdigit()]
+            # Physical ports the device is wired on (as source or dest). A device
+            # that forwards between DIFFERENT physical ports is a transit router
+            # (pgf); a host has a single uplink port (origin/sink only) and never
+            # forwards -- so it needs no forward chain.
+            phys_ports = {e.split()[1] for e in new_edges
+                          if e.split()[0] == dev and e.split()[1].isdigit()}
+            phys_ports |= {e.split()[3] for e in new_edges
+                           if e.split()[2] == dev and e.split()[3].isdigit()}
+            is_transit = len(phys_ports) >= 2
+            fib = self._filter_fib.get(dev)
+            has_routing = bool(phys_egress and fib)
+            fib_dev = _fib_name(dev)
+
+            # --- routing FIB: move physical egress edges onto <dev>.fib ---
+            if has_routing:
+                moved: List[str] = []
+                for edge in new_edges:
+                    s_dev, s_port, d_dev, d_port = edge.split()
+                    if s_dev == dev and s_port.isdigit():
+                        moved.append("%s %s %s %s" % (fib_dev, s_port, d_dev, d_port))
+                    else:
+                        moved.append(edge)
+                new_edges = moved
+                all_elems.append(fib_dev)
+                for dst, egress, plen in fib:
+                    rule_strings.append(_fib_rule_string(fib_dev, egress, dst, plen))
+
+            # A packet_filter's physical ingress feeds two independent paths that
+            # FaVe's pre_routing splits by dst: to-self -> INPUT chain -> probe;
+            # in-transit -> FORWARD chain -> routing. A host has only the first, a
+            # transit router (pgf) both, a pure-forward terminal (wl_tum) only the
+            # second (wired accept -> probe by an L1 link). We model each present
+            # path as its own element sharing the physical ingress.
+
+            # --- SINK: physical ingress -> INPUT filter (element <dev>) -> probe ---
+            if has_input_sink:
+                emit(dev, 'input_filter')
+
+            # --- TRANSIT: physical ingress ALSO -> FORWARD filter -> routing ---
+            if is_transit:
+                fwd_elem = dev + '.fwd'
+                emit(fwd_elem, 'forward_filter')
+                if has_routing:
+                    new_edges.append("%s forward_filter_accept %s in" % (fwd_elem, fib_dev))
+                # fan every physical ingress edge to the forward element too
+                extra = []
+                for edge in new_edges:
+                    s_dev, s_port, d_dev, d_port = edge.split()
+                    if d_dev == dev and d_port.isdigit():
+                        extra.append("%s %s %s %s" % (s_dev, s_port, fwd_elem, d_port))
+                new_edges += extra
+
+            # --- TERMINAL (no sink, no transit): single FORWARD element <dev> ---
+            if not has_input_sink and not is_transit:
+                emit(dev, 'forward_filter')     # accept -> forward_filter_accept (L1 -> probe)
+                if has_routing:
+                    new_edges.append("%s forward_filter_accept %s in" % (dev, fib_dev))
+
+            # --- host ORIGIN element <dev>.out: OUTPUT filter -> routing ---
+            if has_output_src:
+                out_elem = dev + '.out'
+                emit(out_elem, 'output_filter')
+                # retarget the source's L1 link onto the OUTPUT element
+                new_edges = [
+                    ("%s %s %s output_filter_in" % (e.split()[0], e.split()[1], out_elem)
+                     if (e.split()[2] == dev and e.split()[3] == 'output_filter_in')
+                     else e)
+                    for e in new_edges]
+                if has_routing:
+                    new_edges.append("%s output_filter_accept %s in" % (out_elem, fib_dev))
+
+        return new_edges, all_elems, rule_strings
 
     def _build_stanford_faithful(self, edges: List[str]):
         """ P7b: faithful wl_stanford VLAN model. Collapse the out-stage into the
