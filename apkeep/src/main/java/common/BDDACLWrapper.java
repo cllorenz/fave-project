@@ -85,6 +85,10 @@ public class BDDACLWrapper implements Serializable{
       public final static int vlanBits = 12;
       int[] vlan;
       int[] dstIP6;
+      // FaVe fork (P9b): source IPv6 (128b). APKeep shipped only a dst IPv6 field
+      // (dstIP6, and mis-declared -- see the ctor); a firewall ACL needs both. Both
+      // IPv6 fields are declared LAST (after VLAN) so no existing field shifts.
+      int[] srcIP6;
 
       public int mplsLabelField;
       public int mplsLabelFieldDecoration;
@@ -100,6 +104,7 @@ public class BDDACLWrapper implements Serializable{
       int srcPortBit;
       int dstPortBit;
       int dstIP6Bit;
+      int srcIP6Bit;
       int protocolBit;
       int vlanBit;
       int dstIPInnerBit;
@@ -133,6 +138,7 @@ public class BDDACLWrapper implements Serializable{
             dstIPInner = new int[ipBits];
             mplsLabel = new int[mplsBits];
             dstIP6 = new int[ip6Bits];
+            srcIP6 = new int[ip6Bits];
             vlan = new int[vlanBits];
 
             /**
@@ -145,8 +151,12 @@ public class BDDACLWrapper implements Serializable{
             DeclareDstPort();
             DeclareProtocol();
             DeclareMPLSLabel();
+            DeclareVLAN();
+            // FaVe fork (P9b): both 128-bit IPv6 fields declared LAST so no existing
+            // field's variables shift. (dstIP6 was previously declared mid-order and
+            // -- a latent bug -- only 32 of its 128 bits; both are fixed here.)
             DeclareDstIP6();
-            DeclareVLAN();  // last: keeps every existing field's variables in place
+            DeclareSrcIP6();
 
             mplsLabelField = AndInBatch(mplsLabel);
             mplsLabelFieldDecoration = 
@@ -965,8 +975,15 @@ public class BDDACLWrapper implements Serializable{
 
       private void DeclareDstIP6()
       {
-            DeclareVars(dstIP6, ipBits);
+            DeclareVars(dstIP6, ip6Bits);
             dstIP6Bit = aclBDD.createVar();
+      }
+
+      // FaVe fork (P9b): source IPv6, 128 bits.
+      private void DeclareSrcIP6()
+      {
+            DeclareVars(srcIP6, ip6Bits);
+            srcIP6Bit = aclBDD.createVar();
       }
 
       private void DeclareMPLSLabel()
@@ -1261,15 +1278,19 @@ public class BDDACLWrapper implements Serializable{
             }
 
             /**
-             * src IP
+             * src IP (FaVe fork P9b: an address token containing ':' is IPv6
+             * "addr/len" and encodes over srcIP6; otherwise IPv4 addr+wildcard.)
              */
-            int srcIPNode = ConvertIPAddress(aclr.source, aclr.sourceWildcard, srcIP);
+            int srcIPNode = (aclr.source != null && aclr.source.contains(":"))
+                        ? encodeIP6Prefix(aclr.source, srcIP6)
+                        : ConvertIPAddress(aclr.source, aclr.sourceWildcard, srcIP);
 
             /**
              * dst IP
              */
-            int dstIPNode = ConvertIPAddress(aclr.destination,
-                        aclr.destinationWildcard, dstIP);
+            int dstIPNode = (aclr.destination != null && aclr.destination.contains(":"))
+                        ? encodeIP6Prefix(aclr.destination, dstIP6)
+                        : ConvertIPAddress(aclr.destination, aclr.destinationWildcard, dstIP);
 
             /**
              * VLAN (FaVe fork, P9a): unconstrained unless the rule carries a tag.
@@ -1437,6 +1458,48 @@ public class BDDACLWrapper implements Serializable{
                   return EncodePrefix(prefix, varsUsed, prefix.length);
             }
 
+      }
+
+      /**
+       * FaVe fork (P9b): encode an IPv6 prefix "addr/len" (e.g. "2001:db8:abc::/48")
+       * as a BDD over the given 128-bit IPv6 variable array (srcIP6 or dstIP6).
+       * Mirrors ConvertIPAddress's mask path exactly: the significant (high `len`)
+       * bits map bit k -> vars[k] with the same LSB-first convention as
+       * Utility.IPBinRep, so IPv6 prefixes nest/disjoin like IPv4 ones. "any"/null
+       * or /0 is the full space.
+       */
+      public int encodeIP6Prefix(String cidr, int[] vars)
+      {
+            if(cidr == null || cidr.equalsIgnoreCase("any")) return BDDTrue;
+            String[] parts = cidr.split("/");
+            int prefixlen = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : ip6Bits;
+            if(prefixlen <= 0) return BDDTrue;
+
+            byte[] addr;
+            try {
+                  addr = java.net.InetAddress.getByName(parts[0].trim()).getAddress();
+            } catch (java.net.UnknownHostException e) {
+                  throw new RuntimeException("invalid IPv6 address: " + cidr, e);
+            }
+            if(addr.length != ip6Bits / 8)
+                  throw new RuntimeException("not an IPv6 address: " + cidr);
+
+            // ip6bin[k] = bit k of the address, LSB-first (addr[] is MSB-first bytes).
+            int[] ip6bin = new int[ip6Bits];
+            for(int k = 0; k < ip6Bits; k++)
+            {
+                  ip6bin[k] = (addr[ip6Bits / 8 - 1 - k / 8] >> (k % 8)) & 1;
+            }
+            // significant = the high `prefixlen` bits = indices [ip6Bits-prefixlen, ip6Bits)
+            int[] prefix = new int[prefixlen];
+            int[] varsUsed = new int[prefixlen];
+            for(int i = 0; i < prefixlen; i++)
+            {
+                  int idx = ip6Bits - prefixlen + i;
+                  prefix[i] = ip6bin[idx];
+                  varsUsed[i] = vars[idx];
+            }
+            return EncodePrefix(prefix, varsUsed, prefixlen);
       }
 
       /***

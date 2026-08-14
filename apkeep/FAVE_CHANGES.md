@@ -170,6 +170,25 @@ device's initial all-space AP on its `__drop__` port. Tests: `FilterElementTest`
 (first-match forward-to-out_port vs drop; multi-out_port priority). 27 Java tests
 green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 2.
 
+## 8. Source IPv6 + IPv6 ACL/filter matching  **[NEW]** / **[FIX]**
+
+`common/BDDACLWrapper.java`. APKeep shipped only a *destination* IPv6 field
+(`dstIP6`), and it was **mis-declared** — `DeclareDstIP6()` created only `ipBits`
+(32) of its 128 variables, so IPv6 beyond a /32 was silently broken (dormant; no
+ACL path used it). A firewall ACL (wl_up is IPv6-only) needs **both** IPv6
+addresses at full width. Added: a 128-bit **`srcIP6`** field; **[FIX]** `dstIP6`
+now declares all 128 bits. Both IPv6 fields are declared **last** (after VLAN) so
+no existing field's variables shift — the behavioural layout-lock
+(`BDDACLWrapperTest`) still passes. New `encodeIP6Prefix(cidr, vars)` encodes an
+IPv6 "addr/len" prefix over `srcIP6`/`dstIP6`, mirroring `ConvertIPAddress`'s mask
+path (same LSB-first `vars[k]` convention, so IPv6 prefixes nest/disjoin like IPv4
+ones); `ConvertACLRule` routes an address token containing `':'` to the IPv6 path
+(no rule-format change — IPv4 and IPv6 are mutually exclusive per rule). This
+feeds both `ACLElement` and `FilterElement` (both encode via `ConvertACLRule`).
+Tests: `BDDACLWrapperTest` IPv6 prefix containment/disjointness + src6/dst6
+independence. 29 Java tests green. FaVe-side context:
+`../APKEEP_TUM_UP_PLAN.md` Phase 6 (P9b).
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

@@ -126,4 +126,47 @@ class BDDACLWrapperTest {
         return new ACLRule("p 0 x 0 255 0.0.0.0 255.255.255.255 null null "
                 + "0.0.0.0 255.255.255.255 null null 0 " + vlan);
     }
+
+    // ---- IPv6 (FaVe fork P9b) ------------------------------------------------
+
+    /** A rule matching an IPv6 src prefix and an IPv6 dst prefix ("addr/len" in
+     *  the src/dst slots, wildcard token "null"); "any" leaves that side free. */
+    private static ACLRule ip6(String src, String dst) {
+        return new ACLRule("p 0 x 0 255 " + src + " null null null " + dst
+                + " null null null 0");
+    }
+
+    @Test
+    void ipv6PrefixContainmentAndDisjointness() {
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int slash0 = bdd.encodeIP6Prefix("any", null);   // full space
+        assertEquals(BDDACLWrapper.BDDTrue, slash0, "any is the full space");
+
+        // via ConvertACLRule (the real path): a /64 is contained in its covering /48.
+        int p48 = bdd.ConvertACLRule(ip6("2001:db8:abc::/48", "any"));
+        int p64 = bdd.ConvertACLRule(ip6("2001:db8:abc:1::/64", "any"));
+        assertEquals(p64, bdd.and(p64, p48), "2001:db8:abc:1::/64 subset of 2001:db8:abc::/48");
+
+        int other48 = bdd.ConvertACLRule(ip6("2001:db8:dead::/48", "any"));
+        assertEquals(BDDACLWrapper.BDDFalse, bdd.and(p48, other48),
+                "disjoint /48s do not overlap");
+        // a full /128 host address is a strict, non-empty subset of its /64.
+        int host = bdd.ConvertACLRule(ip6("2001:db8:abc:1::5/128", "any"));
+        assertEquals(host, bdd.and(host, p64), "host /128 subset of its /64");
+        assertNotEquals(BDDACLWrapper.BDDFalse, host, "host match is non-empty");
+    }
+
+    @Test
+    void ipv6SrcAndDstAreIndependentFields() {
+        BDDACLWrapper bdd = new BDDACLWrapper();
+        int src = bdd.ConvertACLRule(ip6("2001:db8:aaaa::/48", "any"));
+        int dst = bdd.ConvertACLRule(ip6("any", "2001:db8:bbbb::/48"));
+        int both = bdd.ConvertACLRule(ip6("2001:db8:aaaa::/48", "2001:db8:bbbb::/48"));
+        // src AND dst == the combined rule, and it is a strict non-empty subset of each.
+        assertEquals(both, bdd.and(src, dst), "src6 & dst6 compose to the combined rule");
+        assertNotEquals(BDDACLWrapper.BDDFalse, both, "combined match is non-empty");
+        assertEquals(both, bdd.and(both, src), "combined subset of src6");
+        assertEquals(both, bdd.and(both, dst), "combined subset of dst6");
+        assertNotEquals(src, both, "dst6 further constrains src6 (independent fields)");
+    }
 }
