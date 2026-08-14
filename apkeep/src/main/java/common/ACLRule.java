@@ -80,6 +80,7 @@ public class ACLRule implements Serializable {
 	public String destinationPortUpper;
 	// FaVe fork (P9a): optional VLAN match (802.1Q id), null when unconstrained.
 	public String vlan;
+	public String related;
 	public String precedenceKeyword;
 	public String precedence;
 	public String tosKeyword;
@@ -217,6 +218,15 @@ public class ACLRule implements Serializable {
 		if(tokens.length >= 15 && !tokens[14].equals("null")
 				&& !tokens[14].equalsIgnoreCase("any")) {
 			vlan = tokens[14];
+		}
+		// FaVe fork (Phase 5): an optional 16th token carries the connection-state
+		// match ("0"=NEW, "1"=ESTABLISHED/RELATED); null/absent = any. A stateful
+		// packet_filter's return-traffic accepts and its state-qualified drops key
+		// on this, so ignoring it collapses those drops to match-all (shadowing the
+		// accepts). It sits after the VLAN slot (token[14]).
+		if(tokens.length >= 16 && !tokens[15].equals("null")
+				&& !tokens[15].equalsIgnoreCase("any")) {
+			related = tokens[15];
 		}
 	}
 

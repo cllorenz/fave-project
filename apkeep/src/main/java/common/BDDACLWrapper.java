@@ -108,6 +108,9 @@ public class BDDACLWrapper implements Serializable{
       int protocolBit;
       int vlanBit;
       int dstIPInnerBit;
+      // FaVe fork (Phase 5): connection-state bit (1 = ESTABLISHED/RELATED,
+      // 0 = NEW). Declared LAST so no existing field's variables shift.
+      int relatedVar;
 
       Permutation push_perm;
       Permutation pop_perm;
@@ -157,6 +160,8 @@ public class BDDACLWrapper implements Serializable{
             // -- a latent bug -- only 32 of its 128 bits; both are fixed here.)
             DeclareDstIP6();
             DeclareSrcIP6();
+            // FaVe fork (Phase 5): the connection-state bit, declared LAST.
+            DeclareRelated();
 
             mplsLabelField = AndInBatch(mplsLabel);
             mplsLabelFieldDecoration = 
@@ -985,6 +990,10 @@ public class BDDACLWrapper implements Serializable{
             DeclareVars(srcIP6, ip6Bits);
             srcIP6Bit = aclBDD.createVar();
       }
+      private void DeclareRelated()
+      {
+            relatedVar = aclBDD.createVar();
+      }
 
       private void DeclareMPLSLabel()
       {
@@ -1313,9 +1322,21 @@ public class BDDACLWrapper implements Serializable{
                   DerefInBatch(vlanNodes);
             }
 
+            /**
+             * connection state (FaVe fork, Phase 5): unconstrained unless the rule
+             * carries a "related" token ("1" = ESTABLISHED/RELATED, "0" = NEW).
+             */
+            int relatedNode = BDDTrue;
+            if(aclr.related != null && !aclr.related.equalsIgnoreCase("any"))
+            {
+                  relatedNode = aclr.related.equals("1")
+                              ? aclBDD.ref(relatedVar)
+                              : aclBDD.ref(aclBDD.not(relatedVar));
+            }
+
             //put them together
             int [] fields = {protocolNode,srcPortNode,dstPortNode,
-                        srcIPNode,dstIPNode,vlanNode};
+                        srcIPNode,dstIPNode,vlanNode,relatedNode};
             int tempnode = AndInBatch(fields);
             //clean up internal nodes
             DerefInBatch(fields);

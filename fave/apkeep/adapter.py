@@ -103,6 +103,8 @@ def _acl_rule_string(element: str, permit: bool, src: Optional[str],
 
 _SPORT = 'packet.upper.sport'
 _OUT_PORT = 'out_port'
+_RELATED = 'related'                 # Phase 5: connection-state match (0=NEW, 1=ESTABLISHED)
+_IPV6HDR = 'module.ipv6header'       # RH0 anti-spoofing (extension-header) match fields
 # forward_filter is first-match on rule index (lower index wins); APKeep's
 # FilterElement is higher-priority-wins, so invert the index. The base exceeds
 # the largest forward_filter index (a TUM ruleset has ~5k rules).
@@ -137,20 +139,23 @@ _FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.D
 
 def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
                         src: Optional[str], dst: Optional[str],
-                        sport: Optional[Any], dport: Optional[Any], idx: int) -> str:
-    """ One forward_filter rule -> an APKeep "+ filter <device> ..." update string
-    for a FilterElement. Identical token layout to an ACL rule (accessList number
+                        sport: Optional[Any], dport: Optional[Any],
+                        related: Optional[Any], idx: int) -> str:
+    """ One packet_filter chain rule -> an APKeep "+ filter <device> ..." update
+    string for a FilterElement. Token layout matches an ACL rule (accessList number
     action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
-    priority) except the action slot carries the out_port (ACCEPT) or __drop__.
-    5-tuple only (Phase 2); the discriminating related/VLAN fields come next. """
+    priority [vlan] [related]) except the action slot carries the out_port (ACCEPT)
+    or __drop__. The trailing VLAN slot is unused here (null); the `related`
+    connection-state bit (Phase 5) follows it. """
     sip, swild = _addr_tokens(src)
     dip, dwild = _addr_tokens(dst)
     plo, phi = ("0", "255") if proto is None else (str(proto), str(proto))
     slo, shi = ("null", "null") if sport is None else tuple(str(p) for p in _ternary_port_range(sport))
     dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
-    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d" % (
+    rel = "null" if related is None else str(related)
+    return "+ filter %s filter 0 %s %s %s %s %s %s %s %s %s %s %s %d null %s" % (
         device, out_port, plo, phi, sip, swild, slo, shi, dip, dwild, dlo, dhi,
-        _FILTER_PRIO_BASE - int(idx)
+        _FILTER_PRIO_BASE - int(idx), rel
     )
 
 
@@ -438,11 +443,16 @@ class APKeepAdapter(AbstractVerificationEngine):
     def _capture_pf_rule(self, device: str, chain: str, rule: Any) -> None:
         """ Buffer one packet_filter chain rule (input/output/forward). ACCEPT is a
         Forward to the chain's internal accept port (e.g. <dev>.forward_filter_accept);
-        a rule with no forward action is a DROP (-> __drop__). 5-tuple match only for
-        now (the discriminating related/icmpv6.type/VLAN fields are Phase 3 -- ignoring
-        them widens accepts, an over-approximation to be closed later). """
-        proto = src = dst = sport = dport = None
+        a rule with no forward action is a DROP (-> __drop__). Matches the 5-tuple +
+        the connection-state `related` bit (Phase 5). A rule that matches an IPv6
+        extension-header (module.ipv6header.*, RH0 anti-spoofing) is SKIPPED: it drops
+        only routing-header attack packets, which no reachability depends on, and
+        modelling only its other fields would collapse it to a match-all drop that
+        shadows the accepts. """
+        proto = src = dst = sport = dport = related = None
         for field in (rule.match or []):
+            if field.name.startswith(_IPV6HDR):
+                return                            # RH0 rule: irrelevant to reachability
             if field.name == _PROTO:
                 proto = field.value
             elif field.name in (_SRC, _SRC6):    # IPv4 xor IPv6 per rule
@@ -453,10 +463,12 @@ class APKeepAdapter(AbstractVerificationEngine):
                 sport = field.value
             elif field.name == _DPORT:
                 dport = field.value
+            elif field.name == _RELATED:
+                related = field.value
         out_ports = self._out_ports(rule)
         out_port = out_ports[0] if out_ports else _FILTER_DROP
         self._pf_rules.setdefault(device, {}).setdefault(chain, []).append(
-            (out_port, proto, src, dst, sport, dport, rule.idx))
+            (out_port, proto, src, dst, sport, dport, related, rule.idx))
 
     def _translate_fib_rule(self, device: str, rule: Any) -> None:
         """ One packet_filter `routing` rule -> a companion-FIB entry
@@ -785,10 +797,10 @@ class APKeepAdapter(AbstractVerificationEngine):
 
         def emit(elem: str, chain: str) -> None:
             all_elems.append(elem)
-            for (out_port, proto, src, dst, sport, dport, idx) in \
+            for (out_port, proto, src, dst, sport, dport, related, idx) in \
                     self._pf_rules.get(dev, {}).get(chain, []):
                 rule_strings.append(_filter_rule_string(
-                    elem, out_port, proto, src, dst, sport, dport, idx))
+                    elem, out_port, proto, src, dst, sport, dport, related, idx))
 
         new_edges = list(edges)
         for dev in filter_devices:
