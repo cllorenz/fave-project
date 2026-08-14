@@ -265,6 +265,28 @@ public class Network {
 	public Element getElement(String deviceName) {
 		return elements.get(deviceName);
 	}
+
+	// FaVe fork (Phase 7 instrumentation): cheap structural metrics over the built
+	// element map, for (a) the single-universe guard -- the per-source reachability
+	// fixpoint is exact only when no ACLElement/NATElement divides the AP space --
+	// and (b) the Phase-A scaling curve (element/port counts vs per-query cost).
+	public int numElements() {
+		return elements.size();
+	}
+
+	public int numElementsOfType(String simpleClassName) {
+		int n = 0;
+		for (Element e : elements.values()) {
+			if (e.getClass().getSimpleName().equals(simpleClassName)) n++;
+		}
+		return n;
+	}
+
+	public int numPorts() {
+		int n = 0;
+		for (Element e : elements.values()) n += e.getPorts().size();
+		return n;
+	}
 	
 	public Element getACLElement(String acl_node_name) {
 		String[] tokens = acl_node_name.split("_");

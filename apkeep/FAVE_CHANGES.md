@@ -189,6 +189,20 @@ Tests: `BDDACLWrapperTest` IPv6 prefix containment/disjointness + src6/dst6
 independence. 29 Java tests green. FaVe-side context:
 `../APKEEP_TUM_UP_PLAN.md` Phase 6 (P9b).
 
+## 9. Reachability instrumentation (scaling diagnosis)  **[INFRA]**
+
+`checker/ReachabilityChecker.java`, `core/Network.java`. Additive measurement
+hooks, no semantic change to reachability or forwarding. `ReachabilityChecker`
+gains static per-query work counters — `nodesVisited` (every `traverse()`
+expansion of a (path-prefix, port)) and `branchesExplored` (child descents) —
+reset at each public `isReachable()` entry, so a JPype caller reads the last
+query's cost. `Network` gains read-only structural accessors `numElements()`,
+`numElementsOfType(simpleClassName)`, `numPorts()`. Together these quantify the
+per-pair simple-path DFS cost and the single-AP-universe precondition
+(`ACLElement`/`NATElement` == 0) that the Phase-7 per-source reachability
+fixpoint requires. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 7
+(Phase 0 guard + Phase A curve).
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

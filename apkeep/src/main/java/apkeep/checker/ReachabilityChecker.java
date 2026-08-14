@@ -40,6 +40,20 @@ import common.PositionTuple;
 public class ReachabilityChecker {
 
     private final Network net;
+
+    // FaVe fork (Phase 7 instrumentation): per-query work counters. `nodesVisited`
+    // counts every traverse() invocation (each (path-prefix, port) the DFS expands);
+    // `branchesExplored` counts descents into a child hop. Reset at each public
+    // isReachable() entry, read from Python after the call. These make the
+    // per-pair simple-path enumeration -- the performance wall Phase B removes --
+    // directly measurable, especially for UNREACHABLE pairs (no early exit).
+    public static long nodesVisited = 0;
+    public static long branchesExplored = 0;
+
+    private static void resetCounters() {
+        nodesVisited = 0;
+        branchesExplored = 0;
+    }
     // A header constraint the arriving traffic must satisfy at the target (P7b):
     // wl_stanford probes only accept vlan=0, so a query can require the packets
     // that reach the probe to overlap a given header BDD. BDDTrue = no constraint.
@@ -65,6 +79,7 @@ public class ReachabilityChecker {
 
     /** True iff traffic injected at {@code source} can reach {@code target}. */
     public boolean isReachable(PositionTuple source, PositionTuple target) {
+        resetCounters();
         Set<Integer> fwd_aps = new HashSet<>();
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = new HashSet<>();
@@ -88,6 +103,7 @@ public class ReachabilityChecker {
      */
     public boolean isReachable(PositionTuple source, PositionTuple target,
                                long src, int srcPrefixLen) {
+        resetCounters();
         Set<Integer> fwd_aps = new HashSet<>();
         fwd_aps.add(BDDACLWrapper.BDDTrue);
         Set<Integer> acl_aps = net.getACLSeedAPs(src, srcPrefixLen);
@@ -130,6 +146,7 @@ public class ReachabilityChecker {
 
     private boolean traverse(PositionTuple cur_hop, Set<Integer> fwd_aps, Set<Integer> acl_aps,
                              PositionTuple target, List<PositionTuple> history, boolean moved) {
+        nodesVisited++;
         if (fwd_aps.isEmpty() || acl_aps.isEmpty()) return false;
         if (cur_hop.getPortName().equals("deny")) return false;
 
@@ -196,6 +213,7 @@ public class ReachabilityChecker {
                     PositionTuple next_hop = new PositionTuple(connected_pt.getDeviceName(), next_port);
                     List<PositionTuple> new_history = new ArrayList<>(history);
                     new_history.add(connected_pt);
+                    branchesExplored++;
                     if (traverse(next_hop, next_fwd, next_acl, target, new_history, true)) return true;
                 }
             }
