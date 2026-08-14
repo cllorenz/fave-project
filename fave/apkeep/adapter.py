@@ -491,9 +491,17 @@ class APKeepAdapter(AbstractVerificationEngine):
                 dst = field.value
             elif field.name == _OUT_PORT:
                 egress = _split_port(str(field.value))[1]
-        if egress is None:
-            has_action = bool(rule.actions)
-            if dst is not None and not has_action:
+        has_fwd = any(isinstance(a, Forward) for a in (rule.actions or []))
+        if egress is not None:
+            # A routing entry is a real route only if it actually forwards (to
+            # routing_out). The routing table also holds action-less `out_port=N`
+            # rules (rejects / connected-route placeholders) -- capturing their
+            # out_port as a route would create bogus 0/0 -> N default routes.
+            if not has_fwd:
+                return
+        else:
+            # No out_port: a dst-only, action-less rule is a route-unknown discard.
+            if dst is not None and not rule.actions:
                 egress = _FILTER_DROP     # internal "route unknown" discard
             else:
                 return                    # nothing routable (e.g. pipeline plumbing)
@@ -689,7 +697,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             for fname, rfields in fields.items():
                 if not rfields:
                     continue
-                if fname == _SRC:
+                if fname in (_SRC, _SRC6):
                     self._gen_src[model.node] = rfields[0].value
                 elif fname == _VLAN:
                     self._gen_vlan[model.node] = str(rfields[0].value)
@@ -745,6 +753,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         # device's role. Terminal filters (wl_tum) stay a single FilterElement.
         edges, pf_elems, pf_rules = self._build_pf_pipeline(
             edges, sorted(self._filter_devices))
+        # A generator injects the full header space, but a real source emits only
+        # its own src-IP. Splice a src-constraining FilterElement at each source
+        # (permit src=address, default-drop) so a source cannot reach a probe via a
+        # spoofed src (NetPlumber seeds the source's src; here the packet_filters
+        # filter on src in the forwarding AP universe, so we constrain it there).
+        edges, sf_elems, sf_rules = self._source_src_filters(edges)
+        pf_elems += sf_elems
+        pf_rules += sf_rules
         # Plain IPv6 routers become dst-LPM FilterElement FIBs (the device itself);
         # their IPv4-collapsed `+ fwd` rules are dropped below.
         ipv6_routers = sorted(self._ipv6_fib_devices - self._filter_devices)
@@ -801,15 +817,42 @@ class APKeepAdapter(AbstractVerificationEngine):
         all_elems: List[str] = []
         rule_strings: List[str] = []
 
-        def emit(elem: str, chain: str) -> None:
-            # Emit every rule of a chain onto one element (input/output/terminal;
-            # the transit forward chain uses _emit_transit_forward, which splits
-            # in_port/out_port-qualified rules onto per-port pre/post-filters).
+        def emit(elem: str, chain: str, handle_quals: bool = True):
+            # Emit a chain's rules onto `elem`. With handle_quals (a transit/sink
+            # device that has physical ports + routing): in_port/out_port-qualified
+            # rules (anti-spoofing, e.g. `in_port=internet & src=uni -> drop`) must
+            # NOT apply port-agnostically or they drop all internal traffic --
+            # out_port-qualified rules are dropped (redundant with routing: their
+            # dst never egresses the qualified port), and in_port-qualified rules
+            # become per-port PREFILTERS <elem>.inP that only port-P ingress
+            # traverses (drop the qualified subset, default-pass the rest to
+            # <elem>). Without handle_quals (a terminal filter like wl_tum, no
+            # physical ports/routing) every rule is emitted port-agnostically onto
+            # the one element. Returns ({port: prefilter_elem}, pre_edges).
             all_elems.append(elem)
-            for (out_port, proto, src, dst, sport, dport, related, _iq, _oq, idx) in \
-                    self._pf_rules.get(dev, {}).get(chain, []):
+            in_by: Dict[str, List[Tuple]] = {}
+            for t in self._pf_rules.get(dev, {}).get(chain, []):
+                if handle_quals and t[8] is not None:   # out_port-qualified -> skip
+                    continue
+                if handle_quals and t[7] is not None:   # in_port-qualified -> prefilter
+                    in_by.setdefault(t[7], []).append(t)
+                    continue
                 rule_strings.append(_filter_rule_string(
-                    elem, out_port, proto, src, dst, sport, dport, related, idx))
+                    elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+            port_target: Dict[str, str] = {}
+            pre_edges: List[str] = []
+            for port, prules in in_by.items():
+                pre = "%s.in%s" % (elem, port)
+                all_elems.append(pre)
+                for t in prules:
+                    rule_strings.append(_filter_rule_string(
+                        pre, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                # default: pass everything the qualified rules did not drop
+                rule_strings.append(_filter_rule_string(
+                    pre, 'fpass', None, None, None, None, None, None, _FILTER_PRIO_BASE))
+                pre_edges.append("%s fpass %s in" % (pre, elem))
+                port_target[port] = pre
+            return port_target, pre_edges
 
         new_edges = list(edges)
         for dev in filter_devices:
@@ -852,94 +895,55 @@ class APKeepAdapter(AbstractVerificationEngine):
             # FaVe's pre_routing splits by dst: to-self -> INPUT chain -> probe;
             # in-transit -> FORWARD chain -> routing. A host has only the first, a
             # transit router (pgf) both, a pure-forward terminal (wl_tum) only the
-            # second (wired accept -> probe by an L1 link). We model each present
-            # path as its own element sharing the physical ingress.
+            # second (wired accept -> probe by an L1 link).
+            input_tgt: Dict[str, str] = {}
+            fwd_tgt: Dict[str, str] = {}
+            fwd_elem = dev + '.fwd'
 
             # --- SINK: physical ingress -> INPUT filter (element <dev>) -> probe ---
             if has_input_sink:
-                emit(dev, 'input_filter')
+                input_tgt, pe = emit(dev, 'input_filter')
+                new_edges += pe
 
             # --- TRANSIT: physical ingress ALSO -> FORWARD filter -> routing ---
-            # forward_filter rules qualified by in_port/out_port (anti-spoofing:
-            # e.g. `in_port=internet & src=uni -> drop`) must apply ONLY to their
-            # port, or -- applied port-agnostically -- they drop all internal
-            # transit. Unqualified rules go on the shared <dev>.fwd; an in_port=P
-            # rule goes on a PREFILTER <dev>.fwd.inP that only that port's ingress
-            # traverses; an out_port=P rule goes on a POSTFILTER <dev>.fwd.outP
-            # spliced onto that egress (after routing, where out_port is known).
             if is_transit:
-                fwd_elem = dev + '.fwd'
-                frules = self._pf_rules.get(dev, {}).get('forward_filter', [])
-                unqual = [t for t in frules if t[7] is None and t[8] is None]
-                in_by: Dict[str, List[Tuple]] = {}
-                out_by: Dict[str, List[Tuple]] = {}
-                for t in frules:
-                    if t[7] is not None:
-                        in_by.setdefault(t[7], []).append(t)
-                    elif t[8] is not None:
-                        out_by.setdefault(t[8], []).append(t)
-
-                all_elems.append(fwd_elem)
-                for t in unqual:
-                    rule_strings.append(_filter_rule_string(
-                        fwd_elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                fwd_tgt, pe = emit(fwd_elem, 'forward_filter')
+                new_edges += pe
                 if has_routing:
                     new_edges.append("%s forward_filter_accept %s in" % (fwd_elem, fib_dev))
-
-                # in_port prefilters: drop the qualified subset, pass the rest on.
-                for port, rules in in_by.items():
-                    pre = "%s.in%s" % (fwd_elem, port)
-                    all_elems.append(pre)
-                    for t in rules:
-                        rule_strings.append(_filter_rule_string(
-                            pre, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
-                    # default: pass everything the qualified rules did not drop
-                    rule_strings.append(_filter_rule_string(
-                        pre, 'fpass', None, None, None, None, None, None, _FILTER_PRIO_BASE))
-                    new_edges.append("%s fpass %s in" % (pre, fwd_elem))
-                    if has_routing:  # a qualified ACCEPT (if any) still reaches routing
+                    for pre in fwd_tgt.values():   # a qualified ACCEPT still reaches routing
                         new_edges.append("%s forward_filter_accept %s in" % (pre, fib_dev))
 
-                # fan physical ingress: a port with qualified rules -> its prefilter.
-                extra = []
+            # --- TERMINAL (no sink, no transit): single FORWARD element <dev>.
+            # No physical ports/routing, so qualifiers cannot be split per-port --
+            # emit every rule port-agnostically (matches NP; wl_tum fw.tum). ---
+            if not has_input_sink and not is_transit:
+                emit(dev, 'forward_filter', handle_quals=False)
+                if has_routing:
+                    new_edges.append("%s forward_filter_accept %s in" % (dev, fib_dev))
+
+            # --- physical-ingress fan: each port -> its input AND forward target
+            # (a prefilter if the port has in_port-qualified rules, else the chain
+            # element). Replaces the raw physical ingress edge to <dev>. ---
+            if has_input_sink or is_transit:
+                fanned: List[str] = []
                 for edge in new_edges:
                     s_dev, s_port, d_dev, d_port = edge.split()
                     if d_dev == dev and d_port.isdigit():
-                        tgt = ("%s.in%s" % (fwd_elem, d_port)) if d_port in in_by else fwd_elem
-                        extra.append("%s %s %s %s" % (s_dev, s_port, tgt, d_port))
-                new_edges += extra
-
-                # out_port postfilters: spliced onto the fib egress edge for port P.
-                for port, rules in out_by.items():
-                    post = "%s.out%s" % (fwd_elem, port)
-                    all_elems.append(post)
-                    for t in rules:
-                        op = t[0] if t[0] == _FILTER_DROP else port
-                        rule_strings.append(_filter_rule_string(
-                            post, op, t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
-                    # default: pass out the physical egress port to the neighbour(s)
-                    rule_strings.append(_filter_rule_string(
-                        post, port, None, None, None, None, None, None, _FILTER_PRIO_BASE))
-                    spliced = []
-                    for edge in new_edges:
-                        s_dev, s_port, d_dev, d_port = edge.split()
-                        if s_dev == fib_dev and s_port == port:
-                            spliced.append("%s %s %s in" % (fib_dev, port, post))
-                            spliced.append("%s %s %s %s" % (post, port, d_dev, d_port))
-                        else:
-                            spliced.append(edge)
-                    new_edges = spliced
-
-            # --- TERMINAL (no sink, no transit): single FORWARD element <dev> ---
-            if not has_input_sink and not is_transit:
-                emit(dev, 'forward_filter')     # accept -> forward_filter_accept (L1 -> probe)
-                if has_routing:
-                    new_edges.append("%s forward_filter_accept %s in" % (dev, fib_dev))
+                        if has_input_sink:
+                            fanned.append("%s %s %s %s" % (
+                                s_dev, s_port, input_tgt.get(d_port, dev), d_port))
+                        if is_transit:
+                            fanned.append("%s %s %s %s" % (
+                                s_dev, s_port, fwd_tgt.get(d_port, fwd_elem), d_port))
+                    else:
+                        fanned.append(edge)
+                new_edges = fanned
 
             # --- host ORIGIN element <dev>.out: OUTPUT filter -> routing ---
             if has_output_src:
                 out_elem = dev + '.out'
-                emit(out_elem, 'output_filter')
+                emit(out_elem, 'output_filter')   # output has no physical ingress -> no fan
                 # retarget the source's L1 link onto the OUTPUT element
                 new_edges = [
                     ("%s %s %s output_filter_in" % (e.split()[0], e.split()[1], out_elem)
@@ -950,6 +954,38 @@ class APKeepAdapter(AbstractVerificationEngine):
                     new_edges.append("%s output_filter_accept %s in" % (out_elem, fib_dev))
 
         return new_edges, all_elems, rule_strings
+
+    def _source_src_filters(self, edges: List[str]):
+        """ Splice a src-constraining FilterElement onto each source whose injected
+        src-IP is a specific address (not the full space, e.g. the internet). The
+        element permits only `src=address` (default-drop), so the generator's
+        full-space injection is narrowed to the source's real src before it enters
+        the network -- preventing spoofed-src reachability. Returns (edges, elems,
+        rules). """
+        gen_src: Dict[str, str] = {}
+        for node, cidr in self._gen_src.items():
+            if cidr is None:
+                continue
+            s = str(cidr)
+            if s.endswith('/0') or s in ('0.0.0.0', '::', '0::0'):
+                continue                          # full space -> no constraint
+            gen_src[node] = s
+        elems: List[str] = []
+        rules: List[str] = []
+        new_edges: List[str] = []
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if s_dev in gen_src:
+                sf = s_dev + '.sf'
+                if sf not in elems:
+                    elems.append(sf)
+                    rules.append(_filter_rule_string(
+                        sf, 'sfpass', None, gen_src[s_dev], None, None, None, None, 0))
+                new_edges.append("%s %s %s in" % (s_dev, s_port, sf))
+                new_edges.append("%s sfpass %s %s" % (sf, d_dev, d_port))
+            else:
+                new_edges.append(edge)
+        return new_edges, elems, rules
 
     def _build_stanford_faithful(self, edges: List[str]):
         """ P7b: faithful wl_stanford VLAN model. Collapse the out-stage into the
