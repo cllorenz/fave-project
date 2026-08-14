@@ -5,7 +5,9 @@ stateful IPv4 firewall) and `wl_up` (University-Potsdam, an IPv6 campus network)
 onto the APKeep backend, faithful to NetPlumber, extending the head-to-head
 comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 
-**Status:** PLAN + Phase 0 DONE (evidence below). Owner: Claas Lorenz. Driver:
+**Status:** wl_tum DONE; wl_up correctness DONE (exact NP-parity on a slice,
+2026-08-14) — **performance is the only open item, planned as Phase 7 below**.
+Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
 guardrail discipline this plan reuses).
@@ -239,6 +241,108 @@ P9a-style) + AND `srcIP6`/`dstIP6` into `ConvertACLRule` + IPv6 tokenization in
 `ACLRule`; (2) adapter — extract `packet.ipv6.source`/`destination` and emit an
 IPv6-aware filter/ACL rule form; (3) decide `related`/IPv6-ext-header handling.
 Separate apkeep-subtree commit + FAVE_CHANGES.md (MIT vendoring).
+
+---
+
+## wl_up correctness: DONE — exact NP-parity on a slice (2026-08-14)
+
+The IPv6/forwarding/state fidelity work is complete and validated. APKeep ==
+NetPlumber on **all 112 reachable pairs, 0 differing**, on **two independent
+slices** (cs and jura departments — not overfit). Commits `8e73a06d` (full
+packet_filter pipeline + IPv6 router FIBs), `2a15a07a` (`related` state field),
+`11db2f9e` (in/out_port anti-spoof via per-port pre/post filters), `241381af`
+(residual diffs: Forward-action-gated FIB, per-source src-constraint, in/out_port
+generalised to all chains). The `related`-state hypothesis was falsified along the
+way — the real fidelity gaps were structural (routing/FIB, source-seeding, port
+qualification), not state. Exactness gate green throughout.
+
+**The one thing left is performance — a separable, algorithmic problem.**
+
+## Phase 7 — wl_up performance: per-source reachability fixpoint (PLAN, 2026-08-14)
+
+**Symptom.** The full 136-device wl_up model is correct but intractable at scale:
+~40 s/query, full 137×137 never finishes. Build is fast (~2.4 s); the cost is
+entirely per-query.
+
+**Diagnosis (from tracing the query path, not speculation).** Three compounding
+facts:
+1. `check_compliance` (`adapter.py:1187`) issues **one independent reachability
+   query per `(source, probe)` pair** — ~137×137 ≈ 18.8k queries.
+2. Each query builds a **fresh** `ReachabilityChecker` (`lib_apkeep.py:200`) and
+   runs a **depth-first search over simple paths** (`ReachabilityChecker.java:131`).
+   It early-exits on the *one* target, but an **unreachable** pair must exhaust the
+   entire reachable sub-graph — and wl_up's policy oracle is sparse, so most of the
+   18.8k queries hit that worst case.
+3. The DFS re-walks per pair with per-path allocation (`new ArrayList<>(history)`
+   at every branch, linear `history.contains`, AP sets recomputed each hop) and
+   **memoizes nothing** across the 137 targets that share a source.
+
+So the wall is **O(pairs × simple-paths-per-source)** path enumeration over a graph
+the faithful model *inflated* (each packet_filter → many FilterElements: in/fwd/out
+chains + routing FIB + per-port pre/post filters + per-source src-filters). Global
+atomic-predicate count is a *second-order* multiplier, **not** the primary wall as
+the earlier note assumed.
+
+**Load-bearing correctness fact (verified read-only).** wl_up runs in a **single AP
+universe**: `_acl_device` is set only for router devices with `acl_in`/`acl_out`
+(wl_ifi/i2/stanford); wl_up's packet_filters are **all `FilterElement`/
+`ForwardElement` — zero `ACLElement`, zero `NATElement`**. In the DFS, `acl_aps`
+stays `{BDDTrue}` at every hop and ACL "division" never fires (despite
+`USE_DIVISION=true`). Therefore the reachable-packet set at a port is a **single**
+AP-index set and the join at path merges is **exact union** — no cross-universe
+over-approximation. This makes the fixpoint below *provably identical* to the DFS's
+existential answer for wl_up, not merely an approximation.
+
+**Chosen approach: B2 — per-source forward-propagation fixpoint** (user decision
+2026-08-14; B1 "batch the DFS" and "A-only-then-decide" considered and rejected in
+favour of the principled fix).
+
+Phases:
+
+- **Phase 0 — guard the precondition.** Assert at build that the wl_up model emits
+  no `ACLElement`/`NATElement` (single universe). Encode as a runtime guard, not an
+  assumption — it is what makes the fixpoint exact.
+- **Phase A — instrument, get the curve.** Counters on the tractable slice + one
+  medium slice (subnets 1→4): per-query traverse node-visits & paths, global AP
+  count (`getAPNum`), built element/port count. Confirms the dominant term and sets
+  a baseline to beat. No behaviour change.
+- **Phase B — the fix.** New Java `ReachabilitySet`:
+  - *State:* `reach(port)` = AP-index set of packets that can arrive at that port
+    from the source seed.
+  - *Seed:* `reach(source_egress) = seed` (full space for wl_up — the src-filter
+    FilterElement already narrows source).
+  - *Transfer:* worklist over ports; for element `e`, input `i`, output `o`:
+    `reach(o) ∪= forwardAPs(o, reach(i))`; across an L1 link
+    `reach(dst_ingress) ∪= reach(src_egress)`. Monotone over the finite AP lattice
+    → **terminates even with forwarding loops** (strictly better than simple-path
+    pruning).
+  - *Answer:* probe `p` reachable iff `reach(p_port)` non-empty (∩ target-header
+    when set). Every probe for a source is read off the same converged map — **one
+    propagation per source, not per pair.**
+  - *Rollout guard:* fixpoint only when division is inactive (single universe) —
+    covers wl_up now, and (since rewrite distributes over union) extends cleanly to
+    NAT-only cases like stanford later. **Division-active workloads (wl_ifi/i2) stay
+    on the proven DFS** — no gated result changes.
+  - *Adapter:* `check_compliance` inverts the rule map to group probes by source,
+    issues one `reachable_set(source, seed)` per source, answers all its probes from
+    the returned map.
+  - *Complexity:* 137² path-exponential DFS runs → **137 monotone propagations**,
+    each polynomial in (ports × AP-set size). Collapses both multipliers.
+- **Phase C — graph-size reduction (only if Phase A shows node count is a real
+  multiplier).** IPv4 FIB via `ForwardElement` trie instead of per-device
+  `FilterElement`; merge per-port pre/post-filters; dedup identical FilterElements.
+  Secondary to B.
+- **Phase D — validate + gate.** (1) **Differential oracle:** on both slices,
+  assert the fixpoint's answer equals the DFS's for *every* pair (tests the
+  single-universe exactness claim). (2) Full 136-device wl_up: confirm APKeep == NP
+  parity and measure from-zero time. (3) Wire into the exactness gate; re-run
+  wl_ifi/i2/stanford/tum to prove no regression (they stay on the DFS path anyway).
+
+**Open risk (fails safe).** The exactness proof rests on single-universe. If Phase 0
+ever finds an `ACLElement` in wl_up (it should not, per the code), componentwise
+union across two universes over-approximates and B2 would need division-aware
+handling before being trusted — but the guard routes such cases to the DFS, so it
+fails safe.
 
 ---
 
