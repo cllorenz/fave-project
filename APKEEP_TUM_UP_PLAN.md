@@ -189,9 +189,28 @@ gap. This re-scopes tasks #3/#4 (recorded there).
     `packet.ipv6.source`/`destination`. Re-probe confirms filter rules now carry
     the real IPv6 prefixes (`2001:db8:abc::/48`) instead of all-wildcard. wl_up
     builds through APKeep in ~2.2 s.
-  - **Open:** the 137×137 wl_up compliance (18,769 queries over 135 host
-    firewalls) is slow (>120 s) — measuring build/compliance time + convergence
-    vs the shipped (stateless) `reachable.json`. Then: guardrail green, gate.
+  - **Build-bug FIX DONE (commit `6141e6f8`).** wl_up's build threw
+    `ArrayIndexOutOfBounds` in `ACLRule.<init>`: all 136 filter devices' internal
+    routing tables emit a default `+ fwd <dev> 0 0 routing_out 0`, and a `+ fwd`
+    rule dispatches by device name → it landed on that device's FilterElement and
+    failed to parse as an ACL rule. (This is why the compliance jobs *hung* — the
+    build threw in the handler thread and the main thread blocked on
+    `queue.join()`; it was NOT slow computation.) Fix: `_build` drops dst-FIB rules
+    for filter devices (their forwarding IS the FilterElement). wl_up now builds in
+    **~0.4 s**; per-query reachability ~82 ms. Exactness gate green (11 passed).
+  - **OPEN — wl_up still UNDER-approximates its oracle.** On a sampled probe,
+    APKeep drops `clients.api → adm` that `reachable.json` reaches (the
+    not-reachable cases are correct). So a gap remains *beyond* IPv6 matching. Ruled
+    out: switch/router forwarding is default-flood (`0 0 → port`, not IPv6-dst), so
+    not the 32-bit-ForwardElement issue. Candidates to trace: the FilterElement
+    accept path (the ignored `related`/`out_port`/`dvlan` fields shifting first-match;
+    or IPv6 src-seeding — `_gen_src` captures only IPv4 `packet.ipv4.source`, not
+    `packet.ipv6.source`), or the switch-flood model. **Needs per-hop path tracing
+    (next step).**
+  - **Scale note:** full all-pairs is 137×137 = 18,769 queries (~82 ms each ⇒
+    ~25 min) because `check_compliance` does per-pair `is_reachable`. Tractable but
+    slow at this scale; a per-source batched reachability (137 floods, not 18,769
+    pair-queries) would fix it — a separate perf item, not a correctness blocker.
 
 ### wl_up Phase-0 diagnostic (2026-08-14) — the gap is IPv6; the FilterElement foundation holds
 
