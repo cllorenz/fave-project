@@ -105,6 +105,7 @@ _SPORT = 'packet.upper.sport'
 _OUT_PORT = 'out_port'
 _RELATED = 'related'                 # Phase 5: connection-state match (0=NEW, 1=ESTABLISHED)
 _IPV6HDR = 'module.ipv6header'       # RH0 anti-spoofing (extension-header) match fields
+_IN_PORT = 'in_port'                 # Phase 3: ingress-port qualifier (anti-spoofing)
 # forward_filter is first-match on rule index (lower index wins); APKeep's
 # FilterElement is higher-priority-wins, so invert the index. The base exceeds
 # the largest forward_filter index (a TUM ruleset has ~5k rules).
@@ -450,6 +451,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         modelling only its other fields would collapse it to a match-all drop that
         shadows the accepts. """
         proto = src = dst = sport = dport = related = None
+        in_qual = out_qual = None
         for field in (rule.match or []):
             if field.name.startswith(_IPV6HDR):
                 return                            # RH0 rule: irrelevant to reachability
@@ -465,10 +467,14 @@ class APKeepAdapter(AbstractVerificationEngine):
                 dport = field.value
             elif field.name == _RELATED:
                 related = field.value
+            elif field.name == _IN_PORT:
+                in_qual = _split_port(str(field.value))[1]
+            elif field.name == _OUT_PORT:
+                out_qual = _split_port(str(field.value))[1]
         out_ports = self._out_ports(rule)
         out_port = out_ports[0] if out_ports else _FILTER_DROP
         self._pf_rules.setdefault(device, {}).setdefault(chain, []).append(
-            (out_port, proto, src, dst, sport, dport, related, rule.idx))
+            (out_port, proto, src, dst, sport, dport, related, in_qual, out_qual, rule.idx))
 
     def _translate_fib_rule(self, device: str, rule: Any) -> None:
         """ One packet_filter `routing` rule -> a companion-FIB entry
@@ -796,8 +802,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         rule_strings: List[str] = []
 
         def emit(elem: str, chain: str) -> None:
+            # Emit every rule of a chain onto one element (input/output/terminal;
+            # the transit forward chain uses _emit_transit_forward, which splits
+            # in_port/out_port-qualified rules onto per-port pre/post-filters).
             all_elems.append(elem)
-            for (out_port, proto, src, dst, sport, dport, related, idx) in \
+            for (out_port, proto, src, dst, sport, dport, related, _iq, _oq, idx) in \
                     self._pf_rules.get(dev, {}).get(chain, []):
                 rule_strings.append(_filter_rule_string(
                     elem, out_port, proto, src, dst, sport, dport, related, idx))
@@ -851,18 +860,75 @@ class APKeepAdapter(AbstractVerificationEngine):
                 emit(dev, 'input_filter')
 
             # --- TRANSIT: physical ingress ALSO -> FORWARD filter -> routing ---
+            # forward_filter rules qualified by in_port/out_port (anti-spoofing:
+            # e.g. `in_port=internet & src=uni -> drop`) must apply ONLY to their
+            # port, or -- applied port-agnostically -- they drop all internal
+            # transit. Unqualified rules go on the shared <dev>.fwd; an in_port=P
+            # rule goes on a PREFILTER <dev>.fwd.inP that only that port's ingress
+            # traverses; an out_port=P rule goes on a POSTFILTER <dev>.fwd.outP
+            # spliced onto that egress (after routing, where out_port is known).
             if is_transit:
                 fwd_elem = dev + '.fwd'
-                emit(fwd_elem, 'forward_filter')
+                frules = self._pf_rules.get(dev, {}).get('forward_filter', [])
+                unqual = [t for t in frules if t[7] is None and t[8] is None]
+                in_by: Dict[str, List[Tuple]] = {}
+                out_by: Dict[str, List[Tuple]] = {}
+                for t in frules:
+                    if t[7] is not None:
+                        in_by.setdefault(t[7], []).append(t)
+                    elif t[8] is not None:
+                        out_by.setdefault(t[8], []).append(t)
+
+                all_elems.append(fwd_elem)
+                for t in unqual:
+                    rule_strings.append(_filter_rule_string(
+                        fwd_elem, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
                 if has_routing:
                     new_edges.append("%s forward_filter_accept %s in" % (fwd_elem, fib_dev))
-                # fan every physical ingress edge to the forward element too
+
+                # in_port prefilters: drop the qualified subset, pass the rest on.
+                for port, rules in in_by.items():
+                    pre = "%s.in%s" % (fwd_elem, port)
+                    all_elems.append(pre)
+                    for t in rules:
+                        rule_strings.append(_filter_rule_string(
+                            pre, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                    # default: pass everything the qualified rules did not drop
+                    rule_strings.append(_filter_rule_string(
+                        pre, 'fpass', None, None, None, None, None, None, _FILTER_PRIO_BASE))
+                    new_edges.append("%s fpass %s in" % (pre, fwd_elem))
+                    if has_routing:  # a qualified ACCEPT (if any) still reaches routing
+                        new_edges.append("%s forward_filter_accept %s in" % (pre, fib_dev))
+
+                # fan physical ingress: a port with qualified rules -> its prefilter.
                 extra = []
                 for edge in new_edges:
                     s_dev, s_port, d_dev, d_port = edge.split()
                     if d_dev == dev and d_port.isdigit():
-                        extra.append("%s %s %s %s" % (s_dev, s_port, fwd_elem, d_port))
+                        tgt = ("%s.in%s" % (fwd_elem, d_port)) if d_port in in_by else fwd_elem
+                        extra.append("%s %s %s %s" % (s_dev, s_port, tgt, d_port))
                 new_edges += extra
+
+                # out_port postfilters: spliced onto the fib egress edge for port P.
+                for port, rules in out_by.items():
+                    post = "%s.out%s" % (fwd_elem, port)
+                    all_elems.append(post)
+                    for t in rules:
+                        op = t[0] if t[0] == _FILTER_DROP else port
+                        rule_strings.append(_filter_rule_string(
+                            post, op, t[1], t[2], t[3], t[4], t[5], t[6], t[9]))
+                    # default: pass out the physical egress port to the neighbour(s)
+                    rule_strings.append(_filter_rule_string(
+                        post, port, None, None, None, None, None, None, _FILTER_PRIO_BASE))
+                    spliced = []
+                    for edge in new_edges:
+                        s_dev, s_port, d_dev, d_port = edge.split()
+                        if s_dev == fib_dev and s_port == port:
+                            spliced.append("%s %s %s in" % (fib_dev, port, post))
+                            spliced.append("%s %s %s %s" % (post, port, d_dev, d_port))
+                        else:
+                            spliced.append(edge)
+                    new_edges = spliced
 
             # --- TERMINAL (no sink, no transit): single FORWARD element <dev> ---
             if not has_input_sink and not is_transit:
