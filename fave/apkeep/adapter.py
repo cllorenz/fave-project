@@ -61,6 +61,8 @@ def _cidr_to_apkeep(cidr: str) -> Tuple[int, int]:
 
 _VLAN = 'packet.ether.vlan'
 _SRC = 'packet.ipv4.source'
+_SRC6 = 'packet.ipv6.source'      # P9b: IPv6 source (wl_up)
+_DST6 = 'packet.ipv6.destination'
 _PROTO = 'packet.ipv6.proto'      # shared IPv4/IPv6 protocol field (Stanford ACLs)
 _DPORT = 'packet.upper.dport'
 # Cisco first-match ACLs map to APKeep's higher-priority-wins ACLElement by
@@ -118,6 +120,18 @@ def _ternary_port_range(val: Any) -> Tuple[int, int]:
     return int(s), int(s)                            # plain decimal port
 
 
+def _addr_tokens(val: Optional[str]) -> Tuple[str, str]:
+    """ (address, wildcard) tokens for an ACL/filter rule's src or dst slot. IPv6
+    (a value containing ':') is emitted as "addr/len" with a "null" wildcard -- the
+    APKeep BDDACLWrapper.ConvertACLRule detects the ':' and encodes it over srcIP6/
+    dstIP6 (P9b). IPv4 becomes a cisco addr + inverse-mask wildcard; None = any. """
+    if val is None:
+        return "0.0.0.0", "255.255.255.255"
+    if ':' in str(val):
+        return str(val), "null"
+    return _cidr_to_cisco(val)
+
+
 _FILTER_DROP = "__drop__"   # FilterElement's drop sink (matches FilterElement.DROP_PORT)
 
 
@@ -129,8 +143,8 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
     action protoLo protoHi src srcWild sPortLo sPortHi dst dstWild dPortLo dPortHi
     priority) except the action slot carries the out_port (ACCEPT) or __drop__.
     5-tuple only (Phase 2); the discriminating related/VLAN fields come next. """
-    sip, swild = _cidr_to_cisco(src)
-    dip, dwild = _cidr_to_cisco(dst)
+    sip, swild = _addr_tokens(src)
+    dip, dwild = _addr_tokens(dst)
     plo, phi = ("0", "255") if proto is None else (str(proto), str(proto))
     slo, shi = ("null", "null") if sport is None else tuple(str(p) for p in _ternary_port_range(sport))
     dlo, dhi = ("null", "null") if dport is None else tuple(str(p) for p in _ternary_port_range(dport))
@@ -360,9 +374,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         for field in (rule.match or []):
             if field.name == _PROTO:
                 proto = field.value
-            elif field.name == _SRC:
+            elif field.name in (_SRC, _SRC6):    # IPv4 xor IPv6 per rule
                 src = field.value
-            elif field.name == _DST:
+            elif field.name in (_DST, _DST6):
                 dst = field.value
             elif field.name == _SPORT:
                 sport = field.value
@@ -613,6 +627,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         # packet_filter devices become FilterElements, not dst-IP ForwardElements.
         filter_devices = sorted(self._filter_devices)
         fwd_devices = sorted(self._fwd_devices - self._filter_devices)
+        # A filter device's forwarding IS its FilterElement (forward_filter). Its
+        # internal routing table also emits a dst-FIB default `+ fwd <dev> ...`,
+        # which -- since a `+ fwd` rule dispatches by device name -- would land on
+        # that device's FilterElement and fail to parse (a fwd rule is not an ACL
+        # rule). Drop dst-FIB rules for filter devices; the FilterElement forwards.
+        fwd_rules = [r for r in fwd_rules if r.split()[2] not in self._filter_devices]
         self._lib.init_in_memory("fave", edges, fwd_devices,
                                  device_acls, device_nats,
                                  device_filters=filter_devices or None,

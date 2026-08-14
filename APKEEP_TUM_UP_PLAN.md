@@ -175,11 +175,23 @@ gap. This re-scopes tasks #3/#4 (recorded there).
   the true state-*rewrite*: wire the state field's rewrites through the adapter +
   `ReachabilityChecker` and reproduce wl_ifi's skipped `related:` cchecks.
   Independent of the tum/up forward-reachability oracles. Task #6.
-- **Phase 6 — wl_up IPv6 (P9b). IN PROGRESS (2026-08-14).** Add the 128-bit
-  `srcIP6` field + wire both `srcIP6`/`dstIP6` into `ConvertACLRule`, JUnit-first
-  with the layout-lock; extend the adapter filter/ACL translation to emit IPv6
-  src/dst; then wl_up vs its (stateless) `reachable.json` + an NP differential;
-  guardrail green. Task #7.
+- **Phase 6 — wl_up IPv6 (P9b). IN PROGRESS (2026-08-14).** Task #7.
+  - **Core DONE (commit `c53deab7`, apkeep subtree).** Added a 128-bit `srcIP6`
+    field + **fixed** `dstIP6` (it was mis-declared with only 32 of 128 vars);
+    both declared last (layout-lock behaviourally preserved). `encodeIP6Prefix`
+    encodes an IPv6 `addr/len` prefix over `srcIP6`/`dstIP6` (mirrors
+    `ConvertIPAddress`'s mask path); `ConvertACLRule` routes a `':'`-bearing
+    address token to the IPv6 path — feeds both `ACLElement` and `FilterElement`.
+    JUnit: IPv6 prefix containment/disjointness + src6/dst6 independence. 27→29
+    Java tests green, no regression.
+  - **Adapter IPv6 emit DONE (validated).** `_addr_tokens` emits IPv6 as
+    `addr/len` (wildcard `null`); `_translate_filter_rule` reads
+    `packet.ipv6.source`/`destination`. Re-probe confirms filter rules now carry
+    the real IPv6 prefixes (`2001:db8:abc::/48`) instead of all-wildcard. wl_up
+    builds through APKeep in ~2.2 s.
+  - **Open:** the 137×137 wl_up compliance (18,769 queries over 135 host
+    firewalls) is slow (>120 s) — measuring build/compliance time + convergence
+    vs the shipped (stateless) `reachable.json`. Then: guardrail green, gate.
 
 ### wl_up Phase-0 diagnostic (2026-08-14) — the gap is IPv6; the FilterElement foundation holds
 
