@@ -216,6 +216,39 @@ class LibAPKeep:
             ))
         return bool(checker.isReachable(src, dst))
 
+    # --- Phase 7 instrumentation ------------------------------------------
+    def ap_num(self) -> int:
+        """ Global atomic-predicate count of the built network (fwd + acl
+        universes). The AP-count axis of the Phase-A scaling curve. """
+        if self._net is None:
+            raise RuntimeError("network not built")
+        return int(self._net.getAPNum())
+
+    def element_metrics(self) -> Dict[str, int]:
+        """ Structural metrics of the built element graph: total elements,
+        total ports, and a per-type breakdown. `ACLElement`/`NATElement` == 0
+        is the single-universe precondition the reachability fixpoint needs. """
+        if self._net is None:
+            raise RuntimeError("network not built")
+        return {
+            "elements": int(self._net.numElements()),
+            "ports": int(self._net.numPorts()),
+            "ForwardElement": int(self._net.numElementsOfType("ForwardElement")),
+            "FilterElement": int(self._net.numElementsOfType("FilterElement")),
+            "ACLElement": int(self._net.numElementsOfType("ACLElement")),
+            "NATElement": int(self._net.numElementsOfType("NATElement")),
+        }
+
+    def last_query_counters(self) -> Dict[str, int]:
+        """ Work done by the most recent is_reachable() DFS: nodesVisited (every
+        (path-prefix, port) expanded) and branchesExplored (child descents). The
+        counters are static and reset at each isReachable() entry, so they hold
+        the last query's totals -- the per-pair path-enumeration cost. """
+        return {
+            "nodesVisited": int(self._ReachabilityChecker.nodesVisited),
+            "branchesExplored": int(self._ReachabilityChecker.branchesExplored),
+        }
+
     def get_loops(self) -> List[str]:
         """ Detected forwarding loops, one normalised "loop found for [...]: ||
         <path>" record per loop, sorted (order-independent). """

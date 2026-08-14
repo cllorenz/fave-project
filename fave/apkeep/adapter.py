@@ -258,6 +258,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
         self._built = False
+        self._single_universe = False           # Phase 7: set in _build()
+        self._build_metrics: Dict[str, int] = {}
         self._results: List[Tuple[int, int, bool, str]] = []
         # ACL translation (router acl_in/acl_out -> per-port APKeep ACLElements).
         # The VLAN is structural -- which port's element -- not a match field,
@@ -784,7 +786,22 @@ class APKeepAdapter(AbstractVerificationEngine):
         # partition (a later ACL split would leave APs the NAT never rewrites).
         self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules
                       + pf_rules + router_fib_rules)
+        # Phase 7 fail-safe: the per-source reachability fixpoint is exact only in
+        # a SINGLE AP universe -- no ACLElement/NATElement divides the space, so the
+        # join at path merges is exact union. Read it back from the BUILT network
+        # (not the adapter's intent): guard keys on element presence, not the
+        # division flag (wl_up has division_activated=True yet zero ACLElements).
+        m = self._lib.element_metrics()
+        self._single_universe = (m["ACLElement"] == 0 and m["NATElement"] == 0)
+        self._build_metrics = m
         self._built = True
+
+    def single_universe(self) -> bool:
+        """ True iff the built network has no ACLElement/NATElement -- the
+        precondition under which the per-source reachability fixpoint (Phase B)
+        is provably identical to the per-pair DFS. Requires _build() first. """
+        self._build()
+        return self._single_universe
 
     def _build_pf_pipeline(self, edges: List[str], filter_devices: List[str]):
         """ Realise each FaVe packet_filter's internal pipeline as a subgraph of

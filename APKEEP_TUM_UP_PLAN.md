@@ -6,7 +6,10 @@ onto the APKeep backend, faithful to NetPlumber, extending the head-to-head
 comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 
 **Status:** wl_tum DONE; wl_up correctness DONE (exact NP-parity on a slice,
-2026-08-14) — **performance is the only open item, planned as Phase 7 below**.
+2026-08-14). Performance is the only open item (Phase 7). **Phase 0+A DONE
+2026-08-14 and they overturned the diagnosis: the wall is BUILD / AP-construction
+(superlinear; full model >25 min), NOT per-query traversal (flat ~1 ms). The
+lead fix pivots from B2 to build-cost/model-size reduction — re-plan pending.**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -343,6 +346,60 @@ ever finds an `ACLElement` in wl_up (it should not, per the code), componentwise
 union across two universes over-approximates and B2 would need division-aware
 handling before being trusted — but the guard routes such cases to the DFS, so it
 fails safe.
+
+### Phase 0 + A RESULTS — the diagnosis was WRONG; the wall is BUILD, not per-query (2026-08-14)
+
+Instrumented the DFS (`ReachabilityChecker.nodesVisited`/`branchesExplored`, reset
+per query) and the built graph (`Network.numElements/numPorts/numElementsOfType`),
+then swept slice sizes in fresh processes. **Phase 0 confirmed:** every config
+reports **0 ACLElement / 0 NATElement** (`single_universe=True`) — the fixpoint's
+exactness precondition holds. **Phase A refuted the performance hypothesis:**
+
+| cfg | src×prb | elements | ports | ap_num | actual build¹ | per-query | nodes/query |
+|-----|---------|----------|-------|--------|---------------|-----------|-------------|
+| 1x1 | 13×13 | 80 | 148 | 967 | ~0 s | ~1 ms | 35–69 |
+| 1x2 | 14×14 | 86 | 159 | 1112 | ~12 s | ~1 ms | 35–72 |
+| 2x2 | 17×17 | 105 | 195 | 1660 | ~23 s | ~1 ms | 35–84 |
+| 4x3 | 27×27 | 167 | 311 | 4258 | ~124 s | ~1 ms | 75–120 |
+| full | 137×137 | ~800+ | — | — | **>25 min, capped²** | (unmeasured) | — |
+
+¹ build wall minus the ~28 s cold-JVM floor each process pays.
+² AP construction had not finished after 25 min; killed. Never reached a query.
+
+**What the numbers say:**
+- **Per-query DFS is NOT the wall.** Time is flat ~1 ms (reachable *and*
+  unreachable), and `nodesVisited` grows only **linearly** (~0.7 × elements). No
+  simple-path explosion — packet_filter pipelines are short chains and the filters
+  *drop* most traffic, so each source's reachable set stays small and the DFS
+  exhausts it cheaply. The earlier "~40 s/query" was a mis-attribution of build cost.
+- **BUILD / AP-construction is the wall — and it is superlinear.** actual build
+  0 → 12 → 23 → **124 s** as elements go 80 → 167; `ap_num` climbs 967 → 4258; and
+  the full model (~136 devices, ~800+ elements, plus the pgf border firewall's
+  ~2000 rules) did **not** finish AP construction in **>25 min**.
+
+**Consequence for the plan (course-correction):** the chosen fix **B2 (per-source
+reachability fixpoint) targets the wrong bottleneck** — it optimises per-query
+cost, which is already ~1 ms. **It is deprioritised.** The real lever is
+**reducing build / AP-construction cost**, i.e. what was Phase C plus APKeep-core
+AP-merge/build efficiency:
+- **Model-size reduction (was Phase C, now primary):** collapse the per-device
+  FilterElement inflation (in/fwd/out chains + routing FIB + per-port pre/post
+  filters + per-source src-filters → ~6 elements/device). Use the `ForwardElement`
+  trie for IPv4/IPv6 dst-LPM FIBs instead of a FilterElement FIB per device; merge
+  per-port pre/post filters; dedup structurally-identical FilterElements. Fewer
+  multi-field predicates ⇒ smaller AP partition ⇒ cheaper build.
+- **AP-construction efficiency (APKeep core):** profile where the >25 min goes
+  (per-rule `ConvertACLRule` BDD ops vs `hardMergeAPBatch` AP merging vs
+  `updatePortPredicateMap`); the superlinearity likely lives in AP merging over a
+  large multi-field partition.
+- **Re-scope Phase A tail:** get one *completed* full build time (run to
+  completion once, unattended) to anchor the target, and profile it.
+
+**B2 is not discarded** — it remains a correct, exactness-preserving improvement
+and the natural home for all-destinations-per-source batching *if* build is ever
+made tractable and per-query then dominates the 137² pair loop. But it is no longer
+the lead fix. Next step is a **re-plan of the build-cost attack**, to discuss
+before implementation.
 
 ---
 
