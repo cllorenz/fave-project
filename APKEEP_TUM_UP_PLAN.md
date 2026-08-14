@@ -175,10 +175,39 @@ gap. This re-scopes tasks #3/#4 (recorded there).
   the true state-*rewrite*: wire the state field's rewrites through the adapter +
   `ReachabilityChecker` and reproduce wl_ifi's skipped `related:` cchecks.
   Independent of the tum/up forward-reachability oracles. Task #6.
-- **Phase 6 — wl_up IPv6 (P9b).** Add the 128-bit `srcIP6` field (+ IPv6 ACL path +
-  `ForwardingRule6`), JUnit-first with the layout-lock; then wl_up vs its
-  (stateless) `reachable.json` + an NP differential; guardrail green. Highest
-  effort; after the wl_tum state path is proven. Task #7 (blocked by #5).
+- **Phase 6 — wl_up IPv6 (P9b). IN PROGRESS (2026-08-14).** Add the 128-bit
+  `srcIP6` field + wire both `srcIP6`/`dstIP6` into `ConvertACLRule`, JUnit-first
+  with the layout-lock; extend the adapter filter/ACL translation to emit IPv6
+  src/dst; then wl_up vs its (stateless) `reachable.json` + an NP differential;
+  guardrail green. Task #7.
+
+### wl_up Phase-0 diagnostic (2026-08-14) — the gap is IPv6; the FilterElement foundation holds
+
+Ran the real wl_up model through the current adapter (+ FilterElement) and NP.
+
+- **FilterElement generalises.** APKeep builds the whole IPv6 campus model —
+  **136 packet-filter/host devices** (border FW + 135 host firewalls) + 23
+  switches, 137 sources/137 probes — in **2.4 s**, no crash. The packet-filter
+  machinery from wl_tum works structurally for wl_up.
+- **Blocker = IPv6 addressing.** forward_filter rules match on
+  `packet.ipv6.source`/`packet.ipv6.destination` (128-bit, 1646 each), but the
+  adapter's filter translation reads only `packet.ipv4.*` → finds nothing →
+  **emits every rule all-wildcard on IP** (`... 0.0.0.0 255.255.255.255 ...` for
+  both src and dst). The address constraints are dropped, so the model is
+  currently meaningless for wl_up.
+- **Core root cause (as predicted P9b).** `BDDACLWrapper.ConvertACLRule` ANDs only
+  `{proto, srcPort, dstPort, srcIP(32), dstIP(32), vlan}` — **no `srcIP6`, and the
+  existing 128-bit `dstIP6` is not wired into this ACL/filter path.**
+- Minor extras surfaced: `related` (state, 1021) and a few IPv6 extension-header
+  matches (`module.ipv6header.rt.type`/`segsleft`, ~10 rules).
+- Reachability divergence vs NP: *(quantifying; the IPv6-blind model is expected
+  to be badly wrong until srcIP6/dstIP6 are wired in).*
+
+**P9b work items:** (1) APKeep core — declare a 128-bit `srcIP6` last (layout-lock,
+P9a-style) + AND `srcIP6`/`dstIP6` into `ConvertACLRule` + IPv6 tokenization in
+`ACLRule`; (2) adapter — extract `packet.ipv6.source`/`destination` and emit an
+IPv6-aware filter/ACL rule form; (3) decide `related`/IPv6-ext-header handling.
+Separate apkeep-subtree commit + FAVE_CHANGES.md (MIT vendoring).
 
 ---
 
