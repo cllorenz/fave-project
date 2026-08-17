@@ -287,6 +287,16 @@ public class Network {
 		for (Element e : elements.values()) n += e.getPorts().size();
 		return n;
 	}
+
+	// FaVe fork (Phase C profiling): total port-predicate-map entries across all
+	// elements -- the (b) bookkeeping-load signal. The elements map is not
+	// structurally modified during run(); each element's PPM may be, so a mid-build
+	// read can throw (the profiler guards each metric).
+	public long totalPPMEntries() {
+		long n = 0;
+		for (Element e : elements.values()) n += e.numPPMEntries();
+		return n;
+	}
 	
 	public Element getACLElement(String acl_node_name) {
 		String[] tokens = acl_node_name.split("_");
@@ -365,6 +375,7 @@ public class Network {
 	}
 	
 	public void updateRule(Evaluator eva, String rule) throws Exception {
+		apkeep.utils.BuildProfiler.rulesApplied++;   // Phase C: build-progress denominator
 		Logger.logDebugInfo(rule);
 		String[] tokens = rule.split(" ");
 		String op = tokens[0];
@@ -410,27 +421,33 @@ public class Network {
 		}
 		
 		List<ChangeItem> change_set = new ArrayList<>();
-		
+
 		/*
 		 * Step 1. Encoding match fields
 		 */
+		long _pt = System.nanoTime();                                   // Phase C timer
 		Rule r = e.encodeOneRule(rule);
+		apkeep.utils.BuildProfiler.encodeNanos += System.nanoTime() - _pt;
 
 		/*
 		 * Step 2. Identifying changes
 		 */
 		eva.startUpdate();
+		_pt = System.nanoTime();                                        // Phase C timer
 		if (op.equals("+")){
 			change_set = e.insertOneRule(r);
 		}
 		else if (op.equals("-")){
 			change_set = e.removeOneRule(r);
 		}
-		
+		apkeep.utils.BuildProfiler.insertNanos += System.nanoTime() - _pt;
+
 		/*
 		 * Step 3. Updating predicates
 		 */
+		_pt = System.nanoTime();                                        // Phase C timer
 		Set<Integer> moved_aps = e.updatePortPredicateMap(change_set);
+		apkeep.utils.BuildProfiler.ppmNanos += System.nanoTime() - _pt;
 		return moved_aps;
 	}
 	
@@ -446,19 +463,23 @@ public class Network {
 	}
 	
 	private void softMergeAPBatch() throws Exception {
+		long _pt = System.nanoTime();                                   // Phase C timer
 		if(fwd_apk.isMergeable()) {
 			fwd_apk.tryMergeAPBatch();
 		}
 		if (acl_apk != null) {
 			acl_apk.tryMergeAPBatch();
 		}
+		apkeep.utils.BuildProfiler.mergeNanos += System.nanoTime() - _pt;
 	}
-	
+
 	private void hardMergeAPBatch() throws Exception {
+		long _pt = System.nanoTime();                                   // Phase C timer
 		fwd_apk.tryMergeAPBatch();
 		if (acl_apk != null) {
 			acl_apk.tryMergeAPBatch();
 		}
+		apkeep.utils.BuildProfiler.mergeNanos += System.nanoTime() - _pt;
 	}
 	
 	/* answer "what if" questions for each possible link failure

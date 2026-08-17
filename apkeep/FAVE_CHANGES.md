@@ -203,6 +203,20 @@ per-pair simple-path DFS cost and the single-AP-universe precondition
 fixpoint requires. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase 7
 (Phase 0 guard + Phase A curve).
 
+**Phase C addition — streaming build profiler.** `utils/BuildProfiler.java` (new):
+a daemon-thread sampler that snapshots build metrics on a wall-clock interval and
+appends one JSONL line per sample (flushed per line, so a killed run still yields a
+parseable growth curve — the full wl_up build is a single synchronous call Python
+cannot poll). Opt-in: no-op unless a path is passed, so normal runs and the
+exactness gate are unaffected. `Network` gains `totalPPMEntries()` and cumulative
+phase timers (`BuildProfiler.encode/insert/ppm/mergeNanos`) around the four inner
+build steps (`encodeOneRule`, `insert/removeOneRule`, `updatePortPredicateMap`,
+`soft/hardMergeAPBatch`) plus a `rulesApplied` progress counter; `Element` gains
+`numPPMEntries()`. These attribute the from-zero build cost: on wl_up it is **PPM
+update (93 %)**, a quadratic AP-partition explosion detonated by the dst-LPM FIB
+rules (encode/merge negligible, insert flat). FaVe-side context:
+`../APKEEP_TUM_UP_PLAN.md` Phase C (C0).
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

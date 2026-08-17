@@ -354,6 +354,16 @@ public abstract class Element {
 		// TODO Auto-generated method stub
 		return port_aps_raw.keySet();
 	}
+
+	// FaVe fork (Phase C profiling): total port-predicate-map entries carried by this
+	// element = sum over ports of |AP set|. The per-element share of the (b)
+	// bookkeeping load. May throw ConcurrentModificationException if read mid-build;
+	// the profiler's per-metric guard tolerates that.
+	public int numPPMEntries() {
+		int n = 0;
+		for (Set<Integer> s : port_aps_raw.values()) n += s.size();
+		return n;
+	}
 	
 	public Set<Integer> getPortAPs(String port){
 		return port_aps_raw.get(port);
