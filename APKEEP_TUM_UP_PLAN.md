@@ -15,8 +15,8 @@ C1 DONE 2026-08-17: split counters proved PPM cost = split_count × numElements,
 retiring the ForwardElement-trie bullseye. Lever A (elide pass-through filter
 elements) + Lever B (query-time src-IPv6 seed retires the per-source .sf, which was
 ~80 % of the partition). **C3: the full 136-device build now CONVERGES in ~11.5 min
-(was >124 min, non-converging); ap_num 62 420→14 561; NP-parity exact on cs+jura;
-gate green.** Remaining: full-scale NP-parity differential (Phase D).**
+(was >124 min, non-converging); ap_num 62 420→14 561. Phase D: full-scale NP-parity
+is EXACT (0 diffs, 3660/3660 pairs over 137×137). Phase C DONE + validated.**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -652,8 +652,22 @@ dominant term (~92 %), now driven by the FIB dst-prefix tail (`ap_num` grows
 5 k→14.5 k through the last ~150 rules) — a residual, smaller cross-product of
 dst-prefixes with the proto/port filter partition. Further reduction would need to
 attack that (or the L3 core `updateSplitAP` O(#elements) loop), with diminishing
-returns. Raw: `scratchpad/full_AB.jsonl`. **Remaining: full-scale NP-parity
-differential (Phase D) as the final at-scale correctness proof.**
+returns. Raw: `scratchpad/full_AB.jsonl`.
+
+### PHASE D — full-scale NP-parity: EXACT (2026-08-17)
+
+Ran the complete APKeep-vs-NetPlumber differential on the FULL 136-device model
+(137 probes × 137 sources = 18 769 ordered pairs): APKeep build+query 851 s, NP 49 s.
+
+**Result: EXACT NP-PARITY — 0 differing probes, 3660/3660 reachable pairs
+identical, over-approx = 0, under-approx = 0.** APKeep neither adds a pair NP
+rejects nor drops a pair NP reaches, across the entire model. This is the
+definitive at-scale correctness proof: the query-time src seed (Lever B) is exact
+not just on the cs/jura slices but on the whole workload. Phase C (build-cost
+reduction) is DONE and validated — the full wl_up model builds from zero in
+~11.5 min and answers reachability in exact agreement with NetPlumber.
+
+Matrices: `scratchpad/mat_apk.json`, `scratchpad/mat_np.json`.
 
 ---
 
