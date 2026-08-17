@@ -228,6 +228,20 @@ redirected the fix to element-count and split-count reduction. `Network` gains
 reduction. All additions are inert (counter increments / a read-only accessor);
 gate green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase C (C1).
 
+**Phase C1 Lever B — query-time source-IPv6 seed (retires the per-source .sf
+element).** `BDDACLWrapper.encodeSrcIP6Prefix(cidr)` builds the exact src-IPv6
+prefix BDD; `ReachabilityChecker.isReachable(source, target, String srcCidr)` seeds
+it into `acl_aps` as a single BDD, carried unchanged through traversal (forwarding
+is source-independent; no ACL/NAT to filter it) and intersected with the forwarded
+space at ARRIVAL via `hasOverlap`'s real `bdd.and`. That intersection is exact
+regardless of AP-partition alignment, so a source's address need NOT split the
+global partition -- which is what the FaVe adapter's per-source `.sf` FilterElement
+used to force. On wl_up those per-source src predicates induced ~80 % of the AP
+partition (slice ap_num 1128 -> 215, ppm_ms 11.6 s -> 2.4 s), all recovered at zero
+correctness cost (NP-parity 0 diffs on cs+jura). The `.sf` path remains for the
+ACL-division / IPv4 case (wl_stanford). FaVe-side context:
+`../APKEEP_TUM_UP_PLAN.md` Phase C (C1 Lever B).
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the

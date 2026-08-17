@@ -1523,6 +1523,19 @@ public class BDDACLWrapper implements Serializable{
             return EncodePrefix(prefix, varsUsed, prefixlen);
       }
 
+      /**
+       * FaVe fork (Phase C1 Lever B): the EXACT source-IPv6 prefix BDD over the
+       * srcIP6 field. Used to seed a reachability query with the source's own
+       * src-IP so spoofed-src reachability is excluded at ARRIVAL (Reachability
+       * Checker.arrives -> hasOverlap does a real bdd.and), WITHOUT splitting the
+       * global AP partition on that address -- which is what a per-source .sf
+       * FilterElement used to do (and which drove ~80% of the wl_up partition).
+       */
+      public int encodeSrcIP6Prefix(String cidr)
+      {
+            return encodeIP6Prefix(cidr, srcIP6);
+      }
+
       /***
        * convert a range of protocol numbers to a bdd representation
        */

@@ -123,6 +123,35 @@ public class ReachabilityChecker {
         return isReachable(source, target, src, srcPrefixLen);
     }
 
+    /**
+     * FaVe fork (Phase C1 Lever B): reachability for traffic injected with a
+     * specific source-IPv6 prefix, seeded as the EXACT src BDD rather than the
+     * atomic predicates overlapping it. The forwarding AP set starts at the full
+     * space and is narrowed per hop (forwarding is source-independent); the packet
+     * space's src constraint rides in {@code acl_aps} as a single BDD and is
+     * intersected with the forwarded space at arrival (arrives -> hasOverlap does a
+     * real bdd.and). Because that intersection is exact regardless of AP-partition
+     * alignment, the network needs NO atomic predicate split on the source address
+     * -- replacing the per-source .sf FilterElement (and the ~80% of the wl_up AP
+     * partition its src predicates induced) at zero correctness cost. A null/empty
+     * or full-space (::/0) cidr imposes no constraint (full space). Returns false
+     * if the src prefix is unsatisfiable.
+     */
+    public boolean isReachable(PositionTuple source, PositionTuple target,
+                               String srcCidr) {
+        resetCounters();
+        Set<Integer> fwd_aps = new HashSet<>();
+        fwd_aps.add(BDDACLWrapper.BDDTrue);
+        Set<Integer> acl_aps = new HashSet<>();
+        int src_bdd = (srcCidr == null || srcCidr.isEmpty())
+                ? BDDACLWrapper.BDDTrue
+                : APKeeper.bddengine.encodeSrcIP6Prefix(srcCidr);
+        if (src_bdd == BDDACLWrapper.BDDFalse) return false;
+        acl_aps.add(src_bdd);
+        witnessPath = null;
+        return traverse(source, fwd_aps, acl_aps, target, new ArrayList<PositionTuple>(), false);
+    }
+
     /** Arrival test: the traffic forwarded here AND ACL-permitted is non-empty,
      *  and (if a target header constraint is set) overlaps it. Under ACL division
      *  the forwarding and ACL AP sets live in SEPARATE atomic-predicate universes,
