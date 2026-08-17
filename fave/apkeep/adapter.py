@@ -1004,6 +1004,21 @@ class APKeepAdapter(AbstractVerificationEngine):
 
         return new_edges, all_elems, rule_strings
 
+    def _src_seeded_source(self, cidr: Optional[str]) -> bool:
+        """ Phase C1 Lever B: True iff this source's src constraint is applied at
+        QUERY time (an exact src-IPv6 BDD seeded into the reachability query and
+        intersected at arrival) rather than by a structural .sf FilterElement. This
+        holds for the single-universe IPv6 forwarding case (no ACL division): the
+        forwarding-universe arrival intersection is exact regardless of AP-partition
+        alignment, so the address need not split the partition. Full-space / IPv4 /
+        ACL-division sources fall back to the .sf element. """
+        if cidr is None or self._acl_device is not None:
+            return False
+        s = str(cidr)
+        if s.endswith('/0') or s in ('0.0.0.0', '::', '0::0'):
+            return False
+        return ':' in s
+
     def _source_src_filters(self, edges: List[str]):
         """ Splice a src-constraining FilterElement onto each source whose injected
         src-IP is a specific address (not the full space, e.g. the internet). The
@@ -1018,6 +1033,14 @@ class APKeepAdapter(AbstractVerificationEngine):
             s = str(cidr)
             if s.endswith('/0') or s in ('0.0.0.0', '::', '0::0'):
                 continue                          # full space -> no constraint
+            # Phase C1 Lever B: a single-universe IPv6 source is constrained at
+            # QUERY time (check_compliance seeds acl_aps with the exact src BDD,
+            # intersected at arrival), not by a structural .sf element -- which
+            # would split the AP partition on the address (~80% of the wl_up
+            # partition). The .sf path stays for the ACL-division case (wl_stanford,
+            # IPv4 long-src seed) where forwarding-universe seeding does not apply.
+            if self._src_seeded_source(s):
+                continue
             gen_src[node] = s
         elems: List[str] = []
         rules: List[str] = []
@@ -1305,6 +1328,13 @@ class APKeepAdapter(AbstractVerificationEngine):
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan)
+                elif self._src_seeded_source(src_cidr):
+                    # Phase C1 Lever B: single-universe IPv6 source -> seed the
+                    # exact src-IPv6 BDD into the query (excludes spoofed-src
+                    # reachability at arrival) instead of a partition-splitting .sf.
+                    reachable = self._lib.is_reachable(
+                        sdev, sport, pdev, pport, target_vlan=tvlan,
+                        src_cidr=str(src_cidr))
                 else:
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan)

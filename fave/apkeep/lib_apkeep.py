@@ -201,7 +201,8 @@ class LibAPKeep:
     def is_reachable(self, src_device: str, src_port: str,
                      dst_device: str, dst_port: str,
                      src_prefix: Optional[int] = None, src_len: int = 0,
-                     target_vlan: Optional[int] = None) -> bool:
+                     target_vlan: Optional[int] = None,
+                     src_cidr: Optional[str] = None) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
@@ -231,6 +232,13 @@ class LibAPKeep:
             return bool(checker.isReachable(
                 src, dst, jpype.JLong(src_prefix), jpype.JInt(src_len)
             ))
+        # Phase C1 Lever B: single-universe IPv6 source seed. The source's own
+        # src-IPv6 rides in acl_aps as one exact BDD and is intersected with the
+        # forwarded space at arrival (hasOverlap's bdd.and), so spoofed-src
+        # reachability is excluded WITHOUT a per-source .sf FilterElement splitting
+        # the AP partition on the address. None/full cidr => no constraint.
+        if src_cidr is not None:
+            return bool(checker.isReachable(src, dst, jpype.JString(src_cidr)))
         return bool(checker.isReachable(src, dst))
 
     # --- Phase 7 instrumentation ------------------------------------------
