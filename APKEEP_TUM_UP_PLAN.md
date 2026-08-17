@@ -10,9 +10,12 @@ comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 2026-08-14 and they overturned the diagnosis: the wall is BUILD / AP-construction
 (superlinear; full model >25 min), NOT per-query traversal (flat ~1 ms). The
 lead fix pivoted from B2 to build-cost reduction (Phase C). **C0 DONE
-2026-08-17: the wall is PPM update (93 %), a quadratic AP-partition explosion
-detonated by the dst-LPM FIB rules — bullseye lever is the ForwardElement-trie
-FIB. Encode/merge negligible; insert flat.**
+2026-08-17: the wall is PPM update (93 %), a quadratic AP-partition explosion.
+C1 DONE 2026-08-17: split counters proved PPM cost = split_count × numElements,
+which RETIRES the ForwardElement-trie bullseye (moves neither factor) — Lever A
+(elide pass-through filter elements) landed −26 % elements / −20 % PPM, NP-parity
+0 diffs on cs+jura, gate green; NEXT is Lever B (cut split_count, the superlinear
+term).**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -562,6 +565,58 @@ multi-field partition.** This sharpens C1 decisively:
 
 Raw curve: `scratchpad/full_build.jsonl` (373 samples). Profiler committed; correctness
 gate green.
+
+### C1 RESULTS — the C0 bullseye (FIB-trie) is mis-aimed; PPM cost = split_count × numElements (2026-08-17)
+
+Before implementing the C0-named FIB-trie lever I added two counters to
+`APKeeper.updateSplitAP` (the function inside the 93 % PPM term). On the slice:
+
+| metric | value |
+|---|---|
+| `split_count` (AP-partition splits) | 4 364 |
+| `split_touches` (Σ elements iterated over all splits) | 375 304 |
+| `split_touches / split_count` | **86.0 = `numElements` exactly** |
+
+**Mechanism, now nailed:** `updateSplitAP` iterates *every* element on *every* split
+(APKeep's global-partition invariant), so **PPM cost ≈ split_count × numElements**.
+Cross-referencing C0's scaling (`ap_num` 1128→62 420 as devices 16→126): `split_count`
+grows ~quadratically in devices, `numElements` only linearly. `split_count` is the
+curve-bender; `numElements` is a constant multiplier.
+
+**Why the FIB-trie is a dead end.** Converting the IPv6 FIB from FilterElement to
+ForwardElement changes *neither* factor: the device still has one FIB element (no
+`numElements` change) and the same dst-prefixes cut the same partition boundaries (no
+`split_count` change). Its only effect is on `insertOneRule`'s affected-rule scan —
+which C0 measured **flat at 17 s (<1 %)**. C0 named it only because the FIB rules run
+*last*, against an already-huge partition — the trie doesn't shrink that partition.
+**Corrected C1 branch: the trie is retired; attack the two real factors.**
+
+**Lever A (numElements, DONE) — elide pass-through filter elements.** A filter element
+whose only rule is accept-all → one port is a *semantic identity* (per-host default-route
+`0/0` FIBs, unrestricted output filters). `adapter._elide_passthrough_filters` contracts
+them out of the graph generically (keys on accept-all structure, not addresses → survives
+perturbation). Slice result:
+
+| | before A | after A |
+|---|---|---|
+| elements | 86 | **64** (−22, the pass-throughs) |
+| `ap_num` / `split_count` | 1128 / 4364 | **unchanged** (identities create no splits) |
+| `split_touches` | 375 304 | **279 296** (−25.6 % = 64/86) |
+| `ppm_ms` | 14 842 | **11 835 (−20 %)** |
+
+Correctness-neutral on three gates: slice NP-parity **0 diffs (112/112)** on *cs* and on
+*jura* (anti-overfit perturbation), and the exactness gate green. This is a clean
+constant-factor win *and* an empirical confirmation that PPM ∝ numElements. Expected
+full-scale effect ≈ −26 % PPM (124 min → ~90 min) — real but not tractability-making,
+because it does not touch `split_count`.
+
+**Lever B (split_count, NEXT) — the superlinear term.** Most of the ~800 elements are
+dst-agnostic packet-filter chains, yet every dst-prefix split still rewrites all of them.
+Two angles: (adapter) avoid per-source/per-device address predicates that cross-multiply
+the global partition; (core/L3) let `updateSplitAP` skip elements whose port-map a split
+does not actually change. Gate on NP-parity + perturbation.
+
+Raw: `scratchpad/c1_slice.jsonl` (pre-A), `scratchpad/c1_slice_A.jsonl` (post-A).
 
 ---
 

@@ -160,6 +160,30 @@ def _filter_rule_string(device: str, out_port: str, proto: Optional[Any],
     )
 
 
+def _is_acceptall_filter_rule(tokens: List[str]) -> bool:
+    """ True iff a parsed "+ filter ..." rule matches the ENTIRE header space and
+    forwards (does not drop) -- i.e. an accept-all pass-through rule. Token layout
+    (see _filter_rule_string): + filter <dev> filter 0 <out> <plo> <phi> <sip>
+    <swild> <slo> <shi> <dip> <dwild> <dlo> <dhi> <prio> [null] [rel]. All match
+    fields wildcard (proto 0-255; src/dst 0.0.0.0/255.255.255.255 -- our IPv6
+    wildcard is emitted in that IPv4 form too; ports/rel null) and out != drop. """
+    if len(tokens) < 17 or tokens[1] != "filter":
+        return False
+    out = tokens[5]
+    plo, phi = tokens[6], tokens[7]
+    sip, swild = tokens[8], tokens[9]
+    slo, shi = tokens[10], tokens[11]
+    dip, dwild = tokens[12], tokens[13]
+    dlo, dhi = tokens[14], tokens[15]
+    rel = tokens[18] if len(tokens) > 18 else "null"
+    return (out != _FILTER_DROP
+            and plo == "0" and phi == "255"
+            and slo == "null" and shi == "null"
+            and dlo == "null" and dhi == "null" and rel == "null"
+            and sip == "0.0.0.0" and swild == "255.255.255.255"
+            and dip == "0.0.0.0" and dwild == "255.255.255.255")
+
+
 def _fib_name(device: str) -> str:
     """ Companion ForwardElement/FIB device name for a transit packet_filter. """
     return device + '.fib'
@@ -777,6 +801,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         # here mis-collapsed) `+ fwd` dst-FIB rules -- a `+ fwd` dispatches by device
         # name and would land on the FilterElement and fail to parse. Drop them.
         fwd_rules = [r for r in fwd_rules if r.split()[2] not in as_filter]
+        # Phase C1 Lever A: contract pure pass-through (accept-all) filter elements
+        # -- semantic identities (per-host default-route FIBs, unrestricted output
+        # filters) -- out of the graph. Fewer elements => a smaller per-split
+        # multiplier in APKeeper.updateSplitAP (the C1 PPM hotspot), at zero
+        # correctness cost. Operates on the combined filter-rule universe.
+        filter_rules_all = pf_rules + router_fib_rules
+        edges, filter_devices, filter_rules_all = self._elide_passthrough_filters(
+            edges, filter_devices, filter_rules_all)
         self._lib.init_in_memory("fave", edges, fwd_devices,
                                  device_acls, device_nats,
                                  device_filters=filter_devices or None,
@@ -785,7 +817,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # on VLAN, and the NAT rewrite table must be built over that final
         # partition (a later ACL split would leave APs the NAT never rewrites).
         self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules
-                      + pf_rules + router_fib_rules)
+                      + filter_rules_all)
         # Phase 7 fail-safe: the per-source reachability fixpoint is exact only in
         # a SINGLE AP universe -- no ACLElement/NATElement divides the space, so the
         # join at path merges is exact union. Read it back from the BUILT network
@@ -1003,6 +1035,62 @@ class APKeepAdapter(AbstractVerificationEngine):
             else:
                 new_edges.append(edge)
         return new_edges, elems, rules
+
+    def _elide_passthrough_filters(self, edges: List[str], elems: List[str],
+                                   rules: List[str]):
+        """ Phase C1 Lever A: contract every PURE PASS-THROUGH FilterElement out of
+        the graph. A filter element whose ONLY emitted rule is accept-all -> one
+        port P (all match fields wildcard) forwards every packet, on any ingress, to
+        P -- it is a semantic IDENTITY. In wl_up the per-host default-route FIBs
+        (0/0 -> uplink) and unrestricted output filters are exactly this.
+
+        Eliding is provably correctness-neutral: for each ingress edge `X -> E.q`
+        and each egress edge `E.P -> Y` we splice `X -> Y`, then drop E, its edges,
+        and its rule. This removes E from APKeep's element set -- and APKeeper.
+        updateSplitAP touches EVERY element per AP split (PPM cost ~ splits x
+        elements, the C1 mechanism), so each elided identity element is one fewer
+        multiplier on every split, at zero semantic cost. GENERIC (fires on any
+        accept-all chain; indifferent to addresses -> survives workload
+        perturbation), so it does not overfit the benchmark.
+
+        Restricted to the FILTER universe: ForwardElement sources/probes/switches
+        are never touched (they are query endpoints / real forwarders, not identity
+        filters). Iterated to a fixpoint so chains of pass-throughs collapse.
+        Returns (edges, kept_elems, kept_rules). """
+        rules_by_elem: Dict[str, List[List[str]]] = {}
+        for r in rules:
+            t = r.split()
+            if t[1] == "filter":
+                rules_by_elem.setdefault(t[2], []).append(t)
+
+        elem_set = set(elems)
+        dropped: set = set()
+        edges = list(edges)
+        changed = True
+        while changed:
+            changed = False
+            for elem in list(elem_set - dropped):
+                ers = rules_by_elem.get(elem, [])
+                # pass-through iff exactly one explicit rule and it is accept-all
+                # (the FilterElement's implicit default-drop is then never reached)
+                if len(ers) != 1 or not _is_acceptall_filter_rule(ers[0]):
+                    continue
+                out_port = ers[0][5]
+                ingress = [e.split() for e in edges if e.split()[2] == elem]
+                egress = [e.split() for e in edges
+                          if e.split()[0] == elem and e.split()[1] == out_port]
+                spliced = ["%s %s %s %s" % (i[0], i[1], o[2], o[3])
+                           for i in ingress for o in egress]
+                edges = [e for e in edges
+                         if e.split()[0] != elem and e.split()[2] != elem]
+                edges.extend(spliced)
+                dropped.add(elem)
+                changed = True
+
+        kept_elems = [e for e in elems if e not in dropped]
+        kept_rules = [r for r in rules if r.split()[2] not in dropped]
+        self._build_metrics_elided = len(dropped)
+        return edges, kept_elems, kept_rules
 
     def _build_stanford_faithful(self, edges: List[str]):
         """ P7b: faithful wl_stanford VLAN model. Collapse the out-stage into the

@@ -256,6 +256,13 @@ class LibAPKeep:
             "NATElement": int(self._net.numElementsOfType("NATElement")),
         }
 
+    def element_names(self) -> List[str]:
+        """ All element names of the built network (Phase C1: bucket by role to
+        size Lever A's element-count reduction headroom). """
+        if self._net is None:
+            raise RuntimeError("network not built")
+        return [str(s) for s in self._net.elementNames()]
+
     def last_query_counters(self) -> Dict[str, int]:
         """ Work done by the most recent is_reachable() DFS: nodesVisited (every
         (path-prefix, port) expanded) and branchesExplored (child descents). The
