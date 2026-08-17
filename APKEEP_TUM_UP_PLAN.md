@@ -9,8 +9,10 @@ comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 2026-08-14). Performance is the only open item (Phase 7). **Phase 0+A DONE
 2026-08-14 and they overturned the diagnosis: the wall is BUILD / AP-construction
 (superlinear; full model >25 min), NOT per-query traversal (flat ~1 ms). The
-lead fix pivoted from B2 to build-cost reduction, now planned as Phase C
-(profile-first C0 → model/predicate/core levers; core surgery approved).**
+lead fix pivoted from B2 to build-cost reduction (Phase C). **C0 DONE
+2026-08-17: the wall is PPM update (93 %), a quadratic AP-partition explosion
+detonated by the dst-LPM FIB rules — bullseye lever is the ForwardElement-trie
+FIB. Encode/merge negligible; insert flat.**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -510,6 +512,56 @@ not help. Only the profile decides.
 **Standing risk.** Case (a) may prove genuinely architectural even after L3; if so
 that is itself a thesis result (APKeep incremental-optimised, not from-zero at this
 scale) — but per the depth decision we attempt the core fix before concluding it.
+
+### C0 RESULTS — it is case (a) via PPM, detonated by the FIB rules (2026-08-17)
+
+Built the streaming `BuildProfiler` (Java daemon, JSONL, per-line flush; opt-in via
+`APKEEP_BUILD_PROFILE`) and ran one full build. It ran **124 min to 98.8 % of rules
+(6782/6861) and had NOT converged when capped** — the streamed curve (373 samples)
+is the result, exactly the abort-and-still-learn design paying off.
+
+**Attribution (final sample, t=7440 s):**
+
+| build step | cumulative | share | slice (1x2) share |
+|------------|-----------|-------|-------------------|
+| `updatePortPredicateMap` (**PPM**) | **6897 s** | **93 %** | 37 % |
+| `insertOneRule` (AP-split) | 17 s | <1 % | 61 % |
+| `hardMergeAPBatch`/`tryMergeAP` (merge) | 7 s | <1 % | — |
+| `encodeOneRule` (ConvertACLRule) | 0.4 s | <1 % | — |
+
+**Two of the three hypothesised suspects are dead.** Encode (128-bit IPv6 BDD ops)
+and batch-merge are negligible. And the slice→full **attribution FLIP is itself the
+superlinearity signature**: `insertOneRule` is *frozen at 17 s* from slice to full,
+while PPM went 37 %→93 %. **PPM is the only term that scales.**
+
+**The mechanism is a quadratic partition explosion in the dst-LPM FIB tail:**
+
+| | slice (1x2) | full (capped) |
+|---|---|---|
+| `ap_num` | 1 112 | **62 420 and still climbing** |
+| `ppm_entries` (Σ port·AP) | 95 k | **52.7 M** |
+
+The first ~6710 rules (all the packet-filter chains) apply in the first ~10 min;
+the **last ~150 dst-LPM FIB/routing rules consume the remaining ~114 min**, each
+splitting an ever-larger AP partition and rewriting the whole PPM — per-FIB-rule PPM
+cost rose to **~146 s/rule** in the tail. Cost ≈ Σ(partition size over FIB rules) ⇒
+quadratic.
+
+**Verdict: case (a) — global AP-partition explosion — realised as PPM cost, and the
+detonator is the dst-LPM FIB modelled as per-prefix FilterElement rules inside the
+multi-field partition.** This sharpens C1 decisively:
+- **Bullseye = get the FIB out of the atomic-predicate partition** (L1's
+  `ForwardElement`-trie FIB): a trie resolves dst-LPM without refining the global
+  multi-field partition per prefix, so it attacks *both* the partition detonator and
+  the PPM multiplier at once. This is the first lever to try.
+- **De-prioritise the merge/encode angles** (they're <1 %); `insertOneRule` is flat,
+  so L3 "batch/reorder the merge" as originally framed is NOT the lead — if core work
+  is needed it should target **PPM update / partition growth**, not the batch merge.
+- L2 predicate reduction remains relevant only insofar as it shrinks the partition
+  the FIB feeds.
+
+Raw curve: `scratchpad/full_build.jsonl` (373 samples). Profiler committed; correctness
+gate green.
 
 ---
 

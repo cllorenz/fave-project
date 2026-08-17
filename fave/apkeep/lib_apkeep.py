@@ -173,13 +173,30 @@ class LibAPKeep:
 
     def run(self, rules: List[str]) -> None:
         """ Apply a batch of rule updates IN MEMORY (a Python list of APKeep
-        rule strings, e.g. "+ fwd <device> ..."), not a file APKeep parses. """
+        rule strings, e.g. "+ fwd <device> ..."), not a file APKeep parses.
+
+        Phase C: if APKEEP_BUILD_PROFILE is set to a path, a Java-side daemon
+        sampler streams JSONL build metrics to it (interval APKEEP_BUILD_PROFILE_MS,
+        default 20000). Opt-in: no profiler thread and no file when unset, so normal
+        runs / the exactness gate are unaffected. Started here because run() is one
+        synchronous JPype call Python cannot poll during. """
         if self._net is None:
             raise RuntimeError("init_snapshot() must be called first")
         java_rules = self._ArrayList()
         for rule in rules:
             java_rules.add(str(rule).strip())
-        self._net.run(self._eva, java_rules)
+        prof_path = os.environ.get("APKEEP_BUILD_PROFILE")
+        profiler = None
+        if prof_path:
+            profiler = jpype.JClass("apkeep.utils.BuildProfiler")
+            interval = int(os.environ.get("APKEEP_BUILD_PROFILE_MS", "20000"))
+            profiler.totalRules = jpype.JLong(len(rules))
+            profiler.start(self._net, prof_path, jpype.JLong(interval))
+        try:
+            self._net.run(self._eva, java_rules)
+        finally:
+            if profiler is not None:
+                profiler.stop()
 
     def is_reachable(self, src_device: str, src_port: str,
                      dst_device: str, dst_port: str,
