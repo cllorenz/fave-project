@@ -387,8 +387,9 @@ AP-merge/build efficiency:
   FilterElement inflation (in/fwd/out chains + routing FIB + per-port pre/post
   filters + per-source src-filters → ~6 elements/device). Use the `ForwardElement`
   trie for IPv4/IPv6 dst-LPM FIBs instead of a FilterElement FIB per device; merge
-  per-port pre/post filters; dedup structurally-identical FilterElements. Fewer
-  multi-field predicates ⇒ smaller AP partition ⇒ cheaper build.
+  per-port pre/post filters. (Adapter-side dedup of the identical subnet templates
+  is deliberately excluded as benchmark-overfit — see Phase C C1/C2.) Fewer
+  elements ⇒ less PPM bookkeeping ⇒ cheaper build.
 - **AP-construction efficiency (APKeep core):** profile where the >25 min goes
   (per-rule `ConvertACLRule` BDD ops vs `hardMergeAPBatch` AP merging vs
   `updatePortPredicateMap`); the superlinearity likely lives in AP merging over a
@@ -429,27 +430,71 @@ overhead — but if it is the distinct address predicates, it is (a) and dedup w
 not help. Only the profile decides.
 
 **Phases:**
-- **C0 — profile one completed full build (measure before surgery; gates C1).**
-  Additive Java timers around the three suspects — `BDDACLWrapper.ConvertACLRule`
-  (encode), `APKeeper.hardMergeAPBatch`/`tryMergeAP` (merge),
-  `Element.updatePortPredicateMap` (PPM) — plus an `ap_num`-vs-rules-applied
-  trajectory. Run the full model to completion **once, unattended**. Deliverable:
-  attribution table + `ap_num(full)` + which term is superlinear.
-- **C1 — attack the dominant term** (branch on C0), each correctness-neutral:
-  - **L1 model-size reduction (adapter, case (b)):** fold per-port pre/post filters
-    into their chain; fold each per-source src-filter into that source's input
-    filter; use the `ForwardElement` trie for dst-LPM FIBs instead of a per-device
-    FilterElement FIB. Target ~850 → ~2–3 elements/device.
-  - **L2 predicate reduction (adapter+core, case (c)):** project away unconstrained
-    header dimensions per rule (a ports-only rule shouldn't drag 256 bits of IPv6
-    through the partition); exploit the `uni::/48` structure so per-subnet prefixes
-    nest rather than cross-partition.
-  - **L3 APKeep-core AP-merge efficiency (subtree, case (a)):** batch/reorder the
-    merge, or a from-scratch bulk-partition path distinct from the incremental one.
-- **C2 — correctness preserved (hard gate after every lever):** differential vs NP
-  on both slices stays **exact (0 diffs)**; exactness gate green; soundness
-  (APKeep never drops an NP-reachable pair) is the tripwire. A speed win that moves
-  a single pair is rejected.
+- **C0 — profile the full build with a STREAMING sampler (measure before surgery;
+  gates C1).** The growth *curve* is the primary scientific output, not any
+  end-of-build endpoint: whether `ap_num` grows linearly, quadratically, or hits an
+  inflection at some subnet count is exactly what discriminates (a) from (b)/(c) —
+  so **an aborted run is a first-class result**, and a run killed at 90 min with a
+  streamed curve tells us more than a completed run reporting only final totals.
+  **Hard design constraint:** the full build is a *single synchronous JPype call*
+  into `Network.run()` — Python is blocked for the whole >25 min and cannot poll
+  mid-build — so the sampler MUST be Java-side (a daemon thread snapshotting shared
+  counters every ~15–30 s, or emission inside the `updateRule` loop), appending one
+  **JSONL line per sample, flushed per line** so a `kill -9` still leaves a
+  parseable trace. Each metric maps to the hypothesis it discriminates (dump is
+  diagnostic, not just descriptive):
+
+  | metric per sample | discriminates |
+  |-------------------|---------------|
+  | `ap_num` (fwd + acl) | **(a)** — partition-growth shape is *the* signal |
+  | element count, total PPM entries | **(b)** — bookkeeping load |
+  | BDD table occupancy / node count + peak (aggregate, NOT per-BDD) | **(c)** + memory ceiling |
+  | cumulative time in `ConvertACLRule` / `hardMergeAPBatch`+`tryMergeAP` / `updatePortPredicateMap` | attribution across the three |
+  | rules applied, devices built | progress denominators (normalise the above) |
+
+  **Sampling caveats:** sample *cheaply and coarsely* (15–30 s, O(1)-ish reads) —
+  if `getAPNum()` or a full element-map walk is O(APs), sampling every second would
+  perturb the very timing we measure; and dump aggregate BDD size only (thousands
+  of predicate BDDs make per-BDD dumps huge and slow). Deliverable: the JSONL curve
+  + attribution + `ap_num` trajectory + which term is superlinear (completed run
+  preferred, aborted run still usable).
+- **C1 — attack the dominant term** (branch on C0), each correctness-neutral AND
+  subject to the anti-overfit rule below (must survive workload perturbation):
+  - **L1 model-size reduction (adapter, case (b)) — GENERIC.** Undoes verbosity in
+    *the adapter's own translation* of the `packet_filter` device, not any wl_up
+    structure: fold per-port pre/post filters into their chain; fold each per-source
+    src-filter into that source's input filter; use the `ForwardElement` trie for
+    dst-LPM FIBs instead of a per-device FilterElement FIB. Fires on any FaVe model
+    with packet_filter devices; indifferent to the addresses (survives
+    perturbation). Target ~850 → ~2–3 elements/device.
+  - **L2 predicate reduction (adapter+core, case (c)) — GENERIC.** Project away
+    unconstrained header dimensions per rule (a ports-only rule shouldn't drag 256
+    bits of IPv6 through the partition). Prefix nesting comes *generically* from
+    prefixes being prefixes — NO hand-coded `uni::/48` assumption (that earlier
+    phrasing was overfit and is retracted).
+  - **L3 APKeep-core AP-merge efficiency (subtree, case (a)) — GENERIC.** Batch/
+    reorder the merge, or a from-scratch bulk-partition path distinct from the
+    incremental one; changes APKeep's algorithm, not the model.
+  - **DROPPED lever — adapter-side dedup of structurally-identical FilterElements
+    across the 6×21 templates.** This would exploit wl_up's template structure: it
+    keys on recognising the templates and evaporates the moment prefixes are
+    renumbered — it fails the perturbation test and undermines the benchmark's
+    expressiveness. If APKeep's *core* automatically discovers that two elements
+    induce the same predicates and merges them, that is a legitimate generic
+    optimisation (a facet of L3); the *adapter* hard-coding the template is not.
+- **C2 — correctness preserved + NOT overfit (hard gate after every lever):**
+  1. *Correctness:* differential vs NP on both slices stays **exact (0 diffs)**;
+     exactness gate green; soundness (APKeep never drops an NP-reachable pair) is the
+     tripwire. A speed win that moves a single pair is rejected.
+  2. *Anti-overfit (workload-perturbation gate):* the criterion is
+     **mechanism-genericity, not breadth-of-benefit** — a generic optimisation that
+     happens to help wl_up more than other workloads is fine; one whose *mechanism*
+     recognises wl_up is not. Operational test: **perturb UP (renumber prefixes,
+     rename subnets, add a 22nd subnet) and confirm the lever still fires and still
+     pays off.** A benefit that survives perturbation is generic; one that vanishes
+     was benchmark-structure exploitation and is rejected. The C0 streaming sampler
+     *is* the instrument for this test — run it on baseline vs perturbed UP and
+     compare curves.
 - **C3 — measure at full scale:** re-run the Phase A curve + a completed full
   build; report the improvement vs the C0 baseline (and measure NP's wl_up build
   for context).
