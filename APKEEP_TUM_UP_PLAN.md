@@ -12,10 +12,11 @@ comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 lead fix pivoted from B2 to build-cost reduction (Phase C). **C0 DONE
 2026-08-17: the wall is PPM update (93 %), a quadratic AP-partition explosion.
 C1 DONE 2026-08-17: split counters proved PPM cost = split_count × numElements,
-which RETIRES the ForwardElement-trie bullseye (moves neither factor) — Lever A
-(elide pass-through filter elements) landed −26 % elements / −20 % PPM, NP-parity
-0 diffs on cs+jura, gate green; NEXT is Lever B (cut split_count, the superlinear
-term).**
+retiring the ForwardElement-trie bullseye. Lever A (elide pass-through filter
+elements) + Lever B (query-time src-IPv6 seed retires the per-source .sf, which was
+~80 % of the partition). **C3: the full 136-device build now CONVERGES in ~11.5 min
+(was >124 min, non-converging); ap_num 62 420→14 561; NP-parity exact on cs+jura;
+gate green.** Remaining: full-scale NP-parity differential (Phase D).**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -617,6 +618,42 @@ the global partition; (core/L3) let `updateSplitAP` skip elements whose port-map
 does not actually change. Gate on NP-parity + perturbation.
 
 Raw: `scratchpad/c1_slice.jsonl` (pre-A), `scratchpad/c1_slice_A.jsonl` (post-A).
+
+**Lever B (split_count / partition size, DONE) — query-time source-IPv6 seed
+retires the per-source `.sf` element.** Diagnostic: disabling `_source_src_filters`
+on the slice dropped `ap_num` 1128→215 (−81 %) and `ppm_ms` −80 % — the per-source
+src-address predicates (the `.sf` elements) were **~80 % of the partition**, a
+src×dst cross-product (quadratic in subnets). The `.sf` split the partition on each
+source address only so the query could constrain src; but the DFS already carries a
+separate `acl_aps` set intersected with the forwarded space at ARRIVAL via a real
+`bdd.and` (`hasOverlap`) — exact regardless of partition alignment. So a
+single-universe IPv6 source is now constrained at **query time** (`ReachabilityChecker.
+isReachable(source, target, srcCidr)` seeds the exact src-IPv6 BDD;
+`adapter._src_seeded_source` gates it, `_source_src_filters` skips those sources),
+needing **no** partition split on the address. The `.sf` path stays for the
+ACL-division/IPv4 case (wl_stanford). Slice: `ap_num` 1128→**215**, `ppm_ms`
+14 842→**2 415 (−84 % vs baseline)**; NP-parity **0 diffs (112/112)** on cs+jura;
+exactness gate green (wl_stanford IPv4 path untouched).
+
+### C3 RESULTS — the full 136-device build now CONVERGES (2026-08-17)
+
+Full from-zero build with Lever A+B, profiled:
+
+| (full model) | C0 baseline | A+B |
+|---|---|---|
+| build time | **>124 min, NEVER converged** (capped at 98.8 %) | **692 s (~11.5 min), converged** |
+| `ap_num` | 62 420+ and climbing | **14 561** (−77 %) |
+| elements | ~800 | 543 |
+| PPM share | 93 % | ~92 % (still dominant, but now finite) |
+
+The qualitative breakthrough is convergence: the src×dst cross-product that made the
+FIB tail unbounded is gone, so the last routing rules now terminate. PPM is still the
+dominant term (~92 %), now driven by the FIB dst-prefix tail (`ap_num` grows
+5 k→14.5 k through the last ~150 rules) — a residual, smaller cross-product of
+dst-prefixes with the proto/port filter partition. Further reduction would need to
+attack that (or the L3 core `updateSplitAP` O(#elements) loop), with diminishing
+returns. Raw: `scratchpad/full_AB.jsonl`. **Remaining: full-scale NP-parity
+differential (Phase D) as the final at-scale correctness proof.**
 
 ---
 
