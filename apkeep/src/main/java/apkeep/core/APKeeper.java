@@ -218,6 +218,9 @@ public class APKeeper {
 			ap_ports.put(partb, (ArrayList<String>)ports.clone());
 			
 			// update each element's AP set
+			// Phase C1: this loop is the PPM hotspot -- O(#elements) per split.
+			apkeep.utils.BuildProfiler.splitCount++;
+			apkeep.utils.BuildProfiler.splitTouches += elements.size();
 			for(String elementname : elements.keySet()){
 				String port = ports.get(element_ids.get(elementname));
 				elements.get(elementname).updateAPSplit(port, origin, parta, partb);

@@ -288,6 +288,13 @@ public class Network {
 		return n;
 	}
 
+	// FaVe fork (Phase C1): the element name set, so the adapter-side profiler can
+	// bucket elements by role (chain / prefilter / src-filter / FIB) and size the
+	// element-count (updateSplitAP multiplier) reduction headroom of Lever A.
+	public String[] elementNames() {
+		return elements.keySet().toArray(new String[0]);
+	}
+
 	// FaVe fork (Phase C profiling): total port-predicate-map entries across all
 	// elements -- the (b) bookkeeping-load signal. The elements map is not
 	// structurally modified during run(); each element's PPM may be, so a mid-build

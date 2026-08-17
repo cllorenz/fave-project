@@ -40,6 +40,13 @@ public class BuildProfiler {
     public static volatile long insertNanos = 0;   // e.insert/removeOneRule (AP splits)
     public static volatile long ppmNanos = 0;      // e.updatePortPredicateMap
     public static volatile long mergeNanos = 0;    // soft/hardMergeAPBatch (tryMergeAP)
+    // Phase C1 discriminator: the PPM cost is dominated by APKeeper.updateSplitAP,
+    // which iterates EVERY element per split. splitCount = # of AP splits (partition
+    // refinements); splitTouches = Σ elements iterated across all splits. If PPM cost
+    // tracks splitTouches (= splits × elements), the lever is element-count / split-count
+    // reduction, NOT the Forward-vs-Filter data structure (which shares this code).
+    public static volatile long splitCount = 0;
+    public static volatile long splitTouches = 0;
 
     private static Thread thread;
     private static volatile boolean running = false;
@@ -52,6 +59,7 @@ public class BuildProfiler {
         // NB: totalRules is set by the caller before start() and must survive reset.
         rulesApplied = 0;
         encodeNanos = 0; insertNanos = 0; ppmNanos = 0; mergeNanos = 0;
+        splitCount = 0; splitTouches = 0;
     }
 
     /** Begin streaming to {@code path} every {@code interval} ms. No-op if path is
@@ -107,6 +115,8 @@ public class BuildProfiler {
         sb.append(",\"insert_ms\":").append(insertNanos / 1_000_000L);
         sb.append(",\"ppm_ms\":").append(ppmNanos / 1_000_000L);
         sb.append(",\"merge_ms\":").append(mergeNanos / 1_000_000L);
+        sb.append(",\"split_count\":").append(splitCount);
+        sb.append(",\"split_touches\":").append(splitTouches);
         sb.append('}');
         out.println(sb.toString());
         out.flush();

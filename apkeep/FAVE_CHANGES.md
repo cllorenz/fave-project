@@ -217,6 +217,17 @@ update (93 %)**, a quadratic AP-partition explosion detonated by the dst-LPM FIB
 rules (encode/merge negligible, insert flat). FaVe-side context:
 `../APKEEP_TUM_UP_PLAN.md` Phase C (C0).
 
+**Phase C1 addition — split counters + element-name accessor.** `APKeeper.
+updateSplitAP` increments `BuildProfiler.splitCount` (AP-partition splits) and
+`splitTouches` (Σ elements iterated per split, since the method rewrites *every*
+element on *every* split). These proved the from-zero PPM cost is
+`splitCount × numElements` (`splitTouches / splitCount` == `numElements` exactly),
+which retired the ForwardElement-trie hypothesis (it moves neither factor) and
+redirected the fix to element-count and split-count reduction. `Network` gains
+`elementNames()` so the FaVe adapter can bucket elements by role and size the
+reduction. All additions are inert (counter increments / a read-only accessor);
+gate green. FaVe-side context: `../APKEEP_TUM_UP_PLAN.md` Phase C (C1).
+
 ---
 
 *Full FaVe-side context (why each extension, the wl_stanford modelling, the
