@@ -723,17 +723,40 @@ before scaling):**
 4. **Single-universe assumptions.** Lever B's query-time src seed and the (deprioritised)
    per-source fixpoint assumed single-universe; re-validate they compose with division.
 
-### Related-work consideration — NDDs (network decision diagrams), from the APKeep group
+### Related-work consideration — NDD (Li, Zhang, Zhang, Yang, NSDI '25) — READ 2026-08-17
 
-To evaluate: a follow-up from the same group proposes **NDDs** to speed up the BDD work
-APKeep does. Key question for us — does the NDD approach (a) merely make each predicate
-operation cheaper (a *constant-factor* win on the per-`bdd.and` cost of wide 128-bit
-IPv6 multi-field predicates), or (b) represent the partition **field-factored** so that
-independent fields do not cross-multiply — which would attack the **atom-count**
-(`ap_num` = D×F) superlinearity directly, potentially *subsuming and generalising* the
-two-universe split above (to all fields, not just dst-vs-rest). (a) is complementary to
-Lever C; (b) could replace it. Decision pending a read of the actual paper (dropped file
-was lost in the 2026-08-17 container reset; awaiting re-drop). See discussion notes.
+**"NDD: A Decision Diagram for Network Verification"** (Xi'an Jiaotong + Google; open
+source `github.com/XJTU-NetVerify/NDD`, and an NDD-APKeep at `.../apkeep`). It is
+squarely **case (b)**: an NDD wraps BDD with a per-**field** decision-diagram layer;
+the *atomized NDD* computes **atoms per field**, so the total atom count becomes
+Σ_f(atoms in field f) instead of the Π (cross-product). That is exactly our `D×F →
+D+F` collapse — but **general (per-field, not just dst-vs-rest) and library-provided**,
+so **NDD subsumes and generalises the hand-rolled two-universe split (Lever C).** Atoms
+then grow ~linearly with network size (their Table 3); reported 100× memory+time on
+multi-layer datacenter networks.
+
+**Critical caveat — magnitude for a SINGLE-LAYER firewall like wl_up.** The 100× is
+multi-layer/VXLAN (many active fields). On single-layer nets (their closest analogs):
+Stanford/Internet2 got **~1× (no win — they match mostly dstIP)**, Purdue **3×** (more
+multi-field ACLs). wl_up is more field-diverse than those (proto/port/src/related
+filters + dst FIB), so likely **more than 3×** — and our own two-universe measurement
+(~29× PPM at 8 subnets) is the better predictor than either their 3× or their 100×.
+**Field-locality risk (their §6.6):** NDD *degrades* when rules match many fields; our
+anti-spoof rules match src+dst+in/out-port — few, but the thing to measure first.
+
+**Integration reality.** Vanilla APKeep-NDD was +66/−311 JDD LOC (the −311 = they
+deleted APKeep's own atom-maintenance, which NDD provides natively). But **our fork
+diverged** (multi-field `FilterElement`, pipeline model, 128-bit IPv6 src+dst, Lever-B
+query seed) — NDD replaces exactly the atom-maintenance layer our fork is built on, so
+our integration is larger/riskier than +66/−311. Upside: NDD is a *great* fit for our
+256-bit IPv6 (BDD's deep bit-recursion — their cited pain — is worse for us; NDD treats
+each 128-bit field as one variable). Same JDD base as us.
+
+**Revised Phase-E plan:** pivot from hand-rolling Lever C to **adopting NDD**, de-risked
+by (1) a field-locality measurement on wl_up (how many rules match >2 fields — predicts
+the win); (2) scoping the integration surface against our fork; (3) a slice prototype
+gated on NP-parity. Keep the hand-rolled two-universe split as the fallback if fork
+integration proves too invasive (it is already validated at ~29× by the sizing above).
 
 ---
 
