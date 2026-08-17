@@ -16,7 +16,10 @@ retiring the ForwardElement-trie bullseye. Lever A (elide pass-through filter
 elements) + Lever B (query-time src-IPv6 seed retires the per-source .sf, which was
 ~80 % of the partition). **C3: the full 136-device build now CONVERGES in ~11.5 min
 (was >124 min, non-converging); ap_num 62 420→14 561. Phase D: full-scale NP-parity
-is EXACT (0 diffs, 3660/3660 pairs over 137×137). Phase C DONE + validated.**
+is EXACT (0 diffs, 3660/3660 pairs over 137×137). Phase C DONE + validated. Phase E
+(PLANNED): two-universe field decomposition — cross-product sizing shows building
+dst/proto-port dimensions separately costs ~29× less PPM at 8 subnets (ratio grows);
+also evaluating NDDs (APKeep-group related work) as a complementary/subsuming lever.**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -668,6 +671,69 @@ reduction) is DONE and validated — the full wl_up model builds from zero in
 ~11.5 min and answers reachability in exact agreement with NetPlumber.
 
 Matrices: `scratchpad/mat_apk.json`, `scratchpad/mat_np.json`.
+
+---
+
+## Phase E (PLANNED) — two-universe field decomposition (the residual PPM lever)
+
+**Where build time stands after A+B:** full model builds in ~11.5 min, PPM still ~92 %
+(≈662 s), now driven by the residual **dst-prefix × proto/port cross-product** inside
+APKeep's *single* global AP partition. NetPlumber does the equivalent in ~49 s (build
++query), so APKeep is ~17× slower — the gap is exactly this cross-product, which HSA
+never materialises.
+
+### Cross-product sizing measurement (2026-08-17)
+
+Built the model with the rule stream filtered by role — `dst` = FIB/routing rules
+only, `filter` = packet-filter chain rules only, `full` = both — and compared `ap_num`
+and PPM cost. (Proxy for what a two-universe split would separate.)
+
+| scale | full `ap_num` | D (dst) | F (filter) | full/(D+F) | full PPM | D-PPM + F-PPM | PPM ratio |
+|---|---|---|---|---|---|---|---|
+| 4 subnets | 593 | 56 | 75 | 4.5× | — | — | — |
+| 8 subnets | 1 430 | 88 | 119 | **6.9×** | 17 183 ms | 166 + 421 = **587 ms** | **≈ 29×** |
+
+**Findings:** (1) the partition is *partially* multiplicative — `ap_num` sits well
+below `D×F` but 4.5–6.9× above `D+F`, and that ratio **grows with scale**. (2) The
+decisive number is build cost: building the two dimensions **separately** costs ~29×
+less PPM than jointly at 8 subnets, and the ratio grows. Extrapolated to 21 subnets
+(662 s PPM today), a clean decomposition should drop PPM to **tens of seconds** —
+closing most of the gap to NP. Raw: `scratchpad/x_{full,dst,filter}.jsonl`.
+
+### Plan — Lever C (two-universe): filters → ACLElement, FIB → ForwardElement
+
+Model each packet-filter chain as an **ACLElement** (acl universe: proto/port/src/
+related) and keep the FIB as a dst-only **ForwardElement** (fwd universe), so dst and
+proto/port stop cross-multiplying. `ReachabilityChecker.arrives()` already intersects
+the two universes with `bdd.and`. Reuses APKeep's existing division machinery
+(`USE_DIVISION`), not a new mechanism. Generic (any multi-field firewall workload;
+survives perturbation).
+
+**Open design questions / risks to resolve in a narrow spike (gate on slice NP-parity
+before scaling):**
+1. **Query-time intersection.** `arrives()` is O(|fwd_aps|·|acl_aps|) per arrival; at a
+   probe these are small subsets, but confirm queries don't inflate (they're ~1 ms now).
+2. **Straddling predicates.** A few filters match `dst` (anti-spoof `dst=uni::/48`) and
+   in/out-port — these must land coherently in one universe or be handled explicitly so
+   the split stays exact.
+3. **Pipeline → ACLElement mapping.** Our filters are a multi-chain pipeline
+   (input/output/forward + per-port prefilters), not plain permit/deny ACLs; the
+   remodel is real work. ACLElement only gates (permit/deny), so the routing that the
+   FilterElement accept-ports currently do must move entirely to the ForwardElement FIB.
+4. **Single-universe assumptions.** Lever B's query-time src seed and the (deprioritised)
+   per-source fixpoint assumed single-universe; re-validate they compose with division.
+
+### Related-work consideration — NDDs (network decision diagrams), from the APKeep group
+
+To evaluate: a follow-up from the same group proposes **NDDs** to speed up the BDD work
+APKeep does. Key question for us — does the NDD approach (a) merely make each predicate
+operation cheaper (a *constant-factor* win on the per-`bdd.and` cost of wide 128-bit
+IPv6 multi-field predicates), or (b) represent the partition **field-factored** so that
+independent fields do not cross-multiply — which would attack the **atom-count**
+(`ap_num` = D×F) superlinearity directly, potentially *subsuming and generalising* the
+two-universe split above (to all fields, not just dst-vs-rest). (a) is complementary to
+Lever C; (b) could replace it. Decision pending a read of the actual paper (dropped file
+was lost in the 2026-08-17 container reset; awaiting re-drop). See discussion notes.
 
 ---
 
