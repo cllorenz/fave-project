@@ -9,7 +9,8 @@ comparison beyond the already-done `wl_ifi` / `wl_i2` / `wl_stanford`.
 2026-08-14). Performance is the only open item (Phase 7). **Phase 0+A DONE
 2026-08-14 and they overturned the diagnosis: the wall is BUILD / AP-construction
 (superlinear; full model >25 min), NOT per-query traversal (flat ~1 ms). The
-lead fix pivots from B2 to build-cost/model-size reduction — re-plan pending.**
+lead fix pivoted from B2 to build-cost reduction, now planned as Phase C
+(profile-first C0 → model/predicate/core levers; core surgery approved).**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (roadmap P8/P9) and [`APKEEP_FAITHFUL_PLAN.md`](APKEEP_FAITHFUL_PLAN.md) (the
@@ -398,8 +399,72 @@ AP-merge/build efficiency:
 **B2 is not discarded** — it remains a correct, exactness-preserving improvement
 and the natural home for all-destinations-per-source batching *if* build is ever
 made tractable and per-query then dominates the 137² pair loop. But it is no longer
-the lead fix. Next step is a **re-plan of the build-cost attack**, to discuss
-before implementation.
+the lead fix; the build-cost attack below (Phase C) replaces it as the lead.
+
+### Phase C — reduce build / AP-construction cost (PLAN, 2026-08-17)
+
+The lead fix now that Phase A proved build/AP-construction (not per-query) is the
+wall. The from-zero build time *is* the benchmark metric (user-perceived), so this
+is the axis that counts.
+
+**Model shape being optimised.** Each packet_filter → ~6 elements (input/forward/
+output chains + dst-LPM FIB + per-port pre/post filters) + 137 per-source
+src-filters ⇒ full ≈ 850 elements. The 135 host firewalls are **6 role-templates
+(clients/file/mail/print/voip/web) × 21 subnets, structurally identical modulo the
+subnet's IPv6 prefix** (verified: cs-web vs jura-web diff to zero after
+address-normalisation, 20 lines each). But the *predicates* still differ by subnet
+prefix — which is exactly the ambiguity the profile must resolve.
+
+**The one question C0 must answer** — the superlinear cost is one of three things,
+and the fix differs completely for each, so profile before cutting:
+
+| case | where the time goes | fixable by | difficulty |
+|------|---------------------|------------|------------|
+| (a) | global **AP partition** — distinct multi-field IPv6 predicates merged pairwise per subnet added | narrow/aggregate predicates, or core merge algorithm | hardest (may be architectural: APKeep is built for *incremental*, not from-zero) |
+| (b) | redundant **element / PPM bookkeeping** — 850 elements each keeping a port-predicate map | model-size reduction (adapter-only) | cheapest, biggest structural win |
+| (c) | per-rule **BDD encoding** — 128-bit src6+dst6 ANDed per rule in `ConvertACLRule` | field projection (skip unconstrained dims) | medium |
+
+Template-repetition cuts toward (b) *if* the per-subnet cost is element/PPM
+overhead — but if it is the distinct address predicates, it is (a) and dedup will
+not help. Only the profile decides.
+
+**Phases:**
+- **C0 — profile one completed full build (measure before surgery; gates C1).**
+  Additive Java timers around the three suspects — `BDDACLWrapper.ConvertACLRule`
+  (encode), `APKeeper.hardMergeAPBatch`/`tryMergeAP` (merge),
+  `Element.updatePortPredicateMap` (PPM) — plus an `ap_num`-vs-rules-applied
+  trajectory. Run the full model to completion **once, unattended**. Deliverable:
+  attribution table + `ap_num(full)` + which term is superlinear.
+- **C1 — attack the dominant term** (branch on C0), each correctness-neutral:
+  - **L1 model-size reduction (adapter, case (b)):** fold per-port pre/post filters
+    into their chain; fold each per-source src-filter into that source's input
+    filter; use the `ForwardElement` trie for dst-LPM FIBs instead of a per-device
+    FilterElement FIB. Target ~850 → ~2–3 elements/device.
+  - **L2 predicate reduction (adapter+core, case (c)):** project away unconstrained
+    header dimensions per rule (a ports-only rule shouldn't drag 256 bits of IPv6
+    through the partition); exploit the `uni::/48` structure so per-subnet prefixes
+    nest rather than cross-partition.
+  - **L3 APKeep-core AP-merge efficiency (subtree, case (a)):** batch/reorder the
+    merge, or a from-scratch bulk-partition path distinct from the incremental one.
+- **C2 — correctness preserved (hard gate after every lever):** differential vs NP
+  on both slices stays **exact (0 diffs)**; exactness gate green; soundness
+  (APKeep never drops an NP-reachable pair) is the tripwire. A speed win that moves
+  a single pair is rejected.
+- **C3 — measure at full scale:** re-run the Phase A curve + a completed full
+  build; report the improvement vs the C0 baseline (and measure NP's wl_up build
+  for context).
+
+**Decisions (with user, 2026-08-17):**
+- **Depth: go as deep as needed, including L3 core surgery.** If C0 points at the
+  AP-merge algorithm (case (a)), invest in APKeep-core work to make from-zero
+  tractable — do not stop at the architectural finding.
+- **Success bar: best-effort, no fixed threshold.** Reduce build cost as far as the
+  levers reasonably allow and report the curve; NP-parity on build time is context,
+  not a gate.
+
+**Standing risk.** Case (a) may prove genuinely architectural even after L3; if so
+that is itself a thesis result (APKeep incremental-optimised, not from-zero at this
+scale) — but per the depth decision we attempt the core fix before concluding it.
 
 ---
 
