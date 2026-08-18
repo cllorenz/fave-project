@@ -213,10 +213,34 @@ BDD-checked) and each predicate **recombines exactly** (`atomizedToNDD(atomizati
 upstream + 7 §2.1c + 1 atomization). Details: `ndd/FAVE_CHANGES.md` §2. `exist` (NAT,
 not needed for wl_up) + incremental split compile but aren't yet directly exercised.
 
-### §2.5b — NDD reachability engine slice on wl_up: NEXT
-With atomization restored, build the atom-based NDD engine (per-field `AtomizedNDD`
-atoms, single-universe traversal, IPv6 field layout) and gate on exact parity with the
-frozen BDD baseline (3660/3660) on wl_up.
+### §2.5b — engine sizing on real wl_up predicates: STRONG GO
+`ndd/src/test/java/org/ants/jndd/diagram/NDDWlupSizingTest.java` builds the wl_up rule
+hit-predicates as per-field NDDs (dumped from the adapter via
+`fave/bench/wl_up/eval/wl_up_dump.py`; all 6560 rules are `+ filter`), atomizes them
+with the restored `AtomizedNDD`, and reports the Σ-over-fields atom count. Result:
+
+| | count |
+|---|---|
+| rules / distinct predicates | 6560 / 3161 |
+| per-field atoms | src6=138, dst6=159, proto=4, sport=30, dport=31, rel=2 |
+| **Σ (NDD per-field)** | **364** |
+| BDD global `ap_num` (baseline) | 14 561 |
+| **ratio** | **≈ 40×** |
+
+Recombination verified on 500 predicates (`atomizedToNDD(atomization(P)) == P`).
+**This resolves the §2.0 MIXED doubt in NDD's favour:** the joint BDD partition (the
+src×dst×… cross-product, 14 561) collapses to a per-field sum (364). Since PPM build
+cost scales with partition size, this predicts a large build-cost win, corroborating
+and exceeding the plan's ~29× sizing. **Honest caveat:** 364 is over *raw* rule
+predicates; the BDD 14 561 is the *post-forwarding* network partition, so the true
+engine Σ will be larger (LPM/priority refinement) — but even several-fold refinement
+leaves a ~10× win. This is the make-or-break perf gate, and it is GO.
+
+### §2.5c — NDD reachability engine + parity gate: NEXT
+Build the atom-based NDD reachability on wl_up (single-universe traversal over the
+per-field atoms; hop = `AtomizedNDD.and`; source src-IPv6 seed) and gate on exact
+parity with the frozen BDD baseline (3660/3660). The sizing (§2.5b) justifies the
+investment. NAT-on-NDD stays out of scope (wl_up has none).
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
