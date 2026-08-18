@@ -71,12 +71,17 @@ Two observations worth carrying forward (not defects):
 
 ### §2.1 — atomize / update: UNBLOCKED by §2.2, differential pending
 The plan's other §2.1 must-have (`atomize`/`update`, the atom-maintenance our fork's
-`updateSplitAP`/`ChangeItem` maps onto). The construction path was unclear in
-isolation (only `mkAtomized` over pre-computed atom ids); §2.2 recovered the real
-protocol — `AtomizedNDD.atomization(preds, out)` computes per-field atom pools, and
-`getAtomsToSplit*`/`changeAtoms`/`split_ap_*` do the incremental update. A differential
-(per-field atoms partition the space + recombine to the input predicates, vs a BDD
-reference) is now writable and is the immediate next step.
+`updateSplitAP`/`ChangeItem` maps onto). §2.2 recovered the real protocol — `AtomizedNDD.atomization(preds, ndd_aps)` takes a
+`HashSet<NDD>` of **object**-form port predicates and returns per-field atom pools +
+each predicate's per-field atom-id sets (`NetworkNDDAP.UpdateFieldAP`, `:260`); the
+incremental path is `getAtomsToSplit*`/`changeAtoms`/`split_ap_*`. Caveat found while
+scoping: `atomization` consumes **object** `NDD`/`AtomizedNDD` (not the static int-node
+API our §2.1c suite uses), so the port predicates must be built via the verifier's
+object-NDD pipeline (`ConvertACLRuleNDD` → `encodeACL`). That construction machinery is
+precisely what a **(B) engine prototype builds**, so the atomize/update differential is
+best written *with* that prototype (assert: per-field atoms partition each field's
+space; each input predicate = `atomizedToNDD` of its assigned atoms == the original),
+not reconstructed in isolation.
 
 ## §2.2 — the vanilla→NDD APKeep recipe, mapped to our fork
 
