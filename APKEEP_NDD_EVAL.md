@@ -333,7 +333,7 @@ model, capture the adapter's neutral IR) gives the capability matrix:
 | wl_tum | `+filter` IPv4 5-tuple (5108) | IPv4 in filter encoders | ✅ EXACT (NDD==BDD) |
 | wl_stanford P7a | `+fwd` IPv4 (3890) | IPv4 fields + `+fwd` parse | ✅ EXACT (NDD==BDD) |
 | wl_i2 | `+fwd` IPv4 (77841) | scale | ⚠️ **obstacle (below)** |
-| wl_ifi | `+fwd`+`+acl`+`+filter` IPv4 | ACLElement + src-IP seed | ▫ incr 2 |
+| wl_ifi | `+fwd`+`+acl`+`+filter` IPv4 | ACLElement + src-IP seed | ✅ EXACT (== reachable.json) |
 | wl_stanford faithful | + `+nat` + `+acl` (VLAN) | NAT transformer + VLAN field | ▫ incr 3 |
 
 **Incr 1 (IPv4 forwarding) — DONE for tum + stanford-P7a.** Extended the engine
@@ -358,7 +358,25 @@ atoms as rules arrive so equivalent ones merge (staying at 216). That is the cor
 APKeep-on-NDD (the vendored `application/wan/ndd` reference verifier, excluded/stale).
 Correctness is NOT in question — stanford-P7a is the identical `+fwd`/LPM code at 1/20
 the scale and is exact; only scale fails. i2 test is opt-in (`FAVE_NDD_SCALE=1`),
-skipped in the default gate. **Decision pending owner** (see the incr-1 report).
+skipped in the default gate.
+
+**Incr 2 (ACLs) — DONE (wl_ifi).** `+ acl` has the SAME token layout as `+ filter`
+(proto/src/sport/dst/dport at the same indices) — only `t[1]`=acl and `t[5]`=permit/
+deny differ — so the ACL predicate reuses `ruleToNDD` verbatim; a permit forwards to
+the element's `"permit"` out_port (Cisco first-match ⇒ higher priority wins), a deny
+drops. The one new piece is APKeep's ACLElement node naming: an element `E` appears in
+the topology as node `E_in`/`E_out`, so the flood strips that suffix (`elementOf`) to
+find the residual. The adapter's NDD guard is relaxed to reject only NAT (`+ nat`), not
+ACLs. The source's src-IP is the query seed, so source-matching ACLs bite. **wl_ifi NDD
+== reachable.json exactly** (`test_apkeep_ndd_fwd.py::test_ifi_matches_ground_truth`).
+
+Now on NDD: **wl_up, wl_tum, wl_stanford-P7a, wl_ifi** (4 of 6). Remaining: wl_i2 scale
+(incr 1b) and wl_stanford faithful-VLAN NAT (incr 3).
+
+*Env note:* a yolobox container reset wipes the toolchain (JDK/Maven, and the pybison
+build deps m4/bison/flex/python3-dev, and the NP C++ deps). Reinstall before building/
+testing; a missing pybison dep segfaults during model replay (looks like a JVM crash but
+is not). See [[env-integration-tier-deps]].
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a

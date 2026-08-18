@@ -829,14 +829,15 @@ class APKeepAdapter(AbstractVerificationEngine):
         # run() receives, and to what wl_up_dump2.py captures for the NDD tests).
         all_rules = _dedup(fwd_rules) + acl_rules + nat_rules + filter_rules_all
         if self._engine == 'ndd':
-            # The NDD engine covers single-universe forwarding only: ACL/NAT
-            # division (wl_stanford faithful VLAN) needs per-field transformers
-            # (exist), which are future work (APKEEP_NDD_PLAN §2.6). Guard here so
-            # an out-of-scope model fails loudly instead of silently mismodelling.
-            if acl_rules or nat_rules or device_acls or device_nats:
+            # The NDD engine covers forwarding (+fwd/+filter) and ACLs (+acl,
+            # permit/deny as a residual out_port). NAT/VLAN rewrite (+nat) needs a
+            # per-field transformer (exist), still future work (APKEEP_NDD_PLAN
+            # §2.6 incr 3); guard it so an out-of-scope model fails loudly here
+            # instead of silently mismodelling.
+            if nat_rules or device_nats:
                 raise NotImplementedError(
-                    "NDD engine supports single-universe forwarding only "
-                    "(no ACL/NAT); use engine='bdd' for this model")
+                    "NDD engine does not yet model NAT/VLAN rewrite (+nat); "
+                    "use engine='bdd' for this model")
             self._ndd.build(all_rules, edges)
             self._single_universe = True
             self._build_metrics = {}

@@ -75,6 +75,11 @@ _I2_INPUTS = ["%s/%s" % (_I2_PREFIX, f) for f in
               ("device_topology.json", "routes.json", "sources.json",
                "probes.json")] + [_I2_ORACLE]
 
+_IFI_PREFIX = "bench/wl_ifi"
+_IFI_ORACLE = "bench/wl_ifi/reachable.json"
+_IFI_INPUTS = ["%s/%s" % (_IFI_PREFIX, f) for f in
+               ("topology.json", "routes.json", "sources.json", "policies.json")] + [_IFI_ORACLE]
+
 _ST_PREFIX = "bench/wl_stanford/stanford-json"
 _ST_FILES = {"topology": "device_topology.json", "policies": "probes.json"}
 _ST_INPUTS = ["%s/%s" % (_ST_PREFIX, f) for f in
@@ -118,6 +123,30 @@ class TestNddIPv4Forwarding(unittest.TestCase):
             if g != e:
                 diffs[role] = {"missing": sorted(e - g), "extra": sorted(g - e)}
         self.assertEqual(diffs, {}, "wl_i2 NDD differs from reachable.json: %s" % diffs)
+
+    @require_or_skip(all(os.path.isfile(f) for f in _IFI_INPUTS),
+                     "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
+    def test_ifi_matches_ground_truth(self):
+        """ wl_ifi (forwarding + router ACLs) NDD reachability == reachable.json
+        (the same oracle the BDD test asserts). The source's src-IP seeds the
+        query so source-matching ACLs bite; a probe.X<-source.X self-reach never
+        hits the router (not ACL-filtered), so it is excluded as reachable.json
+        omits it. """
+        eng, sources, probes, reach = _matrix(_IFI_PREFIX, 'ndd')
+        got = {
+            _base(p): set(_base(s) for s in sources
+                          if (s, p) in reach and _base(s) != _base(p))
+            for p in probes
+        }
+        with open(_IFI_ORACLE) as raw:
+            expected = json.load(raw)
+        diffs = {}
+        for role in sorted(set(got) | set(expected)):
+            g = got.get(role, set())
+            e = set(expected.get(role, []))
+            if g != e:
+                diffs[role] = {"missing": sorted(e - g), "extra": sorted(g - e)}
+        self.assertEqual(diffs, {}, "wl_ifi NDD differs from reachable.json: %s" % diffs)
 
     @require_or_skip(all(os.path.isfile(f) for f in _ST_INPUTS),
                      "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")

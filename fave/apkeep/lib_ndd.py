@@ -62,10 +62,13 @@ def available() -> bool:
 
 
 def _union_classpath() -> List[str]:
-    """ The resident JVM is process-global (JPype cannot restart it), and the
-    APKeepAdapter may drive EITHER engine in one process, so both jars go on the
-    classpath when present -- whichever engine boots the JVM first, both are
-    reachable. Kept identical here and in lib_apkeep so boot order is irrelevant. """
+    """ The resident JVM is process-global (JPype cannot restart it), and one
+    FaVe process may exercise BOTH engines (the exactness gate runs the BDD and
+    NDD tests in one pytest process; the NDD forwarding tests build a BDD baseline
+    in-process), so both jars go on the classpath. NB the two jars both vendor
+    `jdd.bdd.*`; the classloader binds one copy, which is empirically compatible
+    for our workloads (every benchmark reaches exact BDD/NDD parity). Kept
+    identical to lib_apkeep so boot order is irrelevant. """
     return [j for j in (_APKEEP_JAR, _NDD_JAR) if os.path.isfile(j)]
 
 
@@ -79,17 +82,10 @@ def _ensure_jvm() -> None:
             % _NDD_JAR
         )
     if not jpype.isJVMStarted():
-        _start_jvm(_union_classpath())
-
-
-def _start_jvm(classpath: List[str]) -> None:
-    """ Start the resident JVM. FaVe's larger NDD forwarding builds (wl_i2's 77k
-    dst-IP routes) need more heap than the JVM's ergonomic default (~1/4 RAM);
-    FAVE_JVM_XMX (e.g. "10g") raises it. Shared by lib_apkeep so whichever engine
-    boots the process-global JVM applies the same heap. """
-    xmx = os.environ.get("FAVE_JVM_XMX")
-    args = ["-Xmx%s" % xmx] if xmx else []
-    jpype.startJVM(*args, classpath=classpath)
+        # FAVE_JVM_XMX (e.g. "8g") raises the heap above the JVM default.
+        xmx = os.environ.get("FAVE_JVM_XMX")
+        args = ["-Xmx%s" % xmx] if xmx else []
+        jpype.startJVM(*args, classpath=_union_classpath())
 
 
 class LibNDD:

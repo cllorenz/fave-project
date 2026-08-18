@@ -45,9 +45,10 @@ from typing import Any, Dict, List, Optional
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _APKEEP_JAR = os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar")
-# The NDD engine (the second FaVe backend, apkeep/lib_ndd.py) shares this
-# process-global JVM. When its fat jar is present, put it on the classpath too so
-# either engine can boot the JVM and both remain reachable (see lib_ndd).
+# The NDD engine (apkeep/lib_ndd.py) shares this process-global JVM; put its jar
+# on the classpath too when present so a single process can drive either engine
+# (the exactness gate runs BDD + NDD tests together). Both jars vendor jdd.bdd.*;
+# the bound copy is empirically parity-correct for our workloads.
 _NDD_JAR = os.path.join(
     _REPO_ROOT, "ndd", "target", "ndd-1.0.1-jar-with-dependencies.jar"
 )
@@ -74,8 +75,7 @@ def _ensure_jvm() -> None:
         )
     if not jpype.isJVMStarted():
         cp = [j for j in (_APKEEP_JAR, _NDD_JAR) if os.path.isfile(j)]
-        # FAVE_JVM_XMX (e.g. "10g") raises the heap above the JVM default for the
-        # larger NDD forwarding builds; shared with lib_ndd (one process JVM).
+        # FAVE_JVM_XMX (e.g. "8g") raises the heap above the JVM default.
         xmx = os.environ.get("FAVE_JVM_XMX")
         args = ["-Xmx%s" % xmx] if xmx else []
         jpype.startJVM(*args, classpath=cp or [_APKEEP_JAR])
