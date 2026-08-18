@@ -42,7 +42,8 @@ So `getBDDVars(field)` are per-field *label* variables, **not** monolithic-`toBD
 variables — a differential must respect this (see below).
 
 ### §2.1c — 128-bit IPv6 differential-vs-BDD: PASS (7/7)
-`ndd_eval/NDDIPv6DifferentialTest.java`. Profile: IPv6 src(128) + dst(128) +
+`ndd/src/test/java/org/ants/jndd/diagram/NDDIPv6DifferentialTest.java` (vendored
+subtree; §2.4 done). Profile: IPv6 src(128) + dst(128) +
 proto(8) + dport(16). Oracle: NDD ops commute with the `toBDD` homomorphism, compared
 by JDD **canonical node-id** equality (exact; robust where `satCount` doubles lose
 precision over 2^280).
@@ -77,9 +78,15 @@ ids (there is no NDD→AtomizedNDD converter), and real usage lives in the refer
 atomize/update differential therefore needs the atomization protocol extracted from
 that reference (which §2.2 does anyway) — writing it blind risks testing it wrong.
 
+## §2.4 — vendor NDD: DONE
+`XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
+FaVe-owned fork), with `ndd/FAVE_CHANGES.md` (vendoring hygiene). The IPv6
+differential test now lives in `ndd/src/test/...` and runs in the subtree's own
+`mvn test`: **24 tests green** (17 upstream + 7 ours).
+
 ## Next steps (proposed)
-1. §2.4 vendor `XJTU-NetVerify/NDD` (subtree + `FAVE_CHANGES`-style changelog); move
-   `ndd_eval/NDDIPv6DifferentialTest.java` into its `src/test`.
-2. §2.2 extract the vanilla→NDD APKeep recipe from `application/wan/{bdd,ndd}/…`;
-   with it in hand, add the **atomize/update** differential (completing §2.1).
-3. §2.3 decide (A) re-fork vs (B) engine-swap from the fork-entanglement scoping pass.
+1. §2.2 extract the vanilla→NDD APKeep recipe from `ndd/src/main/java/application/wan/
+   {bdd,ndd}/verifier/apkeep/…`; with the atomization protocol in hand, add the
+   **atomize/update** differential (completing §2.1).
+2. §2.3 decide (A) re-fork vs (B) engine-swap from the fork-entanglement scoping pass.
+3. Pin the `NDD.toNDD(int)` NPE robustness gap (missing 0/FALSE base case).
