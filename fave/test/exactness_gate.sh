@@ -47,6 +47,7 @@ EXACT_TESTS=(
     test/test_apkeep_tum.py
     test/test_backend_differential.py
     test/test_apkeep_ndd_wlup.py
+    test/test_apkeep_ndd_fwd.py
 )
 
 rc=0

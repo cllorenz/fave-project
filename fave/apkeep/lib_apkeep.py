@@ -74,7 +74,11 @@ def _ensure_jvm() -> None:
         )
     if not jpype.isJVMStarted():
         cp = [j for j in (_APKEEP_JAR, _NDD_JAR) if os.path.isfile(j)]
-        jpype.startJVM(classpath=cp or [_APKEEP_JAR])
+        # FAVE_JVM_XMX (e.g. "10g") raises the heap above the JVM default for the
+        # larger NDD forwarding builds; shared with lib_ndd (one process JVM).
+        xmx = os.environ.get("FAVE_JVM_XMX")
+        args = ["-Xmx%s" % xmx] if xmx else []
+        jpype.startJVM(*args, classpath=cp or [_APKEEP_JAR])
 
 
 class LibAPKeep:

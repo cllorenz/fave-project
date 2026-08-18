@@ -79,7 +79,17 @@ def _ensure_jvm() -> None:
             % _NDD_JAR
         )
     if not jpype.isJVMStarted():
-        jpype.startJVM(classpath=_union_classpath())
+        _start_jvm(_union_classpath())
+
+
+def _start_jvm(classpath: List[str]) -> None:
+    """ Start the resident JVM. FaVe's larger NDD forwarding builds (wl_i2's 77k
+    dst-IP routes) need more heap than the JVM's ergonomic default (~1/4 RAM);
+    FAVE_JVM_XMX (e.g. "10g") raises it. Shared by lib_apkeep so whichever engine
+    boots the process-global JVM applies the same heap. """
+    xmx = os.environ.get("FAVE_JVM_XMX")
+    args = ["-Xmx%s" % xmx] if xmx else []
+    jpype.startJVM(*args, classpath=classpath)
 
 
 class LibNDD:
@@ -99,7 +109,7 @@ class LibNDD:
 
     def build(self, rules: List[str], edges: List[str]) -> None:
         """ Build the residual forwarding model from the adapter's neutral IR:
-        `rules` are APKeep rule strings (only "+ filter ..." are consumed),
+        `rules` are APKeep rule strings ("+ filter ..." and "+ fwd ...") and
         `edges` are "dev port dev port" topology strings. """
         jrules = self._ArrayList()
         for r in rules:

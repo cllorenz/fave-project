@@ -323,6 +323,43 @@ are the proven code, ported verbatim):
 This realizes "one shared adapter, two engines" for wl_up. Not yet productionized:
 transformers (NAT/VLAN) and ACL division for the other workloads — future work (item 2).
 
+### §2.6 — extend the NDD engine to all benchmarks
+Goal: `engine='ndd'` available for every FaVe benchmark. A scoping pass (replay each
+model, capture the adapter's neutral IR) gives the capability matrix:
+
+| benchmark | rules | needs beyond wl_up | status |
+|---|---|---|---|
+| wl_up | `+filter` IPv6 | — | ✅ done (§2.5e) |
+| wl_tum | `+filter` IPv4 5-tuple (5108) | IPv4 in filter encoders | ✅ EXACT (NDD==BDD) |
+| wl_stanford P7a | `+fwd` IPv4 (3890) | IPv4 fields + `+fwd` parse | ✅ EXACT (NDD==BDD) |
+| wl_i2 | `+fwd` IPv4 (77841) | scale | ⚠️ **obstacle (below)** |
+| wl_ifi | `+fwd`+`+acl`+`+filter` IPv4 | ACLElement + src-IP seed | ▫ incr 2 |
+| wl_stanford faithful | + `+nat` + `+acl` (VLAN) | NAT transformer + VLAN field | ▫ incr 3 |
+
+**Incr 1 (IPv4 forwarding) — DONE for tum + stanford-P7a.** Extended the engine
+(`NddReachabilityEngine`) with a canonical field layout that APPENDS IPv4 src/dst
+(32-bit) + VLAN after the wl_up fields (indices 0–5 unchanged ⇒ wl_up parity preserved
+by construction), IPv4 address encoders (uint32 prefix + cisco inverse-mask wildcard,
+built bit-by-bit ⇒ general), and `+ fwd` ForwardElement parsing folded into the same
+first-match/LPM residual model as `+ filter`. wl_tum and wl_stanford-P7a reach **exact
+parity vs the BDD engine** (differential in-process); wl_up still exact. Gate:
+`fave/test/test_apkeep_ndd_fwd.py`.
+
+**wl_i2 (77841 routes) — OBSTACLE.** The true partition is tiny (BDD `ap_num=216`),
+but the NDD reachability materializes each port's forwarded-set as a *monolithic
+per-field NDD* — a union of thousands of IPv4 prefixes is a large BDD — and the
+residual's running `covered` union grows likewise; build did not finish in 9 min
+(8 GB heap) / OOM'd at the default heap. An alternative that atomizes the raw rule
+hits first also OOM'd: one-shot `AtomizedNDD.atomization` of 77 k distinct prefixes
+builds an ~O(n²) *fine* partition (≈ one atom per prefix), never the coarse 216.
+**Root cause:** the engine lacks APKeep's *incremental atomic-predicate maintenance*
+— represent forwarded-sets as SETS of atom-ids over the minimal partition, splitting
+atoms as rules arrive so equivalent ones merge (staying at 216). That is the core of
+APKeep-on-NDD (the vendored `application/wan/ndd` reference verifier, excluded/stale).
+Correctness is NOT in question — stanford-P7a is the identical `+fwd`/LPM code at 1/20
+the scale and is exact; only scale fails. i2 test is opt-in (`FAVE_NDD_SCALE=1`),
+skipped in the default gate. **Decision pending owner** (see the incr-1 report).
+
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
 FaVe-owned fork), with `ndd/FAVE_CHANGES.md` (vendoring hygiene). The IPv6
