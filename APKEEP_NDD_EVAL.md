@@ -166,6 +166,42 @@ frozen BDD baseline (3660/3660). NAT-on-NDD (for wl_stanford faithful-VLAN) is a
 follow-on, and is the one genuinely new piece we'd design (using `exist` per field).
 This is a recommendation for owner confirmation, not a committed decision.
 
+## §2.5 — engine prototype: BLOCKER FOUND + a way around it
+
+Confirmed (B) engine-swap, wl_up-first. On starting the prototype, a **major obstacle**
+surfaced in the vendored NDD itself:
+
+- **The atomization layer does not compile in this NDD version.** `ndd/pom.xml`
+  explicitly **excludes** `AtomizedNDD.java`, `AtomizedNodeTable.java`, and both
+  `application/wan/{bdd,ndd}` reference verifiers from the build (`pom.xml:90-95`). The
+  `c8414b43` "per-field mixed label backends" refactor made `org.ants.jndd.diagram.NDD`
+  **int-node-id based**, which broke `AtomizedNDD` (written against an older *object*-NDD
+  API). Un-excluding the two atom files and compiling yields **~100 errors**, pervasive
+  `NDD↔int` conversion + missing-symbol mismatches — a substantial rewrite, not a fix.
+- Consequence: the plan's premise that NDD "provides the per-field decomposition **as a
+  reusable library**" (atomize/update) **does not hold for this vendored version**. The
+  working, tested part is the int-based **DD core** (boolean ops, exist, canonicity,
+  prefix — §2.1c, all green); the **atom computation** APKeep's fast reachability needs
+  is the broken/excluded part.
+
+**The constructive way around it (correctness-first, no atomization needed):** APKeep
+uses atoms only as a *speed* optimization — precompute a disjoint atom partition once so a
+hop is a bitset intersection. The *semantics* need only plain per-field NDDs: a port's
+reachable header set is an NDD, hop = `NDD.and(reached, port_predicate)`, arrival =
+`NDD.or`, reachable iff `!= FALSE`. All of that is the **working int-core** (validated in
+§2.1c). So a wl_up reachability prototype can be built on the working core with **zero
+atomization**, proving (a) the per-field NDD representation gives correct wl_up parity vs
+the frozen BDD baseline, and (b) whether the per-field NDD is more compact than the BDD
+global partition (`ap_num=14561`). Atomization (for performance) becomes a *later* step,
+by either porting `AtomizedNDD` (~100 errors) or implementing per-field atomization
+ourselves on the int-core.
+
+This intersects with §2.0 (MIXED field-locality): the compounding of "MIXED locality" +
+"atomization not library-provided here" is a genuine owner decision point — see the
+handoff. Options weighed: (1) plain-NDD correctness prototype now (cheap, uses working
+core); (2) invest in atomization (port AtomizedNDD, or implement per-field ourselves);
+(3) reconsider vs the Phase E hand-rolled two-universe fallback (already validated ~29×).
+
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
 FaVe-owned fork), with `ndd/FAVE_CHANGES.md` (vendoring hygiene). The IPv6
