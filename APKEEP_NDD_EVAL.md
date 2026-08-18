@@ -236,11 +236,31 @@ predicates; the BDD 14 561 is the *post-forwarding* network partition, so the tr
 engine Σ will be larger (LPM/priority refinement) — but even several-fold refinement
 leaves a ~10× win. This is the make-or-break perf gate, and it is GO.
 
-### §2.5c — NDD reachability engine + parity gate: NEXT
-Build the atom-based NDD reachability on wl_up (single-universe traversal over the
-per-field atoms; hop = `AtomizedNDD.and`; source src-IPv6 seed) and gate on exact
-parity with the frozen BDD baseline (3660/3660). The sizing (§2.5b) justifies the
-investment. NAT-on-NDD stays out of scope (wl_up has none).
+### §2.5c — NDD reachability engine + parity gate: EXACT PARITY ✅
+`ndd/src/test/java/org/ants/jndd/diagram/NDDWlupReachabilityTest.java` — an NDD
+reachability engine for the full wl_up model, run against the frozen BDD golden
+(`fave/bench/wl_up/eval/mat_apk.json`, via line files from `wl_up_dump2.py`):
+
+    NDD pairs=3661  golden=3661  OVER(ndd\bdd)=0  UNDER(bdd\ndd)=0
+    EXACT PARITY: 3661 pairs   (= 3660 meaningful, self-pair excluded)
+
+**The (B) engine-swap is correctness-proven on wl_up: the NDD engine reproduces the
+BDD baseline pair-for-pair (0 over, 0 under).** Engine design: 269 filter devices
+(first-match residual per out_port via `NDD.diff`, priority-sorted ⇒ LPM), 137 sources
+emitting their src-IPv6 space (Lever B seed), 137 probe sinks; per-source fixpoint
+flood keyed by (device, arrival-port) with **no-hairpin** (a header does not leave via
+the port it arrived on) — which reproduces the BDD checker's simple-path semantics.
+An initial cut without no-hairpin over-approximated by exactly 29 host-to-self pairs
+(the router hairpinning `dst=self` back down the arrival link); UNDER was 0 throughout
+(never dropped a real path). Reachability runs on **plain per-field NDDs** (hop =
+`NDD.and`, arrival iff `!= FALSE`); the §2.5b atomization is the orthogonal speed layer.
+
+### §2.5d — build-time win + atom-based speed: NEXT
+Correctness (§2.5c) + the 40× atom sizing (§2.5b) establish the case. Remaining: swap
+the plain-NDD hop for atom-set intersection (the §2.5b `AtomizedNDD`) and measure the
+end-to-end from-zero build+query time vs the BDD baseline (692 s / ap_num 14 561), to
+quantify the actual speed win. Then productionize into `LibAPKeep`/the adapter (the
+"one shared adapter, two engines" integration).
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a

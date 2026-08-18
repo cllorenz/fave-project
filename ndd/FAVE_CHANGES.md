@@ -73,6 +73,23 @@ Not yet exercised: `exist` (transformers/NAT — not needed for wl_up) and the
 incremental split path (`getAtomsToSplit*`/`changeAtoms`) are ported and compile but
 are covered only indirectly; the from-zero engine uses batch `atomization`.
 
+## 3. wl_up NDD engine tests (sizing + reachability)  **[INFRA]**
+
+Two FaVe tests exercise the atomization/DD core on the real wl_up model (both skip
+unless `-Dwlup.*` system properties point at line-file dumps produced by
+`../fave/bench/wl_up/eval/wl_up_dump2.py`):
+
+- `src/test/java/org/ants/jndd/diagram/NDDWlupSizingTest.java` — builds the 6560 wl_up
+  rule hit-predicates as per-field NDDs and atomizes them; measures Σ-over-fields atoms
+  (= **364**, src6 138 / dst6 159 / proto 4 / sport 30 / dport 31 / rel 2) vs the BDD
+  global partition (`ap_num` 14 561) ⇒ **~40× reduction**; verifies recombination.
+- `src/test/java/org/ants/jndd/diagram/NDDWlupReachabilityTest.java` — a full NDD
+  reachability engine for wl_up (first-match residual per out_port ⇒ LPM; per-source
+  fixpoint flood keyed by (device, arrival-port), no-hairpin; source src-IPv6 seed),
+  gated on **exact parity** with the frozen BDD baseline: **3661/3661, 0 over, 0
+  under**. Proves the (B) engine-swap correct on wl_up. FaVe context:
+  `../APKEEP_NDD_EVAL.md` §2.5b/§2.5c.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration
