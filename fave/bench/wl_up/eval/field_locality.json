@@ -1,0 +1,36 @@
+{
+  "elements": {
+    "acls": 0,
+    "edges": 589,
+    "filter_devs": 269,
+    "fwd_devs": 0,
+    "nats": 0
+  },
+  "field_use": {
+    "dport": 1337,
+    "dst": 4166,
+    "proto": 4455,
+    "related": 3130,
+    "sport": 1308,
+    "src": 3992
+  },
+  "match_rules": 6560,
+  "nfields_hist": {
+    "0": 270,
+    "1": 721,
+    "2": 1579,
+    "3": 2061,
+    "4": 1319,
+    "5": 610
+  },
+  "pct_ge4": 29.40548780487805,
+  "pct_le2": 39.176829268292686,
+  "pct_src_and_dst": 33.49085365853659,
+  "probes": 137,
+  "role_hist": {
+    "filter": 6536,
+    "filter(fib)": 24
+  },
+  "sources": 137,
+  "total_rules": 6560
+}
