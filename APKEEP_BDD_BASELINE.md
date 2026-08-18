@@ -19,8 +19,12 @@ Owner: Claas Lorenz. Companions: [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md),
   IPv6 sources instead of .sf elements`) — the last engine/adapter code change; the
   commits after it are docs + this preservation work.
 - **Maintenance branch:** `apkeep` (living BDD version for backported bugfixes).
-  Work continues on `ndd`. An annotated tag (`fave-apkeep-bdd-v1`) marks the exact
-  publication commit once this doc + eval artifacts are committed (Part 1.1).
+  Work continues on `ndd`.
+- **Tag:** `fave-apkeep-bdd-v1` (annotated) marks this preservation commit — the
+  frozen baseline + oracle. Tag name / branch policy are flagged as an owner
+  decision in `APKEEP_NDD_PLAN.md`; the tag is trivially movable/renamable, and the
+  `apkeep` maintenance branch can be advanced to (or cherry-pick) these preservation
+  commits at the owner's discretion.
 
 ## 2. Environment provenance
 
