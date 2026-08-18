@@ -93,6 +93,32 @@ unless `-Dwlup.*` system properties point at line-file dumps produced by
   vs the BDD-APKeep baseline's **~1079 s** and NetPlumber's ~49 s. FaVe context:
   `../APKEEP_NDD_EVAL.md` §2.5b/§2.5c/§2.5d.
 
+## 4. Productionized NDD reachability engine (main-source, JPype-driven)  **[NEW]**
+
+`src/main/java/org/ants/jndd/fave/NddReachabilityEngine.java` (**new main class**)
+promotes the §2.5c/d prototype out of the test tree into a callable engine that
+FaVe drives through JPype (`../fave/apkeep/lib_ndd.py`), so NDD is a real second
+**backend engine** behind the one shared APKeep adapter (the BDD engine is
+`../apkeep`). The FaVe adapter emits a backend-neutral IR — the same
+`+ filter …` rule strings and `"dev port dev port"` topology edges it hands the
+BDD engine — and this class consumes them directly: `build(rules, edges)`
+computes the per-device first-match residual predicate per out_port (higher
+priority ⇒ LPM), and `isReachable(srcDev, srcPort, cidr, dstDev, dstPort)` runs
+the per-source fixpoint flood keyed by (device, arrival-port) with no-hairpin and
+the source's src-IPv6 space as the query-time seed. The residual/flood/encoders
+are ported **verbatim** from `NDDWlupReachabilityTest` (plain `NDD.and` hop); the
+only additions are the in-memory API and per-source flood caching (so the
+adapter's probe×source loop pays 137 floods, not 137²). Scope: single-universe
+forwarding (no ACL/NAT) — the adapter guards it. Field layout is initialised once
+per JVM (NDD's node tables are process-global statics).
+
+Covered by the FaVe-side parity gate `../fave/test/test_apkeep_ndd_wlup.py`:
+the real wl_up model, driven through the real aggregator into
+`APKeepAdapter(engine='ndd')`, reproduces the frozen BDD baseline matrix
+(`../fave/bench/wl_up/eval/mat_apk.json`) **exactly** (3661 pairs, 0 over, 0
+under). Added to `../fave/test/exactness_gate.sh` (which now also builds this
+jar). FaVe context: `../APKEEP_NDD_EVAL.md` §2.5e.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration
