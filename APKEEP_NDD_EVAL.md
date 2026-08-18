@@ -69,14 +69,97 @@ Two observations worth carrying forward (not defects):
 - `AtomizedNDD.or/diff` embed their own BDD self-checks (print "wrong answer") — a
   reassuring built-in differential.
 
-### §2.1 — NOT yet covered: atomize / update
+### §2.1 — atomize / update: UNBLOCKED by §2.2, differential pending
 The plan's other §2.1 must-have (`atomize`/`update`, the atom-maintenance our fork's
-`updateSplitAP`/`ChangeItem` maps onto) is **deferred and coupled to §2.2**: the only
-`AtomizedNDD` construction path is `mkAtomized(field, edges)` over pre-computed atom
-ids (there is no NDD→AtomizedNDD converter), and real usage lives in the reference
-`application/wan/ndd/verifier/apkeep/{FieldNodeAP,CheckerNDDAP}`. A faithful
-atomize/update differential therefore needs the atomization protocol extracted from
-that reference (which §2.2 does anyway) — writing it blind risks testing it wrong.
+`updateSplitAP`/`ChangeItem` maps onto). The construction path was unclear in
+isolation (only `mkAtomized` over pre-computed atom ids); §2.2 recovered the real
+protocol — `AtomizedNDD.atomization(preds, out)` computes per-field atom pools, and
+`getAtomsToSplit*`/`changeAtoms`/`split_ap_*` do the incremental update. A differential
+(per-field atoms partition the space + recombine to the input predicates, vs a BDD
+reference) is now writable and is the immediate next step.
+
+## §2.2 — the vanilla→NDD APKeep recipe, mapped to our fork
+
+Source: the vendored NDD repo ships **both** an APKeep(BDD) and an APKeep(NDD)
+verifier — `ndd/src/main/java/application/wan/{bdd,ndd}/verifier/apkeep/` — so the
+"+66/−311" comparison is available in-tree (no separate `XJTU-NetVerify/apkeep`
+clone). The change is **localized to the atom layer** (`core/` + `element/` +
+`common/BDDACLWrapper`); the drivers and the rest of `common/` are near-identical.
+
+### The seam (what NDD replaces)
+
+| concern | BDD (**== our fork**) | NDD (reference) |
+|---|---|---|
+| atom pool | `APKeeper.AP : HashSet<Integer>` — one **global** pool of BDD handles, the Π cross-product | `AtomizedNDD.atomsPerField : ArrayList<HashSet<Integer>>` — one pool **per field**, count = **Σ** |
+| per-port atoms | `Element.port_aps_raw : Map<String,Set<Integer>>` | `FieldNodeAP.ports_aps : Map<String,AtomizedNDD>` |
+| split loop | `APKeeper.addPredicate` → `updateSplitAP` iterates **every element every split** (our 93 % PPM hotspot) | `AtomizedNDD.atomization(preds, out)` (per-field) + `NetworkNDDAP.split_ap_{single,multi}_field` + per-field `SplitMap.ap_ports` |
+| rule → predicate | `BDDACLWrapper.ConvertACLRule` → **one BDD over all header bits** | `ConvertACLRuleNDD` → a list of `(field, single-field-BDD)` → `NDD.encodeACL` → a per-field DAG |
+| elements | `Element{Forward,ACL,NAT,Filter}` | one type-tagged `FieldNode`/`FieldNodeAP` (**NAT dropped**; `FieldElement` is dead code) |
+| checker | two universes (`fw_aps`+`acl_aps`) + `mergeSet` (OR-then-AND cross-product) | **one** `AtomizedNDD`; hop = `AtomizedNDD.and`; arrival = `or`; **no mergeSet** |
+
+The essential swap-list: `HashSet<Integer> AP` → `atomsPerField`;
+`port_aps_raw` → `ports_aps:AtomizedNDD`; `addPredicate/updateSplitAP` →
+`atomization`+`split_ap_*`; two `APKeeper`s + `Checker.mergeSet` → one atom universe.
+The per-field atomization (`AtomizedNDD.atomization`, `ndd`'s `AtomizedNDD.java:380`)
+splits **only the atoms of the field(s) a predicate mentions**, which *is* the
+D×F → D+F collapse our Phase E sizing measured (~29×), now library-provided.
+
+### Mapping onto OUR fork (what would change, what is additive)
+
+Our fork's atom seam is the same three files — `apkeep/core/APKeeper.java` (`AP`,
+`addPredicate`, `updateSplitAP`), `apkeep/elements/Element.java` (`port_aps_raw`,
+`updateAPSplit`), `common/BDDACLWrapper.java` (monolithic `ConvertACLRule`) — plus our
+value-adds, which are also concentrated there:
+
+1. **IPv6 128-bit fields** (`BDDACLWrapper.srcIP6/dstIP6`, declared last). In NDD these
+   become two `declareField(128)` fields in the wrapper's field layout + per-field
+   `ConvertACLRuleNDD` encoding. **Additive and a natural fit** — NDD collapses each
+   128-bit field to one variable, the tax we pay hardest. §2.1c already proved
+   `declareField(128)` + per-field ops are exact. The reference wrapper only has the
+   IPv4 5-tuple (`SRC_IP=0…PROTOCOL=4`); we extend the field enum.
+2. **`FilterElement`** (our multi-field first-match forward). Maps to a `FieldNode`
+   doing forward (LPM trie) + per-rule predicate — the reference already unifies
+   forward+ACL in one type-tagged node. Moderate re-expression, not new algorithm.
+3. **VLAN-rewrite `NATElement`** (transformers). **The reference DROPS NAT** in the WAN
+   NDD port (scaffolding + `encodeNAT` exist but are unwired; the intended mechanism is
+   per-field `AtomizedNDD.exist(a,field)` to project+re-inject the rewritten field).
+   ⇒ NAT-on-NDD is **unsolved upstream** and is the main risk. **But it is not needed
+   for wl_up** (single-universe, 0 NATs — our §2.0/baseline data); it is needed only for
+   wl_stanford *faithful-VLAN*. So it can be scoped out of the first NDD milestone.
+4. **`ReachabilityChecker`** (our reachability + query-time src-IPv6 seed (Lever B) +
+   witness + single-universe mode). Maps to `CheckerNDDAP`/`TranverseNodeAP`. NDD is
+   **inherently single-universe**, so Lever B's "no `.sf` split, seed at query time"
+   becomes seeding one `AtomizedNDD` — cleaner than today. Witness capture is our
+   additive diagnostic to re-add.
+5. **Multi-rule-NAT AP-merge fix** ([FIX] in `apkeep/FAVE_CHANGES.md`) is a BDD-atom
+   merge bug; NDD's atom maintenance is different, so this fix is **BDD-engine-scoped**
+   and does not carry over (it stays on the BDD baseline).
+
+Our **adapter is engine-agnostic** (emits `+ fwd/filter/acl/nat` rule strings + edges)
+and does **not** change — confirming the plan's "one shared adapter, two engines".
+
+### §2.3 scoping input — leans (B) engine-swap
+
+The plan asks to decide **(A) re-fork from the authors' NDD-APKeep** vs **(B) keep our
+fork and swap the engine** from a scoping pass, not an assumption. The pass says:
+
+- Our entanglement with the atom layer is **real but bounded and localized** to
+  `APKeeper` + `Element.port_aps_raw` + `BDDACLWrapper.ConvertACLRule` + the checker —
+  exactly the files the reference also rewrote. Everything else (adapter, rule strings,
+  topology, drivers) is agnostic/shared.
+- Our value-adds (IPv6 fields, `FilterElement`, `ReachabilityChecker` with witness +
+  query-seed, the exact-165/3660 modelling) are **adapter- and semantics-facing** and
+  would have to be **re-implemented on the authors' structurally-different base**
+  (`NetworkNDDAP`/`FieldNode`, not `Network`/`Element`) under path (A).
+- The reference gives us the **exact algorithm to port** (atomization, `split_ap_*`,
+  `SplitMap`, single-universe checker) — so (B) is not a research task, it is a
+  transcription of a known algorithm onto our seam.
+
+⇒ **Preliminary recommendation: (B) engine-swap**, first milestone targeting **wl_up**
+(single-universe, no NAT — so the unsolved NAT-on-NDD is out of scope), gated on the
+frozen BDD baseline (3660/3660). NAT-on-NDD (for wl_stanford faithful-VLAN) is a
+follow-on, and is the one genuinely new piece we'd design (using `exist` per field).
+This is a recommendation for owner confirmation, not a committed decision.
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
@@ -85,8 +168,12 @@ differential test now lives in `ndd/src/test/...` and runs in the subtree's own
 `mvn test`: **24 tests green** (17 upstream + 7 ours).
 
 ## Next steps (proposed)
-1. §2.2 extract the vanilla→NDD APKeep recipe from `ndd/src/main/java/application/wan/
-   {bdd,ndd}/verifier/apkeep/…`; with the atomization protocol in hand, add the
-   **atomize/update** differential (completing §2.1).
-2. §2.3 decide (A) re-fork vs (B) engine-swap from the fork-entanglement scoping pass.
-3. Pin the `NDD.toNDD(int)` NPE robustness gap (missing 0/FALSE base case).
+1. **atomize/update differential** (completes §2.1) — now unblocked by §2.2: exercise
+   `AtomizedNDD.atomization` + `getAtomsToSplit*`/`changeAtoms` on our IPv6 profile and
+   assert the per-field atoms partition the space and recombine to the input predicates
+   (differential vs a BDD reference).
+2. §2.3 owner decision: confirm **(B) engine-swap** (see §2.2 scoping) vs (A) re-fork.
+3. Under (B): first NDD milestone = wl_up (single-universe, no NAT), gated on the frozen
+   BDD baseline (3660/3660). Follow-on: NAT-on-NDD (per-field `exist`) for wl_stanford
+   faithful-VLAN.
+4. Pin the `NDD.toNDD(int)` NPE robustness gap (missing 0/FALSE base case).
