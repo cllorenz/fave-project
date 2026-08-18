@@ -40,9 +40,14 @@ import org.ants.jndd.diagram.NDD;
  */
 public final class NddReachabilityEngine {
 
-    // Per-field layout, shared with the sizing/reachability tests.
+    // Canonical per-field layout serving every FaVe benchmark from one
+    // process-global NDD field set. Indices 0..5 (the wl_up fields) are FIXED so
+    // §2.5e parity is preserved by construction; IPv4 address fields and VLAN are
+    // APPENDED. A benchmark constrains only the fields it uses (IPv4 xor IPv6 per
+    // rule; the untouched fields stay TRUE, so unused fields cost nothing).
     static final int SRC = 0, DST = 1, PROTO = 2, SPORT = 3, DPORT = 4, REL = 5;
-    static final int[] W = {128, 128, 8, 16, 16, 1};
+    static final int SRC4 = 6, DST4 = 7, VLAN = 8;
+    static final int[] W = {128, 128, 8, 16, 16, 1, 32, 32, 16};
     static final String DROP = "__drop__";
 
     // NDD's node tables are process-global statics; initialise the field layout
@@ -51,7 +56,7 @@ public final class NddReachabilityEngine {
 
     private static synchronized void ensureFields() {
         if (fieldsReady) return;
-        AtomizedNDD.initAtomizedNDD(4_000_000, 8_000_000, 40_000_000, 8_000_000);
+        AtomizedNDD.initAtomizedNDD(8_000_000, 16_000_000, 48_000_000, 16_000_000);
         for (int w : W) AtomizedNDD.declareField(w);
         NDD.generateFields();
         fieldsReady = true;
@@ -77,22 +82,38 @@ public final class NddReachabilityEngine {
     /**
      * Build the residual forwarding model from the adapter's in-memory IR.
      *
-     * @param rules the adapter's rule strings; only {@code + filter ...} rules
-     *              are consumed (wl_up is all-FilterElement -- IPv6 FIBs +
-     *              packet-filter chains). Non-filter rules are ignored.
+     * @param rules the adapter's rule strings: {@code + filter ...} (5-tuple
+     *              FilterElement) and {@code + fwd ...} (dst-LPM ForwardElement).
      * @param edgeStrings directed topology edges "dev1 port1 dev2 port2".
      */
     public void build(List<String> rules, List<String> edgeStrings) {
-        // rules -> per-device rule lists
+        // rules -> per-device rule lists. Every element type (FilterElement,
+        // ForwardElement, later ACLElement) reduces to the SAME residual-per-
+        // out_port model; only the rule-string parse differs.
+        //   "+ filter <dev> filter 0 <out> <plo> <phi> <sip> <swild> <slo> <shi>
+        //             <dip> <dwild> <dlo> <dhi> <prio> [null] [rel]"  (5-tuple)
+        //   "+ fwd    <dev> <prefixUint32> <plen> <out> <prio>"       (dst LPM)
         Map<String, List<Rule>> byDev = new HashMap<>();
         for (String line : rules) {
             String[] t = line.trim().split("\\s+");
-            if (t.length < 17 || !t[1].equals("filter")) continue;
+            if (t.length < 2) continue;
             Rule r = new Rule();
-            r.hit = NDD.ref(ruleToNDD(t));
-            r.out = t[5];
-            r.prio = Long.parseLong(t[16]);
-            byDev.computeIfAbsent(t[2], k -> new ArrayList<>()).add(r);
+            String dev;
+            if (t[1].equals("filter") && t.length >= 17) {
+                r.hit = NDD.ref(ruleToNDD(t));
+                r.out = t[5];
+                r.prio = Long.parseLong(t[16]);
+                dev = t[2];
+            } else if (t[0].equals("+") && t[1].equals("fwd") && t.length >= 7) {
+                r.hit = NDD.ref(prefixV4(DST4, Long.parseLong(t[3]),
+                                         Integer.parseInt(t[4])));
+                r.out = t[5];
+                r.prio = Long.parseLong(t[6]);
+                dev = t[2];
+            } else {
+                continue;
+            }
+            byDev.computeIfAbsent(dev, k -> new ArrayList<>()).add(r);
         }
         // edges
         for (String line : edgeStrings) {
@@ -120,8 +141,7 @@ public final class NddReachabilityEngine {
                 NDD.deref(eff);
             }
             NDD.deref(covered);
-            // rule hit predicates are no longer needed once the residual is built
-            for (Rule r : rs) NDD.deref(r.hit);
+            for (Rule r : rs) NDD.deref(r.hit);   // hits no longer needed
             portPred.put(en.getKey(), pp);
         }
         built = true;
@@ -146,7 +166,7 @@ public final class NddReachabilityEngine {
         Set<String> hit = reachCache.get(ck);
         if (hit != null) return hit;
 
-        int h0 = NDD.ref(addrPred(SRC, cidr, "null"));   // {src in cidr}, rest free
+        int h0 = NDD.ref(addrPred(SRC, SRC4, cidr, "null"));  // {src in cidr}, rest free
         Map<String, Integer> reached = new HashMap<>();  // "dev|arrivalPort" -> NDD
         ArrayDeque<String> work = new ArrayDeque<>();
         for (String peer : edges.getOrDefault(key(srcDev, srcPort), List.of())) {
@@ -198,18 +218,30 @@ public final class NddReachabilityEngine {
     private static int ruleToNDD(String[] t) {
         int r = NDD.getTrue();
         r = NDD.and(r, rangePred(PROTO, t[6], t[7]));
-        r = NDD.and(r, addrPred(SRC, t[8], t[9]));
+        r = NDD.and(r, addrPred(SRC, SRC4, t[8], t[9]));
         r = NDD.and(r, rangePred(SPORT, t[10], t[11]));
-        r = NDD.and(r, addrPred(DST, t[12], t[13]));
+        r = NDD.and(r, addrPred(DST, DST4, t[12], t[13]));
         r = NDD.and(r, rangePred(DPORT, t[14], t[15]));
         String rel = t.length > 18 ? t[18] : "null";
         if (!rel.equals("null")) r = NDD.and(r, exact(REL, Long.parseLong(rel), 1));
         return r;
     }
 
-    private static int addrPred(int field, String ip, String wild) {
+    /** Encode a src/dst address slot, dispatching by family: an IPv6 token
+     * ("addr/len", wild "null") constrains {@code field6} over 128 bits; an IPv4
+     * token (dotted-quad + a cisco inverse-mask wildcard, or "addr/len")
+     * constrains {@code field4} over 32 bits. The APKeep match-any form
+     * (0.0.0.0 / 255.255.255.255) and null map to TRUE in either family. A rule
+     * only ever names one family, so the other field stays free. */
+    private static int addrPred(int field6, int field4, String ip, String wild) {
         if (ip == null) return NDD.getTrue();
-        if (ip.equals("0.0.0.0") && wild.equals("255.255.255.255")) return NDD.getTrue();
+        if (ip.equals("0.0.0.0") && "255.255.255.255".equals(wild)) return NDD.getTrue();
+        if (ip.contains(":")) return addrPred6(field6, ip);
+        return addrPred4(field4, ip, wild);
+    }
+
+    /** IPv6 prefix "addr/len" (or bare address = /128) over a 128-bit field. */
+    private static int addrPred6(int field, String ip) {
         int len = 128;
         String addr = ip;
         int slash = ip.indexOf('/');
@@ -217,11 +249,58 @@ public final class NddReachabilityEngine {
         if (len == 0) return NDD.getTrue();
         byte[] b;
         try { b = InetAddress.getByName(addr).getAddress(); }
-        catch (Exception e) { throw new RuntimeException("bad ip " + ip, e); }
+        catch (Exception e) { throw new RuntimeException("bad ipv6 " + ip, e); }
         if (b.length != 16) return NDD.getTrue();
         int[] bits = new int[len];
         for (int i = 0; i < len; i++) bits[i] = (b[i >> 3] >> (7 - (i & 7))) & 1;
         return prefix(field, bits, len);
+    }
+
+    /** IPv4 slot over a 32-bit field. Accepts either a cisco inverse-mask
+     * wildcard ("10.0.14.0" + "0.0.1.255": a set wildcard bit is "don't care") --
+     * general (contiguous or not), built bit-by-bit -- or an "addr/len" prefix.
+     * "null"/absent wildcard means an exact /32; a match-any wildcard => TRUE. */
+    private static int addrPred4(int field, String ip, String wild) {
+        String addr = ip;
+        int slash = ip.indexOf('/');
+        if (slash >= 0) {
+            int len = Integer.parseInt(ip.substring(slash + 1));
+            if (len == 0) return NDD.getTrue();
+            long p = ipv4ToLong(ip.substring(0, slash));
+            return prefixV4(field, p, len);
+        }
+        long a = ipv4ToLong(addr);
+        long w;
+        if (wild == null || wild.equals("null")) {
+            w = 0L;                                  // fully care => exact /32
+        } else if (wild.equals("255.255.255.255")) {
+            return NDD.getTrue();                    // match-any
+        } else {
+            w = ipv4ToLong(wild);
+        }
+        int r = NDD.getTrue();
+        for (int i = 0; i < 32; i++) {               // MSB..LSB
+            if (((w >> (31 - i)) & 1) != 0) continue; // don't-care bit
+            int bit = (int) ((a >> (31 - i)) & 1);
+            r = NDD.and(r, bit == 1 ? NDD.getVar(field, i) : NDD.getNotVar(field, i));
+        }
+        return r;
+    }
+
+    private static long ipv4ToLong(String dotted) {
+        String[] o = dotted.split("\\.");
+        return ((Long.parseLong(o[0]) & 255) << 24) | ((Long.parseLong(o[1]) & 255) << 16)
+             | ((Long.parseLong(o[2]) & 255) << 8) | (Long.parseLong(o[3]) & 255);
+    }
+
+    /** A dst-IP prefix (top {@code plen} bits of a uint32) over a 32-bit field. */
+    private static int prefixV4(int field, long prefix, int plen) {
+        int r = NDD.getTrue();
+        for (int i = 0; i < plen; i++) {
+            int bit = (int) ((prefix >> (31 - i)) & 1);
+            r = NDD.and(r, bit == 1 ? NDD.getVar(field, i) : NDD.getNotVar(field, i));
+        }
+        return r;
     }
 
     private static int rangePred(int field, String lo, String hi) {

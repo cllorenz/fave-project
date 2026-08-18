@@ -119,6 +119,28 @@ the real wl_up model, driven through the real aggregator into
 under). Added to `../fave/test/exactness_gate.sh` (which now also builds this
 jar). FaVe context: `../APKEEP_NDD_EVAL.md` §2.5e.
 
+## 5. IPv4 forwarding in the reachability engine (§2.6 incr 1)  **[NEW]**
+
+`NddReachabilityEngine` gains IPv4 so it covers FaVe's IPv4 benchmarks, not just
+wl_up's IPv6. The field layout now APPENDS 32-bit `SRC4`/`DST4` and a 16-bit
+`VLAN` after the six wl_up fields (indices 0–5 unchanged, so wl_up parity is
+preserved by construction — one process-global field set serves every benchmark).
+Added: IPv4 address encoders (a uint32 prefix, or a dotted-quad + cisco
+inverse-mask wildcard built bit-by-bit so any wildcard is exact) with the src/dst
+slot dispatching v4-vs-v6 by token; and parsing of `+ fwd <dev> <prefix> <plen>
+<out> <prio>` (dst-LPM ForwardElement) folded into the SAME first-match residual
+model as `+ filter`. wl_tum (IPv4 5-tuple) and wl_stanford P7a (IPv4 dst-LPM) now
+reach exact parity with the BDD engine (`../fave/test/test_apkeep_ndd_fwd.py`),
+alongside wl_up.
+
+Not yet handled: **wl_i2 scale** (77 k dst routes). The residual materializes each
+port's forwarded-set as a monolithic per-field NDD (a union of thousands of
+prefixes → a large BDD; true partition is only `ap_num`=216), and one-shot
+`AtomizedNDD.atomization` of the raw rules is ~O(n²) — both exhaust memory/time.
+The fix is APKeep-style *incremental* atomic-predicate maintenance (atom-id sets
+over the minimal partition, via the ported-but-untested `getAtomsToSplit*`/
+`changeAtoms` path). Tracked in `../APKEEP_NDD_EVAL.md` §2.6.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration
