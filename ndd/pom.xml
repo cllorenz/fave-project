@@ -90,8 +90,6 @@
                     <excludes>
                         <exclude>**/application/wan/bdd/**</exclude>
                         <exclude>**/application/wan/ndd/**</exclude>
-                        <exclude>**/AtomizedNDD.java</exclude>
-                        <exclude>**/AtomizedNodeTable.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>

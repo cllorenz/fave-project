@@ -39,6 +39,40 @@ projection semantics; RONDD canonicity (AND-order + distributivity yield the sam
 node id); de Morgan/absorption. No upstream behaviour changed; runs in the existing
 JUnit 5 + surefire harness (`mvn test`). Full context: `../APKEEP_NDD_EVAL.md` §2.1.
 
+## 2. Restore the atomization layer on the int-node-id core  **[FIX]**
+
+The upstream `c8414b43` refactor ("Update per-field mixed label backends") made
+`org.ants.jndd.diagram.NDD` **int-node-id based** but left `AtomizedNDD.java` +
+`AtomizedNodeTable.java` written against the older **object-form** NDD, so they no
+longer compiled and were **excluded from the build** (`pom.xml`), together with the
+`application/wan/**` reference verifiers. Atomization (the atomic-predicate
+maintenance APKeep's fast reachability needs) was therefore absent from a working
+build. FaVe restores it:
+
+- **Un-excluded** `AtomizedNDD.java` + `AtomizedNodeTable.java` (`pom.xml`); the
+  `application/wan/**` reference verifiers stay excluded (separately stale).
+- Ported the two files to the int core, preserving the authors' algorithm (a
+  representation port, not a redesign): `AtomizedNDD` carries its own instance
+  `field` (the int core has no inherited instance field); the atom-DAG boolean ops
+  (`and/or/not/diff/exist`) are unchanged; the **bridges** to plain NDD are rewired
+  to the int API — `atomizedToNDD` returns an `int` node id built via
+  `NDD.addAtField` (with explicit `ref`/`deref` for GC safety), and `atomization` /
+  `atomizeNDD` / `collectFieldPreds` / `getAtomsToSplitSingleField` read predicate
+  structure via `NDD.getField/getEdgeCount/getEdgeTarget/getEdgeLabel` and key on
+  `int` node ids (`HashSet<Integer>`/`HashMap<Integer,…>`). `AtomizedNDD.getTrue/
+  getFalse` were renamed `getAtomizedTrue/getAtomizedFalse` to stop them hiding the
+  int-returning `NDD.getTrue/getFalse`.
+- **New test** `src/test/java/org/ants/jndd/diagram/NDDAtomizationTest.java`: a
+  differential correctness gate on FaVe's 128-bit IPv6 profile — per-field atoms are
+  pairwise-disjoint and cover each field (BDD-level check), each input predicate
+  **recombines exactly** (`atomizedToNDD(atomization(P)) == P`, canonical node id),
+  and the atom count is the per-field sum. Green: 25 tests total (17 upstream + our
+  §2.1c 7 + this). FaVe-side context: `../APKEEP_NDD_EVAL.md` §2.1/§2.5.
+
+Not yet exercised: `exist` (transformers/NAT — not needed for wl_up) and the
+incremental split path (`getAtomsToSplit*`/`changeAtoms`) are ported and compile but
+are covered only indirectly; the from-zero engine uses batch `atomization`.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration

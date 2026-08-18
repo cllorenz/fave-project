@@ -84,7 +84,7 @@ public class AtomizedNodeTable {
     public AtomizedNDD mk(int field, HashMap<AtomizedNDD, HashSet<Integer>> edges) {
         if (edges.size() == 0) {
             // Since NDD omits all edges pointing to FALSE, the empty edge represents FALSE.
-            return AtomizedNDD.getFalse();
+            return AtomizedNDD.getAtomizedFalse();
         } else if (edges.size() == 1 && edges.values().iterator().next().size() == AtomizedNDD.getAllAtoms(field).size()) {
             // Omit nodes with the only edge labeled by BDD TRUE.
             return edges.keySet().iterator().next();

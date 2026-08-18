@@ -348,42 +348,56 @@ public class AtomizedNDD extends NDD {
         return result;
     }
 
-    public static NDD atomizedToNDD(AtomizedNDD a) {
-        NDD.getTemporarilyProtect().clear();
+    // FaVe port: returns an int-core NDD node id (the current NDD is int-based).
+    public static int atomizedToNDD(AtomizedNDD a) {
         return atomizedToNDDRec(a);
     }
 
-    private static NDD atomizedToNDDRec(AtomizedNDD a) {
+    private static int atomizedToNDDRec(AtomizedNDD a) {
         if (a.isTrue()) {
             return NDD.getTrue();
         } else if (a.isFalse()) {
             return NDD.getFalse();
         }
 
-        HashMap<NDD, Integer> edges = new HashMap<>();
+        // target int-NDD node -> OR of its atom BDDs (the edge label)
+        HashMap<Integer, Integer> edges = new HashMap<>();
+        ArrayList<Integer> childRefs = new ArrayList<>();
         for (Map.Entry<AtomizedNDD, HashSet<Integer>> entry : a.getAtomizedEdges().entrySet()) {
             int bddLabel = 0;
             for (int atom : entry.getValue()) {
                 bddLabel = bddEngine.orTo(bddLabel, atom);
             }
-            NDD subResult = atomizedToNDDRec(entry.getKey());
-            NDD.addEdge(edges, subResult, bddLabel);
+            int subResult = atomizedToNDDRec(entry.getKey());
+            NDD.ref(subResult);            // protect the child while siblings are built
+            childRefs.add(subResult);
+            Integer existing = edges.get(subResult);
+            if (existing == null) {
+                edges.put(subResult, bddLabel);
+            } else {
+                edges.put(subResult, bddEngine.orTo(existing, bddLabel));
+            }
         }
-
-        NDD result = NDD.mk(a.field, edges);
-        NDD.getTemporarilyProtect().add(result);
+        int result = NDD.addAtField(a.field, edges);   // ref's each label into the node
+        for (int label : edges.values()) {
+            bddEngine.deref(label);                     // drop our transient label refs
+        }
+        for (int c : childRefs) {
+            NDD.deref(c);                               // result now protects the children
+        }
         return result;
     }
 
     // atomization
 
-    public static HashMap<NDD, AtomizedNDD> atomization(HashSet<NDD> nddPredicates, HashMap<NDD, HashSet<Integer>[]> nddToAtoms) {
+    // FaVe port: predicates are int-core NDD node ids.
+    public static HashMap<Integer, AtomizedNDD> atomization(HashSet<Integer> nddPredicates, HashMap<Integer, HashSet<Integer>[]> nddToAtoms) {
         //collect preds
         HashSet<Integer>[] bddPredicatesPerField = new HashSet[fieldNum + 1];
         for(int i = 0; i <= fieldNum; i++) {
             bddPredicatesPerField[i] = new HashSet<>();
         }
-        for(NDD nddPredicate : nddPredicates) {
+        for(int nddPredicate : nddPredicates) {
             collectFieldPreds(nddPredicate, bddPredicatesPerField);
         }
 
@@ -433,8 +447,8 @@ public class AtomizedNDD extends NDD {
         }
 
         //atomize ndd pred
-        HashMap<NDD, AtomizedNDD> nddToAtomizationNDD = new HashMap<>();
-        for(NDD nddPredicate : nddPredicates) {
+        HashMap<Integer, AtomizedNDD> nddToAtomizationNDD = new HashMap<>();
+        for(int nddPredicate : nddPredicates) {
             HashSet<Integer>[] atoms = new HashSet[fieldNum + 1];
             for(int field = 0; field <= fieldNum; field++) {
                 atoms[field] = new HashSet<>();
@@ -447,26 +461,32 @@ public class AtomizedNDD extends NDD {
         return nddToAtomizationNDD;
     }
 
-    private static AtomizedNDD atomizeNDD(NDD current, HashMap<Integer, HashSet<Integer>> bddToAtoms) {
-        if (current.isTrue()) {
+    private static AtomizedNDD atomizeNDD(int current, HashMap<Integer, HashSet<Integer>> bddToAtoms) {
+        if (current == NDD.getTrue()) {
             return TRUE;
-        } else if (current.isFalse()){
+        } else if (current == NDD.getFalse()){
             return FALSE;
         }
         HashMap<AtomizedNDD, HashSet<Integer>> edges = new HashMap<>();
-        for (Map.Entry<NDD, Integer> entry : current.getEdges().entrySet()) {
-            AtomizedNDD subResult = atomizeNDD(entry.getKey(), bddToAtoms);
-            edges.put(subResult, new HashSet<>(bddToAtoms.get(entry.getValue())));
+        int field = NDD.getField(current);
+        int edgeCount = NDD.getEdgeCount(current);
+        for (int i = 0; i < edgeCount; i++) {
+            int target = NDD.getEdgeTarget(current, i);
+            int label = NDD.getEdgeLabel(current, i);
+            AtomizedNDD subResult = atomizeNDD(target, bddToAtoms);
+            edges.put(subResult, new HashSet<>(bddToAtoms.get(label)));
         }
-        return mkAtomized(current.field, edges);
+        return mkAtomized(field, edges);
     }
 
-    private static void collectFieldPreds(NDD current, HashSet<Integer>[] predicates) {
-        if(current.isTerminal()) {
+    private static void collectFieldPreds(int current, HashSet<Integer>[] predicates) {
+        if(current == NDD.getTrue() || current == NDD.getFalse()) {
         } else {
-            for(Map.Entry<NDD, Integer> entry : current.getEdges().entrySet()) {
-                predicates[current.field].add(entry.getValue());
-                collectFieldPreds(entry.getKey(), predicates);
+            int field = NDD.getField(current);
+            int edgeCount = NDD.getEdgeCount(current);
+            for(int i = 0; i < edgeCount; i++) {
+                predicates[field].add(NDD.getEdgeLabel(current, i));
+                collectFieldPreds(NDD.getEdgeTarget(current, i), predicates);
             }
         }
     }
@@ -566,9 +586,9 @@ public class AtomizedNDD extends NDD {
         }
     }
 
-    public static void getAtomsToSplitSingleField(NDD deltaNDD, HashSet<Integer> deltaToAtoms,
+    public static void getAtomsToSplitSingleField(int deltaNDD, HashSet<Integer> deltaToAtoms,
                                               HashMap<Integer, HashSet<Integer>> atomsToSplit, int field) {
-        int deltaBDD = deltaNDD.getEdges().values().iterator().next();
+        int deltaBDD = NDD.getEdgeLabel(deltaNDD, 0);
         if (atomsPerField.get(field).contains(deltaBDD)) {
             deltaToAtoms.add(deltaBDD);
         } else {
@@ -743,10 +763,18 @@ public class AtomizedNDD extends NDD {
 
     // per node content
 
+    // FaVe port: the int-core NDD is a static/int class with no instance `field`,
+    // so AtomizedNDD (an object DAG) carries its own field index.
+    private int field;
+
     private HashMap<AtomizedNDD, HashSet<Integer>> atomizedEdges;
 
     public AtomizedNDD() {
         super();
+    }
+
+    public int getField() {
+        return field;
     }
 
     public AtomizedNDD(int field, HashMap<AtomizedNDD, HashSet<Integer>> atomizedEdges) {
@@ -758,24 +786,26 @@ public class AtomizedNDD extends NDD {
 
     private final static AtomizedNDD FALSE = new AtomizedNDD();
 
-    public static AtomizedNDD getTrue() {
+    // FaVe port: renamed from getTrue/getFalse -- those would clash (hide) the
+    // int-returning static NDD.getTrue()/getFalse() of the base class.
+    public static AtomizedNDD getAtomizedTrue() {
         return TRUE;
     }
 
-    public static AtomizedNDD getFalse() {
+    public static AtomizedNDD getAtomizedFalse() {
         return FALSE;
     }
 
     public boolean isTrue() {
-        return this == getTrue();
+        return this == TRUE;
     }
 
     public boolean isFalse() {
-        return this == getFalse();
+        return this == FALSE;
     }
 
     public boolean isTerminal() {
-        return this == getTrue() || this == getFalse();
+        return this == TRUE || this == FALSE;
     }
 
     public HashMap<AtomizedNDD, HashSet<Integer>> getAtomizedEdges() {
