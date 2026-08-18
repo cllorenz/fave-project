@@ -141,6 +141,21 @@ The fix is APKeep-style *incremental* atomic-predicate maintenance (atom-id sets
 over the minimal partition, via the ported-but-untested `getAtomsToSplit*`/
 `changeAtoms` path). Tracked in `../APKEEP_NDD_EVAL.md` §2.6.
 
+## 6. ACLElement (permit/deny) in the reachability engine (§2.6 incr 2)  **[NEW]**
+
+`NddReachabilityEngine` now consumes `+ acl` rules, so wl_ifi (router ACLs) runs
+on NDD. An ACL rule has the SAME token layout as `+ filter` (proto/src/sport/dst/
+dport at identical indices) — only `t[1]`=`acl` and `t[5]`=`permit`/`deny` differ
+— so the predicate reuses the filter encoder; a permit maps to the element's
+`"permit"` out_port and a deny drops, folded into the same first-match residual
+(Cisco first-match ⇒ higher priority wins). The only genuinely new bit is APKeep's
+ACLElement node naming: an element `E` appears in the topology graph as the node
+`E_in`/`E_out`, so the flood maps an arrival node back to its element (`elementOf`,
+a trailing-suffix strip that leaves dotted names like `in.bbra_rtr` untouched). The
+source's src-IP is the query-time seed, so source-matching ACLs bite. Gated exact
+vs the ground truth by `../fave/test/test_apkeep_ndd_fwd.py` (wl_ifi ==
+reachable.json). NAT/VLAN rewrite (`+ nat`) is still future work (§2.6 incr 3).
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration

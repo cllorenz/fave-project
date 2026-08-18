@@ -79,6 +79,15 @@ public final class NddReachabilityEngine {
 
     private static String key(String dev, String port) { return dev + "|" + port; }
 
+    /** A topology node "E_in"/"E_out" -> its element "E" (APKeep's ACLElement
+     * naming), else null. Only the trailing suffix is stripped, so device names
+     * like "in.bbra_rtr" (a dotted prefix, not an "_in" suffix) are untouched. */
+    private static String elementOf(String node) {
+        if (node.endsWith("_in")) return node.substring(0, node.length() - 3);
+        if (node.endsWith("_out")) return node.substring(0, node.length() - 4);
+        return null;
+    }
+
     /**
      * Build the residual forwarding model from the adapter's in-memory IR.
      *
@@ -109,6 +118,18 @@ public final class NddReachabilityEngine {
                                          Integer.parseInt(t[4])));
                 r.out = t[5];
                 r.prio = Long.parseLong(t[6]);
+                dev = t[2];
+            } else if (t[1].equals("acl") && t.length >= 17) {
+                // "+ acl <elem> acl 0 <permit|deny> 0 255 <sip> <swild> null null
+                //       <dip> <dwild> null null <prio> [vlan]" -- SAME field layout
+                // as "+ filter" (proto/src/sport/dst/dport at the same indices), so
+                // the predicate reuses ruleToNDD; a permit forwards to the element's
+                // "permit" out_port (Cisco first-match => higher priority wins), a
+                // deny drops. The element node appears in the topology as
+                // "<elem>_in"/"<elem>_out" (resolved in the flood).
+                r.hit = NDD.ref(ruleToNDD(t));
+                r.out = t[5].equals("permit") ? "permit" : DROP;
+                r.prio = Long.parseLong(t[16]);
                 dev = t[2];
             } else {
                 continue;
@@ -180,6 +201,13 @@ public final class NddReachabilityEngine {
             String inPort = cur.substring(bar + 1);
             int rd = reached.get(cur);
             Map<String, Integer> pp = portPred.get(d);
+            if (pp == null) {
+                // An APKeep ACLElement "E" appears in the topology as the node
+                // "E_in"/"E_out" but its rules are keyed by the element "E"; map
+                // the arrival node back to its element to find the residual.
+                String elem = elementOf(d);
+                if (elem != null) pp = portPred.get(elem);
+            }
             if (pp == null) continue;                    // sink (probe) or no rules
             for (Map.Entry<String, Integer> pe : pp.entrySet()) {
                 if (pe.getKey().equals(inPort)) continue; // no-hairpin
