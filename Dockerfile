@@ -3,6 +3,23 @@
 FROM ubuntu:24.04
 LABEL Description="This image is used to build, test, and benchmark the FaVe verification system."
 
+# --- Validated environment provenance (APKEEP_NDD_PLAN.md Part 1.2) ----------
+# The APKeep-backend performance numbers are only reproducible on the toolchain
+# they were measured on. apt point-releases roll forward (a hard `=version` pin
+# breaks `apt-get install` once superseded), so instead of pinning we RECORD the
+# exact versions the frozen BDD baseline was validated against. On a drift, the
+# numbers must be re-measured before they are trusted (see Part 1.4).
+#   ubuntu base            : 24.04
+#   openjdk-11-jdk-headless: 11.0.31+11-1ubuntu1~24.04.2
+#   maven                  : 3.8.7-2
+#   bison                  : 2:3.8.2+dfsg-1build2
+#   flex                   : 2.6.4-8.2build1
+#   m4                     : 1.4.19-4build1
+#   python3-dev            : 3.12.3-0ubuntu2.1
+#   vendored JDD jar       : 111 (apkeep/local-maven-repo/.../JDD-111.jar, in-tree)
+# Python deps are hard-pinned below (pure-Python -> stable across mirrors).
+# -----------------------------------------------------------------------------
+
 ENV APT_CONFS="--no-install-recommends -y"
 ENV DIRPATH=/home/fave-code
 WORKDIR $DIRPATH
@@ -31,6 +48,11 @@ RUN apt-get $APT_CONFS install lmodern
 RUN apt-get $APT_CONFS install python3-coverage
 RUN apt-get $APT_CONFS install flex
 RUN apt-get $APT_CONFS install bison
+# m4 is bison's runtime skeleton processor: pybison shells out to `bison` at
+# import time, which invokes `m4`. It is normally pulled in transitively, but a
+# minimal image (or a container reset) can lack it, and then pybison segfaults
+# with no obvious cause -- so pin it explicitly as a first-class dependency.
+RUN apt-get $APT_CONFS install m4
 # APKeep backend (apkeep/): JDK 11 + Maven to build/run it in the integration tier.
 RUN apt-get $APT_CONFS install openjdk-11-jdk-headless
 RUN apt-get $APT_CONFS install maven
@@ -45,14 +67,18 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip3 install wheel
-RUN pip3 install graphviz
-RUN pip3 install filelock
-RUN pip3 install pyparsing
-RUN pip3 install cachetools
-RUN pip3 install dd
-RUN pip3 install pybison
-# JPype1 drives the APKeep backend in-process (fave/apkeep/lib_apkeep.py).
-RUN pip3 install JPype1
+RUN pip3 install graphviz==0.21
+RUN pip3 install filelock==3.29.4
+RUN pip3 install pyparsing==3.3.2
+RUN pip3 install cachetools==7.1.4
+RUN pip3 install dd==0.6.0
+# pybison is a NATIVE build (needs flex/bison/m4 above); pin it so the parser it
+# compiles at runtime is reproducible.
+RUN pip3 install pybison==0.6.4
+# JPype1 drives the APKeep backend in-process (fave/apkeep/lib_apkeep.py). Pinned:
+# the JVM+pybison combo is what crashed after the 2026-08-17 container reset, so
+# the exact backend-binding version is load-bearing for reproducible timings.
+RUN pip3 install JPype1==1.7.1
 
 COPY . $DIRPATH/
 
