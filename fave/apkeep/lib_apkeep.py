@@ -45,6 +45,12 @@ from typing import Any, Dict, List, Optional
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _APKEEP_JAR = os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar")
+# The NDD engine (the second FaVe backend, apkeep/lib_ndd.py) shares this
+# process-global JVM. When its fat jar is present, put it on the classpath too so
+# either engine can boot the JVM and both remain reachable (see lib_ndd).
+_NDD_JAR = os.path.join(
+    _REPO_ROOT, "ndd", "target", "ndd-1.0.1-jar-with-dependencies.jar"
+)
 
 try:
     import jpype
@@ -67,7 +73,8 @@ def _ensure_jvm() -> None:
             "APKeep jar not built: %s (run `mvn -C apkeep package`)" % _APKEEP_JAR
         )
     if not jpype.isJVMStarted():
-        jpype.startJVM(classpath=[_APKEEP_JAR])
+        cp = [j for j in (_APKEEP_JAR, _NDD_JAR) if os.path.isfile(j)]
+        jpype.startJVM(classpath=cp or [_APKEEP_JAR])
 
 
 class LibAPKeep:

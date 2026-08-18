@@ -282,15 +282,46 @@ representation removes the blowup, which is why NDD lands with NetPlumber-class 
 sub-second) from-zero cost while BDD-APKeep pays ~692 s. Timings are cold single-runs;
 the gap dwarfs any warm-up effect.
 
-### §2.5 — status: DONE (prototype). Productionization = NEXT
+### §2.5 — status: DONE (prototype). Productionization: §2.5e DONE (wl_up)
 The (B) engine-swap is proven on wl_up: **correct** (§2.5c, 3660/3660) and **fast**
 (§2.5d, ~0.5 s vs ~1079 s). Remaining to make it a real second backend:
-1. Productionize into `LibAPKeep` + the adapter (the "one shared adapter, two engines"
-   model) so FaVe can select the NDD engine; wire the wl_up eval into the exactness gate.
+1. ✅ **§2.5e (DONE):** productionized into the adapter as a selectable second engine
+   ("one shared adapter, two engines"); wl_up NDD wired into the exactness gate.
 2. Extend beyond wl_up: NAT-on-NDD (per-field `exist`) for wl_stanford faithful-VLAN;
    the ACL-division / IPv4 workloads.
 3. Incremental updates (the `getAtomsToSplit*`/`changeAtoms` path) if update-time
    (not just from-zero) becomes a target.
+
+### §2.5e — productionize the NDD engine (wl_up): DONE
+The §2.5c/d prototype lived in a JUnit test driven by line-file dumps. Productionized
+it into the real FaVe path with **no new correctness risk** (the residual/flood/encoders
+are the proven code, ported verbatim):
+
+- **Promoted** the engine to a main-source class
+  `ndd/src/main/java/org/ants/jndd/fave/NddReachabilityEngine.java`:
+  `build(rules, edges)` + `isReachable(srcDev,srcPort,cidr,dstDev,dstPort)` with
+  per-source flood caching (plain `NDD.and` hop). In the NDD fat jar (`mvn -f ndd`).
+- **Bound** it via JPype in `fave/apkeep/lib_ndd.py` (`LibNDD`), a resident-JVM handle
+  parallel to `LibAPKeep`. Both `_ensure_jvm` now use a **union classpath** (apkeep +
+  ndd jars) so either engine can boot the process-global JVM and both stay reachable.
+- **Selector** in `APKeepAdapter(engine='bdd'|'ndd')`. The model construction is
+  engine-agnostic (it already emits the neutral `+ filter` / `dev port dev port` IR —
+  the exact strings `wl_up_dump2.py` captured); `_build()` branches at the dispatch:
+  BDD → `LibAPKeep.init_in_memory/run`; NDD → `LibNDD.build(all_rules, edges)`. NDD is
+  guarded **single-universe** (no ACL/NAT rules) and raises otherwise. `check_compliance`
+  dispatches `is_reachable` to the active engine (NDD takes the src CIDR as the query
+  seed — Lever B for every source). BDD path byte-unchanged (`run(all_rules)` where
+  `all_rules == _dedup(fwd)+acl+nat+filter`, the former inline expression).
+- **Gate:** new `fave/test/test_apkeep_ndd_wlup.py` drives the REAL wl_up model through
+  the REAL aggregator into `APKeepAdapter(engine='ndd')` and asserts the full
+  source→probe matrix equals the frozen BDD baseline `bench/wl_up/eval/mat_apk.json`
+  **exactly: 3661 pairs, 0 over, 0 under** (2 passed, ~3.2 s incl. JVM boot + replay).
+  Added to `exactness_gate.sh` (which now also builds the ndd jar + regenerates wl_up
+  inputs via the new `gen_wl_up_inputs.sh`, byte-identical to the tracked model).
+  Standalone JPype smoke (dump → LibNDD → golden): build 389 ms + query 176 ms, parity.
+
+This realizes "one shared adapter, two engines" for wl_up. Not yet productionized:
+transformers (NAT/VLAN) and ACL division for the other workloads — future work (item 2).
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a

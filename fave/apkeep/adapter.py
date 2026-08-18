@@ -233,9 +233,25 @@ class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
-                 faithful_vlan: bool = False) -> None:
+                 faithful_vlan: bool = False, engine: str = 'bdd') -> None:
         self.logger = logger
-        self._lib = LibAPKeep()
+        # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
+        # model construction below is engine-agnostic (it emits neutral "+ filter"
+        # rule strings + "dev port dev port" edges); only the build/query target
+        # differs. 'bdd' -> APKeep (LibAPKeep); 'ndd' -> the per-field NDD engine
+        # (LibNDD), which drops APKeep's atomic-predicate cross-product. The NDD
+        # engine currently covers the single-universe forwarding case (wl_up: no
+        # ACL/NAT); _build() guards this and raises otherwise.
+        if engine not in ('bdd', 'ndd'):
+            raise ValueError("engine must be 'bdd' or 'ndd', got %r" % engine)
+        self._engine = engine
+        if engine == 'ndd':
+            from apkeep.lib_ndd import LibNDD
+            self._ndd = LibNDD()
+            self._lib = None
+        else:
+            self._lib = LibAPKeep()
+            self._ndd = None
         # P7b: when set, model the wl_stanford VLAN semantics faithfully (mid-stage
         # VLAN rewrite via NAT + probe vlan=0 filter) instead of the forwarding-only
         # out-stage collapse (P7a, which only matches the artificial all-to-all
@@ -809,6 +825,23 @@ class APKeepAdapter(AbstractVerificationEngine):
         filter_rules_all = pf_rules + router_fib_rules
         edges, filter_devices, filter_rules_all = self._elide_passthrough_filters(
             edges, filter_devices, filter_rules_all)
+        # The combined, engine-neutral rule IR (identical to what the BDD engine's
+        # run() receives, and to what wl_up_dump2.py captures for the NDD tests).
+        all_rules = _dedup(fwd_rules) + acl_rules + nat_rules + filter_rules_all
+        if self._engine == 'ndd':
+            # The NDD engine covers single-universe forwarding only: ACL/NAT
+            # division (wl_stanford faithful VLAN) needs per-field transformers
+            # (exist), which are future work (APKEEP_NDD_PLAN §2.6). Guard here so
+            # an out-of-scope model fails loudly instead of silently mismodelling.
+            if acl_rules or nat_rules or device_acls or device_nats:
+                raise NotImplementedError(
+                    "NDD engine supports single-universe forwarding only "
+                    "(no ACL/NAT); use engine='bdd' for this model")
+            self._ndd.build(all_rules, edges)
+            self._single_universe = True
+            self._build_metrics = {}
+            self._built = True
+            return
         self._lib.init_in_memory("fave", edges, fwd_devices,
                                  device_acls, device_nats,
                                  device_filters=filter_devices or None,
@@ -816,8 +849,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # Apply ACLs BEFORE the VLAN-rewrite NATs: the ACLs split atomic predicates
         # on VLAN, and the NAT rewrite table must be built over that final
         # partition (a later ACL split would leave APs the NAT never rewrites).
-        self._lib.run(_dedup(fwd_rules) + acl_rules + nat_rules
-                      + filter_rules_all)
+        self._lib.run(all_rules)
         # Phase 7 fail-safe: the per-source reachability fixpoint is exact only in
         # a SINGLE AP universe -- no ACLElement/NATElement divides the space, so the
         # join at path merges is exact union. Read it back from the BUILT network
@@ -1324,7 +1356,13 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # the out-stage reset to 0); the faithful model enforces that at
                 # the probe as a target-header constraint.
                 tvlan = 0 if (self._stanford and self._faithful_vlan) else None
-                if self._acl_device is not None and src_cidr is not None:
+                if self._engine == 'ndd':
+                    # The NDD engine takes the source's src space directly as the
+                    # query-time seed (Lever B for every source); no ACL/NAT/VLAN
+                    # path here (single-universe, guarded at build).
+                    reachable = self._ndd.is_reachable(
+                        sdev, sport, pdev, pport, src_cidr=src_cidr)
+                elif self._acl_device is not None and src_cidr is not None:
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan)

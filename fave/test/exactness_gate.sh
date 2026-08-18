@@ -46,6 +46,7 @@ EXACT_TESTS=(
     test/test_apkeep_stanford.py
     test/test_apkeep_tum.py
     test/test_backend_differential.py
+    test/test_apkeep_ndd_wlup.py
 )
 
 rc=0
@@ -53,6 +54,10 @@ step() { echo; echo "== exactness[$1] =="; }
 
 step "1/6 APKeep Java core unit tests"
 ( cd "$ROOT/apkeep" && mvn -q -B test ) || { echo "Java unit tests FAILED"; rc=1; }
+
+step "1b/6 NDD engine jar (second backend, wl_up NDD parity test)"
+( cd "$ROOT/ndd" && mvn -q -B -DskipTests package ) \
+    || { echo "NDD jar build FAILED"; rc=1; }
 
 step "2/6 bundled-Stanford loop golden pin"
 bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
@@ -62,6 +67,7 @@ bash "$ROOT/fave/test/gen_wl_ifi_inputs.sh"      || rc=1
 bash "$ROOT/fave/test/gen_wl_i2_inputs.sh"       || rc=1
 bash "$ROOT/fave/test/gen_wl_stanford_inputs.sh" || rc=1
 bash "$ROOT/fave/test/gen_wl_tum_inputs.sh"      || rc=1
+bash "$ROOT/fave/test/gen_wl_up_inputs.sh"       || rc=1
 
 step "4/6 exactness pytest subset"
 ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" -m pytest -q "${EXACT_TESTS[@]}" ) || rc=1
