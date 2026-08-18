@@ -196,11 +196,27 @@ global partition (`ap_num=14561`). Atomization (for performance) becomes a *late
 by either porting `AtomizedNDD` (~100 errors) or implementing per-field atomization
 ourselves on the int-core.
 
-This intersects with §2.0 (MIXED field-locality): the compounding of "MIXED locality" +
-"atomization not library-provided here" is a genuine owner decision point — see the
-handoff. Options weighed: (1) plain-NDD correctness prototype now (cheap, uses working
-core); (2) invest in atomization (port AtomizedNDD, or implement per-field ourselves);
-(3) reconsider vs the Phase E hand-rolled two-universe fallback (already validated ~29×).
+This intersected with §2.0 (MIXED field-locality) as an owner decision point. **Owner
+chose: invest in atomization first.**
+
+### §2.5a — atomization RESTORED (commit f9e5b2f9): DONE
+Ported `AtomizedNDD.java` + `AtomizedNodeTable.java` to the int-core (un-excluded in
+`ndd/pom.xml`; `application/wan/**` stays excluded). Faithful representation port —
+authors' atom-DAG algorithm unchanged; only the `field` instance member + the bridges
+to plain NDD rewired to the int API (`atomizedToNDD`→int via `NDD.addAtField`;
+`atomization`/`atomizeNDD`/`collectFieldPreds` read via `getField/getEdgeCount/
+getEdgeTarget/getEdgeLabel`; `getTrue/getFalse`→`getAtomizedTrue/getAtomizedFalse` to
+stop hiding NDD's int statics). New `NDDAtomizationTest` (the §2.1 atomize/update
+differential, now enabled): per-field atoms partition each field (disjoint + cover,
+BDD-checked) and each predicate **recombines exactly** (`atomizedToNDD(atomization(P))
+== P`, canonical node id) on the 128-bit IPv6 profile. **25 NDD tests green** (17
+upstream + 7 §2.1c + 1 atomization). Details: `ndd/FAVE_CHANGES.md` §2. `exist` (NAT,
+not needed for wl_up) + incremental split compile but aren't yet directly exercised.
+
+### §2.5b — NDD reachability engine slice on wl_up: NEXT
+With atomization restored, build the atom-based NDD engine (per-field `AtomizedNDD`
+atoms, single-universe traversal, IPv6 field layout) and gate on exact parity with the
+frozen BDD baseline (3660/3660) on wl_up.
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
