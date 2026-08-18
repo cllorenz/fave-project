@@ -87,8 +87,11 @@ unless `-Dwlup.*` system properties point at line-file dumps produced by
   reachability engine for wl_up (first-match residual per out_port ⇒ LPM; per-source
   fixpoint flood keyed by (device, arrival-port), no-hairpin; source src-IPv6 seed),
   gated on **exact parity** with the frozen BDD baseline: **3661/3661, 0 over, 0
-  under**. Proves the (B) engine-swap correct on wl_up. FaVe context:
-  `../APKEEP_NDD_EVAL.md` §2.5b/§2.5c.
+  under**. Proves the (B) engine-swap correct on wl_up. It also carries an atom-based
+  variant (hop = `AtomizedNDD.and` over the §2.5b atoms) at equal parity, and phase
+  timing: full from-zero build+query is **~0.45 s** (plain) / **~0.6 s** (atom-based)
+  vs the BDD-APKeep baseline's **~1079 s** and NetPlumber's ~49 s. FaVe context:
+  `../APKEEP_NDD_EVAL.md` §2.5b/§2.5c/§2.5d.
 
 ---
 

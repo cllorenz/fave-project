@@ -255,12 +255,42 @@ An initial cut without no-hairpin over-approximated by exactly 29 host-to-self p
 (never dropped a real path). Reachability runs on **plain per-field NDDs** (hop =
 `NDD.and`, arrival iff `!= FALSE`); the §2.5b atomization is the orthogonal speed layer.
 
-### §2.5d — build-time win + atom-based speed: NEXT
-Correctness (§2.5c) + the 40× atom sizing (§2.5b) establish the case. Remaining: swap
-the plain-NDD hop for atom-set intersection (the §2.5b `AtomizedNDD`) and measure the
-end-to-end from-zero build+query time vs the BDD baseline (692 s / ap_num 14 561), to
-quantify the actual speed win. Then productionize into `LibAPKeep`/the adapter (the
-"one shared adapter, two engines" integration).
+### §2.5d — from-zero build+query time: the win, MEASURED ✅
+Both engine variants (same `NDDWlupReachabilityTest`), full wl_up, cold JVM, **each
+EXACT PARITY 3661/3661**:
+
+| engine | build | query | build+query |
+|---|---|---|---|
+| **NDD (plain per-field, hop = `NDD.and`)** | 210 ms | 235 ms | **445 ms** |
+| **NDD (atom-based, hop = `AtomizedNDD.and`, 341 atoms)** | 202 ms | 398 ms | **601 ms** |
+| BDD baseline (APKeep, `ap_num` 14 561) | ~692 s | — | **~1079 s** |
+| NetPlumber (HSA reference) | — | — | ~49 s |
+
+**The NDD engine does the full from-zero build+query in ~0.5 s vs BDD-APKeep's ~1079 s
+(~1700–2400×), and ~80× faster than NetPlumber — at exact parity.** The atom-based
+path (the §2.5b `AtomizedNDD`) validates the ported atomization end-to-end in
+reachability (341 atoms, matching the §2.5b sizing); at wl_up's small scale it is not
+faster than plain `NDD.and` (atomization's advantage is asymptotic / for incremental
+updates), but it holds parity.
+
+**Honest framing.** The comparison is fair in that both compute the identical full
+137×137 matrix from zero with exact parity, but the architectures differ: the BDD 692 s
+is APKeep's build of its global atomic-predicate partition (the src×dst×… cross-product
+blowup, 93 % PPM), whereas the NDD engine is a direct per-source fixpoint flood that
+never materialises that partition. The result *is* the thesis: the per-field
+representation removes the blowup, which is why NDD lands with NetPlumber-class (indeed
+sub-second) from-zero cost while BDD-APKeep pays ~692 s. Timings are cold single-runs;
+the gap dwarfs any warm-up effect.
+
+### §2.5 — status: DONE (prototype). Productionization = NEXT
+The (B) engine-swap is proven on wl_up: **correct** (§2.5c, 3660/3660) and **fast**
+(§2.5d, ~0.5 s vs ~1079 s). Remaining to make it a real second backend:
+1. Productionize into `LibAPKeep` + the adapter (the "one shared adapter, two engines"
+   model) so FaVe can select the NDD engine; wire the wl_up eval into the exactness gate.
+2. Extend beyond wl_up: NAT-on-NDD (per-field `exist`) for wl_stanford faithful-VLAN;
+   the ACL-division / IPv4 workloads.
+3. Incremental updates (the `getAtomsToSplit*`/`changeAtoms` path) if update-time
+   (not just from-zero) becomes a target.
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
