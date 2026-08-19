@@ -399,10 +399,31 @@ BDD nodes, and time dominated by AP `merge` (920 s) + PPM update (773 s), 92k sp
 the cross-product blow-up (VLAN × dst) that NDD is designed to eliminate, demonstrated on
 the hardest FaVe workload: BDD is intractable, NDD is sub-3-s and exact.
 
-### §2.6 status: 5 of 6 benchmarks exact on NDD
-wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN** — all exact and
-gated. Remaining: **wl_i2** (77k routes) needs incremental atomic-predicate maintenance
-(incr 1b, still open).
+**Incr 1b (wl_i2 scale) — DONE (dst-only) via atomic-predicate forwarding.** The
+monolithic per-port residual is intractable for wl_i2 (77k routes: >9 min / OOM even
+per-device), though the true partition is only `ap_num=216`. `AtomForwarding`
+(`org.ants.jndd.fave`) computes that minimal partition directly with INTEGER interval
+arithmetic (no BDDs): rule ranges → 16 232 elementary intervals → per-device binary-trie
+LPM → merge intervals by forwarding signature → **216 atoms (== APKeep's ap_num)**.
+Reachability floods atom-sets. **Builds in ~0.7 s, exact vs the oracle (72 pairs).** The
+adapter routes any pure-`+fwd` FIB (wl_i2, wl_stanford-P7a) here; wl_i2 is now in the
+gate (18 passed, 0 skipped).
+
+*Finding — wl_i2 VLANs are redundant with dst.* i2's source routing is VLAN-based
+(`in.*` match `vlan=N`; `out.*` match dst + `rw=vlan:M`), but every role has a distinct
+IPv4 range, so the collapsed dst-only model already reproduces the ground truth exactly
+(72 = reachable.json = NP). A *faithful* i2 (dst × VLAN, un-collapsed) therefore yields
+the **same** reachability; its value is a second **Σ-vs-Π scaling demonstration** (NDD
+keeps dst-atoms + VLAN separate; BDD-APKeep materialises the dst×VLAN cross-product) —
+the same win faithful-stanford already shows. Building it needs an adapter faithful-i2
+mode + a two-field atom engine (dst-atoms × VLAN).
+
+### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
+wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
+exact and in the exactness gate (18 passed, 0 skipped). The NDD multi-field advantage is
+proven on wl_up (0.5 s vs 1079 s) and faithful-stanford (BDD intractable, ap_num≈21.6k,
+vs NDD 3 s). Optional follow-on: faithful-i2 (dst×VLAN) as a second Σ-vs-Π data point,
+with a BDD-APKeep faithful-i2 comparison.
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
