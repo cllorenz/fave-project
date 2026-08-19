@@ -177,6 +177,23 @@ the workload BDD-APKeep cannot finish — its VLAN×dst atomic-predicate partiti
 explodes (ap_num ≈ 21.6k, 28 min+ unfinished) — while NDD builds it in ~3 s. Full
 context + the BDD build profile: `../APKEEP_NDD_EVAL.md` §2.6.
 
+## 8. Atomic-predicate dst-IP forwarding for large FIBs (§2.6 incr 1b)  **[NEW]**
+
+`src/main/java/org/ants/jndd/fave/AtomForwarding.java` (**new class**) makes
+wl_i2 (77k dst routes) tractable on NDD. The general engine's monolithic per-port
+residual OOMs/times out there (the true partition is only `ap_num=216`), so this
+computes that minimal partition directly with **integer interval arithmetic** (no
+BDDs): each `+ fwd` rule is a [lo,hi] dst range; the union of range boundaries
+gives elementary intervals (16 232); a per-device binary trie gives each
+interval's LPM port; intervals with the same per-device forwarding signature
+merge into one atom → **216 atoms, == APKeep's ap_num**. Reachability floods
+atom-sets (per (device, out_port) atom-set; per-source fixpoint, no-hairpin).
+Builds in ~0.7 s, exact vs the oracle (72 pairs). The FaVe adapter routes any
+pure-`+fwd` FIB (wl_i2, wl_stanford-P7a) here via `LibNDD.build_fwd_atoms`. It is
+the base for a two-field faithful-i2 (dst × VLAN) engine, where the VLAN stays a
+separate field (NDD's Σ) vs BDD's dst×VLAN cross-product (Π). Context:
+`../APKEEP_NDD_EVAL.md` §2.6.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration
