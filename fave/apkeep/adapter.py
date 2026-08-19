@@ -829,15 +829,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         # run() receives, and to what wl_up_dump2.py captures for the NDD tests).
         all_rules = _dedup(fwd_rules) + acl_rules + nat_rules + filter_rules_all
         if self._engine == 'ndd':
-            # The NDD engine covers forwarding (+fwd/+filter) and ACLs (+acl,
-            # permit/deny as a residual out_port). NAT/VLAN rewrite (+nat) needs a
-            # per-field transformer (exist), still future work (APKEEP_NDD_PLAN
-            # §2.6 incr 3); guard it so an out-of-scope model fails loudly here
-            # instead of silently mismodelling.
-            if nat_rules or device_nats:
-                raise NotImplementedError(
-                    "NDD engine does not yet model NAT/VLAN rewrite (+nat); "
-                    "use engine='bdd' for this model")
+            # The NDD engine covers forwarding (+fwd/+filter), ACLs (+acl,
+            # permit/deny as a residual out_port), and VLAN rewrite (+nat, an
+            # inline per-field exist+set on the egress port) -- i.e. every element
+            # type these benchmarks emit.
             self._ndd.build(all_rules, edges)
             self._single_universe = True
             self._build_metrics = {}
@@ -1359,10 +1354,11 @@ class APKeepAdapter(AbstractVerificationEngine):
                 tvlan = 0 if (self._stanford and self._faithful_vlan) else None
                 if self._engine == 'ndd':
                     # The NDD engine takes the source's src space directly as the
-                    # query-time seed (Lever B for every source); no ACL/NAT/VLAN
-                    # path here (single-universe, guarded at build).
+                    # query-time seed (Lever B for every source); target_vlan
+                    # enforces the faithful wl_stanford probe's vlan=0 at arrival.
                     reachable = self._ndd.is_reachable(
-                        sdev, sport, pdev, pport, src_cidr=src_cidr)
+                        sdev, sport, pdev, pport, src_cidr=src_cidr,
+                        target_vlan=tvlan)
                 elif self._acl_device is not None and src_cidr is not None:
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(

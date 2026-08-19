@@ -166,6 +166,35 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         self.assertEqual(bdd - ndd, set(), "UNSOUND: BDD-reachable pairs NDD drops")
         self.assertEqual(ndd - bdd, set(), "OVER: pairs NDD adds vs BDD")
 
+    @require_or_skip(all(os.path.isfile(f) for f in _ST_INPUTS),
+                     "wl_stanford inputs not generated")
+    def test_stanford_faithful_vlan_matches_netplumber(self):
+        """ Faithful wl_stanford VLAN model on NDD (per-router VLAN admission +
+        per-route VLAN rewrite + access-port untag at probes) == the NetPlumber
+        data plane, pair-for-pair. This is the case BDD-APKeep cannot finish (the
+        VLAN x dst atomic-predicate cross-product explodes to ~21k APs, 28 min+
+        unfinished); NDD builds it in ~3 s. NP is the oracle (we've shown NP ==
+        BDD-APKeep on the tractable configs); see APKEEP_NDD_EVAL.md §2.6. """
+        import sys
+        sys.path.insert(0, os.path.abspath("bench"))
+        from netplumber import lib_adapter
+        if lib_adapter.libnetplumber is None:
+            self.skipTest("libnetplumber not built")
+        import apkeep_convergence as conv
+        np = conv.compute_matrix("netplumber", None)   # probe base -> src bases
+        np_pairs = {(p, s) for p, ss in np.items() for s in ss}
+
+        _, sources, probes, reach = _matrix(
+            _ST_PREFIX, 'ndd', files=_ST_FILES, faithful=True)
+        ndd_pairs = {
+            (_base(p), _base(s)) for p in probes for s in sources
+            if (s, p) in reach and _base(s) != _base(p)
+        }
+        self.assertEqual(np_pairs - ndd_pairs, set(),
+                         "UNSOUND: NP-reachable faithful pairs NDD drops")
+        self.assertEqual(ndd_pairs - np_pairs, set(),
+                         "OVER: faithful pairs NDD adds vs NP")
+
 
 if __name__ == '__main__':
     unittest.main()

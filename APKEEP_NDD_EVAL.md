@@ -334,7 +334,7 @@ model, capture the adapter's neutral IR) gives the capability matrix:
 | wl_stanford P7a | `+fwd` IPv4 (3890) | IPv4 fields + `+fwd` parse | ✅ EXACT (NDD==BDD) |
 | wl_i2 | `+fwd` IPv4 (77841) | scale | ⚠️ **obstacle (below)** |
 | wl_ifi | `+fwd`+`+acl`+`+filter` IPv4 | ACLElement + src-IP seed | ✅ EXACT (== reachable.json) |
-| wl_stanford faithful | + `+nat` + `+acl` (VLAN) | NAT transformer + VLAN field | ▫ incr 3 |
+| wl_stanford faithful | + `+nat` + `+acl` (VLAN) | NAT transformer + VLAN field | ✅ EXACT (== NetPlumber; BDD can't finish) |
 
 **Incr 1 (IPv4 forwarding) — DONE for tum + stanford-P7a.** Extended the engine
 (`NddReachabilityEngine`) with a canonical field layout that APPENDS IPv4 src/dst
@@ -377,6 +377,32 @@ Now on NDD: **wl_up, wl_tum, wl_stanford-P7a, wl_ifi** (4 of 6). Remaining: wl_i
 build deps m4/bison/flex/python3-dev, and the NP C++ deps). Reinstall before building/
 testing; a missing pybison dep segfaults during model replay (looks like a JVM crash but
 is not). See [[env-integration-tier-deps]].
+
+**Incr 3 (NAT/VLAN transformer) — DONE (wl_stanford faithful-VLAN); the headline
+result.** The faithful model adds per-router VLAN **admission** (`+ acl` with a VLAN
+set → constrain the VLAN field) and per-route VLAN **rewrite** (`+ nat <dev> <port>
+vlan <dstIP> <plen> <vlanN>` → an inline transformer on the egress port: `exist(VLAN)`
+on the dst-prefix-matched part, then set `VLAN=vlanN`; unmatched dst passes unchanged).
+The one correctness subtlety: a probe is a host on an access port that **strips the VLAN
+tag** on delivery, so a probe accepts traffic regardless of the transit VLAN it carried —
+modeled by `exist(VLAN)` on a probe device's header (a no-op for the VLAN-free
+benchmarks). With that, **NDD faithful == NetPlumber exactly: 165 pairs, 0 over, 0
+under** (`test_apkeep_ndd_fwd.py::test_stanford_faithful_vlan_matches_netplumber`; NP is
+the oracle — BDD-APKeep == NP on the tractable configs).
+
+**Why this is the headline:** the faithful VLAN model is precisely where BDD-APKeep's
+atomic-predicate cross-product explodes. Profiling the BDD build (`APKEEP_BUILD_PROFILE`,
+11 GB heap) shows it **does not finish in 28 min** — at that point only 4884/7278 rules
+were applied, with **ap_num ≈ 21,600** (vs ~hundreds for P7a), 4.58M PPM entries, 13.5M
+BDD nodes, and time dominated by AP `merge` (920 s) + PPM update (773 s), 92k splits /
+19.5M split-touches. The per-field NDD engine builds the same model in **~3 s**. This is
+the cross-product blow-up (VLAN × dst) that NDD is designed to eliminate, demonstrated on
+the hardest FaVe workload: BDD is intractable, NDD is sub-3-s and exact.
+
+### §2.6 status: 5 of 6 benchmarks exact on NDD
+wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN** — all exact and
+gated. Remaining: **wl_i2** (77k routes) needs incremental atomic-predicate maintenance
+(incr 1b, still open).
 
 ## §2.4 — vendor NDD: DONE
 `XJTU-NetVerify/NDD` @ `c8414b43` vendored as a git subtree at **`ndd/`** (from a
