@@ -440,6 +440,16 @@ global partition, while NDD keeps dst (216) and VLAN (37) additive. NDD-side rea
 is the tractable dst-atom flood (AtomForwarding: 216 atoms, ~0.7 s, 72 pairs; VLAN is
 non-restrictive, so faithful reachability == 72 = NP).
 
+**Two-field NDD engine (completeness).** The general `NddReachabilityEngine` now builds
+the FULL faithful-i2 (dst × VLAN) model: its dst-IP FIB is computed by an atom-based
+per-port builder (`buildFwdPortPred`: per-device trie-LPM over elementary intervals →
+each port's dst set as a bounded union of contiguous ranges, no growing residual), and
+the VLAN rides the existing `+nat` rewrite / `+acl` admission / probe-untag path. It
+**builds in ~15 s and its reachability is EXACT (72 = reachable.json = NP)** — where
+BDD-APKeep does not finish in 28 min. So the demonstration is end-to-end: NDD builds and
+solves faithful-i2 tractably; BDD cannot. Gated by
+`test_apkeep_ndd_fwd.py::test_i2_faithful_vlan_matches_ground_truth`.
+
 **Takeaway (thesis).** NDD's advantage is field INDEPENDENCE: it appears on wl_up
 (IPv6 src×dst×proto×ports), faithful-stanford (ap_num≈21.6k, BDD 28min+), and faithful-i2
 (ap_num≥19k, BDD 28min+) — all where BDD's flat AP partition pays a cross-product NDD

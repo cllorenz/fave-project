@@ -161,6 +161,31 @@ class TestNddIPv4Forwarding(unittest.TestCase):
         self.assertEqual(bdd - ndd, set(), "UNSOUND: BDD-reachable pairs NDD drops")
         self.assertEqual(ndd - bdd, set(), "OVER: pairs NDD adds vs BDD")
 
+    @require_or_skip(all(os.path.isfile(f) for f in _I2_INPUTS),
+                     "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
+    def test_i2_faithful_vlan_matches_ground_truth(self):
+        """ Faithful wl_i2 (dst x VLAN) on the two-field NDD engine: out.* dst-FIB
+        + rw=vlan NAT + in.* VLAN admission + probe untag. NDD keeps dst (216
+        atoms) and VLAN (37 classes) as SEPARATE fields, so it BUILDS this in
+        ~15 s and is exact (== reachable.json), whereas BDD-APKeep's single joint
+        partition explodes (ap_num >= 19k, does not finish in 28 min) -- the
+        second field-independence Sigma-vs-Pi win. See APKEEP_NDD_EVAL.md §2.6. """
+        eng, sources, probes, reach = _matrix(
+            _I2_PREFIX, 'ndd', files=_I2_FILES, faithful=True)
+        got = {
+            _base(p): set(_base(s) for s in sources
+                          if (s, p) in reach and _base(s) != _base(p))
+            for p in probes
+        }
+        with open(_I2_ORACLE) as raw:
+            expected = json.load(raw)
+        diffs = {}
+        for role in sorted(set(got) | set(expected)):
+            g = got.get(role, set()); e = set(expected.get(role, []))
+            if g != e:
+                diffs[role] = {"missing": sorted(e - g), "extra": sorted(g - e)}
+        self.assertEqual(diffs, {}, "faithful wl_i2 NDD differs from reachable.json: %s" % diffs)
+
     @require_or_skip(all(os.path.isfile(f) for f in _ST_INPUTS),
                      "wl_stanford inputs not generated")
     def test_stanford_faithful_vlan_matches_netplumber(self):
