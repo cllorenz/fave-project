@@ -194,6 +194,15 @@ the base for a two-field faithful-i2 (dst × VLAN) engine, where the VLAN stays 
 separate field (NDD's Σ) vs BDD's dst×VLAN cross-product (Π). Context:
 `../APKEEP_NDD_EVAL.md` §2.6.
 
+The general `NddReachabilityEngine` gains the same atom-based dst-IP FIB
+(`buildFwdPortPred`: per-device trie-LPM over elementary intervals → each port's
+dst set as a bounded union of contiguous ranges, replacing the growing per-rule
+residual for `+ fwd`). This lets the multi-field engine build the FULL faithful-i2
+(dst × VLAN: `+fwd` FIB + `rw=vlan` NAT + `in.*` VLAN-admission ACL + probe untag)
+in ~15 s and solve it exactly (72 pairs == reachable.json == NetPlumber), where
+BDD-APKeep does not finish in 28 min. Exact vs the residual on the smaller FIBs
+(wl_ifi, faithful-stanford), so it is used for all `+ fwd`.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration

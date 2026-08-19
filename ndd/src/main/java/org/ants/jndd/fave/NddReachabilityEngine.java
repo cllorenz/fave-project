@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.ants.jndd.diagram.AtomizedNDD;
 import org.ants.jndd.diagram.NDD;
@@ -124,6 +125,7 @@ public final class NddReachabilityEngine {
         //             <dip> <dwild> <dlo> <dhi> <prio> [null] [rel]"  (5-tuple)
         //   "+ fwd    <dev> <prefixUint32> <plen> <out> <prio>"       (dst LPM)
         Map<String, List<Rule>> byDev = new HashMap<>();
+        Map<String, List<FwdRule>> fwdByDev = new HashMap<>();
         for (String line : rules) {
             String[] t = line.trim().split("\\s+");
             if (t.length < 2) continue;
@@ -135,11 +137,17 @@ public final class NddReachabilityEngine {
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
             } else if (t[0].equals("+") && t[1].equals("fwd") && t.length >= 7) {
-                r.hit = NDD.ref(prefixV4(DST4, Long.parseLong(t[3]),
-                                         Integer.parseInt(t[4])));
-                r.out = t[5];
-                r.prio = Long.parseLong(t[6]);
-                dev = t[2];
+                // A dst-IP FIB rule. Do NOT build a per-rule NDD or a growing
+                // "covered" residual (that blows up at wl_i2's 77k routes) --
+                // collect the ranges and resolve LPM per-device by ATOMS
+                // (buildFwdPortPred): the per-port dst set becomes a bounded
+                // union of contiguous ranges, not a union of thousands of prefixes.
+                FwdRule fr = new FwdRule();
+                fr.prefix = Long.parseLong(t[3]);
+                fr.plen = Integer.parseInt(t[4]);
+                fr.out = t[5];
+                fwdByDev.computeIfAbsent(t[2], k -> new ArrayList<>()).add(fr);
+                continue;
             } else if (t[1].equals("acl") && t.length >= 17) {
                 // "+ acl <elem> acl 0 <permit|deny> 0 255 <sip> <swild> null null
                 //       <dip> <dwild> null null <prio> [vlan]" -- SAME field layout
@@ -200,7 +208,83 @@ public final class NddReachabilityEngine {
             for (Rule r : rs) NDD.deref(r.hit);   // hits no longer needed
             portPred.put(en.getKey(), pp);
         }
+        buildFwdPortPred(fwdByDev);
         built = true;
+    }
+
+    // ---- atom-based dst-IP FIB (avoids the 77k-route residual blow-up) --------
+
+    private static final class FwdRule { long prefix; int plen; String out; }
+
+    private static final class Trie { Trie[] ch = new Trie[2]; Set<String> ports; }
+
+    private static void trieInsert(Trie root, long prefix, int plen, String port) {
+        Trie n = root;
+        for (int i = 0; i < plen; i++) {
+            int b = (int) ((prefix >> (31 - i)) & 1);
+            if (n.ch[b] == null) n.ch[b] = new Trie();
+            n = n.ch[b];
+        }
+        if (n.ports == null) n.ports = new HashSet<>();
+        n.ports.add(port);
+    }
+
+    private static Set<String> trieLpm(Trie root, long addr) {
+        Trie n = root; Set<String> best = root.ports;
+        for (int i = 0; i < 32 && n != null; i++) {
+            n = n.ch[(int) ((addr >> (31 - i)) & 1)];
+            if (n != null && n.ports != null) best = n.ports;
+        }
+        return best == null ? java.util.Collections.emptySet() : best;
+    }
+
+    /** For each device's dst-IP FIB, resolve LPM over elementary intervals and
+     * set portPred[device][port] = the union of the (merged, contiguous) dst
+     * ranges forwarded out that port -- a bounded NDD, computed WITHOUT a growing
+     * residual. Exact (LPM first-match) and equal to what the residual loop would
+     * produce, but tractable at wl_i2's 77k-route scale. */
+    private void buildFwdPortPred(Map<String, List<FwdRule>> fwdByDev) {
+        for (Map.Entry<String, List<FwdRule>> en : fwdByDev.entrySet()) {
+            List<FwdRule> rs = en.getValue();
+            TreeSet<Long> bset = new TreeSet<>();
+            bset.add(0L); bset.add(1L << 32);
+            Trie root = new Trie();
+            for (FwdRule fr : rs) {
+                long lo = fr.prefix, hi = fr.prefix + (1L << (32 - fr.plen)) - 1;
+                bset.add(lo); bset.add(hi + 1);
+                trieInsert(root, fr.prefix, fr.plen, fr.out);
+            }
+            Long[] bs = bset.toArray(new Long[0]);
+            Map<String, List<long[]>> raw = new HashMap<>();
+            for (int i = 0; i < bs.length - 1; i++) {
+                long lo = bs[i], hi = bs[i + 1] - 1;
+                for (String p : trieLpm(root, lo)) {
+                    if (p.equals(DROP)) continue;
+                    raw.computeIfAbsent(p, k -> new ArrayList<>()).add(new long[]{lo, hi});
+                }
+            }
+            Map<String, Integer> pp = new HashMap<>();
+            for (Map.Entry<String, List<long[]>> pe : raw.entrySet()) {
+                int nd = NDD.getFalse();
+                for (long[] rg : mergeAdjacent(pe.getValue()))
+                    nd = NDD.or(nd, interval(DST4, rg[0], rg[1], W[DST4]));
+                pp.put(pe.getKey(), NDD.ref(nd));
+            }
+            portPred.put(en.getKey(), pp);
+        }
+    }
+
+    /** Merge a port's elementary intervals (already in ascending order) into
+     * maximal contiguous [lo,hi] ranges, so the union NDD is over few ranges. */
+    private static List<long[]> mergeAdjacent(List<long[]> ivs) {
+        List<long[]> out = new ArrayList<>();
+        for (long[] iv : ivs) {
+            if (!out.isEmpty() && out.get(out.size() - 1)[1] + 1 == iv[0])
+                out.get(out.size() - 1)[1] = iv[1];
+            else
+                out.add(new long[]{iv[0], iv[1]});
+        }
+        return out;
     }
 
     /**
