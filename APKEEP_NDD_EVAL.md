@@ -409,14 +409,27 @@ Reachability floods atom-sets. **Builds in ~0.7 s, exact vs the oracle (72 pairs
 adapter routes any pure-`+fwd` FIB (wl_i2, wl_stanford-P7a) here; wl_i2 is now in the
 gate (18 passed, 0 skipped).
 
-*Finding — wl_i2 VLANs are redundant with dst.* i2's source routing is VLAN-based
-(`in.*` match `vlan=N`; `out.*` match dst + `rw=vlan:M`), but every role has a distinct
-IPv4 range, so the collapsed dst-only model already reproduces the ground truth exactly
-(72 = reachable.json = NP). A *faithful* i2 (dst × VLAN, un-collapsed) therefore yields
-the **same** reachability; its value is a second **Σ-vs-Π scaling demonstration** (NDD
-keeps dst-atoms + VLAN separate; BDD-APKeep materialises the dst×VLAN cross-product) —
-the same win faithful-stanford already shows. Building it needs an adapter faithful-i2
-mode + a two-field atom engine (dst-atoms × VLAN).
+*wl_i2 reachability is VLAN-redundant, but the PARTITION is not.* i2's source routing is
+VLAN-based (`in.*` match `vlan=N`; `out.*` match dst + `rw=vlan:M`); every role has a
+distinct IPv4 range, so the collapsed dst-only model reproduces the ground-truth
+*reachability* exactly (72 = reachable.json = NP), and faithful-i2 yields the **same 72**.
+Its value is the **Σ-vs-Π partition scaling**, and a sizing pass
+(`bench/wl_i2/eval/faithful_sizing.py`) shows it IS a genuine NDD win:
+
+- dst-atoms = 216; the 229 admitted VLANs collapse to **37 admission-classes** (VLANs
+  admitted by the same `in.*` routers merge).
+- **NDD Σ (per-field) = 216 + 37 = 253.** BDD **Π (joint) ≈ 216 × 37 ≈ 7 992** — the
+  `in.*` VLAN admission is INDEPENDENT of dst, so it multiplies against the dst partition
+  (a cross-product APKeep's single-BDD atoms must materialise). **≈ 32× for NDD.**
+- Nuance (and a correction of an earlier under-estimate): the `rw=vlan` rewrite is
+  *dst-slaved* (one VLAN per prefix) and does NOT blow up on its own — the *independent*
+  `in.*` admission does. This delimits when NDD wins: field INDEPENDENCE, not mere
+  presence of a second field.
+
+Next: build the faithful-i2 model (adapter mode: `out.*` dst-FIB + `rw=vlan` NAT + `in.*`
+VLAN-admission ACL + probe untag) so BDD-APKeep can be measured on it (exact `ap_num` /
+build-time — expected to confirm the ~8k blow-up), then the NDD two-field engine
+(AtomForwarding dst-atoms × VLAN, Σ≈253, reachability 72).
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
