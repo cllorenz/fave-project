@@ -156,6 +156,27 @@ source's src-IP is the query-time seed, so source-matching ACLs bite. Gated exac
 vs the ground truth by `../fave/test/test_apkeep_ndd_fwd.py` (wl_ifi ==
 reachable.json). NAT/VLAN rewrite (`+ nat`) is still future work (§2.6 incr 3).
 
+## 7. NAT/VLAN transformer in the reachability engine (§2.6 incr 3)  **[NEW]**
+
+`NddReachabilityEngine` gains packet transformers, so the faithful wl_stanford
+VLAN model runs on NDD. Additions: a 16-bit VLAN field (already declared in the
+canonical layout); VLAN-admission ACLs (a `+ acl` with a trailing comma-separated
+VLAN set → constrain the VLAN field, OR over the set); and `+ nat <dev> <port>
+vlan <dstIP> <plen> <vlanN>` — an inline VLAN rewrite on the egress port, applied
+in the flood via `NDD.exist(part, VLAN)` (drop the old VLAN) `∧ VLAN=vlanN` on the
+dst-prefix-matched part, with unmatched dst passing unchanged (the NATElement's
+identity default). A probe (host on an access port) STRIPS the VLAN tag on
+delivery, so a probe device's header is `exist(VLAN)`-untagged before the arrival
+check — a no-op where VLAN is free (every non-faithful benchmark), and what makes
+the faithful data plane match the reference. The query API grows a `targetVlan`
+arg (the checker's probe-VLAN constraint) and a device→header cache.
+
+Gated exact vs **NetPlumber** by `../fave/test/test_apkeep_ndd_fwd.py::
+test_stanford_faithful_vlan_matches_netplumber` (165 pairs, 0 over/under). This is
+the workload BDD-APKeep cannot finish — its VLAN×dst atomic-predicate partition
+explodes (ap_num ≈ 21.6k, 28 min+ unfinished) — while NDD builds it in ~3 s. Full
+context + the BDD build profile: `../APKEEP_NDD_EVAL.md` §2.6.
+
 ---
 
 *Full FaVe-side context (why NDD, the field-locality GO/NO-GO, the integration

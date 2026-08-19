@@ -68,8 +68,13 @@ public final class NddReachabilityEngine {
     private final Map<String, List<String>> edges = new HashMap<>();
     // device -> out_port -> first-match residual predicate (plain NDD node id).
     private final Map<String, Map<String, Integer>> portPred = new HashMap<>();
-    // source key "dev|port|cidr" -> set of devices its flood reaches.
-    private final Map<String, Set<String>> reachCache = new HashMap<>();
+    // "dev|port" -> inline VLAN-rewrite rules (NATElement): each (dst-prefix NDD,
+    // vlan id). A header forwarded out this port has its VLAN set to vlanN on the
+    // dst-prefix-matched part (exist VLAN, then set); unmatched dst is unchanged.
+    private final Map<String, List<int[]>> nat = new HashMap<>();  // val: {dstPredNode, vlanN}
+    // source key "dev|port|cidr" -> device -> union of reached headers (NDD node,
+    // reffed). Cached so the adapter's probe x source loop floods once per source.
+    private final Map<String, Map<String, Integer>> reachCache = new HashMap<>();
 
     private boolean built = false;
 
@@ -79,13 +84,29 @@ public final class NddReachabilityEngine {
 
     private static String key(String dev, String port) { return dev + "|" + port; }
 
-    /** A topology node "E_in"/"E_out" -> its element "E" (APKeep's ACLElement
-     * naming), else null. Only the trailing suffix is stripped, so device names
-     * like "in.bbra_rtr" (a dotted prefix, not an "_in" suffix) are untouched. */
-    private static String elementOf(String node) {
-        if (node.endsWith("_in")) return node.substring(0, node.length() - 3);
-        if (node.endsWith("_out")) return node.substring(0, node.length() - 4);
-        return null;
+    /** A topology node -> the rule element it belongs to. APKeep names an
+     * element E's boundary nodes "E_<port>_in"/"E_<port>_out" (ACLElement) with a
+     * varying number of trailing "_"-segments (e.g. "ifi_inACLp2_in",
+     * "iacl_0_i_in"), so resolve by the LONGEST rule element K that is a prefix of
+     * the node up to a "_" boundary. Returns null when no element matches (a sink
+     * such as a probe), leaving dotted device names like "in.bbra_rtr" untouched. */
+    private String elementOf(String node) {
+        String best = null;
+        for (String k : portPred.keySet()) {
+            if (node.startsWith(k + "_")
+                    && (best == null || k.length() > best.length())) best = k;
+        }
+        return best;
+    }
+
+    /** {VLAN == v} over the 16-bit VLAN field (comma-separated set -> OR). */
+    private static int vlanPred(String vlanSet) {
+        int r = NDD.getFalse();
+        for (String v : vlanSet.split(",")) {
+            if (v.isEmpty()) continue;
+            r = NDD.or(r, exact(VLAN, Long.parseLong(v.trim()), W[VLAN]));
+        }
+        return r;
     }
 
     /**
@@ -126,11 +147,25 @@ public final class NddReachabilityEngine {
                 // the predicate reuses ruleToNDD; a permit forwards to the element's
                 // "permit" out_port (Cisco first-match => higher priority wins), a
                 // deny drops. The element node appears in the topology as
-                // "<elem>_in"/"<elem>_out" (resolved in the flood).
-                r.hit = NDD.ref(ruleToNDD(t));
+                // "<elem>_..._{in,out}" (resolved in the flood). A trailing VLAN
+                // token (VLAN-admission ACL, faithful wl_stanford) constrains VLAN.
+                int hit = ruleToNDD(t);
+                if (t.length > 17 && !t[17].equals("null"))
+                    hit = NDD.and(hit, vlanPred(t[17]));
+                r.hit = NDD.ref(hit);
                 r.out = t[5].equals("permit") ? "permit" : DROP;
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
+            } else if (t[1].equals("nat") && t.length >= 8 && t[4].equals("vlan")) {
+                // "+ nat <dev> <port> vlan <dstIP> <dstlen> <vlanN>": an inline
+                // VLAN rewrite on (dev, port). Not a residual -- recorded in `nat`
+                // and applied to headers forwarded out that port (see the flood).
+                int plen = Integer.parseInt(t[6]);
+                int dstPred = plen == 0 ? NDD.getTrue()
+                        : prefixV4(DST4, ipv4ToLong(t[5]), plen);
+                nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
+                   .add(new int[]{NDD.ref(dstPred), Integer.parseInt(t[7])});
+                continue;
             } else {
                 continue;
             }
@@ -169,23 +204,34 @@ public final class NddReachabilityEngine {
     }
 
     /**
-     * True iff traffic injected at (srcDev, srcPort) with source address {@code
-     * cidr} (null / full space =&gt; unconstrained) can reach {@code dstDev} on
-     * any port. The per-source flood is computed once and cached, so the
-     * adapter's probe x source loop pays 137 floods, not 137^2.
+     * True iff traffic injected at (srcDev, srcPort) with src address {@code cidr}
+     * (null =&gt; unconstrained) can reach {@code dstDev}. When {@code targetVlan}
+     * &gt;= 0, arrival additionally requires the header to carry that VLAN (the
+     * faithful wl_stanford probes accept only vlan 0); &lt; 0 imposes no VLAN
+     * constraint. The per-source flood is computed once and cached.
      */
     public boolean isReachable(String srcDev, String srcPort, String cidr,
-                               String dstDev, String dstPort) {
-        return reachedDevices(srcDev, srcPort, cidr).contains(dstDev);
+                               String dstDev, String dstPort, int targetVlan) {
+        Integer h = reachedHeaders(srcDev, srcPort, cidr).get(dstDev);
+        if (h == null) return false;
+        if (targetVlan < 0) return h != NDD.getFalse();
+        return NDD.and(h, exact(VLAN, targetVlan, W[VLAN])) != NDD.getFalse();
     }
 
-    /** Devices reachable from one source (cached). */
-    public synchronized Set<String> reachedDevices(String srcDev, String srcPort,
-                                                   String cidr) {
+    /** Back-compat: no VLAN constraint. */
+    public boolean isReachable(String srcDev, String srcPort, String cidr,
+                               String dstDev, String dstPort) {
+        return isReachable(srcDev, srcPort, cidr, dstDev, dstPort, -1);
+    }
+
+    /** Per-device union of the headers reachable from one source (cached; the
+     * stored node ids are reffed for the engine's lifetime). */
+    public synchronized Map<String, Integer> reachedHeaders(String srcDev,
+            String srcPort, String cidr) {
         if (!built) throw new IllegalStateException("build() must run first");
         String ck = srcDev + "|" + srcPort + "|" + (cidr == null ? "" : cidr);
-        Set<String> hit = reachCache.get(ck);
-        if (hit != null) return hit;
+        Map<String, Integer> cached = reachCache.get(ck);
+        if (cached != null) return cached;
 
         int h0 = NDD.ref(addrPred(SRC, SRC4, cidr, "null"));  // {src in cidr}, rest free
         Map<String, Integer> reached = new HashMap<>();  // "dev|arrivalPort" -> NDD
@@ -202,9 +248,7 @@ public final class NddReachabilityEngine {
             int rd = reached.get(cur);
             Map<String, Integer> pp = portPred.get(d);
             if (pp == null) {
-                // An APKeep ACLElement "E" appears in the topology as the node
-                // "E_in"/"E_out" but its rules are keyed by the element "E"; map
-                // the arrival node back to its element to find the residual.
+                // Resolve an APKeep boundary node "E_..._{in,out}" to element E.
                 String elem = elementOf(d);
                 if (elem != null) pp = portPred.get(elem);
             }
@@ -213,9 +257,12 @@ public final class NddReachabilityEngine {
                 if (pe.getKey().equals(inPort)) continue; // no-hairpin
                 int out = NDD.and(rd, pe.getValue());
                 if (out == NDD.getFalse()) continue;
+                // inline VLAN rewrite (NATElement) on the egress port, if any
+                List<int[]> nrules = nat.get(key(d, pe.getKey()));
+                int fwd = nrules == null ? out : NDD.ref(applyNat(out, nrules));
                 for (String peer : edges.getOrDefault(key(d, pe.getKey()), List.of())) {
                     Integer old = reached.get(peer);
-                    int nr = old == null ? out : NDD.or(old, out);
+                    int nr = old == null ? fwd : NDD.or(old, fwd);
                     if (old == null || nr != old) {
                         int rr = NDD.ref(nr);
                         if (old != null) NDD.deref(old);
@@ -223,19 +270,63 @@ public final class NddReachabilityEngine {
                         work.add(peer);
                     }
                 }
+                if (nrules != null) NDD.deref(fwd);
             }
         }
-        hit = new HashSet<>();
+        // aggregate arrival ports -> one union header per device
+        Map<String, Integer> byDevHdr = new HashMap<>();
         for (Map.Entry<String, Integer> re : reached.entrySet()) {
-            if (re.getValue() != NDD.getFalse()) {
-                String d = re.getKey().substring(0, re.getKey().indexOf('|'));
-                hit.add(d);
-            }
+            String d = re.getKey().substring(0, re.getKey().indexOf('|'));
+            Integer prev = byDevHdr.get(d);
+            int u = NDD.ref(prev == null ? re.getValue() : NDD.or(prev, re.getValue()));
+            if (prev != null) NDD.deref(prev);
+            byDevHdr.put(d, u);
         }
         for (int v : reached.values()) NDD.deref(v);
+        // A probe is a host on an access port, which STRIPS the VLAN tag on
+        // delivery (the frame reaches the host untagged), so a probe accepts
+        // traffic regardless of the transit VLAN it arrived carrying. Model this
+        // by existentially quantifying VLAN out of a probe device's header. This
+        // is a no-op where VLAN is already free (every non-faithful benchmark),
+        // and is what makes the faithful wl_stanford data plane match NetPlumber
+        // exactly (a probe requiring a literal vlan=0 would wrongly drop transit
+        // VLANs the access port untags).
+        for (Map.Entry<String, Integer> e : byDevHdr.entrySet()) {
+            if (e.getKey().startsWith("probe.")) {
+                int untag = NDD.ref(NDD.exist(e.getValue(), VLAN));
+                NDD.deref(e.getValue());
+                e.setValue(untag);
+            }
+        }
         NDD.deref(h0);
-        reachCache.put(ck, hit);
+        reachCache.put(ck, byDevHdr);
+        return byDevHdr;
+    }
+
+    /** Devices reachable from one source, ignoring VLAN (diagnostic). */
+    public Set<String> reachedDevices(String srcDev, String srcPort, String cidr) {
+        Set<String> hit = new HashSet<>();
+        for (Map.Entry<String, Integer> e :
+                reachedHeaders(srcDev, srcPort, cidr).entrySet())
+            if (e.getValue() != NDD.getFalse()) hit.add(e.getKey());
         return hit;
+    }
+
+    /** Apply a NATElement's VLAN rewrites to a header leaving one port: the
+     * dst-prefix-matched part has its VLAN existentially removed then set to
+     * vlanN; dst matched by no rule passes unchanged (identity default rule). */
+    private static int applyNat(int h, List<int[]> rules) {
+        int result = NDD.getFalse();
+        int matched = NDD.getFalse();
+        for (int[] rl : rules) {
+            int part = NDD.and(h, rl[0]);
+            if (part != NDD.getFalse()) {
+                int rw = NDD.and(NDD.exist(part, VLAN), exact(VLAN, rl[1], W[VLAN]));
+                result = NDD.or(result, rw);
+            }
+            matched = NDD.or(matched, rl[0]);
+        }
+        return NDD.or(result, NDD.and(h, NDD.not(matched)));
     }
 
     /** Number of atomic predicates in the built model (diagnostic). */
