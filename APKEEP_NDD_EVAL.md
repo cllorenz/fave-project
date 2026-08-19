@@ -426,10 +426,25 @@ Its value is the **Σ-vs-Π partition scaling**, and a sizing pass
   `in.*` admission does. This delimits when NDD wins: field INDEPENDENCE, not mere
   presence of a second field.
 
-Next: build the faithful-i2 model (adapter mode: `out.*` dst-FIB + `rw=vlan` NAT + `in.*`
-VLAN-admission ACL + probe untag) so BDD-APKeep can be measured on it (exact `ap_num` /
-build-time — expected to confirm the ~8k blow-up), then the NDD two-field engine
-(AtomForwarding dst-atoms × VLAN, Σ≈253, reachability 72).
+**Measured (adapter faithful-i2 mode + BDD-APKeep).** The adapter now has a faithful-i2
+mode (`_build_i2_faithful`: `out.*` dst-FIB kept as `+fwd`, `rw=vlan` → inline `+nat`,
+`in.*` VLAN admission → per-router `+acl iadm_<idx>` on the source→in.X ingress; sources
+inject VLAN-unconstrained). Building it in **BDD-APKeep is INTRACTABLE**, exactly like
+faithful-stanford: it **did not finish in 28 min** (only 81 161 / 154 920 rules applied),
+with **`ap_num` = 19 081 and still climbing** (216 dst → 1 680 @10s → 9 168 @20s →
+19 081 @28min), time dominated by PPM updates (~1.2M ms) over the exploding dst×VLAN
+partition (`APKEEP_BUILD_PROFILE`). NDD's per-field **Σ = 253**. So the second Σ-vs-Π
+result is confirmed and even stronger than the estimate — the independent `in.*` VLAN
+admission (plus the per-route `rw=vlan` NATs, which split further) blows up BDD's single
+global partition, while NDD keeps dst (216) and VLAN (37) additive. NDD-side reachability
+is the tractable dst-atom flood (AtomForwarding: 216 atoms, ~0.7 s, 72 pairs; VLAN is
+non-restrictive, so faithful reachability == 72 = NP).
+
+**Takeaway (thesis).** NDD's advantage is field INDEPENDENCE: it appears on wl_up
+(IPv6 src×dst×proto×ports), faithful-stanford (ap_num≈21.6k, BDD 28min+), and faithful-i2
+(ap_num≥19k, BDD 28min+) — all where BDD's flat AP partition pays a cross-product NDD
+avoids. It does NOT appear where a field is functionally slaved (i2's `rw=vlan` alone) or
+absent (single-field FIBs), where NDD ≈ BDD.
 
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all

@@ -261,6 +261,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         # mid.X -> [(dst_cidr, egress_port, vlan_N)] ; out.X reset set {(inport130, vlan)}
         self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
         self._out_reset: Dict[str, set] = {}
+        # wl_i2 faithful (dst x VLAN): out.X routes match dst + rewrite the egress
+        # VLAN (rw=vlan:M). out.X -> [(dst_cidr, egress_port, vlan_M)] (like _mid_rw
+        # but i2 has no mid stage -- out.X IS the dst FIB).
+        self._out_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
         self._in_vlans: Dict[str, set] = {}   # in.X -> admitted (permit) VLAN tags
         # in.X -> set of physical ingress ports with an admission rule (None once
         # an in-port-agnostic rule is seen => the device admits every port). Traffic
@@ -319,6 +323,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # ForwardElement cannot express. We recognise the out. stage and collapse
         # it into the topology (mid egress port -> external neighbour) at build.
         self._stanford = False
+        self._i2_faithful = False   # wl_i2 dst x VLAN faithful mode (set in _build)
         self._out_perm: Dict[str, Dict[str, set]] = {}  # out_dev -> {inPort: {outPort}}
         # Surface the aggregator's dispatch (aggregator_service._sync_diff)
         # touches on the engine when wiring links: a `links` adjacency dict it
@@ -461,6 +466,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                     self._capture_vlan_port(rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'mid':
                         self._capture_mid_rewrite(model.node, rule)
+                    if self._faithful_vlan and model.node.split('.', 1)[0] == 'out':
+                        self._capture_out_rewrite(model.node, rule)
                     if self._faithful_vlan and model.node.split('.', 1)[0] == 'in':
                         self._capture_in_admission(model.node, rule)
                     if model.node.split('.', 1)[0] == 'in':
@@ -636,6 +643,29 @@ class APKeepAdapter(AbstractVerificationEngine):
                 dst = str(field.value)
         self._mid_rw.setdefault(node, []).append((dst, ports[0], vlan_n))
 
+    def _capture_out_rewrite(self, node: str, rule: Any) -> None:
+        """ wl_i2 faithful: an out-stage rule matches a dst-IP prefix, forwards to
+        an egress port, and rewrites the egress VLAN (rw=vlan:M). Record
+        (dst_cidr, egress_port, M) so the build emits an inline NAT setting
+        vlan:=M on that route -- the same shape as _capture_mid_rewrite, but for
+        i2's out. FIB (there is no mid. stage). """
+        vlan_m = None
+        for action in rule.actions:
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    if field.name == _VLAN:
+                        vlan_m = str(field.value)
+        if vlan_m is None:
+            return
+        ports = self._out_ports(rule)
+        if not ports:
+            return
+        dst = None
+        for field in (rule.match or []):
+            if field.name in (_DST, _DST6):
+                dst = str(field.value)
+        self._out_rw.setdefault(node, []).append((dst, ports[0], vlan_m))
+
     def _capture_in_admission(self, node: str, rule: Any) -> None:
         """ P7b: an in-stage rule admits (permits, forwards to mid) traffic on a
         given ingress VLAN. Record the VLANs a router's ingress permits, so the
@@ -780,6 +810,16 @@ class APKeepAdapter(AbstractVerificationEngine):
                  device_acls, acl_rules) = self._build_stanford_faithful(edges)
             else:
                 edges = self._collapse_out_stage(edges)
+        # wl_i2 faithful (dst x VLAN): no mid stage; out.X is the dst FIB and also
+        # rewrites the egress VLAN, in.X admits VLANs. Emit the VLAN rewrite as
+        # inline NATs and the admission as per-router ACLs (keeping the dst FIB).
+        self._i2_faithful = (self._faithful_vlan and not self._stanford
+                             and bool(self._out_rw)
+                             and any(d.split('.', 1)[0] == 'out'
+                                     for d in self._fwd_devices))
+        if self._i2_faithful:
+            (edges, device_nats, nat_rules,
+             device_acls, acl_rules) = self._build_i2_faithful(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
         # Honour in-stage admission: drop traffic entering an ingress port no rule
@@ -790,7 +830,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # to exist; pass them all explicitly.
         # The faithful VLAN model builds far more BDD nodes (per-route rewrites +
         # per-VLAN ACLs); give it a larger table.
-        bdd_table = 16_000_000 if (self._stanford and self._faithful_vlan) else 1_000_000
+        bdd_table = 16_000_000 if (self._faithful_vlan
+                                   and (self._stanford or self._i2_faithful)) else 1_000_000
         # Each packet_filter becomes a small subgraph of FilterElements (its
         # input/output/forward chains + a dst-LPM routing FIB), wired per the
         # device's role. Terminal filters (wl_tum) stay a single FilterElement.
@@ -1239,6 +1280,58 @@ class APKeepAdapter(AbstractVerificationEngine):
             device_acls["iacl"] = sorted(acl_names, key=int)
         return (spliced, {d: sorted(p) for d, p in device_nats.items()}, nat_rules,
                 device_acls, acl_rules)
+
+    def _build_i2_faithful(self, edges: List[str]):
+        """ wl_i2 faithful dst x VLAN. Unlike stanford there is no mid stage and no
+        out-collapse: out.X is the real dst FIB (kept as +fwd) that ALSO rewrites
+        the egress VLAN (rw=vlan:M), and in.X admits a VLAN set. Emit:
+
+          * a NAT per out.X route: `+ nat out.X <egress_port> vlan <dstIP> <plen>
+            <M>` (device_nats[out.X] = the rewritten ports); and
+          * a per-router VLAN-admission ACL on each source->in.X ingress edge
+            (`iadm_<idx>`, permitting the admitted VLAN set) -- sources inject
+            VLAN-unconstrained, so this independent admission is what makes the
+            joint (dst,VLAN) partition a cross-product for BDD-APKeep while NDD
+            keeps the fields separate. ACL element names avoid dots ("iadm_<idx>")
+            for APKeep's `<a>_<b>_..._{in,out}` node convention.
+
+        Returns (edges, device_nats, nat_rules, device_acls, acl_rules). """
+        device_nats: Dict[str, set] = {}
+        nat_rules: List[str] = []
+        for out_dev, rws in self._out_rw.items():
+            for dst, egress_port, vlan_m in rws:
+                ip = "0.0.0.0" if dst is None else dst.partition('/')[0]
+                plen = 0 if dst is None else int((dst.partition('/')[2] or "32"))
+                device_nats.setdefault(out_dev, set()).add(egress_port)
+                nat_rules.append("+ nat %s %s vlan %s %d %s" % (
+                    out_dev, egress_port, ip, plen, vlan_m))
+
+        routers = sorted(self._in_vlans)             # in.X device names
+        idx_of = {r: i for i, r in enumerate(routers)}
+        device_acls: Dict[str, List[str]] = {}
+        acl_rules: List[str] = []
+        acl_names: set = set()
+        spliced: List[str] = []
+        for edge in edges:
+            s_dev, s_port, d_dev, d_port = edge.split()
+            if (s_dev in self._generators and d_dev in idx_of
+                    and self._in_vlans.get(d_dev)):
+                idx = idx_of[d_dev]
+                node = "iadm_%d_i_in" % idx
+                acl_names.add(str(idx))
+                spliced.append("%s %s %s inport" % (s_dev, s_port, node))
+                spliced.append("%s permit %s %s" % (node, d_dev, d_port))
+            else:
+                spliced.append(edge)
+        for r, idx in idx_of.items():
+            if self._in_vlans.get(r):
+                vlan_set = ",".join(sorted(self._in_vlans[r], key=int))
+                acl_rules.append(_acl_rule_string(
+                    "iadm_%d" % idx, True, None, None, 0, vlan=vlan_set))
+        if acl_names:
+            device_acls["iadm"] = sorted(acl_names, key=int)
+        return (spliced, {d: sorted(p) for d, p in device_nats.items()}, nat_rules,
+                device_acls or None, acl_rules)
 
     def _collapse_out_stage(self, edges: List[str]) -> List[str]:
         """ Remove the wl_stanford out. stage, splicing its port permutation into
