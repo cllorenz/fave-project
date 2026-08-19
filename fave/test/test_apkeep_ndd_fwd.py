@@ -95,19 +95,14 @@ _TUM_INPUTS = ["%s/%s" % (_TUM_PREFIX, f) for f in
 class TestNddIPv4Forwarding(unittest.TestCase):
     """ IPv4 forwarding (+fwd) and IPv4 5-tuple (+filter) on the NDD engine. """
 
-    @unittest.skipUnless(
-        os.environ.get("FAVE_NDD_SCALE"),
-        "wl_i2 (77k dst routes) does not yet scale on the NDD engine: the "
-        "residual/flood materializes forwarded-sets as monolithic per-field NDDs "
-        "(true partition ap_num=216, but a union of thousands of prefixes is a "
-        "huge BDD) and one-shot atomization of the raw rules is O(n^2). The fix "
-        "is APKeep-style incremental atomic-predicate maintenance (atom-id sets "
-        "over the minimal partition). Opt in with FAVE_NDD_SCALE=1. See "
-        "APKEEP_NDD_EVAL.md §2.6.")
     @require_or_skip(all(os.path.isfile(f) for f in _I2_INPUTS),
                      "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
     def test_i2_matches_ground_truth(self):
-        """ wl_i2 NDD reachability == reachable.json (== the BDD oracle). """
+        """ wl_i2 (77k dst-IP routes) NDD reachability == reachable.json. Routed
+        to the atomic-predicate forwarding engine (AtomForwarding): elementary
+        dst intervals + per-device LPM + signature-merge to the minimal 216-atom
+        partition (= APKeep's ap_num), atom-set flood -- builds in ~0.7s where the
+        monolithic residual OOMs/times out. See APKEEP_NDD_EVAL.md §2.6. """
         eng, sources, probes, reach = _matrix(_I2_PREFIX, 'ndd', files=_I2_FILES)
         got = {
             _base(p): set(_base(s) for s in sources

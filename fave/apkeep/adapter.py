@@ -249,6 +249,7 @@ class APKeepAdapter(AbstractVerificationEngine):
             from apkeep.lib_ndd import LibNDD
             self._ndd = LibNDD()
             self._lib = None
+            self._ndd_fwd_mode = False   # pure-+fwd -> AtomForwarding path
         else:
             self._lib = LibAPKeep()
             self._ndd = None
@@ -833,7 +834,19 @@ class APKeepAdapter(AbstractVerificationEngine):
             # permit/deny as a residual out_port), and VLAN rewrite (+nat, an
             # inline per-field exist+set on the egress port) -- i.e. every element
             # type these benchmarks emit.
-            self._ndd.build(all_rules, edges)
+            #
+            # A PURE dst-IP FIB (only +fwd rules: wl_i2's 77k routes,
+            # wl_stanford-P7a) blows up the monolithic residual, so route it to
+            # the atomic-predicate forwarding engine (AtomForwarding): elementary
+            # dst intervals + per-device LPM + signature-merge -> the minimal atom
+            # partition, atom-set flood. Everything else uses the general engine.
+            self._ndd_fwd_mode = bool(all_rules) and all(
+                len(r.split()) > 1 and r.split()[1] == 'fwd' for r in all_rules)
+            if self._ndd_fwd_mode:
+                self._ndd.build_fwd_atoms(all_rules, edges)
+                self._build_metrics = {"atoms": self._ndd.atom_count()}
+            else:
+                self._ndd.build(all_rules, edges)
             self._single_universe = True
             self._build_metrics = {}
             self._built = True
@@ -1352,7 +1365,11 @@ class APKeepAdapter(AbstractVerificationEngine):
                 # the out-stage reset to 0); the faithful model enforces that at
                 # the probe as a target-header constraint.
                 tvlan = 0 if (self._stanford and self._faithful_vlan) else None
-                if self._engine == 'ndd':
+                if self._engine == 'ndd' and self._ndd_fwd_mode:
+                    # pure dst-IP FIB: AtomForwarding floods the full dst space
+                    # (forwarding is source-independent), no src/VLAN constraint.
+                    reachable = self._ndd.fwd_is_reachable(sdev, sport, pdev, pport)
+                elif self._engine == 'ndd':
                     # The NDD engine takes the source's src space directly as the
                     # query-time seed (Lever B for every source); target_vlan
                     # enforces the faithful wl_stanford probe's vlan=0 at arrival.

@@ -99,8 +99,10 @@ class LibNDD:
     def __init__(self) -> None:
         _ensure_jvm()
         self._Engine = jpype.JClass("org.ants.jndd.fave.NddReachabilityEngine")
+        self._AtomFwd = jpype.JClass("org.ants.jndd.fave.AtomForwarding")
         self._ArrayList = jpype.JClass("java.util.ArrayList")
         self._eng = self._Engine()
+        self._fwd = None           # AtomForwarding engine (pure dst-IP FIBs)
         self._built = False
 
     def build(self, rules: List[str], edges: List[str]) -> None:
@@ -133,6 +135,41 @@ class LibNDD:
             None if src_cidr is None else str(src_cidr),
             str(dst_device), str(dst_port), tv
         ))
+
+    def build_fwd_atoms(self, rules: List[str], edges: List[str]) -> None:
+        """ Build the atomic-predicate dst-IP forwarding model (AtomForwarding)
+        for a pure-`+ fwd` FIB (wl_i2's 77k routes, wl_stanford-P7a). Elementary
+        dst intervals + per-device LPM + signature-merge -> the minimal atom
+        partition; reachability floods atom-sets. Tractable where the monolithic
+        residual is not. Returns the atom count via atom_count(). """
+        jrules = self._ArrayList()
+        for r in rules:
+            jrules.add(str(r).strip())
+        jedges = self._ArrayList()
+        for e in edges:
+            jedges.add(str(e).strip())
+        self._fwd = self._AtomFwd()
+        self._fwd.build(jrules, jedges)
+        self._built = True
+
+    def atom_count(self) -> int:
+        return int(self._fwd.atomCount()) if self._fwd is not None else 0
+
+    def fwd_is_reachable(self, src_device: str, src_port: str,
+                         dst_device: str, dst_port: str) -> bool:
+        """ Reachability over the AtomForwarding model (pure dst-IP forwarding);
+        the per-source flood is cached engine-side. """
+        if self._fwd is None:
+            raise RuntimeError("build_fwd_atoms() must be called first")
+        key = "%s|%s" % (src_device, src_port)
+        cache = getattr(self, "_fwd_cache", None)
+        if cache is None:
+            cache = {}; self._fwd_cache = cache
+        hit = cache.get(key)
+        if hit is None:
+            hit = {str(x) for x in self._fwd.reachedDevices(src_device, src_port)}
+            cache[key] = hit
+        return dst_device in hit
 
     def reached_devices(self, src_device: str, src_port: str,
                         src_cidr: Optional[str] = None) -> Set[str]:
