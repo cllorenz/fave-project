@@ -147,22 +147,45 @@ our additions and cannot be replayed verbatim. Two viable paths:
   baseline** (pair-for-pair) + the exactness gate. This differential-against-our-own-golden
   is our strongest correctness lever (why Part 1 must come first).
 
-### 2.6 Full-scale correctness + performance (exit criteria)
-- Full-model differential vs BDD baseline: **0 diffs, 3660/3660** (correctness is
-  necessary but not the goal).
-- **Performance is the goal:** measure NDD-APKeep vs BDD-APKeep build+query on the full
-  model; the integration succeeds only if it *beats* BDD (tie back to the field-locality
-  prediction / ~29× sizing). A correct-but-not-faster NDD integration bought nothing.
+### 2.6 Full-scale correctness + performance (exit criteria) — ✅ COMPLETE
+Original exit criteria, both met (see `APKEEP_NDD_EVAL.md` §2.5/§2.6 for the record):
+- Full-model differential vs BDD baseline: **0 diffs** (correctness necessary but not the
+  goal).
+- **Performance is the goal:** NDD-APKeep must *beat* BDD-APKeep on the full model.
 
-### Refined sequence
-1. Part 1 preservation (tag, pin env, commit eval artifacts, re-measure timings, set up
-   shared-adapter/two-engine model). ← safety net **and** test oracle.
-2. §2.0 field-locality GO/NO-GO.
-3. §2.1 library trust (differential vs BDD, our IPv6 profile, atomize/update, canonicity).
-4. §2.2 extract + abstract the vanilla→NDD APKeep recipe.
-5. §2.3 decide (A) re-fork vs (B) engine-swap from a fork-entanglement scoping pass.
-6. §2.5 slice integration, gated on differential-vs-baseline + exactness gate.
-7. §2.6 full-scale correctness + performance vs the frozen BDD baseline.
+**Outcome — met and exceeded.** NDD is a selectable second FaVe backend
+(`APKeepAdapter(engine='ndd')`), exact on **all six benchmarks** and in the exactness
+gate (19 passed, 0 skipped):
+
+| benchmark | correctness | NDD vs BDD |
+|---|---|---|
+| wl_up (IPv6 5-tuple) | exact 3660/3660 vs frozen BDD golden | **~0.5 s vs BDD ~1079 s** (~2000×) |
+| wl_tum (IPv4 5-tuple) | exact == BDD | on par / faster |
+| wl_stanford-P7a (IPv4 fwd) | exact == BDD | on par (single-field) |
+| wl_i2 (77k IPv4 dst) | exact == reachable.json | 0.7 s (216-atom AP engine) vs BDD s-scale |
+| **wl_stanford faithful (dst×VLAN)** | exact == NetPlumber (165) | **NDD 3 s vs BDD intractable** (ap_num≈21.6k, 28 min+ unfinished) |
+| **wl_i2 faithful (dst×VLAN)** | exact == reachable.json (72) | **NDD ~15 s vs BDD intractable** (ap_num≥19k, 28 min+ unfinished) |
+
+**When NDD wins: field INDEPENDENCE.** The per-field Σ representation beats BDD's single
+joint partition (Π) exactly when the model has multiple *independent* fields — dramatic on
+wl_up and on the two faithful-VLAN models (where BDD-APKeep cannot even finish). Where a
+field is functionally slaved (i2's `rw=vlan` alone) or absent (single-field FIBs), NDD ≈
+BDD. Scaling wl_i2's 77k-route FIB required a dedicated atomic-predicate forwarding engine
+(`AtomForwarding` / `buildFwdPortPred`: interval-LPM → minimal atom partition), since the
+naive per-port residual OOMs there while BDD-APKeep's incremental APs handle it — i.e. the
+single-field FIB is the one place NDD needed extra engineering to reach parity.
+
+### Refined sequence — ✅ ALL COMPLETE
+1. ✅ Part 1 preservation (tag `fave-apkeep-bdd-v1`, pinned env, committed eval artifacts,
+   re-measured timings, shared-adapter/two-engine model). ← safety net **and** test oracle.
+2. ✅ §2.0 field-locality GO/NO-GO (MIXED → owner GO).
+3. ✅ §2.1 library trust (differential vs BDD on our IPv6 profile; atomization restored +
+   ported to the int-core; canonicity).
+4. ✅ §2.2 extract + abstract the vanilla→NDD APKeep recipe.
+5. ✅ §2.3 → **(B) engine-swap** (from the fork-entanglement scoping pass).
+6. ✅ §2.5 slice integration (wl_up), gated on differential-vs-baseline + exactness gate.
+7. ✅ §2.6 full-scale correctness + performance — all six benchmarks exact + gated; NDD
+   beats BDD on every multi-independent-field model (two of them BDD cannot finish).
 
 ---
 
@@ -175,7 +198,21 @@ our additions and cannot be replayed verbatim. Two viable paths:
 - All vendored-library (`apkeep/`, `NDD/`) edits are separate subtree commits with a
   changelog entry (vendoring hygiene).
 
-## Open decisions to resolve
-- **(A) re-fork vs (B) engine-swap** — resolve after the §2.3 scoping pass.
-- Tag name / branch policy for the frozen baseline vs the maintenance branch.
-- Where the shared eval harness lives (`fave/bench/wl_up/eval/` proposed).
+## Open decisions — resolved
+- **(A) re-fork vs (B) engine-swap** → **(B) engine-swap**: our fork kept, engine
+  swapped (BDD→NDD) behind one shared adapter. NDD vendored as a git subtree at `ndd/`
+  (from a FaVe-owned fork), int-node-id core; atomization layer + `AtomForwarding`
+  restored/added; `FAVE_CHANGES.md` documents all edits. **Owner handles pushing the
+  subtree — DO NOT PUSH.**
+- Tag / branch policy → frozen BDD baseline tagged `fave-apkeep-bdd-v1`; NDD work on
+  branch `ndd`.
+- Shared eval harness → `fave/bench/wl_up/eval/` (+ `fave/bench/wl_i2/eval/`).
+
+## Status: DONE
+Part 1 (preservation) and Part 2 (NDD integration, §2.0–§2.6) are complete. NDD is a
+selectable second backend, exact on all six FaVe benchmarks and decisively faster wherever
+multiple independent header fields make BDD-APKeep pay a cross-product (two faithful-VLAN
+models are outright intractable for BDD-APKeep). Full record: `APKEEP_NDD_EVAL.md`.
+Possible future work (not required by this plan): productionize incremental *updates*
+(not just from-zero); a faster faithful-i2 query path (~35 s today); a paper-ready
+benchmark table.
