@@ -1,0 +1,32 @@
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": [
+    "bbra_rtr",
+    "roza_rtr",
+    "rozb_rtr",
+    "soza_rtr",
+    "sozb_rtr"
+  ],
+  "xmx": "6g",
+  "profile": "/home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N5_profile.jsonl",
+  "sources": 5,
+  "probes": 5,
+  "build_s": 940.232,
+  "ap_num": 5697,
+  "element_metrics": {
+    "elements": 73,
+    "ports": 300,
+    "ForwardElement": 19,
+    "FilterElement": 0,
+    "ACLElement": 5,
+    "NATElement": 49
+  },
+  "peak_heap_mb": 634.0,
+  "query_s": 0.278,
+  "reachable_pairs": 11,
+  "reachable_pairs_nonself": 7,
+  "status": "completed",
+  "wall_s": 941.212
+}

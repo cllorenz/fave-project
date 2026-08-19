@@ -214,8 +214,23 @@ selectable second backend, exact on all six FaVe benchmarks and decisively faste
 multiple independent header fields make BDD-APKeep pay a cross-product (two faithful-VLAN
 models are outright intractable for BDD-APKeep). Full record: `APKEEP_NDD_EVAL.md`.
 
-## Planned: uncapped BDD-APKeep faithful measurements (future)
-**Why.** The BDD-APKeep numbers for the two faithful (dst×VLAN) models are currently
+## Uncapped BDD-APKeep faithful measurements — DONE (2026-08-19)
+**Outcome (full record: `APKEEP_NDD_EVAL.md` §2.6b).** Ran uncapped on this box (15 GB,
+4 cores) via the committed driver `bench/faithful_bdd_measure.py`. The definitive answer
+is **neither (a) completion nor (b) an OOM heap ceiling**: it is *unbounded wall-clock
+growth with a flat, tiny heap*. The BDD table (`bdd_mem`) stays pinned at **376–392 MB
+for the whole run** on both models (JDD GCs live nodes rather than resizing), so **more
+RAM would not help** — the "≥64 GB host" hedge below is moot; the limit is the
+single-threaded, superlinear PPM cost of an ever-growing partition. faithful-i2 ran
+**53.5 min** (~2× the cap), decisively surpassing the capped snapshot (rules 82 003 >
+81 161, `ap_num` 20 930 > 19 081, still 53 % of rules, ~2.8 AP/rule, no plateau → projects
+past ~220 k vs NDD Σ=253). The plan's **reduced-slice hedge** delivered *completing*
+anchors (Stanford N=2/3/5 → `ap_num` 2 574/2 661/5 697, peak heap ≤ 634 MB), giving the
+frontier where BDD-APKeep stops completing as the independent-field partition grows. The
+full-Stanford uncapped result is recorded in §2.6b's slot.
+
+### Original rationale (retained)
+**Why.** The BDD-APKeep numbers for the two faithful (dst×VLAN) models were originally
 *capped* — each was stopped by a 1700 s (~28 min) wall-clock `timeout` I imposed, **not**
 by an OutOfMemoryError, and the profiler shows the atomic-predicate count still growing
 ~linearly (≈2.7 APs per `+nat` rule, no plateau) with only ~52 % of rules applied while

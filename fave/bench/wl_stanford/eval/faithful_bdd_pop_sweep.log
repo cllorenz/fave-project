@@ -1,0 +1,101 @@
+=== N=2 routers=bbra_rtr,rozb_rtr START 11:08:26 ===
+wrote /home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N2.json
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": [
+    "bbra_rtr",
+    "rozb_rtr"
+  ],
+  "xmx": "6g",
+  "profile": "/home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N2_profile.jsonl",
+  "sources": 2,
+  "probes": 2,
+  "build_s": 67.318,
+  "ap_num": 2574,
+  "element_metrics": {
+    "elements": 39,
+    "ports": 142,
+    "ForwardElement": 8,
+    "FilterElement": 0,
+    "ACLElement": 2,
+    "NATElement": 29
+  },
+  "peak_heap_mb": 460.0,
+  "query_s": 0.031,
+  "reachable_pairs": 4,
+  "reachable_pairs_nonself": 2,
+  "status": "completed",
+  "wall_s": 68.347
+}
+=== N=2 rc=0 END 11:09:36 ===
+=== N=3 routers=bbra_rtr,roza_rtr,rozb_rtr START 11:09:36 ===
+wrote /home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N3.json
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": [
+    "bbra_rtr",
+    "roza_rtr",
+    "rozb_rtr"
+  ],
+  "xmx": "6g",
+  "profile": "/home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N3_profile.jsonl",
+  "sources": 3,
+  "probes": 3,
+  "build_s": 109.715,
+  "ap_num": 2661,
+  "element_metrics": {
+    "elements": 50,
+    "ports": 177,
+    "ForwardElement": 11,
+    "FilterElement": 0,
+    "ACLElement": 3,
+    "NATElement": 36
+  },
+  "peak_heap_mb": 455.0,
+  "query_s": 0.054,
+  "reachable_pairs": 5,
+  "reachable_pairs_nonself": 3,
+  "status": "completed",
+  "wall_s": 110.38
+}
+=== N=3 rc=0 END 11:11:27 ===
+=== N=5 routers=bbra_rtr,roza_rtr,rozb_rtr,soza_rtr,sozb_rtr START 11:11:27 ===
+wrote /home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N5.json
+{
+  "bench": "stanford",
+  "engine": "bdd",
+  "faithful_vlan": true,
+  "routers": [
+    "bbra_rtr",
+    "roza_rtr",
+    "rozb_rtr",
+    "soza_rtr",
+    "sozb_rtr"
+  ],
+  "xmx": "6g",
+  "profile": "/home/clorenz/fave-project/fave/bench/wl_stanford/eval/faithful_bdd_pop_N5_profile.jsonl",
+  "sources": 5,
+  "probes": 5,
+  "build_s": 940.232,
+  "ap_num": 5697,
+  "element_metrics": {
+    "elements": 73,
+    "ports": 300,
+    "ForwardElement": 19,
+    "FilterElement": 0,
+    "ACLElement": 5,
+    "NATElement": 49
+  },
+  "peak_heap_mb": 634.0,
+  "query_s": 0.278,
+  "reachable_pairs": 11,
+  "reachable_pairs_nonself": 7,
+  "status": "completed",
+  "wall_s": 941.212
+}
+=== N=5 rc=0 END 11:27:09 ===
+=== N=7 routers=bbra_rtr,roza_rtr,rozb_rtr,soza_rtr,sozb_rtr,goza_rtr,gozb_rtr START 11:27:09 ===

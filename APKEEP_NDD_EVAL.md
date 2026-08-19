@@ -491,6 +491,105 @@ BDD-APKeep *eventually* completes (final `ap_num`/time) or hits a real heap ceil
 left to the planned uncapped runs (APKEEP_NDD_PLAN → "Planned: uncapped BDD-APKeep
 faithful measurements").
 
+### §2.6b — uncapped BDD-APKeep faithful measurements (the definitive outcome)
+Executes the plan's "Planned: uncapped BDD-APKeep faithful measurements". Ran on the
+pinned env, **this box (15 GB RAM, 4 cores)**. The driver is committed —
+`bench/faithful_bdd_measure.py` (builds `faithful_vlan=True, engine='bdd'`, times the
+BDD/AP build via `single_universe()` separately from the query, reads `ap_num`,
+`element_metrics`, peak heap, reachable pairs; profiler on via `APKEEP_BUILD_PROFILE`).
+
+**The binding resource is wall-clock, not RAM — now proven at length.** §2.6a already
+noted heap was ~0.41 GB at the cap; the uncapped runs confirm the BDD table
+(`bdd_mem`) is pinned at **376–392 MB for the entire run**, at *any* length, on both
+models. `bdd_used` (live+dead nodes) oscillates as JDD GCs — e.g. the i2 run reclaimed
+15.7M→2.5M nodes mid-build — but never forces a table resize and never approaches the
+multi-GB heap. So the honest outcome is **neither (a) completion nor (b) an OOM heap
+ceiling**: it is *unbounded wall-clock growth with a flat, tiny heap*. **More RAM would
+not help** (the plan's "≥64 GB host" caveat is therefore moot — a bigger box changes
+nothing, since the limit is the superlinear PPM cost of an ever-growing partition, a
+single-threaded cost).
+
+**faithful-i2 (dst×VLAN) — uncapped, 10 GB heap, profiled 30 s
+(`bench/wl_i2/eval/faithful_bdd_uncapped_profile.jsonl`, 109 samples).**
+- Ran **53.5 min (3 210 s)** — nearly **2× the old 28-min cap** — then was stopped
+  (it would not finish in any practical time; see below). It **decisively surpassed the
+  capped snapshot on both axes**: `rules` 82 003 > 81 161, `ap_num` **20 930 > 19 081**,
+  still only **52.9 %** of the 154 920 rules applied.
+- `ap_num` grows **linearly with no plateau**: ~**2.8 AP per applied `+nat` rule**
+  across the whole tail (matching §2.6a's ~2.7). Extrapolated over the ~73 k unapplied
+  `+nat` rules ⇒ `ap_num` heading past **~220 k** — vs **NDD's per-field Σ = 253**.
+- The `+fwd` phase (77.5 k routes) applies in seconds; the `+nat` (VLAN-rewrite) phase
+  then crawls at **~2 rules/s**, PPM-dominated: at the stop, `ppm_ms` = 2 133 376
+  (35.6 min) + `merge_ms` = 1 072 060 (17.9 min) — i.e. per-rule cost superlinear in the
+  growing partition, exactly the cross-product blow-up NDD avoids.
+
+**Completion frontier — the plan's reduced-slice hedge (Stanford faithful).** Induced
+router subsets (`--routers`, reusing `apkeep_convergence._filter_model`), profiled;
+these **do complete**, anchoring the extrapolation. `ap_num` is deterministic
+(contention-independent); build times marked † ran concurrently with the i2 crawl and
+are upper bounds.
+
+| slice | routers | `ap_num` | NAT elems | reachable | peak heap | build |
+|---|---|---|---|---|---|---|
+| N=2 | bbra + rozb (backbone+1 edge) | 2 574 | 29 | 2 | 460 MB | 34 s (clean) / 67 s † |
+| N=3 | + roza (full ro PoP) | 2 661 | 36 | 3 | 455 MB | 110 s † |
+| N=5 | + soza,sozb (ro+so PoPs) | 5 697 | 49 | 7 | 634 MB | 940 s † |
+
+`ap_num` and build time grow **superlinearly** as independent VLAN×dst PoPs are added
+(N=5's build is ~14× N=2's for ~2× the `ap_num`), so the curve runs *up into* the full
+16-router model's `ap_num` ≈ 21.6 k — the point at which the build no longer completes
+in a bounded time. So faithful BDD-APKeep **completes at small scale and stops
+completing as the independent-field partition grows** — a clean, definitive frontier.
+
+**faithful-stanford (dst×VLAN) — full model, uncapped, 13 GB heap, profiled
+(`bench/wl_stanford/eval/faithful_bdd_uncapped_profile.jsonl`, 110 samples).**
+- Ran **54 min (3 240 s)** on a clean core, then stopped. **Surpassed the capped
+  snapshot on both axes**: `rules` 5 092 > 4 884, `ap_num` **22 249 > 21 582**, with
+  **70.0 %** of the 7 278 rules applied — and *still climbing* (no plateau).
+- Same verdict as i2: **neither completion nor OOM.** The `+fwd` phase applies ~3 950
+  rules in seconds (`ap_num` already 16 087); the `+nat` phase then crawls at
+  **0.36 rules/s** (slope ~5.4 AP/rule) and *decays further* (last 15-min window fell to
+  ~0.16 rules/s as the slope steepened to ~18) — so the remaining ~2 200 rules are
+  effectively unreachable in bounded time.
+- The BDD table (`bdd_mem`) is pinned at **exactly 376 MB for the whole 54 min**
+  (min = max), free RAM never dropped below ~8.6 GB — **no memory pressure whatsoever**.
+  Here `merge_ms` = 2 091 235 (34.8 min) dominates over `ppm_ms` = 1 147 188 (19 min)
+  — AP *merge* is the Stanford hotspot vs i2's PPM-update, but both are the same
+  cross-product cost.
+
+**Both faithful models therefore give the identical, definitive answer:** run uncapped,
+BDD-APKeep **does not complete and does not OOM** — it exhibits *unbounded, superlinear
+wall-clock growth of a per-field cross-product partition while the heap stays flat at
+~0.38 GB*. This is a stronger result than either of the plan's two anticipated outcomes
+(complete / OOM): the wall is algorithmic, not resource, so no bigger box rescues it.
+
+**Σ-vs-Π summary (BDD's joint partition Π vs NDD's per-field Σ).**
+
+| faithful model | BDD-APKeep Π (`ap_num`) | NDD Σ | NDD build |
+|---|---|---|---|
+| wl_i2 (dst×VLAN) | **≥ 20 930 and climbing** (uncapped 53 min, 53 % of rules; → ~220 k projected) | **253** (216 dst + 37 VLAN) | ~15 s, exact |
+| wl_stanford (dst×VLAN) | **≥ 22 249 and climbing** (uncapped 54 min, 70 % of rules; capped was 21 582) | (per-field, ~hundreds) | ~3 s, exact |
+
+The BDD partition is **~80–800×** the NDD Σ and unbounded; NDD keeps the fields additive.
+This is the Σ-vs-Π headline the plan set out to make paper-grade — measured, not assumed.
+
+**Reproduction & committed artifacts.** Driver: `bench/faithful_bdd_measure.py` (see its
+docstring for exact invocations). From `fave/`, `PYTHONPATH=.`, venv active, jar built:
+```
+# reduced slice (completes -> anchor):
+FAVE_JVM_XMX=6g python3 bench/faithful_bdd_measure.py --bench stanford \
+    --routers bbra_rtr,roza_rtr,rozb_rtr --out <slice>.json
+# full uncapped (no timeout, profiled) -- stanford | i2:
+FAVE_JVM_XMX=13g APKEEP_BUILD_PROFILE=<prof>.jsonl APKEEP_BUILD_PROFILE_MS=30000 \
+    python3 bench/faithful_bdd_measure.py --bench stanford --out <full>.json
+```
+Committed traces (this run): `bench/wl_i2/eval/faithful_bdd_uncapped_profile.jsonl`
+(109 samples, 53.5 min), `bench/wl_stanford/eval/faithful_bdd_uncapped_profile.jsonl`
+(110 samples, 54 min), and the completing anchors
+`bench/wl_stanford/eval/faithful_bdd_pop_N{2,3,5}.json` (+ their `_profile.jsonl`).
+Caveat: the reduced-slice **build times** were measured under concurrent load (the i2
+crawl shared CPU) and are upper bounds; `ap_num` is deterministic and load-independent.
+
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
 exact and in the exactness gate (18 passed, 0 skipped). The NDD multi-field advantage is
