@@ -456,6 +456,41 @@ solves faithful-i2 tractably; BDD cannot. Gated by
 avoids. It does NOT appear where a field is functionally slaved (i2's `rw=vlan` alone) or
 absent (single-field FIBs), where NDD ≈ BDD.
 
+### §2.6a — how the BDD-APKeep faithful builds stop (profiler analysis)
+Both faithful (dst×VLAN) BDD builds were stopped by a **wall-clock `timeout` I imposed
+(1700 s ≈ 28 min, GNU `timeout` → rc=124), NOT by an OutOfMemoryError.** Captured
+profiler traces (`APKEEP_BUILD_PROFILE`, committed):
+`bench/wl_i2/eval/faithful_bdd_capped_profile.jsonl` (170 snapshots) and
+`bench/wl_stanford/eval/faithful_bdd_capped_profile.jsonl` (114). Analysis of the i2 trace
+(the fuller one):
+
+- **The AP count is NOT converging — it grows ~linearly in rules applied.** Per newly
+  applied `+nat` (rw=vlan) rule: a one-time initial burst (~119 APs/rule for the first
+  ~63 rules, as the first VLAN rewrites split the whole partition), then a **flat ~2.7
+  APs/rule for the entire remaining run** (the per-rule split rate never trends to 0).
+  Extrapolating over the ~73.8k `+nat` rules still unprocessed at the cap ⇒ `ap_num`
+  heading to **~200k**, no plateau.
+- **The apparent time-series "slowdown" (1 680 @10s → 9 168 @20s → 19 081 @28min) is a
+  wall-clock artifact, not saturation.** The rule *rate* collapsed from ~7 700 rules/s in
+  the `+fwd` phase to **~2 rules/s** in the `+nat` phase, so APs accumulate slowly *in
+  time* only because the build is crawling. The cause is the PPM (port-predicate-map)
+  cost: `ppm_entries` 346k → 3.93M, **`ppm_ms` 5 258 → 1 198 664** (~20 min) and
+  `merge_ms` 2 767 → 488 440 (~8 min) — each AP split re-touches the PPM across all
+  elements, so per-rule cost is superlinear in the (growing) partition.
+- At the cap: 81 161 / 154 920 rules applied (~52 %), `ap_num` = 19 081 and climbing,
+  BDD heap ~0.41 GB used of the 11 GB given (nowhere near OOM).
+- **Correction to the §2.6 sizing estimate.** I earlier put Π ≈ 216 dst × 37 VLAN-
+  admission-classes ≈ 8k. The real build already exceeds that (19k at half the rules)
+  because the per-route `rw=vlan` rewrites introduce many intermediate `(dst,
+  current-VLAN)` states beyond the admission classes — so the joint partition (and the
+  BDD blow-up) is *larger* than that lower bound, not smaller.
+
+**Net:** "intractable" here means "does not finish in 28 min, with a linearly-growing
+partition and superlinear per-rule PPM cost" — a wall-clock cap, not a crash. Whether
+BDD-APKeep *eventually* completes (final `ap_num`/time) or hits a real heap ceiling is
+left to the planned uncapped runs (APKEEP_NDD_PLAN → "Planned: uncapped BDD-APKeep
+faithful measurements").
+
 ### §2.6 status: all 6 benchmarks have NDD coverage; 6/6 exact + gated
 wl_up, wl_tum, wl_stanford-P7a, wl_ifi, **wl_stanford faithful-VLAN**, **wl_i2** — all
 exact and in the exactness gate (18 passed, 0 skipped). The NDD multi-field advantage is

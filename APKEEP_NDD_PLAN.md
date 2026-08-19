@@ -213,6 +213,37 @@ Part 1 (preservation) and Part 2 (NDD integration, §2.0–§2.6) are complete. 
 selectable second backend, exact on all six FaVe benchmarks and decisively faster wherever
 multiple independent header fields make BDD-APKeep pay a cross-product (two faithful-VLAN
 models are outright intractable for BDD-APKeep). Full record: `APKEEP_NDD_EVAL.md`.
-Possible future work (not required by this plan): productionize incremental *updates*
-(not just from-zero); a faster faithful-i2 query path (~35 s today); a paper-ready
-benchmark table.
+
+## Planned: uncapped BDD-APKeep faithful measurements (future)
+**Why.** The BDD-APKeep numbers for the two faithful (dst×VLAN) models are currently
+*capped* — each was stopped by a 1700 s (~28 min) wall-clock `timeout` I imposed, **not**
+by an OutOfMemoryError, and the profiler shows the atomic-predicate count still growing
+~linearly (≈2.7 APs per `+nat` rule, no plateau) with only ~52 % of rules applied while
+the per-rule PPM cost grows superlinearly (see `APKEEP_NDD_EVAL.md` §2.6a and the
+committed traces `bench/wl_{i2,stanford}/eval/faithful_bdd_capped_profile.jsonl`). For a
+paper-grade claim we want the *definitive* BDD-APKeep outcome, not a capped snapshot.
+
+**Goal.** For faithful-stanford and faithful-i2 (`engine='bdd', faithful_vlan=True`),
+record either (a) eventual completion — final `ap_num`, build+query wall time, peak heap —
+or (b) a genuine heap ceiling — the `ap_num`/heap at which it OOMs.
+
+**Method.**
+- No `timeout`; the largest heap the machine allows (`FAVE_JVM_XMX`; the capped run used
+  11 GB on a 15 GB box — use a bigger-RAM host, e.g. ≥ 64 GB).
+- `APKEEP_BUILD_PROFILE=<path> APKEEP_BUILD_PROFILE_MS=30000` to log the `ap_num`/PPM
+  trajectory (coarser interval to cut overhead); run detached.
+- Reproduce via the adapter: replay `bench/wl_i2/i2-json` (files `device_topology.json`,
+  `probes.json`) or `bench/wl_stanford/stanford-json`, `faithful_vlan=True`, `engine='bdd'`,
+  then read `ap_num()` + `element_metrics()` + wall time (same driver used for the capped
+  run; just drop the `timeout` and raise the heap).
+- **Hedge against non-termination:** also run a *reduced* slice (e.g. 3–4 PoPs, via
+  `apkeep_convergence`-style router subsetting) so at least one BDD-APKeep faithful build
+  *completes*, giving a real final `ap_num`/time to anchor an extrapolation.
+- Compare against the NDD side (already measured): faithful-stanford ≈ 3 s; faithful-i2
+  ≈ 15 s build + ≈ 35 s query; per-field Σ (216 dst + 37 VLAN classes) — for a clean
+  Σ-vs-Π table.
+
+**Also worth doing** (not required by this plan): productionize incremental *updates* (not
+just from-zero); speed up the faithful-i2 NDD query path (~35 s today — the per-hop NAT
+`exist`+rewrite over 2-field NDDs dominates); a paper-ready benchmark table drawing on the
+above.
