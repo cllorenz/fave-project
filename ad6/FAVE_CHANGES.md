@@ -120,3 +120,66 @@ that model into ad6's own IR is needed. Investigated how separable that IR alrea
 
 No ad6 source changed for this item; it's a design investigation informing AD6_PLAN.md's
 integration approach (§4.4).
+
+## 6. FaVe-model translator + wl_ifi exact match  **[NEW]**
+
+`src/parser/favemodel.py` + `fave_bridge.py`: the actual FaVe->ad6 translator the §4.4
+investigation (item 5) called for, plus a CLI bridge (`fave/ad6/adapter.py`, on the FaVe
+side, is the `AbstractVerificationEngine` that captures the model and drives this as a
+subprocess -- ad6 never runs in-process inside FaVe, see that file's docstring). Builds a
+`GenUtils`-shaped Config tree directly from FaVe's neutral per-device rule model (never
+touching `IP6TablesParser`/Cisco-ACL text), covering: dst-IP forwarding via direct
+interface jumps (§4.4's verified primitive), and ingress/egress ACL admission via a
+per-port group of unconditional-jump rules (permit -> the shared forwarding stage; deny ->
+a shared drop sink) — VLAN is used only to trace which port an ACL group belongs to, never
+as a match field.
+
+**Result: exact match to wl_ifi's `reachable.json` (54/54, 0 missing, 0 extra)** —
+`fave/test/test_ad6_wl_ifi.py`, mirroring `test_apkeep_wl_ifi.py`. ~2.6s end to end (17
+devices, 17 generators/probes, 289 queries).
+
+Getting there surfaced real, worth-recording gotchas (all fixed in `favemodel.py`/
+`fave_bridge.py`, none require touching `kripke.py`/`instantiator.py`):
+
+- **A `/0` CIDR (`0.0.0.0/0`, FaVe's explicit "match any") silently breaks.**
+  `XMLUtils.ConvertCIDRToVariables` truncates a CIDR's bit-vector to `Count*2` bits, which
+  is **zero** for a `/0` prefix — producing an **empty** `<conjunction/>` as the rule's
+  Gamma instead of a trivially-true one, which makes every rule (and everything reachable
+  only through it) unconditionally unsatisfiable. Fixed by treating a match-all CIDR as
+  "no condition" (omit the `<ip>` element) rather than asserting it — semantically
+  identical, sidesteps the zero-bit corner case. `favemodel._is_constrained`.
+- **`KripkeUtils._ConnectOutputs`'s `_EnhanceInterfaceRules` machinery is a trap for a
+  translator that bypasses it.** An `<interface direction="in">` match condition gets
+  rewritten to `constant(False)` unless something wires a backward transition into that
+  interface's `_in` node — which this translator deliberately never does (§4.4's design:
+  per-port isolation is structural, via separate query entry points, not via interface
+  matching). Adding an `<interface>` condition anyway silently makes the rule permanently
+  unreachable; the fix is to just not add it.
+- **A device's own forwarding-table start is NOT a free INIT entry point once the topology
+  is wired.** `KripkeUtils._ConvertNodesToImplications`'s "was this node entered" check
+  only exempts a node with **zero** backward transitions (`Kripke.IterBTransitions`
+  raising `KeyError`) — marking a node `INIT` does not override that if it also has a real
+  predecessor (e.g. a neighbouring device's egress interface, once `wire_edges` connects
+  the topology). The fix: give every FaVe generator its **own dedicated** 1-rule firewall
+  that nothing else ever points into (`gen_entry_key`), and use *that* as every query's
+  Source — never a device's own internal entry point directly. Found by tracing an
+  admin.ifi->internal.ifi query that stayed UNSAT even though every individual edge along
+  the path looked correct in isolation.
+- **`KripkeUtils._CreateInitConstraints`'s chained-XOR has a real off-by-one for larger N**
+  (wl_ifi's 17 generators). It builds the "exactly one of these fired" constraint via
+  `for i in range(2, Length-3): ... elif i == Length-3: <close the chain>` — but
+  `range`'s stop bound is exclusive, so `i == Length-3` is never reached, and the last few
+  generators end up completely unconstrained (free to fire simultaneously with the one a
+  query actually asked about). Surfaced as an over-approximation: `admin.ifi` incorrectly
+  "reached" the isolated `cam.ifi`/`hpc_ic.ifi`/etc. subnets, because a solver assignment
+  fired `source.cam.ifi`'s own generator to satisfy the destination side for free,
+  unconstrained by the (broken) XOR. **Not fixed in ad6 core** — worked around per-query
+  in `fave_bridge.py` (`_exclusivity_conjuncts`: explicitly assert every *other* generator's
+  edge is false), which is correct regardless of whether the XOR bug is ever fixed
+  upstream, and is the more principled fix anyway (a query should not depend on an
+  incidental global invariant to mean what it says).
+
+None of these needed changes inside `kripke.py`/`instantiator.py` — confirming §4.4's
+finding that the existing backend is sufficient for a FaVe-model translator, modulo two
+real (if obscure) bugs worth knowing about (the `/0` CIDR truncation and the init-XOR
+off-by-one) that any future ad6 frontend will hit again if it isn't aware of them.

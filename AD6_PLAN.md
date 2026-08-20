@@ -2,10 +2,12 @@
 
 **Status:** §1 theory DONE + §1.4 GO confirmed by owner (2026-08-20); §3.1/§3.3 DONE
 (`make test` green, deps pinned); §4.1 decided + §4.4 major integration-architecture
-correction from owner review, incorporated same day (see §4.4 — wl_ifi reinstated, ad6
-needs a new FaVe-model translator, not a backend refactor); wl_tum differential MATCHES
-NetPlumber (§4.3); wl_ifi translator + wl_up stateful instantiator (§4.2) next. Owner:
-Claas Lorenz. Companions:
+correction from owner review, incorporated same day (wl_ifi reinstated, ad6 needs a new
+FaVe-model translator, not a backend refactor). **The translator is now built and proven:
+wl_tum (ad6-native format) and wl_ifi (via the new translator, forwarding+ACL) both
+EXACTLY MATCH their NetPlumber/reachable.json oracles.** wl_up remains, needing the
+stateful `<->>` instantiator (§4.2) added on top of the same translator. Owner: Claas
+Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
 This plans integrating **ad6** — the author's
@@ -472,10 +474,9 @@ corrected directly — see §4.4.)
 ## 5. Extend to all benchmarks
 
 - **5.1** wl_up, wl_tum, **wl_ifi** (reinstated 2026-08-20, §4.4) — via the FaVe→ad6
-  translator, all lowest-risk once §4.4's finding holds (`GenUtils` IR + direct
-  interface-jump forwarding cover everything these three need). wl_ifi is small/fast and
-  the recommended first translator target; wl_tum's backend/solving path is already proven;
-  wl_up adds the stateful instantiator on top.
+  translator. **wl_ifi DONE (§4.3): exact match, forwarding+ACL.** wl_tum's
+  backend/solving path is already proven (via ad6's own native frontend). wl_up remaining,
+  needs the stateful `<->>` instantiator (§4.2) added on top of the same translator.
 - **5.2 Stanford, Internet2 — the small-n hypothesis test (§0). The genuinely remaining
   feasibility risk, corrected 2026-08-20 (§4.4): NOT a parsing-format question (FaVe's
   adapter never depends on ad6's own parser, so "IPv4 vs IPv6-native" is moot) — a
@@ -571,8 +572,12 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
       default (ipv4) `fave/bench/wl_tum/rulesets/tum-ruleset` — zero ruleset translation
       needed for wl_tum. Initial "topology gap" note was premature (walked back after
       checking FaVe's own wl_tum model, which is equally interface-agnostic) — see §4.3.**
-- [ ] **§4.2** Wire ad6 to answer the source→probe matrix, **including the stateful `<->>`
-      3-check instantiator (required for wl_up AND wl_ifi, §1.2/§1.4/§4.4).**
+- [~] **§4.2** Wire ad6 to answer the source→probe matrix. **wl_ifi forwarding+ACL path
+      DONE 2026-08-20** (`fave/ad6/adapter.py` + `ad6/src/parser/favemodel.py` +
+      `ad6/fave_bridge.py`) — non-stateful (wl_ifi's `cchecks.json` stateful checks weren't
+      exercised by this milestone's plain existential query; see below). **Still open:
+      the stateful `<->>` 3-check instantiator, required for wl_up (and wl_ifi's own
+      stateful checks if ever compared), §1.2/§1.4/§4.4.**
 - [x] **§4.4** (new 2026-08-20) Investigate whether ad6 needs a "major refactor" to
       separate frontend/backend for FaVe integration, per Claas's correction. **Finding:
       largely already done** — `GenUtils` is an existing, generic Config-tree IR builder,
@@ -586,7 +591,11 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
 - [~] **§4.3** Differential vs NetPlumber on **wl_tum + wl_ifi + wl_up** (soundness gate;
       wl_ifi reinstated 2026-08-20, §4.4). **wl_tum DONE 2026-08-20: exact match** (ad6 and
       NetPlumber both say source.tum→probe.tum is reachable), `ad6/test/differential/`.
-      wl_ifi + wl_up remaining — wl_ifi needs the translator (§4.2 prerequisite work), wl_up
+      **wl_ifi DONE 2026-08-20: EXACT MATCH to `reachable.json` (54/54, 0 missing/0 extra)**
+      — `fave/test/test_ad6_wl_ifi.py`, ~2.6s for the full 17-device/17-role model. This is
+      the first real FaVe→ad6 translator result (not just ad6's own native-format
+      shortcut like wl_tum). wl_up remaining, needing §4.2's stateful instantiator on top
+      of this same translator.
       additionally needs the stateful instantiator.
 - [ ] **§5.1** Enable wl_up + wl_tum + wl_ifi end-to-end through the integrated path.
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
