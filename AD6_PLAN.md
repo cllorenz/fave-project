@@ -1,7 +1,7 @@
 # ad6 → FaVe backend: a generic SAT/QBF model checker for comparison
 
-**Status:** §1 theory DONE (2026-08-20); §1.4 go/no-go pending owner confirm before §3 code
-revival. Owner: Claas Lorenz. Companions:
+**Status:** §1 theory DONE + §1.4 GO confirmed by owner (2026-08-20); §3.1/§3.3 DONE
+(`make test` green, deps pinned); §3.2/§4 in progress. Owner: Claas Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
 This plans integrating **ad6** — the author's
@@ -141,8 +141,8 @@ model files rather than trusting the old audit further:
 | wl_i2 | 1× `<-->` | 0 / 72 |
 
 So only wl_stanford/wl_i2 are pure k=1 existential reachability; **wl_up (§5.1's flagship
-ad6-home-turf benchmark) and wl_ifi (the §4.3 smoke/differential target) both require the
-stateful 3-check semantics.** `cchecks.json` entries already show the exact FaVe encoding:
+ad6-home-turf benchmark) and wl_ifi both require the stateful 3-check semantics** — though
+wl_ifi turns out to be moot for ad6 regardless, see the format-feasibility correction below. `cchecks.json` entries already show the exact FaVe encoding:
 for a `<->>` pair the same (src,dst) gets a plain check plus two more sharing a
 `test_fields=["related:1"]` / `["related:0"]` condition (must-reach for related/established
 return traffic; must-NOT-reach for a fresh/`NEW` connection initiated by the callee) — i.e.
@@ -178,8 +178,26 @@ fresh solve, no warm-start) — so wl_up's true query count is close to 3× what
 existential comparison would suggest (**empirically: 11902**, not 137²=18769×1 — the actual
 `cchecks.json` count already reflects the true instance count and should be used directly
 instead of a `k·n²` estimate). This makes wl_up an even sharper worst case for ad6 than
-originally modelled, and makes wl_ifi's small size more valuable as a smoke/differential
-target precisely *because* it also exercises the stateful path at trivial scale.
+originally modelled.
+
+**SECOND CORRECTION 2026-08-20: wl_ifi is not a usable ad6 smoke target either — wrong
+format, same gap as Stanford/i2.** I'd called wl_ifi "best smoke/differential target,
+fast on all 4 families" based only on its role count and stateful-check profile, without
+checking whether ad6 can actually *ingest* it. It can't: `fave/bench/wl_ifi/acls.txt` is
+Cisco IOS ACL syntax (`access-list 100 permit ip 10.0.14.0 0.0.1.255 ...`), IPv4, VLAN-keyed
+— the exact same format ad6 has no parser for (`IP6TablesParser` only) that §5.2 already
+flags as a real feasibility risk for wl_stanford/wl_i2. wl_ifi belongs in that same
+feasibility-gated bucket, not in the "home turf" tier with wl_up/wl_tum. **wl_tum is the
+correct first smoke/differential target instead**: it's genuinely ip6tables-format
+(ad6 already ships the same ruleset lineage in `bench/tum/tum-ruleset`), and — checked
+directly — its FaVe-side oracle (`fave/bench/wl_tum/policies.json`) is a single-probe
+reachability check (`fw.tum.forward_filter_accept → probe.tum`), not an FPL role-mesh, so
+it needs neither the stateful instantiator nor a large query count to validate against.
+This makes wl_tum strictly the better first step: ad6-native format, trivial query count,
+Factor-B-only (as §1.3 already characterised) — safer and cheaper to get a differential
+gate working on before attempting wl_up. §1.4/§4.3's benchmark ordering is corrected
+below to wl_tum → wl_up, with wl_ifi moved alongside wl_stanford/wl_i2 under the §5.2-style
+IPv4/Cisco-ACL feasibility gate.
 
 **One-source→all-dests feasibility: partially, not for free.** `InstantiateReach`'s
 node-disjunction is composable — nothing stops building one instance whose top-level
@@ -199,7 +217,7 @@ instantiation, is where Factor A bites.
 
 | benchmark | n (roles) | R (rule/route count) | true query count (`cchecks.json`) | predicted dominant factor | ad6 outlook |
 |---|---|---|---|---|---|
-| wl_ifi | 17+17 ⇒ ~34 | small (`ifi.csv`/`acls.txt`, dozens of rules) | 299 (54 stateful) | neither — cheap on both axes, but exercises the stateful path | best smoke/differential target (§4.3): fast, AND covers `<->>` at trivial scale |
+| wl_ifi | 17+17 ⇒ ~34 | small (`ifi.csv`/`acls.txt`, dozens of rules) | 299 (54 stateful) | neither — cheap on both axes | **NOT ad6-native format** (Cisco IOS ACL, IPv4, VLAN-keyed — same §5.2 gap as Stanford/i2, corrected 2026-08-20); moved out of the smoke-target role |
 | wl_up | 137 | large — `ad6/bench/up/up-gw-alt-ruleset` alone is 6606 lines, dozens of per-department rulesets on top | **11902 (3302 stateful)** | **Factor A dominates hardest of all four** — true query count (11902) is ~0.6× n², not the naive n²≈18.8k, because FaVe's compliance translation doesn't check every ordered pair at k=3 uniformly, but it's still ~86× wl_ifi's count with a widened per-pair cost (§1.2 correction: `<->>` pairs cost ad6 3 independent solves vs ~free extra reads for NP/APKeep/NDD) — worst case for ad6, and worse than §0 originally modelled | ad6's own bundled `bench/up/run_large.sh` builds `bench/up/large.xml` with `--anomalies end_to_end` over an all-pairs target list (internet + gateway + wifi-clients + 8 DMZ hosts + 21 subnets × 6 subhosts) that sums to **exactly n=137** — the *same* role count as FaVe's wl_up. This is almost certainly the "known ~36 min baseline" referenced in §3.2 — **but note `_measure_end_to_end` as coded only issues the plain (non-stateful) check, so that historical ~36 min number was NOT exercising `<->>` either; a faithful re-measurement will need the stateful instantiator built first and will very likely take substantially longer** |
 | wl_tum | very small (single firewall `fw.tum`, essentially a 1-Kripke-endpoint model per `policies.json`) | large (`ad6/bench/tum/tum-ruleset` = 3795 lines; FaVe's `wl_tum` cites "3.8k stateful rules") | **Factor B alone** — n² term is negligible, this isolates raw per-solve/per-flood cost vs ruleset size | cleanest single-axis measurement: if ad6 loses here it's pure representation/solve cost, not query amortisation |
 | wl_stanford | 16 (240 all-pairs checks) | IPv4 LPM FIB, not iptables — **not yet ad6-encodable** (§5.2 risk); `ap_num` ~21.6k on the faithful VLAN variant | small n keeps Factor A cheap even at k=3; Factor B depends entirely on the (unbuilt) IPv4/VLAN encoding | feasibility gate, not a cost question, until §5.2's encoding exists |
@@ -213,18 +231,22 @@ ad6 encoding — first cheap validation step in §3 (`make test` + a dry run aga
 ### 1.4 GO/NO-GO gate — recommendation (owner decision required)
 
 Recommend:
-- **(a) Benchmark scope:** proceed with wl_ifi (smoke) → wl_tum (clean Factor-B isolation)
-  → wl_up (headline Factor-A case) first, exactly as §5.1 already orders it. wl_stanford/i2
-  gated separately behind §5.2's IPv4/VLAN encoding spike — do not block §3/§4 on it.
-- **(b) `<->>` stateful query semantics — REQUIRED, moved out of "optional/deferred."**
-  Corrected 2026-08-20: wl_up and wl_ifi both need it (§1.2). Pull the stateful
-  instantiator (3 checks: plain, `state∈{ESTABLISHED,RELATED}` reverse-must-reach,
-  `state=NEW` reverse-must-NOT-reach) into §4.2's required scope, driven off `cchecks.json`'s
-  `(dst, must_reach, [conditions])` tuples. De-risked: ad6 already has the `STATE` field
-  end-to-end (parser + bit-vector encoding), so this is query-orchestration work on top of
-  existing machinery, not new modelling — but it is not skippable for a faithful wl_up/wl_ifi
-  comparison, and it makes ad6's per-pair cost worse (3 independent solves, not 1) than the
-  original plan assumed.
+- **(a) Benchmark scope:** proceed with **wl_tum (smoke/differential) → wl_up (headline
+  Factor-A case)** first — corrected 2026-08-20, wl_ifi dropped from this tier (see below).
+  wl_stanford/wl_i2/wl_ifi all gated together behind a §5.2-style IPv4/Cisco-ACL/VLAN
+  encoding spike — do not block §3/§4 on it.
+- **(b) `<->>` stateful query semantics — REQUIRED for wl_up, moved out of
+  "optional/deferred."** Corrected 2026-08-20: wl_up needs it (§1.2); wl_ifi also has
+  stateful checks in its `cchecks.json` but is moot for ad6 regardless (format gap, see
+  (e)). Pull the stateful instantiator (3 checks: plain, `state∈{ESTABLISHED,RELATED}`
+  reverse-must-reach, `state=NEW` reverse-must-NOT-reach) into §4.2's required scope, driven
+  off `cchecks.json`'s `(dst, must_reach, [conditions])` tuples. De-risked: ad6 already has
+  the `STATE` field end-to-end (parser + bit-vector encoding), so this is
+  query-orchestration work on top of existing machinery, not new modelling — but it is not
+  skippable for a faithful wl_up comparison, and it makes ad6's per-pair cost worse (3
+  independent solves, not 1) than the original plan assumed. wl_tum's oracle is a single
+  reachability check (not an FPL role-mesh — confirmed against `policies.json`), so it does
+  NOT need the stateful instantiator; it can validate the plain path first.
 - **(c) Incremental-SAT lever (§6):** build **after** the (now-stateful) wl_up baseline, not
   before. §6 is only worth the effort if wl_up's O(n²)-ish query cost is shown to actually
   dominate wall-clock (more likely now that each `<->>` pair costs 3 solves) rather than
@@ -232,7 +254,11 @@ Recommend:
 - **(d) Stanford/i2 feasibility:** real risk, correctly scored as its own spike (§5.2), not
   a freebie — confirmed by reading the parser (`IP6TablesParser` only), not by assumption.
   Both remain genuinely k=1 (no `related:` conditions in their `cchecks.json`), so they do
-  NOT need the stateful instantiator — only wl_up/wl_ifi/wl_tum(tbd) do.
+  NOT need the stateful instantiator — only wl_up (and wl_tum, non-stateful) do.
+- **(e) wl_ifi — SECOND CORRECTION 2026-08-20, moved out of the smoke-target role.**
+  Not ad6-native format: `acls.txt` is Cisco IOS ACL syntax (IPv4, VLAN-keyed), which
+  `IP6TablesParser` cannot parse — the same feasibility gap as (d), not a "fast smoke test."
+  Folded into the §5.2 spike alongside Stanford/i2 rather than treated as a free early win.
 
 **Do not start code revival (§3) until Claas confirms (a)–(d) above.**
 
@@ -313,14 +339,15 @@ Recommend:
     `bench/up` + `bench/tum` rulesets that already share the UP/TUM lineage, so (B) may be
     the lower-friction path. First read: (B) for reach, (A) only if we want live/incremental.
 - **4.2** Wire the reachability query so ad6 answers the **same source→probe matrix** as
-  NP/APKeep/NDD, **including the stateful `<->>` 3-check form (REQUIRED for wl_up/wl_ifi,
-  see §1.2/§1.4).** Build a stateful sibling of `InstantiateEndToEnd` that asserts a
-  `state`/`ctstate` literal (ad6 already has the field: `XMLUtils.STATES`,
+  NP/APKeep/NDD, **including the stateful `<->>` 3-check form (REQUIRED for wl_up,
+  see §1.2/§1.4; wl_ifi dropped, see §1.4(e)).** Build a stateful sibling of
+  `InstantiateEndToEnd` that asserts a `state`/`ctstate` literal (ad6 already has the field: `XMLUtils.STATES`,
   `ConvertStateToVariables`, `IP6TablesParser`'s `--ctstate`) alongside the existing
   DisjSrc/DisjDst conjunction, driven directly off each benchmark's `cchecks.json`
   `(dst, must_reach, [conditions])` tuples so ad6's query semantics can't drift from FaVe's
   own compliance translation. wl_stanford/wl_i2 stay on the plain (non-stateful) path.
-- **4.3 Differential correctness gate:** ad6 vs NetPlumber (the oracle) on wl_ifi + wl_up;
+- **4.3 Differential correctness gate:** ad6 vs NetPlumber (the oracle) on **wl_tum + wl_up**
+  (corrected 2026-08-20, was wl_ifi + wl_up — wl_ifi is not ad6-ingestible, §1.4(e));
   **soundness is the hard gate** (ad6 must never drop an NP-reachable pair). Same discipline
   as the APKeep/NDD differentials.
 
@@ -330,13 +357,16 @@ Recommend:
 
 - **5.1** wl_up, wl_tum — ad6's home turf (IPv6 firewalls; rulesets already in
   `ad6/bench/{up,tum}`). Lowest risk; gets the large-n end of the curve.
-- **5.2 Stanford, Internet2 — the small-n hypothesis test (§0). REAL FEASIBILITY RISK.**
-  ad6 is IPv6-firewall/anomaly-oriented (its parser is `IP6TablesParser`; Stanford/i2 are
-  **IPv4 forwarding** networks with **VLANs**). Encoding pure IPv4 LPM forwarding (+ VLAN
-  match/rewrite) as an ad6 Kripke/SAT model is **substantial modelling work, not a config
-  toggle** — it is the crux effort, and it must clear the §1.4 gate. Owner's position:
-  "matter of effort, not principle" — accepted, but the plan treats it as a scoped task
-  with its own feasibility check, not a freebie.
+- **5.2 Stanford, Internet2 (and now wl_ifi) — the small-n hypothesis test (§0). REAL
+  FEASIBILITY RISK.** ad6 is IPv6-firewall/anomaly-oriented (its parser is
+  `IP6TablesParser`; Stanford/i2/**wl_ifi** are **IPv4** networks — Stanford/i2 forwarding
+  with VLANs, wl_ifi Cisco IOS ACLs with VLANs, added to this bucket 2026-08-20 per §1.4(e)
+  after confirming `fave/bench/wl_ifi/acls.txt` is `access-list ... permit ip ...` syntax,
+  not ip6tables). Encoding pure IPv4 LPM forwarding / ACLs (+ VLAN match/rewrite) as an ad6
+  Kripke/SAT model is **substantial modelling work, not a config toggle** — it is the crux
+  effort, and it must clear the §1.4 gate. Owner's position: "matter of effort, not
+  principle" — accepted, but the plan treats it as a scoped task with its own feasibility
+  check, not a freebie.
 - **5.3** Faithful-VLAN Stanford/i2 variants: likely **out of scope** for ad6 (it is not a
   forwarding/VLAN data-plane tool); revisit only if 5.2 succeeds and there is appetite.
 
@@ -387,16 +417,24 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
       (`Instantiator`, FPL semantics); check one-source→all-dests feasibility. **Finding:
       `<->>` is FaVe's own policy language (thesis, not ad6-native); ad6 has no 3-check
       instantiator. CORRECTED 2026-08-20: `<->>` IS required — wl_up (3302/11902 checks)
-      and wl_ifi (54/299) both need it; only wl_stanford/wl_i2 stay k=1. ad6 already has
-      the STATE field end to end, so this is query-orchestration work, not new modelling —
-      pulled into §4.2 as required, not optional.**
+      and wl_ifi (54/299) both need it in principle; only wl_stanford/wl_i2 stay k=1. ad6
+      already has the STATE field end to end, so this is query-orchestration work, not new
+      modelling — pulled into §4.2 as required for wl_up. **SECOND CORRECTION: wl_ifi
+      dropped from ad6 scope entirely — Cisco IOS ACL/IPv4/VLAN format, not ad6-ingestible
+      (§1.4(e)), same gap as Stanford/i2.**
 - [x] **§1.3** Predict the per-benchmark regime table (build/query-count/dominant factor).
-- [ ] **§1.4** GO/NO-GO gate: benchmark scope, Stanford/i2 feasibility, lever timing.
-      **Recommendation written (updated 2026-08-20 to make the stateful instantiator
-      required); awaiting Claas's explicit confirm before §3 code revival.**
+- [x] **§1.4** GO/NO-GO gate: benchmark scope, Stanford/i2 feasibility, lever timing.
+      **Claas confirmed GO 2026-08-20 ("Please go ahead on the ad6 plan").** Scope:
+      wl_tum (smoke/differential) → wl_up (headline, stateful); wl_stanford/wl_i2/wl_ifi
+      gated together behind a future IPv4/Cisco-ACL/VLAN encoding spike; §6 lever after the
+      wl_up baseline.
 - [ ] **§2** Fix the shared metric (build + query×count), fairness protocol, solver-variance
       protocol; confirm reuse of ad6's built-in instantiate/solve timing split.
-- [ ] **§3.1** Get `ad6` `make test` green; inventory + modernise deps (changelog).
+- [x] **§3.1** Get `ad6` `make test` green; inventory + modernise deps (changelog).
+      **DONE 2026-08-20 (commit `53e1f53d`): 2 real test-fixture bugs found+fixed (`test/`
+      shadowed by stdlib, `_ConnectOutputs`-incompatible fixture firewall-key convention);
+      46/46 green. Deps: minisat/clasp (apt), lxml/yappi/pycosat (pip). `ad6/FAVE_CHANGES.md`
+      added.**
 - [ ] **§3.2** Reproduce the ~36 min wl_up reachability baseline. **PARTIALLY DE-RISKED
       2026-08-20: the 138 shared per-host rulesets are byte-identical to today's wl_up right
       now (though `fave/bench/wl_up/rulesets/` is gitignored, so this isn't provable back
@@ -405,11 +443,13 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
       still unchecked. Also: the historical ~36 min number did NOT exercise `<->>` (not yet
       built), so a faithful re-measurement will take longer once §4.2's stateful
       instantiator exists.**
-- [ ] **§3.3** Pin ad6 env (Python deps + SAT binaries) in the Dockerfile.
+- [x] **§3.3** Pin ad6 env (Python deps + SAT binaries) in the Dockerfile. **DONE 2026-08-20,
+      same commit as §3.1.**
 - [ ] **§4.1** Decide integration level (A vs B) from a scoping pass.
 - [ ] **§4.2** Wire ad6 to answer the source→probe matrix, **including the stateful `<->>`
-      3-check instantiator (required for wl_up/wl_ifi, see §1.2 correction).**
-- [ ] **§4.3** Differential vs NetPlumber on wl_ifi + wl_up (soundness gate).
+      3-check instantiator (required for wl_up only — wl_ifi dropped, §1.2/§1.4 corrections).**
+- [ ] **§4.3** Differential vs NetPlumber on **wl_tum + wl_up** (soundness gate; wl_ifi
+      dropped, corrected 2026-08-20).
 - [ ] **§5.1** Enable wl_up + wl_tum end-to-end through the integrated path.
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
