@@ -340,25 +340,34 @@ Recommend:
     the lower-friction path. First read: (B) for reach, (A) only if we want live/incremental.
 
   **DECIDED 2026-08-20: (B).** Confirmed the ruleset-sharing claim directly rather than
-  assuming it: `ad6/bench/tum/tum-ruleset` and `fave/bench/wl_tum/rulesets/tum6-ruleset`
-  are the *same* 3795-rule real-world TUM firewall dump, structurally identical rule for
-  rule — ad6's copy is the original **IPv4** `iptables-save`, FaVe's is the
-  **IPv6/NAT64-mapped** (`64:ff9b::/96`) conversion of the exact same rules
-  (`fave/bench/wl_tum/convert-iptables-to-ip6tables.py`). ad6's variable/CIDR layer
-  (`Instantiator._ShortenPrefixes`) already dispatches on address family generically
-  (inspects `:` vs `.` in the address string), so it should accept either form — meaning
-  a controlled comparison should feed ad6 the **IPv6 form** (`tum6-ruleset`), the one
-  NP/APKeep/NDD actually verify, not ad6's own native IPv4 copy. This confirms (B) is
-  low-friction for the *ruleset* input. **Open gap found while checking this:** ad6's own
-  `bench/tum/tum.xml` topology declares only 2 generic interfaces (`eth0`, `eth1`) on a
-  single node, while the ruleset itself references dozens of distinct VLAN
-  sub-interfaces (`eth1.110`, `eth1.1024`, ...) that aren't represented as topology nodes
-  at all — `make demo`'s own default invocation only runs `InstantiateBase` (node/edge
-  counts) with no `--anomalies` flag, so this was never exercised end-to-end even by ad6
-  itself. §4.2's translation step needs to emit a topology that actually declares one
-  Kripke-visible interface per VLAN sub-interface the ruleset touches (derivable from
-  FaVe's `topology.json`/`routes.json` for wl_tum, which already model this), not reuse
-  `tum.xml` as-is.
+  assuming it. There are *two* IPv6-lineage claims to untangle here — checked both:
+  - `ad6/bench/tum/tum-ruleset` vs `fave/bench/wl_tum/rulesets/tum6-ruleset` (the
+    IPv6/NAT64-mapped, `64:ff9b::/96`, conversion): same rule count (3795) but NOT
+    byte-identical — different address family per rule, as expected.
+  - `ad6/bench/tum/tum-ruleset` vs `fave/bench/wl_tum/rulesets/tum-ruleset` (FaVe's own
+    **default** wl_tum input): **byte-identical (`diff -q` confirms).** `wl_tum/benchmark.py`
+    defaults to `-4`/`--ipv4` (`RULESET = 'bench/wl_tum/rulesets/tum-ruleset'`); the IPv6
+    conversion is an opt-in `-6` mode, not what NP/APKeep/NDD are actually compared on by
+    default. **Corrected: feed ad6 the plain IPv4 `tum-ruleset` it already ships — zero
+    ruleset translation needed for wl_tum, not the IPv6 form as I first assumed.**
+
+  **"Open gap" walked back after checking FaVe's own model, not just ad6's.** I'd flagged
+  ad6's 2-interface `tum.xml` stub (vs the ruleset's dozens of VLAN sub-interfaces,
+  `eth1.110` etc.) as a gap to fix. Checked FaVe's own `bench/wl_tum/topology.json`
+  first: it is **equally minimal** — one `packet_filter` device, interfaces `["eth0",
+  "eth1"]`, **zero links**. FaVe's own wl_tum oracle question doesn't route through any
+  declared interface either: `sources.json` wires `source.tum` directly to
+  `fw.tum.forward_filter_in` (raw injection into the FORWARD chain, bypassing admission),
+  and `policies.json` wires `fw.tum.forward_filter_accept` (the FORWARD chain's synthesized
+  ACCEPT exit) directly to `probe.tum` — both are structural ports NetPlumber's
+  `packet_filter` device type exposes, unrelated to any physical/VLAN interface. So
+  ad6's matching primitive is exactly analogous and needs no interface work either: mark
+  the ruleset's first FORWARD rule (`tum_fw_forward_r0` — `IP6TablesParser` always keys a
+  chain's entry rule `r0`) as the sole init, and check reachability of the synthesized
+  `tum_fw_accept_r0`. **Verified 2026-08-20 (§4.3, below): this now runs and matches the
+  NetPlumber oracle exactly.** ad6's bundled `tum.xml` topology is genuinely unused by
+  this query on both sides — not a gap, just unexercised structure neither backend needs
+  here.
 - **4.2** Wire the reachability query so ad6 answers the **same source→probe matrix** as
   NP/APKeep/NDD, **including the stateful `<->>` 3-check form (REQUIRED for wl_up,
   see §1.2/§1.4; wl_ifi dropped, see §1.4(e)).** Build a stateful sibling of
@@ -371,6 +380,17 @@ Recommend:
   (corrected 2026-08-20, was wl_ifi + wl_up — wl_ifi is not ad6-ingestible, §1.4(e));
   **soundness is the hard gate** (ad6 must never drop an NP-reachable pair). Same discipline
   as the APKeep/NDD differentials.
+
+  **wl_tum DONE 2026-08-20 (commit pending), MATCH.** `ad6/test/differential/tumdifftest.py`
+  (wired into `test/test.py` via `differentialsuite.py`): built the model from
+  `bench/tum/tum-ruleset` + `bench/tum/tum.xml` exactly as ad6 ships them, init at
+  `tum_fw_forward_r0`, query reachability of `tum_fw_accept_r0`. **ad6 says reachable=True,
+  NetPlumber (oracle, via `fave/bench/apkeep_tum_diff.py --emit netplumber`) also says
+  True — exact match, single-pair.** ~30s (dominated by CNF instantiation over 3794 rules;
+  a fresh `sys.setrecursionlimit` is needed — `main.py` already does this, a bare script
+  driving `Instantiator` directly must do it too, or `_GetOutputsRecurse`'s ~3800-deep
+  recursion over the FORWARD chain's fall-through transitions blows Python's default
+  limit). wl_up (stateful, §4.2) is next.
 
 ---
 
@@ -467,15 +487,16 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
 - [x] **§3.3** Pin ad6 env (Python deps + SAT binaries) in the Dockerfile. **DONE 2026-08-20,
       same commit as §3.1.**
 - [x] **§4.1** Decide integration level (A vs B) from a scoping pass. **DECIDED 2026-08-20:
-      (B) model translation. Confirmed ad6/bench/tum and fave/bench/wl_tum/rulesets share
-      the identical 3795-rule TUM dump (IPv4 vs IPv6/NAT64-mapped) — but found ad6's own
-      `tum.xml` topology is a 2-interface stub that doesn't declare the VLAN
-      sub-interfaces the ruleset references; §4.2 needs to emit a real topology from
-      FaVe's `topology.json`/`routes.json`, not reuse ad6's bundled one.**
+      (B) model translation. `ad6/bench/tum/tum-ruleset` is byte-identical to FaVe's own
+      default (ipv4) `fave/bench/wl_tum/rulesets/tum-ruleset` — zero ruleset translation
+      needed for wl_tum. Initial "topology gap" note was premature (walked back after
+      checking FaVe's own wl_tum model, which is equally interface-agnostic) — see §4.3.**
 - [ ] **§4.2** Wire ad6 to answer the source→probe matrix, **including the stateful `<->>`
       3-check instantiator (required for wl_up only — wl_ifi dropped, §1.2/§1.4 corrections).**
-- [ ] **§4.3** Differential vs NetPlumber on **wl_tum + wl_up** (soundness gate; wl_ifi
-      dropped, corrected 2026-08-20).
+- [~] **§4.3** Differential vs NetPlumber on **wl_tum + wl_up** (soundness gate; wl_ifi
+      dropped, corrected 2026-08-20). **wl_tum DONE 2026-08-20: exact match** (ad6 and
+      NetPlumber both say source.tum→probe.tum is reachable), `ad6/test/differential/`.
+      wl_up remaining, blocked on §4.2's stateful instantiator.
 - [ ] **§5.1** Enable wl_up + wl_tum end-to-end through the integrated path.
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).

@@ -20,6 +20,7 @@ if __name__ == "__main__":
     from test.instantiatorsuite import InstantiatorSuite
     from test.integrationsuite import IntegrationSuite
     from test.systemsuite import SystemSuite
+    from test.differentialsuite import DifferentialSuite
 
     suites = [
         SATSuite(),
@@ -28,7 +29,8 @@ if __name__ == "__main__":
         KripkeSuite(),
         InstantiatorSuite(),
         IntegrationSuite(),
-        SystemSuite()
+        SystemSuite(),
+        DifferentialSuite()
     ]
     for suite in suites:
             suite.run()

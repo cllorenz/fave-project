@@ -70,3 +70,22 @@ apt `minisat` (1:2.2.1-8build1) + `clasp` (3.3.5-4.2build1) — the two solver a
 `yappi==1.7.6` (`main.py --profile`), `pycosat==0.6.6` (the default in-process solver,
 needs `python3-dev`, already present for the NetPlumber/APKeep bindings). No source
 changes.
+
+## 4. wl_tum differential test vs NetPlumber  **[NEW]**
+
+`test/differential/tumdifftest.py` + `test/differentialsuite.py` (wired into
+`test/test.py`, AD6_PLAN.md §4.3): confirms ad6 agrees with the NetPlumber oracle on
+FaVe's wl_tum benchmark. Confirmed first that no translation is needed —
+`bench/tum/tum-ruleset` is byte-identical to FaVe's own default (ipv4) wl_tum ruleset
+(`fave/bench/wl_tum/rulesets/tum-ruleset`) — and that neither side's model needs the
+ruleset's VLAN sub-interfaces represented in topology: FaVe's own wl_tum model injects
+directly into the FORWARD chain (`source.tum -> fw.tum.forward_filter_in`) and probes the
+FORWARD chain's ACCEPT exit (`fw.tum.forward_filter_accept -> probe.tum`), bypassing
+interface admission entirely; the exact same shape holds in ad6 (`tum_fw_forward_r0`, the
+first FORWARD rule, as the sole init; reachability of the synthesized `tum_fw_accept_r0`).
+**Result: ad6 says reachable=True, matching NetPlumber exactly** (oracle obtained via
+`fave/bench/apkeep_tum_diff.py --emit netplumber`, see the test's docstring for exact
+repro). `bench/tum/tum.xml`'s bundled topology is unused by this query on either side —
+not a gap after all (§4.1's original note was premature; corrected here). Runtime ~30s
+(dominated by CNF instantiation over the 3794-rule model), so this lives in its own suite
+rather than being folded into a faster one.
