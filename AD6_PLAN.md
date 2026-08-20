@@ -2,7 +2,8 @@
 
 **Status:** PLANNING (2026-08-20). Owner: Claas Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
-[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md). This plans integrating **ad6** — the author's
+[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
+This plans integrating **ad6** — the author's
 SAT/QBF model checker for IPv6 firewalls/networks (`ad6/`, SECRYPT'15) — as a **fourth
 verification family** alongside NetPlumber (HSA), APKeep(BDD), and APKeep(NDD), for a
 *controlled* cross-family comparison.

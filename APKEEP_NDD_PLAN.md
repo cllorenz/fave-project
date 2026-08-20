@@ -12,7 +12,8 @@ the principled successor to the hand-rolled two-universe split (Phase E, Lever C
 is retained only as a fallback. This doc plans (1) preserving/publishing the current
 BDD state and (2) integrating NDD.
 Owner: Claas Lorenz. Companion to [`APKEEP_TUM_UP_PLAN.md`](APKEEP_TUM_UP_PLAN.md),
-[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), and `apkeep/FAVE_CHANGES.md`.
+[`APKEEP_BACKEND.md`](APKEEP_BACKEND.md), and `apkeep/FAVE_CHANGES.md`. Sibling
+cross-family effort: [`AD6_PLAN.md`](AD6_PLAN.md) (ad6 as a generic SAT/QBF backend).
 
 **Artifacts referenced.** Paper: `nsdi25-li-zechun.pdf` (in repo root). NDD library:
 `github.com/XJTU-NetVerify/NDD` (~2K LOC Java, built on JDD — the same BDD lib our fork

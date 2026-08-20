@@ -2,6 +2,7 @@
 
 Running results for the NDD integration of `APKEEP_NDD_PLAN.md` Part 2. Companion to
 the frozen BDD baseline (`APKEEP_BDD_BASELINE.md`), which is the differential oracle.
+Sibling cross-family effort: [`AD6_PLAN.md`](AD6_PLAN.md) (ad6 as a generic SAT/QBF backend).
 
 **NDD upstream:** `github.com/XJTU-NetVerify/NDD` @ `c8414b43` (2026-08-05, "Update
 per-field mixed label backends"). Java 8 source; builds under our JDK 11; deps
