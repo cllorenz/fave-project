@@ -89,3 +89,34 @@ repro). `bench/tum/tum.xml`'s bundled topology is unused by this query on either
 not a gap after all (§4.1's original note was premature; corrected here). Runtime ~30s
 (dominated by CNF instantiation over the 3794-rule model), so this lives in its own suite
 rather than being folded into a faster one.
+
+## 5. Investigation: ad6's frontend/backend seam, and rule-level forwarding  **[NEW finding, no source change]**
+
+Prompted by a correction from the project owner (AD6_PLAN.md §4.4): integrating ad6 with
+FaVe does not require ad6 to parse FaVe's native rule formats (Cisco IOS ACLs, IPv4 FIBs)
+itself — FaVe already parses those and builds a neutral model; only a translator from
+that model into ad6's own IR is needed. Investigated how separable that IR already is:
+
+- `src/xml/genutils.py` (`GenUtils`) is a generic Config-tree element-factory module
+  (`firewall`/`table`/`rule`/`action`/`address`/`port`/`proto`/`state`/`vlan`/`interface`/
+  `node`/`network`/`route`/...), used by `src/parser/iptables.py`'s `IP6TablesParser`
+  purely as a set of builders *after* it has finished parsing ip6tables CLI syntax.
+  `KripkeUtils.ConvertToKripke` and everything downstream (`Instantiator`, CNF, solving)
+  consume only the resulting XML tree via XPath and have no dependency on iptables syntax
+  at all. So a new frontend — a FaVe-model-to-`GenUtils` translator, skipping the
+  iptables-text step — needs no changes inside `kripke.py`/`instantiator.py`.
+- Verified experimentally (a standalone synthetic test, not asserted from reading code)
+  that `action type="jump" target="<key>"` can target an arbitrary declared node,
+  including a **specific egress interface** directly — not only the shared "accept" node
+  that `KripkeUtils._ConnectOutputs` floods to every one of a firewall's declared
+  out-interfaces (the right model for a stateless filter chain, wrong for a router
+  choosing a specific egress port per route). A 2-rule/2-interface model, each rule
+  jumping straight to a different interface based on a dst-address match, correctly
+  discriminated under SAT: forcing the destination to each rule's own match address made
+  exactly one interface reachable and the other UNSAT. This gives real per-rule
+  forwarding/routing semantics with **zero backend changes** — the missing piece for
+  router-style devices (wl_ifi's central router, Stanford/i2's FIB) is only in how a new
+  frontend chooses jump targets, not in `kripke.py`'s transition semantics.
+
+No ad6 source changed for this item; it's a design investigation informing AD6_PLAN.md's
+integration approach (§4.4).
