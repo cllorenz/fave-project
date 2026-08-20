@@ -4,61 +4,61 @@
 	xmlns="http://config"
 	>
 	<firewalls>
-		<firewall name="fw0" key="net0_n0_fw0">
+		<firewall name="fw0" key="net0_n0">
 			<table name="output">
-				<rule name="r0" key="net0_n0_fw0_output_r0">
-					<action type="jump" target="net0_n0_fw0_accept_r0"/>
+				<rule name="r0" key="net0_n0_output_r0">
+					<action type="jump" target="net0_n0_accept_r0"/>
 				</rule>
 			</table>
 			<table name="accept">
-				<rule name="r0" key="net0_n0_fw0_accept_r0">
+				<rule name="r0" key="net0_n0_accept_r0">
 					<action type="accept"/>
 				</rule>
 			</table>
 			<table name="drop">
-				<rule name="r0" key="net0_n0_fw0_drop_r0">
+				<rule name="r0" key="net0_n0_drop_r0">
 					<action type="drop"/>
 				</rule>
 			</table>
 		</firewall>
-		<firewall name="fw0" key="net0_n1_fw0">
+		<firewall name="fw0" key="net0_n1">
 			<table name="input">
-				<rule name="r0" key="net0_n1_fw0_input_r0">
+				<rule name="r0" key="net0_n1_input_r0">
 					<proto>tcp</proto>
-					<action type="jump" target="net0_n1_fw0_accept_r0"/>
+					<action type="jump" target="net0_n1_accept_r0"/>
 				</rule>
-				<rule name="r4096" key="net0_n1_fw0_input_r4096">
-					<action type="jump" target="net0_n1_fw0_drop_r0"/>
+				<rule name="r4096" key="net0_n1_input_r4096">
+					<action type="jump" target="net0_n1_drop_r0"/>
 				</rule>
 			</table>
 			<table name="accept">
-				<rule name="r0" key="net0_n1_fw0_accept_r0">
+				<rule name="r0" key="net0_n1_accept_r0">
 					<action type="accept"/>
 				</rule>
 			</table>
 			<table name="drop">
-				<rule name="r0" key="net0_n1_fw0_drop_r0">
+				<rule name="r0" key="net0_n1_drop_r0">
 					<action type="drop"/>
 				</rule>
 			</table>
 		</firewall>
-		<firewall name="fw0" key="net0_n2_fw0">
+		<firewall name="fw0" key="net0_n2">
 			<table name="input">
-				<rule name="r0" key="net0_n2_fw0_input_r0">
+				<rule name="r0" key="net0_n2_input_r0">
 					<proto>tcp</proto>
-					<action type="jump" target="net0_n2_fw0_drop_r0"/>
+					<action type="jump" target="net0_n2_drop_r0"/>
 				</rule>
-				<rule name="r4096" key="net0_n2_fw0_input_r4096">
-					<action type="jump" target="net0_n2_fw0_drop_r0"/>
+				<rule name="r4096" key="net0_n2_input_r4096">
+					<action type="jump" target="net0_n2_drop_r0"/>
 				</rule>
 			</table>
 			<table name="accept">
-				<rule name="r0" key="net0_n2_fw0_accept_r0">
+				<rule name="r0" key="net0_n2_accept_r0">
 					<action type="accept"/>
 				</rule>
 			</table>
 			<table name="drop">
-				<rule name="r0" key="net0_n2_fw0_drop_r0">
+				<rule name="r0" key="net0_n2_drop_r0">
 					<action type="drop"/>
 				</rule>
 			</table>
@@ -74,7 +74,7 @@
 						<interface keyref="net0_n2_eth0"/>
 					</connections>
 				</interface>
-				<firewall keyref="net0_n0_fw0"/>
+				<firewall keyref="net0_n0"/>
 			</node>
 			<node name="n1">
 				<interface name="eth0" key="net0_n1_eth0">
@@ -82,7 +82,7 @@
 						<interface keyref="net0_n0_eth0"/>
 					</connections>
 				</interface>
-				<firewall keyref="net0_n1_fw0"/>
+				<firewall keyref="net0_n1"/>
 			</node>
 			<node name="n2">
 				<interface name="eth0" key="net0_n2_eth0">
@@ -90,7 +90,7 @@
 						<interface keyref="net0_n0_eth0"/>
 					</connections>
 				</interface>
-				<firewall keyref="net0_n2_fw0"/>
+				<firewall keyref="net0_n2"/>
 			</node>
 		</network>
 	</networks>
