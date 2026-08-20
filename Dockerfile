@@ -62,6 +62,12 @@ RUN apt-get $APT_CONFS install liblog4cxx15
 RUN apt-get $APT_CONFS install liblog4cxx-dev
 RUN apt-get $APT_CONFS install libcppunit-1.15-0
 RUN apt-get $APT_CONFS install libcppunit-dev
+# ad6 backend (ad6/): SAT solver binaries the solver adapters shell out to
+# (src/solver/minisat.py, src/solver/clasp.py). pycosat (below) is the
+# in-process default and needs no binary; minisat/clasp are the sensitivity-
+# check solvers (AD6_PLAN.md §2.4).
+RUN apt-get $APT_CONFS install minisat
+RUN apt-get $APT_CONFS install clasp
 
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -79,6 +85,12 @@ RUN pip3 install pybison==0.6.4
 # the JVM+pybison combo is what crashed after the 2026-08-17 container reset, so
 # the exact backend-binding version is load-bearing for reproducible timings.
 RUN pip3 install JPype1==1.7.1
+# ad6 backend (ad6/): lxml (Kripke/SAT-instance XML), yappi (profiling, main.py
+# --profile), pycosat (default in-process SAT solver, native build needs
+# python3-dev above).
+RUN pip3 install lxml==6.1.2
+RUN pip3 install yappi==1.7.6
+RUN pip3 install pycosat==0.6.6
 
 COPY . $DIRPATH/
 
