@@ -25,11 +25,19 @@ import ast
 from pprint import pprint
 
 class KripkeNode:
-    def __init__(self,Props=[], Gamma=None, Desc=None, RawRuleNo=None):
+    def __init__(self,Props=[], Gamma=None, Desc=None, RawRuleNo=None, Rewrites=None):
         self.Props = Props
         self.Gamma = Gamma
         self.Desc = Desc
         self.RawRuleNo = RawRuleNo
+        # AD6_PLAN.md §5.4 Stage A: {field_name: int_value} -- this rule's
+        # own action rewrites `field_name` to `int_value` when its (single)
+        # jump transition fires. Not covered by tostring()/fromstring()'s
+        # persistence round-trip below (that mechanism is unused anywhere
+        # in main.py/fave_bridge.py/src/ today -- grepped, zero live
+        # callers -- so silently dropping it there is a known, harmless
+        # gap, not a live bug).
+        self.Rewrites = Rewrites if Rewrites is not None else {}
 
 
     def tostring(self):

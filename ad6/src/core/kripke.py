@@ -194,6 +194,16 @@ class KripkeUtils:
             Target = Action.attrib[XMLUtils.ATTRTARGET]
             Kripke.Put(RKey,(Target,True))
 
+        # AD6_PLAN.md §5.4 Stage A: a rewrite only ever matters together
+        # with the jump edge it rides on (see GenUtils.action's docstring),
+        # so recording it here regardless of action type is harmless --
+        # Instantiator._CreateMutationConstraints only ever consults
+        # Node.Rewrites for a node that actually has an outgoing TRUE
+        # transition to gate it on.
+        RewriteField = Action.attrib.get('rewrite_field')
+        if RewriteField is not None:
+            Node.Rewrites[RewriteField] = int(Action.attrib['rewrite_value'])
+
         # false Transition
         try:
             Target = Rules[Index+1].attrib['key']

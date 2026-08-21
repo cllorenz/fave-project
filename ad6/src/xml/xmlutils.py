@@ -536,3 +536,37 @@ class XMLUtils:
             XML.append(XMLUtils.variable(Prefix + str(Index) + '=' + Bit))
 
         return XML
+
+
+    def FieldBitName(Field, Node, Index):
+        """ AD6_PLAN.md §5.4 Stage A: the per-NODE bit-vector variable name
+        for a mutable field's SSA copy at Kripke node `Node` -- one fresh
+        set of bits per node reachable from a rewrite, as opposed to
+        ConvertVLANToVariables's single GLOBAL bit-vector (shared by every
+        rule in the whole model, which is exactly why VLAN rewrite cannot be
+        expressed today: a global variable cannot hold two different values
+        at two different points on one path). "#" is a separator no other
+        variable-naming convention in this file uses (all of them join on
+        "_" or "="), so this can never collide with dst/src/port/vlan/state/
+        etc.'s existing global aliases -- Instantiator._Handle* never
+        mistakes one of these for something it needs to expand. """
+        return "%s#%s_%d" % (Field, Node, Index)
+
+
+    def ConvertFieldToVariables(Field, Node, Value, Width):
+        """ The individual FIXED-value literals for `Field`'s per-node copy
+        at `Node`, to force a specific value onto a query instance --
+        mirrors ConvertVLANToVariables/ConvertCIDRToVariables's per-bit
+        <variable> shape, just built over FieldBitName's node-scoped names
+        instead of a global alias. Callers should flatten this (as
+        ad6/fave_bridge.py's `_seed_literals`/`_state_literals` already do
+        for the global-bit-vector case) before appending to a query
+        instance's clause list -- appending the whole <conjunction> as one
+        nested child is a no-op against an already-CNF'd instance. """
+        BitVector = XMLUtils._CanonizeBitvector(Value, Width).split(' ')
+        XML = XMLUtils.conjunction()
+
+        for Index, Bit in enumerate(BitVector):
+            XML.append(XMLUtils.variable(XMLUtils.FieldBitName(Field, Node, Index), value=(Bit == '1')))
+
+        return XML

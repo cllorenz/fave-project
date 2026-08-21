@@ -220,6 +220,97 @@ class InstantiatorTest(unittest.TestCase):
             "address into r0's DROP range and block the fallthrough")
 
 
+    def testMutationChainAndJoinSSAEncoding(self):
+        """ AD6_PLAN.md §5.4 Stage A: the SSA/frame-axiom mutation encoding
+        (Instantiator._CreateMutationConstraints, GenUtils.action's
+        rewrite_field/rewrite_value, KripkeNode.Rewrites). Two Kripke paths
+        into a shared node `join_r0`:
+
+          entryA_r0 -> r1_r0 (rewrite vlan=1) -> r2_r0 (rewrite vlan=0)
+                    -> r3_r0 (rewrite vlan=2) -> join_r0
+          entryB_r0 -> alt_r0 (no rewrite)    -> join_r0
+
+        The first path is a THREE-deep rewrite chain on one path -- the
+        `b=* -> 1 -> 0 -> *`-style case a single global variable cannot
+        express at all (see AD6_PLAN.md §5.4's correction of the
+        superseded structural-duplication draft). The second path
+        exercises the join: two predecessors with different field
+        histories reaching the SAME node, one of which never rewrites
+        anything, so its own field value must stay genuinely free all the
+        way back to its own (unconstrained) entry.
+
+        entryA_r0/entryB_r0 are both marked INIT -- Instantiator.
+        _CreateInitConstraints's EXISTING mutual exclusion (AD6_PLAN.md
+        §8, ad6/FAVE_CHANGES.md §8) then guarantees that forcing one
+        path's own entry transition via InstantiateEndToEnd excludes the
+        other's, without this test inventing any new exclusivity
+        mechanism -- reused exactly as _ConvertNodesToImplications's own
+        reachability discipline already relies on to pick a specific
+        predecessor at the join. """
+        def _hop(name, key, target, field=None, value=None):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action(
+                'jump', target=target, rewrite_field=field, rewrite_value=value))
+            table.append(rule)
+            return table
+
+        def _sink(name, key):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('accept'))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('mutfw')
+        firewall.append(_hop('t0', 'entryA_r0', 'r1_r0'))
+        firewall.append(_hop('t1', 'r1_r0', 'r2_r0', 'vlan', 1))
+        firewall.append(_hop('t2', 'r2_r0', 'r3_r0', 'vlan', 0))
+        firewall.append(_hop('t3', 'r3_r0', 'join_r0', 'vlan', 2))
+        firewall.append(_hop('t4', 'entryB_r0', 'alt_r0'))
+        firewall.append(_hop('t5', 'alt_r0', 'join_r0'))
+        firewall.append(_sink('t6', 'join_r0'))
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entryA_r0', 'entryB_r0'], default_inits=False,
+            MutableFields={'vlan': 12}
+        )
+        solver = PycoSATAdapter()
+
+        def reachable_with_vlan(source, value):
+            instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, 'join_r0')
+            instance[0].extend(list(XMLUtils.ConvertFieldToVariables('vlan', 'join_r0', value, 12)))
+            return bool(solver.Solve(instance))
+
+        # --- the 3-deep rewrite chain: join_r0 must be EXACTLY 2 via entryA
+        self.assertTrue(
+            reachable_with_vlan('entryA_r0', 2),
+            "the rewrite chain (1 -> 0 -> 2) must leave vlan=2 at join_r0")
+        self.assertFalse(
+            reachable_with_vlan('entryA_r0', 1),
+            "join_r0's vlan must NOT still be 1 -- an intermediate rewrite "
+            "was dropped or not chained through to join_r0")
+        self.assertFalse(
+            reachable_with_vlan('entryA_r0', 3),
+            "join_r0's vlan must not be forceable to an unrelated value via "
+            "the rewrite path -- it is pinned to exactly 2, not free")
+
+        # --- the join's other predecessor never rewrites: genuinely free
+        self.assertTrue(
+            reachable_with_vlan('entryB_r0', 5),
+            "the non-rewriting path's vlan must still be forceable to an "
+            "arbitrary value (5) -- it was never pinned by any rewrite")
+        self.assertTrue(
+            reachable_with_vlan('entryB_r0', 7),
+            "...and to a DIFFERENT arbitrary value (7) too -- proving it "
+            "is genuinely free, not accidentally pinned to just one value")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

@@ -62,7 +62,7 @@ class Instantiator:
         return Instances
 
 
-    def InstantiateBase(Config, Inits=[], default_inits=True):
+    def InstantiateBase(Config, Inits=[], default_inits=True, MutableFields=None):
         Kripke = KripkeUtils.ConvertToKripke(Config, default_inits=default_inits)
 
         for Init in Inits:
@@ -71,6 +71,17 @@ class Instantiator:
             Kripke.PutInit(Init, InitNode)
 
         Encoding = Instantiator._InstantiateBase(Kripke)
+
+        # AD6_PLAN.md §5.4 Stage A: MutableFields, e.g. {"vlan": 12} --
+        # opt-in (None changes nothing for every existing caller/benchmark,
+        # none of which declare a mutable field), so this cannot regress
+        # wl_ifi/wl_up/wl_tum. Appended pre-CNF'd (each edge's constraint is
+        # already flat, mirroring _ConvertNodesToImplications's own
+        # per-edge discipline), same reasoning as the naive-CNF-conversion
+        # guardrail in AD6_PLAN.md §5.4/§8.5: this must not itself introduce
+        # new alternation depth into the global encoding.
+        if MutableFields:
+            Encoding[0].extend(Instantiator._CreateMutationConstraints(Kripke, MutableFields))
 
         Variables = Encoding.iterdescendants(XMLUtils.VARIABLE)
         Handled = {}
@@ -380,6 +391,101 @@ class Instantiator:
             Implications.extend(NodeImplications)
 
         return Implications
+
+
+    def _CreateMutationConstraints(Kripke, MutableFields):
+        """ AD6_PLAN.md §5.4 Stage A: SSA-style mutation support for fields
+        a rule's action can rewrite (e.g. VLAN) -- ad6's variables are
+        otherwise single global propositional constants, which can express
+        a field being matched, but not a field being ASSIGNED a different
+        value at different points along one path (a real rewrite chain,
+        `b=* -> 1 -> 0 -> *`, needs as many distinct values as rewrite
+        points; a global variable only ever has one).
+
+        `MutableFields`: {field_name: bit_width}, e.g. {"vlan": 12}. For
+        EVERY edge in the Kripke graph and EVERY declared mutable field,
+        asserts exactly one of:
+          - a REWRITE axiom, if the edge is the TRUE/jump transition of a
+            node whose own rule declares `Node.Rewrites[field]` (see
+            GenUtils.action/kripke.py._HandleRule): the target's per-node
+            copy of the field (XMLUtils.FieldBitName(field, target, i))
+            is forced to the rewritten value's bits, gated on this edge's
+            transition literal actually having fired.
+          - a FRAME axiom otherwise (including every FALSE/fallthrough
+            edge, which by construction never rewrites anything): the
+            target's copy equals the SOURCE's own per-node copy, gated the
+            same way -- "the field survives unchanged across an edge that
+            doesn't touch it".
+        A node with several predecessors (a join) gets one such
+        implication PER incoming edge, independently gated on that edge's
+        own transition literal -- exactly the same mechanism
+        _ConvertNodesToImplications already uses for reachability itself,
+        so two predecessors asserting different histories simultaneously
+        is a real, correctly-detected contradiction (UNSAT for that specific
+        combination) rather than something requiring a new exclusivity
+        constraint; the model is always free to leave the transition that
+        would conflict false, exactly as it already is for reachability.
+        A node with NO predecessor that ever pins the field (e.g. a
+        generator/entry node) leaves its per-node copy as a genuinely free
+        variable -- "don't care", the same semantics every other unmatched
+        field already has.
+
+        Each edge's constraint is built and CNF-converted in its own small
+        "Dummy" formula, mirroring _ConvertNodesToImplications's own
+        per-edge discipline exactly (AD6_PLAN.md §5.4/§8.5's naive-CNF
+        guardrail: this must stay as shallow as the existing per-edge
+        implications, not introduce new alternation depth of its own). """
+        Constraints = []
+
+        FTransitions = Kripke.IterFTransitions(None)
+        for NodeKey in FTransitions:
+            Node = Kripke.GetNode(NodeKey)
+            Targets = Kripke.IterFTransitions(NodeKey)
+            for Target, Flag in Targets:
+                for Field, Width in MutableFields.items():
+                    # A fresh transition-literal element per field: lxml
+                    # elements have exactly one parent, so reusing the same
+                    # element across multiple <implication>s (one per
+                    # field) would silently MOVE it out of the earlier
+                    # one instead of copying it.
+                    TransitionLit = XMLUtils.CreateTransition(NodeKey, Target, Flag)
+                    RewriteValue = Node.Rewrites.get(Field) if Flag else None
+
+                    Conjunction = XMLUtils.conjunction()
+                    if RewriteValue is not None:
+                        BitVector = XMLUtils._CanonizeBitvector(RewriteValue, Width).split(' ')
+                    else:
+                        BitVector = None
+
+                    for Index in range(Width):
+                        TargetBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, Target, Index))
+                        if BitVector is not None:
+                            SourceBit = XMLUtils.constant(BitVector[Index] == '1')
+                        else:
+                            SourceBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, NodeKey, Index))
+                        Equality = XMLUtils.equality()
+                        Equality.append(TargetBit)
+                        Equality.append(SourceBit)
+                        Conjunction.append(Equality)
+
+                    Implication = XMLUtils.implication()
+                    Implication.extend([TransitionLit, Conjunction])
+
+                    Dummy = XMLUtils.formula()
+                    TopConjunction = XMLUtils.conjunction()
+                    Dummy.append(TopConjunction)
+                    TopConjunction.append(Implication)
+
+                    SATUtils.ConvertToCNF(Dummy)
+                    TopConjunction = Dummy[0]
+                    Dummy.remove(TopConjunction)
+
+                    if TopConjunction.tag == XMLUtils.CONJUNCTION:
+                        Constraints.extend(list(TopConjunction))
+                    else:
+                        Constraints.append(TopConjunction)
+
+        return Constraints
 
 
     def _CreateGlobalConstraints(Kripke,Encoding):

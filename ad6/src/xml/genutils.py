@@ -47,10 +47,19 @@ class GenUtils():
             rule.attrib['raw_line_no'] = str(raw_line_no)
         return rule
 
-    def action(actiontype,target=''):
+    def action(actiontype,target='',rewrite_field=None,rewrite_value=None):
         elem = et.Element('action',{'type':actiontype})
         if actiontype == 'jump':
             elem.attrib['target'] = target
+        # AD6_PLAN.md §5.4 Stage A: rewrite info rides on the SAME <action>
+        # as the jump it accompanies (a rewrite only ever takes effect
+        # together with the edge it's attached to -- there is no standalone
+        # "rewrite, but don't also transition" rule shape), rather than a
+        # second <action> child -- avoids touching kripke.py's
+        # `Rule.xpath(ACTIONPATH)[0]` single-action assumption.
+        if rewrite_field is not None:
+            elem.attrib['rewrite_field'] = rewrite_field
+            elem.attrib['rewrite_value'] = str(rewrite_value)
         return elem
 
     def proto(name, negated=False):
