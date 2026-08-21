@@ -145,6 +145,81 @@ class InstantiatorTest(unittest.TestCase):
                          "forcing state=RELATED must NOT reach an ESTABLISHED-only rule")
 
 
+    def testSrcCidrQuerySeedMustUseSharedBitVector(self):
+        """ Regression for the wl_up stateful-differential "bug 2" finding
+        (AD6_PLAN.md §5.1, ad6/fave_bridge.py's `_seed_conjunct`): a query
+        that force-asserts the packet's source address into a specific CIDR
+        MUST do so via XMLUtils.ConvertCIDRToVariables's flattened bit
+        literals (the same shared `ip<version>_src_<i>=<bit>` space every
+        rule's own address condition is built over) -- NOT via a bare
+        named-alias variable from XMLUtils.ConvertToVariables/`variable()`.
+
+        The alias form only carries meaning if that EXACT alias name happens
+        to already be `Handled` (defined via an equality clause during
+        Instantiator.InstantiateBase's scan) by some OTHER rule in the model
+        referencing that exact address/CIDR string. wl_up's real bug: a
+        source-seeded host address never referenced verbatim anywhere else
+        in the whole 159-device ruleset corpus produces a free, unconnected
+        atom -- forcing it "true" does nothing to the real header-bit
+        variables, so an explicit source-scoped DROP rule for that address
+        is silently bypassed (7 of 8 structurally identical wl_up singleton
+        hosts; only the one host whose exact address happened to be
+        referenced elsewhere, by coincidence, was correctly blocked). """
+        firewall = GenUtils.firewall('sfw')
+
+        table = GenUtils.table('t0')
+        r0 = GenUtils.rule('0', key='sfw_t_r0')
+        r0.append(GenUtils.address('10.0.0.0/24', direction='src', version='4'))
+        r0.append(GenUtils.action('drop'))
+        table.append(r0)
+        r1 = GenUtils.rule('1', key='sfw_t_r1')
+        r1.append(GenUtils.action('accept'))
+        table.append(r1)
+        firewall.append(table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['sfw_t_r0'], default_inits=False
+        )
+        solver = PycoSATAdapter()
+
+        # sanity: with no seed at all, the fallthrough accept is reachable
+        # (r0's address condition is free, solver can pick "doesn't match").
+        unconstrained = Instantiator.InstantiateReach(kripke, encoding, 'sfw_t_r1')
+        self.assertTrue(bool(solver.Solve(unconstrained)),
+                        "the fallthrough accept is unreachable even unconstrained")
+
+        seeded_addr = '10.0.0.5/32'  # inside r0's DROP range, never mentioned elsewhere
+
+        def reachable_with(seed_literals):
+            instance = Instantiator.InstantiateReach(kripke, encoding, 'sfw_t_r1')
+            for literal in seed_literals:
+                instance[0].append(literal)
+            return bool(solver.Solve(instance))
+
+        alias_elem = et.fromstring(
+            '<ip xmlns="http://config" version="4" direction="src">'
+            '<address>%s</address></ip>' % seeded_addr)
+        InstantiatorTest.deannotate(alias_elem)
+        alias_seed = [XMLUtils.ConvertToVariables(alias_elem)]
+
+        bitvector_seed = list(XMLUtils.ConvertCIDRToVariables(seeded_addr, 'src'))
+
+        self.assertTrue(
+            reachable_with(alias_seed),
+            "the bare-alias seed is a free atom and should NOT constrain "
+            "anything -- this is the bug: it wrongly leaves the DROP-range "
+            "address's fallthrough reachable")
+        self.assertFalse(
+            reachable_with(bitvector_seed),
+            "the flattened shared-bit-vector seed must correctly force the "
+            "address into r0's DROP range and block the fallthrough")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

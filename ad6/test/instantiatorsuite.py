@@ -15,7 +15,8 @@ class InstantiatorSuite(TestSuite):
             'testShadow',
             'testCross',
             'testMatchAllReachable',
-            'testStateLiteralForcingIsMutuallyExclusive'
+            'testStateLiteralForcingIsMutuallyExclusive',
+            'testSrcCidrQuerySeedMustUseSharedBitVector'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

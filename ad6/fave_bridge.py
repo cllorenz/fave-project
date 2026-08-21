@@ -44,19 +44,39 @@ from src.solver.pycosat import PycoSATAdapter  # noqa: E402
 from src.xml.xmlutils import XMLUtils  # noqa: E402
 
 
-def _seed_conjunct(cidr):
-    """ An extra conjunct asserting the packet's src-IP lies in `cidr`,
-    appended to an InstantiateEndToEnd instance exactly like DisjSrc/DisjDst
-    (verified pattern, AD6_PLAN.md §4.4's synthetic forwarding test). Version
-    is sniffed from the CIDR text (wl_ifi's generators are IPv4; wl_up's are
-    IPv6 -- AD6_PLAN.md §5.1). """
+def _seed_literals(cidr):
+    """ The individual (already-canonical) src-IP bit literals to force onto
+    a query instance so the packet's source is constrained to lie in `cidr`.
+    Version is sniffed from the CIDR text (wl_ifi's generators are IPv4;
+    wl_up's are IPv6 -- AD6_PLAN.md §5.1).
+
+    MUST use XMLUtils.ConvertCIDRToVariables directly (a flat conjunction of
+    "ip<version>_src_<i>=<bit>" literals in the shared bit-vector space every
+    rule's own address condition is built over), FLATTENED and appended
+    individually as top-level clauses -- exactly the same discipline
+    `_state_literals` below already follows for state, and for the same
+    reason: a bare named-alias variable (XMLUtils.ConvertToVariables's
+    <ip>-element form, what this used to build) only carries meaning if that
+    EXACT alias name happens to already be `Handled` (defined via an
+    equality clause during Instantiator.InstantiateBase's scan) by some
+    OTHER rule in the model referencing that exact address/CIDR string.
+    wl_up's real bug this caused (AD6_PLAN.md §5.1 "bug 2"): each of 8
+    structurally identical singleton-host source addresses is only ever
+    matched via a broader containing /64 in the real rulesets, never
+    verbatim itself -- so the alias was a free, unconnected atom for 7 of
+    the 8 (only the one whose exact address happened, by coincidence, to
+    also be referenced elsewhere in the corpus was actually constrained),
+    silently bypassing an explicit source-scoped DROP rule for the other 7.
+    Regression: ad6/test/core/instantiatortest.py:
+    testSrcCidrQuerySeedMustUseSharedBitVector. """
     version = '6' if ':' in cidr else '4'
     elem = et.fromstring(
         '<ip xmlns="http://config" version="%s" direction="src">'
         '<address>%s</address></ip>' % (version, cidr)
     )
     XMLUtils.deannotate(elem)
-    return XMLUtils.ConvertToVariables(elem)
+    canonical = XMLUtils.CanonizeIP(elem)
+    return list(XMLUtils.ConvertCIDRToVariables(canonical, 'src'))
 
 
 # AD6_PLAN.md §4.2/§1.2/§1.4: FaVe's compliance-check semantics carry the
@@ -139,7 +159,7 @@ def main(argv=None):
         destination = favemodel.query_destination_key(dst_dev, dst_port, ir)
         instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, destination)
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
-            instance[0].append(_seed_conjunct(q['src_cidr']))
+            instance[0].extend(_seed_literals(q['src_cidr']))
         for literal in _state_literals(q.get('cond')):
             instance[0].append(literal)
         reachable = bool(solver.Solve(instance))

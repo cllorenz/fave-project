@@ -133,6 +133,22 @@ class TestAd6WlUp(unittest.TestCase):
                     # its own explicit permit in dmz-file's ruleset.
                     ["source.adm.uni-potsdam.de", False, _related("0")],
                 ],
+                # Regression for AD6_PLAN.md §5.1 "bug 2": every org's real
+                # ruleset carries an unconditional
+                # `-A INPUT -s 2001:db8:abc:1::0/64 -j DROP` (e.g.
+                # bench/wl_up/rulesets/cs.uni-potsdam.de-file-ruleset:16),
+                # with no re-permit, for these 8 structurally identical
+                # singleton-host sources. Only `adm`'s exact /128 address
+                # happens to be referenced verbatim elsewhere in the corpus
+                # (pgf.uni-potsdam.de-ruleset:6, an unrelated admin-SSH
+                # rule) -- before the ad6/fave_bridge.py `_seed_conjunct`
+                # fix, that coincidence was the ONLY reason any of these 8
+                # was ever correctly blocked; the other 7 were silently
+                # unconstrained. All 8 must be blocked here regardless.
+                "probe.file.cs.uni-potsdam.de": [
+                    ["source.%s.uni-potsdam.de" % host, True, _related("0")]
+                    for host in ("file", "mail", "web", "ldap", "vpn", "dns", "data", "adm")
+                ],
             }
             fave.check_compliance(rules)
 
