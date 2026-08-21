@@ -143,10 +143,19 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._probes: Dict[str, str] = {}              # name -> "device.port"
         self._gen_src: Dict[str, str] = {}              # name -> cidr
         self._gen_vlan: Dict[str, str] = {}              # name -> vlan
-        self._acl_device: Optional[str] = None
-        self._acl_in: Dict[Optional[str], List[List[Any]]] = {}   # vlan -> [[idx,permit,src,dst,related]]
-        self._acl_out: Dict[Optional[str], List[List[Any]]] = {}
-        self._vlan_to_eport: Dict[str, str] = {}          # vlan -> "device.port"
+        # AD6_PLAN.md §5.4 Stage 0: keyed by device first, then VLAN -- wl_ifi
+        # has exactly one admission-checked router, so a bare vlan-keyed dict
+        # was never wrong there, but Stanford's 16 independent in.X/out.X
+        # devices can reuse the same VLAN number for unrelated admission
+        # groups on different routers; a flat dict would silently let a
+        # second device's capture clobber the first's (or merge unrelated
+        # ACL entries under one vlan key). `_acl_devices` replaces the old
+        # scalar `_acl_device` for the same reason (only one device could
+        # ever be recorded before).
+        self._acl_devices: set = set()
+        self._acl_in: Dict[str, Dict[Optional[str], List[List[Any]]]] = {}
+        self._acl_out: Dict[str, Dict[Optional[str], List[List[Any]]]] = {}
+        self._vlan_to_eport: Dict[str, Dict[str, str]] = {}   # device -> vlan -> "device.port"
         self._iport_vlan: Dict[str, str] = {}             # "device.port" -> vlan
         self._results: List[Tuple[str, str, bool, str]] = []
         # wl_up (AD6_PLAN.md §5.1): per-device ip6tables rulesets + own
@@ -216,13 +225,13 @@ class Ad6Adapter(AbstractVerificationEngine):
                 for rule in rules:
                     self._translate_fwd_rule(model.node, rule)
                     self._translate_routing_rule(model.node, rule)
-                    self._capture_vlan_port(rule)
+                    self._capture_vlan_port(model.node, rule)
             elif table == acl_in_t:
-                self._acl_device = model.node
-                self._capture_acl(self._acl_in, rules)
+                self._acl_devices.add(model.node)
+                self._capture_acl(self._acl_in.setdefault(model.node, {}), rules)
             elif table == acl_out_t:
-                self._acl_device = model.node
-                self._capture_acl(self._acl_out, rules)
+                self._acl_devices.add(model.node)
+                self._capture_acl(self._acl_out.setdefault(model.node, {}), rules)
             elif table == pre_routing_t:
                 self._capture_iport_vlan(rules)
 
@@ -285,9 +294,11 @@ class Ad6Adapter(AbstractVerificationEngine):
         prio = _lpm_prio(dst)
         self._routing_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
 
-    def _capture_vlan_port(self, rule: Any) -> None:
+    def _capture_vlan_port(self, device: str, rule: Any) -> None:
         """ A routing rule that rewrites the egress VLAN records VLAN->egress
-        port, so acl_out groups (keyed by VLAN) can be traced to a port. """
+        port (per device, AD6_PLAN.md §5.4 Stage 0 -- see __init__'s
+        `_vlan_to_eport` docstring), so acl_out groups (keyed by device then
+        VLAN) can be traced to a port. """
         vlan = None
         for action in rule.actions:
             if isinstance(action, Rewrite):
@@ -298,7 +309,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             return
         port = self._out_port(rule)
         if port:
-            self._vlan_to_eport[vlan] = port
+            self._vlan_to_eport.setdefault(device, {})[vlan] = port
 
     def _capture_iport_vlan(self, rules: Any) -> None:
         """ pre_routing assigns an ingress VLAN per physical ingress port
@@ -380,27 +391,32 @@ class Ad6Adapter(AbstractVerificationEngine):
         if nxt is None:
             return None
         ndev, nport = _split_port(nxt)
-        if ndev == self._acl_device:
+        if ndev in self._acl_devices:
             return "%s.%s" % (ndev, nport)
         for sport, dport in self._edges:
             if (sport.rsplit('.', 1)[0] == ndev
-                    and _split_port(dport)[0] == self._acl_device):
+                    and _split_port(dport)[0] in self._acl_devices):
                 return "%s.%s" % _split_port(dport)
         return None
 
     def _build_ir(self) -> Dict[str, Any]:
-        in_port_vlan: Dict[str, str] = {
-            port: vlan for port, vlan in self._iport_vlan.items()
-            if vlan in self._acl_in
-        }
+        in_port_vlan: Dict[str, str] = {}
+        for port, vlan in self._iport_vlan.items():
+            device = port.rsplit('.', 1)[0]
+            if vlan in self._acl_in.get(device, {}):
+                in_port_vlan[port] = vlan
         for source, vlan in self._gen_vlan.items():
-            if vlan in self._acl_in:
-                port = self._ingress_port(source)
-                if port is not None:
-                    in_port_vlan[port] = vlan
+            port = self._ingress_port(source)
+            if port is None:
+                continue
+            device = port.rsplit('.', 1)[0]
+            if vlan in self._acl_in.get(device, {}):
+                in_port_vlan[port] = vlan
         out_port_vlan: Dict[str, str] = {
-            port: vlan for vlan, port in self._vlan_to_eport.items()
-            if vlan in self._acl_out
+            port: vlan
+            for device, vlan_map in self._vlan_to_eport.items()
+            for vlan, port in vlan_map.items()
+            if vlan in self._acl_out.get(device, {})
         }
         return {
             "devices": sorted(self._devices),
@@ -409,7 +425,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             "edges": self._edges,
             "generators": self._generators,
             "probes": self._probes,
-            "acl_device": self._acl_device,
+            "acl_devices": sorted(self._acl_devices),
             "acl_in": self._acl_in,
             "acl_out": self._acl_out,
             "in_port_vlan": in_port_vlan,

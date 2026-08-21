@@ -152,7 +152,7 @@ def _ingress_ports_for(device, ir):
     order -- must match _build_device_table's own iteration order exactly,
     since entry_key/init_keys and the table-building both derive stage keys
     from this same list independently. """
-    if device != ir.get("acl_device"):
+    if device not in (ir.get("acl_devices") or ()):
         return []
     in_port_vlan = ir.get("in_port_vlan") or {}
     out = []
@@ -203,7 +203,9 @@ def entry_key(device, port, ir):
         if _is_transit(device, ir):
             return _dispatch_key(device)
         return "%s_input_r0" % fwkey
-    acl_in = ir.get("acl_in") or {}
+    # AD6_PLAN.md §5.4 Stage 0: acl_in is keyed by device first, then vlan
+    # (Ad6Adapter._build_ir) -- pre-scope to this device once, up front.
+    acl_in = (ir.get("acl_in") or {}).get(device, {})
     for p, vlan in _ingress_ports_for(device, ir):
         if p == port:
             entries = acl_in.get(vlan, [])
@@ -290,9 +292,11 @@ def _build_device_table(device, ir, ports_by_device):
     single "fwd" table, plus any egress-ACL sub-tables spliced onto its own
     firewall (kept in the same firewall, as additional <table> elements). """
     fwkey = _fwkey(device)
-    is_acl_device = (device == ir.get("acl_device"))
-    acl_in = ir.get("acl_in") or {}
-    acl_out = ir.get("acl_out") or {}
+    # AD6_PLAN.md §5.4 Stage 0: acl_in/acl_out are keyed by device first, then
+    # vlan (Ad6Adapter._build_ir) -- pre-scope to this device once, up front.
+    is_acl_device = (device in (ir.get("acl_devices") or ()))
+    acl_in = (ir.get("acl_in") or {}).get(device, {})
+    acl_out = (ir.get("acl_out") or {}).get(device, {})
     out_port_vlan = ir.get("out_port_vlan") or {}
 
     fwd_rules = sorted(
@@ -351,7 +355,15 @@ def _build_device_table(device, ir, ports_by_device):
         rules.append(rule)
 
     if is_acl_device:
+        # out_port_vlan is a GLOBAL "device.port" -> vlan map (Ad6Adapter.
+        # _build_ir) -- unlike acl_in/acl_out above it was never keyed by
+        # device, so it must be filtered to this device's own ports here.
+        # With only one acl device this filter was a no-op by construction;
+        # with >1 (Stanford) it is load-bearing -- omitting it would emit a
+        # spurious egress-ACL table for another device's port.
         for eport, evlan in sorted(out_port_vlan.items()):
+            if _split(eport)[0] != device:
+                continue
             entries = sorted(acl_out.get(evlan, []), key=lambda t: t[0])
             if not entries:
                 continue

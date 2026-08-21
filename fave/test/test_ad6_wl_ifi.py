@@ -111,7 +111,7 @@ class TestAd6WlIfi(unittest.TestCase):
         self.assertGreater(len(self.engine._fwd_rules), 17)
 
     def test_acls_translated(self):
-        self.assertEqual(self.engine._acl_device, 'ifi')
+        self.assertEqual(self.engine._acl_devices, {'ifi'})
         self.assertTrue(self.engine._acl_in)
         self.assertTrue(self.engine._acl_out)
 
