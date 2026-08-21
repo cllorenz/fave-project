@@ -5,6 +5,7 @@ from src.core.instantiator import *
 from src.solver.minisat import MiniSATAdapter
 from src.solver.pycosat import PycoSATAdapter
 from src.sat.satutils import SATUtils as sat
+from src.xml.genutils import GenUtils
 
 class InstantiatorTest(unittest.TestCase):
     def deannotate(config):
@@ -13,6 +14,73 @@ class InstantiatorTest(unittest.TestCase):
             if i >= 0:
                 elem.tag = elem.tag[i+1:]
         objectify.deannotate(config,cleanup_namespaces=True)
+
+
+    def testMatchAllReachable(self):
+        """ Regression for the /0-CIDR bug (AD6_PLAN.md §4.4/ad6/FAVE_CHANGES.md §6).
+
+        r0 matches dst=0.0.0.0/0 ("match any") and jumps to its own target;
+        r1, an otherwise UNRELATED rule, matches dst=10.0.0.0/8 and jumps to
+        its own target. The bug isn't confined to rules that directly use the
+        /0 condition: Instantiator._ShortenPrefixes treats a /0 entry as a
+        (trivial) prefix of every other same-direction CIDR and splices a
+        reference to it into their conjunctions too -- so once
+        ConvertCIDRToVariables's empty-conjunction bug makes the /0 variable
+        unsatisfiable, it silently drags down r1's condition as well, even
+        though r1 never mentions 0.0.0.0/0 itself. Both targets must be
+        reachable.
+
+        Each rule/target pair gets its OWN <table>: KripkeUtils._HandleRule
+        gives same-table siblings an automatic "fallthrough" (false)
+        transition to whatever rule follows them in that table's rule list,
+        regardless of their own action -- putting the two pairs in one table
+        would add a spurious r1->specific_target edge unrelated to the bug
+        under test and manifest as a second, misleading reachability path. """
+        firewall = GenUtils.firewall('mafw')
+
+        any_table = GenUtils.table('t0')
+        r0 = GenUtils.rule('0', key='mafw_t_r0')
+        r0.append(GenUtils.address('0.0.0.0/0', direction='dst', version='4'))
+        r0.append(GenUtils.action('jump', target='mafw_t_r_any_target'))
+        any_table.append(r0)
+        firewall.append(any_table)
+
+        any_target_table = GenUtils.table('t_any')
+        any_target = GenUtils.rule('any', key='mafw_t_r_any_target')
+        any_target.append(GenUtils.action('accept'))
+        any_target_table.append(any_target)
+        firewall.append(any_target_table)
+
+        specific_table = GenUtils.table('t1')
+        r1 = GenUtils.rule('1', key='mafw_t_r1')
+        r1.append(GenUtils.address('10.0.0.0/8', direction='dst', version='4'))
+        r1.append(GenUtils.action('jump', target='mafw_t_r_specific_target'))
+        specific_table.append(r1)
+        firewall.append(specific_table)
+
+        specific_target_table = GenUtils.table('t_spec')
+        specific_target = GenUtils.rule('spec', key='mafw_t_r_specific_target')
+        specific_target.append(GenUtils.action('accept'))
+        specific_target_table.append(specific_target)
+        firewall.append(specific_target_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['mafw_t_r0', 'mafw_t_r1'], default_inits=False
+        )
+        solver = PycoSATAdapter()
+
+        instance = Instantiator.InstantiateReach(kripke, encoding, 'mafw_t_r_any_target')
+        self.assertTrue(bool(solver.Solve(instance)), "the /0-conditioned rule itself is unreachable")
+
+        instance = Instantiator.InstantiateReach(kripke, encoding, 'mafw_t_r_specific_target')
+        self.assertTrue(bool(solver.Solve(instance)),
+                        "an unrelated dst=10.0.0.0/8 rule became unreachable -- "
+                        "the /0 bug is contaminating _ShortenPrefixes's sharing")
 
 
     def testReach(self):

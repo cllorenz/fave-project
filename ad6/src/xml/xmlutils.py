@@ -403,6 +403,18 @@ class XMLUtils:
 
         Address,Count = CIDR.split('/')
         Count = int(Count)
+
+        # A /0 prefix ("match any") constrains zero bits: truncating the
+        # bit-vector to Count*2 characters below yields an empty string, so
+        # the conjunction built from it would have no children. That is a
+        # *trivially true* condition (an empty AND), but nothing downstream
+        # -- SATUtils.ConvertToCNF, and Instantiator._ShortenPrefixes's
+        # prefix-sharing, which treats a /0 entry as a (trivial) prefix of
+        # every other same-direction CIDR -- treats an empty <conjunction/>
+        # as vacuously true, so return the real thing instead of building it.
+        if Count == 0:
+            return XMLUtils.constant()
+
         BitVector = ''
 
         if '.' in Address:

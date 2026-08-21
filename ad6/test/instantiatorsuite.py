@@ -13,7 +13,8 @@ class InstantiatorSuite(TestSuite):
             'testReach',
             'testCycle',
             'testShadow',
-            'testCross'
+            'testCross',
+            'testMatchAllReachable'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

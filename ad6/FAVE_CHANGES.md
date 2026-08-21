@@ -183,3 +183,38 @@ None of these needed changes inside `kripke.py`/`instantiator.py` — confirming
 finding that the existing backend is sufficient for a FaVe-model translator, modulo two
 real (if obscure) bugs worth knowing about (the `/0` CIDR truncation and the init-XOR
 off-by-one) that any future ad6 frontend will hit again if it isn't aware of them.
+
+## 7. `/0`-CIDR bug fixed in core (was item 6's workaround)  **[FIX]**
+
+Claas asked for the two bugs above to be fixed properly (test-first), not just worked
+around — this item is the `/0` one (the easier of the two); the init-XOR off-by-one is
+item 8.
+
+**Fix:** `XMLUtils.ConvertCIDRToVariables` now returns `XMLUtils.constant()` immediately
+when the parsed prefix length is 0, instead of building a `<conjunction>` from a
+truncated-to-zero-length bit-vector (which produced a structurally valid but semantically
+wrong empty conjunction — see item 6 for the original diagnosis).
+
+**Tests added first (both failed against the pre-fix code, confirmed before patching):**
+- `ad6/test/xml/xmlutilstest.py:testCIDRMatchAll` — unit test: `ConvertCIDRToVariables`
+  on a `/0` CIDR (both IPv4 `0.0.0.0/0` and IPv6 `::/0`) must return `constant()`, not an
+  empty conjunction.
+- `ad6/test/core/instantiatortest.py:testMatchAllReachable` — regression at the solve
+  level, and the sharper of the two: a rule matching `dst=0.0.0.0/0` must itself be
+  reachable, **and** a second, otherwise-unrelated rule matching `dst=10.0.0.0/8` (never
+  mentioning `0.0.0.0/0`) must ALSO stay reachable — this is the case that actually
+  exercises `_ShortenPrefixes`'s prefix-sharing cross-contamination (item 6's real-world
+  symptom); a test with only the `/0` rule present is not enough to catch it, since
+  `_ShortenPrefixes` has nothing to splice a reference into when there is only one
+  same-direction CIDR key. (Building this regression surfaced an unrelated, ad6-*working-
+  as-designed* gotcha in the test itself: `KripkeUtils._HandleRule` gives same-table
+  sibling rules an automatic fallthrough edge regardless of their own action, so the two
+  independent rule/target pairs needed their own `<table>` each — putting them in one
+  table added a spurious edge that briefly looked like a second manifestation of the bug.)
+
+Why fix core now for this one but not the init-XOR (item 8): contained, single-function
+change, with a clear correct semantics (an empty AND is vacuously true) and no plausible
+existing consumer relying on the old behaviour (`IP6TablesParser` never emits an explicit
+`/0` — see item 6), so the risk/verification cost is low. Full `make test` (48 tests) and
+the `fave/test/test_ad6_wl_ifi.py` differential (54/54 exact match) both stay green after
+the change.

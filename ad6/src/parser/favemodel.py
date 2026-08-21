@@ -207,14 +207,24 @@ _MATCH_ALL = frozenset({"0.0.0.0/0", None})
 
 def _is_constrained(cidr):
     """ False for a match-all address (None, or the literal "0.0.0.0/0" FaVe
-    emits for an explicit "any" ACL match): XMLUtils.ConvertCIDRToVariables
-    truncates a /0 prefix's bit-vector to zero bits (Count*2 == 0), producing
-    a Kripke node whose Gamma is an EMPTY <conjunction/> instead of a
-    trivially-true condition -- silently making every rule using it (and
-    everything reachable only through it) unsatisfiable. A match-all
-    condition is exactly "no condition", so the fix is to omit the <ip>
-    element entirely rather than assert it -- semantically identical, and
-    avoids ad6's zero-bit-CIDR corner case. """
+    emits for an explicit "any" ACL match). A match-all condition is exactly
+    "no condition", so this omits the <ip> element entirely rather than
+    asserting it -- semantically identical either way, and one fewer
+    variable in the encoding.
+
+    This used to be load-bearing, not just a simplification:
+    XMLUtils.ConvertCIDRToVariables truncated a /0 prefix's bit-vector to
+    zero bits (Count*2 == 0), producing a Kripke node whose Gamma was an
+    EMPTY <conjunction/> instead of a trivially-true condition -- and
+    Instantiator._ShortenPrefixes treats a /0 entry as a (trivial) prefix of
+    every other same-direction CIDR, splicing a reference to it into their
+    conjunctions too, so the corruption spread to rules that never
+    mentioned 0.0.0.0/0 at all. Fixed in ad6 core 2026-08-21 --
+    ConvertCIDRToVariables now returns XMLUtils.constant() for a /0 prefix;
+    see ad6/FAVE_CHANGES.md §7 and
+    ad6/test/core/instantiatortest.py:testMatchAllReachable for the
+    regression test. Kept here anyway: omitting a redundant condition is
+    good hygiene independent of whether the underlying bug is fixed. """
     return cidr not in _MATCH_ALL
 
 

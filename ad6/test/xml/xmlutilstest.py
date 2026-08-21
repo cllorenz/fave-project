@@ -57,6 +57,31 @@ class XMLUtilsTest(unittest.TestCase):
         self.assertTrue(XMLUtilsTest.equal(XMLUtils.ConvertCIDRToVariables(examinee),expectation))
 
 
+    def testCIDRMatchAll(self):
+        """ Regression: a /0 CIDR ("match any") must convert to a trivially-true
+        condition, not an empty <conjunction/>. ConvertCIDRToVariables truncates
+        its bit-vector to Count*2 characters, which is zero for a /0 prefix --
+        the conjunction it built used to end up with no children at all, which
+        SATUtils.ConvertToCNF resolves as UNSATISFIABLE rather than trivially
+        true (found via AD6_PLAN.md's wl_ifi translator, where FaVe's model
+        represents "match any" as an explicit "0.0.0.0/0"/"::/0", unlike
+        IP6TablesParser's own frontend, which always omits the field instead --
+        so this path was never previously exercised by any ad6-native config). """
+        expectation = XMLUtils.constant()
+
+        ipv4 = XMLUtils.ConvertToVariables(
+            et.fromstring('<ip version="4" direction="dst"><address>0.0.0.0/0</address></ip>')
+        )
+        self.assertTrue(XMLUtilsTest.equal(
+            XMLUtils.ConvertCIDRToVariables(ipv4.attrib['name']), expectation))
+
+        ipv6 = XMLUtils.ConvertToVariables(
+            et.fromstring('<ip version="6" direction="src"><address>::/0</address></ip>')
+        )
+        self.assertTrue(XMLUtilsTest.equal(
+            XMLUtils.ConvertCIDRToVariables(ipv6.attrib['name']), expectation))
+
+
     def testPort(self):
         examinee = et.parse('./test/xml/testPort.xml').getroot()
         expectation = et.parse('./test/xml/resultPort.xml').getroot()
