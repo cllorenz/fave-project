@@ -59,6 +59,13 @@ from rule.rule_model import Forward, Rewrite
 _DST = 'packet.ipv4.destination'
 _SRC = 'packet.ipv4.source'
 _VLAN = 'packet.ether.vlan'
+_RELATED = 'related'    # AD6_PLAN.md §4.2: connection-state match, "0"=NEW,
+                        # "1"=ESTABLISHED (mirrors apkeep/adapter.py:_RELATED;
+                        # the FaVe policy compiler's state-shell, see
+                        # fave/iptables/generator.py:_derive_general_state_shell/
+                        # _calculate_blocks, only ever emits these two values --
+                        # never a compound "ESTABLISHED,RELATED" -- so a 1:1
+                        # related-value -> ad6-state mapping is exact here).
 _OUT_PORT = 'out_port'
 
 _HERE = os.path.dirname(os.path.abspath(__file__))         # .../fave/ad6
@@ -98,7 +105,7 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._gen_src: Dict[str, str] = {}              # name -> cidr
         self._gen_vlan: Dict[str, str] = {}              # name -> vlan
         self._acl_device: Optional[str] = None
-        self._acl_in: Dict[Optional[str], List[List[Any]]] = {}   # vlan -> [[idx,permit,src,dst]]
+        self._acl_in: Dict[Optional[str], List[List[Any]]] = {}   # vlan -> [[idx,permit,src,dst,related]]
         self._acl_out: Dict[Optional[str], List[List[Any]]] = {}
         self._vlan_to_eport: Dict[str, str] = {}          # vlan -> "device.port"
         self._iport_vlan: Dict[str, str] = {}             # "device.port" -> vlan
@@ -199,9 +206,12 @@ class Ad6Adapter(AbstractVerificationEngine):
     @staticmethod
     def _capture_acl(store: Dict[Optional[str], List[List[Any]]], rules: Any) -> None:
         """ Group FaVe ACL rules by their VLAN match into
-        [idx, permit, src, dst] entries. permit == forwards somewhere. """
+        [idx, permit, src, dst, related] entries. permit == forwards
+        somewhere; related is the connection-state match ("0"/"1"/None), see
+        _RELATED -- carried through so favemodel.py can emit the matching
+        ad6 <state> condition (AD6_PLAN.md §4.2). """
         for rule in rules:
-            vlan = src = dst = None
+            vlan = src = dst = related = None
             for field in (rule.match or []):
                 if field.name == _VLAN:
                     vlan = str(field.value)
@@ -209,8 +219,10 @@ class Ad6Adapter(AbstractVerificationEngine):
                     src = field.value
                 elif field.name == _DST:
                     dst = field.value
+                elif field.name == _RELATED:
+                    related = str(field.value)
             permit = any(isinstance(a, Forward) and a.ports for a in rule.actions)
-            store.setdefault(vlan, []).append([rule.idx, permit, src, dst])
+            store.setdefault(vlan, []).append([rule.idx, permit, src, dst, related])
 
     def add_wiring(self, model: Any) -> None:
         pass  # internal device pipeline plumbing; not needed for a flat dst-IP model
@@ -295,6 +307,20 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     # --- build + query --------------------------------------------------
 
+    @staticmethod
+    def _cond_to_json(cond: Any) -> List[Dict[str, Any]]:
+        """ `cond` arrives here as whatever check_compliance's caller passed:
+        real dispatch through aggregator_service.py's `_handler` (the
+        InProcessFaVe/JSON-socket path every backend shares) has already
+        turned each entry into a RuleField object -- not JSON-serialisable
+        as-is, so this normalises to RuleField.to_json()'s plain-dict shape
+        (also passed through unchanged for a caller that already hands us
+        dicts, e.g. a test driving check_compliance directly). """
+        out = []
+        for field in (cond or []):
+            out.append(field.to_json() if hasattr(field, "to_json") else field)
+        return out
+
     def check_compliance(self, rules: Any) -> None:
         """ rules: {probe_name: [(source_name, negated, cond), ...]}. Builds
         the ad6 model and answers every pair in one bridge subprocess call. """
@@ -307,7 +333,7 @@ class Ad6Adapter(AbstractVerificationEngine):
                     "source": source_name, "probe": probe_name,
                     "src_port": src_port, "dst_port": dst_port,
                     "src_cidr": self._gen_src.get(source_name),
-                    "negated": bool(negated), "cond": cond,
+                    "negated": bool(negated), "cond": self._cond_to_json(cond),
                 })
         payload = {"ir": self._build_ir(), "queries": queries}
         with tempfile.TemporaryDirectory(prefix="ad6_bridge_") as tmp:

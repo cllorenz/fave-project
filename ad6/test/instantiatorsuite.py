@@ -14,7 +14,8 @@ class InstantiatorSuite(TestSuite):
             'testCycle',
             'testShadow',
             'testCross',
-            'testMatchAllReachable'
+            'testMatchAllReachable',
+            'testStateLiteralForcingIsMutuallyExclusive'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

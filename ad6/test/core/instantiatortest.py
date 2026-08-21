@@ -83,6 +83,68 @@ class InstantiatorTest(unittest.TestCase):
                         "the /0 bug is contaminating _ShortenPrefixes's sharing")
 
 
+    def testStateLiteralForcingIsMutuallyExclusive(self):
+        """ Regression for AD6_PLAN.md §4.2 (the wl_up/wl_ifi stateful `<->>`
+        query orchestration, ad6/fave_bridge.py's `_state_literals`): a query
+        that force-asserts a <state> value other than the one an
+        ESTABLISHED-only permit rule requires must NOT be able to reach that
+        rule's target, and force-asserting the SAME value it requires must
+        still reach it.
+
+        This pins down the exact mechanism `_state_literals` relies on:
+        appending XMLUtils.ConvertStateToVariables(value)'s FLATTENED child
+        literals (not the whole <conjunction> as one nested element) onto an
+        InstantiateEndToEnd instance's clause list. The whole-conjunction
+        form was tried first and is a silent no-op -- instance[0] is already
+        the base model's CNF'd clause list (from InstantiateBase), so a
+        nested, un-flattened <conjunction> child never gets attached as
+        constraining literals and asserting it can even manufacture a
+        spurious UNSAT (see ad6/FAVE_CHANGES.md for the fixture that
+        surfaced this). """
+        firewall = GenUtils.firewall('sfw')
+
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='sfw_t_r0')
+        rule.append(GenUtils.state('ESTABLISHED'))
+        rule.append(GenUtils.action('jump', target='sfw_t_r_estab_target'))
+        table.append(rule)
+        firewall.append(table)
+
+        target_table = GenUtils.table('t_estab')
+        target = GenUtils.rule('e', key='sfw_t_r_estab_target')
+        target.append(GenUtils.action('accept'))
+        target_table.append(target)
+        firewall.append(target_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['sfw_t_r0'], default_inits=False
+        )
+        solver = PycoSATAdapter()
+
+        def reachable_forcing(state_value):
+            instance = Instantiator.InstantiateEndToEnd(
+                kripke, encoding, 'sfw_t_r0', 'sfw_t_r_estab_target')
+            for literal in XMLUtils.ConvertStateToVariables(state_value):
+                instance[0].append(literal)
+            return bool(solver.Solve(instance))
+
+        self.assertTrue(
+            bool(solver.Solve(Instantiator.InstantiateEndToEnd(
+                kripke, encoding, 'sfw_t_r0', 'sfw_t_r_estab_target'))),
+            "the ESTABLISHED-conditioned rule itself is unreachable unconstrained")
+        self.assertTrue(reachable_forcing('ESTABLISHED'),
+                        "forcing the SAME state the rule requires must still reach it")
+        self.assertFalse(reachable_forcing('NEW'),
+                         "forcing state=NEW must NOT reach an ESTABLISHED-only rule")
+        self.assertFalse(reachable_forcing('RELATED'),
+                         "forcing state=RELATED must NOT reach an ESTABLISHED-only rule")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

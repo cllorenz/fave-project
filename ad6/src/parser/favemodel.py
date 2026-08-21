@@ -191,13 +191,19 @@ def _drop_firewall():
     return fw
 
 
-def _acl_rule(fwkey, stage, port, pos, src, dst, target):
+_STATE_FOR_RELATED = {"0": "NEW", "1": "ESTABLISHED"}
+
+
+def _acl_rule(fwkey, stage, port, pos, src, dst, target, related=None):
     key = "%s_%s%s_r%d" % (fwkey, stage, _port_key(port), pos)
     rule = GenUtils.rule(str(pos), key=key)
     if _is_constrained(src):
         rule.append(GenUtils.address(src, direction='src', version='4'))
     if _is_constrained(dst):
         rule.append(GenUtils.address(dst, direction='dst', version='4'))
+    state = _STATE_FOR_RELATED.get(related)
+    if state is not None:
+        rule.append(GenUtils.state(state))
     rule.append(GenUtils.action('jump', target=target))
     return key, rule
 
@@ -269,9 +275,9 @@ def _build_device_table(device, ir, ports_by_device):
     # unconditionally unreachable.
     for port, vlan in ingress_ports:
         entries = sorted(acl_in.get(vlan, []), key=lambda t: t[0])
-        for pos, (_idx, permit, src, dst) in enumerate(entries):
+        for pos, (_idx, permit, src, dst, related) in enumerate(entries):
             target = forward_key if permit else DROP_KEY
-            _key, rule = _acl_rule(fwkey, "iacl", port, pos, src, dst, target)
+            _key, rule = _acl_rule(fwkey, "iacl", port, pos, src, dst, target, related)
             rules.append(rule)
         deny_key = "%s_iacl%s_denyall" % (fwkey, _port_key(port))
         deny_rule = GenUtils.rule(str(len(entries)), key=deny_key)
@@ -300,9 +306,9 @@ def _build_device_table(device, ir, ports_by_device):
             _d, port_no = _split(eport)
             iface_target = iface_key(device, port_no) + "_out"
             table = GenUtils.table("eacl" + _port_key(port_no))
-            for pos, (_idx, permit, src, dst) in enumerate(entries):
+            for pos, (_idx, permit, src, dst, related) in enumerate(entries):
                 target = iface_target if permit else DROP_KEY
-                _key, rule = _acl_rule(fwkey, "eacl", port_no, pos, src, dst, target)
+                _key, rule = _acl_rule(fwkey, "eacl", port_no, pos, src, dst, target, related)
                 table.append(rule)
             tables_extra.append(table)
 
