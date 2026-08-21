@@ -866,6 +866,108 @@ corrected directly — see §4.4.)
   this redirected effort now exists to answer — not an assumption to make either way before
   trying.
 
+- **5.4 Faithful-VLAN spike protocol, staged: expressibility → tractability, GO/NO-GO gated
+  at each stage (planned 2026-08-21i).** Mirrors this project's own discipline (theory gate
+  before code, small-n before full-n) and APKeep's own incremental-scale protocol so the two
+  results are directly comparable in §7.
+
+  Two findings frame the whole spike. **`GenUtils.action()` has no `rewrite` type anywhere in
+  ad6's core** (`ad6/src/xml/genutils.py:50-54`; zero hits for "rewrite" across
+  `ad6/src/core|xml|sat`); `GenUtils.vlan()` is match-only, evaluated once per node's own
+  Gamma at build time (`ad6/src/core/kripke.py`'s `_HandleVlans`) — nothing lets a rule's
+  action change a downstream node's VLAN assertion. So faithful VLAN modelling cannot be a
+  header-rewrite mechanism; it has to be the same **structural** trick §4.4 already
+  established (which VLAN a packet is "on" = which Kripke entry-point node it was wired
+  into, decided once at translator build time, never a mutable runtime bit) — `favemodel.py`
+  already does exactly this for a *single* VLAN per port (`_ingress_ports_for`'s
+  `in_port_vlan: {port: vlan}`, an access-port model); only the **trunk fan-out** (a port
+  admitting several VLANs, and a VLAN-qualified jump target on the sending device's side) is
+  missing. Second, `ad6/src/sat/satutils.py`'s `ConvertToCNF` is naive distribution-based (no
+  Tseitin auxiliaries) — it explodes on *alternation depth* of nested OR-of-AND-of-OR
+  structure, not on raw rule/node count, a **different blow-up mechanism than BDD's variable
+  ordering**. Today's one-flat-rule-per-condition style keeps this cheap; any VLAN-trunk
+  extension must preserve that (one flat rule per (port,VLAN) combination, never a rule
+  whose own condition embeds a per-VLAN disjunction) or it risks a confounding, unrelated
+  blow-up mode.
+
+  **Stage 0 — prerequisite fix, DONE 2026-08-21i, before any VLAN code at all.**
+  `Ad6Adapter._acl_device` was a single scalar (correct only for wl_ifi's one
+  admission-checked router); `_acl_in`/`_acl_out` were flat `{vlan: [...]}` dicts with no
+  device dimension; `_vlan_to_eport` was flat `{vlan: port}`. Stanford is 16 independent
+  `in.X`/`out.X` devices that can reuse the same VLAN number for unrelated admission groups —
+  **confirmed via a test fed the pre-fix code (`git stash`, same discipline as every other
+  fix this cycle): a second device's capture silently merged into the first's `acl_in['10']`
+  list instead of staying separate, and `_acl_device` simply forgot the first device once a
+  second was seen.** This blocks even the already-in-scope plain-165 result at >1 admission
+  device, independent of VLAN fidelity. Fixed: `_acl_device`→`_acl_devices` (a set),
+  `_acl_in`/`_acl_out`→`Dict[device, Dict[vlan, ...]]`, `_vlan_to_eport`→
+  `Dict[device, Dict[vlan, port]]`; `favemodel.py`'s `ir["acl_device"]`→`ir["acl_devices"]`,
+  threaded through `_ingress_ports_for`/`entry_key`/`_build_device_table`. **A second,
+  related latent bug found and fixed in the same pass**: `_build_device_table`'s egress-ACL
+  loop iterated the *entire* (still globally "device.port"-keyed) `out_port_vlan` map
+  unfiltered by device — harmless with exactly one acl device (every entry belonged to it by
+  construction) but would emit a spurious egress-ACL table for another device's port once a
+  second admission-checked device exists; now filtered to `device`'s own ports. Regression:
+  new `fave/test/test_ad6_adapter_multi_device_acl.py` (2 tests, confirmed failing on the
+  pre-fix code, passing after) — pure `Ad6Adapter` capture-layer unit tests, no ad6
+  binary/subprocess/benchmark inputs needed. No regression: `ad6 make test` (10 suites) and
+  `fave/test/test_ad6_wl_ifi.py`/`test_ad6_wl_ifi_stateful.py`/`test_ad6_wl_up.py`/
+  `test_ad6_adapter_lpm_prio.py`/`test_ad6_adapter_multi_device_acl.py` (16/16) all green.
+  Since no Stanford ad6 translator exists yet, this stage's regression check is wl_ifi's
+  (1 acl device) and wl_up's (0 acl devices) existing results, not yet a Stanford rebuild —
+  the plain-165 rebuild becomes possible once §5.2's translator itself is built.
+
+  **Stage A — expressibility, synthetic, no real data (not yet started).** Can trunk-port
+  VLAN admission + rewrite-determined downstream entry-point selection be represented with
+  zero changes to `ad6/src/core|xml|sat`? Extend `ad6/test/parser/favemodeltest.py` (the
+  actually-committed precedent — the uncommitted §4.4 "2 rules, 2 interfaces" fixture was
+  never checked in) with a 3-device synthetic: `A --(trunk, VLANs {10,20})--> B
+  --(access, VLAN 10 only)--> C`, `A` routing two dsts with egress-VLAN rewrites to 10 vs 20,
+  `B` admitting only VLAN 10. New machinery, all frontend-only: `iface_key(device, port,
+  vlan=None)` (unqualified for a single-VLAN port, zero regression); `in_port_vlan` becomes
+  `{port: [vlan, ...]}` with one ACL-group entry point per (port,vlan); VLAN-qualified fwd-rule
+  jump targets wherever a captured rewrite recorded one; `wire_edges` wires one edge per
+  carried VLAN and *omits* the edge for a (port,vlan) the receiver doesn't admit (no
+  dedicated drop rule needed, mirrors `apkeep/adapter.py`'s `_gate_dead_ingress`
+  structurally); new `Ad6Adapter._capture_mid_rewrite`/`_capture_out_rewrite`, modelled
+  directly on `apkeep/adapter.py`'s already-proven same-named methods (`Ad6Adapter` currently
+  never inspects `mid`/`out`-stage tables at all — new capture surface, not an extension).
+  **GO/NO-GO:** GO iff a forced-destination SAT query (exactly `RoutingTableLPMTest`'s style)
+  shows VLAN-20 UNSAT and VLAN-10 SAT at `C`; NO-GO (a real, written-up finding, not a dead
+  end, same discipline as wl_up's) if this needs anything beyond `favemodel.py`/
+  `Ad6Adapter`. Cheap, minutes, fine on yolobox — no wall-clock claim.
+
+  **Stage B — tractability, real Stanford data, incremental scale (gated strictly on Stage
+  A's GO, not yet started).** Real scale (`fave/bench/wl_stanford/stanford-json/`): 252
+  in-stage VLAN-admission-checked ports, **147 trunk** (>1 VLAN, up to 128 on one port) vs
+  105 access; 511 distinct VLAN values; per-router trunk-port counts 4–20. Reuse APKeep's
+  own faithful-VLAN subset protocol and exact router lists for direct comparability
+  (`fave/bench/faithful_bdd_measure.py` + `bench.apkeep_convergence._filter_model`,
+  `--routers`): N=2 (`bbra_rtr,rozb_rtr`: ap_num 2574, build 34s), N=3 (+`roza_rtr`: 2661,
+  110s), N=5 (+`soza_rtr,sozb_rtr`: 5697, 940s), full N=16 doesn't complete in 54 min
+  (`APKEEP_NDD_EVAL.md:533-559`) — measure ad6's instantiate/solve split, CNF clause count,
+  peak RSS at the same N. **Budget:** no hard cap through N=5, but >~20 min on one point is
+  an early-warning signal to pause before N=16; attempt N=16 only if the N=2→5 growth,
+  log-fit, projects under **60 minutes**; hard-stop there regardless. If it blows up,
+  characterize *how* (trunk-port count vs VLANs-per-trunk vs path length, varied
+  independently on the fixed N=2 pair) — a finding either way, not a dead end. **Environment
+  guardrail:** Stage A's correctness checks are fine on yolobox; Stage B's wall-clock/RSS
+  numbers are only trusted on the controlled bare-metal environment (existing cross-cutting
+  guardrail) — a yolobox run may catch a gross build error but is never the tractability
+  verdict. **Oracle:** none at any scale for the faithful variant (APKeep's own attempt never
+  completed even at N=16 either) — Stage B's correctness rests on Stage A's synthetic proof
+  plus the existing plain-165 result as a sanity floor (a faithful-mode disagreement with 165
+  on a VLAN-non-binding pair is a bug in the new code, not a VLAN-fidelity finding).
+  **GO/NO-GO:** GO — headline §7 result — iff N=16 completes in budget on bare-metal with
+  sub-exponential clause growth; NO-GO — reported with the dominant-dimension
+  characterization, not a retry at larger budget.
+
+  Full staged design (research + review trail): plan file from this session's planning
+  turn, folded into this section; critical files: `fave/ad6/adapter.py`,
+  `ad6/src/parser/favemodel.py`, `ad6/test/parser/favemodeltest.py`,
+  `fave/apkeep/adapter.py` (read-only template), `fave/bench/faithful_bdd_measure.py`,
+  `fave/bench/apkeep_convergence.py`.
+
 ---
 
 ## 6. Algorithmic lever — amortise the O(n²) toward O(n) (optional, high value)

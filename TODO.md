@@ -463,6 +463,17 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   variant as the actual target, not around it — faithful-VLAN variants are IN scope,
   reversing this item's prior "likely out of scope" note. `AD6_PLAN.md` §5.2/§5.3
   updated.**
+  **§5.4 (2026-08-21i): staged spike planned** (expressibility synthetic test → tractability
+  measurement on real Stanford data, reusing APKeep's own N=2/3/5/16 `--routers` subset
+  protocol for a direct comparison). **Stage 0 DONE**: `Ad6Adapter._acl_device`/`_acl_in`/
+  `_acl_out`/`_vlan_to_eport` generalized from wl_ifi-only scalars/flat-VLAN-keyed dicts to
+  per-device maps — confirmed via `git stash` that the old code silently merged two devices'
+  same-numbered VLAN admission groups into one, a real blocker for Stanford's 16
+  admission-checked devices independent of VLAN fidelity. New regression:
+  `fave/test/test_ad6_adapter_multi_device_acl.py`. No regression: 16/16 fave-side + 10/10
+  `ad6 make test`. Stage A (synthetic trunk+rewrite expressibility test) and Stage B (real
+  N=2/3/5/16 tractability measurement, bare-metal only) not yet started. Full protocol +
+  GO/NO-GO criteria: `AD6_PLAN.md` §5.4.
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

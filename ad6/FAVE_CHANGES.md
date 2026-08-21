@@ -748,3 +748,60 @@ is NOT the end state to design toward; the Stanford/i2 translator should be buil
 faithful (per-port,VLAN admission + egress rewrite) target in view from the start, not
 scoped down to what the current 165 oracle happens to require. `AD6_PLAN.md` §5.2/§5.3
 updated to reflect this.
+
+## 15. §5.4 staged VLAN-spike plan; Stage 0 prerequisite fix (per-device ACL/VLAN capture,
+was silently clobbering across devices)  **[FIX + plan]**
+
+**Planned the faithful-VLAN spike as a staged, GO/NO-GO-gated protocol** (`AD6_PLAN.md`
+§5.4): Stage A (synthetic expressibility test, zero real data, zero `ad6/src/core|xml|sat`
+changes) gates Stage B (tractability on real Stanford data, reusing APKeep's own
+`--routers` N=2/3/5/16 subset protocol, `fave/bench/faithful_bdd_measure.py`, for a direct
+comparison). Two architectural findings frame it: `GenUtils.action()` has no `rewrite` type
+anywhere in ad6's core (`GenUtils.vlan()` is match-only, evaluated once at build time) --
+so a faithful model has to be the same structural "which Kripke entry-point node" trick §4.4
+already used, not a header-rewrite mechanism; and `ad6/src/sat/satutils.py`'s `ConvertToCNF`
+is naive distribution-based (no Tseitin), which explodes on *alternation depth*, not raw
+node count -- a different blow-up mechanism than BDD's variable ordering, worth measuring
+rather than assuming either way.
+
+**Stage 0 -- a real, previously-unflagged blocker, found and fixed before any VLAN code.**
+`fave/ad6/adapter.py`'s `_acl_device` (`Optional[str]`) and `_acl_in`/`_acl_out`
+(`Dict[Optional[str], List]`, keyed by bare VLAN value only) were correct only for wl_ifi's
+*one* admission-checked router -- Stanford is 16 independent `in.X`/`out.X` devices that can
+reuse the same VLAN number for unrelated admission groups. Confirmed via `git stash` (same
+discipline as every other fix this cycle): fed the pre-fix code a synthetic two-device
+model with the same VLAN number ("10") on both, and the second device's capture silently
+merged into the first's `acl_in['10']` list (`{'10': [devA-entry, devB-entry]}`, one flat
+list instead of two separate per-device groups) -- and a scalar `_acl_device` simply forgot
+device A's identity once device B was captured. This is a hard blocker for Stanford at *any*
+fidelity, including the already-in-scope plain-165 target, not something specific to VLAN
+faithfulness.
+
+**Fix:** `_acl_device` -> `_acl_devices` (a `set`); `_acl_in`/`_acl_out` ->
+`Dict[device, Dict[vlan, List]]`; `_vlan_to_eport` -> `Dict[device, Dict[vlan, port]]`
+(`_capture_vlan_port` now takes `device` explicitly). `ad6/src/parser/favemodel.py`'s
+`ir["acl_device"]` (singular) -> `ir["acl_devices"]`, threaded through
+`_ingress_ports_for`/`entry_key`/`_build_device_table`. **A second, related latent bug found
+in the same pass:** `_build_device_table`'s egress-ACL-table loop iterated the *entire*
+`out_port_vlan` map (a global "device.port"->vlan dict, never keyed by device at all)
+unfiltered -- harmless with exactly one acl device (every entry belonged to it by
+construction) but would silently emit a spurious egress-ACL table for another device's port
+once a second admission-checked device exists. Now filtered to the current device's own
+ports (`_split(eport)[0] != device: continue`).
+
+**Regression:** new `fave/test/test_ad6_adapter_multi_device_acl.py` (2 tests) -- pure
+`Ad6Adapter` capture-layer unit tests (fake `Rule`/`RuleField`/`Forward` objects, no ad6
+binary/subprocess/benchmark inputs needed), confirmed failing against the pre-fix code via
+`git stash`/`pop` before landing, passing after. `fave/test/test_ad6_wl_ifi.py`'s
+`test_acls_translated` updated for the new `_acl_devices` (set) shape. No regression: `ad6
+make test` (10 suites) and `fave/test/test_ad6_wl_ifi.py`/`test_ad6_wl_ifi_stateful.py`/
+`test_ad6_wl_up.py`/`test_ad6_adapter_lpm_prio.py`/`test_ad6_adapter_multi_device_acl.py`
+(16/16) all green. Since no Stanford ad6 translator exists yet, this stage's regression
+check is necessarily wl_ifi's (1 acl device) and wl_up's (0 acl devices) existing results,
+not yet a Stanford rebuild -- the plain-165 rebuild `AD6_PLAN.md` §5.4 calls for becomes
+possible once §5.2's translator itself is built.
+
+Stage A (synthetic trunk+rewrite expressibility test, extending
+`ad6/test/parser/favemodeltest.py`) and Stage B (real N=2/3/5/16 tractability measurement,
+bare-metal only) are planned but not yet started -- full protocol, GO/NO-GO criteria, and
+compute budgets: `AD6_PLAN.md` §5.4.
