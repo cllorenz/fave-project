@@ -478,11 +478,23 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   `rewrite` action + SSA-style per-node field copies with frame axioms and phi-joins,
   extending `Instantiator`'s existing per-edge implications) — a deliberate departure from
   this integration's "frontend only" discipline so far, and a genericity-cost finding in its
-  own right.** Stage A and Stage B (real N=2/3/5/16 tractability measurement, bare-metal
-  only) not yet started; §8.5 (new) flags ad6's naive non-Tseitin CNF conversion as a
-  candidate general fix if Stage B's numbers show it (not the new encoding itself) is the
-  bottleneck. Full protocol +
-  GO/NO-GO criteria: `AD6_PLAN.md` §5.4.
+  own right.** **Stage A DONE 2026-08-21k, GO**: built test-first
+  (`ad6/test/core/instantiatortest.py::testMutationChainAndJoinSSAEncoding` — not
+  favemodeltest.py as first assumed, this is pure core machinery). New: `GenUtils.action`'s
+  `rewrite_field`/`rewrite_value`, `KripkeNode.Rewrites`, `XMLUtils.FieldBitName`/
+  `ConvertFieldToVariables`, `Instantiator._CreateMutationConstraints` +
+  `InstantiateBase(..., MutableFields=...)` (opt-in, zero regression). A 3-deep rewrite
+  chain (`vlan: *→1→0→2`) resolves to exactly 2 (SAT), not 1 or 3 (UNSAT); a join's
+  non-rewriting predecessor stays genuinely free (SAT for two different forced values).
+  Confirmed failing pre-implementation via `git stash`. No regression: 10/10 `ad6 make test`
+  + 16/16 fave-side. Also found and confirmed harmless: a pre-existing order-dependent
+  MiniSAT flake in `testCycle`/`testShadow` (present on the unmodified baseline too; `make
+  test`'s own invocation is unaffected). **Stage B (real N=2/3/5/16 tractability
+  measurement on real Stanford VLAN data, bare-metal only — plus the still-unbuilt
+  `Ad6Adapter`/`favemodel.py` wiring to real rewrite data) not yet started**; §8.5 (new)
+  flags ad6's naive non-Tseitin CNF conversion as a candidate general fix if Stage B's
+  numbers show it (not the new encoding itself) is the bottleneck. Full protocol + GO/NO-GO
+  criteria: `AD6_PLAN.md` §5.4.
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

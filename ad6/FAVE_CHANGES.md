@@ -842,3 +842,70 @@ out to be dominated by CNF distribution rather than by the SSA encoding's own no
 and, independent of this spike, a candidate general improvement for ad6 (§8.5, new) worth
 scoping on its own once the benchmarks stabilize. Full revised protocol, GO/NO-GO criteria
 per stage: `AD6_PLAN.md` §5.4/§8.5.
+
+## 17. Stage A built and GO: SSA/frame-axiom mutation encoding, test-first, in ad6 core
+**[NEW core feature]**
+
+**Implemented the revised Stage A design (item 16) -- a genuine ad6 core extension, the
+first change this integration makes outside the "new frontend only" discipline (§4.4).**
+`GenUtils.action()` gains `rewrite_field`/`rewrite_value` kwargs riding on the same
+`<action>` as the jump it accompanies; `KripkeNode` gains a `Rewrites` dict (`kripke.py`'s
+`_HandleRule` reads it off the action); `XMLUtils.FieldBitName`/`ConvertFieldToVariables`
+give every mutable field a per-NODE bit-vector naming convention (`"<field>#<node>_<i>"`,
+"#" chosen because nothing else in this codebase's variable naming uses it, so it can never
+collide with the existing global dst/src/port/vlan/state aliases); `Instantiator.
+_CreateMutationConstraints(Kripke, MutableFields)` walks every edge and every declared
+mutable field, emitting a rewrite axiom (`transition -> (field@target <-> constant)`) or a
+frame axiom (`transition -> (field@target <-> field@source)`) otherwise, built and
+CNF-converted per-edge exactly like `_ConvertNodesToImplications`'s own pattern;
+`Instantiator.InstantiateBase` gains an opt-in `MutableFields=None` parameter (every
+existing caller passes nothing new, so wl_ifi/wl_up/wl_tum are byte-for-byte unaffected).
+
+**Verified the underlying CNF mechanism empirically before relying on it, not by trusting a
+hand-trace.** A literal read of `SATUtils._ConvertBinaryForm`'s dispatch (falls through to
+`return _ConvertBinaryForm(Formula[0])` for a bare `<implication>` tag) suggested a
+non-degenerate `A -> (B AND C)` implication would have its conclusio silently dropped,
+keeping only `A` -- which would be a live, fundamental soundness bug in machinery this whole
+codebase depends on (`_ConvertNodesToImplications` builds exactly this shape for every real
+edge with a real predecessor). Ran it directly instead of continuing to hand-trace:
+`SATUtils.ConvertToCNF` on that exact shape correctly yields `(B OR NOT A) AND (C OR NOT
+A)`. The hand-trace was wrong (missed that `_ResolveConstants` runs bottom-up and the
+top-level `<conjunction>` wrapper unwraps around the implication before `_ConvertBinaryForm`
+ever sees it) -- recorded here so the next person tracing this code doesn't have to redo it.
+
+**Join handling needs no new exclusivity mechanism.** A node reachable from two
+predecessors with different rewrite histories gets one independent implication per incoming
+edge, each gated on its own transition literal -- if both were simultaneously true with
+conflicting histories that's correctly UNSAT under the *existing* reachability discipline
+(exactly like two conflicting forwarding paths already would be), and the solver remains
+free to leave the non-taken predecessor's transition false, exactly as it already does for
+plain reachability. No new "at-most-one-predecessor" constraint was needed or added.
+
+**Test, test-first**: `ad6/test/core/instantiatortest.py::testMutationChainAndJoinSSAEncoding`
+(wired into `InstantiatorSuite`) -- **not** `ad6/test/parser/favemodeltest.py` as item 16
+assumed; this is pure core Kripke/Instantiator machinery with zero `favemodel.py`
+involvement, so `instantiatortest.py` (home of the other core-mechanism regressions: the
+`/0`-CIDR bug, state-literal forcing) is the honest location. Fixture: `entryA -> r1(rewrite
+vlan=1) -> r2(rewrite vlan=0) -> r3(rewrite vlan=2) -> join` (a 3-deep rewrite chain) and
+`entryB -> alt(no rewrite) -> join` (the join predecessor that never rewrites), `entryA`/
+`entryB` both marked INIT so `Instantiator._CreateInitConstraints`'s EXISTING mutual
+exclusion (§8) -- reused, not reinvented -- forces exactly one path when querying
+`InstantiateEndToEnd` from either entry. Confirmed failing test-first via `git stash` on
+just the 5 core files (`GenUtils.action() got an unexpected keyword argument
+'rewrite_field'`), passing after.
+
+**Result: GO.** Forcing `entryA`'s path, `join`'s vlan is SAT for exactly 2 and UNSAT for 1
+or 3 -- the 3-deep chain resolved to precisely the value the rewrite history implies, not
+silently dropped or stuck at an intermediate value. Forcing `entryB`'s path, `join`'s vlan
+is SAT for two different arbitrary values (5 and 7) -- genuinely free, not accidentally
+pinned. No regression: `ad6 make test` (10 suites) and every fave-side ad6 test (16/16)
+green. In passing, found `testCycle`/`testShadow` are a **pre-existing order-dependent
+MiniSAT flake** when run back-to-back outside `make test`'s own per-suite invocation --
+confirmed present on the unmodified baseline too (not introduced here, and `make test`
+itself is unaffected).
+
+**What this does NOT cover**: only the core mechanism, on a hand-built synthetic fixture.
+Wiring real Stanford VLAN-rewrite data into it (`Ad6Adapter._capture_mid_rewrite`/
+`_capture_out_rewrite`, and `favemodel.py` actually calling `InstantiateBase(...,
+MutableFields=...)`) plus the tractability measurement itself is Stage B, not yet started.
+Full details: `AD6_PLAN.md` §5.4.

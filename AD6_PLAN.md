@@ -943,52 +943,78 @@ corrected directly — see §4.4.)
   (1 acl device) and wl_up's (0 acl devices) existing results, not yet a Stanford rebuild —
   the plain-165 rebuild becomes possible once §5.2's translator itself is built.
 
-  **Stage A — expressibility, synthetic, no real data, REVISED 2026-08-21j to the SSA/
-  frame-axiom encoding (not yet started).** Unlike the superseded structural-duplication
-  draft, this is a genuine **ad6 core extension** (`ad6/src/core/kripke.py`,
-  `ad6/src/core/instantiator.py`, `ad6/src/xml/genutils.py`), not a frontend-only trick — a
-  deliberate, explicitly-flagged departure from every other change this integration has made
-  so far (§4.4's "new frontend, zero backend changes" discipline). That departure is the
-  point: this stage is as much about characterizing what it *costs*, architecturally, to
-  teach a generic SAT model-checker real mutation, as it is about getting VLAN specifically
-  to work — a genericity-cost data point in its own right for §7.
+  **Stage A — expressibility, synthetic, no real data, DONE 2026-08-21k (SSA/frame-axiom
+  encoding, GO).** Unlike the superseded structural-duplication draft, this is a genuine
+  **ad6 core extension** (`ad6/src/xml/genutils.py`, `ad6/src/xml/xmlutils.py`,
+  `ad6/src/core/structure.py`, `ad6/src/core/kripke.py`, `ad6/src/core/instantiator.py`), not
+  a frontend-only trick — a deliberate, explicitly-flagged departure from every other change
+  this integration has made so far (§4.4's "new frontend, zero backend changes" discipline).
+  That departure is the point: this stage is as much about characterizing what it *costs*,
+  architecturally, to teach a generic SAT model-checker real mutation, as it is about getting
+  VLAN specifically to work — a genericity-cost data point in its own right for §7.
 
-  Design:
-  - New `GenUtils.action('rewrite', field=<name>, value=<const-or-None>)` (mirrors the
-    existing `jump`/`accept`/`drop` shapes) — the one new primitive this needs.
-  - For each field marked mutable (VLAN only, to start — every other field stays on today's
-    shared global bit-vector, so this cost is scoped to just the bits that actually move):
-    at each Kripke node `v`, allocate a fresh copy of that field's bit-vector, `b@v`, **only
-    for nodes reachable from a rewrite** (nodes with no rewrite anywhere upstream keep using
-    the single shared global copy, unchanged — most of the graph pays nothing).
-  - Per edge `(u → v)`, extend the SAME per-edge implication
-    `Instantiator._ConvertNodesToImplications` already builds (`¬transition_uv ∨ (...)`,
-    `ad6/src/core/instantiator.py:330-382`) with a frame or rewrite term: no rewrite on this
-    edge → `b@v ↔ b@u` (the field survives unchanged); rewrite to constant `c` → `b@v ↔ c`.
-    An unconstrained `b@v` (nothing ever pins it) is a free variable — "don't care," exactly
-    the same semantics every other unmatched field already has.
-  - At a join (`v` reachable from more than one predecessor with potentially different field
-    histories), the frame/rewrite term becomes a disjunction over predecessors, each gated by
-    its own `transition_*v` literal — a phi node, gated by the exact same transition literals
-    that already select which predecessor "actually happened" for reachability itself.
-  - Synthetic fixture (extends `ad6/test/parser/favemodeltest.py`, the actually-committed
-    precedent — the uncommitted §4.4 "2 rules, 2 interfaces" fixture was never checked in):
-    **not** the single-rewrite 3-device case from the superseded draft — that would only
-    prove out one definition site, not the general mechanism. Use a **4-5 node chain with at
-    least 3 rewrite points on one path** (`b=* → 1 → 0 → *`, i.e. unconstrained, forced to 1,
-    forced to 0, unconstrained again) PLUS a join with two predecessors carrying different
-    field histories, to exercise both the frame/rewrite chaining and the phi-disjunction case
-    in one fixture.
-  - **GO/NO-GO:** GO iff forced-destination SAT queries (same style as `RoutingTableLPMTest`)
-    confirm, at each point in the chain, exactly the value the rewrite history implies (SAT
-    for the right value, UNSAT for the wrong one), the free segments are genuinely
-    existential (both values individually SAT, neither forced), and the join case picks up
-    the correct predecessor's history depending on which transition fired. NO-GO — a real,
-    written-up finding, not a dead end, same discipline as wl_up's — if the phi/join case (the
-    genuinely new part relative to ad6's existing per-edge implications) can't be made to
-    work within `Instantiator`'s existing implication-building pass without deeper surgery.
-    Cheap, minutes, fine on yolobox — no wall-clock claim; this stage is about correctness of
-    the encoding, not its cost.
+  Implementation (all opt-in — every existing caller passes nothing new and is byte-for-byte
+  unaffected):
+  - `GenUtils.action('jump', target=..., rewrite_field=<name>, rewrite_value=<int>)` — rides
+    on the SAME `<action>` as the jump it accompanies (a rewrite only ever takes effect
+    together with the edge it's on; there is no standalone "rewrite but don't transition"
+    rule shape), avoiding any change to `kripke.py`'s single-`<action>`-per-rule assumption.
+  - `KripkeNode.Rewrites` (new, default `{}`): `_HandleRule` reads `rewrite_field`/
+    `rewrite_value` off a rule's action into `Node.Rewrites[field] = value`.
+  - `XMLUtils.FieldBitName(field, node, index)` / `ConvertFieldToVariables(field, node,
+    value, width)`: the per-NODE bit-vector naming convention (`"<field>#<node>_<i>"`, using
+    "#" — a separator nothing else in this codebase's variable naming uses, so it can never
+    collide with the existing global dst/src/port/vlan/state aliases) and a query-forcing
+    helper mirroring `ConvertVLANToVariables`, just node-scoped instead of global.
+  - `Instantiator._CreateMutationConstraints(Kripke, MutableFields)` (`MutableFields`:
+    `{field: bit_width}`, e.g. `{"vlan": 12}`): for every edge and every declared mutable
+    field, emits either a REWRITE axiom (`transition_uv → (field@v ↔ constant)`, if the
+    source node's `Rewrites` declares this field on this edge) or a FRAME axiom
+    (`transition_uv → (field@v ↔ field@u)`, otherwise — including every fallthrough edge,
+    which by construction never rewrites) — each built and CNF-converted per-edge exactly
+    like `_ConvertNodesToImplications`'s own proven pattern (confirmed empirically before
+    relying on it: a non-degenerate `A → (B ∧ C)` implication run through
+    `SATUtils.ConvertToCNF` correctly yields `(B ∨ ¬A) ∧ (C ∨ ¬A)`, not the silently-dropped-
+    conclusio result a superficial trace of `_ConvertBinaryForm`'s dispatch suggests — see
+    `ad6/FAVE_CHANGES.md` §17 for the check). A join (multiple predecessors, potentially
+    different field histories) needs **no new exclusivity mechanism**: each incoming edge
+    independently asserts its own implication, gated on its own transition literal, so two
+    predecessors with conflicting histories being simultaneously true is already correctly
+    UNSAT under the *existing* reachability discipline — exactly like two conflicting
+    forwarding paths already would be — and the solver remains free to leave the
+    non-taken predecessor's transition false, exactly as it already does for reachability.
+  - `Instantiator.InstantiateBase(..., MutableFields=None)`: new opt-in parameter, appends
+    `_CreateMutationConstraints`'s output into `Encoding[0]` before the final CNF pass.
+
+  Test (in `ad6/test/core/instantiatortest.py::testMutationChainAndJoinSSAEncoding`, wired
+  into `InstantiatorSuite` — **not** `ad6/test/parser/favemodeltest.py` as originally
+  planned: this is pure core Kripke/Instantiator machinery with zero `favemodel.py`
+  involvement, so the honest home is alongside `instantiatortest.py`'s other core-mechanism
+  regressions (the `/0`-CIDR bug, state-literal forcing), not the FaVe-translator-specific
+  file). Two Kripke paths into a shared node: `entryA→r1(rewrite vlan=1)→r2(rewrite
+  vlan=0)→r3(rewrite vlan=2)→join` (a 3-deep rewrite chain — the `b=*→1→0→*` case a global
+  variable cannot express at all) and `entryB→alt(no rewrite)→join` (the join, with one
+  predecessor that never rewrites anything). `entryA`/`entryB` both marked INIT so
+  `_CreateInitConstraints`'s EXISTING mutual exclusion (§8) — reused, not reinvented —
+  guarantees forcing one path's entry via `InstantiateEndToEnd` excludes the other's.
+  **Confirmed test-first** (`git stash` on just the 5 core files, same discipline as every
+  other fix this cycle): errors immediately (`GenUtils.action() got an unexpected keyword
+  argument 'rewrite_field'`) without the implementation; passes with it. **Result: GO** —
+  forcing `entryA`'s path, `join`'s vlan is SAT for exactly 2 and UNSAT for 1 or 3 (the chain
+  resolved correctly, not silently dropped or stuck at an intermediate value); forcing
+  `entryB`'s path, `join`'s vlan is SAT for two different arbitrary values (5 and 7),
+  confirming it stayed genuinely free rather than being accidentally pinned. No regression:
+  `ad6 make test` (10 suites, InstantiatorSuite now 8 tests) and all fave-side ad6 tests
+  (16/16) green. (Also found, unrelated to this mechanism: `testCycle`/`testShadow` are a
+  **pre-existing order-dependent flake** when run back-to-back outside `make test`'s own
+  invocation — confirmed present on the unmodified baseline too, not introduced here; `make
+  test` itself is unaffected and stays the authoritative check.)
+
+  **Scoping note — what Stage A does NOT yet cover:** this proves the CORE mechanism only,
+  on a hand-built synthetic fixture. Wiring it to real Stanford VLAN rewrite data (the
+  `Ad6Adapter._capture_mid_rewrite`/`_capture_out_rewrite` capture, and `favemodel.py`
+  actually calling `InstantiateBase(..., MutableFields=...)` with captured rewrites) is
+  **not built** — that, plus the actual tractability measurement, is Stage B's job, next.
 
   **Stage B — tractability, real Stanford data, incremental scale (gated strictly on Stage
   A's GO, not yet started).** Real scale (`fave/bench/wl_stanford/stanford-json/`): 252
