@@ -389,6 +389,70 @@ corrected directly — see §4.4.)
   DisjSrc/DisjDst conjunction, driven directly off each benchmark's `cchecks.json`
   `(dst, must_reach, [conditions])` tuples so ad6's query semantics can't drift from FaVe's
   own compliance translation. wl_stanford/wl_i2 stay on the plain (non-stateful) path.
+
+  **BUILT + partially characterized 2026-08-21.** The mechanism is now wired end to end:
+  - `fave/ad6/adapter.py:_capture_acl` now captures the `related` match field (`"0"`=NEW,
+    `"1"`=ESTABLISHED — mirrors `apkeep/adapter.py:_RELATED`; FaVe's own state-shell,
+    `fave/iptables/generator.py:_derive_general_state_shell`/`_calculate_blocks`, never
+    emits a compound value, so this 1:1 mapping is exact) into a 5th tuple slot on every
+    ACL entry (`[idx, permit, src, dst, related]`).
+  - `ad6/src/parser/favemodel.py:_acl_rule` emits a `GenUtils.state('ESTABLISHED'|'NEW')`
+    condition on the rule when `related` is present.
+  - `ad6/fave_bridge.py:_state_literals` forces the matching state onto a query instance
+    for a `{"name": "related", "value": "0"|"1"}` entry in `cond`. **Load-bearing
+    correctness detail, verified empirically before relying on it (see
+    `ad6/test/core/instantiatortest.py:testStateLiteralForcingIsMutuallyExclusive`):** the
+    literals must come from `XMLUtils.ConvertStateToVariables(value)`'s FLATTENED
+    conjunction children appended individually, not the raw `<state>value</state>` element
+    (which only gets canonicalised into the shared bit-vector space by
+    `Instantiator._HandleOthers`'s **build-time** pass over variables the base model
+    *already contains* — a value like "NEW" that never appears in any real rule would stay
+    an unconnected, unconstrained atom and silently fail to conflict with an
+    ESTABLISHED-only branch), and NOT the whole `<conjunction>` appended as one nested
+    child (a silent no-op / spurious-UNSAT trap — `instance[0]` is the base model's
+    already-CNF'd clause list from `InstantiateBase`, so each top-level child must be its
+    own flat literal).
+  - **A second wiring bug found and fixed along the way, unrelated to ad6 itself:** the
+    real `check_compliance` dispatch path (`InProcessFaVe` → `aggregator_service.py`'s
+    `_handler`) converts every `cond` entry via `RuleField.from_json`, meaning `cond`
+    reaches `Ad6Adapter.check_compliance` as a list of `RuleField` *objects* — not JSON-
+    serialisable as-is for the subprocess-bridge payload. Added
+    `Ad6Adapter._cond_to_json` (`RuleField.to_json()`, passed through unchanged if already
+    a dict) before the `json.dump`.
+  - **End-to-end exercise on wl_ifi's REAL compliance policy** (not the synthetic all-pairs
+    matrix `test_ad6_wl_ifi.py` uses) — `fave/test/test_ad6_wl_ifi_stateful.py`, loading
+    `bench/wl_ifi/cchecks.json` (299 entries, 54 stateful, matching §1.2's table exactly)
+    straight into `check_compliance`. **Third gotcha, also unrelated to ad6:**
+    `cchecks.json`'s own tuples are `(probe, valid, cond)` — `valid` (`bench/
+    reach_csv_to_checks.py:_generate_cchecks`, True = no `"!"` prefix = "must reach") is
+    the OPPOSITE polarity of the `(source, negated, cond)` convention every backend's
+    `check_compliance` (and `bench/compliance_checker.py`'s own `_parse_check`) actually
+    expects. Loading the tuples in place inverted almost every one of the 299 checks into
+    a reported violation before this was caught and fixed (flip to `not valid`).
+  - **Result, once both wiring bugs were fixed:** all 245 plain (`cond=[]`) checks pass —
+    consistent with `test_ad6_wl_ifi.py`'s exact match. Of the 54 stateful checks (27
+    `<->>` pairs × {related:1, related:0}), the 27 related:1 ("must reach with
+    ESTABLISHED") checks all pass; **all 27 related:0 ("must NOT reach with NEW") checks
+    fail** (ad6 reports reachable). Traced one pair (`source.internal.ifi` →
+    `probe.admin.ifi`) to its actual captured ACL entry: `acl_out['464']` has
+    `[7424, True, '10.0.12.0/23', '10.0.14.0/23', None]` — a **state-blind** permit
+    (`related=None`). This is not a translation gap: wl_ifi's ACLs are parsed as-is from
+    real Cisco IOS text (`bench/wl_ifi/acls.txt`), which never carries a `related`/
+    `established` qualifier on this rule at all, so there is nothing for the adapter to
+    carry through. Forcing ESTABLISHED vs NEW against a state-blind rule necessarily
+    yields the *same* reachability answer; related:1 happens to want that answer,
+    related:0 doesn't — hence the clean, systematic 27-pass/27-fail split (not a handful
+    of scattered failures, which would look more like a bug).
+  - **OPEN QUESTION, not resolved here — needs Claas or a live NetPlumber differential:**
+    is this 27-violation split a genuine, pre-existing property of wl_ifi's real ACLs
+    (reach.txt's `<->>` intent was never actually implemented in acls.txt for these
+    pairs, so NetPlumber would report the *same* 27 violations against the *same*
+    state-blind rule), or does NetPlumber's own `check_compliance` resolve a `related`
+    cond through some other, topology/role-based mechanism this adapter hasn't accounted
+    for? `fave/test/test_ad6_wl_ifi_stateful.py` currently asserts this as a
+    **characterization** (pins down the traced, understood 27/27 split so a future
+    change is caught as a diff), not a differential — do not read its current green
+    status as "wl_ifi's stateful checks are proven correct."
 - **4.3 Differential correctness gate:** ad6 vs NetPlumber (the oracle) on **wl_tum + wl_ifi
   + wl_up** (wl_ifi reinstated 2026-08-20, see §4.4 — it is not ad6-ingestible *as raw ACL
   text*, which is irrelevant since the FaVe adapter never feeds it raw text);
@@ -627,9 +691,18 @@ speculatively ahead of need.
 - [~] **§4.2** Wire ad6 to answer the source→probe matrix. **wl_ifi forwarding+ACL path
       DONE 2026-08-20** (`fave/ad6/adapter.py` + `ad6/src/parser/favemodel.py` +
       `ad6/fave_bridge.py`) — non-stateful (wl_ifi's `cchecks.json` stateful checks weren't
-      exercised by this milestone's plain existential query; see below). **Still open:
-      the stateful `<->>` 3-check instantiator, required for wl_up (and wl_ifi's own
-      stateful checks if ever compared), §1.2/§1.4/§4.4.**
+      exercised by this milestone's plain existential query; see below).
+      **Stateful `related`-forcing mechanism BUILT 2026-08-21** (`_capture_acl`'s
+      5th tuple slot, `favemodel._acl_rule`'s `GenUtils.state(...)`,
+      `fave_bridge._state_literals`, `Ad6Adapter._cond_to_json`) and exercised end-to-end
+      against wl_ifi's real `cchecks.json` (`fave/test/test_ad6_wl_ifi_stateful.py`): all
+      245 plain checks pass, all 27 related:1 checks pass, all 27 related:0 checks
+      currently fail against a state-blind real ACL rule (traced, understood, NOT yet
+      confirmed against a live NetPlumber oracle — see §4.2's prose above and
+      `ad6/FAVE_CHANGES.md` for the full trace). **Still open: resolve that open question,
+      then wl_up's own stateful checks (11902/3302) at scale — the actual wl_up ACLs use
+      `ctstate ESTABLISHED` for real (confirmed via `fave/bench/wl_up/rulesets/`, unlike
+      wl_ifi's state-blind admin rule), so wl_up may behave differently from wl_ifi here.**
 - [x] **§4.4** (new 2026-08-20) Investigate whether ad6 needs a "major refactor" to
       separate frontend/backend for FaVe integration, per Claas's correction. **Finding:
       largely already done** — `GenUtils` is an existing, generic Config-tree IR builder,

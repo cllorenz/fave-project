@@ -274,3 +274,99 @@ asserting every other generator's edge false per query) is now **removed**, not 
 redundant: `fave/test/test_ad6_wl_ifi.py` was re-run with it deleted, confirming the core
 fix alone reproduces the exact 54/54 match — the workaround would otherwise mask a future
 regression of this exact bug rather than let the differential test catch it.
+
+## 9. Stateful `<->>` query-forcing mechanism built (AD6_PLAN.md §4.2); two non-ad6
+wiring bugs found and fixed along the way; wl_ifi's real stateful checks characterized
+but not yet oracle-confirmed  **[NEW]**
+
+wl_up needs the stateful `<->>` 3-check semantics (AD6_PLAN.md §1.2/§1.4); wl_ifi's own
+`cchecks.json` has 54 stateful checks too. Built the mechanism, tests first where the
+logic was genuinely new (not just plumbing):
+
+- `fave/ad6/adapter.py:_capture_acl` now captures the `related` match field (mirrors
+  `apkeep/adapter.py:_RELATED`; `"0"`=NEW, `"1"`=ESTABLISHED) as a 5th tuple slot on every
+  ACL entry.
+- `ad6/src/parser/favemodel.py:_acl_rule` emits `GenUtils.state('ESTABLISHED'|'NEW')` when
+  `related` is present on the captured rule.
+- `ad6/fave_bridge.py:_state_literals` forces the matching state onto a query instance for
+  a `related` condition. **Verified empirically before relying on it**
+  (`ad6/test/core/instantiatortest.py:testStateLiteralForcingIsMutuallyExclusive`, a
+  regression test added first): the literals MUST come from
+  `XMLUtils.ConvertStateToVariables(value)`'s conjunction, flattened and appended as
+  individual top-level clauses — not the raw `<state>value</state>` element run through
+  `ConvertToVariables` (produces one variable named e.g. `"state_NEW"` that only gets
+  canonicalised into the shared bit-vector space by `Instantiator._HandleOthers`'s
+  build-time pass over variables the base model *already contains*; a value that never
+  appears in any real rule would stay an unconnected, unconstrained atom — asserting it
+  would be a silent no-op, not a real constraint), and not the whole `<conjunction>`
+  appended as one nested child either (also a silent no-op / can even manufacture a
+  spurious UNSAT — `instance[0]` is the base model's already-CNF'd clause list from
+  `InstantiateBase`, so each top-level child must be its own flat literal). Confirmed via
+  a synthetic ESTABLISHED-only rule: forcing ESTABLISHED still reaches it, forcing NEW or
+  RELATED does not — the mutual exclusion the "state_i=b" bit-vector encoding is supposed
+  to provide across different values genuinely holds, once the literals are wired in
+  correctly.
+
+**Two more bugs found while wiring this up, both in FaVe/adapter glue rather than ad6
+core, both fixed:**
+
+1. `check_compliance`'s real dispatch path (`InProcessFaVe` → `aggregator_service.py`'s
+   `_handler`) converts every `cond` entry via `RuleField.from_json` before calling the
+   engine, so `Ad6Adapter.check_compliance` actually receives a list of `RuleField`
+   *objects*, not the plain strings or dicts a cursory reading of the existing (`cond=[]`
+   always) tests would suggest. These aren't JSON-serialisable as-is for the
+   subprocess-bridge payload — `json.dump` would (and, before the fix, did) crash inside
+   the aggregator's own worker thread. Added `Ad6Adapter._cond_to_json` (`.to_json()` if
+   present, else pass through) before building the payload.
+2. `bench/reach_csv_to_checks.py`'s `_generate_cchecks` stores each check as
+   `(probe, valid, cond)`, where `valid` (True = no `"!"` prefix = "must reach") is the
+   OPPOSITE polarity of the `(source, negated, cond)` convention `check_compliance`
+   actually expects everywhere else (`must_reach = not negated`). Loading `cchecks.json`'s
+   tuples in place without flipping this bit inverted nearly every one of wl_ifi's 299
+   checks into a reported violation — caught immediately (the violation count was
+   obviously wrong, not subtly wrong) and fixed by flipping to `not valid` when building
+   the `rules` dict for `check_compliance`.
+
+**End-to-end exercise on wl_ifi's real compliance policy**
+(`fave/test/test_ad6_wl_ifi_stateful.py`, loading `bench/wl_ifi/cchecks.json` — 299
+entries, 54 stateful, matching AD6_PLAN.md §1.2's table exactly — directly into
+`check_compliance`, not the synthetic all-pairs matrix `test_ad6_wl_ifi.py` uses):
+
+- All 245 plain (`cond=[]`) checks pass — consistent with `test_ad6_wl_ifi.py`'s exact
+  match against `reachable.json`.
+- Of the 54 stateful checks (27 `<->>` pairs × {related:1, related:0}): all 27 related:1
+  ("must reach with ESTABLISHED") checks pass; **all 27 related:0 ("must NOT reach with
+  NEW") checks fail** (ad6 reports reachable).
+- Traced one failing pair (`source.internal.ifi` → `probe.admin.ifi`) down to the actual
+  captured ACL entry: `acl_out['464']` has
+  `[7424, True, '10.0.12.0/23', '10.0.14.0/23', None]` — a **state-blind** permit
+  (`related=None`). This is not a translation gap: wl_ifi's ACLs are parsed as-is from
+  real Cisco IOS text (`bench/wl_ifi/acls.txt`), which never carries a `related`/
+  `established` qualifier on this rule at all, so there is nothing for the adapter to
+  carry through. Forcing ESTABLISHED vs NEW against a state-blind rule necessarily yields
+  the *same* reachability answer; related:1 happens to want that answer, related:0
+  doesn't — hence the clean, systematic 27-pass/27-fail split (not a handful of scattered
+  failures, which would look more like a genuine bug).
+- **`fave/bench/wl_up/rulesets/` (gitignored but present locally) DOES use
+  `ctstate ESTABLISHED` for real** (`grep -rho "ctstate [A-Za-z,]*"` across every
+  department ruleset), unlike wl_ifi's state-blind admin rule — so wl_up's own stateful
+  checks may behave differently (more faithfully) than wl_ifi's did here. Also confirmed:
+  no ruleset anywhere in this repo (ad6's own `bench/`, or FaVe's `wl_up`/`wl_tum`) ever
+  uses a compound `ctstate A,B` value — so `XMLUtils.ConvertStateToVariables`'s multi-value
+  case (which ANDs all requested bits together instead of OR-ing them — confirmed via
+  `ConvertStateToVariables('ESTABLISHED,RELATED')` producing a vector requiring
+  state_1=1 AND state_2=1 simultaneously, unsatisfiable for a real single-valued state) is
+  a real, latent bug, but not on the critical path for any current benchmark. Logged as a
+  §8 architecture-review item rather than fixed now (deferred scope, not required for
+  wl_up/wl_ifi's actual rulesets).
+
+**OPEN QUESTION, not resolved here:** is the 27-violation split a genuine, pre-existing
+property of wl_ifi's real ACLs (reach.txt's `<->>` intent was never actually implemented
+in acls.txt for these specific pairs, so a live NetPlumber run would report the *same* 27
+violations against the *same* state-blind rule), or does NetPlumber's own
+`check_compliance` resolve a `related` condition through some other mechanism this
+adapter hasn't accounted for? `fave/test/test_ad6_wl_ifi_stateful.py` currently asserts
+this as a **characterization** (pins the traced, understood 27/27 split down so a future
+change is caught as a diff), not a differential — needs either a live NetPlumber
+comparison or the benchmark owner's read on wl_ifi's real ACLs to resolve. wl_up next
+(§4.2/§5.1), where the real `ctstate ESTABLISHED` rules may give a cleaner signal.
