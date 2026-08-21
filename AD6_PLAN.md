@@ -515,6 +515,49 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
 
 ---
 
+## 8. Architecture & design review (deferred until the benchmarks work)
+
+**Added 2026-08-20 (Claas), deliberately gated:** do NOT start this until wl_up (and
+ideally Stanford/i2) are working end to end — the point is to review ad6's 2014 design
+with real, working benchmarks and concrete pain points in hand, not to refactor
+speculatively ahead of need.
+
+- **8.1 XML as the primary data structure — reconsider.** Claas, in hindsight: *"I would
+  probably not go for XML as my primary data structure."* ad6 uses `lxml.etree` Elements
+  for BOTH the network/ruleset config input AND the SAT formula (Kripke encoding, CNF) —
+  the same generic tree type represents structurally very different things (a config
+  schema vs. a boolean-formula AST) with no type safety between them. Two of the bugs
+  found building the wl_ifi translator (§4.4, `ad6/FAVE_CHANGES.md` item 6) are arguably
+  symptoms of this: `ConvertCIDRToVariables` silently produces a **structurally valid but
+  semantically wrong** empty `<conjunction/>` for a `/0` CIDR (a typed AST node could
+  make "AND of nothing" impossible to construct by accident, or force an explicit
+  true/false default); `_CreateInitConstraints`'s chained-XOR off-by-one went unnoticed
+  for years partly because there's no isolated unit test for it (easier to write, and to
+  motivate writing, against a small typed builder than against ad-hoc XML tree surgery).
+  Worth asking concretely: would typed Python objects (dataclasses or similar) for the
+  formula AST, with the current XML only as an optional serialization format, have caught
+  either bug at construction time instead of at solve time?
+- **8.2 The two known core bugs (§4.4/FAVE_CHANGES §6) — fix or document as permanent
+  quirks.** Both were worked around in the new translator rather than patched, deliberately
+  (deferred to this review, not because they're not worth fixing): the `/0`-CIDR
+  empty-conjunction bug in `ConvertCIDRToVariables`, and the `_CreateInitConstraints`
+  chained-XOR off-by-one (`range(2, Length-3)` never reaches its own terminal case,
+  leaving the last few of >~16 marked-INIT nodes unconstrained). Neither is exercised by
+  ad6's existing test suite or its native `IP6TablesParser` frontend, which is presumably
+  why they've survived undetected since 2014 — a good argument for §8.3.
+- **8.3 Test coverage for the "generic infrastructure" layer** (`XMLUtils`, `SATUtils`,
+  `Instantiator`'s constraint builders) is thin relative to how much correctness leans on
+  it — `ad6/test/` covers the happy-path small fixtures (§3.1) but has no test exercising,
+  e.g., a `/0` CIDR or >16 simultaneous inits. Consider whether a review should add
+  property-style tests here (e.g. "for N inits, exactly one of N transitions is
+  satisfiable, no more, no fewer") rather than only example-based ones.
+- **8.4** More generally: revisit whether the current frontend/backend split (§4.4 —
+  `GenUtils` as the IR, `Kripke`/`Instantiator` as the backend) is the right seam long-term,
+  now that a second frontend (`favemodel.py`) exists alongside `IP6TablesParser` and both
+  can be compared for what they needed from that seam and what friction each hit.
+
+---
+
 ## Cross-cutting guardrails (reused from the APKeep/NDD work)
 - **Soundness gate:** ad6 must never drop an NP-reachable pair (differential vs NP oracle).
 - **Env pinned** in the shared `Dockerfile`; measurements only trusted on the controlled
@@ -601,3 +644,8 @@ not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
+- [ ] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
+      review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
+      share one generic tree type); fix-or-document the two known core bugs (§4.4); assess
+      test coverage for the XMLUtils/SATUtils/Instantiator "generic infrastructure" layer;
+      revisit the frontend/backend seam with two frontends now in hand.
