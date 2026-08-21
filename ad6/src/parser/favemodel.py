@@ -55,6 +55,7 @@ Design notes (see AD6_PLAN.md §4.4 for the experiment this relies on):
 
 from src.core.kripke import KripkeUtils
 from src.core.instantiator import Instantiator
+from src.parser.iptables import IP6TablesParser
 from src.sat.satutils import SATUtils
 from src.xml.genutils import GenUtils
 from src.xml.xmlutils import XMLUtils
@@ -106,6 +107,44 @@ def _split(devport):
     return device, port
 
 
+def _ip_version(addr):
+    """ '6' for an IPv6-shaped address/CIDR string, else '4'. wl_ifi's router
+    forwarding/ACLs are IPv4-only; wl_up's switch forwarding (this same
+    fwd_rules mechanism, shared across both benchmarks -- AD6_PLAN.md §5.1)
+    is IPv6. Sniffing on ':' rather than hardcoding avoids a repeat of the
+    bug this fixes: _build_device_table's fwd-rule loop building an
+    IPv6 dst with GenUtils.address(..., version='4') by default, which
+    corrupts the condition rather than raising -- confirmed the hard way,
+    traced via a chain of InstantiateEndToEnd probes down to exactly this
+    one hardcoded version literal (a switch's own dst-based forward rule
+    silently became unreachable, breaking every path through it). """
+    return '6' if addr and ':' in addr else '4'
+
+
+def _ipv6_safe(addr):
+    """ XMLUtils.CanonizeIP's "::" expansion drops the boundary zero group
+    when the compressed run is at the very END of the address (Postfix ==
+    ""): "2001:db8:abc:1::/64" canonicalises to the malformed
+    "2001:db8:abc:1:0:0:0:/64" (a trailing colon, one zero group short),
+    which later blows up in Instantiator._HandlePrefixes ->
+    ConvertCIDRToVariables as `int('', 16)` on the empty trailing segment.
+    wl_up's own real ip6tables rulesets never hit this -- they always write
+    an explicit trailing zero ("2001:db8:abc::0/48", confirmed in
+    bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset), which is exactly the
+    workaround this applies to FaVe's own routing-table dst/address strings
+    (e.g. "2001:db8:abc:1::/64" from routes.json-derived data), which don't
+    follow that convention. Not fixed in ad6 core here -- found while
+    building wl_up (AD6_PLAN.md §5.1), logged as a §8 architecture-review
+    item alongside the other latent CanonizeIP/ConvertCIDRToVariables
+    findings; this single-purpose workaround is equivalent and safe (adds
+    an explicit zero that was already implied). """
+    if addr and ':' in addr:
+        head, sep, mask = addr.partition('/')
+        if head.endswith('::'):
+            addr = head + '0' + (sep + mask if sep else '')
+    return addr
+
+
 def _collect_ports(ir):
     """ device -> set of physical port strings referenced anywhere. """
     ports = {d: set() for d in ir["devices"]}
@@ -118,6 +157,8 @@ def _collect_ports(ir):
         add(sport)
         add(dport)
     for rule in ir["fwd_rules"]:
+        add(rule["port"])
+    for rule in ir.get("routing_rules", []):
         add(rule["port"])
     for port in ir.get("generators", {}).values():
         add(port)
@@ -146,12 +187,46 @@ def _ingress_ports_for(device, ir):
     return out
 
 
+def _is_ruleset_device(device, ir):
+    """ wl_up (AD6_PLAN.md §5.1): True for a packet_filter/host device whose
+    rule CONTENT comes from ad6's native IP6TablesParser on the real
+    ip6tables ruleset text (Ad6Adapter.load_bench_metadata), as opposed to
+    wl_ifi's router/switch devices, which stay on the original
+    fwd_rules/GenUtils-per-field translation path (_build_device_table). """
+    return device in (ir.get("ruleset_devices") or {})
+
+
+def _is_transit(device, ir):
+    """ True iff `device` has at least one real (dst-specific) routing_rules
+    entry -- a forwarding router (wl_up's pgf) rather than a single-uplink
+    leaf host, which only ever has the trivial dst=None default route. Purely
+    data-driven (no physical-port counting needed): a leaf's own address is
+    never a routing DESTINATION its own routing table discriminates on. """
+    return any(
+        r["dst"] is not None
+        for r in ir.get("routing_rules", [])
+        if r["device"] == device
+    )
+
+
+def _dispatch_key(device):
+    return "%s_dispatch_r0" % _fwkey(device)
+
+
 def entry_key(device, port, ir):
     """ The Kripke node a packet arriving at `device` via `port` starts
     processing at: that port's ingress-ACL stage if one applies (an ACL
     device, and this port is admission-checked), else straight into the
-    device's own forwarding table. """
+    device's own forwarding table -- or, for a wl_up-style ruleset device
+    (§5.1), its dst-based to-self/in-transit dispatch (a transit router like
+    pgf) or straight into its own ip6tables INPUT chain (a single-uplink leaf
+    host, where every arriving packet is "to self" by construction -- see
+    _is_transit). """
     fwkey = _fwkey(device)
+    if _is_ruleset_device(device, ir):
+        if _is_transit(device, ir):
+            return _dispatch_key(device)
+        return "%s_input_r0" % fwkey
     acl_in = ir.get("acl_in") or {}
     for p, vlan in _ingress_ports_for(device, ir):
         if p == port:
@@ -208,7 +283,7 @@ def _acl_rule(fwkey, stage, port, pos, src, dst, target, related=None):
     return key, rule
 
 
-_MATCH_ALL = frozenset({"0.0.0.0/0", None})
+_MATCH_ALL = frozenset({"0.0.0.0/0", "::/0", "0::0/0", None})
 
 
 def _is_constrained(cidr):
@@ -288,7 +363,8 @@ def _build_device_table(device, ir, ports_by_device):
         key = "%s_fwd_r%d" % (fwkey, pos)
         rule = GenUtils.rule(str(pos), key=key)
         if _is_constrained(fr["dst"]):
-            rule.append(GenUtils.address(fr["dst"], direction='dst', version='4'))
+            rule.append(GenUtils.address(
+                _ipv6_safe(fr["dst"]), direction='dst', version=_ip_version(fr["dst"])))
         port_dev, port_no = _split(fr["port"])
         eacl_vlan = out_port_vlan.get(fr["port"]) if is_acl_device else None
         if eacl_vlan is not None and acl_out.get(eacl_vlan):
@@ -359,18 +435,163 @@ def _attachment(source_name, ir):
     raise KeyError("no topology edge attaches %r to a real device" % source_name)
 
 
+_GEN_OUTPUT_PORT = "output_filter_in"
+
+
 def _gen_firewall(source_name, ir):
     """ A generator's own dedicated 1-rule firewall: unconditionally jumps to
-    wherever its attachment device/port starts processing (entry_key). No
-    other rule ever targets this firewall's rule -- see gen_entry_key. """
+    wherever its attachment device/port starts processing. No other rule
+    ever targets this firewall's rule -- see gen_entry_key.
+
+    Two attachment shapes (AD6_PLAN.md §5.1): a wl_ifi-style generator wires
+    to a REAL physical port (e.g. a switch port) -- topology-arrival
+    semantics, entry_key. A wl_up-style ruleset-device generator instead
+    wires to that device's OWN internal "<device>.output_filter_in" marker
+    port (FaVe's own convention for "this device originates traffic
+    locally") -- which is NOT a physical port entry_key understands, and
+    means something different: enter that device's OWN ip6tables OUTPUT
+    chain directly, not its to-self/in-transit dispatch. wl_up's own
+    "internet" generator is the one exception that DOES wire to a real
+    physical port (pgf's uplink) and correctly falls through to entry_key,
+    exactly like any other topology-arriving neighbour. """
     device, phys_port = _attachment(source_name, ir)
+    if phys_port == _GEN_OUTPUT_PORT and _is_ruleset_device(device, ir):
+        target = "%s_output_r0" % _fwkey(device)
+    else:
+        target = entry_key(device, phys_port, ir)
     fw = GenUtils.firewall(_gen_fwkey(source_name))
     table = GenUtils.table('gen')
     rule = GenUtils.rule('0', key=gen_entry_key(source_name))
-    rule.append(GenUtils.action('jump', target=entry_key(device, phys_port, ir)))
+    rule.append(GenUtils.action('jump', target=target))
     table.append(rule)
     fw.append(table)
     return fw
+
+
+_ACCEPT_JUMP = ".//table[@name='%s']//action[@type='jump']"
+_INPUT_ACCEPT_PORT = "input_filter_accept"
+
+
+def _routing_table(device, ir):
+    """ wl_up (AD6_PLAN.md §5.1): dst-LPM egress selection for a ruleset
+    device, from Ad6Adapter._translate_routing_rule's captured
+    routing_rules -- the ip6tables ruleset text itself has no notion of
+    routing (that's a network-layer decision, not a firewall-chain match),
+    so this is built the same way _build_device_table already builds
+    wl_ifi's router forwarding table: sequential first-match, dst-specific
+    before the dst=None default (ad6 has no LPM; wl_up's own routing table
+    never has two overlapping-prefix routes on one device, confirmed via
+    the captured rules, so "specific before default" is exact here too). """
+    fwkey = _fwkey(device)
+    table = GenUtils.table('routing')
+    rules = sorted(
+        (r for r in ir.get("routing_rules", []) if r["device"] == device),
+        key=lambda r: r["prio"],
+    )
+    for pos, r in enumerate(rules):
+        key = "%s_routing_r%d" % (fwkey, pos)
+        rule = GenUtils.rule(str(pos), key=key)
+        if _is_constrained(r["dst"]):
+            rule.append(GenUtils.address(_ipv6_safe(r["dst"]), direction='dst', version='6'))
+        port_dev, port_no = _split(r["port"])
+        rule.append(GenUtils.action('jump', target=iface_key(port_dev, port_no) + "_out"))
+        table.append(rule)
+    return table, "%s_routing_r0" % fwkey
+
+
+def _dispatch_table(device, ir):
+    """ wl_up (AD6_PLAN.md §5.1): a transit ruleset device's (pgf) to-self/
+    in-transit split -- FaVe's own `pre_routing` table does exactly this
+    dst-match dispatch (see the module docstring's investigation trace), but
+    since its content is a plain address match + jump, it is cheaper and
+    just as faithful to rebuild directly from the device's own known address
+    (Ad6Adapter.load_bench_metadata's topology.json read) than to also
+    capture and translate `pre_routing`'s rules. One shared entry point
+    regardless of ingress port: the check itself (dst == my own address?)
+    does not depend on which physical port the packet arrived on, unlike
+    wl_ifi's per-port ACL groups (whose CONTENT genuinely differs port to
+    port) -- confirmed against the real capture: wl_up's own pre_routing
+    duplicates this same check once per ingress port, which is FaVe's
+    internal pipeline shape, not a semantic requirement. """
+    fwkey = _fwkey(device)
+    own_addr = (ir.get("device_addr") or {}).get(device)
+    table = GenUtils.table('dispatch')
+    to_self = GenUtils.rule('0', key=_dispatch_key(device))
+    if own_addr:
+        to_self.append(GenUtils.address(_ipv6_safe(own_addr), direction='dst', version='6'))
+    to_self.append(GenUtils.action('jump', target="%s_input_r0" % fwkey))
+    table.append(to_self)
+    transit = GenUtils.rule('1', key="%s_dispatch_r1" % fwkey)
+    transit.append(GenUtils.action('jump', target="%s_forward_r0" % fwkey))
+    table.append(transit)
+    return table
+
+
+def _build_ruleset_firewall(device, ir):
+    """ wl_up (AD6_PLAN.md §5.1): build a device's firewall from its real
+    ip6tables ruleset text via ad6's own native IP6TablesParser (proven at
+    scale on wl_tum's 3795 rules) instead of hand-translating FaVe's
+    already-parsed Match/Action objects field by field -- the ruleset files
+    ARE ip6tables text, confirmed byte-identical to ad6's own bundled
+    bench/up rulesets (AD6_PLAN.md §3.2/§4.1), so this is the same "feed ad6
+    its native format directly" principle wl_tum already established.
+
+    IP6TablesParser resolves every chain's "-j ACCEPT" to ONE shared
+    "<fwkey>_accept_r0" sink regardless of which chain (INPUT/OUTPUT/
+    FORWARD) reached it -- correct for the ACCEPT/DROP decision itself
+    (independently computed per chain), but wrong for what happens AFTER
+    accept: INPUT-accept means "deliver locally" (this device's own
+    accept_r0 stays the probe-delivery sink, unchanged), while OUTPUT/
+    FORWARD-accept means "continue to this device's OWN routing decision"
+    (a DIFFERENT continuation the shared sink can't express). Fixed by
+    rewriting OUTPUT's and FORWARD's own accept-jump targets (scoped by
+    table, via XPath -- INPUT's is left untouched) to this device's routing
+    table entry point instead of the shared sink. """
+    fwkey = _fwkey(device)
+    ruleset_text = ir["ruleset_devices"][device]
+    firewall = IP6TablesParser.parse(ruleset_text, fwkey)
+
+    accept_key = "%s_accept_r0" % fwkey
+    routing_table, routing_entry = _routing_table(device, ir)
+    for chain in ('output', 'forward'):
+        for action in firewall.xpath(_ACCEPT_JUMP % chain):
+            if action.attrib.get('target') == accept_key:
+                action.attrib['target'] = routing_entry
+    firewall.append(routing_table)
+
+    if _is_transit(device, ir):
+        firewall.append(_dispatch_table(device, ir))
+
+    return firewall
+
+
+def query_destination_key(dst_dev, dst_port, ir):
+    """ The Kripke node a compliance check's probe attachment resolves to.
+    wl_ifi-style: a probe wires to a device's own declared physical/logical
+    interface (iface_key's "_out" convention). wl_up-style (AD6_PLAN.md
+    §5.1): a probe instead wires to a ruleset device's internal
+    "input_filter_accept" marker port -- FaVe's own convention for "this
+    device is the delivery target of its own INPUT chain" ("internet"'s
+    probe is the one exception that wires to a REAL physical port, pgf's
+    uplink, and correctly falls through to the iface_key case like any
+    other topology attachment).
+
+    NOT the device's shared "<fwkey>_accept_r0" sink -- ad6's own
+    KripkeUtils.ConvertToKripke ALWAYS calls _RedirectInputs, which
+    specifically rewrites every accept-jump reachable from a chain literally
+    named "input" (any "..._input_r0"-keyed entry) away from the shared sink
+    onto a dedicated "<input_entry_key>_accept" node instead (found the hard
+    way: querying the shared sink directly returned UNSAT for an obviously-
+    satisfiable single-rule INPUT chain, traced via
+    Kripke.IterBTransitions/IterFTransitions to this redirect). This is
+    exactly the mechanism that makes multi-chain accept-sharing safe in
+    ad6's own native model -- FORWARD/OUTPUT chains are NOT redirected this
+    way, which is why _build_ruleset_firewall must retarget their
+    accept-jumps to routing itself (a plain jump target does not go through
+    this INPUT-specific redirect). """
+    if dst_port == _INPUT_ACCEPT_PORT and _is_ruleset_device(dst_dev, ir):
+        return "%s_input_r0_accept" % _fwkey(dst_dev)
+    return iface_key(dst_dev, dst_port) + "_out"
 
 
 def build_config(ir):
@@ -382,6 +603,9 @@ def build_config(ir):
     firewalls = GenUtils.firewalls()
     ports_by_device = _collect_ports(ir)
     for device in ir["devices"]:
+        if _is_ruleset_device(device, ir):
+            firewalls.append(_build_ruleset_firewall(device, ir))
+            continue
         fw = GenUtils.firewall(_fwkey(device))
         table = GenUtils.table('fwd')
         rules, extra_tables = _build_device_table(device, ir, ports_by_device)

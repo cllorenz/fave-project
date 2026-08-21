@@ -58,6 +58,10 @@ from rule.rule_model import Forward, Rewrite
 
 _DST = 'packet.ipv4.destination'
 _SRC = 'packet.ipv4.source'
+_DST6 = 'packet.ipv6.destination'
+_SRC6 = 'packet.ipv6.source'
+_DSTS = (_DST, _DST6)
+_SRCS = (_SRC, _SRC6)
 _VLAN = 'packet.ether.vlan'
 _RELATED = 'related'    # AD6_PLAN.md §4.2: connection-state match, "0"=NEW,
                         # "1"=ESTABLISHED (mirrors apkeep/adapter.py:_RELATED;
@@ -99,6 +103,7 @@ class Ad6Adapter(AbstractVerificationEngine):
         self.logger = logger
         self._devices: set = set()
         self._fwd_rules: List[Dict[str, Any]] = []   # [{device,dst,port,prio}]
+        self._routing_rules: List[Dict[str, Any]] = []   # [{device,dst,port,prio}]
         self._edges: List[List[str]] = []             # [[sport,dport], ...]
         self._generators: Dict[str, str] = {}          # name -> "device.port"
         self._probes: Dict[str, str] = {}              # name -> "device.port"
@@ -110,12 +115,57 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._vlan_to_eport: Dict[str, str] = {}          # vlan -> "device.port"
         self._iport_vlan: Dict[str, str] = {}             # "device.port" -> vlan
         self._results: List[Tuple[str, str, bool, str]] = []
+        # wl_up (AD6_PLAN.md §5.1): per-device ip6tables rulesets + own
+        # addresses, loaded on demand via load_bench_metadata() from the
+        # benchmark's topology.json -- see that method's docstring for why
+        # this bypasses FaVe's own already-parsed Rule/Match objects for rule
+        # CONTENT (not for topology/wiring, which stays FaVe-model-driven).
+        self._ruleset_text: Dict[str, str] = {}           # device -> raw ip6tables text
+        self._device_addr: Dict[str, str] = {}            # device -> own address
+        self._switch_devices: set = set()                 # pure L2 relays, no ruleset
         # Surface the aggregator dispatch touches, like APKeepAdapter.
         self.links: Dict[Any, List[Any]] = {}
         self.asyncore_socks: Dict[Any, Any] = {}
 
     def global_port(self, port: Any) -> Any:
         return port
+
+    def load_bench_metadata(self, bench_root: str) -> None:
+        """ wl_up (AD6_PLAN.md §5.1): unlike wl_ifi's Cisco ACL text (which
+        ad6's own parser can't read), wl_up's per-device rulesets ARE literal
+        `ip6tables` command text -- confirmed byte-identical to ad6's own
+        bundled `ad6/bench/up/*-ruleset` files (AD6_PLAN.md §3.2/§4.1's
+        provenance check). So rule CONTENT for these devices is sourced from
+        ad6's own proven-at-scale native frontend (`IP6TablesParser`, already
+        exact-matched on wl_tum's 3795 rules) instead of hand-translating
+        FaVe's already-parsed Match/Action objects into GenUtils calls one
+        field at a time -- this is the same "feed ad6 its native format
+        directly" principle wl_tum already established, just per-device
+        instead of one firewall. Topology/wiring (edges, generator/probe
+        attachment, dst-LPM routing) still comes from FaVe's own model via
+        the normal add_* dispatch, exactly as for wl_ifi -- only the filter
+        CHAINS' content (input/output/forward, everything `-A INPUT ...`
+        etc. can express) is sourced from the raw file. Must be called
+        before check_compliance(); topology.json's device tuples are
+        `[name, type, port_count, address, ruleset_path?]`, where
+        `ruleset_path` (like `bench_root` itself) is relative to the process
+        cwd (FaVe's `fave/` root -- e.g. "bench/wl_up/rulesets/x-ruleset"),
+        exactly like every other benchmark path already used throughout
+        this codebase (cwd=fave/ is a standing assumption, not new here). """
+        with open(os.path.join(bench_root, 'topology.json')) as raw:
+            topology = json.load(raw)
+        for entry in topology['devices']:
+            name = entry[0]
+            dtype = entry[1]
+            addr = entry[3] if len(entry) > 3 else None
+            ruleset_path = entry[4] if len(entry) > 4 else None
+            if dtype == 'switch':
+                self._switch_devices.add(name)
+            if addr:
+                self._device_addr[name] = str(addr)
+            if ruleset_path:
+                with open(ruleset_path) as rs:
+                    self._ruleset_text[name] = rs.read()
 
     # --- AbstractVerificationEngine: model construction (buffered) ----------
 
@@ -131,6 +181,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             if table in fwd_tables:
                 for rule in rules:
                     self._translate_fwd_rule(model.node, rule)
+                    self._translate_routing_rule(model.node, rule)
                     self._capture_vlan_port(rule)
             elif table == acl_in_t:
                 self._acl_device = model.node
@@ -164,7 +215,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             return  # a discard (no forward action) -- out of scope for wl_ifi
         dst = None
         for field in (rule.match or []):
-            if field.name == _DST:
+            if field.name in _DSTS:
                 dst = str(field.value)
         # ad6's table is sequential first-match (ascending prio = evaluated
         # first), unlike APKeep's priority-wins ForwardElement -- so a
@@ -174,6 +225,33 @@ class Ad6Adapter(AbstractVerificationEngine):
         # default" is exact (not an approximation of true LPM).
         prio = 65535 if dst is None else 0
         self._fwd_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
+
+    def _translate_routing_rule(self, device: str, rule: Any) -> None:
+        """ wl_up (AD6_PLAN.md §5.1): a `PacketFilterModel`'s `.routing` table
+        picks egress via an `out_port` MATCH field (not a Rewrite action like
+        a wl_ifi router's `.routing`/`.1` table -- see `_translate_fwd_rule`,
+        which is a silent no-op here since these rules carry no Rewrite).
+        Mirrors `apkeep/adapter.py:_translate_fib_rule`'s reading of the same
+        shape: a match-with-out_port-but-no-Forward-action entry is an
+        internal placeholder (a "route unknown" discard, or a connected-route
+        marker), not a real route -- only a rule that actually forwards
+        counts. """
+        dst = None
+        port = None
+        for field in (rule.match or []):
+            if field.name in _DSTS:
+                dst = str(field.value)
+            elif field.name == _OUT_PORT:
+                port = str(field.value)
+        if port is None:
+            return
+        has_fwd = any(isinstance(a, Forward) for a in (rule.actions or []))
+        if not has_fwd:
+            return
+        if port.endswith('_egress'):
+            port = port[:-len('_egress')]
+        prio = 65535 if dst is None else 0
+        self._routing_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
 
     def _capture_vlan_port(self, rule: Any) -> None:
         """ A routing rule that rewrites the egress VLAN records VLAN->egress
@@ -244,7 +322,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             for fname, rfields in fields.items():
                 if not rfields:
                     continue
-                if fname == _SRC:
+                if fname in _SRCS:
                     self._gen_src[model.node] = str(rfields[0].value)
                 elif fname == _VLAN:
                     self._gen_vlan[model.node] = str(rfields[0].value)
@@ -295,6 +373,7 @@ class Ad6Adapter(AbstractVerificationEngine):
         return {
             "devices": sorted(self._devices),
             "fwd_rules": self._fwd_rules,
+            "routing_rules": self._routing_rules,
             "edges": self._edges,
             "generators": self._generators,
             "probes": self._probes,
@@ -303,6 +382,8 @@ class Ad6Adapter(AbstractVerificationEngine):
             "acl_out": self._acl_out,
             "in_port_vlan": in_port_vlan,
             "out_port_vlan": out_port_vlan,
+            "ruleset_devices": self._ruleset_text,
+            "device_addr": self._device_addr,
         }
 
     # --- build + query --------------------------------------------------

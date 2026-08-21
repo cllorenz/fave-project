@@ -45,12 +45,15 @@ from src.xml.xmlutils import XMLUtils  # noqa: E402
 
 
 def _seed_conjunct(cidr):
-    """ An extra conjunct asserting the packet's src-IPv4 lies in `cidr`,
+    """ An extra conjunct asserting the packet's src-IP lies in `cidr`,
     appended to an InstantiateEndToEnd instance exactly like DisjSrc/DisjDst
-    (verified pattern, AD6_PLAN.md §4.4's synthetic forwarding test). """
+    (verified pattern, AD6_PLAN.md §4.4's synthetic forwarding test). Version
+    is sniffed from the CIDR text (wl_ifi's generators are IPv4; wl_up's are
+    IPv6 -- AD6_PLAN.md §5.1). """
+    version = '6' if ':' in cidr else '4'
     elem = et.fromstring(
-        '<ip xmlns="http://config" version="4" direction="src">'
-        '<address>%s</address></ip>' % cidr
+        '<ip xmlns="http://config" version="%s" direction="src">'
+        '<address>%s</address></ip>' % (version, cidr)
     )
     XMLUtils.deannotate(elem)
     return XMLUtils.ConvertToVariables(elem)
@@ -133,7 +136,7 @@ def main(argv=None):
     for q in queries:
         dst_dev, dst_port = favemodel._attachment(q['probe'], ir)
         source = favemodel.gen_entry_key(q['source'])
-        destination = favemodel.iface_key(dst_dev, dst_port) + "_out"
+        destination = favemodel.query_destination_key(dst_dev, dst_port, ir)
         instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, destination)
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
             instance[0].append(_seed_conjunct(q['src_cidr']))
