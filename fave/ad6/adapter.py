@@ -72,6 +72,40 @@ _RELATED = 'related'    # AD6_PLAN.md §4.2: connection-state match, "0"=NEW,
                         # related-value -> ad6-state mapping is exact here).
 _OUT_PORT = 'out_port'
 
+_MAX_PRIO = 65535
+
+
+def _prefix_len(cidr: str) -> int:
+    """ The prefix length of a "<addr>/<len>" CIDR string as captured from a
+    dst match field (always this shape -- see favemodel.py's `_MATCH_ALL`,
+    "0.0.0.0/0"/"::/0"). Falls back to a full-length host match (32/128) for
+    the (currently unobserved, but not guaranteed-absent) case of a bare
+    address with no explicit mask, rather than assuming the "/" is always
+    present. """
+    _addr, sep, mask = cidr.rpartition('/')
+    if sep:
+        return int(mask)
+    return 128 if ':' in mask else 32  # no '/': rpartition puts all of `cidr` in `mask`
+
+
+def _lpm_prio(dst: Optional[str]) -> int:
+    """ ad6's own table evaluation is sequential first-match (ascending prio
+    = evaluated first), not a priority-wins ForwardElement like APKeep's --
+    so a genuine longest-prefix-match decision requires the MORE SPECIFIC
+    (longer-prefix) dst-specific route to sort BEFORE a less specific one on
+    the same device, not just "any dst-specific route before the no-dst
+    default". A prior version of this function used a binary 0-vs-65535
+    split ("specific before default"), which is only exact when a device
+    never carries two overlapping-prefix routes -- true for wl_ifi/wl_up
+    (confirmed by inspection at the time), but false in general (e.g.
+    Stanford's real FIBs, AD6_PLAN.md §5.2 -- caught test-first by
+    ad6/test/parser/favemodeltest.py::RoutingTableLPMTest, which fed the
+    same two overlapping routes in both insertion orders and found the
+    answer flipped). The no-dst default always sorts last. """
+    if dst is None:
+        return _MAX_PRIO
+    return _MAX_PRIO - 1 - _prefix_len(dst)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))         # .../fave/ad6
 _FAVE = os.path.dirname(_HERE)                              # .../fave
 AD6_ROOT = os.path.normpath(os.path.join(_FAVE, '..', 'ad6'))
@@ -217,13 +251,9 @@ class Ad6Adapter(AbstractVerificationEngine):
         for field in (rule.match or []):
             if field.name in _DSTS:
                 dst = str(field.value)
-        # ad6's table is sequential first-match (ascending prio = evaluated
-        # first), unlike APKeep's priority-wins ForwardElement -- so a
-        # dst-specific route must sort BEFORE the no-dst default, not by
-        # prefix length. wl_ifi has no two routes on the same device with
-        # different-length overlapping prefixes, so "specific before
-        # default" is exact (not an approximation of true LPM).
-        prio = 65535 if dst is None else 0
+        # Longest-prefix-match priority -- see _lpm_prio's docstring
+        # (AD6_PLAN.md §5.2).
+        prio = _lpm_prio(dst)
         self._fwd_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
 
     def _translate_routing_rule(self, device: str, rule: Any) -> None:
@@ -250,7 +280,9 @@ class Ad6Adapter(AbstractVerificationEngine):
             return
         if port.endswith('_egress'):
             port = port[:-len('_egress')]
-        prio = 65535 if dst is None else 0
+        # Longest-prefix-match priority -- see _lpm_prio's docstring
+        # (AD6_PLAN.md §5.2).
+        prio = _lpm_prio(dst)
         self._routing_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
 
     def _capture_vlan_port(self, rule: Any) -> None:

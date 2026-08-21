@@ -454,10 +454,15 @@ def _routing_table(device, ir):
     routing_rules -- the ip6tables ruleset text itself has no notion of
     routing (that's a network-layer decision, not a firewall-chain match),
     so this is built the same way _build_device_table already builds
-    wl_ifi's router forwarding table: sequential first-match, dst-specific
-    before the dst=None default (ad6 has no LPM; wl_up's own routing table
-    never has two overlapping-prefix routes on one device, confirmed via
-    the captured rules, so "specific before default" is exact here too). """
+    wl_ifi's router forwarding table: sequential first-match, ordered by
+    `prio`. `prio` (Ad6Adapter._lpm_prio, AD6_PLAN.md §5.2) is now a real
+    longest-prefix-match priority -- the more specific of two overlapping
+    dst-specific routes on the same device sorts first regardless of
+    capture order -- fixed after ad6/test/parser/favemodeltest.py caught
+    the previous binary 0-vs-65535 "specific before default" scheme
+    silently picking whichever overlapping route was captured first (exact
+    for wl_up only by the coincidence that it has no overlapping-prefix
+    routes; Stanford's real FIBs do). """
     fwkey = _fwkey(device)
     table = GenUtils.table('routing')
     rules = sorted(

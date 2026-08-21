@@ -22,6 +22,7 @@ if __name__ == "__main__":
     from test.integrationsuite import IntegrationSuite
     from test.systemsuite import SystemSuite
     from test.differentialsuite import DifferentialSuite
+    from test.parsersuite import ParserSuite
 
     suites = [
         SATSuite(),
@@ -32,7 +33,8 @@ if __name__ == "__main__":
         InitConstraintsSuite(),
         IntegrationSuite(),
         SystemSuite(),
-        DifferentialSuite()
+        DifferentialSuite(),
+        ParserSuite()
     ]
     for suite in suites:
             suite.run()
