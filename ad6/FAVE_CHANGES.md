@@ -476,3 +476,62 @@ policy matrix never asked about that specific pair at all -- not a translation b
 `cchecks.json`'s explicit tuples are the right comparison target instead (mirroring
 wl_ifi's own `test_ad6_wl_ifi_stateful.py` characterization), deferred to a bench script:
 the full 11902-entry file is a ~1-2 hour run at the observed ~0.5s/query.
+
+## 11. `CanonizeIP` IPv6 "::" expansion fixed in core -- also worse than the trailing-only
+case first logged (item 10), and a separate crash on no-compression at all  **[FIX]**
+
+Item 10 logged this as a workaround (`favemodel.py:_ipv6_safe`) rather than a core fix, at
+the same "review architecture once benchmarks work" gate as the other latent findings.
+Claas asked for the same test-first treatment as the `/0` and init-mutual-exclusion bugs
+(items 6-8) instead of leaving it as a documented workaround.
+
+**Tests written first** (`ad6/test/xml/xmlutilstest.py:testIp6BoundaryCompression`, newly
+wired into `xmlsuite.py` -- see below): round-trips `XMLUtils.ConvertToVariables` +
+`ConvertCIDRToVariables` (the real call chain, not `CanonizeIP` in isolation) over five
+IPv6 forms -- trailing `::` (`"2001:db8:abc:1::/64"`, item 10's original find), leading
+`::` (`"::1/128"`), `::` alone (`"::/32"`), an already-working middle `::` (`"fe80::1/64"`,
+the pre-existing `testIp6` fixture's own address, as a stays-green control), and no
+compression at all (`"2001:db8:abc:1:2:3:4:5/128"`). **Confirmed the true scope before
+fixing, same discipline as item 8:** the pre-fix code failed on THREE of the five, not
+just the one already logged --
+
+- Trailing `::` (item 10's original find): `"2001:db8:abc:1::/64"` → malformed
+  `"2001:db8:abc:1:0:0:0:/64"` (one zero group short, trailing colon).
+- Leading `::` (new): `"::1/128"` → malformed `":0:0:0:0:0:0:1/128"` (one zero group
+  short, LEADING colon this time).
+- `::` alone (new): `"::/32"` → malformed `":0:0:0:0:0:0:/32"` (TWO zero groups short,
+  both a leading and a trailing colon).
+- No compression at all (new, a different root cause in the same function): raises
+  `UnboundLocalError: cannot access local variable 'Prefix'` -- `Address.split('::')` on a
+  string with no `"::"` returns a 1-element list, so `Prefix,Postfix = ...` raises
+  `ValueError` during unpacking (neither name gets bound), and the bare `except:
+  Postfix = Prefix; Prefix = ''` handler itself then crashes referencing the
+  never-assigned `Prefix`.
+
+Root cause of the first three: `InLen = 8 - len(Prefix.split(':')) - len(Postfix.split(':'))`
+undercounts by one for every side that is the empty string -- `''.split(':')` is `['']`
+(length 1), not 0, so an empty Prefix or Postfix is silently counted as "one explicit
+group" instead of zero.
+
+**Fix:** replaced the `try/except`-driven split with an explicit `if '::' in Address`
+check, and built the expanded address as a flat list of hex groups
+(`PrefixGroups + ['0']*InLen + PostfixGroups`, using `[]` rather than `['']` for an empty
+side) joined with `':'` in one step -- this can't produce a stray leading/trailing colon
+by construction, unlike the old three-piece string concatenation. The no-compression case
+is now its own explicit branch (`Address.split(':')` directly, no zero-run to expand),
+removing the crash rather than routing it through the `::`-splitting logic at all.
+
+**Also fixed while here:** `testCIDRMatchAll` (item 6's own regression test) had never
+actually been wired into `xmlsuite.py`'s test list -- present in
+`test/xml/xmlutilstest.py` since item 6, but not in the `tests = [...]` `xmlsuite.py`
+references, so `make test` never ran it. Added both `testCIDRMatchAll` and this item's
+`testIp6BoundaryCompression` to that list.
+
+`favemodel.py`'s `_ipv6_safe` workaround (item 10) is now **removed**, not left as
+redundant belt-and-suspenders -- same discipline as item 8's `fave_bridge.py`
+`_exclusivity_conjuncts` removal: verified the core fix alone is sufficient first
+(`XMLUtils.CanonizeIP`/`GenUtils.address` on the exact wl_up trailing-`::` CIDR that
+originally motivated the workaround, confirmed correct output and no crash), then removed
+the three call sites and the function itself, then re-ran `fave/test/test_ad6_wl_up.py`
+and the full `test_ad6_wl_ifi*`/ad6 `make test` suites -- all still green with the
+workaround gone.

@@ -591,15 +591,11 @@ corrected directly — see §4.4.)
   3. `XMLUtils.CanonizeIP`'s IPv6 "::" expansion drops the boundary zero group when the
      compressed run is at the very END of the address (`Postfix == ""`):
      `"2001:db8:abc:1::/64"` canonicalises to the malformed `"...:0:/64"` (a trailing
-     colon), which later crashes `int('', 16)` in `ConvertCIDRToVariables`. wl_up's own
-     real rulesets never hit this (they always write an explicit trailing zero,
-     `"2001:db8:abc::0/48"`, confirmed in `pgf.uni-potsdam.de-ruleset` — a hand-authored
-     convention that happens to dodge the bug); FaVe's own `routes.json`-derived dst
-     strings don't follow it. **Not fixed in ad6 core** — logged as a §8 item alongside
-     the other latent `CanonizeIP`/`ConvertCIDRToVariables` findings (this one, and the
-     multi-value `ctstate A,B` AND-instead-of-OR bug from §4.2); worked around in
-     `favemodel.py` with `_ipv6_safe`, which inserts the same explicit zero the real
-     rulesets already write by convention. Equivalent, not a behaviour change.
+     colon), which later crashes `int('', 16)` in `ConvertCIDRToVariables`. Originally
+     worked around in `favemodel.py` (`_ipv6_safe`); **fixed in ad6 core 2026-08-21,
+     test-first, at Claas's request — see §8.2b below.** Worse than first logged: leading
+     `::` and `::` alone were ALSO broken (same root cause), plus a separate
+     `UnboundLocalError` crash for an address with no `::` compression at all.
 
   **A genuine, load-bearing mechanism insight (not a bug):** `KripkeUtils.ConvertToKripke`
   always calls `_RedirectInputs`, which rewrites every accept-jump reachable from a chain
@@ -717,6 +713,23 @@ speculatively ahead of need.
   `fave_bridge.py`'s `_exclusivity_conjuncts` per-query workaround for the second bug is
   removed (verified redundant, not just coincidentally still passing, by re-running
   wl_ifi's differential with it deleted).
+- **8.2b `CanonizeIP`'s IPv6 "::" expansion bug — DONE 2026-08-21, fixed test-first, same
+  ask.** Found building wl_up (§5.1) and originally logged there as a `favemodel.py`
+  workaround (`_ipv6_safe`); Claas asked for the same core-fix treatment as §8.2's two
+  bugs instead. Tests first (`test/xml/xmlutilstest.py:testIp6BoundaryCompression`, newly
+  wired into `xmlsuite.py` — which also revealed `testCIDRMatchAll` from §8.2 had NEVER
+  actually been registered there, so `make test` never ran it either; both are now
+  registered) confirmed the true scope before fixing: not just the originally-logged
+  trailing-`::` case, but leading `::`, `::` alone (all three: an empty `Prefix`/`Postfix`
+  from `Address.split('::')` is silently counted as one explicit group instead of zero),
+  AND a separate `UnboundLocalError` crash for an address with no `::` compression at
+  all — the same "worse than first diagnosed" pattern as §8.2's init-mutual-exclusion bug.
+  Fixed by replacing the `try/except`-driven split with an explicit `if '::' in Address'`
+  branch and building the expanded address as a flat group list
+  (`PrefixGroups + ['0']*InLen + PostfixGroups`, `[]` not `['']` for an empty side)
+  joined once — can't produce a stray leading/trailing colon by construction.
+  `favemodel.py`'s `_ipv6_safe` workaround is removed (verified redundant first, same
+  discipline as the `_exclusivity_conjuncts` removal above). `ad6/FAVE_CHANGES.md` §11.
 - **8.3 Test coverage for the "generic infrastructure" layer** (`XMLUtils`, `SATUtils`,
   `Instantiator`'s constraint builders) is thin relative to how much correctness leans on
   it — `ad6/test/` covers the happy-path small fixtures (§3.1) but has no test exercising,
@@ -828,8 +841,10 @@ speculatively ahead of need.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
       share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed
-      test-first**, ahead of the rest of §8 (Claas asked for the fix directly rather than
-      waiting); assess test coverage for the XMLUtils/SATUtils/Instantiator "generic
-      infrastructure" layer (§8.3, still open — the two new tests are a start, not full
-      coverage); revisit the frontend/backend seam with two frontends now in hand (§8.4,
-      still open).
+      test-first; §8.2b DONE 2026-08-21 — the CanonizeIP IPv6 "::" bug found building
+      wl_up ALSO fixed test-first (same ask), worse than first logged (leading-`::`/
+      `::`-alone also broken, plus a separate no-compression crash)**, ahead of the rest
+      of §8 (Claas asked for the fixes directly rather than waiting); assess test coverage
+      for the XMLUtils/SATUtils/Instantiator "generic infrastructure" layer (§8.3, still
+      open — the three new tests are a start, not full coverage); revisit the
+      frontend/backend seam with two frontends now in hand (§8.4, still open).
