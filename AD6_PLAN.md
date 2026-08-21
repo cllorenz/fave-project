@@ -537,14 +537,23 @@ speculatively ahead of need.
   Worth asking concretely: would typed Python objects (dataclasses or similar) for the
   formula AST, with the current XML only as an optional serialization format, have caught
   either bug at construction time instead of at solve time?
-- **8.2 The two known core bugs (§4.4/FAVE_CHANGES §6) — fix or document as permanent
-  quirks.** Both were worked around in the new translator rather than patched, deliberately
-  (deferred to this review, not because they're not worth fixing): the `/0`-CIDR
-  empty-conjunction bug in `ConvertCIDRToVariables`, and the `_CreateInitConstraints`
-  chained-XOR off-by-one (`range(2, Length-3)` never reaches its own terminal case,
-  leaving the last few of >~16 marked-INIT nodes unconstrained). Neither is exercised by
-  ad6's existing test suite or its native `IP6TablesParser` frontend, which is presumably
-  why they've survived undetected since 2014 — a good argument for §8.3.
+- **8.2 The two known core bugs — DONE 2026-08-21, fixed test-first (not deferred after
+  all).** Claas asked for both to be fixed properly rather than left as documented
+  workarounds. Both are now fixed in ad6 core, each with a regression test written first
+  (confirmed failing pre-fix): the `/0`-CIDR empty-conjunction bug in
+  `ConvertCIDRToVariables` (now returns `constant()` for a `/0` prefix —
+  `ad6/FAVE_CHANGES.md` §7, `test/xml/xmlutilstest.py:testCIDRMatchAll` +
+  `test/core/instantiatortest.py:testMatchAllReachable`), and
+  `_CreateInitConstraints`'s chained-XOR (turned out to be far more broken than the
+  original "last few of >16 nodes" diagnosis — a brute-force sweep found only `(T[0],T[1])`
+  was ever correctly excluded for ANY N>3, not just a tail slice; fixed by replacing the
+  chain with the same direct pairwise `_xor(all transitions)` the N∈{2,3} case already
+  used correctly — `ad6/FAVE_CHANGES.md` §8, `test/core/initconstraintstest.py`, a new
+  property-test suite). Neither was exercised by ad6's existing test suite or its native
+  `IP6TablesParser` frontend, which is presumably why they survived undetected since 2014.
+  `fave_bridge.py`'s `_exclusivity_conjuncts` per-query workaround for the second bug is
+  removed (verified redundant, not just coincidentally still passing, by re-running
+  wl_ifi's differential with it deleted).
 - **8.3 Test coverage for the "generic infrastructure" layer** (`XMLUtils`, `SATUtils`,
   `Instantiator`'s constraint builders) is thin relative to how much correctness leans on
   it — `ad6/test/` covers the happy-path small fixtures (§3.1) but has no test exercising,
@@ -644,8 +653,11 @@ speculatively ahead of need.
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
-- [ ] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
+- [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
-      share one generic tree type); fix-or-document the two known core bugs (§4.4); assess
-      test coverage for the XMLUtils/SATUtils/Instantiator "generic infrastructure" layer;
-      revisit the frontend/backend seam with two frontends now in hand.
+      share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed
+      test-first**, ahead of the rest of §8 (Claas asked for the fix directly rather than
+      waiting); assess test coverage for the XMLUtils/SATUtils/Instantiator "generic
+      infrastructure" layer (§8.3, still open — the two new tests are a start, not full
+      coverage); revisit the frontend/backend seam with two frontends now in hand (§8.4,
+      still open).
