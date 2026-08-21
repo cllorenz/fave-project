@@ -535,3 +535,64 @@ originally motivated the workaround, confirmed correct output and no crash), the
 the three call sites and the function itself, then re-ran `fave/test/test_ad6_wl_up.py`
 and the full `test_ad6_wl_ifi*`/ad6 `make test` suites -- all still green with the
 workaround gone.
+
+## 12. Stateful instantiator is not a sound oracle for wl_up: two independent bugs, one
+architectural  **[NEW finding, no source change -- GO/NO-GO flag raised, unresolved]**
+
+Running wl_up's real `cchecks.json` compliance policy through the stateful instantiator
+(§9) at even a small sample (`bench/wl_up/eval/wl_up_cchecks_diff.py`, 10 singleton/central
+sources, 1092 of the full 11902 checks) produced 488 violations -- far beyond the
+already-understood "unconstrained plain query is vacuous" gap (item 10). Traced to two
+independent bugs, only one of them root-caused.
+
+**Bug 1 (root cause understood, architectural, not a small fix): the `related:1`
+(ESTABLISHED) half of every `<->>` check is vacuously true.** `src/parser/iptables.py`'s
+`IP6TablesParser` parses `-m conntrack --ctstate ESTABLISHED` into a bare
+`<state>ESTABLISHED</state>` match -- one exogenous, freely-choosable bit
+(`XMLUtils.STATES`/`ConvertStateToVariables`) with no causal link to "a matching flow was
+actually permitted in the reverse direction first." `fave_bridge.py`'s `_state_literals`
+forcing mechanism (item 9) forces this bit directly onto a query, but that only asks the
+solver "can you assert this bit AND find some other permit rule" -- always yes whenever a
+device has an unconditional `-j ACCEPT` gated on nothing but that bit, which is true of
+essentially every wl_up device (`ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED
+-j ACCEPT`, no `-s`). Verified directly: forced `related:1`, must-NOT-reach, for the 8
+wl_up singleton/central sources against two org probes -- **all 8 report reachable=True**,
+including one source (`adm.uni-potsdam.de`) independently confirmed correctly *blocked* on
+the `related:0` side for the same probes. Zero source discrimination.
+
+This is exactly the gap FaVe's own `fave/iptables/generator.py` "state shell interweaving"
+(`_derive_general_state_shell`/`_get_block_intervals`/`_derive_conditional_state_shells`/
+`_interweave_state_shell`) exists to close: it derives the ESTABLISHED-return leg from the
+*actual* corresponding NEW-state permit rule in the opposite chain (direction/port-swapped,
+match-intersected, spliced in at the right position in the rule order), so "ESTABLISHED" is
+a *consequence* of an earlier permitted flow rather than a free bit any query can assert.
+`IP6TablesParser` has no equivalent pass -- it is a literal, structural ip6tables-text-to-
+Kripke translator with no state-causality modelling at all. This is not a wl_up quirk: it
+would reproduce on any ip6tables ruleset using `-m conntrack --ctstate` (standard practice).
+wl_ifi's own stateful checks (item 9) happened to dodge this because its Cisco ACLs are
+genuinely state-blind (no ctstate match exists there to be mishandled) -- wl_up is the first
+workload whose real rules actually exercise this path, and it fails.
+
+**Bug 2 (NOT yet root-caused): a separate, address-specific bug in the `related:0` (NEW)
+direction.** Of 8 structurally identical singleton hosts sharing one `/64`
+(`2001:db8:abc:1::1`-`::8`: file/mail/web/ldap/vpn/dns/data/adm), every org device's real
+ip6tables ruleset carries an unconditional `-A INPUT -s 2001:db8:abc:1::0/64 -j DROP` with
+no later re-permit for that source -- so a state=NEW, src-seeded query from any of the 8
+should be UNSAT. 7 of 8 report reachable=True anyway; only `adm` (`::8`) is correctly
+blocked. Confirmed deterministic and address-specific, not query-order-dependent (reversing
+the query order still leaves `adm` as the sole correctly-blocked case). Ruled out:
+`_is_constrained`'s `/0` special-case (inapplicable -- real host addresses), state
+contamination between queries in the same bridge-subprocess batch (ruled out by the
+order-reversal test), and the just-fixed `CanonizeIP` "::" bug (none of these addresses
+contain "::"). Prime remaining suspect, untested: `Instantiator._ShortenPrefixes`/
+`_HandlePrefixes`'s CIDR canonicalization across the full 159-device model's shared
+`src_ip6_*` variable space -- unlike bug 1, this has not been isolated to a specific
+function yet.
+
+**Consequence:** AD6_PLAN.md §1.4(b)'s original "ad6 already has the STATE field
+end-to-end..., so this is query-orchestration work on top of existing machinery, not new
+modelling" call is falsified by bug 1 -- making `related:1` checks meaningful needs
+something functionally equivalent to the state-shell interweaving *inside* ad6's
+translator, which is new modelling, not orchestration. **GO/NO-GO flag raised for Claas**
+(AD6_PLAN.md §5.1's "STOP" block, §1.4(b), "Open decisions") -- not resolved as of this
+writing. No source change in this item; nothing has been fixed.

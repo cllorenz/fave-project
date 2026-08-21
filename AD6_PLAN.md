@@ -252,9 +252,14 @@ what follows is the CURRENT state, not the history):
   them too — not moot. Pull the stateful instantiator (3 checks: plain,
   `state∈{ESTABLISHED,RELATED}` reverse-must-reach, `state=NEW` reverse-must-NOT-reach) into
   §4.2's required scope, driven off `cchecks.json`'s `(dst, must_reach, [conditions])`
-  tuples. De-risked: ad6 already has the `STATE` field end-to-end (parser + bit-vector
+  tuples. ~~De-risked: ad6 already has the `STATE` field end-to-end (parser + bit-vector
   encoding), so this is query-orchestration work on top of existing machinery, not new
-  modelling — but it is not skippable for a faithful wl_up (or wl_ifi) comparison, and it
+  modelling~~ — **FALSIFIED 2026-08-21, see §5.1's GO/NO-GO flag: forcing the `STATE` bit
+  has no causal link to an actual permitted reverse flow, so `related:1` checks are
+  vacuously true wherever a device has an unconditional ESTABLISHED accept (essentially all
+  of wl_up). Making this sound needs something like `fave/iptables/generator.py`'s
+  state-shell interweaving inside ad6's translator — genuinely new modelling, not
+  orchestration.** It is not skippable for a faithful wl_up (or wl_ifi) comparison, and it
   makes ad6's per-pair cost worse (3 independent solves, not 1) than the original plan
   assumed. wl_tum's oracle is a single reachability check (not an FPL role-mesh — confirmed
   against `policies.json`), so it doesn't need the stateful instantiator and can stay the
@@ -636,6 +641,82 @@ corrected directly — see §4.4.)
   tuples are the right comparison target instead, same as wl_ifi's own characterization
   approach (`test_ad6_wl_ifi_stateful.py`) — deferred to a bench script given the ~1-2
   hour full run.
+
+  **STOP — GO/NO-GO FLAG (2026-08-21): the stateful instantiator is not a sound oracle for
+  wl_up, and the gap is architectural, not a small bug.** Found running
+  `bench/wl_up/eval/wl_up_cchecks_diff.py`'s sample mode (10 singleton/central sources, 1092
+  checks) against the real `cchecks.json` policy: 488 violations, far beyond the
+  already-understood "unconstrained plain query is vacuous" gap above. Traced to TWO
+  independent bugs:
+
+  1. **The `related:1` (ESTABLISHED) half of every `<->>` check is vacuously true — root
+     cause understood, not a small fix.** `ad6/src/parser/iptables.py`'s `IP6TablesParser`
+     parses `-m conntrack --ctstate ESTABLISHED` into a bare `<state>ESTABLISHED</state>`
+     match: one exogenous, freely-choosable bit (`XMLUtils.STATES`/`ConvertStateToVariables`)
+     with **no causal link** to "a matching flow was actually permitted in the reverse
+     direction first." `ad6/fave_bridge.py`'s `_state_literals` forcing mechanism (§4.2)
+     forces this bit directly onto a query — but that just asks the solver "can you assert
+     this bit AND find some other permit rule," which is *always* yes whenever a device has
+     an unconditional `-j ACCEPT` gated only on that bit (true of essentially every wl_up
+     device: `ip6tables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT`, no `-s`).
+     Verified directly: forced `related:1`, `negated=True` (must-NOT-reach) for the 8
+     singleton/central sources (`adm`/`data`/`dns`/`file`/`ldap`/`mail`/`vpn`/`web`
+     `.uni-potsdam.de`) against `probe.print.cs`/`probe.file.cs` — **all 8 report
+     reachable=True**, including `adm`, the one source independently confirmed correctly
+     *blocked* on the `related:0`/NEW side. Zero source-address discrimination. This is
+     exactly the problem `fave/iptables/generator.py`'s "state shell interweaving"
+     (`_derive_general_state_shell`/`_derive_conditional_state_shells`/
+     `_interweave_state_shell`) exists to solve: derive the ESTABLISHED-return leg from the
+     *actual* corresponding NEW-state permit rule in the opposite chain
+     (direction/port-swapped, match-intersected, spliced in at the right position) so
+     ESTABLISHED is a *consequence* of an earlier permitted flow, not a free bit anyone can
+     assert. `IP6TablesParser` has no equivalent pass — it is a literal, structural
+     ip6tables-text-to-Kripke translator with no state-causality modelling at all. Net effect
+     for wl_up: every device carries this unconditional ESTABLISHED accept, so ad6's
+     `related:1` ("must reach with ESTABLISHED forced") answer carries **zero verification
+     information** for this benchmark — true for every pair, correct or not.
+  2. **A second, independent, still-not-root-caused bug in the `related:0` (NEW) direction.**
+     Of 8 structurally identical singleton hosts sharing one `/64`
+     (`2001:db8:abc:1::1`–`::8`: file/mail/web/ldap/vpn/dns/data/adm), every org device's real
+     ip6tables ruleset carries an unconditional `-A INPUT -s 2001:db8:abc:1::0/64 -j DROP`
+     with no later re-permit for that source — so a state=NEW, src-seeded query from any of
+     the 8 should be UNSAT. 7 of 8 report reachable=True anyway; only `adm` (`::8`) is
+     correctly blocked. Confirmed deterministic and address-specific, not query-order-
+     dependent (reversing the query order leaves `adm` as the sole correctly-blocked case
+     regardless of position). Root cause NOT yet found. Ruled out: `_is_constrained`'s `/0`
+     special-case (inapplicable — these are all real host addresses), state contamination
+     across queries in the same bridge-subprocess batch (ruled out by the order-reversal
+     test), and the just-fixed `CanonizeIP` "::" bug (none of these 8 addresses contain "::").
+     Prime remaining suspect, untested: `Instantiator._ShortenPrefixes`/`_HandlePrefixes`'s
+     CIDR canonicalization across the full 159-device model's shared `src_ip6_*` variable
+     space.
+
+  **Why this matters beyond wl_up:** finding 1 is not a wl_up quirk — it is a property of
+  `IP6TablesParser` plus the query-forcing mechanism (§4.2) exactly as built, and would
+  reproduce on *any* ip6tables ruleset using `-m conntrack --ctstate` (standard practice, not
+  a wl_up peculiarity — wl_ifi's Cisco ACLs happened to dodge this because they are genuinely
+  state-blind, see above). **§1.4(b)'s original call — "ad6 already has the STATE field
+  end-to-end..., so this is query-orchestration work on top of existing machinery, not new
+  modelling" — is FALSIFIED by this finding.** Making `related:1` checks mean anything needs
+  something functionally equivalent to `fave/iptables/generator.py`'s state-shell
+  interweaving *inside* ad6's translator: a genuinely new, nontrivial modelling component, not
+  query orchestration on top of what already exists.
+
+  **Claas's read (2026-08-21):** given this, the oracle approach may not be viable without
+  "conceptually significant work on ad6's frontend," and continuing the wl_up integration as
+  currently scoped may not be worthwhile. **GO/NO-GO DECISION NEEDED FROM CLAAS** before any
+  further wl_up work (including the deferred full `cchecks.json` run, the planned 5-org
+  sample, and root-causing bug 2 above). Options on the table, not yet chosen:
+  - **NO-GO / stop here** — wl_up's stateful checks are out of reach without a much bigger
+    investment; leave wl_up at its current structural/characterization-only state
+    (`test_ad6_wl_up.py`) and do not pursue the full differential.
+  - **GO, scoped down** — restrict wl_up's ad6 comparison to the non-stateful (`cond=[]`,
+    still gated on the already-known vacuous-plain-query caveat) checks, or treat `related:1`
+    results as always-uninformative and only trust `related:0` once bug 2 is root-caused.
+  - **GO, invest** — port something equivalent to the state-shell interweaving into
+    `ad6/src/parser/iptables.py` (or a FaVe-side pre-processing pass ahead of
+    `Ad6Adapter.load_bench_metadata`) so `related:1` stops being vacuous, before resuming the
+    differential.
 - **5.2 Stanford, Internet2 — the small-n hypothesis test (§0). The genuinely remaining
   feasibility risk, corrected 2026-08-20 (§4.4): NOT a parsing-format question (FaVe's
   adapter never depends on ad6's own parser, so "IPv4 vs IPv6-native" is moot) — a
@@ -752,6 +833,13 @@ speculatively ahead of need.
 
 ## Open decisions (resolve at the §1.4 gate)
 - Integration level: (A) `AbstractVerificationEngine` backend vs (B) model translation.
+- **wl_up's stateful instantiator soundness — GO/NO-GO, OWNER DECISION REQUIRED (§5.1,
+  flagged 2026-08-21).** `related:1`/ESTABLISHED checks are vacuously true (architectural
+  gap, no state-shell interweaving in `IP6TablesParser`) and a second, separate, unexplained
+  bug lets 7/8 structurally-identical hosts bypass an explicit source-scoped DROP on
+  `related:0`/NEW. Options: stop (NO-GO), scope wl_up down to non-stateful checks only, or
+  invest in porting `fave/iptables/generator.py`'s state-shell interweaving into ad6's
+  translator.
 - Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go.
 - Incremental-SAT lever (§6): build before or after the baseline measurement.
 - Primary SAT solver (clasp vs minisat vs pycosat) for the headline numbers.
@@ -835,6 +923,12 @@ speculatively ahead of need.
       of this same translator.
       additionally needs the stateful instantiator.
 - [ ] **§5.1** Enable wl_up + wl_tum + wl_ifi end-to-end through the integrated path.
+      **wl_up's translator BUILT and structurally verified 2026-08-21, but STOPPED at the
+      stateful-differential stage: GO/NO-GO FLAG raised (§5.1 body, "STOP" block) — the
+      `related:1` half of every `<->>` check is vacuously true (architectural gap, ad6's
+      `IP6TablesParser` has no state-shell interweaving), plus a second, separate,
+      unexplained address-specific bug in the `related:0` direction. Owner decision required
+      before the full `cchecks.json` run, the planned 5-org sample, or root-causing bug 2.**
 - [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
