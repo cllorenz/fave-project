@@ -420,25 +420,28 @@ class Instantiator:
         for Init in Kripke.IterInits():
             InitTransitions.extend(map(lambda x: (Init,) + x, Kripke.IterFTransitions(Init)))
 
+        # At most one of the N init transitions may fire simultaneously
+        # (mutual exclusion; a query supplies "at least one" itself by
+        # asserting a specific transition -- see
+        # ad6/test/core/initconstraintstest.py). _xor(Transitions) builds
+        # this directly as O(N^2) pairwise "not both" clauses, exactly like
+        # the Length in [2,3] case below always did.
+        #
+        # Length>3 used to instead build a linear chain of auxiliary
+        # "xor_i" variables (presumably to trade the O(N^2) clause count for
+        # O(N) at the cost of the extra variables) via `for i in
+        # range(2, Length-3): ...`. That construction was broken beyond
+        # repair: for every N>=4 it left almost every NON-ADJACENT pair of
+        # transitions completely unconstrained -- only (T[0],T[1]) was ever
+        # correctly excluded -- not just "the last few" as first suspected
+        # from the N=17 case that surfaced this (AD6_PLAN.md §4.4/
+        # ad6/FAVE_CHANGES.md §6,§8). The straightforward pairwise encoding
+        # is what's proven correct (property-tested up to N=40, and spot-
+        # checked at N=137 -- FaVe's wl_up scale, ~18.6k clauses, ~2s to
+        # build+CNF-convert); reach for something cleverer only if profiling
+        # ever shows this is a real bottleneck.
         Length = len(InitTransitions)
-        if Length > 3:
-            for i in range(2,Length-3):
-                if i == 2:
-                    a = XMLUtils.CreateTransition(*InitTransitions[0])
-                    b = XMLUtils.CreateTransition(*InitTransitions[1])
-                    c = XMLUtils.variable('xor_0')
-                elif i == Length-3:
-                    a = XMLUtils.variable('xor_'+str(Length-2),False)
-                    b = XMLUtils.CreateTransition(*InitTransitions[Length-2])
-                    c = XMLUtils.CreateTransition(*InitTransitions[Length-1])
-                else:
-                    a = XMLUtils.variable('xor_'+str(i-2))
-                    b = XMLUtils.CreateTransition(*InitTransitions[i])
-                    c = XMLUtils.variable('xor_'+str(i-2),False)
-
-                Constraints.extend(Instantiator._xor([a,b,c]))
-
-        elif Length in [2,3]:
+        if Length > 1:
             Transitions = [XMLUtils.CreateTransition(*InitTransitions[i]) for i in range(Length)]
             Constraints.extend(Instantiator._xor(Transitions))
 

@@ -18,6 +18,7 @@ if __name__ == "__main__":
     from test.xmlsuite import XMLSuite
     from test.kripkesuite import KripkeSuite
     from test.instantiatorsuite import InstantiatorSuite
+    from test.initconstraintssuite import InitConstraintsSuite
     from test.integrationsuite import IntegrationSuite
     from test.systemsuite import SystemSuite
     from test.differentialsuite import DifferentialSuite
@@ -28,6 +29,7 @@ if __name__ == "__main__":
         XMLSuite(),
         KripkeSuite(),
         InstantiatorSuite(),
+        InitConstraintsSuite(),
         IntegrationSuite(),
         SystemSuite(),
         DifferentialSuite()

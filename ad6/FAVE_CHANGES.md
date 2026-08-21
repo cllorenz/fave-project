@@ -212,9 +212,65 @@ wrong empty conjunction — see item 6 for the original diagnosis).
   independent rule/target pairs needed their own `<table>` each — putting them in one
   table added a spurious edge that briefly looked like a second manifestation of the bug.)
 
-Why fix core now for this one but not the init-XOR (item 8): contained, single-function
-change, with a clear correct semantics (an empty AND is vacuously true) and no plausible
-existing consumer relying on the old behaviour (`IP6TablesParser` never emits an explicit
-`/0` — see item 6), so the risk/verification cost is low. Full `make test` (48 tests) and
-the `fave/test/test_ad6_wl_ifi.py` differential (54/54 exact match) both stay green after
-the change.
+Why this one was safe to fix immediately, ahead of item 8's harder bug: contained,
+single-function change, with a clear correct semantics (an empty AND is vacuously true)
+and no plausible existing consumer relying on the old behaviour (`IP6TablesParser` never
+emits an explicit `/0` — see item 6), so the risk/verification cost is low. Full
+`make test` (48 tests) and the `fave/test/test_ad6_wl_ifi.py` differential (54/54 exact
+match) both stay green after the change.
+
+## 8. Init mutual-exclusion (`_CreateInitConstraints`) fixed in core — worse than first
+diagnosed  **[FIX]**
+
+The harder of the two bugs Claas asked to be fixed properly. Item 6 first characterised
+this as "the last few of >~16 marked-INIT nodes are unconstrained" (matching wl_ifi's
+17-generator symptom). **That undersold it.** Before writing the property test below, an
+exploratory brute-force sweep (every pair, N=2..20) against the pre-fix code showed:
+
+| N (marked-INIT nodes) | broken pairs |
+|---|---|
+| 2, 3 | none (handled by a separate, always-correct branch) |
+| 4 | **all 6 pairs** — `range(2, Length-3)` is empty, so *zero* constraints were built at all |
+| 6 | all pairs except `(T[0],T[1])` |
+| 17 (wl_ifi) | all pairs except `(T[0],T[1])` |
+
+So the bug was never "just the tail" — for every `Length>3`, only the very first pair was
+ever actually constrained; everything else, including adjacent pairs like `(T[2],T[3])`,
+could fire simultaneously. The `range(2, Length-3)` tail-off-by-one from item 6 is real,
+but it was a symptom of the same construction being broken throughout, not the whole
+story.
+
+**Tests added first** (`ad6/test/core/initconstraintstest.py`, a new
+`InitConstraintsSuite`): a property test — build N independent marked-INIT nodes, each
+with a single own transition to its own dedicated target (the minimal shape
+`_CreateInitConstraints` actually consumes), and assert **at most one** of the N
+transitions can be simultaneously satisfiable (every individual one alone must be SAT;
+every pair together must be UNSAT; "none fire" must stay SAT — this is an at-most-one
+encoding, not exactly-one, matching the pre-existing N∈{2,3} behaviour). Run at N=2, 3, 4,
+6, and 17 (wl_ifi's exact count); all three of N=4/6/17 fail against the pre-fix code,
+confirming the table above.
+
+**Fix:** replaced the entire `Length > 3` branch (the linear chain of auxiliary `xor_i`
+variables) with exactly what the `Length in [2,3]` branch already did correctly — call
+`_xor` directly on *all* `N` transition literals at once, an `O(N^2)` pairwise "not both"
+encoding. The two branches are now unified into one `Length > 1` case. Verified this
+generalises, not just patches N=17: the property test passes N=2 through 40 (property-based
+sweep, not committed — too slow to run routinely), and a spot-check at **N=137** (FaVe's
+wl_up scale) builds 18,632 clauses and CNF-converts in ~1.6s, with sampled pairs (including
+adjacent, wraparound, and far-apart) all correctly mutually exclusive.
+
+Why replace rather than repair the chain: the chain's own indexing (`'xor_'+str(i-2)`
+apparently intended to carry a running "at least one seen so far" bit forward between
+iterations) does not actually track that — `_xor` only ever asserts pairwise "not both",
+never "this variable becomes true when an earlier one does" — so even a corrected loop
+bound would not obviously produce a correct chain without a deeper redesign. The
+`O(N^2)` pairwise form is the *already-correct, already-in-use* alternative for small N (2
+and 3), and FaVe's benchmarks top out at N≈137 (wl_up) — 18.6k trivial 2-literal clauses,
+negligible next to the models these tools already build. Revisit only if profiling ever
+shows this is a real bottleneck at a much larger N.
+
+`fave/ad6/adapter.py`'s companion workaround (`fave_bridge.py`'s `_exclusivity_conjuncts`,
+asserting every other generator's edge false per query) is now **removed**, not just
+redundant: `fave/test/test_ad6_wl_ifi.py` was re-run with it deleted, confirming the core
+fix alone reproduces the exact 54/54 match — the workaround would otherwise mask a future
+regression of this exact bug rather than let the differential test catch it.
