@@ -805,3 +805,40 @@ Stage A (synthetic trunk+rewrite expressibility test, extending
 `ad6/test/parser/favemodeltest.py`) and Stage B (real N=2/3/5/16 tractability measurement,
 bare-metal only) are planned but not yet started -- full protocol, GO/NO-GO criteria, and
 compute budgets: `AD6_PLAN.md` §5.4.
+
+## 16. Stage A revised: structural VLAN entry-point duplication is not general mutation;
+adopt an SSA/frame-axiom ad6-core extension instead  **[plan revision, no code yet]**
+
+**Claas: the structural-duplication Stage A design (§15) does not actually solve
+mutation.** ad6 has no notion of one header bit taking more than one value along a path --
+every variable is a single global propositional constant. The structural approach ("which
+VLAN a packet is on = which Kripke entry-point node it's wired into") only works when a
+field changes *at most once* per path; a chain of rewrites (e.g. `b=* -> 1 -> 0 -> *`) needs
+as many distinct values as rewrite points, and duplicating the downstream subgraph once per
+combination of values blows up as `(distinct values)^(rewrite points)` in the worst case --
+the identical failure shape (mechanistically different substrate, same combinatorics) that
+made APKeep's BDD-based faithful-VLAN attempt intractable.
+
+**Revised approach (not yet implemented): SSA construction over the Kripke graph.** Treat
+the Kripke graph like a program's control-flow graph and a mutable field like a mutable
+variable -- textbook static-single-assignment: one fresh per-node copy of the field's bits
+at each node reachable from a rewrite (everything else keeps using today's shared global
+bit-vector, so the cost is scoped to just the mutable field); a frame axiom on every
+non-rewriting edge (`transition_uv -> (b@v <-> b@u)`); a rewrite axiom on a rewriting edge
+(`transition_uv -> (b@v <-> c)`); a phi-style disjunction over predecessors at a join. This
+composes with the per-edge implication shape `Instantiator._ConvertNodesToImplications`
+already builds (`ad6/src/core/instantiator.py:330-382`) rather than requiring a wholly new
+mechanism, but it is a genuine **ad6 core** change (`GenUtils` needs a real `rewrite`
+action; `Kripke`/`Instantiator` need per-node field-copy allocation) -- a deliberate,
+explicitly-flagged departure from this integration's "new frontend, zero backend changes"
+discipline (§4.4) followed everywhere else so far. Scales with the number of Kripke nodes
+reachable from a rewrite (linear in graph size) rather than the product of values across
+rewrite points -- a materially better asymptotic story than the superseded draft, *if* it
+can be built cheaply enough, which is exactly what the revised Stage A/B now exist to check.
+
+**Also flagged in the same discussion**: `ad6/src/sat/satutils.py`'s naive
+(non-Tseitin) `ConvertToCNF` is a candidate fix for Stage B *if* clause growth there turns
+out to be dominated by CNF distribution rather than by the SSA encoding's own node count --
+and, independent of this spike, a candidate general improvement for ad6 (§8.5, new) worth
+scoping on its own once the benchmarks stabilize. Full revised protocol, GO/NO-GO criteria
+per stage: `AD6_PLAN.md` §5.4/§8.5.

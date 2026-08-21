@@ -471,8 +471,17 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   same-numbered VLAN admission groups into one, a real blocker for Stanford's 16
   admission-checked devices independent of VLAN fidelity. New regression:
   `fave/test/test_ad6_adapter_multi_device_acl.py`. No regression: 16/16 fave-side + 10/10
-  `ad6 make test`. Stage A (synthetic trunk+rewrite expressibility test) and Stage B (real
-  N=2/3/5/16 tractability measurement, bare-metal only) not yet started. Full protocol +
+  `ad6 make test`. **Stage A REVISED 2026-08-21j (Claas): the original structural
+  entry-point-duplication draft is not a general mutation mechanism — it only handles one
+  rewrite per path and blows up combinatorially on a chain (`b=*→1→0→*`), the same failure
+  shape as APKeep's BDD blow-up. Replaced with a genuine ad6 CORE extension (a real
+  `rewrite` action + SSA-style per-node field copies with frame axioms and phi-joins,
+  extending `Instantiator`'s existing per-edge implications) — a deliberate departure from
+  this integration's "frontend only" discipline so far, and a genericity-cost finding in its
+  own right.** Stage A and Stage B (real N=2/3/5/16 tractability measurement, bare-metal
+  only) not yet started; §8.5 (new) flags ad6's naive non-Tseitin CNF conversion as a
+  candidate general fix if Stage B's numbers show it (not the new encoding itself) is the
+  bottleneck. Full protocol +
   GO/NO-GO criteria: `AD6_PLAN.md` §5.4.
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.

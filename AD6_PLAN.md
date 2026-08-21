@@ -871,24 +871,50 @@ corrected directly — see §4.4.)
   before code, small-n before full-n) and APKeep's own incremental-scale protocol so the two
   results are directly comparable in §7.
 
-  Two findings frame the whole spike. **`GenUtils.action()` has no `rewrite` type anywhere in
-  ad6's core** (`ad6/src/xml/genutils.py:50-54`; zero hits for "rewrite" across
-  `ad6/src/core|xml|sat`); `GenUtils.vlan()` is match-only, evaluated once per node's own
-  Gamma at build time (`ad6/src/core/kripke.py`'s `_HandleVlans`) — nothing lets a rule's
-  action change a downstream node's VLAN assertion. So faithful VLAN modelling cannot be a
-  header-rewrite mechanism; it has to be the same **structural** trick §4.4 already
-  established (which VLAN a packet is "on" = which Kripke entry-point node it was wired
-  into, decided once at translator build time, never a mutable runtime bit) — `favemodel.py`
-  already does exactly this for a *single* VLAN per port (`_ingress_ports_for`'s
-  `in_port_vlan: {port: vlan}`, an access-port model); only the **trunk fan-out** (a port
-  admitting several VLANs, and a VLAN-qualified jump target on the sending device's side) is
-  missing. Second, `ad6/src/sat/satutils.py`'s `ConvertToCNF` is naive distribution-based (no
+  Three findings frame the whole spike, the first **corrected 2026-08-21j** after Claas
+  pointed out a real gap in the second one below: **ad6's model has no notion of a header
+  bit taking more than one value along one path.** Every ad6 variable is a single global
+  propositional constant — fine for matching (every rule's condition is checked against one
+  fixed header) but wrong for mutation: a rewritten bit needs *different* values on either
+  side of the hop that rewrites it, and a chain of rewrites (e.g. `b=* → 1 → 0 → *` along one
+  path) needs as many distinct values as there are rewrite points. **The §5.4 draft below
+  this correction (structural entry-point duplication, "which VLAN a packet is on = which
+  Kripke node it's wired into") is not a general fix for this — it is a restricted special
+  case that only works when a field changes at most once per path and the model is willing
+  to enumerate every reachable value as a separate subgraph.** It does not extend to a
+  multi-hop rewrite chain without duplicating the downstream subgraph once per combination
+  of values along the chain (`(distinct values)^(rewrite points)` in the worst case) — the
+  same shape of explosion that sank APKeep's BDD-based faithful-VLAN attempt, just via
+  CNF/graph size instead of AP count. **Revised Stage A below replaces it** with the
+  standard general technique for this class of problem: treat the Kripke graph like a
+  program's control-flow graph and the mutable field like a mutable variable, and apply
+  textbook **SSA construction** (static-single-assignment: one fresh variable per
+  "definition site," frame axioms to carry a value across an edge that doesn't touch it,
+  phi-style disjunctions at a join of several predecessor histories). This scales with the
+  number of Kripke nodes downstream of a rewrite (linear in graph size), not with the
+  product of values across rewrite points — a materially better story *if* it can be built
+  cheaply enough (an open question of its own, see Stage B below).
+
+  Second, `ad6/src/xml/genutils.py`'s `GenUtils.action()` has no `rewrite` type at all (zero
+  hits for "rewrite" across `ad6/src/core|xml|sat`); `GenUtils.vlan()` is match-only,
+  evaluated once per node's own Gamma at build time (`ad6/src/core/kripke.py`'s
+  `_HandleVlans`) — nothing lets a rule's action change a downstream node's VLAN assertion
+  today. The SSA encoding above is precisely what a real `rewrite` action needs to compile
+  to. Third, `ad6/src/sat/satutils.py`'s `ConvertToCNF` is naive distribution-based (no
   Tseitin auxiliaries) — it explodes on *alternation depth* of nested OR-of-AND-of-OR
   structure, not on raw rule/node count, a **different blow-up mechanism than BDD's variable
-  ordering**. Today's one-flat-rule-per-condition style keeps this cheap; any VLAN-trunk
-  extension must preserve that (one flat rule per (port,VLAN) combination, never a rule
-  whose own condition embeds a per-VLAN disjunction) or it risks a confounding, unrelated
-  blow-up mode.
+  ordering**. Today's one-flat-rule-per-condition style keeps this cheap; the SSA encoding's
+  frame/rewrite implications are the same shallow shape ad6 already builds per edge
+  (`Instantiator._ConvertNodesToImplications`, `¬transition ∨ (equality ∧
+  disjunction-of-predecessors)`, `ad6/src/core/instantiator.py:330-382`) so they shouldn't by
+  themselves introduce new alternation depth — but this needs confirming, not assuming (see
+  Stage A/B below). **If naive CNF conversion turns out to be the actual bottleneck once
+  real numbers exist, switching `ConvertToCNF` to a Tseitin transformation (introduce one
+  auxiliary variable per subformula instead of distributing) is the standard, well-understood
+  fix** — it trades a larger variable count for a *linear* (not exponential) clause count in
+  formula size, which is the textbook remedy for exactly this failure mode. Flagged as a
+  candidate Stage B mitigation below, not undertaken speculatively before it's shown to be
+  needed.
 
   **Stage 0 — prerequisite fix, DONE 2026-08-21i, before any VLAN code at all.**
   `Ad6Adapter._acl_device` was a single scalar (correct only for wl_ifi's one
@@ -917,25 +943,52 @@ corrected directly — see §4.4.)
   (1 acl device) and wl_up's (0 acl devices) existing results, not yet a Stanford rebuild —
   the plain-165 rebuild becomes possible once §5.2's translator itself is built.
 
-  **Stage A — expressibility, synthetic, no real data (not yet started).** Can trunk-port
-  VLAN admission + rewrite-determined downstream entry-point selection be represented with
-  zero changes to `ad6/src/core|xml|sat`? Extend `ad6/test/parser/favemodeltest.py` (the
-  actually-committed precedent — the uncommitted §4.4 "2 rules, 2 interfaces" fixture was
-  never checked in) with a 3-device synthetic: `A --(trunk, VLANs {10,20})--> B
-  --(access, VLAN 10 only)--> C`, `A` routing two dsts with egress-VLAN rewrites to 10 vs 20,
-  `B` admitting only VLAN 10. New machinery, all frontend-only: `iface_key(device, port,
-  vlan=None)` (unqualified for a single-VLAN port, zero regression); `in_port_vlan` becomes
-  `{port: [vlan, ...]}` with one ACL-group entry point per (port,vlan); VLAN-qualified fwd-rule
-  jump targets wherever a captured rewrite recorded one; `wire_edges` wires one edge per
-  carried VLAN and *omits* the edge for a (port,vlan) the receiver doesn't admit (no
-  dedicated drop rule needed, mirrors `apkeep/adapter.py`'s `_gate_dead_ingress`
-  structurally); new `Ad6Adapter._capture_mid_rewrite`/`_capture_out_rewrite`, modelled
-  directly on `apkeep/adapter.py`'s already-proven same-named methods (`Ad6Adapter` currently
-  never inspects `mid`/`out`-stage tables at all — new capture surface, not an extension).
-  **GO/NO-GO:** GO iff a forced-destination SAT query (exactly `RoutingTableLPMTest`'s style)
-  shows VLAN-20 UNSAT and VLAN-10 SAT at `C`; NO-GO (a real, written-up finding, not a dead
-  end, same discipline as wl_up's) if this needs anything beyond `favemodel.py`/
-  `Ad6Adapter`. Cheap, minutes, fine on yolobox — no wall-clock claim.
+  **Stage A — expressibility, synthetic, no real data, REVISED 2026-08-21j to the SSA/
+  frame-axiom encoding (not yet started).** Unlike the superseded structural-duplication
+  draft, this is a genuine **ad6 core extension** (`ad6/src/core/kripke.py`,
+  `ad6/src/core/instantiator.py`, `ad6/src/xml/genutils.py`), not a frontend-only trick — a
+  deliberate, explicitly-flagged departure from every other change this integration has made
+  so far (§4.4's "new frontend, zero backend changes" discipline). That departure is the
+  point: this stage is as much about characterizing what it *costs*, architecturally, to
+  teach a generic SAT model-checker real mutation, as it is about getting VLAN specifically
+  to work — a genericity-cost data point in its own right for §7.
+
+  Design:
+  - New `GenUtils.action('rewrite', field=<name>, value=<const-or-None>)` (mirrors the
+    existing `jump`/`accept`/`drop` shapes) — the one new primitive this needs.
+  - For each field marked mutable (VLAN only, to start — every other field stays on today's
+    shared global bit-vector, so this cost is scoped to just the bits that actually move):
+    at each Kripke node `v`, allocate a fresh copy of that field's bit-vector, `b@v`, **only
+    for nodes reachable from a rewrite** (nodes with no rewrite anywhere upstream keep using
+    the single shared global copy, unchanged — most of the graph pays nothing).
+  - Per edge `(u → v)`, extend the SAME per-edge implication
+    `Instantiator._ConvertNodesToImplications` already builds (`¬transition_uv ∨ (...)`,
+    `ad6/src/core/instantiator.py:330-382`) with a frame or rewrite term: no rewrite on this
+    edge → `b@v ↔ b@u` (the field survives unchanged); rewrite to constant `c` → `b@v ↔ c`.
+    An unconstrained `b@v` (nothing ever pins it) is a free variable — "don't care," exactly
+    the same semantics every other unmatched field already has.
+  - At a join (`v` reachable from more than one predecessor with potentially different field
+    histories), the frame/rewrite term becomes a disjunction over predecessors, each gated by
+    its own `transition_*v` literal — a phi node, gated by the exact same transition literals
+    that already select which predecessor "actually happened" for reachability itself.
+  - Synthetic fixture (extends `ad6/test/parser/favemodeltest.py`, the actually-committed
+    precedent — the uncommitted §4.4 "2 rules, 2 interfaces" fixture was never checked in):
+    **not** the single-rewrite 3-device case from the superseded draft — that would only
+    prove out one definition site, not the general mechanism. Use a **4-5 node chain with at
+    least 3 rewrite points on one path** (`b=* → 1 → 0 → *`, i.e. unconstrained, forced to 1,
+    forced to 0, unconstrained again) PLUS a join with two predecessors carrying different
+    field histories, to exercise both the frame/rewrite chaining and the phi-disjunction case
+    in one fixture.
+  - **GO/NO-GO:** GO iff forced-destination SAT queries (same style as `RoutingTableLPMTest`)
+    confirm, at each point in the chain, exactly the value the rewrite history implies (SAT
+    for the right value, UNSAT for the wrong one), the free segments are genuinely
+    existential (both values individually SAT, neither forced), and the join case picks up
+    the correct predecessor's history depending on which transition fired. NO-GO — a real,
+    written-up finding, not a dead end, same discipline as wl_up's — if the phi/join case (the
+    genuinely new part relative to ad6's existing per-edge implications) can't be made to
+    work within `Instantiator`'s existing implication-building pass without deeper surgery.
+    Cheap, minutes, fine on yolobox — no wall-clock claim; this stage is about correctness of
+    the encoding, not its cost.
 
   **Stage B — tractability, real Stanford data, incremental scale (gated strictly on Stage
   A's GO, not yet started).** Real scale (`fave/bench/wl_stanford/stanford-json/`): 252
@@ -949,8 +1002,19 @@ corrected directly — see §4.4.)
   peak RSS at the same N. **Budget:** no hard cap through N=5, but >~20 min on one point is
   an early-warning signal to pause before N=16; attempt N=16 only if the N=2→5 growth,
   log-fit, projects under **60 minutes**; hard-stop there regardless. If it blows up,
-  characterize *how* (trunk-port count vs VLANs-per-trunk vs path length, varied
-  independently on the fixed N=2 pair) — a finding either way, not a dead end. **Environment
+  characterize *how* — for the SSA encoding the relevant dimensions are **number of
+  rewrite-reachable Kripke nodes** (how far downstream of a rewrite the fresh per-node
+  copies propagate), **join count/fan-in** (how many phi-disjunctions get introduced), and
+  **chain depth** (rewrite points per path), varied independently on the fixed N=2 pair —
+  a different set of dimensions than the superseded structural draft's "trunk-port count vs
+  VLANs-per-trunk," since the cost driver is graph reachability from a rewrite, not per-VLAN
+  subgraph duplication. A finding either way, not a dead end. **Candidate mitigation, only
+  if warranted by the actual numbers:** if clause growth here is dominated by naive CNF
+  distribution rather than by the encoding's own node/variable count, switching
+  `ad6/src/sat/satutils.py::ConvertToCNF` to a Tseitin transformation is the standard fix
+  (linear clause growth in formula size, at the cost of more variables) — try this only
+  after Stage B's numbers show naive conversion, not the SSA encoding itself, is the
+  bottleneck; building it speculatively first would confound the two questions. **Environment
   guardrail:** Stage A's correctness checks are fine on yolobox; Stage B's wall-clock/RSS
   numbers are only trusted on the controlled bare-metal environment (existing cross-cutting
   guardrail) — a yolobox run may catch a gross build error but is never the tractability
@@ -963,10 +1027,13 @@ corrected directly — see §4.4.)
   characterization, not a retry at larger budget.
 
   Full staged design (research + review trail): plan file from this session's planning
-  turn, folded into this section; critical files: `fave/ad6/adapter.py`,
-  `ad6/src/parser/favemodel.py`, `ad6/test/parser/favemodeltest.py`,
-  `fave/apkeep/adapter.py` (read-only template), `fave/bench/faithful_bdd_measure.py`,
-  `fave/bench/apkeep_convergence.py`.
+  turn, folded into this section; critical files, **now including ad6 core (revised
+  2026-08-21j — the superseded structural draft was frontend-only)**:
+  `ad6/src/core/instantiator.py`, `ad6/src/core/kripke.py`, `ad6/src/xml/genutils.py` (the
+  new SSA/frame-axiom mechanism and `rewrite` action), `ad6/src/sat/satutils.py` (Tseitin,
+  only if Stage B shows it's warranted), `fave/ad6/adapter.py`, `ad6/src/parser/favemodel.py`,
+  `ad6/test/parser/favemodeltest.py`, `fave/apkeep/adapter.py` (read-only template),
+  `fave/bench/faithful_bdd_measure.py`, `fave/bench/apkeep_convergence.py`.
 
 ---
 
@@ -1059,6 +1126,18 @@ speculatively ahead of need.
   `GenUtils` as the IR, `Kripke`/`Instantiator` as the backend) is the right seam long-term,
   now that a second frontend (`favemodel.py`) exists alongside `IP6TablesParser` and both
   can be compared for what they needed from that seam and what friction each hit.
+- **8.5 (new 2026-08-21j) `ad6/src/sat/satutils.py`'s naive (non-Tseitin) CNF conversion is
+  a candidate general improvement, independent of the VLAN spike.** Surfaced investigating
+  §5.4: `ConvertToCNF` distributes ANDs over ORs directly (De Morgan + split, no auxiliary
+  variables), which is exponential in formula *alternation depth* — cheap today only because
+  every existing frontend emits shallow, flat conditions. §5.4 Stage B treats a Tseitin
+  rewrite as a targeted fix *if* the SSA/frame-axiom encoding's numbers show naive
+  conversion (not the encoding itself) is the bottleneck — but the same naive-conversion
+  ceiling applies to ad6 generally, not just to VLAN rewrite, and could matter for any
+  future frontend (or a deeper wl_up-style state-interweaving attempt, §5.1) that produces
+  less shallow formulas than today's. Worth scoping as its own improvement independent of
+  §5.4's outcome, once the benchmarks stabilize — not undertaken speculatively before a
+  concrete need is measured, same discipline as everywhere else in this plan.
 
 ---
 
