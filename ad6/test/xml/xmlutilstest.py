@@ -57,6 +57,56 @@ class XMLUtilsTest(unittest.TestCase):
         self.assertTrue(XMLUtilsTest.equal(XMLUtils.ConvertCIDRToVariables(examinee),expectation))
 
 
+    def testIp6BoundaryCompression(self):
+        """ Regression for XMLUtils.CanonizeIP's IPv6 "::" expansion (found
+        building wl_up's routing table, AD6_PLAN.md §5.1/ad6/FAVE_CHANGES.md
+        §10): `Address.split('::')` gives Prefix/Postfix, and the number of
+        implied zero groups is computed as
+        `8 - len(Prefix.split(':')) - len(Postfix.split(':'))`. That undercounts
+        by one whenever Prefix or Postfix is the EMPTY string -- ''.split(':')
+        is ['' ] (length 1), not 0 -- so a compression run at either END of the
+        address (not the middle) loses one implied zero group and leaves a
+        stray leading/trailing colon in the reassembled string. A THIRD,
+        differently-rooted case in the same function: when the address has NO
+        "::" at all (already fully expanded), `Address.split('::')` returns a
+        1-element list, so the unpacking `Prefix,Postfix = ...` raises
+        ValueError -- caught by a bare `except`, but its body
+        (`Postfix = Prefix; Prefix = ''`) itself crashes with
+        UnboundLocalError, since Prefix was never bound before the failed
+        unpack.
+
+        NOT caught by testCIDRMatchAll's existing "::/0" case: a /0 prefix
+        makes ConvertCIDRToVariables return XMLUtils.constant() immediately
+        (Count == 0), before its split-by-':' loop -- which is exactly where
+        the malformed trailing colon turns into `int('', 16)` -- ever runs.
+        This test exercises non-/0 CIDRs specifically to reach that loop. """
+        cases = [
+            # (raw address, direction, expected fully-expanded "address/mask")
+            ('2001:db8:abc:1::/64', 'dst', '2001:db8:abc:1:0:0:0:0/64'),  # trailing ::
+            ('::1/128', 'dst', '0:0:0:0:0:0:0:1/128'),                    # leading ::
+            ('::/32', 'src', '0:0:0:0:0:0:0:0/32'),                       # :: alone
+            ('fe80::1/64', 'dst', 'fe80:0:0:0:0:0:0:1/64'),               # middle :: (already worked)
+            ('2001:db8:abc:1:2:3:4:5/128', 'src',
+             '2001:db8:abc:1:2:3:4:5/128'),                               # no compression at all
+        ]
+        for address, direction, expected in cases:
+            elem = et.fromstring(
+                '<ip version="6" direction="%s"><address>%s</address></ip>'
+                % (direction, address))
+            variable = XMLUtils.ConvertToVariables(elem)
+            got = variable.attrib['name'][len(direction) + len('_ip6_'):]
+            self.assertEqual(
+                got, expected,
+                "CanonizeIP mis-expanded %r: got %r, expected %r"
+                % (address, got, expected))
+            # The real crash site: ConvertCIDRToVariables must not choke on
+            # the reassembled string (a malformed trailing/leading colon
+            # produces an empty split segment -> int('', 16)).
+            bits = XMLUtils.ConvertCIDRToVariables(variable.attrib['name'])
+            mask = int(address.rsplit('/', 1)[1])
+            self.assertEqual(len(bits), mask)
+
+
     def testCIDRMatchAll(self):
         """ Regression: a /0 CIDR ("match any") must convert to a trivially-true
         condition, not an empty <conjunction/>. ConvertCIDRToVariables truncates

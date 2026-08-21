@@ -14,6 +14,8 @@ class XMLSuite(TestSuite):
             'testIp4',
             'testIp6',
             'testCIDR',
+            'testCIDRMatchAll',
+            'testIp6BoundaryCompression',
             'testPort',
             'testIf'
         ]

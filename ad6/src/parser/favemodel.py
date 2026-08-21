@@ -121,30 +121,6 @@ def _ip_version(addr):
     return '6' if addr and ':' in addr else '4'
 
 
-def _ipv6_safe(addr):
-    """ XMLUtils.CanonizeIP's "::" expansion drops the boundary zero group
-    when the compressed run is at the very END of the address (Postfix ==
-    ""): "2001:db8:abc:1::/64" canonicalises to the malformed
-    "2001:db8:abc:1:0:0:0:/64" (a trailing colon, one zero group short),
-    which later blows up in Instantiator._HandlePrefixes ->
-    ConvertCIDRToVariables as `int('', 16)` on the empty trailing segment.
-    wl_up's own real ip6tables rulesets never hit this -- they always write
-    an explicit trailing zero ("2001:db8:abc::0/48", confirmed in
-    bench/wl_up/rulesets/pgf.uni-potsdam.de-ruleset), which is exactly the
-    workaround this applies to FaVe's own routing-table dst/address strings
-    (e.g. "2001:db8:abc:1::/64" from routes.json-derived data), which don't
-    follow that convention. Not fixed in ad6 core here -- found while
-    building wl_up (AD6_PLAN.md §5.1), logged as a §8 architecture-review
-    item alongside the other latent CanonizeIP/ConvertCIDRToVariables
-    findings; this single-purpose workaround is equivalent and safe (adds
-    an explicit zero that was already implied). """
-    if addr and ':' in addr:
-        head, sep, mask = addr.partition('/')
-        if head.endswith('::'):
-            addr = head + '0' + (sep + mask if sep else '')
-    return addr
-
-
 def _collect_ports(ir):
     """ device -> set of physical port strings referenced anywhere. """
     ports = {d: set() for d in ir["devices"]}
@@ -364,7 +340,7 @@ def _build_device_table(device, ir, ports_by_device):
         rule = GenUtils.rule(str(pos), key=key)
         if _is_constrained(fr["dst"]):
             rule.append(GenUtils.address(
-                _ipv6_safe(fr["dst"]), direction='dst', version=_ip_version(fr["dst"])))
+                fr["dst"], direction='dst', version=_ip_version(fr["dst"])))
         port_dev, port_no = _split(fr["port"])
         eacl_vlan = out_port_vlan.get(fr["port"]) if is_acl_device else None
         if eacl_vlan is not None and acl_out.get(eacl_vlan):
@@ -492,7 +468,7 @@ def _routing_table(device, ir):
         key = "%s_routing_r%d" % (fwkey, pos)
         rule = GenUtils.rule(str(pos), key=key)
         if _is_constrained(r["dst"]):
-            rule.append(GenUtils.address(_ipv6_safe(r["dst"]), direction='dst', version='6'))
+            rule.append(GenUtils.address(r["dst"], direction='dst', version='6'))
         port_dev, port_no = _split(r["port"])
         rule.append(GenUtils.action('jump', target=iface_key(port_dev, port_no) + "_out"))
         table.append(rule)
@@ -518,7 +494,7 @@ def _dispatch_table(device, ir):
     table = GenUtils.table('dispatch')
     to_self = GenUtils.rule('0', key=_dispatch_key(device))
     if own_addr:
-        to_self.append(GenUtils.address(_ipv6_safe(own_addr), direction='dst', version='6'))
+        to_self.append(GenUtils.address(own_addr, direction='dst', version='6'))
     to_self.append(GenUtils.action('jump', target="%s_input_r0" % fwkey))
     table.append(to_self)
     transit = GenUtils.rule('1', key="%s_dispatch_r1" % fwkey)

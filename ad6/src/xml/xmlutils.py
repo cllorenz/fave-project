@@ -291,15 +291,26 @@ class XMLUtils:
             except:
                 Mask = 128
 
-            try:
+            if '::' in Address:
                 Prefix,Postfix = Address.split('::')
-            except:
-                Postfix = Prefix
-                Prefix = ''
-
-            InLen = 8 - len(Prefix.split(':')) - len(Postfix.split(':'))
-            Infix = ':'.join(['0' for i in range(InLen)])
-            Address = Prefix + ':' + Infix + ':' + Postfix
+                # An empty Prefix/Postfix ("::" at the very start or end, or
+                # "::" alone) means zero explicit groups on that side, not
+                # one: ''.split(':') is [''] (length 1), which previously
+                # undercounted the implied zero-run by one group and left a
+                # stray leading/trailing colon in the rejoined address.
+                PrefixGroups = Prefix.split(':') if Prefix else []
+                PostfixGroups = Postfix.split(':') if Postfix else []
+                InLen = 8 - len(PrefixGroups) - len(PostfixGroups)
+                Groups = PrefixGroups + ['0'] * InLen + PostfixGroups
+            else:
+                # Already fully expanded (no "::" to expand) -- the old code
+                # unconditionally tried Address.split('::') here too, which
+                # raises (a 1-element list can't unpack into Prefix,Postfix)
+                # and crashed the bare `except` handler itself with
+                # UnboundLocalError (it referenced Prefix before any
+                # assignment).
+                Groups = Address.split(':')
+            Address = ':'.join(Groups)
         return Address + '/' + str(Mask)
 
 
