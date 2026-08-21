@@ -370,3 +370,109 @@ this as a **characterization** (pins the traced, understood 27/27 split down so 
 change is caught as a diff), not a differential — needs either a live NetPlumber
 comparison or the benchmark owner's read on wl_ifi's real ACLs to resolve. wl_up next
 (§4.2/§5.1), where the real `ctstate ESTABLISHED` rules may give a cleaner signal.
+
+## 10. wl_up translator built via IP6TablesParser reuse, not a new hand-rolled frontend;
+three bugs found and fixed (adapter-side IPv4/IPv6 gaps + a version literal), one logged
+and worked around (CanonizeIP's trailing-"::" bug)  **[NEW]**
+
+wl_up (AD6_PLAN.md §5.1) needed the stateful instantiator (§4.2, already built) applied to
+a NEW translator: its 136 rule-bearing devices are FaVe `packet_filter`/`host` models
+(`devices/packet_filter.py`), not wl_ifi's Cisco-ACL `router` -- different table naming
+(`.input_filter`/`.output_filter`/`.forward_filter`/`.pre_routing`/`.routing` vs
+`.acl_in`/`.acl_out`) and, unlike wl_ifi, IPv6 throughout.
+
+**Key finding that avoided a much bigger rewrite:** each device's real ruleset
+(`bench/wl_up/rulesets/*-ruleset`) is literal `ip6tables` command text, byte-identical to
+ad6's own bundled `ad6/bench/up/*-ruleset` (already established, §3.2). So instead of
+hand-translating FaVe's already-parsed Match/Action objects into GenUtils calls one field
+at a time (reimplementing proto/port/state/icmp/tcp-flags/rt-header semantics FaVe's own
+parser already handled), `favemodel.py:_build_ruleset_firewall` feeds each device's raw
+text straight into ad6's own `IP6TablesParser` (already proven at scale on wl_tum's 3795
+rules). Only two things are genuinely new: dst-LPM ROUTING (`.routing`'s `out_port` MATCH
+field -- ip6tables text itself has no routing concept, that's FaVe's own derived FIB;
+`fave/ad6/adapter.py:_translate_routing_rule` + `favemodel.py:_routing_table`, same
+"specific route sorts before the dst=None default" discipline as wl_ifi's router
+forwarding) and the to-self/in-transit DISPATCH a transit device (pgf) needs
+(`favemodel.py:_dispatch_table`, `_is_transit` -- data-driven off whether a device has
+any dst-specific route at all, not physical-port counting).
+
+**Design snag, resolved:** `IP6TablesParser` resolves every chain's `-j ACCEPT` to ONE
+shared `<fwkey>_accept_r0` sink regardless of chain. Correct for the accept/drop decision
+itself; wrong for what happens after -- INPUT-accept means "deliver locally", OUTPUT/
+FORWARD-accept means "continue to this device's own routing". Fixed by XPath-rewriting
+OUTPUT's/FORWARD's own accept-jump targets (scoped by `<table name="...">`) to the
+device's routing-table entry, leaving INPUT's alone.
+
+**Mechanism insight, not a bug, that cost real debugging time before it was understood:**
+`KripkeUtils.ConvertToKripke` unconditionally calls `_RedirectInputs`, which rewrites
+every accept-jump reachable from a chain literally named "input" away from the shared
+sink onto a dedicated `<input_entry_key>_accept` node. Found by querying the shared sink
+directly for a trivially-satisfiable single-rule INPUT chain and getting UNSAT; traced via
+`Kripke.IterFTransitions`/`IterBTransitions` on the built Kripke structure (not guessed)
+to this redirect. `favemodel.py:query_destination_key` now targets
+`<fwkey>_input_r0_accept` for a wl_up probe attachment, not the shared sink.
+
+**Three real bugs, in the order they were found (each pinned down by tracing a specific
+`InstantiateEndToEnd` query down a known-good topology chain node by node until the exact
+break point was isolated -- not guessed):**
+
+1. `fave/ad6/adapter.py`'s dst/src field matching (`_translate_fwd_rule`,
+   `_translate_routing_rule`'s sibling check, `add_generator`) checked only
+   `packet.ipv4.destination`/`packet.ipv4.source`. wl_up is pure IPv6
+   (`packet.ipv6.*`) -- silently left `dst`/`src` as `None` rather than erroring, which
+   for a switch's own forwarding rule meant "flood unconditionally" instead of "jump only
+   for this specific destination", corrupting every path through it. Added
+   `_DSTS = (_DST, _DST6)` / `_SRCS = (_SRC, _SRC6)` tuples, checked with `in` everywhere
+   a single IPv4 name was compared before.
+
+2. `_build_device_table`'s dst-address builder (`ad6/src/parser/favemodel.py`) hardcoded
+   `version='4'` -- fine for wl_ifi's router (always IPv4), but this SAME fwd_rules
+   mechanism is also what wl_up's own switches' `.1` tables go through (confirmed:
+   switches get real per-dst forwarding tables via FaVe's own model, exactly like
+   wl_ifi's, no special-casing needed once bug 1 was fixed) -- and those are IPv6. Passing
+   an IPv6-shaped CIDR string into `GenUtils.address(..., version='4')` doesn't raise, it
+   silently produces a wrong/uninterpretable condition. Fixed with `_ip_version(addr)`
+   (`':' in addr`) instead of a hardcoded literal, used both here and in the new
+   `_routing_table`/`_dispatch_table`.
+
+3. `XMLUtils.CanonizeIP`'s IPv6 "::" expansion drops the boundary zero group when the
+   compressed run is at the very END of the address (`Address.split('::')` gives an empty
+   `Postfix`): `"2001:db8:abc:1::/64"` canonicalises to `"2001:db8:abc:1:0:0:0:/64"` -- a
+   TRAILING COLON, one zero group short -- which later crashes
+   `Instantiator._HandlePrefixes -> ConvertCIDRToVariables` with
+   `ValueError: invalid literal for int() with base 16: ''` on the empty trailing segment.
+   Confirmed directly: `CanonizeIP` on `"2001:db8:abc:1::0/64"` (explicit trailing zero)
+   round-trips correctly; on `"2001:db8:abc:1::/64"` it does not. wl_up's own real
+   rulesets never hit this -- every one of them writes an explicit trailing zero before a
+   mask (`"2001:db8:abc::0/48"`, confirmed in `pgf.uni-potsdam.de-ruleset`), evidently a
+   deliberate authoring convention that happens to dodge the bug -- but FaVe's own
+   `routes.json`-derived subnet strings (fed through the new dst-LPM routing table) don't
+   follow it. **Not fixed in ad6 core** here -- logged as a §8 architecture-review item
+   alongside the multi-value `ctstate A,B` AND-instead-of-OR finding from item 9 (both are
+   `CanonizeIP`/`ConvertCIDRToVariables` corners, worth revisiting together). Worked
+   around in `favemodel.py` with `_ipv6_safe`, which inserts the exact same explicit zero
+   the real rulesets already write by convention -- equivalent, not a behaviour change,
+   same spirit as `_is_constrained`'s pre-existing `/0` hygiene workaround.
+
+**Structural correctness confirmed** (`fave/test/test_ad6_wl_up.py`): 159 devices (136
+ruleset-bearing + 23 switches), 137 generators/probes (AD6_PLAN.md §1.3's n=137), model
+builds+instantiates in ~8s. Traced a full topology chain end to end
+(`gensrc_source_pgf..._r0 -> pgf output -> pgf routing -> egress interface -> dmz switch
+forwarding -> file's input chain -> file's accept`) node by node to confirm every hop
+after the three fixes above.
+
+**OPEN METHODOLOGY QUESTION for the full differential (not resolved here):** an
+UNCONSTRAINED query against wl_up is close to vacuously "always reachable" -- every chain
+has an unconditional `-m conntrack --ctstate ESTABLISHED -j ACCEPT`, and static
+header-space analysis cannot distinguish a genuinely-established packet from one merely
+claiming to be. Once `related:0`/state=NEW is forced (item 9's mechanism) AND the source
+is properly CIDR-seeded, results become meaningfully differentiated -- but comparing
+against `reachable.json` under strict equality (test_ad6_wl_ifi.py's own approach) is the
+wrong bar for wl_up specifically: traced one concrete case
+(`clients.hssport.uni-potsdam.de` -> `file.uni-potsdam.de`) where a real, operationally-
+necessary rule (blanket admin SSH from the whole internal /48) grants reachability
+`reachable.json`'s 29-role list for that target doesn't include, because reach.txt's
+policy matrix never asked about that specific pair at all -- not a translation bug.
+`cchecks.json`'s explicit tuples are the right comparison target instead (mirroring
+wl_ifi's own `test_ad6_wl_ifi_stateful.py` characterization), deferred to a bench script:
+the full 11902-entry file is a ~1-2 hour run at the observed ~0.5s/query.

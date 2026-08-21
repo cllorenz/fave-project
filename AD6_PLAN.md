@@ -541,6 +541,105 @@ corrected directly — see §4.4.)
   translator. **wl_ifi DONE (§4.3): exact match, forwarding+ACL.** wl_tum's
   backend/solving path is already proven (via ad6's own native frontend). wl_up remaining,
   needs the stateful `<->>` instantiator (§4.2) added on top of the same translator.
+
+  **BUILT 2026-08-21, but a structurally NEW translator path, not an extension of wl_ifi's
+  router/ACL one.** First surprise: wl_up's FaVe device model is `packet_filter`/`host`
+  (136 of its 159 devices), NOT wl_ifi's Cisco-ACL `router` — a fundamentally different
+  device class with its own table naming (`.input_filter`/`.output_filter`/
+  `.forward_filter`/`.pre_routing`/`.routing`, from `devices/packet_filter.py`, not
+  `.acl_in`/`.acl_out`). **Second, much better, surprise:** each of these 136 devices'
+  actual rule CONTENT (`bench/wl_up/rulesets/*-ruleset`) is literal `ip6tables` command
+  text — confirmed byte-identical to ad6's own bundled `ad6/bench/up/*-ruleset` (§3.2's
+  earlier provenance check) — i.e. the exact same "already in ad6's native format, no
+  translation needed" situation wl_tum was in, just per-device instead of one firewall.
+  So the translator does NOT hand-build GenUtils calls for proto/port/state/icmp/etc from
+  FaVe's re-parsed Match objects (which would have meant reimplementing a large slice of
+  `ip6tables` semantics from scratch); it feeds each device's raw ruleset text straight
+  into ad6's own `IP6TablesParser` (`Ad6Adapter.load_bench_metadata` reads
+  `topology.json` for the device→ruleset-path/own-address map; `favemodel.py:
+  _build_ruleset_firewall` calls `IP6TablesParser.parse` directly). What's genuinely NEW
+  adapter work is only: (a) dst-LPM ROUTING (`.routing`'s `out_port` MATCH field —
+  ip6tables text has no notion of routing at all, that's FaVe's own derived FIB;
+  `_translate_routing_rule` + `favemodel._routing_table`, same sequential
+  specific-before-default discipline as wl_ifi's router forwarding), and (b) the
+  to-self/in-transit DISPATCH a transit device (pgf) needs (`favemodel._dispatch_table`,
+  data-driven off whether a device has any dst-specific route at all — `_is_transit` —
+  rather than counting physical ports).
+
+  **One real design snag, resolved:** `IP6TablesParser` resolves every chain's
+  `-j ACCEPT` to ONE shared `<fwkey>_accept_r0` sink regardless of which chain
+  (INPUT/OUTPUT/FORWARD) reached it. Correct for the accept/drop decision itself, wrong
+  for what happens AFTER accept — INPUT-accept means "deliver locally", OUTPUT/
+  FORWARD-accept means "continue to this device's own routing". Fixed by rewriting
+  OUTPUT's/FORWARD's own accept-jump targets (XPath, scoped by table) to the device's
+  routing-table entry instead, leaving INPUT's untouched.
+
+  **Three real bugs found and fixed while building this, in increasing order of how long
+  they took to pin down** (full traces in `ad6/FAVE_CHANGES.md` §10 and
+  `[[ad6-theory-gate-findings]]`):
+  1. `fave/ad6/adapter.py`'s dst/src field matching hardcoded `packet.ipv4.*` — wl_up is
+     pure IPv6 (`packet.ipv6.*`). Silent: no error, just an always-`None` dst, so a
+     switch's own forwarding rule quietly became an unconditional flood instead of a
+     dst-conditioned jump. Added `_DSTS`/`_SRCS` tuples checked everywhere a single IPv4
+     name was checked before (`_translate_fwd_rule`, `_translate_routing_rule`,
+     `add_generator`).
+  2. `_build_device_table`'s dst-address builder hardcoded `version='4'` unconditionally
+     — used by wl_ifi's router (always IPv4) AND, once fixed above, by wl_up's own
+     switches (their `.1` tables go through this SAME shared fwd_rules mechanism, IPv6).
+     Silently corrupted an IPv6 CIDR condition rather than raising. Fixed with a small
+     `_ip_version(addr)` sniff (`':' in addr`) instead of a hardcoded literal.
+  3. `XMLUtils.CanonizeIP`'s IPv6 "::" expansion drops the boundary zero group when the
+     compressed run is at the very END of the address (`Postfix == ""`):
+     `"2001:db8:abc:1::/64"` canonicalises to the malformed `"...:0:/64"` (a trailing
+     colon), which later crashes `int('', 16)` in `ConvertCIDRToVariables`. wl_up's own
+     real rulesets never hit this (they always write an explicit trailing zero,
+     `"2001:db8:abc::0/48"`, confirmed in `pgf.uni-potsdam.de-ruleset` — a hand-authored
+     convention that happens to dodge the bug); FaVe's own `routes.json`-derived dst
+     strings don't follow it. **Not fixed in ad6 core** — logged as a §8 item alongside
+     the other latent `CanonizeIP`/`ConvertCIDRToVariables` findings (this one, and the
+     multi-value `ctstate A,B` AND-instead-of-OR bug from §4.2); worked around in
+     `favemodel.py` with `_ipv6_safe`, which inserts the same explicit zero the real
+     rulesets already write by convention. Equivalent, not a behaviour change.
+
+  **A genuine, load-bearing mechanism insight (not a bug):** `KripkeUtils.ConvertToKripke`
+  always calls `_RedirectInputs`, which rewrites every accept-jump reachable from a chain
+  literally named "input" away from the shared `<fwkey>_accept_r0` sink onto a dedicated
+  `<input_entry_key>_accept` node instead — found the hard way (a trivially-satisfiable
+  single-rule INPUT chain returned UNSAT against the shared sink; traced via
+  `Kripke.IterFTransitions`/`IterBTransitions` to this redirect). This is exactly the
+  mechanism that makes multi-chain accept-sharing safe in ad6's own native model; it only
+  applies to chains named "input" (FORWARD/OUTPUT are NOT redirected this way, which is
+  why they needed the explicit routing-retarget above). `favemodel.query_destination_key`
+  targets `<fwkey>_input_r0_accept`, not the shared sink, for a wl_up host being probed.
+
+  **Structural correctness confirmed** (`fave/test/test_ad6_wl_up.py`): 159 devices (136
+  ruleset-bearing + 23 switches), 137 generators/probes (matches §1.3's n=137), model
+  builds and instantiates in ~8s, a full 137-query batch against one probe in ~67s
+  (~0.5s/query — confirms §1.3's "Factor A/B dominate hardest of all four" prediction; the
+  full `cchecks.json`, 11902 entries, is a ~1-2 hour run, a bench script not a routine
+  test).
+
+  **OPEN METHODOLOGY QUESTION, resolved-in-part by Claas already for the state-blindness
+  angle (see below) but with a wl_up-specific wrinkle still worth flagging:** an
+  UNCONSTRAINED existential query against wl_up is close to vacuously "always reachable"
+  — every ip6tables chain here has an unconditional `-m conntrack --ctstate ESTABLISHED
+  -j ACCEPT`, and static header-space analysis (ad6, or any HSA-style tool) cannot
+  distinguish a genuinely-established connection's packet from one merely claiming to be
+  (session state isn't a real per-packet header field) — so a plain check needs
+  `related:0`/state=NEW forcing (already built, §4.2) to say anything meaningful, unlike
+  wl_ifi where this only mattered for the 54 explicitly-stateful checks. Once forced and
+  src-seeded, results become properly differentiated (confirmed on hand-picked pairs,
+  `test_ad6_wl_up.py`) — but comparing against `reachable.json` under STRICT EQUALITY
+  (test_ad6_wl_ifi.py's approach) is the wrong bar for wl_up specifically: its real
+  rulesets carry operationally-necessary rules reach.txt's policy matrix never modelled
+  as role-to-role reachability (e.g. dmz-file's `-s 2001:db8:abc::0/48 --dport 22 -j
+  ACCEPT` grants SSH to file.uni-potsdam.de from every internal /48 subnet, including
+  clients.hssport.uni-potsdam.de, which reachable.json's 29-role list for that target
+  does not contain) — traced and confirmed real (clients.hssport's own seeded src CIDR
+  genuinely falls inside that /48), not a translation artefact. `cchecks.json`'s explicit
+  tuples are the right comparison target instead, same as wl_ifi's own characterization
+  approach (`test_ad6_wl_ifi_stateful.py`) — deferred to a bench script given the ~1-2
+  hour full run.
 - **5.2 Stanford, Internet2 — the small-n hypothesis test (§0). The genuinely remaining
   feasibility risk, corrected 2026-08-20 (§4.4): NOT a parsing-format question (FaVe's
   adapter never depends on ad6's own parser, so "IPv4 vs IPv6-native" is moot) — a
