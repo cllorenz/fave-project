@@ -445,7 +445,24 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   target (2026-08-21g)**, correctly scoped as a SAT-encoding-scale question (LPM-at-scale +
   VLAN-admission cross-product tractability), not a parsing-format question, orthogonal to
   wl_up's state problem (0 stateful checks in either), oracle already in hand
-  (NetPlumber==APKeep==165 on wl_stanford); faithful-VLAN variants likely out of scope.
+  (NetPlumber==APKeep==165 on wl_stanford).
+  **2026-08-21h, before any Stanford-specific translator code: (1) scoping check — the
+  165-target oracle only needs LPM + a cheap dead-port admission gate, not the full
+  VLAN-admission cross-product (`apkeep/adapter.py`'s `_gate_dead_ingress` is binary
+  per-port, not per-(port,VLAN) rewrite; `[[apkeep-vlan-admission-tractability]]` itself
+  says full admission is "NOT needed for wl_stanford" at 165); (2) a real LPM-tiebreak bug
+  found test-first on the reusable `_routing_table`/`_translate_fwd_rule`/
+  `_translate_routing_rule` building block (both dst-specific routes got equal `prio`, so
+  an overlapping-prefix tie resolved by capture order, not prefix length — the same bug
+  class as vanilla NetPlumber's own pre-fix Stanford artifact) and FIXED
+  (`Ad6Adapter._lpm_prio`, `ad6/FAVE_CHANGES.md` §14); confirmed no regression on
+  wl_ifi/wl_up (14/14 fave-side + 10/10 `ad6 make test` suites green — also had to
+  re-`apt-get install` `bison`/`flex`/`m4`/`clasp`/`minisat` after a container reset had
+  silently dropped them, `[[env-integration-tier-deps]]`). **(3) Scope correction (Claas):
+  despite (1)'s narrower framing, work TOWARDS the faithful (VLAN admission + rewrite)
+  variant as the actual target, not around it — faithful-VLAN variants are IN scope,
+  reversing this item's prior "likely out of scope" note. `AD6_PLAN.md` §5.2/§5.3
+  updated.**
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

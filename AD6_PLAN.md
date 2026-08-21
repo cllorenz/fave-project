@@ -814,11 +814,57 @@ corrected directly — see §4.4.)
   cross-product stay tractable in ad6's Kripke/CNF representation, the way NDD's atom
   partitioning tames it in BDD's (`[[apkeep-vlan-admission-tractability]]`), or does it blow
   up the way faithful BDD-APKeep did on the same workloads? Genuinely unknown, still its
-  own spike, still gated at §1.4/§4.4 — but now correctly scoped as a scale/tractability
-  question to measure, not a "can we even express this" question (§4.4's forwarding-jump
-  test suggests expressibility isn't the blocker).
-- **5.3** Faithful-VLAN Stanford/i2 variants: likely **out of scope** for ad6 (it is not a
-  forwarding/VLAN data-plane tool); revisit only if 5.2 succeeds and there is appetite.
+  own spike, still gated at §1.4/§4.4.
+
+  **Scoping check 2026-08-21h, before any Stanford/i2 translator code: is VLAN-admission
+  cross-product actually the gate for the in-scope (165) target, or only for the faithful
+  variant?** Checked against the current code: `apkeep/adapter.py`'s `_gate_dead_ingress`
+  (the fix that made APKeep converge exactly with NetPlumber at 165) is a binary per-port
+  admission gate, not per-(port,VLAN) rewrite — `[[apkeep-vlan-admission-tractability]]`'s
+  own intractability finding is about the coupled admission+egress-rewrite cross-product,
+  which that memory states is "NOT needed for wl_stanford... admission non-binding for
+  all-pairs" at 165. So the 165-target spike's real requirement is **LPM-at-scale + a cheap
+  dead-port gate**, not "LPM + VLAN admission" — smaller than this section previously
+  implied. See below, though, for why this narrower framing is not where the ambition
+  should stop.
+
+  **A real LPM gap found and fixed test-first before any Stanford-specific code, on the
+  reusable building block itself.** `ad6/src/parser/favemodel.py::_routing_table` (built
+  for wl_up, §5.1, and earmarked above for reuse here) only ever received a binary
+  0-vs-65535 `prio` from `fave/ad6/adapter.py`'s `_translate_fwd_rule`/
+  `_translate_routing_rule` — "dst-specific before the no-dst default", not true
+  longest-prefix-match; exact for wl_up only because it happens to have no two
+  overlapping-prefix routes on one device. `ad6/test/parser/favemodeltest.py`'s new
+  `RoutingTableLPMTest` fed the same two overlapping routes (a `/32` and a nested `/64`) in
+  both insertion orders and confirmed the outcome flipped — the identical bug class that
+  made vanilla NetPlumber misreport Stanford as 10/165 before its own fix. **Fixed:**
+  `adapter.py` now computes a real `_lpm_prio(dst)` (longer prefix always sorts first,
+  regardless of capture order); both producer functions use it. Full writeup, both
+  regression tests (`ad6/test/parser/favemodeltest.py`,
+  `fave/test/test_ad6_adapter_lpm_prio.py`), and the "no wl_ifi/wl_up regression" check:
+  `ad6/FAVE_CHANGES.md` §14.
+
+  **Scope correction (Claas, 2026-08-21h): despite the narrower 165-target scoping above,
+  work TOWARDS the faithful variants of the benchmarks, not around them.** The
+  admission-only gate this session confirmed sufficient for the plain 165 result is not the
+  design target — build the Stanford/i2 translator with the faithful (per-port/VLAN
+  admission + egress rewrite) case in view from the start, per §5.3 below (reversed from
+  its previous "likely out of scope" framing).
+- **5.3 Faithful-VLAN Stanford/i2 variants — IN SCOPE, target, not a stretch goal (corrected
+  2026-08-21h, reversing this section's prior "likely out of scope" framing).** The prior
+  framing reasoned ad6 "is not a forwarding/VLAN data-plane tool" and treated the plain
+  165-target result as the finish line; Claas's explicit instruction is the opposite: the
+  ad6 evaluation should work towards the faithful variant, not settle for the
+  admission-non-binding special case. Concretely this means the eventual Stanford/i2
+  translator should model per-(port,VLAN) admission and egress-VLAN rewrite as first-class
+  structure (mirroring how `apkeep/adapter.py`'s `_capture_vlan_port`/rewrite-tracing or
+  ad6's own existing `<vlan>` `GenUtils` element could represent it), not just the dst-IP
+  FIB dead-port special case that happens to reach 165 — even though
+  `[[apkeep-vlan-admission-tractability]]` found the BDD/NDD analogue of the full
+  admission+rewrite cross-product intractable at 16-router scale. Whether ad6's SAT/CNF
+  encoding hits the same wall or fares differently is exactly the open, unresolved question
+  this redirected effort now exists to answer — not an assumption to make either way before
+  trying.
 
 ---
 
@@ -934,10 +980,18 @@ speculatively ahead of need.
   worth the investment. wl_up's correctness work moves to FaVe+NetPlumber (oracle) /
   FaVe+NDD-APKeep (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
   §5.1's resolution, §1.4(b).
-- Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go.
+- Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go. **Scoping
+  narrowed then re-widened 2026-08-21h: the 165-target plain result only needs LPM + a
+  dead-port gate (VLAN admission cross-product is not load-bearing there,
+  `[[apkeep-vlan-admission-tractability]]`); an LPM-tiebreak bug in the reusable
+  `_routing_table`/`_translate_fwd_rule`/`_translate_routing_rule` building block was found
+  test-first and fixed (`ad6/FAVE_CHANGES.md` §14). But per §5.3, the target to build
+  TOWARDS is the faithful (VLAN admission + rewrite) variant, not the plain 165 special
+  case — the tractability go/no-go on that full cross-product is still genuinely open.**
 - Incremental-SAT lever (§6): build before or after the baseline measurement.
 - Primary SAT solver (clasp vs minisat vs pycosat) for the headline numbers.
-- Whether faithful-VLAN variants are in scope for ad6 at all.
+- ~~Whether faithful-VLAN variants are in scope for ad6 at all.~~ **RESOLVED 2026-08-21h
+  (Claas): yes, in scope, and the target — see §5.3.**
 
 ---
 

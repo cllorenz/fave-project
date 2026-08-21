@@ -676,3 +676,75 @@ to test. wl_up's correctness work moves to FaVe+NetPlumber (oracle) / FaVe+NDD-A
 Claas -- item 9/10). Remaining ad6 effort redirects to Stanford/i2 (`AD6_PLAN.md` §5.2), an
 orthogonal, still-open, non-stateful SAT-encoding-scale question with a trusted oracle
 already in hand (NetPlumber==APKeep==165 on wl_stanford).
+
+## 14. §5.2 scoping confirmed (LPM, not VLAN, is the real gate); a genuine LPM-tiebreak
+bug found test-first and fixed in `Ad6Adapter`; scope corrected back toward the faithful
+variants  **[FIX + finding]**
+
+**Scoping check before any Stanford/i2 translator work: is the VLAN-admission-cross-product
+risk `AD6_PLAN.md` §5.2 flags actually load-bearing for the in-scope target?** Checked
+against the current code, not assumed. `fave/apkeep/adapter.py`'s `_capture_in_admit`/
+`_gate_dead_ingress` (the fix that made APKeep converge exactly with NetPlumber at 165,
+`[[stanford-forwarding-overapprox]]`) is a binary per-physical-port admission gate ("does
+this ingress port have any admission rule at all"), not per-(port,VLAN) rewrite --
+`[[apkeep-vlan-admission-tractability]]`'s intractability finding is specifically about the
+coupled admission+egress-VLAN-*rewrite* cross-product, which that same memory states
+outright is "NOT needed for wl_stanford... source spans all VLANs => admission
+non-binding for all-pairs" at the current 165 target. That full-VLAN mode is gated behind
+`_faithful_vlan`/`_i2_faithful` flags in `apkeep/adapter.py`, off by default. So §5.2's real
+requirement for the 165-target benchmark is **LPM-at-scale forwarding + a cheap dead-port
+gate**, not "LPM + VLAN admission" -- a smaller spike than the plan text implied.
+
+**Built the LPM half of that spike test-first, on the actual reusable building block, before
+writing any Stanford-specific code.** `ad6/src/parser/favemodel.py::_routing_table` is the
+dst-egress-selection mechanism `AD6_PLAN.md` §5.1 built for wl_up and §5.2 earmarks for
+reuse on Stanford/i2's FIB; its own docstring said "ad6 has no LPM" and excused this because
+"wl_up's own routing table never has two overlapping-prefix routes on one device, confirmed
+via the captured rules" -- an empirical fact about *that* benchmark, not a property of the
+mechanism. `fave/ad6/adapter.py`'s `_translate_fwd_rule`/`_translate_routing_rule` (the
+producers of the `prio` field `_routing_table`/`_build_device_table` sort by) assigned every
+dst-specific route the *same* `prio` (0; only the no-dst default got 65535) -- a stable sort
+over equal keys, so a tie between two overlapping-prefix routes resolved to whichever the
+caller happened to append first, not to prefix length.
+
+New test `ad6/test/parser/favemodeltest.py::RoutingTableLPMTest` (wired into `make test` as
+the new `ParserSuite`) drove `_routing_table` directly (not a hand-rolled model) with a real
+`/32` and a nested `/64` route, in both insertion orders, forcing the destination header to
+an address inside both via the same `XMLUtils.CanonizeIP`/`ConvertCIDRToVariables` machinery
+`fave_bridge.py`'s `_seed_literals` already trusts. **Confirmed failing pre-fix**: with
+`[general, specific]` capture order the `/32` wrongly won (`general reached: True, specific
+reached: False`); with the order swapped the `/64` happened to win by luck. Identical route
+content, only order changed, different (and one wrong) answer -- the same bug class that
+made vanilla NetPlumber misreport Stanford as 10/165 before its own reprioritisation fix
+(`[[stanford-forwarding-overapprox]]`).
+
+**Fix:** `fave/ad6/adapter.py` gets `_prefix_len(cidr)` (mask-length parser, defensive
+32/128 fallback for a bare address) and `_lpm_prio(dst)` (`65535` for the no-dst default,
+else `65535 - 1 - prefix_len(dst)`), so a longer prefix always sorts before a shorter one on
+the same device regardless of capture order; both `_translate_fwd_rule` and
+`_translate_routing_rule` now call it instead of the old binary split (both functions had
+the identical pattern and the identical latent risk, so both were fixed together).
+`_routing_table`'s docstring updated accordingly. Regression coverage, test-first: the
+`ad6/`-side `RoutingTableLPMTest` (rebuilt with realistic `prio` values -- ad6's test tree
+cannot import `fave/ad6/adapter.py`, separate PYTHONPATH roots/venvs, so the formula is
+duplicated locally with a cross-reference) now asserts both insertion orders agree;
+`fave/test/test_ad6_adapter_lpm_prio.py` pins `_lpm_prio`/`_prefix_len` directly (5 cases,
+including a real bug in this test file's own first draft of `_prefix_len`'s bare-address
+fallback, caught by its own `rpartition` edge case and fixed before landing). No regression:
+`ad6 make test` (10 suites, including `clasp`/`minisat`, both of which needed
+`apt-get install` after a container reset had silently dropped them alongside `bison`/
+`flex`/`m4` -- see `[[env-integration-tier-deps]]`) and `fave/test/test_ad6_wl_ifi.py`/
+`test_ad6_wl_ifi_stateful.py`/`test_ad6_wl_up.py`/`test_ad6_adapter_lpm_prio.py` (14/14) all
+green -- the fix is prio-value-only and order-preserving wherever routes don't genuinely
+overlap (wl_ifi/wl_up's case), so it cannot change either benchmark's already-verified
+result.
+
+**Scope correction (Claas): despite §5.3's "faithful-VLAN variants likely out of scope"
+framing, work towards the faithful variants, not around them.** Recorded here as an
+explicit reversal of that framing (`AD6_PLAN.md` §5.3 updated) -- the LPM fix above is a
+prerequisite either way (both the plain-165 and the faithful-VLAN targets need correct
+dst-FIB forwarding), but the admission-only gate this session confirmed sufficient for 165
+is NOT the end state to design toward; the Stanford/i2 translator should be built with the
+faithful (per-port,VLAN admission + egress rewrite) target in view from the start, not
+scoped down to what the current 165 oracle happens to require. `AD6_PLAN.md` §5.2/§5.3
+updated to reflect this.
