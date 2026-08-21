@@ -402,33 +402,50 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
 - [ ] **Metric & methodology alignment (§2).** Unify all four tools on **build + query×count** (ad6 already emits the instantiate/solve split + median/stdev/yappi); native/JVM/Python fairness; SAT-solver variance protocol.
 - [~] **Revive & harden ad6 (§3). §3.1/§3.3 DONE 2026-08-20 (commit `53e1f53d`).** `make test` green (46/46; fixed a stdlib-shadowing bug and a test-fixture firewall-key convention bug, both documented in `ad6/FAVE_CHANGES.md`); deps pinned in the shared `Dockerfile` (minisat, clasp, lxml, yappi, pycosat). Remaining: §3.2 reproduce the ~36 min wl_up reachability baseline (re-run fresh rather than dating the old run — see AD6_PLAN.md §3.2).
 - [~] **Integrate with FaVe (§4). §4.1 decided; §4.4 major correction from Claas, incorporated 2026-08-20.** Decided (B) model translation: a new FaVe-model→ad6 translator, NOT ad6's own `IP6TablesParser`. **Correction (Claas):** I had wrongly gated wl_ifi (and implicitly Stanford/i2) on whether ad6's own parser could read their native format (Cisco IOS ACL) — wrong question, since FaVe parses everything and the adapter emits ad6's IR directly, never touching ad6's parser. Investigated ad6's actual frontend/backend coupling: `GenUtils` (`ad6/src/xml/genutils.py`) is already a clean, generic Config-tree IR builder fully decoupled from iptables-text parsing — the "major refactor" is mostly already done on ad6's side; the real work is a new translator module. Experimentally verified (built a synthetic 2-interface test, not assumed): a rule's `jump` action can target a specific declared egress interface directly, giving real per-rule forwarding/routing semantics with zero ad6 backend changes — de-risks wl_ifi's router-forwarding and Stanford/i2's FIB modelling. wl_ifi reinstated as the recommended **first** translator-development target (small, fast, exercises ACL+forwarding+VLAN together) — ahead of wl_up, not gated behind Stanford/i2's bucket. wl_tum's differential (built before this correction) stays valid as the backend/solving-path validation: ad6 and NetPlumber agree exactly on source.tum→probe.tum. Current build order: wl_ifi (translator) → wl_up (+ stateful `<->>` instantiator) → Stanford/i2 (+ LPM-at-scale/VLAN admission, the genuinely remaining scale question). **wl_ifi DONE 2026-08-20: exact match to `reachable.json` (54/54)** — `fave/ad6/adapter.py` (capture) + `ad6/src/parser/favemodel.py` (FaVe-model→ad6 translator) + `ad6/fave_bridge.py` (subprocess bridge, since ad6 never runs in-process inside FaVe) + `fave/test/test_ad6_wl_ifi.py`. Surfaced two real ad6-core gotchas along the way, **both since fixed test-first in core (2026-08-21)**: a `/0` CIDR silently produced an empty (vacuously-false-when-forced) Gamma instead of match-all, and `_CreateInitConstraints`'s chained-XOR was broken for essentially all N>3, not just an off-by-one tail. Details + full gotcha writeup: `AD6_PLAN.md` §4.4, `ad6/FAVE_CHANGES.md`. **Stateful `<->>` query-forcing BUILT 2026-08-21** (`_capture_acl`'s `related` capture, `favemodel._acl_rule`'s `GenUtils.state(...)`, `fave_bridge._state_literals`, `Ad6Adapter._cond_to_json`) and exercised end-to-end against wl_ifi's real `cchecks.json`: all 245 plain checks + all 27 related:1 checks pass; all 27 related:0 checks currently fail against a traced, state-blind real ACL rule (not a translation gap — `bench/wl_ifi/acls.txt` genuinely carries no ctstate qualifier there). Two unrelated wiring bugs found and fixed along the way (RuleField JSON round-tripping through the subprocess bridge; `cchecks.json`'s `valid`/`negated` polarity is inverted from `check_compliance`'s own convention). **Resolved by Claas:** wl_ifi's ACLs are genuinely state-blind (Cisco ACLs are stateless in practice); the 27 `related:0` failures are correct, expected findings, not a bug — wl_ifi was shipped with `<->>` operators reflecting the security official's real intent even though the ACLs don't enforce it, specifically so a tool could catch this gap. **wl_up BUILT 2026-08-21 — a structurally new translator, not an extension.** wl_up's rule-bearing devices are FaVe `packet_filter`/`host` models (not wl_ifi's Cisco-ACL `router`), but their real rulesets (`bench/wl_up/rulesets/*-ruleset`) are literal ip6tables text — byte-identical to ad6's own bundled `bench/up` rulesets — so the translator feeds them straight into ad6's own `IP6TablesParser` (proven at scale on wl_tum) rather than hand-translating FaVe's re-parsed Match objects field by field; only dst-LPM routing and a transit device's to-self/in-transit dispatch are genuinely new adapter work (`fave/ad6/adapter.py` + `ad6/src/parser/favemodel.py:_build_ruleset_firewall/_routing_table/_dispatch_table`). Three real bugs found+fixed (two IPv4-hardcoded gaps in the adapter/translator now IPv6-aware; a `CanonizeIP` trailing-"::" IPv6 bug, originally worked around, **now fixed in core 2026-08-21, test-first, at Claas's explicit request** — turned out worse than first logged: leading-`::` and `::`-alone were ALSO broken, plus a separate crash for an address with no `::` compression at all; `ad6/FAVE_CHANGES.md` §11, `AD6_PLAN.md` §8.2b — the `_ipv6_safe` workaround is removed, verified redundant first). Also found and fixed in passing: `testCIDRMatchAll` (the `/0`-bug regression test) had never actually been wired into `xmlsuite.py`, so `make test` never ran it — fixed alongside the new test. Structural correctness confirmed (159 devices, 137 generators/probes, `fave/test/test_ad6_wl_up.py`). **Open methodology question:** wl_up's real rulesets carry operationally-necessary rules (e.g. blanket admin SSH) that reach.txt's policy matrix never modelled as role-to-role reachability — traced one concrete case confirming this is real, not a bug — so `reachable.json` strict-equality (wl_ifi's approach) is the wrong bar for wl_up; `cchecks.json`'s explicit tuples are the right target instead, deferred to a bench script (~1-2 hour full run at 11902 entries). Details: `AD6_PLAN.md` §4.2/§5.1/§8.2b, `ad6/FAVE_CHANGES.md` §9-11.
-- [ ] **STOP — GO/NO-GO FLAG raised 2026-08-21, owner decision required, NOT yet resolved.**
-  Running wl_up's stateful differential (`bench/wl_up/eval/wl_up_cchecks_diff.py`'s sample
-  mode, 10 singleton sources / 1092 of 11902 checks) surfaced that the stateful instantiator
-  is **not a sound oracle for wl_up** — two independent bugs: **(1) the `related:1`
-  (ESTABLISHED) half of every `<->>` check is vacuously true.** ad6's `IP6TablesParser`
-  encodes `--ctstate ESTABLISHED` as one free, exogenous bit with no causal link to an
-  actually-permitted reverse flow — unlike `fave/iptables/generator.py`'s own "state shell
-  interweaving" (`_derive_general_state_shell`/`_derive_conditional_state_shells`/
-  `_interweave_state_shell`), which derives the ESTABLISHED-return leg from the real
-  corresponding NEW-state permit in the opposite chain. Confirmed directly: forced
-  `related:1`, must-NOT-reach, for the 8 singleton sources against two org probes — **all 8
-  report reachable=True**, including the one source (`adm`) independently confirmed
-  correctly blocked on the `related:0` side. This is architectural, not a wl_up quirk — it
-  would reproduce on any ip6tables ruleset using `--ctstate` (standard practice). **This
-  FALSIFIES this item's own earlier "ad6 already has the STATE field end-to-end... so this
-  is query-orchestration work, not new modelling" call** (line above, from the §1
-  GO/NO-GO gate). **(2)** a second, separate, still-unexplained bug: 7 of 8 structurally
-  identical hosts (one shared `/64`) bypass an explicit source-scoped DROP rule on
-  `related:0`/NEW; only 1 of 8 is correctly blocked, deterministically and
-  address-specifically (not query-order-dependent) — root cause not yet found (leading
-  suspect: `Instantiator._ShortenPrefixes` CIDR canonicalization at the full 159-device
-  model's scale). **Options on the table, none chosen yet:** stop (NO-GO) and leave wl_up at
-  its current structural/characterization-only state; scope wl_up's ad6 comparison down to
-  non-stateful checks only; or invest in porting something like the state-shell interweaving
-  into ad6's translator before resuming. Full writeup + evidence: `AD6_PLAN.md` §5.1's "STOP"
-  block, §1.4(b), "Open decisions"; `ad6/FAVE_CHANGES.md` §12.
-- [ ] **Extend to all benchmarks (§5).** wl_up + wl_tum + **wl_ifi** (ad6's home turf via the translator, wl_ifi reinstated 2026-08-20 — see §4 above); **Stanford/Internet2 = the genuinely remaining feasibility risk**, now correctly scoped as a SAT-encoding-scale question (LPM-at-scale + VLAN-admission cross-product tractability), not a parsing-format question; faithful-VLAN variants likely out of scope.
+- [x] **RESOLVED 2026-08-21g — GO/NO-GO decided: NO-GO on wl_up via ad6 (stateful AND
+  plain).** Bug 2 (7/8 structurally identical hosts bypassing a source-scoped DROP under
+  `related:0`/NEW) was root-caused: `ad6/fave_bridge.py`'s query source-address seeding
+  used a bare named-alias SAT variable instead of the canonical shared bit-vector
+  conjunction — only constrained anything if that exact address string happened to be
+  referenced verbatim elsewhere in the whole model (true by coincidence for `adm`, false
+  for the other 7). Fixed by seeding via `XMLUtils.ConvertCIDRToVariables` instead (commit
+  `dfd543b0`), test-first, same discipline as every other ad6 fix this cycle; `ad6 make
+  test` (9 suites) and the three `fave/test/test_ad6_wl_up.py`/`wl_ifi(_stateful)` suites
+  (9/9) stay green. The fix generalizes: re-running `wl_up_cchecks_diff.py`'s sample mode
+  at 3342 checks (1126 stateful) afterward found only **1 stateful violation total** (was
+  ~45% before the fix).
+
+  **But that same larger run surfaced something bigger: PLAIN (non-stateful) wl_up checks
+  are almost totally broken too — 1712 of 1713 "must NOT reach" plain checks came back as
+  false violations (99.94%).** Same root cause as bug 1 (§ above): every wl_up device's
+  unconditional `ctstate ESTABLISHED → ACCEPT` is a free bit any unconstrained query
+  satisfies for free. **So "scope wl_up down to non-stateful checks" is not a safe
+  fallback — the plain path is the MORE broken one, not the safer one.** Checked directly
+  (not assumed) whether FaVe+NetPlumber has the same problem: no — `bench/
+  generic_benchmark.py` defaults `use_interweaving=True`, routing wl_up's ruleset text
+  through FaVe's *own* `fave/iptables/generator.py` state-shell interweaving at
+  model-construction time, so there's no free bit for a plain query to exploit; this
+  codebase already has an exact-match, 0-diff, 3660/3660 APKeep-vs-NetPlumber result on
+  wl_up's full plain reachability matrix (`bench/wl_up/eval/apkeep_up_diff.py`'s docstring,
+  `[[apkeep-ndd-baseline-and-gonogo]]`) against a *sparse* (~3370-pair) reachable set — not
+  ad6's near-universal answer.
+
+  **Decision (Claas):** porting real state-shell interweaving into
+  `ad6/src/parser/iptables.py` would mean re-implementing, in a 2014 codebase that has
+  already produced four real core bugs in two days, a mechanism FaVe already has working —
+  undercutting the "generic tool, low integration cost" thesis this evaluation exists to
+  test. wl_up's correctness work moves to **FaVe+NetPlumber (oracle) / FaVe+NDD-APKeep
+  (arbiter)** — already proven, nothing new to build — not to ad6. wl_tum's and wl_ifi's
+  exact-match ad6 results stand unaffected (neither needed interweaving). Remaining ad6
+  effort redirects to Stanford/i2 (§5, below). Full writeup: `AD6_PLAN.md` §5.1's
+  resolution, §1.4(b); `ad6/FAVE_CHANGES.md` §13.
+- [ ] **Extend to all benchmarks (§5).** wl_up (NO-GO via ad6, see above — moves to
+  FaVe+NetPlumber/NDD-APKeep instead) + wl_tum + **wl_ifi** (both exact-match, done, ad6's
+  home turf via the translator); **Stanford/Internet2 = now the primary remaining ad6
+  target (2026-08-21g)**, correctly scoped as a SAT-encoding-scale question (LPM-at-scale +
+  VLAN-admission cross-product tractability), not a parsing-format question, orthogonal to
+  wl_up's state problem (0 stateful checks in either), oracle already in hand
+  (NetPlumber==APKeep==165 on wl_stanford); faithful-VLAN variants likely out of scope.
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

@@ -596,3 +596,83 @@ something functionally equivalent to the state-shell interweaving *inside* ad6's
 translator, which is new modelling, not orchestration. **GO/NO-GO flag raised for Claas**
 (AD6_PLAN.md §5.1's "STOP" block, §1.4(b), "Open decisions") -- not resolved as of this
 writing. No source change in this item; nothing has been fixed.
+
+## 13. Bug 2 root-caused and fixed; plain wl_up queries found equally vacuous;
+GO/NO-GO resolved: NO-GO on wl_up via ad6, effort redirected to Stanford/i2
+
+**Bug 2's real root cause -- not `_ShortenPrefixes` (that hypothesis was built, tested in
+isolation with a targeted unit repro, and cleared before landing on the real cause).**
+`ad6/fave_bridge.py`'s query source-address seeding (`_seed_conjunct`) forced the packet's
+source into a CIDR via a bare named-alias SAT variable
+(`XMLUtils.ConvertToVariables`'s `<ip>`-element form) instead of the canonical shared
+bit-vector conjunction (`XMLUtils.ConvertCIDRToVariables`'s flattened
+`ip<version>_src_<i>=<bit>` literals) -- the identical footgun class `_state_literals`
+(item 9) already had to avoid for state-forcing, just never applied to address-seeding.
+The alias only constrains anything if that *exact* address/CIDR string happens to already
+be `Handled` (defined via an equality clause during `Instantiator.InstantiateBase`'s scan)
+by some *other* rule referencing it verbatim elsewhere in the whole 159-device model.
+Checked against the real ruleset corpus (`grep -rn -- "-s 2001:db8:abc:1::$i\b"` across
+every `bench/wl_up/rulesets/*-ruleset`): true by coincidence for `::8` (`adm`, referenced
+in an unrelated admin-SSH rule in `pgf.uni-potsdam.de-ruleset`), false for the other 7
+singleton hosts, which their real rulesets only ever match via the broader `/64`.
+
+**Fix:** `_seed_conjunct` -> `_seed_literals`, now builds and flattens via
+`ConvertCIDRToVariables`, mirroring `_state_literals`'s existing discipline exactly;
+call site changed `instance[0].append(...)` -> `instance[0].extend(...)`. Regression tests
+added test-first, confirmed failing pre-fix (isolated via `git stash`/`pop`), passing
+post-fix: `ad6/test/core/instantiatortest.py::testSrcCidrQuerySeedMustUseSharedBitVector`
+(mechanism-pinning, standalone one-firewall repro) and
+`fave/test/test_ad6_wl_up.py::test_stateful_checks_on_real_pairs` (extended to all 8
+singleton hosts against a real probe). `ad6 make test` (9 suites) and
+`fave/test/test_ad6_wl_up.py`/`test_ad6_wl_ifi.py`/`test_ad6_wl_ifi_stateful.py` (9/9) all
+green. Committed `dfd543b0`.
+
+**The fix generalizes -- this is not just an 8-host patch.** Re-running
+`bench/wl_up/eval/wl_up_cchecks_diff.py`'s sample mode at full size (35/131 orgs sampled,
+3342 checks, 1126 stateful) afterward found only **1 stateful violation total** (was ~45%
+of a much smaller sample before the fix) -- strong evidence the fix holds at scale, not
+just on the 8 hosts it was diagnosed from.
+
+**But that same larger run surfaced something more important than confirming the fix:
+PLAIN (non-stateful, no `related` condition at all) checks are almost totally broken
+too.** Of 1713 plain "must NOT reach" checks in the sample, **1712 came back as false
+violations (99.94%)**; all 503 plain "must reach" checks correctly passed. Root cause is
+the same as item 12's bug 1: every wl_up device carries an unconditional
+`-m conntrack --ctstate ESTABLISHED -j ACCEPT`, a free bit any unconstrained query can
+satisfy regardless of source -- a plain check forces no state literal either way, so it
+falls into exactly this trap. This had been flagged as a *theoretical* risk in
+`AD6_PLAN.md` §5.1's prose ("an unconstrained existential query is close to vacuously
+reachable") but never measured until now; the true number is not "close to" but total.
+**Consequence: scoping wl_up's ad6 comparison down to non-stateful checks is not the safe
+fallback it looked like -- the plain path is the MORE broken one, not the safer one.** The
+only wl_up queries behaving soundly are `related:0` (state=NEW)-forced ones; `related:1`
+stays vacuous (bug 1, unfixed, architectural) and plain queries are vacuous for the
+identical underlying reason.
+
+**Checked directly (not assumed) whether FaVe+NetPlumber has the same problem: no.**
+`fave/bench/generic_benchmark.py`'s `GenericBenchmark` defaults `use_interweaving=True`,
+which (via `util/bench_utils.py`'s `_add_packet_filter`) routes wl_up's real ip6tables
+ruleset text through FaVe's *own* translator, `fave/iptables/generator.py` -- the
+`_derive_general_state_shell`/`_derive_conditional_state_shells`/`_interweave_state_shell`
+machinery derives the ESTABLISHED-accept leg from the actual corresponding NEW-permit rule
+and splices it in as a real flow-space constraint at model-construction time, so there is
+no free bit for a plain query to exploit. `ad6/src/parser/iptables.py`'s `IP6TablesParser`
+has no equivalent pass. Corroborating evidence already in this codebase (cited, not
+re-measured this session): `fave/bench/wl_up/eval/apkeep_up_diff.py`'s docstring records
+an exact match, 0 diffs, 3660/3660, between APKeep and NetPlumber on wl_up's full 137x137
+plain reachability matrix -- a *sparse* reachable set (`reachable.json` itself lists 3370
+policy-intended reachable pairs), not anything close to ad6's near-universal answer. Two
+independent real engines agreeing on a restrictive plain-reachability result is strong
+evidence this is an ad6-specific gap, not a generic HSA/state limitation.
+
+**Decision (Claas, 2026-08-21): NO-GO on wl_up via ad6, for both the stateful and plain
+path.** Porting real state-shell interweaving into `ad6/src/parser/iptables.py` would mean
+re-implementing, inside a 2014 codebase that has already produced four real core bugs in
+two days, a mechanism FaVe already has working in `fave/iptables/generator.py` -- and doing
+so would undercut the "generic tool, low integration cost" thesis this evaluation exists
+to test. wl_up's correctness work moves to FaVe+NetPlumber (oracle) / FaVe+NDD-APKeep
+(arbiter) instead of ad6. wl_tum's and wl_ifi's exact-match ad6 results stand unaffected
+(wl_tum has no stateful checks; wl_ifi's real ACLs are genuinely state-blind, confirmed by
+Claas -- item 9/10). Remaining ad6 effort redirects to Stanford/i2 (`AD6_PLAN.md` §5.2), an
+orthogonal, still-open, non-stateful SAT-encoding-scale question with a trusted oracle
+already in hand (NetPlumber==APKeep==165 on wl_stanford).

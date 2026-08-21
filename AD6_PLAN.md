@@ -5,8 +5,14 @@
 correction from owner review, incorporated same day (wl_ifi reinstated, ad6 needs a new
 FaVe-model translator, not a backend refactor). **The translator is now built and proven:
 wl_tum (ad6-native format) and wl_ifi (via the new translator, forwarding+ACL) both
-EXACTLY MATCH their NetPlumber/reachable.json oracles.** wl_up remains, needing the
-stateful `<->>` instantiator (§4.2) added on top of the same translator. Owner: Claas
+EXACTLY MATCH their NetPlumber/reachable.json oracles.** wl_up is **NO-GO, resolved
+2026-08-21g**: even after fixing a real query-seeding bug (commit `dfd543b0`), plain
+(non-stateful) wl_up queries turned out to be as vacuously reachable as the still-broken
+stateful `related:1` ones — both are the same architectural gap (no state-shell
+interweaving in `IP6TablesParser`) that FaVe's own NetPlumber pipeline already avoids via
+`fave/iptables/generator.py`. wl_up's correctness work moves to FaVe+NetPlumber/
+FaVe+NDD-APKeep; remaining ad6 effort redirects to **Stanford/i2 (§5.2)**, an orthogonal,
+still-open, non-stateful scale question. Owner: Claas
 Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
@@ -263,7 +269,15 @@ what follows is the CURRENT state, not the history):
   makes ad6's per-pair cost worse (3 independent solves, not 1) than the original plan
   assumed. wl_tum's oracle is a single reachability check (not an FPL role-mesh — confirmed
   against `policies.json`), so it doesn't need the stateful instantiator and can stay the
-  simplest validation of the plain path.
+  simplest validation of the plain path. **RESOLVED 2026-08-21g — GO/NO-GO decided: NO-GO
+  on wl_up via ad6, for both the stateful AND plain path; see §5.1's resolution and "Open
+  decisions" below.** wl_up's second bug (§5.1) was root-caused and fixed, but a follow-on
+  measurement then found *plain* (non-stateful) wl_up queries are equally vacuous (1712/1713
+  false violations, sample), for the same structural reason as bug 1 — so scoping wl_up's ad6
+  comparison down to "just drop `<->>`" is not the safe fallback it looked like; there is no
+  sound subset of wl_up left for ad6 without porting real state-shell interweaving into its
+  translator, which Claas judged not worth the investment. Remaining ad6 effort redirects to
+  Stanford/i2 (§5.2), which needs none of this (0 stateful checks in either).
 - **(c) Incremental-SAT lever (§6):** build **after** the (now-stateful) wl_up baseline, not
   before. §6 is only worth the effort if wl_up's O(n²)-ish query cost is shown to actually
   dominate wall-clock (more likely now that each `<->>` pair costs 3 solves) rather than
@@ -717,6 +731,82 @@ corrected directly — see §4.4.)
     `ad6/src/parser/iptables.py` (or a FaVe-side pre-processing pass ahead of
     `Ad6Adapter.load_bench_metadata`) so `related:1` stops being vacuous, before resuming the
     differential.
+
+  **RESOLVED 2026-08-21g — bug 2 root-caused and fixed; a bigger, decisive finding
+  surfaced immediately after; Claas decided NO-GO on wl_up via ad6 (both stateful and
+  plain), effort redirected to Stanford/i2 (§5.2).**
+
+  **Bug 2's real root cause (not `_ShortenPrefixes` — that hypothesis was tested in
+  isolation and cleared): `ad6/fave_bridge.py`'s query source-address seeding
+  (`_seed_conjunct`) forced the packet's source via a bare named-alias SAT variable
+  (`XMLUtils.ConvertToVariables`'s `<ip>`-element form) instead of the canonical shared
+  bit-vector conjunction (`XMLUtils.ConvertCIDRToVariables`'s flattened
+  `ip<version>_src_<i>=<bit>` literals) — the exact same footgun class `_state_literals`
+  already had to avoid for state-forcing, just never applied to address-seeding. The alias
+  only constrains anything if that *exact* address/CIDR string happens to already be
+  `Handled` by some *other* rule referencing it verbatim elsewhere in the whole 159-device
+  model — true by coincidence for `adm` (referenced in an unrelated admin-SSH rule
+  elsewhere) and false for the other 7 singleton hosts, which are only ever matched via the
+  broader `/64` in their real rulesets. Fixed by seeding via `ConvertCIDRToVariables`
+  instead (commit `dfd543b0`); regression tests added test-first
+  (`ad6/test/core/instantiatortest.py::testSrcCidrQuerySeedMustUseSharedBitVector`,
+  `fave/test/test_ad6_wl_up.py::test_stateful_checks_on_real_pairs` extended to all 8
+  hosts), confirmed failing pre-fix, passing post-fix; `ad6 make test` (9 suites) and
+  `fave/test/test_ad6_wl_up.py`/`test_ad6_wl_ifi.py`/`test_ad6_wl_ifi_stateful.py` (9/9)
+  stay green.
+
+  This is a genuine, general fix, not just an 8-host patch: re-running
+  `bench/wl_up/eval/wl_up_cchecks_diff.py`'s sample mode at full size (35/131 orgs, 3342
+  checks, 1126 stateful) afterward found only **1 stateful violation total** (was ~45% on
+  the earlier small sample) — the fix holds at scale.
+
+  **But that same larger run surfaced something more important than the fix: PLAIN
+  (non-stateful, no `related` condition) checks are almost totally broken too — 1712 of
+  1713 "must NOT reach" plain checks came back as false violations (99.94%), while all 503
+  "must reach" plain checks correctly passed.** This is the same root cause as bug 1 (every
+  wl_up device's unconditional `ctstate ESTABLISHED → ACCEPT` is a free bit any query can
+  satisfy for free, with no state forced either way) — already flagged as a *theoretical*
+  risk in this section's prose ("an unconstrained existential query... is close to
+  vacuously reachable"), but never measured until now, and the real number is far starker
+  than "close to" — it is total. **Consequence: "reduce to non-stateful policy" is not a
+  safe fallback scope for wl_up on ad6 — the plain path is the MORE broken one, not the
+  safer one.** The only wl_up queries currently behaving soundly are `related:0`
+  (state=NEW)-forced ones; `related:1` stays vacuous (bug 1, unfixed, architectural) and
+  plain queries are vacuous for the identical reason.
+
+  **Did FaVe+NetPlumber avoid this? Yes, by construction, not coincidence — Claas's own
+  question, checked directly in the code rather than assumed.** `bench/generic_benchmark.py`'s
+  `GenericBenchmark` defaults `use_interweaving=True`, which routes wl_up's real ip6tables
+  ruleset text through FaVe's *own* translator (`fave/iptables/generator.py`, the
+  `_derive_general_state_shell`/`_derive_conditional_state_shells`/`_interweave_state_shell`
+  machinery) instead of a bare structural parser — it derives the ESTABLISHED-accept leg
+  from the actual corresponding NEW-permit rule and splices it in as a real flow-space
+  constraint at model-construction time, so there is no free bit for a plain query to
+  exploit. `ad6/src/parser/iptables.py`'s `IP6TablesParser` has no equivalent pass — this is
+  bug 1's whole root cause, restated at the model-construction level. Corroborating
+  evidence already in this codebase (not re-measured this session, but from the same
+  pinned environment): `bench/wl_up/eval/apkeep_up_diff.py`'s docstring records an
+  **exact match, 0 diffs, 3660/3660**, between APKeep and NetPlumber on wl_up's full
+  137×137 plain reachability matrix (`[[apkeep-ndd-baseline-and-gonogo]]`) — a *sparse*
+  reachable set (`reachable.json` itself lists 3370 policy-intended reachable pairs), not
+  anything close to ad6's near-universal answer. Two independent real engines agreeing on a
+  restrictive plain-reachability answer is strong evidence this is an ad6-specific gap, not
+  a generic HSA/state limitation.
+
+  **Decision (Claas, 2026-08-21): NO-GO on wl_up via ad6, for both the stateful and plain
+  path.** Porting real state-shell interweaving into `ad6/src/parser/iptables.py` would
+  mean re-implementing, inside a 2014 codebase that has already produced four real core
+  bugs in two days, a mechanism FaVe already has working in `fave/iptables/generator.py` —
+  and doing so would undercut the whole "generic tool, low integration cost" thesis this
+  evaluation exists to test. wl_up's correctness work moves to **FaVe+NetPlumber as the
+  oracle, FaVe+NDD/APKeep as the arbiter** (already proven, already exact-matching,
+  nothing new to build) — not to ad6. wl_tum's and wl_ifi's exact-match ad6 results stand
+  unaffected (neither needed interweaving: wl_tum has no stateful checks at all; wl_ifi's
+  real ACLs are genuinely state-blind, confirmed by Claas). Remaining ad6 effort redirects
+  to **§5.2, Stanford/i2** — a completely orthogonal question (LPM-at-scale + VLAN admission,
+  zero `<->>`/connection-state involved in either benchmark) with a trusted oracle already
+  in hand (NetPlumber==APKeep==165 on wl_stanford, `[[stanford-forwarding-overapprox]]`).
+
 - **5.2 Stanford, Internet2 — the small-n hypothesis test (§0). The genuinely remaining
   feasibility risk, corrected 2026-08-20 (§4.4): NOT a parsing-format question (FaVe's
   adapter never depends on ad6's own parser, so "IPv4 vs IPv6-native" is moot) — a
@@ -833,13 +923,17 @@ speculatively ahead of need.
 
 ## Open decisions (resolve at the §1.4 gate)
 - Integration level: (A) `AbstractVerificationEngine` backend vs (B) model translation.
-- **wl_up's stateful instantiator soundness — GO/NO-GO, OWNER DECISION REQUIRED (§5.1,
-  flagged 2026-08-21).** `related:1`/ESTABLISHED checks are vacuously true (architectural
-  gap, no state-shell interweaving in `IP6TablesParser`) and a second, separate, unexplained
-  bug lets 7/8 structurally-identical hosts bypass an explicit source-scoped DROP on
-  `related:0`/NEW. Options: stop (NO-GO), scope wl_up down to non-stateful checks only, or
-  invest in porting `fave/iptables/generator.py`'s state-shell interweaving into ad6's
-  translator.
+- ~~wl_up's stateful instantiator soundness — GO/NO-GO~~ **RESOLVED 2026-08-21g: NO-GO on
+  wl_up via ad6, both stateful and plain.** The second bug (7/8 hosts bypassing a
+  source-scoped DROP under `related:0`) was root-caused and fixed (`ad6/fave_bridge.py`'s
+  query seeding, commit `dfd543b0`) and generalizes at scale (1/1126 stateful violations
+  post-fix, was ~45%). But the follow-on plain-query measurement it enabled found *plain*
+  wl_up checks are equally vacuous (1712/1713 false violations) for the same root cause as
+  the still-unfixed `related:1` bug — so there is no sound subset of wl_up left for ad6
+  without porting FaVe's own state-shell interweaving into `IP6TablesParser`, judged not
+  worth the investment. wl_up's correctness work moves to FaVe+NetPlumber (oracle) /
+  FaVe+NDD-APKeep (arbiter); ad6 effort redirects to Stanford/i2 (§5.2). Full writeup:
+  §5.1's resolution, §1.4(b).
 - Stanford/i2 feasibility in ad6's encoding (IPv4 forwarding + VLAN) — go/no-go.
 - Incremental-SAT lever (§6): build before or after the baseline measurement.
 - Primary SAT solver (clasp vs minisat vs pycosat) for the headline numbers.
@@ -922,14 +1016,23 @@ speculatively ahead of need.
       shortcut like wl_tum). wl_up remaining, needing §4.2's stateful instantiator on top
       of this same translator.
       additionally needs the stateful instantiator.
-- [ ] **§5.1** Enable wl_up + wl_tum + wl_ifi end-to-end through the integrated path.
-      **wl_up's translator BUILT and structurally verified 2026-08-21, but STOPPED at the
-      stateful-differential stage: GO/NO-GO FLAG raised (§5.1 body, "STOP" block) — the
-      `related:1` half of every `<->>` check is vacuously true (architectural gap, ad6's
-      `IP6TablesParser` has no state-shell interweaving), plus a second, separate,
-      unexplained address-specific bug in the `related:0` direction. Owner decision required
-      before the full `cchecks.json` run, the planned 5-org sample, or root-causing bug 2.**
-- [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2.
+- [x] **§5.1** Enable wl_up + wl_tum + wl_ifi end-to-end through the integrated path.
+      **wl_up's translator BUILT and structurally verified 2026-08-21. Stateful
+      differential: bug 2 root-caused and FIXED 2026-08-21g (`ad6/fave_bridge.py` query
+      seeding, commit `dfd543b0`) — generalizes at scale (1/1126 stateful violations on a
+      3342-check sample, was ~45% before the fix). But that same larger run found *plain*
+      wl_up checks are equally vacuous (1712/1713 false violations) — same architectural
+      root cause as the still-unfixed `related:1` bug (no state-shell interweaving in
+      `IP6TablesParser`; confirmed FaVe+NetPlumber avoids this by construction via
+      `fave/iptables/generator.py`'s own interweaving, `use_interweaving=True` default).
+      **RESOLVED: NO-GO on wl_up via ad6 (Claas), both stateful and plain — not worth
+      porting interweaving into ad6's translator. wl_up's correctness work moves to
+      FaVe+NetPlumber/FaVe+NDD-APKeep; ad6 effort redirects to §5.2 Stanford/i2.** wl_tum
+      and wl_ifi's exact-match results stand, unaffected (neither needed interweaving).**
+- [ ] **§5.2** Feasibility spike: IPv4 forwarding (+VLAN) encoding for Stanford/i2. **Now the
+      primary remaining ad6 target (2026-08-21g), following wl_up's NO-GO** — orthogonal to
+      everything above (0 stateful checks in either benchmark), oracle already in hand
+      (NetPlumber==APKeep==165 on wl_stanford, `[[stanford-forwarding-overapprox]]`).
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
