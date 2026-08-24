@@ -133,7 +133,9 @@ def _collect_ports(ir):
         add(sport)
         add(dport)
     for rule in ir["fwd_rules"]:
-        add(rule["port"])
+        for port in rule["ports"]:
+            if port != "__drop__":
+                add(port)
     for rule in ir.get("routing_rules", []):
         add(rule["port"])
     for port in ir.get("generators", {}).values():
@@ -345,12 +347,24 @@ def _build_device_table(device, ir, ports_by_device):
         if _is_constrained(fr["dst"]):
             rule.append(GenUtils.address(
                 fr["dst"], direction='dst', version=_ip_version(fr["dst"])))
-        port_dev, port_no = _split(fr["port"])
-        eacl_vlan = out_port_vlan.get(fr["port"]) if is_acl_device else None
-        if eacl_vlan is not None and acl_out.get(eacl_vlan):
-            target = "%s_eacl%s_r0" % (fwkey, _port_key(port_no))
+        ports = fr["ports"]
+        if ports == ["__drop__"]:
+            # A genuine blackhole (AD6_PLAN.md §5.4 Stage B) -- e.g.
+            # wl_stanford's dst=224.0.0.0/3 multicast discard.
+            target = DROP_KEY
+        elif len(ports) == 1:
+            port_dev, port_no = _split(ports[0])
+            eacl_vlan = out_port_vlan.get(ports[0]) if is_acl_device else None
+            if eacl_vlan is not None and acl_out.get(eacl_vlan):
+                target = "%s_eacl%s_r0" % (fwkey, _port_key(port_no))
+            else:
+                target = iface_key(port_dev, port_no) + "_out"
         else:
-            target = iface_key(port_dev, port_no) + "_out"
+            # A real multi-port (ECMP/multipath) route -- jump to a
+            # dedicated fanout node wire_fanout wires to every one of
+            # `ports`'s egress interfaces (see that function's docstring
+            # for why this can't just be one rule per port).
+            target = "%s_fanout" % key
         rule.append(GenUtils.action('jump', target=target))
         rules.append(rule)
 
@@ -393,7 +407,7 @@ def wire_edges(kripke, ir):
     built, so this must run AFTER it and BEFORE Instantiator.InstantiateBase
     (which reads the transition maps to build the CNF). """
     devices = set(ir["devices"])
-    for sport, dport in ir["edges"]:
+    for sport, dport in _gate_dead_ingress(ir["edges"], ir):
         s_dev, s_port = _split(sport)
         d_dev, d_port = _split(dport)
         if s_dev not in devices or d_dev not in devices:
@@ -402,25 +416,104 @@ def wire_edges(kripke, ir):
                    (entry_key(d_dev, d_port, ir), True))
 
 
-def _attachment(source_name, ir):
-    """ The real "device.port" a generator/probe (identified by its OWN
-    "device.port" in ir["generators"]/ir["probes"], e.g.
-    "source.admin.ifi.1") is wired to in the topology -- i.e. the OTHER end
-    of its one edge, NOT its own port identity (which names no real device
-    at all and must never be fed to entry_key/iface_key). """
+def _gate_dead_ingress(edges, ir):
+    """ AD6_PLAN.md §5.4 Stage B (B0): drop a topology edge delivering
+    traffic to a device on a physical port no admission rule covers --
+    mirrors `apkeep/adapter.py:_gate_dead_ingress` (the fix for
+    wl_stanford's 5 dead-port sources, `[[stanford-forwarding-overapprox]]`
+    memory: a real router and NetPlumber both drop traffic entering an
+    unconfigured/no-VLAN interface; a dst-only forwarding table is
+    in-port-agnostic and would otherwise forward it). No-op unless
+    `ir["in_admit"]` declares a finite admitted-port set for the edge's
+    destination device (`None` = admit-all, the common case for every
+    non-wl_stanford benchmark, which never populates `in_admit` at all). """
+    in_admit = ir.get("in_admit") or {}
+    if not in_admit:
+        return edges
+    kept = []
+    for sport, dport in edges:
+        d_dev, d_port = _split(dport)
+        admit = in_admit.get(d_dev)
+        if admit is not None and d_port not in admit:
+            continue
+        kept.append([sport, dport])
+    return kept
+
+
+def wire_fanout(kripke, ir):
+    """ AD6_PLAN.md §5.4 Stage B (B0): give a multi-port dst-FIB route
+    (ECMP/multipath -- wl_stanford's mid.* stage genuinely has these, e.g.
+    one route forwarding to 15 ports at once) real OR/existential
+    semantics. `_build_device_table` jumps such a route to one dedicated
+    "<rule-key>_fanout" node instead of emitting one rule per port (which
+    ad6's sequential first-match table evaluation would reduce to "only
+    the first port ever fires" -- see `_add_fwd_route`'s docstring in
+    fave/ad6/adapter.py); this wires that node directly to every egress
+    interface via several Kripke.Put calls, the same "no condition to
+    check, just connect" idiom `wire_edges` already relies on for plain
+    topology connectivity (Kripke._FTransitions[key] is already a list,
+    so multiple simultaneous True outgoing edges from one node give OR
+    semantics for free).
+
+    Must re-derive each route's rule position (`pos`) via the EXACT same
+    filter+sort `_build_device_table` uses, since that position is what
+    determines the rule's own key and therefore its fanout node's name --
+    kept as a top-level function (not folded into `_build_device_table`)
+    because the actual Kripke.Put calls can only happen after
+    KripkeUtils.ConvertToKripke has built real interface nodes, the same
+    reason `wire_edges` itself is a separate post-conversion pass. """
+    for device in ir["devices"]:
+        fwkey = _fwkey(device)
+        fwd_rules = sorted(
+            (r for r in ir["fwd_rules"] if r["device"] == device),
+            key=lambda r: r["prio"],
+        )
+        for pos, fr in enumerate(fwd_rules):
+            ports = fr["ports"]
+            if len(ports) <= 1:
+                continue
+            fanout_key = "%s_fwd_r%d_fanout" % (fwkey, pos)
+            for port in ports:
+                port_dev, port_no = _split(port)
+                kripke.Put(fanout_key, (iface_key(port_dev, port_no) + "_out", True))
+
+
+def _attachments(source_name, ir):
+    """ ALL real "device.port" edges attaching a generator/probe (identified
+    by its OWN "device.port" in ir["generators"]/ir["probes"], e.g.
+    "source.admin.ifi.1") to the topology -- i.e. the OTHER end of each of
+    its edges, NOT its own port identity (which names no real device at all
+    and must never be fed to entry_key/iface_key). AD6_PLAN.md §5.4 Stage B
+    (B0), plural because a wl_stanford PROBE genuinely has MANY real
+    attachment points (every access-facing mid.X egress port collapsed
+    from its own out.X stage funnels into one probe -- confirmed 48 for
+    probe.bbra_rtr alone on a 2-router induced slice), unlike wl_ifi/wl_up
+    generators/probes, which each have exactly one. See
+    query_destination_key/wire_probe_fanout for why this matters: resolving
+    only the FIRST such edge (the original single-attachment `_attachment`
+    behaviour) silently checks reachability of one arbitrary real delivery
+    point while ad6 may correctly route via a DIFFERENT one -- found by a
+    forced, hand-verified witness destination coming back UNSAT despite
+    demonstrably reaching one of bbra_rtr's 48 probe-connected ports. """
     devices = set(ir["devices"])
+    out = []
     for sport, dport in ir["edges"]:
         s_dev, s_port = _split(sport)
-        if s_dev == source_name:
-            d_dev, d_port = _split(dport)
-            if d_dev in devices:
-                return d_dev, d_port
         d_dev, d_port = _split(dport)
-        if d_dev == source_name:
-            s_dev, s_port = _split(sport)
-            if s_dev in devices:
-                return s_dev, s_port
-    raise KeyError("no topology edge attaches %r to a real device" % source_name)
+        if s_dev == source_name and d_dev in devices:
+            out.append((d_dev, d_port))
+        elif d_dev == source_name and s_dev in devices:
+            out.append((s_dev, s_port))
+    if not out:
+        raise KeyError("no topology edge attaches %r to a real device" % source_name)
+    return out
+
+
+def _attachment(source_name, ir):
+    """ Single-attachment convenience wrapper over _attachments, for
+    generators -- every real generator has exactly one topology edge
+    (confirmed for wl_stanford's sources too, unlike its probes). """
+    return _attachments(source_name, ir)[0]
 
 
 _GEN_OUTPUT_PORT = "output_filter_in"
@@ -558,9 +651,41 @@ def _build_ruleset_firewall(device, ir):
     return firewall
 
 
-def query_destination_key(dst_dev, dst_port, ir):
-    """ The Kripke node a compliance check's probe attachment resolves to.
-    wl_ifi-style: a probe wires to a device's own declared physical/logical
+def _probe_fanout_key(probe_name):
+    return "probe_fanout_" + probe_name.replace('.', '_').replace('-', '_')
+
+
+def wire_probe_fanout(kripke, ir):
+    """ AD6_PLAN.md §5.4 Stage B (B0): a probe with MORE THAN ONE real
+    topology attachment (wl_stanford: see _attachments' docstring) must be
+    reachable via ANY of them, not just the one query_destination_key used
+    to resolve arbitrarily-first. Wire every one of a multi-attachment
+    probe's real edges directly into one dedicated aggregate node -- the
+    same many-to-one Kripke.Put fanout idiom `wire_fanout` already uses in
+    the other direction (one rule, many egress ports); `Kripke.IterBTransitions`
+    only needs entries in `_BTransitions[key]`, not a registered KripkeNode,
+    so this aggregate key needs no Gamma/firewall of its own, exactly like
+    every other topology-only node `wire_edges` already produces.
+    Single-attachment probes (every existing benchmark) are untouched --
+    query_destination_key keeps resolving them directly, zero added nodes. """
+    for probe_name in ir.get("probes", {}):
+        attachments = _attachments(probe_name, ir)
+        if len(attachments) <= 1:
+            continue
+        agg_key = _probe_fanout_key(probe_name)
+        for d_dev, d_port in attachments:
+            kripke.Put(iface_key(d_dev, d_port) + "_out", (agg_key, True))
+
+
+def query_destination_key(probe_name, ir):
+    """ The Kripke node a compliance check's probe resolves to.
+
+    A probe with more than one real topology attachment (wl_stanford --
+    see _attachments' docstring) resolves to the dedicated aggregate node
+    wire_probe_fanout wires every one of those attachments into.
+
+    Otherwise (every other benchmark, and wl_stanford's own generators):
+    wl_ifi-style, a probe wires to a device's own declared physical/logical
     interface (iface_key's "_out" convention). wl_up-style (AD6_PLAN.md
     §5.1): a probe instead wires to a ruleset device's internal
     "input_filter_accept" marker port -- FaVe's own convention for "this
@@ -582,6 +707,10 @@ def query_destination_key(dst_dev, dst_port, ir):
     way, which is why _build_ruleset_firewall must retarget their
     accept-jumps to routing itself (a plain jump target does not go through
     this INPUT-specific redirect). """
+    attachments = _attachments(probe_name, ir)
+    if len(attachments) > 1:
+        return _probe_fanout_key(probe_name)
+    dst_dev, dst_port = attachments[0]
     if dst_port == _INPUT_ACCEPT_PORT and _is_ruleset_device(dst_dev, ir):
         return "%s_input_r0_accept" % _fwkey(dst_dev)
     return iface_key(dst_dev, dst_port) + "_out"
@@ -641,6 +770,8 @@ def instantiate_base(config, ir):
             node.Props.append(XMLUtils.INIT)
         kripke.PutInit(init, node)
     wire_edges(kripke, ir)
+    wire_fanout(kripke, ir)
+    wire_probe_fanout(kripke, ir)
 
     encoding = Instantiator._InstantiateBase(kripke)
     handled = {}

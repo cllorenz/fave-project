@@ -154,9 +154,8 @@ def main(argv=None):
     solver = PycoSATAdapter()
     results = []
     for q in queries:
-        dst_dev, dst_port = favemodel._attachment(q['probe'], ir)
         source = favemodel.gen_entry_key(q['source'])
-        destination = favemodel.query_destination_key(dst_dev, dst_port, ir)
+        destination = favemodel.query_destination_key(q['probe'], ir)
         instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, destination)
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
             instance[0].extend(_seed_literals(q['src_cidr']))

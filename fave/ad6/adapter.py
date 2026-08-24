@@ -136,9 +136,14 @@ class Ad6Adapter(AbstractVerificationEngine):
     def __init__(self, logger: TraceLogger) -> None:
         self.logger = logger
         self._devices: set = set()
-        self._fwd_rules: List[Dict[str, Any]] = []   # [{device,dst,port,prio}]
+        self._fwd_rules: List[Dict[str, Any]] = []   # [{device,dst,ports,prio}]
+        self._fwd_seen: set = set()                    # (device,dst,tuple(ports)) dedup
         self._routing_rules: List[Dict[str, Any]] = []   # [{device,dst,port,prio}]
         self._edges: List[List[str]] = []             # [[sport,dport], ...]
+        # AD6_PLAN.md §5.4 Stage B (B0): wl_stanford's in.X/out.X stages --
+        # see _capture_in_admit/_capture_out_perm/_collapse_out_stage below.
+        self._in_admit: Dict[str, Optional[set]] = {}   # device -> admitted ports, None=all
+        self._out_perm: Dict[str, Dict[str, set]] = {}   # out.X device -> in_port -> {out_ports}
         self._generators: Dict[str, str] = {}          # name -> "device.port"
         self._probes: Dict[str, str] = {}              # name -> "device.port"
         self._gen_src: Dict[str, str] = {}              # name -> cidr
@@ -216,6 +221,15 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._devices.add(model.node)
 
     def add_rules(self, model: Any) -> None:
+        # AD6_PLAN.md §5.4 Stage B (B0): wl_stanford's device names are
+        # "in.<router>"/"mid.<router>"/"out.<router>" -- this stage prefix
+        # is the same dispatch key fave/apkeep/adapter.py's own Stanford
+        # translator uses. wl_ifi/wl_up devices have no dot-prefixed stage
+        # at all, so `stage` is just their own (irrelevant) node name there
+        # -- this dispatch is purely additive, no existing behaviour changes.
+        stage = model.node.split('.', 1)[0]
+        if stage == 'out':
+            self._capture_out_perm(model)
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -226,6 +240,8 @@ class Ad6Adapter(AbstractVerificationEngine):
                     self._translate_fwd_rule(model.node, rule)
                     self._translate_routing_rule(model.node, rule)
                     self._capture_vlan_port(model.node, rule)
+                    if stage == 'in':
+                        self._capture_in_admit(model.node, rule)
             elif table == acl_in_t:
                 self._acl_devices.add(model.node)
                 self._capture_acl(self._acl_in.setdefault(model.node, {}), rules)
@@ -236,9 +252,15 @@ class Ad6Adapter(AbstractVerificationEngine):
                 self._capture_iport_vlan(rules)
 
     @staticmethod
-    def _out_port(rule: Any) -> Optional[str]:
-        """ The single "device.port" a forwarding rule sends matching traffic
-        to, from either a router's out_port Rewrite or a switch's Forward. """
+    def _out_ports(rule: Any) -> List[str]:
+        """ The "device.port"(s) a forwarding rule sends matching traffic
+        to, from either a router's out_port Rewrite (always single-port --
+        no real router-routing benchmark here has ever needed more) or a
+        switch's Forward (which CAN be multi-port: wl_stanford's mid.*
+        dst-FIB genuinely has ECMP/multipath routes, e.g. `mid.bbra_rtr`
+        forwarding one /23 to 15 distinct egress ports simultaneously --
+        AD6_PLAN.md §5.4 Stage B). Mirrors `apkeep/adapter.py`'s own plural
+        `_out_ports` (which solved the identical problem first). """
         for action in rule.actions:
             if isinstance(action, Rewrite):
                 for field in action.rewrite:
@@ -246,24 +268,66 @@ class Ad6Adapter(AbstractVerificationEngine):
                         phys = str(field.value)
                         if phys.endswith('_egress'):
                             phys = phys[:-len('_egress')]
-                        return phys
+                        return [phys]
         for action in rule.actions:
             if isinstance(action, Forward) and action.ports:
-                return action.ports[0]
-        return None
+                return list(action.ports)
+        return []
+
+    def _out_port(self, rule: Any) -> Optional[str]:
+        """ Single-port convenience wrapper over _out_ports, for call sites
+        (_capture_vlan_port) that only ever need one port and have never
+        seen a multi-port rule in practice. """
+        ports = self._out_ports(rule)
+        return ports[0] if ports else None
 
     def _translate_fwd_rule(self, device: str, rule: Any) -> None:
-        port = self._out_port(rule)
-        if port is None:
-            return  # a discard (no forward action) -- out of scope for wl_ifi
+        ports = self._out_ports(rule)
         dst = None
         for field in (rule.match or []):
             if field.name in _DSTS:
                 dst = str(field.value)
+        if not ports:
+            # A discard (no forward action). wl_ifi never exercises this
+            # (harmless to keep silently dropping). wl_stanford's mid.*
+            # stage genuinely does (e.g. a dst=224.0.0.0/3 multicast
+            # blackhole, no `fd=` at all) -- and a real blackhole DOES need
+            # modelling: leaving no rule at all would let a broader
+            # less-specific route (e.g. the device's own /0 default) wrongly
+            # claim that traffic instead, an over-approximation. Soundness
+            # guard (mirrors apkeep/adapter.py's own): only model this as a
+            # dst-only blackhole when the match is genuinely dst(+vlan)-only
+            # -- a discard qualified by some other field (src/proto/port)
+            # can't be expressed as a dst-only drop without over-dropping,
+            # so leave those as a silent no-op, same as before.
+            fnames = {f.name for f in (rule.match or [])}
+            if dst is None or (fnames - {_DST, _DST6, _VLAN}):
+                return
+            ports = ["__drop__"]
         # Longest-prefix-match priority -- see _lpm_prio's docstring
         # (AD6_PLAN.md §5.2).
         prio = _lpm_prio(dst)
-        self._fwd_rules.append({"device": device, "dst": dst, "port": port, "prio": prio})
+        self._add_fwd_route(device, dst, ports, prio)
+
+    def _add_fwd_route(self, device: str, dst: Optional[str], ports: List[str], prio: int) -> None:
+        """ AD6_PLAN.md §5.4 Stage B: a multi-port route is recorded as ONE
+        entry carrying the whole port list -- NOT one entry per port.
+        ad6's own table evaluation is sequential first-match
+        (KripkeUtils._HandleRule's fallthrough discipline): several
+        separate rules sharing the identical dst condition would let only
+        the FIRST one ever fire, silently dropping the other ports'
+        reachability (see favemodel.py's `wire_fanout`, which gives the
+        real OR/multipath semantics at the Kripke-transition level
+        instead). Deduped on (device, dst, ports) -- harmless for existing
+        benchmarks (never produces duplicates) but real for wl_stanford's
+        `in.*` stage, whose per-VLAN admission rules all share one
+        identical unconditional default route to the same fixed internal
+        port; without this, one entry would be added per admitted VLAN. """
+        key = (device, dst, tuple(ports))
+        if key in self._fwd_seen:
+            return
+        self._fwd_seen.add(key)
+        self._fwd_rules.append({"device": device, "dst": dst, "ports": ports, "prio": prio})
 
     def _translate_routing_rule(self, device: str, rule: Any) -> None:
         """ wl_up (AD6_PLAN.md §5.1): a `PacketFilterModel`'s `.routing` table
@@ -310,6 +374,79 @@ class Ad6Adapter(AbstractVerificationEngine):
         port = self._out_port(rule)
         if port:
             self._vlan_to_eport.setdefault(device, {})[vlan] = port
+
+    def _capture_in_admit(self, device: str, rule: Any) -> None:
+        """ AD6_PLAN.md §5.4 Stage B (B0): record which physical ingress
+        ports an `in.*` device admits -- direct port of
+        `apkeep/adapter.py:_capture_in_admit`. wl_stanford's in-stage rules
+        are in-port-qualified (each lists the ingress ports it permits for
+        a VLAN, ignored here -- B0 has no VLAN modelling at all, only
+        WHICH ports have any admission rule); the union over all rules is
+        the set of ports the router accepts traffic on. A rule with no
+        in-port qualifies every port, marking the device admit-all
+        (`None` -- never gated). """
+        cur = self._in_admit.get(device, set())
+        if cur is None:
+            return
+        if not rule.in_ports:
+            self._in_admit[device] = None
+            return
+        for port in rule.in_ports:
+            cur.add(_split_port(port)[1])
+        self._in_admit[device] = cur
+
+    def _capture_out_perm(self, model: Any) -> None:
+        """ AD6_PLAN.md §5.4 Stage B (B0): wl_stanford's `out.*` stage maps
+        an input port (fed by a `mid.*` egress interface) to a physical
+        output port, possibly under a VLAN match/rewrite (irrelevant to
+        B0's plain port permutation) -- direct port of
+        `apkeep/adapter.py:_capture_out_perm`. """
+        perm = self._out_perm.setdefault(model.node, {})
+        for _table, rules in model.tables.items():
+            for rule in rules:
+                out_ports = self._out_ports(rule)
+                if not out_ports or not rule.in_ports:
+                    continue  # a drop (empty action) or a rule with no in port
+                in_port = _split_port(rule.in_ports[0])[1]
+                perm.setdefault(in_port, set()).update(
+                    _split_port(p)[1] for p in out_ports
+                )
+
+    def _collapse_out_stage(self, edges: List[List[str]]) -> List[List[str]]:
+        """ AD6_PLAN.md §5.4 Stage B (B0): remove wl_stanford's `out.*`
+        stage, splicing its port permutation into the topology directly --
+        ported (not imported) from `apkeep/adapter.py:_collapse_out_stage`,
+        whose algorithm operates purely on the edge list so it transfers
+        directly onto Ad6Adapter's own `[sport, dport]` edge shape. The
+        physical path is `mid.X.<port> -> out.X.<in_port>` (internal link)
+        -> `out.X.<out_port>` (permutation rule, `_capture_out_perm`) ->
+        `in.Y.<port>` / probe (external link). ad6's dst-based forwarding
+        table cannot honour an in-port permutation (there is no dst
+        condition to key it on at all), so this resolves the chain
+        statically and wires the `mid.*` egress interface straight to the
+        external neighbour(s), dropping `out.*` entirely. """
+        mid_to_out: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        out_ext: Dict[Tuple[str, str], List[Tuple[str, str]]] = {}
+        kept: List[List[str]] = []
+        for sport, dport in edges:
+            s_dev, s_port = _split_port(sport)
+            d_dev, d_port = _split_port(dport)
+            if d_dev.split('.', 1)[0] == 'out':          # mid.X -> out.X (internal)
+                mid_to_out[(d_dev, d_port)] = (s_dev, s_port)
+            elif s_dev.split('.', 1)[0] == 'out':          # out.X -> in.Y/probe (external)
+                out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
+            else:
+                kept.append([sport, dport])
+        for out_dev, perm in self._out_perm.items():
+            for in_port, out_ports in perm.items():
+                mid = mid_to_out.get((out_dev, in_port))
+                if mid is None:
+                    continue
+                m_dev, m_port = mid
+                for out_port in out_ports:
+                    for d_dev, d_port in out_ext.get((out_dev, out_port), []):
+                        kept.append(["%s.%s" % (m_dev, m_port), "%s.%s" % (d_dev, d_port)])
+        return kept
 
     def _capture_iport_vlan(self, rules: Any) -> None:
         """ pre_routing assigns an ingress VLAN per physical ingress port
@@ -400,6 +537,17 @@ class Ad6Adapter(AbstractVerificationEngine):
         return None
 
     def _build_ir(self) -> Dict[str, Any]:
+        # AD6_PLAN.md §5.4 Stage B (B0): wl_stanford (and only it) has a
+        # `mid.*` stage; its `out.*` stage is a port permutation to
+        # collapse, exactly like `apkeep/adapter.py:_build`'s own detection
+        # (`any(d.split('.',1)[0]=='mid' ...)` -- there is no other flag
+        # distinguishing this benchmark from wl_ifi/wl_up).
+        devices = set(self._devices)
+        edges = list(self._edges)
+        if any(d.split('.', 1)[0] == 'mid' for d in devices):
+            devices = {d for d in devices if d.split('.', 1)[0] != 'out'}
+            edges = self._collapse_out_stage(edges)
+
         in_port_vlan: Dict[str, str] = {}
         for port, vlan in self._iport_vlan.items():
             device = port.rsplit('.', 1)[0]
@@ -419,10 +567,10 @@ class Ad6Adapter(AbstractVerificationEngine):
             if vlan in self._acl_out.get(device, {})
         }
         return {
-            "devices": sorted(self._devices),
+            "devices": sorted(devices),
             "fwd_rules": self._fwd_rules,
             "routing_rules": self._routing_rules,
-            "edges": self._edges,
+            "edges": edges,
             "generators": self._generators,
             "probes": self._probes,
             "acl_devices": sorted(self._acl_devices),
@@ -430,6 +578,10 @@ class Ad6Adapter(AbstractVerificationEngine):
             "acl_out": self._acl_out,
             "in_port_vlan": in_port_vlan,
             "out_port_vlan": out_port_vlan,
+            "in_admit": {
+                device: (sorted(ports) if ports is not None else None)
+                for device, ports in self._in_admit.items()
+            },
             "ruleset_devices": self._ruleset_text,
             "device_addr": self._device_addr,
         }
