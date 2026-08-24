@@ -466,6 +466,82 @@ class InstantiatorTest(unittest.TestCase):
         self.assertEqual(solver.Solve(instances['cross']),expectation)
 
 
+    def testCycleReachabilityIsUnsoundWithoutRealOrigin(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1): KNOWN, UNFIXED ad6 core
+        limitation, found via wl_stanford's B1 differential (a real
+        backbone network with genuine inter-router cycles). Documented
+        here as a minimal, isolated CHARACTERIZATION -- not a regression
+        test for something that's been fixed.
+
+        Instantiator.InstantiateEndToEnd's reachability query does not
+        require a satisfying model to trace back to a genuinely-fired
+        INIT: a CYCLE of mutually-satisfiable transitions (A->B->C->A,
+        none marked INIT) is a self-consistent fixed point the SAT solver
+        can satisfy for free, entirely independent of whether any real
+        generator's own edge fired. A generator with NO real connection to
+        the cycle at all (`entry`, which only ever jumps to its own
+        unrelated sink) still "reaches" any node in the cycle.
+
+        Confirmed a genuine PRE-EXISTING ad6 core property, not a
+        translator bug: this fixture uses zero Stanford-specific/Stage-0/
+        Stage-A/§5.4-Stage-B machinery, pure GenUtils/Instantiator
+        primitives. ad6's original 2014 design target (a single firewall's
+        own rule-chain, always acyclic by construction -- a table's
+        fallthrough/jump structure has no way to loop back on itself)
+        never needed reachability to be grounded in a real origin.
+        wl_ifi/wl_up's topologies happen to be acyclic too, so this was
+        never exercised until Stanford's real backbone network (genuine
+        redundant inter-router links) surfaced it -- explains why §5.4
+        Stage B0's tiny 2-router slice (bbra_rtr/rozb_rtr, no cycle
+        between just those two) passed cleanly while B1's full 16-router
+        differential did not.
+
+        Fixing this is real core surgery (e.g. a rank/distance variable
+        enforcing strict progress along a real path -- the standard
+        technique for this class of SAT-encoded-reachability pitfall,
+        related to but distinct from what InstantiateCycle/_CreateCycle
+        already checks for) -- deliberately NOT attempted here. This test
+        exists to PIN the exact mechanism for whoever picks this up next,
+        and is expected to start FAILING (a welcome failure) the day it's
+        fixed -- if that happens, update this docstring and AD6_PLAN.md
+        §5.4 Stage B, not just this assertion. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False)
+        solver = PycoSATAdapter()
+
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'A')
+        self.assertTrue(
+            bool(solver.Solve(instance)),
+            "KNOWN gap regressed to being FIXED -- if this now correctly "
+            "returns UNSAT (entry cannot really reach the unrelated "
+            "cycle), update AD6_PLAN.md §5.4 Stage B and this test's own "
+            "docstring: the Stanford B1 blocker this test documents may "
+            "now be resolved.")
+
+
 def main():
     unittest.main()
 

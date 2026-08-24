@@ -180,5 +180,53 @@ class RoutingTableLPMTest(unittest.TestCase):
                 kripke, encoding, keys["nextB.p1"], "2001:db8:2::5/128"))
 
 
+class GenFirewallDeadPortGateTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.4 Stage B (B1): a generator wired to a dead
+    (unadmitted) physical port must be gated exactly like a topology edge
+    into that same port already is (`_gate_dead_ingress`). Found at full
+    16-router wl_stanford scale: a generator's own attachment resolves via
+    `_attachment`/`entry_key` directly inside `_gen_firewall`, never
+    touching `ir["edges"]`/`wire_edges` at all -- so `_gate_dead_ingress`
+    alone left Stanford's 5 well-known dead-port SOURCES
+    (`[[stanford-forwarding-overapprox]]`) reaching every probe. B0's own
+    N=2 differential slice (`bbra_rtr,rozb_rtr`) happens to contain none of
+    the 5, so this was never exercised there -- only surfaced by B1's
+    full-scale live differential against NetPlumber. """
+
+    @staticmethod
+    def _ir(admit):
+        return {
+            "devices": ["in.dev"],
+            "edges": [["source.gen.1", "in.dev.99"]],
+            "in_admit": {"in.dev": admit},
+            "acl_devices": [],
+            "acl_in": {},
+            "ruleset_devices": {},
+            "fwd_rules": [],
+            "routing_rules": [],
+        }
+
+    @staticmethod
+    def _jump_target(firewall):
+        return firewall.find('.//action').attrib['target']
+
+    def test_generator_on_dead_port_jumps_to_drop(self):
+        ir = self._ir(admit={"1", "2"})   # port "99" NOT admitted
+        firewall = favemodel._gen_firewall("source.gen", ir)
+        self.assertEqual(self._jump_target(firewall), favemodel.DROP_KEY)
+
+    def test_generator_on_admitted_port_uses_normal_entry(self):
+        ir = self._ir(admit={"99"})
+        firewall = favemodel._gen_firewall("source.gen", ir)
+        self.assertEqual(
+            self._jump_target(firewall), favemodel.entry_key("in.dev", "99", ir))
+
+    def test_generator_on_admit_all_device_uses_normal_entry(self):
+        ir = self._ir(admit=None)
+        firewall = favemodel._gen_firewall("source.gen", ir)
+        self.assertEqual(
+            self._jump_target(firewall), favemodel.entry_key("in.dev", "99", ir))
+
+
 if __name__ == "__main__":
     unittest.main()

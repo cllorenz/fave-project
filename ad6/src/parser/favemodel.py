@@ -416,6 +416,22 @@ def wire_edges(kripke, ir):
                    (entry_key(d_dev, d_port, ir), True))
 
 
+def _is_admitted(device, port, ir):
+    """ AD6_PLAN.md §5.4 Stage B (B1): True iff `device` (an `in.*`-style
+    admission-checked device) admits physical `port` -- shared by
+    `_gate_dead_ingress` (inter-device topology edges) and `_gen_firewall`
+    (generator attachment, found the hard way at full 16-router scale: a
+    GENERATOR's own attachment resolves via `_attachment`/`entry_key`
+    directly, never touching `ir["edges"]`/`wire_edges` at all, so
+    `_gate_dead_ingress` alone left the 5 well-known dead-port SOURCES --
+    `[[stanford-forwarding-overapprox]]` -- reaching every probe: B0's own
+    N=2 slice, bbra_rtr/rozb_rtr, happens to contain none of the 5, so this
+    was never exercised there). `None` = admit-all (every non-wl_stanford
+    benchmark, which never populates `ir["in_admit"]` at all). """
+    admit = (ir.get("in_admit") or {}).get(device)
+    return admit is None or port in admit
+
+
 def _gate_dead_ingress(edges, ir):
     """ AD6_PLAN.md §5.4 Stage B (B0): drop a topology edge delivering
     traffic to a device on a physical port no admission rule covers --
@@ -433,8 +449,7 @@ def _gate_dead_ingress(edges, ir):
     kept = []
     for sport, dport in edges:
         d_dev, d_port = _split(dport)
-        admit = in_admit.get(d_dev)
-        if admit is not None and d_port not in admit:
+        if not _is_admitted(d_dev, d_port, ir):
             continue
         kept.append([sport, dport])
     return kept
@@ -538,6 +553,13 @@ def _gen_firewall(source_name, ir):
     device, phys_port = _attachment(source_name, ir)
     if phys_port == _GEN_OUTPUT_PORT and _is_ruleset_device(device, ir):
         target = "%s_output_r0" % _fwkey(device)
+    elif not _is_admitted(device, phys_port, ir):
+        # AD6_PLAN.md §5.4 Stage B (B1): a generator's own attachment edge
+        # is not among ir["edges"] wire_edges/_gate_dead_ingress filter --
+        # it resolves directly, here, via _attachment/entry_key -- so a
+        # source wired to a dead (unadmitted) physical port must be gated
+        # explicitly, or it silently bypasses admission entirely.
+        target = DROP_KEY
     else:
         target = entry_key(device, phys_port, ir)
     fw = GenUtils.firewall(_gen_fwkey(source_name))
