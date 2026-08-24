@@ -1140,6 +1140,76 @@ corrected directly — see §4.4.)
   everything from Stage A2 onward (VLAN fidelity, the tractability measurement) — per the
   user's explicit incremental-checkpoint pacing, reported here before proceeding.
 
+  **B1 — scale to 16 routers, DONE 2026-08-24, but STOP: a genuine ad6 CORE soundness gap
+  found, orthogonal to VLAN fidelity, gates everything downstream.** `fave/test/
+  test_ad6_wl_stanford.py` mirrors `test_apkeep_stanford.py` exactly (full 16-router model,
+  live NetPlumber worker diff, not a recorded snapshot). First run: 0 under-approximation
+  (ad6 never drops a real NetPlumber-reachable pair) but a wide over-approximation, matching
+  Stanford's well-known **5 dead-port sources** signature exactly
+  (`bbrb_rtr,boza_rtr,goza_rtr,roza_rtr,yozb_rtr` — `[[stanford-forwarding-overapprox]]`)
+  appearing as a spurious source against almost every probe.
+
+  **Real bug #1, found and fixed: a generator's own attachment bypasses dead-port admission
+  entirely.** `_gen_firewall` resolves a generator's attachment via `_attachment`/
+  `entry_key` directly — never touching `ir["edges"]`/`wire_edges`, so B0's
+  `_gate_dead_ingress` (which only filters device-to-device topology edges) never sees a
+  generator's own edge at all. B0's N=2 slice (`bbra_rtr,rozb_rtr`) contains none of the 5
+  known dead-port routers, so this was never exercised there. **Fixed:** new `_is_admitted`
+  helper shared by `_gate_dead_ingress` and `_gen_firewall` (a dead-port generator now jumps
+  straight to `DROP_KEY`); test-first in `ad6/test/parser/favemodeltest.py::
+  GenFirewallDeadPortGateTest`, confirmed failing via `git stash` before landing. This fix
+  is real, correct, and kept — but **the exact same over-approximation persisted, byte-for-
+  byte identical, after this fix**, revealing a second, deeper cause.
+
+  **Real finding #2, NOT a translator bug, NOT fixed — a pre-existing ad6 CORE limitation:
+  `Instantiator.InstantiateEndToEnd`'s reachability query is unsound for any topology
+  containing a cycle.** Root-caused by direct experiment, not assumption: with nothing
+  forced at all (no source, no init), `probe.bbra_rtr`'s own destination key was already
+  SAT — i.e. some self-consistent assignment satisfies "packet arrived" with zero real
+  origin. Reproduced in a **minimal, fully isolated repro using stock `GenUtils`/
+  `Instantiator` primitives only** (zero Stage 0/A/§5.4-Stage-B/Stanford-specific code
+  involved) — pinned as `ad6/test/core/instantiatortest.py::
+  testCycleReachabilityIsUnsoundWithoutRealOrigin`: a bare 3-node cycle `A->B->C->A` (no
+  node marked INIT) plus a genuine, separate generator `entry` that only ever jumps to its
+  own unrelated sink — `InstantiateEndToEnd(kripke, encoding, 'entry', 'A')` returns **SAT**,
+  i.e. `entry` "reaches" a cycle it has no real connection to whatsoever.
+
+  **Mechanism:** `Instantiator._ConvertNodesToImplications` builds only one-directional,
+  purely LOCAL implications per edge (`transition -> (my_gamma AND some-predecessor-edge-
+  fired)`) — a textbook SAT-encoded-reachability pitfall: a closed loop of such implications
+  is a self-consistent fixed point the solver can satisfy by setting every edge in the loop
+  true simultaneously, with no requirement that the loop is ever entered from a genuinely-
+  fired INIT. `InstantiateEndToEnd`'s two disjunctions (source's own edge fired; destination's
+  own arrival fired) are asserted as **independent** top-level conjuncts, not as one connected
+  path constraint, so a destination inside (or reachable from) such a floating loop is
+  trivially "reachable" from **any** forced source, real connection or none. `Instantiator.
+  InstantiateCycle`/`_CreateCycle` already exists as a distinct ad6 feature for detecting a
+  cycle reachable from init — confirming cycles were a recognized concern in ad6's original
+  design, but never integrated into reachability's own soundness. Consistent with ad6's 2014
+  design target (one firewall's own rule-chain, always acyclic by construction — a table's
+  fallthrough/jump structure cannot loop back on itself): wl_ifi/wl_up's topologies happen to
+  be acyclic too, so this was never exercised before. Stanford's real backbone genuinely has
+  redundant/looped inter-router links — explaining exactly why B0's tiny 2-router slice
+  (no cycle between just `bbra_rtr`/`rozb_rtr`) passed cleanly while B1's full-scale
+  differential does not.
+
+  **This is orthogonal to VLAN fidelity and gates the PLAIN target too** — it is not a Stage
+  A2/B2/B3 concern, it is more fundamental than anything the original plan anticipated. A
+  real fix is genuine core surgery (e.g. a rank/distance variable enforcing strict progress
+  along a real path, the standard technique for this class of pitfall) — comparable in scope
+  to Stage A's own SSA work, deliberately **not attempted without discussing with Claas
+  first**, mirroring the wl_up NO-GO discipline: a significant architectural finding is a
+  decision point, not something to patch around unprompted. Open options, not yet decided:
+  (a) attempt the core fix, its own gated GO/NO-GO stage; (b) NO-GO on exact-match Stanford/
+  i2 reachability via ad6 (mirrors wl_up's precedent), report the finding and redirect; (c)
+  some narrower mitigation not yet identified. **No regression**: `ad6 make test` (10 suites,
+  including the new `testCycleReachabilityIsUnsoundWithoutRealOrigin` characterization) and
+  every pre-existing fave-side ad6 test (27/27 — wl_ifi/wl_ifi_stateful/wl_up/lpm_prio/
+  multi_device_acl/B0's own wl_stanford_plain) stay green. `fave/test/test_ad6_wl_stanford.py`
+  itself (new, B1's own test) has its structural assertion passing and its differential
+  assertion **failing as expected** — it documents the open gap, not a regression, until
+  resolved one way or the other.
+
 ---
 
 ## 6. Algorithmic lever — amortise the O(n²) toward O(n) (optional, high value)

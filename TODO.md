@@ -507,11 +507,21 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   NetPlumber worker: exact match, 0 over/under-approximation. New:
   `fave/test/test_ad6_wl_stanford_plain.py` (9 unit + 2 structural/differential tests,
   confirmed failing pre-fix via `git stash`). No regression: 10/10 `ad6 make test` + 16/16
-  fave-side. **Next (not this session, per the user's incremental-checkpoint pacing): B1
-  (scale to all 16 routers vs the 165 oracle), then Stage A2 (a new `fieldmatch` core
-  primitive Stage A alone doesn't cover), then B2 (VLAN-faithful wiring), then B3 (the
-  N=2/3/5/16 tractability measurement).** Full protocol + GO/NO-GO criteria: `AD6_PLAN.md`
-  §5.4.
+  fave-side.
+  **B1 (2026-08-24): scaled to all 16 routers — found a real generator dead-port-gating bug
+  (fixed, `_is_admitted`/`GenFirewallDeadPortGateTest`) AND, underneath it, a genuine
+  PRE-EXISTING ad6 CORE soundness gap, orthogonal to VLAN fidelity: `Instantiator.
+  InstantiateEndToEnd`'s reachability query is unsound for any topology with a cycle (proven
+  in a minimal, zero-Stanford-code repro,
+  `testCycleReachabilityIsUnsoundWithoutRealOrigin`) — a node in/downstream of a cycle of
+  mutually-satisfiable transitions is "reachable" from ANY source, real connection or none.
+  wl_ifi/wl_up's topologies are acyclic, so this never surfaced before; Stanford's real
+  backbone has genuine redundant inter-router links. This gates the PLAIN target too, not
+  just VLAN fidelity — bigger than anything Stage A2/B2/B3 anticipated. STOPPED here,
+  reported to Claas rather than attempting core surgery unprompted (same discipline as the
+  wl_up NO-GO): open options are (a) a real core fix (rank/distance variable, its own gated
+  stage), (b) NO-GO on exact-match Stanford/i2 via ad6, or (c) an unidentified narrower
+  mitigation. Full writeup: `AD6_PLAN.md` §5.4.**
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.
