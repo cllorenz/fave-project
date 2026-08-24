@@ -489,12 +489,29 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   Confirmed failing pre-implementation via `git stash`. No regression: 10/10 `ad6 make test`
   + 16/16 fave-side. Also found and confirmed harmless: a pre-existing order-dependent
   MiniSAT flake in `testCycle`/`testShadow` (present on the unmodified baseline too; `make
-  test`'s own invocation is unaffected). **Stage B (real N=2/3/5/16 tractability
-  measurement on real Stanford VLAN data, bare-metal only — plus the still-unbuilt
-  `Ad6Adapter`/`favemodel.py` wiring to real rewrite data) not yet started**; §8.5 (new)
-  flags ad6's naive non-Tseitin CNF conversion as a candidate general fix if Stage B's
-  numbers show it (not the new encoding itself) is the bottleneck. Full protocol + GO/NO-GO
-  criteria: `AD6_PLAN.md` §5.4.
+  test`'s own invocation is unaffected). §8.5 (new) flags ad6's naive non-Tseitin CNF
+  conversion as a candidate general fix if a later stage's numbers show it (not the SSA
+  encoding itself) is the bottleneck.
+  **Stage B split into checkpointed sub-stages 2026-08-24 (no Stanford↔ad6 translator
+  existed at all before this): B0 (plain translator) DONE, GO** — built one from scratch
+  (ported from `fave/apkeep/adapter.py`'s own Stanford translator), reusing the already-
+  fixed LPM/per-device machinery. Found and fixed two real bugs, both independent of VLAN
+  fidelity: (1) multi-port/ECMP forwards were silently truncated to one port (`_out_ports`
+  plural fix + `favemodel.py::wire_fanout`, a real OR/multipath Kripke-fanout — NOT "one
+  rule per port", which ad6's first-match table semantics would reduce to "only the first
+  port ever reachable"); (2) a probe with MORE THAN ONE real topology attachment (confirmed
+  48 for one Stanford probe alone) silently checked only the first — found by hop-by-hop
+  triage of a real UNSOUND result on the N=2 differential, fixed with `_attachments`
+  (plural) + `wire_probe_fanout` (the same fanout idiom, mirrored). Verified on the real N=2
+  slice (`bbra_rtr,rozb_rtr`, the same subset APKeep's own measurement uses) against a LIVE
+  NetPlumber worker: exact match, 0 over/under-approximation. New:
+  `fave/test/test_ad6_wl_stanford_plain.py` (9 unit + 2 structural/differential tests,
+  confirmed failing pre-fix via `git stash`). No regression: 10/10 `ad6 make test` + 16/16
+  fave-side. **Next (not this session, per the user's incremental-checkpoint pacing): B1
+  (scale to all 16 routers vs the 165 oracle), then Stage A2 (a new `fieldmatch` core
+  primitive Stage A alone doesn't cover), then B2 (VLAN-faithful wiring), then B3 (the
+  N=2/3/5/16 tractability measurement).** Full protocol + GO/NO-GO criteria: `AD6_PLAN.md`
+  §5.4.
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

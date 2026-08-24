@@ -909,3 +909,110 @@ Wiring real Stanford VLAN-rewrite data into it (`Ad6Adapter._capture_mid_rewrite
 `_capture_out_rewrite`, and `favemodel.py` actually calling `InstantiateBase(...,
 MutableFields=...)`) plus the tractability measurement itself is Stage B, not yet started.
 Full details: `AD6_PLAN.md` §5.4.
+
+## 18. Stage B split into checkpointed sub-stages; B0 (the wl_stanford<->ad6 translator,
+plain/no-VLAN) built from scratch, two real bugs found and fixed  **[NEW + FIX]**
+
+**No wl_stanford<->ad6 translator existed at all before this** -- §5.1-§5.3's work never
+built one (wl_ifi/wl_up/wl_tum only). "Stage B" (item 15/16) was written assuming the
+translator already existed; split into checkpointed sub-stages per the user's explicit
+incremental pacing: B0 (plain LPM+dead-port translator, DONE below) -> B1 (scale to 16
+routers vs the 165 oracle) -> Stage A2 (a new core primitive, see below) -> B2 (VLAN-
+faithful wiring) -> B3 (the N=2/3/5/16 measurement item 15/16 already designed).
+
+**B0: built the translator, reusing `fave/apkeep/adapter.py`'s own proven Stanford
+translator as a template (ported, not imported -- ad6 and APKeep deliberately never share
+process/imports, `fave/ad6/adapter.py`'s own module docstring).** wl_stanford's devices are
+`SwitchModel`s named `in.<router>`/`mid.<router>`/`out.<router>`, each with exactly one
+table `"<device>.1"` -- already matched `Ad6Adapter.add_rules`'s existing `fwd_tables`
+dispatch, so only new stage-keyed handling (`model.node.split('.',1)[0]`, the same dispatch
+key APKeep's own translator uses) was needed, not new table-name matching. New:
+`Ad6Adapter._capture_in_admit`/`_capture_out_perm`/`_collapse_out_stage` (direct ports of
+APKeep's identically-named functions); `favemodel.py::_gate_dead_ingress` (drops a topology
+edge into an unadmitted physical port, called inside `wire_edges`). B0 models NO VLAN at
+all -- admission is a binary per-physical-port gate, matching the existing oracle-verified
+165 target (`[[stanford-forwarding-overapprox]]`), which was already confirmed VLAN-
+non-binding for the plain data plane (item 14).
+
+**Bug 1: multi-port (ECMP) forwards silently truncated to one port.** `_out_port`
+(singular) kept only `action.ports[0]`; real Stanford `mid.*` data genuinely has multi-port
+routes (one `/23` forwarding to 15 ports simultaneously -- confirmed against the real
+`routes.json`, not assumed). Fixed with a plural `_out_ports` and `_add_fwd_route` (one IR
+entry carrying the WHOLE port list, deduped on `(device,dst,ports)` -- also collapses
+wl_stanford's `in.*` stage, whose per-VLAN admission rules all share one identical
+unconditional default route, from N redundant entries to 1).
+
+**This is NOT "loop and emit one rule per port" -- that would silently be wrong.** ad6's
+table evaluation is sequential first-match (`KripkeUtils._HandleRule`'s fallthrough
+discipline): N separate rules sharing the identical dst condition would let only the FIRST
+one ever fire, since a query matching that condition is captured by the earliest rule in
+table order -- the other N-1 ports' reachability would be silently dropped (dead,
+unreachable code), an under-approximation nobody would notice without differential testing.
+Fixed instead with `favemodel.py::wire_fanout`: a multi-port route's rule jumps to one
+dedicated `"<rule-key>_fanout"` node, which `wire_fanout` wires to every one of the route's
+egress interfaces via several separate `Kripke.Put` calls -- the same many-to-one "no
+condition to check, just connect" idiom `wire_edges` already uses for plain topology
+connectivity (`Kripke._FTransitions[key]` is already a list, so several simultaneous True
+outgoing edges from one node give real OR/multipath semantics for free). Also modelled a
+genuine dst-only blackhole (e.g. `dst=224.0.0.0/3`, no forward action at all -- a real
+discard, not a translation gap): previously a silent no-op (harmless for wl_ifi, which
+apparently never has one that matters), now an explicit jump to `DROP_KEY`, gated by the
+same soundness guard `apkeep/adapter.py` uses (only model as a drop when the match is
+genuinely dst(+vlan)-only -- a discard qualified by src/proto/port stays a no-op, since a
+dst-only drop can't express those without over-dropping traffic the real discard never
+touches).
+
+**Bug 2: a probe with more than one real topology attachment silently checked only the
+first -- not caught by design, caught by triage of a real UNSAT.** The N=2 induced-slice
+differential (`--routers bbra_rtr,rozb_rtr`, the same subset `fave/bench/
+faithful_bdd_measure.py`'s own measurement uses) first came back UNSOUND: ad6 dropped
+`rozb_rtr -> bbra_rtr`, a pair NetPlumber reaches. Root-caused by hop-by-hop tracing with a
+concrete, hand-picked witness destination (`10.240.0.0/12` -- confirmed by direct IR
+inspection to fall outside every one of rozb's own ~89 specific FIB routes, so it must hit
+rozb's default route toward bbra, and to be covered by one of bbra's ~868 specific routes
+leading to a probe-connected port): every intermediate hop was independently confirmed
+reachable with this destination forced, INCLUDING the exact `mid.bbra_rtr` egress port the
+witness address routes to -- yet the full end-to-end query still came back UNSAT. Root
+cause: `_attachment` (singular) resolved a probe/generator name to the FIRST topology edge
+found and stopped there. wl_ifi/wl_up probes each have exactly one real attachment, so this
+was never wrong before; `probe.bbra_rtr` genuinely has 48 real attachment points in the N=2
+slice alone (every access-facing `mid.X` egress port collapsed from its own `out.X` stage
+funnels into one probe) -- the query was checking reachability of one arbitrary one of the
+48 while the witness address correctly routed to a *different* one.
+
+**Fix**: new `_attachments` (plural -- `_attachment` is now a thin single-result wrapper
+over it, used unchanged by `_gen_firewall` since every generator, wl_stanford's included,
+genuinely has exactly one attachment); `wire_probe_fanout` (mirrors `wire_fanout`'s idiom in
+the other direction: many real attachment edges feed one dedicated aggregate Kripke node,
+needing no Gamma/firewall of its own since `Kripke.IterBTransitions` only reads
+`_BTransitions[key]`, not a registered `KripkeNode` -- confirmed by reading `Instantiator.
+InstantiateEndToEnd`'s actual implementation, not assumed); `query_destination_key`'s
+signature changed to take the probe's own name (was a pre-resolved device/port pair) so it
+can decide internally whether to resolve directly or via the fanout node --
+single-attachment probes (every other benchmark) are completely unaffected, zero added
+Kripke nodes or behaviour change. `ad6/fave_bridge.py`'s query loop updated for the new
+signature (one line simpler -- the pre-resolution it used to do is now internal).
+
+**Test, test-first**: `fave/test/test_ad6_wl_stanford_plain.py` -- 9 unit tests (fake
+`Rule`/`RuleField`/`Forward` objects mirroring `test_ad6_adapter_multi_device_acl.py`'s
+style, no ad6 binary/subprocess/benchmark inputs) for the multi-port/blackhole/dedup/
+admission-capture mechanisms, confirmed failing (7/9; the other 2 correctly still pass,
+being unaffected pre-existing behaviour) via `git stash` on the two touched adapter/
+favemodel files before landing; plus a structural + differential test on the real N=2
+induced slice, reusing `fave/bench/apkeep_convergence.py`'s own `_filter_model`/
+`_write_model`/`_emit_worker` machinery (a LIVE NetPlumber worker diff, not a recorded
+snapshot -- same discipline as `fave/test/test_apkeep_stanford.py` and as this project's
+own B1 plan). **Result: GO.** `out.*` correctly collapses away (4 devices for the N=2
+slice); ad6 now agrees EXACTLY with NetPlumber on the induced 2-router subnetwork (0
+over-approximation, 0 under-approximation). No regression: `ad6 make test` (10 suites) and
+every existing fave-side ad6 test (16/16, wl_ifi/wl_up included) green.
+
+**Environment note**: this session's sandbox was also missing `liblog4cxx.so.15` (needed
+for `libnetplumber`'s own compiled `.so` to import at all, surfacing as `NetPlumberLibAdapter`
+raising "libnetplumber is not built" even though the `.so` file itself was present) -- a
+recurrence of the same container-reset pattern already documented in
+`[[env-integration-tier-deps]]` for `bison`/`flex`/`m4`/`clasp`/`minisat` earlier this
+session; restored via `apt-get install liblog4cxx-dev`, unrelated to any code change here.
+
+**Not yet done**: B1 (scale to all 16 routers, live diff against the 165-pair oracle) and
+everything from Stage A2 onward. Full details: `AD6_PLAN.md` §5.4.
