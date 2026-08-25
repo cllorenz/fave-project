@@ -62,7 +62,7 @@ class Instantiator:
         return Instances
 
 
-    def InstantiateBase(Config, Inits=[], default_inits=True, MutableFields=None):
+    def InstantiateBase(Config, Inits=[], default_inits=True, MutableFields=None, Acyclic=False):
         Kripke = KripkeUtils.ConvertToKripke(Config, default_inits=default_inits)
 
         for Init in Inits:
@@ -82,6 +82,14 @@ class Instantiator:
         # new alternation depth into the global encoding.
         if MutableFields:
             Encoding[0].extend(Instantiator._CreateMutationConstraints(Kripke, MutableFields))
+
+        # AD6_PLAN.md §5.4 Stage B (B1), Option 2: opt-in (False changes
+        # nothing for every existing caller/benchmark), same reasoning as
+        # MutableFields above -- cannot regress wl_ifi/wl_up/wl_tum unless
+        # they explicitly opt in. See _CreateAcyclicConstraints and
+        # instantiatortest.py::testAcyclicRankConstraintRejectsFloatingCycleStatically.
+        if Acyclic:
+            Encoding[0].extend(Instantiator._CreateAcyclicConstraints(Kripke))
 
         Variables = Encoding.iterdescendants(XMLUtils.VARIABLE)
         Handled = {}
@@ -340,6 +348,78 @@ class Instantiator:
         raise RuntimeError(
             "SolveGroundedEndToEnd did not converge within %d iterations "
             "(%s -> %s)" % (MaxIterations, Source, Destination))
+
+
+    def SolveAcyclicEndToEnd(Solver, Kripke, Instance, Source, Destination, Cache=None, Stats=None):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2's lazy/hybrid
+        refinement: baking _CreateAcyclicConstraints into the SHARED base
+        model (so every query pays for it, whether it needs it or not)
+        measured at ~40-45s of extra build+solve time PER QUERY on a real
+        3-router wl_stanford slice, even for pairs that were already
+        genuinely, plainly reachable -- a cost that would apply to EVERY
+        query of EVERY benchmark sharing this bridge (wl_ifi/wl_up/wl_tum
+        included), not just the handful of pairs the floating-cycle bug
+        actually affects.
+
+        Most queries don't need the rank machinery at all: a plain solve's
+        witness is either already grounded (Destination genuinely
+        reachable from Source), or the raw query is outright UNSAT for an
+        ordinary reason (e.g. a real ACL/admission DROP -- Destination's
+        OWN required incoming edge, or Source's own required outgoing edge,
+        is unsatisfiable on its own merits, with no floating cycle involved
+        at all). The rank constraints are only actually NEEDED for the
+        narrow case this whole investigation is about: a plain solve is SAT
+        but the witness is ungrounded (see
+        testCycleReachabilityIsUnsoundWithoutRealOrigin).
+
+        So: try a plain solve first, accept immediately if grounded, return
+        False immediately if outright UNSAT. Only on a REJECTED witness,
+        lazily build (once, via `Cache` -- a plain dict the caller creates
+        ONCE per Kripke/benchmark run and passes into every query) the
+        SCC-scoped rank constraints, append them to a fresh copy of this
+        instance, and fall back to SolveGroundedEndToEnd (now just a
+        defensive backstop -- with the rank constraints present, a floating
+        cycle is outright UNSAT, so this should resolve within its very
+        first iteration, not the combinatorial blowup of relying on CEGAR
+        alone). `Cache` is optional (None rebuilds every time, e.g. for a
+        single one-off query) but should always be supplied by a caller
+        driving many queries against the same Kripke (see
+        testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries).
+
+        `Stats` (optional, None by default -- existing callers are
+        unaffected) is filled in with {'Escalated': bool}: whether THIS
+        specific call needed to escalate. A caller can't tell that from
+        `Cache` alone once it's warm from an earlier query -- membership
+        stays true for every later, even fast-path, query too (see
+        testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats) -- so a
+        caller logging per-query progress (fave_bridge.py's query loop)
+        needs this direct report instead. """
+        Result = Solver.Solve(Instance)
+        if not Result:
+            if Stats is not None:
+                Stats['Escalated'] = False
+            return False
+
+        Model = Result[0]
+        Fired = Instantiator._WitnessTransitions(Kripke, Model)
+        if Destination in Instantiator._Reachable(Fired, Source):
+            if Stats is not None:
+                Stats['Escalated'] = False
+            return True
+
+        if Stats is not None:
+            Stats['Escalated'] = True
+
+        if Cache is not None and 'AcyclicConstraints' in Cache:
+            AcyclicConstraints = Cache['AcyclicConstraints']
+        else:
+            AcyclicConstraints = Instantiator._CreateAcyclicConstraints(Kripke)
+            if Cache is not None:
+                Cache['AcyclicConstraints'] = AcyclicConstraints
+
+        Amended = deepcopy(Instance)
+        Amended[0].extend(deepcopy(AcyclicConstraints))
+        return Instantiator.SolveGroundedEndToEnd(Solver, Kripke, Amended, Source, Destination)
 
 
     def _CreateCycle(Kripke):
@@ -619,6 +699,317 @@ class Instantiator:
                         Constraints.extend(list(TopConjunction))
                     else:
                         Constraints.append(TopConjunction)
+
+        return Constraints
+
+
+    def _PostOrder(Nodes, Neighbors):
+        """ Iterative post-order DFS (no recursion-depth risk on graphs
+        with thousands of nodes) -- the first pass of Kosaraju's SCC
+        algorithm. `Neighbors(node)` returns an iterable of successors. """
+        Visited = set()
+        Order = []
+        for Start in Nodes:
+            if Start in Visited:
+                continue
+            Visited.add(Start)
+            Stack = [(Start, iter(Neighbors(Start)))]
+            while Stack:
+                Node, It = Stack[-1]
+                Advanced = False
+                for Next in It:
+                    if Next not in Visited:
+                        Visited.add(Next)
+                        Stack.append((Next, iter(Neighbors(Next))))
+                        Advanced = True
+                        break
+                if not Advanced:
+                    Stack.pop()
+                    Order.append(Node)
+        return Order
+
+
+    def _CollectReachable(Start, Neighbors, Visited):
+        """ Iterative DFS collecting every node reachable from `Start` that
+        isn't already in `Visited` (which this also populates) -- the
+        second pass of Kosaraju's SCC algorithm, run over the REVERSE
+        graph so each call yields exactly one SCC. """
+        Visited.add(Start)
+        Component = [Start]
+        Stack = [Start]
+        while Stack:
+            Node = Stack.pop()
+            for Next in Neighbors(Node):
+                if Next not in Visited:
+                    Visited.add(Next)
+                    Component.append(Next)
+                    Stack.append(Next)
+        return Component
+
+
+    def _ComputeSCCs(Kripke):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2 scoping: only edges with
+        BOTH endpoints in the SAME non-trivial strongly-connected component
+        (SCC) can ever be part of a real cycle -- a long acyclic chain
+        (e.g. a FIB table's rules falling through one by one) is never part
+        of one, by definition of what an SCC is. Restricting
+        _CreateAcyclicConstraints's (expensive) per-edge comparator to just
+        those edges is therefore lossless for soundness, while potentially
+        cutting the encoding by orders of magnitude on real Stanford-shaped
+        data (see testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains
+        and AD6_PLAN.md §5.4 for the profiling that found the UNscoped
+        version too expensive to build/solve at real scale).
+
+        Kosaraju's algorithm (both true/false Kripke transitions count as
+        graph edges here -- which one fired is irrelevant to connectivity):
+        a post-order DFS on the forward graph, then a DFS on the REVERSE
+        graph taken in reverse post-order; each reverse-graph DFS tree is
+        exactly one SCC. Both passes are iterative (explicit stacks, not
+        Python recursion) since real Stanford-scale graphs have thousands
+        of nodes.
+
+        Returns (SccOf, NonTrivial): SccOf maps every node key to an
+        integer SCC id; NonTrivial is the set of SCC ids that are either
+        larger than one node, or a single node with a self-loop (a
+        degenerate but genuine 1-node cycle) -- exactly the SCCs whose
+        internal edges can actually participate in a cycle. """
+        Nodes = list(Kripke.IterNodes())
+
+        Forward = {}
+        Reverse = {}
+        for NodeKey in Nodes:
+            try:
+                Targets = [Target for Target, _Flag in Kripke.IterFTransitions(NodeKey)]
+            except KeyError:
+                Targets = []
+            Forward[NodeKey] = Targets
+            for Target in Targets:
+                Reverse.setdefault(Target, []).append(NodeKey)
+
+        Order = Instantiator._PostOrder(Nodes, lambda N: Forward.get(N, []))
+
+        SccOf = {}
+        NonTrivial = set()
+        Visited = set()
+        NextSccId = 0
+        for NodeKey in reversed(Order):
+            if NodeKey in Visited:
+                continue
+            Component = Instantiator._CollectReachable(
+                NodeKey, lambda N: Reverse.get(N, []), Visited)
+
+            SccId = NextSccId
+            NextSccId += 1
+            for Member in Component:
+                SccOf[Member] = SccId
+
+            IsSelfLoop = len(Component) == 1 and Component[0] in Forward.get(Component[0], [])
+            if len(Component) > 1 or IsSelfLoop:
+                NonTrivial.add(SccId)
+
+        return SccOf, NonTrivial
+
+
+    def _CreateAcyclicConstraints(Kripke):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2: a STATIC, always-safe
+        fix for the same root cause SolveGroundedEndToEnd patches
+        reactively -- see that function's docstring and
+        testAcyclicRankConstraintRejectsFloatingCycleStatically for the
+        full story of why CEGAR (both the naive exact-witness-blocking
+        version and its "shrink to Destination's own closure" refinement)
+        turned out combinatorially intractable on real wl_stanford data.
+
+        Gives every Kripke node a brand-new "rank" field -- a bounded
+        unsigned binary number with NO other role anywhere else in the
+        model (XMLUtils.FieldBitName('rank', Node, i), the same per-node
+        bit-vector shape AD6_PLAN.md §5.4 Stage A's mutation encoding
+        already uses) -- and asserts, for EVERY Kripke edge (Node,Target),
+        that firing it requires Rank(Target) > Rank(Node). `Width` bits are
+        enough to represent every node exactly once (the longest possible
+        SIMPLE/acyclic path visits each node at most once), so this can
+        never reject a genuine acyclic witness, no matter how long.
+
+        Unlike negating _CreateCycle (see AD6_PLAN.md §5.4's writeup), this
+        has no structural escape hatch: _CreateCycle's own formula could
+        always be satisfied for free by any edge into a dead end (every
+        real ACCEPT/DROP/probe node), giving zero discriminating power.
+        "Greater than" has no analogous free pass -- a cycle of
+        simultaneously-true edges (A_true_B, B_true_C, C_true_A) forces
+        Rank(B)>Rank(A), Rank(C)>Rank(B), Rank(A)>Rank(C), which chain into
+        Rank(A)>Rank(A): an outright numeric contradiction, regardless of
+        what value any node's rank takes. Since ad6's existing per-edge
+        implications already force firing ONE cycle edge to also force the
+        REST of the same cycle's edges (the exact mechanism that makes a
+        floating cycle satisfiable at all -- see
+        testCycleReachabilityIsUnsoundWithoutRealOrigin), this makes the
+        WHOLE cycle simultaneously-true combination UNSAT outright, in the
+        base model itself -- no query-side change and no CEGAR needed.
+
+        Encoded via an explicit auxiliary-variable chain (standard
+        bitwise-comparator CNF technique: eq_i tracks whether the two
+        numbers' bits 0..i are equal so far, gt_i whether bit i is the
+        first place Target's bit is 1 where Node's is 0) rather than one
+        big nested formula, so SATUtils.ConvertToCNF's distribution stays
+        LINEAR in Width per edge -- a naive OR-of-ANDs comparator would
+        risk the exact exponential-blowup AD6_PLAN.md §5.4/§8.5's
+        naive-CNF-conversion guardrail warns about. Built and CNF-converted
+        per edge (its own small Dummy formula), same discipline as
+        _CreateMutationConstraints, so this stays additive to the global
+        encoding's own alternation depth. Aux variable names are scoped by
+        a per-edge index so two different edges' comparators can never
+        collide.
+
+        IMPORTANT: every eq_i/gt_i definition here is a ONE-DIRECTIONAL
+        implication (aux_var -> real_condition), built with
+        XMLUtils.implication()+XMLUtils.conjunction() of hand-built flat
+        disjunctions -- deliberately NEVER XMLUtils.equality() for a
+        non-constant "aux_var <-> composite_formula" biconditional.
+        Empirically confirmed broken: SATUtils._ResolveConstants's general
+        (neither-operand-constant) EQUALITY branch produces a correct
+        result only when that equality is the OUTERMOST formula; nested
+        inside another equality (as "aux_var <-> (bit_a <-> bit_b)" would
+        be), the inner equality's resolution replaces itself in-place
+        *while the outer equality's own child-iteration is still in
+        progress*, so the newly-built substructure never gets its own
+        resolution pass -- the outer equality's general-case branch then
+        deepcopies that still-composite (non-literal) operand straight
+        into a new top-level disjunction, leaving a disjunction with a
+        raw nested conjunction inside it (invalid CNF, and exactly what
+        AbstractSolver._ConvertToDIMACS rejects). One-directional
+        implications don't need the reverse direction for soundness here
+        either: eq_i/gt_i are brand-new variables with no other role, so
+        the solver already has complete freedom to set one true whenever
+        it ALSO picks bit values that satisfy its condition (exactly what
+        happens automatically while it constructs a genuinely increasing
+        rank assignment for a real witness) -- what must be prevented is
+        only the reverse (gt_i true WITHOUT the real bits agreeing), which
+        "aux_var -> real_condition" already rules out on its own.
+
+        SCC-scoped (AD6_PLAN.md §5.4 Stage B, B1 Option 2 perf finding):
+        only edges with both endpoints in the SAME non-trivial
+        strongly-connected component (_ComputeSCCs) get this treatment --
+        an edge that can never be part of any cycle (e.g. a FIB table's
+        rules falling through one by one) needs no rank constraint at all,
+        by definition of what an SCC is. This is lossless for soundness
+        while, on real Stanford-shaped data, cutting both which edges need
+        the comparator AND `Width` itself (sized off the largest cyclic
+        SCC, not the whole graph) by orders of magnitude -- see
+        testAcyclicRankConstraintScopesToNonTrivialSCCsOnly. """
+        SccOf, NonTrivial = Instantiator._ComputeSCCs(Kripke)
+        MaxSccSize = 0
+        if NonTrivial:
+            Sizes = {}
+            for Member, SccId in SccOf.items():
+                if SccId in NonTrivial:
+                    Sizes[SccId] = Sizes.get(SccId, 0) + 1
+            MaxSccSize = max(Sizes.values())
+        Width = max(1, (MaxSccSize + 1).bit_length())
+        Constraints = []
+
+        EdgeIndex = 0
+        FTransitions = Kripke.IterFTransitions(None)
+        for NodeKey in FTransitions:
+            for Target, Flag in Kripke.IterFTransitions(NodeKey):
+                if SccOf.get(NodeKey) != SccOf.get(Target) or SccOf.get(NodeKey) not in NonTrivial:
+                    continue
+
+                EdgeIndex += 1
+                TransitionLit = XMLUtils.CreateTransition(NodeKey, Target, Flag)
+
+                def TargetBit(i, Negated=False):
+                    return XMLUtils.variable(XMLUtils.FieldBitName('rank', Target, i), value=not Negated)
+
+                def NodeBit(i, Negated=False):
+                    return XMLUtils.variable(XMLUtils.FieldBitName('rank', NodeKey, i), value=not Negated)
+
+                def AuxEq(i):
+                    return XMLUtils.variable('rankeq#%d_%d' % (EdgeIndex, i))
+
+                def AuxGt(i):
+                    return XMLUtils.variable('rankgt#%d_%d' % (EdgeIndex, i))
+
+                def BitsEqual(i):
+                    """ Two flat disjunctions standing for "Target's bit i
+                    == Node's bit i" -- hand-built, deliberately never
+                    XMLUtils.equality() (see this function's own docstring
+                    for why that's unsafe here), so this can be safely
+                    embedded as extra conjuncts inside an implication's
+                    conclusion. """
+                    Left = XMLUtils.disjunction()
+                    Left.append(TargetBit(i, Negated=True))
+                    Left.append(NodeBit(i))
+                    Right = XMLUtils.disjunction()
+                    Right.append(TargetBit(i))
+                    Right.append(NodeBit(i, Negated=True))
+                    return [Left, Right]
+
+                # One-directional implications only (never
+                # XMLUtils.equality() with a non-constant operand -- see
+                # this function's docstring note on why that's unsafe here).
+                # Soundness doesn't need the reverse direction: eq_i/gt_i
+                # are brand-new variables with no other role, so the solver
+                # already has complete freedom to set them true whenever it
+                # ALSO chooses bit values that satisfy their defining
+                # condition -- exactly what happens automatically when it
+                # constructs a genuinely increasing rank assignment for a
+                # real witness. What must never happen is the REVERSE: a
+                # gt_i true WITHOUT the real bit condition holding, which
+                # is exactly what "eq_i/gt_i -> (real bit condition)" rules
+                # out.
+                Defs = XMLUtils.conjunction()
+
+                # eq_0 -> (Target's bit 0 == Node's bit 0)
+                Eq0 = XMLUtils.implication()
+                Eq0Conj = XMLUtils.conjunction()
+                Eq0Conj.extend(BitsEqual(0))
+                Eq0.extend([AuxEq(0), Eq0Conj])
+                Defs.append(Eq0)
+
+                # gt_0 -> (Target's bit 0 AND NOT Node's bit 0)
+                Gt0Conj = XMLUtils.conjunction()
+                Gt0Conj.append(TargetBit(0))
+                Gt0Conj.append(NodeBit(0, Negated=True))
+                Gt0 = XMLUtils.implication()
+                Gt0.extend([AuxGt(0), Gt0Conj])
+                Defs.append(Gt0)
+
+                for Index in range(1, Width):
+                    # eq_i -> (eq_{i-1} AND bits equal so far)
+                    EqConj = XMLUtils.conjunction()
+                    EqConj.append(AuxEq(Index - 1))
+                    EqConj.extend(BitsEqual(Index))
+                    EqDef = XMLUtils.implication()
+                    EqDef.extend([AuxEq(Index), EqConj])
+                    Defs.append(EqDef)
+
+                    # gt_i -> (eq_{i-1} AND Target's bit i AND NOT Node's bit i)
+                    GtConj = XMLUtils.conjunction()
+                    GtConj.append(AuxEq(Index - 1))
+                    GtConj.append(TargetBit(Index))
+                    GtConj.append(NodeBit(Index, Negated=True))
+                    GtDef = XMLUtils.implication()
+                    GtDef.extend([AuxGt(Index), GtConj])
+                    Defs.append(GtDef)
+
+                GtAny = XMLUtils.disjunction()
+                for Index in range(Width):
+                    GtAny.append(AuxGt(Index))
+
+                Gated = XMLUtils.implication()
+                Gated.extend([TransitionLit, GtAny])
+                Defs.append(Gated)
+
+                Dummy = XMLUtils.formula()
+                Dummy.append(Defs)
+
+                SATUtils.ConvertToCNF(Dummy)
+                Defs = Dummy[0]
+                Dummy.remove(Defs)
+
+                if Defs.tag == XMLUtils.CONJUNCTION:
+                    Constraints.extend(list(Defs))
+                else:
+                    Constraints.append(Defs)
 
         return Constraints
 

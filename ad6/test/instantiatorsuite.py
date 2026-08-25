@@ -20,7 +20,13 @@ class InstantiatorSuite(TestSuite):
             'testMutationChainAndJoinSSAEncoding',
             'testCycleReachabilityIsUnsoundWithoutRealOrigin',
             'testSolveGroundedEndToEndRejectsUngroundedCycleWitness',
-            'testBackwardSupportRestrictsBlockingToDestinationsOwnClosure'
+            'testBackwardSupportRestrictsBlockingToDestinationsOwnClosure',
+            'testAcyclicRankConstraintRejectsFloatingCycleStatically',
+            'testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains',
+            'testAcyclicRankConstraintScopesToNonTrivialSCCsOnly',
+            'testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded',
+            'testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries',
+            'testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

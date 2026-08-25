@@ -6,6 +6,7 @@ from src.solver.minisat import MiniSATAdapter
 from src.solver.pycosat import PycoSATAdapter
 from src.sat.satutils import SATUtils as sat
 from src.xml.genutils import GenUtils
+from src.core.structure import KripkeStructure, KripkeNode
 
 class InstantiatorTest(unittest.TestCase):
     def deannotate(config):
@@ -670,6 +671,396 @@ class InstantiatorTest(unittest.TestCase):
             "grounded solve must accept a genuine multi-hop path from a "
             "real origin into the cycle")
 
+
+    def testAcyclicRankConstraintRejectsFloatingCycleStatically(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2: CEGAR's naive
+        exact-witness blocking (SolveGroundedEndToEnd) turned out
+        combinatorially intractable on real wl_stanford data -- a single
+        genuinely-unreachable pair on a 3-router backbone slice needed ~117
+        solver iterations (~45s). Its "shrink blocking to Destination's own
+        backward closure" refinement (Option 1) also failed: profiling
+        showed that closure spans almost the ENTIRE fired-transition set on
+        real FIB-table-heavy data (long per-table fallthrough chains
+        backward-connect nearly everything), so it was barely smaller than
+        blocking everything.
+
+        Option 2 fixes the root cause STATICALLY instead of reactively:
+        Instantiator.InstantiateBase(..., Acyclic=True) asserts, once, for
+        EVERY Kripke edge, that firing it requires the target's "rank" (a
+        bounded binary distance-from-origin value, brand new variables with
+        no other role in the model) to be STRICTLY greater than the
+        source's. A cycle of simultaneously-true edges would then require
+        Rank(A) < Rank(B) < Rank(C) < Rank(A) -- impossible in any total
+        order, a hard NUMERIC contradiction. This is fundamentally
+        different from (and does not repeat the failure of) negating
+        _CreateCycle: that formula's escape hatch was structural (an OR
+        that's trivially satisfied by any edge into a dead-end/sink, i.e.
+        every real ACCEPT/DROP/probe node), whereas "greater than" has no
+        such escape -- there is no value assignment under which a genuine
+        cycle's chained inequalities can hold, regardless of what any other
+        node's rank is.
+
+        Because this is a property of the WHOLE base model rather than one
+        query's witness, a single plain solver.Solve (no CEGAR iteration at
+        all) must now correctly reject the exact same fixture used
+        throughout this investigation. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        firewall.append(hop('e2', 'entry2', 'B'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False, Acyclic=True)
+        solver = PycoSATAdapter()
+
+        # entry -> A: no CEGAR involved here at all -- a PLAIN solve must
+        # already be UNSAT, because the floating cycle's edges can no
+        # longer be simultaneously true.
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'A')
+        self.assertFalse(
+            bool(solver.Solve(instance)),
+            "the static rank constraint must make the floating cycle's "
+            "edges impossible to fire all at once, so a plain solve is "
+            "UNSAT for the ungrounded pair")
+
+        # entry -> unrelated_sink: a genuine, direct, single-hop path must
+        # still be plainly SAT (no false positives from the new
+        # constraint).
+        instance = Instantiator.InstantiateEndToEnd(
+            kripke, encoding, 'entry', 'unrelated_sink')
+        self.assertTrue(
+            bool(solver.Solve(instance)),
+            "the rank constraint must not reject a genuine direct path")
+
+        # entry2 -> C: a genuine multi-hop path into the cycle from a real
+        # origin must still be plainly SAT (proves this isn't "cycles in
+        # the graph are forbidden", just "a witness can't use one").
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry2', 'C')
+        self.assertTrue(
+            bool(solver.Solve(instance)),
+            "the rank constraint must not reject a genuine multi-hop path "
+            "from a real origin into the cycle")
+
+
+    def testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2 scoping: profiling the
+        unscoped rank constraint on a real 3-router wl_stanford slice found
+        it applying to EVERY Kripke edge -- including the huge number of
+        intra-table fallthrough edges (a FIB table's rules falling through
+        one by one is a straight line, never a cycle by itself) -- made
+        the encoding far bigger than necessary (425k extra clauses for just
+        3 routers) and correspondingly slow to build and solve. Only edges
+        with BOTH endpoints in the SAME non-trivial strongly-connected
+        component (SCC) can ever be part of a real cycle -- a long acyclic
+        chain (however many hops) is provably never part of one, by
+        definition of what an SCC is -- so restricting the expensive
+        comparator to just those edges is lossless for soundness while
+        potentially cutting the encoding by orders of magnitude on real
+        Stanford-shaped data (a few backbone routers cyclically
+        interconnected, surrounded by a much larger number of ordinary
+        acyclic per-table rule chains).
+
+        Instantiator._ComputeSCCs(Kripke) is Kosaraju's algorithm run over
+        the Kripke graph's plain adjacency (both true/false transitions are
+        real graph edges for connectivity purposes; which one fired is
+        irrelevant here). Fixture: a genuine 3-cycle A->B->C->A, a long
+        UNRELATED acyclic chain D->E->F (six hops would make the same
+        point; three is enough to prove "chain, not cycle"), and a
+        single-node self-loop X->X (a degenerate but genuine 1-node cycle,
+        the edge case a naive "size > 1" check would miss). """
+        kripke = KripkeStructure()
+        for key in ['A', 'B', 'C', 'D', 'E', 'F', 'X']:
+            kripke.Put(key, KripkeNode(Props=[key], Gamma=XMLUtils.constant()))
+        kripke.Put('A', ('B', True))
+        kripke.Put('B', ('C', True))
+        kripke.Put('C', ('A', True))
+        kripke.Put('D', ('E', True))
+        kripke.Put('E', ('F', True))
+        kripke.Put('X', ('X', True))
+
+        SccOf, NonTrivial = Instantiator._ComputeSCCs(kripke)
+
+        self.assertEqual(SccOf['A'], SccOf['B'])
+        self.assertEqual(SccOf['B'], SccOf['C'])
+        self.assertIn(SccOf['A'], NonTrivial,
+                      "a genuine 3-cycle must be recognised as non-trivial")
+
+        self.assertIn(SccOf['X'], NonTrivial,
+                      "a self-loop is a genuine (degenerate) cycle too")
+
+        for Left, Right in [('D', 'E'), ('E', 'F'), ('D', 'F')]:
+            self.assertNotEqual(
+                SccOf[Left], SccOf[Right],
+                "a long ACYCLIC chain must not be merged into one SCC")
+        self.assertNotIn(SccOf['D'], NonTrivial)
+        self.assertNotIn(SccOf['E'], NonTrivial)
+        self.assertNotIn(SccOf['F'], NonTrivial)
+
+
+    def testAcyclicRankConstraintScopesToNonTrivialSCCsOnly(self):
+        """ Companion to testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains:
+        confirms _CreateAcyclicConstraints actually USES the SCC scoping --
+        no rank/comparator variable should ever be generated that mentions
+        a node from the acyclic D->E->F chain, while the genuine A->B->C
+        cycle's nodes must still get real constraints (otherwise the whole
+        point of the fix -- rejecting a floating cycle -- would be lost by
+        over-aggressively scoping it away). """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('sccfw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('d', 'D', 'E'))
+        firewall.append(hop('e', 'E', 'F'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='F')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke = KripkeUtils.ConvertToKripke(config, default_inits=False)
+        Constraints = Instantiator._CreateAcyclicConstraints(kripke)
+
+        def mentions(node_key):
+            for Constraint in Constraints:
+                for Variable in Constraint.iter(XMLUtils.VARIABLE):
+                    Name = Variable.attrib[XMLUtils.ATTRNAME]
+                    if ("#%s_" % node_key) in Name or ("#%s#" % node_key) in Name:
+                        return True
+            return False
+
+        for cyclic_node in ['A', 'B', 'C']:
+            self.assertTrue(
+                mentions(cyclic_node),
+                "%s is part of a genuine cycle and must still get a rank "
+                "constraint" % cyclic_node)
+
+        for acyclic_node in ['D', 'E', 'F']:
+            self.assertFalse(
+                mentions(acyclic_node),
+                "%s is only ever on a straight acyclic chain and must be "
+                "scoped OUT of the (expensive) rank constraint entirely" %
+                acyclic_node)
+
+
+    def testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1), Option 2's lazy/hybrid
+        refinement: baking the (expensive, SCC-scoped) rank constraints
+        into the SHARED base model made every query pay for them, even
+        queries whose witness is already grounded on a plain solve --
+        profiling showed genuinely-reachable pairs on the real 3-router
+        slice cost ~6s each once the constraints were present, vs ~0.3s
+        with nothing added at all. Most real queries (any pair whose
+        destination has NO real connection at all to an ungrounded cycle)
+        never need the rank machinery, so Instantiator.SolveAcyclicEndToEnd
+        tries a PLAIN solve + cheap grounding check first, and only
+        escalates to the rank constraints if THAT witness turns out
+        ungrounded.
+
+        Fixture: the same `entry -> unrelated_sink` pair used throughout
+        this investigation -- a genuine, direct, one-hop path with no
+        cycle anywhere near it. Passing an (initially empty) Cache dict and
+        asserting it is STILL EMPTY afterward is the proof that
+        _CreateAcyclicConstraints was never even invoked. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False)
+        solver = PycoSATAdapter()
+
+        Cache = {}
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'unrelated_sink')
+        self.assertTrue(
+            Instantiator.SolveAcyclicEndToEnd(
+                solver, kripke, instance, 'entry', 'unrelated_sink', Cache=Cache))
+        self.assertEqual(
+            Cache, {},
+            "a genuinely direct, already-grounded witness must never "
+            "trigger building the (expensive) rank constraints at all")
+
+
+    def testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries(self):
+        """ Companion to testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded:
+        when a query's PLAIN solve IS ungrounded (the same known
+        floating-cycle bug this whole investigation is about),
+        SolveAcyclicEndToEnd must still resolve it correctly by escalating
+        to the SCC-scoped rank constraints -- but build them only ONCE per
+        Cache and reuse the SAME built list for every subsequent escalated
+        query in the run, rather than rebuilding per query (which is
+        exactly the cost the lazy design exists to amortise across a whole
+        benchmark's query set). Verified by identity (the cached object
+        must be the literal SAME list after a second escalated call, not a
+        fresh rebuild) rather than by instrumenting/mocking, since identity
+        is a direct, unambiguous observation. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False)
+        solver = PycoSATAdapter()
+        Cache = {}
+
+        # First escalated query: entry -> A. Must still be correctly
+        # rejected (False), same as SolveGroundedEndToEnd's own fix, and
+        # must populate the cache.
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'A')
+        self.assertFalse(
+            Instantiator.SolveAcyclicEndToEnd(
+                solver, kripke, instance, 'entry', 'A', Cache=Cache))
+        self.assertIn('AcyclicConstraints', Cache)
+        Built = Cache['AcyclicConstraints']
+
+        # Second escalated query: entry -> B (same underlying floating
+        # cycle, also rejected). The cache's built constraints must be
+        # REUSED (same object), not rebuilt.
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'B')
+        self.assertFalse(
+            Instantiator.SolveAcyclicEndToEnd(
+                solver, kripke, instance, 'entry', 'B', Cache=Cache))
+        self.assertIs(
+            Cache['AcyclicConstraints'], Built,
+            "the rank constraints must be built once and reused across "
+            "every subsequent escalated query in the same run, not "
+            "rebuilt per query")
+
+
+    def testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1): a caller driving many queries
+        (fave_bridge.py's per-query loop) needs to know, PER QUERY, whether
+        THIS specific call actually took the fast path or had to escalate
+        -- e.g. to log progress on a long run. Merely checking
+        'AcyclicConstraints' in Cache after the call is NOT enough once the
+        cache is already warm from an earlier query: it stays present
+        (correctly reused) even for a LATER query that itself took the
+        fast path, so that alone can't distinguish "this query escalated"
+        from "some earlier query escalated". `Stats` (an optional dict,
+        None by default so existing callers/tests are unaffected) is
+        SolveAcyclicEndToEnd's own direct report of what THIS call did. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False)
+        solver = PycoSATAdapter()
+        Cache = {}
+
+        # entry -> unrelated_sink: already grounded on a plain solve --
+        # Stats must report no escalation.
+        Stats = {}
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'unrelated_sink')
+        Instantiator.SolveAcyclicEndToEnd(
+            solver, kripke, instance, 'entry', 'unrelated_sink', Cache=Cache, Stats=Stats)
+        self.assertFalse(Stats['Escalated'])
+
+        # entry -> A: ungrounded on a plain solve -- Stats must report
+        # escalation, and the cache is now warm.
+        Stats = {}
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'A')
+        Instantiator.SolveAcyclicEndToEnd(
+            solver, kripke, instance, 'entry', 'A', Cache=Cache, Stats=Stats)
+        self.assertTrue(Stats['Escalated'])
+
+        # entry -> unrelated_sink again, cache now warm from the previous
+        # query: this query STILL takes the fast path itself (it never
+        # needed the rank constraints), so Stats must report False even
+        # though Cache already has 'AcyclicConstraints' -- the exact
+        # distinction a bare cache-membership check can't make.
+        Stats = {}
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'unrelated_sink')
+        Instantiator.SolveAcyclicEndToEnd(
+            solver, kripke, instance, 'entry', 'unrelated_sink', Cache=Cache, Stats=Stats)
+        self.assertFalse(Stats['Escalated'])
 
 
 def main():
