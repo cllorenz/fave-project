@@ -1225,8 +1225,19 @@ can never be accidentally forced into a many-hour run.
 `_CreateAcyclicConstraints`, `_ComputeSCCs`, `SolveAcyclicEndToEnd`) is real, sound, test-
 first, and is now ad6's production query path for every benchmark through this bridge --
 the underlying reachability-unsoundness-on-cycles bug (item 19) IS fixed, generically, for
-any topology, even though the resulting EXACT full differential is impractically slow at
-Stanford's real scale. **No regression:** `ad6 make test` (10 suites, now including
+ANY TOPOLOGY, cyclic or acyclic, on the `InstantiateEndToEnd`/`SolveAcyclicEndToEnd`
+primitive `fave_bridge.py` actually uses -- even though the resulting EXACT full
+differential is impractically slow at Stanford's real scale. **Scope caveat, found by a
+parallel session (`AD6_ENCODING_PLAN.md` §2.4, 2026-08-24) working the same root cause
+from the 2015 paper's own formalization inward, not by this session:** the SAME
+grounding gap is independently CONFIRMED to also affect `InstantiateReach`/
+`InstantiateShadow` (ad6's own native anomaly-detection primitives, unrelated to the
+FaVe bridge) and structurally suspected (not yet empirically confirmed) in
+`InstantiateCross` -- neither is touched by this fix. `InstantiateCycle` is confirmed
+SAFE (forward-anchored at real init edges, a structurally different and sound
+construction). "Fixed, generically, for any topology" above means "for every topology
+this ONE primitive can be asked about" -- not "every ad6 reachability-style primitive is
+now sound." **No regression:** `ad6 make test` (10 suites, now including
 `testAcyclicRankConstraintRejectsFloatingCycleStatically`,
 `testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains`,
 `testAcyclicRankConstraintScopesToNonTrivialSCCsOnly`,

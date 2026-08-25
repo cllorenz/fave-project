@@ -547,9 +547,13 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   for the tool-comparison writeup — not re-run to completion ("revealing the inability to
   scale is a genuine outcome"). `test_ad6_wl_stanford.py`'s differential test now skips by
   default (`AD6_STANFORD_FULL_DIFFERENTIAL=1` to opt in). The underlying core bug IS fixed,
-  generically, for any topology — kept as ad6's production query path — even though the
-  exact full Stanford differential is impractically slow at this scale. No regression:
-  `ad6 make test` (10 suites) + 27/27 fave-side ad6 tests green. Full writeup:
+  generically, for any topology, on the `InstantiateEndToEnd`/`SolveAcyclicEndToEnd`
+  primitive `fave_bridge.py` actually uses — kept as ad6's production query path — even
+  though the exact full Stanford differential is impractically slow at this scale. **Scope
+  caveat, found by a parallel session (`AD6_ENCODING_PLAN.md` §2.4):** the same grounding
+  gap also confirmed to affect ad6's own `InstantiateReach`/`InstantiateShadow` (suspected
+  in `InstantiateCross`) — none fixed here; `InstantiateCycle` is confirmed safe. No
+  regression: `ad6 make test` (10 suites) + 27/27 fave-side ad6 tests green. Full writeup:
   `AD6_PLAN.md` §5.4, `ad6/FAVE_CHANGES.md` §20.**
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.

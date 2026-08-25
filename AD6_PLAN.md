@@ -1272,9 +1272,15 @@ corrected directly — see §4.4.)
     a many-hour run).
   - **What's kept**: the correctness fix itself is real, sound, test-first, and is now ad6's
     production query path for every benchmark sharing this bridge — the underlying
-    reachability-unsoundness-on-cycles bug is fixed, generically, for any topology, even
-    though the resulting EXACT full Stanford differential is impractically slow at this
-    scale. No regression: `ad6 make test` (10 suites, 6 new tests this round) and every
+    reachability-unsoundness-on-cycles bug is fixed, generically, for any topology, on the
+    `InstantiateEndToEnd`/`SolveAcyclicEndToEnd` primitive `fave_bridge.py` actually uses —
+    even though the resulting EXACT full Stanford differential is impractically slow at
+    this scale. **Scope caveat (found by a parallel session, `AD6_ENCODING_PLAN.md` §2.4,
+    working the paper's own formalization independently of this session's work):** the SAME
+    grounding gap is confirmed to also affect ad6's own native `InstantiateReach`/
+    `InstantiateShadow` primitives (structurally suspected, not confirmed, in
+    `InstantiateCross`) — none of which this fix touches; `InstantiateCycle` is confirmed
+    safe. No regression: `ad6 make test` (10 suites, 6 new tests this round) and every
     pre-existing fave-side ad6 test (27/27) stay green.
 
 ---
