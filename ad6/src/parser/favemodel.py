@@ -796,6 +796,19 @@ def instantiate_base(config, ir):
     wire_probe_fanout(kripke, ir)
 
     encoding = Instantiator._InstantiateBase(kripke)
+
+    # AD6_PLAN.md §5.4 Stage B (B1), Option 2: NOT baked in here anymore --
+    # Instantiator._CreateAcyclicConstraints is expensive to build/solve at
+    # real wl_stanford scale (profiling: ~40-45s of extra build+solve time
+    # PER QUERY on a 3-router slice, even for pairs already genuinely,
+    # plainly reachable). Baking it into the shared base model would make
+    # EVERY query of EVERY benchmark through this bridge pay for it
+    # (wl_ifi/wl_up/wl_tum included), whether needed or not. Callers that
+    # drive queries should use Instantiator.SolveAcyclicEndToEnd instead of
+    # a plain solver.Solve/SolveGroundedEndToEnd -- it tries a cheap plain
+    # solve first and only lazily builds+adds these constraints (once, via
+    # its `Cache` argument, reused across every query in the same run) if
+    # that witness turns out ungrounded. See fave_bridge.py's query loop.
     handled = {}
     for variable in encoding.iterdescendants(XMLUtils.VARIABLE):
         Instantiator._HandlePrefixes(variable, handled)

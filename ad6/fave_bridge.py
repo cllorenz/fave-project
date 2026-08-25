@@ -32,7 +32,9 @@ Usage: python3 fave_bridge.py --in payload.json --out results.json
 
 import argparse
 import json
+import os
 import sys
+import time
 
 sys.setrecursionlimit(10 ** 6)
 
@@ -152,8 +154,36 @@ def main(argv=None):
     # ad6/FAVE_CHANGES.md §8).
 
     solver = PycoSATAdapter()
+    # AD6_PLAN.md §5.4 Stage B (B1), Option 2: shared across every query in
+    # this run -- Instantiator.SolveAcyclicEndToEnd lazily builds the
+    # (expensive) SCC-scoped acyclic rank constraints into this dict the
+    # FIRST time any query's witness turns out ungrounded, then reuses them
+    # for every subsequent query, rather than rebuilding per query.
+    acyclic_cache = {}
     results = []
-    for q in queries:
+    # Opt-in per-query progress (AD6_BRIDGE_PROGRESS=1) -- added after the
+    # B1 Option 2 differential ran for hours with zero visibility into
+    # which query it was on or whether it had hit the (expensive)
+    # escalation path yet. Off by default so it never clutters normal
+    # subprocess output/logs.
+    #
+    # fave/ad6/adapter.py's Ad6Adapter.check_compliance -- the ONLY real
+    # caller -- invokes this whole script as one subprocess.run(...,
+    # stderr=subprocess.PIPE) call: the pipe is fully buffered in the OS
+    # and only handed back to the parent once THIS PROCESS EXITS, so
+    # anything written to stderr is invisible until the entire (possibly
+    # hours-long) run is already over -- useless for watching a live run.
+    # AD6_BRIDGE_PROGRESS_FILE=<path> writes line-buffered progress to a
+    # real file instead, independent of the parent's own stdout/stderr
+    # capture, so `tail -f` on that path works regardless of how (or
+    # whether) a caller captures this process's own streams.
+    progress = bool(os.environ.get('AD6_BRIDGE_PROGRESS'))
+    progress_file = os.environ.get('AD6_BRIDGE_PROGRESS_FILE')
+    progress_out = sys.stderr
+    if progress and progress_file:
+        progress_out = open(progress_file, 'a', buffering=1)
+    total = len(queries)
+    for index, q in enumerate(queries, start=1):
         source = favemodel.gen_entry_key(q['source'])
         destination = favemodel.query_destination_key(q['probe'], ir)
         instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, destination)
@@ -161,11 +191,31 @@ def main(argv=None):
             instance[0].extend(_seed_literals(q['src_cidr']))
         for literal in _state_literals(q.get('cond')):
             instance[0].append(literal)
-        reachable = bool(solver.Solve(instance))
+        # AD6_PLAN.md §5.4 Stage B (B1): InstantiateEndToEnd's own two
+        # independent disjuncts are unsound on cyclic topologies (see
+        # instantiatortest.py::testCycleReachabilityIsUnsoundWithoutRealOrigin).
+        # SolveAcyclicEndToEnd rejects any witness not actually grounded in
+        # `source`, escalating to the static rank fix only when a plain
+        # solve's witness needs it. Applied here, at the one call site
+        # every query goes through, so it can't be forgotten by a future
+        # caller.
+        stats = {} if progress else None
+        if progress:
+            start = time.time()
+        reachable = Instantiator.SolveAcyclicEndToEnd(
+            solver, kripke, instance, source, destination, Cache=acyclic_cache, Stats=stats)
+        if progress:
+            tag = "escalated" if stats['Escalated'] else "fast-path"
+            print("[%d/%d] %s -> %s: reachable=%s (%s, %.2fs)" % (
+                index, total, q['source'], q['probe'], reachable, tag,
+                time.time() - start), file=progress_out, flush=True)
         results.append({
             "source": q['source'], "probe": q['probe'],
             "reachable": reachable, "negated": q['negated'], "cond": q['cond'],
         })
+
+    if progress and progress_file:
+        progress_out.close()
 
     with open(args.outfile, 'w') as raw:
         json.dump(results, raw)
