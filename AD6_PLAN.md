@@ -1210,6 +1210,73 @@ corrected directly — see §4.4.)
   assertion **failing as expected** — it documents the open gap, not a regression, until
   resolved one way or the other.
 
+  **B1 follow-up (2026-08-25): the cycle-soundness gap is FIXED, correctly and test-first —
+  but the resulting exact wl_stanford differential is a NO-GO on wall-clock grounds, not
+  correctness.** Full attempt-by-attempt narrative: `ad6/FAVE_CHANGES.md` §20. Summary:
+
+  - **Claas's own proposal** (reuse `_CreateCycle`, negated, baked into the base model) was
+    assessed and empirically disproven first: unnegated it kills every real terminal node
+    (any edge into a 0-outgoing node is unconditionally forbidden); negated it reduces
+    algebraically to "some fired edge leads to a dead end" — true of virtually every real
+    witness, spurious or not, so it has zero discriminating power — and mechanically produces
+    a disjunction-of-conjunctions `SATUtils.ConvertToCNF` can't consume without genuine
+    Tseitin machinery it doesn't have. The right *direction* (reuse the fired-transition
+    graph), wrong exact form (a single static clause can't express "the concrete witness the
+    solver picked must be acyclic" — that's a property of a model, not the symbolic formula).
+  - **CEGAR** (`Instantiator.SolveGroundedEndToEnd`: solve, walk the concrete witness, block
+    and re-solve if ungrounded) is correct, test-first, but combinatorially intractable on
+    real data: 117 iterations / ~45s for ONE query on a 3-router slice. A refinement (shrink
+    the blocking clause to just Destination's own backward-closure) helped ~0%, because that
+    closure turned out to be ~100% of the fired transitions on real FIB-table-heavy data.
+  - **A static rank/distance encoding** (`Instantiator._CreateAcyclicConstraints`: a
+    brand-new bounded "rank" field per node, `fired -> Rank(Target) > Rank(Node)` for every
+    edge) is genuinely sound — no structural escape hatch, unlike `_CreateCycle`'s negation —
+    proven via a PLAIN solve (no CEGAR at all) on the synthetic fixture. Found and fixed a
+    real `SATUtils._ResolveConstants` limitation along the way (a nested-equality pattern
+    silently produces malformed non-CNF output; fixed by switching to one-directional
+    implications, the same safe shape `_ConvertNodesToImplications` already uses). But
+    unscoped, building it for every edge measured ~425k extra clauses for 3 routers alone.
+  - **SCC-scoping** (`Instantiator._ComputeSCCs`, Kosaraju's, iterative): only edges inside
+    the same non-trivial strongly-connected component can ever be part of a cycle, by
+    definition — correct, cut clauses ~43%, but far short of hoped-for order-of-magnitude:
+    the non-trivial SCC covered **86% of nodes** even at 3-router scale, because any real
+    redundant link back to a router pulls that router's ENTIRE fallthrough-chain table into
+    one SCC. This is the *norm* for a resilience-engineered backbone, not a corner case.
+  - **Shipped: a lazy/hybrid design** (`Instantiator.SolveAcyclicEndToEnd`, Claas's own
+    direction): plain solve first, escalate to the (SCC-scoped) rank constraints — built
+    once, cached, reused — only when a witness is found ungrounded. Correct test-first
+    (fast path never touches the expensive machinery; escalation builds once and is reused
+    across queries, identity-checked; a `Stats` output distinguishes "this query escalated"
+    from "the cache happens to be warm"). Verified **zero cost** for every acyclic benchmark
+    (wl_ifi 289/289 fast-path, wl_up, wl_ifi_stateful, B0's N=2 slice — 27/27 fave-side tests
+    green). `favemodel.instantiate_base` no longer bakes the rank constraints in; the one
+    shared `fave_bridge.py` query call site now owns a `Cache` dict for the whole run.
+  - **Real-scale result, measured, not projected**: with new progress instrumentation
+    (`fave_bridge.py`'s `AD6_BRIDGE_PROGRESS`/`AD6_BRIDGE_PROGRESS_FILE` — added because none
+    existed and `Ad6Adapter.check_compliance`'s `subprocess.run(..., stderr=PIPE)` makes
+    stderr invisible until a possibly-many-hour subprocess already exited), the full
+    256-query, 16-router differential was given a 6-hour budget. **It did not finish**:
+    74/256 (28.9%) completed, 40 of those (54%) needed escalation at 7.7s–2,923s each
+    (~99.4% of the 6-hour budget). No crashes, no malformed output — every completed query
+    returned a clean, correct answer. **PRIMARY finding (directly observed, high
+    confidence): the differential does not complete within 6 hours.** A linear extrapolation
+    of the observed rate suggests **~20–21 hours** for a full run — reported as a SECONDARY,
+    explicitly LOWER-confidence figure, since it's an extrapolation from a 29%-complete
+    sample, not an independent measurement.
+  - **Decision (Claas): the 6-hour non-completion itself is the reportable NO-GO result** —
+    "revealing the inability to scale is a genuine outcome" for a generic-vs-specialized
+    tool comparison. Not re-run to actual completion. `fave/test/test_ad6_wl_stanford.py`'s
+    differential test is now skipped by default (`AD6_STANFORD_FULL_DIFFERENTIAL=1` to opt
+    in, plus a generous external timeout — a deliberately separate env var from
+    `FAVE_REQUIRE_BACKENDS`, so CI's backend-required tier is never accidentally forced into
+    a many-hour run).
+  - **What's kept**: the correctness fix itself is real, sound, test-first, and is now ad6's
+    production query path for every benchmark sharing this bridge — the underlying
+    reachability-unsoundness-on-cycles bug is fixed, generically, for any topology, even
+    though the resulting EXACT full Stanford differential is impractically slow at this
+    scale. No regression: `ad6 make test` (10 suites, 6 new tests this round) and every
+    pre-existing fave-side ad6 test (27/27) stay green.
+
 ---
 
 ## 6. Algorithmic lever — amortise the O(n²) toward O(n) (optional, high value)

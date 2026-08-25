@@ -522,6 +522,35 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   wl_up NO-GO): open options are (a) a real core fix (rank/distance variable, its own gated
   stage), (b) NO-GO on exact-match Stanford/i2 via ad6, or (c) an unidentified narrower
   mitigation. Full writeup: `AD6_PLAN.md` §5.4.**
+  **B1 follow-up (2026-08-25): the core fix (option (a)) was built, test-first, and IS
+  correct — but the resulting exact wl_stanford differential is a NO-GO on wall-clock
+  grounds.** Claas's own proposal (reuse `_CreateCycle`, negated) was assessed and
+  empirically disproven first (no discriminating power negated; a non-CNF structure
+  `ConvertToCNF` can't consume unnegated). CEGAR (`SolveGroundedEndToEnd`) is correct but
+  combinatorially intractable on real data (117 iterations/~45s for one query); shrinking
+  the blocking clause to Destination's own backward closure helped ~0% (that closure is
+  ~100% of the graph on real FIB-heavy data). A static rank/distance encoding
+  (`_CreateAcyclicConstraints`) is genuinely sound (found+fixed a real
+  `SATUtils._ResolveConstants` nested-equality bug along the way) but unscoped costs ~425k
+  extra clauses for 3 routers; SCC-scoping (`_ComputeSCCs`, Kosaraju's) is correct but only
+  cuts ~43%, because the non-trivial SCC covers **86% of nodes** even at 3-router scale
+  (redundant backbone links pull a whole router's fallthrough table into one SCC — the norm
+  for a resilience-engineered network, not a corner case). Shipped: a lazy/hybrid design
+  (`SolveAcyclicEndToEnd`) that only escalates to the (cached, SCC-scoped) rank constraints
+  when a plain solve's witness is ungrounded — verified ZERO cost for every acyclic
+  benchmark (wl_ifi 289/289 fast-path). **Real-scale result, measured**: a full,
+  instrumented 256-query/16-router run given a 6-hour budget did NOT finish — 74/256
+  (28.9%) done, 40 escalated (7.7s–2,923s each, ~99.4% of the budget), zero errors.
+  **PRIMARY finding (high confidence): does not complete within 6 hours.** A linear
+  extrapolation suggests ~20-21 hours (SECONDARY, lower confidence — not independently
+  measured). **Decision (Claas): the 6-hour non-completion IS the reportable NO-GO result**
+  for the tool-comparison writeup — not re-run to completion ("revealing the inability to
+  scale is a genuine outcome"). `test_ad6_wl_stanford.py`'s differential test now skips by
+  default (`AD6_STANFORD_FULL_DIFFERENTIAL=1` to opt in). The underlying core bug IS fixed,
+  generically, for any topology — kept as ad6's production query path — even though the
+  exact full Stanford differential is impractically slow at this scale. No regression:
+  `ad6 make test` (10 suites) + 27/27 fave-side ad6 tests green. Full writeup:
+  `AD6_PLAN.md` §5.4, `ad6/FAVE_CHANGES.md` §20.**
 - [ ] **Algorithmic lever (§6, optional).** Incremental-SAT source-amortization (solver assumptions / clause reuse; QBF-over-destinations) to collapse O(n²)→~O(n).
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.

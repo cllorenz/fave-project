@@ -1084,3 +1084,153 @@ characterization) and every pre-existing fave-side ad6 test (27/27) stay green.
 `test_ad6_wl_stanford.py` itself has its structural assertion passing and its differential
 assertion failing as expected -- documenting the open gap, not a regression. Full details:
 `AD6_PLAN.md` §5.4.
+
+## 20. Item 19's cycle-soundness gap FIXED, correctly and test-first -- but the resulting
+exact wl_stanford differential is a NO-GO on wall-clock grounds, not correctness  **[FIX +
+reported NO-GO, core change made]**
+
+**Claas's own proposal, assessed and disproven empirically before building anything.**
+Claas: ad6 already has cycle-detection machinery (`InstantiateCycle`/`_CreateCycle`) -- reuse
+it, negated, baked into the base model. Checked both directions on the exact
+`testCycleReachabilityIsUnsoundWithoutRealOrigin` fixture: **unnegated**, `_CreateCycle`
+unconditionally forbids any edge into a node with zero outgoing edges -- which is every real
+ACCEPT/DROP/probe node, so it also kills `entry -> unrelated_sink`'s genuine one-hop path
+(confirmed: goes UNSAT). **Negated**, the formula reduces algebraically to "some fired edge
+leads to a dead end" -- true of essentially every real satisfying assignment, spurious or
+not (a genuine path also ends at a real sink), so it has zero discriminating power; worse,
+mechanically, negating a conjunction of `_CreateCycle`'s own implications produces a
+disjunction-of-conjunctions, which isn't CNF and which `SATUtils.ConvertToCNF`'s pipeline
+can't consume without genuine Tseitin machinery it doesn't have -- confirmed by trying it
+and hitting exactly that exception. Conclusion right, exact form wrong: `_CreateCycle`'s
+own idea (a formula over the fired-transition graph) is the right direction, but a single
+STATIC clause can't express "the witness the solver actually picked must be acyclic" --
+that's a property of a concrete model, not the symbolic formula.
+
+**Fix attempt 1 (CEGAR, `Instantiator.SolveGroundedEndToEnd`): solve, walk the concrete
+model's fired transitions from Source, accept only if Destination is genuinely reached;
+else block and re-solve.** Proven correct test-first
+(`testSolveGroundedEndToEndRejectsUngroundedCycleWitness`: rejects the floating cycle,
+accepts a direct path, accepts a genuine multi-hop path INTO the cycle from a real origin).
+Profiled on a real 3-router wl_stanford slice: a single genuinely-unreachable pair needed
+**117 iterations, ~45s** -- because the naive blocking clause (`_BlockWitness`, negating
+EVERY fired transition) is hyper-specific to one exact model, so the solver kept
+rediscovering trivial variants of the same floating loop with different irrelevant bits set
+elsewhere. **Refinement attempt (`_BackwardSupport`): shrink the blocking clause to just
+Destination's own backward-true-closure.** Correct and test-first
+(`testBackwardSupportRestrictsBlockingToDestinationsOwnClosure`) but **empirically found
+to help ~0%**: profiling showed the closure was 1,066 of 1,067 fired
+transitions -- essentially everything -- because a table's fallthrough chain backward-
+connects almost the whole table to any exit point once ANY real redundant link loops back to
+that device. Real backbone topologies are exactly this case by design (that's what
+redundant links are FOR), so "shrink to the closure" barely shrinks anything here.
+
+**Fix attempt 2 (static rank/distance encoding, `Instantiator._CreateAcyclicConstraints`):
+give every node a brand-new bounded binary "rank" field with no other role in the model, and
+assert for EVERY edge that firing it requires Rank(Target) > Rank(Node).** Unlike
+`_CreateCycle`'s negation, this has no structural escape hatch: a cycle of simultaneously-
+true edges forces `Rank(A)>Rank(B)>Rank(C)>Rank(A)`, a numeric contradiction regardless of
+any node's actual value -- so the WHOLE cycle's simultaneous-truth becomes outright UNSAT in
+the base model itself, no query-side change, no CEGAR needed. Proven test-first on the
+synthetic fixture with a PLAIN `solver.Solve` (no CEGAR at all) --
+`testAcyclicRankConstraintRejectsFloatingCycleStatically`. **Bug found and fixed on the way,
+by empirical isolation, not a hand-trace:** the natural encoding (`AuxVar <->
+composite_formula`, using `XMLUtils.equality()`) produces a MALFORMED, non-CNF result
+(a disjunction with a raw nested conjunction inside it) whenever that equality is nested
+inside another equality -- `SATUtils._ResolveConstants`'s general (neither-operand-constant)
+branch only produces a correct result when it's the OUTERMOST formula; nested, the inner
+equality replaces itself in-place *while the outer equality's own child-iteration is still in
+progress*, so the substructure never gets its own resolution pass, and the outer equality's
+branch then deepcopies that still-composite operand straight into a disjunction. Fixed by
+switching every eq_i/gt_i definition to a ONE-DIRECTIONAL implication
+(`aux_var -> real_condition`, the same `implication()`+`conjunction()`-of-hand-built-flat-
+disjunctions shape `_ConvertNodesToImplications`/`_CreateMutationConstraints` already use
+safely) -- sound because eq_i/gt_i are brand-new variables with no other role, so the solver
+already has full freedom to set one true whenever it ALSO picks bit values that satisfy it
+(exactly what happens while constructing a genuinely increasing rank for a real witness); no
+reverse direction is needed to prevent the one thing that matters, a gt_i true WITHOUT the
+real bits agreeing. **But building this for EVERY edge of the whole graph measured ~425k
+extra clauses for just 3 routers** (Width sized off the WHOLE node count) -- ~84s extra
+build, ~41-154s extra solve for one previously-117-iteration query (MiniSAT vs pycosat),
+worse in absolute terms than the CEGAR blowup it replaced.
+
+**Fix attempt 3 (SCC-scoping, `Instantiator._ComputeSCCs`): only edges with both endpoints
+in the SAME non-trivial strongly-connected component can ever be part of a cycle -- by
+definition of what an SCC is -- so restrict the (expensive) rank comparator to just those
+edges, and size `Width` off the largest cyclic SCC instead of the whole graph.** Kosaraju's
+algorithm, iterative (no recursion-depth risk at real scale), test-first
+(`testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains`: a genuine 3-cycle and a
+1-node self-loop are found non-trivial, a long acyclic chain is not merged into either;
+`testAcyclicRankConstraintScopesToNonTrivialSCCsOnly`: the generated constraints never
+mention a node that's only ever on an acyclic chain). Correct, and cut the 3-router slice's
+extra clauses ~425k -> ~242k (~43%) -- but **far short of the hoped-for order of magnitude**,
+because the non-trivial SCC turned out to contain **1,914 of 2,220 nodes (86%)** even for
+just 3 routers: a backbone router's own FIB table is a straight fallthrough chain on its own,
+but ANY genuine redundant loop back to that router makes its first rule reachable from its
+last (via the loop) and its last already reachable from its first (via the ordinary
+fallthrough), pulling the device's ENTIRE table into the SAME SCC. Real backbone networks
+are built with redundant links for resilience, so this isn't a corner case -- it's the norm
+for the routers that matter to this benchmark.
+
+**Fix attempt 4, the one that shipped (lazy/hybrid, `Instantiator.SolveAcyclicEndToEnd`,
+Claas's own direction after attempts 1-3): try a plain solve first, accept immediately if
+grounded or outright UNSAT, and only lazily build (once per Kripke, cached via a `Cache`
+dict the caller owns) + apply the SCC-scoped rank constraints if THAT witness turns out
+ungrounded.** Correct test-first: fast path never touches the expensive machinery
+(`testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded` -- asserts the Cache stays
+EMPTY); escalation builds once and is reused, not rebuilt, across every later query
+(`testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries`, identity-checked); a
+`Stats` output dict reports whether THIS SPECIFIC call escalated (bare cache-membership
+can't distinguish "this query escalated" from "cache is warm from an earlier query" --
+`testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats`). `favemodel.instantiate_base`
+no longer bakes the rank constraints in at all (moved from always-on to fully lazy);
+`fave_bridge.py`'s one query call site (shared by every ad6 benchmark) now calls
+`SolveAcyclicEndToEnd` with one `Cache` dict built once outside the query loop. **Verified
+zero cost for every acyclic benchmark**: wl_ifi (289 queries), wl_up, wl_ifi_stateful,
+wl_stanford's own B0 N=2 slice -- all 27 fave-side tests green, and a live progress trace
+on wl_ifi confirmed literally every one of its 289 queries takes the fast path (as expected
+-- it has no cycles to escalate for).
+
+**Instrumentation added for future long runs, since none existed and it was needed
+immediately:** `fave_bridge.py` gained `AD6_BRIDGE_PROGRESS=1` (one line per query: index/
+total, source->probe, result, fast-path/escalated tag, elapsed seconds) and
+`AD6_BRIDGE_PROGRESS_FILE=<path>` (line-buffered to a REAL file, `tail -f`-able live --
+necessary because `Ad6Adapter.check_compliance` invokes this whole script via
+`subprocess.run(..., stderr=subprocess.PIPE)`, which is only readable by the parent once the
+entire, possibly many-hour, subprocess has already exited).
+
+**The real-scale result, measured, not projected:** with progress logging on, a full,
+uninstrumented-nothing-held-back run of the real 256-query, 16-router differential was
+given a 6-HOUR budget. It did not finish. **74/256 queries (28.9%) completed**; 40 of those
+(54%) needed escalation, at costs ranging **7.7s to 2,923s** (summing to ~21,474s -- ~99.4%
+of the whole 6-hour budget was consumed by escalated solves, fast-path queries contributed
+under a minute total). No crashes, no malformed CNF, every completed query returned a clean
+answer -- the correctness work held up under real, sustained load, not just synthetic
+fixtures. **PRIMARY finding, directly observed, high confidence: this differential does not
+complete within 6 hours.** A naive linear extrapolation of the observed 54%-escalation-rate/
+~537s-average puts a full run at roughly **20-21 hours** -- reported as a SECONDARY,
+explicitly LOWER-confidence figure, since it is an extrapolation from a 29%-complete sample,
+not an independent measurement.
+
+**Decision (Claas): treat the 6-hour non-completion itself as the reportable NO-GO result
+for the tool-comparison writeup, rather than re-running to actual completion.** "Revealing
+the inability to scale is a genuine outcome" for a benchmark comparing a generic SAT/QBF
+model checker against specialized engines. `fave/test/test_ad6_wl_stanford.py`'s
+`test_reachability_matches_netplumber` is now SKIPPED BY DEFAULT (opt in with
+`AD6_STANFORD_FULL_DIFFERENTIAL=1`, plus a generous external timeout) rather than left to
+hang for hours in a normal test run -- a deliberately SEPARATE env var from
+`FAVE_REQUIRE_BACKENDS`/`require_or_skip`'s "required" mode, so CI's backend-required tier
+can never be accidentally forced into a many-hour run.
+
+**What ships and is kept:** the correctness fix itself (`SolveGroundedEndToEnd`,
+`_CreateAcyclicConstraints`, `_ComputeSCCs`, `SolveAcyclicEndToEnd`) is real, sound, test-
+first, and is now ad6's production query path for every benchmark through this bridge --
+the underlying reachability-unsoundness-on-cycles bug (item 19) IS fixed, generically, for
+any topology, even though the resulting EXACT full differential is impractically slow at
+Stanford's real scale. **No regression:** `ad6 make test` (10 suites, now including
+`testAcyclicRankConstraintRejectsFloatingCycleStatically`,
+`testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains`,
+`testAcyclicRankConstraintScopesToNonTrivialSCCsOnly`,
+`testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded`,
+`testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries`,
+`testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats`) and every pre-existing
+fave-side ad6 test (27/27) stay green. Full details: `AD6_PLAN.md` §5.4.
