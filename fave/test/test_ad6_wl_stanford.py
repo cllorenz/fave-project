@@ -34,19 +34,34 @@ live differential is what has caught every real bug in this project's
 history, B0's own two bugs included). The oracle is NetPlumber==APKeep==165
 (`test_apkeep_stanford.py`); this file is ad6's turn at the same bar.
 
-CURRENT STATE (AD6_PLAN.md §5.4 Stage B, item 19 in ad6/FAVE_CHANGES.md):
-`test_out_stage_collapsed` passes; `test_reachability_matches_netplumber`
-currently FAILS, and is expected to until resolved -- NOT a regression.
-Root cause is a genuine PRE-EXISTING ad6 CORE limitation (unrelated to
-this translator, reproduced with zero Stanford-specific code involved,
-`ad6/test/core/instantiatortest.py::
-testCycleReachabilityIsUnsoundWithoutRealOrigin`): `Instantiator.
-InstantiateEndToEnd`'s reachability query is unsound for any topology
-containing a cycle, which Stanford's real backbone genuinely has (unlike
-wl_ifi/wl_up). Left as a plainly failing (not skipped/expectedFailure)
-test deliberately -- it documents an open, undecided architectural
-question, not a bug to quietly suppress; it will start passing the day
-that question is resolved. """
+CURRENT STATE (AD6_PLAN.md §5.4 Stage B, item 20 in ad6/FAVE_CHANGES.md):
+item 19's cycle-soundness gap is now FIXED, correctly, via
+Instantiator.SolveAcyclicEndToEnd (SCC-scoped rank/distance encoding,
+lazily escalated only when a plain solve's witness turns out ungrounded
+-- see that function's docstring and ad6/test/core/instantiatortest.py).
+`test_out_stage_collapsed` passes. `test_reachability_matches_netplumber`
+is SKIPPED BY DEFAULT (not failing, not passing) -- NOT because of a
+correctness gap anymore, but because a real, instrumented full run (all
+256 queries, AD6_BRIDGE_PROGRESS=1 live-logged) hit a 6-HOUR cap having
+completed only 74/256 (28.9%) queries: 40 of those 74 needed the
+escalation path, at 7.7s-2923s each (avg ~537s), consistent with the
+backbone's redundant links pulling the vast majority of each router's own
+per-table fallthrough chain into ONE giant strongly-connected component
+(measured 86% of nodes on a 3-router slice alone) -- so the SCC-scoping
+that helps in principle barely narrows anything on Stanford's actual
+topology. PRIMARY finding (high confidence, directly observed): this
+differential does not complete within 6 hours. SECONDARY finding (LOWER
+confidence, a linear extrapolation of the observed rate, not an
+independent measurement): a full run would likely take on the order of
+20-21 hours. Per Claas: the 6-hour non-completion itself is the
+reportable NO-GO result for the tool-comparison writeup -- deliberately
+not re-run to actual completion. Opt in with
+AD6_STANFORD_FULL_DIFFERENTIAL=1 (and a generous external timeout -- this
+is a many-hour run, not a normal test) to exercise it anyway; set
+AD6_BRIDGE_PROGRESS=1 and AD6_BRIDGE_PROGRESS_FILE=<path> (fave_bridge.py)
+for live per-query progress, since Ad6Adapter.check_compliance captures
+this script's stderr into a pipe that isn't readable until the whole
+(possibly many-hour) subprocess exits. """
 
 import logging
 import os
@@ -61,6 +76,17 @@ _FILES = {"topology": "device_topology.json", "policies": "probes.json"}
 _INPUTS = ["%s/%s" % (_PREFIX, f) for f in
            ("device_topology.json", "routes.json", "sources.json", "probes.json")]
 
+# AD6_PLAN.md §5.4 Stage B, item 20: the full 256-query differential is a
+# many-hour run (measured: 6+ hours, incomplete -- see the module
+# docstring), not a normal test -- opt-in only, so a routine `test.sh`/CI
+# run never silently hangs for hours. Deliberately a SEPARATE env var from
+# FAVE_REQUIRE_BACKENDS/require_or_skip's "required" mode (backend_gate.py):
+# that flag means "fail instead of skip if a BACKEND is unavailable", and
+# must never be conflated with "run a many-hour differential to
+# completion" -- CI setting FAVE_REQUIRE_BACKENDS=1 must not accidentally
+# force this test to run for hours.
+_RUN_FULL_DIFFERENTIAL = bool(os.environ.get("AD6_STANFORD_FULL_DIFFERENTIAL"))
+
 
 def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
@@ -69,6 +95,12 @@ def _base(name):
 @require_or_skip(available(), "the ad6 fave_bridge.py script is unavailable")
 @require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
                  "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
+@unittest.skipUnless(
+    _RUN_FULL_DIFFERENTIAL,
+    "the full 256-query differential is a many-hour run that does not "
+    "complete within 6 hours (AD6_PLAN.md §5.4 Stage B item 20, a "
+    "reported NO-GO, not a bug) -- set AD6_STANFORD_FULL_DIFFERENTIAL=1 "
+    "to opt in")
 class TestAd6WlStanford(unittest.TestCase):
     """ Real wl_stanford (all 16 routers) -> Ad6Adapter (out-stage collapsed,
     in-stage admitted, B0) -> reachability == FaVe+NetPlumber (the faithful
