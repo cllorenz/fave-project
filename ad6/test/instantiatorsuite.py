@@ -18,7 +18,9 @@ class InstantiatorSuite(TestSuite):
             'testStateLiteralForcingIsMutuallyExclusive',
             'testSrcCidrQuerySeedMustUseSharedBitVector',
             'testMutationChainAndJoinSSAEncoding',
-            'testCycleReachabilityIsUnsoundWithoutRealOrigin'
+            'testCycleReachabilityIsUnsoundWithoutRealOrigin',
+            'testSolveGroundedEndToEndRejectsUngroundedCycleWitness',
+            'testBackwardSupportRestrictsBlockingToDestinationsOwnClosure'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

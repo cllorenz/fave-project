@@ -542,6 +542,136 @@ class InstantiatorTest(unittest.TestCase):
             "now be resolved.")
 
 
+    def testBackwardSupportRestrictsBlockingToDestinationsOwnClosure(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1) perf finding: profiling a 3-router
+        wl_stanford backbone slice showed a single genuinely-unreachable
+        query needing ~117 solver iterations (~45s) to converge, because the
+        original SolveGroundedEndToEnd blocked the ENTIRE fired-transition
+        set of each rejected witness -- including transitions completely
+        unrelated to why Destination looked reachable (other floating loops
+        or unrelated fallthrough edges elsewhere in the same graph, free to
+        vary independently). That makes each blocking clause hyper-specific
+        to one exact model instead of ruling out the whole FAMILY of "same
+        underlying floating loop, different irrelevant bits elsewhere"
+        witnesses, so the solver re-discovers trivial variants of the same
+        loop over and over.
+
+        Instantiator._BackwardSupport(Fired, Destination) computes only the
+        nodes that can reach Destination via THIS witness's own true
+        transitions (a backward walk) -- Destination's own "explanation"
+        for why it looks reached. _BlockWitness then restricts its clause to
+        transitions landing inside that closure, dropping everything else.
+
+        This fixture: a real, unconditionally-fired edge (origin->M, would
+        be forced true in EVERY model of a query from `origin`) plus an
+        unrelated floating cycle X->Y->Z->X, where Z separately also has a
+        live edge into D. Support(D) must be exactly {D,Z,Y,X} -- NOT
+        `origin`/`M`, which have nothing to do with D's own backward
+        closure. Confirms both restriction directions: the closure is
+        computed correctly, and _BlockWitness's clause only ever contains
+        the closure's own edges -- never the real, mandatory `origin_true_M`
+        edge (blocking that would make every future query from `origin`
+        permanently, incorrectly UNSAT). """
+        Fired = [
+            ('origin', 'M', True),
+            ('X', 'Y', True),
+            ('Y', 'Z', True),
+            ('Z', 'X', True),
+            ('Z', 'D', True),
+        ]
+
+        Support = Instantiator._BackwardSupport(Fired, 'D')
+        self.assertEqual(Support, {'D', 'Z', 'Y', 'X'})
+
+        Block = Instantiator._BlockWitness(Fired, Support)
+        BlockedNames = {Literal.attrib[XMLUtils.ATTRNAME] for Literal in Block}
+        self.assertEqual(BlockedNames, {
+            'Z_true_D', 'Y_true_Z', 'X_true_Y', 'Z_true_X',
+        })
+        self.assertNotIn(
+            'origin_true_M', BlockedNames,
+            "the real, unconditionally-fired source edge must never be "
+            "blocked -- doing so would make every future query through "
+            "this source permanently (and incorrectly) UNSAT")
+
+
+    def testSolveGroundedEndToEndRejectsUngroundedCycleWitness(self):
+        """ AD6_PLAN.md §5.4 Stage B (B1) fix for the gap pinned by
+        testCycleReachabilityIsUnsoundWithoutRealOrigin: raw
+        Instantiator.InstantiateEndToEnd/solver.Solve is unsound on cyclic
+        topologies because it asserts two INDEPENDENT disjuncts (source's
+        own edge fired; destination's own edge fired) rather than a single
+        connected path -- a self-sustaining cycle with no real INIT is a
+        free fixed point the solver can satisfy without grounding either
+        disjunct in the actual query's source.
+
+        Instantiator.SolveGroundedEndToEnd is the fix: after each solve, it
+        walks the CONCRETE model's fired transitions (via the real Kripke
+        graph, not string-parsing) from Source and checks Destination is
+        actually reachable that way; if not, it blocks that exact
+        combination of fired transitions and re-solves. Same fixture as the
+        characterization test above (a floating A->B->C->A cycle plus an
+        unrelated `entry`generator), same rejected pair (`entry`->`A`),
+        this time via the fixed entry point -- this must return False, and
+        do so within very few iterations (the model space here is tiny). """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('cyclefw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        firewall.append(hop('e2', 'entry2', 'B'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False)
+        solver = PycoSATAdapter()
+
+        # entry -> A: entry has no real connection to the cycle at all --
+        # must be rejected.
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry', 'A')
+        self.assertFalse(
+            Instantiator.SolveGroundedEndToEnd(solver, kripke, instance, 'entry', 'A'),
+            "grounded solve must reject a witness that only floats through "
+            "an unreachable cycle")
+
+        # entry -> unrelated_sink: a genuine, direct, single-hop path --
+        # must still be accepted (no false positives from the grounding
+        # check itself).
+        instance = Instantiator.InstantiateEndToEnd(
+            kripke, encoding, 'entry', 'unrelated_sink')
+        self.assertTrue(
+            Instantiator.SolveGroundedEndToEnd(
+                solver, kripke, instance, 'entry', 'unrelated_sink'),
+            "grounded solve must still accept a genuine direct path")
+
+        # entry2 -> C: a genuine MULTI-HOP path into the cycle from a real
+        # generator (entry2->B->C) -- must be accepted, proving the fix
+        # isn't just "reject anything more than one hop" but specifically
+        # "reject witnesses not connected to the real source".
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, 'entry2', 'C')
+        self.assertTrue(
+            Instantiator.SolveGroundedEndToEnd(solver, kripke, instance, 'entry2', 'C'),
+            "grounded solve must accept a genuine multi-hop path from a "
+            "real origin into the cycle")
+
+
+
 def main():
     unittest.main()
 

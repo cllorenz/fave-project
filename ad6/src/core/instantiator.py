@@ -207,6 +207,141 @@ class Instantiator:
         return Instance
 
 
+    def _WitnessTransitions(Kripke, Model):
+        """ The concrete list of (Source, Target, Flag) Kripke transitions
+        that fired TRUE in a solved `Model` (a var-name -> bool dict, as
+        returned by AbstractSolver.Solve()[0]). Walks the real graph
+        structure (Kripke.IterFTransitions) rather than string-parsing
+        variable names, so it can't be confused by a node key that happens
+        to contain "_true_"/"_false_" itself; keeps Flag so the exact fired
+        variable (not just its endpoints) can be reconstructed later. """
+        Fired = []
+        for NodeKey in Kripke.IterFTransitions(None):
+            for Target, Flag in Kripke.IterFTransitions(NodeKey):
+                Name = XMLUtils.CreateTransition(NodeKey, Target, Flag).attrib[XMLUtils.ATTRNAME]
+                if Model.get(Name):
+                    Fired.append((NodeKey, Target, Flag))
+        return Fired
+
+
+    def _Reachable(Fired, Source):
+        Edges = {}
+        for Node, Target, _Flag in Fired:
+            Edges.setdefault(Node, []).append(Target)
+
+        Seen = {Source}
+        Frontier = [Source]
+        while Frontier:
+            Next = []
+            for Node in Frontier:
+                for Target in Edges.get(Node, []):
+                    if Target not in Seen:
+                        Seen.add(Target)
+                        Next.append(Target)
+            Frontier = Next
+        return Seen
+
+
+    def _BackwardSupport(Fired, Destination):
+        """ The nodes that can reach Destination via THIS witness's own
+        fired (true) transitions -- a backward walk from Destination, using
+        only the concrete edges gathered by _WitnessTransitions. This is
+        Destination's own "explanation" for why it looks reached in this
+        specific model: exactly the closure _BlockWitness should restrict
+        its clause to (AD6_PLAN.md §5.4 Stage B, B1 perf finding -- see
+        testBackwardSupportRestrictsBlockingToDestinationsOwnClosure).
+
+        Note this closure is always disjoint from Source's own
+        forward-reachable set (_Reachable(Fired, Source)) whenever
+        Destination was rejected as ungrounded: if some node were in both,
+        chaining the two walks would make Destination forward-reachable
+        from Source after all, contradicting the rejection. So this never
+        includes any of Source's own (possibly mandatory) outgoing edges. """
+        Reverse = {}
+        for Node, Target, _Flag in Fired:
+            Reverse.setdefault(Target, []).append(Node)
+
+        Seen = {Destination}
+        Frontier = [Destination]
+        while Frontier:
+            Next = []
+            for Node in Frontier:
+                for Pred in Reverse.get(Node, []):
+                    if Pred not in Seen:
+                        Seen.add(Pred)
+                        Next.append(Pred)
+            Frontier = Next
+        return Seen
+
+
+    def _BlockWitness(Fired, Support):
+        """ A clause forbidding the combination of transitions, among those
+        fired in this witness, that land inside Destination's own backward
+        closure (_BackwardSupport) -- i.e., the edges actually responsible
+        for its (spurious) claim of being reached, rather than every
+        unrelated transition that merely happened to be true elsewhere in
+        the model. Still guarantees progress (the current witness's own
+        Support-closure edges are, by construction, all fired and inside
+        Support, so this clause is violated by -- and thus excludes -- the
+        exact witness just rejected) while being far more general: it also
+        excludes every OTHER witness sharing this same floating closure
+        with different, irrelevant bits set elsewhere, which is what made
+        the unrestricted (whole-fired-set) version need ~117 iterations on
+        a real 3-router wl_stanford slice for a single rejected query. """
+        Literals = [XMLUtils.CreateTransition(Node, Target, Flag)
+                    for Node, Target, Flag in Fired if Target in Support]
+        for Literal in Literals:
+            XMLUtils.NegateVariable(Literal)
+        Disjunction = XMLUtils.disjunction()
+        Disjunction.extend(Literals)
+        return Disjunction
+
+
+    def SolveGroundedEndToEnd(Solver, Kripke, Instance, Source, Destination, MaxIterations=10000):
+        """ AD6_PLAN.md §5.4 Stage B (B1): fixes the gap pinned by
+        instantiatortest.py::testCycleReachabilityIsUnsoundWithoutRealOrigin.
+
+        InstantiateEndToEnd asserts two INDEPENDENT disjuncts (source's own
+        forward edge fired; destination's own backward edge fired) rather
+        than one connected path -- on any topology containing a cycle, a
+        self-sustaining loop with no real INIT is a free fixed point that
+        satisfies both disjuncts without either ever being grounded in the
+        actual query's source. A single static formula can't fix this (see
+        AD6_PLAN.md §5.4/ad6/FAVE_CHANGES.md's writeup on why negating
+        _CreateCycle either breaks every real terminal node or reduces to a
+        near-universal no-op) because groundedness is a property of the
+        concrete witness the solver picks, not of the symbolic model.
+
+        Fixes it CEGAR-style instead: solve, walk the concrete model's fired
+        transitions from Source via the real Kripke graph
+        (_WitnessTransitions/_Reachable), and accept only if Destination is
+        actually reached that way. Otherwise, block Destination's own
+        backward-closure of fired transitions (_BackwardSupport/
+        _BlockWitness) and re-solve -- since each iteration permanently
+        rules out at least the current witness (and generally a whole
+        family of variants sharing the same floating closure) out of a
+        finite space, this always terminates in either a grounded witness
+        (True) or UNSAT (False, once every remaining model is ungrounded).
+        `MaxIterations` is a pure safety backstop against a latent bug
+        turning this into an infinite loop; it is not expected to bite in
+        practice -- rejected witnesses are rare (only cyclic topologies
+        produce them at all) and each one is blocked for good. """
+        Instance = deepcopy(Instance)
+        for _ in range(MaxIterations):
+            Result = Solver.Solve(Instance)
+            if not Result:
+                return False
+            Model = Result[0]
+            Fired = Instantiator._WitnessTransitions(Kripke, Model)
+            if Destination in Instantiator._Reachable(Fired, Source):
+                return True
+            Support = Instantiator._BackwardSupport(Fired, Destination)
+            Instance[0].append(Instantiator._BlockWitness(Fired, Support))
+        raise RuntimeError(
+            "SolveGroundedEndToEnd did not converge within %d iterations "
+            "(%s -> %s)" % (MaxIterations, Source, Destination))
+
+
     def _CreateCycle(Kripke):
         Implications = []
         FTransitions = Kripke.IterFTransitions(None)
