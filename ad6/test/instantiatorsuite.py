@@ -26,7 +26,8 @@ class InstantiatorSuite(TestSuite):
             'testAcyclicRankConstraintScopesToNonTrivialSCCsOnly',
             'testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded',
             'testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries',
-            'testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats'
+            'testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats',
+            'testRunWithBigStackIsATransparentWrapper'
         ]
         self._suite.addTests(map(InstantiatorTest,tests))
 

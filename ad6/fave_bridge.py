@@ -40,6 +40,7 @@ sys.setrecursionlimit(10 ** 6)
 
 import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's ordering)
 
+from src.bigstack import run_with_big_stack  # noqa: E402
 from src.core.instantiator import Instantiator  # noqa: E402
 from src.parser import favemodel  # noqa: E402
 from src.solver.pycosat import PycoSATAdapter  # noqa: E402
@@ -223,4 +224,14 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    # AD6_PLAN.md §5.4 Stage B, B1's "third item" / AD6_ENCODING_PLAN.md
+    # §3.10: sys.setrecursionlimit(10**6) above lets deep recursive
+    # operations on a real cyclic topology's escalated (rank-constrained)
+    # instance run past the OS's actual C stack (bounded by ulimit -s,
+    # independent of the Python-level counter) and segfault SILENTLY --
+    # confirmed on the real wl_stanford model under the shell's default
+    # 8MB stack. run_with_big_stack runs main() in a thread with an
+    # explicit large stack instead, so this can't happen regardless of
+    # what ulimit the parent process (Ad6Adapter.check_compliance's
+    # subprocess.run) happens to inherit.
+    sys.exit(run_with_big_stack(main))

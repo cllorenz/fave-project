@@ -1063,6 +1063,44 @@ class InstantiatorTest(unittest.TestCase):
         self.assertFalse(Stats['Escalated'])
 
 
+    def testRunWithBigStackIsATransparentWrapper(self):
+        """ AD6_PLAN.md §5.4 Stage B, B1's "third item" / AD6_ENCODING_PLAN.md
+        §3.10: `src.bigstack.run_with_big_stack` runs a callable in a new
+        thread with a large explicit stack, so `main.py`/`fave_bridge.py`'s
+        deep XML-tree-recursive operations (e.g. Instantiator.
+        SolveAcyclicEndToEnd's escalation path -- confirmed to silently
+        segfault on a real ~450k-clause wl_stanford instance under the
+        shell's default 8MB `ulimit -s`, see AD6_ENCODING_PLAN.md §3.10)
+        can't blow the OS stack regardless of the launching shell's own
+        ulimit. That real crash isn't reproducible here as a fast,
+        deterministic unit test (calibrated attempts at a minimal
+        synthetic cyclic topology large enough to reproduce it did not
+        finish in reasonable time -- CEGAR's own cost dominates before the
+        stack does, at any scale small enough to stay a fast unit test);
+        the fix's justification is the real A/B-tested Stanford run
+        itself (crashes under the default ulimit, succeeds under
+        `ulimit -s unlimited`, both runs otherwise identical). What IS
+        unit-testable, and matters just as much for a change on this
+        entry-point call path: that the wrapper is behavior-preserving --
+        same return value, same raised exception -- for the ordinary,
+        non-crashing case every existing benchmark already exercises. """
+        from src.bigstack import run_with_big_stack
+
+        def returns_a_value(x, y=None):
+            return (x, y)
+
+        self.assertEqual(run_with_big_stack(returns_a_value, 1, y=2), (1, 2))
+
+        class _MarkerError(Exception):
+            pass
+
+        def raises():
+            raise _MarkerError("propagated across the thread boundary")
+
+        with self.assertRaises(_MarkerError):
+            run_with_big_stack(raises)
+
+
 def main():
     unittest.main()
 
