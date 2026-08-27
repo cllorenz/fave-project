@@ -1548,6 +1548,90 @@ corrected directly — see §4.4.)
     production** (see §6, below): `ad6/fave_bridge.py` now uses this architecture for
     every query, not just Stanford's.
 
+- **5.5 Internet2 (i2) — staged plan, C0-C4, GO/NO-GO gated at each stage (planned
+  2026-08-27, following Stanford's §5.4 PROVISIONAL GO).** i2 is the other benchmark §5.2
+  named for the "IPv4 forwarding at scale" feasibility question, but it is NOT "Stanford but
+  bigger" — a read-only research pass (fork investigation, 2026-08-27) found its problem
+  shape is materially different, which is why it gets its own staged plan rather than
+  reusing §5.4's stages directly.
+
+  **What's different from Stanford:**
+  - **No mid stage.** i2 decomposes each of its 9 routers into `in.X`/`out.X` only (18
+    devices total; `bench/wl_i2/i2-json/config.json`'s `table_types: ["in","out"]`,
+    corroborated by a comment in `bench/np_preparation.py` ~line 197). VLAN is not a
+    multi-hop "stays pinned along a path" problem the way Stanford's admission+rewrite was
+    — it is a same-hop joint constraint: `out.X` rewrites VLAN as a function of destination
+    (`rw=vlan:M` in `routes.json` entries), `in.X` independently admits a VLAN set at
+    ingress. `apkeep/adapter.py` already has a distinct, i2-specific faithful path for
+    exactly this shape (`_i2_faithful`/`_build_i2_faithful`, ~adapter.py:326,1284-1334) —
+    structurally unlike Stanford's `_capture_mid_rewrite`/`_capture_out_reset`/
+    `_capture_in_admission` trio we ported in §5.4 Stage B2.
+  - **The scale risk is route-table size, not VLAN.** `bench/wl_i2/i2-json/routes.json` has
+    77,841 entries vs Stanford's 8,792 — this, not device/router count (i2 is smaller: 9
+    routers/18 devices vs Stanford's 16/32), is the actual stress case §5.2 was written for.
+  - **No router-subsetting tool exists for i2** the way `apkeep_convergence._filter_model`
+    gave Stanford its N=2/3/5/16 induced-slice protocol —
+    `bench/faithful_bdd_measure.py` explicitly raises `SystemExit("i2 router subsetting is
+    not implemented yet")` for `--bench i2`. §5.4's N-scaling approach does not carry over
+    directly.
+  - **APKeep's own faithful-VLAN build for i2 has never completed.** Both captured
+    profiles in `bench/wl_i2/eval/` (`faithful_bdd_capped_profile.jsonl`, 170 samples;
+    `faithful_bdd_uncapped_profile.jsonl`, 109 samples) are still `"phase":"running"` after
+    28 and 54 minutes respectively, stalled at 52-53% of 154,920 rules with the BDD atomic-
+    predicate count (`ap_num`) still climbing past 21,012 — `bench/wl_i2/eval/
+    faithful_sizing.py`'s own docstring predicts why: a joint (dst × VLAN) BDD atom space is
+    a cross-product (`Pi ~= dst_atoms x VLAN_classes`) vs. an NDD-style per-field sum
+    (`Sigma = dst_atoms + VLAN_classes`). **There is no working faithful-i2 reference to
+    replicate** — unlike Stanford, where APKeep's own faithful numbers (despite the open
+    N=3/N=5 discrepancy) at least completed and gave a target to match.
+  - **Rule ingestion is NOT a new problem.** i2's `routes.json` tuples
+    (`[node, priority?, priority?, match_list, rewrite_list, out_ports]`) already flow
+    through the same generic `Rule`/`Forward`/`Rewrite`/`Match` objects both
+    `apkeep/adapter.py` and `fave/ad6/adapter.py`'s `add_rules()` consume for Stanford — no
+    new parsing/translation layer is needed structurally. Confirmed: no `test_ad6*i2*` test
+    exists yet, and today's `Ad6Adapter(faithful_vlan=True)` would silently no-op i2's
+    faithful capture (its `mid`/`out` stage-name checks just never match i2's `in.X`/
+    `out.X`-only devices) rather than error — plain mode (`faithful_vlan=False`) is
+    structurally ready to try.
+
+  **Stages (each gates the next; no stage attempted before the previous is GO):**
+  - **C0 — Ingestion sanity.** Build i2 through `Ad6Adapter(faithful_vlan=False)` via
+    `InProcessFaVe`, confirm the Kripke model builds without crashing, sanity-check
+    device/rule counts land near expectation (18 devices, tens of thousands of encoded
+    rules from 77,841 routes). Cheap gatekeeper, mirrors §5.4 Stage A's own "does this even
+    build" discipline before investing further.
+  - **C1 — Plain-mode correctness gate.** Differential vs `bench/wl_i2/reachable.json` (the
+    SAME oracle `test/test_apkeep_i2.py` already validates FaVe+APKeep against — full mesh,
+    all 9x8=72 source-probe pairs reachable, 0 missing/0 extra required). Same soundness
+    discipline as wl_tum/wl_ifi/wl_stanford's own B1 gates: no measurement is trusted before
+    an exact oracle match.
+  - **C2 — Plain-mode tractability at full scale.** Generalize `bench/ad6_faithful_measure.py`'s
+    instrumentation (build/DIMACS/query time split, clause count, peak RSS) to i2's full
+    77,841-route model in plain mode — the actual LPM/dst-FIB stress test. Since no
+    router-subsetting tool exists for i2 (see above), run full-scale directly first (device
+    count is small, so this is tractable to attempt without a small-n on-ramp); only build a
+    route-sampling fallback harness for a scaling curve if the full-scale run proves
+    intractable. Same yolobox-numbers-are-directional-only guardrail as §5.4 B3 applies.
+  - **C3 — Faithful-VLAN necessity check (GO/NO-GO).** Before attempting any new joint
+    dst×VLAN encoding, check whether plain mode (VLAN-admission-blind) already reproduces
+    the C1 oracle exactly. If so — and C1 already passing on plain mode is itself evidence
+    of this — that means i2's VLANs may not gate reachability the way Stanford's did, and
+    faithful-VLAN modeling for i2 gets marked **out of scope** with this rationale
+    documented, ending the spike at C3 rather than chasing a problem APKeep itself has not
+    solved. If plain mode is found insufficient, proceed to C4.
+  - **C4 — (conditional on C3 finding plain mode insufficient).** Scope a new, i2-shaped
+    joint-constraint encoding: a single-hop `out.X` rewrite/`in.X` admission gate, reusing
+    Stage A2's `fieldmatch` primitive (`ad6/src/xml/genutils.py:fieldmatch`,
+    `ad6/src/core/instantiator.py:_HandleFieldMatches`) but WITHOUT §5.4's multi-hop SSA
+    path-pinning machinery, since i2 has no mid-stage rewrite chain to track. Explicitly
+    test, not assume, whether SAT's existential search sidesteps the (dst x VLAN)
+    cross-product blowup stalling APKeep's BDD approach — SAT never needs to materialize an
+    explicit joint predicate space the way BDD/NDD atom enumeration does, which could be a
+    genuine comparative finding for §7's write-up rather than a risk to route around.
+
+  **Not yet started as of 2026-08-27** — this section records the plan only; C0 has not
+  been attempted.
+
 ---
 
 ## 6. Algorithmic lever — amortise the O(n²) toward O(n) — CONFIRMED 2026-08-24/25
@@ -1870,7 +1954,10 @@ speculatively ahead of need.
       proven plain oracle, sub-exponential clause growth. Provisional pending a bare-metal
       re-run (yolobox numbers are directional only) and a still-open, non-blocking N=3/N=5
       discrepancy vs APKeep's own faithful numbers (narrowed to not be an ad6 bug via a
-      live NetPlumber arbiter, not fully root-caused). i2 not yet attempted.
+      live NetPlumber arbiter, not fully root-caused). **i2: staged plan (C0-C4) written
+      2026-08-27, §5.5 — not yet attempted.** i2's problem shape differs from Stanford's
+      (no mid stage, route-table-size-dominated, no working faithful-VLAN reference to
+      target since APKeep's own i2 faithful build has never completed).
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
