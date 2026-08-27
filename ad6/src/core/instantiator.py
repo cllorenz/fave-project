@@ -98,6 +98,7 @@ class Instantiator:
             Instantiator._HandlePrefixes(Variable, Handled)
             Instantiator._HandlePorts(Variable, Handled)
             Instantiator._HandleVlans(Variable, Handled)
+            Instantiator._HandleFieldMatches(Variable, Handled, MutableFields)
             Instantiator._HandleOthers(Variable, Handled)
 
         Keys = list(Handled)
@@ -1164,6 +1165,44 @@ class Instantiator:
 
         Direction,tmp,Vlan = Name.split('_')
         Equality.append(XMLUtils.ConvertVLANToVariables(Vlan,Direction))
+
+        Handled[Name] = Equality
+
+
+    def _HandleFieldMatches(Variable, Handled, MutableFields):
+        """ AD6_PLAN.md §5.4 Stage A2: resolves a GenUtils.fieldmatch()
+        alias (XMLUtils.FieldMatchAliasName, built by kripke.py's
+        FieldMatchFilter branch) into an equality against the SAME
+        per-node SSA copy _CreateMutationConstraints already threads
+        through the model (XMLUtils.ConvertFieldToVariables) -- the match-
+        side counterpart of _HandleVlans/_HandleOthers's own deferred-
+        alias-expansion pattern, except node-scoped instead of global (see
+        FieldMatchAliasName's docstring for why). `MutableFields` must be
+        the SAME dict passed to InstantiateBase (so the bit-width used to
+        resolve a match agrees with the one used to build the rewrite/frame
+        axioms) -- a fieldmatch on a field InstantiateBase was never told
+        is mutable has no known width to resolve against, so this raises
+        rather than silently leaving the alias an unconstrained free
+        variable (which would make the admission check vacuously
+        satisfiable either way -- exactly the class of silent-blowup bug
+        this whole integration has repeatedly had to hunt down). """
+        Name = Variable.attrib[XMLUtils.ATTRNAME]
+        if Name in Handled or not Name.startswith(XMLUtils.FIELDMATCHPREFIX):
+            return
+
+        Field, Node, Value = XMLUtils.ParseFieldMatchAliasName(Name)
+        if not MutableFields or Field not in MutableFields:
+            raise ValueError(
+                "fieldmatch on field %r at node %r requires %r to be "
+                "declared in InstantiateBase's MutableFields (e.g. "
+                "{%r: 12}) -- got %r" % (Field, Node, Field, Field, MutableFields))
+        Width = MutableFields[Field]
+
+        Equality = XMLUtils.equality()
+        var = deepcopy(Variable)
+        var.attrib[XMLUtils.ATTRNEGATED] = 'false'
+        Equality.append(var)
+        Equality.append(XMLUtils.ConvertFieldToVariables(Field, Node, int(Value), Width))
 
         Handled[Name] = Equality
 

@@ -66,6 +66,8 @@ class XMLUtils:
     IPV6ROUTE = "ipv6-route"
     VLAN = "vlan"
     TCPFLAGS = "tcp-flags"
+    FIELDMATCH = "fieldmatch"
+    ATTRFIELD = "field"
 
     FIREWALLPATH = "/*/firewalls/"+FIREWALL
     NETWORKPATH = "/*/networks/"+NETWORK
@@ -87,6 +89,7 @@ class XMLUtils:
     RTSEGSLEFTPATH = "./"+RTSEGSLEFT
     VLANPATH="./"+VLAN
     TCPFLAGSPATH="./"+TCPFLAGS
+    FIELDMATCHPATH="./"+FIELDMATCH
     RBODYPATHS = [
         PROTOPATH,
         IPPATH,
@@ -98,7 +101,8 @@ class XMLUtils:
         RTTYPEPATH,
         RTSEGSLEFTPATH,
         VLANPATH,
-        TCPFLAGSPATH
+        TCPFLAGSPATH,
+        FIELDMATCHPATH
     ]
 
     DEFAULTINPUT = "input"
@@ -570,3 +574,30 @@ class XMLUtils:
             XML.append(XMLUtils.variable(XMLUtils.FieldBitName(Field, Node, Index), value=(Bit == '1')))
 
         return XML
+
+
+    FIELDMATCHPREFIX = "fieldmatch#"
+
+    def FieldMatchAliasName(Field, Node, Value):
+        """ AD6_PLAN.md §5.4 Stage A2: a deferred-resolution alias for "does
+        Node's own per-node SSA copy of Field (XMLUtils.FieldBitName, set by
+        Instantiator._CreateMutationConstraints from whichever edge fired
+        into Node) equal Value" -- the match-side counterpart to
+        ConvertFieldToVariables's force-side use of the same per-node
+        copies. Mirrors ConvertToVariables's existing deferred-alias
+        pattern for vlan/port/etc (a single named <variable>, expanded to
+        its real bit-vector meaning later by a dedicated Instantiator._Handle*
+        pass over the whole encoding) -- except every existing alias in
+        this file names a GLOBAL bit-vector, so its name never needs to
+        embed a node key. This one does, since the same Field=Value written
+        at two different Kripke nodes are two different conditions (that is
+        the entire point of Stage A's SSA encoding). Kept as one already-
+        globally-unique string (not a tuple) since deferred aliases are
+        plain <variable name="..."> text throughout this file. "#" is safe
+        as a separator here for the same reason FieldBitName uses it: no
+        node key, field name, or canonized value ever contains one. """
+        return "%s%s#%s#%s" % (XMLUtils.FIELDMATCHPREFIX, Field, Node, Value)
+
+    def ParseFieldMatchAliasName(Name):
+        _, Field, Node, Value = Name.split('#')
+        return Field, Node, Value

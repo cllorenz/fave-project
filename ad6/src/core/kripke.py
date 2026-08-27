@@ -92,7 +92,12 @@ class KripkeUtils:
         Gamma = Rule.xpath('|'.join(XMLUtils.RBODYPATHS))
         if not Gamma:
             Node.Gamma = XMLUtils.constant()
-        elif len(Gamma) == 1:
+        # AD6_PLAN.md §5.4 Stage A2: a lone <fieldmatch> can't take the
+        # single-element ConvertToVariables shortcut below -- that dispatch
+        # has no node-key parameter, but a fieldmatch alias MUST embed RKey
+        # (XMLUtils.FieldMatchAliasName), so it always needs the multi-
+        # element path even when it's the rule's only condition.
+        elif len(Gamma) == 1 and Gamma[0].tag != XMLUtils.FIELDMATCH:
             if Gamma[0].tag == XMLUtils.IF:
                 IfRules.append(Node)
             Node.Gamma = XMLUtils.ConvertToVariables(Gamma[0])
@@ -172,6 +177,36 @@ class KripkeUtils:
                 States = XMLUtils.disjunction()
                 States.extend(map(XMLUtils.ConvertToVariables,StateList))
 
+            # AD6_PLAN.md §5.4 Stage A2: <fieldmatch field="..."> conditions
+            # -- grouped by field (several values for the SAME field OR
+            # together, e.g. VLAN admission against a set of admitted tags;
+            # different fields AND together, same discipline as in/out vlan
+            # above). Each becomes a node-scoped alias (RKey is already
+            # known here) instead of ConvertToVariables's generic global-alias
+            # dispatch, since the whole point is that this match binds to
+            # THIS node's own per-node SSA copy of the field, not a model-
+            # wide constant -- see XMLUtils.FieldMatchAliasName.
+            FieldMatchFilter = lambda x: x.tag == XMLUtils.FIELDMATCH
+            FieldMatches = list(filter(FieldMatchFilter, Gamma))
+            FieldMatchGroups = {}
+            for FieldMatchElem in FieldMatches:
+                Gamma.remove(FieldMatchElem)
+                Field = FieldMatchElem.attrib[XMLUtils.ATTRFIELD]
+                FieldMatchGroups.setdefault(Field, []).append(FieldMatchElem)
+
+            FieldMatchConjuncts = []
+            for Field, Elems in FieldMatchGroups.items():
+                Aliases = [
+                    XMLUtils.variable(XMLUtils.FieldMatchAliasName(Field, RKey, Elem.text))
+                    for Elem in Elems
+                ]
+                if len(Aliases) > 1:
+                    Disjunction = XMLUtils.disjunction()
+                    Disjunction.extend(Aliases)
+                    FieldMatchConjuncts.append(Disjunction)
+                else:
+                    FieldMatchConjuncts.append(Aliases[0])
+
             Gamma = list(map(XMLUtils.ConvertToVariables,Gamma))
             Node.Gamma = XMLUtils.conjunction()
             Node.Gamma.extend(Gamma)
@@ -187,6 +222,8 @@ class KripkeUtils:
                 Node.Gamma.append(OutVlans)
             if StateList:
                 Node.Gamma.append(States)
+            if FieldMatchConjuncts:
+                Node.Gamma.extend(FieldMatchConjuncts)
 
         # true Transition
         Action = Rule.xpath(XMLUtils.ACTIONPATH)[0]

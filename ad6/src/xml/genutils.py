@@ -153,6 +153,20 @@ class GenUtils():
             elem.attrib['direction'] = direction
         return elem
 
+    def fieldmatch(field, value, negated=False):
+        # AD6_PLAN.md §5.4 Stage A2: match a mutable field's own per-node SSA
+        # value (as carried in by whichever edge fired into this rule's own
+        # node, see Instantiator._CreateMutationConstraints) against `value`
+        # -- the match-side counterpart to `action(..., rewrite_field=,
+        # rewrite_value=)`. Unlike `vlan()`/etc, this is resolved node-scoped
+        # (XMLUtils.FieldMatchAliasName), not against a single global alias,
+        # since the same field can legitimately hold different values at
+        # different points along one path once rewrites are involved.
+        elem = et.Element('fieldmatch', {'field': field})
+        elem.text = str(value)
+        if negated: elem.attrib['negated'] = 'true'
+        return elem
+
     def interface(name, key, direction=None, negated=False):
         if not direction:
             elem = et.Element('interface',{'name':name,'key':key})

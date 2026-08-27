@@ -312,6 +312,97 @@ class InstantiatorTest(unittest.TestCase):
             "is genuinely free, not accidentally pinned to just one value")
 
 
+    def testFieldMatchGatesOnMutatedSSAValue(self):
+        """ AD6_PLAN.md §5.4 Stage A2: GenUtils.fieldmatch()/
+        XMLUtils.FieldMatchAliasName -- a rule's own Gamma matching against
+        ITS node's per-node SSA copy of a mutable field (as set by whichever
+        upstream rewrite fired), not a single global constant. This is the
+        real Stanford in.X admission shape: "only admit onward if the
+        packet's CURRENT vlan tag (as rewritten by the upstream mid.X hop)
+        is one of the admitted set" -- Stage A alone (forcing/reading a
+        per-node value from the QUERY side, via
+        XMLUtils.ConvertFieldToVariables) proved the rewrite/frame-axiom
+        chain but never exercised a rule's own Gamma reading that chain
+        back, which is what an admission ACL actually needs.
+
+        Three entries rewrite vlan to different values on their way into a
+        SHARED admission gate node, whose own Gamma is
+        fieldmatch(vlan,5) OR fieldmatch(vlan,7) -- "admit vlan in {5,7}":
+
+          entryA_r0 --(rewrite vlan=5)--> gate_r0 --(jump)--> accept_r0
+          entryB_r0 --(rewrite vlan=6)--> gate_r0 --(jump)--> accept_r0
+          entryC_r0 --(rewrite vlan=7)--> gate_r0 --(jump)--> accept_r0
+
+        entryA's/entryC's rewritten value is in the admitted set ->
+        accept_r0 reachable; entryB's (6) is not -> UNSAT -- even though
+        the only structural difference between the three paths is which
+        value the upstream rewrite chose, proving the match reads the live
+        per-node SSA value flowing in, not a build-time-fixed alias (the
+        pre-Stage-A2 mechanism could not express this at all: a single
+        global "vlan" alias can't hold 5, 6 AND 7 at once for the same
+        model). entryA/B/C are all marked INIT -- reuses
+        _CreateInitConstraints's existing mutual exclusion (already relied
+        on by testMutationChainAndJoinSSAEncoding for the 2-entry case) to
+        isolate one path per query, same discipline, no new mechanism. """
+        def _hop(name, key, target, field=None, value=None):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action(
+                'jump', target=target, rewrite_field=field, rewrite_value=value))
+            table.append(rule)
+            return table
+
+        def _gate(name, key, target, field, values):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            for value in values:
+                rule.append(GenUtils.fieldmatch(field, value))
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        def _sink(name, key):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('accept'))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('fieldmatchfw')
+        firewall.append(_hop('t0', 'entryA_r0', 'gate_r0', 'vlan', 5))
+        firewall.append(_hop('t1', 'entryB_r0', 'gate_r0', 'vlan', 6))
+        firewall.append(_hop('t2', 'entryC_r0', 'gate_r0', 'vlan', 7))
+        firewall.append(_gate('t3', 'gate_r0', 'accept_r0', 'vlan', [5, 7]))
+        firewall.append(_sink('t4', 'accept_r0'))
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entryA_r0', 'entryB_r0', 'entryC_r0'], default_inits=False,
+            MutableFields={'vlan': 12}
+        )
+        solver = PycoSATAdapter()
+
+        def reachable(source):
+            instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, 'accept_r0')
+            return bool(solver.Solve(instance))
+
+        self.assertTrue(
+            reachable('entryA_r0'),
+            "vlan=5 is in the admitted set {5,7} -- must be admitted")
+        self.assertFalse(
+            reachable('entryB_r0'),
+            "vlan=6 is NOT in the admitted set {5,7} -- must be blocked, "
+            "not vacuously admitted by a stale/global vlan alias")
+        self.assertTrue(
+            reachable('entryC_r0'),
+            "vlan=7 is in the admitted set {5,7} -- must be admitted "
+            "(proves the OR-of-values disjunction, not just a single value)")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

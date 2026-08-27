@@ -18,6 +18,7 @@ class InstantiatorSuite(TestSuite):
             'testStateLiteralForcingIsMutuallyExclusive',
             'testSrcCidrQuerySeedMustUseSharedBitVector',
             'testMutationChainAndJoinSSAEncoding',
+            'testFieldMatchGatesOnMutatedSSAValue',
             'testCycleReachabilityIsUnsoundWithoutRealOrigin',
             'testSolveGroundedEndToEndRejectsUngroundedCycleWitness',
             'testBackwardSupportRestrictsBlockingToDestinationsOwnClosure',
