@@ -1245,3 +1245,301 @@ now sound." **No regression:** `ad6 make test` (10 suites, now including
 `testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries`,
 `testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats`) and every pre-existing
 fave-side ad6 test (27/27) stay green. Full details: `AD6_PLAN.md` §5.4.
+
+## 21. Stage A2 built and GO: a match-side counterpart to Stage A's rewrite-side SSA
+mechanism (`GenUtils.fieldmatch`), test-first **[NEW core feature]**
+
+**Gap this closes.** Stage A (item 17) built the rewrite/frame-axiom SSA machinery -- a
+mutable field can hold different values at different points along one path -- but only
+wired the QUERY side of reading a per-node value (`XMLUtils.ConvertFieldToVariables`, used
+to force/inspect a value from outside the model). Nothing let a RULE's own Gamma (match
+condition) reference a field's live per-node SSA value -- every existing match primitive
+(`GenUtils.vlan()` included) resolves to a single GLOBAL alias, shared model-wide, which is
+exactly the limitation Stage A was built to escape for rewrite but never escaped for match.
+This is a real gap for VLAN admission specifically: Stanford's real shape is "mid.X rewrites
+the egress VLAN to N; the next hop's in.Y ACL only admits the packet onward if its CURRENT
+(incoming) VLAN tag is in some admitted set" -- an admission rule whose own match condition
+needs to read the value a DIFFERENT rule (upstream) just wrote, which the pre-existing global
+`_HandleVlans`/`ConvertVLANToVariables` mechanism cannot express once VLAN is genuinely
+mutable (confirmed by inspection: `_HandleRule` builds `ingress_vlan_N`/`egress_vlan_N` as
+one alias per literal VALUE, shared by every rule anywhere that mentions it -- there is
+structurally no way for it to mean "this SPECIFIC node's incoming value").
+
+**Design.** `GenUtils.fieldmatch(field, value, negated=False)` -- a new `<fieldmatch
+field="...">value</fieldmatch>` match element, parallel to `action(...,
+rewrite_field=, rewrite_value=)` on the rewrite side. `XMLUtils.FieldMatchAliasName(Field,
+Node, Value)`/`ParseFieldMatchAliasName` mint and parse a per-node deferred-resolution
+alias (`"fieldmatch#<field>#<node>#<value>"`, "#"-separated for the same collision-freedom
+reason `FieldBitName` uses it) -- mirrors the existing `ConvertToVariables`
+deferred-alias pattern (build a named `<variable>`, expand its real meaning later in a
+dedicated `Instantiator._Handle*` pass), except the alias name embeds the NODE KEY, since
+(unlike every other alias in this file) two rules writing the same `field=value` condition
+at two different nodes are two genuinely different conditions -- the entire point of Stage
+A's SSA encoding. `kripke.py::_HandleRule` gained a `FieldMatchFilter` branch (parallel to
+the existing `VlanFilter`/`StateFilter` ones): groups `<fieldmatch>` children by field name
+(several values for the SAME field OR together -- "admit vlan in {a,b,c}"; different fields
+AND together), and -- critically, since building the node-scoped alias needs `RKey`, which
+`ConvertToVariables`'s generic single-element dispatch never receives -- routes even a
+LONE `<fieldmatch>` element through the multi-element Gamma-assembly path instead of that
+shortcut (a small, targeted change to the `elif len(Gamma) == 1` guard). `Instantiator.
+_HandleFieldMatches(Variable, Handled, MutableFields)` is the new build-time expansion pass
+(wired into `InstantiateBase`'s existing `_HandlePrefixes`/`_HandlePorts`/`_HandleVlans`/
+`_HandleOthers` loop, right after `_HandleVlans`): resolves a `fieldmatch#...` alias into an
+equality against `XMLUtils.ConvertFieldToVariables(Field, Node, Value, Width)` -- the SAME
+per-node bit-vector `_CreateMutationConstraints` already threads through the rewrite/frame
+axioms, so a match and a rewrite on the same field always agree on what "the value at this
+node" means. Deliberately **raises**, rather than silently leaving the alias an
+unconstrained free variable, if `MutableFields` doesn't declare the matched field's width --
+an admission check that silently degrades to "sometimes true, sometimes false, solver's
+choice" is exactly the class of silent-blowup bug this whole integration keeps having to
+hunt down after the fact (items 6-14 are all instances of it); here it's caught at
+resolution time instead.
+
+**Why this binds to the right value, mechanically:** `_CreateMutationConstraints` already
+defines `field@V` (`FieldBitName(Field, V, i)`) for every node V via one implication per
+INCOMING edge (`transition_uv -> (field@v <-> rewritten-or-frame-carried value)`) -- i.e.
+"the value observed once you've arrived at V, along whichever edge actually fired". A
+node's own Gamma gates its OWN outgoing transition (`_ConvertNodesToImplications`:
+`transition_uv (Flag=True) -> (True <-> NodeKey_gamma)`), so a `fieldmatch` inside V's own
+Gamma checking `field@V == value` is precisely "does the packet's CURRENT value, as it
+arrived here, match" -- the exact admission semantic needed, using machinery Stage A already
+built and proved, with no new machinery beyond the match-side alias/dispatch above.
+
+**Test, test-first**: `ad6/test/core/instantiatortest.py::
+testFieldMatchGatesOnMutatedSSAValue` (wired into `InstantiatorSuite`). Three entries
+rewrite `vlan` to 5, 6, 7 respectively on their way into a SHARED admission gate node whose
+Gamma is `fieldmatch(vlan,5) OR fieldmatch(vlan,7)` ("admit vlan in {5,7}"); `entryA`/
+`entryB`/`entryC` all marked INIT, reusing `_CreateInitConstraints`'s existing mutual
+exclusion (same discipline as item 17's own join test) to isolate one path per query.
+Confirmed failing test-first via `git stash` on the 4 core/xml files (`AttributeError:
+type object 'GenUtils' has no attribute 'fieldmatch'`), passing after: vlan=5 and vlan=7
+(the admitted set) reach the shared sink, vlan=6 (not admitted) does not -- even though the
+only structural difference between the three paths is which value the UPSTREAM rewrite
+chose, proving the match reads the live per-node SSA value flowing in, not a stale/global
+alias (which could not even express this: a single global `vlan` variable can't hold 5, 6
+AND 7 in one model).
+
+**No regression**: `ad6 make test` (10 suites, `InstantiatorSuite` now 20 tests) and the
+real fave-side ad6 tests (`test_ad6_wl_ifi(.py/_stateful.py)`,
+`test_ad6_adapter_lpm_prio.py`, `test_ad6_adapter_multi_device_acl.py`,
+`test_ad6_wl_stanford_plain.py` -- 33/33) all green, exercised through the real
+`Ad6Adapter`/`favemodel.py` path, not just in-process shortcuts. (Environment note, same
+recurring pattern as `[[env-integration-tier-deps]]`: this sandbox needed `clasp`/
+`minisat` (apt) for `ad6 make test`'s solver-adapter tests and `liblog4cxx15`/
+`liblog4cxx-dev`/`libcppunit-1.15-0` (apt) for the live-NetPlumber differential in
+`test_ad6_wl_stanford_plain.py` -- both missing on a fresh container, neither related to
+this change.)
+
+**What this does NOT cover.** Only the core mechanism, on a hand-built synthetic fixture --
+same scoping discipline as item 17. Wiring real Stanford VLAN-admission/rewrite data
+through it (`Ad6Adapter._capture_mid_rewrite`/`_capture_out_rewrite`/
+`_capture_in_admission`, `favemodel.py` calling `InstantiateBase(...,
+MutableFields=...)` and emitting `fieldmatch` on admission rules) is Stage B2, not yet
+started; the actual tractability measurement (N=2/3/5/16, `AD6_PLAN.md` §5.4 Stage B) is
+B3, gated on B2 and on a bare-metal (not yolobox) environment for the wall-clock numbers to
+be trusted. Full details: `AD6_PLAN.md` §5.4.
+
+## 22. B2 built: real Stanford VLAN-admission/rewrite data wired through Stage A/A2's
+mechanism, mirroring APKeep's own faithful-VLAN model for direct comparability -- and a
+genuine, DATA-level finding about what this mechanism currently gates **[NEW, both a
+feature and a finding]**
+
+**Capture, ported (not imported) from `apkeep/adapter.py`'s own P7b Stanford-faithful
+methods** (`fave/ad6/adapter.py`, opt-in via `Ad6Adapter(logger, faithful_vlan=True)`,
+default `False` -- every existing benchmark/test byte-for-byte unaffected):
+`_capture_mid_rewrite` (a mid.X route's `Rewrite(vlan=N)` -> `(dst, egress_port, N)`),
+`_capture_out_reset` (an out.X rule resetting vlan to 0 -> `(in_port, source_vlan)`, "probes
+require vlan=0"), `_capture_in_admission` (the UNION of an in.X device's own admission
+rules' vlan matches into one admitted-VLAN SET -- deliberately the same device-level
+simplification APKeep's own faithful build uses, "Single-universe... lets this compose with
+the mid VLAN rewrite", not a genuinely per-physical-port trunk/access model, so the two
+backends answer the SAME semantic question, per `AD6_PLAN.md` §5.4's explicit "reuse
+APKeep's own... protocol for direct comparability"). New `_fold_mid_rewrites`: ad6-specific
+(APKeep folds this inline inside one `_build_stanford_faithful` function; ad6 needs it as a
+separate step because `_collapse_out_stage` -- B0's own out-stage removal -- already
+discards the mid.X-egress-port -> out.X-in-port mapping before favemodel.py ever sees the
+IR) -- computes the EFFECTIVE egress vlan (0 if the collapsed out-stage reset it for that
+specific (in_port, vlan) pair, else the mid-assigned value unchanged) from `self._edges`
+before the collapse runs.
+
+**Bug found and fixed test-first in `_fold_mid_rewrites` itself**: ad6's own `_out_ports`
+(unlike apkeep/adapter.py's, which pre-splits to a bare port number) returns the FULL
+"device.port" string; the fold's own `mid_port_to_outin` lookup map is keyed on bare port
+numbers (from `self._edges`, via `_split_port`). The first version looked up
+`(mid_dev, egress_port)` with the full string, silently missing every real reset pair (every
+query fell through to "no reset, pass the mid vlan through unchanged" instead of correctly
+folding to 0) -- caught immediately by
+`fave/test/test_ad6_wl_stanford_faithful.py::TestAd6StanfordFoldMidRewrites::
+test_reset_pair_folds_effective_vlan_to_zero` (confirmed failing before the fix: asserted
+`'0'`, got the un-folded `'99'`). Fixed by splitting `egress_port` through `_split_port`
+before the lookup, same as the map's own keys.
+
+**Wiring (`ad6/src/parser/favemodel.py`)**: `_build_device_table` appends
+`GenUtils.fieldmatch('vlan', v)` (one per admitted value -- OR'd together by
+`kripke.py`'s own `FieldMatchFilter`, item 21) to a device's own fwd-rule Gamma when
+`ir["in_vlans"]` has an entry for it, and attaches `rewrite_field='vlan'` to a mid.X-style
+route's jump when `ir["mid_rw"]` has a matching `(dst, first-egress-port)` entry;
+`_gen_firewall` attaches the SAME rewrite to a generator's own injection edge when it has a
+known `ir["gen_vlan"]` entry -- **necessary**, not cosmetic: without it a source's own vlan
+stays a genuinely free SSA variable, and a free variable trivially satisfies any non-empty
+admission set, silently making the check vacuous rather than a real gate (exactly the class
+of bug this whole integration keeps having to catch, see item 12/13's `<->>`-state and
+item 19's cycle-soundness postmortems for the same shape of mistake). `instantiate_base`
+threads `MutableFields={'vlan': 12}` (width kept in sync with the GLOBAL vlan encoding's own
+width, `XMLUtils.ConvertVLANToVariables`) and the new `Instantiator._HandleFieldMatches`
+call into its own hand-duplicated copy of `InstantiateBase`'s body (there is no public seam
+for `wire_edges`, so this function has always duplicated that method's body rather than
+calling it -- kept in sync deliberately, same discipline as its own docstring already
+states). All three of `_build_device_table`/`_gen_firewall`'s new lookups are explicitly
+gated on `ir["faithful_vlan"]` itself (not merely on `in_vlans`/`mid_rw`/`gen_vlan` being
+present) -- one single flag controls whether the mechanism activates anywhere in this
+module, so a stray populated field can never activate `fieldmatch` emission without the
+companion `MutableFields` wiring also being on (which would otherwise leave the alias
+unresolved and `_HandleFieldMatches` raise, by design).
+
+**Tests, test-first, two layers (mirrors B0's own division of labour):**
+- `fave/test/test_ad6_wl_stanford_faithful.py` (15 unit tests, fake Rule/RuleField/Forward/
+  Rewrite objects, no ad6 binary/benchmark inputs): `_capture_mid_rewrite` (dst/port/vlan
+  recorded, multi-port route's known first-port-only simplification, no-rewrite/no-forward
+  no-ops), `_capture_out_reset` (reset pair recorded, non-zero rewrite and no-rewrite are
+  NOT a reset), `_capture_in_admission` (union across rules, a drop is not an admission),
+  `_fold_mid_rewrites` (the reset-fold bug above, a non-matching reset passes through
+  unchanged, no out-stage at all passes through).
+- `ad6/test/parser/favemodeltest.py::FaithfulVlanWiringTest` (6 tests, hand-built IR, real
+  `build_config`/`instantiate_base`/solve -- one level downstream of Stage A2's own
+  hand-built-GenUtils-only fixture, proving favemodel.py's OWN consumption of the IR
+  fields): an admitted vlan reaches, a non-admitted one is blocked, the SECOND admitted
+  value in a 2-element set also reaches (proves the OR, not just the first), a 3-device
+  chain (`in.r1` admits {5} -> `mid.r1` rewrites to 9 -> `in.r2` admits {9} or {3}) proving
+  the rewrite and a DOWNSTREAM router's match compose correctly through a real build (not
+  just Stage A2's own single-hop synthetic core test), and `faithful_vlan=False` ignores
+  every faithful-VLAN IR field entirely (deliberately set to a value that WOULD be blocked
+  in faithful mode, to prove it's the flag, not mere field absence, that gates the
+  mechanism).
+
+Both suites wired into their respective runners (`ad6/test/parsersuite.py`,
+`fave/test/test.sh`'s existing `test_ad6_*` glob). **No regression**: `ad6 make test` (10
+suites, `ParserSuite` now 12 tests) and every existing fave-side ad6 test (wl_ifi(_stateful),
+wl_stanford_plain, adapter lpm/multi-device-acl -- 39/39 together with this file's own 15)
+stay green.
+
+**A real N=2 slice run against real data (`bbra_rtr,rozb_rtr`, the same slice B0's own
+differential uses) -- built and solved successfully in faithful mode, no crash, no
+malformed output.** Result: identical to B0's already-NetPlumber-proven plain-mode result
+(`bbra_rtr`<->`rozb_rtr` mutually reachable, nothing else). Consistent with, not yet proof
+of, correctness -- see the finding below for why this particular slice does not exercise the
+new admission check in a way that could have produced a DIFFERENT answer either way.
+
+**GENUINE FINDING, confirmed at the raw-data level, not an ad6-specific bug: wl_stanford's
+real `sources.json` never declares a `packet.ether.vlan` field for ANY source, on ANY
+router** (`bench/wl_stanford/stanford-json/sources.json`'s own device entries carry only
+`ipv4_dst=0.0.0.0/0` -- checked directly, not inferred). Consequence: `Ad6Adapter.
+add_generator`'s existing `_gen_vlan` capture (built for B0/B1, reused unchanged here) is
+EMPTY for every real wl_stanford source, so `_gen_firewall`'s new rewrite has nothing to
+force -- a source's own vlan stays a genuinely free SSA variable at the point it enters
+`in.X`'s admission check. **A free variable trivially satisfies "vlan ∈ admitted set" for
+ANY non-empty admitted set** (the solver just picks a satisfying member), so the new
+admission mechanism, though real, sound, and proven correct on both the fake-Rule unit tests
+and the synthetic 3-device chain (`FaithfulVlanWiringTest`), is **VACUOUS for every
+source-originated compliance query on this benchmark as it is actually shaped today** -- it
+only bites TRANSIT traffic (router-to-router, where a real upstream `mid.X` rewrite pins a
+concrete value before a downstream `in.Y`'s admission checks it, exactly what the chain test
+proves). This is **not** an artifact of ad6's SAT semantics specifically: NetPlumber/
+APKeep's own HSA/BDD header-space model treats an unconstrained field the same way (an
+injected header SPACE spanning every value, intersected with an admitted-VLAN condition,
+is non-empty as long as the admitted set is non-empty) -- the SAME "mere possibility counts"
+interpretation SAT's existential semantics give, for the same underlying reason (both are
+asking "does at least one instance of this field's value survive the check", not "does the
+COMPUTED/assigned value survive it"). Since both adapters read the identical FaVe
+`GeneratorModel.fields` for the same `sources.json`, **APKeep's own faithful-VLAN build
+necessarily has the identical vacuousness for source-originated queries** -- this is a
+property of the benchmark data and the "no access-port VLAN-assignment step modelled, on
+either backend's faithful attempt" shared scope, not a defect introduced by this port.
+**Not silently worked around here** -- consistent with this project's own discipline for a
+significant finding (mirrors item 19/B1's cycle-soundness gap and the wl_up NO-GO
+precedents): flagged for a decision, not patched around unprompted. What a fix would need
+(not attempted): modelling the real access-port behaviour missing from BOTH engines' current
+faithful builds -- a locally-injected, physically-untagged frame gets its VLAN ASSIGNED by
+the ingress port's own static (per-physical-port, not per-source) configuration, the same
+per-port information B0/B1's already-built (but, for wl_stanford's `SwitchModel` shape,
+currently dead) `_capture_iport_vlan`/`in_port_vlan` mechanism was designed to carry, if it
+were also wired to a per-port REWRITE instead of only a structural ACL-group selector.
+
+**RESOLVED 2026-08-27, discussed with Claas: the "vacuous" framing above was an
+overstatement -- no fix needed.** NetPlumber's own header-space propagation gives an
+unconstrained field the identical "wildcard until pinned by a matching/rewriting rule,
+unchanged otherwise" semantics; `_CreateMutationConstraints` already enforces exactly this
+invariant structurally (one axiom per edge, no third way for `field@node` to acquire a
+value), so existential SAT search over it computes the same thing HSA's flow-splitting
+does. A free field trivially satisfying a non-empty admitted set is the CORRECT existential
+answer, not unsoundness. Also, the "vacuous for every source-originated query" scope claim
+was too broad: real `mid.X` rewrites pin vlan to a fixed value regardless of the arriving
+value, so only a path's FIRST admission check is ever unconstrained -- every check
+downstream of a rewrite is genuinely gated, exactly as `FaithfulVlanWiringTest`'s 3-device
+chain test already proved. No access-port VLAN-assignment step needed; B3 proceeds on the
+mechanism as built. Full details: `AD6_PLAN.md` §5.4.
+
+## 23. B3: the faithful-VLAN Stanford tractability measurement -- PROVISIONAL GO, plus a
+real discrepancy investigated (not fully resolved) with a live-NetPlumber arbiter
+**[NEW measurement result]**
+
+**Driver**: `fave/bench/ad6_faithful_measure.py`, mirroring `bench/faithful_bdd_measure.py`'s
+own CLI/structure (`--routers` reusing `apkeep_convergence._filter_model`'s induced-
+subnetwork slicing) so the two backends' numbers are directly comparable at the same N --
+but driving `favemodel.build_config`/`instantiate_base` and a persistent PySAT `Minisat22`
+session DIRECTLY (not through the production `Ad6Adapter`/`fave_bridge.py` subprocess
+bridge) for instrumentation access to the instantiate/DIMACS-build/solve split, CNF clause
+count, and peak RSS -- the same discipline `ad6_encoding_bench/
+axis8d_stanford_netplumber_diff.py` already established for measurement-only scripts
+(read-only use of both `fave/` and `ad6/`'s existing modules).
+
+**Results, N=2/3/5/16** (artifacts: `fave/bench/wl_stanford/eval/ad6_faithful_N{2,3,5,16}.json`):
+
+| N | Kripke nodes | clauses | build+DIMACS | query | wall | peak RSS | reachable (non-self) |
+|---|---|---|---|---|---|---|---|
+| 2 | 1,196 | 138,556 | 6.4s | 0.2s | 9.5s | 627 MB | 2 |
+| 3 | 1,435 | 171,088 | 7.0s | 10.4s | 21.3s | 797 MB | 4 |
+| 5 | 1,875 | 246,814 | 10.5s | 31.8s | 48.0s | 1,152 MB | 16 |
+| 16 (full) | 5,463 | 711,100 | 31.5s | 713.7s | **764.0s** | 3,322 MB | **165** |
+
+Clause count grows ~5.1x for an 8x router increase (N=2->16) -- polynomial, not the
+exponential/superlinear blow-up that sank faithful BDD-APKeep's own attempt (its full
+uncapped build ran 54 minutes, applied 70% of rules, `ap_num` 22,249 and STILL CLIMBING,
+no plateau -- `APKEEP_NDD_EVAL.md`). ad6's full 16-router faithful model **completed** in
+~12.7 minutes, and its `reachable_pairs` (165) is **exactly** the plain/dead-port-gated
+oracle item 19/B1 already proved matches NetPlumber exactly (0 diffs, 165/165) -- i.e. at
+real full scale, faithful VLAN admission changes nothing beyond the already-proven-correct
+plain model for this benchmark's actual query set.
+
+**A real discrepancy found before trusting any of this, investigated with a live
+NetPlumber arbiter (Claas's suggestion) rather than guessed at.** N=2 matches APKeep's own
+committed faithful numbers (`bench/wl_stanford/eval/faithful_bdd_pop_N{2,3,5}.json`)
+exactly (2 vs 2), but N=3 gives 4 (APKeep: 3) and N=5 gives 16 (APKeep: 7) -- a gap that
+GROWS with N, not noise. First check: is this faithful-VLAN-specific? No -- re-running the
+identical N=3 slice with `faithful_vlan=False` gives the IDENTICAL reach matrix, so ad6's
+own faithful-VLAN admission is not restricting anything on this slice at all, matching the
+full-scale (N=16) finding. Second check, the arbiter: re-ran the SAME N=3/N=5 induced
+slices' PLAIN model against a live NetPlumber worker on those exact slices (`_emit_worker`,
+the same live-oracle discipline items 18/19 already use, not `reachable.json`) --
+**0 diffs at both N=3 and N=5**. Conclusion: the "extra" pairs are genuinely, topologically
+real (NetPlumber-confirmed), not an ad6 forwarding bug, and ad6's faithful-VLAN admission
+is not silently failing to restrict something it should -- it restricts nothing on ANY
+tested slice (2, 3, 5, or 16 routers), consistently.
+
+**Working hypothesis for the remaining gap, NOT confirmed further (flagged as an open,
+non-blocking discrepancy, not chased to ground this round)**: APKeep's own full-scale
+faithful build never completed (the 54-minute run above), so its N=2/3/5 numbers are the
+ONLY faithful data it ever produced, computed on artificially INDUCED (regenerated-
+ruleset) subnetworks. Plausible that those slices' own regenerated admitted-VLAN sets at
+the slice boundary diverge from the full topology's real ones in a way that doesn't
+reflect true Stanford behaviour, rather than ad6 under-restricting -- but this was not
+verified against APKeep's own induced-slice VLAN capture directly.
+
+**Environment caveat (existing cross-cutting guardrail, restated): every number above was
+measured on yolobox (sandboxed), not bare-metal.** `AD6_PLAN.md`'s own guardrail: a
+yolobox run confirms the model builds/solves correctly and gives directional signal, but
+is never the tractability GO/NO-GO verdict. §5.4's own gate: "GO... iff N=16 completes in
+budget on bare-metal with sub-exponential clause growth." N=16 DID complete, well under
+the 60-minute attempt budget, with polynomial clause growth -- **on yolobox**. Calling
+this **PROVISIONAL GO**, pending a bare-metal re-run to confirm the wall-clock numbers
+before treating it as the final §7 headline result. Full details: `AD6_PLAN.md` §5.4 B3.
