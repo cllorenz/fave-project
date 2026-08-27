@@ -1,0 +1,34 @@
+{
+  "bench": "stanford",
+  "engine": "ad6",
+  "faithful_vlan": true,
+  "routers": [
+    "bbra_rtr",
+    "rozb_rtr"
+  ],
+  "sources": 2,
+  "probes": 2,
+  "devices": 4,
+  "kripke_nodes": 1196,
+  "build_s": 5.897,
+  "acyclic_constraint_s": 2.38,
+  "acyclic_extra_clauses": 70682,
+  "dimacs_s": 0.455,
+  "variable_count": 50722,
+  "clause_count": 138556,
+  "solver_load_s": 0.047,
+  "query_count": 4,
+  "query_s": 0.176,
+  "reachable_pairs": 2,
+  "reach_matrix": {
+    "bbra_rtr": [
+      "rozb_rtr"
+    ],
+    "rozb_rtr": [
+      "bbra_rtr"
+    ]
+  },
+  "status": "completed",
+  "wall_s": 9.493,
+  "peak_rss_mb": 626.5
+}
