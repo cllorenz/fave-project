@@ -281,7 +281,11 @@ what follows is the CURRENT state, not the history):
 - **(c) Incremental-SAT lever (§6):** build **after** the (now-stateful) wl_up baseline, not
   before. §6 is only worth the effort if wl_up's O(n²)-ish query cost is shown to actually
   dominate wall-clock (more likely now that each `<->>` pair costs 3 solves) rather than
-  build cost — confirm by measuring first.
+  build cost — confirm by measuring first. **RESOLVED 2026-08-24/25 — CONFIRMED, see §6
+  below and `AD6_ENCODING_PLAN.md` §§3.4–3.9**: measured against the real wl_up model and
+  its full 11,902-query `cchecks.json`, not a proxy. Query cost dominates decisively; the
+  lever collapses it from an extrapolated ~2.25h to 16.6s (ad6's own Minisat family, via
+  its native incremental API) or ~71–102s (Z3), exact-match-correct throughout.
 - **(d) Stanford/i2 feasibility — the genuinely remaining open question.** Not a parsing
   question (§4.4 retired that framing) — a SAT-encoding-*scale* question: does LPM-at-scale
   and VLAN-admission-cross-product stay tractable in ad6's Kripke/CNF representation the
@@ -1282,17 +1286,154 @@ corrected directly — see §4.4.)
     `InstantiateCross`) — none of which this fix touches; `InstantiateCycle` is confirmed
     safe. No regression: `ad6 make test` (10 suites, 6 new tests this round) and every
     pre-existing fave-side ad6 test (27/27) stay green.
+  - **Second scope caveat, NEW 2026-08-25, still open, not yet reported anywhere else
+    (`AD6_ENCODING_PLAN.md` §2.5):** a DISTINCT bug, opposite failure direction (spurious
+    UNSAT, not spurious SAT) and a different mechanism (an implementation bug in
+    `Instantiator._ConvertNodesToImplications`'s translation of the paper's `trans(C)`
+    disjunction, not a gap in the formula itself) — confirmed still present in current
+    `ad6/src/core/instantiator.py:556-608`, untouched by this fix. The `XMLUtils.INIT in
+    Node.Props` check (line 584) is only ever reached when a node has **zero** incoming
+    edges; the moment a node has any real incoming edge, the code wrongly drops the "OR
+    init" disjunct and requires one of those incoming edges to fire instead — even when the
+    node genuinely is INIT. Effect: an init/entry node that also sits on a genuine incoming
+    path (plausible on a real backbone with redundant links back to an entry router — the
+    Stanford topology's own shape) can report **false UNSAT** for a query that is actually,
+    structurally reachable. Minimal isolated repro:
+    `ad6_encoding_bench/bug_init_node_incoming_edge.py`. Not yet fixed; likely a small,
+    targeted change (consult the INIT prop unconditionally, not only in the
+    zero-predecessor fallback branch) but not attempted without discussion first, same
+    discipline as the rest of this section.
+  - **Third item, NEW 2026-08-27, a robustness bug, not a soundness gap
+    (`AD6_ENCODING_PLAN.md` §3.10) — FIXED 2026-08-27:** while prototyping the
+    incremental lever (§6, below) against this exact real 16-router topology,
+    `Instantiator.SolveAcyclicEndToEnd`'s escalation path (the SAME code this fix ships)
+    **silently crashed — no exception, no traceback, the process just vanished** —
+    root-caused to a C-stack overflow: `sys.setrecursionlimit(10**6)` (set at import in
+    both `main.py` and `fave_bridge.py`) lets a deep recursive operation over the
+    ~450k-clause rank-constrained instance run past the shell's default 8MB `ulimit -s`,
+    segfaulting instead of raising a Python exception. `fave_bridge.py` runs as a
+    subprocess inheriting its parent's ulimits, so **any real cyclic-topology run (this
+    Stanford differential included) is at risk of this exact silent crash** if the parent
+    process's stack limit is at the OS default. **Fixed**: `ad6/src/bigstack.py`
+    (`run_with_big_stack`) runs the entry point's `main()` in a new thread with an
+    explicit 256MB stack (portable — honoured by Python's threading module independent
+    of the launching shell's own ulimit), wired into `fave_bridge.py`'s `__main__` block
+    (the real production entry point; `main.py`'s demo CLI left unchanged — lower-value,
+    would need a larger refactor of its inline `__main__` block, not attempted here).
+    Test-first: `ad6/test/core/instantiatortest.py::testRunWithBigStackIsATransparentWrapper`
+    (confirmed failing pre-fix via a temporary module removal), confirms the wrapper is
+    behavior-preserving (same return value, same raised exception) for the ordinary case;
+    the exact crash itself was NOT reproduced as a fast synthetic unit test (calibration
+    attempts at a minimal cyclic topology large enough did not finish in reasonable
+    time — CEGAR's own cost dominates before the stack does, at any scale small enough to
+    stay a fast test) — the fix's justification is the real A/B-tested Stanford run
+    itself. No regression: `ad6 make test` (10 suites, 18 instantiator tests, up from 17)
+    and a real `fave_bridge.py` end-to-end smoke test via `Ad6Adapter`/`InProcessFaVe`
+    stay green.
+  - **Fourth item, NEW 2026-08-27 — the wall-clock NO-GO is RESOLVED
+    (`AD6_ENCODING_PLAN.md` §3.10), for the primitive tested, confirmed against the live
+    NetPlumber oracle, not just ad6's own prior answers:** baking the SAME SCC-scoped rank
+    constraints this fix uses into a **persistent** incremental solver's base ONCE, then
+    answering all 256 real Stanford source→probe pairs as single assumption-checks (no
+    CEGAR needed — the rank encoding is sound by construction), completed the **entire
+    real 256-pair all-pairs matrix in ~16-23 minutes** (measured twice: 971.09s and,
+    under heavier concurrent load, 1361.07s) — vs. this section's own measured
+    6-hour/28.9%-complete result and ~20-21h extrapolation for a full run. Directly
+    illustrated on the two specific pairs already known to be expensive under ad6-real
+    (2164.64s and 2259.70s each): the SAME pairs took ~102.7s and ~0.15s respectively here
+    — the second nearly free, because it reused clauses learned solving the first.
+    **Closed the loop**: fed all 256 answers through the SAME live-NetPlumber
+    oracle-comparison `test_ad6_wl_stanford.py` itself uses (not `reachable.json`, not a
+    recorded snapshot) — **EXACT MATCH, 0 diffs across all 16 roles**
+    (`ad6_encoding_bench/axis8d_stanford_netplumber_diff.py`). **Since applied to
+    production** (see §6, below): `ad6/fave_bridge.py` now uses this architecture for
+    every query, not just Stanford's.
 
 ---
 
-## 6. Algorithmic lever — amortise the O(n²) toward O(n) (optional, high value)
+## 6. Algorithmic lever — amortise the O(n²) toward O(n) — CONFIRMED 2026-08-24/25
 
 Directly attacks Factor A: for a fixed source, solve the n destination queries under solver
 **assumptions**, reusing learned clauses across them — a warm single solver session
-approximating a flood — collapsing O(n²) toward ~O(n). More aggressive: a **QBF encoding
-quantifying over destinations**. Measures "how close a generic solver gets to a
-domain-specific flood by amortising." If it works, the comparison tightens dramatically; if
-not, *why not* is itself a finding. Decide up-front vs post-baseline at the §1.4 gate.
+approximating a flood — collapsing O(n²) toward ~O(n). Measures "how close a generic solver
+gets to a domain-specific flood by amortising."
+
+**Answered empirically, not just measured-then-deferred**: a parallel investigation
+(`AD6_ENCODING_PLAN.md`, harness in `ad6_encoding_bench/`, kept deliberately separate from
+this document's own working files while both were active) ran the lever against the real
+wl_up FaVe+ad6 model (137 generators/probes, 5,977 Kripke nodes) and its full real
+`bench/wl_up/cchecks.json` (11,902 queries, 3,302 stateful `<->>`), not a synthetic proxy:
+
+- Assumption-based incremental solving over one shared base gives **near-flat scaling in
+  query count** (confirmed first on a controlled synthetic case, then survives genuine
+  cross-source variation — both source AND destination varying every query, the real shape
+  of `InstantiateEndToEnd`/`SolveAcyclicEndToEnd` — not just fixed-source flooding).
+- At wl_up's real scale, full query set, **exact-match-correct against ad6's own current
+  answers throughout**: Z3 incremental **71–102s** (two independent full runs) vs. an
+  extrapolated **~2 hours** for ad6's current per-query-fresh-solve architecture and **~42
+  min** for a fresh-Z3-per-query control — **~100–140× faster**.
+- The lever is **not Z3/SMT-specific**: ad6's own solver family (Minisat), driven via its
+  real native incremental library API (PySAT's `Minisat22`, not a CLI subprocess) — **16.6s
+  for the full 11,902-query set, ~490× faster** than the extrapolated current-architecture
+  baseline.
+- **Separable finding, smaller and lower-risk, does not require adopting incrementality at
+  all**: tracing the real production call path (`Instantiator.InstantiateEndToEnd` →
+  `AbstractSolver.Solve`/`_ConvertToDIMACS`, `ad6/fave_bridge.py`'s query loop) found that
+  every query today pays for a `deepcopy()` of the *entire* base CNF (an lxml tree — tens
+  of thousands of clauses at wl_up scale) plus a full from-scratch Python-level DIMACS
+  variable-renumbering pass, on top of the actual solve — independent of solver choice
+  (`fave_bridge.py` already calls `pycosat`, a native library, not a CLI subprocess; there
+  is no "swap CLI for a library" win available here, that framing was a mischaracterization
+  caught while scoping this section). Caching the base DIMACS mapping once per run and
+  converting only each query's small delta — same solver, same correctness properties, no
+  architecture change — is a cheaper first step available independent of the incremental-
+  solving decision.
+- **Stanford follow-up, DONE 2026-08-27 — the lever survives real cyclic-topology
+  rank-constraint escalation cost, the thing wl_up's result above couldn't speak to at
+  all** (`AD6_ENCODING_PLAN.md` §3.10, `AD6_PLAN.md` §5.4's B1 write-up, "fourth item"):
+  baking the SCC-scoped rank constraints B1's own escalation path uses into a persistent
+  incremental solver's base once, then answering all 256 real Stanford source→probe pairs
+  as single assumption-checks, completed the entire real all-pairs matrix in **~16.2
+  minutes** (971.09s), 0 mismatches against ad6-real's own answers — against B1's own
+  measured 6-hour/28.9%-complete result and ~20-21h extrapolation for a full run. Getting
+  there took three attempts (Z3's term-based construction never completed even one solve
+  in 90 minutes on this instance — a Z3-specific limitation, not evidence against the
+  lever; a flat-DIMACS/PySAT-Minisat22 construction, architecturally matching what already
+  gave the wl_up win, succeeded cleanly) and surfaced an unrelated, still-open C-stack
+  overflow robustness bug in `SolveAcyclicEndToEnd`'s escalation path (see B1's write-up's
+  "third item"). Scope caveat: answers the reachability question correctly and fast, but
+  doesn't by itself complete `test_ad6_wl_stanford.py`'s own differential-against-
+  NetPlumber comparison (a natural, cheap next step, not yet done), and is still a
+  benchmark-harness reconstruction, not a `fave_bridge.py`/`Instantiator` production
+  change.
+- **Applied to production 2026-08-27.** `ad6/src/solver/incremental.py`
+  (`IncrementalSession`) is the new production implementation of everything above: builds
+  the base encoding once, bakes the SCC-scoped acyclic rank constraints in
+  *unconditionally* (no more lazy escalation — sound by construction, no CEGAR needed, per
+  `_CreateAcyclicConstraints`'s own docstring), converts to DIMACS once, and drives one
+  persistent PySAT `Minisat22` session for the whole run. `ad6/fave_bridge.py`'s query
+  loop now calls `IncrementalSession.Query` instead of
+  `Instantiator.InstantiateEndToEnd`/`SolveAcyclicEndToEnd` — the ONLY call site changed;
+  `Instantiator`'s own methods are untouched, so nothing else that depends on them (direct
+  tests included) is affected. New production dependency: `python-sat` (pinned
+  `1.9.dev15` in the `Dockerfile`, alongside `pycosat`; PySAT only ever ships
+  "dev"-tagged PyPI releases — that's its normal versioning scheme, not an unstable pin).
+  **Verified, not just asserted**: `ad6 make test` (10 suites, including the new
+  `testRunWithBigStackIsATransparentWrapper`) green; the real fave-side ad6 test files —
+  `test_ad6_wl_ifi(.py/_stateful.py)`, `test_ad6_wl_up.py`, `test_ad6_adapter_lpm_prio.py`,
+  `test_ad6_adapter_multi_device_acl.py`, `test_ad6_wl_stanford_plain.py` (36 tests total,
+  the last one including a real N=2-router live-NetPlumber differential) — all pass
+  end-to-end through the new architecture, exercised via the real
+  `Ad6Adapter`→subprocess→`fave_bridge.py` path, not just in-process shortcuts. wl_ifi's
+  full 219-pair compliance run: 0.81s (previously multiple seconds per query in the old
+  architecture). Along the way, fixed an unrelated, pre-existing environment gap in this
+  sandbox (`liblog4cxx.so.15` missing, blocking `NetPlumberLibAdapter` entirely — apt
+  install, not an ad6/fave code change) that was silently skipping the only real
+  live-NetPlumber ad6 differential test this project has.
+
+Full methodology, every intermediate axis (naive-vs-Tseitin CNF, ad6's own encoding vs.
+native SMT, array/UF/quantified FIB theory, synthetic-then-real incremental scaling), and
+the underlying harness: `AD6_ENCODING_PLAN.md`, `ad6_encoding_bench/`.
 
 ---
 
