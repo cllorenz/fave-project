@@ -41,9 +41,8 @@ sys.setrecursionlimit(10 ** 6)
 import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's ordering)
 
 from src.bigstack import run_with_big_stack  # noqa: E402
-from src.core.instantiator import Instantiator  # noqa: E402
 from src.parser import favemodel  # noqa: E402
-from src.solver.pycosat import PycoSATAdapter  # noqa: E402
+from src.solver.incremental import IncrementalSession  # noqa: E402
 from src.xml.xmlutils import XMLUtils  # noqa: E402
 
 
@@ -154,13 +153,20 @@ def main(argv=None):
     # working around was fixed and verified sufficient on its own, see
     # ad6/FAVE_CHANGES.md §8).
 
-    solver = PycoSATAdapter()
-    # AD6_PLAN.md §5.4 Stage B (B1), Option 2: shared across every query in
-    # this run -- Instantiator.SolveAcyclicEndToEnd lazily builds the
-    # (expensive) SCC-scoped acyclic rank constraints into this dict the
-    # FIRST time any query's witness turns out ungrounded, then reuses them
-    # for every subsequent query, rather than rebuilding per query.
-    acyclic_cache = {}
+    # AD6_PLAN.md §6 / AD6_ENCODING_PLAN.md §§3.4-3.10: one persistent
+    # incremental-solving session for the whole run, built once (base
+    # encoding + SCC-scoped acyclic rank constraints, both baked in
+    # unconditionally -- sound by construction, no CEGAR needed, see
+    # src/solver/incremental.py's own docstring), then reused across
+    # every query via native assumption-based solves. Replaces the old
+    # per-query Instantiator.SolveAcyclicEndToEnd/PycoSATAdapter path
+    # (kept intact in src/core/instantiator.py for its own direct
+    # callers/tests -- only this call site changed): confirmed
+    # ~100-490x faster on wl_up's real full query set and rescues
+    # wl_stanford's B1 wall-clock NO-GO (~16 min for the real 256-pair
+    # all-pairs matrix vs. an unfinished 6-hour run), 0 mismatches
+    # against the old architecture on both.
+    session = IncrementalSession(kripke, encoding)
     results = []
     # Opt-in per-query progress (AD6_BRIDGE_PROGRESS=1) -- added after the
     # B1 Option 2 differential ran for hours with zero visibility into
@@ -187,33 +193,22 @@ def main(argv=None):
     for index, q in enumerate(queries, start=1):
         source = favemodel.gen_entry_key(q['source'])
         destination = favemodel.query_destination_key(q['probe'], ir)
-        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, destination)
+        extra_vars = []
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
-            instance[0].extend(_seed_literals(q['src_cidr']))
-        for literal in _state_literals(q.get('cond')):
-            instance[0].append(literal)
-        # AD6_PLAN.md §5.4 Stage B (B1): InstantiateEndToEnd's own two
-        # independent disjuncts are unsound on cyclic topologies (see
-        # instantiatortest.py::testCycleReachabilityIsUnsoundWithoutRealOrigin).
-        # SolveAcyclicEndToEnd rejects any witness not actually grounded in
-        # `source`, escalating to the static rank fix only when a plain
-        # solve's witness needs it. Applied here, at the one call site
-        # every query goes through, so it can't be forgotten by a future
-        # caller.
-        stats = {} if progress else None
+            extra_vars.extend(_seed_literals(q['src_cidr']))
+        extra_vars.extend(_state_literals(q.get('cond')))
         if progress:
             start = time.time()
-        reachable = Instantiator.SolveAcyclicEndToEnd(
-            solver, kripke, instance, source, destination, Cache=acyclic_cache, Stats=stats)
+        reachable = session.Query(source, destination, extra_vars=extra_vars)
         if progress:
-            tag = "escalated" if stats['Escalated'] else "fast-path"
-            print("[%d/%d] %s -> %s: reachable=%s (%s, %.2fs)" % (
-                index, total, q['source'], q['probe'], reachable, tag,
+            print("[%d/%d] %s -> %s: reachable=%s (%.4fs)" % (
+                index, total, q['source'], q['probe'], reachable,
                 time.time() - start), file=progress_out, flush=True)
         results.append({
             "source": q['source'], "probe": q['probe'],
             "reachable": reachable, "negated": q['negated'], "cond": q['cond'],
         })
+    session.Close()
 
     if progress and progress_file:
         progress_out.close()

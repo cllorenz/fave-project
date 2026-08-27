@@ -87,10 +87,16 @@ RUN pip3 install pybison==0.6.4
 RUN pip3 install JPype1==1.7.1
 # ad6 backend (ad6/): lxml (Kripke/SAT-instance XML), yappi (profiling, main.py
 # --profile), pycosat (default in-process SAT solver, native build needs
-# python3-dev above).
+# python3-dev above). python-sat (PySAT) drives fave_bridge.py's persistent
+# incremental-solving session (src/solver/incremental.py, AD6_PLAN.md §6 /
+# AD6_ENCODING_PLAN.md §§3.4-3.10) via Minisat22's real native incremental
+# library API -- ~100-490x faster than the old per-query architecture on
+# real benchmarks. Only ever ships "dev"-tagged releases on PyPI; that is
+# this package's normal versioning scheme, not a pin onto an unstable build.
 RUN pip3 install lxml==6.1.2
 RUN pip3 install yappi==1.7.6
 RUN pip3 install pycosat==0.6.6
+RUN pip3 install python-sat==1.9.dev15
 
 COPY . $DIRPATH/
 
