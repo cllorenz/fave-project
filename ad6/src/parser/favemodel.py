@@ -300,6 +300,27 @@ def _build_device_table(device, ir, ports_by_device):
     acl_in = (ir.get("acl_in") or {}).get(device, {})
     acl_out = (ir.get("acl_out") or {}).get(device, {})
     out_port_vlan = ir.get("out_port_vlan") or {}
+    # AD6_PLAN.md §5.4 Stage B (B2): this device's admitted-VLAN set
+    # (Ad6Adapter._capture_in_admission, an in.X-style device) and its
+    # mid.X-style VLAN-rewrite table (Ad6Adapter._fold_mid_rewrites, keyed
+    # by (dst, first-egress-port) -- the same key
+    # _translate_fwd_rule/_capture_mid_rewrite both derive from the
+    # identical underlying rule, so this lookup is exact). Explicitly
+    # gated on ir["faithful_vlan"] (not just these two keys' presence) so
+    # there is exactly ONE flag controlling whether faithful-VLAN
+    # machinery activates anywhere in this module -- instantiate_base
+    # gates its own MutableFields/_HandleFieldMatches wiring the same way,
+    # and a fieldmatch emitted here without that companion wiring would
+    # leave its alias unresolved (Instantiator._HandleFieldMatches raises
+    # rather than silently no-opping, by design -- AD6_PLAN.md §5.4 Stage
+    # A2). Both empty/absent for every non-faithful-VLAN benchmark and for
+    # a faithful-VLAN device that is neither in.X nor mid.X-shaped --
+    # purely additive, byte-for-byte unaffected otherwise.
+    faithful = bool(ir.get("faithful_vlan"))
+    admitted_vlans = (ir.get("in_vlans") or {}).get(device) if faithful else None
+    mid_rewrites = {
+        (dst, port): vlan for dst, port, vlan in (ir.get("mid_rw") or {}).get(device, [])
+    } if faithful else {}
 
     fwd_rules = sorted(
         (r for r in ir["fwd_rules"] if r["device"] == device),
@@ -347,6 +368,20 @@ def _build_device_table(device, ir, ports_by_device):
         if _is_constrained(fr["dst"]):
             rule.append(GenUtils.address(
                 fr["dst"], direction='dst', version=_ip_version(fr["dst"])))
+        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: gate this
+        # device's own forwarding on the packet's CURRENT per-node vlan
+        # value (Stage A2's fieldmatch/SSA mechanism) matching one of the
+        # admitted set -- the in.X-style single-junction admission check
+        # (see admitted_vlans' own comment above). Attached to every one
+        # of this device's own fwd rules uniformly (in practice always
+        # exactly one -- Ad6Adapter._add_fwd_route dedupes in.X's own
+        # per-VLAN admission rules down to one shared dst=None route,
+        # AD6_PLAN.md §5.4 Stage B0), not conditioned on is_acl_device
+        # (which is a DIFFERENT, wl_ifi-style mechanism this device never
+        # participates in -- always False for wl_stanford).
+        if admitted_vlans:
+            for vlan in admitted_vlans:
+                rule.append(GenUtils.fieldmatch('vlan', vlan))
         ports = fr["ports"]
         if ports == ["__drop__"]:
             # A genuine blackhole (AD6_PLAN.md §5.4 Stage B) -- e.g.
@@ -365,7 +400,20 @@ def _build_device_table(device, ir, ports_by_device):
             # `ports`'s egress interfaces (see that function's docstring
             # for why this can't just be one rule per port).
             target = "%s_fanout" % key
-        rule.append(GenUtils.action('jump', target=target))
+        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: a mid.X-style
+        # route that rewrites the egress VLAN (Ad6Adapter._fold_mid_rewrites,
+        # already folded against the collapsed out.X reset) carries that
+        # rewrite on the SAME jump/action as its target -- Stage A's rule
+        # (GenUtils.action's docstring: a rewrite only ever takes effect
+        # together with the edge it accompanies). Looked up by the exact
+        # (dst, first-egress-port) key the capture side derived from this
+        # SAME underlying rule.
+        rewrite_value = mid_rewrites.get((fr["dst"], ports[0])) if ports else None
+        if rewrite_value is not None:
+            rule.append(GenUtils.action(
+                'jump', target=target, rewrite_field='vlan', rewrite_value=int(rewrite_value)))
+        else:
+            rule.append(GenUtils.action('jump', target=target))
         rules.append(rule)
 
     if is_acl_device:
@@ -565,7 +613,24 @@ def _gen_firewall(source_name, ir):
     fw = GenUtils.firewall(_gen_fwkey(source_name))
     table = GenUtils.table('gen')
     rule = GenUtils.rule('0', key=gen_entry_key(source_name))
-    rule.append(GenUtils.action('jump', target=target))
+    # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: a source with a
+    # known fixed VLAN tag (Ad6Adapter.add_generator's own
+    # `packet.ether.vlan` capture) must have that value REWRITTEN onto its
+    # own injection edge, not left as a free SSA variable -- otherwise a
+    # downstream fieldmatch admission check (this device's own
+    # admitted_vlans, above) would be VACUOUS for this source: the solver
+    # could pick whatever value satisfies admission, since nothing pins
+    # it, silently over-approximating reachability instead of faithfully
+    # gating it (exactly the class of bug AD6_PLAN.md §5.4's own
+    # discipline exists to catch before it ships). No-op when `target` is
+    # already DROP_KEY (a dead-port source never reaches anywhere for the
+    # rewrite to matter) or the source has no known VLAN at all.
+    gen_vlan = (ir.get("gen_vlan") or {}).get(source_name) if ir.get("faithful_vlan") else None
+    if gen_vlan is not None and target != DROP_KEY:
+        rule.append(GenUtils.action(
+            'jump', target=target, rewrite_field='vlan', rewrite_value=int(gen_vlan)))
+    else:
+        rule.append(GenUtils.action('jump', target=target))
     table.append(rule)
     fw.append(table)
     return fw
@@ -797,6 +862,20 @@ def instantiate_base(config, ir):
 
     encoding = Instantiator._InstantiateBase(kripke)
 
+    # AD6_PLAN.md §5.4 Stage A2/B2: opt-in, mirrors
+    # Instantiator.InstantiateBase's own MutableFields handling exactly
+    # (this function duplicates that method's body rather than calling it,
+    # per the module docstring, so the two must be kept in sync) -- only
+    # the faithful-VLAN wl_stanford/i2 path ever sets ir["faithful_vlan"],
+    # every other benchmark's encoding is byte-for-byte unaffected. Width
+    # 12 matches the global VLAN encoding's own bit-vector width
+    # (XMLUtils.ConvertVLANToVariables), kept in sync deliberately so a
+    # `fieldmatch` and the (unrelated, global, structural-only) `vlan`
+    # match primitive never disagree about how many bits a VLAN tag needs.
+    mutable_fields = {'vlan': 12} if ir.get("faithful_vlan") else None
+    if mutable_fields:
+        encoding[0].extend(Instantiator._CreateMutationConstraints(kripke, mutable_fields))
+
     # AD6_PLAN.md §5.4 Stage B (B1), Option 2: NOT baked in here anymore --
     # Instantiator._CreateAcyclicConstraints is expensive to build/solve at
     # real wl_stanford scale (profiling: ~40-45s of extra build+solve time
@@ -814,6 +893,7 @@ def instantiate_base(config, ir):
         Instantiator._HandlePrefixes(variable, handled)
         Instantiator._HandlePorts(variable, handled)
         Instantiator._HandleVlans(variable, handled)
+        Instantiator._HandleFieldMatches(variable, handled, mutable_fields)
         Instantiator._HandleOthers(variable, handled)
     keys = list(handled)
     src_keys = [k for k in keys if k.startswith('src_')]

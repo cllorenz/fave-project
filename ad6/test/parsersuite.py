@@ -5,7 +5,9 @@ import sys
 import os
 
 
-from parser.favemodeltest import RoutingTableLPMTest, GenFirewallDeadPortGateTest
+from parser.favemodeltest import (
+    RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest
+)
 
 class ParserSuite(TestSuite):
     def addTests(self):
@@ -21,6 +23,15 @@ class ParserSuite(TestSuite):
             'test_generator_on_admit_all_device_uses_normal_entry'
         ]
         self._suite.addTests(map(GenFirewallDeadPortGateTest,tests))
+        tests = [
+            'test_admitted_vlan_reaches',
+            'test_non_admitted_vlan_is_blocked',
+            'test_second_admitted_value_also_reaches',
+            'test_mid_rewrite_gates_downstream_admission',
+            'test_downstream_admission_rejects_stale_upstream_vlan',
+            'test_plain_mode_ignores_faithful_vlan_fields_entirely',
+        ]
+        self._suite.addTests(map(FaithfulVlanWiringTest,tests))
 
 
     def run(self):

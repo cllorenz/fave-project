@@ -133,8 +133,17 @@ class Ad6Adapter(AbstractVerificationEngine):
     """ Drive ad6 as a FaVe verification backend (forwarding + ACLs, matching
     wl_ifi's model). """
 
-    def __init__(self, logger: TraceLogger) -> None:
+    def __init__(self, logger: TraceLogger, faithful_vlan: bool = False) -> None:
         self.logger = logger
+        # AD6_PLAN.md §5.4 Stage B (B2): opt-in (default False, every existing
+        # caller/benchmark unaffected -- wl_ifi/wl_up/wl_tum/B0-B1's own
+        # plain wl_stanford tests never pass this). Ported (not imported)
+        # from apkeep/adapter.py's own `faithful_vlan` flag and its P7b
+        # Stanford-faithful capture methods below, for direct semantic
+        # comparability between the two backends' faithful-VLAN models
+        # (§5.4 Stage B: "reuse APKeep's own faithful-VLAN subset protocol
+        # ... for direct comparability").
+        self._faithful_vlan = faithful_vlan
         self._devices: set = set()
         self._fwd_rules: List[Dict[str, Any]] = []   # [{device,dst,ports,prio}]
         self._fwd_seen: set = set()                    # (device,dst,tuple(ports)) dedup
@@ -144,6 +153,13 @@ class Ad6Adapter(AbstractVerificationEngine):
         # see _capture_in_admit/_capture_out_perm/_collapse_out_stage below.
         self._in_admit: Dict[str, Optional[set]] = {}   # device -> admitted ports, None=all
         self._out_perm: Dict[str, Dict[str, set]] = {}   # out.X device -> in_port -> {out_ports}
+        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only -- ported from
+        # apkeep/adapter.py's P7b `_mid_rw`/`_out_reset`/`_in_vlans`
+        # (`_capture_mid_rewrite`/`_capture_out_reset`/`_capture_in_admission`
+        # below have the full semantics; see also _fold_mid_rewrites).
+        self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}  # mid.X -> [(dst,egress_port,vlan_n)]
+        self._out_reset: Dict[str, set] = {}            # out.X -> {(in_port, vlan)}
+        self._in_vlans: Dict[str, set] = {}              # in.X -> {admitted vlan tags}
         self._generators: Dict[str, str] = {}          # name -> "device.port"
         self._probes: Dict[str, str] = {}              # name -> "device.port"
         self._gen_src: Dict[str, str] = {}              # name -> cidr
@@ -230,6 +246,8 @@ class Ad6Adapter(AbstractVerificationEngine):
         stage = model.node.split('.', 1)[0]
         if stage == 'out':
             self._capture_out_perm(model)
+            if self._faithful_vlan:
+                self._capture_out_reset(model)
         fwd_tables = (model.node + '.routing', model.node + '.1')
         acl_in_t = model.node + '.acl_in'
         acl_out_t = model.node + '.acl_out'
@@ -242,6 +260,10 @@ class Ad6Adapter(AbstractVerificationEngine):
                     self._capture_vlan_port(model.node, rule)
                     if stage == 'in':
                         self._capture_in_admit(model.node, rule)
+                        if self._faithful_vlan:
+                            self._capture_in_admission(model.node, rule)
+                    if self._faithful_vlan and stage == 'mid':
+                        self._capture_mid_rewrite(model.node, rule)
             elif table == acl_in_t:
                 self._acl_devices.add(model.node)
                 self._capture_acl(self._acl_in.setdefault(model.node, {}), rules)
@@ -461,6 +483,124 @@ class Ad6Adapter(AbstractVerificationEngine):
                         if field.name == _VLAN:
                             self._iport_vlan[port] = str(field.value)
 
+    def _capture_mid_rewrite(self, node: str, rule: Any) -> None:
+        """ AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: a mid-stage
+        rule forwards a dst-IP prefix to an egress port and rewrites the
+        egress VLAN (rw=vlan:N). Record (dst_cidr, egress_port, N) so
+        favemodel.py can emit it as a real ad6 rewrite action
+        (GenUtils.action(..., rewrite_field='vlan', rewrite_value=N),
+        AD6_PLAN.md §5.4 Stage A). Direct port of
+        apkeep/adapter.py:_capture_mid_rewrite -- including its own
+        simplification of recording only the FIRST egress port for a
+        multi-port (ECMP) route (a Rewrite applies to the packet
+        regardless of which egress branch it takes, so this only affects
+        which out.X in_port _fold_mid_rewrites folds the reset against;
+        kept identical to APKeep's own capture for direct comparability,
+        not "fixed" here, since real Stanford data has not been observed
+        to combine ECMP with a VLAN rewrite on the same route). """
+        vlan_n = None
+        for action in rule.actions:
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    if field.name == _VLAN:
+                        vlan_n = str(field.value)
+        if vlan_n is None:
+            return
+        ports = self._out_ports(rule)
+        if not ports:
+            return
+        dst = None
+        for field in (rule.match or []):
+            if field.name in _DSTS:
+                dst = str(field.value)
+        self._mid_rw.setdefault(node, []).append((dst, ports[0], vlan_n))
+
+    def _capture_out_reset(self, model: Any) -> None:
+        """ AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: the out-stage
+        mostly passes the mid-assigned VLAN through, but a few rules reset
+        it to 0 (rw=vlan:0) -- probes require vlan=0. Record the (in_port,
+        vlan) pairs that reset, so _fold_mid_rewrites can fold the reset
+        into the effective egress VLAN for the mid.X routes that feed
+        them. Direct port of apkeep/adapter.py:_capture_out_reset. """
+        reset = self._out_reset.setdefault(model.node, set())
+        for _table, rules in model.tables.items():
+            for rule in rules:
+                resets = any(
+                    isinstance(a, Rewrite)
+                    and any(f.name == _VLAN and str(f.value) == '0' for f in a.rewrite)
+                    for a in rule.actions
+                )
+                if not resets or not rule.in_ports:
+                    continue
+                in_port = _split_port(rule.in_ports[0])[1]
+                for field in (rule.match or []):
+                    if field.name == _VLAN:
+                        reset.add((in_port, str(field.value)))
+
+    def _capture_in_admission(self, node: str, rule: Any) -> None:
+        """ AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: an in-stage
+        rule admits (permits, forwards to mid) traffic on a given ingress
+        VLAN. Record the VLANs a router's ingress permits -- the union
+        over a device's own rules becomes ONE admitted-VLAN SET, checked
+        once at that device's own (already-collapsed, dst=None) forwarding
+        entry (favemodel.py's _build_device_table), mirroring
+        apkeep/adapter.py's own single-check-at-the-collapsed-junction
+        simplification (its docstring: "Single-universe (no ACL division)
+        lets this compose with the mid VLAN rewrite") -- not a genuinely
+        per-physical-port trunk/access model, deliberately, for direct
+        comparability with APKeep's own faithful-VLAN result (AD6_PLAN.md
+        §5.4 Stage B). Direct port of apkeep/adapter.py:_capture_in_admission. """
+        if not any(isinstance(a, Forward) and a.ports for a in rule.actions):
+            return  # a drop (no forward) -- not an admission
+        for field in (rule.match or []):
+            if field.name == _VLAN:
+                self._in_vlans.setdefault(node, set()).add(str(field.value))
+
+    def _fold_mid_rewrites(self) -> Dict[str, List[List[Any]]]:
+        """ AD6_PLAN.md §5.4 Stage B (B2): port of
+        apkeep/adapter.py:_build_stanford_faithful's VLAN-rewrite folding --
+        the EFFECTIVE egress VLAN of a mid.X route is 0 iff the (already-
+        collapsed-away, AD6_PLAN.md §5.4 Stage B0) out.X stage resets it
+        for that specific (in_port, vlan) pair (probes require vlan=0),
+        else the mid-assigned VLAN N propagates on unchanged as the
+        transit tag. Needs the SAME mid.X-egress-port -> out.X-in-port
+        mapping `_collapse_out_stage` derives from the RAW (pre-collapse)
+        edges -- by the time favemodel.py sees the IR's own "edges" list,
+        the out.* stage is already gone, so this must be computed here,
+        from `self._edges`, before that collapse discards the information.
+        Returns {mid_device: [[dst, egress_port, effective_vlan], ...]}
+        (JSON-serialisable: lists, not tuples/sets, since this feeds
+        straight into `_build_ir`'s payload). """
+        mid_port_to_outin: Dict[Tuple[str, str], str] = {}
+        for sport, dport in self._edges:
+            s_dev, s_port = _split_port(sport)
+            d_dev, d_port = _split_port(dport)
+            if d_dev.split('.', 1)[0] == 'out':
+                mid_port_to_outin[(s_dev, s_port)] = d_port
+        folded: Dict[str, List[List[Any]]] = {}
+        for mid_dev, rewrites in self._mid_rw.items():
+            router = mid_dev.split('.', 1)[1]
+            reset = self._out_reset.get('out.' + router, set())
+            for dst, egress_port, vlan_n in rewrites:
+                # `egress_port` here is the FULL "device.port" string
+                # ad6's own `_out_ports`/`_capture_mid_rewrite` convention
+                # uses (unlike apkeep/adapter.py's `_out_ports`, which
+                # pre-splits to a bare port number) -- `mid_port_to_outin`
+                # above is keyed the same way `self._edges` already is
+                # (device, bare-port), via `_split_port`, so the lookup
+                # key must be split the same way, or every lookup misses
+                # silently (found test-first: a hand-built fixture with a
+                # real matching reset pair still returned the un-folded
+                # vlan, `test_ad6_wl_stanford_faithful.py::
+                # TestAd6StanfordFoldMidRewrites::
+                # test_reset_pair_folds_effective_vlan_to_zero`).
+                out_inport = mid_port_to_outin.get((mid_dev, _split_port(egress_port)[1]))
+                effective = '0' if (
+                    out_inport is not None and (out_inport, vlan_n) in reset
+                ) else vlan_n
+                folded.setdefault(mid_dev, []).append([dst, egress_port, effective])
+        return folded
+
     @staticmethod
     def _capture_acl(store: Dict[Optional[str], List[List[Any]]], rules: Any) -> None:
         """ Group FaVe ACL rules by their VLAN match into
@@ -566,7 +706,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             for vlan, port in vlan_map.items()
             if vlan in self._acl_out.get(device, {})
         }
-        return {
+        ir = {
             "devices": sorted(devices),
             "fwd_rules": self._fwd_rules,
             "routing_rules": self._routing_rules,
@@ -585,6 +725,18 @@ class Ad6Adapter(AbstractVerificationEngine):
             "ruleset_devices": self._ruleset_text,
             "device_addr": self._device_addr,
         }
+        # AD6_PLAN.md §5.4 Stage B (B2): only emitted in faithful_vlan mode --
+        # every existing (plain) benchmark's IR payload is byte-for-byte
+        # unaffected, since favemodel.py gates all faithful-VLAN wiring on
+        # ir["faithful_vlan"] being truthy.
+        if self._faithful_vlan:
+            ir["faithful_vlan"] = True
+            ir["mid_rw"] = self._fold_mid_rewrites()
+            ir["in_vlans"] = {
+                device: sorted(vlans, key=int) for device, vlans in self._in_vlans.items()
+            }
+            ir["gen_vlan"] = dict(self._gen_vlan)
+        return ir
 
     # --- build + query --------------------------------------------------
 
