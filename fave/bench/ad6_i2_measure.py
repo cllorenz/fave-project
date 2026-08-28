@@ -153,7 +153,16 @@ def measure(out_path, skip_acyclic=False):
             result["acyclic_extra_clauses"] = 0
         else:
             t0 = time.time()
-            acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
+            progress = {"last_wall": t0}
+
+            def _progress(edge_index):
+                now = time.time()
+                if now - progress["last_wall"] >= 5.0:
+                    progress["last_wall"] = now
+                    result["acyclic_edge_index"] = edge_index
+                    _checkpoint(result, out_path, "acyclic_constraints_running")
+
+            acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke, ProgressCallback=_progress)
             result["acyclic_constraint_s"] = round(time.time() - t0, 3)
             result["acyclic_extra_clauses"] = len(acyclic_constraints)
             _checkpoint(result, out_path, "acyclic_constraints_built")
