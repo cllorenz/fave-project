@@ -127,7 +127,7 @@ def _checkpoint(result, out_path, stage):
 _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 
-def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=None):
+def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22", max_queries=None):
     result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
     wall0 = time.time()
     result["_wall0"] = wall0
@@ -166,15 +166,20 @@ def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=N
         # only consumer, and it builds `kripke` as a self-contained, dict-based
         # structure (structure.py) that holds no reference back into `config`. lxml
         # Elements form parent/child reference cycles, so a plain `del` alone isn't
-        # enough to reclaim them promptly -- gc.collect() is needed too.
+        # enough to reclaim them promptly -- gc.collect() is needed too (this was
+        # confirmed NOT to be a no-op cost here: the earlier gc_probe finding that
+        # _CreateAcyclicConstraints's own retained objects are genuine, not garbage,
+        # doesn't apply to `config`, which really is dead weight from here on).
         del config
         gc.collect()
         _checkpoint(result, out_path, "kripke_built")
 
         result["skip_acyclic"] = skip_acyclic
+        result["lite_acyclic"] = lite_acyclic
         combined = deepcopy(encoding)
         del encoding
         gc.collect()
+        lite_clauses = None
         if skip_acyclic:
             # AD6_PLAN.md §5.5 C1/C2 finding: i2's Kripke graph has one giant
             # non-trivial SCC (99.3% of nodes), so _CreateAcyclicConstraints
@@ -196,19 +201,36 @@ def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=N
                     result["acyclic_edge_index"] = edge_index
                     _checkpoint(result, out_path, "acyclic_constraints_running")
 
-            acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke, ProgressCallback=_progress)
+            if lite_acyclic:
+                print("[experimental] --lite-acyclic: _CreateAcyclicConstraintsLite fixes "
+                      "C2's memory blowup but NOT C2 overall (solving still hangs "
+                      "regardless of backend) -- see AD6_PLAN.md Sec 5.5", file=sys.stderr)
+                # AD6_PLAN.md §5.5 C2 NO-GO fix attempt: the general encoding's
+                # per-edge lxml/Tseitin machinery retains ~0.14-0.18 MB/edge
+                # (confirmed genuine, not reclaimable garbage -- memory
+                # 'ad6-wl-i2-c2-nogo-oom'). _CreateAcyclicConstraintsLite emits
+                # the IDENTICAL clause set (see
+                # testAcyclicRankConstraintLiteMatchesGeneralEncoding) as plain
+                # (name, negated) literal tuples instead, which can't be spliced
+                # into `combined[0]` (an lxml-Element formula list) directly --
+                # they're kept separate and resolved to DIMACS ints below,
+                # after the base encoding's own name_to_index/index_for exist.
+                lite_clauses = Instantiator._CreateAcyclicConstraintsLite(kripke, ProgressCallback=_progress)
+                result["acyclic_extra_clauses"] = len(lite_clauses)
+            else:
+                acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke, ProgressCallback=_progress)
+                result["acyclic_extra_clauses"] = len(acyclic_constraints)
+                combined[0].extend(deepcopy(acyclic_constraints))
+                del acyclic_constraints
             result["acyclic_constraint_s"] = round(time.time() - t0, 3)
-            result["acyclic_extra_clauses"] = len(acyclic_constraints)
-            _checkpoint(result, out_path, "acyclic_constraints_built")
-            combined[0].extend(deepcopy(acyclic_constraints))
-            del acyclic_constraints
             gc.collect()
+            _checkpoint(result, out_path, "acyclic_constraints_built")
 
         t0 = time.time()
         adapter = MiniSATAdapter()
         result["current_rss_before_dimacs_mb"] = _current_rss_mb()
         variables, dimacs_clauses = adapter._ConvertToDIMACS(combined)
-        # `combined` (the base encoding +, for the non-skip-acyclic path, the acyclic
+        # `combined` (the base encoding +, for the non-lite path, the acyclic
         # constraints already spliced into it) is fully consumed by _ConvertToDIMACS --
         # nothing downstream reads it again.
         del combined
@@ -235,6 +257,18 @@ def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=N
                 next_index[0] += 1
             return idx
 
+        if lite_clauses is not None:
+            t0 = time.time()
+            dimacs_clauses.extend(
+                [-index_for(name) if negated else index_for(name) for name, negated in clause]
+                for clause in lite_clauses)
+            del lite_clauses
+            gc.collect()
+            result["lite_dimacs_s"] = round(time.time() - t0, 3)
+            result["variable_count"] = next_index[0] - 1
+            result["clause_count"] = len(dimacs_clauses)
+            _checkpoint(result, out_path, "lite_acyclic_merged")
+
         def literal(xml_var):
             idx = index_for(xml_var.attrib[XMLUtils.ATTRNAME])
             return -idx if xml_var.attrib.get(XMLUtils.ATTRNEGATED) == 'true' else idx
@@ -254,12 +288,11 @@ def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=N
         t0 = time.time()
         solver = solver_cls(bootstrap_with=dimacs_clauses)
         result["solver_load_s"] = round(time.time() - t0, 3)
-        # Minisat22.new() (and the other PySAT backends' equivalents) just iterate
-        # bootstrap_with, calling self.add_clause() per clause into the underlying C
-        # solver (pysat/solvers.py) -- they keep no reference to the list itself, so the
-        # ~14M-entry `dimacs_clauses` Python list (confirmed via checkpoints to be most
-        # of this script's pre-solve memory, not the solver's own footprint) is pure
-        # dead weight from here on.
+        # Minisat22.new() just iterates bootstrap_with, calling self.add_clause() per
+        # clause into the underlying C solver (pysat/solvers.py) -- it keeps no
+        # reference to the list itself, so the ~14M-entry `dimacs_clauses` Python list
+        # (confirmed via checkpoints to be most of this script's pre-solve memory,
+        # not the solver's own footprint) is pure dead weight from here on.
         result["current_rss_before_dimacs_clauses_free_mb"] = _current_rss_mb()
         del dimacs_clauses
         gc.collect()
@@ -344,6 +377,13 @@ def main(argv=None):
     p.add_argument("--skip-acyclic", action="store_true",
                     help="orientation-only: skip _CreateAcyclicConstraints (cheap, but NOT "
                          "a soundness-complete C1 result -- see AD6_PLAN.md Sec 5.5)")
+    p.add_argument("--lite-acyclic", action="store_true",
+                    help="EXPERIMENTAL, opt-in only: use _CreateAcyclicConstraintsLite "
+                         "(plain-Python clauses, no per-edge lxml/Tseitin construction) "
+                         "instead of the general _CreateAcyclicConstraints. Fixes C2's "
+                         "memory blowup but C2 overall is still NO-GO -- solving still "
+                         "hangs regardless (AD6_PLAN.md Sec 5.5) -- kept experimental "
+                         "until that's resolved, not promoted to any default path")
     p.add_argument("--solver", choices=_SOLVERS, default="minisat22",
                     help="PySAT backend to load/solve with (default: minisat22, PySAT's "
                          "own default) -- solver-comparison plan, AD6_PLAN.md Sec 5.5")
@@ -351,7 +391,7 @@ def main(argv=None):
                     help="stop after this many queries (default: all) -- for a cheap "
                          "first-query-only probe before committing to a full run")
     args = p.parse_args(argv)
-    measure(args.out, skip_acyclic=args.skip_acyclic,
+    measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
             solver_name=args.solver, max_queries=args.max_queries)
     return 0
 

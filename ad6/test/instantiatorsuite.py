@@ -25,6 +25,7 @@ class InstantiatorSuite(TestSuite):
             'testAcyclicRankConstraintRejectsFloatingCycleStatically',
             'testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains',
             'testAcyclicRankConstraintScopesToNonTrivialSCCsOnly',
+            'testAcyclicRankConstraintLiteMatchesGeneralEncoding',
             'testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded',
             'testSolveAcyclicEndToEndEscalatesOnlyOnceAndCachesAcrossQueries',
             'testSolveAcyclicEndToEndReportsEscalationPerQueryViaStats',

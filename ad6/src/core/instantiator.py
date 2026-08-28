@@ -1018,6 +1018,100 @@ class Instantiator:
         return Constraints
 
 
+    def _CreateAcyclicConstraintsLite(Kripke, ProgressCallback=None):
+        """ EXPERIMENTAL (AD6_PLAN.md Sec 5.5) -- opt-in only, never called by any
+        default/production path (_CreateAcyclicConstraints, InstantiateBase,
+        SolveAcyclicEndToEnd, IncrementalSession all still use the general
+        implementation unchanged). Fixes wl_i2's C2 memory blowup, but C2 overall is
+        still NO-GO -- solving the resulting instance hangs regardless of which
+        SAT backend loads it (Sec 5.5's solver-comparison finding), root cause not
+        yet known. Kept experimental, not promoted or removed, until that solving
+        question is settled -- see this function's own callers for how to opt in
+        (`bench/ad6_i2_measure.py --lite-acyclic`).
+
+        Memory-lite reimplementation of _CreateAcyclicConstraints, for use at scales
+        (AD6_PLAN.md Sec 5.5, wl_i2's C2) where the lxml-Element-per-literal /
+        SATUtils.ConvertToCNF machinery's overhead (measured: ~0.14-0.18 MB per
+        SCC-qualifying edge, confirmed genuine retained memory, not reclaimable garbage
+        -- see AD6_ENCODING_PLAN.md/memory 'ad6-wl-i2-c2-nogo-oom') makes the general
+        path OOM before the model even reaches DIMACS conversion.
+
+        Returns the IDENTICAL logical clause set as _CreateAcyclicConstraints, hand-derived
+        directly as plain-Python clauses -- each clause a tuple of (VariableName: str,
+        Negated: bool) literal tuples -- instead of building/CNF-converting an
+        lxml-backed formula tree per edge. This is possible losslessly here (and ONLY
+        here) because _CreateAcyclicConstraints's own docstring already establishes this
+        encoding needs no Tseitin auxiliary-variable introduction beyond the eq_i/gt_i it
+        builds explicitly -- SATUtils.ConvertToCNF's job on this specific shape reduces to
+        turning each implication into (its negated antecedent OR its consequent) and
+        distributing that over the consequent's own (already at most 2-literal)
+        disjunctions, which was traced through by hand and confirmed to always yield
+        exactly 6*Width-1 flat clauses per qualifying edge: 2 for eq_0, 2 for gt_0, 3
+        each for eq_i/gt_i (1<=i<Width), and 1 for the transition-gate clause -- see
+        testAcyclicRankConstraintLiteMatchesGeneralEncoding for the exhaustive
+        edge-by-edge equivalence check against _CreateAcyclicConstraints this claim rests
+        on. Do not let this drift out of lock-step with _CreateAcyclicConstraints without
+        re-verifying that test -- it is the only thing standing between this function and
+        silently re-introducing the floating-cycle soundness bug both exist to prevent. """
+        SccOf, NonTrivial = Instantiator._ComputeSCCs(Kripke)
+        MaxSccSize = 0
+        if NonTrivial:
+            Sizes = {}
+            for Member, SccId in SccOf.items():
+                if SccId in NonTrivial:
+                    Sizes[SccId] = Sizes.get(SccId, 0) + 1
+            MaxSccSize = max(Sizes.values())
+        Width = max(1, (MaxSccSize + 1).bit_length())
+        Constraints = []
+
+        EdgeIndex = 0
+        FTransitions = Kripke.IterFTransitions(None)
+        for NodeKey in FTransitions:
+            for Target, Flag in Kripke.IterFTransitions(NodeKey):
+                if SccOf.get(NodeKey) != SccOf.get(Target) or SccOf.get(NodeKey) not in NonTrivial:
+                    continue
+
+                EdgeIndex += 1
+                TransName = NodeKey + ('_true_' if Flag else '_false_') + Target
+
+                def TargetName(i):
+                    return XMLUtils.FieldBitName('rank', Target, i)
+
+                def NodeName(i):
+                    return XMLUtils.FieldBitName('rank', NodeKey, i)
+
+                def AuxEqName(i):
+                    return 'rankeq#%d_%d' % (EdgeIndex, i)
+
+                def AuxGtName(i):
+                    return 'rankgt#%d_%d' % (EdgeIndex, i)
+
+                # eq_0 -> (Target_0 == Node_0), gt_0 -> (Target_0 AND NOT Node_0) --
+                # same base case _CreateAcyclicConstraints hand-builds before its loop.
+                Constraints.append(((AuxEqName(0), True), (TargetName(0), True), (NodeName(0), False)))
+                Constraints.append(((AuxEqName(0), True), (TargetName(0), False), (NodeName(0), True)))
+                Constraints.append(((AuxGtName(0), True), (TargetName(0), False)))
+                Constraints.append(((AuxGtName(0), True), (NodeName(0), True)))
+
+                for Index in range(1, Width):
+                    Constraints.append(((AuxEqName(Index), True), (AuxEqName(Index - 1), False)))
+                    Constraints.append(((AuxEqName(Index), True), (TargetName(Index), True), (NodeName(Index), False)))
+                    Constraints.append(((AuxEqName(Index), True), (TargetName(Index), False), (NodeName(Index), True)))
+
+                    Constraints.append(((AuxGtName(Index), True), (AuxEqName(Index - 1), False)))
+                    Constraints.append(((AuxGtName(Index), True), (TargetName(Index), False)))
+                    Constraints.append(((AuxGtName(Index), True), (NodeName(Index), True)))
+
+                Constraints.append(
+                    ((TransName, True),) + tuple((AuxGtName(Index), False) for Index in range(Width))
+                )
+
+                if ProgressCallback is not None:
+                    ProgressCallback(EdgeIndex)
+
+        return Constraints
+
+
     def _CreateGlobalConstraints(Kripke,Encoding):
         Constraints = []
         Variables = Instantiator._GetVariables(Encoding)

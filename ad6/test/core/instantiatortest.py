@@ -964,6 +964,75 @@ class InstantiatorTest(unittest.TestCase):
                 acyclic_node)
 
 
+    def testAcyclicRankConstraintLiteMatchesGeneralEncoding(self):
+        """ AD6_PLAN.md Sec 5.5 C2 NO-GO fix attempt: _CreateAcyclicConstraintsLite
+        hand-emits plain-Python clauses instead of building/CNF-converting an
+        lxml formula tree per edge, to avoid the ~0.14-0.18 MB/edge retained-memory
+        cost that OOMs on wl_i2 at full scale (confirmed genuine, not reclaimable
+        garbage -- see memory 'ad6-wl-i2-c2-nogo-oom'). That's only safe if it
+        produces the EXACT SAME clause set as _CreateAcyclicConstraints, not merely
+        "a plausible-looking one" -- this test is the thing that actually establishes
+        that, by canonicalizing both outputs into (name, negated)-literal frozensets
+        and comparing the resulting clause sets for exact equality, on the same
+        genuine-cycle-plus-acyclic-chain fixture
+        testAcyclicRankConstraintScopesToNonTrivialSCCsOnly already uses. """
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('sccfw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('d', 'D', 'E'))
+        firewall.append(hop('e', 'E', 'F'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='F')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke = KripkeUtils.ConvertToKripke(config, default_inits=False)
+
+        General = Instantiator._CreateAcyclicConstraints(kripke)
+        Lite = Instantiator._CreateAcyclicConstraintsLite(kripke)
+
+        def canonicalize_general(Constraints):
+            ClauseSet = set()
+            for Constraint in Constraints:
+                Literals = [Constraint] if Constraint.tag == XMLUtils.VARIABLE \
+                    else list(Constraint.iter(XMLUtils.VARIABLE))
+                ClauseSet.add(frozenset(
+                    (Variable.attrib[XMLUtils.ATTRNAME], Variable.attrib[XMLUtils.ATTRNEGATED] == 'true')
+                    for Variable in Literals))
+            return ClauseSet
+
+        def canonicalize_lite(Constraints):
+            return set(frozenset(Clause) for Clause in Constraints)
+
+        GeneralClauses = canonicalize_general(General)
+        LiteClauses = canonicalize_lite(Lite)
+
+        self.assertEqual(len(General), len(GeneralClauses),
+                          "sanity check on the fixture: no accidental duplicate clauses "
+                          "in the general encoding's own output")
+        self.assertEqual(len(Lite), len(LiteClauses),
+                          "sanity check on the fixture: no accidental duplicate clauses "
+                          "in the lite encoding's own output")
+        self.assertEqual(GeneralClauses, LiteClauses,
+                          "_CreateAcyclicConstraintsLite must produce the IDENTICAL clause "
+                          "set as _CreateAcyclicConstraints -- any difference here is a "
+                          "potential soundness regression, not just a performance one")
+
+
     def testSolveAcyclicEndToEndTakesFastPathWhenAlreadyGrounded(self):
         """ AD6_PLAN.md §5.4 Stage B (B1), Option 2's lazy/hybrid
         refinement: baking the (expensive, SCC-scoped) rank constraints
