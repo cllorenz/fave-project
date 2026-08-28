@@ -18,7 +18,13 @@ yet bare-metal), `reachable_pairs`=165 exactly matching the NetPlumber-proven pl
 oracle, with sub-exponential clause growth — a completed result where faithful BDD-APKeep's
 own uncapped full build never finished. "Provisional" pending a bare-metal wall-clock
 confirmation and one still-open, non-blocking discrepancy against APKeep's own N=3/N=5
-faithful numbers (§5.4 B3). Owner: Claas
+faithful numbers (§5.4 B3). **i2 (§5.5): C0 GO (structural build confirmed, 18
+devices/77,460 rules/0 ACLs); plain-mode reachability without the acyclic-safety fix
+EXACTLY matches the 72/72-pair oracle (~6.4 min) — but that oracle has zero
+expected-unreachable pairs so this can't validate soundness; the full acyclic-constrained
+run has not yet completed in this sandbox (giant single SCC covering 99.3% of nodes
+defeats the SCC-scoping that made Stanford's version cheap, so C2's full-scale
+tractability verdict is still open).** Owner: Claas
 Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
@@ -1629,8 +1635,84 @@ corrected directly — see §4.4.)
     explicit joint predicate space the way BDD/NDD atom enumeration does, which could be a
     genuine comparative finding for §7's write-up rather than a risk to route around.
 
-  **Not yet started as of 2026-08-27** — this section records the plan only; C0 has not
-  been attempted.
+  **C0 DONE 2026-08-27 — GO, structural expectations confirmed exactly.** Built i2 through
+  `Ad6Adapter(faithful_vlan=False)` via `InProcessFaVe` (`bench/ad6_i2_measure.py`, new,
+  mirrors `bench/ad6_faithful_measure.py`'s instrumentation): **18 devices** (9 `in.X` + 9
+  `out.X`, no `mid` — confirms `_build_ir`'s `mid`-detection correctly no-ops i2's
+  `_collapse_out_stage` collapse, since no device is named `mid.*`), **9 sources / 9
+  probes**, **77,460 fwd_rules** (vs. 77,841 raw routes — the small gap is ordinary
+  same-(dst,ports) dedup, not data loss), **0 ACL entries** (confirms i2 is a clean dst-IP
+  FIB with no ACL modelling needed, as §5.5's header predicted), replay+IR-build in ~5s.
+  `ir["faithful_vlan"]` correctly absent (plain mode only, as intended — C3 gates whether
+  faithful mode is ever attempted).
+
+  **C1/C2 attempted 2026-08-27, INCONCLUSIVE on the full differential — but a decisive,
+  unplanned finding surfaced along the way that changes the outlook for C2/C3.** Driving
+  `bench/ad6_i2_measure.py` (same direct `src.*`-package instrumentation
+  `ad6_faithful_measure.py` uses, not the subprocess bridge) through
+  `favemodel.instantiate_base` → `Instantiator._CreateAcyclicConstraints` → DIMACS → 72-query
+  solve:
+  - **Kripke build alone: 78,078 nodes, ~351-414s (yolobox; directional only, per the
+    cross-cutting guardrail).** This step completed cleanly and reproducibly across repeated
+    runs.
+  - **`_CreateAcyclicConstraints` (the SCC-scoped cycle-soundness rank encoding, §6/B1
+    Option 2's "orders of magnitude" cost reduction for wl_stanford) did not complete within
+    ~7-14 minutes of wall-clock in this environment**, on two independent attempts.
+  - **Root-caused, not left as a mystery: i2's topology structurally defeats the SCC-scoping
+    optimization.** A targeted probe (build + `Instantiator._ComputeSCCs` only, no
+    constraint-building) found **one single non-trivial SCC containing 77,511 of 78,078
+    nodes (99.3%)**, with **140,613 of 155,199 total Kripke edges (90.6%) qualifying** for
+    the (expensive) per-edge rank comparator, and a comparator `Width` of **17 bits** (vs.
+    Stanford's presumably small per-SCC width — Stanford's campus topology is tree/DAG-like
+    enough that SCC-scoping cut its edge set "by orders of magnitude," per B1's own
+    docstring). **Internet2's 9-router backbone is a dense, largely-bidirectional mesh** (matching
+    `reachable.json`'s full 9x8 mesh oracle) — at the Kripke-graph level (which treats any
+    edge either direction can fire as a graph edge, regardless of which packets actually use
+    it) that mesh collapses almost the entire model into one giant cyclic component, so
+    SCC-scoping provides almost no reduction here — essentially the opposite of the
+    property (`testComputeSCCsFindsOnlyGenuineCyclesNotLongAcyclicChains`) that made it cheap
+    for Stanford. This is a genuine topology-shape difference from Stanford, on top of the
+    ones §5.5's header already named (no mid stage, route-table-size-dominated, no faithful
+    reference) — a fourth, and arguably the most consequential for tractability.
+  - **Infra note, not a content finding:** getting even this far required working around an
+    environment quirk — a background process launched via `nohup`/`setsid`/`disown` in this
+    yolobox reliably terminates (SIGKILL, no dmesg/journalctl visibility, no cgroup or ulimit
+    caps set — cause unconfirmed, possibly a sandbox-level supervisor) around the 10-14
+    minute mark regardless of detachment technique, **not** correlated with memory pressure
+    (`free` showed 13-14 GiB free throughout). `bench/ad6_i2_measure.py` was hardened with
+    per-phase checkpointing (writes partial JSON + stderr progress after each build stage)
+    specifically so a future long run's progress survives an unexpected kill — this is now
+    load-bearing for any full-scale i2 attempt, not just cosmetic.
+  - **Not yet answered:** whether `_CreateAcyclicConstraints` genuinely blows up
+    combinatorially at this scale (mirroring the CEGAR intractability B1 already found and
+    routed around once) or is merely slow-but-linear and would finish given a longer,
+    properly-provisioned run (bare-metal, or a run structured to survive this sandbox's
+    apparent process-lifetime ceiling — e.g. driven from a genuinely separate process
+    outside this session's reach, or chunked into checkpointed sub-8-minute phases). **C2's
+    full-scale differential is accordingly still open — recommend against extrapolating a
+    NO-GO from this alone; the finding narrows *why* it might be expensive, not yet *whether*
+    it actually is.**
+  - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
+    `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
+    constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
+    Completed in a single ~6.4 min run (well inside this sandbox's apparent process-lifetime
+    ceiling, since it skips the expensive stage entirely): build 337.7s, DIMACS 2.3s
+    (243,361 variables, 681,216 clauses), 81 queries (72 cross-role + 9 self, self excluded
+    from the reported count) in 40.1s, peak RSS 3.38 GB.
+    **Important caveat on what this does and does NOT establish:** `bench/wl_i2/reachable.json`
+    is a COMPLETE all-reachable mesh (every one of the 9x8 ordered pairs is expected
+    reachable, zero expected-unreachable pairs). The floating-cycle bug the acyclic
+    constraints defend against manifests as a FALSE-POSITIVE SAT (reporting reachable when
+    it truly isn't) — with no expected-unreachable pair in this oracle at all, this dataset
+    has **zero discriminating power** to catch that failure mode; a spurious SAT on an
+    already-truly-reachable pair is invisible here by construction. So this result is a
+    genuine, valuable data point (i2's plain forwarding logic is translated correctly — the
+    adapter/translator itself is validated) but it is **not** evidence that skipping the
+    acyclic-safety fix is sound for i2, and must not be read as such. A real soundness
+    verdict still needs either (a) the full acyclic-constrained run to actually complete, or
+    (b) some expected-unreachable i2 pairs to test against (none exist in the current
+    benchmark's checks — `cchecks.json`'s own reach-only structure would need checking for
+    whether any negative checks exist at all before concluding this path is unavailable).
 
 ---
 
@@ -1955,9 +2037,17 @@ speculatively ahead of need.
       re-run (yolobox numbers are directional only) and a still-open, non-blocking N=3/N=5
       discrepancy vs APKeep's own faithful numbers (narrowed to not be an ad6 bug via a
       live NetPlumber arbiter, not fully root-caused). **i2: staged plan (C0-C4) written
-      2026-08-27, §5.5 — not yet attempted.** i2's problem shape differs from Stanford's
-      (no mid stage, route-table-size-dominated, no working faithful-VLAN reference to
-      target since APKeep's own i2 faithful build has never completed).
+      2026-08-27, §5.5. C0 DONE/GO (structural expectations exactly confirmed: 18 devices,
+      77,460 fwd_rules, 0 ACLs). C1/C2 attempted, INCONCLUSIVE on the differential itself,
+      but surfaced a decisive structural finding: i2's Kripke graph has one giant
+      non-trivial SCC covering 99.3% of nodes (77,511/78,078), so the SCC-scoping that made
+      wl_stanford's cycle-soundness constraints cheap barely reduces anything for i2
+      (140,613/155,199 edges still qualify) — a real, Internet2-mesh-topology-specific
+      tractability risk for C2/C3, not yet resolved either way (full build not yet observed
+      to completion or to a confirmed intractable state).** i2's problem shape differs from
+      Stanford's (no mid stage, route-table-size-dominated, no working faithful-VLAN
+      reference to target since APKeep's own i2 faithful build has never completed, and now
+      also this SCC/mesh-topology difference).
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
