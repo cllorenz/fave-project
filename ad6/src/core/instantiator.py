@@ -811,7 +811,7 @@ class Instantiator:
         return SccOf, NonTrivial
 
 
-    def _CreateAcyclicConstraints(Kripke):
+    def _CreateAcyclicConstraints(Kripke, ProgressCallback=None):
         """ AD6_PLAN.md §5.4 Stage B (B1), Option 2: a STATIC, always-safe
         fix for the same root cause SolveGroundedEndToEnd patches
         reactively -- see that function's docstring and
@@ -1011,6 +1011,9 @@ class Instantiator:
                     Constraints.extend(list(Defs))
                 else:
                     Constraints.append(Defs)
+
+                if ProgressCallback is not None:
+                    ProgressCallback(EdgeIndex)
 
         return Constraints
 
