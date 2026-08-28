@@ -1721,6 +1721,119 @@ corrected directly — see §4.4.)
     `SATUtils.ConvertToCNF` machinery is the likely source of the per-edge overhead, not
     the CNF clause count itself) or a different acyclic-safety strategy for i2's
     mesh-shaped topology than the one that worked for Stanford's tree-like one.
+  - **C2 construction fix landed and validated 2026-08-28 — `Instantiator.
+    _CreateAcyclicConstraintsLite`.** Hand-derives the IDENTICAL clause set
+    `_CreateAcyclicConstraints` produces (traced by hand through `SATUtils.ConvertToCNF`'s
+    actual transformation rules: every implication here reduces to negate-antecedent +
+    distribute-over-an-at-most-2-literal-disjunction consequent, no Tseitin aux vars
+    beyond the eq_i/gt_i already built explicitly — always exactly `6*Width-1` clauses per
+    edge) as plain `(name, negated)` tuples, bypassing `lxml`/`SATUtils.ConvertToCNF`
+    entirely. Proven equivalent, not just plausible, by
+    `testAcyclicRankConstraintLiteMatchesGeneralEncoding` (exact clause-SET equality
+    against the general encoding on the same genuine-cycle fixture
+    `testAcyclicRankConstraintScopesToNonTrivialSCCsOnly` uses). Measured on real i2:
+    full 140,613-edge set (14,201,913 clauses — exactly `101 = 6×17-1` per edge, confirming
+    the hand-derivation precisely) builds in **~15-20s, peaking ~8.5GB** (was: OOM before
+    60% done, ~22GB projected). `bench/ad6_i2_measure.py --lite-acyclic` wires this in;
+    downstream DIMACS conversion resolves the lite clauses' variable names through the
+    same `index_for` registry the query loop already uses (can't splice raw literal
+    tuples into the lxml-based `Encoding[0]` list the general path extends).
+  - **A second, separate bottleneck surfaced once construction was fixed: SOLVING the
+    resulting instance (6.3M variables, 14.9M clauses) does not resolve even the first
+    query in any practical time.** First attempt: 79+ minutes, no result, host memory
+    exhausted into heavy swap thrashing (Minisat22, single-threaded). Root-caused the
+    memory side of this too: checkpoints straddling solver construction show **~91% of
+    pre-solve memory (11.1 of 12.16GB) is Python-side state that Minisat22 never
+    touches** (the base `encoding`/`combined` lxml tree and its deepcopy, the `config`
+    tree, the raw `variables`/`dimacs_clauses` Python lists) — `Minisat22(bootstrap_with=
+    ...)` itself only added ~1GB. `favemodel.instantiate_base`'s own docstring confirms
+    `config` is provably dead after it returns (builds `kripke`, `structure.py`'s
+    self-contained dict-based structure, with no back-reference into `config`), and
+    `pysat/solvers.py`'s `Minisat22.new()` just iterates `bootstrap_with` calling
+    `add_clause` per entry, retaining no reference to the list itself — so all of this is
+    safe to explicitly `del`+`gc.collect()` (lxml parent/child links are reference
+    cycles; plain `del` alone isn't enough) right after each is last used, well before
+    the solver is ever created. Landed in `bench/ad6_i2_measure.py`; a same-shape rerun
+    with this fix in place stayed at a healthy ~11GB RSS / several GB host headroom with
+    no swap growth well past the point the first attempt was already thrashing —
+    confirms the release genuinely helps, even though the immediate before/after delta at
+    each individual deletion point was modest (the win is cumulative, from never holding
+    everything simultaneously, not from any single large free).
+  - **Whether i2's SAT instance is fundamentally hard at this scale, or just needs a
+    better-suited solver, is the open question — plan below, not yet executed as of this
+    writing.** Confirmed the query loop's solving *architecture* is already right, not
+    naive: it's structurally the same "bake base+acyclic constraints in once, DIMACS
+    once, one persistent incremental Minisat22 instance, per-query OR-gate + assumption
+    solve" pattern `src/solver/incremental.py`'s `IncrementalSession` formalizes for
+    `fave_bridge.py` — which itself superseded `Instantiator.SolveAcyclicEndToEnd`'s
+    lazy CEGAR-style escalation after empirically beating it (0 mismatches, rescued
+    wl_stanford's own B1 wall-clock NO-GO, ~100-490x faster on wl_up). So re-introducing
+    lazy escalation would be a regression, not a fix. But `IncrementalSession`'s own
+    docstring calls the bake-in-unconditionally approach cheap "on an essentially-acyclic
+    real topology like wl_up/wl_ifi/wl_tum" — i2, with 90.6% of ALL Kripke edges
+    qualifying for the expensive comparator (vs. Stanford's much smaller genuinely-cyclic
+    fraction), is a more extreme case than anything this architecture has been validated
+    against. **Plan: systematically compare SAT backends before concluding i2 is
+    intractable outright**, since the current `Minisat22` (PySAT's 2.2-vintage default)
+    is a real, cheaply-testable variable, not yet controlled for:
+    1. **Isolate the variable.** Add a `--solver` flag to `bench/ad6_i2_measure.py`
+       selecting from a small `{name: pysat.solvers class}` registry, default `minisat22`
+       (byte-for-byte unchanged behavior) — every other input (lite-acyclic encoding,
+       DIMACS clauses, query order) stays identical, so any outcome difference is
+       attributable only to the backend.
+    2. **Shortlist, not the full PySAT catalogue.** `Minisat22` (baseline), `Glucose4`
+       (widely-used glue-clause CDCL), `Cadical195`, `Kissat404` (both modern,
+       competition-grade, heavy preprocessing/inprocessing) — four solvers spanning
+       different solving generations/strategies, not an exhaustive sweep.
+    3. **Cheap probe before expensive commitment.** Don't run the full 81-query set per
+       candidate up front — build+construct+DIMACS+load+**first query only**, each capped
+       at a short budget (~15-20 min; if a backend is dramatically better it should show
+       *some* sign well inside that window, not need hours to prove itself). Only a
+       candidate clearing this gate graduates to a full-query-set attempt.
+    4. **Sequential, not parallel** — this yolobox has ~15GB total RAM; running multiple
+       multi-GB solver processes concurrently would reintroduce the exact swap-thrashing
+       risk just fixed.
+    5. **Metrics per candidate:** resolved-within-cap (bool), wall-clock, peak RSS,
+       solver-load time separated from solve time, and — for any two that both resolve —
+       cross-check they agree on the SAT/UNSAT verdict (a disagreement would mean a bug in
+       the PySAT invocation, since it's the identical CNF either way, not a real result
+       difference).
+    6. **Decision gate:** a candidate that resolves quickly escalates to the full query
+       set as the new C1/C2 measurement. If none resolve within the short probe, that
+       itself is informative — i2's hardness isn't solver-choice-sensitive, and the next
+       lever has to be the encoding/formula itself, not the backend.
+
+  **EXECUTED 2026-08-28 — sobering result: the query-1 probe was necessary but not
+  sufficient, and doesn't generalize.** `--solver`/`--max-queries` landed in
+  `bench/ad6_i2_measure.py` (registry of 4 PySAT backends, default `minisat22` unchanged).
+  First-query-only probes: **Kissat404 DISQUALIFIED outright** — PySAT emits `RuntimeWarning:
+  Kissat does not support assumptions. The assumptions parameter will be ignored`
+  (confirmed in Kissat's own PySAT docstring, the only one of the four with this
+  restriction) — its apparent win (0.334s, `oracle_match: True` on a 1-query slice) is a
+  worthless artifact: with assumptions ignored, every query just resolves the same
+  unconstrained base formula, and a constant "yes" trivially matches
+  `reachable.json`'s all-reachable, zero-negative-pairs oracle by construction, exactly the
+  discriminating-power gap already flagged for the `--skip-acyclic` orientation check
+  above. Of the three genuinely assumption-supporting backends, **Glucose4 (0.704s) and
+  Cadical195 (2.386s) both resolved query 1 fast** — Minisat22 (baseline) had not resolved
+  it in 90+ minutes.
+
+  Escalating the two valid winners to the full 81-query set did NOT reproduce the win:
+  **both Glucose4 and Cadical195 resolved query 1 then hung identically** — no further
+  per-query progress checkpoint (fires at query 10 or completion) within a 30-minute cap
+  on either, timed out (`exit 124`) with the process still pegged at 99.9% CPU throughout,
+  no memory pressure (healthy 3+ GB free both times, so this is pure SAT search time, not
+  another memory blowup). So the query-1-only probe measured something real but not
+  representative: SOME later query (or the cumulative effect of many incremental
+  `solve(assumptions=...)` calls adding OR-gate clauses without ever removing old ones —
+  the session never resets between queries) reintroduces hardness that isn't
+  solver-specific after all. **Not yet root-caused which:** per-query checkpointing
+  currently only fires every 10th query, so it's unknown whether one specific
+  source/destination pair among queries 2-9 is uniquely hard, or whether difficulty climbs
+  gradually with each additional query's incremental state. Next diagnostic step (not yet
+  done): checkpoint every query (not every 10th) for a few queries past the first to
+  localize this precisely, the same "instrument before re-theorizing" discipline that
+  root-caused the C2 memory blowup.
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -1921,6 +2034,79 @@ speculatively ahead of need.
   less shallow formulas than today's. Worth scoping as its own improvement independent of
   §5.4's outcome, once the benchmarks stabilize — not undertaken speculatively before a
   concrete need is measured, same discipline as everywhere else in this plan.
+- **8.6 (new 2026-08-28) §8.1's "reconsider XML" question now has a concrete, quantified
+  memory cost behind it, not just the bug-symptom argument — and a second, separate
+  bottleneck surfaced alongside it. Scoping two separately-landable tracks; NOT started,
+  gated the same way as the rest of §8 (real pain point in hand, no speculative refactor).**
+
+  **What grounds this:** wl_i2's C2 NO-GO (§5.5) was root-caused to
+  `Instantiator._CreateAcyclicConstraints` retaining ~0.14-0.18 MB of genuinely-referenced
+  (not reclaimable-garbage — confirmed via `gc.collect()` returning 0 every time)
+  memory per SCC-qualifying edge, from building/CNF-converting an `lxml.etree`-backed
+  formula tree per edge — projecting ~22GB for i2's 140,613 qualifying edges alone. A
+  workaround, `Instantiator._CreateAcyclicConstraintsLite`, hand-emits the IDENTICAL
+  clause set (proven by `testAcyclicRankConstraintLiteMatchesGeneralEncoding`, an exact
+  clause-set equivalence check, not a spot check) as plain `(name, negated)` tuples,
+  bypassing lxml/`SATUtils.ConvertToCNF` entirely for this one already-fully-understood
+  formula shape. Measured result: the full edge set builds in ~15-20s peaking at ~8.5GB
+  (was: OOM before 60% done, projected ~22GB) — confirms the lxml-per-node cost is real,
+  large, and fixable when the target clause shape is already known. **Not yet committed**
+  (implemented + tested this session, pending a commit decision).
+
+  **A second, separate bottleneck surfaced alongside it:** even with construction fixed,
+  loading the resulting instance (6.3M variables, 14.9M clauses — `_CreateAcyclicConstraints`
+  and `_CreateAcyclicConstraintsLite` produce the same clause COUNT, only the construction
+  cost differs) into Minisat22 and solving even the FIRST query did not complete in 77+
+  minutes, with host memory exhausted into heavy swap thrashing. `bench/ad6_i2_measure.py`
+  (both variants) bakes ALL acyclic constraints into the shared base model unconditionally
+  for every query — the same pattern §5.4 B1 already found costly on Stanford (~6s/query)
+  and routed around via `Instantiator.SolveAcyclicEndToEnd`'s lazy escalation (plain solve
+  first, build the rank machinery only if a witness turns out ungrounded). i2's measurement
+  script never uses that lazy path. Whether i2's instance is fundamentally SAT-hard at this
+  scale, or just suffering the same avoidable "bake it all in" tax Stanford already worked
+  around, is an open, likely-higher-leverage question than the data-structure refactor below
+  — **recommend investigating this before or alongside starting either track.**
+
+  **Track A — the Kripke graph layer** (`structure.py`'s `Kripke`/`KripkeNode`,
+  `Instantiator._ComputeSCCs`): already NOT XML (a hand-rolled, dict-backed structure,
+  confirmed O(1) transition lookups) but implements graph algorithms (Kosaraju's SCC) by
+  hand. Candidate: replace with a real graph library's SCC — but NOT reflexively networkx,
+  whose dict-of-dicts-of-dicts adjacency and per-node/edge attribute objects are
+  optimized for ergonomics/algorithmic breadth, not memory density, at exactly the scale
+  (78,078 nodes / 155,199 edges on i2 alone) this investigation just found lxml wanting
+  at. First narrow the actual need (SCC may be it — reachability is handled by the SAT
+  encoding, not graph traversal): `scipy.sparse.csgraph.connected_components` (C-backed,
+  sparse-matrix, likely both lighter and faster) is a better-scoped candidate than a
+  general graph library; `rustworkx`/`igraph` if genuinely broader graph operations are
+  wanted later. Any candidate gets an empirical scale-check (a capped isolation probe
+  measuring RSS/wall-clock on real i2-sized data, same methodology as today's `gc_probe.py`
+  finding) BEFORE adoption, not after — "mature and well-tested" is a correctness claim,
+  not a per-node-cost-at-100k+-instances one, which is exactly the assumption that broke
+  on lxml this session.
+  **Track B — the SAT-formula AST** (`XMLUtils`'s variable/conjunction/disjunction/
+  implication nodes, `SATUtils.ConvertToCNF`): needs none of XML's features (no
+  namespaces/mixed content, ~6 node kinds, ≤2 attributes) and is what's actually paying
+  the measured per-node cost. Candidate: a minimal, purpose-built representation
+  (`__slots__` classes or tuples) with `SATUtils`'s transformations retargeted at it —
+  NOT reflexively a general symbolic/tree-transformation library (e.g. sympy's boolean
+  algebra module already does CNF distribution, but its immutable, hash-cached expression
+  nodes carry their own substantial per-instance overhead aimed at symbolic-math
+  generality, a plausible repeat of the same mismatch). Check first whether **PySAT**
+  (already a dependency via `Minisat22`) ships usable CNF/Tseitin-adjacent formula
+  utilities in `pysat.formula` before building or adopting anything else. Every
+  transformation this track touches is soundness-critical (this is the exact machinery
+  §5.4 B1's floating-cycle bug and its fix live in) — needs the same exact-equivalence
+  testing discipline `testAcyclicRankConstraintLiteMatchesGeneralEncoding` established,
+  not example-based spot checks (§8.3's existing thin-coverage concern applies doubly
+  here). The `_CreateAcyclicConstraintsLite` pattern (hand-derive direct clause emission
+  for a formula shape that's already fully understood and static) stays a complementary,
+  narrower technique alongside this track, not a substitute for it — it doesn't help
+  formulas whose shape isn't known/fixed ahead of time.
+
+  Config parsing (device tables/rules/actions, `favemodel.build_config`) stays lxml —
+  it's a genuinely hierarchical, attribute-rich config format where XML's tooling is a
+  reasonable fit; this review is scoped to the graph and formula layers only, not a
+  blanket "remove XML from ad6."
 
 ---
 
