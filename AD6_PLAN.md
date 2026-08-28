@@ -21,10 +21,23 @@ confirmation and one still-open, non-blocking discrepancy against APKeep's own N
 faithful numbers (§5.4 B3). **i2 (§5.5): C0 GO (structural build confirmed, 18
 devices/77,460 rules/0 ACLs); plain-mode reachability without the acyclic-safety fix
 EXACTLY matches the 72/72-pair oracle (~6.4 min) — but that oracle has zero
-expected-unreachable pairs so this can't validate soundness; the full acyclic-constrained
-run has not yet completed in this sandbox (giant single SCC covering 99.3% of nodes
-defeats the SCC-scoping that made Stanford's version cheap, so C2's full-scale
-tractability verdict is still open).** Owner: Claas
+expected-unreachable pairs so this can't validate soundness. C2 is now NO-GO at this
+scale, root-caused (2026-08-28): `_CreateAcyclicConstraints` OOM-kills every time, not
+from any sandbox timer but genuine memory blowup in the per-edge Tseitin/CNF-conversion
+step (each of the 140,613 SCC-qualifying edges builds/discards its own lxml-backed
+XML formula tree via `SATUtils.ConvertToCNF`). Instrumented with a per-edge progress
+callback (`Instantiator._CreateAcyclicConstraints(..., ProgressCallback=...)`) and
+measured directly: RSS grows linearly at ~0.14 MB/qualifying-edge; the process was
+confirmed OOM-killed (exit 137, host `available` memory hit ~20MB immediately before
+the kill, fully recovered after) at 82,363/140,613 edges (58.6%) with RSS=14.44GB.
+Linear extrapolation to all 140,613 edges projects **~22GB just for this phase's
+constraint list** (before DIMACS conversion or solving even start) — genuinely
+intractable on commodity hardware at this scale with the current per-edge encoding,
+not merely slow. The giant single SCC (99.3% of nodes) explains WHY so many edges
+qualify for the expensive treatment; the memory blowup is what actually kills it.
+Any fix needs either a fundamentally cheaper per-edge clause-construction path (bypass
+the generic lxml/Tseitin machinery) or acceptance that i2 needs a different acyclic-safety
+strategy than Stanford's SCC-scoped rank encoding.
 Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
@@ -1674,24 +1687,40 @@ corrected directly — see §4.4.)
     for Stanford. This is a genuine topology-shape difference from Stanford, on top of the
     ones §5.5's header already named (no mid stage, route-table-size-dominated, no faithful
     reference) — a fourth, and arguably the most consequential for tractability.
-  - **Infra note, not a content finding:** getting even this far required working around an
-    environment quirk — a background process launched via `nohup`/`setsid`/`disown` in this
-    yolobox reliably terminates (SIGKILL, no dmesg/journalctl visibility, no cgroup or ulimit
-    caps set — cause unconfirmed, possibly a sandbox-level supervisor) around the 10-14
-    minute mark regardless of detachment technique, **not** correlated with memory pressure
-    (`free` showed 13-14 GiB free throughout). `bench/ad6_i2_measure.py` was hardened with
-    per-phase checkpointing (writes partial JSON + stderr progress after each build stage)
-    specifically so a future long run's progress survives an unexpected kill — this is now
-    load-bearing for any full-scale i2 attempt, not just cosmetic.
-  - **Not yet answered:** whether `_CreateAcyclicConstraints` genuinely blows up
-    combinatorially at this scale (mirroring the CEGAR intractability B1 already found and
-    routed around once) or is merely slow-but-linear and would finish given a longer,
-    properly-provisioned run (bare-metal, or a run structured to survive this sandbox's
-    apparent process-lifetime ceiling — e.g. driven from a genuinely separate process
-    outside this session's reach, or chunked into checkpointed sub-8-minute phases). **C2's
-    full-scale differential is accordingly still open — recommend against extrapolating a
-    NO-GO from this alone; the finding narrows *why* it might be expensive, not yet *whether*
-    it actually is.**
+  - **Infra note, corrected 2026-08-28:** the original "10-14 minute mystery kill" was
+    initially suspected to be a sandbox process-lifetime governor unrelated to memory
+    (`free` showed 13-14 GiB free at those specific moments). That theory is now RETIRED.
+    Two clean isolation probes (a pure CPU-bound busy loop with flat memory, and a
+    controlled-rate memory-growth loop with light CPU) each ran far past the 10-14 min
+    window with zero issue — 29.3 min of accumulated CPU time, and 11GB of steadily-grown
+    RSS respectively — ruling out both a CPU-time breaker and a low absolute-RSS ceiling.
+    The real mechanism, confirmed directly below, is genuine OOM: it just happened to bind
+    at different absolute RSS/time values across runs depending on what else was resident
+    in the sandbox at the time. `bench/ad6_i2_measure.py`'s per-phase checkpointing (writes
+    partial JSON + stderr progress after each build stage) remains valuable for exactly
+    this reason — it is what let this be root-caused instead of staying a mystery.
+  - **RESOLVED 2026-08-28 — NO-GO at this scale, root-caused as genuine memory blowup, not
+    a sandbox artifact.** `Instantiator._CreateAcyclicConstraints` gained an optional
+    `ProgressCallback` parameter (backward-compatible, default `None`, all existing callers/
+    tests unaffected — 6/6 `Acyclic`/`SCC` unit tests still pass) so `bench/ad6_i2_measure.py`
+    could checkpoint the edge loop itself, not just its start/end. Re-running the full
+    build with this instrumentation reproduced the kill cleanly: RSS grows **linearly at
+    ~0.14 MB per SCC-qualifying edge** (measured from edge 997 at 3.06GB to edge 82,363 at
+    14.44GB), and the process was confirmed genuinely OOM-killed — exit 137, host
+    `available` memory measured at ~20MB immediately before the kill, fully recovered to
+    14GB free immediately after — at **82,363 of 140,613 qualifying edges (58.6%)**.
+    Linear extrapolation to the full edge set projects **~22GB just for this phase's
+    constraint list** (before DIMACS conversion or solving even begin, which would add
+    more on top). This is a real, quantified intractability of the current per-edge
+    lxml/Tseitin CNF-conversion approach at i2's scale (140,613 qualifying edges, a
+    consequence of the giant-SCC finding above), not a sandbox limitation and not
+    "merely slow" — 22GB does not fit this yolobox (15GB total) and would strain even a
+    well-provisioned bare-metal box once DIMACS conversion and solving are added. **C2 is
+    NO-GO for i2 with the current SCC-scoped rank encoding as-is.** A fix would need either
+    a fundamentally cheaper per-edge clause-construction path (the generic
+    `SATUtils.ConvertToCNF` machinery is the likely source of the per-edge overhead, not
+    the CNF clause count itself) or a different acyclic-safety strategy for i2's
+    mesh-shaped topology than the one that worked for Stanford's tree-like one.
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2038,16 +2067,19 @@ speculatively ahead of need.
       discrepancy vs APKeep's own faithful numbers (narrowed to not be an ad6 bug via a
       live NetPlumber arbiter, not fully root-caused). **i2: staged plan (C0-C4) written
       2026-08-27, §5.5. C0 DONE/GO (structural expectations exactly confirmed: 18 devices,
-      77,460 fwd_rules, 0 ACLs). C1/C2 attempted, INCONCLUSIVE on the differential itself,
-      but surfaced a decisive structural finding: i2's Kripke graph has one giant
-      non-trivial SCC covering 99.3% of nodes (77,511/78,078), so the SCC-scoping that made
-      wl_stanford's cycle-soundness constraints cheap barely reduces anything for i2
-      (140,613/155,199 edges still qualify) — a real, Internet2-mesh-topology-specific
-      tractability risk for C2/C3, not yet resolved either way (full build not yet observed
-      to completion or to a confirmed intractable state).** i2's problem shape differs from
-      Stanford's (no mid stage, route-table-size-dominated, no working faithful-VLAN
-      reference to target since APKeep's own i2 faithful build has never completed, and now
-      also this SCC/mesh-topology difference).
+      77,460 fwd_rules, 0 ACLs). Plain-mode `--skip-acyclic` orientation check matches the
+      72/72 oracle exactly (validates the translator, not soundness — the oracle has zero
+      expected-unreachable pairs). **C2 RESOLVED NO-GO 2026-08-28**, root-caused and
+      quantified, not a sandbox artifact: i2's giant single SCC (99.3% of nodes,
+      140,613/155,199 edges qualifying — the SCC-scoping that made Stanford's B1 cheap
+      barely helps i2's dense mesh topology) drives `_CreateAcyclicConstraints` into a
+      genuine ~22GB memory blowup (measured ~0.14 MB/edge, OOM-confirmed at
+      82,363/140,613 edges = 14.44GB), before DIMACS/solving even start. See
+      `[[ad6-wl-i2-c2-nogo-oom]]`. i2's problem shape differs from Stanford's (no mid
+      stage, route-table-size-dominated, no working faithful-VLAN reference since APKeep's
+      own i2 faithful build has never completed, and now this SCC/mesh-topology-driven
+      memory blowup). C3/C4 need a cheaper per-edge encoding or a different
+      acyclic-safety strategy before i2 can proceed with ad6.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
