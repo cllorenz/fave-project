@@ -45,6 +45,7 @@ Usage (from fave/, PYTHONPATH=., venv active):
 """
 
 import argparse
+import gc
 import json
 import logging
 import os
@@ -69,6 +70,21 @@ def _base(name):
 
 def _peak_rss_mb():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+
+
+def _current_rss_mb():
+    """ ru_maxrss (used everywhere else in this script) is the HIGH-WATER MARK --
+    monotonically non-decreasing, so it can't show a `del`+gc.collect() actually
+    freeing memory. Only used around the explicit memory-release points below, to
+    confirm they work; _peak_rss_mb() stays the script's primary reported metric. """
+    try:
+        with open('/proc/self/status') as fh:
+            for line in fh:
+                if line.startswith('VmRSS:'):
+                    return round(int(line.split()[1]) / 1024, 1)
+    except OSError:
+        pass
+    return None
 
 
 def _build_ir():
@@ -108,7 +124,10 @@ def _checkpoint(result, out_path, stage):
             json.dump(payload, fh, indent=2)
 
 
-def measure(out_path, skip_acyclic=False):
+_SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
+
+
+def measure(out_path, skip_acyclic=False, solver_name="minisat22", max_queries=None):
     result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
     wall0 = time.time()
     result["_wall0"] = wall0
@@ -125,7 +144,12 @@ def measure(out_path, skip_acyclic=False):
     from src.parser import favemodel
     from src.solver.minisat import MiniSATAdapter
     from src.xml.xmlutils import XMLUtils
-    from pysat.solvers import Minisat22
+    from pysat.solvers import Minisat22, Glucose4, Cadical195, Kissat404
+    solver_cls = {
+        "minisat22": Minisat22, "glucose4": Glucose4,
+        "cadical195": Cadical195, "kissat404": Kissat404,
+    }[solver_name]
+    result["solver"] = solver_name
     from copy import deepcopy
 
     cwd = os.getcwd()
@@ -137,10 +161,20 @@ def measure(out_path, skip_acyclic=False):
         kripke, encoding = favemodel.instantiate_base(config, ir)
         result["kripke_nodes"] = len(list(kripke.IterNodes()))
         result["build_s"] = round(time.time() - t0, 3)
+        # `config` (the lxml config tree build_config/deannotate produced) is provably
+        # unused past this point: instantiate_base's own ConvertToKripke call is the
+        # only consumer, and it builds `kripke` as a self-contained, dict-based
+        # structure (structure.py) that holds no reference back into `config`. lxml
+        # Elements form parent/child reference cycles, so a plain `del` alone isn't
+        # enough to reclaim them promptly -- gc.collect() is needed too.
+        del config
+        gc.collect()
         _checkpoint(result, out_path, "kripke_built")
 
         result["skip_acyclic"] = skip_acyclic
         combined = deepcopy(encoding)
+        del encoding
+        gc.collect()
         if skip_acyclic:
             # AD6_PLAN.md §5.5 C1/C2 finding: i2's Kripke graph has one giant
             # non-trivial SCC (99.3% of nodes), so _CreateAcyclicConstraints
@@ -167,17 +201,31 @@ def measure(out_path, skip_acyclic=False):
             result["acyclic_extra_clauses"] = len(acyclic_constraints)
             _checkpoint(result, out_path, "acyclic_constraints_built")
             combined[0].extend(deepcopy(acyclic_constraints))
+            del acyclic_constraints
+            gc.collect()
 
         t0 = time.time()
         adapter = MiniSATAdapter()
+        result["current_rss_before_dimacs_mb"] = _current_rss_mb()
         variables, dimacs_clauses = adapter._ConvertToDIMACS(combined)
+        # `combined` (the base encoding +, for the non-skip-acyclic path, the acyclic
+        # constraints already spliced into it) is fully consumed by _ConvertToDIMACS --
+        # nothing downstream reads it again.
+        del combined
+        gc.collect()
         result["dimacs_s"] = round(time.time() - t0, 3)
         result["variable_count"] = len(variables)
         result["clause_count"] = len(dimacs_clauses)
+        result["current_rss_after_combined_free_mb"] = _current_rss_mb()
         _checkpoint(result, out_path, "dimacs_converted")
 
         name_to_index = {name: i + 1 for i, name in enumerate(variables)}
         next_index = [len(variables) + 1]
+        # Only name_to_index/next_index are used from here on (index_for/literal
+        # below close over them, not over `variables` itself).
+        del variables
+        gc.collect()
+        result["current_rss_after_variables_free_mb"] = _current_rss_mb()
 
         def index_for(name):
             idx = name_to_index.get(name)
@@ -204,16 +252,30 @@ def measure(out_path, skip_acyclic=False):
             return aux, [[-lit, aux] for lit in lits] + [[-aux] + lits]
 
         t0 = time.time()
-        solver = Minisat22(bootstrap_with=dimacs_clauses)
+        solver = solver_cls(bootstrap_with=dimacs_clauses)
         result["solver_load_s"] = round(time.time() - t0, 3)
+        # Minisat22.new() (and the other PySAT backends' equivalents) just iterate
+        # bootstrap_with, calling self.add_clause() per clause into the underlying C
+        # solver (pysat/solvers.py) -- they keep no reference to the list itself, so the
+        # ~14M-entry `dimacs_clauses` Python list (confirmed via checkpoints to be most
+        # of this script's pre-solve memory, not the solver's own footprint) is pure
+        # dead weight from here on.
+        result["current_rss_before_dimacs_clauses_free_mb"] = _current_rss_mb()
+        del dimacs_clauses
+        gc.collect()
+        result["current_rss_after_dimacs_clauses_free_mb"] = _current_rss_mb()
         _checkpoint(result, out_path, "solver_loaded")
 
         queries = [{"source": s, "probe": p} for p in probes for s in sources]
+        if max_queries is not None:
+            queries = queries[:max_queries]
         result["query_count"] = len(queries)
+        result["max_queries"] = max_queries
 
         ad6_reach = {}
         t0 = time.time()
         for qi, q in enumerate(queries):
+            q0 = time.time()
             source = favemodel.gen_entry_key(q['source'])
             destination = favemodel.query_destination_key(q['probe'], ir)
             f_trans = [XMLUtils.CreateTransition(source, t, flag)
@@ -225,7 +287,11 @@ def measure(out_path, skip_acyclic=False):
             for clause in src_clauses + dst_clauses:
                 solver.add_clause(clause)
             sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
-            if (qi + 1) % 10 == 0:
+            # Checkpoint every 10th AND the final query of a (possibly max_queries-
+            # truncated) run, so a short probe (e.g. max_queries=1) still leaves a
+            # per-query timing behind instead of only the phase-level checkpoints.
+            if (qi + 1) % 10 == 0 or (qi + 1) == len(queries):
+                result["last_query_s"] = round(time.time() - q0, 3)
                 result["queries_done"] = qi + 1
                 _checkpoint(result, out_path, "querying")
             ad6_reach[(q['source'], q['probe'])] = sat
@@ -278,8 +344,15 @@ def main(argv=None):
     p.add_argument("--skip-acyclic", action="store_true",
                     help="orientation-only: skip _CreateAcyclicConstraints (cheap, but NOT "
                          "a soundness-complete C1 result -- see AD6_PLAN.md Sec 5.5)")
+    p.add_argument("--solver", choices=_SOLVERS, default="minisat22",
+                    help="PySAT backend to load/solve with (default: minisat22, PySAT's "
+                         "own default) -- solver-comparison plan, AD6_PLAN.md Sec 5.5")
+    p.add_argument("--max-queries", type=int, default=None,
+                    help="stop after this many queries (default: all) -- for a cheap "
+                         "first-query-only probe before committing to a full run")
     args = p.parse_args(argv)
-    measure(args.out, skip_acyclic=args.skip_acyclic)
+    measure(args.out, skip_acyclic=args.skip_acyclic,
+            solver_name=args.solver, max_queries=args.max_queries)
     return 0
 
 
