@@ -1834,6 +1834,25 @@ corrected directly — see §4.4.)
   done): checkpoint every query (not every 10th) for a few queries past the first to
   localize this precisely, the same "instrument before re-theorizing" discipline that
   root-caused the C2 memory blowup.
+
+  **LOCALIZED 2026-08-28, and corrects the framing above: not an infinite hang, genuinely
+  slow and highly variable per-query solving.** Added `--checkpoint-every` to
+  `bench/ad6_i2_measure.py` (checkpoints every query, records the exact `(source, probe)`
+  pair) and re-ran (Glucose4, lite-acyclic, 30-min cap). Query 1 is `(atla, atla)` — a
+  SELF-pair (`sources`/`probes` both alphabetically sorted, `atla` sorts first in both) —
+  resolving trivially in 0.76s regardless of backend; the earlier "query 1 is fast"
+  finding was an artifact of accidentally probing the one trivial query, not a real
+  cross-router one. Query 2, the first genuine cross-router query, took **~11.7 minutes**;
+  query 3 took **~2.5 minutes**; query 4 was still unresolved when the 30-minute cap
+  fired. So this is real, highly variable, multi-minute-per-query SAT search time, not a
+  stuck/infinite state — extrapolated across the 72 non-trivial pairs, a full run
+  plausibly needs many hours total, which is why the earlier 2-hour-capped full runs
+  (Sec 5.5, solver-comparison result above) never completed: they simply needed
+  more time, not that anything was actually hung. This narrows the open question from
+  "does it ever finish" to "how many hours does it actually need, and does that scale
+  further with a bigger topology" — still unanswered, and still independent of which of
+  Glucose4/Cadical195 is used (both showed the same order-of-magnitude per-query cost on
+  their own capped attempts).
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
