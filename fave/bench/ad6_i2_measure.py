@@ -127,7 +127,8 @@ def _checkpoint(result, out_path, stage):
 _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 
-def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22", max_queries=None):
+def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
+            max_queries=None, checkpoint_every=10):
     result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
     wall0 = time.time()
     result["_wall0"] = wall0
@@ -320,11 +321,15 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             for clause in src_clauses + dst_clauses:
                 solver.add_clause(clause)
             sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
-            # Checkpoint every 10th AND the final query of a (possibly max_queries-
-            # truncated) run, so a short probe (e.g. max_queries=1) still leaves a
-            # per-query timing behind instead of only the phase-level checkpoints.
-            if (qi + 1) % 10 == 0 or (qi + 1) == len(queries):
+            # Checkpoint every checkpoint_every-th AND the final query of a (possibly
+            # max_queries-truncated) run, so a short probe (e.g. max_queries=1) still
+            # leaves a per-query timing behind instead of only the phase-level
+            # checkpoints. checkpoint_every=1 (query-localization diagnostic,
+            # AD6_PLAN.md Sec 5.5's solver-comparison follow-up) also records which
+            # (source, probe) pair each query answers, to localize a stall exactly.
+            if (qi + 1) % checkpoint_every == 0 or (qi + 1) == len(queries):
                 result["last_query_s"] = round(time.time() - q0, 3)
+                result["last_query"] = {"source": q['source'], "probe": q['probe']}
                 result["queries_done"] = qi + 1
                 _checkpoint(result, out_path, "querying")
             ad6_reach[(q['source'], q['probe'])] = sat
@@ -390,9 +395,13 @@ def main(argv=None):
     p.add_argument("--max-queries", type=int, default=None,
                     help="stop after this many queries (default: all) -- for a cheap "
                          "first-query-only probe before committing to a full run")
+    p.add_argument("--checkpoint-every", type=int, default=10,
+                    help="checkpoint every N queries (default: 10); use 1 to localize "
+                         "exactly which query stalls, AD6_PLAN.md Sec 5.5")
     args = p.parse_args(argv)
     measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
-            solver_name=args.solver, max_queries=args.max_queries)
+            solver_name=args.solver, max_queries=args.max_queries,
+            checkpoint_every=args.checkpoint_every)
     return 0
 
 
