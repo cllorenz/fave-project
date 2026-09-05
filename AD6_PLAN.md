@@ -19,25 +19,20 @@ oracle, with sub-exponential clause growth — a completed result where faithful
 own uncapped full build never finished. "Provisional" pending a bare-metal wall-clock
 confirmation and one still-open, non-blocking discrepancy against APKeep's own N=3/N=5
 faithful numbers (§5.4 B3). **i2 (§5.5): C0 GO (structural build confirmed, 18
-devices/77,460 rules/0 ACLs); plain-mode reachability without the acyclic-safety fix
-EXACTLY matches the 72/72-pair oracle (~6.4 min) — but that oracle has zero
-expected-unreachable pairs so this can't validate soundness. C2 is now NO-GO at this
-scale, root-caused (2026-08-28): `_CreateAcyclicConstraints` OOM-kills every time, not
-from any sandbox timer but genuine memory blowup in the per-edge Tseitin/CNF-conversion
-step (each of the 140,613 SCC-qualifying edges builds/discards its own lxml-backed
-XML formula tree via `SATUtils.ConvertToCNF`). Instrumented with a per-edge progress
-callback (`Instantiator._CreateAcyclicConstraints(..., ProgressCallback=...)`) and
-measured directly: RSS grows linearly at ~0.14 MB/qualifying-edge; the process was
-confirmed OOM-killed (exit 137, host `available` memory hit ~20MB immediately before
-the kill, fully recovered after) at 82,363/140,613 edges (58.6%) with RSS=14.44GB.
-Linear extrapolation to all 140,613 edges projects **~22GB just for this phase's
-constraint list** (before DIMACS conversion or solving even start) — genuinely
-intractable on commodity hardware at this scale with the current per-edge encoding,
-not merely slow. The giant single SCC (99.3% of nodes) explains WHY so many edges
-qualify for the expensive treatment; the memory blowup is what actually kills it.
-Any fix needs either a fundamentally cheaper per-edge clause-construction path (bypass
-the generic lxml/Tseitin machinery) or acceptance that i2 needs a different acyclic-safety
-strategy than Stanford's SCC-scoped rank encoding.
+devices/77,460 rules/0 ACLs). C1 is now GO too (2026-09-05): the full 72-pair
+differential completed, WITH the real acyclic-safety fix active (an experimental lite
+encoding + Glucose4), and exactly matches the oracle — 72/72, 0 missing, 0 extra. C2
+(tractability) is a separate, still-open concern: this run took ~15.3 hours for 72
+pairs, roughly three orders of magnitude slower per query than Stanford's ~16 minutes
+for its full 256-pair matrix — correct, but currently far too slow for practical use,
+and per-query cost was highly variable (sub-second to 80 minutes) with no clear
+pathological pair identified. The earlier root cause behind why this needed a lite
+encoding at all still stands: `_CreateAcyclicConstraints`'s general (lxml/Tseitin-based)
+path OOMs before even reaching DIMACS conversion — confirmed 2026-08-28, RSS grows
+~0.14 MB/qualifying-edge, projecting ~22GB for the full 140,613-edge set, root-caused to
+genuine memory blowup (not a sandbox artifact) in the per-edge CNF-conversion step. The
+giant single SCC (99.3% of nodes) is why so many edges need it at all. Full detail in
+§5.5. Owner: Claas
 Lorenz. Companions:
 [`APKEEP_NDD_PLAN.md`](APKEEP_NDD_PLAN.md), [`APKEEP_NDD_EVAL.md`](APKEEP_NDD_EVAL.md),
 [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md); tracked as item 11 in [`TODO.md`](TODO.md).
@@ -1853,6 +1848,42 @@ corrected directly — see §4.4.)
   further with a bigger topology" — still unanswered, and still independent of which of
   Glucose4/Cadical195 is used (both showed the same order-of-magnitude per-query cost on
   their own capped attempts).
+
+  **C1 RESOLVED 2026-09-05 — full 72-pair differential completed and EXACTLY matches the
+  oracle, with the acyclic-safety fix genuinely active.** Three staged runs (Glucose4,
+  `--lite-acyclic`, `--checkpoint-every 1`), each isolating one variable:
+  1. **The 9 self-pairs alone, 30-min cap**: all 9 completed in 112s total (~12.5s/query
+     average) — confirms self-reachability really is trivial, independent of the rest of
+     the instance (`fave/bench/wl_i2/eval/` has no separate artifact for this one, it was
+     a quick sanity check, not archived).
+  2. **The 72 real cross-router pairs, 12h cap**: got to 68/72 before the cap fired --
+     genuinely still working, not stuck (confirmed via `--checkpoint-every 1`'s per-query
+     log). Kept as `eval/ad6_i2_glucose4_lite_72pairs_partial68of72.json` for reference.
+  3. **Same 72 pairs, 16h cap**: **completed all 72** in 55,073s (~15.3h) --
+     `oracle_match: true`, `oracle_missing: {}`, `oracle_extra: {}`, `reachable_pairs: 72`.
+     Peak RSS 12.78GB, swap never touched. Archived as
+     `eval/ad6_i2_glucose4_lite_72pairs_complete.json`.
+
+  This is a materially stronger result than the earlier `--skip-acyclic` orientation
+  check (which matched 72/72 too, but with the floating-cycle safety machinery OFF, so a
+  match there couldn't rule out that failure mode at all -- see that finding's own
+  caveat above). Here the real acyclic rank constraints were active throughout, and the
+  result still matches exactly -- positive evidence the fix doesn't introduce false
+  negatives (over-constraining) at full scale, on top of the clause-level equivalence
+  `testAcyclicRankConstraintLiteMatchesGeneralEncoding` already proved. **C1 is
+  accordingly GO for i2**, on the experimental lite encoding + Glucose4.
+
+  **C2 (tractability) stays a real, separate, still-open concern: this is correct, but
+  far too slow for practical use.** ~15.3 hours for 72 pairs vs. Stanford's ~16 minutes
+  for its full 256-pair matrix (Sec 5.4 B1, `IncrementalSession`) is roughly three
+  orders of magnitude slower per query, on a smaller topology. Per-query cost was
+  extremely variable throughout (sub-second to 80.3 minutes, no clear trend across the
+  run), so it isn't one identifiable pathological pair -- it's the instance in general.
+  Whether this is inherent to i2's mesh-shaped, giant-single-SCC topology (Sec 5.5's own
+  giant-SCC finding) or a further encoding/solving lever could still bring it down
+  (Sec 8.6's scoped architecture tracks, or a lower-level SAT-solver tuning pass) is not
+  yet known -- C1's GO does not imply C2/C3/C4 are unblocked, only that correctness
+  itself is no longer in question for this path.
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2272,19 +2303,22 @@ speculatively ahead of need.
       discrepancy vs APKeep's own faithful numbers (narrowed to not be an ad6 bug via a
       live NetPlumber arbiter, not fully root-caused). **i2: staged plan (C0-C4) written
       2026-08-27, §5.5. C0 DONE/GO (structural expectations exactly confirmed: 18 devices,
-      77,460 fwd_rules, 0 ACLs). Plain-mode `--skip-acyclic` orientation check matches the
-      72/72 oracle exactly (validates the translator, not soundness — the oracle has zero
-      expected-unreachable pairs). **C2 RESOLVED NO-GO 2026-08-28**, root-caused and
-      quantified, not a sandbox artifact: i2's giant single SCC (99.3% of nodes,
-      140,613/155,199 edges qualifying — the SCC-scoping that made Stanford's B1 cheap
-      barely helps i2's dense mesh topology) drives `_CreateAcyclicConstraints` into a
-      genuine ~22GB memory blowup (measured ~0.14 MB/edge, OOM-confirmed at
-      82,363/140,613 edges = 14.44GB), before DIMACS/solving even start. See
-      `[[ad6-wl-i2-c2-nogo-oom]]`. i2's problem shape differs from Stanford's (no mid
-      stage, route-table-size-dominated, no working faithful-VLAN reference since APKeep's
-      own i2 faithful build has never completed, and now this SCC/mesh-topology-driven
-      memory blowup). C3/C4 need a cheaper per-edge encoding or a different
-      acyclic-safety strategy before i2 can proceed with ad6.
+      77,460 fwd_rules, 0 ACLs). i2's giant single SCC (99.3% of nodes, 140,613/155,199
+      edges qualifying — the SCC-scoping that made Stanford's B1 cheap barely helps i2's
+      dense mesh topology) drives the general `_CreateAcyclicConstraints` into a genuine
+      ~22GB memory blowup (measured ~0.14 MB/edge, OOM-confirmed at 82,363/140,613 edges
+      = 14.44GB) before DIMACS/solving even start — root-caused, not a sandbox artifact,
+      see `[[ad6-wl-i2-c2-nogo-oom]]`. Fixed by an experimental, opt-in
+      `_CreateAcyclicConstraintsLite` (proven clause-equivalent by test, not just
+      assumed). **C1 DONE/GO 2026-09-05**: full 72-pair differential, WITH the real
+      acyclic-safety fix active (lite encoding + Glucose4), completed and exactly
+      matches the oracle (72/72, 0 missing/extra) — stronger evidence than the earlier
+      `--skip-acyclic` check, which only validated the translator with the safety
+      machinery off. **C2 (tractability) still open**: this GO took ~15.3 hours for 72
+      pairs (~3 orders of magnitude slower per query than Stanford's ~16 min for 256
+      pairs), highly variable per-query (sub-second to 80 min), no pathological pair
+      identified — correct but currently impractical. C3/C4 (a cheaper general encoding,
+      or accepting this speed) still open.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
