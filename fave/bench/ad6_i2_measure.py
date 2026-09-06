@@ -128,7 +128,7 @@ _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
-            max_queries=None, checkpoint_every=10):
+            max_queries=None, checkpoint_every=10, pair_filter=None):
     result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
     wall0 = time.time()
     result["_wall0"] = wall0
@@ -301,10 +301,15 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
         _checkpoint(result, out_path, "solver_loaded")
 
         queries = [{"source": s, "probe": p} for p in probes for s in sources]
+        if pair_filter == "self-only":
+            queries = [q for q in queries if _base(q['source']) == _base(q['probe'])]
+        elif pair_filter == "exclude-self":
+            queries = [q for q in queries if _base(q['source']) != _base(q['probe'])]
         if max_queries is not None:
             queries = queries[:max_queries]
         result["query_count"] = len(queries)
         result["max_queries"] = max_queries
+        result["pair_filter"] = pair_filter
 
         ad6_reach = {}
         t0 = time.time()
@@ -398,10 +403,14 @@ def main(argv=None):
     p.add_argument("--checkpoint-every", type=int, default=10,
                     help="checkpoint every N queries (default: 10); use 1 to localize "
                          "exactly which query stalls, AD6_PLAN.md Sec 5.5")
+    p.add_argument("--pair-filter", choices=("self-only", "exclude-self"), default=None,
+                    help="self-only: run just the 9 same-router pairs (the ones that "
+                         "turned out trivial, AD6_PLAN.md Sec 5.5). exclude-self: run "
+                         "just the 72 real cross-router pairs. Default: all 81")
     args = p.parse_args(argv)
     measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
             solver_name=args.solver, max_queries=args.max_queries,
-            checkpoint_every=args.checkpoint_every)
+            checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter)
     return 0
 
 
