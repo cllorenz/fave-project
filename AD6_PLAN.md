@@ -21,15 +21,17 @@ confirmation and one still-open, non-blocking discrepancy against APKeep's own N
 faithful numbers (§5.4 B3). **i2 (§5.5): C0 GO (structural build confirmed, 18
 devices/77,460 rules/0 ACLs). C1 is now GO too (2026-09-05): the full 72-pair
 differential completed, WITH the real acyclic-safety fix active (an experimental lite
-encoding + Glucose4), and exactly matches the oracle — 72/72, 0 missing, 0 extra. C2
-(tractability) is a separate, still-open concern: this run took ~15.3 hours for 72
-pairs, roughly three orders of magnitude slower per query than Stanford's ~16 minutes
-for its full 256-pair matrix — correct, but currently far too slow for practical use,
-and per-query cost was highly variable (sub-second to 80 minutes) with no clear
-pathological pair identified. The earlier root cause behind why this needed a lite
-encoding at all still stands: `_CreateAcyclicConstraints`'s general (lxml/Tseitin-based)
-path OOMs before even reaching DIMACS conversion — confirmed 2026-08-28, RSS grows
-~0.14 MB/qualifying-edge, projecting ~22GB for the full 140,613-edge set, root-caused to
+encoding), and exactly matches the oracle — 72/72, 0 missing, 0 extra. C2
+(tractability) is a separate, still-open concern, and solver-choice-sensitive:
+Glucose4 took ~15.3 hours for 72 pairs; Cadical195 (2026-09-06), same encoding, same
+exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slower per
+query than Stanford's ~16 minutes for its full 256-pair matrix (was ~57x with Glucose4).
+Still correct but not yet practical either way, and per-query cost remains highly
+variable (sub-second to 31-80 minutes depending on solver) with no clear pathological
+pair identified. The earlier root cause behind why this needed a lite encoding at all
+still stands: `_CreateAcyclicConstraints`'s general (lxml/Tseitin-based) path OOMs
+before even reaching DIMACS conversion — confirmed 2026-08-28, RSS grows ~0.14
+MB/qualifying-edge, projecting ~22GB for the full 140,613-edge set, root-caused to
 genuine memory blowup (not a sandbox artifact) in the per-edge CNF-conversion step. The
 giant single SCC (99.3% of nodes) is why so many edges need it at all. Full detail in
 §5.5. Owner: Claas
@@ -1884,6 +1886,27 @@ corrected directly — see §4.4.)
   (Sec 8.6's scoped architecture tracks, or a lower-level SAT-solver tuning pass) is not
   yet known -- C1's GO does not imply C2/C3/C4 are unblocked, only that correctness
   itself is no longer in question for this path.
+
+  **C2 update 2026-09-06 -- solver choice materially changes the tractability picture,
+  and single-query probes still don't predict it.** Ran the same full 72-pair set
+  (`--lite-acyclic`, `--checkpoint-every 1`) with Cadical195, the other
+  assumptions-capable candidate from the solver-comparison shortlist that had only been
+  probed on query 1 before (2.386s there, vs. Glucose4's 0.704s -- Cadical195 looked
+  *worse* on that single data point). Full run: **completed in 12,821s (~3.56h)**,
+  `oracle_match: true` (72/72, 0 missing/extra) -- both correct, but **~4.3x faster than
+  Glucose4's 15.3h**, with a materially tighter distribution too: avg 178.0s (3.0 min,
+  vs Glucose4's 755.7s/12.6 min), max 1877.2s (31.3 min, vs Glucose4's 4820.8s/80.3 min).
+  So the single-query probe's ranking (Glucose4 > Cadical195) INVERTED at full scale --
+  reinforcing Sec 5.5's own earlier lesson that a first-query probe is necessary but not
+  sufficient, this time in the solver-selection dimension specifically, not just the
+  "does it hang" one. Recomputed against Stanford's ~16 min/256-pair baseline: Cadical195
+  is now only ~13x slower per query, not ~57x -- still a real, unresolved tractability
+  gap, but a substantially smaller one than the Glucose4 number alone suggested. Archived
+  as `eval/ad6_i2_cadical195_lite_72pairs_complete.json`. Worth trying the remaining
+  shortlisted backend (none left untested among the assumptions-capable ones -- Minisat22
+  never got past query 1, Kissat404 is disqualified) if a further solver-side lever is
+  wanted; otherwise Cadical195 is now the better default for any further i2 full-run
+  work on this path.
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2311,14 +2334,18 @@ speculatively ahead of need.
       see `[[ad6-wl-i2-c2-nogo-oom]]`. Fixed by an experimental, opt-in
       `_CreateAcyclicConstraintsLite` (proven clause-equivalent by test, not just
       assumed). **C1 DONE/GO 2026-09-05**: full 72-pair differential, WITH the real
-      acyclic-safety fix active (lite encoding + Glucose4), completed and exactly
-      matches the oracle (72/72, 0 missing/extra) — stronger evidence than the earlier
+      acyclic-safety fix active (lite encoding), completed and exactly matches the
+      oracle (72/72, 0 missing/extra) — stronger evidence than the earlier
       `--skip-acyclic` check, which only validated the translator with the safety
-      machinery off. **C2 (tractability) still open**: this GO took ~15.3 hours for 72
-      pairs (~3 orders of magnitude slower per query than Stanford's ~16 min for 256
-      pairs), highly variable per-query (sub-second to 80 min), no pathological pair
-      identified — correct but currently impractical. C3/C4 (a cheaper general encoding,
-      or accepting this speed) still open.
+      machinery off. **C2 (tractability) still open, solver-choice-sensitive
+      (2026-09-06)**: Glucose4 took ~15.3 hours for 72 pairs (~3 orders of magnitude
+      slower per query than Stanford's ~16 min for 256 pairs); Cadical195, same
+      encoding, same exact oracle match, took only ~3.56 hours (~13x slower than
+      Stanford, not ~57x) — ~4.3x faster than Glucose4 despite looking worse on a
+      single-query probe. Per-query cost stays highly variable either way
+      (sub-second to 31-80 min depending on solver), no pathological pair identified
+      — correct but not yet practical with either backend. C3/C4 (a cheaper general
+      encoding, a further solver-level lever, or accepting this speed) still open.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
