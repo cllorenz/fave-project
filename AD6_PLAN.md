@@ -27,8 +27,12 @@ Glucose4 took ~15.3 hours for 72 pairs; Cadical195 (2026-09-06), same encoding, 
 exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slower per
 query than Stanford's ~16 minutes for its full 256-pair matrix (was ~57x with Glucose4).
 Still correct but not yet practical either way, and per-query cost remains highly
-variable (sub-second to 31-80 minutes depending on solver) with no clear pathological
-pair identified. The earlier root cause behind why this needed a lite encoding at all
+variable (sub-second to 31-80 minutes depending on solver). **UPDATE 2026-09-08: there
+IS a pattern** — per-query timing instrumentation (`query_log`, new) found query cost
+tracks topological distance across i2's backbone, not run position: the hardest pair in
+either direction is `losa`↔`newy32aoa` (LA/NYC, the two most geographically distant
+routers), the easiest queries all involve `hous` (Houston) — see §5.5 for the full
+breakdown. The earlier root cause behind why this needed a lite encoding at all
 still stands: `_CreateAcyclicConstraints`'s general (lxml/Tseitin-based) path OOMs
 before even reaching DIMACS conversion — confirmed 2026-08-28, RSS grows ~0.14
 MB/qualifying-edge, projecting ~22GB for the full 140,613-edge set, root-caused to
@@ -1907,6 +1911,92 @@ corrected directly — see §4.4.)
   never got past query 1, Kissat404 is disqualified) if a further solver-side lever is
   wanted; otherwise Cadical195 is now the better default for any further i2 full-run
   work on this path.
+
+  **C2 follow-up 2026-09-08 -- Kissat404 workaround found (disqualification was
+  architecture-specific, not fundamental); a real per-query timing gap closed; and the
+  resulting data answers "is it always the same queries" -- yes, and it tracks
+  Internet2's geography.**
+
+  **Kissat404 isn't fundamentally unusable, just incompatible with the persistent-session
+  architecture.** It was disqualified above because PySAT's wrapper ignores its
+  `assumptions` parameter (Kissat has no native incremental API -- `incr=True` raises
+  `NotImplementedError` in PySAT's own constructor). But the persistent-session
+  architecture's own `solver_load_s` measurements (Cadical195's run: 7.186s to bootstrap
+  a fresh solver from the full 14.9M-clause `dimacs_clauses` list) show that a full
+  reload is cheap relative to the 100s-800s/query solve times already measured --
+  cheap enough that a genuinely non-incremental solver becomes viable if it gets a
+  FRESH solver per query instead of reusing one via assumptions. Added
+  `--fresh-per-query` to `bench/ad6_i2_measure.py`: bakes the source/dest OR-gate
+  literals in as unit clauses on a freshly-bootstrapped solver each query (no
+  assumptions needed), keeping `dimacs_clauses` resident across queries instead of
+  freeing it (checked first: freeing it after the persistent solver's initial load only
+  recovers ~160MB out of ~11GB resident, so retaining it is not the memory risk that
+  free's own comment implies). One-query probe on a real cross-router pair
+  (`chic->atla`, `--pair-filter exclude-self --max-queries 1`): solved in 279.7s + 4.9s
+  reload -- landing close to Cadical195's own per-query average (178.0s), so not a clear
+  win on this single sample, but not disqualifying either. A full 72-query Kissat404 run
+  was not executed (deprioritized below in favor of closing the timing-history gap
+  first); still open if a further solver-side lever is wanted.
+
+  **A real instrumentation gap, found and fixed: neither archived full run ever recorded
+  more than its LAST query's timing.** `last_query_s`/`last_query` are overwritten every
+  checkpoint -- even with `--checkpoint-every 1`, the on-disk JSON only ever retains the
+  final query's numbers. So the "per-query cost was extremely variable throughout... no
+  clear trend across the run" / "no pathological pair identified" conclusions logged
+  2026-09-05/06 were from watching the live stderr scroll during those multi-hour runs,
+  not from saved data -- neither archived file could actually be queried for a pattern.
+  Added `result["query_log"]`, appended every query regardless of checkpoint cadence:
+  `{index, source, probe, elapsed_s, solver_load_s, sat}` -- cheap (72 small dicts), and
+  the on-disk WRITE cadence stays gated by `--checkpoint-every` so this adds no
+  meaningful I/O overhead to a long run.
+
+  **Reran the full 72-pair Cadical195 set with this instrumentation** (same
+  `--lite-acyclic --pair-filter exclude-self --checkpoint-every 1`, archived as
+  `eval/ad6_i2_cadical195_lite_72pairs_complete_v2.json`): **completed in 14,896s
+  (~4.14h)**, `oracle_match: true` again (72/72, 0 missing/extra) -- correct, but
+  noticeably slower than the original run of the IDENTICAL instance/solver/encoding
+  (12,821s / ~3.56h, 2026-09-06) -- a real ~16% run-to-run wall-clock variance to keep in
+  mind for any single-run number this investigation has reported, not just a
+  cross-solver effect.
+
+  **The pattern, finally checked against real data: query cost tracks topological
+  distance through the backbone, not run position.** Correlation between query index
+  (position in the persistent incremental session, i.e. accumulated OR-gate clause
+  count) and elapsed time: **0.01** -- ruling out "queries get harder as clause bloat
+  accumulates" as an explanation. Per-router means instead show real structure that
+  lines up with Internet2's geography:
+
+  | router | mean as SOURCE (n=8) | mean as DESTINATION (n=8) |
+  |---|---|---|
+  | `newy32aoa` (New York) | 321.3s | 380.5s |
+  | `losa` (Los Angeles) | 296.3s | 430.0s (slowest destination) |
+  | `hous` (Houston) | 144.1s | 165.3s |
+  | `chic` (Chicago) | 230.2s | 87.4s (fastest destination) |
+
+  (overall: mean 206.9s, median 133.2s, stdev 290.5s, n=72.) **The single hardest pair in
+  the entire set is `losa`↔`newy32aoa` in BOTH directions** -- `losa->newy32aoa`=1688.8s
+  (rank #1), `newy32aoa->losa`=1460.2s (rank #2) -- the two most geographically distant
+  endpoints on the backbone (west coast/east coast). The fastest queries are dominated by
+  `hous` at either endpoint (`hous->salt`=1.1s, `hous->kans`=2.6s, the two fastest
+  overall) and other short/central hops (`kans->chic`=3.1s, `chic->salt`=3.4s). **Working
+  hypothesis:** hardness tracks how much of the giant SCC a source→destination witness
+  has to traverse -- the real cost driver of the acyclic rank-constraint chain -- not
+  either endpoint's identity alone (neither `losa` nor `newy32aoa` is uniformly slow
+  against every partner; it's specifically the long-haul pair between them that's
+  hardest). This is a concrete refinement of, not a contradiction of, the giant-SCC
+  finding above (99.3% of nodes in one SCC): the SCC's *shape* still matters even though
+  its mere existence already explained why the general encoding didn't get Stanford's
+  cut.
+
+  **Caveats on this finding, stated plainly:** n=8 samples/router with heavy-tailed
+  distributions (stdev routinely exceeds the mean -- e.g. `probe.losa` stdev=523.5 on a
+  mean of 430.0), so treat the per-router means as a strong qualitative signal, not a
+  rigorous statistical claim; the bidirectional agreement on the single hardest pair is
+  the more load-bearing piece of evidence. And this is **Cadical195-only** -- Glucose4's
+  archived run predates `query_log` and has no per-pair record, so whether the SAME pairs
+  are hardest under Glucose4 is still unconfirmed (plausible, given both solvers already
+  showed "the same order-of-magnitude per-query cost" in aggregate, per the
+  2026-09-06 update above, but not verified pair-for-pair).
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2343,9 +2433,21 @@ speculatively ahead of need.
       encoding, same exact oracle match, took only ~3.56 hours (~13x slower than
       Stanford, not ~57x) — ~4.3x faster than Glucose4 despite looking worse on a
       single-query probe. Per-query cost stays highly variable either way
-      (sub-second to 31-80 min depending on solver), no pathological pair identified
-      — correct but not yet practical with either backend. C3/C4 (a cheaper general
-      encoding, a further solver-level lever, or accepting this speed) still open.
+      (sub-second to 31-80 min depending on solver) — correct but not yet practical with
+      either backend. **UPDATE 2026-09-08**: added full per-query timing (`query_log`,
+      `bench/ad6_i2_measure.py`) — neither archived run had actually recorded more than
+      its last query's time before this. A Cadical195 rerun with it (72/72,
+      `oracle_match: true`, 14,896s this time vs 12,821s originally — real run-to-run
+      variance) found a genuine pattern: 0.01 correlation with query position (rules out
+      clause-bloat accumulation), but the hardest pair in the whole set is `losa`↔
+      `newy32aoa` (LA/NYC) in BOTH directions, and the fastest queries all involve `hous`
+      — hardness tracks topological distance across the backbone, not either endpoint
+      alone. Also found Kissat404's disqualification is architecture-specific, not
+      fundamental — a `--fresh-per-query` mode (fresh solver + unit clauses instead of
+      assumptions) lets it run at all, since solver reload is cheap (~5-7s) against
+      100s-800s/query solve times; a single-query probe (279.7s) landed near Cadical's
+      average, not yet run at full scale. C3/C4 (a cheaper general encoding, a further
+      solver-level lever, or accepting this speed) still open; full write-up above.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
