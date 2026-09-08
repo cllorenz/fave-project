@@ -28,11 +28,16 @@ exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slo
 query than Stanford's ~16 minutes for its full 256-pair matrix (was ~57x with Glucose4).
 Still correct but not yet practical either way, and per-query cost remains highly
 variable (sub-second to 31-80 minutes depending on solver). **UPDATE 2026-09-08: there
-IS a pattern** — per-query timing instrumentation (`query_log`, new) found query cost
-tracks topological distance across i2's backbone, not run position: the hardest pair in
-either direction is `losa`↔`newy32aoa` (LA/NYC, the two most geographically distant
-routers), the easiest queries all involve `hous` (Houston) — see §5.5 for the full
-breakdown. The earlier root cause behind why this needed a lite encoding at all
+IS a pattern, but it is NOT topological distance — that first read was wrong, corrected
+same day.** Per-query timing (`query_log`, new) found `losa`↔`newy32aoa` (LA/NYC) is the
+hardest pair in both directions, and queries involving `hous` are consistently fast — but
+a same-day follow-up (`bench/ad6_i2_query_distance.py`, no solving, pure graph metrics)
+found hop-count, OR-gate fan-in, and forward/backward-reachable-set size ALL fail to
+predict this (correlations 0.17, -0.10, -0.04) — the "geographic/topological distance"
+story doesn't survive being checked against the actual graph. The pattern itself (the
+`losa`↔`newy32aoa` bidirectional extreme) is real and reproducible, its cause is not; see
+§5.5 for the full, corrected write-up. The earlier root cause behind why this needed a
+lite encoding at all
 still stands: `_CreateAcyclicConstraints`'s general (lxml/Tseitin-based) path OOMs
 before even reaching DIMACS conversion — confirmed 2026-08-28, RSS grows ~0.14
 MB/qualifying-edge, projecting ~22GB for the full 140,613-edge set, root-caused to
@@ -1978,25 +1983,53 @@ corrected directly — see §4.4.)
   (rank #1), `newy32aoa->losa`=1460.2s (rank #2) -- the two most geographically distant
   endpoints on the backbone (west coast/east coast). The fastest queries are dominated by
   `hous` at either endpoint (`hous->salt`=1.1s, `hous->kans`=2.6s, the two fastest
-  overall) and other short/central hops (`kans->chic`=3.1s, `chic->salt`=3.4s). **Working
-  hypothesis:** hardness tracks how much of the giant SCC a source→destination witness
-  has to traverse -- the real cost driver of the acyclic rank-constraint chain -- not
-  either endpoint's identity alone (neither `losa` nor `newy32aoa` is uniformly slow
-  against every partner; it's specifically the long-haul pair between them that's
-  hardest). This is a concrete refinement of, not a contradiction of, the giant-SCC
-  finding above (99.3% of nodes in one SCC): the SCC's *shape* still matters even though
-  its mere existence already explained why the general encoding didn't get Stanford's
-  cut.
+  overall) and other short/central hops (`kans->chic`=3.1s, `chic->salt`=3.4s). ~~**Working
+  hypothesis:** hardness tracks how much of the giant SCC a source→destination witness has
+  to traverse.~~ **FALSIFIED same day, see below -- this was an ungrounded read of city
+  names, not a checked claim.**
 
-  **Caveats on this finding, stated plainly:** n=8 samples/router with heavy-tailed
-  distributions (stdev routinely exceeds the mean -- e.g. `probe.losa` stdev=523.5 on a
-  mean of 430.0), so treat the per-router means as a strong qualitative signal, not a
-  rigorous statistical claim; the bidirectional agreement on the single hardest pair is
-  the more load-bearing piece of evidence. And this is **Cadical195-only** -- Glucose4's
-  archived run predates `query_log` and has no per-pair record, so whether the SAME pairs
-  are hardest under Glucose4 is still unconfirmed (plausible, given both solvers already
-  showed "the same order-of-magnitude per-query cost" in aggregate, per the
-  2026-09-06 update above, but not verified pair-for-pair).
+  **CORRECTION 2026-09-08, same day -- the topological/geographic-distance hypothesis
+  above does NOT survive being checked against the actual graph.** Built
+  `bench/ad6_i2_query_distance.py`: no SAT solving at all, just the same Kripke graph
+  every C1/C2 run already builds (~5-6 min, the dominant cost either way), then three
+  cheap graph-theoretic probes correlated against the `query_log` timings above:
+  - **Shortest-path hop count** (BFS from each query's source node to its destination
+    node, treating either transition flag as a graph edge -- same convention as the
+    giant-SCC finding's own "any edge either direction can fire" definition): `corr =
+    0.167`. Weak, and directly contradicted by counterexamples -- `hous->salt` is the
+    FASTEST query overall (1.1s) despite 44 hops; `chic->seat` takes only 4.5s despite 87
+    hops (the second-highest hop count in the set).
+  - **OR-gate fan-in** (the exact literal count each query's destination OR-gate clause
+    gets -- `ad6_i2_measure.py`'s own `b_trans`/`or_gate`): fan-out is uniformly 1 (every
+    source has exactly one injection point, as expected), fan-in ranges 18-36 with `corr
+    = -0.098` -- no better than noise.
+  - **Forward-reachable-from-source ∩ backward-reachable-to-destination set size** (two
+    BFS passes per query, no solving -- "how many nodes could plausibly appear on ANY
+    witness path", not just the shortest one): ranges **77,521-77,533 out of 78,078 total
+    nodes** -- essentially flat, a direct consequence of the giant-SCC finding itself
+    (99.3% of nodes in one SCC means forward/backward-reachable sets are both "almost the
+    whole graph" regardless of which specific pair is queried). `corr = -0.036`.
+
+  **Honest conclusion: the `losa`↔`newy32aoa` bidirectional extreme is real and
+  reproducible (very unlikely to be coincidence -- ranking #1 and #2 of 72 in both
+  directions), but none of position, hop-distance, OR-gate size, or reachable-set size
+  explain it.** The mechanism is more likely rooted in the SAT solver's internal search
+  dynamics for this specific instance (clause-learning/variable-branching interactions
+  with the acyclic rank encoding) than in any static graph property -- checking that
+  further would need solver-internal instrumentation (PySAT's own conflict/decision/
+  propagation counters per query), which requires an actual solve and so reintroduces the
+  multi-hour cost this diagnostic line was specifically trying to avoid. Left open rather
+  than chased further; not blocking C3/C4.
+
+  **Caveats on the underlying pattern, stated plainly:** n=8 samples/router with
+  heavy-tailed distributions (stdev routinely exceeds the mean -- e.g. `probe.losa`
+  stdev=523.5 on a mean of 430.0), so treat the per-router means as a qualitative signal,
+  not a rigorous statistical claim; the bidirectional agreement on the single hardest
+  pair is the more load-bearing piece of evidence. And this is **Cadical195-only** --
+  Glucose4's archived run predates `query_log` and has no per-pair record, so whether the
+  SAME pairs are hardest under Glucose4 is still unconfirmed (plausible, given both
+  solvers already showed "the same order-of-magnitude per-query cost" in aggregate, per
+  the 2026-09-06 update above, but not verified pair-for-pair).
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2438,16 +2471,22 @@ speculatively ahead of need.
       `bench/ad6_i2_measure.py`) — neither archived run had actually recorded more than
       its last query's time before this. A Cadical195 rerun with it (72/72,
       `oracle_match: true`, 14,896s this time vs 12,821s originally — real run-to-run
-      variance) found a genuine pattern: 0.01 correlation with query position (rules out
-      clause-bloat accumulation), but the hardest pair in the whole set is `losa`↔
-      `newy32aoa` (LA/NYC) in BOTH directions, and the fastest queries all involve `hous`
-      — hardness tracks topological distance across the backbone, not either endpoint
-      alone. Also found Kissat404's disqualification is architecture-specific, not
-      fundamental — a `--fresh-per-query` mode (fresh solver + unit clauses instead of
-      assumptions) lets it run at all, since solver reload is cheap (~5-7s) against
-      100s-800s/query solve times; a single-query probe (279.7s) landed near Cadical's
-      average, not yet run at full scale. C3/C4 (a cheaper general encoding, a further
-      solver-level lever, or accepting this speed) still open; full write-up above.
+      variance) found 0.01 correlation with query position (rules out clause-bloat
+      accumulation) and confirmed the hardest pair in the whole set is `losa`↔`newy32aoa`
+      (LA/NYC) in BOTH directions, fastest queries all involving `hous`. **Same-day
+      correction**: initially read this as "hardness tracks topological distance" — a
+      follow-up graph-only check (`bench/ad6_i2_query_distance.py`, no solving) falsified
+      that: hop-count (`corr=0.17`), OR-gate fan-in (`corr=-0.10`), and
+      forward/backward-reachable-set size (`corr=-0.04`, expected given the giant SCC)
+      all fail to predict it. The `losa`↔`newy32aoa` pattern is real (very unlikely to be
+      coincidence) but its cause isn't visible in static graph structure — likely
+      SAT-search-internal, left open rather than chased further. Also found Kissat404's
+      disqualification is architecture-specific, not fundamental — a `--fresh-per-query`
+      mode (fresh solver + unit clauses instead of assumptions) lets it run at all, since
+      solver reload is cheap (~5-7s) against 100s-800s/query solve times; a single-query
+      probe (279.7s) landed near Cadical's average, not yet run at full scale. C3/C4 (a
+      cheaper general encoding, a further solver-level lever, or accepting this speed)
+      still open; full write-up above.
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
