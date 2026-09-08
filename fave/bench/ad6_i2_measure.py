@@ -128,7 +128,7 @@ _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
-            max_queries=None, checkpoint_every=10, pair_filter=None):
+            max_queries=None, checkpoint_every=10, pair_filter=None, fresh_per_query=False):
     result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
     wall0 = time.time()
     result["_wall0"] = wall0
@@ -286,18 +286,40 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             next_index[0] += 1
             return aux, [[-lit, aux] for lit in lits] + [[-aux] + lits]
 
-        t0 = time.time()
-        solver = solver_cls(bootstrap_with=dimacs_clauses)
-        result["solver_load_s"] = round(time.time() - t0, 3)
-        # Minisat22.new() just iterates bootstrap_with, calling self.add_clause() per
-        # clause into the underlying C solver (pysat/solvers.py) -- it keeps no
-        # reference to the list itself, so the ~14M-entry `dimacs_clauses` Python list
-        # (confirmed via checkpoints to be most of this script's pre-solve memory,
-        # not the solver's own footprint) is pure dead weight from here on.
-        result["current_rss_before_dimacs_clauses_free_mb"] = _current_rss_mb()
-        del dimacs_clauses
-        gc.collect()
-        result["current_rss_after_dimacs_clauses_free_mb"] = _current_rss_mb()
+        result["fresh_per_query"] = fresh_per_query
+        if fresh_per_query:
+            # AD6_PLAN.md §5.5 C2 follow-up: Kissat404 was disqualified from the
+            # incremental architecture because PySAT's wrapper ignores its
+            # `assumptions` (Kissat has no native incremental API at all --
+            # `incr=True` raises NotImplementedError). But the *reload* cost of
+            # re-bootstrapping a fresh solver from `dimacs_clauses` was already
+            # measured at ~5-7s (`solver_load_s` above, single-shot) -- negligible
+            # against the 100s-800s/query solve times Cadical195/Glucose4 showed.
+            # So rather than reuse ONE persistent solver + assumptions, build a
+            # FRESH solver per query, baking the source/dest OR-gate literals in
+            # as unit clauses instead of assumptions -- lets a genuinely
+            # non-incremental (but potentially much faster on this instance)
+            # solver like Kissat404 be tried at all, at the cost of a small
+            # per-query reload. `dimacs_clauses` must stay resident for this (not
+            # deleted like the persistent-session path does) -- checkpoint data
+            # above (current_rss_before/after_dimacs_clauses_free_mb) showed
+            # freeing it only recovers ~160MB out of ~11GB resident, so retaining
+            # it is not the memory risk the persistent path's comment implies.
+            solver = None
+            result["solver_load_s"] = None
+        else:
+            t0 = time.time()
+            solver = solver_cls(bootstrap_with=dimacs_clauses)
+            result["solver_load_s"] = round(time.time() - t0, 3)
+            # Minisat22.new() just iterates bootstrap_with, calling self.add_clause() per
+            # clause into the underlying C solver (pysat/solvers.py) -- it keeps no
+            # reference to the list itself, so the ~14M-entry `dimacs_clauses` Python list
+            # (confirmed via checkpoints to be most of this script's pre-solve memory,
+            # not the solver's own footprint) is pure dead weight from here on.
+            result["current_rss_before_dimacs_clauses_free_mb"] = _current_rss_mb()
+            del dimacs_clauses
+            gc.collect()
+            result["current_rss_after_dimacs_clauses_free_mb"] = _current_rss_mb()
         _checkpoint(result, out_path, "solver_loaded")
 
         queries = [{"source": s, "probe": p} for p in probes for s in sources]
@@ -312,6 +334,7 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
         result["pair_filter"] = pair_filter
 
         ad6_reach = {}
+        result["query_log"] = []
         t0 = time.time()
         for qi, q in enumerate(queries):
             q0 = time.time()
@@ -323,9 +346,36 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                        for p, flag in kripke.IterBTransitions(destination)]
             src_lit, src_clauses = or_gate(f_trans)
             dst_lit, dst_clauses = or_gate(b_trans)
-            for clause in src_clauses + dst_clauses:
-                solver.add_clause(clause)
-            sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
+            last_solver_load_s = None
+            if fresh_per_query:
+                # No assumptions API to lean on (Kissat) -- bake src_lit/dst_lit
+                # in as unit clauses on a fresh solver instead of reusing one
+                # persistent instance across queries.
+                lq0 = time.time()
+                q_solver = solver_cls(bootstrap_with=dimacs_clauses)
+                for clause in src_clauses + dst_clauses:
+                    q_solver.add_clause(clause)
+                q_solver.add_clause([src_lit])
+                q_solver.add_clause([dst_lit])
+                last_solver_load_s = round(time.time() - lq0, 3)
+                sat = bool(q_solver.solve())
+                q_solver.delete()
+            else:
+                for clause in src_clauses + dst_clauses:
+                    solver.add_clause(clause)
+                sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
+            # Full per-query history (AD6_PLAN.md Sec 5.5 C2 follow-up: the prior
+            # last_query_s/last_query fields get OVERWRITTEN every checkpoint, so
+            # the archived Glucose4/Cadical195 full runs never actually recorded
+            # whether the SAME pairs are slow across solvers -- only this
+            # accumulating list can answer that for a future run). Appended every
+            # query regardless of checkpoint_every; only the on-disk WRITE cadence
+            # is gated by checkpoint_every, to avoid excess I/O on a long run.
+            elapsed = round(time.time() - q0, 3)
+            result["query_log"].append({
+                "index": qi, "source": q['source'], "probe": q['probe'],
+                "elapsed_s": elapsed, "solver_load_s": last_solver_load_s, "sat": sat,
+            })
             # Checkpoint every checkpoint_every-th AND the final query of a (possibly
             # max_queries-truncated) run, so a short probe (e.g. max_queries=1) still
             # leaves a per-query timing behind instead of only the phase-level
@@ -333,13 +383,15 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             # AD6_PLAN.md Sec 5.5's solver-comparison follow-up) also records which
             # (source, probe) pair each query answers, to localize a stall exactly.
             if (qi + 1) % checkpoint_every == 0 or (qi + 1) == len(queries):
-                result["last_query_s"] = round(time.time() - q0, 3)
+                result["last_query_s"] = elapsed
+                result["last_query_solver_load_s"] = last_solver_load_s
                 result["last_query"] = {"source": q['source'], "probe": q['probe']}
                 result["queries_done"] = qi + 1
                 _checkpoint(result, out_path, "querying")
             ad6_reach[(q['source'], q['probe'])] = sat
         result["query_s"] = round(time.time() - t0, 3)
-        solver.delete()
+        if not fresh_per_query:
+            solver.delete()
 
         reach = {
             _base(p): sorted(
@@ -407,10 +459,17 @@ def main(argv=None):
                     help="self-only: run just the 9 same-router pairs (the ones that "
                          "turned out trivial, AD6_PLAN.md Sec 5.5). exclude-self: run "
                          "just the 72 real cross-router pairs. Default: all 81")
+    p.add_argument("--fresh-per-query", action="store_true",
+                    help="build a FRESH solver instance per query (unit clauses for "
+                         "src/dst instead of assumptions) instead of one persistent "
+                         "incremental session. Required for kissat404 (no native "
+                         "assumptions support); also usable as a control for any "
+                         "other solver. AD6_PLAN.md Sec 5.5 C2 follow-up")
     args = p.parse_args(argv)
     measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
             solver_name=args.solver, max_queries=args.max_queries,
-            checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter)
+            checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter,
+            fresh_per_query=args.fresh_per_query)
     return 0
 
 
