@@ -22,11 +22,30 @@
 """ AD6_PLAN.md §5.5 C1/C2: wl_i2 (Internet2) plain-mode differential +
 tractability measurement -- the i2 counterpart to `bench/ad6_faithful_measure.py`
 (wl_stanford's own B3 script), same instrumentation (instantiate/DIMACS-build/
-solve split, CNF clause count, peak RSS), but PLAIN mode (faithful_vlan=False --
-i2's out-tables are a clean dst-IP FIB, in-tables collapse to a single internal
-port, no VLAN modelling needed per §5.5's own C3 gate) and against i2's full
-77,841-route model directly (no router-subsetting tool exists for i2, unlike
-Stanford's induced N=2/3/5 slices -- see AD6_PLAN.md §5.5).
+solve split, CNF clause count, peak RSS), but PLAIN mode (faithful_vlan=False)
+and against i2's full 77,841-route model directly (no router-subsetting tool
+exists for i2, unlike Stanford's induced N=2/3/5 slices -- see AD6_PLAN.md §5.5).
+
+WORKLOAD SCOPE -- READ BEFORE COMPARING THESE NUMBERS WITH ANOTHER ENGINE'S
+(AD6_PLAN.md §5.5, WORKLOAD-PARITY FINDING 2026-09-09). This script measures
+dst-IP-ONLY reachability, NOT the workload NetPlumber and the faithful NDD run
+answer on the same model. An earlier version of this docstring claimed "i2's
+out-tables are a clean dst-IP FIB ... no VLAN modelling needed per §5.5's own C3
+gate"; that is right about the MATCH side and wrong about the ACTION side.
+`bench/wl_i2/i2-json/routes.json` holds 390 `in.X` rules that match `vlan=N` and
+nothing else (VLAN admission) plus 77,451 `out.X` rules that match `ipv4_dst` and
+carry TWO actions -- e.g. `["rw=vlan:10", "fd=out.atla.120030"]`, the dst FIB AND
+a per-route egress-VLAN rewrite. NetPlumber translates every one of those
+rewrites (`netplumber/adapter.py:452-501`, no collapse flag on that path) and
+`test/test_apkeep_ndd_fwd.py:166` runs i2 with faithful=True. ad6 drops both
+halves, and NOT only because of the flag below: `fave/ad6/adapter.py` has no
+`_capture_out_rewrite` at all (`apkeep/adapter.py:470` does), so the egress
+rewrites are lost in EITHER mode, and the vlan-only admission rules never become
+routes (`_translate_fwd_rule` returns early at `fave/ad6/adapter.py:326` because
+`dst is None`). Numbers from this script are therefore sound for comparing ad6
+against ad6 -- e.g. the SAT-backend comparison, which used one identical encoding
+throughout -- but must not be placed beside a NetPlumber or APKeep/NDD i2 figure
+without that qualifier. Closing the gap is §5.5's C4.
 
 C1 is the differential: does ad6's plain-mode reachability match
 `bench/wl_i2/reachable.json` (the SAME oracle test_apkeep_i2.py validates
@@ -89,10 +108,22 @@ def _current_rss_mb():
 
 def _build_ir():
     """ AD6_PLAN.md §5.5 C0/C1: Ad6Adapter._build_ir() output for the real,
-    full-scale wl_i2 model, faithful_vlan=False (plain mode -- see §5.5 C3:
-    whether faithful-VLAN modelling is even needed for i2 is gated on
-    whether plain mode already matches the oracle, so this script never
-    turns faithful_vlan on). """
+    full-scale wl_i2 model, faithful_vlan=False (plain mode).
+
+    This script never turns faithful_vlan on. That used to be justified by
+    §5.5's C3 gate -- "whether faithful-VLAN modelling is even needed for i2
+    is gated on whether plain mode already matches the oracle" -- which
+    AD6_PLAN.md §5.5's WORKLOAD-PARITY FINDING (2026-09-09) retired: plain
+    mode matching `reachable.json` proves nothing about VLAN necessity,
+    because dropping a VLAN admission gate can only ADD reachability and that
+    oracle is an all-reachable 72/72 mesh with zero expected-unreachable
+    pairs, so it cannot detect over-approximation at all. The flag stays off
+    for a different and simpler reason: turning it on would NOT produce a
+    faithful i2 model today. `Ad6Adapter` has no `_capture_out_rewrite`, so
+    i2's 77,451 per-route egress-VLAN rewrites are dropped either way, and
+    faithful mode would add in-stage admission with no matching egress
+    rewrite -- an incoherent model rather than a faithful one. See the module
+    docstring's WORKLOAD SCOPE note; the real fix is §5.5's C4. """
     from ad6.adapter import Ad6Adapter
     from util.in_process_driver import InProcessFaVe
 
