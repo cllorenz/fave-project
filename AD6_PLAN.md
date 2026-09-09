@@ -2133,6 +2133,26 @@ wl_up FaVe+ad6 model (137 generators/probes, 5,977 Kripke nodes) and its full re
   sandbox (`liblog4cxx.so.15` missing, blocking `NetPlumberLibAdapter` entirely — apt
   install, not an ad6/fave code change) that was silently skipping the only real
   live-NetPlumber ad6 differential test this project has.
+- **Correction to the bullet above, 2026-09-09 — the "all pass end-to-end" evidence was
+  real but was never produced by `./test.sh`, in any tier.** Those fave-side ad6 test
+  files pass when pytest is invoked from `fave/` (which is how they were run on
+  2026-08-27, and how they still pass today). But `test.sh`'s `fast` tier — the only tier
+  that collected them — ran from the repo root, and every one of them locates its
+  generated benchmark inputs through a CWD-relative `_PREFIX = "bench/<wl>"`. So from
+  `$ROOT` the prefix was unresolvable and they skipped themselves as "inputs not
+  generated": 11 passing ad6 tests, including `test_ad6_wl_stanford_plain.py`'s N=2
+  live-NetPlumber differential, were invisible to the runner and to CI. The
+  `liblog4cxx.so.15` gap recorded above was therefore only *half* of why that
+  differential wasn't running: the library was missing, and the harness was never
+  invoking it either. Fixed 2026-09-09 (fast tier now runs from `fave/`, three
+  natively-dependent ad6 files moved to `FAVE_INTEGRATION_TESTS`, wl_up input generation
+  added to that tier) — `TODO.md` item 1s. **A second, compounding finding from the same
+  session (`TODO.md` item 1r, `ad6/FAVE_CHANGES.md` item 24): `ad6 make test` exited 0
+  unconditionally**, so the "green" claim in the bullet above rested entirely on reading
+  the suite output by eye — the exit code proved nothing. Both the suites and the entry
+  point now propagate their verdict. Neither finding changes any measurement or
+  correctness result in this plan; both change how much a bare "the tests are green"
+  statement is worth, so treat pre-2026-09-09 green claims as inspection-based.
 
 Full methodology, every intermediate axis (naive-vs-Tseitin CNF, ad6's own encoding vs.
 native SMT, array/UF/quantified FIB theory, synthetic-then-real incremental scaling), and
