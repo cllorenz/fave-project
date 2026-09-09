@@ -250,8 +250,8 @@ gate against. Status:
 
 | workload | checks in `checks.json` | negated (`!` = must NOT reach) | oracle artifact | expected violations | status |
 |---|---:|---:|---|---:|---|
-| wl_i2 | 72 | 0 | `bench/wl_i2/reachable.json` (72 pairs) | **0** | **ANSWERED** |
-| wl_stanford | 240 | 0 | `bench/wl_stanford/reachable.json` (240 pairs) | **0** | **ANSWERED**, with a caveat |
+| wl_i2 | 72 | 0 | `bench/wl_i2/reachable.json` (72 pairs) | 0 **per the POLICY** | **NOT a usable gate** — see below |
+| wl_stanford | 240 | 0 | `bench/wl_stanford/reachable.json` (240 pairs) | 0 **per the POLICY** | **NOT a usable gate** — same defect |
 | wl_up | 11 902 | 8 532 | none tracked | computable, not yet computed | **OPEN** |
 | wl_tum | **0** | 0 | n/a | n/a — checks nothing | **VACUOUS** |
 
@@ -261,13 +261,24 @@ None use `EX`/`AF`/`AX`, waypoints, or conditions. So ONE mechanism — a
 reachability oracle plus the per-check negation flag — can adjudicate the whole
 tier; there is no need for four bespoke expectations.
 
-- **wl_i2 and wl_stanford are answered, and both expect 0.** For each, the
-  `(source, probe)` pairs extracted from `checks.json` are **set-equal** to
-  `{(s, d) for s, ds in reachable.json.items() for d in ds}` (72 = 72 and
-  240 = 240, empty in both directions), no check is negated, so every check
-  demands a pair the oracle marks reachable → a compliant run reports **zero**
-  violations. (This supersedes an earlier note of mine in item 1r claiming
-  `reachable.json` could not adjudicate `checks.json`.)
+- **CORRECTED — `reachable.json` is NOT an independent oracle; my "set-equal"
+  evidence was circular.** I had argued that wl_i2 and wl_stanford "expect 0"
+  because the `(source, probe)` pairs in `checks.json` are set-equal to those in
+  `reachable.json`. They are — but **tautologically**: `gen_wl_i2_inputs.sh:41`
+  emits `checks.json`, `cchecks.json` AND `reachable.json` from the *same*
+  `roles.txt`/`reach.txt` via one `reach_csv_to_checks.py` invocation. Same
+  generator, same input, so of course they agree. `reachable.json` records the
+  **policy intent**, not verified data-plane truth, and set-equality proves
+  nothing about the network.
+- **Worse, the oracle cannot discriminate over-approximation.** Per
+  `AD6_PLAN.md:2040` (the author's own caveat): wl_i2's `reachable.json` is a
+  COMPLETE all-reachable mesh — every one of the 9x8 pairs expected reachable,
+  **zero expected-unreachable pairs** — and therefore has "zero discriminating
+  power". Any backend that *relaxes* a constraint reports MORE reachability and
+  so scores a perfect 72/72 by construction. An all-reachable oracle can only
+  catch under-approximation, never over-approximation. **Gating on it would
+  therefore certify over-approximating backends as correct.** Same defect on
+  wl_stanford (240/240 all-reachable).
 - **Caveat on wl_stanford's oracle:** `reachable.json` there is the *artificial
   all-to-all policy* from the HSA/NetPlumber papers, not the data plane
   (`APKEEP_BACKEND.md:278`). It is therefore fine as a *regression* expectation
@@ -295,18 +306,33 @@ integration tier already trusts, needs no per-workload oracle, and would have
 caught the wl_i2 discrepancy below — but it cannot catch a fault both backends
 share. **Decision needed before building anything.**
 
-#### The wl_i2 discrepancy (grounded, needs root-causing)
-- [ ] **A fully synchronised wl_i2 bench run reports 35 violations where 0 is expected.** Not a race artifact: barrier active, `links` 339 s, `check_compliance` 0.4 s, `Reporter.drain()` a no-op (<1 ms, already at EOF), report rendered strictly after both. Reproduced at 422 s wall.
-- **The 35 are concentrated, not uniform** — which argues against a global timing effect and for a specific model or accounting fault. From the run's `report.md`, by probe: `atla` fails for **all 8** sources; `hous`/`kans`/`losa`/`salt`/`seat` each fail for exactly `{atla, chic, newy32aoa, wash}`; `newy32aoa`/`wash` each for `{atla, hous, losa}`; `chic` for `{atla}`. `atla` appears in **16 of the 35**.
-- **Candidate causes (hypotheses, none tested):**
-  - the Reporter's compliance accounting: probes demonstrably DID activate (`inv.log` is full of `DefaultProbeLogger - Existential Probe N Activated`), so a report saying "does not reach" may be a **log-parsing/accounting** fault in `reporter._parse_log_line`/`dump_report` rather than an engine result;
-  - the bench path differs from every tested path: `test_apkeep_i2` and `test_backend_differential` use the **in-process** driver, while `bench` runs subprocess aggregator + live `net_plumber` + log-tailing Reporter. Nothing currently tests *that* path's verdict;
-  - a genuine NetPlumber reachability gap on wl_i2 (least likely — `APKEEP_BACKEND.md` P5 used NetPlumber as the 341 s reference and APKeep matched `reachable.json` exactly).
-- **Cheapest discriminator:** run the same 72 checks through the in-process driver against a live `net_plumber` and compare to `reachable.json`. If that gives 0, the fault is in the bench path (Reporter/orchestration); if it gives 35, it is in the engine or the model as loaded.
+#### The wl_i2 discrepancy — and who has actually been cross-checked
+- [ ] **FaVe+NetPlumber reports 11 pairs unreachable on wl_i2 where the policy expects 0.** Measured 2026-09-09 with the in-process `NetPlumberLibAdapter` + `InProcessFaVe` (same driver and same `i2-json` inputs `test_apkeep_i2` uses), reading verdicts from `get_compliance_results()` — so no aggregator, no RPC log, no Reporter. Build 552 s, compliance check 0.6 s, peak RSS 1051 MB. The 11: `chic` → `{hous, kans, losa, salt, seat}`; `atla`/`newy32aoa`/`wash` → `{salt, seat}`. Concentrated on the two western routers.
+- **Who has actually been cross-checked on wl_i2 (audited 2026-09-09):**
+  | backend | wl_i2 reachability | recorded where | VLAN modelling |
+  |---|---|---|---|
+  | ad6 | 72/72, `oracle_match: true` | **YES** — `bench/wl_i2/eval/ad6_i2_{cadical195,glucose4}_lite_72pairs_complete.json` carry the full `reach_matrix` | **`faithful_vlan: false`** on every recorded run |
+  | APKeep | 72/72, missing=0/extra=0 | no artifact; asserted live by `test_apkeep_i2` | "the VLAN is just link identity" (that test's own docstring) |
+  | NetPlumber | **never verified** | — | HSA, models the `rw=vlan:V` rewrite |
+  `bench/apkeep_vs_netplumber.py` measures **time only** (`_from_zero_run` returns elapsed; `_benchmark` reports ms) — its "NetPlumber 341 s vs APKeep 14 s" is not a correctness result. `test_backend_differential`, which is where `test_netplumber_matches_oracle` lives, is `_PREFIX = "bench/wl_ifi"` — **wl_ifi only**. So "all backends agree on wl_i2" means *ad6 and APKeep agree with the policy*; NetPlumber was not in that comparison.
+- **What `routes.json` says directly (checked 2026-09-09, no engine):** the model is in-stage VLAN admission (390 rules matching `vlan=V` per in-port) feeding out-stage LPM (77 451 rules matching `ipv4_dst`, each doing `rw=vlan:V` + `fd=`), and probes are existential on **`vlan=0`**. Two structural checks:
+  - the **router-level topology is fully connected** (26 edges over 9 routers), so all 72 pairs are graph-reachable — the 11 are not missing links;
+  - a **port-level walk over the real FIB with match fields IGNORED also reaches all 72** (473 nodes, 77 841 `fd=` rules, no wildcard-in-port rules).
+  So the 11 failures are produced by **field constraints, not structure** — specifically the coupling of in-stage VLAN admission with the out-stage VLAN rewrite, which is exactly the dimension ad6 (`faithful_vlan: false`) and APKeep ("VLAN as link identity") relax.
+- **Two readings, and the evidence now favours the second:**
+  1. NetPlumber (or the model as loaded) is wrong by 11 pairs, and ad6/APKeep are right.
+  2. The i2 data plane genuinely does not provide all-to-all reachability under the faithful VLAN rewrite; **NetPlumber is the only backend strict enough to see it**, and ad6/APKeep miss it because they relax VLAN — invisibly, because the oracle has no expected-unreachable pairs. Relaxing a constraint can only ADD reachability, which is precisely how both land on 72/72.
+  Reading 2 is consistent with every piece of evidence above, but is **not proven**: NetPlumber's own rewrite handling could equally be at fault, and nothing here rules that out.
+- **Cheapest discriminators (in order):**
+  - [ ] pick one failing pair (e.g. `chic → salt`) and ask, by hand or by a small script over `routes.json`, whether ANY dst prefix has a VLAN-consistent path — i.e. an LPM path whose per-hop `rw=vlan:V` is admitted by the next hop's in-stage rule for that in-port. A definitive yes/no on one pair settles the direction;
+  - [ ] re-run ad6 on i2 in **faithful** mode and see whether it drops from 72 to 61. `Ad6Adapter(log, faithful_vlan=...)` supports it, but `bench/ad6_i2_measure.py:101` **hardcodes `faithful_vlan=False`**, and its docstring gives the reason: *"whether faithful-VLAN modelling is even needed for i2 is gated on whether plain mode already matches the oracle, so this script never turns faithful_vlan on"*. **That inference is exactly what the all-reachable-oracle defect breaks** — plain mode matching an all-reachable oracle is guaranteed by construction and therefore cannot license skipping faithful mode. So AD6_PLAN §5.5 C3's "is faithful VLAN needed for i2?" is currently answered on invalid grounds, and the 11-pair NetPlumber result is direct evidence that it DOES change the answer. Re-opening C3 is part of this item;
+  - [ ] extend `test_backend_differential` to wl_i2 so this pairing is tested at all — it is currently wl_ifi-only, which is why a 3-backend "agreement" could stand with one backend never compared.
+- **Do NOT close this by trusting the majority.** Two backends agreeing while both relax the same dimension is not independent confirmation; it is the same simplification counted twice.
 
 #### Then the gate itself
-- [ ] **Make `bench` fail on a wrong verdict.** Once the expectation is settled per workload, compare `report.md`'s violations (or better, the structured events behind it) against it and exit non-zero on mismatch — the `backend_gate.py` "a skip is NOT a pass" principle applied to verdicts. Wire into `test.sh run_bench` so CI cannot pass the tier vacuously.
-- **Do not gate on the current output first:** pinning 35 as "expected" would freeze a wrong answer into the suite. Root-cause the discrepancy above, then gate.
+- [ ] **Make `bench` fail on a wrong verdict.** Compare the verdict (better: the structured compliance events, not the rendered `report.md`) against an expectation and exit non-zero on mismatch — the `backend_gate.py` "a skip is NOT a pass" principle applied to verdicts. Wire into `test.sh run_bench` so CI cannot pass the tier vacuously.
+- **The expectation has to be BUILT first; `reachable.json` will not do.** As above it is the policy, is tautologically equal to `checks.json`, and being all-reachable it cannot catch over-approximation — gating on it would certify a relaxed backend as correct. What is needed is a set containing **expected-UNREACHABLE pairs**, from one of: (a) a faithful hand-derived expectation for a small induced sub-topology — the approach `subset_check.py` describes for wl_stanford (`APKEEP_BACKEND.md:586`), though note that file is **not in the tree**, so it would have to be written; (b) cross-backend *agreement* as the invariant, with all backends in their FAITHFUL modes (agreement between relaxed modes is worthless — see the 11-pair finding); or (c) the policy plus a separately-verified data-plane reachability result, which for wl_i2 does not currently exist.
+- **Do not gate on either current output.** Pinning the bench path's 35 or the in-process 11 would freeze an unexplained answer into the suite. Root-cause first, then gate.
 
 ### 2. Make linting gate the pipeline — DONE (pending user review + a real CI run)
 - [x] **`lint_test.sh` gates on pylint ERROR/FATAL only** (style reported, non-gating; exit-bit `RC&3`). Verified categorization (undefined-var → gate fail; convention-only → no gate). IGNORE additions: `examples/demo_slicing.py` (stale demo, 89 findings) and `util/dynamic_distribution.py` (orphaned, built on `asyncore` which is removed in 3.12 — every importer is commented out; needs an `asyncio`/`selectors` port to revive). Reuses existing `fave/.pylintrc` via `--rcfile`.
