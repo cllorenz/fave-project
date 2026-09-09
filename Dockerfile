@@ -79,8 +79,13 @@ RUN pip3 install pyparsing==3.3.2
 RUN pip3 install cachetools==7.1.4
 RUN pip3 install dd==0.6.0
 # pybison is a NATIVE build (needs flex/bison/m4 above); pin it so the parser it
-# compiles at runtime is reproducible.
-RUN pip3 install pybison==0.6.4
+# compiles at runtime is reproducible. --no-binary is load-bearing, not
+# belt-and-braces: PyPI now ships a prebuilt cp312 manylinux wheel, and pip
+# prefers it by default, but that wheel SEGFAULTS at runtime in
+# BisonParser.__init__ (via fave/iptables/parser_singleton.py) and takes the
+# whole pytest process down with it. Built from source against this image's own
+# flex/bison it works. Keep --no-binary on any pybison version bump.
+RUN pip3 install --no-binary :all: pybison==0.6.4
 # JPype1 drives the APKeep backend in-process (fave/apkeep/lib_apkeep.py). Pinned:
 # the JVM+pybison combo is what crashed after the 2026-08-17 container reset, so
 # the exact backend-binding version is load-bearing for reproducible timings.
