@@ -59,6 +59,11 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
     test/test_apkeep_tum.py      # APKeep vs NP on wl_tum stateful firewall (Phase 1 characterization); skips if unavailable
+    # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
+    # (a sys.executable subprocess), but these three reach past it:
+    test/test_ad6_wl_up.py       # wl_up rulesets -> iptables/parser.py -> pybison
+    test/test_ad6_wl_stanford.py # full 256-query differential vs a libnetplumber worker; opt-in (AD6_STANFORD_FULL_DIFFERENTIAL), so normally skips here
+    test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
 )
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
@@ -68,8 +73,8 @@ FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
 FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
-# -p` runs from different CWDs (repo root for the fast tier, fave/ for the
-# integration tier); without this the parallel data files land in different
+# -p` runs from different CWDs (repo root for the policy_translator step, fave/
+# for every fave step); without this the parallel data files land in different
 # directories and `coverage combine` (run from $ROOT) finds nothing.
 if [ "$COVERAGE" = "1" ]; then
     export COVERAGE_FILE="$ROOT/.coverage"
@@ -109,11 +114,18 @@ run_fast() {
     echo "== fast: policy_translator =="
     ( cd "$ROOT" && PYTHONPATH=policy_translator $pt policy_translator/test ) || rc=1
 
+    # Run from fave/, like the integration and e2e tiers: the benchmark-driven
+    # tests locate their (gitignored, generated) inputs through a CWD-relative
+    # `_PREFIX = "bench/<wl>"`, the convention every fave test uses. Running
+    # this tier from $ROOT instead made that prefix unresolvable, so those tests
+    # skipped themselves as "inputs not generated" in every tier -- a silent,
+    # permanent skip, exactly the "a skip is NOT a pass" hazard
+    # test/backend_gate.py exists to prevent.
     echo "== fast: fave (pure-Python units) =="
     local ignores=()
     local t
-    for t in "${FAVE_NATIVE_TESTS[@]}"; do ignores+=("--ignore=fave/$t"); done
-    ( cd "$ROOT" && PYTHONPATH=fave $pt fave/test "${ignores[@]}" ) || rc=1
+    for t in "${FAVE_NATIVE_TESTS[@]}"; do ignores+=("--ignore=$t"); done
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt test "${ignores[@]}" ) || rc=1
 
     return $rc
 }
@@ -162,6 +174,13 @@ run_integration() {
     # live backend.
     echo "== integration: generate wl_tum inputs (for test_apkeep_tum) =="
     bash "$ROOT/fave/test/gen_wl_tum_inputs.sh" || rc=1
+
+    # Generate the wl_up inputs (synthetic campus model + per-host rulesets) for
+    # the ad6 wl_up translator test; from tracked sources, no live backend.
+    # Required, not optional: under FAVE_REQUIRE_BACKENDS=1 a missing generated
+    # input is a hard failure (test/backend_gate.py), not a skip.
+    echo "== integration: generate wl_up inputs (for test_ad6_wl_up) =="
+    bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
 
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
