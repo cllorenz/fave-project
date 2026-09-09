@@ -595,6 +595,67 @@ def _attachment(source_name, ir):
     return _attachments(source_name, ir)[0]
 
 
+# AD6_PLAN.md §5.4 Stage A2/B2, §5.5 C4: the mutable fields the faithful-VLAN
+# encoding threads per-node SSA copies of, and their bit widths. Width 12
+# matches the global VLAN encoding's own bit-vector width
+# (XMLUtils.ConvertVLANToVariables), kept in sync deliberately so a
+# `fieldmatch` and the (unrelated, global, structural-only) `vlan` match
+# primitive never disagree about how many bits a VLAN tag needs. Hoisted to
+# module level because `probe_vlan_literals` must force values over the SAME
+# width `instantiate_base` declared to `_CreateMutationConstraints` -- resolve
+# a match or a force at a different width and the bits simply do not line up,
+# silently.
+MUTABLE_FIELDS = {'vlan': 12}
+
+
+def probe_vlan_literals(probe_name, ir, destination=None):
+    """ AD6_PLAN.md §5.5 C4 (part 2): the flat per-bit literals to force onto
+    a query instance so a flow only counts as delivered to `probe_name` if it
+    ARRIVES carrying the VLAN that probe's model declares -- wl_i2's
+    access-port untag (`vlan=0`), which its `probes.json` states in the
+    probe's `test_fields`.
+
+    Returns [] unless the IR is faithful-VLAN AND opted into enforcement
+    (`ir["probe_untag"]`) AND the probe actually declares a VLAN. `probe_vlan`
+    alone is not enough: the IR reports what every model declares regardless,
+    and enforcement is a separate deliberate choice (see
+    Ad6Adapter.__init__'s `probe_untag` comment for why it defaults off --
+    neither NetPlumber nor APKeep enforces this on i2, so it is a
+    workload-parity switch, not a bug fix).
+
+    QUERY-TIME, not a model condition, and not by choice of convenience: a
+    `GenUtils.fieldmatch` binds its alias to a specific RULE key
+    (XMLUtils.FieldMatchAliasName), so enforcing this in the model would need
+    a synthetic gate node between the probe's attachments and its query
+    destination -- and a node that exists only as a transition endpoint, with
+    no registered KripkeNode, makes Instantiator._CreateMutationConstraints
+    raise KeyError on its own Kripke.GetNode call (reproduced: any multi-port
+    ECMP route in faithful mode does exactly this). Forcing the destination
+    node's own per-node SSA bits instead is what
+    XMLUtils.ConvertFieldToVariables exists for -- its docstring names this
+    use and this flattening discipline -- and is the same idiom
+    fave_bridge.py's `_seed_literals`/`_state_literals` already use for
+    src-IP and connection state. It also mirrors apkeep/adapter.py's own
+    `target_vlan=` query parameter, keeping the two backends' faithful modes
+    directly comparable.
+
+    `destination` should be the node the caller is actually querying (i.e.
+    query_destination_key's result); it is re-derived when omitted. Getting
+    this node wrong does NOT fail loudly -- IncrementalSession._index_for
+    invents a fresh unconstrained index for an unknown variable name, so a
+    misnamed force is silently satisfiable either way. Pinned by
+    favemodeltest.py::FaithfulVlanProbeUntagTest::
+    test_the_forced_variables_exist_in_the_base_encoding. """
+    if not ir.get("faithful_vlan") or not ir.get("probe_untag"):
+        return []
+    vlan = (ir.get("probe_vlan") or {}).get(probe_name)
+    if vlan is None:
+        return []
+    node = destination if destination is not None else query_destination_key(probe_name, ir)
+    return list(XMLUtils.ConvertFieldToVariables(
+        'vlan', node, int(vlan), MUTABLE_FIELDS['vlan']))
+
+
 _GEN_OUTPUT_PORT = "output_filter_in"
 
 
@@ -888,7 +949,7 @@ def instantiate_base(config, ir):
     # (XMLUtils.ConvertVLANToVariables), kept in sync deliberately so a
     # `fieldmatch` and the (unrelated, global, structural-only) `vlan`
     # match primitive never disagree about how many bits a VLAN tag needs.
-    mutable_fields = {'vlan': 12} if ir.get("faithful_vlan") else None
+    mutable_fields = dict(MUTABLE_FIELDS) if ir.get("faithful_vlan") else None
     if mutable_fields:
         encoding[0].extend(Instantiator._CreateMutationConstraints(kripke, mutable_fields))
 

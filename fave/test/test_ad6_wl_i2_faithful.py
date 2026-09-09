@@ -315,3 +315,121 @@ class TestAd6I2OutRewriteIR(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class _FakeProbe:
+    """ The shape `ProbeModel` presents to `add_probe`: wl_i2 declares its
+    probes' `vlan=0` in `test_fields` (the condition the probe TESTS on
+    arriving flows), not `filter_fields` (which flows it considers at all) --
+    verified by instrumenting a real `InProcessFaVe.replay` of
+    `bench/wl_i2/i2-json`, where `filter_fields` and `match` are both
+    empty. """
+
+    def __init__(self, node, test_fields=None, filter_fields=None, match=()):
+        self.node = node
+        self.type = 'probe'
+        self.quantor = 'existential'
+        self.match = list(match)
+        self.test_fields = test_fields or {}
+        self.filter_fields = filter_fields or {}
+
+
+def _vlan_test(value):
+    return {_VLAN: [RuleField(_VLAN, value)]}
+
+
+class TestAd6I2ProbeUntagCapture(unittest.TestCase):
+    """ AD6_PLAN.md §5.5 C4 (part 2): `add_probe` must record the probe's
+    declared arrival VLAN, which it previously dropped on the floor
+    (recording only `node + '.1'`). """
+
+    @staticmethod
+    def _engine(faithful=True, untag=False):
+        return Ad6Adapter(logging.getLogger("test_i2_probe_untag"),
+                          faithful_vlan=faithful, probe_untag=untag)
+
+    def test_records_the_probes_test_field_vlan(self):
+        engine = self._engine()
+        engine.add_probe(_FakeProbe('probe.atla', test_fields=_vlan_test('0')))
+        self.assertEqual(engine._probe_vlan, {'probe.atla': '0'})
+
+    def test_still_records_the_probes_port_as_before(self):
+        """ Purely additive: the existing `_probes` mapping is untouched. """
+        engine = self._engine()
+        engine.add_probe(_FakeProbe('probe.atla', test_fields=_vlan_test('0')))
+        self.assertEqual(engine._probes, {'probe.atla': 'probe.atla.1'})
+
+    def test_a_non_zero_declared_vlan_is_recorded_verbatim(self):
+        engine = self._engine()
+        engine.add_probe(_FakeProbe('probe.x', test_fields=_vlan_test('4095')))
+        self.assertEqual(engine._probe_vlan, {'probe.x': '4095'})
+
+    def test_a_probe_with_no_vlan_test_field_records_nothing(self):
+        """ wl_ifi/wl_up probes (and any probe testing some other field). """
+        engine = self._engine()
+        engine.add_probe(_FakeProbe('probe.p'))
+        engine.add_probe(_FakeProbe(
+            'probe.q', test_fields={_DST: [RuleField(_DST, '10.0.0.0/8')]}))
+        self.assertEqual(engine._probe_vlan, {})
+
+    def test_a_filter_field_vlan_is_not_a_test_field(self):
+        """ The two are different mechanisms and only `test_fields` states
+        the arrival condition -- reading `filter_fields` instead would have
+        recorded nothing at all on the real i2 model (it is empty there),
+        which is the silent-no-op class this integration keeps hitting. """
+        engine = self._engine()
+        engine.add_probe(_FakeProbe('probe.p', filter_fields=_vlan_test('0')))
+        self.assertEqual(engine._probe_vlan, {})
+
+    def test_several_probes_are_kept_separate(self):
+        engine = self._engine()
+        for name, vlan in (('probe.atla', '0'), ('probe.chic', '0')):
+            engine.add_probe(_FakeProbe(name, test_fields=_vlan_test(vlan)))
+        self.assertEqual(engine._probe_vlan,
+                         {'probe.atla': '0', 'probe.chic': '0'})
+
+
+class TestAd6I2ProbeUntagIR(unittest.TestCase):
+    """ The IR always REPORTS what the model declares (`probe_vlan`); a
+    separate, default-off flag decides whether it is ENFORCED
+    (`probe_untag`). See AD6_PLAN.md §5.5's PROBE-UNTAG PARITY FINDING for
+    why enforcement is not the default: NetPlumber computes this same
+    condition and discards it (`netplumber/adapter.py:1008-1056`, two `XXX:
+    deactivate ... memory explosion` guards, so it sends `test={"type":
+    "true"}` with an empty match), and `apkeep/adapter.py` passes
+    `target_vlan=None` for i2 -- so enforcing it here unconditionally would
+    make ad6 the strictest of the three and break like-for-like parity in
+    the opposite direction from the gap C4 set out to close. """
+
+    @staticmethod
+    def _engine(faithful=True, untag=False):
+        engine = Ad6Adapter(logging.getLogger("test_i2_probe_untag_ir"),
+                            faithful_vlan=faithful, probe_untag=untag)
+        engine.add_tables(_FakeModel('out.atla', {}))
+        engine.add_probe(_FakeProbe('probe.atla', test_fields=_vlan_test('0')))
+        return engine
+
+    def test_faithful_ir_reports_the_declared_probe_vlan(self):
+        self.assertEqual(self._engine()._build_ir()["probe_vlan"],
+                         {'probe.atla': '0'})
+
+    def test_probe_untag_is_absent_by_default(self):
+        self.assertNotIn("probe_untag", self._engine()._build_ir())
+
+    def test_probe_untag_is_emitted_when_opted_in(self):
+        self.assertIs(self._engine(untag=True)._build_ir()["probe_untag"], True)
+
+    def test_plain_ir_has_neither_key(self):
+        ir = self._engine(faithful=False, untag=True)._build_ir()
+        self.assertNotIn("probe_vlan", ir)
+        self.assertNotIn("probe_untag", ir)
+
+    def test_the_flag_defaults_off_on_the_constructor(self):
+        """ Every existing caller -- `bench/ad6_i2_measure.py`, all the
+        wl_ifi/wl_up/wl_stanford tests -- constructs `Ad6Adapter` without
+        it and must be unaffected. """
+        engine = Ad6Adapter(logging.getLogger("test_i2_probe_untag_default"))
+        self.assertIs(engine._probe_untag, False)
+        engine_faithful = Ad6Adapter(
+            logging.getLogger("test_i2_probe_untag_default2"), faithful_vlan=True)
+        self.assertIs(engine_faithful._probe_untag, False)

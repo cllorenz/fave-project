@@ -1698,3 +1698,108 @@ just one hop later than before. `apkeep/adapter.py` has the same shape of gap on
 workload (its `tvlan` is gated `self._stanford and self._faithful_vlan`, so i2 passes
 `None`), which is worth checking against its own faithful i2 result rather than assumed
 to be equivalent.
+
+## 26. C4 (part 2): the wl_i2 probe-side VLAN untag -- opt-in, and here is why  **[FEATURE]**
+
+Item 25 closed the out-stage rewrite half of `AD6_PLAN.md` §5.5's workload-parity gap.
+The other half named there was the probe untag: wl_i2 declares every probe `existential`
+on `vlan=0` (the access-port untag), and `Ad6Adapter` dropped that condition entirely --
+`add_probe` recorded only `node + '.1'`, and `query_destination_key` resolves a probe to
+a topology node with no condition of its own.
+
+**Read from `test_fields`, not `filter_fields`.** These are different FaVe mechanisms:
+`filter_fields` narrows which flows a probe considers at all, `test_fields` is the
+condition it TESTS on flows that arrive. Confirmed against the real model rather than
+inferred — instrumenting an `InProcessFaVe.replay` of `bench/wl_i2/i2-json` shows every
+probe arriving with `test_fields={'packet.ether.vlan': ['0']}` and **both**
+`filter_fields` and `match` empty, so reading either of those would have captured
+nothing at all, silently.
+
+**Enforced at QUERY TIME, and not for convenience.** A `GenUtils.fieldmatch` binds its
+alias to a specific *rule* key (`XMLUtils.FieldMatchAliasName`), so a model-side gate
+would need a synthetic node between a probe's attachments and its query destination —
+and **a node that exists only as a transition endpoint, with no registered
+`KripkeNode`, makes `Instantiator._CreateMutationConstraints` raise `KeyError` on its
+own `Kripke.GetNode` call.** So this forces the destination node's own per-node SSA bits
+via `XMLUtils.ConvertFieldToVariables` — the force-side counterpart of the fieldmatch,
+whose docstring names this exact use and flattening discipline — the same query-time
+idiom `fave_bridge.py`'s `_seed_literals`/`_state_literals` already use, and the same
+shape as `apkeep/adapter.py`'s own `target_vlan=` parameter.
+
+### PROBE-UNTAG PARITY FINDING (2026-09-09) -- why the default is OFF
+
+Implementing this surfaced something that changes what "faithful" means here: **neither
+comparison backend enforces this condition on i2 today.**
+
+- **NetPlumber computes it and throws it away.** `netplumber/adapter.py:1009` builds the
+  header space from `model.test_fields`, and then two `XXX: deactivate using flow
+  expressions due to possible memory explosion in net_plumber` guards route around it:
+  with `test_fields` present and no `test_path`, `test_expr` becomes literally
+  `{"type": "true"}` (line 1053). `add_source_probe` is then called with that and with a
+  match vector built from `model.match` — **empty** for every i2 probe. The header space
+  never leaves Python.
+- **APKeep passes `None`.** `apkeep/adapter.py:1460` gates `tvlan` on
+  `self._stanford and self._faithful_vlan`, so wl_stanford gets the untag and **i2 does
+  not** — even though `test_apkeep_ndd_fwd.py:166`'s docstring lists "probe untag" among
+  what the faithful i2 run models. That docstring overstates what the code does.
+
+So the 11-pair NetPlumber disagreement §5.5 is built around **cannot** be attributed to
+the untag: NetPlumber does not enforce it either. It must come from the in-stage
+admission × out-stage rewrite coupling — which is what item 25 implemented. And turning
+the untag on unconditionally here would make ad6 the **strictest of the three engines**,
+reintroducing a workload-parity gap in the opposite direction from the one C4 exists to
+close.
+
+Hence a separate, default-off `probe_untag` flag rather than folding it into
+`faithful_vlan`: **on** is the scientifically faithful model (the real access ports do
+untag, and `probes.json` records it); **off** matches how the other two engines are
+actually run. The difference between the two is now a *measurement*, not a default to
+guess at. The IR always REPORTS what the probes declare (`ir["probe_vlan"]`) and a
+separate key (`ir["probe_untag"]`) says whether it was enforced, so a result stamped
+with an IR cannot be misread about which model produced it.
+
+**What landed.** `Ad6Adapter.__init__`'s `probe_untag` parameter, `_probe_vlan` capture
+in `add_probe`, `ir["probe_vlan"]`/`ir["probe_untag"]` in `_build_ir`;
+`favemodel.probe_vlan_literals()` plus a module-level `favemodel.MUTABLE_FIELDS`
+(hoisted from `instantiate_base`'s inline `{'vlan': 12}`, so a force and a match cannot
+disagree about bit width — they would simply not line up, silently); one line in
+`fave_bridge.py`'s per-query `extra_vars`.
+
+**Tests, written first, all 22 confirmed failing beforehand, and A/B'd afterwards.**
+- `fave/test/test_ad6_wl_i2_faithful.py` (+11): capture and IR, including that a
+  `filter_fields` VLAN is *not* a test field, and that the flag defaults off.
+- `favemodeltest.py::FaithfulVlanProbeUntagTest` (+11): the literals and the semantics
+  through a real build and solve. Three matter most:
+  - **`test_the_forced_variables_exist_in_the_base_encoding`** — the non-vacuity guard.
+    `IncrementalSession._index_for` silently **invents** a fresh unconstrained index for
+    a name it has not seen, so a misnamed force is satisfiable either way and would look
+    like a passing test. This asserts the destination's SSA bit names are really in the
+    base CNF's variable set.
+  - **`test_multi_attachment_probe_is_gated_at_the_aggregate_node`** — i2's own shape.
+    Every real i2 probe has **18-36** attachments, so `query_destination_key` resolves it
+    to `wire_probe_fanout`'s aggregate node, which has no registered `KripkeNode` and
+    whose SSA copy is written purely by its incoming edges' frame axioms. A
+    single-attachment fixture would have missed this entirely.
+  - **`test_untag_holds_through_the_production_incremental_session`** — the bridge answers
+    real queries through `IncrementalSession`, not `PycoSATAdapter`, and that is the path
+    where a bad variable name fails silently.
+
+**Validated on the real model** (IR level): all 9 probes captured at `vlan=0`, each
+resolving to its `probe_fanout_probe_<role>` aggregate, 12 literals when opted in and 0
+when not; `fwd_rules` and `out_rw` byte-identical either way.
+
+**No regression:** `ad6 make test` 11 suites; fave-side wl_ifi, wl_ifi_stateful,
+adapter_lpm_prio, adapter_multi_device_acl, wl_stanford_faithful, wl_stanford_plain
+(11/11 incl. its live-NetPlumber N=2 differential); `test.sh fast` 345 passed; `mypy`
+clean on both roots.
+
+**LATENT BUG FOUND, reported not fixed (out of scope, and not currently reachable).**
+In faithful mode, ANY multi-port (ECMP) route makes the build raise
+`KeyError: '<rule>_fanout'`: `wire_fanout` creates that node with transitions only, no
+`KripkeNode`, and `_CreateMutationConstraints` calls `Kripke.GetNode` on every node with
+outgoing transitions. Reproduced in a 3-device synthetic IR. **Not reachable today** —
+measured, not assumed: the faithful wl_stanford IR has `max_ports == 1` at both N=2 and
+N=16 (0 multi-port routes), i2's out rules each carry exactly one `fd=`, and plain mode
+never builds mutation constraints at all. It would bite the moment a faithful workload
+has a genuine ECMP route. `wire_probe_fanout`'s aggregate is safe by contrast: it is
+only ever a transition TARGET, never a source key.

@@ -7,7 +7,7 @@ import os
 
 from parser.favemodeltest import (
     RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest,
-    FaithfulVlanOutRewriteWiringTest
+    FaithfulVlanOutRewriteWiringTest, FaithfulVlanProbeUntagTest
 )
 
 class ParserSuite(TestSuite):
@@ -48,6 +48,22 @@ class ParserSuite(TestSuite):
             'test_plain_mode_ignores_the_out_rewrite_entirely',
         ]
         self._suite.addTests(map(FaithfulVlanOutRewriteWiringTest,tests))
+        # AD6_PLAN.md §5.5 C4 (part 2): the probe-side VLAN untag. Manual
+        # registry -- see the note above.
+        tests = [
+            'test_default_is_off',
+            'test_plain_mode_produces_no_literals',
+            'test_no_recorded_probe_vlan_produces_no_literals',
+            'test_literals_are_flat_per_bit_variables_of_the_declared_width',
+            'test_the_forced_variables_exist_in_the_base_encoding',
+            'test_untagged_route_still_reaches',
+            'test_only_tagged_routes_are_blocked_by_the_untag',
+            'test_same_model_reaches_when_the_untag_is_off',
+            'test_a_non_zero_untag_value_is_honoured',
+            'test_multi_attachment_probe_is_gated_at_the_aggregate_node',
+            'test_untag_holds_through_the_production_incremental_session',
+        ]
+        self._suite.addTests(map(FaithfulVlanProbeUntagTest,tests))
 
 
     def run(self):

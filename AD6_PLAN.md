@@ -1756,20 +1756,66 @@ corrected directly — see §4.4.)
   in both modes), so the recorded plain figures stay reproducible. `_capture_mid_rewrite`
   is confirmed inert on i2 (`mid_rw` empty, no mid stage) and `gen_vlan` empty.
 
-  **C4 IS NOT COMPLETE -- the probe untag is still missing, and it is load-bearing.**
-  `Ad6Adapter.add_probe` records only `node + '.1'` and ignores the probe model's own
-  filter fields; `favemodel.query_destination_key` resolves a probe to a plain topology
-  node with no Gamma. i2's `probes.json` declares every probe `existential` on
-  `vlan=0`, and **36,251** of the out routes on probe-facing ports rewrite to a
-  NON-ZERO tag -- so the last hop currently accepts any tag and the model still
-  over-approximates, one hop later than before. The three-query experiment above must
-  NOT be run until this lands: with admission + rewrite but no untag, a "reachable"
-  verdict on the two discriminators would be uninformative in exactly the way C3's
-  original criterion was. Note `apkeep/adapter.py` has the same SHAPE of gap here (its
-  `tvlan` is gated `self._stanford and self._faithful_vlan`, so i2 passes `None`)
-  despite `test_apkeep_ndd_fwd.py:166`'s docstring listing "probe untag" -- worth
-  checking against that backend's own faithful i2 result rather than assuming the two
-  are equivalent. **The docstring correction this paragraph asked for is DONE**
+  **C4 PART 2 DONE 2026-09-09 -- the probe untag is modelled, OPT-IN and DEFAULT OFF.**
+  `Ad6Adapter(probe_untag=True)` + `_probe_vlan` capture in `add_probe` (read from the
+  probe model's `test_fields`, NOT `filter_fields` -- verified by instrumenting a real
+  replay: i2's probes carry `test_fields={'packet.ether.vlan': ['0']}` with
+  `filter_fields` AND `match` both empty, so reading either would have captured nothing
+  silently), `ir["probe_vlan"]`/`ir["probe_untag"]`, and
+  `favemodel.probe_vlan_literals()` wired into `fave_bridge.py`'s per-query
+  `extra_vars`. Enforced at QUERY time by forcing the destination node's own per-node
+  SSA bits (`XMLUtils.ConvertFieldToVariables`), the same idiom `_seed_literals`/
+  `_state_literals` use and the same shape as `apkeep/adapter.py`'s `target_vlan=`;
+  a model-side gate is NOT an option, because a node existing only as a transition
+  endpoint makes `_CreateMutationConstraints` raise `KeyError` on its own
+  `Kripke.GetNode`. 22 new tests, all confirmed failing beforehand and A/B'd after;
+  validated on the real model (all 9 probes at `vlan=0`, each resolving to its
+  `probe_fanout_probe_<role>` aggregate -- every i2 probe has 18-36 attachments, so the
+  aggregate node, not an interface, is what gets untagged). Full writeup:
+  `ad6/FAVE_CHANGES.md` §26.
+
+  **PROBE-UNTAG PARITY FINDING 2026-09-09 -- this is why the default is off, and it
+  narrows what the 11-pair disagreement can be.** Implementing the untag surfaced that
+  **neither comparison backend enforces this condition on i2**:
+  - **NetPlumber computes it and discards it.** `netplumber/adapter.py:1009` builds the
+    header space from `model.test_fields`, then two `XXX: deactivate using flow
+    expressions due to possible memory explosion in net_plumber` guards route around
+    it: with `test_fields` present and no `test_path`, `test_expr` becomes literally
+    `{"type": "true"}` (line 1053), and `add_source_probe` is called with that plus a
+    match vector built from `model.match` -- **empty** for every i2 probe. The header
+    space never leaves Python.
+  - **APKeep passes `None`.** `apkeep/adapter.py:1460` gates `tvlan` on
+    `self._stanford and self._faithful_vlan`, so wl_stanford gets the untag and i2 does
+    not -- even though `test_apkeep_ndd_fwd.py:166`'s docstring lists "probe untag"
+    among what the faithful i2 run models. That docstring overstates the code.
+
+  Two consequences. **(1) The 11-pair NetPlumber disagreement cannot be attributed to
+  the untag** -- NetPlumber does not enforce it either -- so it must come from the
+  in-stage admission x out-stage rewrite coupling, which is exactly what C4 part 1
+  implemented. **(2) Enforcing the untag unconditionally would make ad6 the STRICTEST
+  of the three engines**, reintroducing a parity gap in the opposite direction from the
+  one C4 exists to close. Hence the separate default-off flag: ON is the
+  scientifically faithful model (the real access ports do untag, and `probes.json`
+  records it), OFF matches how the other two engines are actually run. The IR always
+  reports what the probes DECLARE (`probe_vlan`) and separately whether it was ENFORCED
+  (`probe_untag`), so a stamped result cannot be misread about which model produced it.
+
+  **What this means for the three-query experiment: run it with the untag OFF first.**
+  That is the like-for-like configuration against NetPlumber's 11, and it is now
+  buildable (admission + rewrite, no untag). A second run with the untag ON then
+  measures the untag's own contribution as a separate, deliberate delta rather than a
+  hidden assumption -- and if the two disagree, that is itself a reportable result about
+  what NetPlumber's memory-explosion workaround costs in fidelity.
+
+  **LATENT BUG, reported not fixed (out of scope, not reachable today).** In faithful
+  mode any multi-port (ECMP) route makes the build raise `KeyError: '<rule>_fanout'`:
+  `wire_fanout` creates that node with transitions only and no `KripkeNode`, while
+  `_CreateMutationConstraints` calls `Kripke.GetNode` on every node with outgoing
+  transitions. Reproduced in a 3-device synthetic IR. Measured as unreachable today, not
+  assumed: the faithful wl_stanford IR has `max_ports == 1` at both N=2 and N=16 (zero
+  multi-port routes), i2's out rules carry exactly one `fd=` each, and plain mode never
+  builds mutation constraints. `wire_probe_fanout`'s own aggregate is safe -- it is only
+  ever a transition target, never a source key. **The docstring correction this paragraph asked for is DONE**
   (2026-09-09, commit `251d8c9c`; the 11-pair finding itself was deliberately kept out of
   the code comment and lives here instead — owner decision, so the record cannot drift
   from the code). What it said, for the record — **line numbers now stale**, the

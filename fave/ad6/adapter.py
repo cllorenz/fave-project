@@ -133,7 +133,8 @@ class Ad6Adapter(AbstractVerificationEngine):
     """ Drive ad6 as a FaVe verification backend (forwarding + ACLs, matching
     wl_ifi's model). """
 
-    def __init__(self, logger: TraceLogger, faithful_vlan: bool = False) -> None:
+    def __init__(self, logger: TraceLogger, faithful_vlan: bool = False,
+                 probe_untag: bool = False) -> None:
         self.logger = logger
         # AD6_PLAN.md §5.4 Stage B (B2): opt-in (default False, every existing
         # caller/benchmark unaffected -- wl_ifi/wl_up/wl_tum/B0-B1's own
@@ -144,6 +145,23 @@ class Ad6Adapter(AbstractVerificationEngine):
         # (§5.4 Stage B: "reuse APKeep's own faithful-VLAN subset protocol
         # ... for direct comparability").
         self._faithful_vlan = faithful_vlan
+        # AD6_PLAN.md §5.5 C4 (part 2): enforce the probe's own declared
+        # arrival VLAN (wl_i2's access-port untag, `vlan=0`) as a query-time
+        # constraint. SEPARATE from `faithful_vlan` and DEFAULT OFF, by
+        # deliberate choice rather than caution -- see §5.5's PROBE-UNTAG
+        # PARITY FINDING. Neither comparison backend enforces this condition
+        # on i2: `netplumber/adapter.py` computes the header space from
+        # `model.test_fields` and then DISCARDS it (two `XXX: deactivate ...
+        # memory explosion` guards), sending `test={"type": "true"}` with an
+        # empty match vector, and `apkeep/adapter.py`'s `target_vlan` is
+        # gated `self._stanford and self._faithful_vlan`, so i2 passes
+        # `None`. Enforcing it here unconditionally would therefore make ad6
+        # the STRICTEST of the three and reintroduce a workload-parity gap in
+        # the opposite direction from the one C4 exists to close. On (with
+        # `faithful_vlan`) this is the scientifically faithful model; off it
+        # matches how the other two are actually run. The difference between
+        # the two is a measurement, not a default to guess at.
+        self._probe_untag = probe_untag
         self._devices: set = set()
         self._fwd_rules: List[Dict[str, Any]] = []   # [{device,dst,ports,prio}]
         self._fwd_seen: set = set()                    # (device,dst,tuple(ports)) dedup
@@ -171,6 +189,12 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._in_vlans: Dict[str, set] = {}              # in.X -> {admitted vlan tags}
         self._generators: Dict[str, str] = {}          # name -> "device.port"
         self._probes: Dict[str, str] = {}              # name -> "device.port"
+        # AD6_PLAN.md §5.5 C4 (part 2): probe name -> the VLAN its model
+        # declares that an arriving flow must carry. Captured whenever the
+        # probe declares one, independently of `_probe_untag` -- the IR
+        # always reports what the model SAYS, and the flag decides only
+        # whether it is enforced.
+        self._probe_vlan: Dict[str, str] = {}          # name -> vlan tag
         self._gen_src: Dict[str, str] = {}              # name -> cidr
         self._gen_vlan: Dict[str, str] = {}              # name -> vlan
         # AD6_PLAN.md §5.4 Stage 0: keyed by device first, then VLAN -- wl_ifi
@@ -719,7 +743,24 @@ class Ad6Adapter(AbstractVerificationEngine):
             self.add_generator(model)
 
     def add_probe(self, model: Any) -> None:
+        """ AD6_PLAN.md §5.5 C4 (part 2): additionally record the arrival
+        VLAN the probe's model declares, which this used to drop entirely.
+
+        Read from `test_fields`, NOT `filter_fields`. The two are different
+        FaVe mechanisms -- `filter_fields` narrows which flows the probe
+        considers at all, `test_fields` is the condition it TESTS on the
+        flows that arrive -- and it is the latter that states "a flow only
+        counts as delivered here if its VLAN is 0". Confirmed against the
+        real model rather than inferred: instrumenting an
+        `InProcessFaVe.replay` of `bench/wl_i2/i2-json` shows every probe
+        arriving with `test_fields={'packet.ether.vlan': ['0']}` and BOTH
+        `filter_fields` and `match` empty, so reading either of those would
+        have silently captured nothing. wl_stanford's probes declare the
+        same condition the same way; every other benchmark's declare no
+        VLAN and record nothing here. """
         self._probes[model.node] = model.node + '.1'
+        for field in (getattr(model, 'test_fields', None) or {}).get(_VLAN, []):
+            self._probe_vlan[model.node] = str(field.value)
 
     # --- ingress port tracing (mirrors APKeepAdapter._splice_acls) ----------
 
@@ -814,6 +855,13 @@ class Ad6Adapter(AbstractVerificationEngine):
                 for device, entries in self._out_rw.items()
                 if device in devices
             }
+            # AD6_PLAN.md §5.5 C4 (part 2): what the probes DECLARE is always
+            # reported; whether it is ENFORCED is the separate opt-in below,
+            # so a reader of an IR (or of a result stamped with it) can tell
+            # the two apart instead of inferring enforcement from presence.
+            ir["probe_vlan"] = dict(self._probe_vlan)
+            if self._probe_untag:
+                ir["probe_untag"] = True
             ir["in_vlans"] = {
                 device: sorted(vlans, key=int) for device, vlans in self._in_vlans.items()
             }

@@ -197,6 +197,11 @@ def main(argv=None):
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
             extra_vars.extend(_seed_literals(q['src_cidr']))
         extra_vars.extend(_state_literals(q.get('cond')))
+        # AD6_PLAN.md §5.5 C4 (part 2): the probe's own declared arrival VLAN
+        # (wl_i2's access-port untag). Opt-in via ir["probe_untag"] -- a no-op
+        # for every benchmark and every existing run, which never set it.
+        extra_vars.extend(
+            favemodel.probe_vlan_literals(q['probe'], ir, destination))
         if progress:
             start = time.time()
         reachable = session.Query(source, destination, extra_vars=extra_vars)

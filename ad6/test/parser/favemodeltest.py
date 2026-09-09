@@ -1,10 +1,14 @@
 import unittest
 
+from copy import deepcopy
+
 import lxml.etree as et
 
 from src.core.instantiator import Instantiator
 from src.parser import favemodel
+from src.solver.incremental import IncrementalSession
 from src.solver.pycosat import PycoSATAdapter
+from src.solver.solver import AbstractSolver
 from src.xml.genutils import GenUtils
 from src.xml.xmlutils import XMLUtils
 
@@ -557,3 +561,236 @@ class FaithfulVlanOutRewriteWiringTest(unittest.TestCase):
         self.assertTrue(
             self._reachable(self._ir(r2_admitted=["7"], faithful_vlan=False)),
             "plain mode must emit no fieldmatch and no rewrite at all")
+
+
+class FaithfulVlanProbeUntagTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.5 C4 (part 2): the probe-side VLAN untag.
+
+    wl_i2 declares every probe `existential` on `vlan=0` (its `probes.json`
+    carries that in the model's `test_fields`, NOT `filter_fields`), which is
+    the access-port untag: a flow only counts as delivered if the last
+    `out.X` route rewrote its tag to 0. `Ad6Adapter` dropped that condition
+    entirely -- `add_probe` recorded only `node + '.1'`, and
+    `query_destination_key` resolves a probe to a topology node with no
+    condition of its own.
+
+    ENFORCED AT QUERY TIME, not in the model. A `GenUtils.fieldmatch` needs a
+    real rule node to key its node-scoped alias on
+    (`XMLUtils.FieldMatchAliasName` embeds the rule key), and a synthetic gate
+    node is not an option: a node that exists only as a transition endpoint,
+    with no registered `KripkeNode`, makes
+    `Instantiator._CreateMutationConstraints` raise `KeyError` on its own
+    `Kripke.GetNode` call. So this forces the destination node's own per-node
+    SSA bits directly, via `XMLUtils.ConvertFieldToVariables` -- the
+    force-side counterpart of the fieldmatch, whose docstring anticipates
+    exactly this use, and the same query-time idiom `fave_bridge.py`'s
+    `_seed_literals`/`_state_literals` already use for src-IP and state. It
+    is also the same shape as `apkeep/adapter.py`'s own `target_vlan=` query
+    parameter, which keeps the two backends comparable.
+
+    OPT-IN, DEFAULT OFF (`ir["probe_untag"]`), deliberately -- see
+    test_default_is_off and AD6_PLAN.md §5.5's PROBE-UNTAG PARITY FINDING:
+    neither comparison backend enforces this condition on i2 today, so
+    turning it on unconditionally would make ad6 the STRICTEST of the three
+    and break like-for-like parity in the opposite direction. """
+
+    _DST_A = '10.0.0.0/24'      # rewritten to vlan 0 (untagged)
+    _DST_B = '10.0.1.0/24'      # rewritten to vlan 7 (still tagged)
+
+    @classmethod
+    def _ir(cls, rewrites, untag=True, probe_vlan="0", attachments=1,
+            faithful_vlan=True):
+        edges = [
+            ["source.gen.1", "in.r1.1"],
+            ["in.r1.5", "out.r1.1"],
+            ["out.r1.2", "probe.p.1"],
+        ]
+        if attachments > 1:
+            edges.append(["out.r1.3", "probe.p.1"])
+        ir = {
+            "devices": ["in.r1", "out.r1"],
+            "edges": edges,
+            "generators": {"source.gen": "source.gen.1"},
+            "probes": {"probe.p": "probe.p.1"},
+            "fwd_rules": [
+                {"device": "in.r1", "dst": None, "ports": ["in.r1.5"], "prio": 65535},
+                {"device": "out.r1", "dst": cls._DST_A, "ports": ["out.r1.2"],
+                 "prio": _lpm_prio(cls._DST_A)},
+                {"device": "out.r1", "dst": cls._DST_B, "ports": ["out.r1.3"],
+                 "prio": _lpm_prio(cls._DST_B)},
+            ],
+            "routing_rules": [],
+            "acl_devices": [], "acl_in": {}, "acl_out": {},
+            "in_port_vlan": {}, "out_port_vlan": {}, "in_admit": {},
+            "ruleset_devices": {}, "device_addr": {},
+            "faithful_vlan": faithful_vlan,
+            "in_vlans": {"in.r1": ["5"]},
+            "mid_rw": {}, "out_rw": {"out.r1": rewrites},
+            "gen_vlan": {},
+        }
+        if probe_vlan is not None:
+            ir["probe_vlan"] = {"probe.p": probe_vlan}
+        if untag:
+            ir["probe_untag"] = True
+        return ir
+
+    # both routes present; only DST_A (via out.r1.2) untags
+    @classmethod
+    def _both(cls):
+        return [[cls._DST_A, "out.r1.2", "0"], [cls._DST_B, "out.r1.3", "7"]]
+
+    # only the still-tagged route reaches the probe's single attachment
+    @classmethod
+    def _tagged_only(cls):
+        return [[cls._DST_A, "out.r1.2", "7"], [cls._DST_B, "out.r1.3", "7"]]
+
+    @staticmethod
+    def _build(ir):
+        config = favemodel.build_config(ir)
+        XMLUtils.deannotate(config)
+        return favemodel.instantiate_base(config, ir)
+
+    @classmethod
+    def _reachable(cls, ir):
+        kripke, encoding = cls._build(ir)
+        source = favemodel.gen_entry_key("source.gen")
+        dest = favemodel.query_destination_key("probe.p", ir)
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, dest)
+        instance[0].extend(favemodel.probe_vlan_literals("probe.p", ir, dest))
+        return bool(PycoSATAdapter().Solve(instance))
+
+    # --- the literals themselves -------------------------------------------
+
+    def test_default_is_off(self):
+        """ Absent `ir["probe_untag"]`, no literal is produced even though
+        `ir["probe_vlan"]` records the condition -- the IR always carries
+        what the model SAYS, and a separate flag decides whether it is
+        ENFORCED. """
+        ir = self._ir(self._both(), untag=False)
+        self.assertEqual(ir.get("probe_untag"), None)
+        self.assertEqual(favemodel.probe_vlan_literals("probe.p", ir), [])
+
+    def test_plain_mode_produces_no_literals(self):
+        """ The SSA machinery only exists in faithful mode, so forcing a
+        per-node field copy there would name variables the encoding has
+        never heard of. """
+        ir = self._ir(self._both(), faithful_vlan=False)
+        self.assertEqual(favemodel.probe_vlan_literals("probe.p", ir), [])
+
+    def test_no_recorded_probe_vlan_produces_no_literals(self):
+        ir = self._ir(self._both(), probe_vlan=None)
+        self.assertEqual(favemodel.probe_vlan_literals("probe.p", ir), [])
+
+    def test_literals_are_flat_per_bit_variables_of_the_declared_width(self):
+        """ One flat `<variable>` per bit, at `MUTABLE_FIELDS`' own width --
+        appending a nested conjunction to an already-CNF'd instance is a
+        silent no-op, the lesson `_state_literals` records. """
+        ir = self._ir(self._both())
+        lits = favemodel.probe_vlan_literals("probe.p", ir, "somenode")
+        self.assertEqual(len(lits), favemodel.MUTABLE_FIELDS['vlan'])
+        self.assertEqual({l.tag for l in lits}, {XMLUtils.VARIABLE})
+        # vlan 0 -> every bit forced false
+        self.assertEqual(
+            {l.attrib.get(XMLUtils.ATTRNEGATED) for l in lits}, {'true'})
+        self.assertTrue(all(
+            l.attrib[XMLUtils.ATTRNAME].startswith('vlan#somenode_')
+            for l in lits))
+
+    def test_the_forced_variables_exist_in_the_base_encoding(self):
+        """ THE non-vacuity guard, and the reason this class exists rather
+        than trusting the solve alone: `IncrementalSession._index_for`
+        silently INVENTS a fresh unconstrained index for a name it has
+        never seen, so forcing a misnamed variable is satisfiable either
+        way and would look like a pass. Assert the destination node's own
+        SSA bit names really are in the base CNF's variable set. """
+        ir = self._ir(self._both())
+        _kripke, encoding = self._build(ir)
+        dest = favemodel.query_destination_key("probe.p", ir)
+        variables, _clauses = AbstractSolver()._ConvertToDIMACS(deepcopy(encoding))
+        known = set(variables)
+        for lit in favemodel.probe_vlan_literals("probe.p", ir, dest):
+            self.assertIn(
+                lit.attrib[XMLUtils.ATTRNAME], known,
+                "the untag would be VACUOUS: %r is not a variable of the "
+                "base encoding, so forcing it constrains nothing" %
+                lit.attrib[XMLUtils.ATTRNAME])
+
+    # --- the semantics, through a real build and solve ---------------------
+
+    def test_untagged_route_still_reaches(self):
+        self.assertTrue(
+            self._reachable(self._ir(self._both())),
+            "out.r1's %s route rewrites to vlan 0, so a flow arrives "
+            "untagged and the probe must still accept it" % self._DST_A)
+
+    def test_only_tagged_routes_are_blocked_by_the_untag(self):
+        """ The discriminating case: every route reaching the probe leaves
+        the tag non-zero, so an untag-enforcing probe observes nothing --
+        while without the untag this is plainly reachable
+        (test_same_model_reaches_when_the_untag_is_off). """
+        self.assertFalse(
+            self._reachable(self._ir(self._tagged_only())),
+            "every route to the probe rewrites to vlan 7, so no flow "
+            "arrives untagged -- must be blocked")
+
+    def test_same_model_reaches_when_the_untag_is_off(self):
+        """ The A/B partner of the test above, on the identical model: the
+        block must come from the untag and nothing else. """
+        self.assertTrue(
+            self._reachable(self._ir(self._tagged_only(), untag=False)),
+            "with the untag off, the tagged route delivers -- proving the "
+            "previous test's UNSAT is the untag's doing, not a broken "
+            "fixture")
+
+    def test_a_non_zero_untag_value_is_honoured(self):
+        """ Nothing here is hardcoded to 0: a probe declaring vlan=7 must
+        accept exactly the route the vlan=0 probe rejects. """
+        ir = self._ir(self._tagged_only(), probe_vlan="7")
+        self.assertTrue(
+            self._reachable(ir),
+            "the probe declares vlan=7 and the arriving tag is 7 -- must "
+            "reach, which also proves the value is read from the IR "
+            "rather than assumed")
+
+    def test_multi_attachment_probe_is_gated_at_the_aggregate_node(self):
+        """ wl_i2's OWN shape, and the case a single-attachment fixture
+        would miss entirely: every real i2 probe has 18-36 topology
+        attachments, so `query_destination_key` resolves it to
+        `wire_probe_fanout`'s aggregate node rather than to an interface.
+        That node has no registered `KripkeNode` -- it exists only as a
+        transition TARGET -- so its per-node SSA copy is written purely by
+        the frame axioms of its incoming edges. Untagging there must still
+        bite: here the second attachment (out.r1.3) carries the tagged
+        route, so with both attachments live only the untagged one may
+        deliver. """
+        both = self._ir(self._both(), attachments=2)
+        self.assertTrue(
+            self._reachable(both),
+            "the out.r1.2 attachment untags, so the aggregate sees an "
+            "untagged arrival -- must reach")
+        tagged = self._ir(self._tagged_only(), attachments=2)
+        self.assertFalse(
+            self._reachable(tagged),
+            "BOTH attachments now deliver tag 7 -- the untag must be "
+            "enforced on the aggregate node, not silently vacuous there")
+
+    def test_untag_holds_through_the_production_incremental_session(self):
+        """ The bridge answers every real query through
+        `IncrementalSession`, not `PycoSATAdapter`, and that path is where
+        a misnamed variable fails SILENTLY (`_index_for` invents one). So
+        run the same discriminating A/B through it. """
+        for rewrites, untag, expected, why in (
+                (self._both(), True, True, "an untagged route exists"),
+                (self._tagged_only(), True, False, "every route stays tagged"),
+                (self._tagged_only(), False, True, "untag off -> delivers")):
+            ir = self._ir(rewrites, untag=untag)
+            kripke, encoding = self._build(ir)
+            session = IncrementalSession(kripke, encoding)
+            try:
+                dest = favemodel.query_destination_key("probe.p", ir)
+                got = session.Query(
+                    favemodel.gen_entry_key("source.gen"), dest,
+                    extra_vars=favemodel.probe_vlan_literals("probe.p", ir, dest))
+            finally:
+                session.Close()
+            self.assertEqual(got, expected, why)
