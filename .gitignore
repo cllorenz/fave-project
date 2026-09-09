@@ -13,3 +13,5 @@ htmlcov/
 .venv/
 venv/
 fave/results/
+
+.yolobox.toml
