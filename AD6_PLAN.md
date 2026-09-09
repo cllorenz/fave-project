@@ -2036,6 +2036,63 @@ corrected directly — see §4.4.)
   solvers already showed "the same order-of-magnitude per-query cost" in aggregate, per
   the 2026-09-06 update above, but not verified pair-for-pair).
 
+  **KISSAT404 FULL-RUN ATTEMPT 2026-09-09 -- the last untested shortlisted backend is
+  ~2.9x SLOWER than Cadical195, and per-pair hardness does NOT transfer between solvers.**
+  Ran the `--fresh-per-query` workaround at full scale (`--lite-acyclic --pair-filter
+  exclude-self --checkpoint-every 1`, identical encoding/order to the Cadical195 v2 run so
+  the `query_log`s are comparable pair-for-pair), under a 6h cap. **Reached 36 of 72 pairs
+  before the cap fired** (`timeout` rc=124); archived as
+  `eval/ad6_i2_kissat404_lite_freshpq_partial36of72.json`. Note its `status` field still
+  reads `running:querying` -- SIGTERM landed between checkpoints, and the file is the
+  process's own last write, left unedited rather than doctored to a terminal state.
+  - **Paired comparison on the same 36 pairs, solve time only** (reload excluded, so
+    Kissat is not charged for the workaround): Kissat404 18,500s (mean 513.9s, median
+    375.0s, stdev 444.3s) vs Cadical195 6,427s (mean 178.5s, median 121.0s, stdev 208.5s)
+    -- **2.88x slower**. The reload tax the `--fresh-per-query` architecture adds is
+    5.56s/query, **1.1% of query wall**, so the loss is real solving cost, not the
+    workaround. All 36 answers SAT, no oracle divergence on the prefix.
+  - **So the solver-side lever is exhausted.** All four shortlisted backends now have a
+    verdict at i2 scale: Minisat22 never resolved past query 1; Glucose4 ~15.3h/72;
+    Cadical195 ~3.56h and ~4.14h/72; Kissat404 ~2.9x Cadical, extrapolating to ~11h/72.
+    **Cadical195 stands as the best available backend for i2 and no untested candidate
+    remains**; any further tractability gain has to come from the encoding (§8.6, and
+    Axis 1's Tseitin result in AD6_ENCODING_PLAN §3.1), not the backend.
+  - **The per-pair hardness pattern is solver-specific, which settles the question the
+    `query_log` was added to answer.** Pearson correlation between the two solvers'
+    times on the same 36 pairs is **0.199** -- essentially none. Inversions run both
+    ways and are large: `losa->kans` 52.6s under Cadical vs 1231.6s under Kissat
+    (23.4x), `newy32aoa->atla` 84.9s vs 1215.2s (14.3x), while `seat->hous` is 483.5s
+    under Cadical and only 126.1s under Kissat (0.26x) and `kans->atla` 639.1s vs 376.8s
+    (0.59x). **This corroborates the 2026-09-08 falsification from the other side:** no
+    static graph property explained Cadical's `losa`↔`newy32aoa` extreme because the
+    hardness is not a property of the instance at all -- a second solver on the identical
+    CNF disagrees about which pairs are hard. What survives is weaker and worth stating
+    exactly: `losa` appears in the top pairs of BOTH solvers (Kissat's #1/#2 are
+    `losa->atla` 1344.6s and `atla->losa` 1341.9s, bidirectional like Cadical's
+    `losa`↔`newy32aoa`), so `losa` may be a genuinely awkward endpoint while its worst
+    partner is solver-search-dependent. Any §7 claim about "hard pairs" in i2 must be
+    attributed to a specific solver.
+  - **Open curiosity, cheap to check, deliberately not chased:** Kissat's three slowest
+    queries cluster within 4.9s of each other (1339.7s / 1341.9s / 1344.6s -- a 0.4%
+    spread) despite finishing at 13:54, 15:32 and 11:33 respectively, i.e. before,
+    during and after the swap episode below, so it is not a memory artifact. A tight
+    ceiling like that looks more like an internal Kissat bound than coincidence.
+    Re-running one of those pairs alone (`--pair-filter exclude-self --max-queries`
+    plus a pair selector, which does not exist yet) would confirm or dismiss it in ~25
+    min; not done.
+  - **Memory: `--fresh-per-query` is CHEAPER than the persistent session on this
+    instance, the opposite of the expectation its own code comment sets up.** Peak RSS
+    12,075 MB vs 13,432-13,464 MB for the two persistent Cadical runs -- retaining the
+    ~11GB `dimacs_clauses` list and rebuilding a solver every query costs less than one
+    persistent solver accumulating OR-gate clauses across 72 queries, and it was flat
+    across 36 bootstrap/delete rounds (no leak). One caveat on that number: the kernel
+    did evict ~4GB to swap mid-run (13:28-~16:00, the full 4GB device) and faulted it
+    back in later, and `ru_maxrss` counts only resident pages, so 12,075 MB slightly
+    understates the true footprint (~11.6GB observed as RSS+swap at the low point).
+    Timings are unaffected -- reload times stayed flat at 4.4-6.7s throughout, including
+    post-eviction, and the paired ratio was if anything better after (2.55x, n=16) than
+    before (3.11x, n=19).
+
   **WORKLOAD-PARITY FINDING 2026-09-09 -- every i2 measurement in this section (C1, C2,
   and all three solver runs) answers a dst-IP-ONLY workload, while NetPlumber and the
   faithful NDD run answer dst x VLAN on the same model. Those are not the same question,
@@ -2587,7 +2644,18 @@ speculatively ahead of need.
       disqualification is architecture-specific, not fundamental — a `--fresh-per-query`
       mode (fresh solver + unit clauses instead of assumptions) lets it run at all, since
       solver reload is cheap (~5-7s) against 100s-800s/query solve times; a single-query
-      probe (279.7s) landed near Cadical's average, not yet run at full scale. C3/C4 (a
+      probe (279.7s) landed near Cadical's average. **Kissat404 full run DONE
+      2026-09-09**: 36/72 under a 6h cap, **2.88x slower than Cadical195** on the same 36
+      pairs (18,500s vs 6,427s solve-only; reload tax only 1.1% of wall, so the
+      `--fresh-per-query` workaround is not the cause) -- extrapolates to ~11h/72. All
+      four shortlisted backends now have an i2 verdict and **Cadical195 is the best
+      available; the solver-side lever is exhausted**, further gains must come from the
+      encoding. Also settles the per-pair question the `query_log` was added for:
+      cross-solver correlation is **0.199**, with inversions up to 23x in both
+      directions, so i2's "hard pairs" are solver-search artifacts, not instance
+      properties (corroborating the 2026-09-08 graph-property falsification from the
+      other side); `losa` is in both solvers' top pairs, its worst partner is not.
+      Archived `eval/ad6_i2_kissat404_lite_freshpq_partial36of72.json`. C3/C4 (a
       cheaper general encoding, a further solver-level lever, or accepting this speed)
       still open; full write-up above. **WORKLOAD PARITY 2026-09-09**: every i2 number
       above is dst-IP-ONLY. The model's 77,451 `out.X` routes each carry a `rw=vlan:M`
