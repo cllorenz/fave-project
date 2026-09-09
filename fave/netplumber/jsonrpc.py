@@ -76,10 +76,33 @@ def _sync_recv(socks: List[socket.socket]) -> List[JSONDict]:
         result = ''
         while True:
             chunk = sock.recv(4096, socket.MSG_PEEK).decode('utf8')
+
+            # An empty read is EOF: the peer closed the connection. Treating it
+            # as "partial response, keep reading" (as this loop used to) is an
+            # UNBOUNDED BUSY-SPIN at 100% of a core -- recv() returns b''
+            # immediately and forever, so `pos` stays -1 and nothing is ever
+            # appended. Raise instead: the socket carries the fact of the peer's
+            # death exactly and immediately, which is what lets callers wait
+            # indefinitely for a slow-but-live backend without needing a
+            # wall-clock timeout to guess the difference.
+            if not chunk:
+                raise RPCError(
+                    "peer closed the connection after %d byte(s) of a partial "
+                    "response (net_plumber died?)" % len(result)
+                )
+
             pos = chunk.find('\n')
 
             if pos == -1:
-                result += sock.recv(4096).decode('utf8')
+                part = sock.recv(4096).decode('utf8')
+                # The peek above saw data, so this normally cannot be empty;
+                # guard anyway for a close racing between peek and consume.
+                if not part:
+                    raise RPCError(
+                        "peer closed the connection while consuming a partial "
+                        "response of %d byte(s) (net_plumber died?)" % len(result)
+                    )
+                result += part
             else:
                 result += chunk[:pos]
                 sock.recv(pos+1).decode('utf8')
