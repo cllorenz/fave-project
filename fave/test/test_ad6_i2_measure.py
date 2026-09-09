@@ -60,7 +60,8 @@ import unittest
 from unittest import mock
 
 from bench.ad6_i2_measure import (
-    _parse_pairs, _select_queries, _forced_literals, _build_ir, main
+    _parse_pairs, _select_queries, _forced_literals, _oracle_diff, _is_full_sweep,
+    _build_ir, main
 )
 
 
@@ -334,3 +335,110 @@ class TestCli(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestOracleDiff(unittest.TestCase):
+    """ The oracle differential must be SCOPED to the pairs actually queried.
+
+    Found by archiving the first real three-query result: the diff ran
+    unconditionally against `reachable.json`'s full 72-pair mesh, so the 69
+    pairs the run never asked about counted as unreachable and the artifact
+    came out stamped `oracle_match: false`. That reads like ad6 failed the
+    differential when in fact it answered three questions and got all three
+    consistent with the oracle -- exactly the silent misreading the result
+    stamping elsewhere in this script exists to prevent, and worse than a
+    crash because the file outlives the run that explains it. """
+
+    ORACLE = {'salt': ['chic', 'hous', 'atla'], 'seat': ['chic'], 'atla': ['hous']}
+
+    def test_a_full_run_that_agrees_matches(self):
+        reach = {'salt': ['chic', 'hous', 'atla'], 'seat': ['chic'], 'atla': ['hous']}
+        d = _oracle_diff(reach, self.ORACLE, None)
+        self.assertTrue(d['oracle_match'])
+        self.assertEqual(d['oracle_missing'], {})
+        self.assertEqual(d['oracle_extra'], {})
+
+    def test_a_full_run_that_underapproximates_does_not_match(self):
+        reach = {'salt': ['chic'], 'seat': ['chic'], 'atla': ['hous']}
+        d = _oracle_diff(reach, self.ORACLE, None)
+        self.assertFalse(d['oracle_match'])
+        self.assertEqual(d['oracle_missing'], {'salt': ['atla', 'hous']})
+
+    def test_a_full_run_that_overapproximates_does_not_match(self):
+        reach = {'salt': ['chic', 'hous', 'atla'], 'seat': ['chic', 'kans'], 'atla': ['hous']}
+        d = _oracle_diff(reach, self.ORACLE, None)
+        self.assertFalse(d['oracle_match'])
+        self.assertEqual(d['oracle_extra'], {'seat': ['kans']})
+
+    def test_a_scoped_run_ignores_pairs_it_never_queried(self):
+        """ THE fix. Three queries, all agreeing with the oracle -- the 69
+        unasked pairs must not be read as unreachable. """
+        queried = [('source.hous', 'probe.salt'), ('source.chic', 'probe.salt'),
+                   ('source.chic', 'probe.seat')]
+        reach = {'salt': ['chic', 'hous'], 'seat': ['chic'], 'atla': []}
+        d = _oracle_diff(reach, self.ORACLE, queried)
+        self.assertTrue(d['oracle_match'])
+        self.assertEqual(d['oracle_pairs_compared'], 3)
+
+    def test_a_scoped_run_still_catches_a_real_disagreement(self):
+        """ Scoping must not become a way of never failing: within the pairs
+        actually queried, a divergence still has to surface. """
+        queried = [('source.hous', 'probe.salt'), ('source.chic', 'probe.seat')]
+        reach = {'salt': [], 'seat': ['chic'], 'atla': []}
+        d = _oracle_diff(reach, self.ORACLE, queried)
+        self.assertFalse(d['oracle_match'])
+        self.assertEqual(d['oracle_missing'], {'salt': ['hous']})
+
+    def test_a_scoped_run_records_its_own_scope(self):
+        """ The artifact has to say the verdict is partial, so a future reader
+        cannot mistake a 3-pair agreement for the full 72-pair differential. """
+        queried = [('source.chic', 'probe.seat')]
+        d = _oracle_diff({'seat': ['chic']}, self.ORACLE, queried)
+        self.assertEqual(d['oracle_pairs_compared'], 1)
+        self.assertFalse(d['oracle_full_set'])
+
+    def test_a_full_run_records_that_it_was_full(self):
+        reach = {'salt': ['chic', 'hous', 'atla'], 'seat': ['chic'], 'atla': ['hous']}
+        d = _oracle_diff(reach, self.ORACLE, None)
+        self.assertTrue(d['oracle_full_set'])
+
+    def test_a_self_pair_is_never_compared(self):
+        """ `reach_matrix` excludes self pairs by construction, and the oracle
+        has none either -- a queried self pair must not read as missing. """
+        queried = [('source.salt', 'probe.salt')]
+        d = _oracle_diff({'salt': []}, self.ORACLE, queried)
+        self.assertTrue(d['oracle_match'])
+        self.assertEqual(d['oracle_pairs_compared'], 0)
+
+
+class TestIsFullSweep(unittest.TestCase):
+    """ Whether the oracle differential is the full 72-pair question or a
+    scoped one, decided from the queries answered rather than from the flags
+    passed -- see `_is_full_sweep`. """
+
+    def test_the_experiment_is_not_a_full_sweep(self):
+        answered = [('source.hous', 'probe.salt'), ('source.chic', 'probe.salt'),
+                    ('source.chic', 'probe.seat')]
+        self.assertFalse(_is_full_sweep(answered, _SOURCES, _PROBES))
+
+    def test_every_non_self_pair_is_a_full_sweep(self):
+        answered = [(s, p) for p in _PROBES for s in _SOURCES]
+        self.assertTrue(_is_full_sweep(answered, _SOURCES, _PROBES))
+
+    def test_exclude_self_still_counts_as_a_full_sweep(self):
+        """ The case a flag-based test would get wrong: `--pair-filter
+        exclude-self` drops only pairs the differential never compares, so it
+        answers the full question. """
+        answered = [(s, p) for p in _PROBES for s in _SOURCES
+                    if s.split('.')[1] != p.split('.')[1]]
+        self.assertTrue(_is_full_sweep(answered, _SOURCES, _PROBES))
+
+    def test_one_missing_pair_is_not_a_full_sweep(self):
+        answered = [(s, p) for p in _PROBES for s in _SOURCES
+                    if s.split('.')[1] != p.split('.')[1]][:-1]
+        self.assertFalse(_is_full_sweep(answered, _SOURCES, _PROBES))
+
+    def test_self_only_is_not_a_full_sweep(self):
+        answered = [(s, p) for p in _PROBES for s in _SOURCES
+                    if s.split('.')[1] == p.split('.')[1]]
+        self.assertFalse(_is_full_sweep(answered, _SOURCES, _PROBES))

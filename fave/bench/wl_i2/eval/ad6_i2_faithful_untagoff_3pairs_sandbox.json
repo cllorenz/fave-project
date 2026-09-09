@@ -1,0 +1,192 @@
+{
+  "bench": "i2",
+  "engine": "ad6",
+  "faithful_vlan": true,
+  "probe_untag": false,
+  "sources": 9,
+  "probes": 9,
+  "devices": 18,
+  "fwd_rules": 77460,
+  "out_rw_rewrites": 77451,
+  "probe_vlan": {
+    "probe.atla": "0",
+    "probe.chic": "0",
+    "probe.hous": "0",
+    "probe.kans": "0",
+    "probe.losa": "0",
+    "probe.newy32aoa": "0",
+    "probe.salt": "0",
+    "probe.seat": "0",
+    "probe.wash": "0"
+  },
+  "query_count": 3,
+  "max_queries": null,
+  "pair_filter": null,
+  "pairs": "hous>salt,chic>salt,chic>seat",
+  "status": "completed",
+  "dry_run": false,
+  "solver": "cadical195",
+  "kripke_nodes": 78078,
+  "build_s": 698.38,
+  "skip_acyclic": false,
+  "lite_acyclic": true,
+  "current_rss_after_encoding_handoff_mb": 7869.3,
+  "acyclic_edge_index": 138830,
+  "acyclic_extra_clauses": 14201913,
+  "acyclic_constraint_s": 15.165,
+  "current_rss_before_dimacs_mb": 13430.7,
+  "dimacs_s": 15.578,
+  "variable_count": 7274800,
+  "clause_count": 17683953,
+  "current_rss_after_combined_free_mb": 14313.8,
+  "current_rss_after_variables_free_mb": 14347.5,
+  "lite_dimacs_s": 19.969,
+  "fresh_per_query": false,
+  "solver_load_s": 8.934,
+  "current_rss_before_dimacs_clauses_free_mb": 17216.7,
+  "current_rss_after_dimacs_clauses_free_mb": 17031.5,
+  "query_log": [
+    {
+      "index": 0,
+      "source": "source.hous",
+      "probe": "probe.salt",
+      "elapsed_s": 614.432,
+      "solver_load_s": null,
+      "sat": true
+    },
+    {
+      "index": 1,
+      "source": "source.chic",
+      "probe": "probe.salt",
+      "elapsed_s": 63.425,
+      "solver_load_s": null,
+      "sat": true
+    },
+    {
+      "index": 2,
+      "source": "source.chic",
+      "probe": "probe.seat",
+      "elapsed_s": 1246.896,
+      "solver_load_s": null,
+      "sat": true
+    }
+  ],
+  "last_query_s": 1246.896,
+  "last_query_solver_load_s": null,
+  "last_query": {
+    "source": "source.chic",
+    "probe": "probe.seat"
+  },
+  "queries_done": 3,
+  "query_s": 1924.927,
+  "reachable_pairs": 3,
+  "reach_matrix": {
+    "atla": [],
+    "chic": [],
+    "hous": [],
+    "kans": [],
+    "losa": [],
+    "newy32aoa": [],
+    "salt": [
+      "chic",
+      "hous"
+    ],
+    "seat": [
+      "chic"
+    ],
+    "wash": []
+  },
+  "wall_s": 2697.236,
+  "peak_rss_mb": 18416.0,
+  "oracle_missing": {
+    "chic": [
+      "atla",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "kans": [
+      "atla",
+      "chic",
+      "hous",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "wash": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat"
+    ],
+    "hous": [
+      "atla",
+      "chic",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "salt": [
+      "atla",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "seat",
+      "wash"
+    ],
+    "atla": [
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "seat": [
+      "atla",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "wash"
+    ],
+    "newy32aoa": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "losa": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ]
+  },
+  "oracle_extra": {},
+  "oracle_match": false
+}

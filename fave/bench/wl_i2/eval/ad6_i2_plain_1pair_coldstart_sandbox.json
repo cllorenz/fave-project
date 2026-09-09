@@ -1,0 +1,165 @@
+{
+  "bench": "i2",
+  "engine": "ad6",
+  "faithful_vlan": false,
+  "probe_untag": false,
+  "sources": 9,
+  "probes": 9,
+  "devices": 18,
+  "fwd_rules": 77460,
+  "out_rw_rewrites": 0,
+  "probe_vlan": {},
+  "query_count": 1,
+  "max_queries": null,
+  "pair_filter": null,
+  "pairs": "hous>salt",
+  "status": "completed",
+  "dry_run": false,
+  "solver": "cadical195",
+  "kripke_nodes": 78078,
+  "build_s": 363.061,
+  "skip_acyclic": false,
+  "lite_acyclic": true,
+  "current_rss_after_encoding_handoff_mb": 1817.0,
+  "acyclic_edge_index": 123843,
+  "acyclic_extra_clauses": 14201913,
+  "acyclic_constraint_s": 16.882,
+  "current_rss_before_dimacs_mb": 7364.6,
+  "dimacs_s": 4.464,
+  "variable_count": 6341890,
+  "clause_count": 14883129,
+  "current_rss_after_combined_free_mb": 7525.8,
+  "current_rss_after_variables_free_mb": 7530.9,
+  "lite_dimacs_s": 21.216,
+  "fresh_per_query": false,
+  "solver_load_s": 8.592,
+  "current_rss_before_dimacs_clauses_free_mb": 11290.8,
+  "current_rss_after_dimacs_clauses_free_mb": 11242.6,
+  "query_log": [
+    {
+      "index": 0,
+      "source": "source.hous",
+      "probe": "probe.salt",
+      "elapsed_s": 487.606,
+      "solver_load_s": null,
+      "sat": true
+    }
+  ],
+  "last_query_s": 487.606,
+  "last_query_solver_load_s": null,
+  "last_query": {
+    "source": "source.hous",
+    "probe": "probe.salt"
+  },
+  "queries_done": 1,
+  "query_s": 487.662,
+  "reachable_pairs": 1,
+  "reach_matrix": {
+    "atla": [],
+    "chic": [],
+    "hous": [],
+    "kans": [],
+    "losa": [],
+    "newy32aoa": [],
+    "salt": [
+      "hous"
+    ],
+    "seat": [],
+    "wash": []
+  },
+  "wall_s": 912.722,
+  "peak_rss_mb": 12572.6,
+  "oracle_missing": {
+    "atla": [
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "losa": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "newy32aoa": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "chic": [
+      "atla",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "kans": [
+      "atla",
+      "chic",
+      "hous",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "salt": [
+      "atla",
+      "chic",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "seat",
+      "wash"
+    ],
+    "hous": [
+      "atla",
+      "chic",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat",
+      "wash"
+    ],
+    "wash": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "seat"
+    ],
+    "seat": [
+      "atla",
+      "chic",
+      "hous",
+      "kans",
+      "losa",
+      "newy32aoa",
+      "salt",
+      "wash"
+    ]
+  },
+  "oracle_extra": {},
+  "oracle_match": false
+}

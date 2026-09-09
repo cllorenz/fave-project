@@ -25,7 +25,7 @@ encoding), and exactly matches the oracle — 72/72, 0 missing, 0 extra. But not
 REOPENED 2026-09-09: matching that oracle is guaranteed for any relaxed encoding (it is
 an all-reachable mesh), so C1's GO does NOT license skipping faithful VLAN — and
 FaVe+NetPlumber, cross-checked on i2 for the first time, reports 11 of the 72 pairs
-UNREACHABLE. A three-query faithful experiment is prepared and driveable but not yet run; see §5.5 C3. C2
+UNREACHABLE. A three-query faithful experiment RAN 2026-09-09 (untag off) and did NOT corroborate them: control agrees, both discriminators come out reachable, so the disagreement localises to one engine and the admission-x-rewrite hypothesis is falsified; see §5.5 "C3 ANSWERED". C2
 (tractability) is a separate, still-open concern, and solver-choice-sensitive:
 Glucose4 took ~15.3 hours for 72 pairs; Cadical195 (2026-09-06), same encoding, same
 exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slower per
@@ -1880,6 +1880,117 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   cross-cutting ENVIRONMENT GUARDRAIL binds the TIMINGS, not the verdicts: SAT/UNSAT is
   what this experiment is for and is environment-independent, so a sandboxed run can
   decide C3 even though its wall-clock figures would not be quotable.
+
+  **C3 ANSWERED 2026-09-09 -- THE THREE-QUERY EXPERIMENT RAN, UNTAG OFF, AND IT DOES
+  NOT CORROBORATE NETPLUMBER. Decision-table case 2: the disagreement localises to one
+  engine and NEITHER is trustworthy on wl_i2 until it is root-caused.**
+  Run (sandbox, 20 GB box, after the deepcopy fix above made it fit):
+  `--faithful-vlan --lite-acyclic --pairs hous>salt,chic>salt,chic>seat --solver
+  cadical195 --checkpoint-every 1`. `status: completed`, wall 2,697 s, peak 18,416 MB,
+  encoding 7,274,800 vars / 17,683,953 clauses / 78,078 Kripke nodes.
+
+  | query | role | ad6 faithful | NetPlumber | solve |
+  |---|---|---|---|---:|
+  | `source.hous -> probe.salt` | agreement control | reachable (SAT) | reachable | 614.4 s |
+  | `source.chic -> probe.salt` | discriminator | **reachable (SAT)** | unreachable | 63.4 s |
+  | `source.chic -> probe.seat` | discriminator | **reachable (SAT)** | unreachable | 1,246.9 s |
+
+  **The control agreeing is what makes the discriminators readable at all** -- it rules
+  out case 3 (a faithful encoding broken outright), which is exactly why it was ordered
+  first.
+
+  **ARTIFACT + A DEFECT IT EXPOSED.** Archived as
+  `bench/wl_i2/eval/ad6_i2_faithful_untagoff_3pairs_sandbox.json` ("sandbox" in the name
+  marks the timing caveat; the verdicts are not environment-dependent). **That file
+  carries `oracle_match: false`, which is WRONG and must not be read as ad6 failing the
+  differential.** C1's oracle diff ran unconditionally against `reachable.json`'s full
+  72-pair mesh, and `reach_matrix` reports a pair as unreachable when it was simply never
+  queried -- so the 69 pairs this run did not ask about counted as failures. The
+  corrected verdict is **`oracle_match: true` over 3 pairs compared, `oracle_full_set:
+  false`**: all three answers are consistent with the oracle, which is unsurprising since
+  the oracle is an all-reachable mesh and all three came out reachable. `_oracle_diff` +
+  `_is_full_sweep` now scope the differential to the pairs actually answered and stamp
+  which question the verdict answers (11 new tests; the fullness test is decided from the
+  queries answered, not the flags passed, because `--pair-filter exclude-self` narrows
+  nothing the differential compares and a flag-based test would stamp a complete sweep as
+  partial). Verified not to move any archived verdict: the 72-pair plain run recomputes
+  identically. **The artifact itself is left exactly as the process wrote it** -- same
+  policy as `ad6_i2_kissat404_lite_freshpq_partial36of72.json`'s `running:querying`
+  status: artifacts are not doctored, the record explains them.
+
+  **WHAT THIS FALSIFIES.** This section's own leading hypothesis was that the 11-pair
+  disagreement comes from "the in-stage admission x out-stage rewrite coupling, which is
+  exactly what C4 part 1 implemented" (see the PROBE-UNTAG PARITY FINDING's consequence
+  (1) above). That is now measured and WRONG: with all 77,451 egress rewrites captured
+  and the in-stage admission gate active, ad6 still reaches both pairs. Combined with
+  the earlier finding that neither comparison backend enforces the probe untag on i2 --
+  and this run had it OFF, so the comparison is like-for-like -- **both candidate
+  explanations for NetPlumber's 11 are now eliminated.** Do not re-derive either; the
+  next hypothesis has to come from somewhere else.
+
+  **WHAT MAKES THIS DECIDABLE RATHER THAN A STANDOFF.** All three answers are SAT, and a
+  SAT answer is a WITNESS. Extract the satisfying assignment for `chic -> salt` (the
+  cheap pair at 63.4 s), read the path and the per-hop VLAN off it, and check it against
+  `bench/wl_i2/i2-json/routes.json` by hand. Either the witness is a legal path, in
+  which case NetPlumber's 11 are a NetPlumber fault, or it violates the FIB, in which
+  case ad6's faithful encoding is still too weak and the witness names where. This is a
+  finite check on one concrete path, not another engine-level comparison, and it is the
+  recommended next step. `bench/ad6_i2_measure.py` does not extract models today, so it
+  needs a small addition.
+
+  **LEADING HYPOTHESIS, EXPLICITLY UNTESTED -- do not record this as a finding.** i2's
+  sources are VLAN-unconstrained (`sources.json`: `ipv4_dst=0.0.0.0/0`, no VLAN field),
+  and an ad6 query is existential, so the solver may be free to CHOOSE an arriving VLAN
+  that satisfies each in-stage admission gate -- whereas in the real network the
+  arriving tag is fixed by the link. If so the admission gate is satisfiable by
+  construction and reachability survives any amount of faithful rewrite modelling,
+  which would fit every observation here. `FaithfulVlanOutRewriteWiringTest`'s fixture
+  already models the VLAN-unconstrained source deliberately ("as i2 really has"), so the
+  test suite would not have caught this. The witness check above confirms or kills it
+  immediately; until then it is a guess.
+
+  **COST, DIRECTIONAL ONLY (sandbox -- the ENVIRONMENT GUARDRAIL binds these figures,
+  though not the verdicts above). Faithful costs ~1.26x plain per query, and the number
+  this section previously implied (~550x) was an artefact of comparing a cold solver
+  against a warm one.** Measured like-for-like, same pair, each as the FIRST query of
+  its own run: plain 487.6 s, faithful 614.4 s -- **1.26x**. The encoding delta is
+  +932,910 variables and +2,800,824 clauses over plain (the mutation constraints: 12
+  VLAN bits x 78,078 nodes, 0.43% off the predicted variable count), so a modest
+  per-query factor is consistent with the encoding growth. 45 minutes of wall bought
+  three queries against a ~771 s fixed build cost.
+
+  **WARM-SOLVER POSITIONAL EFFECT -- this invalidates how this section chose the three
+  pairs, and it casts doubt on every per-pair reading of the archived query logs.**
+  `hous->salt` is recorded at **1.11 s** in `eval/ad6_i2_cadical195_lite_72pairs_
+  complete_v2.json`, and this section selected it as the cheap agreement control on that
+  basis ("1.11 s (fastest of 72)"). It is index **50 of 72** in that run. The same pair,
+  same PLAIN encoding, same solver, run as the first query of its own session: **487.6
+  s** -- a **439x** cold/warm factor for an identical query. The other two experiment
+  pairs are index 49 (`chic->salt`, 3.43 s) and 57 (`chic->seat`, 4.50 s), so all three
+  were drawn from late positions in one persistent incremental session. **Consequences:**
+  (a) the three pairs are not an intrinsically "fast tail" -- this section's own caveat
+  about not extrapolating from them is right in outcome and wrong in mechanism; (b) the
+  archived per-query `elapsed_s` values are NOT independent measurements of pair
+  difficulty, so "the per-pair hardness pattern is solver-specific" (recorded further
+  down from the Kissat404 comparison) needs re-examination -- it may be substantially a
+  warm-up artefact. What is NOT affected: the solver-to-solver comparison itself, since
+  every run used the same encoding AND the same query order, so position bias applies
+  equally to all of them. **One nuance argues against the simplest warm-up story and is
+  unexplained:** the archived per-quarter means are 170.0 / 182.8 / 288.7 / 128.2 s, not
+  monotonic, and the three pairs sit in the SLOWEST quarter while being among the
+  fastest queries in the run. So whatever makes them cheap once the solver has context is
+  specific to them, not a general position trend. Learned-clause reuse is the hypothesis;
+  it is untested.
+
+  **MEMORY, corrected.** The deepcopy fix above does not lower the faithful whole-run
+  peak -- the completed faithful run peaks at **18,416 MB during SOLVING**. What it
+  removes is a 4.79 GB spike at the BUILD phase (`acyclic_constraints_built` 18,220 ->
+  13,428 MB) that would otherwise have sat underneath DIMACS, bootstrap and the solve;
+  that stacking is what made the first attempt unrunnable, and its removal is why this
+  run fit. In PLAIN mode the same fix is worth **859 MB** of whole-run peak (12,572.6 vs
+  the archived 13,431.9 MB), the smaller figure being exactly why it went unnoticed for
+  so long. An earlier note in this session quoting ~2.1 GB for plain compared a
+  `solver_loaded` checkpoint against an archived whole-run peak and should be ignored.
 
   **LATENT BUG, reported not fixed (out of scope, not reachable today).** In faithful
   mode any multi-port (ECMP) route makes the build raise `KeyError: '<rule>_fanout'`:

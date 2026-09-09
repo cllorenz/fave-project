@@ -279,6 +279,79 @@ def _forced_literals(name_negated, name_to_index, context):
     return literals
 
 
+def _is_full_sweep(answered, sources, probes):
+    """ Did this run ask every non-self pair? Decided from the queries
+    ACTUALLY answered, not from which narrowing flags were passed, because
+    the two are not equivalent: `--pair-filter exclude-self` narrows nothing
+    that the differential cares about (`reach_matrix` drops self pairs by
+    construction and the oracle has none), so a flag-based test would stamp a
+    complete 72-pair sweep as partial. Self pairs are ignored on both
+    sides. """
+    expected = {(_base(s), _base(p)) for s in sources for p in probes
+                if _base(s) != _base(p)}
+    asked = {(_base(s), _base(p)) for s, p in answered if _base(s) != _base(p)}
+    return asked >= expected
+
+
+def _oracle_diff(reach_matrix, oracle, queried_pairs):
+    """ C1's differential against `bench/wl_i2/reachable.json`, SCOPED to the
+    pairs the run actually asked about.
+
+    `queried_pairs` is None for a full run (compare everything, the original
+    behaviour that produced every archived figure) or the list of
+    (source, probe) keys otherwise.
+
+    The scoping is not a refinement, it is a correctness fix, and it was
+    found by archiving the first real three-query result. `reach_matrix` is
+    built over ALL sources and probes and reports a pair as unreachable when
+    it was simply never queried, so diffing a 3-query run against the
+    72-pair oracle stamped `oracle_match: false` on a run whose three answers
+    were all consistent with the oracle. An artifact outlives the invocation
+    that explains it, so that field would have read as "ad6 failed the
+    differential" indefinitely. `oracle_full_set` records which question the
+    verdict answers, so a partial agreement can never be mistaken for the
+    full one -- the same separation `probe_vlan` (declared) and `probe_untag`
+    (enforced) already keep.
+
+    Scoping must not become a way of never failing: within the pairs actually
+    queried a divergence still surfaces (test_a_scoped_run_still_catches_a_
+    real_disagreement). Self pairs are excluded on both sides -- `reach_matrix`
+    drops them by construction and the oracle has none. """
+    ad6_m = {p: set(srcs) for p, srcs in reach_matrix.items()}
+    or_m = {p: set(srcs) for p, srcs in oracle.items()}
+
+    if queried_pairs is None:
+        scope = None
+    else:
+        scope = {}
+        for source, probe in queried_pairs:
+            s_base, p_base = _base(source), _base(probe)
+            if s_base != p_base:
+                scope.setdefault(p_base, set()).add(s_base)
+
+    def _sides(probe):
+        got = ad6_m.get(probe, set())
+        want = or_m.get(probe, set())
+        if scope is not None:
+            allowed = scope.get(probe, set())
+            got, want = got & allowed, want & allowed
+        return got, want
+
+    probes = set(ad6_m) | set(or_m) if scope is None else set(scope)
+    missing, extra, compared = {}, {}, 0
+    for probe in probes:
+        got, want = _sides(probe)
+        compared += len(want | got) if scope is None else len(scope.get(probe, set()))
+        if want - got:
+            missing[probe] = sorted(want - got)
+        if got - want:
+            extra[probe] = sorted(got - want)
+    return {"oracle_missing": missing, "oracle_extra": extra,
+            "oracle_match": not missing and not extra,
+            "oracle_pairs_compared": compared,
+            "oracle_full_set": scope is None}
+
+
 def _peak_rss_mb():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
 
@@ -748,16 +821,13 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
     oracle_path = os.path.join(_FAVE, _ORACLE)
     if "reach_matrix" in result and os.path.isfile(oracle_path):
         oracle = json.load(open(oracle_path))
-        ad6_m = {p: set(srcs) for p, srcs in result["reach_matrix"].items()}
-        or_m = {p: set(srcs) for p, srcs in oracle.items()}
-        probes_u = set(ad6_m) | set(or_m)
-        missing = {p: sorted(or_m.get(p, set()) - ad6_m.get(p, set()))
-                   for p in probes_u if or_m.get(p, set()) - ad6_m.get(p, set())}
-        extra = {p: sorted(ad6_m.get(p, set()) - or_m.get(p, set()))
-                 for p in probes_u if ad6_m.get(p, set()) - or_m.get(p, set())}
-        result["oracle_missing"] = missing
-        result["oracle_extra"] = extra
-        result["oracle_match"] = not missing and not extra
+        # A run narrowed by --pairs/--pair-filter/--max-queries is compared
+        # only over what it asked; see _oracle_diff for why that is a fix and
+        # not a relaxation.
+        answered = [(q["source"], q["probe"]) for q in result["query_log"]]
+        result.update(_oracle_diff(
+            result["reach_matrix"], oracle,
+            None if _is_full_sweep(answered, sources, probes) else answered))
 
     result.pop("_wall0", None)
     printable = {k: v for k, v in result.items() if k != "reach_matrix"}
