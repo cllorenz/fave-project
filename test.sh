@@ -60,12 +60,23 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
     test/test_apkeep_tum.py      # APKeep vs NP on wl_tum stateful firewall (Phase 1 characterization); skips if unavailable
 )
+# Also integration-tier, but these must run in their OWN pytest process. JPype
+# allows exactly one JVM per process and APKeep holds its network in Java static
+# fields, so an APKeep test earlier in the same process leaves the shared heap
+# too full for the NDD engine to build its diagrams -- co-running them dies with
+# `java.lang.OutOfMemoryError: Java heap space` (default JVM heap is ~1/4 of RAM;
+# ~4 GB on a 16 GB CI runner). A fresh JVM per engine is the robust split; raising
+# FAVE_JVM_XMX only moves the wall. Both are gated by FAVE_REQUIRE_BACKENDS.
+FAVE_NDD_TESTS=(
+    test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar)
+    test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
+)
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
     test/test_lib_equivalence.py  # libnetplumber vs net_plumber-RPC (skips if .so unbuilt)
 )
 # Everything excluded from the fast tier (pure-Python discovery ignores these).
-FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
+FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_NDD_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
 # -p` runs from different CWDs (repo root for the fast tier, fave/ for the
@@ -141,6 +152,12 @@ run_integration() {
     echo "== integration: APKeep build + bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
 
+    # The NDD engine is a SECOND backend jar, built from its own pom -- apkeep_smoke.sh
+    # builds only the APKeep jar. Without it `apkeep.lib_ndd.available()` is false and
+    # both NDD tests would skip (or, under FAVE_REQUIRE_BACKENDS=1, fail the gate).
+    echo "== integration: NDD engine jar (for test_apkeep_ndd_*) =="
+    ( cd "$ROOT/ndd" && mvn -q -B -DskipTests package ) || rc=1
+
     # Generate the wl_ifi benchmark inputs (gitignored artifacts) the APKeep
     # wl_ifi test consumes -- a clean checkout has none, and the integration tier
     # runs no live benchmark. Regenerated from tracked inputs (no backend).
@@ -163,8 +180,18 @@ run_integration() {
     echo "== integration: generate wl_tum inputs (for test_apkeep_tum) =="
     bash "$ROOT/fave/test/gen_wl_tum_inputs.sh" || rc=1
 
+    # Generate the wl_up device-model JSON (topology/sources/routes/policies) that
+    # the NDD wl_up parity test consumes; from the tracked generators, no live
+    # backend (the oracle is the tracked frozen BDD matrix, not reachable.json).
+    echo "== integration: generate wl_up inputs (for test_apkeep_ndd_wlup) =="
+    bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
+
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
+
+    # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS).
+    echo "== integration: NDD engine tests (own JVM) =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
 
     return $rc
 }
