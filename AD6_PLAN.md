@@ -1726,9 +1726,16 @@ corrected directly — see §4.4.)
     distribution is min 1.11 s / median 133 s / max 1688.8 s, a ~1500x spread, and
     this set is drawn deliberately from the fast tail.
 
-  **Prerequisites:** a `faithful_vlan` switch on `bench/ad6_i2_measure.py` (currently
-  hardcoded `False` at line 101) and an explicit pair-list selector (`--pair-filter`
-  exists but only does self/exclude-self).
+  **Prerequisites** (tracked as checkboxes in [`TODO.md`](TODO.md) item 1s): a
+  `faithful_vlan` switch on `bench/ad6_i2_measure.py` (currently hardcoded `False` at
+  line 101) and an explicit pair-list selector (`--pair-filter` exists but only does
+  self/exclude-self). **Also: that script's docstrings must be corrected** — line 25
+  ("no VLAN modelling needed per §5.5's own C3 gate") and lines 92-95 ("whether
+  faithful-VLAN modelling is even needed for i2 is gated on whether plain mode already
+  matches the oracle, so this script never turns faithful_vlan on") both assert the
+  inference this block invalidates, so the script currently tells its reader the
+  opposite of C3's actual status. Its `"faithful_vlan": False` result stamp (line 132)
+  is correct and becomes load-bearing once faithful runs exist alongside plain ones.
 
   **C0 DONE 2026-08-27 — GO, structural expectations confirmed exactly.** Built i2 through
   `Ad6Adapter(faithful_vlan=False)` via `InProcessFaVe` (`bench/ad6_i2_measure.py`, new,
