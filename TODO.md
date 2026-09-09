@@ -200,22 +200,23 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
   - `reporting/report.py` likewise only sends `{'type':'report'}` and closes; the aggregator writes `report.md` asynchronously afterwards.
 - [x] **`_report` converts the PREVIOUS workload's report. FIXED 2026-09-09** — `reporting/report.py` now blocks on a barrier before returning, so `pandoc` sees the report the aggregator just wrote. Measured before: `report.pdf` 4m27s OLDER than `report.md`; after: 1 s apart.
 - **Mechanism (reference):** Because `report.py` is async, `_report`'s `pandoc report.md -o report.pdf` runs on whatever is already on disk. Measured on the wl_i2 run: `report.md` mtime 09:01:41 vs `report.pdf` 08:57:14 — the PDF is **4m27s older than the markdown**, and is wl_stanford's. (The item-1n swallow fix, commit `0a0b7ee9`, surfaces the sub-steps' *exit codes* correctly but sits on top of this race: necessary, not sufficient.)
-- **RETRACTED 2026-09-09 — the "wrong verdicts" claim does not hold.** This item
-  originally read: *"the tier reports WRONG verdicts and exits 0 -- wl_i2 claimed
-  35 of 72 pairs 'does not reach' while the oracle says all 72 are reachable;
-  early report = 35, after 285 s of waiting = 0, RACE CONFIRMED."* **That
-  experiment was invalid.** `reporting/reporter.py:117` renders only
-  `self.events[self.last_compliance:cur_event]`, and line 178 advances that
-  watermark inside `dump_report` — so a SECOND `_report()` call in one session
-  renders only the delta since the first, which is empty and prints "No
-  compliance violations have been found." The discriminator called `_report()`
-  twice, so its `0` was an empty delta, not a corrected verdict. A fully
-  synchronised re-run (barrier + drain in place, `links` 339 s, `check_compliance`
-  0.4 s, report rendered strictly afterwards) reports **35** — the same answer.
-  **Whether 35 is correct for wl_i2's compliance policy is UNKNOWN and untested
-  here**: `reachable.json` (72 pairs) is the *reachability* oracle and is not the
-  same question as `checks.json`'s *policy*, so it cannot adjudicate this. The
-  reachability-vs-policy comparison is the separate gating work below.
+- **CORRECTED TWICE 2026-09-09 — read this carefully, the record oscillated.**
+  1. *Originally claimed:* "the tier reports WRONG verdicts and exits 0 -- wl_i2
+     claimed 35 of 72 pairs 'does not reach' while the oracle says all 72 are
+     reachable; early report = 35, after 285 s of waiting = 0, RACE CONFIRMED."
+  2. *The EXPERIMENT was invalid* (found while validating the barrier fix):
+     `reporting/reporter.py:117` renders only
+     `self.events[self.last_compliance:cur_event]`, and line 178 advances that
+     watermark inside `dump_report`. The discriminator called `_report()` twice,
+     so its `0` was an EMPTY DELTA, not a corrected verdict. Nothing about a
+     race was demonstrated, and the "285 s of waiting" was irrelevant.
+  3. *The CLAIM is nevertheless true*, re-established by a sound route that does
+     not depend on that experiment — see the artifact comparison in **item 1s**.
+     wl_i2's expected verdict really is 0 violations and the tier really does
+     report 35; what was wrong was my evidence, not the conclusion.
+  The intermediate "whether 35 is correct is UNKNOWN / `reachable.json` cannot
+  adjudicate `checks.json`" note was also wrong and is withdrawn: the two encode
+  the same question (item 1s proves the pair sets are set-equal).
 - **What the barrier work did establish (all verified):** the completion barrier
   was genuinely missing, the tier's runtimes were measuring message-sending
   only, and `report.pdf` really was converted from a stale `report.md`. See the
@@ -233,7 +234,79 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **Why smoke/e2e look fine:** it is a race, not a designed wait. wl_example/wl_ifi are small enough that `net_plumber` usually answers before `_report` runs, so the smoke tier wins the race and the bench tier loses it. Verdict correctness was checked against an oracle **only for wl_i2**; wl_up/wl_tum/wl_stanford are timed but their verdicts are unverified and should be assumed affected until shown otherwise.
 - **Decision needed (async contract — author's call, do not change unilaterally):** (a) have `compliance_checker.py`/`reporting/report.py` await an ack from the aggregator; (b) make `_wait_for_fave` wait on something that is actually held for the non-dump path; or (c) have the aggregator expose a "queue drained" query the benchmark polls. (a) and (c) change the aggregator protocol; (b) is the smallest but needs a lock that the non-dump path genuinely takes.
 - **Blocks item 0's "validate `bench` on real CI":** certifying the tier green before this is fixed would only certify a vacuous pass.
-- **Related:** the two runtime-robustness bullets under item 10 (backend death, teardown-doesn't-reap) were both re-confirmed while measuring this — see their `CONFIRMED 2026-09-09` lines. Same "checks that do not gate" theme as items 1i/1n/1p.
+- **Related:** the correctness-gating half is **item 1s** (the tier still cannot fail on a wrong verdict). The two runtime-robustness bullets under item 10 (backend death, teardown-doesn't-reap) were both re-confirmed while measuring this — see their `CONFIRMED 2026-09-09` lines. Same "checks that do not gate" theme as items 1i/1n/1p.
+
+### 1s. `bench` does not gate on correctness — and wl_i2's verdict is wrong (found 2026-09-09)
+Item 1r made the tier *honest* (real runtimes, no stale reports, failures raised).
+It did **not** make it a *gate*: `benchmark.py` renders `report.md` and exits 0
+whatever it says. Nothing compares the verdict to an expectation, so a wrong
+answer passes green. Validating `bench` on CI (item 0) is worth little until this
+is closed.
+
+#### The oracle question, stated explicitly
+**For each bench workload: what is the expected compliance verdict, and what
+artifact establishes it?** Without a per-workload answer there is nothing to
+gate against. Status:
+
+| workload | checks in `checks.json` | negated (`!` = must NOT reach) | oracle artifact | expected violations | status |
+|---|---:|---:|---|---:|---|
+| wl_i2 | 72 | 0 | `bench/wl_i2/reachable.json` (72 pairs) | **0** | **ANSWERED** |
+| wl_stanford | 240 | 0 | `bench/wl_stanford/reachable.json` (240 pairs) | **0** | **ANSWERED**, with a caveat |
+| wl_up | 11 902 | 8 532 | none tracked | computable, not yet computed | **OPEN** |
+| wl_tum | **0** | 0 | n/a | n/a — checks nothing | **VACUOUS** |
+
+**The key structural fact, measured: every check in all four workloads is `EF`**
+(existential reachability) — `s=source.X && EF p=probe.Y`, optionally negated.
+None use `EX`/`AF`/`AX`, waypoints, or conditions. So ONE mechanism — a
+reachability oracle plus the per-check negation flag — can adjudicate the whole
+tier; there is no need for four bespoke expectations.
+
+- **wl_i2 and wl_stanford are answered, and both expect 0.** For each, the
+  `(source, probe)` pairs extracted from `checks.json` are **set-equal** to
+  `{(s, d) for s, ds in reachable.json.items() for d in ds}` (72 = 72 and
+  240 = 240, empty in both directions), no check is negated, so every check
+  demands a pair the oracle marks reachable → a compliant run reports **zero**
+  violations. (This supersedes an earlier note of mine in item 1r claiming
+  `reachable.json` could not adjudicate `checks.json`.)
+- **Caveat on wl_stanford's oracle:** `reachable.json` there is the *artificial
+  all-to-all policy* from the HSA/NetPlumber papers, not the data plane
+  (`APKEEP_BACKEND.md:278`). It is therefore fine as a *regression* expectation
+  ("this run still agrees with the tracked artifact") but should not be read as
+  the scientifically meaningful reachability answer — the faithful-VLAN work
+  measures 165, not 240.
+- **wl_up is open but tractable:** 8 532 of its 11 902 checks are negated, so the
+  expected verdict is *not* 0 and has to be computed — violations = positive
+  checks whose pair is unreachable, plus negated checks whose pair IS reachable.
+  That needs a wl_up reachability oracle; `eval/mat_apk.json` is a frozen BDD
+  reachability baseline rather than a compliance expectation, so it is a
+  candidate input to that computation, not the answer.
+- [ ] **wl_tum checks NOTHING — its `checks.json` is empty (0 entries).** Its
+  compliance phase is vacuous by construction: it cannot report a violation, so
+  gating it would be meaningless until it has checks. Decide whether wl_tum is
+  supposed to have a compliance policy at all (it is a single-firewall
+  ruleset-scale workload, so possibly it is deliberately a *performance* rather
+  than a *compliance* benchmark) — and if so, say so explicitly rather than
+  leaving an empty file that reads like a bug.
+
+An alternative to absolute expectations, worth weighing before building: gate on
+a **cross-backend differential** (FaVe+NetPlumber == FaVe+APKeep on the same
+checks) and treat *agreement* as the invariant. That reuses the mechanism the
+integration tier already trusts, needs no per-workload oracle, and would have
+caught the wl_i2 discrepancy below — but it cannot catch a fault both backends
+share. **Decision needed before building anything.**
+
+#### The wl_i2 discrepancy (grounded, needs root-causing)
+- [ ] **A fully synchronised wl_i2 bench run reports 35 violations where 0 is expected.** Not a race artifact: barrier active, `links` 339 s, `check_compliance` 0.4 s, `Reporter.drain()` a no-op (<1 ms, already at EOF), report rendered strictly after both. Reproduced at 422 s wall.
+- **The 35 are concentrated, not uniform** — which argues against a global timing effect and for a specific model or accounting fault. From the run's `report.md`, by probe: `atla` fails for **all 8** sources; `hous`/`kans`/`losa`/`salt`/`seat` each fail for exactly `{atla, chic, newy32aoa, wash}`; `newy32aoa`/`wash` each for `{atla, hous, losa}`; `chic` for `{atla}`. `atla` appears in **16 of the 35**.
+- **Candidate causes (hypotheses, none tested):**
+  - the Reporter's compliance accounting: probes demonstrably DID activate (`inv.log` is full of `DefaultProbeLogger - Existential Probe N Activated`), so a report saying "does not reach" may be a **log-parsing/accounting** fault in `reporter._parse_log_line`/`dump_report` rather than an engine result;
+  - the bench path differs from every tested path: `test_apkeep_i2` and `test_backend_differential` use the **in-process** driver, while `bench` runs subprocess aggregator + live `net_plumber` + log-tailing Reporter. Nothing currently tests *that* path's verdict;
+  - a genuine NetPlumber reachability gap on wl_i2 (least likely — `APKEEP_BACKEND.md` P5 used NetPlumber as the 341 s reference and APKeep matched `reachable.json` exactly).
+- **Cheapest discriminator:** run the same 72 checks through the in-process driver against a live `net_plumber` and compare to `reachable.json`. If that gives 0, the fault is in the bench path (Reporter/orchestration); if it gives 35, it is in the engine or the model as loaded.
+
+#### Then the gate itself
+- [ ] **Make `bench` fail on a wrong verdict.** Once the expectation is settled per workload, compare `report.md`'s violations (or better, the structured events behind it) against it and exit non-zero on mismatch — the `backend_gate.py` "a skip is NOT a pass" principle applied to verdicts. Wire into `test.sh run_bench` so CI cannot pass the tier vacuously.
+- **Do not gate on the current output first:** pinning 35 as "expected" would freeze a wrong answer into the suite. Root-cause the discrepancy above, then gate.
 
 ### 2. Make linting gate the pipeline — DONE (pending user review + a real CI run)
 - [x] **`lint_test.sh` gates on pylint ERROR/FATAL only** (style reported, non-gating; exit-bit `RC&3`). Verified categorization (undefined-var → gate fail; convention-only → no gate). IGNORE additions: `examples/demo_slicing.py` (stale demo, 89 findings) and `util/dynamic_distribution.py` (orphaned, built on `asyncore` which is removed in 3.12 — every importer is commented out; needs an `asyncio`/`selectors` port to revive). Reuses existing `fave/.pylintrc` via `--rcfile`.
@@ -661,7 +734,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 ## Suggested order of work
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
-2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Item **1r** belongs here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
+2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.
