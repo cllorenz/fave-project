@@ -41,6 +41,17 @@ def _unpack(topo):
     return topo['devices'], topo['links']
 
 
+def _exit_code(status):
+    """ Decode an `os.system()` wait status into a plain exit code (negative for
+    a signal). Unlike `os.waitstatus_to_exitcode` this never raises, so checking
+    a sub-step can't itself become a new crash path in a benchmark run. """
+    if os.WIFSIGNALED(status):
+        return -os.WTERMSIG(status)
+    if os.WIFEXITED(status):
+        return os.WEXITSTATUS(status)
+    return status
+
+
 class GenericBenchmark(object):
     """ This class provides a canonical benchmark and can be customized by sub classes.
     """
@@ -298,9 +309,39 @@ class GenericBenchmark(object):
 
     def _report(self):
         self.logger.info("generating report...")
-        os.system("python3 reporting/report.py %s" % ("-u" if self.use_unix else ""))
-        os.system("pandoc report.md -o report.pdf")
-        self.logger.info("report generated.")
+
+        # Both steps used to discard their exit status, so a crashing report.py
+        # or a missing pandoc still logged "report generated." and the run
+        # carried on as if it had one -- the swallowed-sub-step pattern of
+        # TODO.md items 1i/1n/1p. Report what actually happened instead.
+        #
+        # Deliberately NON-FATAL: by the time _report runs the verification
+        # verdict is already computed, and the report is a presentation
+        # artifact. Whether a failed sub-step should fail the whole benchmark is
+        # the open decision in TODO.md item 1n, not something to settle here.
+        steps = (
+            ("report.md", "python3 reporting/report.py %s" % (
+                "-u" if self.use_unix else ""
+            )),
+            ("report.pdf", "pandoc report.md -o report.pdf"),
+        )
+
+        missing = []
+        for artifact, cmd in steps:
+            code = _exit_code(os.system(cmd))
+            if code != 0:
+                missing.append(artifact)
+                self.logger.error(
+                    "report step failed (exit %s), %s not generated: %s",
+                    code, artifact, cmd
+                )
+
+        if missing:
+            self.logger.error(
+                "report INCOMPLETE -- not generated: %s", ", ".join(missing)
+            )
+        else:
+            self.logger.info("report generated.")
 
 
     def run(self):
