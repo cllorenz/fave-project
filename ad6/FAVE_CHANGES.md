@@ -1614,3 +1614,87 @@ as installed while `/usr/include/python3.12/Python.h` was absent (which then bro
 `pybison` source build). Both repaired by `apt-get update` + reinstall on the enlarged
 disk. Nothing in ad6 caused this, but it is the reason the suite was red at all -- and
 the reason the exit-code bug became visible instead of staying theoretical.
+
+## 25. C4 (part 1): the wl_i2 out-stage egress-VLAN rewrite, test-first  **[FEATURE]**
+
+`AD6_PLAN.md` §5.5's WORKLOAD-PARITY FINDING established that **no ad6 wl_i2 figure was
+like-for-like with another engine's**: i2's model is dst × VLAN on both sides of its
+stage split, and `fave/ad6/adapter.py` dropped the VLAN half in *both* plain and
+faithful mode. This item closes the rewrite half of that gap.
+
+**Why `_capture_mid_rewrite` could not simply be widened.** wl_stanford and wl_i2 put the
+per-route VLAN rewrite on different stages, and `Ad6Adapter._build_ir` treats those
+stages *oppositely*:
+
+| | wl_stanford | wl_i2 |
+|---|---|---|
+| dst FIB lives on | `mid.X` | `out.X` |
+| rewrite lives on | `mid.X` (`_mid_rw`) | `out.X` (**new** `_out_rw`) |
+| `out.X` is | a port permutation, **collapsed** (`_collapse_out_stage`), its `rw=vlan:0` resets folded into the mid rewrite (`_fold_mid_rewrites`) | the real surviving FIB, **not** collapsed (no `mid` device exists to trigger it) |
+
+So on i2, `_capture_mid_rewrite` never fires (no mid stage) and `_capture_out_reset`
+records nothing (i2's out rules carry no VLAN *match* to key a reset on). Merging the two
+into one field would make its meaning depend on which benchmark built it.
+
+**What landed.**
+- **`fave/ad6/adapter.py`**: `_out_rw` state, `_capture_out_rewrite(node, rule)`, its
+  `add_rules` dispatch (`stage == 'out'`, faithful-gated), and an `ir["out_rw"]` emission
+  **scoped to the devices that survive the collapse** — so wl_stanford, whose every
+  `out.*` device is collapsed away, contributes `{}` and its IR is unchanged.
+  Direct port of `apkeep/adapter.py:_capture_out_rewrite`, keeping that method's own
+  documented narrowing (first egress port only on a multi-port route), for the
+  cross-backend comparability §5.4 Stage B asks for.
+- **`ad6/src/parser/favemodel.py`**: `_build_device_table` merges `mid_rw` and `out_rw`
+  into one `vlan_rewrites` lookup (a device is only ever one stage, so this is
+  unambiguous) and attaches the rewrite to that route's own jump exactly as before.
+  The `rewrite_value is not None` guard is now load-bearing rather than incidental:
+  **41,200 of i2's routes rewrite to vlan `"0"`** (the access-port untag), and
+  "rewrites to 0" must stay distinguishable from "does not rewrite" — on a workload
+  whose probes accept `vlan=0` only, the two fail in opposite directions.
+
+**Tests, written first and confirmed failing (A/B, by disabling `out_rw` consumption).**
+- `fave/test/test_ad6_wl_i2_faithful.py` (new, 17 tests): the capture + IR layer against
+  fake Rule objects — including `rw=vlan:0` recorded not dropped, IPv6 dst recognised,
+  plain mode capturing nothing, `_fwd_rules` identical in both modes, and a collapsed
+  out-stage contributing nothing.
+- `ad6/test/parser/favemodeltest.py::FaithfulVlanOutRewriteWiringTest` (new, 6 tests):
+  the encoding layer through a **real** `build_config`/`instantiate_base` Kripke/CNF
+  build and solve. The fixture gives `out.r1` two dst routes with *different* rewrites
+  and varies only what the next router admits, so it exercises the joint (dst, VLAN)
+  coupling rather than a per-device tag; the source is VLAN-**unconstrained**, which is
+  i2's own real shape (`sources.json` declares only `ipv4_dst=0.0.0.0/0`), unlike
+  wl_stanford's tagged generators. Registered in `test/parsersuite.py` — that is a
+  **manual** registry, and a class added without an entry is silently never run by
+  `make test` (exactly how item 11's `testCIDRMatchAll` went unexercised).
+
+Two fixtures of mine were wrong and got corrected rather than the code: an
+empty-admitted-set case that cannot arise from the capture path (an empty set means "no
+gate", not "admit nothing"), and a vlan-0 fixture that left the *second* route without a
+rewrite, so the packet reached through it carrying the source's own tag. That
+pass-through is correct frame-axiom behaviour and is now pinned by its own test.
+
+**Validated at full scale on the real model** (IR build only, no solving): all
+**77,451** out-stage rewrites captured across 9 devices, matching `routes.json`'s own
+count exactly, with **0** rewrites failing to key onto a real route — the
+`(dst, egress_port)` join between `_capture_out_rewrite` and `_translate_fwd_rule` is
+exact at scale (this is the bug class that first hit `_fold_mid_rewrites`, where every
+lookup missed silently). 147 distinct rewritten VLANs; 41,200 rewrite to 0. Plain-mode
+IR carries no `out_rw` key and its `fwd_rules` are identical (77,460 in both modes), so
+the recorded plain measurements (`bench/wl_i2/eval/ad6_i2_*.json`) stay reproducible.
+
+**No regression:** `ad6 make test` 11 suites green; fave-side `test_ad6_wl_ifi`,
+`_ifi_stateful`, `_adapter_lpm_prio`, `_adapter_multi_device_acl`,
+`_wl_stanford_faithful` and `_wl_stanford_plain` (11/11, **including its live-NetPlumber
+N=2 differential**) all green; `test.sh fast` 334 passed; `mypy` clean on both roots.
+
+**STILL OPEN — C4 is not complete, and a faithful i2 run is not yet possible.** The
+probe-side untag is **not modelled at all**: `Ad6Adapter.add_probe` records only
+`node + '.1'` and ignores the probe model's own filter fields, and
+`favemodel.query_destination_key` resolves a probe to a plain topology node with no
+Gamma of its own. i2's `probes.json` declares every probe `existential` on `vlan=0`,
+and 36,251 of the out routes on probe-facing ports rewrite to a **non-zero** tag — so
+without that filter the last hop accepts any tag and the model still over-approximates,
+just one hop later than before. `apkeep/adapter.py` has the same shape of gap on this
+workload (its `tvlan` is gated `self._stanford and self._faithful_vlan`, so i2 passes
+`None`), which is worth checking against its own faithful i2 result rather than assumed
+to be equivalent.

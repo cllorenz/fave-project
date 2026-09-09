@@ -6,7 +6,8 @@ import os
 
 
 from parser.favemodeltest import (
-    RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest
+    RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest,
+    FaithfulVlanOutRewriteWiringTest
 )
 
 class ParserSuite(TestSuite):
@@ -32,6 +33,21 @@ class ParserSuite(TestSuite):
             'test_plain_mode_ignores_faithful_vlan_fields_entirely',
         ]
         self._suite.addTests(map(FaithfulVlanWiringTest,tests))
+        # AD6_PLAN.md §5.5 C4: the wl_i2-shaped OUT-stage rewrite. Registered
+        # here explicitly -- this suite is a MANUAL registry, and a class
+        # added to favemodeltest.py without a matching entry is silently
+        # never run by `make test` (exactly how testCIDRMatchAll went
+        # unexercised, ad6/FAVE_CHANGES.md §11).
+        tests = [
+            'test_first_routes_rewrite_reaches_when_admitted',
+            'test_second_routes_rewrite_reaches_when_admitted',
+            'test_admitting_neither_rewritten_vlan_blocks',
+            'test_rewrite_to_vlan_zero_gates_downstream_admission',
+            'test_a_route_without_a_rewrite_entry_passes_the_vlan_through',
+            'test_downstream_gate_sees_the_rewritten_value_not_the_source_value',
+            'test_plain_mode_ignores_the_out_rewrite_entirely',
+        ]
+        self._suite.addTests(map(FaithfulVlanOutRewriteWiringTest,tests))
 
 
     def run(self):

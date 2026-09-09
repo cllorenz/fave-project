@@ -1735,7 +1735,41 @@ corrected directly — see §4.4.)
   **Prerequisites** (tracked as checkboxes in [`TODO.md`](TODO.md) item 1s): a
   `faithful_vlan` switch on `bench/ad6_i2_measure.py` (currently hardcoded `False` at
   line 101) and an explicit pair-list selector (`--pair-filter` exists but only does
-  self/exclude-self). **The docstring correction this paragraph asked for is DONE**
+  self/exclude-self).
+
+  **C4 PART 1 DONE 2026-09-09 -- the out-stage egress-VLAN rewrite is modelled.**
+  `Ad6Adapter._capture_out_rewrite` + `_out_rw` + an `ir["out_rw"]` emission scoped to
+  the devices surviving the out-stage collapse, consumed by
+  `favemodel._build_device_table`'s rewrite lookup (now merging `mid_rw` and `out_rw`
+  -- a device is only ever one stage). Built test-first at both layers and confirmed
+  failing beforehand by A/B: `fave/test/test_ad6_wl_i2_faithful.py` (17 tests, capture
+  + IR) and `ad6/test/parser/favemodeltest.py::FaithfulVlanOutRewriteWiringTest` (6
+  tests, a REAL Kripke/CNF build+solve whose fixture varies the rewrite PER
+  DESTINATION, so it exercises the joint (dst, VLAN) coupling rather than a per-device
+  tag, with a VLAN-unconstrained source as i2 really has). Full writeup:
+  `ad6/FAVE_CHANGES.md` §25.
+  **Validated on the real model, IR build only:** all **77,451** rewrites captured
+  across 9 devices (matching `routes.json` exactly), **0** failing to key onto a real
+  route -- so the `(dst, egress_port)` join is exact at scale, the bug class that
+  first hit `_fold_mid_rewrites` where every lookup missed silently. 41,200 rewrite to
+  vlan 0. Plain-mode IR is unchanged (no `out_rw` key; `fwd_rules` identical at 77,460
+  in both modes), so the recorded plain figures stay reproducible. `_capture_mid_rewrite`
+  is confirmed inert on i2 (`mid_rw` empty, no mid stage) and `gen_vlan` empty.
+
+  **C4 IS NOT COMPLETE -- the probe untag is still missing, and it is load-bearing.**
+  `Ad6Adapter.add_probe` records only `node + '.1'` and ignores the probe model's own
+  filter fields; `favemodel.query_destination_key` resolves a probe to a plain topology
+  node with no Gamma. i2's `probes.json` declares every probe `existential` on
+  `vlan=0`, and **36,251** of the out routes on probe-facing ports rewrite to a
+  NON-ZERO tag -- so the last hop currently accepts any tag and the model still
+  over-approximates, one hop later than before. The three-query experiment above must
+  NOT be run until this lands: with admission + rewrite but no untag, a "reachable"
+  verdict on the two discriminators would be uninformative in exactly the way C3's
+  original criterion was. Note `apkeep/adapter.py` has the same SHAPE of gap here (its
+  `tvlan` is gated `self._stanford and self._faithful_vlan`, so i2 passes `None`)
+  despite `test_apkeep_ndd_fwd.py:166`'s docstring listing "probe untag" -- worth
+  checking against that backend's own faithful i2 result rather than assuming the two
+  are equivalent. **The docstring correction this paragraph asked for is DONE**
   (2026-09-09, commit `251d8c9c`; the 11-pair finding itself was deliberately kept out of
   the code comment and lives here instead — owner decision, so the record cannot drift
   from the code). What it said, for the record — **line numbers now stale**, the

@@ -379,3 +379,181 @@ class FaithfulVlanWiringTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FaithfulVlanOutRewriteWiringTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.5 C4: favemodel.py's consumption of `ir["out_rw"]` --
+    the wl_i2-shaped OUT-stage egress-VLAN rewrite -- through a REAL
+    build_config/instantiate_base Kripke/CNF build and solve.
+
+    The wl_stanford counterpart above (FaithfulVlanWiringTest) puts the
+    rewrite on a `mid.X` stage and gates the next router's admission on it.
+    wl_i2 has no `mid` stage at all: its `out.X` devices ARE the dst FIB and
+    each of their 77,451 real rules carries `rw=vlan:M` alongside its single
+    `fd=`, so the rewrite has to ride on an `out.X` forwarding rule instead
+    (and, unlike wl_stanford's, that stage is NOT collapsed by
+    Ad6Adapter._build_ir, precisely because no `mid` device exists).
+
+    What makes this more than a renamed copy of the mid test: i2's rewrite is
+    keyed PER DESTINATION PREFIX, so which VLAN arrives at the next router
+    depends on which dst the existential query picks. That joint (dst, VLAN)
+    constraint is the thing C4 exists to model and the thing plain mode drops
+    -- so the fixture below gives `out.r1` two routes with DIFFERENT rewrites
+    and varies only what `in.r2` admits.
+
+    Fixture: source.gen -> in.r1 (admits {5}) -> out.r1 (two dst routes,
+    rewriting to 9 and 3 respectively) -> in.r2 (admits `r2_admitted`) ->
+    out.r2 -> probe.p. The source injects VLAN-UNCONSTRAINED (no `gen_vlan`),
+    which is i2's own real shape -- `sources.json` declares only
+    `ipv4_dst=0.0.0.0/0` -- unlike wl_stanford's VLAN-tagged generators.
+
+    Ad6Adapter's own capture side (`_capture_out_rewrite`, its `add_rules`
+    dispatch and its `_build_ir` scoping) is unit-tested fave-side against
+    fake Rule objects: fave/test/test_ad6_wl_i2_faithful.py. This starts one
+    level downstream, from an already-built IR, same division of labour as
+    FaithfulVlanWiringTest. """
+
+    _DST_A = '10.0.0.0/24'
+    _DST_B = '10.0.1.0/24'
+
+    @classmethod
+    def _ir(cls, r2_admitted, rewrites=None, faithful_vlan=True):
+        return {
+            "devices": ["in.r1", "out.r1", "in.r2", "out.r2"],
+            "edges": [
+                ["source.gen.1", "in.r1.1"],
+                ["in.r1.5", "out.r1.1"],
+                ["out.r1.2", "in.r2.9"],
+                ["in.r2.5", "out.r2.1"],
+                ["out.r2.2", "probe.p.1"],
+            ],
+            "generators": {"source.gen": "source.gen.1"},
+            "probes": {"probe.p": "probe.p.1"},
+            "fwd_rules": [
+                {"device": "in.r1", "dst": None, "ports": ["in.r1.5"], "prio": 65535},
+                {"device": "out.r1", "dst": cls._DST_A, "ports": ["out.r1.2"],
+                 "prio": _lpm_prio(cls._DST_A)},
+                {"device": "out.r1", "dst": cls._DST_B, "ports": ["out.r1.2"],
+                 "prio": _lpm_prio(cls._DST_B)},
+                {"device": "in.r2", "dst": None, "ports": ["in.r2.5"], "prio": 65535},
+                {"device": "out.r2", "dst": None, "ports": ["out.r2.2"], "prio": 65535},
+            ],
+            "routing_rules": [],
+            "acl_devices": [], "acl_in": {}, "acl_out": {},
+            "in_port_vlan": {}, "out_port_vlan": {}, "in_admit": {},
+            "ruleset_devices": {}, "device_addr": {},
+            "faithful_vlan": faithful_vlan,
+            "in_vlans": {"in.r1": ["5"], "in.r2": r2_admitted},
+            "mid_rw": {},
+            "out_rw": {"out.r1": rewrites if rewrites is not None else [
+                [cls._DST_A, "out.r1.2", "9"],
+                [cls._DST_B, "out.r1.2", "3"],
+            ]},
+            "gen_vlan": {},
+        }
+
+    @staticmethod
+    def _reachable(ir):
+        config = favemodel.build_config(ir)
+        XMLUtils.deannotate(config)
+        kripke, encoding = favemodel.instantiate_base(config, ir)
+        source = favemodel.gen_entry_key("source.gen")
+        dest = favemodel.query_destination_key("probe.p", ir)
+        instance = Instantiator.InstantiateEndToEnd(kripke, encoding, source, dest)
+        return bool(PycoSATAdapter().Solve(instance))
+
+    def test_first_routes_rewrite_reaches_when_admitted(self):
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["9"])),
+            "out.r1's %s route rewrites the egress VLAN to 9, which in.r2 "
+            "admits -- must reach probe.p" % self._DST_A)
+
+    def test_second_routes_rewrite_reaches_when_admitted(self):
+        """ The OTHER dst prefix's rewrite must be live too, not just the
+        first entry in the out_rw list -- this is what makes the model
+        per-destination rather than per-device. """
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["3"])),
+            "out.r1's %s route rewrites to 3, which in.r2 admits -- must "
+            "reach probe.p via that destination instead" % self._DST_B)
+
+    def test_admitting_neither_rewritten_vlan_blocks(self):
+        """ The gate must still bite against the REWRITTEN value. Note this
+        one also passed before `out_rw` was consumed at all (with the
+        rewrite dropped the arriving tag is the source's own 5, which in.r2
+        also refuses) -- it is a regression guard for the direction where a
+        rewrite leaves the field FREE rather than setting it, which would
+        make every pair vacuously reachable. The discriminating case is
+        test_downstream_gate_sees_the_rewritten_value_not_the_source_value
+        below. """
+        self.assertFalse(
+            self._reachable(self._ir(r2_admitted=["7"])),
+            "in.r2 admits only 7; out.r1 rewrites to 9 or 3 depending on "
+            "the destination, so NO destination gets through -- must be "
+            "blocked, not vacuously admitted on the source's own free VLAN")
+
+    def test_rewrite_to_vlan_zero_gates_downstream_admission(self):
+        """ 41,200 of wl_i2's real out routes rewrite to vlan 0 (the
+        access-port untag), so `0` must be a real rewritten value and not
+        read as "no rewrite" -- the two fail in opposite directions on a
+        workload whose probes accept vlan=0 only. BOTH of the fixture's
+        routes rewrite here, so no destination can reach in.r2 carrying the
+        source's own tag instead (see
+        test_a_route_without_a_rewrite_entry_passes_the_vlan_through). """
+        rewrites = [[self._DST_A, "out.r1.2", "0"],
+                    [self._DST_B, "out.r1.2", "0"]]
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["0"], rewrites=rewrites)),
+            "out.r1 rewrites to vlan 0 and in.r2 admits 0 -- must reach")
+        self.assertFalse(
+            self._reachable(self._ir(r2_admitted=["5"], rewrites=rewrites)),
+            "out.r1 rewrites to vlan 0, which in.r2 does not admit -- must "
+            "be blocked; a `rw=vlan:0` treated as absent would instead let "
+            "the source's own free VLAN satisfy in.r2 and wrongly reach")
+
+    def test_a_route_without_a_rewrite_entry_passes_the_vlan_through(self):
+        """ The frame-axiom side of Stage A's SSA encoding, pinned because
+        diagnosing it is what corrected this class's first vlan-0 fixture: a
+        forwarding rule with NO `out_rw` entry must leave the field at
+        whatever value arrived, NOT force it to some default. Only
+        `self._DST_A` is given a rewrite, so the `self._DST_B` route stays a
+        pass-through and carries in.r1's admitted 5 to in.r2 unchanged.
+        Every one of wl_i2's real out routes does rewrite, so this is a
+        semantics guard rather than a live i2 case -- but it is exactly the
+        behaviour that makes a PARTIAL rewrite table safe. """
+        rewrites = [[self._DST_A, "out.r1.2", "9"]]
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["5"], rewrites=rewrites)),
+            "the %s route carries no rewrite, so the packet keeps in.r1's "
+            "admitted vlan 5, which in.r2 admits -- must reach through "
+            "that destination" % self._DST_B)
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["9"], rewrites=rewrites)),
+            "and the %s route's own rewrite to 9 is live at the same time "
+            "-- both destinations are independently available" % self._DST_A)
+
+    def test_downstream_gate_sees_the_rewritten_value_not_the_source_value(self):
+        """ The sharpest case: in.r2 admits exactly the VLAN the packet
+        carried on ARRIVAL at in.r1 (5, the only value in.r1 admits), but
+        NOT either value out.r1 rewrites to. If the rewrite is modelled,
+        the tag reaching in.r2 is 9 or 3 and this is blocked; if the
+        rewrite is dropped -- plain mode, and every recorded ad6 i2 run so
+        far -- the stale 5 sails through and the pair looks reachable. This
+        is the over-approximation AD6_PLAN.md §5.5's WORKLOAD-PARITY
+        FINDING describes, reproduced in miniature. """
+        self.assertFalse(
+            self._reachable(self._ir(r2_admitted=["5"])),
+            "in.r2 admits 5, which is what the packet carried INTO in.r1 "
+            "-- but out.r1 rewrites it to 9 or 3, so in.r2 must see the "
+            "rewritten value and block, not the stale source value")
+
+    def test_plain_mode_ignores_the_out_rewrite_entirely(self):
+        """ faithful_vlan=False must ignore in_vlans/out_rw completely, so
+        every plain-mode i2 measurement already recorded
+        (`bench/wl_i2/eval/ad6_i2_*.json`) stays reproducible. Uses the
+        admitted set that is BLOCKED in faithful mode
+        (test_admitting_neither_rewritten_vlan_blocks) to prove it is the
+        FLAG doing the gating, not the absence of the fields. """
+        self.assertTrue(
+            self._reachable(self._ir(r2_admitted=["7"], faithful_vlan=False)),
+            "plain mode must emit no fieldmatch and no rewrite at all")

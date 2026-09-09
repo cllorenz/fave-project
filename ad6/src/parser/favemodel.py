@@ -318,8 +318,18 @@ def _build_device_table(device, ir, ports_by_device):
     # purely additive, byte-for-byte unaffected otherwise.
     faithful = bool(ir.get("faithful_vlan"))
     admitted_vlans = (ir.get("in_vlans") or {}).get(device) if faithful else None
-    mid_rewrites = {
-        (dst, port): vlan for dst, port, vlan in (ir.get("mid_rw") or {}).get(device, [])
+    # AD6_PLAN.md §5.5 C4: "mid_rw" (wl_stanford, mid.X-borne, already folded
+    # against the collapsed out-stage reset) and "out_rw" (wl_i2, out.X-borne,
+    # unfolded -- that stage IS the surviving FIB) are two capture-side
+    # mechanisms for the SAME encoding-side question: which VLAN value does
+    # this route's jump write. A device is only ever one stage, so a single
+    # merged lookup is unambiguous -- Ad6Adapter._build_ir additionally scopes
+    # "out_rw" to surviving devices, so a collapsed wl_stanford out.X cannot
+    # contribute here at all.
+    vlan_rewrites = {
+        (dst, port): vlan
+        for field in ("mid_rw", "out_rw")
+        for dst, port, vlan in (ir.get(field) or {}).get(device, [])
     } if faithful else {}
 
     fwd_rules = sorted(
@@ -400,15 +410,21 @@ def _build_device_table(device, ir, ports_by_device):
             # `ports`'s egress interfaces (see that function's docstring
             # for why this can't just be one rule per port).
             target = "%s_fanout" % key
-        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: a mid.X-style
-        # route that rewrites the egress VLAN (Ad6Adapter._fold_mid_rewrites,
-        # already folded against the collapsed out.X reset) carries that
-        # rewrite on the SAME jump/action as its target -- Stage A's rule
+        # AD6_PLAN.md §5.4 Stage B (B2) / §5.5 C4, faithful_vlan only: a
+        # route that rewrites the egress VLAN -- wl_stanford's mid.X-style
+        # (Ad6Adapter._fold_mid_rewrites, already folded against the
+        # collapsed out.X reset) or wl_i2's out.X-style
+        # (Ad6Adapter._capture_out_rewrite) -- carries that rewrite on the
+        # SAME jump/action as its target, per Stage A's rule
         # (GenUtils.action's docstring: a rewrite only ever takes effect
         # together with the edge it accompanies). Looked up by the exact
         # (dst, first-egress-port) key the capture side derived from this
-        # SAME underlying rule.
-        rewrite_value = mid_rewrites.get((fr["dst"], ports[0])) if ports else None
+        # SAME underlying rule. `is not None`, not truthiness: wl_i2 rewrites
+        # 41,200 of its routes to vlan "0" (the access-port untag), and
+        # "rewrites to 0" must stay distinguishable from "does not rewrite"
+        # -- the two fail in opposite directions on a workload whose probes
+        # accept vlan=0 only.
+        rewrite_value = vlan_rewrites.get((fr["dst"], ports[0])) if ports else None
         if rewrite_value is not None:
             rule.append(GenUtils.action(
                 'jump', target=target, rewrite_field='vlan', rewrite_value=int(rewrite_value)))

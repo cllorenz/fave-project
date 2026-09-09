@@ -158,6 +158,15 @@ class Ad6Adapter(AbstractVerificationEngine):
         # (`_capture_mid_rewrite`/`_capture_out_reset`/`_capture_in_admission`
         # below have the full semantics; see also _fold_mid_rewrites).
         self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}  # mid.X -> [(dst,egress_port,vlan_n)]
+        # AD6_PLAN.md §5.5 C4, faithful_vlan only -- wl_i2's own egress-VLAN
+        # rewrite, the out-stage counterpart of `_mid_rw` above (ported from
+        # apkeep/adapter.py's `_out_rw`/`_capture_out_rewrite`, which solved
+        # the identical problem on that backend's i2 path). SEPARATE from
+        # `_mid_rw` because the two workloads put the rewrite on different
+        # stages and `_build_ir` treats those stages oppositely: wl_stanford's
+        # `out.*` is a port permutation it COLLAPSES, wl_i2's `out.*` is the
+        # real dst FIB it must keep. See _capture_out_rewrite.
+        self._out_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}  # out.X -> [(dst,egress_port,vlan_m)]
         self._out_reset: Dict[str, set] = {}            # out.X -> {(in_port, vlan)}
         self._in_vlans: Dict[str, set] = {}              # in.X -> {admitted vlan tags}
         self._generators: Dict[str, str] = {}          # name -> "device.port"
@@ -264,6 +273,14 @@ class Ad6Adapter(AbstractVerificationEngine):
                             self._capture_in_admission(model.node, rule)
                     if self._faithful_vlan and stage == 'mid':
                         self._capture_mid_rewrite(model.node, rule)
+                    # AD6_PLAN.md §5.5 C4: wl_i2 carries the per-route
+                    # egress-VLAN rewrite on its `out.*` dst FIB instead of
+                    # a `mid.*` stage (it has none) -- see
+                    # _capture_out_rewrite. Harmless on wl_stanford, whose
+                    # own out-stage rewrites `_build_ir` scopes back out
+                    # again along with the collapsed stage itself.
+                    if self._faithful_vlan and stage == 'out':
+                        self._capture_out_rewrite(model.node, rule)
             elif table == acl_in_t:
                 self._acl_devices.add(model.node)
                 self._capture_acl(self._acl_in.setdefault(model.node, {}), rules)
@@ -515,6 +532,56 @@ class Ad6Adapter(AbstractVerificationEngine):
                 dst = str(field.value)
         self._mid_rw.setdefault(node, []).append((dst, ports[0], vlan_n))
 
+    def _capture_out_rewrite(self, node: str, rule: Any) -> None:
+        """ AD6_PLAN.md §5.5 C4, faithful_vlan only: an out-stage rule
+        matches a dst-IP prefix, forwards to an egress port, AND rewrites
+        the egress VLAN (rw=vlan:M). Record (dst_cidr, egress_port, M) so
+        favemodel.py can emit it as a real ad6 rewrite action
+        (GenUtils.action(..., rewrite_field='vlan', rewrite_value=M),
+        AD6_PLAN.md §5.4 Stage A) on that route's own jump.
+
+        This is wl_i2's shape and the gap §5.5's WORKLOAD-PARITY FINDING
+        identified: all 77,451 of i2's real `out.X` rules match `ipv4_dst`
+        and carry exactly two actions, `rw=vlan:M` plus one `fd=`, and
+        before this method existed every one of those rewrites was dropped
+        in BOTH modes -- so `faithful_vlan=True` produced in-stage
+        admission gating on a VLAN that nothing ever assigned (an
+        incoherent model, not a faithful one) rather than the joint
+        (dst x VLAN) coupling NetPlumber and the faithful NDD run both
+        answer.
+
+        Deliberately a separate method and a separate IR field from
+        `_capture_mid_rewrite`/`_mid_rw`, not a widened stage filter on
+        those: wl_stanford puts the rewrite on `mid.X` and its `out.X` is a
+        pure port permutation that `_build_ir` COLLAPSES (folding the
+        out-stage's `rw=vlan:0` resets into the mid rewrite via
+        `_fold_mid_rewrites`), whereas wl_i2 has no `mid` stage at all and
+        its `out.X` survives as the dst FIB. Merging the two would make one
+        field mean different things depending on which benchmark built it.
+
+        Direct port of `apkeep/adapter.py:_capture_out_rewrite`, keeping the
+        same accepted narrowing its own docstring records (only the FIRST
+        egress port of a multi-port route -- a Rewrite applies to the packet
+        whichever ECMP branch fires, and real i2 data never combines the
+        two: all 77,451 out rules carry exactly one `fd=`), for the direct
+        cross-backend comparability §5.4 Stage B asks for. """
+        vlan_m = None
+        for action in rule.actions:
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    if field.name == _VLAN:
+                        vlan_m = str(field.value)
+        if vlan_m is None:
+            return
+        ports = self._out_ports(rule)
+        if not ports:
+            return
+        dst = None
+        for field in (rule.match or []):
+            if field.name in _DSTS:
+                dst = str(field.value)
+        self._out_rw.setdefault(node, []).append((dst, ports[0], vlan_m))
+
     def _capture_out_reset(self, model: Any) -> None:
         """ AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: the out-stage
         mostly passes the mid-assigned VLAN through, but a few rules reset
@@ -732,6 +799,21 @@ class Ad6Adapter(AbstractVerificationEngine):
         if self._faithful_vlan:
             ir["faithful_vlan"] = True
             ir["mid_rw"] = self._fold_mid_rewrites()
+            # AD6_PLAN.md §5.5 C4: wl_i2's out-stage rewrites, scoped to the
+            # devices that SURVIVE the collapse above. On wl_stanford every
+            # `out.*` device is collapsed away and its resets are already
+            # folded into `mid_rw`, so this is {} there -- publishing those
+            # same rewrites again would be double-counting a rewrite no
+            # surviving device carries. Unfolded, unlike `mid_rw`: i2's out
+            # stage IS the surviving FIB, so there is no downstream stage
+            # whose reset would need folding in (and `_capture_out_reset`
+            # records nothing on i2 anyway -- its out rules carry no VLAN
+            # match to key a reset on).
+            ir["out_rw"] = {
+                device: [list(entry) for entry in entries]
+                for device, entries in self._out_rw.items()
+                if device in devices
+            }
             ir["in_vlans"] = {
                 device: sorted(vlans, key=int) for device, vlans in self._in_vlans.items()
             }
