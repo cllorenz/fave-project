@@ -25,7 +25,7 @@ encoding), and exactly matches the oracle — 72/72, 0 missing, 0 extra. But not
 REOPENED 2026-09-09: matching that oracle is guaranteed for any relaxed encoding (it is
 an all-reachable mesh), so C1's GO does NOT license skipping faithful VLAN — and
 FaVe+NetPlumber, cross-checked on i2 for the first time, reports 11 of the 72 pairs
-UNREACHABLE. A three-query faithful experiment is planned; see §5.5 C3. C2
+UNREACHABLE. A three-query faithful experiment is prepared and driveable but not yet run; see §5.5 C3. C2
 (tractability) is a separate, still-open concern, and solver-choice-sensitive:
 Glucose4 took ~15.3 hours for 72 pairs; Cadical195 (2026-09-06), same encoding, same
 exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slower per
@@ -1806,6 +1806,48 @@ corrected directly — see §4.4.)
   measures the untag's own contribution as a separate, deliberate delta rather than a
   hidden assumption -- and if the two disagree, that is itself a reportable result about
   what NetPlumber's memory-explosion workaround costs in fidelity.
+
+  **C3 EXPERIMENT PREPARED 2026-09-09 -- driveable end to end, NOT YET RUN.**
+  `bench/ad6_i2_measure.py` gained `--faithful-vlan`, `--probe-untag`, `--pairs
+  SRC>PROBE,...` and `--dry-run`; its module docstring now carries the whole recipe
+  (dry-run -> control-only probe -> untag off -> untag on) plus how to read each
+  outcome, so the run does not depend on this document being open. Built test-first:
+  `fave/test/test_ad6_i2_measure.py`, 34 `fast`-tier tests, confirmed failing
+  beforehand.
+  **Three guards, each against a silent wrong answer rather than a crash.** (1) An
+  unknown router name in `--pairs` raises, naming the offender and listing the real
+  names -- `--pair-filter` could only ever narrow a fixed 81-pair product, but a
+  free-text list can name a router that does not exist, and a typo that merely selected
+  nothing would cost the whole run; the list is resolved immediately after the ~6 s IR
+  build, so it costs the replay instead. (2) `--probe-untag` without `--faithful-vlan`
+  is refused: `probe_vlan_literals()` returns `[]` on a plain IR, so the run would stamp
+  `probe_untag: true` while measuring the untagless model. (3) `_forced_literals()`
+  refuses any forced variable name absent from the base encoding -- the
+  `IncrementalSession._index_for` hazard in the open, since an invented index is
+  otherwise unconstrained and the untag would be satisfiable by construction; the
+  ad6-side `test_the_forced_variables_exist_in_the_base_encoding` makes the same check
+  against a real encoding, this makes it a hard failure in the measurement path too.
+  **The untag needed wiring into this script separately from `ad6/fave_bridge.py`:**
+  the script drives PySAT directly (which is what lets it swap solvers and instrument
+  the build/DIMACS/solve split), so the bridge's own `extra_vars` plumbing never runs
+  here.
+  **Result stamping.** `faithful_vlan`, `probe_untag`, `out_rw_rewrites` and
+  `probe_vlan` (what the probes DECLARE, separate from what was ENFORCED) go into every
+  result, so an artifact identifies which of the three models produced it without
+  reference to the command line.
+  **Dry-run validation against the real model:** plain unchanged (18 devices, 77,460
+  `fwd_rules`, `out_rw_rewrites: 0`, 81 queries -- the recorded artifacts stay
+  reproducible), faithful `out_rw_rewrites: 77451`, both faithful modes resolving the
+  three pairs in ~6-8 s at ~257 MB, and the untag confirmed as **12 all-negated per-bit
+  literals** on each probe's `probe_fanout_probe_<role>` aggregate.
+  **Still open before a verdict:** the memory envelope. Plain-mode `peak_rss_mb` is
+  13,432 MB and is build/DIMACS-dominated (hence query-count-independent), and the
+  faithful encoding adds mutation constraints on top, so an OOM before the first query
+  remains live even on the raised 20 GB box -- which is what the control-only step (b)
+  and the per-phase RSS checkpoints exist to surface cheaply. Note also that the
+  cross-cutting ENVIRONMENT GUARDRAIL binds the TIMINGS, not the verdicts: SAT/UNSAT is
+  what this experiment is for and is environment-independent, so a sandboxed run can
+  decide C3 even though its wall-clock figures would not be quotable.
 
   **LATENT BUG, reported not fixed (out of scope, not reachable today).** In faithful
   mode any multi-port (ECMP) route makes the build raise `KeyError: '<rule>_fanout'`:

@@ -59,6 +59,88 @@ environment -- a sandboxed (yolobox) run can confirm the model builds/solves
 correctly and give a DIRECTIONAL signal, but is never the tractability verdict
 this stage's GO/NO-GO gate needs.
 
+THE THREE-QUERY FAITHFUL EXPERIMENT (AD6_PLAN.md §5.5 "C3 REOPENED", owner
+decision 2026-09-09). Everything this script needs to run it now exists; the
+run itself has not been made. The question: FaVe+NetPlumber reports 11 of 72
+pairs UNREACHABLE on wl_i2 where the policy expects 0, and both engines that
+say 72/72 (ad6 plain, APKeep "VLAN as link identity") relax exactly the
+dimension those 11 turn on. Relaxing a constraint can only ADD reachability,
+so their agreement is not independent confirmation -- it is the same
+simplification counted twice. A faithful ad6 run breaks the tie.
+
+Three distinct models can now come out of this script, and a result file
+stamps which one it is (`faithful_vlan` / `probe_untag`; `probe_vlan` records
+what the probes DECLARE, separately from whether it was ENFORCED):
+
+  1. plain            -- the default; reproduces every recorded artifact.
+  2. faithful         -- + in-stage VLAN admission and the 77,451 out-stage
+                         `rw=vlan:M` egress rewrites (C4 part 1).
+  3. faithful + untag -- + the access-port untag on arrival (C4 part 2).
+
+RUN 2 BEFORE 3, and do not skip straight to 3. Model 2 is the LIKE-FOR-LIKE
+configuration against NetPlumber's 11: neither NetPlumber nor APKeep enforces
+the untag on i2 (§5.5's PROBE-UNTAG PARITY FINDING -- NetPlumber computes the
+header space and then discards it behind two `XXX: deactivate ... memory
+explosion` guards; APKeep gates `tvlan` on `self._stanford and
+self._faithful_vlan`), so model 3 is STRICTER than anything it would be
+compared against. Running 3 first would answer a question no other engine has
+been asked, and any disagreement would be uninterpretable. Run 3 second, and
+its delta against 2 is then a deliberate measurement of what NetPlumber's
+memory-explosion workaround costs in fidelity.
+
+Recipe, cheapest step first (from fave/, PYTHONPATH=., venv active):
+
+  # a. validate the configuration -- ~6 s, no instantiate, no solve. Catches
+  #    a misspelled router name, and stamps the model shape (expect
+  #    out_rw_rewrites: 77451 in faithful mode, 0 in plain).
+  python3 bench/ad6_i2_measure.py --dry-run --faithful-vlan \\
+      --pairs hous>salt,chic>salt,chic>seat
+
+  # b. the control ALONE -- proves the faithful model builds and solves at
+  #    all, before either discriminator's unknown-cost UNSAT is committed to.
+  python3 bench/ad6_i2_measure.py --faithful-vlan \\
+      --pairs hous>salt,chic>salt,chic>seat --max-queries 1 \\
+      --solver cadical195 --checkpoint-every 1 --out i2_faithful_control.json
+
+  # c. the experiment, untag OFF -- the like-for-like run.
+  python3 bench/ad6_i2_measure.py --faithful-vlan \\
+      --pairs hous>salt,chic>salt,chic>seat \\
+      --solver cadical195 --checkpoint-every 1 --out i2_faithful_untag_off.json
+
+  # d. the same three queries with the untag ON -- the deliberate delta.
+  python3 bench/ad6_i2_measure.py --faithful-vlan --probe-untag \\
+      --pairs hous>salt,chic>salt,chic>seat \\
+      --solver cadical195 --checkpoint-every 1 --out i2_faithful_untag_on.json
+
+Reading the outcome of (c). `hous->salt` is the agreement control (both
+engines call it reachable; 1.11 s in plain mode, the fastest of the 72).
+`chic->salt` and `chic->seat` are the discriminators NetPlumber calls
+unreachable.
+
+  * control SAT, both discriminators UNSAT -> plain mode is insufficient for
+    i2 (C3 NO-GO), and NetPlumber's 11 are corroborated by an independent
+    engine.
+  * control SAT, discriminators still SAT -> the disagreement localises to
+    one engine and must be root-caused before either is trusted.
+  * control UNSAT -> the faithful encoding is broken; stop, do not interpret
+    the discriminators. This is what step (b) exists to find early.
+
+Caveats to carry into the reading. All 72 recorded plain queries are
+`sat: true`, so every recorded time is a SAT time and a LOWER BOUND -- the
+discriminators are expected to flip to UNSAT, a regime this workload has
+never exercised and whose cost is unknown. Fixed cost is ~405 s per run
+regardless of query count, and the recorded per-query spread is 1.11 s to
+1688.8 s, so do not extrapolate a full-set runtime from three queries drawn
+deliberately from the fast tail. Memory is build/DIMACS-dominated and
+therefore query-count-INDEPENDENT: plain-mode `peak_rss_mb` is 13,432 MB and
+the faithful encoding adds mutation constraints on top, so an OOM before the
+first query is a live possibility even on the raised (20 GB) box. RSS is
+checkpointed after every phase; a killed run leaves a usable partial result.
+
+Note the ENVIRONMENT GUARDRAIL below applies to the TIMINGS, not to the
+verdicts: SAT/UNSAT is what this experiment is for, and it is
+environment-independent.
+
 Usage (from fave/, PYTHONPATH=., venv active):
   python3 bench/ad6_i2_measure.py --out i2_plain.json
 """
@@ -87,6 +169,93 @@ def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
+def _qualify(name, kind, known):
+    """ Accept either a bare router base name (`chic`) or the fully-qualified
+    model name (`source.chic`), and reject anything else BY NAME. The point
+    is that an unknown name must not degrade into an empty selection:
+    `--pair-filter` could only ever narrow a fixed 81-pair product, but a
+    free-text pair list can name a router that does not exist, and a typo
+    that merely selected nothing would cost the whole run. """
+    candidates = [n for n in known if n == name or _base(n) == name]
+    if len(candidates) == 1:
+        return candidates[0]
+    raise ValueError("unknown %s %r -- available: %s" % (
+        kind, name, ", ".join(sorted(_base(n) for n in known))))
+
+
+def _parse_pairs(spec, sources, probes):
+    """ `--pairs` -- an explicit, ORDER-PRESERVING query list, e.g.
+    "hous>salt,chic>salt,chic>seat" (AD6_PLAN.md §5.5's three-query faithful
+    experiment). `--pair-filter` cannot express this: it only chooses between
+    the self pairs and the cross pairs of the full product. """
+    entries = spec.split(',')
+    if not spec.strip() or any(not entry.strip() for entry in entries):
+        raise ValueError(
+            "--pairs must be a non-empty comma-separated list of SOURCE>PROBE "
+            "pairs, e.g. hous>salt,chic>salt,chic>seat")
+    queries = []
+    for entry in entries:
+        if entry.count('>') != 1:
+            raise ValueError("malformed --pairs entry %r -- expected SOURCE>PROBE, "
+                             "e.g. chic>salt" % entry.strip())
+        source, probe = (part.strip() for part in entry.split('>'))
+        queries.append({"source": _qualify(source, 'source', sources),
+                        "probe": _qualify(probe, 'probe', probes)})
+    return queries
+
+
+def _select_queries(sources, probes, pair_filter=None, pairs=None, max_queries=None):
+    """ The run's query list. The default -- the full product, probe-outer and
+    source-inner -- is the order every archived `query_log` was written in, so
+    a query `index` stays comparable across runs; do not sort it. """
+    if pairs is not None and pair_filter is not None:
+        raise ValueError("--pairs and --pair-filter are mutually exclusive: they "
+                         "select queries in contradictory ways and one would "
+                         "silently win")
+    if pairs is not None:
+        queries = _parse_pairs(pairs, sources, probes)
+    else:
+        queries = [{"source": s, "probe": p} for p in probes for s in sources]
+        if pair_filter == "self-only":
+            queries = [q for q in queries if _base(q['source']) == _base(q['probe'])]
+        elif pair_filter == "exclude-self":
+            queries = [q for q in queries if _base(q['source']) != _base(q['probe'])]
+    if max_queries is not None:
+        queries = queries[:max_queries]
+    return queries
+
+
+def _forced_literals(name_negated, name_to_index, context):
+    """ Resolve already-canonical (variable name, negated) pairs against THIS
+    run's DIMACS index, refusing any name the base encoding does not contain.
+
+    That refusal is the whole reason this is a function. `index_for()` below
+    -- like `IncrementalSession._index_for`, which it mirrors -- INVENTS a
+    fresh index for an unknown name, and a freshly invented variable is
+    otherwise unconstrained, so a misaddressed forced literal is satisfiable
+    by construction. A `--probe-untag` run whose literals missed would
+    therefore report itself as untagged while answering the untagless
+    question, silently and after hours of compute. `ad6/test/parser/
+    favemodeltest.py::FaithfulVlanProbeUntagTest.test_the_forced_variables_
+    exist_in_the_base_encoding` makes the same check against a real encoding;
+    this makes it a hard failure in the measurement path too. """
+    literals = []
+    missing = []
+    for name, negated in name_negated:
+        index = name_to_index.get(name)
+        if index is None:
+            missing.append(name)
+            continue
+        literals.append(-index if negated else index)
+    if missing:
+        raise RuntimeError(
+            "%s: %d forced variable(s) absent from the base encoding: %s. Forcing "
+            "them would be VACUOUS (an unknown name gets a fresh, unconstrained "
+            "index), so the run would silently answer the UNFORCED question." % (
+                context, len(missing), ", ".join(missing)))
+    return literals
+
+
 def _peak_rss_mb():
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
 
@@ -106,30 +275,44 @@ def _current_rss_mb():
     return None
 
 
-def _build_ir():
+def _build_ir(faithful_vlan=False, probe_untag=False):
     """ AD6_PLAN.md §5.5 C0/C1: Ad6Adapter._build_ir() output for the real,
-    full-scale wl_i2 model, faithful_vlan=False (plain mode).
+    full-scale wl_i2 model.
 
-    This script never turns faithful_vlan on. That used to be justified by
-    §5.5's C3 gate -- "whether faithful-VLAN modelling is even needed for i2
-    is gated on whether plain mode already matches the oracle" -- which
-    AD6_PLAN.md §5.5's WORKLOAD-PARITY FINDING (2026-09-09) retired: plain
-    mode matching `reachable.json` proves nothing about VLAN necessity,
-    because dropping a VLAN admission gate can only ADD reachability and that
-    oracle is an all-reachable 72/72 mesh with zero expected-unreachable
-    pairs, so it cannot detect over-approximation at all. The flag stays off
-    for a different and simpler reason: turning it on would NOT produce a
-    faithful i2 model today. `Ad6Adapter` has no `_capture_out_rewrite`, so
-    i2's 77,451 per-route egress-VLAN rewrites are dropped either way, and
-    faithful mode would add in-stage admission with no matching egress
-    rewrite -- an incoherent model rather than a faithful one. See the module
-    docstring's WORKLOAD SCOPE note; the real fix is §5.5's C4. """
+    BOTH FLAGS DEFAULT OFF, for two different reasons.
+
+    `faithful_vlan` used to be hardcoded off, and until 2026-09-09 that was
+    load-bearing: turning it on would NOT have produced a faithful i2 model,
+    because `Ad6Adapter` had no `_capture_out_rewrite`, so i2's 77,451
+    per-route egress-VLAN rewrites were dropped in either mode and faithful
+    mode would have added in-stage VLAN admission with no matching egress
+    rewrite -- an incoherent model rather than a faithful one. §5.5's C4 part
+    1 closed that, so the flag is now a real choice and the caller makes it.
+    It still defaults off because every recorded i2 artifact
+    (`bench/wl_i2/eval/ad6_i2_*.json`) is `faithful_vlan: false`, and the
+    default has to keep reproducing them.
+
+    `probe_untag` (§5.5 C4 part 2) defaults off because NEITHER comparison
+    backend enforces the access-port untag on i2 -- `netplumber/adapter.py`
+    computes the header space from `test_fields` and then discards it behind
+    two `XXX: deactivate ... memory explosion` guards, and
+    `apkeep/adapter.py` gates `tvlan` on `self._stanford and
+    self._faithful_vlan` -- so enforcing it here unconditionally would make
+    ad6 the strictest of the three engines. See §5.5's PROBE-UNTAG PARITY
+    FINDING; it is a workload-parity switch, and the difference between on
+    and off is a measurement.
+
+    What is NOT gated on either flag: plain mode matching `reachable.json`
+    proves nothing about VLAN necessity, because dropping a VLAN admission
+    gate can only ADD reachability and that oracle is an all-reachable 72/72
+    mesh with zero expected-unreachable pairs. See the module docstring's
+    WORKLOAD SCOPE note and §5.5's WORKLOAD-PARITY FINDING. """
     from ad6.adapter import Ad6Adapter
     from util.in_process_driver import InProcessFaVe
 
     log = logging.getLogger("ad6_i2_measure")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log, faithful_vlan=False)
+    engine = Ad6Adapter(log, faithful_vlan=faithful_vlan, probe_untag=probe_untag)
 
     files = {"topology": "device_topology.json", "routes": "routes.json",
              "policies": "probes.json", "sources": "sources.json"}
@@ -159,17 +342,60 @@ _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
-            max_queries=None, checkpoint_every=10, pair_filter=None, fresh_per_query=False):
-    result = {"bench": "i2", "engine": "ad6", "faithful_vlan": False}
+            max_queries=None, checkpoint_every=10, pair_filter=None, fresh_per_query=False,
+            faithful_vlan=False, probe_untag=False, pairs=None, dry_run=False):
+    if probe_untag and not faithful_vlan:
+        raise ValueError(
+            "probe_untag requires faithful_vlan: probe_vlan_literals() returns nothing "
+            "on a plain IR, so the run would stamp probe_untag while measuring the "
+            "untagless model (AD6_PLAN.md §5.5 C4 part 2)")
+    # The model identity is stamped BEFORE anything can fail, and the two
+    # halves are stamped separately on purpose: `probe_vlan` below records what
+    # the probes DECLARE, these record what was ENFORCED. Three distinct models
+    # can now come out of this script, and a result file has to say which one
+    # it is without reference to the command line that produced it.
+    result = {"bench": "i2", "engine": "ad6",
+              "faithful_vlan": faithful_vlan, "probe_untag": probe_untag}
     wall0 = time.time()
     result["_wall0"] = wall0
 
-    ir, sources, probes = _build_ir()
+    ir, sources, probes = _build_ir(faithful_vlan=faithful_vlan, probe_untag=probe_untag)
     result["sources"] = len(sources)
     result["probes"] = len(probes)
     result["devices"] = len(ir["devices"])
     result["fwd_rules"] = len(ir["fwd_rules"])
+    result["out_rw_rewrites"] = sum(len(v) for v in (ir.get("out_rw") or {}).values())
+    result["probe_vlan"] = dict(ir.get("probe_vlan") or {})
+
+    # Resolve the query list HERE, off the freshly-built IR's real source/probe
+    # names -- i.e. before the multi-minute instantiate and the multi-hour
+    # solve, so an unknown router name in `--pairs` costs the ~5 s replay
+    # rather than the run.
+    queries = _select_queries(sources, probes, pair_filter=pair_filter, pairs=pairs,
+                              max_queries=max_queries)
+    result["query_count"] = len(queries)
+    result["max_queries"] = max_queries
+    result["pair_filter"] = pair_filter
+    result["pairs"] = pairs
     _checkpoint(result, out_path, "ir_built")
+
+    result["dry_run"] = dry_run
+    if dry_run:
+        # The cheapest possible validation of a run configuration: replay the
+        # model, resolve and validate the query list, stamp the model identity
+        # -- then stop. Every mistake the guards above can catch is caught for
+        # the price of the replay instead of the run.
+        result["status"] = "dry_run"
+        result["queries"] = queries
+        result["wall_s"] = round(time.time() - wall0, 3)
+        result["peak_rss_mb"] = _peak_rss_mb()
+        result.pop("_wall0", None)
+        print(json.dumps(result, indent=2))
+        if out_path:
+            with open(out_path, "w") as fh:
+                json.dump(result, fh, indent=2)
+            print("wrote %s" % out_path, file=sys.stderr)
+        return result
 
     sys.path.insert(0, _AD6)
     from src.core.instantiator import Instantiator
@@ -353,17 +579,6 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             result["current_rss_after_dimacs_clauses_free_mb"] = _current_rss_mb()
         _checkpoint(result, out_path, "solver_loaded")
 
-        queries = [{"source": s, "probe": p} for p in probes for s in sources]
-        if pair_filter == "self-only":
-            queries = [q for q in queries if _base(q['source']) == _base(q['probe'])]
-        elif pair_filter == "exclude-self":
-            queries = [q for q in queries if _base(q['source']) != _base(q['probe'])]
-        if max_queries is not None:
-            queries = queries[:max_queries]
-        result["query_count"] = len(queries)
-        result["max_queries"] = max_queries
-        result["pair_filter"] = pair_filter
-
         ad6_reach = {}
         result["query_log"] = []
         t0 = time.time()
@@ -377,6 +592,25 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                        for p, flag in kripke.IterBTransitions(destination)]
             src_lit, src_clauses = or_gate(f_trans)
             dst_lit, dst_clauses = or_gate(b_trans)
+            # AD6_PLAN.md §5.5 C4 part 2. This has to be wired HERE as well as in
+            # `ad6/fave_bridge.py`: this script does not go through the bridge or
+            # `IncrementalSession` at all -- it drives PySAT directly (that is
+            # what lets it swap solvers and instrument the build/DIMACS/solve
+            # split), so the bridge's own `extra_vars` plumbing never runs.
+            untag_literals = []
+            if probe_untag:
+                untag_vars = favemodel.probe_vlan_literals(q['probe'], ir, destination)
+                untag_literals = _forced_literals(
+                    [(v.attrib[XMLUtils.ATTRNAME],
+                      v.attrib.get(XMLUtils.ATTRNEGATED) == 'true') for v in untag_vars],
+                    name_to_index, "probe untag for %s (destination %s)" % (
+                        q['probe'], destination))
+                if not untag_literals:
+                    raise RuntimeError(
+                        "probe_untag is on but probe %s produced NO forced literals -- "
+                        "it declares no arrival VLAN, so this run would be identical to "
+                        "the untagless one while stamping probe_untag: true" % q['probe'])
+                result.setdefault("probe_untag_literals", len(untag_literals))
             last_solver_load_s = None
             if fresh_per_query:
                 # No assumptions API to lean on (Kissat) -- bake src_lit/dst_lit
@@ -388,13 +622,15 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                     q_solver.add_clause(clause)
                 q_solver.add_clause([src_lit])
                 q_solver.add_clause([dst_lit])
+                for untag_literal in untag_literals:
+                    q_solver.add_clause([untag_literal])
                 last_solver_load_s = round(time.time() - lq0, 3)
                 sat = bool(q_solver.solve())
                 q_solver.delete()
             else:
                 for clause in src_clauses + dst_clauses:
                     solver.add_clause(clause)
-                sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
+                sat = bool(solver.solve(assumptions=[src_lit, dst_lit] + untag_literals))
             # Full per-query history (AD6_PLAN.md Sec 5.5 C2 follow-up: the prior
             # last_query_s/last_query fields get OVERWRITTEN every checkpoint, so
             # the archived Glucose4/Cadical195 full runs never actually recorded
@@ -465,7 +701,12 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(description=__doc__)
+    # RawDescriptionHelpFormatter so the module docstring's RECIPE survives
+    # --help: the default formatter reflows it into one paragraph, which turns
+    # the copy-pasteable commands into unusable prose. Option help strings are
+    # still wrapped normally -- this formatter only spares the description.
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", help="write the result JSON here")
     p.add_argument("--skip-acyclic", action="store_true",
                     help="orientation-only: skip _CreateAcyclicConstraints (cheap, but NOT "
@@ -490,6 +731,30 @@ def main(argv=None):
                     help="self-only: run just the 9 same-router pairs (the ones that "
                          "turned out trivial, AD6_PLAN.md Sec 5.5). exclude-self: run "
                          "just the 72 real cross-router pairs. Default: all 81")
+    p.add_argument("--faithful-vlan", action="store_true",
+                    help="build the FAITHFUL i2 model: in-stage VLAN admission + the "
+                         "77,451 out-stage `rw=vlan:M` egress rewrites (AD6_PLAN.md "
+                         "Sec 5.5 C4 part 1). Default off -- every recorded i2 artifact "
+                         "is faithful_vlan: false and the default has to keep "
+                         "reproducing them")
+    p.add_argument("--probe-untag", action="store_true",
+                    help="additionally enforce each probe's own declared arrival VLAN "
+                         "(i2's access-port untag, vlan=0) as a query-time constraint "
+                         "(Sec 5.5 C4 part 2). Requires --faithful-vlan. Default off, "
+                         "and NOT caution: neither NetPlumber nor APKeep enforces this "
+                         "on i2, so this on makes ad6 the strictest of the three -- see "
+                         "Sec 5.5's PROBE-UNTAG PARITY FINDING. Run it OFF first")
+    p.add_argument("--pairs", default=None,
+                    help="explicit, order-preserving query list, e.g. "
+                         "hous>salt,chic>salt,chic>seat (Sec 5.5's three-query faithful "
+                         "experiment). Bare router names or fully-qualified "
+                         "source.X>probe.Y both work; an unknown name is an error, not "
+                         "an empty selection. Mutually exclusive with --pair-filter")
+    p.add_argument("--dry-run", action="store_true",
+                    help="build the IR, resolve and validate the query list, stamp the "
+                         "model identity -- then stop, before instantiate/solve. ~5 s "
+                         "validation of a run configuration that would otherwise take "
+                         "hours to discover a typo")
     p.add_argument("--fresh-per-query", action="store_true",
                     help="build a FRESH solver instance per query (unit clauses for "
                          "src/dst instead of assumptions) instead of one persistent "
@@ -497,10 +762,21 @@ def main(argv=None):
                          "assumptions support); also usable as a control for any "
                          "other solver. AD6_PLAN.md Sec 5.5 C2 follow-up")
     args = p.parse_args(argv)
+    # Both of these are refused rather than resolved, because either resolution
+    # would produce a plausible result file answering a different question than
+    # the flags claim.
+    if args.probe_untag and not args.faithful_vlan:
+        p.error("--probe-untag requires --faithful-vlan: probe_vlan_literals() returns "
+                "nothing on a plain IR, so the run would stamp probe_untag: true while "
+                "measuring the untagless model (AD6_PLAN.md Sec 5.5 C4 part 2)")
+    if args.pairs is not None and args.pair_filter is not None:
+        p.error("--pairs and --pair-filter are mutually exclusive -- they select "
+                "queries in contradictory ways and one would silently win")
     measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
             solver_name=args.solver, max_queries=args.max_queries,
             checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter,
-            fresh_per_query=args.fresh_per_query)
+            fresh_per_query=args.fresh_per_query, faithful_vlan=args.faithful_vlan,
+            probe_untag=args.probe_untag, pairs=args.pairs, dry_run=args.dry_run)
     return 0
 
 
