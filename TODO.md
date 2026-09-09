@@ -193,12 +193,33 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **Optional hardening:** these were latent type bugs; consider de-VLA-ing the `array_t tmp[SIZE(len)]` buffers (heap/bounded) as a separate cleanup — not required for the build.
 
 ### 1r. `bench` tier is vacuous — nothing waits for the backend (found 2026-09-09)
-- [ ] **Add a real completion barrier before `_report`.** `GenericBenchmark.run` never waits for the verification to finish, so the tier times message-*sending*, reports whatever `report.md` happens to contain, and exits 0. Three independent fire-and-forget seams, all confirmed in the code:
+- [x] **Add a real completion barrier before `_report`. DONE 2026-09-09** (`util/barrier.py` + `test/test_barrier.py`, 14 fast-tier tests). Client arms a per-request barrier, puts its path in the message, and blocks; the aggregator releases it in a `finally` after handling, passing the exception text on failure. Because the aggregator is single-threaded FIFO and `check_compliance` is synchronous down to net_plumber, "message N finished" transitively means "everything earlier applied AND net_plumber answered". **No timeout, by design** — FaVe's runtime is unknowable in advance, so a deadline is both too tight (a premature timeout is a FALSE failure, the worst outcome for a compliance tool) and too loose. The wait is bounded by EVIDENCE instead: it continues only while the releaser is provably the live aggregator (owner file with pid + start time; zombies and pid reuse both rejected, since `os.kill(pid, 0)` and bare `pgrep -f` are fooled by a `<defunct>` process). Prerequisite `jsonrpc` EOF fix landed separately. Effect on wl_i2: the benchmark process went from 7.4 s to **422 s**, i.e. it now actually waits — the aggregator's `links` task alone is 339 s.
+- **Mechanism (reference):** `GenericBenchmark.run` never waits for the verification to finish, so the tier times message-*sending*, reports whatever `report.md` happens to contain, and exits 0. Three independent fire-and-forget seams, all confirmed in the code:
   - `_wait_for_fave` blocks on `SoftFileLock("np_dump/.lock")`, but that lock is only ever created by the **dump** path (`aggregator/aggregator_service.py:226`, `netplumber/dump_np.py:137`). All four bench workloads use the constructor default `use_dump=False`, so they take `_wait_for_fave`, which acquires an unheld lock and returns in ~0.1 s. It is a **no-op for every bench workload**.
   - `bench/compliance_checker.py` imports only `connect_to_fave`/`fave_sendmsg` — **no `recv` at all**.
   - `reporting/report.py` likewise only sends `{'type':'report'}` and closes; the aggregator writes `report.md` asynchronously afterwards.
-- [ ] **`_report` converts the PREVIOUS workload's report.** Because `report.py` is async, `_report`'s `pandoc report.md -o report.pdf` runs on whatever is already on disk. Measured on the wl_i2 run: `report.md` mtime 09:01:41 vs `report.pdf` 08:57:14 — the PDF is **4m27s older than the markdown**, and is wl_stanford's. (The item-1n swallow fix, commit `0a0b7ee9`, surfaces the sub-steps' *exit codes* correctly but sits on top of this race: necessary, not sufficient.)
-- **Finding — the consequence that matters: the tier reports WRONG verdicts and exits 0.** wl_i2's report claimed **35 of 72 pairs "does not reach"**, while the tier's own oracle `bench/wl_i2/reachable.json` says all 72 are reachable (and `test_apkeep_i2` passes against that same oracle in the integration tier). Discriminating experiment — run every phase except `_report`/`_teardown`, poll `/proc/<np>/stat` until CPU stops advancing, then ask for the report: **early = 35 violations; after 285 s of extra waiting = 0 violations**, i.e. exactly the oracle. The 35 are false positives from a premature/stale read. A tier that cannot fail on a wrong verdict because it never reads one is not a gate.
+- [x] **`_report` converts the PREVIOUS workload's report. FIXED 2026-09-09** — `reporting/report.py` now blocks on a barrier before returning, so `pandoc` sees the report the aggregator just wrote. Measured before: `report.pdf` 4m27s OLDER than `report.md`; after: 1 s apart.
+- **Mechanism (reference):** Because `report.py` is async, `_report`'s `pandoc report.md -o report.pdf` runs on whatever is already on disk. Measured on the wl_i2 run: `report.md` mtime 09:01:41 vs `report.pdf` 08:57:14 — the PDF is **4m27s older than the markdown**, and is wl_stanford's. (The item-1n swallow fix, commit `0a0b7ee9`, surfaces the sub-steps' *exit codes* correctly but sits on top of this race: necessary, not sufficient.)
+- **RETRACTED 2026-09-09 — the "wrong verdicts" claim does not hold.** This item
+  originally read: *"the tier reports WRONG verdicts and exits 0 -- wl_i2 claimed
+  35 of 72 pairs 'does not reach' while the oracle says all 72 are reachable;
+  early report = 35, after 285 s of waiting = 0, RACE CONFIRMED."* **That
+  experiment was invalid.** `reporting/reporter.py:117` renders only
+  `self.events[self.last_compliance:cur_event]`, and line 178 advances that
+  watermark inside `dump_report` — so a SECOND `_report()` call in one session
+  renders only the delta since the first, which is empty and prints "No
+  compliance violations have been found." The discriminator called `_report()`
+  twice, so its `0` was an empty delta, not a corrected verdict. A fully
+  synchronised re-run (barrier + drain in place, `links` 339 s, `check_compliance`
+  0.4 s, report rendered strictly afterwards) reports **35** — the same answer.
+  **Whether 35 is correct for wl_i2's compliance policy is UNKNOWN and untested
+  here**: `reachable.json` (72 pairs) is the *reachability* oracle and is not the
+  same question as `checks.json`'s *policy*, so it cannot adjudicate this. The
+  reachability-vs-policy comparison is the separate gating work below.
+- **What the barrier work did establish (all verified):** the completion barrier
+  was genuinely missing, the tier's runtimes were measuring message-sending
+  only, and `report.pdf` really was converted from a stale `report.md`. See the
+  fix note below.
 - **Measured phase split (2026-09-09, yolobox, logs redirected to disk, single run each).** The verification is almost entirely POST-EXIT:
 
   | workload | benchmark process | backend after exit | real total | recorded NP engine (cross-check) |

@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pprint import pformat
 from threading import Thread
-from queue import Queue
+from queue import Empty, Queue
 
 from util.typing_util import JSONDict
 
@@ -47,6 +47,7 @@ from aggregator.aggregator_signals import register_signals
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.aggregator_utils import fave_recvmsg
 from util.lock_util import PreLockedFileLock
+from util import barrier
 from util.packet_util import is_ip, is_domain, is_unix, is_port, is_host
 from util.path_util import json_to_pathlet, pathlet_to_json, Path
 #from util.dynamic_distribution import NodeLinkDispatcher
@@ -157,6 +158,112 @@ class AggregatorService(AbstractAggregator):
             return model.from_json(j)
 
 
+    def _dispatch(self, j: JSONDict) -> str:
+        """ Handle one parsed message and return its task type.
+
+        Split out of `_handler` so the barrier release can be wrapped in a
+        `finally` (TODO.md item 1r): every path out of here, including an
+        exception, must reach `barrier.release`. Pure move otherwise --
+        `task_type` was the only local the caller used. """
+
+        if j['type'] == 'stop':
+            task_type = 'stop'
+            self.stop_aggr()
+            self.verification_engine.stop()
+
+        elif j['type'] == 'report':
+            task_type = 'report'
+            report = j
+            # Let the log tailer catch up first: the events it has not parsed
+            # yet are the reachability evidence the report renders from, so
+            # rendering early would yield a partial verdict. Latent race, not an
+            # observed one (see Reporter.drain). Safe to block here -- the
+            # compliance/anomaly checks are barrier-guarded and synchronous, so
+            # net_plumber has stopped writing by now.
+            self.reporter.drain()
+            self.reporter.dump_report(report['file'])
+            self.reporter.mark_compliance()
+            self.reporter.mark_anomalies()
+
+        elif j['type'] == 'check_compliance':
+            task_type = 'check_compliance'
+            rules: Dict[Any, List[Any]] = {}
+            for dst, src_rules in j['rules'].items():
+                rules.setdefault(dst, [])
+                for src, negated, cond in src_rules:
+                    rules[dst].append((src, negated, [RuleField.from_json(f) for f in cond]))
+
+            self.verification_engine.check_compliance(rules)
+
+        elif j['type'] == 'dump':
+            dump = j
+            odir = dump['dir']
+
+            task_type = "dump %s" % ','.join([k for k in dump if k not in ['type', 'dir']])
+
+            if dump['fave']:
+                self._dump_aggregator(odir)
+            if dump['flows']:
+                self.verification_engine.dump_flows(odir)
+            if dump['network']:
+                self.verification_engine.dump_plumbing_network(odir)
+            if dump['pipes']:
+                self.verification_engine.dump_pipes(odir)
+            if dump['trees']:
+                self.verification_engine.dump_flow_trees(odir, dump['simple'])
+
+            lock = PreLockedFileLock("%s/.lock" % odir)
+            lock.release()
+
+
+        elif j['type'] == 'check_anomalies':
+            task_type = 'check_anomalies'
+            self.verification_engine.check_anomalies(
+                use_shadow=j.get('use_shadow', False),
+                use_reach=j.get('use_reach', False),
+                use_general=j.get('use_general', False)
+            )
+
+        else:
+            model = self._model_from_json(j)
+            if model.type == 'topology_command':
+                task_type = model.model.type
+            else:
+                task_type = model.type
+
+            self._sync_diff(model)
+
+        return task_type
+
+
+    def _abandon_queued_barriers(self) -> None:
+        """ Release, with an error, the barriers of requests left unhandled when
+        the handler stops (TODO.md item 1r). `queue.task_done` is called for
+        each so `run`'s `queue.join()` can still complete. """
+        while True:
+            try:
+                data = self.queue.get_nowait()
+            except Empty:
+                return
+
+            try:
+                pending = json.loads(data) if data else {}
+                path = pending.get('barrier') if isinstance(pending, dict) else None
+                if path:
+                    AggregatorService.LOGGER.warning(
+                        "worker: abandoning queued %s request (aggregator "
+                        "stopping)", pending.get('type', 'unknown')
+                    )
+                    barrier.release(
+                        path,
+                        error="the aggregator stopped before handling this request"
+                    )
+            except ValueError:
+                pass
+            finally:
+                self.queue.task_done()
+
+
     def _handler(self) -> None:
         t_start = time.time()
 
@@ -184,65 +291,19 @@ class AggregatorService(AbstractAggregator):
             if AggregatorService.LOGGER.isEnabledFor(TRACE):
                 AggregatorService.LOGGER.trace('worker: parsed data\n%s' % pformat(j, indent=2))
 
-            if j['type'] == 'stop':
-                task_type = 'stop'
-                self.stop_aggr()
-                self.verification_engine.stop()
-
-            elif j['type'] == 'report':
-                task_type = 'report'
-                report = j
-                self.reporter.dump_report(report['file'])
-                self.reporter.mark_compliance()
-                self.reporter.mark_anomalies()
-
-            elif j['type'] == 'check_compliance':
-                task_type = 'check_compliance'
-                rules: Dict[Any, List[Any]] = {}
-                for dst, src_rules in j['rules'].items():
-                    rules.setdefault(dst, [])
-                    for src, negated, cond in src_rules:
-                        rules[dst].append((src, negated, [RuleField.from_json(f) for f in cond]))
-
-                self.verification_engine.check_compliance(rules)
-
-            elif j['type'] == 'dump':
-                dump = j
-                odir = dump['dir']
-
-                task_type = "dump %s" % ','.join([k for k in dump if k not in ['type', 'dir']])
-
-                if dump['fave']:
-                    self._dump_aggregator(odir)
-                if dump['flows']:
-                    self.verification_engine.dump_flows(odir)
-                if dump['network']:
-                    self.verification_engine.dump_plumbing_network(odir)
-                if dump['pipes']:
-                    self.verification_engine.dump_pipes(odir)
-                if dump['trees']:
-                    self.verification_engine.dump_flow_trees(odir, dump['simple'])
-
-                lock = PreLockedFileLock("%s/.lock" % odir)
-                lock.release()
-
-
-            elif j['type'] == 'check_anomalies':
-                task_type = 'check_anomalies'
-                self.verification_engine.check_anomalies(
-                    use_shadow=j.get('use_shadow', False),
-                    use_reach=j.get('use_reach', False),
-                    use_general=j.get('use_general', False)
-                )
-
-            else:
-                model = self._model_from_json(j)
-                if model.type == 'topology_command':
-                    task_type = model.model.type
-                else:
-                    task_type = model.type
-
-                self._sync_diff(model)
+            barrier_path = j.get('barrier')
+            task_type = 'unknown'
+            error = None
+            try:
+                task_type = self._dispatch(j)
+            except Exception as exc:               # pylint: disable=broad-except
+                # Report the failure THROUGH the barrier: a waiter that never
+                # learns about it would block for as long as this process
+                # happens to live, turning a loud error into a silent hang.
+                error = "%s: %s" % (type(exc).__name__, exc)
+                AggregatorService.LOGGER.exception("worker: task failed:")
+            finally:
+                barrier.release(barrier_path, error=error)
 
             t_task_end = time.time()
 
@@ -253,6 +314,12 @@ class AggregatorService(AbstractAggregator):
                 AggregatorService.LOGGER.info(emsg)
 
             self.queue.task_done()
+
+        # The loop above exits on `self.stop` without touching whatever is
+        # still queued, so those requests will never be handled. Fail their
+        # barriers explicitly: a waiter that is never told would block for as
+        # long as this process lives.
+        self._abandon_queued_barriers()
 
         t_stop = time.time()
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
@@ -278,6 +345,12 @@ class AggregatorService(AbstractAggregator):
         )
         sock.settimeout(2.0)
         sock.bind(server if port == 0 else (server, port))
+
+        # Declare who releases request barriers (TODO.md item 1r). Published
+        # after the bind so its presence means "an aggregator is actually up",
+        # and it carries pid + start time so a waiter checks identity rather
+        # than mere pid existence.
+        barrier.publish_owner()
 
         # start thread to handle incoming config events
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
@@ -337,6 +410,13 @@ class AggregatorService(AbstractAggregator):
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
             AggregatorService.LOGGER.info("master: join handler thread")
         thread.join()
+
+        # Only now stop claiming responsibility for barriers: in-flight work
+        # has completed and released normally, so no waiter is failed while its
+        # request is still being handled. A leftover file after a crash is
+        # harmless -- waiters check the pid it names, and a dead pid reads as
+        # "will never release".
+        barrier.withdraw_owner()
 
         if AggregatorService.LOGGER.isEnabledFor(logging.INFO):
             AggregatorService.LOGGER.info("master: finished run")

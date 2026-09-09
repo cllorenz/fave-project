@@ -27,6 +27,7 @@ import json
 import argparse
 
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 _PARSER = argparse.ArgumentParser()
@@ -57,10 +58,20 @@ _AGGR = connect_to_fave(
     _ARGS.server, _ARGS.port
 )
 
+# Guard the request with a barrier and BLOCK on it (TODO.md item 1r). The
+# aggregator writes report.md asynchronously, so without this the caller's very
+# next step -- `pandoc report.md -o report.pdf` -- converted whatever was on
+# disk, i.e. the PREVIOUS run's report (measured 4m27s stale on wl_i2).
+_GUARD = barrier.arm()
+
 _REPORT = {
     'type':'report',
-    'file':'report.md'
+    'file':'report.md',
+    'barrier':_GUARD
 }
 
 fave_sendmsg(_AGGR, json.dumps(_REPORT))
 _AGGR.close()
+
+# No timeout: waits while FaVe is provably alive (see util/barrier.py).
+barrier.wait(_GUARD)

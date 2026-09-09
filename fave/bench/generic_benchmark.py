@@ -32,6 +32,7 @@ import netplumber.dump_np as dumper
 
 from util.bench_utils import create_topology, add_routes, add_sources, add_policies
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 TMPDIR = "/dev/shm/np"
@@ -300,10 +301,16 @@ class GenericBenchmark(object):
         ) if self.use_unix else connect_to_fave(
             FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
         )
+        # Barrier-guarded and blocking (TODO.md item 1r): unlike _compliance
+        # and _report this posts the request in-process, so without the wait it
+        # would return before FaVe had looked for a single anomaly.
+        guard = barrier.arm()
         msg = {'type':'check_anomalies'}
         msg.update(self.anomalies)
+        msg['barrier'] = guard          # after update(): never clobberable
         fave_sendmsg(fave, json.dumps(msg))
         fave.close()
+        barrier.wait(guard)
         self.logger.info("checked for anomalies.")
 
 
