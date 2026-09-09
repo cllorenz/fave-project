@@ -30,7 +30,7 @@ class QBFSuite(TestSuite):
 
 
     def run(self):
-        self._runner.run(self._suite)
+        return self._runner.run(self._suite)
 
 
     def __init__(self):

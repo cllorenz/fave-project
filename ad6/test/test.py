@@ -23,6 +23,8 @@ if __name__ == "__main__":
     from test.systemsuite import SystemSuite
     from test.differentialsuite import DifferentialSuite
     from test.parsersuite import ParserSuite
+    from test.runnersuite import RunnerSuite
+    from test.suiterunner import RunSuites
 
     suites = [
         SATSuite(),
@@ -34,7 +36,11 @@ if __name__ == "__main__":
         IntegrationSuite(),
         SystemSuite(),
         DifferentialSuite(),
-        ParserSuite()
+        ParserSuite(),
+        RunnerSuite()
     ]
-    for suite in suites:
-            suite.run()
+    # Exit non-zero if ANY suite failed, so `make test` (and anything chaining
+    # off it) can actually tell a green run from a red one -- this used to fall
+    # off the end of __main__ and exit 0 unconditionally. See
+    # test/suiterunner.py and ad6/FAVE_CHANGES.md item 24.
+    sys.exit(0 if RunSuites(suites) else 1)

@@ -1543,3 +1543,74 @@ budget on bare-metal with sub-exponential clause growth." N=16 DID complete, wel
 the 60-minute attempt budget, with polynomial clause growth -- **on yolobox**. Calling
 this **PROVISIONAL GO**, pending a bare-metal re-run to confirm the wall-clock numbers
 before treating it as the final §7 headline result. Full details: `AD6_PLAN.md` §5.4 B3.
+
+---
+
+## 24. `make test` exited 0 even when suites failed -- fixed test-first  **[FIX]**
+
+Found while re-confirming the suite after an environment repair (2026-09-09), not by
+reading the code: `make test` reported `EXIT=0` on a run that contained **six errored
+tests** (`FileNotFoundError: 'minisat'` / `'clasp'`, after the SAT solver binaries went
+missing from the container -- see the environment note at the end of this item). The run
+was only visibly red if a person read the suite output by eye. Any non-human consumer --
+a CI job, a `&&` chain, a scripted gate -- would have scored that run as a pass, and so
+would a person skimming the tail, since the last suite printed `OK`.
+
+This is the same hazard `fave/test/backend_gate.py` exists to prevent on the FaVe side
+("a skip is NOT a pass"), on ad6's side of the fence, and it had no guard at all.
+
+**Root cause: the verdict was dropped at two independent layers.**
+
+1. **Every suite discarded its own result.** All eleven `test/*suite.py` classes shared
+   the identical body `def run(self): self._runner.run(self._suite)` --
+   `unittest.TextTestRunner.run()` *returns* a `TestResult`, and each one threw it away,
+   returning `None`.
+2. **The entry point never looked, and never exited.** `test/test.py` ran
+   `for suite in suites: suite.run()` and then fell off the end of `__main__`, so the
+   process exited 0 unconditionally. There was no `wasSuccessful()` call and no
+   `sys.exit()` anywhere in it.
+
+Because of (1), fixing only (2) would not have been enough -- both layers had to change.
+
+**Fixed test-first, confirmed failing pre-fix** (the discipline items 7, 8 and 8b
+established):
+
+- **`test/runner/runnertest.py`** (new) + **`test/runnersuite.py`** (new, registered in
+  `test/test.py` -- item 11's lesson: an unregistered suite never runs, so registration
+  is part of the fix, not an afterthought). `testSuitesRunReturnTheirResult` subTests all
+  ten registered suite classes against the layer-1 contract, swapping a stub runner in so
+  it checks the plumbing without re-running the whole ~40s tree ten times over.
+  **Pre-fix: all ten FAILED, while `make test` still exited 0 with those ten failures in
+  it** -- the bug demonstrating itself. The remaining five tests pin `RunSuites`'
+  semantics: all-pass, one-failure-fails-the-run, every-suite-still-runs-after-a-failure
+  (a short-circuiting aggregator would silently stop testing the tree), no-result-is-a-
+  failure, and empty-is-vacuously-successful.
+- **`test/suiterunner.py`** (new): `RunSuites(Suites)` runs every suite and returns True
+  iff all succeeded. Deliberately **fails closed** -- a suite handing back no
+  `TestResult` counts as a failure, since that silent `None` is the original bug's own
+  signature -- and deliberately does **not** short-circuit, so one red suite never stops
+  the rest of the tree from being tested. Extracted into its own module rather than left
+  inline in `__main__` precisely so it could be tested.
+- **All eleven suites** now `return self._runner.run(self._suite)`.
+- **`test/test.py`** now ends `sys.exit(0 if RunSuites(suites) else 1)`.
+
+**Verified end to end, not just at unit level**: a temporary `self.fail(...)` injected
+into one registered test (`SATUtilsTest.testReduceImplication`, reverted afterwards)
+makes `test/test.py` exit **1** and `make test` exit **2** (make's own code for a failed
+recipe); the clean tree exits **0** with 11 suites / 88 tests green.
+
+**Scope note:** `test/qbfsuite.py` got the same one-line `return` for consistency, but is
+**not** registered in `test/test.py` and was not registered by this item -- it is a
+pre-existing unregistered suite (the same class of gap as item 11's never-registered
+`testCIDRMatchAll`) and wiring it in could surface unrelated failures; flagged, not
+silently changed.
+
+**Environment note, worth recording because it is how the bug surfaced.** The container's
+disk filled up during setup, and two `apt-get install` transactions unpacked files
+without committing: `minisat`/`clasp` left no entry in `/var/log/apt/history.log` at all
+(a later apt run evidently rolled the half-unpacked state back, so the binaries the
+solver adapters shell out to simply vanished mid-session), and `python3-dev` registered
+as installed while `/usr/include/python3.12/Python.h` was absent (which then broke a
+`pybison` source build). Both repaired by `apt-get update` + reinstall on the enlarged
+disk. Nothing in ad6 caused this, but it is the reason the suite was red at all -- and
+the reason the exit-code bug became visible instead of staying theoretical.
