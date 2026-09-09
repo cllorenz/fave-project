@@ -338,6 +338,84 @@ class TestJsonRpcClientResponses(unittest.TestCase):
         self.assertEqual(json.loads(s2.sent[-1])["method"], "init")
 
 
+class _SpinGuardedSocket(FakeSocket):
+    """ FakeSocket that counts recv() calls and aborts past a sane bound.
+
+    A drained FakeSocket already models a dead peer exactly: both the peek and
+    the consuming recv return b''. The counter is what makes a regression of the
+    EOF busy-spin fail FAST and deterministically -- without it, reintroducing
+    the old `pos == -1 -> keep reading` behaviour would pin a core and hang the
+    whole suite instead of failing one test.
+    """
+
+    SPIN_LIMIT = 1000
+
+    def __init__(self):
+        super().__init__()
+        self.recv_calls = 0
+
+    def recv(self, bufsize, flags=0):
+        self.recv_calls += 1
+        if self.recv_calls > self.SPIN_LIMIT:
+            raise AssertionError(
+                "EOF busy-spin regression: %d recv() calls on a closed peer" %
+                self.recv_calls
+            )
+        return super().recv(bufsize, flags)
+
+
+class TestJsonRpcPeerDeath(unittest.TestCase):
+    """ A closed peer must raise promptly, never spin.
+
+    `recv()` returning b'' is EOF. The old `_sync_recv` treated it as "partial
+    response, keep reading", which never terminates and never raises -- measured
+    at 100% of a core indefinitely. Callers therefore could not distinguish a
+    slow-but-live backend from a dead one, which is precisely why waiting on
+    FaVe needs peer-death detection rather than a wall-clock timeout (whose
+    value cannot be chosen: FaVe's runtime is not known beforehand).
+    """
+
+    def test_immediate_eof_raises(self):
+        sock = _SpinGuardedSocket()      # nothing queued -> peer already gone
+        with self.assertRaises(RPCError) as ctx:
+            jsonrpc.init([sock], 1)
+        self.assertIn("closed the connection", str(ctx.exception))
+
+    def test_immediate_eof_does_not_retry(self):
+        # One peek is enough to observe EOF; there must be no retry loop.
+        sock = _SpinGuardedSocket()
+        with self.assertRaises(RPCError):
+            jsonrpc.init([sock], 1)
+        self.assertLessEqual(sock.recv_calls, 2)
+
+    def test_eof_mid_response_raises_and_reports_partial_length(self):
+        # A response that never gets its terminating newline: the peer dies
+        # after sending some bytes. Must raise, not wait for the rest forever.
+        sock = _SpinGuardedSocket()
+        partial = b'{"id": 0, "jsonrpc": "2.0"'      # no trailing newline
+        sock._inbuf = partial                        # pylint: disable=protected-access
+        with self.assertRaises(RPCError) as ctx:
+            jsonrpc.init([sock], 1)
+        msg = str(ctx.exception)
+        self.assertIn("closed the connection", msg)
+        self.assertIn(str(len(partial)), msg)        # partial length reported
+
+    def test_one_dead_socket_among_live_ones_raises(self):
+        # Broadcast RPCs iterate several backends; a dead one must not be
+        # silently skipped or spun on.
+        live, dead = _SpinGuardedSocket(), _SpinGuardedSocket()
+        live.queue_response(_ok())
+        with self.assertRaises(RPCError):
+            jsonrpc.init([live, dead], 1)
+
+    def test_live_peer_still_works(self):
+        # The guard must not have broken the normal path.
+        sock = _SpinGuardedSocket()
+        sock.queue_response(_ok())
+        jsonrpc.init([sock], 8)
+        self.assertEqual(sock.last_request()["method"], "init")
+
+
 class TestJsonRpcConnect(unittest.TestCase):
     """ connect_to_netplumber error path (regression guard). """
 

@@ -32,6 +32,7 @@ import netplumber.dump_np as dumper
 
 from util.bench_utils import create_topology, add_routes, add_sources, add_policies
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 
 TMPDIR = "/dev/shm/np"
@@ -39,6 +40,17 @@ TMPDIR = "/dev/shm/np"
 
 def _unpack(topo):
     return topo['devices'], topo['links']
+
+
+def _exit_code(status):
+    """ Decode an `os.system()` wait status into a plain exit code (negative for
+    a signal). Unlike `os.waitstatus_to_exitcode` this never raises, so checking
+    a sub-step can't itself become a new crash path in a benchmark run. """
+    if os.WIFSIGNALED(status):
+        return -os.WTERMSIG(status)
+    if os.WIFEXITED(status):
+        return os.WEXITSTATUS(status)
+    return status
 
 
 class GenericBenchmark(object):
@@ -289,18 +301,54 @@ class GenericBenchmark(object):
         ) if self.use_unix else connect_to_fave(
             FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
         )
+        # Barrier-guarded and blocking (TODO.md item 1r): unlike _compliance
+        # and _report this posts the request in-process, so without the wait it
+        # would return before FaVe had looked for a single anomaly.
+        guard = barrier.arm()
         msg = {'type':'check_anomalies'}
         msg.update(self.anomalies)
+        msg['barrier'] = guard          # after update(): never clobberable
         fave_sendmsg(fave, json.dumps(msg))
         fave.close()
+        barrier.wait(guard)
         self.logger.info("checked for anomalies.")
 
 
     def _report(self):
         self.logger.info("generating report...")
-        os.system("python3 reporting/report.py %s" % ("-u" if self.use_unix else ""))
-        os.system("pandoc report.md -o report.pdf")
-        self.logger.info("report generated.")
+
+        # Both steps used to discard their exit status, so a crashing report.py
+        # or a missing pandoc still logged "report generated." and the run
+        # carried on as if it had one -- the swallowed-sub-step pattern of
+        # TODO.md items 1i/1n/1p. Report what actually happened instead.
+        #
+        # Deliberately NON-FATAL: by the time _report runs the verification
+        # verdict is already computed, and the report is a presentation
+        # artifact. Whether a failed sub-step should fail the whole benchmark is
+        # the open decision in TODO.md item 1n, not something to settle here.
+        steps = (
+            ("report.md", "python3 reporting/report.py %s" % (
+                "-u" if self.use_unix else ""
+            )),
+            ("report.pdf", "pandoc report.md -o report.pdf"),
+        )
+
+        missing = []
+        for artifact, cmd in steps:
+            code = _exit_code(os.system(cmd))
+            if code != 0:
+                missing.append(artifact)
+                self.logger.error(
+                    "report step failed (exit %s), %s not generated: %s",
+                    code, artifact, cmd
+                )
+
+        if missing:
+            self.logger.error(
+                "report INCOMPLETE -- not generated: %s", ", ".join(missing)
+            )
+        else:
+            self.logger.info("report generated.")
 
 
     def run(self):

@@ -21,7 +21,11 @@ confirmation and one still-open, non-blocking discrepancy against APKeep's own N
 faithful numbers (§5.4 B3). **i2 (§5.5): C0 GO (structural build confirmed, 18
 devices/77,460 rules/0 ACLs). C1 is now GO too (2026-09-05): the full 72-pair
 differential completed, WITH the real acyclic-safety fix active (an experimental lite
-encoding), and exactly matches the oracle — 72/72, 0 missing, 0 extra. C2
+encoding), and exactly matches the oracle — 72/72, 0 missing, 0 extra. But note C3
+REOPENED 2026-09-09: matching that oracle is guaranteed for any relaxed encoding (it is
+an all-reachable mesh), so C1's GO does NOT license skipping faithful VLAN — and
+FaVe+NetPlumber, cross-checked on i2 for the first time, reports 11 of the 72 pairs
+UNREACHABLE. A three-query faithful experiment is planned; see §5.5 C3. C2
 (tractability) is a separate, still-open concern, and solver-choice-sensitive:
 Glucose4 took ~15.3 hours for 72 pairs; Cadical195 (2026-09-06), same encoding, same
 exact oracle match, completed in ~3.56 hours — ~4.3x faster, and only ~13x slower per
@@ -1644,11 +1648,12 @@ corrected directly — see §4.4.)
     faithful-VLAN modeling for i2 gets marked **out of scope** with this rationale
     documented, ending the spike at C3 rather than chasing a problem APKeep itself has not
     solved. If plain mode is found insufficient, proceed to C4.
-    **CRITERION UNSOUND AS WRITTEN -- see the WORKLOAD-PARITY FINDING (2026-09-09)
-    below. This gate cannot be answered with `reachable.json` at all: dropping the VLAN
-    gate can only ADD reachability, and an all-reachable 72/72 mesh with zero
-    expected-unreachable pairs has no power to detect over-approximation. C3 is not
-    closable as a documentation decision, and C4 is not a contingency branch.**
+    **CRITERION UNSOUND AS WRITTEN -- see "C3 REOPENED" and its WORKLOAD-PARITY
+    companion (both 2026-09-09) immediately below. This gate cannot be answered with
+    `reachable.json` at all: dropping the VLAN gate can only ADD reachability, and an
+    all-reachable 72/72 mesh with zero expected-unreachable pairs has no power to detect
+    over-approximation. C3 is not closable as a documentation decision, and C4 is not a
+    contingency branch.**
   - **C4 — (conditional on C3 finding plain mode insufficient).** Scope a new, i2-shaped
     joint-constraint encoding: a single-hop `out.X` rewrite/`in.X` admission gate, reusing
     Stage A2's `fieldmatch` primitive (`ad6/src/xml/genutils.py:fieldmatch`,
@@ -1658,6 +1663,144 @@ corrected directly — see §4.4.)
     cross-product blowup stalling APKeep's BDD approach — SAT never needs to materialize an
     explicit joint predicate space the way BDD/NDD atom enumeration does, which could be a
     genuine comparative finding for §7's write-up rather than a risk to route around.
+
+  **C3 REOPENED 2026-09-09 — its GO/NO-GO test is INVALID, and there is now
+  counter-evidence. Planned experiment below (owner-approved).**
+
+  C3 as written above gates faithful-VLAN work on "does plain mode already reproduce
+  the C1 oracle exactly?" — and C1/C2 answered yes (72/72, `oracle_match: true`,
+  `bench/wl_i2/eval/ad6_i2_*.json`). **That inference does not hold.** Plain mode is
+  VLAN-admission-blind, i.e. it RELAXES a constraint, and relaxing a constraint can
+  only ADD reachability. `bench/wl_i2/reachable.json` is a COMPLETE all-reachable
+  mesh with zero expected-unreachable pairs (the same caveat already recorded in this
+  document for the acyclic-safety question). So an all-reachable oracle scores any
+  relaxed encoding at 100% **by construction**: plain mode reproducing it is
+  guaranteed, not informative, and cannot license marking faithful VLAN out of scope.
+  `bench/ad6_i2_measure.py:101` hardcodes `faithful_vlan=False` citing exactly this
+  reasoning in its docstring; that comment needs correcting too.
+
+  **Counter-evidence (2026-09-09).** FaVe+NetPlumber, run in-process through
+  `NetPlumberLibAdapter` + `InProcessFaVe` on the same `i2-json` inputs
+  `test_apkeep_i2` uses, reports **11 of the 72 pairs UNREACHABLE**: `chic` →
+  `{hous, kans, losa, salt, seat}` and `atla`/`newy32aoa`/`wash` → `{salt, seat}`.
+  A direct reading of `routes.json` (no engine) shows the router-level topology is
+  fully connected AND a port-level walk over the real FIB with match fields IGNORED
+  reaches all 72 — so those 11 are blocked by FIELD constraints, specifically the
+  in-stage VLAN admission (390 `vlan=V` rules) x out-stage `rw=vlan:V` rewrite
+  coupling, with probes existential on `vlan=0`. That is precisely the dimension
+  plain mode drops. **NetPlumber has never been cross-checked on i2** (see
+  [`TODO.md`](TODO.md) item 1s: `apkeep_vs_netplumber.py` measures time only;
+  `test_backend_differential` is wl_ifi-only), so this is the first faithful signal
+  on this workload, and it is unexplained in either direction.
+
+  **Planned experiment — full faithful model, three queries (owner decision
+  2026-09-09).** Deliberately NOT an induced sub-topology: a subset removes paths, so
+  UNSAT on a subset would not prove unreachability in the full model, and the owner
+  chose to avoid introducing that error potential before trying the real thing.
+  Query set picked from the recorded Cadical195 per-query log
+  (`ad6_i2_cadical195_lite_72pairs_complete_v2.json`, `query_log`):
+
+  | query | ad6 plain | NetPlumber | role |
+  |---|---:|---|---|
+  | `source.hous → probe.salt` | 1.11 s (fastest of 72) | reachable | agreement control |
+  | `source.chic → probe.salt` | 3.43 s | **unreachable** | discriminator |
+  | `source.chic → probe.seat` | 4.50 s | **unreachable** | discriminator |
+
+  Two of the eleven disagreement pairs are among ad6's five fastest plain queries, so
+  the discriminating cases are also the cheap ones. Success criterion: do ad6-faithful
+  and NetPlumber agree on all three? If ad6-faithful also returns unreachable for
+  `chic → salt`/`chic → seat`, plain mode is insufficient for i2 → **C3 is NO-GO and
+  C4 is on**. If ad6-faithful still says reachable, the disagreement localises to one
+  of the two engines and needs root-causing before either is trusted.
+
+  **Risks to hold in view when reading the result:**
+  - **Recorded times are SAT times and are lower bounds at best.** If NetPlumber is
+    right, the two discriminators flip to UNSAT under faithful VLAN, and proving UNSAT
+    exhausts the search space rather than getting lucky — routinely orders of
+    magnitude dearer. This workload has never exercised a genuine UNSAT on i2 (all 72
+    recorded queries are `sat: true`), so per-query cost in that regime is unknown.
+  - **The fixed cost is per-run, not per-query:** ~405 s (`build_s` 358 + acyclic 16 +
+    dimacs 3.8 + lite_dimacs 19.2 + solver_load 8.2). Three queries therefore cost
+    roughly 7 min + solving; cutting the query count buys time, never memory.
+  - **Memory is the binding constraint.** Plain-mode `peak_rss_mb` is **13,432 MB**,
+    and it is build/DIMACS-dominated, hence query-count-independent; the faithful
+    encoding adds admission + rewrite constraints and will exceed it. The box is
+    therefore being raised **16 GB → 20 GB** for this run (owner, 2026-09-09). Even
+    so, headroom is thin — instrument RSS and expect the possibility of an OOM before
+    the first query.
+  - **Do not extrapolate full-set runtime from these three.** The recorded plain
+    distribution is min 1.11 s / median 133 s / max 1688.8 s, a ~1500x spread, and
+    this set is drawn deliberately from the fast tail.
+
+  **Prerequisites** (tracked as checkboxes in [`TODO.md`](TODO.md) item 1s): a
+  `faithful_vlan` switch on `bench/ad6_i2_measure.py` (currently hardcoded `False` at
+  line 101) and an explicit pair-list selector (`--pair-filter` exists but only does
+  self/exclude-self). **The docstring correction this paragraph asked for is DONE**
+  (2026-09-09, commit `251d8c9c`; the 11-pair finding itself was deliberately kept out of
+  the code comment and lives here instead — owner decision, so the record cannot drift
+  from the code). What it said, for the record — **line numbers now stale**, the
+  `faithful_vlan=False` hardcode is line 132 and the result stamp line 163: line 25
+  ("no VLAN modelling needed per §5.5's own C3 gate") and lines 92-95 ("whether
+  faithful-VLAN modelling is even needed for i2 is gated on whether plain mode already
+  matches the oracle, so this script never turns faithful_vlan on") both assert the
+  inference this block invalidates, so the script currently tells its reader the
+  opposite of C3's actual status. Its `"faithful_vlan": False` result stamp (line 132)
+  is correct and becomes load-bearing once faithful runs exist alongside plain ones.
+
+  **WORKLOAD-PARITY FINDING 2026-09-09 (companion to the block above, found
+  independently the same day) -- the adapter-level mechanism behind that disagreement,
+  and what it costs the cross-family comparison.** The block above establishes that C3's
+  test is invalid and that NetPlumber disagrees on 11 pairs. Reading the model and both
+  adapters answers *why* ad6 cannot see the dimension those 11 pairs turn on:
+  - **The model is dst x VLAN on both sides of the stage split.**
+    `bench/wl_i2/i2-json/routes.json` holds 77,841 rules: 390 `in.X` matching `vlan=N`
+    and nothing else (admission), and 77,451 `out.X` matching `ipv4_dst` and carrying TWO
+    actions -- e.g. `["rw=vlan:10", "fd=out.atla.120030"]`, the dst FIB AND a per-route
+    egress-VLAN rewrite. `probes.json` carries the access-port untag (`vlan=0`) filter. So
+    this section's earlier framing -- "i2's out-tables are a clean dst-IP FIB ... no VLAN
+    modelling needed" -- is right about the MATCH side and wrong about the ACTION side:
+    all 77,451 routes rewrite.
+  - **NetPlumber consumes those rewrites unconditionally**
+    (`netplumber/adapter.py:452-501` builds HSA rewrite+mask vectors; there is no
+    faithful/collapse flag anywhere on that path), which is the mechanism behind the
+    11-pair disagreement above. The NetPlumber-native transfer functions in the same
+    directory confirm it independently: the out-stage tables
+    (`i2-json/{11,21,...,91}.tf.json`) hold 8,383-8,864 rules EACH, all `"action": "rw"`
+    with a real rewrite/mask vector.
+  - **ad6 drops both halves, and the `faithful_vlan` flag is NOT the only reason.** The
+    390 admission rules never become routes at all: a vlan-only match leaves
+    `dst is None`, so `_translate_fwd_rule` returns early (`fave/ad6/adapter.py:326`);
+    only `_capture_in_admit` survives, recording -- in its own words -- "only WHICH ports
+    have any admission rule ... no VLAN modelling at all". The 77,451 `rw=vlan:M` actions
+    are dropped in BOTH modes: `fave/ad6/adapter.py` has `_capture_mid_rewrite`,
+    `_capture_out_reset` and `_capture_in_admission` but **no `_capture_out_rewrite`** --
+    precisely what `apkeep/adapter.py:470` does have (faithful-gated, `out` stage). i2 has
+    no mid stage, so `_capture_mid_rewrite` never fires either, and the IR's
+    `in_port_vlan`/`out_port_vlan` maps are gated on the VLAN appearing in an ACL table --
+    i2 has 0 ACLs, so both are empty. **This sharpens the prerequisite list above: a
+    `faithful_vlan` switch alone is not sufficient for i2.** Turning it on today would add
+    in-stage admission with no matching egress rewrite -- an incoherent model rather than
+    a faithful one -- so `_capture_out_rewrite` must be written first, and that is exactly
+    what C4 was scoped for.
+  - **The comparison target already runs faithful.**
+    `fave/test/test_apkeep_ndd_fwd.py:166` calls `_matrix(..., faithful=True)` ("out.*
+    dst-FIB + rw=vlan NAT + in.* VLAN admission + probe untag") and is exact against
+    `reachable.json`. That is the instance BDD-APKeep CANNOT finish (ap_num >= 19k,
+    unfinished at 28 min -- see the faithful-profile bullet above); NDD builds it in ~15s.
+    So NDD's i2 figure is on the hard instance and every ad6 i2 figure in this section is
+    on the collapsed one.
+
+  **Consequence for §2/§7, independent of how the experiment above turns out.** Any
+  cross-family i2 statement pairing an ad6 number with a NetPlumber or APKeep/NDD number
+  is not like-for-like, and the bias runs in ad6's favour -- it is solving the smaller
+  problem. That specifically includes the 2026-09-06 framing "Cadical195 is now only ~13x
+  slower per query, not ~57x" recomputed against Stanford. What it does NOT touch: the
+  solver comparison itself (Glucose4 vs Cadical195 vs Kissat404) -- all runs used the
+  byte-identical encoding, so those RELATIVE results stand; they are simply relative on an
+  easier instance than the other families are measured on. Either C4 lands and the i2
+  numbers are re-measured, or they are relabelled "ad6 plain-mode i2 (dst-IP only)"
+  wherever they appear -- what is not available is a dst-only ad6 result sitting in the
+  same table as dst x VLAN results from the other three families.
 
   **C0 DONE 2026-08-27 — GO, structural expectations confirmed exactly.** Built i2 through
   `Ad6Adapter(faithful_vlan=False)` via `InProcessFaVe` (`bench/ad6_i2_measure.py`, new,
@@ -2093,83 +2236,6 @@ corrected directly — see §4.4.)
     post-eviction, and the paired ratio was if anything better after (2.55x, n=16) than
     before (3.11x, n=19).
 
-  **WORKLOAD-PARITY FINDING 2026-09-09 -- every i2 measurement in this section (C1, C2,
-  and all three solver runs) answers a dst-IP-ONLY workload, while NetPlumber and the
-  faithful NDD run answer dst x VLAN on the same model. Those are not the same question,
-  and C3's gate criterion cannot detect the difference.** Prompted by a direct check of
-  whether the ad6 measurements aim at the same workload as NetPlumber's; the answer is
-  no, on evidence in the model files themselves rather than in any engine's prose:
-  - **The wl_i2 model is dst x VLAN throughout.** `bench/wl_i2/i2-json/routes.json` holds
-    77,841 rules: 390 `in.X` and 77,451 `out.X`. Every `in.X` rule matches `vlan=N` and
-    nothing else (VLAN admission, per physical ingress port). Every `out.X` rule matches
-    `ipv4_dst` and carries TWO actions -- e.g. `["rw=vlan:10", "fd=out.atla.120030"]`:
-    the dst FIB *and* a per-route egress-VLAN rewrite. `probes.json` carries the matching
-    access-port untag (vlan=0) filter. So this section's own earlier framing (and
-    `bench/ad6_i2_measure.py`'s docstring) -- "i2's out-tables are a clean dst-IP FIB
-    ... no VLAN modelling needed" -- is right about the MATCH side and wrong about the
-    ACTION side: all 77,451 routes rewrite the egress VLAN.
-  - **NetPlumber consumes those rewrites unconditionally.** `netplumber/adapter.py:452-501`
-    translates `action.rewrite` into HSA rewrite+mask vectors, with no faithful/collapse
-    flag anywhere on that path. The NetPlumber-native transfer functions shipped in the
-    same directory confirm it independently: the out-stage tables
-    (`bench/wl_i2/i2-json/{11,21,...,91}.tf.json`) hold 8,383-8,864 rules EACH, all
-    `"action": "rw"` with a real rewrite/mask vector.
-  - **ad6 drops both halves -- and plain mode is not the only reason.**
-    `bench/ad6_i2_measure.py:101` hard-codes `Ad6Adapter(log, faithful_vlan=False)`. The
-    390 admission rules never become routes at all: their match is vlan-only, so
-    `dst is None` and `_translate_fwd_rule` returns early at `fave/ad6/adapter.py:326`;
-    only `_capture_in_admit` survives, and its own docstring says it records "only WHICH
-    ports have any admission rule ... no VLAN modelling at all". The 77,451 `rw=vlan:M`
-    actions are dropped in BOTH modes: `fave/ad6/adapter.py` has `_capture_mid_rewrite`,
-    `_capture_out_reset` and `_capture_in_admission` but **no `_capture_out_rewrite`** --
-    precisely what `apkeep/adapter.py:470` does have (gated on faithful_vlan, for the
-    `out` stage). i2 has no mid stage, so `_capture_mid_rewrite` never fires either, and
-    the IR's `in_port_vlan`/`out_port_vlan` maps are gated on the VLAN appearing in an
-    ACL table -- i2 has 0 ACLs, so both are empty. **Consequence: `faithful_vlan=True`
-    would not fix i2 today** -- it would add in-stage admission with no corresponding
-    egress rewrite, an incoherent model rather than a faithful one. C0's own note above
-    already observed that faithful mode "would silently no-op i2's faithful capture";
-    what was missed is that plain mode silently no-ops the egress rewrites too.
-  - **The comparison target runs faithful.** `fave/test/test_apkeep_ndd_fwd.py:166`
-    (`test_i2_faithful_vlan_matches_ground_truth`) calls `_matrix(..., faithful=True)` --
-    "out.* dst-FIB + rw=vlan NAT + in.* VLAN admission + probe untag" -- and is exact
-    against `reachable.json`. That is the instance BDD-APKeep CANNOT finish (ap_num >=
-    19k, unfinished at 28 min -- see the faithful-profile bullet above), and NDD builds
-    in ~15s. So NDD's i2 figure is on the hard instance and every ad6 i2 figure here is
-    on the collapsed one.
-
-  **What this invalidates, stated plainly.** Any cross-family i2 statement pairing an ad6
-  number with a NetPlumber or APKeep/NDD number is not like-for-like, and the bias runs
-  in ad6's favour -- it is solving the smaller problem. That specifically includes the
-  2026-09-06 framing "Cadical195 is now only ~13x slower per query, not ~57x" recomputed
-  against Stanford, and any use of these numbers in §2's metric protocol or §7's
-  write-up without the qualifier. What it does NOT touch: the solver comparison itself
-  (Glucose4 ~15.3h vs Cadical195 ~3.56h/~4.14h vs Kissat404) -- all runs used the
-  byte-identical encoding, so those RELATIVE results stand unchanged; they are simply
-  relative on an easier instance than the other families are measured on.
-
-  **C3's criterion is unsound, and C1's GO inherits the same weakness.** C3 says: if
-  plain mode reproduces the C1 oracle exactly, mark faithful-VLAN out of scope. But
-  dropping a VLAN admission gate can only ADD reachability, and
-  `bench/wl_i2/reachable.json` is an all-reachable 72/72 full mesh with ZERO
-  expected-unreachable pairs -- no power to detect over-approximation. This is the
-  identical zero-discriminating-power flaw already documented below for `--skip-acyclic`,
-  applying here for the same structural reason. So plain mode's 72/72 is not evidence
-  that i2's VLANs do not gate reachability; it is evidence that this oracle cannot tell
-  either way. C1's GO rests on it too: C1 validates the plain forwarding translation
-  (real, and worth having) but not the model against the workload the other families
-  answer. A discriminating i2 oracle would need at least one expected-UNREACHABLE pair --
-  e.g. a source on a VLAN the destination router does not admit -- and none exists today.
-
-  **Therefore C3 cannot be closed as a documentation decision** (as was suggested at the
-  end of the 2026-09-09 QA session, on this same faulty premise), and C4 is not the
-  contingency branch its heading calls it: an `out.X` rewrite / `in.X` admission gate is
-  the only route to an i2 number comparable with NetPlumber's or NDD's. Two honest ways
-  forward, owner's call: **(a)** build C4 and re-measure, or **(b)** keep the plain-mode
-  numbers and relabel them throughout as "ad6 plain-mode i2 (dst-IP only)", dropping
-  every cross-family i2 comparison from §7 rather than qualifying it. What is not
-  available is the current framing, in which a dst-only ad6 result sits in the same table
-  as dst x VLAN results from the other three families.
   - **Cheap orientation check DONE 2026-08-27 (`--skip-acyclic` flag added to
     `bench/ad6_i2_measure.py`): full-scale plain-mode reachability, WITHOUT the acyclic
     constraints, EXACTLY matches `reachable.json` — 72/72 pairs, 0 missing, 0 extra.**
@@ -2286,8 +2352,8 @@ wl_up FaVe+ad6 model (137 generators/probes, 5,977 Kripke nodes) and its full re
   differential wasn't running: the library was missing, and the harness was never
   invoking it either. Fixed 2026-09-09 (fast tier now runs from `fave/`, three
   natively-dependent ad6 files moved to `FAVE_INTEGRATION_TESTS`, wl_up input generation
-  added to that tier) — `TODO.md` item 1s. **A second, compounding finding from the same
-  session (`TODO.md` item 1r, `ad6/FAVE_CHANGES.md` item 24): `ad6 make test` exited 0
+  added to that tier) — `TODO.md` item 1u. **A second, compounding finding from the same
+  session (`TODO.md` item 1t, `ad6/FAVE_CHANGES.md` item 24): `ad6 make test` exited 0
   unconditionally**, so the "green" claim in the bullet above rested entirely on reading
   the suite output by eye — the exit code proved nothing. Both the suites and the entry
   point now propagate their verdict. Neither finding changes any measurement or
@@ -2666,7 +2732,12 @@ speculatively ahead of need.
       BOTH modes. So no ad6 i2 figure is like-for-like with another family's, the bias
       favours ad6, and C3's "does plain mode match the oracle" criterion cannot detect it
       (an all-reachable oracle has zero power against over-approximation). C3 is NOT
-      closable as a documentation decision; C4 is the only route to a comparable number.
+      closable as a documentation decision. **Found independently the same day by the
+      parallel QA session, with counter-evidence this line lacked: FaVe+NetPlumber,
+      cross-checked on i2 for the first time, reports 11 of the 72 pairs UNREACHABLE**,
+      and a three-query faithful experiment is planned to decide C3 -- see "C3 REOPENED"
+      and its WORKLOAD-PARITY companion in §5.5. Note a `faithful_vlan` switch alone will
+      not suffice: `Ad6Adapter` needs `_capture_out_rewrite` written first, which is C4.
       Intra-ad6 solver comparisons are unaffected (identical encoding throughout).
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.

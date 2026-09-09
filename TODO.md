@@ -33,7 +33,7 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
   - [x] Coverage artifact uploaded from the integration job; gating intent documented (fast = required gate).
   - [x] **`fast` job validated end-to-end locally** (clean venv + `pip install -r requirements.txt` + `bash test.sh fast` → 46 + 80 passed).
   - [x] **First real CI run analyzed** (run 75323499335). `fast` + `lint` ran fine; NetPlumber built; `integration` FAILED. Diagnosis below.
-  - [ ] **Validate `integration`/`bench` on real CI** — first run failed; quick fixes applied (below), RPC/C++ items still open.
+  - [ ] **Validate `integration`/`bench` on real CI** — first run failed; quick fixes applied (below), RPC/C++ items still open. **`bench` is additionally blocked by item 1r** (2026-09-09: the tier never waits for the backend, so it reports wrong verdicts and exits 0, and it cannot complete at all on the default 63 MB `/dev/shm`) — validating it on CI before 1r would only certify a vacuous pass.
   - [ ] **Then retire GitLab:** once the GitHub workflow is green, delete `.gitlab-ci.yml` and update README/badges. Left in-tree for now (conservative — don't delete the old CI before the new one is proven).
   - [ ] **Branch protection** (repo setting, not in YAML): mark `fast` (and later `lint`, `integration`) as required for merge.
 
@@ -154,14 +154,14 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **Two separable concerns (don't conflate):** (1) the **swallow** — CI hygiene, this item; (2) the **mismatch itself** — a possible *correctness* signal. 7/13 wrong in the *basic* example is large; it may be a live symptom of the header-space soundness path in **item 1h** rather than a stale-fixture issue. The `array.c` masking fix (1h) was applied to the source, but the local `net_plumber` binary was rebuilt clean against that fixed source and the mismatch still shows — so either the fix doesn't cover this path, or the expected flows in `example.sh` are themselves stale. **Needs triage before promoting e2e to gating** — cross-ref item 1h's caveat.
 - **Theme:** same "checks that don't gate" smell as the lint script (item 2) and the old coverage report (item 3).
 
-### 1r. ad6 test runner propagates failures — DONE (2026-09-09)
+### 1t. ad6 test runner propagates failures — DONE (2026-09-09)
 - [x] **`ad6/test/test.py` now ends `sys.exit(0 if RunSuites(suites) else 1)`; all eleven `test/*suite.py` classes now `return self._runner.run(self._suite)`.** The exact ad6 counterpart of item 1i's C++ fix, and the same "discarded output" failure mode this section's theme line names.
 - **Finding:** `make test` exited **0 on a run containing six errored tests** (`FileNotFoundError: 'minisat'`/`'clasp'`). The verdict was dropped at two independent layers: every suite called `unittest.TextTestRunner.run()` — which *returns* a `TestResult` — and threw it away, returning `None`; and `test.py` ran `for suite in suites: suite.run()` then fell off the end of `__main__`, never calling `wasSuccessful()` or `sys.exit()`. Fixing either layer alone would not have been enough. Found by re-checking a suite that had gone red, not by reading the code — a person skimming the tail saw the last suite print `OK`.
 - **Fix:** test-first (`ad6/test/runner/runnertest.py` + `ad6/test/runnersuite.py`, registered — item 11's lesson from `ad6/FAVE_CHANGES.md`), with the new verdict logic extracted to `ad6/test/suiterunner.py` so it is directly testable. `RunSuites` fails **closed** (a suite returning no result counts as a failure) and does **not** short-circuit (one red suite must not stop the rest of the tree being tested).
 - **Verification:** pre-fix, all ten registered suites failed the new layer-1 contract test *while `make test` still exited 0 with those ten failures in it*. Post-fix: clean tree → 11 suites / 88 tests, exit **0**; a temporary injected `self.fail(...)` in a registered test → `test.py` exit **1**, `make test` exit **2**. Full write-up: `ad6/FAVE_CHANGES.md` item 24.
 - **Flagged, not changed:** `ad6/test/qbfsuite.py` is a pre-existing **unregistered** suite (same class of gap as `FAVE_CHANGES` item 11's never-registered `testCIDRMatchAll`). It got the one-line `return` for consistency but was deliberately not wired into `test.py`, since that could surface unrelated failures. Worth deciding separately.
 
-### 1s. `fast` tier ran from the wrong CWD — 14 benchmark-driven tests never ran in any tier — DONE (2026-09-09)
+### 1u. `fast` tier ran from the wrong CWD — 14 benchmark-driven tests never ran in any tier — DONE (2026-09-09)
 - [x] **`test.sh`'s fast tier now runs its fave step from `fave/`, like the `integration` and `e2e` tiers already did.**
 - **Finding:** every fave test consuming generated benchmark inputs locates them via a CWD-relative `_PREFIX = "bench/<wl>"` (the convention in all 10 such files). The fast tier was the only fave step running from `$ROOT`, so that prefix was unresolvable and the tests **skipped themselves as "inputs not generated"** — in every tier, permanently and silently, since no tier ran them from anywhere else. This hid 11 ad6 tests that pass (including `test_ad6_wl_stanford_plain.py`'s N=2 live-NetPlumber differential, the only real live-backend ad6 differential in the project) plus `test_apkeep_ndd_wlup.py`. Exactly the "a skip is NOT a pass" hazard `fave/test/backend_gate.py` was written to prevent — whose own docstring already names "generated inputs missing" as a condition that must not silently skip.
 - **Fix:** make the fast tier honour the same cwd invariant as the other tiers, rather than splitting the `_PREFIX` convention in two. Two dependent changes came with it: three ad6 files moved into `FAVE_INTEGRATION_TESTS` because they have genuine native dependencies the fast tier must not acquire (`test_ad6_wl_up.py` → pybison; `test_ad6_wl_stanford{,_plain}.py` → a libnetplumber worker), without which the cwd fix would make `fast` *error* rather than skip on a machine with no native stack; and the integration tier now generates wl_up's inputs, which is required rather than optional because `FAVE_REQUIRE_BACKENDS=1` (how CI invokes that tier) turns a missing generated input into a hard failure.
@@ -208,6 +208,162 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 - **Validated locally** by forcing the GCC-14 diagnostics to errors on GCC 13 (`-Werror=incompatible-pointer-types -Werror=int-conversion -Werror=implicit-function-declaration -Werror=implicit-int -fsyntax-only`): `array.c` and `hs.c` both compile clean (rc=0). This also caught two sites a naive grep missed (`hs.c:276,278`, `&tmp2`).
 - [ ] **Verify the full build on Ubuntu 26.04.** `array.c`/`hs.c` are the only compiled C files; the rest are C++ (`g++`), where these C-specific promotions don't apply, but GCC 15's `g++` may surface its own stricter diagnostics — if so, address separately. I couldn't run the full link here (no log4cxx/cppunit; sandbox is GCC 13/24.04).
 - **Optional hardening:** these were latent type bugs; consider de-VLA-ing the `array_t tmp[SIZE(len)]` buffers (heap/bounded) as a separate cleanup — not required for the build.
+
+### 1r. `bench` tier is vacuous — nothing waits for the backend (found 2026-09-09)
+- [x] **Add a real completion barrier before `_report`. DONE 2026-09-09** (`util/barrier.py` + `test/test_barrier.py`, 14 fast-tier tests). Client arms a per-request barrier, puts its path in the message, and blocks; the aggregator releases it in a `finally` after handling, passing the exception text on failure. Because the aggregator is single-threaded FIFO and `check_compliance` is synchronous down to net_plumber, "message N finished" transitively means "everything earlier applied AND net_plumber answered". **No timeout, by design** — FaVe's runtime is unknowable in advance, so a deadline is both too tight (a premature timeout is a FALSE failure, the worst outcome for a compliance tool) and too loose. The wait is bounded by EVIDENCE instead: it continues only while the releaser is provably the live aggregator (owner file with pid + start time; zombies and pid reuse both rejected, since `os.kill(pid, 0)` and bare `pgrep -f` are fooled by a `<defunct>` process). Prerequisite `jsonrpc` EOF fix landed separately. Effect on wl_i2: the benchmark process went from 7.4 s to **422 s**, i.e. it now actually waits — the aggregator's `links` task alone is 339 s.
+- **Mechanism (reference):** `GenericBenchmark.run` never waits for the verification to finish, so the tier times message-*sending*, reports whatever `report.md` happens to contain, and exits 0. Three independent fire-and-forget seams, all confirmed in the code:
+  - `_wait_for_fave` blocks on `SoftFileLock("np_dump/.lock")`, but that lock is only ever created by the **dump** path (`aggregator/aggregator_service.py:226`, `netplumber/dump_np.py:137`). All four bench workloads use the constructor default `use_dump=False`, so they take `_wait_for_fave`, which acquires an unheld lock and returns in ~0.1 s. It is a **no-op for every bench workload**.
+  - `bench/compliance_checker.py` imports only `connect_to_fave`/`fave_sendmsg` — **no `recv` at all**.
+  - `reporting/report.py` likewise only sends `{'type':'report'}` and closes; the aggregator writes `report.md` asynchronously afterwards.
+- [x] **`_report` converts the PREVIOUS workload's report. FIXED 2026-09-09** — `reporting/report.py` now blocks on a barrier before returning, so `pandoc` sees the report the aggregator just wrote. Measured before: `report.pdf` 4m27s OLDER than `report.md`; after: 1 s apart.
+- **Mechanism (reference):** Because `report.py` is async, `_report`'s `pandoc report.md -o report.pdf` runs on whatever is already on disk. Measured on the wl_i2 run: `report.md` mtime 09:01:41 vs `report.pdf` 08:57:14 — the PDF is **4m27s older than the markdown**, and is wl_stanford's. (The item-1n swallow fix, commit `0a0b7ee9`, surfaces the sub-steps' *exit codes* correctly but sits on top of this race: necessary, not sufficient.)
+- **CORRECTED TWICE 2026-09-09 — read this carefully, the record oscillated.**
+  1. *Originally claimed:* "the tier reports WRONG verdicts and exits 0 -- wl_i2
+     claimed 35 of 72 pairs 'does not reach' while the oracle says all 72 are
+     reachable; early report = 35, after 285 s of waiting = 0, RACE CONFIRMED."
+  2. *The EXPERIMENT was invalid* (found while validating the barrier fix):
+     `reporting/reporter.py:117` renders only
+     `self.events[self.last_compliance:cur_event]`, and line 178 advances that
+     watermark inside `dump_report`. The discriminator called `_report()` twice,
+     so its `0` was an EMPTY DELTA, not a corrected verdict. Nothing about a
+     race was demonstrated, and the "285 s of waiting" was irrelevant.
+  3. *The CLAIM is nevertheless true*, re-established by a sound route that does
+     not depend on that experiment — see the artifact comparison in **item 1s**.
+     wl_i2's expected verdict really is 0 violations and the tier really does
+     report 35; what was wrong was my evidence, not the conclusion.
+  The intermediate "whether 35 is correct is UNKNOWN / `reachable.json` cannot
+  adjudicate `checks.json`" note was also wrong and is withdrawn: the two encode
+  the same question (item 1s proves the pair sets are set-equal).
+- **What the barrier work did establish (all verified):** the completion barrier
+  was genuinely missing, the tier's runtimes were measuring message-sending
+  only, and `report.pdf` really was converted from a stale `report.md`. See the
+  fix note below.
+- **Measured phase split (2026-09-09, yolobox, logs redirected to disk, single run each).** The verification is almost entirely POST-EXIT:
+
+  | workload | benchmark process | backend after exit | real total | recorded NP engine (cross-check) |
+  |---|---:|---:|---:|---|
+  | wl_up | 12.4 s | 34.2 s | **46.5 s** | 49 s (`APKEEP_TUM_UP_PLAN.md:663`) |
+  | wl_tum | 4.7 s | 6.0 s | **10.7 s** | 6.58 s build (`APKEEP_TUM_UP_PLAN.md:78`) |
+  | wl_stanford | 2.4 s | 2.0 s | **4.4 s** | ~1.4 s build (`APKEEP_BACKEND.md:434`) |
+  | wl_i2 | 7.4 s | 281.4 s | **288.8 s** | 341 s (`APKEEP_BACKEND.md:271`) |
+
+  So 74 % (wl_up) to 97 % (wl_i2) of the real work happens after `benchmark.py` has already exited rc=0. The totals corroborate the recorded engine numbers well, from a different harness and machine. Per-phase detail: every phase inside the process is 0.0–8.3 s; the only non-trivial ones are `_pre_preparation` (wl_up 8.3 s, ruleset generation) and `_initialization` (wl_i2 3.5 s, sending 77k routes). Instrumented externally by patching `GenericBenchmark.run` from a throwaway driver — no repo change.
+- **Why smoke/e2e look fine:** it is a race, not a designed wait. wl_example/wl_ifi are small enough that `net_plumber` usually answers before `_report` runs, so the smoke tier wins the race and the bench tier loses it. Verdict correctness was checked against an oracle **only for wl_i2**; wl_up/wl_tum/wl_stanford are timed but their verdicts are unverified and should be assumed affected until shown otherwise.
+- **Decision needed (async contract — author's call, do not change unilaterally):** (a) have `compliance_checker.py`/`reporting/report.py` await an ack from the aggregator; (b) make `_wait_for_fave` wait on something that is actually held for the non-dump path; or (c) have the aggregator expose a "queue drained" query the benchmark polls. (a) and (c) change the aggregator protocol; (b) is the smallest but needs a lock that the non-dump path genuinely takes.
+- **Blocks item 0's "validate `bench` on real CI":** certifying the tier green before this is fixed would only certify a vacuous pass.
+- **Related:** the correctness-gating half is **item 1s** (the tier still cannot fail on a wrong verdict). The two runtime-robustness bullets under item 10 (backend death, teardown-doesn't-reap) were both re-confirmed while measuring this — see their `CONFIRMED 2026-09-09` lines. Same "checks that do not gate" theme as items 1i/1n/1p.
+
+### 1s. `bench` does not gate on correctness — and wl_i2's verdict is wrong (found 2026-09-09)
+Item 1r made the tier *honest* (real runtimes, no stale reports, failures raised).
+It did **not** make it a *gate*: `benchmark.py` renders `report.md` and exits 0
+whatever it says. Nothing compares the verdict to an expectation, so a wrong
+answer passes green. Validating `bench` on CI (item 0) is worth little until this
+is closed.
+
+#### The oracle question, stated explicitly
+**For each bench workload: what is the expected compliance verdict, and what
+artifact establishes it?** Without a per-workload answer there is nothing to
+gate against. Status:
+
+| workload | checks in `checks.json` | negated (`!` = must NOT reach) | oracle artifact | expected violations | status |
+|---|---:|---:|---|---:|---|
+| wl_i2 | 72 | 0 | `bench/wl_i2/reachable.json` (72 pairs) | 0 **per the POLICY** | **NOT a usable gate** — see below |
+| wl_stanford | 240 | 0 | `bench/wl_stanford/reachable.json` (240 pairs) | 0 **per the POLICY** | **NOT a usable gate** — same defect |
+| wl_up | 11 902 | 8 532 | none tracked | computable, not yet computed | **OPEN** |
+| wl_tum | **0** | 0 | n/a | n/a — checks nothing | **VACUOUS** |
+
+**The key structural fact, measured: every check in all four workloads is `EF`**
+(existential reachability) — `s=source.X && EF p=probe.Y`, optionally negated.
+None use `EX`/`AF`/`AX`, waypoints, or conditions. So ONE mechanism — a
+reachability oracle plus the per-check negation flag — can adjudicate the whole
+tier; there is no need for four bespoke expectations.
+
+- **CORRECTED — `reachable.json` is NOT an independent oracle; my "set-equal"
+  evidence was circular.** I had argued that wl_i2 and wl_stanford "expect 0"
+  because the `(source, probe)` pairs in `checks.json` are set-equal to those in
+  `reachable.json`. They are — but **tautologically**: `gen_wl_i2_inputs.sh:41`
+  emits `checks.json`, `cchecks.json` AND `reachable.json` from the *same*
+  `roles.txt`/`reach.txt` via one `reach_csv_to_checks.py` invocation. Same
+  generator, same input, so of course they agree. `reachable.json` records the
+  **policy intent**, not verified data-plane truth, and set-equality proves
+  nothing about the network.
+- **Worse, the oracle cannot discriminate over-approximation.** Per
+  `AD6_PLAN.md:2040` (the author's own caveat): wl_i2's `reachable.json` is a
+  COMPLETE all-reachable mesh — every one of the 9x8 pairs expected reachable,
+  **zero expected-unreachable pairs** — and therefore has "zero discriminating
+  power". Any backend that *relaxes* a constraint reports MORE reachability and
+  so scores a perfect 72/72 by construction. An all-reachable oracle can only
+  catch under-approximation, never over-approximation. **Gating on it would
+  therefore certify over-approximating backends as correct.** Same defect on
+  wl_stanford (240/240 all-reachable).
+- **Caveat on wl_stanford's oracle:** `reachable.json` there is the *artificial
+  all-to-all policy* from the HSA/NetPlumber papers, not the data plane
+  (`APKEEP_BACKEND.md:278`). It is therefore fine as a *regression* expectation
+  ("this run still agrees with the tracked artifact") but should not be read as
+  the scientifically meaningful reachability answer — the faithful-VLAN work
+  measures 165, not 240.
+- **wl_up is open but tractable:** 8 532 of its 11 902 checks are negated, so the
+  expected verdict is *not* 0 and has to be computed — violations = positive
+  checks whose pair is unreachable, plus negated checks whose pair IS reachable.
+  That needs a wl_up reachability oracle; `eval/mat_apk.json` is a frozen BDD
+  reachability baseline rather than a compliance expectation, so it is a
+  candidate input to that computation, not the answer.
+- [ ] **wl_tum checks NOTHING — its `checks.json` is empty (0 entries).** Its
+  compliance phase is vacuous by construction: it cannot report a violation, so
+  gating it would be meaningless until it has checks. Decide whether wl_tum is
+  supposed to have a compliance policy at all (it is a single-firewall
+  ruleset-scale workload, so possibly it is deliberately a *performance* rather
+  than a *compliance* benchmark) — and if so, say so explicitly rather than
+  leaving an empty file that reads like a bug.
+
+An alternative to absolute expectations, worth weighing before building: gate on
+a **cross-backend differential** (FaVe+NetPlumber == FaVe+APKeep on the same
+checks) and treat *agreement* as the invariant. That reuses the mechanism the
+integration tier already trusts, needs no per-workload oracle, and would have
+caught the wl_i2 discrepancy below — but it cannot catch a fault both backends
+share. **Decision needed before building anything.**
+
+#### The wl_i2 discrepancy — and who has actually been cross-checked
+- [ ] **FaVe+NetPlumber reports 11 pairs unreachable on wl_i2 where the policy expects 0.** Measured 2026-09-09 with the in-process `NetPlumberLibAdapter` + `InProcessFaVe` (same driver and same `i2-json` inputs `test_apkeep_i2` uses), reading verdicts from `get_compliance_results()` — so no aggregator, no RPC log, no Reporter. Build 552 s, compliance check 0.6 s, peak RSS 1051 MB. The 11: `chic` → `{hous, kans, losa, salt, seat}`; `atla`/`newy32aoa`/`wash` → `{salt, seat}`. Concentrated on the two western routers.
+- **Who has actually been cross-checked on wl_i2 (audited 2026-09-09):**
+  | backend | wl_i2 reachability | recorded where | VLAN modelling |
+  |---|---|---|---|
+  | ad6 | 72/72, `oracle_match: true` | **YES** — `bench/wl_i2/eval/ad6_i2_{cadical195,glucose4}_lite_72pairs_complete.json` carry the full `reach_matrix` | **`faithful_vlan: false`** on every recorded run |
+  | APKeep | 72/72, missing=0/extra=0 | no artifact; asserted live by `test_apkeep_i2` | "the VLAN is just link identity" (that test's own docstring) |
+  | NetPlumber | **never verified** | — | HSA, models the `rw=vlan:V` rewrite |
+  `bench/apkeep_vs_netplumber.py` measures **time only** (`_from_zero_run` returns elapsed; `_benchmark` reports ms) — its "NetPlumber 341 s vs APKeep 14 s" is not a correctness result. `test_backend_differential`, which is where `test_netplumber_matches_oracle` lives, is `_PREFIX = "bench/wl_ifi"` — **wl_ifi only**. So "all backends agree on wl_i2" means *ad6 and APKeep agree with the policy*; NetPlumber was not in that comparison.
+- **What `routes.json` says directly (checked 2026-09-09, no engine):** the model is in-stage VLAN admission (390 rules matching `vlan=V` per in-port) feeding out-stage LPM (77 451 rules matching `ipv4_dst`, each doing `rw=vlan:V` + `fd=`), and probes are existential on **`vlan=0`**. Two structural checks:
+  - the **router-level topology is fully connected** (26 edges over 9 routers), so all 72 pairs are graph-reachable — the 11 are not missing links;
+  - a **port-level walk over the real FIB with match fields IGNORED also reaches all 72** (473 nodes, 77 841 `fd=` rules, no wildcard-in-port rules).
+  So the 11 failures are produced by **field constraints, not structure** — specifically the coupling of in-stage VLAN admission with the out-stage VLAN rewrite, which is exactly the dimension ad6 (`faithful_vlan: false`) and APKeep ("VLAN as link identity") relax.
+- **Two readings, and the evidence now favours the second:**
+  1. NetPlumber (or the model as loaded) is wrong by 11 pairs, and ad6/APKeep are right.
+  2. The i2 data plane genuinely does not provide all-to-all reachability under the faithful VLAN rewrite; **NetPlumber is the only backend strict enough to see it**, and ad6/APKeep miss it because they relax VLAN — invisibly, because the oracle has no expected-unreachable pairs. Relaxing a constraint can only ADD reachability, which is precisely how both land on 72/72.
+  Reading 2 is consistent with every piece of evidence above, but is **not proven**: NetPlumber's own rewrite handling could equally be at fault, and nothing here rules that out.
+- [ ] **DECIDED 2026-09-09 (owner): run the FULL faithful i2 model with three queries.** Recorded in [`AD6_PLAN.md`](AD6_PLAN.md) §5.5 "C3 REOPENED" with the full rationale, risks and prerequisites; that is the primary home, this is the pointer. Induced sub-topologies were **considered and rejected for now**: a subset removes paths, so an UNSAT there would not prove unreachability in the full model, and the owner chose not to introduce that error potential before trying the real thing. Query set, drawn from the recorded Cadical195 `query_log`:
+
+  | query | ad6 plain | NetPlumber | role |
+  |---|---:|---|---|
+  | `source.hous → probe.salt` | 1.11 s (fastest of 72) | reachable | agreement control |
+  | `source.chic → probe.salt` | 3.43 s | **unreachable** | discriminator |
+  | `source.chic → probe.seat` | 4.50 s | **unreachable** | discriminator |
+
+  Outcome decides C3: if ad6-faithful also reports the two discriminators unreachable, plain mode is insufficient for i2 (C3 NO-GO, C4 on) and NetPlumber's 11 are corroborated. If it still reports them reachable, the disagreement localises to one engine and must be root-caused before either is trusted.
+  **Environment:** the box is being raised **16 GB → 20 GB** for this run (owner, 2026-09-09) — plain-mode `peak_rss_mb` is 13,432 MB and is build/DIMACS-dominated, so it is query-count-INDEPENDENT and the faithful encoding will exceed it. Instrument RSS; an OOM before the first query is a live possibility even at 20 GB.
+  **Read the result with these caveats:** all 72 recorded ad6 queries are `sat: true`, so every recorded time is a SAT time and a lower bound — the two discriminators are expected to flip to UNSAT, a regime this workload has never exercised and whose cost is unknown. Fixed cost is ~405 s per run regardless of query count. Do not extrapolate full-set runtime from three queries drawn deliberately from the fast tail (recorded spread: 1.11 s to 1688.8 s).
+  **Prerequisites:** see the two checkboxes below.
+- [x] **Correct `bench/ad6_i2_measure.py`'s docstrings — DONE 2026-09-09 (commit `251d8c9c`, branch `ad6`), found independently by the ad6 session the same day.** Both sites named below are rewritten: the module docstring now carries a `WORKLOAD SCOPE` note (this script measures dst-IP-ONLY reachability, not the workload NetPlumber and the faithful NDD run answer) and `_build_ir`'s explains that the flag stays off because turning it on would NOT yield a faithful i2 model — `Ad6Adapter` has no `_capture_out_rewrite`, so faithful mode would add in-stage admission with no matching egress rewrite. **Deliberately NOT in the docstring, by owner decision 2026-09-09: the 11-pair NetPlumber finding itself.** Research findings belong in a non-code document; the docstring points at `AD6_PLAN.md` §5.5 instead, so the finding is recorded once and the code comment cannot drift from it. **NB the line numbers below are now stale** (the rewrite is longer): the `faithful_vlan=False` hardcode is line 132 and the result stamp line 163. Original finding, for the record: Two sites state the reasoning C3 was reopened over, so anyone reading the script is told faithful VLAN is unnecessary for i2:
+  - **line 25** (module docstring): *"but PLAIN mode (faithful_vlan=False — i2's out-tables are a clean dst-IP FIB, in-tables collapse to a single internal port, **no VLAN modelling needed per §5.5's own C3 gate**)"*;
+  - **lines 92-95** (`_build_ir`): *"see §5.5 C3: **whether faithful-VLAN modelling is even needed for i2 is gated on whether plain mode already matches the oracle**, so this script never turns faithful_vlan on"*.
+  Both rest on plain-mode-matches-oracle, which is guaranteed for any relaxed encoding against an all-reachable mesh and therefore proves nothing (see the corrected oracle section above, and `AD6_PLAN.md` §5.5 "C3 REOPENED"). Replace with the actual status: plain mode is what has been MEASURED so far, the oracle cannot distinguish it from a faithful encoding, and FaVe+NetPlumber reports 11 of 72 unreachable on the same inputs. Also worth a line pointing at the recorded artifacts (`eval/ad6_i2_*.json`, all `faithful_vlan: false`) so the mode a result was produced in is not lost. Note line 132 stamps `"faithful_vlan": False` into every result record — that stays correct, and becomes load-bearing once faithful runs exist alongside plain ones.
+- [ ] **Add the switch and the selector the experiment needs:** a `faithful_vlan` flag (line 101 hardcodes `False`; `Ad6Adapter` already takes the parameter) and an explicit pair-list selector (`--pair-filter` only does self/exclude-self).
+- [ ] **Then, regardless of that outcome: extend `test_backend_differential` to wl_i2.** It is currently `_PREFIX = "bench/wl_ifi"` only, which is how a three-backend "agreement" stood with one backend never compared.
+- **Do NOT close this by trusting the majority.** Two backends agreeing while both relax the same dimension is not independent confirmation; it is the same simplification counted twice.
+
+#### Then the gate itself
+- [ ] **Make `bench` fail on a wrong verdict.** Compare the verdict (better: the structured compliance events, not the rendered `report.md`) against an expectation and exit non-zero on mismatch — the `backend_gate.py` "a skip is NOT a pass" principle applied to verdicts. Wire into `test.sh run_bench` so CI cannot pass the tier vacuously.
+- **The expectation has to be BUILT first; `reachable.json` will not do.** As above it is the policy, is tautologically equal to `checks.json`, and being all-reachable it cannot catch over-approximation — gating on it would certify a relaxed backend as correct. What is needed is a set containing **expected-UNREACHABLE pairs**, from one of: (a) a faithful hand-derived expectation for a small induced sub-topology — the approach `subset_check.py` describes for wl_stanford (`APKEEP_BACKEND.md:586`), though note that file is **not in the tree**, so it would have to be written; (b) cross-backend *agreement* as the invariant, with all backends in their FAITHFUL modes (agreement between relaxed modes is worthless — see the 11-pair finding); or (c) the policy plus a separately-verified data-plane reachability result, which for wl_i2 does not currently exist.
+- **Do not gate on either current output.** Pinning the bench path's 35 or the in-process 11 would freeze an unexplained answer into the suite. Root-cause first, then gate.
 
 ### 2. Make linting gate the pipeline — DONE (pending user review + a real CI run)
 - [x] **`lint_test.sh` gates on pylint ERROR/FATAL only** (style reported, non-gating; exit-bit `RC&3`). Verified categorization (undefined-var → gate fail; convention-only → no gate). IGNORE additions: `examples/demo_slicing.py` (stale demo, 89 findings) and `util/dynamic_distribution.py` (orphaned, built on `asyncore` which is removed in 3.12 — every importer is commented out; needs an `asyncio`/`selectors` port to revive). Reuses existing `fave/.pylintrc` via `--rcfile`.
@@ -374,7 +530,9 @@ Both surfaced by `OracleTest` against the concrete-packet oracle, fixed in `src/
 #### Runtime-robustness findings (surfaced validating e2e/bench, 2026-06-26)
 Real fragilities (match the author's "past deadlocks" experience); the lib backends' from-zero/in-process/no-Reporter design avoids both:
 - [ ] **Aggregator deadlocks on backend death.** When `net_plumber` dies mid-run, the aggregator blocks forever in `poll()` (confirmed via `/proc/<pid>/wchan`) instead of erroring. Here net_plumber was killed by log4cxx `ENOSPC` when its verbose `DEBUG`/`DefaultProbeLogger` output filled the 63 MB `/dev/shm` tmpfs. Add peer-disconnect detection / an RPC timeout. (Also: `net_plumber` logs at `DEBUG` by default — `Log4cxxConfig.conf rootLogger=DEBUG`; the probe-activation spam is the bulk and is pure noise for the verdict.)
+  - **CONFIRMED 2026-09-09 (with one correction), while measuring item 1r.** Reproduced verbatim: wl_i2's `net_plumber` died with `terminate called after throwing an instance of 'log4cxx::helpers::IOException' / what(): IO Exception : status code = 28(No space left on device)` after filling the 63 MB `/dev/shm` — ~2.5 min into a run that `benchmark.py` had *already exited rc=0* from, so nothing noticed. An orphaned backend from a separate failed run was then caught blocked in `poll()` having used **0.02 s of CPU in 6 min** (`wchan=poll_schedule_timeout`), matching the deadlock description exactly. **Correction to the DEBUG note:** the *bench* configs are not at DEBUG — `bench/wl_{up,tum,stanford,i2}/np.conf` all set `log4j.rootLogger=INFO`, and `DefaultProbeLogger=INFO,Event` still floods: wl_i2 alone writes **134 MB** of logs, i.e. INFO is already >2x the tmpfs. The `rootLogger=DEBUG` observation applies to `Log4cxxConfig.conf` (the default/e2e config), not to the bench tier — so quieting the bench tier needs the `Event`/`stdout` appenders addressed, not just a root level change.
 - [ ] **Benchmark teardown doesn't reap `net_plumber` on a workload's failure path** → the socket/port (`/dev/shm/np1.socket`, TCP 44000) stay bound → next workload fails `EADDRINUSE` ("could not connect to fave"). Even on the success path there's a transient EADDRINUSE between consecutive workloads (swallowed). Teardown should kill the backend unconditionally + wait for socket release.
+  - **CONFIRMED 2026-09-09, while measuring item 1r.** Skipping the inter-workload cleanup once reproduced the cascade exactly: a leftover `/dev/shm/np_aggregator.socket` → `aggregator/aggregator_service.py:280 OSError: [Errno 98] Address already in use` → `util/aggregator_utils.py:63 Exception: could not connect to fave`, and the workload died in `_initialization`. Note `test.sh`'s `run_bench` does **not** clean between workloads, so per-workload timings are unobtainable without adding a cleanup step (the item-1r measurements had to add one; the interference is reported there rather than hidden). Orphans also accumulate: ~78 unreaped `[net_plumber] <defunct>` entries built up across runs — the orphaning is FaVe's, the non-reaping is the sandbox's (PID 1 there is `claude`, which does not reap). **NB for whoever writes the fix:** a `kill -0` or bare `pgrep -f` liveness check is useless here — both succeed on a zombie, so a teardown watchdog must filter on process STATE (`ps -eo stat` / `$1 !~ /^Z/`) or it will wait forever on a dead backend.
   - **Sandbox `/dev/shm` note:** the container's `/dev/shm` is 63 MB and **cannot be enlarged** (`mount -o remount`/`--bind` denied). Workaround used to run e2e/bench here: symlink `/dev/shm/np → /var/tmp/np_logs` (disk); survives the benchmark's `rm -rf /dev/shm/np/*`; sockets stay in `/dev/shm/` root. Not committed (env-only).
 - [x] **Eager PyBison parser build caused two CI failures — FIXED `60a9686c` (lazy parser).** First real CI run (76209624362): gating **fast** job died `ModuleNotFoundError: No module named 'bison'` (test_aggregator → aggregator_service → topology → parser_singleton built the parser at import; fast job has no pybison); the non-gating **e2e** smoke `example.sh` **segfaulted** building the parser (`tmp.tab.c: unterminated #ifndef` — a truncated generated file) → switch never added (`KeyError: 'sw0.2'`) → 12 flow checks failed. Root cause = `parser_singleton` built the PyBison `IP6TablesParser` *eagerly at import*: the background aggregator built it at startup **concurrently** with the switch `topology.py` client, both writing fixed-name `tmp.y`/`tmp.tab.c` in the same cwd → race → corruption → segfault. Fix = lazy proxy: the parser builds only on first `PARSER.parse(...)`. The aggregator never parses (it gets already-parsed models) and only `packet_filter` clients parse, so at most one sequential build remains — race structurally impossible. Verified: fast 270@81%, full e2e green locally (example flow checks ok). **Residual risk:** PyBison writes fixed-name tmp files to cwd, so any *future* concurrent parser build (parallel benchmarks, a new parsing device type alongside a parsing aggregator) could re-race; a robust fix would isolate PyBison's build dir per process.
   - [x] **Build integration — DONE (2026-06-26).** `pybind11-dev` added to the CI composite (`setup-fave-native`), Dockerfile, and `net_plumber/setup-ubuntu.sh` (`+python3-dev`); `liblog4cxx-dev`/`flex`/`bison` were already present. NetPlumber now built `DEBUG_FLAGS=-fPIC` in the composite + Dockerfile (PIC objects link both the executable and the `.so`; tests unaffected), then `LIBNP_ASSUME_PIC=1 build_libnetplumber.sh` builds the module. `.so` imported off `sys.path` via `lib_adapter.py` (import-safe when absent; equivalence test `skipIf`s). Full clean sequence (`-fPIC` build → `.so` → equivalence test) validated locally. **Needs a real CI run to confirm** (like other CI changes). **P1 COMPLETE.**
@@ -633,7 +791,7 @@ The remaining gap was the three modules exercised only by uncaptured e2e subproc
 ## Suggested order of work
 
 1. ~~Item **1** (Python 3)~~ ✅ · ~~Item **1b** (`test.sh` runner)~~ ✅ · ~~Items **4, 5**~~ ✅ (absorbed by 1b) · Item **3** mostly ✅.
-2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint).
+2. Item **0** (GitHub CI migration) — now thin: jobs just call `./test.sh <tier>`. Plus item **2** (gating lint). Items **1r** (done) and **1s** (open — the `bench` verdict gate, plus a grounded wl_i2 discrepancy to root-cause first) belong here too: it is the one *gating-validity* defect left in the tier design (the `bench` tier currently cannot fail on a wrong verdict), and it blocks item 0's `bench` validation.
 3. Item **1c** (triage quarantined `test_grammar`) and item **6** (mypy) — structural.
 4. Items **7–8** (deeper, verification-specific — `net_plumber/` C++ backend). Item **7** is planned in [`TESTING_STRATEGY_CXX.md`](TESTING_STRATEGY_CXX.md). **Done so far:** bug regressions #C1/#C2/#C3, the P0 header-space oracle/law harness (found+fixed engine bugs #C4/#C5), P1 orchestrator API contract tests, and P2 conditions/RPC-parser tests (found+fixed RPC crash #C6); `net_plumber --test` → OK (117). **All planned C++ hardening items are now done** (bug regressions #C1–#C8, the P0 oracle, P1 API contracts, P2 conditions/RPC + the depth guard + `check_compliance` hardening, the probe-transition de-chaining, the `sanitizers` job, and the `coverage-cxx` job). `net_plumber --test` → OK (118), clean under ASan+UBSan+LSan. *(Remaining ideas, optional/future: the `test_routing_remove_*` / `test_*_probe` tests still chain among themselves — only the probe-transition→routing cascade was addressed; a coverage ratchet ("must not drop") could later gate `coverage-cxx`; the engine `array.c`/`hs.c` line coverage is low (~12-14%) and could be raised by extending the oracle's law/scenario coverage.)*
 5. Item **9** — expand the `fave/` + `policy_translator/` Python test coverage per [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md) (the user's stated next phase). Start with the `__eq__` foundation fixes + P0.

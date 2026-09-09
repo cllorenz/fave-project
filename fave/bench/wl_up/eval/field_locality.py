@@ -191,6 +191,10 @@ def main():
     field_use = collections.Counter()
     combo = collections.Counter()
 
+    # `rules` comes from CAPTURED (filled by the capture hooks above) and is
+    # None-guarded at the top of this function; pylint infers the `None` from
+    # the initializer literal (false positive).
+    # pylint: disable-next=not-an-iterable
     for r in rules:
         role, fields = classify(r)
         role_hist[role] += 1

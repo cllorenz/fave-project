@@ -11,7 +11,13 @@ bench/wl_i2/reach.csv
 bench/wl_i2/i2-json/*.json
 
 bench/wl_stanford/reach.csv
-bench/wl_stanford/checks.json
+# Blanket, like every other workload above -- enumerating a single filename left
+# the OTHER two generated artifacts (cchecks.json and the reachable.json ORACLE)
+# visible as untracked, so running the integration tier dirtied the tree and a
+# locally generated oracle was one `git add .` away from being committed. A
+# single `*` does not cross `/`, so the tracked JSON under eval/ and
+# stanford-json/ is unaffected.
+bench/wl_stanford/*.json
 bench/wl_stanford/stanford-json/*.json
 
 bench/wl_ifi/convert.sh

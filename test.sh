@@ -65,12 +65,23 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ad6_wl_stanford.py # full 256-query differential vs a libnetplumber worker; opt-in (AD6_STANFORD_FULL_DIFFERENTIAL), so normally skips here
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
 )
+# Also integration-tier, but these must run in their OWN pytest process. JPype
+# allows exactly one JVM per process and APKeep holds its network in Java static
+# fields, so an APKeep test earlier in the same process leaves the shared heap
+# too full for the NDD engine to build its diagrams -- co-running them dies with
+# `java.lang.OutOfMemoryError: Java heap space` (default JVM heap is ~1/4 of RAM;
+# ~4 GB on a 16 GB CI runner). A fresh JVM per engine is the robust split; raising
+# FAVE_JVM_XMX only moves the wall. Both are gated by FAVE_REQUIRE_BACKENDS.
+FAVE_NDD_TESTS=(
+    test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar)
+    test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
+)
 FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_rpc.py
     test/test_lib_equivalence.py  # libnetplumber vs net_plumber-RPC (skips if .so unbuilt)
 )
 # Everything excluded from the fast tier (pure-Python discovery ignores these).
-FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
+FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_NDD_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
 # -p` runs from different CWDs (repo root for the policy_translator step, fave/
@@ -153,13 +164,16 @@ run_integration() {
     echo "== integration: APKeep build + bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
 
-    # Build the NDD fat jar too. Nothing in THIS tier consumes it today --
-    # lib_ndd.py's tests (test_apkeep_ndd_{fwd,wlup}.py) sit in the `fast`
-    # tier -- but this is the only tier carrying the JDK/Maven toolchain, so
-    # it is the only place the jar can come from in a clean checkout. Built
-    # here so the backend stack is reproducible rather than hand-made; see
-    # fave/test/ndd_build.sh for why it is a separately-invocable script.
-    echo "== integration: NDD build =="
+    # The NDD engine is a SECOND backend jar, built from its own pom -- apkeep_smoke.sh
+    # builds only the APKeep jar. Without it `apkeep.lib_ndd.available()` is false and
+    # both NDD tests would skip (or, under FAVE_REQUIRE_BACKENDS=1, fail the gate).
+    # Kept as a script rather than an inline `mvn`: fave/test/ndd_build.sh pins
+    # JAVA_HOME to java-11 exactly as apkeep_smoke.sh does (so both jars come from one
+    # toolchain), guards mvn/java/pom up front with a readable message instead of a raw
+    # Maven error, and asserts the jar actually appeared -- `mvn -q` can exit 0 having
+    # produced nothing usable. Being separately invocable also matters when rebuilding
+    # just this jar.
+    echo "== integration: NDD engine jar (for test_apkeep_ndd_*) =="
     bash "$ROOT/fave/test/ndd_build.sh" || rc=1
 
     # Generate the wl_ifi benchmark inputs (gitignored artifacts) the APKeep
@@ -184,15 +198,22 @@ run_integration() {
     echo "== integration: generate wl_tum inputs (for test_apkeep_tum) =="
     bash "$ROOT/fave/test/gen_wl_tum_inputs.sh" || rc=1
 
-    # Generate the wl_up inputs (synthetic campus model + per-host rulesets) for
-    # the ad6 wl_up translator test; from tracked sources, no live backend.
-    # Required, not optional: under FAVE_REQUIRE_BACKENDS=1 a missing generated
-    # input is a hard failure (test/backend_gate.py), not a skip.
-    echo "== integration: generate wl_up inputs (for test_ad6_wl_up) =="
+    # Generate the wl_up inputs -- the device-model JSON (topology/sources/routes/
+    # policies) AND the per-host ip6tables rulesets -- from the tracked generators, no
+    # live backend. TWO consumers in this tier now: test_ad6_wl_up.py (rulesets ->
+    # iptables/parser.py -> pybison) and test_apkeep_ndd_wlup.py (model JSON, checked
+    # against the tracked frozen BDD matrix, not reachable.json). Required, not
+    # optional: under FAVE_REQUIRE_BACKENDS=1 a missing generated input is a hard
+    # failure (test/backend_gate.py), not a skip.
+    echo "== integration: generate wl_up inputs (for test_ad6_wl_up, test_apkeep_ndd_wlup) =="
     bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
 
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
+
+    # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS).
+    echo "== integration: NDD engine tests (own JVM) =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
 
     return $rc
 }

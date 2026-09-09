@@ -24,6 +24,7 @@ import json
 
 
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
+from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 
@@ -85,8 +86,21 @@ if __name__ == '__main__':
 
     fave.setblocking(1)
 
+    # Guard the request with a barrier and BLOCK on it (TODO.md item 1r):
+    # posting a check and exiting only proves FaVe accepted it, so the caller
+    # would go on to read a verdict that does not exist yet. Because this runs
+    # as a subprocess, waiting here is what makes the benchmark's `_compliance`
+    # phase actually mean "compliance has been checked".
+    guard = barrier.arm()
+
     fave_sendmsg(
-        fave, json.dumps({'type' : 'check_compliance', 'rules' : rules})
+        fave, json.dumps({
+            'type' : 'check_compliance', 'rules' : rules, 'barrier' : guard
+        })
     )
 
     fave.close()
+
+    # No timeout: waits while FaVe is provably alive, fails the moment it is
+    # not. See util/barrier.py for why a wall-clock deadline is unusable here.
+    barrier.wait(guard)

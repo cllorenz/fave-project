@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 import threading
 
@@ -62,7 +63,44 @@ class Reporter(threading.Thread):
         self.last_anomalies = 0
         self.stop_reporter = False
         self.fave = fave
+        self.np_log_path = np_log
         self.np_log = open(np_log, 'r')
+        # Bytes of np_log this tailer has actually consumed; compared against
+        # the file size by `drain()`.
+        self.consumed = self.np_log.tell()
+
+
+    def drain(self, poll: float = 0.01) -> None:
+        """ Block until this tailer has consumed everything net_plumber wrote.
+
+        `dump_report` renders `self.events`, which `run()` parses out of
+        net_plumber's log on a separate thread. Rendering before that thread has
+        caught up would yield a PARTIAL verdict, so the ordering has to be
+        forced rather than assumed.
+
+        This closes a LATENT race, not an observed failure: on the measured
+        wl_i2 run the tailer was already at EOF (this returned in <1 ms) because
+        the 339 s model build gave it ample slack. A faster engine, a larger
+        log, or a slower parse would remove that slack, and nothing else in the
+        pipeline orders the two.
+
+        Terminating ONLY because the caller has already passed the request
+        barrier for the compliance/anomaly check, and those RPCs are synchronous
+        down to net_plumber (`jsonrpc._asend_recv`): the writer has stopped and
+        the file has a final size, so this converges. Do not call it while the
+        engine is still producing events.
+
+        Like the barrier itself, it waits on evidence (bytes remaining) rather
+        than on a clock -- there is no timeout.
+        """
+        while not self.stop_reporter:
+            try:
+                size = os.path.getsize(self.np_log_path)
+            except OSError:
+                return
+            if self.consumed >= size:
+                return
+            time.sleep(poll)
 
 
     def dump_report(self, dump: str) -> None:
@@ -159,6 +197,8 @@ class Reporter(threading.Thread):
             if not raw_line:
                 time.sleep(0.001)
                 continue
+
+            self.consumed = self.np_log.tell()
 
             # parse line
             tokens = raw_line.rstrip().split()

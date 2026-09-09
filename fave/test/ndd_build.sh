@@ -9,14 +9,18 @@
 # gates on -- the Python-side differential tests are (test_apkeep_ndd_fwd.py,
 # test_apkeep_ndd_wlup.py).
 #
-# Kept as its own script, rather than inlined in test.sh, for the same reason
-# apkeep_smoke.sh is: the tests that CONSUME this jar currently live in the
-# `fast` tier, whose environment deliberately has no JDK/Maven at all (see
-# .github/actions/setup-fave-native's own note -- pybison and JPype1 are
-# integration-only and stay out of requirements.txt so `fast` remains pure
-# Python). So `integration` is the only tier that can build it, and anyone who
-# wants those tests to actually run rather than skip needs to be able to invoke
-# this one step on its own.
+# Kept as its own script, rather than inlined in test.sh, for the same reasons
+# apkeep_smoke.sh is: it pins JAVA_HOME to java-11 so both backend jars come from
+# one toolchain, guards mvn/java/pom up front with a readable message rather than a
+# raw Maven error, asserts the jar actually appeared (`mvn -q` can exit 0 having
+# produced nothing usable), and stays separately invocable for rebuilding just this
+# jar.
+#
+# Its consumers (test_apkeep_ndd_fwd.py, test_apkeep_ndd_wlup.py) run in the
+# `integration` tier, in their own pytest process -- see FAVE_NDD_TESTS in test.sh
+# for why they need a fresh JVM. They used to sit in the `fast` tier, whose
+# environment deliberately has no JDK/Maven/JPype at all, which is why this script
+# exists as the one place the jar can come from in a clean checkout.
 #
 # Usage:    bash fave/test/ndd_build.sh
 # Requires: JDK 11 + Maven (same toolchain as apkeep_smoke.sh).
