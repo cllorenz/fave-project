@@ -153,6 +153,15 @@ run_integration() {
     echo "== integration: APKeep build + bundled-Stanford golden pin =="
     bash "$ROOT/fave/test/apkeep_smoke.sh" || rc=1
 
+    # Build the NDD fat jar too. Nothing in THIS tier consumes it today --
+    # lib_ndd.py's tests (test_apkeep_ndd_{fwd,wlup}.py) sit in the `fast`
+    # tier -- but this is the only tier carrying the JDK/Maven toolchain, so
+    # it is the only place the jar can come from in a clean checkout. Built
+    # here so the backend stack is reproducible rather than hand-made; see
+    # fave/test/ndd_build.sh for why it is a separately-invocable script.
+    echo "== integration: NDD build =="
+    bash "$ROOT/fave/test/ndd_build.sh" || rc=1
+
     # Generate the wl_ifi benchmark inputs (gitignored artifacts) the APKeep
     # wl_ifi test consumes -- a clean checkout has none, and the integration tier
     # runs no live benchmark. Regenerated from tracked inputs (no backend).
