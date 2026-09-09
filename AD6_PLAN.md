@@ -1811,7 +1811,16 @@ corrected directly — see §4.4.)
   `bench/ad6_i2_measure.py` gained `--faithful-vlan`, `--probe-untag`, `--pairs
   SRC>PROBE,...` and `--dry-run`; its module docstring now carries the whole recipe
   (dry-run -> control-only probe -> untag off -> untag on) plus how to read each
-  outcome, so the run does not depend on this document being open. Built test-first:
+  outcome, so the run does not depend on this document being open. **The recipe
+  requires `--lite-acyclic`** -- found when the control run was actually launched, and
+  a genuine gap in the first version of the recipe: the general
+  `_CreateAcyclicConstraints` does not complete on i2 (one giant non-trivial SCC over
+  99.3% of nodes, so it never gets wl_stanford's "orders of magnitude" cut), the lite
+  path emits the identical clause set (`testAcyclicRankConstraintLiteMatchesGeneral\
+Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: true`,
+  so it is also what keeps a faithful run comparable with the plain figures. The
+  flag's own "EXPERIMENTAL, opt-in only" help text is about not promoting it to a
+  default path, not about avoiding it here. Built test-first:
   `fave/test/test_ad6_i2_measure.py`, 34 `fast`-tier tests, confirmed failing
   beforehand.
   **Three guards, each against a silent wrong answer rather than a crash.** (1) An
@@ -1840,11 +1849,34 @@ corrected directly — see §4.4.)
   reproducible), faithful `out_rw_rewrites: 77451`, both faithful modes resolving the
   three pairs in ~6-8 s at ~257 MB, and the untag confirmed as **12 all-negated per-bit
   literals** on each probe's `probe_fanout_probe_<role>` aggregate.
-  **Still open before a verdict:** the memory envelope. Plain-mode `peak_rss_mb` is
-  13,432 MB and is build/DIMACS-dominated (hence query-count-independent), and the
-  faithful encoding adds mutation constraints on top, so an OOM before the first query
-  remains live even on the raised 20 GB box -- which is what the control-only step (b)
-  and the per-phase RSS checkpoints exist to surface cheaply. Note also that the
+  **MEMORY ENVELOPE MEASURED 2026-09-09 (control-only step (b), sandbox, 20 GB box) --
+  the faithful encoding does NOT fit as the script stands, and the reason is a fixable
+  one.** Run: `--faithful-vlan --lite-acyclic --pairs hous>salt,... --max-queries 1
+  --solver cadical195`. It was stopped deliberately at `acyclic_constraints_built`
+  (t=750 s) with 18,067 MB RESIDENT (not a high-water artefact -- a 5 s `ps` sampler
+  confirms current RSS) against 18,367 MB available, with DIMACS conversion and solver
+  bootstrap still ahead; those two cost plain mode +5.2 GB, so the run needed ~23-24 GB.
+  **What faithful mode does and does not add** -- at the same phase, `kripke_nodes` is
+  IDENTICAL (78,078) and `acyclic_extra_clauses` is IDENTICAL (14,201,913), so the
+  graph and the acyclic clause set are untouched; the entire delta is
+  `_CreateMutationConstraints` (12 VLAN bits x 78,078 nodes of per-node SSA copies plus
+  frame axioms): `build_s` 358 -> 700 s, and pre-DIMACS resident 8,271 -> 18,067 MB.
+  **The 5 s RSS trajectory decomposes the +10.2 GB climb into two halves, and the first
+  is avoidable.** t=706->725 s, `combined = deepcopy(encoding)` in `measure()`:
+  **+5.4 GB**. t=725->750 s, the lite acyclic step's 14.2M clause tuples: +4.8 GB. That
+  deepcopy is dead weight -- it is immediately followed by `del encoding`,
+  `instantiate_base` returns a fresh per-call lxml tree that nothing else references,
+  and on the `--lite-acyclic` path `combined` is never mutated at all (lite clauses are
+  kept separate and resolved to DIMACS ints after the base encoding's index exists), so
+  `combined = encoding` is semantically identical. It went unnoticed because in plain
+  mode the base encoding is small enough not to matter; faithful mode's mutation
+  constraints make it the largest object in the process. Removing it would put
+  pre-DIMACS resident near 12.7 GB and leave ~5.8 GB for DIMACS + bootstrap, i.e.
+  plausibly INSIDE the 20 GB box -- **estimated, not yet measured**, and the faithful
+  instance's own larger variable/clause count will push that delta above plain's
+  5.2 GB. Note the same function does `combined[0].extend(deepcopy(acyclic_constraints))`
+  on the non-lite path, a second unnecessary copy, irrelevant on i2 only because i2
+  cannot use that path. Note also that the
   cross-cutting ENVIRONMENT GUARDRAIL binds the TIMINGS, not the verdicts: SAT/UNSAT is
   what this experiment is for and is environment-independent, so a sandboxed run can
   decide C3 even though its wall-clock figures would not be quotable.

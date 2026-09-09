@@ -312,13 +312,21 @@ class TestCli(unittest.TestCase):
 
     def test_the_full_experiment_command_line_is_accepted(self):
         """ The untag-OFF run, exactly as AD6_PLAN.md §5.5 prescribes it:
-        faithful, untag off, the three pairs, per-query checkpoints. """
+        faithful, untag off, the three pairs, per-query checkpoints.
+
+        `--lite-acyclic` is part of the recipe and not an optimisation:
+        the general `_CreateAcyclicConstraints` does not complete on i2 (one
+        giant SCC over 99.3% of nodes), the lite path emits the identical
+        clause set, and all four recorded i2 artifacts carry
+        `lite_acyclic: true` -- so it is also what keeps a faithful run
+        comparable with the plain figures. """
         kwargs = self._measure_kwargs([
-            '--faithful-vlan', '--pairs', _EXPERIMENT,
+            '--faithful-vlan', '--lite-acyclic', '--pairs', _EXPERIMENT,
             '--solver', 'cadical195', '--checkpoint-every', '1',
             '--out', 'i2_faithful_untag_off.json'])
         self.assertTrue(kwargs['faithful_vlan'])
         self.assertFalse(kwargs['probe_untag'])
+        self.assertTrue(kwargs['lite_acyclic'])
         self.assertEqual(kwargs['pairs'], _EXPERIMENT)
         self.assertEqual(kwargs['solver_name'], 'cadical195')
         self.assertEqual(kwargs['checkpoint_every'], 1)

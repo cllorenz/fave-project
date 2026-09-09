@@ -98,19 +98,35 @@ Recipe, cheapest step first (from fave/, PYTHONPATH=., venv active):
 
   # b. the control ALONE -- proves the faithful model builds and solves at
   #    all, before either discriminator's unknown-cost UNSAT is committed to.
-  python3 bench/ad6_i2_measure.py --faithful-vlan \\
+  python3 bench/ad6_i2_measure.py --faithful-vlan --lite-acyclic \\
       --pairs hous>salt,chic>salt,chic>seat --max-queries 1 \\
       --solver cadical195 --checkpoint-every 1 --out i2_faithful_control.json
 
   # c. the experiment, untag OFF -- the like-for-like run.
-  python3 bench/ad6_i2_measure.py --faithful-vlan \\
+  python3 bench/ad6_i2_measure.py --faithful-vlan --lite-acyclic \\
       --pairs hous>salt,chic>salt,chic>seat \\
       --solver cadical195 --checkpoint-every 1 --out i2_faithful_untag_off.json
 
   # d. the same three queries with the untag ON -- the deliberate delta.
-  python3 bench/ad6_i2_measure.py --faithful-vlan --probe-untag \\
+  python3 bench/ad6_i2_measure.py --faithful-vlan --probe-untag --lite-acyclic \\
       --pairs hous>salt,chic>salt,chic>seat \\
       --solver cadical195 --checkpoint-every 1 --out i2_faithful_untag_on.json
+
+`--lite-acyclic` IS REQUIRED ON i2, notwithstanding the flag's own
+"EXPERIMENTAL, opt-in only" help text -- that wording is about not promoting
+it to a default path, not about avoiding it here. The general
+`_CreateAcyclicConstraints` does not complete on i2 in this environment (it
+had not finished after 7-14 min: i2's Kripke graph is one giant non-trivial
+SCC covering 99.3% of nodes, so it never gets the "orders of magnitude" cut
+that makes the general encoding affordable on wl_stanford), and its per-edge
+lxml/Tseitin machinery retains ~0.14-0.18 MB/edge on top. The lite path emits
+the IDENTICAL clause set -- pinned by
+`testAcyclicRankConstraintLiteMatchesGeneralEncoding` -- in ~15-21 s, and it
+is what EVERY recorded i2 artifact was produced with (`lite_acyclic: true` in
+all four of `bench/wl_i2/eval/ad6_i2_*.json`), so it is also the choice that
+keeps a faithful run comparable with the plain figures. Do NOT reach for
+`--skip-acyclic` instead: that drops the floating-cycle soundness fix
+altogether and is orientation-only.
 
 Reading the outcome of (c). `hous->salt` is the agreement control (both
 engines call it reachable; 1.11 s in plain mode, the fastest of the 72).
@@ -132,10 +148,17 @@ never exercised and whose cost is unknown. Fixed cost is ~405 s per run
 regardless of query count, and the recorded per-query spread is 1.11 s to
 1688.8 s, so do not extrapolate a full-set runtime from three queries drawn
 deliberately from the fast tail. Memory is build/DIMACS-dominated and
-therefore query-count-INDEPENDENT: plain-mode `peak_rss_mb` is 13,432 MB and
-the faithful encoding adds mutation constraints on top, so an OOM before the
-first query is a live possibility even on the raised (20 GB) box. RSS is
-checkpointed after every phase; a killed run leaves a usable partial result.
+therefore query-count-INDEPENDENT, and on a 20 GB box the faithful encoding
+DOES NOT FIT as this script stands -- measured 2026-09-09 by step (b), which
+reached `acyclic_constraints_built` at 18,067 MB RESIDENT with DIMACS
+conversion and solver bootstrap (plain: +5.2 GB) still ahead. The graph is
+unchanged (`kripke_nodes` 78,078 and `acyclic_extra_clauses` 14,201,913 in
+BOTH modes); the whole delta is `_CreateMutationConstraints`, which takes
+`build_s` from 358 to 700 s and pre-DIMACS resident from 8,271 to 18,067 MB.
+Of that climb +5.4 GB is the `combined = deepcopy(encoding)` below -- dead
+weight on this path, see its own comment -- so removing it may bring the run
+inside 20 GB. Full trajectory: AD6_PLAN.md Sec 5.5. RSS is checkpointed after
+every phase; a killed run leaves a usable partial result.
 
 Note the ENVIRONMENT GUARDRAIL below applies to the TIMINGS, not to the
 verdicts: SAT/UNSAT is what this experiment is for, and it is
