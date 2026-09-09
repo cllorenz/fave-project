@@ -323,10 +323,19 @@ share. **Decision needed before building anything.**
   1. NetPlumber (or the model as loaded) is wrong by 11 pairs, and ad6/APKeep are right.
   2. The i2 data plane genuinely does not provide all-to-all reachability under the faithful VLAN rewrite; **NetPlumber is the only backend strict enough to see it**, and ad6/APKeep miss it because they relax VLAN — invisibly, because the oracle has no expected-unreachable pairs. Relaxing a constraint can only ADD reachability, which is precisely how both land on 72/72.
   Reading 2 is consistent with every piece of evidence above, but is **not proven**: NetPlumber's own rewrite handling could equally be at fault, and nothing here rules that out.
-- **Cheapest discriminators (in order):**
-  - [ ] pick one failing pair (e.g. `chic → salt`) and ask, by hand or by a small script over `routes.json`, whether ANY dst prefix has a VLAN-consistent path — i.e. an LPM path whose per-hop `rw=vlan:V` is admitted by the next hop's in-stage rule for that in-port. A definitive yes/no on one pair settles the direction;
-  - [ ] re-run ad6 on i2 in **faithful** mode and see whether it drops from 72 to 61. `Ad6Adapter(log, faithful_vlan=...)` supports it, but `bench/ad6_i2_measure.py:101` **hardcodes `faithful_vlan=False`**, and its docstring gives the reason: *"whether faithful-VLAN modelling is even needed for i2 is gated on whether plain mode already matches the oracle, so this script never turns faithful_vlan on"*. **That inference is exactly what the all-reachable-oracle defect breaks** — plain mode matching an all-reachable oracle is guaranteed by construction and therefore cannot license skipping faithful mode. So AD6_PLAN §5.5 C3's "is faithful VLAN needed for i2?" is currently answered on invalid grounds, and the 11-pair NetPlumber result is direct evidence that it DOES change the answer. Re-opening C3 is part of this item;
-  - [ ] extend `test_backend_differential` to wl_i2 so this pairing is tested at all — it is currently wl_ifi-only, which is why a 3-backend "agreement" could stand with one backend never compared.
+- [ ] **DECIDED 2026-09-09 (owner): run the FULL faithful i2 model with three queries.** Recorded in [`AD6_PLAN.md`](AD6_PLAN.md) §5.5 "C3 REOPENED" with the full rationale, risks and prerequisites; that is the primary home, this is the pointer. Induced sub-topologies were **considered and rejected for now**: a subset removes paths, so an UNSAT there would not prove unreachability in the full model, and the owner chose not to introduce that error potential before trying the real thing. Query set, drawn from the recorded Cadical195 `query_log`:
+
+  | query | ad6 plain | NetPlumber | role |
+  |---|---:|---|---|
+  | `source.hous → probe.salt` | 1.11 s (fastest of 72) | reachable | agreement control |
+  | `source.chic → probe.salt` | 3.43 s | **unreachable** | discriminator |
+  | `source.chic → probe.seat` | 4.50 s | **unreachable** | discriminator |
+
+  Outcome decides C3: if ad6-faithful also reports the two discriminators unreachable, plain mode is insufficient for i2 (C3 NO-GO, C4 on) and NetPlumber's 11 are corroborated. If it still reports them reachable, the disagreement localises to one engine and must be root-caused before either is trusted.
+  **Environment:** the box is being raised **16 GB → 20 GB** for this run (owner, 2026-09-09) — plain-mode `peak_rss_mb` is 13,432 MB and is build/DIMACS-dominated, so it is query-count-INDEPENDENT and the faithful encoding will exceed it. Instrument RSS; an OOM before the first query is a live possibility even at 20 GB.
+  **Read the result with these caveats:** all 72 recorded ad6 queries are `sat: true`, so every recorded time is a SAT time and a lower bound — the two discriminators are expected to flip to UNSAT, a regime this workload has never exercised and whose cost is unknown. Fixed cost is ~405 s per run regardless of query count. Do not extrapolate full-set runtime from three queries drawn deliberately from the fast tail (recorded spread: 1.11 s to 1688.8 s).
+  **Prerequisites:** `bench/ad6_i2_measure.py:101` hardcodes `faithful_vlan=False` (and its docstring cites the invalid inference — fix the comment too); `--pair-filter` only does self/exclude-self, so an explicit pair-list selector is needed.
+- [ ] **Then, regardless of that outcome: extend `test_backend_differential` to wl_i2.** It is currently `_PREFIX = "bench/wl_ifi"` only, which is how a three-backend "agreement" stood with one backend never compared.
 - **Do NOT close this by trusting the majority.** Two backends agreeing while both relax the same dimension is not independent confirmation; it is the same simplification counted twice.
 
 #### Then the gate itself
