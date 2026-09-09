@@ -83,6 +83,9 @@ def main(out_path):
         dev, prt = _split_port(port)
         probes[name] = {"dev": dev, "port": prt}
 
+    # CAP is populated at runtime by the _fake_init capture hook above;
+    # pylint infers the `None` from the initializer literal (false positive).
+    # pylint: disable-next=not-an-iterable
     edges = [e.split() for e in CAP["edges"]]
 
     dump = {"rules": CAP["rules"], "edges": edges,
