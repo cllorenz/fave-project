@@ -457,9 +457,55 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
 
         result["skip_acyclic"] = skip_acyclic
         result["lite_acyclic"] = lite_acyclic
-        combined = deepcopy(encoding)
+        # MEASURED DEAD WEIGHT, 2026-09-09 -- the original line is kept
+        # commented rather than deleted, because it is the one difference
+        # between this script's memory profile and that of every artifact in
+        # `bench/wl_i2/eval/`, and a reader comparing them needs to see it:
+        #
+        #     combined = deepcopy(encoding)
+        #
+        # It cost +5.4 GB of resident memory on the faithful i2 encoding (RSS
+        # trajectory t=706->725 s of the control run; full decomposition in
+        # AD6_PLAN.md §5.5's MEMORY ENVELOPE block) and bought nothing. Three
+        # facts make the copy unnecessary, and all three have to hold:
+        #
+        #  1. `encoding` is a FRESH per-call object -- `favemodel.instantiate_base`
+        #     builds it as `Instantiator._InstantiateBase(kripke)` and returns
+        #     it; it is not cached, not module state, and not shared with
+        #     `kripke` (which is the dict-based structure.py object, holding no
+        #     reference back into the lxml tree).
+        #  2. NOTHING else holds a reference. The `del encoding` below used to
+        #     drop the second name on a copy; now it drops the only other name
+        #     on the original, which is the same intent -- single owner from
+        #     here on -- and is why it is kept rather than removed.
+        #  3. On the `--lite-acyclic` path `combined` is never mutated at all:
+        #     `_CreateAcyclicConstraintsLite`'s clauses are deliberately kept
+        #     separate (they are plain (name, negated) tuples that cannot be
+        #     spliced into an lxml formula list) and are resolved to DIMACS
+        #     ints further down, after the base encoding's own index exists.
+        #     Only the general path does `combined[0].extend(...)`, and that
+        #     mutation is safe for the same reason (1)+(2) give: the tree it
+        #     mutates has exactly one owner.
+        #
+        # Why it went unnoticed: in PLAIN mode the base encoding is small
+        # enough that the copy is lost in the noise (plain's peak is reached
+        # later, at solver bootstrap). Faithful mode's
+        # `_CreateMutationConstraints` -- 12 VLAN bits x 78,078 nodes of
+        # per-node SSA copies plus frame axioms -- makes the encoding the
+        # largest object in the process, and doubling it the largest single
+        # allocation.
+        #
+        # The encoding itself is BYTE-IDENTICAL either way: this changes what
+        # is copied, never what is solved. `acyclic_extra_clauses`,
+        # `variable_count` and `clause_count` are the invariants to check
+        # against the recorded plain artifacts, and they must not move.
+        combined = encoding
         del encoding
         gc.collect()
+        # Quantifies the line above: with the deepcopy this read ~18.1 GB on
+        # the faithful encoding, and the DIMACS/bootstrap phases still to come
+        # cost plain mode +5.2 GB.
+        result["current_rss_after_encoding_handoff_mb"] = _current_rss_mb()
         lite_clauses = None
         if skip_acyclic:
             # AD6_PLAN.md §5.5 C1/C2 finding: i2's Kripke graph has one giant
