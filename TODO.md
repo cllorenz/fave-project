@@ -393,6 +393,45 @@ share. **Decision needed before building anything.**
 
 ---
 
+### 1v. Environment gaps rediscovered every container reset — DONE 2026-09-09
+- **Finding:** the `Dockerfile` installs every system dependency this project needs, but
+  a sandbox *not built from it* (a yolobox starts from its own base image) has none of
+  them — while a venv in a persistent `$HOME` survives a restart with all pip deps
+  intact. That asymmetry is what made the gap so costly: the Python half of the
+  environment looks healthy, so every symptom reads as a code regression. Three cost
+  real time this session alone, and two of them had already been diagnosed once before
+  (`ad6/FAVE_CHANGES.md` §24's environment note, `AD6_ENCODING_PLAN.md` §3.10's
+  `liblog4cxx` note) without the knowledge becoming reusable:
+  - `python3-dev` absent → pybison compiles its generated parser at **runtime**, that
+    compile fails on a missing `Python.h`, and pybison then **segfaults** with no
+    traceback, taking the whole pytest process down (`test_ad6_wl_up.py` dumps core).
+  - `liblog4cxx15` absent → `libnetplumber` fails to **load**, and the harness reports
+    "libnetplumber is not built; run `build_libnetplumber.sh`" although the `.so` is
+    present and correct. Points at the wrong fix; live-NetPlumber tests silently skip.
+  - `minisat`/`clasp` absent → `ad6 make test` shows four red suites with
+    `FileNotFoundError`. (`which minisat` printing nothing reads as success — check the
+    exit status.)
+  - Plus: `apt-get update` must run **first**, or install fails with "Unable to locate
+    package minisat", which reads like the package no longer exists.
+- [x] **`./test.sh doctor`** — a tier that runs no tests. It **parses the `Dockerfile`**
+  for the expected apt set (rather than duplicating the list, so the two cannot drift),
+  checks each package, every Python import, the native artifacts (`net_plumber` binary,
+  `libnetplumber` loadable) and the runtime limits, labels each finding with the tier it
+  blocks, and prints the exact repair command with `apt-get update` included. Import
+  probes run in their own interpreter so a pybison segfault cannot take the doctor down
+  with it. A Dockerfile package missing from the purpose table is reported as
+  `UNCLASSIFIED` rather than ignored, so the table cannot quietly fall behind.
+- [x] **`.yolobox.toml`** now declares the full package set in `[customize] packages`,
+  cross-checked against the Dockerfile, so a fresh sandbox starts complete.
+- [x] **README** — a "Checking the environment first" section with the three
+  misleading-symptom cases in a table.
+- **Effect, measured:** the `integration` tier went from *entirely unavailable* (pybison
+  segfault killed the process) to **51 passed / 2 skipped + 8 NDD tests**, and
+  `test_ad6_wl_up.py` from a core dump to 3 passed — with no code change, only container
+  repair. The doctor now reports "environment complete for every tier".
+
+---
+
 ## Medium priority — structural improvements
 
 ### 4. Add a dependency manifest — mostly DONE (item 1b)

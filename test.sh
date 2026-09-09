@@ -19,6 +19,12 @@
 #   ./test.sh bench         Large benchmarks (wl_up/wl_tum/wl_stanford/wl_i2).
 #                           CI / nightly only.
 #   ./test.sh all           fast + integration + e2e (excludes bench).
+#   ./test.sh doctor        Check the ENVIRONMENT, run no tests: which declared
+#                           dependencies are missing, which tier each one
+#                           blocks, and the exact command to repair it. Run
+#                           this FIRST in a fresh container -- a missing system
+#                           package usually surfaces as something that looks
+#                           unrelated (see the notes in run_doctor).
 #
 # Tier membership is decided by DEPENDENCY FOOTPRINT, not runtime:
 #   fast        = pure Python
@@ -238,6 +244,158 @@ run_bench() {
     return $rc
 }
 
+# ---- doctor -----------------------------------------------------------------
+
+# Which tier each apt package blocks. The Dockerfile is the single source of
+# truth for WHAT is needed (this parses it, rather than duplicating the list
+# and letting the two drift); this table only adds WHY. A Dockerfile package
+# missing from every bucket below is reported as unclassified rather than
+# silently ignored, so the table cannot quietly fall behind.
+apt_purpose() {
+    case "$1" in
+        bison|flex|m4|python3-dev|build-essential)
+            echo "integration (pybison native build + runtime parser compile)" ;;
+        libcppunit-1.15-0|libcppunit-dev)
+            echo "integration (NetPlumber C++ unit suites)" ;;
+        liblog4cxx15|liblog4cxx-dev|pybind11-dev)
+            echo "integration/e2e (libnetplumber pybind11 module)" ;;
+        openjdk-11-jdk-headless|maven)
+            echo "integration (APKeep backend: JVM + build)" ;;
+        minisat|clasp)
+            echo "ad6 (make test: solver adapters shell out to these binaries)" ;;
+        pandoc|texlive-latex-base|texlive-latex-recommended|texlive-fonts-recommended|lmodern|inkscape)
+            echo "bench (report.md -> report.pdf conversion)" ;;
+        pylint)
+            echo "lint gate (fave/test/lint_test.sh)" ;;
+        python3-coverage)
+            echo "COVERAGE=1 runs" ;;
+        python3-daemon)
+            echo "e2e (aggregator_service daemonisation)" ;;
+        apt-utils|wget|git|python3|python3-pip|python3-venv)
+            echo "base tooling" ;;
+        *)  echo "UNCLASSIFIED -- declared in Dockerfile, purpose not recorded in apt_purpose()" ;;
+    esac
+}
+
+# A python import check that CANNOT take the doctor down with it: pybison in
+# particular segfaults rather than raising (see run_doctor's notes), so every
+# probe runs in its own subshell/interpreter and only its exit status is read.
+check_import() {
+    local label="$1" module="$2" pypath="${3:-}" note="${4:-}"
+    if ( cd "$ROOT" && PYTHONPATH="$pypath" "$PYTHON" -c "import $module" ) >/dev/null 2>&1; then
+        printf '  [ok]      %-22s\n' "$label"
+    else
+        printf '  [MISSING] %-22s %s\n' "$label" "$note"
+        return 1
+    fi
+}
+
+run_doctor() {
+    local rc=0 missing_apt=() pkg status
+
+    echo "== env doctor: interpreter =="
+    printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
+    printf '  %s\n' "$("$PYTHON" --version 2>&1)"
+    if [ -z "${VIRTUAL_ENV:-}" ]; then
+        echo "  [warn]    no VIRTUAL_ENV set -- if imports below are missing, activate the venv"
+        echo "            (in this sandbox it is /home/yolo/.venv, NOT ./.venv: the README's"
+        echo "             ~/.venv resolves via \$HOME=/home/yolo while the project is"
+        echo "             mounted elsewhere, so the path is not under the checkout)"
+    fi
+
+    echo "== env doctor: python packages =="
+    check_import "pytest"      pytest                      "" "-> pip install -r requirements.txt   [every tier]" || rc=1
+    check_import "coverage"    coverage                     "" "-> pip install -r requirements.txt   [COVERAGE=1]" || rc=1
+    check_import "mypy"        mypy                         "" "-> pip install -r requirements.txt   [typecheck gate]" || rc=1
+    check_import "lxml"        lxml.etree                   "" "-> pip install lxml                  [ad6]" || rc=1
+    check_import "pycosat"     pycosat                      "" "-> pip install pycosat               [ad6]" || rc=1
+    check_import "python-sat"  pysat.solvers                "" "-> pip install python-sat            [ad6 incremental]" || rc=1
+    check_import "pybison"     bison                        "" "-> see Dockerfile: pip install --no-binary :all: pybison==0.6.4  [integration]" || rc=1
+    check_import "JPype1"      jpype                        "" "-> pip install JPype1                [APKeep backend]" || rc=1
+    check_import "libnetplumber" libnetplumber net_plumber/python \
+        "-> build_libnetplumber.sh, OR (more often) a missing liblog4cxx -- see below  [integration/e2e]" || rc=1
+
+    echo "== env doctor: apt packages declared in Dockerfile =="
+    while read -r pkg; do
+        [ -n "$pkg" ] || continue
+        status="$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null)"
+        case "$status" in
+            *"install ok installed"*) printf '  [ok]      %-30s\n' "$pkg" ;;
+            *) printf '  [MISSING] %-30s %s\n' "$pkg" "$(apt_purpose "$pkg")"
+               missing_apt+=("$pkg"); rc=1 ;;
+        esac
+    done < <(grep -oP 'apt-get \$APT_CONFS install \K[a-z0-9.+-]+' "$ROOT/Dockerfile" | sort -u)
+
+    echo "== env doctor: native artifacts =="
+    if [ -x "$ROOT/net_plumber/build/net_plumber" ]; then
+        printf '  [ok]      %-30s\n' "net_plumber binary"
+    else
+        printf '  [MISSING] %-30s %s\n' "net_plumber binary" \
+            "-> make -C net_plumber/build all   [integration/e2e/bench]"
+        rc=1
+    fi
+    if compgen -G "$ROOT/net_plumber/python/libnetplumber*.so" >/dev/null; then
+        printf '  [ok]      %-30s\n' "libnetplumber .so built"
+    else
+        printf '  [MISSING] %-30s %s\n' "libnetplumber .so built" \
+            "-> bash net_plumber/python/build_libnetplumber.sh"
+        rc=1
+    fi
+
+    echo "== env doctor: runtime limits (advisory, never fatal) =="
+    local shm mem
+    shm="$(df -h --output=size /dev/shm 2>/dev/null | tail -1 | tr -d ' ')"
+    mem="$("$PYTHON" -c "print(open('/proc/meminfo').readline().split()[1])" 2>/dev/null)"
+    printf '  /dev/shm  %s' "${shm:-unknown}"
+    case "${shm:-}" in
+        *G) echo "" ;;
+        *)  echo "   [warn] FaVe writes aggregator.log/rpc.log into /dev/shm/np and the"
+            echo "            bench workloads overflow a small one -- redirect logs to disk"
+            echo "            for anything at bench scale" ;;
+    esac
+    [ -n "${mem:-}" ] && printf '  memory    %s MB total\n' "$((mem / 1024))"
+    printf '  cores     %s\n' "$(nproc 2>/dev/null || echo unknown)"
+
+    echo "== env doctor: verdict =="
+    if [ "${#missing_apt[@]}" -gt 0 ]; then
+        echo "  REPAIR (apt-get update FIRST -- without it a fresh container reports"
+        echo "  'Unable to locate package' for packages that are perfectly available):"
+        echo ""
+        echo "    sudo apt-get update && sudo apt-get install -y ${missing_apt[*]}"
+        echo ""
+    fi
+    if [ "$rc" -eq 0 ]; then
+        echo "  environment complete for every tier"
+    else
+        echo "  see the [MISSING] lines above; each names the tier it blocks."
+        echo "  Nothing above is a code defect -- these are container-state gaps."
+    fi
+    return $rc
+}
+
+# WHY THIS TIER EXISTS, and why the failures it catches are worth naming:
+# every one of these has cost a session real time by surfacing as something
+# that looks like a different problem entirely.
+#   * python3-dev missing  -> pybison compiles its generated parser at RUNTIME,
+#     that compile fails on a missing Python.h, and pybison then SEGFAULTS,
+#     taking the whole pytest process down (no traceback, no failing test --
+#     `test_ad6_wl_up.py` just dumps core). Diagnosed the hard way twice.
+#   * liblog4cxx15 missing -> `libnetplumber` fails to LOAD, and the harness
+#     reports "libnetplumber is not built; run build_libnetplumber.sh" even
+#     though the .so is present and correct. The message points at the wrong
+#     fix; every live-NetPlumber differential test silently skips.
+#   * minisat/clasp missing -> `ad6 make test` reports 4 red suites with
+#     FileNotFoundError, which reads like a code regression, not a container
+#     one. `which minisat` printing nothing is easy to misread as success --
+#     check the exit status.
+#   * apt-get update not run first -> `apt-get install minisat` fails with
+#     "Unable to locate package minisat" on a container whose package lists
+#     were never populated, which reads like the package does not exist.
+# The Dockerfile installs all of this; a sandbox NOT built from the Dockerfile
+# (e.g. a yolobox with its own base image) starts without any of it, while a
+# venv living in a persistent $HOME survives -- which is why the pip side of
+# the environment usually looks fine while the apt side is missing wholesale.
+
 # ---- dispatch ---------------------------------------------------------------
 
 tier="${1:-}"
@@ -249,8 +407,9 @@ case "$tier" in
     e2e)         run_e2e || rc=1 ;;
     bench)       run_bench || rc=1 ;;
     all)         run_fast || rc=1; run_integration || rc=1; run_e2e || rc=1 ;;
+    doctor)      run_doctor || rc=1 ;;
     *)
-        echo "usage: $0 {fast|smoke|integration|e2e|bench|all}" >&2
+        echo "usage: $0 {fast|smoke|integration|e2e|bench|all|doctor}" >&2
         exit 2
         ;;
 esac

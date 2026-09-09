@@ -92,12 +92,45 @@ selects a tier, it never defines its own tests.
     $> ./test.sh smoke         # just the smoke subset of e2e: example.sh + wl_example + wl_ifi
     $> ./test.sh bench         # large benchmarks (wl_up/wl_tum/wl_stanford/wl_i2)
     $> ./test.sh all           # fast + integration + e2e (excludes bench)
+    $> ./test.sh doctor        # check the environment, run no tests (see below)
 
 Tiers are split by dependency footprint. `fast` is pure Python. `integration`
 needs the build + `pybison` but **no running backend**, so it is deterministic
 and suitable to gate merges. `e2e` additionally needs a live `net_plumber`
 process and `/dev/shm` state (process orchestration), so it is non-gating.
 `bench` runs the large benchmarks (CI / nightly only).
+
+### Checking the environment first
+
+Most "broken build" reports in a fresh container are missing system packages,
+and they rarely announce themselves as such. Before debugging a red suite, run
+
+    $> ./test.sh doctor
+
+It runs no tests. It diffs the environment against the `Dockerfile` (the
+canonical definition of what this project needs), reports every missing
+dependency **with the tier it blocks**, and prints the exact `apt-get` line to
+repair it. Three failures in particular are worth knowing about, because each
+one surfaces as something that looks unrelated:
+
+| absent | what you actually see |
+|---|---|
+| `python3-dev` | pybison compiles its generated parser at *runtime*; that compile fails on a missing `Python.h` and pybison then **segfaults**, taking the whole `pytest` process down with no traceback and no failing test |
+| `liblog4cxx15` | `libnetplumber` fails to *load*, and the harness reports "libnetplumber is not built; run `build_libnetplumber.sh`" even though the `.so` is present and correct — so every live-NetPlumber differential test silently skips |
+| `minisat` / `clasp` | `ad6 make test` shows four red suites with `FileNotFoundError`, which reads like a code regression rather than a container one |
+
+Note also that `apt-get update` must run *before* installing on a container
+whose package lists were never populated — otherwise `apt-get install minisat`
+fails with "Unable to locate package minisat", which reads like the package no
+longer exists. The doctor's repair line includes it.
+
+Containerised sandboxes that are not built from the `Dockerfile` need the same
+packages declared wherever they configure their image (for yolobox, the
+`[customize] packages` list in `.yolobox.toml`, which is kept in sync with the
+Dockerfile and cross-checked by the doctor). A venv in a persistent `$HOME`
+survives a container restart while apt state does not, so the Python half of
+the environment typically looks healthy while the system half is missing
+wholesale — which is exactly why the symptoms above look like code problems.
 
 The `fast` tier needs only the pure-Python dependencies and is meant to run on
 every change before pushing:
