@@ -2120,7 +2120,66 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   invisible to rule-level reasoning. Expect the same class of answer here, and note that
   the earlier "we may not need the dump" reading is now retired.
 
-  **LEADING HYPOTHESIS, EXPLICITLY UNTESTED -- do not record this as a finding.** i2's
+  **STEP (c) DONE 2026-09-10 -- THE NETPLUMBER FLOW DUMP LOCALIZED IT, AND IT REVERSES
+  TWO EARLIER CONCLUSIONS OF MINE. NetPlumber is RIGHT on the Chicago pairs; ad6
+  over-approximates through a specific, fixable defect.**
+
+  Tooling: `bench/np_i2_flow_dump.py` (drives i2 through `NetPlumberLibAdapter`, writes
+  `fave.json` from the engine's id tables since `InProcessFaVe` runs no aggregator, dumps
+  reduced flow trees) and `bench/np_i2_flow_leaves.py` (resolves leaves to FaVe
+  identities, splits delivered from dead-end). Build 576 s, peak 1,838 MB, dump 2.1 s, 9
+  flow trees / 24 MB. 18 tests.
+
+  **INDEPENDENT CROSS-VALIDATION OF THE 11.** The dump reproduces the 11 unreachable
+  pairs EXACTLY -- `chic -> {hous, kans, losa, salt, seat}` and `atla`/`newy32aoa`/`wash`
+  `-> {salt, seat}` -- via a completely different NetPlumber output path than
+  `get_compliance_results()`. So the 11 are a reproducible property of NetPlumber's
+  computation on this model, not an artefact of the compliance path.
+
+  **WHERE CHICAGO'S FLOWS DIE.** `source.chic` traverses chic/atla/wash/newy32aoa fully
+  (in + out + probe each), REACHES `in.kans` and `in.hous` and dies there, NEVER touches
+  `out.kans`/`out.hous`, and never touches losa/salt/seat at all -- consistent, since
+  those lie beyond kans/hous. So the in-STAGE admission rejects what arrives from
+  Chicago. Note that bulk out-stage dead ends are NORMAL and not a signal: `source.salt`
+  and `source.hous` have FULL reachability and still show hundreds (a branch whose dst
+  has no onward route from that router).
+
+  **THE MECHANISM, VERIFIED FROM `routes.json` WITH NO ENGINE.** `out.chic.220045 ->
+  in.kans.400029`: **2,545 routes rewrite to vlan 10, and that specific arrival port
+  admits {11, 20, 21, 30, 31, 32, 40, 60, 70} -- NOT 10.** Only 2 routes (vlan 20, vlan
+  30) are admitted, and the dump shows exactly 2 branches reaching `in.kans`. Across the
+  whole model only two crossings have any per-port rejection (`out.chic->in.kans` 2,545
+  rejected / 2 accepted; `out.kans->in.chic` 19 / 5,674), and **2,555 of those 2,564
+  rejections -- 99.6% -- are ACCEPTED by ad6's per-device model.** Every one of those is
+  a crossing ad6 permits and NetPlumber blocks.
+
+  **CORRECTION 1 (mine): the cross-product finding recorded above as "NOT the cause of
+  the chic->salt divergence" IS the cause.** That verdict came from my own check
+  aggregating admission per DEVICE -- "vlans 10/20/30 are admitted somewhere on in.kans"
+  -- which reproduced the exact error I had just criticised in ad6. Per ARRIVAL PORT the
+  join fails. `ir["in_vlans"]` being `Dict[str, set]` is not merely a fidelity gap to fix
+  on its own merits; it is the defect that manufactures the chic reachability ad6
+  reports.
+
+  **CORRECTION 2 (mine): "both model-side explanations checked, both clean" was wrong**
+  for the same reason. The witness path is NOT legal in the model as the model actually
+  reads; it is legal only under ad6's relaxed admission.
+
+  **WHAT THIS SETTLES AND WHAT IT DOES NOT.** Settled: for the Chicago pairs, NetPlumber
+  is corroborated and ad6's SAT answer is a false positive with a named cause, so
+  §5.5's decision-table "case 2" reading is superseded on those pairs. NOT settled: the
+  remaining SIX pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}) are NOT explained by
+  this mechanism -- no other crossing has a per-port rejection, and `atla` for instance
+  REACHES seat's tables yet never delivers to `probe.seat`. The structural dump is
+  exhausted for those; they are where the owner's deferred header-space decode (recorded
+  above) stops being optional.
+
+  **CONSEQUENCE: fixing `in_vlans` to a per-(port, vlan) relation is now the top
+  priority** -- it is a correctness defect with a measured blast radius (2,555
+  wrongly-permitted crossings), and it must land before any further ad6 i2 reachability
+  number is quoted.
+
+  **LEADING HYPOTHESIS, NOW LARGELY SUPERSEDED -- do not record this as a finding.** i2's
   sources are VLAN-unconstrained (`sources.json`: `ipv4_dst=0.0.0.0/0`, no VLAN field),
   and an ad6 query is existential, so the solver may be free to CHOOSE an arriving VLAN
   that satisfies each in-stage admission gate -- whereas in the real network the
