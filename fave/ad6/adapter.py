@@ -63,6 +63,12 @@ _SRC6 = 'packet.ipv6.source'
 _DSTS = (_DST, _DST6)
 _SRCS = (_SRC, _SRC6)
 _VLAN = 'packet.ether.vlan'
+# AD6_PLAN.md §5.5: the `_in_vlans` port key for an admission rule that names
+# no ingress port -- one admitting its VLAN on every port of its device. MUST
+# equal favemodel._ANY_PORT (this adapter deliberately imports nothing from
+# the ad6 tree, see the module docstring, so the two are pinned equal by
+# test_ad6_wl_i2_admission.py instead of shared).
+_ANY_PORT = '*'
 _RELATED = 'related'    # AD6_PLAN.md §4.2: connection-state match, "0"=NEW,
                         # "1"=ESTABLISHED (mirrors apkeep/adapter.py:_RELATED;
                         # the FaVe policy compiler's state-shell, see
@@ -186,7 +192,11 @@ class Ad6Adapter(AbstractVerificationEngine):
         # real dst FIB it must keep. See _capture_out_rewrite.
         self._out_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}  # out.X -> [(dst,egress_port,vlan_m)]
         self._out_reset: Dict[str, set] = {}            # out.X -> {(in_port, vlan)}
-        self._in_vlans: Dict[str, set] = {}              # in.X -> {admitted vlan tags}
+        # AD6_PLAN.md §5.5, faithful_vlan only: the per-(port, VLAN) ingress
+        # admission RELATION -- in.X device -> arrival port -> {admitted vlan
+        # tags}. Was a per-device set until 2026-09-10; see
+        # _capture_in_admission for what that cost.
+        self._in_vlans: Dict[str, Dict[str, set]] = {}   # in.X -> port -> {vlans}
         self._generators: Dict[str, str] = {}          # name -> "device.port"
         self._probes: Dict[str, str] = {}              # name -> "device.port"
         # AD6_PLAN.md §5.5 C4 (part 2): probe name -> the VLAN its model
@@ -629,23 +639,48 @@ class Ad6Adapter(AbstractVerificationEngine):
                         reset.add((in_port, str(field.value)))
 
     def _capture_in_admission(self, node: str, rule: Any) -> None:
-        """ AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: an in-stage
-        rule admits (permits, forwards to mid) traffic on a given ingress
-        VLAN. Record the VLANs a router's ingress permits -- the union
-        over a device's own rules becomes ONE admitted-VLAN SET, checked
-        once at that device's own (already-collapsed, dst=None) forwarding
-        entry (favemodel.py's _build_device_table), mirroring
-        apkeep/adapter.py's own single-check-at-the-collapsed-junction
-        simplification (its docstring: "Single-universe (no ACL division)
-        lets this compose with the mid VLAN rewrite") -- not a genuinely
-        per-physical-port trunk/access model, deliberately, for direct
-        comparability with APKeep's own faithful-VLAN result (AD6_PLAN.md
-        §5.4 Stage B). Direct port of apkeep/adapter.py:_capture_in_admission. """
+        """ AD6_PLAN.md §5.5, faithful_vlan only: an in-stage rule admits
+        (permits, forwards on) traffic arriving on a given ingress VLAN, on
+        the specific physical PORT(S) its `in_ports` names. Records the
+        per-(port, VLAN) relation those rules actually express.
+
+        This used to record only the per-DEVICE union of admitted VLANs,
+        checked once at that device's own already-collapsed dst=None
+        forwarding entry -- mirroring apkeep/adapter.py's own
+        single-check-at-the-collapsed-junction simplification, deliberately,
+        for direct comparability with APKeep's faithful-VLAN result
+        (AD6_PLAN.md §5.4 Stage B). That projection is not sound: dropping
+        the port makes the gate strictly weaker, and it is weaker on EVERY
+        real port of both workloads -- 223/223 on wl_i2 and 252/252 on
+        wl_stanford have a per-port set strictly narrower than their
+        device's union. On wl_i2 it admitted 2,555 of the 2,564 crossings a
+        per-port configuration rejects (99.6%), which is what made ad6
+        report `source.chic` reaching salt/seat where NetPlumber has the
+        flow correctly die at `in.kans`/`in.hous` (AD6_PLAN.md §5.5, "STEP
+        (c) DONE"). NOTE that apkeep/adapter.py's own `_in_vlans` still has
+        the unfixed projection -- see TODO.md.
+
+        A rule naming no `in_ports` at all admits its VLAN on every port of
+        the device; it is recorded under `_ANY_PORT` rather than dropped,
+        and favemodel._port_scoped_admission falls the whole device back to
+        the device-wide gate when it sees one (under-approximating a
+        port-agnostic rule would turn an over-approximation into a false
+        UNSAT, which is worse). Neither shipped benchmark has one: all
+        2,265 wl_stanford and all 390 wl_i2 in-stage rules name their
+        ports. Diverges from apkeep/adapter.py:_capture_in_admission,
+        which is still a direct-port of the projected version. """
         if not any(isinstance(a, Forward) and a.ports for a in rule.actions):
             return  # a drop (no forward) -- not an admission
-        for field in (rule.match or []):
-            if field.name == _VLAN:
-                self._in_vlans.setdefault(node, set()).add(str(field.value))
+        vlans = {
+            str(field.value) for field in (rule.match or [])
+            if field.name == _VLAN
+        }
+        if not vlans:
+            return
+        ports = [_split_port(p)[1] for p in (rule.in_ports or [])] or [_ANY_PORT]
+        per_port = self._in_vlans.setdefault(node, {})
+        for port in ports:
+            per_port.setdefault(port, set()).update(vlans)
 
     def _fold_mid_rewrites(self) -> Dict[str, List[List[Any]]]:
         """ AD6_PLAN.md §5.4 Stage B (B2): port of
@@ -862,8 +897,17 @@ class Ad6Adapter(AbstractVerificationEngine):
             ir["probe_vlan"] = dict(self._probe_vlan)
             if self._probe_untag:
                 ir["probe_untag"] = True
+            # AD6_PLAN.md §5.5: the per-(port, VLAN) relation, NOT a
+            # per-device union -- {device: {port: [vlans]}}. favemodel.py
+            # (_in_vlans_for) also still reads the old flat {device: [vlans]}
+            # shape, so an ARCHIVED IR keeps building the encoding it was
+            # measured against; nothing emits that shape any more.
             ir["in_vlans"] = {
-                device: sorted(vlans, key=int) for device, vlans in self._in_vlans.items()
+                device: {
+                    port: sorted(vlans, key=int)
+                    for port, vlans in sorted(per_port.items())
+                }
+                for device, per_port in self._in_vlans.items()
             }
             ir["gen_vlan"] = dict(self._gen_vlan)
         return ir

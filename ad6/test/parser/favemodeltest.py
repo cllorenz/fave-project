@@ -943,3 +943,270 @@ class WitnessPathTest(unittest.TestCase):
         path = ["fw_in_chic_fwd_r0", "fw_out_chic_fwd_r1", "fw_in_chic_fwd_r2"]
         self.assertEqual(favemodel.witness_devices(path, self._IR),
                          ["in.chic", "out.chic", "in.chic"])
+
+
+class PortScopedAdmissionTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.5 (the wl_i2 root cause): ingress VLAN admission is a
+    per-(ARRIVAL PORT, VLAN) relation, not a per-device VLAN set.
+
+    Until 2026-09-10 `ir["in_vlans"]` was `{device: [vlans]}` -- the relation
+    PROJECTED onto the device -- and favemodel.py checked that union once, at
+    the device's own already-collapsed dst=None forwarding entry. Projecting
+    the port away makes the gate strictly weaker, and it is weaker on EVERY
+    real port of both workloads: 223/223 admitted ports on wl_i2 and 252/252
+    on wl_stanford have a per-port set strictly NARROWER than their device's
+    union. On wl_i2 that admitted 2,555 of the 2,564 route-crossings a real
+    per-port configuration rejects -- 99.6% -- and made ad6 report
+    `source.chic` reaching salt/seat where NetPlumber correctly has the flow
+    die at `in.kans`/`in.hous`.
+
+    The concrete real case, which `test_the_i2_root_cause_shape_is_blocked`
+    reproduces in miniature: `out.chic.220045 -> in.kans.400029` rewrites
+    2,545 routes to `vlan=10`, and that arrival port admits
+    {11,20,21,30,31,32,40,60,70} -- not 10. The device `in.kans` as a whole
+    does admit 10 (on some OTHER port), which is exactly why the projected
+    gate let it through.
+
+    Capture side (Ad6Adapter._capture_in_admission, and that the IR it emits
+    carries the relation) is unit-tested fave-side against fake Rule objects:
+    fave/test/test_ad6_wl_i2_admission.py. This starts one level downstream,
+    from an already-built IR -- the same division of labour as
+    FaithfulVlanWiringTest. """
+
+    # in.r's DEVICE-WIDE union is {10, 20}; neither port admits both.
+    _PER_PORT = {"1": ["20"], "2": ["10"]}
+
+    @classmethod
+    def _ir(cls, in_vlans=None, faithful_vlan=True, gen_vlan="10"):
+        """ source.a -> in.r.1, source.b -> in.r.2, in.r.5 -> probe.p.
+        Both sources inject VLAN `gen_vlan`; the two ports differ only in
+        what they admit. """
+        return {
+            "devices": ["in.r"],
+            "edges": [
+                ["source.a.1", "in.r.1"],
+                ["source.b.1", "in.r.2"],
+                ["in.r.5", "probe.p.1"],
+            ],
+            "generators": {"source.a": "source.a.1", "source.b": "source.b.1"},
+            "probes": {"probe.p": "probe.p.1"},
+            "fwd_rules": [
+                {"device": "in.r", "dst": None, "ports": ["in.r.5"], "prio": 65535},
+            ],
+            "routing_rules": [],
+            "acl_devices": [], "acl_in": {}, "acl_out": {},
+            "in_port_vlan": {}, "out_port_vlan": {},
+            # Both ports are admitted PORTS -- the question under test is
+            # which VLANs each admits, not whether the wire exists at all
+            # (that is _gate_dead_ingress/B1, GenFirewallDeadPortGateTest).
+            "in_admit": {"in.r": ["1", "2"]},
+            "ruleset_devices": {}, "device_addr": {},
+            "faithful_vlan": faithful_vlan,
+            "in_vlans": {"in.r": cls._PER_PORT if in_vlans is None else in_vlans},
+            "mid_rw": {}, "out_rw": {},
+            "gen_vlan": {"source.a": gen_vlan, "source.b": gen_vlan},
+        }
+
+    @staticmethod
+    def _reachable(ir, source):
+        config = favemodel.build_config(ir)
+        XMLUtils.deannotate(config)
+        kripke, encoding = favemodel.instantiate_base(config, ir)
+        instance = Instantiator.InstantiateEndToEnd(
+            kripke, encoding, favemodel.gen_entry_key(source),
+            favemodel.query_destination_key("probe.p", ir))
+        return bool(PycoSATAdapter().Solve(instance))
+
+    # --- the differential the projection destroyed --------------------------
+
+    def test_vlan_admitted_on_this_port_reaches(self):
+        ir = self._ir(gen_vlan="10")
+        self.assertTrue(
+            self._reachable(ir, "source.b"),
+            "port 2 admits vlan 10 and source.b arrives there -- must reach")
+
+    def test_the_same_vlan_on_a_port_that_does_not_admit_it_is_blocked(self):
+        """ THE regression. vlan 10 IS in in.r's device-wide union {10,20},
+        so the projected per-device gate passed this; port 1 admits only
+        {20}, so the real relation rejects it. """
+        ir = self._ir(gen_vlan="10")
+        self.assertFalse(
+            self._reachable(ir, "source.a"),
+            "port 1 admits only vlan 20 -- vlan 10 arriving there must be "
+            "blocked, even though in.r admits 10 on port 2")
+
+    def test_the_other_port_is_gated_the_other_way_round(self):
+        """ Symmetric, so a gate that simply always denied port 1 (or
+        ignored the VLAN) could not pass both halves. """
+        ir = self._ir(gen_vlan="20")
+        self.assertTrue(self._reachable(ir, "source.a"),
+                        "port 1 admits vlan 20 -- must reach")
+        self.assertFalse(self._reachable(ir, "source.b"),
+                         "port 2 admits only vlan 10 -- vlan 20 must be blocked")
+
+    def test_a_port_with_no_admitted_vlans_at_all_is_blocked(self):
+        ir = self._ir(in_vlans={"2": ["10"]})   # port "1" absent entirely
+        self.assertFalse(
+            self._reachable(ir, "source.a"),
+            "port 1 admits nothing -- entry_key must send it to DROP")
+
+    def test_the_i2_root_cause_shape_is_blocked(self):
+        """ The real `out.chic.220045 -> in.kans.400029` case: an upstream
+        out-stage route REWRITES the tag (`rw=vlan:10`) and delivers it to a
+        port that does not admit 10, while the receiving device does admit 10
+        elsewhere. Distinct from the generator tests above because the VLAN
+        the gate sees is a per-node SSA value written by an edge mid-path,
+        not a value pinned at injection. """
+        ir = {
+            "devices": ["out.up", "in.r"],
+            "edges": [
+                ["source.a.1", "out.up.1"],
+                ["out.up.2", "in.r.1"],
+                ["in.r.5", "probe.p.1"],
+            ],
+            "generators": {"source.a": "source.a.1"},
+            "probes": {"probe.p": "probe.p.1"},
+            "fwd_rules": [
+                {"device": "out.up", "dst": None, "ports": ["out.up.2"], "prio": 65535},
+                {"device": "in.r", "dst": None, "ports": ["in.r.5"], "prio": 65535},
+            ],
+            "routing_rules": [],
+            "acl_devices": [], "acl_in": {}, "acl_out": {},
+            "in_port_vlan": {}, "out_port_vlan": {},
+            "in_admit": {"in.r": ["1", "2"]},
+            "ruleset_devices": {}, "device_addr": {},
+            "faithful_vlan": True,
+            "in_vlans": {"in.r": {"1": ["20"], "2": ["10"]}},
+            "mid_rw": {}, "out_rw": {"out.up": [[None, "out.up.2", "10"]]},
+            "gen_vlan": {},
+        }
+        self.assertFalse(
+            self._reachable(ir, "source.a"),
+            "out.up rewrites the tag to vlan 10 and delivers on in.r port 1, "
+            "which admits only {20} -- must be blocked (in.r admits 10 on "
+            "port 2, which is what the old per-device union wrongly allowed)")
+        ir["in_vlans"]["in.r"]["1"] = ["10", "20"]
+        self.assertTrue(
+            self._reachable(ir, "source.a"),
+            "same model with vlan 10 admitted on port 1 -- must now reach, "
+            "so the block above is the port scoping and not the rewrite")
+
+    # --- the fallbacks ------------------------------------------------------
+
+    def test_the_archived_flat_shape_still_gates_device_wide(self):
+        """ `{device: [vlans]}` -- what every artifact in
+        bench/wl_i2/eval/ and the wl_stanford faithful runs were measured
+        against -- must keep building the DEVICE-WIDE encoding, or those
+        numbers stop being reproducible rather than merely superseded.
+        Nothing emits this shape any more (Ad6Adapter._build_ir). """
+        ir = self._ir(in_vlans=["10", "20"], gen_vlan="10")
+        self.assertTrue(
+            self._reachable(ir, "source.a"),
+            "flat in_vlans is the pre-fix device-wide union -- vlan 10 must "
+            "reach on port 1 here, exactly as it (wrongly) did before")
+
+    def test_a_port_agnostic_admission_falls_back_to_device_wide(self):
+        """ An admission naming no ingress port admits its VLAN everywhere.
+        Under-approximating it (dropping it, or gating only the ports that
+        ARE named) would turn this over-approximation into a false UNSAT --
+        strictly worse, since it hides real reachability. """
+        ir = self._ir(in_vlans={favemodel._ANY_PORT: ["10"], "1": ["20"]},
+                      gen_vlan="10")
+        self.assertTrue(
+            self._reachable(ir, "source.a"),
+            "a port-agnostic admission of vlan 10 must not be narrowed away "
+            "by port 1's own {20}")
+
+    def test_plain_mode_ignores_the_relation_entirely(self):
+        """ Deliberately uses the arrangement `test_the_same_vlan_on_a_port_
+        that_does_not_admit_it_is_blocked` blocks, to prove it is the
+        faithful_vlan FLAG and not the presence of `in_vlans` that gates
+        this -- every plain benchmark must be byte-for-byte unaffected. """
+        ir = self._ir(gen_vlan="10", faithful_vlan=False)
+        self.assertTrue(
+            self._reachable(ir, "source.a"),
+            "faithful_vlan=False must ignore in_vlans entirely")
+
+    # --- structure ----------------------------------------------------------
+
+    def test_entry_key_is_the_ports_own_gate(self):
+        ir = self._ir()
+        self.assertEqual(favemodel.entry_key("in.r", "1", ir),
+                         "fw_in_r_iadm1_r0")
+        self.assertEqual(favemodel.entry_key("in.r", "2", ir),
+                         "fw_in_r_iadm2_r0")
+
+    def test_entry_key_drops_a_port_with_no_admitted_vlans(self):
+        ir = self._ir(in_vlans={"2": ["10"]})
+        self.assertEqual(favemodel.entry_key("in.r", "1", ir),
+                         favemodel.DROP_KEY)
+
+    def test_entry_key_is_unchanged_for_the_fallback_shapes(self):
+        for in_vlans in (["10", "20"], {favemodel._ANY_PORT: ["10"]}):
+            ir = self._ir(in_vlans=in_vlans)
+            self.assertEqual(favemodel.entry_key("in.r", "1", ir),
+                             "fw_in_r_fwd_r0", in_vlans)
+
+    def test_the_gate_group_ends_in_an_unconditional_deny(self):
+        """ KripkeUtils._HandleRule wires every rule's FALSE edge to the next
+        rule in DOCUMENT order, not to the next rule of its own group -- so a
+        gate group whose last rule carried a condition would leak this port's
+        REJECTED traffic into whatever is emitted next (here: the other
+        port's gate, then the forwarding table). The trailing denyall's
+        Gamma is trivially true, which makes its own false edge unsatisfiable
+        and terminates the group. Same construction, same reason, as the
+        ingress-ACL groups' own `_iacl*_denyall`. """
+        ir = self._ir()
+        rules, _extra = favemodel._build_device_table("in.r", ir, {})
+        keys = [r.attrib["key"] for r in rules]
+        self.assertEqual(keys[:4], [
+            "fw_in_r_iadm1_r0", "fw_in_r_iadm1_denyall",
+            "fw_in_r_iadm2_r0", "fw_in_r_iadm2_denyall",
+        ], "one permit + one denyall per port, ports in sorted order, "
+           "both groups ahead of the forwarding rules")
+        for key in ("fw_in_r_iadm1_denyall", "fw_in_r_iadm2_denyall"):
+            deny = next(r for r in rules if r.attrib["key"] == key)
+            self.assertEqual(deny.findall("fieldmatch"), [],
+                             "%s must carry no condition" % key)
+            self.assertEqual(deny.find("action").attrib["target"],
+                             favemodel.DROP_KEY)
+
+    def test_the_permit_carries_exactly_its_own_ports_vlans(self):
+        ir = self._ir()
+        rules, _extra = favemodel._build_device_table("in.r", ir, {})
+        permit = next(r for r in rules if r.attrib["key"] == "fw_in_r_iadm1_r0")
+        self.assertEqual([e.text for e in permit.findall("fieldmatch")], ["20"],
+                         "port 1 admits {20} only -- the device union {10,20} "
+                         "must not appear here")
+        self.assertEqual(permit.find("action").attrib["target"],
+                         "fw_in_r_fwd_r0")
+
+    def test_no_gate_and_a_device_wide_fieldmatch_for_the_flat_shape(self):
+        ir = self._ir(in_vlans=["10", "20"])
+        rules, _extra = favemodel._build_device_table("in.r", ir, {})
+        self.assertEqual([r.attrib["key"] for r in rules], ["fw_in_r_fwd_r0"])
+        self.assertEqual(
+            sorted(e.text for e in rules[0].findall("fieldmatch")), ["10", "20"],
+            "the pre-fix device-wide disjunction, on the forwarding rule")
+
+    def test_the_gate_precedes_the_ingress_acl_rather_than_replacing_it(self):
+        """ The two mechanisms compose in series -- admission, then ACL, then
+        forwarding -- so the gate must jump to exactly the node `entry_key`
+        would have returned without it. No shipped benchmark is both
+        faithful-VLAN and ACL-bearing (wl_stanford/wl_i2 in.X devices are
+        never `acl_devices`), which is precisely why this needs pinning:
+        nothing else would notice the gate short-circuiting the ACL. """
+        ir = self._ir()
+        ir["acl_devices"] = ["in.r"]
+        ir["in_port_vlan"] = {"in.r.1": "20"}
+        ir["acl_in"] = {"in.r": {"20": [[0, True, None, None, "0"]]}}
+        acl_entry = favemodel._acl_entry_key("in.r", "1", ir)
+        self.assertEqual(acl_entry, "fw_in_r_iacl1_r0")
+        rules, _extra = favemodel._build_device_table("in.r", ir, {})
+        permit = next(r for r in rules if r.attrib["key"] == "fw_in_r_iadm1_r0")
+        self.assertEqual(permit.find("action").attrib["target"], acl_entry,
+                         "port 1's gate must hand off to port 1's own ACL "
+                         "group, not skip it for the forwarding table")
+        self.assertEqual(favemodel.entry_key("in.r", "1", ir),
+                         "fw_in_r_iadm1_r0",
+                         "and the gate, not the ACL group, owns the entry")

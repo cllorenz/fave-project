@@ -167,6 +167,95 @@ def _ingress_ports_for(device, ir):
     return out
 
 
+# AD6_PLAN.md §5.5: the port key `ir["in_vlans"]` uses for an admission rule
+# that names no ingress port at all -- one admitting its VLAN on EVERY port of
+# its device. Not `None` (this has to survive a JSON round-trip as a dict key)
+# and not a legal port number, so it can never collide with a real one.
+_ANY_PORT = "*"
+
+
+def _in_vlans_for(device, ir):
+    """ `ir["in_vlans"][device]` normalised to {port: [vlan, ...]}, or {} when
+    this device records no ingress admission at all.
+
+    Two accepted shapes, distinguished by TYPE because they mean genuinely
+    different things -- a tagged union whose tag is the container:
+
+      {port: [vlans]}   the per-(port, VLAN) admission RELATION
+                        (Ad6Adapter._capture_in_admission) -- what a real
+                        trunk/access port configuration actually is.
+      [vlans]           the pre-2026-09-10 DEVICE-WIDE admitted set. Kept
+                        readable, not for compatibility's sake but so an
+                        ARCHIVED IR still builds the exact encoding it was
+                        measured against (bench/wl_i2/eval/, and the
+                        wl_stanford faithful artifacts) -- otherwise those
+                        numbers become unreproducible rather than merely
+                        superseded. Equivalent to {_ANY_PORT: [vlans]}, and
+                        it over-approximates: see _port_scoped_admission. """
+    entry = (ir.get("in_vlans") or {}).get(device)
+    if not entry:
+        return {}
+    if isinstance(entry, dict):
+        return entry
+    return {_ANY_PORT: entry}
+
+
+def _port_scoped_admission(device, ir):
+    """ {port: [vlan, ...]} iff `device`'s ingress admission can be gated per
+    ARRIVAL PORT -- every recorded admission names the port(s) it applies to
+    -- else None, meaning fall back to `_device_admission`'s device-wide
+    disjunction.
+
+    WHY this exists (AD6_PLAN.md §5.5, the wl_i2 root cause): checking the
+    UNION of a device's admitted VLANs once, at its own collapsed forwarding
+    entry, is not the same relation as checking what the arrival port admits
+    -- it is that relation's PROJECTION onto the device, and projecting the
+    port away makes the gate strictly weaker. Measured on the real workloads,
+    the two differ for EVERY admitted port: 223/223 on wl_i2 and 252/252 on
+    wl_stanford have a strictly narrower per-port set than their device's
+    union (per-port sets of 1-26 VLANs against device unions of 23-94 on i2).
+    On i2 that let 2,555 of the 2,564 route-crossings a real per-port
+    configuration REJECTS pass the gate -- 99.6% -- which is why ad6 reported
+    `source.chic` reaching salt/seat where NetPlumber correctly has the flow
+    die at `in.kans`/`in.hous`. The concrete case: `out.chic.220045 ->
+    in.kans.400029` rewrites 2,545 routes to `vlan=10`, and that arrival port
+    admits {11,20,21,30,31,32,40,60,70} -- not 10. """
+    per_port = _in_vlans_for(device, ir)
+    if not per_port or _ANY_PORT in per_port:
+        # A device with even one port-agnostic admission cannot be gated per
+        # port without UNDER-approximating that rule, which would flip the
+        # error's direction (a false UNSAT -- strictly worse than the
+        # over-approximation it replaces, since it hides real reachability).
+        # Neither shipped benchmark reaches this branch: all 2,265
+        # wl_stanford and all 390 wl_i2 in-stage rules name their ingress
+        # ports. But "we happen not to have one" is not a semantics.
+        return None
+    return {port: sorted(vlans, key=int) for port, vlans in per_port.items()}
+
+
+def _device_admission(device, ir):
+    """ The device-wide admitted-VLAN disjunction -- the union over every
+    port -- for a device `_port_scoped_admission` cannot scope per port. """
+    per_port = _in_vlans_for(device, ir)
+    if not per_port:
+        return None
+    return sorted({v for vlans in per_port.values() for v in vlans}, key=int)
+
+
+def _iadm_keys(fwkey, port):
+    """ (permit-key, denyall-key) for `port`'s own faithful-VLAN ingress
+    admission gate. Two rules, because the group MUST end in an
+    unconditional one: KripkeUtils._HandleRule wires every rule's FALSE edge
+    to the next rule in DOCUMENT order (not to the next rule of its own
+    group), so a conditional last rule would leak this port's rejected
+    traffic into whatever `_build_device_table` happens to emit next. The
+    denyall's Gamma is trivially true, which makes its own outgoing false
+    edge unsatisfiable and terminates the group -- the same construction
+    (and the same reason) as the ingress-ACL groups' own `_iacl*_denyall`. """
+    pkey = _port_key(port)
+    return ("%s_iadm%s_r0" % (fwkey, pkey), "%s_iadm%s_denyall" % (fwkey, pkey))
+
+
 def _is_ruleset_device(device, ir):
     """ wl_up (AD6_PLAN.md §5.1): True for a packet_filter/host device whose
     rule CONTENT comes from ad6's native IP6TablesParser on the real
@@ -207,16 +296,46 @@ def entry_key(device, port, ir):
         if _is_transit(device, ir):
             return _dispatch_key(device)
         return "%s_input_r0" % fwkey
+    # AD6_PLAN.md §5.5: faithful-VLAN per-(port, VLAN) ingress admission is
+    # the FIRST thing this device does -- "is this VLAN even allowed in on
+    # this wire" is upstream of both the ingress ACL and the forwarding
+    # table, so the gate owns the entry point and jumps on to whichever of
+    # those two comes next (see _build_device_table's own gate group).
+    if ir.get("faithful_vlan"):
+        per_port = _port_scoped_admission(device, ir)
+        if per_port is not None:
+            if port not in per_port:
+                # No VLAN is admitted on this wire at all. `_gate_dead_ingress`
+                # already drops such an EDGE via ir["in_admit"] -- both derive
+                # from the same in-stage rules, so in practice this is
+                # unreachable from `wire_edges` -- but a GENERATOR attaches via
+                # `_gen_firewall`/entry_key without passing through that
+                # filter, so the gate has to hold here too.
+                return DROP_KEY
+            return _iadm_keys(fwkey, port)[0]
+    acl = _acl_entry_key(device, port, ir)
+    if acl is not None:
+        return acl
+    return "%s_fwd_r0" % fwkey
+
+
+def _acl_entry_key(device, port, ir):
+    """ `port`'s own ingress-ACL entry node on `device`, or None when this
+    port is not ACL-checked (not an ACL device, or not among its checked
+    ports). Shared by `entry_key` and by the faithful-VLAN admission gate,
+    which must jump to exactly the node `entry_key` would otherwise have
+    returned -- the two mechanisms compose in series (admission, then ACL,
+    then forwarding), they are not alternatives. """
+    fwkey = _fwkey(device)
     # AD6_PLAN.md §5.4 Stage 0: acl_in is keyed by device first, then vlan
     # (Ad6Adapter._build_ir) -- pre-scope to this device once, up front.
     acl_in = (ir.get("acl_in") or {}).get(device, {})
     for p, vlan in _ingress_ports_for(device, ir):
         if p == port:
-            entries = acl_in.get(vlan, [])
-            if entries:
+            if acl_in.get(vlan, []):
                 return "%s_iacl%s_r0" % (fwkey, _port_key(p))
             return "%s_iacl%s_denyall" % (fwkey, _port_key(p))
-    return "%s_fwd_r0" % fwkey
+    return None
 
 
 def init_keys(ir):
@@ -319,7 +438,17 @@ def _build_device_table(device, ir, ports_by_device):
     # a faithful-VLAN device that is neither in.X nor mid.X-shaped --
     # purely additive, byte-for-byte unaffected otherwise.
     faithful = bool(ir.get("faithful_vlan"))
-    admitted_vlans = (ir.get("in_vlans") or {}).get(device) if faithful else None
+    # AD6_PLAN.md §5.5: prefer the per-(port, VLAN) admission RELATION -- one
+    # gate per arrival port, emitted below -- and fall back to the device-wide
+    # disjunction attached to the shared forwarding rule ONLY for a device
+    # whose admissions do not name their ingress ports (`_port_scoped_admission`
+    # has the measured reason this distinction is not cosmetic). Exactly one
+    # of the two is ever non-None.
+    port_admission = _port_scoped_admission(device, ir) if faithful else None
+    admitted_vlans = (
+        _device_admission(device, ir)
+        if faithful and port_admission is None else None
+    )
     # AD6_PLAN.md §5.5 C4: "mid_rw" (wl_stanford, mid.X-borne, already folded
     # against the collapsed out-stage reset) and "out_rw" (wl_i2, out.X-borne,
     # unfolded -- that stage IS the surviving FIB) are two capture-side
@@ -345,6 +474,30 @@ def _build_device_table(device, ir, ports_by_device):
 
     rules = []
     tables_extra = []   # egress-ACL sub-tables (own <table> elements)
+
+    # AD6_PLAN.md §5.5, faithful_vlan only: one ingress-admission gate per
+    # arrival port -- the packet's CURRENT per-node vlan value (Stage A2's
+    # fieldmatch/SSA mechanism) must be one of the VLANs THIS wire admits,
+    # not merely one this device admits somewhere. Several <fieldmatch> on
+    # the same field OR together (KripkeUtils._HandleRule groups them by
+    # field), so one rule expresses the whole per-port set. `entry_key`
+    # routes every arriving edge and every attached generator here, so this
+    # gate cannot be bypassed; it jumps on to the port's own ingress-ACL
+    # stage when it has one, else straight into the forwarding table.
+    # Purely additive: `port_admission` is None for every plain benchmark
+    # and for every faithful device whose admissions are port-agnostic, and
+    # the loop emits nothing at all then.
+    for port in sorted(port_admission or ()):
+        permit_key, deny_key = _iadm_keys(fwkey, port)
+        permit = GenUtils.rule('0', key=permit_key)
+        for vlan in port_admission[port]:
+            permit.append(GenUtils.fieldmatch('vlan', vlan))
+        permit.append(GenUtils.action(
+            'jump', target=(_acl_entry_key(device, port, ir) or forward_key)))
+        rules.append(permit)
+        deny = GenUtils.rule('1', key=deny_key)
+        deny.append(GenUtils.action('jump', target=DROP_KEY))
+        rules.append(deny)
 
     # Per-port isolation is structural here: each port's ACL group is its own
     # dedicated query entry point (entry_key/init_keys), reached directly via
@@ -380,13 +533,16 @@ def _build_device_table(device, ir, ports_by_device):
         if _is_constrained(fr["dst"]):
             rule.append(GenUtils.address(
                 fr["dst"], direction='dst', version=_ip_version(fr["dst"])))
-        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: gate this
-        # device's own forwarding on the packet's CURRENT per-node vlan
-        # value (Stage A2's fieldmatch/SSA mechanism) matching one of the
-        # admitted set -- the in.X-style single-junction admission check
-        # (see admitted_vlans' own comment above). Attached to every one
-        # of this device's own fwd rules uniformly (in practice always
-        # exactly one -- Ad6Adapter._add_fwd_route dedupes in.X's own
+        # AD6_PLAN.md §5.4 Stage B (B2), faithful_vlan only: the DEVICE-WIDE
+        # admission check -- gate this device's own forwarding on the
+        # packet's CURRENT per-node vlan value (Stage A2's fieldmatch/SSA
+        # mechanism) matching one of the admitted set. This is now the
+        # FALLBACK path, taken only for a device whose admissions name no
+        # ingress port (`_port_scoped_admission` returns None); a device
+        # that can be gated per arrival port is gated by its own per-port
+        # gate group above, and `admitted_vlans` is None here. Attached to
+        # every one of this device's own fwd rules uniformly (in practice
+        # always exactly one -- Ad6Adapter._add_fwd_route dedupes in.X's own
         # per-VLAN admission rules down to one shared dst=None route,
         # AD6_PLAN.md §5.4 Stage B0), not conditioned on is_acl_device
         # (which is a DIFFERENT, wl_ifi-style mechanism this device never
@@ -853,8 +1009,9 @@ def _gen_firewall(source_name, ir):
     # known fixed VLAN tag (Ad6Adapter.add_generator's own
     # `packet.ether.vlan` capture) must have that value REWRITTEN onto its
     # own injection edge, not left as a free SSA variable -- otherwise a
-    # downstream fieldmatch admission check (this device's own
-    # admitted_vlans, above) would be VACUOUS for this source: the solver
+    # downstream fieldmatch admission check (this device's own per-port
+    # admission gate, or its device-wide `admitted_vlans` fallback, both
+    # above) would be VACUOUS for this source: the solver
     # could pick whatever value satisfies admission, since nothing pins
     # it, silently over-approximating reachability instead of faithfully
     # gating it (exactly the class of bug AD6_PLAN.md §5.4's own

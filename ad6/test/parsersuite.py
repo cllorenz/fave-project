@@ -7,7 +7,8 @@ import os
 
 from parser.favemodeltest import (
     RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest,
-    FaithfulVlanOutRewriteWiringTest, FaithfulVlanProbeUntagTest, WitnessPathTest
+    FaithfulVlanOutRewriteWiringTest, FaithfulVlanProbeUntagTest, WitnessPathTest,
+    PortScopedAdmissionTest
 )
 
 class ParserSuite(TestSuite):
@@ -89,6 +90,26 @@ class ParserSuite(TestSuite):
             'test_a_device_revisited_after_leaving_is_not_collapsed_away',
         ]
         self._suite.addTests(map(WitnessPathTest,tests))
+        # AD6_PLAN.md §5.5: per-(port, VLAN) ingress admission -- the wl_i2
+        # root cause. Manual registry -- see the note above.
+        tests = [
+            'test_vlan_admitted_on_this_port_reaches',
+            'test_the_same_vlan_on_a_port_that_does_not_admit_it_is_blocked',
+            'test_the_other_port_is_gated_the_other_way_round',
+            'test_a_port_with_no_admitted_vlans_at_all_is_blocked',
+            'test_the_i2_root_cause_shape_is_blocked',
+            'test_the_archived_flat_shape_still_gates_device_wide',
+            'test_a_port_agnostic_admission_falls_back_to_device_wide',
+            'test_plain_mode_ignores_the_relation_entirely',
+            'test_entry_key_is_the_ports_own_gate',
+            'test_entry_key_drops_a_port_with_no_admitted_vlans',
+            'test_entry_key_is_unchanged_for_the_fallback_shapes',
+            'test_the_gate_group_ends_in_an_unconditional_deny',
+            'test_the_permit_carries_exactly_its_own_ports_vlans',
+            'test_no_gate_and_a_device_wide_fieldmatch_for_the_flat_shape',
+            'test_the_gate_precedes_the_ingress_acl_rather_than_replacing_it',
+        ]
+        self._suite.addTests(map(PortScopedAdmissionTest,tests))
 
 
     def run(self):

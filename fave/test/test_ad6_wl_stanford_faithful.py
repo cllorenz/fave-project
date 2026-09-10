@@ -165,27 +165,47 @@ class TestAd6StanfordOutReset(unittest.TestCase):
 
 
 class TestAd6StanfordInAdmission(unittest.TestCase):
-    """ AD6_PLAN.md §5.4 Stage B (B2): `_capture_in_admission` -- direct
-    port of apkeep/adapter.py's own. """
+    """ AD6_PLAN.md §5.4 Stage B (B2), amended by §5.5:
+    `_capture_in_admission`. No longer a direct port of
+    apkeep/adapter.py's own -- it records the per-(ARRIVAL PORT, VLAN)
+    RELATION rather than the per-device union that version projected it to,
+    which on wl_stanford is a strictly narrower gate for all 252 of its
+    admitted ports. See fave/test/test_ad6_wl_i2_admission.py for the
+    measured reason and the full test coverage; these three keep the
+    wl_stanford-shaped cases (a `mid`-bound in.X stage) exercised from this
+    file too, since that is the workload this milestone's other capture
+    methods here are all about. """
 
     def setUp(self):
         self.engine = Ad6Adapter(
             logging.getLogger("test_stanford_in_admission"), faithful_vlan=True)
 
-    def test_forwarding_rule_records_its_admitted_vlan(self):
-        rule = _rule('in.dev', 'in.dev.1', 1, vlan='10', ports=['in.dev.100000'])
+    def test_forwarding_rule_records_its_admitted_vlan_on_its_own_port(self):
+        rule = _rule('in.dev', 'in.dev.1', 1, vlan='10', ports=['in.dev.100000'],
+                     in_ports=['in.dev.100009'])
         self.engine._capture_in_admission('in.dev', rule)
-        self.assertEqual(self.engine._in_vlans['in.dev'], {'10'})
+        self.assertEqual(self.engine._in_vlans['in.dev'], {'100009': {'10'}})
 
-    def test_multiple_rules_union_into_one_admitted_set(self):
+    def test_multiple_rules_union_per_port_not_per_device(self):
+        """ wl_stanford's real shape: `bbra_rtr` admits vlans 290 and 293 on
+        the SAME port 100009 (its first two in-stage rules), so those two do
+        union -- but only because the port matches, not because the device
+        does. """
         self.engine._capture_in_admission(
-            'in.dev', _rule('in.dev', 'in.dev.1', 1, vlan='10', ports=['in.dev.100000']))
+            'in.dev', _rule('in.dev', 'in.dev.1', 1, vlan='290',
+                            ports=['in.dev.100000'], in_ports=['in.dev.100009']))
         self.engine._capture_in_admission(
-            'in.dev', _rule('in.dev', 'in.dev.1', 2, vlan='20', ports=['in.dev.100000']))
-        self.assertEqual(self.engine._in_vlans['in.dev'], {'10', '20'})
+            'in.dev', _rule('in.dev', 'in.dev.1', 2, vlan='293',
+                            ports=['in.dev.100000'], in_ports=['in.dev.100009']))
+        self.engine._capture_in_admission(
+            'in.dev', _rule('in.dev', 'in.dev.1', 3, vlan='11',
+                            ports=['in.dev.100000'], in_ports=['in.dev.100012']))
+        self.assertEqual(self.engine._in_vlans['in.dev'],
+                         {'100009': {'290', '293'}, '100012': {'11'}})
 
     def test_drop_rule_is_not_an_admission(self):
-        rule = _rule('in.dev', 'in.dev.1', 1, vlan='10', ports=[], forwards=False)
+        rule = _rule('in.dev', 'in.dev.1', 1, vlan='10', ports=[],
+                     in_ports=['in.dev.100009'], forwards=False)
         self.engine._capture_in_admission('in.dev', rule)
         self.assertEqual(self.engine._in_vlans, {})
 

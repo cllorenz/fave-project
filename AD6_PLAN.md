@@ -2179,6 +2179,67 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   wrongly-permitted crossings), and it must land before any further ad6 i2 reachability
   number is quoted.
 
+  **DONE 2026-09-10 -- PER-(PORT, VLAN) ADMISSION LANDED. Code fixed and pinned by
+  tests; the reachability consequence is NOT yet measured.**
+
+  Capture side (`fave/ad6/adapter.py`): `_capture_in_admission` now reads each in-stage
+  rule's own `in_ports` and records `_in_vlans: {device: {port: {vlans}}}`, published as
+  `ir["in_vlans"] = {device: {port: [vlans]}}`. Encoding side
+  (`ad6/src/parser/favemodel.py`): each admitted port gets its OWN two-rule ingress
+  admission gate -- `fw_<dev>_iadm<port>_r0` carrying just that port's VLAN disjunction
+  (several `<fieldmatch>` on one field OR together, `KripkeUtils._HandleRule`), then an
+  unconditional `fw_<dev>_iadm<port>_denyall` -> DROP. `entry_key` routes every
+  topology edge (`wire_edges`) AND every attached generator (`_gen_firewall`) into that
+  gate, so it cannot be bypassed; the gate hands off to the port's own ingress-ACL
+  group when it has one, else straight to the forwarding table, so admission and ACL
+  compose in series rather than one replacing the other.
+
+  Three things the construction needed and the tests now pin. (1) The trailing denyall
+  MUST be unconditional: `_HandleRule` wires each rule's FALSE edge to the next rule in
+  DOCUMENT order, not to the next rule of its own group, so a conditional last rule
+  would leak that port's REJECTED traffic into the next group. (2) A port carrying no
+  admitted VLAN at all resolves to `DROP_KEY` -- `_gate_dead_ingress` already filters
+  such an EDGE via `in_admit`, but a generator attaches without passing through that
+  filter. (3) An admission naming no `in_ports` falls the WHOLE device back to the
+  device-wide disjunction, because under-approximating a port-agnostic rule would turn
+  this over-approximation into a false UNSAT -- strictly worse. No shipped benchmark
+  has one (all 2,265 wl_stanford and all 390 wl_i2 in-stage rules name their ports), so
+  that branch defines the semantics rather than serving a workload.
+
+  **Verified at full i2 scale, no engine and no solve** -- the built IR + emitted table
+  reproduce the root-cause evidence exactly: 223 admitted ports (identical to
+  `in_admit`'s 223, so no real edge falls to DROP), 596 (port, VLAN) pairs, `in.kans`
+  device union 40 VLANs, and port `400029`'s gate carrying exactly
+  `{11,20,21,30,31,32,40,60,70}` -- **not 10**, while `out.chic.220045`'s rewrites are
+  `{10, 20, 30}`. `in.kans` emits 51 rules (25 ports x 2 + 1 fwd) and its fwd rule
+  carries **0** fieldmatches, i.e. the device-wide fallback correctly does not also
+  fire.
+
+  **The archived encodings stay reproducible.** `favemodel._in_vlans_for` still reads
+  the pre-fix flat `{device: [vlans]}` shape as the device-wide gate, so an archived IR
+  builds the encoding it was measured against; the adapter never emits that shape any
+  more (pinned by `test_nothing_emits_the_old_flat_shape_any_more`). Deliberately NO new
+  adapter flag: the old behaviour is a defect, not a configuration, and a third boolean
+  would multiply the mode matrix for a mode nobody should run.
+
+  **NOT YET MEASURED, and nothing here licenses a reachability claim.** Whether
+  `chic->salt` now goes UNSAT -- the thing that would make ad6 and NetPlumber agree on
+  the five Chicago pairs -- needs the three-query faithful run again (~771 s build, ~20
+  GB, `--lite-acyclic`). The wl_stanford faithful results are affected identically and
+  by the same mechanism (252/252 of its admitted ports are narrower than their device
+  union), so every archived wl_stanford faithful number is superseded as well, not just
+  i2's.
+
+  **NEW ASYMMETRY, deliberately not fixed here.** `fave/apkeep/adapter.py:_capture_in_
+  admission` still carries the identical projection, and its `_in_vlans` feeds a
+  different consumer (APKeep's own input format, `adapter.py:1257-1328`), so fixing it
+  is a separate change with its own encoding semantics. Until it lands, an
+  ad6-vs-APKeep faithful-VLAN comparison on wl_stanford is NO LONGER like-for-like --
+  which is exactly the comparability §5.4 Stage B ported the projected version to
+  preserve. Tracked in TODO.md. The mistake being corrected here is not that the
+  simplification was coarse; it is that it was assumed to be merely coarse rather than
+  unsound in the unsafe direction.
+
   **LEADING HYPOTHESIS, NOW LARGELY SUPERSEDED -- do not record this as a finding.** i2's
   sources are VLAN-unconstrained (`sources.json`: `ipv4_dst=0.0.0.0/0`, no VLAN field),
   and an ad6 query is existential, so the solver may be free to CHOOSE an arriving VLAN

@@ -1803,3 +1803,118 @@ N=16 (0 multi-port routes), i2's out rules each carry exactly one `fd=`, and pla
 never builds mutation constraints at all. It would bite the moment a faithful workload
 has a genuine ECMP route. `wire_probe_fanout`'s aggregate is safe by contrast: it is
 only ever a transition TARGET, never a source key.
+
+
+## 27. Ingress VLAN admission was a device-wide PROJECTION of a per-port relation --
+##     the wl_i2 root cause, fixed test-first  **[FIX]**
+
+**The defect.** `favemodel._build_device_table` gated an `in.X` device's forwarding on
+`ir["in_vlans"][device]` -- the union of every VLAN that device admits ANYWHERE -- checked
+once at its own already-collapsed `dst=None` forwarding entry. The real configuration is a
+per-(ARRIVAL PORT, VLAN) relation: `routes.json`'s 6th positional field is `in_ports`, and
+every in-stage rule names the wires its VLAN match applies to. Gating on the device-wide
+union is that relation PROJECTED onto the device, and the projection is unsound in the
+unsafe direction -- it can only ADD reachability.
+
+It was written that way deliberately, mirroring `apkeep/adapter.py`'s own
+single-check-at-the-collapsed-junction simplification for cross-backend comparability
+(AD6_PLAN.md §5.4 Stage B, and `_capture_in_admission`'s old docstring said so). **The
+mistake was not the simplification; it was assuming the simplification was merely COARSE
+rather than unsound.**
+
+**What it cost, measured on the shipped models rather than argued:**
+
+  - the per-port set is strictly narrower than its device's union for **every** admitted
+    port -- 223/223 on wl_i2, 252/252 on wl_stanford (i2 per-port sets run 1-26 VLANs
+    against device unions of 23-94);
+  - on wl_i2, **2,555 of the 2,564** route-crossings a real per-port configuration
+    REJECTS passed the projected gate -- 99.6%;
+  - which is why ad6 reported `source.chic` reaching salt/seat while NetPlumber's flow
+    dump correctly has the flow die at `in.kans`/`in.hous`. Concretely:
+    `out.chic.220045 -> in.kans.400029` rewrites 2,545 routes to `vlan=10`, and that
+    arrival port admits `{11,20,21,30,31,32,40,60,70}` -- not 10. `in.kans` as a DEVICE
+    does admit 10, on another port, which is exactly what let it through.
+
+**The fix.** Capture side (`fave/ad6/adapter.py:_capture_in_admission`) reads each rule's
+own `in_ports` and records `_in_vlans: {device: {port: {vlans}}}`, published as
+`ir["in_vlans"] = {device: {port: [vlans]}}`. Encoding side: every admitted port gets its
+OWN two-rule ingress admission gate in the device's table --
+`fw_<dev>_iadm<port>_r0` carrying just that port's VLAN disjunction (several
+`<fieldmatch>` on one field OR together, `KripkeUtils._HandleRule`), followed by an
+unconditional `fw_<dev>_iadm<port>_denyall` -> `DROP_KEY`. `entry_key` routes both
+`wire_edges` (topology) and `_gen_firewall` (generator attachment) into that gate, so it
+cannot be bypassed.
+
+**Three things the construction needed, each now pinned by a test.**
+
+  - **The trailing denyall must be unconditional.** `_HandleRule` wires every rule's FALSE
+    edge to the next rule in **document** order, not to the next rule of its own group, so
+    a conditional last rule would leak that port's REJECTED traffic into whatever is
+    emitted next -- the other ports' gates, then the forwarding table. The denyall's Gamma
+    is trivially true, which makes its own false edge unsatisfiable and terminates the
+    group. Same construction, and the same reason, as the ingress-ACL groups' own
+    `_iacl*_denyall`.
+  - **A port with no admitted VLAN at all resolves to `DROP_KEY`.** `_gate_dead_ingress`
+    already drops such an EDGE via `ir["in_admit"]` -- both derive from the same in-stage
+    rules -- but a GENERATOR attaches via `_gen_firewall`/`entry_key` without passing
+    through that filter. Exactly the shape of the B1 bug (item 19).
+  - **An admission naming no `in_ports` falls the WHOLE device back to the device-wide
+    disjunction.** Under-approximating a port-agnostic rule would turn this
+    over-approximation into a false UNSAT -- strictly worse, since it hides real
+    reachability. No shipped benchmark has one (all 2,265 wl_stanford and all 390 wl_i2
+    in-stage rules name their ports), so that branch defines the semantics rather than
+    serving a workload.
+
+**Admission and ACL compose in series, not as alternatives.** The gate hands off to
+`_acl_entry_key(device, port, ir)` when the port has an ingress-ACL group, else straight
+to the forwarding table -- so admission runs first, then the ACL, then forwarding. No
+shipped benchmark is both faithful-VLAN and ACL-bearing (wl_stanford/wl_i2 `in.X` devices
+are never `acl_devices`), which is precisely why this needed pinning: nothing else would
+notice the gate short-circuiting the ACL.
+
+**Archived encodings stay reproducible.** `_in_vlans_for` normalises two shapes,
+distinguished by TYPE because they mean genuinely different things: `{port: [vlans]}` is
+the relation, and a bare `[vlans]` is the pre-fix device-wide set. So an archived IR
+(`fave/bench/wl_i2/eval/`, and the wl_stanford faithful artifacts) still builds the
+encoding it was measured against, while the adapter never emits that shape again -- pinned
+by `test_nothing_emits_the_old_flat_shape_any_more`. Deliberately **no** new adapter flag:
+the old behaviour is a defect, not a configuration, and a third boolean would multiply the
+mode matrix for a mode nobody should run.
+
+**Tests.** 15 ad6-side (`ad6/test/parser/favemodeltest.py::PortScopedAdmissionTest`,
+registered in the manual `parsersuite.py` registry) through a real
+`build_config`/`instantiate_base`/solve, and 20 fave-side capture + IR tests
+(`fave/test/test_ad6_wl_i2_admission.py`). The discriminating pair is
+`test_the_same_vlan_on_a_port_that_does_not_admit_it_is_blocked` against
+`test_the_archived_flat_shape_still_gates_device_wide`: identical fixture and identical
+injected VLAN, reachable under the flat shape and blocked under the relation, so the two
+cannot both pass unless the port scoping is doing real work.
+`test_the_i2_root_cause_shape_is_blocked` reproduces the real `out.chic -> in.kans` case in
+miniature -- the gated VLAN is a per-node SSA value written by a mid-path rewrite, not a
+value pinned at injection -- and then admits vlan 10 on that port to prove the block is the
+port scoping and not the rewrite. Three superseded `TestAd6StanfordInAdmission` assertions
+were rewritten rather than deleted; `_ANY_PORT` is pinned equal across the two trees by
+`test_the_any_port_key_matches_favemodels_own`, since `fave/ad6/adapter.py` deliberately
+imports nothing from the ad6 tree.
+
+**Validated at full i2 scale, no engine and no solve** -- the built IR + emitted table
+reproduce the root-cause evidence exactly: 223 admitted ports (identical to `in_admit`'s
+223, so no real edge falls to DROP), 596 (port, VLAN) pairs, `in.kans` device union 40
+VLANs, and port `400029`'s gate carrying exactly `{11,20,21,30,31,32,40,60,70}` while
+`out.chic.220045`'s rewrites are `{10,20,30}`. `in.kans` emits 51 rules (25 ports x 2 + 1
+fwd) and its fwd rule carries **0** fieldmatches, i.e. the device-wide fallback correctly
+does not also fire.
+
+**NOT MEASURED, and nothing here licenses a reachability claim.** Whether `chic->salt`
+now goes UNSAT -- the thing that would make ad6 and NetPlumber agree on the five Chicago
+pairs -- needs the three-query faithful run again (~771 s build, ~20 GB,
+`--lite-acyclic`). wl_stanford faithful is affected identically and by the same mechanism,
+so every archived wl_stanford faithful number is superseded as well, not just i2's.
+
+**NEW ASYMMETRY, deliberately not fixed here.**
+`fave/apkeep/adapter.py:_capture_in_admission` still carries the identical projection, and
+its `_in_vlans` feeds a different consumer (APKeep's own input format,
+`adapter.py:1257-1328`), so it is a separate change with its own encoding semantics. Until
+it lands, an ad6-vs-APKeep faithful-VLAN comparison on wl_stanford is NO LONGER
+like-for-like -- which is exactly the comparability §5.4 Stage B ported the projected
+version to preserve. Tracked in `TODO.md`.
