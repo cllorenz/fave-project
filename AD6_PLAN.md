@@ -2230,10 +2230,38 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   adapter flag: the old behaviour is a defect, not a configuration, and a third boolean
   would multiply the mode matrix for a mode nobody should run.
 
-  **NOT YET MEASURED for i2, and nothing here licenses an i2 reachability claim.**
-  Whether `chic->salt` now goes UNSAT -- the thing that would make ad6 and NetPlumber
-  agree on the five Chicago pairs -- needs the three-query faithful run again (~771 s
-  build, ~20 GB, `--lite-acyclic`).
+  **i2 THREE-QUERY RUN MADE 2026-09-10, PORT-SCOPED: the control answers FASTER and the
+  discriminator becomes INTRACTABLE. Suggestive of the flip, but NOT proof.** Ran the
+  recipe's step (c) verbatim (`--faithful-vlan --lite-acyclic --solver cadical195
+  --checkpoint-every 1`, untag off) against a 6 h `timeout`. Build 771.5 s, peak RSS
+  18,501.7 MB (pre-fix 18,416.0 -- as predicted, and it survived; ~1.6-1.9 GB of swap
+  absorbed the tail).
+
+  | pair | pre-fix | port-scoped |
+  |---|---|---|
+  | `hous->salt` (agreement control) | SAT, 614.4 s | **SAT, 425.8 s** |
+  | `chic->salt` (discriminator) | SAT, **63.4 s** | **no answer in 20,302 s** |
+  | `chic->seat` (discriminator) | SAT, 1,246.9 s | not reached |
+
+  **The asymmetry is the signal.** The control got 1.4x FASTER while the discriminator
+  went from a 63 s SAT to undecided after 5h38m -- at least 320x with no verdict. That is
+  the signature of a verdict that has FLIPPED: the pre-fix 63 s was cheap precisely
+  because a satisfying model existed to exhibit, and refuting is a categorically harder
+  job than exhibiting. It is CONSISTENT WITH `chic->salt` now being UNSAT -- i.e. with
+  ad6 and NetPlumber agreeing on the Chicago pairs -- and it is NOT proof: an undecided
+  query is undecided, and a SAT answer that merely became much more expensive to find
+  would look identical from the outside.
+
+  So the decision table's case 1 ("control SAT, discriminators UNSAT -> NetPlumber's 11
+  corroborated") is now the LEADING reading rather than the established one, and §5.5's
+  recorded "case 2" is superseded either way: the pre-fix all-three-SAT result was
+  produced by the projected admission gate and cannot stand.
+
+  **What would settle it:** `chic->salt` alone with a much longer budget, since the
+  build is only 771 s of the cost. Worth noting before spending it that 5h38m already
+  failed, so a longer wall may simply confirm intractability rather than yield a verdict
+  -- and that an intractability verdict on the faithful i2 model is itself a §5.5
+  tractability datum, distinct from the reachability question.
 
   **MEASURED FOR wl_stanford, AND IT CORRECTS THIS SECTION'S OWN BLAST-RADIUS CLAIM.**
   Full N=16 faithful re-run with the fix: **`reachable_pairs` 165 of 256, IDENTICAL to
@@ -2271,7 +2299,17 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   is the one to carry into planning the i2 run: if i2's per-query cost scales similarly,
   the three-query faithful run goes from ~614 s/query to roughly 1,800 s/query, i.e.
   from ~45 minutes to over two hours. The memory envelope is unaffected (i2 +446 nodes,
-  +0.57%); the WALL budget is not.
+  +0.57%); the WALL budget is not. **Measured on i2 afterwards, this extrapolation turned
+  out to be wrong in BOTH directions** -- the control got faster (425.8 s vs 614.4 s) and
+  the discriminator got worse than 320x. Per-query cost did not scale by a factor; it
+  reorganised, which is what a flipped verdict looks like. Do not carry a single
+  cross-workload query-time factor into an i2 estimate again.
+
+  **CORRECTION, method rather than result (2026-09-10).** The i2 run's variable-count
+  delta was predicted here as "~5,352 extra variables" from the mutation constraints
+  alone (12 VLAN bits x 446 nodes). Measured: **+30,028** -- the acyclic rank encoding
+  over the new nodes (+51,510 of the +78,030 clauses) and the gates' own Tseitin
+  variables account for the rest. Still negligible against 7.3 M, but 5.6x the estimate.
 
   **NEW ASYMMETRY, deliberately not fixed here.** `fave/apkeep/adapter.py:_capture_in_
   admission` still carries the identical projection, and its `_in_vlans` feeds a

@@ -131,6 +131,17 @@ keeps a faithful run comparable with the plain figures. Do NOT reach for
 `--skip-acyclic` instead: that drops the floating-cycle soundness fix
 altogether and is orientation-only.
 
+WHERE THE VERDICTS ARE IN A RESULT FILE: `query_log`, a list of
+`{index, source, probe, elapsed_s, sat}`. NOT `queries` -- that key exists
+only in `--dry-run` output, where it lists the PLANNED pairs. A reader (or a
+progress monitor) that looks for verdicts under `queries` gets an absent key
+and therefore an empty list, which is indistinguishable from "no query has
+finished yet" -- the same silent-empty failure mode `_forced_literals` exists
+to prevent on the literal side. This cost a real misreading on 2026-09-10: a
+completed control query was reported for five hours as "still running", and a
+28x solver slowdown was inferred from the silence. `queries_done`,
+`last_query` and `last_query_s` are the cheap progress fields.
+
 Reading the outcome of (c). `hous->salt` is the agreement control (both
 engines call it reachable; 1.11 s in plain mode, the fastest of the 72).
 `chic->salt` and `chic->seat` are the discriminators NetPlumber calls
