@@ -293,8 +293,18 @@ def _is_full_sweep(answered, sources, probes):
     return asked >= expected
 
 
-def _extract_witness(solver, sat, witness, index_to_name, source, destination, ir):
+def _extract_witness(solver, sat, witness, index_to_name, source, destination, ir,
+                     favemodel):
     """ The traversed FaVe devices for one SAT solve, or None.
+
+    `favemodel` is passed IN rather than imported here, for two reasons. It is
+    imported inside `measure()` (this script defers every ad6 import until
+    after it has put `ad6/` on sys.path), so a module-level helper cannot see
+    it -- an earlier version of this function referenced it as a global and
+    died with NameError on the first SAT query, 877 s into a run. And passing
+    it makes this function injectable, so `fave/test/test_ad6_i2_measure.py`
+    can exercise it in milliseconds instead of the flag-plumbing tests being
+    the only coverage.
 
     Reports `witness_edges_total` alongside the walk deliberately: a SAT model
     is not a path (see `favemodel.witness_path`), so the count of true
@@ -820,14 +830,16 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                 last_solver_load_s = round(time.time() - lq0, 3)
                 sat = bool(q_solver.solve())
                 witness_record = _extract_witness(
-                    q_solver, sat, witness, index_to_name, source, destination, ir)
+                    q_solver, sat, witness, index_to_name, source, destination, ir,
+                    favemodel)
                 q_solver.delete()
             else:
                 for clause in src_clauses + dst_clauses:
                     solver.add_clause(clause)
                 sat = bool(solver.solve(assumptions=[src_lit, dst_lit] + untag_literals))
                 witness_record = _extract_witness(
-                    solver, sat, witness, index_to_name, source, destination, ir)
+                    solver, sat, witness, index_to_name, source, destination, ir,
+                    favemodel)
             # Full per-query history (AD6_PLAN.md Sec 5.5 C2 follow-up: the prior
             # last_query_s/last_query fields get OVERWRITTEN every checkpoint, so
             # the archived Glucose4/Cadical195 full runs never actually recorded

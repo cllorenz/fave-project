@@ -56,12 +56,16 @@ wrong answer rather than a crash:
     LOOKS like the untagged configuration was measured.
 """
 
+import os
+import sys
 import unittest
 from unittest import mock
 
+import bench.ad6_i2_measure
+
 from bench.ad6_i2_measure import (
     _parse_pairs, _select_queries, _forced_literals, _oracle_diff, _is_full_sweep,
-    _build_ir, main
+    _extract_witness, _build_ir, main
 )
 
 
@@ -470,3 +474,86 @@ class TestWitnessCli(unittest.TestCase):
         self.assertTrue(kwargs['witness'])
         self.assertTrue(kwargs['faithful_vlan'])
         self.assertEqual(kwargs['pairs'], _EXPERIMENT)
+
+
+class _StubSolver:
+    def __init__(self, model):
+        self._model = model
+
+    def get_model(self):
+        return self._model
+
+
+class TestExtractWitness(unittest.TestCase):
+    """ `_extract_witness` itself, not just its CLI flag.
+
+    This class exists because the flag-plumbing tests above did NOT catch a
+    plain `NameError` in this function: `favemodel` is imported INSIDE
+    `measure()`, so it is a local of that function and a module-level helper
+    cannot see it. The run died on the first SAT query after an 877 s build.
+    Hence the module is now passed in explicitly -- which is both the fix and
+    what makes the function injectable enough to test here for milliseconds
+    instead of fifteen minutes. """
+
+    _IR = {"devices": ["in.chic", "out.chic", "in.salt", "out.salt"],
+           "generators": {"source.chic": None}, "probes": {"probe.salt": None}}
+
+    def setUp(self):
+        sys.path.append(os.path.join(os.path.dirname(os.path.abspath(
+            bench.ad6_i2_measure.__file__)), '..', '..', 'ad6'))
+        from src.parser import favemodel
+        self.favemodel = favemodel
+        self.source = favemodel.gen_entry_key('source.chic')
+        self.dest = favemodel._probe_fanout_key('probe.salt')
+        self.mid = 'fw_out_chic_fwd_r5'
+        self.index_to_name = {
+            1: '%s_true_%s' % (self.source, self.mid),
+            2: '%s_true_%s' % (self.mid, self.dest),
+            3: 'fw_in_salt_fwd_r0_true_fw_out_salt_fwd_r0',   # slack
+        }
+
+    def _extract(self, model, sat=True, witness=True):
+        return _extract_witness(_StubSolver(model), sat, witness,
+                                self.index_to_name, self.source, self.dest,
+                                self._IR, self.favemodel)
+
+    def test_witness_off_extracts_nothing(self):
+        self.assertIsNone(self._extract([1, 2], witness=False))
+
+    def test_unsat_extracts_nothing(self):
+        """ UNSAT has no model; asking for one would be an error, not a
+        witness. """
+        self.assertIsNone(self._extract([1, 2], sat=False))
+
+    def test_a_sat_solve_yields_the_device_walk(self):
+        record = self._extract([1, 2])
+        self.assertEqual(record['witness_devices'],
+                         ['source.chic', 'out.chic', 'probe.salt'])
+        self.assertEqual(record['witness_path_nodes'], 3)
+
+    def test_the_edge_total_is_reported_alongside_the_walk(self):
+        """ The slack indicator: 3 true edges but a 3-node walk using 2 of
+        them. Without this a reader cannot tell how loose the model was. """
+        record = self._extract([1, 2, 3])
+        self.assertEqual(record['witness_edges_total'], 3)
+        self.assertEqual(record['witness_devices'],
+                         ['source.chic', 'out.chic', 'probe.salt'])
+
+    def test_negative_literals_do_not_contribute_edges(self):
+        record = self._extract([1, -2])
+        self.assertEqual(record['witness_edges_total'], 1)
+        self.assertIn('witness_error', record)
+
+    def test_a_sat_solve_with_no_walk_reports_an_error_not_an_empty_path(self):
+        """ SAT means the destination IS reachable, so no walk inside the
+        true-edge set is a fact about extraction, not about reachability --
+        it must not be reported as a zero-hop path. """
+        record = self._extract([3])
+        self.assertIn('witness_error', record)
+        self.assertNotIn('witness_devices', record)
+
+    def test_a_solver_returning_no_model_is_reported(self):
+        record = _extract_witness(_StubSolver(None), True, True,
+                                  self.index_to_name, self.source, self.dest,
+                                  self._IR, self.favemodel)
+        self.assertIn('witness_error', record)

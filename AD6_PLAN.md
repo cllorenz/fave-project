@@ -2016,6 +2016,110 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   writes per-source `<node_id>.flow_tree.json`. So leaf parsing is a small adapter over
   the per-source files, not straight reuse of `_get_flow_trees`.
 
+  **FUTURE OPTION (owner, 2026-09-10) -- decode NP's leaf header spaces and compare
+  VALUES, not just structure. DELIBERATELY NOT part of the current witness check; owner
+  decision, recorded so it is not rediscovered.** The idea: extend the reduced (simple)
+  flow-tree dump to carry the header-space objects that reach each leaf. NP's own
+  `mapping` says what each bit MEANS (e.g. "bit 6 of the IPv4 destination"), from which
+  the corresponding ad6 variable name is derivable, so values become comparable rather
+  than only topology. Three notes on feasibility, in increasing order of importance:
+
+  1. **The decode table is already exposed.** `check_flows.py::_get_inverse_fave` already
+     returns `"mapping": fave["mapping"]`, so the bit->field semantics need no new
+     plumbing on the FaVe side. Worth pairing with the prior attempt's caveat though: what
+     defeated the wl_stanford investigation was decoding the PACKED 48-bit vectors, not
+     the field semantics. `mapping` supplies the half that was missing; it does not by
+     itself make the vector decode reliable.
+  2. **`hs_diff` is only hard for the comparison we do NOT need.** An HSA header space is
+     a union of (match, minus-list) pairs. Testing whether a single ad6 witness assignment
+     lies inside it is plain membership -- cheap, and unaffected by subtracted subspaces.
+     It is set-vs-set EQUALITY that gets awkward. For the question at hand the membership
+     direction is the one that matters, so the owner's "less trivial but still doable"
+     is, for our direction, closer to trivial.
+  3. **The don't-care asymmetry is the real one, and it makes the comparison
+     ONE-DIRECTIONAL.** ad6's witness is a total assignment -- a POINT; NP's leaf is a
+     SET with don't-care bits. So: "ad6's witness point is NOT in NP's leaf space" is a
+     SOUND divergence finding (ad6 admits a header NP does not), and that is exactly the
+     direction the i2 disagreement runs. The converse -- concluding ad6 cannot produce
+     some header NP has -- does NOT follow from one witness and must not be asserted.
+     **There is an escape hatch, and the warm-solver effect makes it cheap:** a bit's
+     don't-care status is decidable by asking ad6 whether BOTH values are satisfiable
+     under the same source/destination assumptions -- 2 queries per bit, so 24 for the
+     12-bit VLAN field, in ONE warm session where per-query cost has collapsed (see the
+     439x cold/warm measurement above). That converts a point into a per-bit
+     free/forced classification and removes the asymmetry for any field worth the
+     effort. Not needed for a membership check; needed the moment a VALUE claim is made.
+
+  **WITNESS CHECK DONE 2026-09-10 -- step (a)+(b) of the plan above. The primitive
+  works, the divergence is localized to ONE hop without any NetPlumber run, and every
+  model-side explanation checked so far comes up CLEAN.** Run: the same three pairs,
+  `--faithful-vlan --lite-acyclic --witness`, cadical195; `status: completed`, wall
+  2,950 s, peak 18,454 MB. Extraction cost ~46 s and ~38 MB on top of the solve; the
+  transition index is 155,199 vars, **2.13%** of 7,274,800, built in 1.7 s -- the
+  transition-only restriction was worth it (a full inversion would be 47x larger beside
+  a 17 GB instance). The scoped oracle diff also had its first real exercise:
+  `oracle_match: true, oracle_pairs_compared: 3, oracle_full_set: false`.
+
+  | pair | solve | witness device walk | edges/nodes |
+  |---|---:|---|---:|
+  | `hous->salt` | 660.7 s | source.hous -> in.hous -> out.hous -> in.kans -> out.kans -> in.salt -> out.salt -> probe.salt | 140/141 |
+  | `chic->salt` | 72.8 s | source.chic -> in.chic -> out.chic -> in.kans -> out.kans -> in.salt -> out.salt -> probe.salt | 248/249 |
+  | `chic->seat` | 1,407.8 s | source.chic -> in.chic -> out.chic -> in.kans -> out.kans -> in.salt -> out.salt -> in.seat -> out.seat -> probe.seat | 618/619 |
+
+  **ZERO MODEL SLACK on all three, which validates the primitive's riskiest assumption.**
+  Every walk uses EVERY true transition edge (n nodes = n-1 edges), so the true-edge set
+  contained exactly one path and `witness_path`'s search was not picking a route out of a
+  thicket. The acyclic constraints are doing their job. The control walk is also a real
+  Internet2 route (Houston -> Kansas City -> Salt Lake) on a pair BOTH engines call
+  reachable, so the extraction is validated against known-good ground truth rather than
+  only against itself.
+
+  **LOCALIZED TO ONE HOP, for free.** The discriminator's walk differs from the
+  mutually-agreed control ONLY in its first hop (`in.chic -> out.chic` vs
+  `in.hous -> out.hous`); the five-hop tail `in.kans -> out.kans -> in.salt -> out.salt
+  -> probe.salt` is IDENTICAL and NetPlumber itself accepts that tail for Houston
+  traffic. And `chic->seat` routes THROUGH salt, so one defect at the Chicago->Kansas
+  entry would explain BOTH discriminators -- which is consistent with NetPlumber calling
+  both unreachable, and with `chic` being the worst offender in its 11 (`chic -> {hous,
+  kans, losa, salt, seat}`). This is what the NP-leaf comparison was supposed to buy;
+  the shared tail delivered it without a NetPlumber run.
+
+  **BOTH MODEL-SIDE EXPLANATIONS CHECKED, BOTH CLEAN.** (1) Along the witness path, every
+  out-stage rewrite lands on a VLAN the downstream in-stage admits -- 0 violations on all
+  four hops (`out.chic->in.kans` 2,547 routes on vlans 10/20/30; `out.hous->in.kans`
+  2,157 on vlan 0; `out.kans->in.salt` 883; `out.salt->in.seat` 1,019). (2) Port-scoped:
+  `in.kans.400022` admits exactly vlans 10/20/30, precisely what `out.chic` rewrites to
+  toward kans. So the crossing is legal whether admission is read per-device or
+  per-port. **This also weakens the VLAN-choice hypothesis below**: the rewrites land on
+  admitted values anyway, so the solver never needs to "choose" an illegal tag.
+
+  **NEW FINDING, found while checking (2) -- ad6's faithful admission gate is a
+  CROSS-PRODUCT OF TWO PROJECTIONS, and every single i2 admission rule is affected.**
+  i2's `routes.json` in.X rules are port-scoped: the 6th positional field is `in_ports`,
+  e.g. `["in.atla", 1, 1, ["vlan=1"], ["fd=in.atla.100000"], ["in.atla.100028",
+  "in.atla.100007"]]`. ad6 keeps the two dimensions SEPARATELY -- `ir["in_admit"]`
+  (which ports have any admission rule, `favemodel.py:497/512`) and `ir["in_vlans"]`
+  (which vlans the DEVICE admits, consumed at `favemodel.py:322` as
+  `admitted_vlans = ir["in_vlans"][device]`) -- and gates on their product rather than
+  on the real (port, vlan) relation. Measured over the real model: **390 of 390
+  (device, vlan) admission pairs are scoped to a STRICT SUBSET of their device's ports
+  -- 100%**. Worst cases are on `in.chic` itself, where a vlan admitted on **1 of 36**
+  real ports is granted on all 36 (vlans 981, 980, 717, 716, 713, 70, ... each +35
+  ports). **This is NOT the cause of the chic->salt divergence** -- that crossing is
+  legal port-scoped, as (2) shows -- but it is a genuine, structural over-approximation
+  of exactly the kind that manufactures false reachability, it is the strongest remaining
+  candidate for the OTHER pairs among NetPlumber's 11, and it should be fixed on its own
+  merits regardless of how this investigation ends.
+
+  **CONSEQUENCE FOR THE PLAN: step (c), the live NetPlumber flow-tree dump, is now
+  REQUIRED rather than optional.** The model as ad6 loads it PERMITS the witness path at
+  every gate ad6 models, so the divergence is in something NetPlumber enforces that ad6
+  does not represent at all -- and the flow dump is what says WHERE NetPlumber's Chicago
+  flow dies. The wl_stanford precedent found precisely this shape: a downstream in-port
+  that HAS a matching rule yet where no pipe forms, i.e. a header-overlap failure
+  invisible to rule-level reasoning. Expect the same class of answer here, and note that
+  the earlier "we may not need the dump" reading is now retired.
+
   **LEADING HYPOTHESIS, EXPLICITLY UNTESTED -- do not record this as a finding.** i2's
   sources are VLAN-unconstrained (`sources.json`: `ipv4_dst=0.0.0.0/0`, no VLAN field),
   and an ad6 query is existential, so the solver may be free to CHOOSE an arriving VLAN
