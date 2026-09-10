@@ -65,7 +65,7 @@ import bench.ad6_i2_measure
 
 from bench.ad6_i2_measure import (
     _parse_pairs, _select_queries, _forced_literals, _oracle_diff, _is_full_sweep,
-    _extract_witness, _build_ir, main
+    _extract_witness, _build_ir, _admission_stamp, main
 )
 
 
@@ -557,3 +557,54 @@ class TestExtractWitness(unittest.TestCase):
                                   self.index_to_name, self.source, self.dest,
                                   self._IR, self.favemodel)
         self.assertIn('witness_error', record)
+
+
+class TestAdmissionStamp(unittest.TestCase):
+    """ AD6_PLAN.md §5.5: `faithful_vlan: true` alone no longer identifies the
+    encoding, so the result file has to say which ADMISSION model produced it.
+
+    Before 2026-09-10 `ir["in_vlans"]` was a per-DEVICE VLAN set; it is now
+    the per-(port, VLAN) relation, and on i2 the two give different
+    reachability -- the pre-fix model admitted 2,555 of the 2,564
+    route-crossings a real per-port configuration rejects. Both stamp
+    `faithful_vlan: true` and `probe_untag: false`, so without this stamp the
+    pre-fix `eval/ad6_i2_faithful_untagoff_3pairs_sandbox.json` and a post-fix
+    run of the IDENTICAL command are distinguishable only by `kripke_nodes`
+    (78,078 vs 78,524) -- derivable, but implicit. """
+
+    def test_the_relation_is_reported_as_port_scoped_with_its_sizes(self):
+        ir = {"in_vlans": {
+            "in.a": {"1": ["10", "20"], "2": ["30"]},
+            "in.b": {"5": ["40"]},
+        }}
+        self.assertEqual(_admission_stamp(ir), {
+            "in_admission_port_scoped": True,
+            "in_admission_ports": 3,
+            "in_admission_pairs": 4,
+        })
+
+    def test_the_pre_fix_flat_shape_is_reported_as_not_port_scoped(self):
+        """ favemodel._in_vlans_for still BUILDS this shape as the device-wide
+        gate (so an archived IR reproduces its encoding), so a result carrying
+        it must not claim the stronger model. """
+        stamp = _admission_stamp({"in_vlans": {"in.a": ["10", "20"]}})
+        self.assertFalse(stamp["in_admission_port_scoped"])
+        self.assertEqual(stamp["in_admission_ports"], 0)
+        self.assertEqual(stamp["in_admission_pairs"], 0)
+
+    def test_a_mixed_ir_is_not_reported_as_port_scoped(self):
+        """ Fail closed: a partially-migrated IR must read as NOT port-scoped
+        rather than quietly claiming the stronger model for the whole run. """
+        ir = {"in_vlans": {"in.a": {"1": ["10"]}, "in.b": ["20"]}}
+        self.assertFalse(_admission_stamp(ir)["in_admission_port_scoped"])
+
+    def test_a_plain_ir_is_not_reported_as_port_scoped(self):
+        """ A plain IR has no `in_vlans` at all and does no VLAN admission
+        whatsoever -- "port-scoped" would be actively misleading there, not
+        merely absent. """
+        for ir in ({}, {"in_vlans": {}}, {"in_vlans": None}):
+            self.assertEqual(_admission_stamp(ir), {
+                "in_admission_port_scoped": False,
+                "in_admission_ports": 0,
+                "in_admission_pairs": 0,
+            }, ir)
