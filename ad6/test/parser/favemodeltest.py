@@ -794,3 +794,152 @@ class FaithfulVlanProbeUntagTest(unittest.TestCase):
             finally:
                 session.Close()
             self.assertEqual(got, expected, why)
+
+
+class WitnessPathTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.5 "ROOT-CAUSING PLAN": the SHARED PRIMITIVE -- given a
+    solve, which FaVe-identified nodes did the flow traverse?
+
+    This is ad6's counterpart to the `witnessPath`/`witnessFwd`
+    instrumentation the wl_stanford investigation added to APKeep's checker
+    (`APKEEP_BACKEND.md`, "Baseline validation"), and it is consumed by BOTH
+    root-causing routes: the witness check reads the path directly, and the
+    NP-flow-tree-leaf comparison intersects it with NetPlumber's leaves.
+
+    Two properties are load-bearing and neither is obvious:
+
+      * A SAT model is NOT a path. It assigns every variable, and the
+        encoding constrains reachability rather than uniqueness, so the set
+        of TRUE transition variables can be a strict superset of any
+        source->destination walk (this is the same family of slack the
+        acyclic constraints exist to remove -- see
+        `_CreateAcyclicConstraints` and the floating-cycle note in §5.4 B1).
+        So the primitive must SEARCH for a walk inside the true-edge set and
+        report the set size alongside, never present the whole set as "the
+        path".
+      * Node keys must map back to FaVe devices EXACTLY, never by guessing
+        at the `.`/`-` -> `_` mangling `_fwkey` applies (`out.chic`,
+        `out-chic` and `out_chic` all mangle to `out_chic`). The map is built
+        FORWARD from the IR's own device list and inverted, so an unknown key
+        is reported as unknown rather than silently attributed to a
+        plausible device.
+    """
+
+    _IR = {
+        "devices": ["in.chic", "out.chic", "in.salt", "out.salt"],
+        "probes": {"probe.salt": None},
+        "generators": {"source.chic": None},
+    }
+
+    def test_a_true_transition_name_parses(self):
+        self.assertEqual(
+            favemodel.parse_transition_name("fw_in_chic_fwd_r0_true_fw_out_chic_fwd_r5"),
+            ("fw_in_chic_fwd_r0", "fw_out_chic_fwd_r5", True))
+
+    def test_a_false_transition_name_parses(self):
+        self.assertEqual(
+            favemodel.parse_transition_name("fw_in_chic_fwd_r0_false_fw_out_chic_fwd_r5"),
+            ("fw_in_chic_fwd_r0", "fw_out_chic_fwd_r5", False))
+
+    def test_a_non_transition_name_is_not_a_transition(self):
+        """ The model is full of field/SSA and Tseitin aux variables; only
+        transition variables describe movement. """
+        for name in ("vlan#probe_fanout_probe_salt_0", "fieldmatch#foo",
+                     "fw_in_chic_fwd_r0", "aux_1234"):
+            self.assertIsNone(favemodel.parse_transition_name(name), name)
+
+    def test_only_positive_literals_count_as_taken_edges(self):
+        index_to_name = {1: "a_true_b", 2: "b_true_c", 3: "c_true_d"}
+        edges = favemodel.witness_edges([1, -2, 3], index_to_name)
+        self.assertEqual(edges, {("a", "b"), ("c", "d")})
+
+    def test_unknown_indices_are_ignored_rather_than_fatal(self):
+        """ A model covers every variable in the instance, including ones
+        this mapping was never given (query-time aux gates). """
+        self.assertEqual(
+            favemodel.witness_edges([1, 99999], {1: "a_true_b"}), {("a", "b")})
+
+    def test_a_walk_is_found_inside_the_true_edge_set(self):
+        edges = {("s", "x"), ("x", "y"), ("y", "d")}
+        self.assertEqual(favemodel.witness_path(edges, "s", "d"),
+                         ["s", "x", "y", "d"])
+
+    def test_the_shortest_walk_is_returned(self):
+        edges = {("s", "x"), ("x", "d"), ("s", "a"), ("a", "b"), ("b", "d")}
+        self.assertEqual(favemodel.witness_path(edges, "s", "d"), ["s", "x", "d"])
+
+    def test_a_walk_is_found_despite_unrelated_true_edges(self):
+        """ THE property that matters: slack in the model must not defeat
+        extraction. The spurious edges here form a disconnected component
+        and a dead-end branch off the real walk. """
+        edges = {("s", "x"), ("x", "d"),
+                 ("p", "q"), ("q", "p"),          # floating cycle elsewhere
+                 ("x", "z")}                       # dead-end branch
+        self.assertEqual(favemodel.witness_path(edges, "s", "d"), ["s", "x", "d"])
+
+    def test_no_walk_returns_none(self):
+        self.assertIsNone(favemodel.witness_path({("s", "x")}, "s", "d"))
+
+    def test_a_cycle_does_not_hang_the_search(self):
+        edges = {("s", "a"), ("a", "b"), ("b", "a"), ("b", "d")}
+        self.assertEqual(favemodel.witness_path(edges, "s", "d"),
+                         ["s", "a", "b", "d"])
+
+    def test_source_equal_destination_is_a_single_node_walk(self):
+        self.assertEqual(favemodel.witness_path(set(), "s", "s"), ["s"])
+
+    def test_a_firewall_rule_node_maps_to_its_fave_device(self):
+        self.assertEqual(
+            favemodel.node_device("fw_out_chic_fwd_r5", self._IR), "out.chic")
+
+    def test_an_interface_node_maps_to_its_fave_device(self):
+        self.assertEqual(
+            favemodel.node_device("favenet_out_chic_120030_out", self._IR),
+            "out.chic")
+
+    def test_a_generator_node_maps_to_its_source(self):
+        self.assertEqual(
+            favemodel.node_device(favemodel.gen_entry_key("source.chic"), self._IR),
+            "source.chic")
+
+    def test_a_probe_aggregate_node_maps_to_its_probe(self):
+        self.assertEqual(
+            favemodel.node_device(favemodel._probe_fanout_key("probe.salt"), self._IR),
+            "probe.salt")
+
+    def test_an_unknown_node_maps_to_none_rather_than_a_guess(self):
+        self.assertIsNone(favemodel.node_device("fw_out_kans_fwd_r0", self._IR))
+        self.assertIsNone(favemodel.node_device("aux_1234", self._IR))
+
+    def test_the_longest_matching_device_prefix_wins(self):
+        """ `in.chic` and a hypothetical `in.chic.sub` both prefix-match a
+        node of the latter; picking the shorter one would attribute the hop
+        to the wrong device. """
+        ir = dict(self._IR, devices=["in.chic", "in.chic.sub"])
+        self.assertEqual(favemodel.node_device("fw_in_chic_sub_fwd_r0", ir),
+                         "in.chic.sub")
+        self.assertEqual(favemodel.node_device("fw_in_chic_fwd_r0", ir), "in.chic")
+
+    def test_the_device_walk_collapses_consecutive_nodes_of_one_device(self):
+        """ What the NP-leaf comparison actually consumes: a device-level
+        hop sequence. A device contributes many Kripke nodes (ACL stage,
+        per-rule nodes, egress interface) and they must read as ONE hop. """
+        path = ["gensrc_source_chic", "fw_in_chic_fwd_r0", "fw_in_chic_fwd_r1",
+                "favenet_in_chic_1_out", "fw_out_chic_fwd_r5",
+                "favenet_out_chic_120030_out", "probe_fanout_probe_salt"]
+        self.assertEqual(favemodel.witness_devices(path, self._IR),
+                         ["source.chic", "in.chic", "out.chic", "probe.salt"])
+
+    def test_unknown_nodes_are_dropped_from_the_device_walk(self):
+        """ Aux/Tseitin nodes carry no FaVe identity and must not appear as
+        phantom hops. """
+        self.assertEqual(
+            favemodel.witness_devices(["aux_1", "fw_in_chic_fwd_r0", "aux_2"], self._IR),
+            ["in.chic"])
+
+    def test_a_device_revisited_after_leaving_is_not_collapsed_away(self):
+        """ Only CONSECUTIVE repeats collapse -- a genuine return to a
+        device is a real hop and losing it would hide a loop. """
+        path = ["fw_in_chic_fwd_r0", "fw_out_chic_fwd_r1", "fw_in_chic_fwd_r2"]
+        self.assertEqual(favemodel.witness_devices(path, self._IR),
+                         ["in.chic", "out.chic", "in.chic"])

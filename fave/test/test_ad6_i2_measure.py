@@ -442,3 +442,31 @@ class TestIsFullSweep(unittest.TestCase):
         answered = [(s, p) for p in _PROBES for s in _SOURCES
                     if s.split('.')[1] == p.split('.')[1]]
         self.assertFalse(_is_full_sweep(answered, _SOURCES, _PROBES))
+
+
+class TestWitnessCli(unittest.TestCase):
+    """ `--witness`: extract the traversed FaVe devices from a SAT solve.
+
+    The consumer of the shared primitive (AD6_PLAN.md §5.5 "ROOT-CAUSING
+    PLAN"). Opt-in rather than always-on because it costs one pass over the
+    instance's whole variable table to build the transition-name index, and
+    every recorded run so far did not need it. """
+
+    def _measure_kwargs(self, argv):
+        with mock.patch('bench.ad6_i2_measure.measure') as measure:
+            main(argv)
+        return measure.call_args[1]
+
+    def test_default_is_off(self):
+        self.assertFalse(self._measure_kwargs([])['witness'])
+
+    def test_the_flag_reaches_measure(self):
+        self.assertTrue(self._measure_kwargs(['--witness'])['witness'])
+
+    def test_it_composes_with_the_experiment_command_line(self):
+        kwargs = self._measure_kwargs([
+            '--faithful-vlan', '--lite-acyclic', '--witness',
+            '--pairs', _EXPERIMENT, '--solver', 'cadical195'])
+        self.assertTrue(kwargs['witness'])
+        self.assertTrue(kwargs['faithful_vlan'])
+        self.assertEqual(kwargs['pairs'], _EXPERIMENT)

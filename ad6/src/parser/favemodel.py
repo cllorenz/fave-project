@@ -53,6 +53,8 @@ Design notes (see AD6_PLAN.md §4.4 for the experiment this relies on):
     deny-all] -> [forwarding rules, longest-prefix first].
 """
 
+from collections import deque
+
 from src.core.kripke import KripkeUtils
 from src.core.instantiator import Instantiator
 from src.parser.iptables import IP6TablesParser
@@ -654,6 +656,163 @@ def probe_vlan_literals(probe_name, ir, destination=None):
     node = destination if destination is not None else query_destination_key(probe_name, ir)
     return list(XMLUtils.ConvertFieldToVariables(
         'vlan', node, int(vlan), MUTABLE_FIELDS['vlan']))
+
+
+
+# ---------------------------------------------------------------------------
+# AD6_PLAN.md §5.5 "ROOT-CAUSING PLAN": the shared witness-path primitive --
+# given a solve, which FaVe-identified nodes did the flow traverse?
+#
+# ad6's counterpart to the `witnessPath`/`witnessFwd` instrumentation the
+# wl_stanford investigation added to APKeep's ReachabilityChecker
+# (APKEEP_BACKEND.md, "Baseline validation"), whose method note is worth
+# repeating: NetPlumber's flow dump became "the reliable per-hop oracle ...
+# replacing static rule inspection, which produced five successively-disproven
+# mechanisms". Both i2 root-causing routes consume this: the witness check
+# reads the path, the NP-leaf comparison intersects it with NetPlumber's
+# flow-tree leaves.
+# ---------------------------------------------------------------------------
+
+_TRANSITION_TOKENS = (('_true_', True), ('_false_', False))
+
+
+def parse_transition_name(name):
+    """ Split an ad6 transition variable name into (source, target, flag),
+    or None if `name` is not a transition at all.
+
+    Mirrors `XMLUtils.CreateTransition`, which names the variable
+    `source + ('_true_' if Flag else '_false_') + target`. NOTE the token is
+    the transition's own FLAG (which branch of the rule), not the variable's
+    truth value -- both flavours are real movement, so both count as edges;
+    a model's LITERAL POLARITY is what says whether the edge was taken. """
+    for token, flag in _TRANSITION_TOKENS:
+        source, found, target = name.partition(token)
+        if found and source and target:
+            return (source, target, flag)
+    return None
+
+
+def witness_edges(model, index_to_name):
+    """ The transition edges a SAT model actually took: the (source, target)
+    pairs whose transition variable it set TRUE.
+
+    `model` is a PySAT-style list of signed DIMACS literals; negative
+    literals are skipped, and an index absent from `index_to_name` is
+    ignored rather than fatal (a real instance carries query-time Tseitin aux
+    variables the caller's mapping never named). """
+    edges = set()
+    for literal in model:
+        if literal <= 0:
+            continue
+        name = index_to_name.get(literal)
+        if name is None:
+            continue
+        parsed = parse_transition_name(name)
+        if parsed is not None:
+            edges.add((parsed[0], parsed[1]))
+    return edges
+
+
+def witness_path(edges, source, destination):
+    """ A shortest source->destination walk INSIDE `edges`, or None.
+
+    A SAT model is not a path: it assigns every variable, and the encoding
+    constrains reachability rather than uniqueness, so the true-edge set is
+    routinely a strict superset of any walk -- disconnected components, dead
+    end branches off the real route, and (absent the acyclic constraints)
+    floating cycles. Hence a search rather than a topological read of the
+    set, and hence callers should report `len(edges)` alongside the path
+    rather than presenting the set as "the path". Breadth-first, so the walk
+    returned is a shortest one, and visited-marking makes a cycle in the
+    edge set terminate rather than hang. """
+    if source == destination:
+        return [source]
+    adjacency = {}
+    for edge_source, edge_target in edges:
+        adjacency.setdefault(edge_source, []).append(edge_target)
+    for targets in adjacency.values():
+        targets.sort()                     # deterministic across runs
+    previous = {source: None}
+    queue = deque([source])
+    while queue:
+        node = queue.popleft()
+        for target in adjacency.get(node, ()):
+            if target in previous:
+                continue
+            previous[target] = node
+            if target == destination:
+                path = [target]
+                while previous[path[-1]] is not None:
+                    path.append(previous[path[-1]])
+                path.reverse()
+                return path
+            queue.append(target)
+    return None
+
+
+def _node_prefixes(ir):
+    """ {node-key prefix: FaVe identity}, built FORWARD from the IR's own
+    device/generator/probe names and inverted.
+
+    Built forward on purpose: `_fwkey` mangles `.` and `-` to `_`, so
+    `out.chic`, `out-chic` and `out_chic` all produce `out_chic` and the
+    mangling is NOT invertible by inspection. Deriving the map from the IR
+    means an unrecognised key is reported as unknown instead of being
+    attributed to a plausible-looking device. """
+    prefixes = {}
+    for device in (ir.get("devices") or []):
+        prefixes[_fwkey(device)] = device
+        prefixes["%s_%s" % (_NET, device.replace('.', '_').replace('-', '_'))] = device
+    for source_name in (ir.get("generators") or {}):
+        prefixes[_gen_fwkey(source_name)] = source_name
+    for probe_name in (ir.get("probes") or {}):
+        prefixes[_probe_fanout_key(probe_name)] = probe_name
+    return prefixes
+
+
+def node_device(node_key, ir, prefixes=None):
+    """ The FaVe device/generator/probe a Kripke node key belongs to, or None.
+
+    Longest prefix wins -- a device may be a name-prefix of another
+    (`in.chic` vs `in.chic.sub`), and picking the shorter one would attribute
+    a hop to the wrong device. The match must also end on a key boundary
+    (end of string, or the next character is `_`), so `in.chic` does not
+    claim `in.chicago`'s nodes. """
+    if prefixes is None:
+        prefixes = _node_prefixes(ir)
+    best = None
+    for prefix, identity in prefixes.items():
+        if not node_key.startswith(prefix):
+            continue
+        rest = node_key[len(prefix):]
+        if rest and not rest.startswith('_'):
+            continue
+        if best is None or len(prefix) > len(best[0]):
+            best = (prefix, identity)
+    return best[1] if best else None
+
+
+def witness_devices(path, ir):
+    """ A witness node walk reduced to a FaVe DEVICE hop sequence -- what the
+    NetPlumber flow-tree-leaf comparison consumes, since NP's leaves resolve
+    to FaVe tables (`check_flows.py::_get_inverse_fave`) and not to ad6 node
+    keys.
+
+    One device contributes many Kripke nodes (an ingress-ACL stage, a node
+    per forwarding rule, its egress interface), so CONSECUTIVE nodes of the
+    same device collapse to one hop. Only consecutive ones: a genuine return
+    to a device later in the walk is a real hop, and collapsing that would
+    hide a loop. Nodes with no FaVe identity (Tseitin aux, fanout
+    aggregates) are dropped rather than shown as phantom hops. """
+    prefixes = _node_prefixes(ir)
+    devices = []
+    for node_key in path:
+        device = node_device(node_key, ir, prefixes=prefixes)
+        if device is None:
+            continue
+        if not devices or devices[-1] != device:
+            devices.append(device)
+    return devices
 
 
 _GEN_OUTPUT_PORT = "output_filter_in"

@@ -293,6 +293,38 @@ def _is_full_sweep(answered, sources, probes):
     return asked >= expected
 
 
+def _extract_witness(solver, sat, witness, index_to_name, source, destination, ir):
+    """ The traversed FaVe devices for one SAT solve, or None.
+
+    Reports `witness_edges_total` alongside the walk deliberately: a SAT model
+    is not a path (see `favemodel.witness_path`), so the count of true
+    transition edges is how a reader sees how much slack the model carried.
+    `witness_path_nodes` is the ad6 node count, `witness_devices` the FaVe
+    device hop sequence the NetPlumber flow-tree-leaf comparison consumes.
+
+    UNSAT has no model, so nothing is extracted -- which is precisely why this
+    is useful where the i2 disagreement sits: all three faithful answers are
+    SAT, so every disputed pair carries a witness. """
+    if not (witness and sat):
+        return None
+    model = solver.get_model()
+    if model is None:
+        return {"witness_error": "solver returned no model"}
+    edges = favemodel.witness_edges(model, index_to_name)
+    path = favemodel.witness_path(edges, source, destination)
+    record = {"witness_edges_total": len(edges)}
+    if path is None:
+        # The solve said SAT, so the destination IS reachable; a missing walk
+        # means the true-edge set holds none. Report that rather than
+        # silently emitting an empty path.
+        record["witness_error"] = "no %s -> %s walk inside the true-edge set" % (
+            source, destination)
+        return record
+    record["witness_path_nodes"] = len(path)
+    record["witness_devices"] = favemodel.witness_devices(path, ir)
+    return record
+
+
 def _oracle_diff(reach_matrix, oracle, queried_pairs):
     """ C1's differential against `bench/wl_i2/reachable.json`, SCOPED to the
     pairs the run actually asked about.
@@ -439,7 +471,8 @@ _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
             max_queries=None, checkpoint_every=10, pair_filter=None, fresh_per_query=False,
-            faithful_vlan=False, probe_untag=False, pairs=None, dry_run=False):
+            faithful_vlan=False, probe_untag=False, pairs=None, dry_run=False,
+            witness=False):
     if probe_untag and not faithful_vlan:
         raise ValueError(
             "probe_untag requires faithful_vlan: probe_vlan_literals() returns nothing "
@@ -721,6 +754,24 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             result["current_rss_after_dimacs_clauses_free_mb"] = _current_rss_mb()
         _checkpoint(result, out_path, "solver_loaded")
 
+        # AD6_PLAN.md §5.5 "ROOT-CAUSING PLAN": the witness index. Built ONCE
+        # and restricted to TRANSITION variables on purpose -- inverting the
+        # whole name_to_index would materialise a 7.2M-entry dict beside an
+        # instance already holding ~17 GB, whereas the transitions are a small
+        # fraction of it. One pass over the variable table costs seconds; the
+        # alternative (a set of the model's positive indices) is the expensive
+        # direction on an instance this size.
+        result["witness"] = witness
+        index_to_name = {}
+        if witness:
+            t0 = time.time()
+            for name, index in name_to_index.items():
+                if favemodel.parse_transition_name(name) is not None:
+                    index_to_name[index] = name
+            result["witness_index_s"] = round(time.time() - t0, 3)
+            result["witness_transition_vars"] = len(index_to_name)
+            _checkpoint(result, out_path, "witness_index_built")
+
         ad6_reach = {}
         result["query_log"] = []
         t0 = time.time()
@@ -768,11 +819,15 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                     q_solver.add_clause([untag_literal])
                 last_solver_load_s = round(time.time() - lq0, 3)
                 sat = bool(q_solver.solve())
+                witness_record = _extract_witness(
+                    q_solver, sat, witness, index_to_name, source, destination, ir)
                 q_solver.delete()
             else:
                 for clause in src_clauses + dst_clauses:
                     solver.add_clause(clause)
                 sat = bool(solver.solve(assumptions=[src_lit, dst_lit] + untag_literals))
+                witness_record = _extract_witness(
+                    solver, sat, witness, index_to_name, source, destination, ir)
             # Full per-query history (AD6_PLAN.md Sec 5.5 C2 follow-up: the prior
             # last_query_s/last_query fields get OVERWRITTEN every checkpoint, so
             # the archived Glucose4/Cadical195 full runs never actually recorded
@@ -781,10 +836,13 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             # query regardless of checkpoint_every; only the on-disk WRITE cadence
             # is gated by checkpoint_every, to avoid excess I/O on a long run.
             elapsed = round(time.time() - q0, 3)
-            result["query_log"].append({
+            entry = {
                 "index": qi, "source": q['source'], "probe": q['probe'],
                 "elapsed_s": elapsed, "solver_load_s": last_solver_load_s, "sat": sat,
-            })
+            }
+            if witness_record is not None:
+                entry.update(witness_record)
+            result["query_log"].append(entry)
             # Checkpoint every checkpoint_every-th AND the final query of a (possibly
             # max_queries-truncated) run, so a short probe (e.g. max_queries=1) still
             # leaves a per-query timing behind instead of only the phase-level
@@ -889,6 +947,12 @@ def main(argv=None):
                          "experiment). Bare router names or fully-qualified "
                          "source.X>probe.Y both work; an unknown name is an error, not "
                          "an empty selection. Mutually exclusive with --pair-filter")
+    p.add_argument("--witness", action="store_true",
+                    help="on each SAT query, extract the traversed FaVe devices from "
+                         "the solver's model (AD6_PLAN.md Sec 5.5 ROOT-CAUSING PLAN -- "
+                         "the shared primitive behind both the witness check and the "
+                         "NetPlumber flow-tree-leaf comparison). Opt-in: costs one pass "
+                         "over the instance's variable table to index transition names")
     p.add_argument("--dry-run", action="store_true",
                     help="build the IR, resolve and validate the query list, stamp the "
                          "model identity -- then stop, before instantiate/solve. ~5 s "
@@ -915,7 +979,8 @@ def main(argv=None):
             solver_name=args.solver, max_queries=args.max_queries,
             checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter,
             fresh_per_query=args.fresh_per_query, faithful_vlan=args.faithful_vlan,
-            probe_untag=args.probe_untag, pairs=args.pairs, dry_run=args.dry_run)
+            probe_untag=args.probe_untag, pairs=args.pairs, dry_run=args.dry_run,
+            witness=args.witness)
     return 0
 
 

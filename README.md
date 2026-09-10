@@ -110,7 +110,17 @@ and they rarely announce themselves as such. Before debugging a red suite, run
 It runs no tests. It diffs the environment against the `Dockerfile` (the
 canonical definition of what this project needs), reports every missing
 dependency **with the tier it blocks**, and prints the exact `apt-get` line to
-repair it. Three failures in particular are worth knowing about, because each
+repair it.
+
+It also finds the venv itself. `test.sh` probes `./.venv/bin/python3` and
+`~/.venv/bin/python3` for an interpreter that has the dependencies, so no tier
+needs a prior `activate` (an explicit `$PYTHON` or an active `$VIRTUAL_ENV`
+still wins, and the doctor prints which interpreter it used). This matters
+because `fave/setup.sh` creates `~/.venv`, which in a container resolves via
+`$HOME` and so can sit outside the checkout — before this, every tier ran the
+*system* interpreter and the doctor itself reported six installed packages as
+missing. Commands other than `test.sh` (`python3 bench/...`, `make test` in
+`ad6/`) still need the venv activated. Three failures in particular are worth knowing about, because each
 one surfaces as something that looks unrelated:
 
 | absent | what you actually see |

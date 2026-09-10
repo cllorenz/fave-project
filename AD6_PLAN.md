@@ -1938,6 +1938,84 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   recommended next step. `bench/ad6_i2_measure.py` does not extract models today, so it
   needs a small addition.
 
+  **ROOT-CAUSING PLAN, agreed with the owner 2026-09-10 -- NP FLOW-TREE LEAVES AS A
+  DIFFERENTIAL LOCALIZER, sharing one primitive with the witness check.** Owner's idea;
+  the analysis and sequencing below is what it turned into after checking what exists.
+
+  **This technique is already proven in this project, on a structurally identical
+  problem.** `APKEEP_BACKEND.md` "Baseline validation" (2026-07-10) root-caused
+  wl_stanford's `bbra->rozb` false positive exactly this way: NP's `dump_flow_trees`
+  showed `source.bbra` reaching `mid.bbra` with 869 branches of which 868 die at the
+  `mid.bbra -> out.bbra` transition, while APKeep -- which collapses the out stage --
+  forwards past that point. Two things carry over. (1) The method note is emphatic that
+  the flow dump "is now the reliable per-hop oracle ... replacing static rule inspection,
+  which produced five successively-disproven mechanisms here" -- five wrong mechanisms
+  from reading rules, one right one from reading flows. That is a strong prior for
+  preferring this over more `routes.json` reading on i2. (2) Its unresolved caveat is
+  precisely the i2 question: decoding NP's packed header vectors was unreliable and the
+  rule-text reading self-contradictory, ending in **"do not assert a specific VLAN value
+  until this is decoded."** So on i2, treat NP's flow STRUCTURE as the oracle and NP's
+  header VALUES as untrusted.
+
+  **What exists.** `dump_flow_trees(dir, simple)` end to end (`jsonrpc.py:755` ->
+  `rpc_handler.cc:529` -> `net_plumber.cc:1808`); in simple mode `_traverse_flow_tree`
+  recurses and appends ONLY leaves, as bare `{"node": <node_id>}`. The id->identity
+  mapping exists as `fave/test/check_flows.py::_get_inverse_fave` over `fave.json`
+  (`id_to_table`/`id_to_rule`/`id_to_generator`/`id_to_probe`), and
+  `_get_flow_tree_leaves` already walks trees to leaves. ad6's device keys are
+  `_fwkey(device)` = the FaVe name with `.`/`-` -> `_`, so DEVICE-level correspondence is
+  exact and free -- and device level is the granularity "ad6 forwarded past an NP leaf"
+  needs.
+
+  **Four things that need care.**
+  1. **Simple mode discards the header space** (only full mode carries `flow` at leaves).
+     Combined with the caveat above, that is fine: use simple mode for structure and do
+     NOT plan on NP's VLAN values at all.
+  2. **A leaf conflates "delivered" with "dropped"** -- `_traverse_flow_tree` emits a
+     leaf whenever `n_flows` is empty, so a terminal is a probe arrival OR a dead end,
+     undistinguished. A leaf whose id is in `id_to_probe` is an arrival; everything else
+     is a dead end. Without that split, "ad6 forwards past an NP leaf" is trivially true
+     at every probe.
+  3. **The engines are not symmetric, and this reframes the comparison.** NP computes a
+     full forward closure; ad6 answers one existential question at a time, so there is no
+     cheap way to ask ad6 for its whole reachable node set (78,078 nodes). So this is NOT
+     a symmetric set diff: **NP's leaf set is a hypothesis GENERATOR and ad6 gets one
+     targeted query per candidate.** `IncrementalSession.Query`/the measure script's
+     `or_gate(b_trans)` already accept an arbitrary node key as destination; only
+     `query_destination_key`'s probe assumption is in the way, which is a small addition.
+  4. **The cost lands favourably because of the warm-solver effect measured above.** Many
+     targeted queries in ONE session is exactly the regime where per-query cost collapses
+     (439x cold-to-warm on the identical query), so a batch of node probes is cheaper per
+     answer than the three-query run was. Pay the ~771 s build once.
+
+  **THE SHARED PRIMITIVE, and why these are one piece of work rather than two.** Both the
+  witness check and the leaf comparison need the same thing: *given a solve, which
+  FaVe-identified nodes did the flow traverse?* Model extraction produces it, the leaf
+  comparison consumes it. It is the ad6 counterpart of the `witnessPath`/`witnessFwd`
+  instrumentation the wl_stanford investigation added to APKeep's checker. Transition
+  variables are named `<source>_true_<target>` / `<source>_false_<target>`
+  (`XMLUtils.CreateTransition`), so a SAT model's positive literals over those names ARE
+  the edges taken; node keys map back to FaVe devices through an IR-derived exact map
+  (`_fwkey`/`iface_key`/`_gen_fwkey`/`_probe_fanout_key` inverted, longest-prefix, no
+  guessing).
+
+  **Sequencing (cheapest and most decisive first).**
+  (a) The shared primitive: witness path in FaVe identities.
+  (b) The near-free intersection: take the EXISTING `chic->salt` witness, map its path to
+      devices, and check whether it passes THROUGH a device that is an NP leaf. If so the
+      divergence localizes to one (device, rule) readable straight out of `routes.json` --
+      no new ad6 queries, no full-tree dump.
+  (c) One live NP i2 run with `simple=True` for the leaf sets (~552 s, ~1 GB per the
+      earlier in-process measurement).
+  (d) Targeted per-node ad6 queries in one warm session, only where (b)/(c) are ambiguous.
+  (e) Full trees only if VLAN values turn out to be unavoidable -- and then the packed
+      vector decode is a prerequisite, not an afterthought.
+
+  **Detail to resolve before writing leaf-parsing code:** `check_flows.py:213` reads an
+  aggregated `flow_trees.json`, but nothing in this repository writes that file -- the C++
+  writes per-source `<node_id>.flow_tree.json`. So leaf parsing is a small adapter over
+  the per-source files, not straight reuse of `_get_flow_trees`.
+
   **LEADING HYPOTHESIS, EXPLICITLY UNTESTED -- do not record this as a finding.** i2's
   sources are VLAN-unconstrained (`sources.json`: `ipv4_dst=0.0.0.0/0`, no VLAN field),
   and an ad6 query is existential, so the solver may be free to CHOOSE an arriving VLAN

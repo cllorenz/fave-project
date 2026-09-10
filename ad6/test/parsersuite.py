@@ -7,7 +7,7 @@ import os
 
 from parser.favemodeltest import (
     RoutingTableLPMTest, GenFirewallDeadPortGateTest, FaithfulVlanWiringTest,
-    FaithfulVlanOutRewriteWiringTest, FaithfulVlanProbeUntagTest
+    FaithfulVlanOutRewriteWiringTest, FaithfulVlanProbeUntagTest, WitnessPathTest
 )
 
 class ParserSuite(TestSuite):
@@ -64,6 +64,31 @@ class ParserSuite(TestSuite):
             'test_untag_holds_through_the_production_incremental_session',
         ]
         self._suite.addTests(map(FaithfulVlanProbeUntagTest,tests))
+        # AD6_PLAN.md §5.5 "ROOT-CAUSING PLAN": the shared witness-path
+        # primitive. Manual registry -- see the note above.
+        tests = [
+            'test_a_true_transition_name_parses',
+            'test_a_false_transition_name_parses',
+            'test_a_non_transition_name_is_not_a_transition',
+            'test_only_positive_literals_count_as_taken_edges',
+            'test_unknown_indices_are_ignored_rather_than_fatal',
+            'test_a_walk_is_found_inside_the_true_edge_set',
+            'test_the_shortest_walk_is_returned',
+            'test_a_walk_is_found_despite_unrelated_true_edges',
+            'test_no_walk_returns_none',
+            'test_a_cycle_does_not_hang_the_search',
+            'test_source_equal_destination_is_a_single_node_walk',
+            'test_a_firewall_rule_node_maps_to_its_fave_device',
+            'test_an_interface_node_maps_to_its_fave_device',
+            'test_a_generator_node_maps_to_its_source',
+            'test_a_probe_aggregate_node_maps_to_its_probe',
+            'test_an_unknown_node_maps_to_none_rather_than_a_guess',
+            'test_the_longest_matching_device_prefix_wins',
+            'test_the_device_walk_collapses_consecutive_nodes_of_one_device',
+            'test_unknown_nodes_are_dropped_from_the_device_walk',
+            'test_a_device_revisited_after_leaving_is_not_collapsed_away',
+        ]
+        self._suite.addTests(map(WitnessPathTest,tests))
 
 
     def run(self):

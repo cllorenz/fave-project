@@ -45,7 +45,40 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_FROM_ENV="${PYTHON:-}"
 PYTHON="${PYTHON:-python3}"
+PYTHON_RESOLVED=""
+
+# Find an interpreter that actually has this project's dependencies.
+#
+# WHY THIS EXISTS. Every tier, and the doctor especially, used to run whatever
+# `python3` was first on PATH. In a container where the venv lives outside the
+# checkout that is the SYSTEM interpreter, which has none of the deps -- so
+# `./test.sh fast` died with "No module named pytest" and, far worse, the DOCTOR
+# reported pytest/mypy/pycosat/python-sat/pybison/JPype1 as [MISSING] and exited
+# FAILED while all six were installed and working. A doctor whose verdict
+# depends on whether the caller remembered to activate a venv is worse than no
+# doctor: its repair advice (`pip install ...`) would install into the wrong
+# interpreter, and the tier it names as blocked is not blocked.
+#
+# An explicit $PYTHON or an active $VIRTUAL_ENV always wins -- this only fills
+# in when the caller said nothing. The candidates are exactly the two locations
+# this project's own docs create: the README's in-checkout `.venv` and
+# `fave/setup.sh`'s `~/.venv`. `import pytest` is the liveness probe because
+# every tier needs it.
+resolve_python() {
+    [ -n "$PYTHON_FROM_ENV" ] && return 0
+    [ -n "${VIRTUAL_ENV:-}" ] && return 0
+    local candidate
+    for candidate in "$ROOT/.venv/bin/python3" "$HOME/.venv/bin/python3"; do
+        if [ -x "$candidate" ] && "$candidate" -c 'import pytest' >/dev/null 2>&1; then
+            PYTHON="$candidate"
+            PYTHON_RESOLVED="$candidate"
+            return 0
+        fi
+    done
+    return 0
+}
 COVERAGE="${COVERAGE:-0}"
 
 # FaVe test modules that are NOT pure-Python and so are excluded from `fast`.
@@ -296,11 +329,15 @@ run_doctor() {
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
     printf '  %s\n' "$("$PYTHON" --version 2>&1)"
-    if [ -z "${VIRTUAL_ENV:-}" ]; then
-        echo "  [warn]    no VIRTUAL_ENV set -- if imports below are missing, activate the venv"
-        echo "            (in this sandbox it is /home/yolo/.venv, NOT ./.venv: the README's"
-        echo "             ~/.venv resolves via \$HOME=/home/yolo while the project is"
-        echo "             mounted elsewhere, so the path is not under the checkout)"
+    if [ -n "$PYTHON_RESOLVED" ]; then
+        echo "  [auto]    no VIRTUAL_ENV set; resolved this interpreter by probing for the"
+        echo "            project's deps (resolve_python). Note the venv may live OUTSIDE"
+        echo "            the checkout -- fave/setup.sh creates ~/.venv, which in a"
+        echo "            container resolves via \$HOME and not under the project mount."
+    elif [ -z "${VIRTUAL_ENV:-}" ] && [ -z "$PYTHON_FROM_ENV" ]; then
+        echo "  [warn]    no VIRTUAL_ENV set and no venv found at ./.venv or ~/.venv --"
+        echo "            missing imports below may just mean the deps live in an"
+        echo "            interpreter this script could not find. Set \$PYTHON to it."
     fi
 
     echo "== env doctor: python packages =="
@@ -400,6 +437,7 @@ run_doctor() {
 
 tier="${1:-}"
 rc=0
+resolve_python
 case "$tier" in
     fast)        run_fast || rc=1 ;;
     smoke)       run_smoke || rc=1 ;;
