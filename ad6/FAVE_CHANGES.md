@@ -1905,11 +1905,50 @@ VLANs, and port `400029`'s gate carrying exactly `{11,20,21,30,31,32,40,60,70}` 
 fwd) and its fwd rule carries **0** fieldmatches, i.e. the device-wide fallback correctly
 does not also fire.
 
-**NOT MEASURED, and nothing here licenses a reachability claim.** Whether `chic->salt`
-now goes UNSAT -- the thing that would make ad6 and NetPlumber agree on the five Chicago
-pairs -- needs the three-query faithful run again (~771 s build, ~20 GB,
-`--lite-acyclic`). wl_stanford faithful is affected identically and by the same mechanism,
-so every archived wl_stanford faithful number is superseded as well, not just i2's.
+**The memory envelope is unchanged, measured not assumed.** The i2 Kripke is **78,524**
+nodes against the recorded 78,078 -- **+446 (+0.57%)**, exactly 223 ports x 2, all 446
+confirmed to be the new `_iadm` gates. At 12 VLAN bits per node the mutation constraints
+grow by ~5,352 variables on 7,274,800, so the ~20 GB envelope the three-query faithful run
+was sized against still holds. wl_stanford N=2 grows correspondingly: +90 nodes (45
+admitted ports x 2), +8,799 variables, +22,693 clauses -- and still reports 2 reachable
+pairs of 4, so its validated live-NetPlumber differential is unaffected.
+
+**NOT MEASURED for i2, and nothing here licenses an i2 reachability claim.** Whether
+`chic->salt` now goes UNSAT -- the thing that would make ad6 and NetPlumber agree on the
+five Chicago pairs -- needs the three-query faithful run again (~771 s build, ~20 GB,
+`--lite-acyclic`).
+
+**MEASURED for wl_stanford, and it corrects this item's own blast-radius claim.** Full
+N=16 faithful re-run with the fix gives **`reachable_pairs` 165 of 256 -- IDENTICAL to the
+archived `fave/bench/wl_stanford/eval/ad6_faithful_N16.json`.** wl_stanford's archived
+faithful REACHABILITY result is therefore CONFIRMED by the fix, not superseded; only its
+encoding-size and timing numbers are. An earlier draft of this item said every archived
+wl_stanford faithful number was superseded. That was wrong, and wrong in an instructive
+way:
+
+**"223/223 and 252/252 admitted ports are narrower than their device union" overstates the
+behavioural blast radius and is the wrong figure to quote.** A narrowed port only matters
+if some route actually DELIVERS a VLAN that port rejects, and only matters *behaviourally*
+if the device-wide union would have ADMITTED it:
+
+| | per-port rejections | wrongly admitted by the device union | distinct crossings |
+|---|---|---|---|
+| wl_i2 | 2,564 | **2,555 (99.6%)** | 2 |
+| wl_stanford | 183 of 4,046 crossings (4.5%) | **7 (3.8%)** | 1 |
+
+On wl_stanford 176 of the 183 rejections were already rejected by the device union too
+(the VLAN is admitted nowhere on that device), leaving 7 wrongly-admitted crossings on a
+single `mid.bbra_rtr -> in.*` crossing -- which change no pair's verdict. On wl_i2 the same
+measure is catastrophic. Same defect, two orders of magnitude apart in effect: the i2
+verdict has to be measured, and wl_stanford's null result is not evidence either way about
+i2.
+
+**Cost (sandbox, directional only -- the AD6_PLAN.md ENVIRONMENT GUARDRAIL binds these).**
+wl_stanford N=16, archived -> port-scoped: `kripke_nodes` 5,463 -> 5,967 (+504 = 252 ports
+x 2, exactly as predicted), variables 271,592 -> 322,496, clauses 711,100 -> 851,631, peak
+RSS 3,321.6 -> 4,173.5 MB, and **query time 713.7 -> 2,039.7 s over the same 256 queries --
+2.9x.** The memory envelope is fine; the WALL budget for the i2 run is the thing this
+changes, roughly ~614 s/query to ~1,800 s/query if it scales.
 
 **NEW ASYMMETRY, deliberately not fixed here.**
 `fave/apkeep/adapter.py:_capture_in_admission` still carries the identical projection, and
@@ -1917,4 +1956,7 @@ its `_in_vlans` feeds a different consumer (APKeep's own input format,
 `adapter.py:1257-1328`), so it is a separate change with its own encoding semantics. Until
 it lands, an ad6-vs-APKeep faithful-VLAN comparison on wl_stanford is NO LONGER
 like-for-like -- which is exactly the comparability §5.4 Stage B ported the projected
-version to preserve. Tracked in `TODO.md`.
+version to preserve. Tracked in `TODO.md`. In practice the measured gap on wl_stanford is
+7 crossings and 0 reachability pairs, so the comparison is unlike-for-like in principle and
+equal in outcome -- a reason to fix APKeep for correctness, not a reason to distrust the
+existing wl_stanford comparison.

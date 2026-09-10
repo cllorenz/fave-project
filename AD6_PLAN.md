@@ -2215,6 +2215,14 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   carries **0** fieldmatches, i.e. the device-wide fallback correctly does not also
   fire.
 
+  **THE MEMORY ENVELOPE IS UNCHANGED, measured not assumed.** The i2 Kripke is **78,524**
+  nodes against the recorded 78,078 -- **+446 (+0.57%)**, exactly the predicted 223 ports
+  x 2, with `iadm_nodes` confirming all 446 are the new gates. At 12 VLAN bits per node
+  the mutation constraints therefore grow by ~5,352 variables on 7,274,800, so the ~20 GB
+  envelope the deepcopy removal bought (§5.5 "MEMORY ENVELOPE MEASURED") still holds and
+  the three-query faithful run needs no re-sizing. (Sandbox timings, directional only:
+  IR 10.5 s, config 2.9 s, `ConvertToKripke`+wiring 570.9 s.)
+
   **The archived encodings stay reproducible.** `favemodel._in_vlans_for` still reads
   the pre-fix flat `{device: [vlans]}` shape as the device-wide gate, so an archived IR
   builds the encoding it was measured against; the adapter never emits that shape any
@@ -2222,13 +2230,48 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   adapter flag: the old behaviour is a defect, not a configuration, and a third boolean
   would multiply the mode matrix for a mode nobody should run.
 
-  **NOT YET MEASURED, and nothing here licenses a reachability claim.** Whether
-  `chic->salt` now goes UNSAT -- the thing that would make ad6 and NetPlumber agree on
-  the five Chicago pairs -- needs the three-query faithful run again (~771 s build, ~20
-  GB, `--lite-acyclic`). The wl_stanford faithful results are affected identically and
-  by the same mechanism (252/252 of its admitted ports are narrower than their device
-  union), so every archived wl_stanford faithful number is superseded as well, not just
-  i2's.
+  **NOT YET MEASURED for i2, and nothing here licenses an i2 reachability claim.**
+  Whether `chic->salt` now goes UNSAT -- the thing that would make ad6 and NetPlumber
+  agree on the five Chicago pairs -- needs the three-query faithful run again (~771 s
+  build, ~20 GB, `--lite-acyclic`).
+
+  **MEASURED FOR wl_stanford, AND IT CORRECTS THIS SECTION'S OWN BLAST-RADIUS CLAIM.**
+  Full N=16 faithful re-run with the fix: **`reachable_pairs` 165 of 256, IDENTICAL to
+  the archived `eval/ad6_faithful_N16.json`.** So wl_stanford's archived faithful
+  REACHABILITY result is CONFIRMED by the fix, not superseded -- only its encoding-size
+  and timing numbers are (see below). An earlier version of this block said "every
+  archived wl_stanford faithful number is superseded as well"; that was wrong, and the
+  reasoning behind it was wrong in an instructive way.
+
+  **The "223/223 and 252/252 ports are narrower than their device union" statistic
+  OVERSTATES the behavioural blast radius, and is not the figure to quote.** A narrowed
+  port only matters if some route actually DELIVERS a VLAN that port rejects, and only
+  matters *behaviourally* if the device-wide union would have ADMITTED it. Measured on
+  both models:
+
+  | | per-port rejections | of those, wrongly admitted by the device union | distinct crossings |
+  |---|---|---|---|
+  | wl_i2 | 2,564 | **2,555 (99.6%)** | 2 |
+  | wl_stanford | 183 of 4,046 crossings (4.5%) | **7 (3.8%)** | 1 |
+
+  On wl_stanford the projection was very nearly harmless: 176 of its 183 rejections were
+  already rejected by the device union too (the VLAN is admitted nowhere on that
+  device), leaving 7 wrongly-admitted crossings on a single `mid.bbra_rtr -> in.*`
+  crossing -- and those 7 change no pair's verdict on a mesh that is 165/256 reachable
+  either way. On wl_i2 it was catastrophic by the same measure. **Same defect, two
+  orders of magnitude apart in effect** -- which is why the i2 verdict still has to be
+  measured rather than inferred from wl_stanford's null result, and equally why
+  wl_stanford's null result is not evidence that the i2 pairs will not flip.
+
+  **COST, sandbox and therefore directional only (the ENVIRONMENT GUARDRAIL binds
+  these).** wl_stanford N=16 faithful, archived vs port-scoped: `kripke_nodes` 5,463 ->
+  5,967 (+504 = 252 ports x 2, exactly as predicted), variables 271,592 -> 322,496
+  (+50,904), clauses 711,100 -> 851,631 (+140,531), peak RSS 3,321.6 -> 4,173.5 MB.
+  **Query time 713.7 -> 2,039.7 s over the same 256 queries -- 2.9x.** That last figure
+  is the one to carry into planning the i2 run: if i2's per-query cost scales similarly,
+  the three-query faithful run goes from ~614 s/query to roughly 1,800 s/query, i.e.
+  from ~45 minutes to over two hours. The memory envelope is unaffected (i2 +446 nodes,
+  +0.57%); the WALL budget is not.
 
   **NEW ASYMMETRY, deliberately not fixed here.** `fave/apkeep/adapter.py:_capture_in_
   admission` still carries the identical projection, and its `_in_vlans` feeds a
@@ -2236,7 +2279,10 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   is a separate change with its own encoding semantics. Until it lands, an
   ad6-vs-APKeep faithful-VLAN comparison on wl_stanford is NO LONGER like-for-like --
   which is exactly the comparability §5.4 Stage B ported the projected version to
-  preserve. Tracked in TODO.md. The mistake being corrected here is not that the
+  preserve. Tracked in TODO.md. **In practice, though, the measured gap on wl_stanford
+  is 7 crossings and 0 reachability pairs** (table above), so the comparison is
+  currently unlike-for-like in principle and equal in outcome -- a reason to fix APKeep
+  for correctness, not a reason to distrust the existing wl_stanford comparison. The mistake being corrected here is not that the
   simplification was coarse; it is that it was assumed to be merely coarse rather than
   unsound in the unsafe direction.
 
