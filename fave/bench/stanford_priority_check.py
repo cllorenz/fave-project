@@ -21,21 +21,32 @@
 
 """ Stanford priority ground-truth check (APKEEP_FAITHFUL_PLAN.md Phase 1).
 
-Drives wl_stanford through NetPlumber twice: once as the FaVe model builds it
-(rule priority = tf.json FILE ORDER, via bench/np_preparation.py `cnt`), and once
-with each mid-stage FIB table RE-PRIORITISED BY IP PREFIX LENGTH (longest prefix =
-highest priority = longest-prefix-match, how a real router forwards). It reports
-the reachable-pair count for each.
+Drives wl_stanford through NetPlumber twice: once with the shipped
+`routes.json` rule order, and once with each declared FIB table RE-PRIORITISED
+BY IP PREFIX LENGTH (longest prefix = highest priority = longest-prefix-match,
+how a real router forwards). It reports the reachable-pair count for each.
 
 Why: the real Stanford data plane does longest-prefix-match -- `bbra_rtr`'s FIB
 forwards `172.28.0.0/14 -> 172.20.5.33` (toward rozb), a longer prefix than the
 `172.16.0.0/12 -> Null0` drop and the `0.0.0.0/0` default. NetPlumber resolves
-rule priority by rule index (lower index = higher priority) and the FaVe model
-feeds it rules in file order, NOT prefix-length order, so NP's default outranks
-the specific route and NP under-reports reachability. Re-prioritising by prefix
-length restores LPM and NP's count jumps (10 -> ~165 at the time of writing),
-confirming NP's canonical "10/240" is a priority artifact and APKeep's LPM
-forwarding is the faithful one. See APKEEP_STANFORD_NP_SPEC.md.
+rule priority by rule index (lower index = higher priority), so a model fed in
+file order rather than prefix-length order lets the default outrank the specific
+route and NP under-reports reachability. That is what this script originally
+demonstrated: re-prioritising lifted NP's count 10 -> ~165, confirming NP's
+canonical "10/240" was a priority artifact and APKeep's LPM forwarding the
+faithful one. See APKEEP_STANFORD_NP_SPEC.md.
+
+**BOTH COLUMNS NOW READ 165, AND THAT IS THE FIX LANDING, NOT THE CHECK GOING
+STALE.** `bench/np_preparation.py:_reprioritise_fib_lpm` re-prioritises the
+declared FIB tables when the dataset is PREPARED, so the shipped `routes.json`
+is already longest-prefix-first and the "file order" column is measuring an
+already-corrected file. The A/B therefore no longer exhibits the bug -- it
+asserts the absence of it. A DIVERGENCE between the two columns now means the
+preparation step has regressed, which is exactly the tripwire worth keeping.
+(For the record of how easily this hides: the same fix was scoped to `mid.*`
+tables for a month, so it silently never applied to wl_i2 -- whose FIB is the
+`out` stage -- leaving 3,731 rules there shadowed by an earlier containing
+prefix. See AD6_PLAN.md §5.5.)
 
 Usage:  PYTHONPATH=. python bench/stanford_priority_check.py
 """
@@ -125,9 +136,23 @@ def main() -> int:
     print("  file-order priority (as the FaVe model feeds it): %d" % file_order)
     print("  prefix-length priority (longest-prefix-match):    %d" % lpm)
     print()
+    print()
     print("The real Stanford FIBs forward by longest-prefix-match, so the LPM")
-    print("count is the faithful data plane. NP's file-order count under-reports")
-    print("(non-LPM priority artifact). See APKEEP_STANFORD_NP_SPEC.md Phase 1.")
+    print("count is the faithful data plane.")
+    if file_order == lpm:
+        print()
+        print("The two agree, which is the EXPECTED result: np_preparation.py")
+        print("re-prioritises the declared FIB tables when the dataset is")
+        print("prepared, so the shipped routes.json is already longest-prefix-")
+        print("first and the left-hand column measures an already-corrected")
+        print("file. A DIVERGENCE here would mean that preparation step has")
+        print("regressed. See APKEEP_STANFORD_NP_SPEC.md Phase 1, AD6_PLAN.md 5.5.")
+    else:
+        print()
+        print("*** THEY DIFFER: the shipped routes.json is NOT longest-prefix-")
+        print("first, so np_preparation.py's LPM re-prioritisation did not reach")
+        print("these tables. Check config.json's 'fib_table_types' declaration --")
+        print("that exact failure hid for a month on wl_i2. AD6_PLAN.md 5.5.")
     return 0
 
 
