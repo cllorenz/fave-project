@@ -2602,10 +2602,70 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   ad6 side of this comparison did not move at all, and the 72-pair sweep result stands
   exactly as run.
 
-  **Still open:** the 11 are now agreed but not EXPLAINED end to end -- `chic`'s five and
-  the eastern trio's `-> kans` trace to the Chicago VLAN-admission crossing, while
-  `eastern -> seat` has no structural account yet. That is the remaining §5.5 question,
-  and it is now a question about ONE model rather than a disagreement between two.
+  **ANSWERED 2026-09-11 -- `eastern -> seat` IS THE SAME CHICAGO CROSSING. There was
+  never a second mechanism, and all 11 pairs now have ONE cause.** Established with a
+  third, independent witness: `bench/i2_structural_oracle.py` computes the reachability
+  matrix straight from the shipped JSON, sharing no code with ad6 or NetPlumber. **It
+  reproduces the 11 pairs EXACTLY**, so the agreement is now three-way.
+
+  **The oracle is exhaustive over IPv4, not a sample.** Two destination addresses behave
+  identically iff they pick the same LPM winner at every device, and that equivalence is
+  refined exactly by the binary trie over the union of all prefixes: `atom(p) = range(p)`
+  minus the ranges of all deeper prefixes. wl_i2's 10,020 distinct prefixes yield **9,673
+  atoms covering the whole address space**. This matters: sampling prefix representatives
+  (`net`, `net|1`) instead reports **7** seat-delivering addresses, an over-count that
+  double-counts two /31 atoms. Only the atom enumeration gives the real number. The
+  oracle also confirms there is **no ECMP anywhere in wl_i2** (fanout histogram
+  `{1: 77451}`), so every walk is a single chain.
+
+  **First, a probe-semantics fact that had not been stated and that drives everything:**
+  `probe.X` is tapped on **every** egress port of `out.X` and fires iff `vlan == 0`. The
+  tap is PARALLEL -- a probe port may also carry a topology link, in which case the packet
+  is both observed and forwarded. So "`s` reaches `probe.d`" means "some packet from `s`
+  egresses `d` untagged", i.e. is delivered to a locally attached subnet at `d`.
+
+  **Why seat is the hard destination: `|A_seat| = 5`.** Of all 9,673 atoms, exactly FIVE
+  are delivered untagged at seat when sent from anywhere but seat -- `64.57.19.16`,
+  `64.57.19.18`, `64.57.19.20`, `64.57.19.22`, `64.57.27.33`, all i2 backbone
+  infrastructure in `64.57.16.0/20`. Compare `|A_salt| = 6,503`, `|A_hous| = 7,269`,
+  `|A_chic| = 4,610`. Nearly every address is delivered untagged at some *earlier* device,
+  so seat -- a leaf of the backbone -- keeps almost nothing for itself. With only five
+  candidates there is no room for an alternate route to survive.
+
+  **And all five die at the same place.** From `atla`, `newy32aoa`, `wash` AND `chic`, the
+  fate of every one of the five is `BLOCKED@in.kans.400029(vlan=10; admits={11,20,21,30,
+  31,32,40,60,70})` -- **100%, no exceptions**. `atla` for instance routes `64.57.19.16/29`
+  out `120021` into `in.chic`, and Chicago puts it on `220045` with `vlan=10`. That is
+  precisely the crossing that already explained `chic`'s five and the eastern trio's
+  `-> kans`. **So the "six unexplained eastern pairs" were never a separate phenomenon:**
+  three of them (`-> salt`) were a NetPlumber LPM artifact and are now reachable, and the
+  other three (`-> seat`) are the Chicago crossing reached two hops later.
+
+  **Why `-> salt` escaped and `-> seat` could not.** The eastern region does have a
+  southern bypass around Kansas, but it carries exactly one atom: `64.57.27.129` travels
+  `atla -> hous -> losa -> salt` entirely on `vlan=0`. The reason is a single-prefix
+  routing split at `out.atla`: `64.57.27.0/24` goes to Chicago on `120021`, while the more
+  specific `64.57.27.128/27` goes south to Houston on `120019`. Of salt's 6,503 candidate
+  atoms, that ONE is enough to make `eastern -> salt` reachable. None of seat's five falls
+  in the `/27`, so the bypass does not exist for them. **That single `/27` carve-out is
+  the entire difference between the two verdicts.**
+
+  **The root configuration fault, re-verified against raw `routes.json`/`topology.json`.**
+  Chicago has THREE physical links to Kansas:
+
+  | link | far-end admits | routes carried |
+  |---|---|---|
+  | `out.chic.220046 -> in.kans.400019` | `{10, 20, 30}` | **0** |
+  | `out.chic.220047 -> in.kans.400022` | `{10, 20, 30}` | **0** |
+  | `out.chic.220045 -> in.kans.400029` | `{11,20,21,30,31,32,40,60,70}` -- **no 10** | **2,547** (2,545 on vlan 10) |
+
+  Chicago sends all of its Kansas-bound traffic down the one link whose far end does not
+  admit the VLAN it tags with, while both links that *would* admit it carry no routes at
+  all. Only the 2 stragglers on vlan 20/30 get through. **One misconfigured link explains
+  all 11 unreachable pairs.**
+
+  Artifacts: `bench/i2_structural_oracle.py` (with `--explain SRC DST`),
+  `bench/wl_i2/eval/i2_structural_oracle_atoms.json`.
 
   **THE FIX, DESIGNED 2026-09-11 (owner review rejected my first design; the data proved
   the owner right).** My first proposal was to select FIB tables by SHAPE -- "a table is a
