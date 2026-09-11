@@ -3625,10 +3625,43 @@ queries. So the rank encoding remains necessary for exactly the expressiveness �
 — the temporal/QBF properties the domain-specific tools structurally cannot express. **Two
 grounding strategies with different scopes, not a replacement.**
 
-### 7.5b Why wl_i2 has no flow-vs-rank ratio — and why that is the stronger result
+### 7.5b wl_i2: a matched ratio on the PLAIN model, and a qualitative result on the faithful one
+
+**CORRECTION 2026-09-11, same day, before this section was ever quoted:** its original title
+("Why wl_i2 has no flow-vs-rank ratio") was too strong. It is true of the FAITHFUL model
+only. Running the flow encoding on the PLAIN model under cadical195 produced a partner for
+the two archived rank runs that is matched on every axis that matters, so i2 does have a
+ratio — and it is LARGER than wl_stanford's.
+
+**The matched plain pair.** Same solver (cadical195), same model (plain, no VLAN
+admission), same 72 pairs (`--pair-filter exclude-self`), both `oracle_match: true`. The
+base encoding is provably the same object: the rank run's 14,883,129 clauses are exactly the
+flow run's 681,216 base plus 14,201,913 acyclic. Only the grounding differs — and the
+session structure it forces.
+
+| plain i2, cadical195, 72 pairs | wall | query | clauses | peak RSS |
+|---|---:|---:|---:|---:|
+| rank + lite (archived v1) | 12,820.8 s | 12,417.2 s | 14,883,129 | 13,464 MB |
+| rank + lite (archived v2) | 15,312.4 s | 14,895.9 s | 14,883,129 | 13,432 MB |
+| **flow (new)** | **1,424.0 s** | **879.6 s** | **681,216** | **2,245 MB** |
+
+**flow is 9.0-10.8x faster in wall-clock, 14.1-16.9x in query time, and 6.0x smaller in peak
+RSS, on 21.8x fewer clauses.** The range spans the two archived rank runs, whose 19%
+spread is real run-to-run variance on this box; the honest figure is the range, not either
+endpoint, and it is against ARCHIVED rank runs rather than a same-session pair.
+
+**The trend across the two benchmarks is the interesting part, and it goes the right way for
+the thesis.** wl_stanford N=16 matched: 7.0x wall, 1.4x memory. wl_i2 plain matched:
+9.0-10.8x wall, **6.0x memory**. The advantage GROWS with model size, and the memory
+advantage grows much faster than the time advantage — consistent with the mechanism, since
+what the rank encoding costs is a per-edge comparator over a graph whose cyclic SCC is
+enormous on i2 and modest on wl_stanford.
+
+**On the FAITHFUL model there is still no ratio, and that part of this section stands.**
 
 **Decision (owner, 2026-09-11): do not spend measurement budget on the rank encoding at i2
-scale.** *"I am not sure if it is really worthwile to measure the rank approach at all. As
+scale.** (This is why the plain ratio above leans on ARCHIVED rank runs rather than a fresh
+matched pair, and why no faithful rank number exists at all.) *"I am not sure if it is really worthwile to measure the rank approach at all. As
 said, we came up with the flow approach since the rank approach did not scale well."* The
 i2 contribution is therefore NOT a speed ratio like wl_stanford's 7.0x. It is the
 qualitative claim that **the rank encoding does not scale to i2 and the flow encoding
@@ -3662,7 +3695,13 @@ measured reason rather than a missing cell in a table.
    order-of-magnitude estimate, not a measurement. Whether 72 queries would actually OOM is
    likewise untested — what is measured is that the headroom is ~1 GB after 3.
 
-**Against which the faithful FLOW run is the whole point:** all 81 queries (72 cross-role +
+**Against which the faithful FLOW run is the whole point, now measured twice:** a fresh
+cadical195 run (72 pairs, `--pair-filter exclude-self`) completed in **3,218.1 s wall /
+2,475.5 s query at 9,153 MB**, and **independently reproduced the same 11 unreachable pairs**
+as the archived run — `chic` unreachable from hous/kans/losa/salt/seat, and `atla`,
+`newy32aoa`, `wash` unable to reach `kans` or `seat`. That is now a fourth independent
+confirmation of the Chicago-crossing result, alongside the earlier ad6 run, NetPlumber, and
+the structural oracle. The archived figures: all 81 queries (72 cross-role +
 9 self) completed in **4,201 s wall / 3,410 s query — about 70 minutes — at 9,183 MB peak**,
 and it is the run whose 11 unreachable pairs are now three-way confirmed against NetPlumber
 and the independent structural oracle. Per query that is ~42 s against rank's extrapolated
