@@ -2588,8 +2588,33 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   anywhere earlier in the table. The correct scan (walk file order, probe every supernet of
   each new prefix against what was already seen) finds 3,731.
 
-  **Still outstanding:** the six eastern pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}),
-  which neither probe addressed.
+  **FULL 72-PAIR SWEEP DONE 2026-09-11 (flow-path, port-scoped): ad6 finds EXACTLY 11
+  unreachable pairs, NetPlumber finds EXACTLY 11, and they agree on 8.** Whole sweep 81
+  queries in 4,201.4 s on a 9,183.0 MB peak; mean 42.1 s/query, and the refutations cost
+  6.1x the satisfiable queries (152.3 s vs 24.8 s). `reachable_pairs` 61 of 72,
+  `oracle_full_set: true`.
+
+  | | pairs |
+  |---|---|
+  | BOTH unreachable (8) | `chic` -> {hous, kans, losa, salt, seat}; `atla`/`newy32aoa`/`wash` -> seat |
+  | NetPlumber only (3) | `atla`/`newy32aoa`/`wash` -> **salt** |
+  | ad6 only (3) | `atla`/`newy32aoa`/`wash` -> **kans** |
+
+  **The disagreement is a clean 3-for-3 SWAP on the same three eastern sources**: both
+  engines block those flows, at a DIFFERENT router. Chicago's five agree exactly, and so
+  does the eastern trio toward `seat`. Two engines independently arriving at the same
+  COUNT (11) with the difference confined to one destination-swap is the signature of a
+  route-SELECTION difference, not of one engine over- or under-approximating -- and it is
+  exactly what the `_reprioritise_mid_lpm` scoping gap above predicts. The structural
+  trace already showed why: the eastern trio's only gateway to `kans` is Chicago, and
+  which egress Chicago picks for a given prefix is precisely what the two orderings
+  disagree about (destination `140.112.0.0`: `220040`/vlan 281 under index order,
+  `220045`/vlan 10 under LPM).
+
+  **So the six "unexplained eastern pairs" are now half-explained and half-superseded:**
+  `-> seat` is real and agreed by both engines; `-> salt` is one side of the swap and
+  should be re-read only after the LPM fix lands and NetPlumber's i2 baseline is
+  re-measured. Do not treat either half as settled until then.
 
   **MEASURED FOR wl_stanford, AND IT CORRECTS THIS SECTION'S OWN BLAST-RADIUS CLAIM.**
   Full N=16 faithful re-run with the fix: **`reachable_pairs` 165 of 256, IDENTICAL to
