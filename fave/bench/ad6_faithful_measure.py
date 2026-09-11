@@ -121,10 +121,15 @@ def _build_ir(routers):
     return ir, sources, probes
 
 
-def measure(routers, out_path):
+def measure(routers, out_path, flow_path=False):
     result = {
         "bench": "stanford", "engine": "ad6", "faithful_vlan": True,
         "routers": sorted(routers) if routers else None,
+        # AD6_PLAN.md §5.4 B1: WHICH grounding constraint produced these
+        # verdicts. `faithful_vlan: true` alone no longer identifies the run --
+        # the rank/acyclic encoding and the per-query single-unit s-t flow are
+        # two different mechanisms for the same soundness job.
+        "flow_path": flow_path,
     }
     wall0 = time.time()
 
@@ -156,13 +161,21 @@ def measure(routers, out_path):
         # replicated here (not via IncrementalSession itself) so this
         # script can report the DIMACS conversion and clause count
         # directly, the same instrumentation axis8d's DimacsBridge used.
-        t0 = time.time()
-        acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
-        result["acyclic_constraint_s"] = round(time.time() - t0, 3)
-        result["acyclic_extra_clauses"] = len(acyclic_constraints)
-
         combined = deepcopy(encoding)
-        combined[0].extend(deepcopy(acyclic_constraints))
+        if flow_path:
+            # AD6_PLAN.md §5.4 B1: the flow constraint REPLACES the rank
+            # encoding rather than supplementing it -- both close the same
+            # SECRYPT'15 grounding gap, and building both would just pay twice.
+            # It is per-query (source/destination appear in it), so it is added
+            # to a FRESH solver below instead of to the shared base.
+            result["acyclic_constraint_s"] = None
+            result["acyclic_extra_clauses"] = 0
+        else:
+            t0 = time.time()
+            acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
+            result["acyclic_constraint_s"] = round(time.time() - t0, 3)
+            result["acyclic_extra_clauses"] = len(acyclic_constraints)
+            combined[0].extend(deepcopy(acyclic_constraints))
 
         t0 = time.time()
         adapter = MiniSATAdapter()
@@ -199,13 +212,14 @@ def measure(routers, out_path):
             return aux, [[-lit, aux] for lit in lits] + [[-aux] + lits]
 
         t0 = time.time()
-        solver = Minisat22(bootstrap_with=dimacs_clauses)
+        solver = None if flow_path else Minisat22(bootstrap_with=dimacs_clauses)
         result["solver_load_s"] = round(time.time() - t0, 3)
 
         queries = [{"source": s, "probe": p} for p in probes for s in sources]
         result["query_count"] = len(queries)
 
         ad6_reach = {}
+        flow_total = 0
         t0 = time.time()
         for q in queries:
             source = favemodel.gen_entry_key(q['source'])
@@ -216,12 +230,36 @@ def measure(routers, out_path):
                        for p, flag in kripke.IterBTransitions(destination)]
             src_lit, src_clauses = or_gate(f_trans)
             dst_lit, dst_clauses = or_gate(b_trans)
-            for clause in src_clauses + dst_clauses:
-                solver.add_clause(clause)
-            sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
+            if flow_path:
+                # A FRESH solver per query: the flow constraint names THIS
+                # query's endpoints, so reusing one solver would leave the
+                # previous query's constraints asserted and answer this one
+                # against the wrong endpoints -- a wrong verdict, not a crash.
+                flow_clauses = Instantiator._CreateFlowPathConstraints(
+                    kripke, source, destination)
+                flow_total += len(flow_clauses)
+                q_solver = Minisat22(bootstrap_with=dimacs_clauses)
+                for clause in src_clauses + dst_clauses:
+                    q_solver.add_clause(clause)
+                q_solver.add_clause([src_lit])
+                q_solver.add_clause([dst_lit])
+                for clause in flow_clauses:
+                    q_solver.add_clause([
+                        -index_for(n) if neg else index_for(n) for n, neg in clause])
+                sat = bool(q_solver.solve())
+                q_solver.delete()
+            else:
+                for clause in src_clauses + dst_clauses:
+                    solver.add_clause(clause)
+                sat = bool(solver.solve(assumptions=[src_lit, dst_lit]))
             ad6_reach[(q['source'], q['probe'])] = sat
         result["query_s"] = round(time.time() - t0, 3)
-        solver.delete()
+        if flow_path:
+            result["flow_path_clauses_total"] = flow_total
+            result["flow_path_clauses_per_query"] = (
+                flow_total // len(queries) if queries else 0)
+        else:
+            solver.delete()
 
         reach = {
             _base(p): sorted(
@@ -252,9 +290,17 @@ def main(argv=None):
                                       "induced slice (matches apkeep_convergence's "
                                       "own subsetting); omit for the full 16-router model")
     p.add_argument("--out", help="write the result JSON here")
+    p.add_argument("--flow-path", action="store_true",
+                   help="ground each query with a single-unit s-t FLOW constraint "
+                        "(Instantiator._CreateFlowPathConstraints) INSTEAD of the "
+                        "rank/acyclic encoding -- AD6_PLAN.md Sec 5.4 B1. Implies a "
+                        "fresh solver per query, since the constraint names that "
+                        "query's own endpoints. The differential that validates it: "
+                        "this must reproduce the rank encoding's reachable_pairs "
+                        "exactly (165 on the full 16-router model).")
     args = p.parse_args(argv)
     routers = [r for r in args.routers.split(",") if r] if args.routers else None
-    measure(routers, args.out)
+    measure(routers, args.out, flow_path=args.flow_path)
     return 0
 
 

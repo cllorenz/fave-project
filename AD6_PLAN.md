@@ -2447,7 +2447,30 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   against the rank encoding's 14,253,423 -- **13x fewer**, and the estimate recorded above
   (~1.2M) was close. Peak RSS 9,093.5 MB against 18,501.7.
 
-  **VALIDATION STILL OWED BEFORE THIS IS QUOTED AS A HEADLINE.** A brand-new encoding
+  **VALIDATION DONE 2026-09-11 -- THE FLOW ENCODING REPRODUCES THE RANK ENCODING EXACTLY
+  ON wl_stanford, IN BOTH DIRECTIONS.** Full 16-router faithful model under `--flow-path`:
+  `reachable_pairs` **165**, identical to the rank encoding's, and the REACH MATRICES are
+  identical across all 16 probes -- not merely the totals, which two encodings can match
+  while disagreeing about which pairs. That is 256 queries of which **91 are UNSAT**, i.e.
+  precisely the refutation direction an UNSAT claim depends on, against an answer
+  NetPlumber independently proved. N=2 agrees the same way (2 of 4, identical matrix).
+
+  | | rank | flow |
+  |---|---|---|
+  | `reachable_pairs` / matrix | 165 | **165, identical matrix** |
+  | variables | 322,496 | **83,088** |
+  | clauses | 851,631 | **313,555** (+68,180/query) |
+  | query_s (256 queries) | 2,039.7 | **63.2** (32x) |
+  | wall_s | 2,131.7 | **98.2** (21.7x) |
+  | peak RSS | 4,173.5 MB | **1,442.0 MB** |
+
+  And that is DESPITE the flow path paying 256 fresh solver bootstraps where the rank path
+  reuses one persistent solver with assumptions -- an expected handicap that turned out not
+  to matter. **So the wl_i2 `chic->salt` UNSAT now rests on a validated encoding rather
+  than on its construction argument alone**, and the flow constraint is the cheaper
+  mechanism on both workloads by every axis measured.
+
+  **Superseded note, kept for the reasoning:** A brand-new encoding
   returning exactly the predicted answer is the moment for most scepticism, not least.
   What is established: the flow constraint is COMPLETE by construction (any genuine simple
   walk carries the unit), which is the property an UNSAT claim rests on and the one an
