@@ -2023,3 +2023,74 @@ version to preserve. Tracked in `TODO.md`. In practice the measured gap on wl_st
 7 crossings and 0 reachability pairs, so the comparison is unlike-for-like in principle and
 equal in outcome -- a reason to fix APKeep for correctness, not a reason to distrust the
 existing wl_stanford comparison.
+
+## 28. The s-t flow grounding reaches the PRODUCTION path, not only the measurement
+drivers -- a selectable grounding strategy  **[FEATURE]**
+
+**The problem was one of reach, not of correctness.** §20 established that the SECRYPT'15
+formalism's `trans(C)` support term is purely local, so a floating cycle discharges it
+self-referentially and the paper's "a solution represents a path starting at an initial
+state" does not hold. Two repairs exist and both are proven against the same minimal
+counterexample fixture: the acyclic RANK encoding (`_CreateAcyclicConstraints`, baked into
+the shared base) and the single-unit s-t FLOW (`_CreateFlowPathConstraints`, §20's own
+follow-on). But the flow could only ever be *used* from `bench/ad6_i2_measure.py
+--flow-path` and `bench/ad6_faithful_measure.py --flow-path`, and both drivers deliberately
+sit off the production path -- they drive PySAT and `src.*` directly rather than going
+through `Ad6Adapter`/`fave_bridge.py`. So anything driven through FaVe silently got the rank
+encoding, and the cheaper, more general-purpose idea was one cleanup away from being lost
+with only two bench scripts as its evidence.
+
+**What changed.** `IncrementalSession(kripke, encoding, grounding=...)` takes
+`'rank'` (default, behaviour unchanged) or `'flow'`. `fave/ad6/adapter.py`'s `Ad6Adapter`
+takes the same argument and serialises it in the bridge payload; `fave_bridge.py` gained
+`--grounding` for driving it by hand (the flag wins over the payload) and prints
+`[ad6 bridge] grounding=<name>` to stderr unconditionally, so a run's own log records which
+encoding produced its answers. `IncrementalSession.grounding` is public for the same
+reason -- a measurement has to be stampable with the encoding behind it.
+
+**Why the flow path needs a fresh solver per query, in the session and not just in the
+CLI.** The flow constraint NAMES its endpoints, so it cannot live in a shared base: added to
+a reused solver, query 1's flow would still be asserted during query 2. Under
+`grounding='flow'` the session therefore retains the base DIMACS and bootstraps a fresh
+`Minisat22` per query -- the same architecture `--flow-path --fresh-per-query` is validated
+under, and measured *cheaper* in peak RSS than the persistent session on wl_i2 (9,183 MB vs
+13,432 MB), despite holding the clause list. Endpoints and forced literals go in as unit
+clauses rather than assumptions, matching the driver (which needs units because Kissat404
+has no assumptions API). `Close()` is a no-op there rather than an `AttributeError`.
+
+**The default is deliberate and must stay.** `'rank'` is PROPERTY-AGNOSTIC: it forbids
+every floating cycle in the base regardless of what is asked afterwards, which is what a
+temporal/QBF query needs and what every archived wl_ifi/wl_up/wl_tum/wl_stanford result was
+produced under. `'flow'` is REACHABILITY-SPECIFIC: a single unit forbids branching witnesses
+(multicast, ECMP with both branches asserted, a query whose witness IS a cycle), and with no
+single s-t pair to hang on it cannot express AF/AX, waypointing, or the anomaly queries.
+Two strategies with different scopes, not a replacement -- flipping the default would both
+narrow expressiveness and silently re-measure every archived number.
+
+**Where flow pays, and where it does not.** wl_stanford N=16 faithful-VLAN, same model, same
+256 queries, same answer of 165 reachable pairs: 98.2 s wall / 63.2 s query / 1,442 MB peak
+against rank's 2,131.7 s / 2,039.7 s / 4,173 MB -- 21.7x wall, 32.3x query, 2.9x memory,
+*while giving up incremental reuse entirely*. It does NOT pay on a small model: wl_ifi is
+1.2 s under flow vs 0.7 s under rank, where the per-query bootstrap dominates and there is
+no rank cost to avoid. Recorded so the flag is not read as a free win.
+
+**Tests, test-first as with every other core change in this cycle.** ad6 side, new
+`instantiatortest.py::IncrementalSessionGroundingTest` (wired into `instantiatorsuite.py`'s
+manual registry -- a class added without an entry there is silently never run, cf. §11):
+both strategies held to identical ground truth on the SAME floating-cycle fixture
+`FlowPathConstraintTest` and the rank encoding are each already proven on; the ungrounded
+pair refused under both; every genuine path still accepted under both, including
+`entry2 -> C`, which legitimately ends INSIDE the cycle and separates "a witness may not USE
+a cycle" from "cycles are forbidden"; two queries on one flow session proven not to
+contaminate each other; an unknown strategy raising rather than falling back to a default;
+`Close()` idempotent. FaVe side, new `fave/test/test_ad6_grounding.py`: wl_ifi's full
+17-role matrix reproduces `reachable.json` EXACTLY under both groundings (54/54, 0 diffs,
+through the real adapter/bridge/session), the two matrices agree pair-for-pair, the payload
+is proven to carry the strategy across the process boundary, and the GROUNDINGS constant
+duplicated on the FaVe side (which imports nothing from `ad6/` by design) is pinned against
+this package's canonical one so it cannot drift silently.
+
+**Also corrected here:** `incremental.py`'s module docstring claimed the rank constraints
+were "baked in unconditionally", which stopped being true with this change.
+
+`make test`: all suites OK. `test.sh fast`: 468 passed (was 460). mypy: clean.

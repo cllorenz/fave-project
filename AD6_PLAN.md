@@ -3523,6 +3523,77 @@ the underlying harness: `AD6_ENCODING_PLAN.md`, `ad6_encoding_bench/`.
 - **7.4** Keep this **separate** from the clean 3-engine reachability comparison and the NDD
   faithful-VLAN result — ad6 is its own contribution/section, not a fourth column bolted
   onto the reachability matrix.
+- **7.5 (new 2026-09-11) The grounding constraint is a RESULT, not an implementation
+  note — write it up as a correction to the published formalism.** See below.
+
+### 7.5 Grounding a witness in a real origin — a correction to SECRYPT'15
+
+**The finding, stated as a claim about the paper rather than about the code.** The
+SECRYPT'15 formalism's `trans(C)` support term is purely LOCAL: an edge's firing is
+justified by its own endpoints' conditions, with nothing tying the fired set back to an
+initial state. A cycle therefore discharges the term self-referentially, and the paper's
+"a solution represents a path starting at an initial state" does not hold. This is a gap in
+the FORMALISM, not a defect in ad6's implementation of it — established 2026-09-05
+(`258394f8`), with the minimal counterexample recorded in `ad6/FAVE_CHANGES.md` §20 and
+pinned as a test: `entry -> unrelated_sink` is a dead-end out-edge that discharges the
+query's source-side conjunct while `A` sits in a self-supporting cycle discharging the
+destination-side conjunct, with NO path between them. Unconstrained, that query is SAT.
+**Any reachability number computed under the published formalism is an over-approximation
+of unknown size**, which is why this belongs in the write-up rather than in a footnote.
+
+**Two repairs, with different scope.** Both are implemented, both are held to identical
+ground truth by `instantiatortest.py::IncrementalSessionGroundingTest`, and since
+2026-09-11 both are selectable from the production path (`IncrementalSession(...,
+grounding=)`, `Ad6Adapter(..., grounding=)`, `fave_bridge.py --grounding`) rather than only
+from the measurement drivers:
+
+| | rank (`_CreateAcyclicConstraints`) | flow (`_CreateFlowPathConstraints`) |
+|---|---|---|
+| mechanism | per-edge `Rank(Target) > Rank(Node)`; a cycle chains into `Rank(A) > Rank(A)` | single-unit s-t flow; in/out-degree ≤ 1 makes the flow subgraph disjoint simple paths and cycles, and the source starts a path that only the destination can end |
+| scope | **property-agnostic** — forbids every floating cycle regardless of the query | **reachability-specific** — names the endpoints |
+| placement | shared base, built once | per query, by construction |
+| session | one persistent incremental solver | fresh solver per query |
+| sized by | largest cyclic SCC (`Width` bits × qualifying edges) | Kripke edge count |
+
+**The measurement, like-for-like.** wl_stanford N=16, faithful VLAN, same model, same 256
+queries, both answering **165 reachable pairs**:
+
+| | wall | query | base clauses | peak RSS |
+|---|---:|---:|---:|---:|
+| rank (port-scoped) | 2,131.7 s | 2,039.7 s | 851,631 | 4,173 MB |
+| **flow** | **98.2 s** | **63.2 s** | **313,555** | **1,442 MB** |
+
+**21.7x wall, 32.3x query, 2.9x memory — while giving up incremental reuse across queries
+entirely.** That last clause is the interesting part: the flow strategy wins by that margin
+*despite* rebuilding a solver per query, which materially weakens the 439x cold/warm
+argument for the persistent session (generality-debt item 3).
+
+**Why it wins, and the shape of the claim to make.** Flow SHRINKS the shared base (2.7x on
+wl_stanford, 4.2x on wl_i2) and pays per query instead. On wl_i2 the rank encoding is
+**95% of the entire CNF** (14,201,913 of 14,883,129 clauses = 140,613 qualifying edges ×
+101 clauses at `Width`=17) — floating-cycle defence that all 72 queries drag along, on a
+graph whose giant single SCC makes nearly every edge qualify. The honest framing is not
+"flow is faster" but "a global numeric ordering is the wrong shape of constraint for a
+reachability question; a path skeleton is the right one" — and that generalises to any
+verifier grounding a witness in a SAT encoding, which is what makes it a contribution
+rather than a tuning note.
+
+**State the boundary explicitly, or the claim over-reaches.** Flow generalises across
+MODELS completely (pure graph structure, nothing benchmark-specific, and complete — any
+genuine simple s→t walk can carry the unit, so no real witness is rejected). It does NOT
+generalise across PROPERTY CLASSES: a single unit forbids branching witnesses (multicast,
+ECMP where both branches must be asserted, a query whose witness IS a cycle), and having no
+single s-t pair to hang on, it cannot express AF/AX, waypointing, or the anomaly-detection
+queries. So the rank encoding remains necessary for exactly the expressiveness §0 leans on
+— the temporal/QBF properties the domain-specific tools structurally cannot express. **Two
+grounding strategies with different scopes, not a replacement.**
+
+**Still to do before this is quotable:** the wl_i2 flow/rank pair is NOT like-for-like (the
+flow run is faithful + port-scoped, the rank-lite run is plain mode), so only the
+wl_stanford figure above is defensible today; one matched wl_i2 re-run would fix that. And
+`ad6_faithful_measure.py` does not stamp its solver or its grounding at all, so the
+wl_stanford comparison currently rests on inferring the flow run's admission model from its
+date and clause count — see the generality-debt checklist, items 2 and 8.
 
 ---
 
@@ -3719,11 +3790,48 @@ fallback ADDS generality by defining a case no shipped benchmark has.
    clause-identical by test (`testAcyclicRankConstraintLiteMatchesGeneralEncoding`) so
    results stay sound, but "the general path is unusable at this scale" is a TOOL LIMITATION
    to report, not a flag preference to omit.
+   - **The claim attached to the flag is STALE, found 2026-09-11.** Both
+     `_CreateAcyclicConstraintsLite`'s docstring and the warning
+     `bench/ad6_i2_measure.py` prints on every `--lite-acyclic` run still say it "fixes
+     wl_i2's C2 memory blowup, but NOT C2 overall (solving still hangs regardless of
+     backend)". That was superseded on 2026-09-05/06: Cadical195 completed all 72 pairs in
+     3.56 h with an exact oracle match, Glucose4 in 15.3 h. The function is still marked
+     EXPERIMENTAL and "never called by any default/production path" on the strength of a
+     question that has since been answered. **This is the failure mode stamping does not
+     cover** — `lite_acyclic: true` is stamped correctly while the prose next to it is
+     wrong, and the warning goes to stderr on every run, so the next reader of a log is
+     misled. Decide between promoting it to the default path and restating why it stays
+     opt-in; leaving it opt-in *and* mandatory on the largest benchmark is the least
+     defensible of the three.
+   - **Scale, for the report:** on wl_i2 the rank constraints are 14,201,913 of 14,883,129
+     clauses (**95% of the whole CNF**) = 140,613 SCC-qualifying edges × 101 clauses at
+     `Width`=17; on wl_stanford N=16 they are 443,963 of 711,100 (62%) = 6,253 × 71 at
+     `Width`=12. The projected lxml construction cost at ~0.155 MB/edge is ~22 GB vs ~1 GB —
+     which is why the general path is merely expensive on Stanford and impossible on i2. The
+     bottleneck is the intermediate representation, never the clause count.
 2. **Solver-per-problem-class would break uniformity.** If refutation wants Kissat404 and
    existence wants Cadical195, a 72-pair sweep mixes them and is no longer ONE
    configuration. What made the earlier solver comparison valid was the same encoding AND
    the same query order throughout (§5.5's WARM-SOLVER POSITIONAL EFFECT is why order
    counts).
+   - **DRIVER PARITY, found 2026-09-11 — the live violation is BETWEEN benchmarks, not
+     within a sweep.** `bench/ad6_i2_measure.py` takes `--solver`, `--lite-acyclic`,
+     `--fresh-per-query` and stamps all three. `bench/ad6_faithful_measure.py` (wl_stanford)
+     hardcodes `Minisat22`, has no acyclic option at all, and stamps NONE of them — so every
+     archived `ad6_faithful_*.json` is missing `solver`, `lite_acyclic`, `fresh_per_query`,
+     `probe_untag` and `in_admission_port_scoped`. **These are not stamps someone forgot to
+     add: the choices are not configurable there**, so discharging items 1, 2 and 8 on the
+     Stanford side is CODE work, not documentation. Until it is done, every wl_stanford
+     number is Minisat22 + general acyclic while every wl_i2 number is Cadical195 + lite
+     acyclic, and the two are quoted side by side.
+   - **State the denominator, and never compare totals across different query counts.**
+     §5.5's header reads "~13x slower per query than Stanford's ~16 minutes for its full
+     256-pair matrix", but 13x is total-wall / total-wall across **72 queries vs 256**. Per
+     query it is 172.5 s (i2) against 2.79 s (Stanford pre-fix) or 7.97 s (post-fix) —
+     **~62x or ~22x, not 13x**. The stamping gate catches unstamped configuration; it does
+     not catch incommensurable quantities, so this clause is a needed second half of the
+     rule. The Stanford baseline in every such ratio is also STALE: the port-scoped
+     admission fix moved N=16 from 764 s to 2,132 s.
 3. **`--fresh-per-query` and the persistent session are DIFFERENT measurements**, not two
    routes to one number -- that is the 439x cold/warm effect. Pick one and hold it across
    the whole table.
@@ -3742,6 +3850,25 @@ fallback ADDS generality by defining a case no shipped benchmark has.
    (`favemodel._in_vlans_for` still reads the flat shape), not from the current adapter. A
    defect is not a configuration -- but this is a real reproducibility narrowing, not a
    free choice.
+
+8. **The GROUNDING CONSTRAINT is measurement-affecting configuration, and until 2026-09-11
+   it was not even selectable outside the two measurement drivers.** `_CreateAcyclicConstraints`
+   (rank) and `_CreateFlowPathConstraints` (flow) both close the SECRYPT'15 grounding gap and
+   are held to identical ground truth by test, but they are NOT interchangeable and they do
+   not cost the same: on wl_stanford N=16 faithful-VLAN, same model, same 256 queries, same
+   165-pair answer, flow runs 21.7x faster in wall-clock and 2.9x smaller in peak RSS (§7.5).
+   A table mixing the two is mixing encodings, exactly as item 2 forbids for solvers.
+   - **The scope boundary must be restated wherever the flow number appears**, because it is
+     easy to misread as a strictly better default: flow is REACHABILITY-SPECIFIC (it names
+     its endpoints, forbids branching witnesses, and cannot express AF/AX, waypointing or
+     the anomaly queries), whereas rank is property-agnostic. `grounding='rank'` stays the
+     default for that reason, not from caution.
+   - **It also entangles item 3:** flow is per-query by construction, so choosing it CHOOSES
+     `--fresh-per-query`. The two are not independent knobs and cannot be varied separately.
+   - **Currently unstamped on the Stanford side** (see item 2's driver-parity note): the
+     archived `ad6_faithful_*.json` carry no `grounding` field, so the 21.7x figure rests on
+     inferring which encoding each run used from the driver's source and the run's date.
+     Stamp it before quoting it.
 
 **The mechanism that discharges all of this already exists: the result files stamp their own
 configuration** -- `faithful_vlan`, `probe_untag`, `lite_acyclic`, `skip_acyclic`,
@@ -3954,6 +4081,20 @@ choice has no stamp, add the stamp before quoting the number.
       Intra-ad6 solver comparisons are unaffected (identical encoding throughout).
 - [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
+- [~] **§7.5** (new 2026-09-11) Write up the grounding constraint as a CORRECTION to the
+      SECRYPT'15 formalism, not an implementation note: `trans(C)`'s support term is purely
+      local, so a floating cycle discharges it self-referentially and any reachability number
+      computed under the published formalism over-approximates by an unknown amount. Two
+      repairs with different scope (property-agnostic rank vs reachability-specific s-t
+      flow), both now selectable from the PRODUCTION path (`IncrementalSession(...,
+      grounding=)`, `Ad6Adapter(..., grounding=)`, `fave_bridge.py --grounding`, commit
+      `e1ba05b2`) rather than only from the measurement drivers — which is what stops the
+      flow approach from being lost. Measured on wl_stanford N=16 faithful-VLAN, same model,
+      same 256 queries, same 165-pair answer: **21.7x wall, 32.3x query, 2.9x peak RSS**,
+      while giving up incremental reuse entirely. **Open before it is quotable:** the wl_i2
+      flow/rank pair is not like-for-like (one matched re-run fixes it), and
+      `ad6_faithful_measure.py` stamps neither solver nor grounding (generality-debt items 2
+      and 8).
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
       share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed
