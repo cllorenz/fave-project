@@ -3532,10 +3532,17 @@ the underlying harness: `AD6_ENCODING_PLAN.md`, `ad6_encoding_bench/`.
   onto the reachability matrix.
 - **7.5 (new 2026-09-11) The grounding constraint is a RESULT, not an implementation
   note — write it up as a correction to the published formalism.** See below.
-- **7.5b (new 2026-09-11) wl_i2 contributes a QUALITATIVE result, not a ratio:** the rank
-  encoding does not scale to the faithful i2 model and the flow encoding does. Owner
-  decision not to spend budget measuring rank there; evidence recorded so the missing table
-  cell reads as a finding rather than a gap.
+- **7.5b (new 2026-09-11) wl_i2: a matched flow-vs-rank ratio of 9.0-10.8x on the PLAIN
+  model, and a qualitative result on the faithful one** (rank does not scale there; owner
+  decision not to spend budget measuring it). The flow advantage GROWS with model size
+  (7.0x wall on wl_stanford -> 9.0-10.8x on i2) and its memory advantage grows faster still
+  (1.4x -> 6.0x).
+- **7.5c (new 2026-09-11) The flow 2x2 across {minisat22, cadical195} x {plain, faithful}:**
+  all four complete, all verdicts solver-independent. **The flow encoding rescues a backend
+  the rank encoding disqualified** (Minisat22: query 1 unresolved in 90+ min under rank ->
+  all 72 queries in 1,451 s under flow), and wl_stanford's solver inversion does NOT
+  generalise — solver preference is benchmark-dependent, so no claim about a best backend
+  may omit the benchmark, the encoding and the model.
 
 ### 7.5 Grounding a witness in a real origin — a correction to SECRYPT'15
 
@@ -4332,8 +4339,11 @@ choice has no stamp, add the stamp before quoting the number.
       model — general encoding OOMs outright (~22 GB projected, confirmed at 14.44 GB);
       rank+lite costs 641.6-713.8 s/query at 94.5% of box RAM on n=3, extrapolating to
       ~13.6 h for 72 pairs, against a faithful FLOW run that finished all 81 queries in
-      ~70 min at 9.2 GB. Budget goes instead to flow under BOTH solvers on both models, to
-      test whether §7.5's grounding-dependent solver inversion survives at i2 scale.
+      ~70 min at 9.2 GB. Budget went instead to flow under BOTH solvers on both
+      models (§7.5c, DONE 2026-09-11: all four complete in 2 h 49 min, verdicts
+      solver-independent). That answered the inversion question NEGATIVELY — it does not
+      survive at i2 scale — and turned up the sharper result that the flow encoding rescues
+      Minisat22, which the rank encoding had disqualified there.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
       share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed
