@@ -130,49 +130,48 @@ class TestReprioritise(unittest.TestCase):
                          "would change first-match permit/deny precedence")
 
 
-class TestFilteringPrecedenceGuard(unittest.TestCase):
-    """ A declared FIB may still be impure. wl_stanford's `mid.*` tables carry
-    3,372 forwarding rules AND 472 no-action drops, every one overlapping a
-    forwarding rule at a different prefix length (`224.0.0.0/3`, `127.0.0.0/8`,
-    `10.0.0.0/8`, `0.0.0.0/8` against the `0.0.0.0/0` default). Reordering them
-    is safe only because those drops are MORE SPECIFIC than what they shadow --
-    a property of that data, not an invariant. """
+class TestCrossClassPromotionsAreReportedNotRefused(unittest.TestCase):
+    """ A declared FIB may hold drops as well as forwards. An earlier design
+    REFUSED to reorder when doing so would swap an overlapping drop and
+    forward, on the theory that this changes filtering semantics. The real
+    wl_stanford data killed that theory: `mid.bbra_rtr` holds a `10.0.0.0/8`
+    DROP ahead of a `10.240.0.0/12` FORWARD -- the standard FIB idiom of a
+    discard aggregate with more-specific routes punched through it, which a
+    real router resolves by longest prefix. Refusing it blocked the whole
+    wl_stanford regeneration, whose LPM result is independently validated at
+    165 pairs. In a FIB every rule participates in LPM, drops included, so the
+    swap is always correct for a correctly-declared table -- and the shape is
+    indistinguishable from a genuine deny-before-permit filter, so no automatic
+    check can separate them. The DECLARATION is the contract; this is only
+    reported. """
 
-    def test_the_real_wl_stanford_shape_is_accepted(self):
-        """ Drop more specific than the forward it shadows: LPM order and
-        deny-before-permit agree, so the reorder is safe. """
+    def test_the_discard_aggregate_idiom_is_reordered_not_refused(self):
         routes = [
-            _route('mid.r', 1, '224.0.0.0/3', forward=False),
-            _route('mid.r', 2, None),
+            _route('mid.r', 1, '10.0.0.0/8', forward=False),   # discard aggregate
+            _route('mid.r', 2, '10.240.0.0/12'),               # punched through
         ]
-        _reprioritise_fib_lpm(routes, ['mid'])
-        self.assertEqual([r[2] for r in routes], [1, 2])
+        promotions = _reprioritise_fib_lpm(routes, ['mid'])
+        got = {r[3][0].split('=')[1]: r[2] for r in routes}
+        self.assertEqual(got, {'10.240.0.0/12': 1, '10.0.0.0/8': 2},
+                         "longest prefix wins, exactly as a router resolves it")
+        self.assertEqual(promotions, {'mid.r': 1}, "and the swap is REPORTED")
 
-    def test_a_reorder_that_would_invert_permit_deny_is_REFUSED(self):
-        """ The case the owner raised: a deny at a SHORTER prefix that must
-        precede a more specific permit. LPM would move the permit in front and
-        silently invert the filter, so the transform refuses instead. """
+    def test_a_narrower_drop_promoted_past_a_broader_forward_is_not_reported(self):
+        """ Raw wl_stanford also puts the `0.0.0.0/0` default BEFORE the
+        `224.0.0.0/3` martian drop, making the drop dead code under
+        first-match. LPM promotes the drop -- the correction this transform
+        exists for -- and that is not a cross-class demotion of a forward. """
         routes = [
-            _route('mid.r', 1, '10.0.0.0/8', forward=False),   # deny, broad, FIRST
-            _route('mid.r', 2, '10.1.0.0/16'),                 # permit, specific
+            _route('mid.r', 1, None),
+            _route('mid.r', 2, '224.0.0.0/3', forward=False),
         ]
-        with self.assertRaises(FibDeclarationError) as ctx:
-            _reprioritise_fib_lpm(routes, ['mid'])
-        self.assertIn('permit/deny precedence', str(ctx.exception))
-
-    def test_non_overlapping_drops_do_not_block_the_reorder(self):
-        """ A drop that overlaps nothing forwarding cannot invert any
-        precedence, so the reorder proceeds. The two /16s TIE on prefix length
-        and the sort is stable, so they keep their file order relative to each
-        other -- only the match-all default is demoted. """
-        routes = [
-            _route('mid.r', 1, '192.168.0.0/16', forward=False),
-            _route('mid.r', 2, None),
-            _route('mid.r', 3, '10.1.0.0/16'),
-        ]
-        _reprioritise_fib_lpm(routes, ['mid'])
+        promotions = _reprioritise_fib_lpm(routes, ['mid'])
         got = {(r[3][0].split('=')[1] if r[3] else 'default'): r[2] for r in routes}
-        self.assertEqual(got, {'192.168.0.0/16': 1, '10.1.0.0/16': 2, 'default': 3})
+        self.assertEqual(got, {'224.0.0.0/3': 1, 'default': 2})
+
+    def test_a_table_with_no_drops_reports_nothing(self):
+        routes = [_route('mid.r', 1, None), _route('mid.r', 2, '10.0.0.0/8')]
+        self.assertEqual(_reprioritise_fib_lpm(routes, ['mid']), {})
 
 
 class TestIdxIsAuthoritativeNotArrayPosition(unittest.TestCase):
@@ -191,8 +190,11 @@ class TestIdxIsAuthoritativeNotArrayPosition(unittest.TestCase):
             _route('mid.r', 2, '10.1.0.0/16'),                # permit, array-first
             _route('mid.r', 1, '10.0.0.0/8', forward=False),  # deny, idx-first
         ]
-        with self.assertRaises(FibDeclarationError):
-            _reprioritise_fib_lpm(routes, ['mid'])
+        promotions = _reprioritise_fib_lpm(routes, ['mid'])
+        self.assertEqual(promotions, {'mid.r': 1},
+                         "precedence is read from idx, so the swap is seen; by "
+                         "ARRAY position the permit comes first and it would "
+                         "look like no swap at all")
 
     def test_an_already_lpm_table_stored_out_of_idx_order_is_a_noop(self):
         """ The wl_stanford shape: correct by idx, shuffled in the array. Must

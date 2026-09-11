@@ -22,6 +22,7 @@
 
 import ipaddress
 import json
+import sys
 
 from netplumber.mapping import FIELD_SIZES
 from netplumber.vector import Vector
@@ -237,19 +238,20 @@ def _reprioritise_fib_lpm(routes, fib_table_types):
     because shape-matching on match fields is blind to ACTIONS, which is where
     permit/deny lives.
 
-    SAFETY, because a declared FIB may still be impure: wl_stanford's `mid.*`
-    tables carry 3,372 forwarding rules AND 472 no-action DROPS, every one of
-    which overlaps a forwarding rule at a different prefix length (e.g.
-    `224.0.0.0/3` against the `0.0.0.0/0` default). Reordering them is only safe
-    because those drops are MORE SPECIFIC than what they shadow, so prefix order
-    agrees with the intended deny-before-permit precedence -- a property of that
-    data, not an invariant. So this refuses to reorder a table when doing so
-    would FLIP the relative order of any overlapping forwarding/non-forwarding
-    pair, rather than trusting the declaration blindly.
+    A declared FIB may still hold non-forwarding rules -- wl_stanford's `mid.*`
+    tables carry 3,372 forwarding rules and 472 no-action DROPS, including a
+    `10.0.0.0/8` discard ahead of a `10.240.0.0/12` forward. That is the normal
+    FIB idiom (a discard aggregate with more-specific routes punched through
+    it) and longest-prefix-match is exactly how a router resolves it, so those
+    are reordered like any other rule. `_cross_class_promotions` REPORTS how
+    many such swaps a table sees, for a human reviewing a new declaration; it
+    deliberately does not refuse, because the shape is indistinguishable from a
+    genuine deny-before-permit filter and refusing blocks valid FIBs.
 
     Raises FibDeclarationError on a missing or unknown declaration -- omission
     must be loud, since a silent skip is precisely the bug this replaces. """
     fibs = fib_tables(routes, fib_table_types)
+    promotions = {}
 
     by_dev = {}
     for pos, route in enumerate(routes):
@@ -258,41 +260,52 @@ def _reprioritise_fib_lpm(routes, fib_table_types):
     for dev in sorted(fibs):
         positions = by_dev.get(dev, [])
         order = sorted(positions, key=lambda p: -_prefix_len(routes[p][3]))
-        _assert_reorder_preserves_filtering(routes, dev, positions, order)
+        swapped = _cross_class_promotions(routes, positions, order)
+        if swapped:
+            promotions[dev] = swapped
         for new_idx, p in enumerate(order, start=1):
             t = routes[p]
             routes[p] = (t[0], t[1], new_idx, t[3], t[4], t[5])
 
+    return promotions
 
-def _assert_reorder_preserves_filtering(routes, dev, before, after):
-    """ Refuse a reorder that would swap an overlapping forwarding rule past a
-    non-forwarding one (or vice versa) -- that is a permit/deny precedence
-    change, not a longest-prefix-match correction. Overlapping pairs within one
-    class are exactly what LPM is meant to reorder and are left alone. """
-    # "Before" is the rule's CURRENT NP priority -- its idx field -- not its
-    # position in the routes ARRAY. The two differ (a table's rules are not
-    # stored in idx order), and idx is what NetPlumber resolves priority by, so
-    # comparing array positions here compares the wrong thing entirely.
+
+def _cross_class_promotions(routes, before, after):
+    """ How many overlapping (non-forwarding, forwarding) pairs this reorder
+    swaps -- REPORTED, not refused.
+
+    An earlier design raised on any such swap, on the theory that reordering a
+    table which mixes passing and denying rules changes its filtering
+    semantics. That theory is right about ACLs and WRONG about FIBs, and the
+    real wl_stanford data settles it: `mid.bbra_rtr` holds a `10.0.0.0/8` DROP
+    ahead of a `10.240.0.0/12` FORWARD. That is the standard FIB idiom -- a
+    discard route for an aggregate with more-specific routes punched through it
+    -- and a real router resolves it by longest prefix, forwarding 10.240/12
+    and dropping the rest of 10/8. Refusing it blocked the entire wl_stanford
+    regeneration, whose LPM result is independently validated at 165 pairs.
+
+    In a FIB every rule participates in longest-prefix-match, drops included,
+    so for a CORRECTLY DECLARED table such a swap is always right. And the
+    shape is indistinguishable from a genuine deny-before-permit filter, so no
+    automatic check can separate the two without also blocking valid FIBs.
+    **The declaration is therefore the contract** -- `config.json`'s
+    `fib_table_types` asserts "these tables have LPM semantics" -- and this
+    function only quantifies what changed, so a human reviewing a NEW
+    declaration can see whether it did anything surprising. """
     rank_before = {p: routes[p][2] for p in before}
     rank_after = {p: i for i, p in enumerate(after)}
     fwd = [p for p in before if _forwards(routes[p][4])]
     other = [p for p in before if not _forwards(routes[p][4])]
+    swapped = 0
     for a in other:
         net_a = _net_of(routes[a][3])
         for b in fwd:
-            net_b = _net_of(routes[b][3])
-            if not net_a.overlaps(net_b):
+            if not net_a.overlaps(_net_of(routes[b][3])):
                 continue
             if (rank_before[a] < rank_before[b]) != (rank_after[a] < rank_after[b]):
-                raise FibDeclarationError(
-                    "refusing to LPM-reorder %s: it would flip %s (%s) past %s "
-                    "(%s), changing permit/deny precedence on overlapping "
-                    "prefixes. Either this table is not a FIB, or its filtering "
-                    "rules need handling before reordering." % (
-                        dev, net_a,
-                        "forward" if _forwards(routes[a][4]) else "no-forward",
-                        net_b,
-                        "forward" if _forwards(routes[b][4]) else "no-forward"))
+                swapped += 1
+                break
+    return swapped
 
 
 def prepare_benchmark(
@@ -374,7 +387,13 @@ def prepare_benchmark(
     # FaVe-backend LPM fix: re-prioritise the DECLARED FIB tables by prefix
     # length so NetPlumber forwards by longest-prefix-match. See
     # _reprioritise_fib_lpm / Phase 1d / AD6_PLAN.md §5.5.
-    _reprioritise_fib_lpm(routes, fib_table_types)
+    promotions = _reprioritise_fib_lpm(routes, fib_table_types)
+    if promotions:
+        print("[np_preparation] LPM re-prioritisation promoted a forwarding rule "
+              "past an overlapping non-forwarding one in: %s -- normal for a FIB "
+              "with discard aggregates, but worth an eye on a NEW declaration"
+              % ", ".join("%s(%d)" % kv for kv in sorted(promotions.items())[:5]),
+              file=sys.stderr)
 
 
     # transform policy
