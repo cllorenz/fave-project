@@ -191,7 +191,8 @@ import resource
 import sys
 import time
 
-from bench.ad6_stamp import admission_stamp
+from bench.ad6_stamp import (
+    SOLVERS, admission_stamp, needs_fresh_per_query, solver_class)
 
 sys.setrecursionlimit(10 ** 6)
 
@@ -500,7 +501,9 @@ def _checkpoint(result, out_path, stage):
             json.dump(payload, fh, indent=2)
 
 
-_SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
+# Shared with `bench/ad6_faithful_measure.py` since 2026-09-11 so a solver is
+# spelled identically in both drivers' result files.
+_SOLVERS = SOLVERS
 
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
@@ -569,11 +572,7 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
     from src.parser import favemodel
     from src.solver.minisat import MiniSATAdapter
     from src.xml.xmlutils import XMLUtils
-    from pysat.solvers import Minisat22, Glucose4, Cadical195, Kissat404
-    solver_cls = {
-        "minisat22": Minisat22, "glucose4": Glucose4,
-        "cadical195": Cadical195, "kissat404": Kissat404,
-    }[solver_name]
+    solver_cls = solver_class(solver_name)
     result["solver"] = solver_name
     from copy import deepcopy
 
@@ -1052,6 +1051,19 @@ def main(argv=None):
                 "solver would leave query 1's constraints asserted during query 2 -- "
                 "every later query would be answered against the wrong endpoints "
                 "(AD6_PLAN.md Sec 5.4 B1)")
+    if needs_fresh_per_query(args.solver) and not args.fresh_per_query:
+        # Documented in --fresh-per-query's own help text since it was added, but
+        # never ENFORCED -- and this one cannot be left to the operator, because
+        # getting it wrong does not fail. PySAT's Kissat wrapper drops
+        # `assumptions` with only a RuntimeWarning (verified by experiment, see
+        # bench/ad6_stamp.py), so the persistent session would solve every query
+        # against the bare base encoding and report everything reachable, in a
+        # result file that looks entirely normal.
+        p.error("--solver %s requires --fresh-per-query: PySAT's wrapper for it "
+                "SILENTLY IGNORES assumptions, so the persistent session would "
+                "drop this query's own source/destination literals and report "
+                "everything reachable (AD6_PLAN.md Sec 5.5 C2 follow-up)"
+                % args.solver)
     if args.pairs is not None and args.pair_filter is not None:
         p.error("--pairs and --pair-filter are mutually exclusive -- they select "
                 "queries in contradictory ways and one would silently win")

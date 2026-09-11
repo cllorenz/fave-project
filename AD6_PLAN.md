@@ -3591,12 +3591,13 @@ grounding strategies with different scopes, not a replacement.**
 **Still to do before this is quotable.** The wl_i2 flow/rank pair is NOT like-for-like (the
 flow run is faithful + port-scoped, the rank-lite run is plain mode), so only the
 wl_stanford figure above is defensible today; one matched wl_i2 re-run would fix that. And
-while `ad6_faithful_measure.py` stamps its solver and grounding as of 2026-09-11, **the two
-archived runs the 21.7x is computed from predate that**, so the figure still rests on
-inference until they are repeated under the stamping driver — cheap at ~35 min for the rank
-side and ~100 s for the flow side. The N=2 re-run done alongside the stamping change
-reproduces its archived counterpart exactly, which is evidence the inference was RIGHT, not
-a substitute for redoing the N=16 pair. See the generality-debt checklist, items 2 and 8.
+**the two archived N=16 runs the 21.7x is computed from predate the stamping**, so the
+figure rests on inference until they are repeated — cheap at ~35 min for the rank side and
+~100 s for the flow side, and now worth doing under `--lite-acyclic --solver cadical195` so
+the wl_stanford row matches wl_i2's forced configuration in the same table. The N=2 re-run
+done alongside the stamping change reproduces its archived counterpart exactly, which is
+evidence the inference was RIGHT, not a substitute for redoing the N=16 pair. See the
+generality-debt checklist, items 2 and 8.
 
 ---
 
@@ -3806,6 +3807,12 @@ fallback ADDS generality by defining a case no shipped benchmark has.
      misled. Decide between promoting it to the default path and restating why it stays
      opt-in; leaving it opt-in *and* mandatory on the largest benchmark is the least
      defensible of the three.
+   - **Now measurable rather than only argued (2026-09-11):** `ad6_faithful_measure.py`
+     takes `--lite-acyclic`, so the general-vs-lite difference can be measured on a
+     benchmark where BOTH complete. At N=2 they produce byte-identical CNF (86,645 acyclic
+     clauses, 161,249 total, 59,521 variables) and the same verdicts, with lite cheaper to
+     build (10.4 s vs 15.9 s wall) -- so "mandatory on i2" remains a tool limitation to
+     report, but it is no longer an unquantified one.
    - **Scale, for the report:** on wl_i2 the rank constraints are 14,201,913 of 14,883,129
      clauses (**95% of the whole CNF**) = 140,613 SCC-qualifying edges × 101 clauses at
      `Width`=17; on wl_stanford N=16 they are 443,963 of 711,100 (62%) = 6,253 × 71 at
@@ -3836,8 +3843,31 @@ fallback ADDS generality by defining a case no shipped benchmark has.
      `ad6_faithful_N2_portscoped_sandbox.json` exactly (`clause_count` 161,249,
      `reachable_pairs` 2), which also retroactively CONFIRMS that archived run was
      port-scoped -- the fact that previously had to be inferred from its clause count.
-     **Still open: making solver and acyclic encoding selectable here**, which is what an
-     apples-to-apples wl_stanford-vs-wl_i2 table actually needs.
+   - **DISCHARGED 2026-09-11.** `ad6_faithful_measure.py` now takes `--solver` (the shared
+     `bench/ad6_stamp.py` vocabulary, so a name means the same thing in both drivers'
+     files), `--lite-acyclic` and `--fresh-per-query`. Defaults are unchanged, so a bare
+     invocation is still the Minisat22 + general-acyclic + persistent-session run every
+     archived result came from. **An apples-to-apples wl_stanford-vs-wl_i2 table is now
+     producible**: point wl_stanford at `--lite-acyclic --solver cadical195` to match the
+     encoding and backend wl_i2 is forced onto.
+     - **Validated as a 7-way differential at N=2, not just by unit test**: general/lite ×
+       minisat22/cadical195/glucose4/kissat404 × persistent/fresh × rank/flow all produce
+       the IDENTICAL reachability matrix. General and lite also come out byte-identical in
+       size on real wl_stanford data (86,645 acyclic clauses, 161,249 total, 59,521
+       variables either way), corroborating
+       `testAcyclicRankConstraintLiteMatchesGeneralEncoding` outside its synthetic fixture.
+       Lite is also cheaper to BUILD at this scale (10.4 s vs 15.9 s wall at N=2), so the
+       memory motivation is not its only one.
+     - **A latent hazard was found and guarded while doing this.** `--fresh-per-query` is
+       REQUIRED for kissat404, which the wl_i2 driver documented in help text but never
+       enforced. Verified by experiment rather than from documentation: bootstrapped with
+       `[[1, 2]]` and solved under `assumptions=[-1, -2]`, Minisat22/Glucose4/Cadical195
+       return UNSAT while **Kissat404 returns SAT**, emitting only a `RuntimeWarning`. In a
+       persistent session that silently drops each query's own source/destination literals,
+       so every query is solved against the bare base encoding and the run reports
+       EVERYTHING REACHABLE -- in a result file that looks entirely normal. Both drivers now
+       refuse the combination, and the solver's actual behaviour is pinned by a test so the
+       guard can be relaxed if PySAT ever fixes it.
    - **State the denominator, and never compare totals across different query counts.**
      §5.5's header reads "~13x slower per query than Stanford's ~16 minutes for its full
      256-pair matrix", but 13x is total-wall / total-wall across **72 queries vs 256**. Per

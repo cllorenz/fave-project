@@ -61,7 +61,8 @@ import sys
 import tempfile
 import time
 
-from bench.ad6_stamp import admission_stamp
+from bench.ad6_stamp import (
+    SOLVERS, admission_stamp, needs_fresh_per_query, solver_class)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))     # .../fave/bench
 _FAVE = os.path.dirname(_HERE)                          # .../fave
@@ -123,7 +124,8 @@ def _build_ir(routers):
     return ir, sources, probes
 
 
-def _config_stamp(flow_path):
+def _config_stamp(flow_path, solver_name="minisat22", lite_acyclic=False,
+                  fresh_per_query=False):
     """ AD6_PLAN.md generality-debt items 1/2/8, added 2026-09-11: the
     measurement-affecting configuration behind a wl_stanford result.
 
@@ -134,31 +136,32 @@ def _config_stamp(flow_path):
     numbers uncomparable in precisely the way the stamping gate exists to
     prevent.
 
-    These are CONSTANTS here, not choices: unlike the wl_i2 driver this one
-    offers no `--solver` and no `--lite-acyclic`. That is exactly why they must
-    be stamped rather than left implicit -- a reader comparing a wl_stanford
-    number against a wl_i2 one has to be able to SEE that one is Minisat22 plus
-    the general acyclic encoding while the other is typically Cadical195 plus
-    the lite one. Making them selectable is the open half of generality-debt
-    item 2; stamping what actually ran is this half. """
+    These were CONSTANTS until 2026-09-11 -- this driver offered no `--solver`
+    and no `--lite-acyclic`, so every wl_stanford number was Minisat22 plus the
+    general acyclic encoding while every wl_i2 number was typically Cadical195
+    plus the lite one, and the two were quoted side by side. Both are now
+    selectable, which is what an apples-to-apples cross-benchmark table needs;
+    the stamp records what actually ran either way. """
     return {
-        # Hardcoded in measure() (`MiniSATAdapter`/`Minisat22`), in both the
-        # persistent and the fresh-per-query paths. Spelled exactly as
-        # `bench/ad6_i2_measure.py`'s own `_SOLVERS` spells it, so the two
-        # drivers' result files compare directly (pinned by test).
-        "solver": "minisat22",
+        # Spelled exactly as `bench/ad6_i2_measure.py` spells it -- one shared
+        # vocabulary in `bench/ad6_stamp.py`, so the two drivers' result files
+        # compare directly (pinned by test).
+        "solver": solver_name,
         # Derived, not a second source of truth: `--flow-path` REPLACES the
         # rank encoding, so the grounding is a function of that one switch.
         "grounding": "flow" if flow_path else "rank",
-        # This driver always builds the GENERAL `_CreateAcyclicConstraints`.
-        # wl_i2 cannot (it OOMs at that scale) and runs `--lite-acyclic`, which
-        # is clause-identical by test but is still a different code path, so
-        # the difference has to be visible when the two are quoted together.
-        "lite_acyclic": False,
+        # General `_CreateAcyclicConstraints` vs the clause-identical
+        # `_CreateAcyclicConstraintsLite`. wl_i2 CANNOT run the general path
+        # (it OOMs at that scale) so its runs are all lite; wl_stanford can run
+        # either, and the difference has to be visible when the two are quoted
+        # together. Meaningless under --flow-path, which builds neither.
+        "lite_acyclic": bool(lite_acyclic) and not flow_path,
         "skip_acyclic": bool(flow_path),
-        # Not an independent knob: the flow constraint names its endpoints, so
-        # choosing it chooses a fresh solver per query (generality-debt item 8).
-        "fresh_per_query": bool(flow_path),
+        # Forced by --flow-path (the flow constraint names its endpoints, so
+        # choosing it chooses a fresh solver per query -- generality-debt item
+        # 8) and by any solver whose wrapper ignores assumptions; otherwise a
+        # free choice, and a DIFFERENT measurement either way (item 3).
+        "fresh_per_query": bool(fresh_per_query or flow_path),
         # `_build_ir` constructs `Ad6Adapter(log, faithful_vlan=True)` and never
         # passes `probe_untag`, so it is off here -- the cross-engine parity
         # choice of generality-debt item 4, stamped rather than assumed.
@@ -166,7 +169,8 @@ def _config_stamp(flow_path):
     }
 
 
-def measure(routers, out_path, flow_path=False):
+def measure(routers, out_path, flow_path=False, solver_name="minisat22",
+            lite_acyclic=False, fresh_per_query=False):
     result = {
         "bench": "stanford", "engine": "ad6", "faithful_vlan": True,
         "routers": sorted(routers) if routers else None,
@@ -176,7 +180,11 @@ def measure(routers, out_path, flow_path=False):
         # two different mechanisms for the same soundness job.
         "flow_path": flow_path,
     }
-    result.update(_config_stamp(flow_path))
+    fresh_per_query = bool(fresh_per_query or flow_path
+                           or needs_fresh_per_query(solver_name))
+    result.update(_config_stamp(flow_path, solver_name=solver_name,
+                                lite_acyclic=lite_acyclic,
+                                fresh_per_query=fresh_per_query))
     wall0 = time.time()
 
     ir, sources, probes = _build_ir(routers)
@@ -194,8 +202,9 @@ def measure(routers, out_path, flow_path=False):
     from src.parser import favemodel
     from src.solver.minisat import MiniSATAdapter
     from src.xml.xmlutils import XMLUtils
-    from pysat.solvers import Minisat22
     from copy import deepcopy
+
+    solver_cls = solver_class(solver_name)
 
     cwd = os.getcwd()
     os.chdir(_AD6)
@@ -213,6 +222,7 @@ def measure(routers, out_path, flow_path=False):
         # script can report the DIMACS conversion and clause count
         # directly, the same instrumentation axis8d's DimacsBridge used.
         combined = deepcopy(encoding)
+        lite_clauses = None
         if flow_path:
             # AD6_PLAN.md §5.4 B1: the flow constraint REPLACES the rank
             # encoding rather than supplementing it -- both close the same
@@ -221,6 +231,20 @@ def measure(routers, out_path, flow_path=False):
             # to a FRESH solver below instead of to the shared base.
             result["acyclic_constraint_s"] = None
             result["acyclic_extra_clauses"] = 0
+        elif lite_acyclic:
+            # AD6_PLAN.md §5.5: the memory-lite reimplementation. It emits the
+            # IDENTICAL clause set (pinned by
+            # testAcyclicRankConstraintLiteMatchesGeneralEncoding) as plain
+            # (name, negated) tuples rather than an lxml formula tree per edge,
+            # so it CANNOT be spliced into `combined[0]` -- it is resolved to
+            # DIMACS ints after the base conversion below, exactly as
+            # `bench/ad6_i2_measure.py` does it. Selectable here so a
+            # wl_stanford number can be produced under the same encoding wl_i2
+            # is FORCED onto, which is what makes the two comparable.
+            t0 = time.time()
+            lite_clauses = Instantiator._CreateAcyclicConstraintsLite(kripke)
+            result["acyclic_constraint_s"] = round(time.time() - t0, 3)
+            result["acyclic_extra_clauses"] = len(lite_clauses)
         else:
             t0 = time.time()
             acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
@@ -246,6 +270,17 @@ def measure(routers, out_path, flow_path=False):
                 next_index[0] += 1
             return idx
 
+        if lite_clauses is not None:
+            t0 = time.time()
+            dimacs_clauses.extend(
+                [-index_for(name) if negated else index_for(name)
+                 for name, negated in clause]
+                for clause in lite_clauses)
+            del lite_clauses
+            result["lite_dimacs_s"] = round(time.time() - t0, 3)
+            result["variable_count"] = next_index[0] - 1
+            result["clause_count"] = len(dimacs_clauses)
+
         def literal(xml_var):
             idx = index_for(xml_var.attrib[XMLUtils.ATTRNAME])
             return -idx if xml_var.attrib.get(XMLUtils.ATTRNEGATED) == 'true' else idx
@@ -263,8 +298,8 @@ def measure(routers, out_path, flow_path=False):
             return aux, [[-lit, aux] for lit in lits] + [[-aux] + lits]
 
         t0 = time.time()
-        solver = None if flow_path else Minisat22(bootstrap_with=dimacs_clauses)
-        result["solver_load_s"] = round(time.time() - t0, 3)
+        solver = None if fresh_per_query else solver_cls(bootstrap_with=dimacs_clauses)
+        result["solver_load_s"] = None if solver is None else round(time.time() - t0, 3)
 
         queries = [{"source": s, "probe": p} for p in probes for s in sources]
         result["query_count"] = len(queries)
@@ -281,22 +316,27 @@ def measure(routers, out_path, flow_path=False):
                        for p, flag in kripke.IterBTransitions(destination)]
             src_lit, src_clauses = or_gate(f_trans)
             dst_lit, dst_clauses = or_gate(b_trans)
-            if flow_path:
-                # A FRESH solver per query: the flow constraint names THIS
-                # query's endpoints, so reusing one solver would leave the
-                # previous query's constraints asserted and answer this one
-                # against the wrong endpoints -- a wrong verdict, not a crash.
-                flow_clauses = Instantiator._CreateFlowPathConstraints(
-                    kripke, source, destination)
-                flow_total += len(flow_clauses)
-                q_solver = Minisat22(bootstrap_with=dimacs_clauses)
+            if fresh_per_query:
+                # A FRESH solver per query, for either of two reasons. Under
+                # --flow-path the flow constraint names THIS query's endpoints,
+                # so reusing one solver would leave the previous query's
+                # constraints asserted and answer this one against the wrong
+                # endpoints -- a wrong verdict, not a crash. Under a solver
+                # whose wrapper ignores `assumptions` it is the only way the
+                # endpoints bind at all. Either way the endpoints go in as UNIT
+                # CLAUSES rather than assumptions.
+                q_solver = solver_cls(bootstrap_with=dimacs_clauses)
                 for clause in src_clauses + dst_clauses:
                     q_solver.add_clause(clause)
                 q_solver.add_clause([src_lit])
                 q_solver.add_clause([dst_lit])
-                for clause in flow_clauses:
-                    q_solver.add_clause([
-                        -index_for(n) if neg else index_for(n) for n, neg in clause])
+                if flow_path:
+                    flow_clauses = Instantiator._CreateFlowPathConstraints(
+                        kripke, source, destination)
+                    flow_total += len(flow_clauses)
+                    for clause in flow_clauses:
+                        q_solver.add_clause([
+                            -index_for(n) if neg else index_for(n) for n, neg in clause])
                 sat = bool(q_solver.solve())
                 q_solver.delete()
             else:
@@ -309,7 +349,10 @@ def measure(routers, out_path, flow_path=False):
             result["flow_path_clauses_total"] = flow_total
             result["flow_path_clauses_per_query"] = (
                 flow_total // len(queries) if queries else 0)
-        else:
+        # Keyed off the solver itself, not off flow_path: --fresh-per-query
+        # also leaves no persistent solver to release, and each query's own
+        # solver is already deleted in the loop above.
+        if solver is not None:
             solver.delete()
 
         reach = {
@@ -349,9 +392,50 @@ def main(argv=None):
                         "query's own endpoints. The differential that validates it: "
                         "this must reproduce the rank encoding's reachable_pairs "
                         "exactly (165 on the full 16-router model).")
+    p.add_argument("--solver", choices=SOLVERS, default="minisat22",
+                   help="PySAT backend to load/solve with (default: minisat22, what "
+                        "every archived wl_stanford result was produced under). Same "
+                        "vocabulary as bench/ad6_i2_measure.py, so the two benchmarks' "
+                        "result files compare directly -- AD6_PLAN.md's generality-debt "
+                        "item 2.")
+    p.add_argument("--lite-acyclic", action="store_true",
+                   help="build the rank constraints with "
+                        "Instantiator._CreateAcyclicConstraintsLite instead of the "
+                        "general encoding. Clause-IDENTICAL by test, so this changes "
+                        "cost and not verdicts; offered here because wl_i2 has no "
+                        "choice (the general path OOMs at that scale), and comparing a "
+                        "wl_stanford number against a wl_i2 one means matching the "
+                        "encoding -- AD6_PLAN.md Sec 5.5, generality-debt item 1. "
+                        "Ignored under --flow-path, which builds no rank constraints.")
+    p.add_argument("--fresh-per-query", action="store_true",
+                   help="bootstrap a FRESH solver per query, baking the endpoints in "
+                        "as unit clauses, instead of reusing one persistent "
+                        "assumption-based session. A DIFFERENT measurement, not a "
+                        "second route to the same number (generality-debt item 3). "
+                        "Implied by --flow-path and by any solver whose PySAT wrapper "
+                        "ignores assumptions.")
     args = p.parse_args(argv)
+    # Refused rather than resolved: either resolution would produce a
+    # plausible-looking result file answering a different question than the
+    # flags claim.
+    if needs_fresh_per_query(args.solver) and not (args.fresh_per_query or args.flow_path):
+        # This one cannot be left to the operator, because getting it wrong does
+        # not fail. PySAT's Kissat wrapper drops `assumptions` with only a
+        # RuntimeWarning (verified by experiment -- see bench/ad6_stamp.py), so
+        # the persistent session would solve every query against the bare base
+        # encoding and report everything reachable.
+        p.error("--solver %s requires --fresh-per-query: PySAT's wrapper for it "
+                "SILENTLY IGNORES assumptions, so the persistent session would drop "
+                "each query's own source/destination literals and report everything "
+                "reachable (AD6_PLAN.md Sec 5.5 C2 follow-up)" % args.solver)
+    if args.lite_acyclic and args.flow_path:
+        p.error("--lite-acyclic and --flow-path are mutually exclusive: the flow "
+                "constraint REPLACES the rank encoding, so there would be no rank "
+                "constraints for --lite-acyclic to build, and the run would stamp an "
+                "encoding it never used (AD6_PLAN.md Sec 5.4 B1)")
     routers = [r for r in args.routers.split(",") if r] if args.routers else None
-    measure(routers, args.out, flow_path=args.flow_path)
+    measure(routers, args.out, flow_path=args.flow_path, solver_name=args.solver,
+            lite_acyclic=args.lite_acyclic, fresh_per_query=args.fresh_per_query)
     return 0
 
 

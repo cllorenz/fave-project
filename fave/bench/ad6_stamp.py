@@ -19,14 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" Provenance stamps shared by ad6's measurement drivers (AD6_PLAN.md's
-generality-debt gate: "every collapse of the configuration space must be a
-stamped field, never an undocumented habit").
+""" The configuration vocabulary and provenance stamps shared by ad6's two
+measurement drivers (AD6_PLAN.md's generality-debt gate: "every collapse of the
+configuration space must be a stamped field, never an undocumented habit").
 
 Shared rather than duplicated because the whole POINT of these fields is that
-two result files can be compared -- `bench/ad6_i2_measure.py` and
-`bench/ad6_faithful_measure.py` computing "port-scoped" by two slightly
-different rules would defeat the stamp more quietly than omitting it. """
+two result files can be COMPARED -- `bench/ad6_i2_measure.py` and
+`bench/ad6_faithful_measure.py` spelling a solver differently, or computing
+"port-scoped" by two slightly different rules, would defeat the stamp more
+quietly than omitting it. """
 
 
 def admission_stamp(ir):
@@ -60,3 +61,41 @@ def admission_stamp(ir):
         "in_admission_pairs": sum(
             len(vlans) for v in relations for vlans in v.values()),
     }
+
+
+# The PySAT backends both drivers can be pointed at. One tuple, so a name is
+# spelled identically in a wl_stanford result file and a wl_i2 one.
+SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
+
+# Backends whose PySAT wrapper SILENTLY IGNORES `assumptions`. Verified by
+# experiment, not taken from documentation: bootstrapped with `[[1, 2]]` and
+# solved under `assumptions=[-1, -2]`, Minisat22/Glucose4/Cadical195 all return
+# UNSAT while Kissat404 returns SAT, emitting only a RuntimeWarning ("Kissat
+# does not support assumptions. The assumptions parameter will be ignored.").
+#
+# WHY THIS MATTERS ENOUGH TO LIVE HERE. Both drivers answer a query by
+# assumption-solving a persistent session on `[src_lit, dst_lit]`. Under a
+# backend in this tuple those two literals are dropped, so EVERY query is
+# solved against the bare base encoding -- which is satisfiable for essentially
+# any model. The run does not crash and the result file looks normal; it just
+# reports everything reachable. A driver offering such a backend must therefore
+# force the fresh-solver-per-query path (where the endpoints go in as unit
+# clauses instead) rather than trust the caller to remember.
+SOLVERS_WITHOUT_ASSUMPTIONS = ("kissat404",)
+
+
+def needs_fresh_per_query(solver_name):
+    """ True iff `solver_name` cannot be driven by the persistent
+    assumption-based session without silently answering the wrong question. """
+    return solver_name in SOLVERS_WITHOUT_ASSUMPTIONS
+
+
+def solver_class(solver_name):
+    """ The PySAT class for a name in SOLVERS. Imported lazily: `pysat` is a
+    real dependency of the drivers but not of every importer of this module
+    (the stamp helpers above are pure and used from tests). """
+    from pysat.solvers import Minisat22, Glucose4, Cadical195, Kissat404
+    return {
+        "minisat22": Minisat22, "glucose4": Glucose4,
+        "cadical195": Cadical195, "kissat404": Kissat404,
+    }[solver_name]
