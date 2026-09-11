@@ -2424,9 +2424,46 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   reframes §5.5's tractability question and is directly relevant to `--lite-acyclic` being
   mandatory here.
 
-  **Still outstanding:** a full-encoding UNSAT for `chic->salt` (the formal verdict), and
-  the six eastern pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}), which this probe did
-  not address.
+  **RESOLVED 2026-09-11 BY THE FLOW ENCODING -- decision-table CASE 1, control SAT and
+  BOTH discriminators UNSAT.** With `--faithful-vlan --skip-acyclic --fresh-per-query
+  --flow-path --solver cadical195` (the single-unit s-t flow grounding constraint,
+  `Instantiator._CreateFlowPathConstraints`, which is sound AND complete -- see §5.4 B1):
+
+  | pair | verdict | flow | rank (lite-acyclic) |
+  |---|---|---|---|
+  | `hous->salt` (control) | **SAT** | 124.9 s | 425.8 s |
+  | `chic->salt` (discriminator) | **UNSAT** | **78.4 s** | no answer in 20,302 s |
+  | `chic->seat` (discriminator) | **UNSAT** | **324.8 s** | not reached |
+
+  Whole run 1,374.3 s on a 9,093.5 MB peak. `oracle_missing` is exactly
+  `{salt: [chic], seat: [chic]}` and `oracle_match: false` -- CORRECT and expected:
+  `reachable.json` encodes the all-reachable 72/72 POLICY EXPECTATION, and both NetPlumber
+  and now faithful ad6 say the network does not implement it. **So §5.5's C3 question is
+  answered: plain mode is insufficient for i2, and NetPlumber's 11 are corroborated by an
+  independent engine on the Chicago pairs.** The recorded "case 2" (all three SAT) was an
+  artefact of the per-device admission projection.
+
+  **Cost of the grounding constraint, measured:** 1,092,512 clauses built in 2.192 s,
+  against the rank encoding's 14,253,423 -- **13x fewer**, and the estimate recorded above
+  (~1.2M) was close. Peak RSS 9,093.5 MB against 18,501.7.
+
+  **VALIDATION STILL OWED BEFORE THIS IS QUOTED AS A HEADLINE.** A brand-new encoding
+  returning exactly the predicted answer is the moment for most scepticism, not least.
+  What is established: the flow constraint is COMPLETE by construction (any genuine simple
+  walk carries the unit), which is the property an UNSAT claim rests on and the one an
+  over-constraint would break; it is tested against the rank encoding's OWN fixture; and
+  the control's SAT is itself a structural check that the flow graph contains the real
+  `hous->kans->salt` path, i.e. that edge enumeration picks up the topology edges
+  `wire_edges` adds after `ConvertToKripke` (had it missed them, EVERY query would have
+  been spuriously UNSAT). What is NOT established is agreement between flow and rank on a
+  LARGE sample -- currently one point (the control, SAT under both). **The owed check:
+  full wl_stanford N=16 under `--flow-path`, which must reproduce `reachable_pairs = 165`
+  -- a 256-query differential against an answer NetPlumber independently proved, including
+  91 genuinely UNREACHABLE pairs, i.e. exactly the direction that needs validating.** It
+  requires adding the flag to `bench/ad6_faithful_measure.py` as well.
+
+  **Still outstanding:** the six eastern pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}),
+  which neither probe addressed.
 
   **MEASURED FOR wl_stanford, AND IT CORRECTS THIS SECTION'S OWN BLAST-RADIUS CLAIM.**
   Full N=16 faithful re-run with the fix: **`reachable_pairs` 165 of 256, IDENTICAL to
