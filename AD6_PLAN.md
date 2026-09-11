@@ -3532,6 +3532,10 @@ the underlying harness: `AD6_ENCODING_PLAN.md`, `ad6_encoding_bench/`.
   onto the reachability matrix.
 - **7.5 (new 2026-09-11) The grounding constraint is a RESULT, not an implementation
   note — write it up as a correction to the published formalism.** See below.
+- **7.5b (new 2026-09-11) wl_i2 contributes a QUALITATIVE result, not a ratio:** the rank
+  encoding does not scale to the faithful i2 model and the flow encoding does. Owner
+  decision not to spend budget measuring rank there; evidence recorded so the missing table
+  cell reads as a finding rather than a gap.
 
 ### 7.5 Grounding a witness in a real origin — a correction to SECRYPT'15
 
@@ -3620,6 +3624,60 @@ single s-t pair to hang on, it cannot express AF/AX, waypointing, or the anomaly
 queries. So the rank encoding remains necessary for exactly the expressiveness §0 leans on
 — the temporal/QBF properties the domain-specific tools structurally cannot express. **Two
 grounding strategies with different scopes, not a replacement.**
+
+### 7.5b Why wl_i2 has no flow-vs-rank ratio — and why that is the stronger result
+
+**Decision (owner, 2026-09-11): do not spend measurement budget on the rank encoding at i2
+scale.** *"I am not sure if it is really worthwile to measure the rank approach at all. As
+said, we came up with the flow approach since the rank approach did not scale well."* The
+i2 contribution is therefore NOT a speed ratio like wl_stanford's 7.0x. It is the
+qualitative claim that **the rank encoding does not scale to i2 and the flow encoding
+does** — which is a stronger statement than any ratio, and the reason the flow constraint
+was designed in the first place. Recorded here with its evidence so a later reader sees a
+measured reason rather than a missing cell in a table.
+
+**Three tiers of evidence, in increasing order of how much they cost to establish.**
+
+1. **The GENERAL rank encoding never ran on i2 at all.** `_CreateAcyclicConstraints`
+   retains ~0.14-0.18 MB per SCC-qualifying edge in lxml objects; i2's giant single SCC
+   makes 140,613 of 155,199 edges qualify, projecting ~22 GB — and it was OOM-CONFIRMED at
+   82,363/140,613 edges = 14.44 GB, during construction, before DIMACS conversion or
+   solving begin. This is generality-debt item 1's tool limitation, and it is why
+   `--lite-acyclic` is mandatory rather than chosen.
+2. **rank + lite on the PLAIN model completes, and is the fair thing to say in rank's
+   favour.** Two archived cadical195 runs: 3.56 h and 4.25 h for 72 pairs (172.5 and
+   206.9 s/query), 13.4 GB peak, exact oracle match. So "rank does not work on i2" would be
+   too strong — on the plain model it works.
+3. **rank + lite on the FAITHFUL model is where it stops scaling.** Only ever run on 3
+   pairs (`eval/ad6_i2_faithful_untagoff_3pairs_sandbox.json` and its witness companion):
+   **641.6 and 713.8 s per query** at **18,416 / 18,454 MB peak against this box's 19,484 MB**
+   — 94.5% of RAM, for 3 of 72 queries, with 17,683,953 clauses. Extrapolating the
+   per-query cost to 72 gives **~13.6 h of solving** for a single measurement, against a
+   12 h budget for the whole exercise, with roughly 1 GB of headroom left for 69 further
+   queries' accumulated OR-gate clauses.
+
+   *Stated honestly:* the ~13.6 h is an extrapolation from **n=3**, and i2's per-query cost
+   is famously variable (sub-second to 80 minutes, and §5.5 established that per-pair
+   hardness is a solver-search artifact rather than an instance property), so it is an
+   order-of-magnitude estimate, not a measurement. Whether 72 queries would actually OOM is
+   likewise untested — what is measured is that the headroom is ~1 GB after 3.
+
+**Against which the faithful FLOW run is the whole point:** all 81 queries (72 cross-role +
+9 self) completed in **4,201 s wall / 3,410 s query — about 70 minutes — at 9,183 MB peak**,
+and it is the run whose 11 unreachable pairs are now three-way confirmed against NetPlumber
+and the independent structural oracle. Per query that is ~42 s against rank's extrapolated
+~678 s. **The comparison on the faithful model is not "7x"; it is "one finishes in about an
+hour using half the box, the other is a multi-hour run pressed against the memory
+ceiling."**
+
+**What is being measured instead (2026-09-11):** the flow encoding under BOTH solvers, on
+both models — a 2x2 of {minisat22, cadical195} x {plain, faithful}, 2 h cap each. This asks
+a better question than re-confirming rank's cost, because §7.5's wl_stanford pair found the
+**solver preference inverts with the grounding** (rank ~1.9x faster under cadical195+lite;
+flow 1.66x faster under minisat22). Whether that inversion survives at i2 scale is open, and
+non-obvious: minisat22 was disqualified at i2 scale in §5.5's solver comparison ("never
+resolved past query 1") — but that was a 14.9 M-clause PERSISTENT rank instance, whereas the
+flow instance is 3.5 M clauses with a fresh solver per query.
 
 **Status.** The wl_stanford pair is DONE and fully stamped (`eval/
 ad6_faithful_N16_lite_cadical195_sandbox.json`, `eval/
@@ -4179,8 +4237,13 @@ choice has no stamp, add the stamp before quoting the number.
       (The 21.7x/32.3x/2.9x first recorded here was an UNMATCHED comparison -- flow at its
       best solver against rank at its worst -- and is retired; 11.6x is the best-of-each
       figure. The correction is itself the strongest argument for generality-debt item 2.)
-      **Open:** wl_i2's flow/rank pair is still not like-for-like, and should not be assumed
-      to survive matching either.
+      **wl_i2 resolved differently (§7.5b, owner decision 2026-09-11):** no flow-vs-rank
+      ratio will be measured there, because the rank encoding does not scale to the faithful
+      model — general encoding OOMs outright (~22 GB projected, confirmed at 14.44 GB);
+      rank+lite costs 641.6-713.8 s/query at 94.5% of box RAM on n=3, extrapolating to
+      ~13.6 h for 72 pairs, against a faithful FLOW run that finished all 81 queries in
+      ~70 min at 9.2 GB. Budget goes instead to flow under BOTH solvers on both models, to
+      test whether §7.5's grounding-dependent solver inversion survives at i2 scale.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
       share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed
