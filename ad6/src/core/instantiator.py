@@ -1112,6 +1112,157 @@ class Instantiator:
         return Constraints
 
 
+    FLOWEDGEPREFIX = "flow#"
+    FLOWINPREFIX = "flowin#"
+    FLOWOUTPREFIX = "flowout#"
+    FLOWAMOPREFIX = "flowamo#"
+
+
+    def _AtMostOneClauses(Names, AuxPrefix):
+        """ At-most-one over `Names`, as (name, negated) literal tuples.
+        Pairwise up to 4 literals (no auxiliaries, 6 clauses at worst);
+        Sinz's sequential encoding above that (n-1 auxiliaries, ~3n clauses)
+        so a wide fan-in/fan-out node cannot go quadratic -- wl_i2 has probe
+        aggregates with 18-36 attachments and multi-port fanout nodes. """
+        Count = len(Names)
+        if Count <= 1:
+            return []
+        if Count <= 4:
+            return [((Names[i], True), (Names[j], True))
+                    for i in range(Count) for j in range(i + 1, Count)]
+        Aux = [AuxPrefix + str(i) for i in range(Count - 1)]
+        Clauses = [((Names[0], True), (Aux[0], False)),
+                   ((Names[Count - 1], True), (Aux[Count - 2], True))]
+        for i in range(1, Count - 1):
+            Clauses.append(((Names[i], True), (Aux[i], False)))
+            Clauses.append(((Aux[i - 1], True), (Aux[i], False)))
+            Clauses.append(((Names[i], True), (Aux[i - 1], True)))
+        return Clauses
+
+
+    def _CreateFlowPathConstraints(Kripke, Source, Destination, ProgressCallback=None):
+        """ AD6_PLAN.md §5.4 B1 / §5.5: a SINGLE-UNIT s-t FLOW witness -- the
+        cheap alternative to `_CreateAcyclicConstraints`'s rank encoding for
+        the SAME job, closing the SECRYPT'15 formalism's grounding gap (see
+        ad6/FAVE_CHANGES.md §20: `trans(C)`'s support term is purely local, so
+        a cycle discharges it self-referentially and the paper's "a solution
+        represents a path starting at an initial state" does not hold).
+
+        WHAT IT ASSERTS. One flow variable per Kripke edge, `f_e -> y_e` (flow
+        only rides an edge the model actually fires). The Source emits exactly
+        one unit and accepts none; the Destination accepts exactly one and
+        emits none; every other node has at-most-one in-flow, at-most-one
+        out-flow, and `(some in) <-> (some out)`.
+
+        WHY THAT IS SOUND. In-degree and out-degree both <= 1 makes the
+        flow-carrying subgraph a disjoint union of simple paths and simple
+        cycles. The Source has in-degree 0 and out-degree 1, so it STARTS a
+        path, and that path cannot branch; it must terminate at a node with
+        out-degree 0, and conservation permits that only at the Destination.
+        So every model contains a genuine Source->Destination walk over edges
+        the base encoding fires -- exactly the guarantee `trans(C)` lacks.
+        Disjoint flow-carrying cycles may still exist and are HARMLESS: the
+        path component is a real walk regardless of what else carries flow.
+
+        WHY BOTH HALVES ARE LOAD-BEARING. Conservation alone is NOT enough:
+        without at-most-one, the Source's flow can run into cycle A while the
+        Destination is fed by a disjoint cycle B, with `(some in) <-> (some
+        out)` satisfied at every node of both -- the same disconnection that
+        makes the unconstrained encoding unsound in the first place. And
+        at-most-one alone is not enough either: it permits a flow that simply
+        stops partway.
+
+        COMPLETE, not just sound: any genuine simple Source->Destination walk
+        over fired edges can carry the unit, so this rejects no real witness.
+
+        PER-QUERY, unlike the rank encoding: `Source` and `Destination` appear
+        in the constraint, so it cannot live in a shared base encoding. A
+        caller reusing one solver across queries MUST NOT add these to it --
+        query 1's flow constraints would still be asserted during query 2. Use
+        a fresh solver per query (`bench/ad6_i2_measure.py --fresh-per-query`,
+        which `--flow-path` requires for exactly this reason).
+
+        Returns the same plain-Python clause format as
+        `_CreateAcyclicConstraintsLite`: a list of clauses, each a tuple of
+        (VariableName: str, Negated: bool) literal tuples. Returns [] when
+        Source == Destination (degenerate: the caller's own endpoint
+        assertions already cover it, and "emits one unit and accepts none"
+        plus "accepts one and emits none" would be contradictory). """
+        if Source == Destination:
+            return []
+
+        def FlowName(NodeKey, Flag, Target):
+            return Instantiator.FLOWEDGEPREFIX + NodeKey + (
+                '_true_' if Flag else '_false_') + Target
+
+        Outgoing = {}
+        Incoming = {}
+        Constraints = []
+        EdgeIndex = 0
+        for NodeKey in Kripke.IterFTransitions(None):
+            for Target, Flag in Kripke.IterFTransitions(NodeKey):
+                EdgeIndex += 1
+                Flow = FlowName(NodeKey, Flag, Target)
+                Trans = NodeKey + ('_true_' if Flag else '_false_') + Target
+                # f_e -> y_e: flow only ever rides an edge the model fires.
+                Constraints.append(((Flow, True), (Trans, False)))
+                Outgoing.setdefault(NodeKey, []).append(Flow)
+                Incoming.setdefault(Target, []).append(Flow)
+                if ProgressCallback is not None:
+                    ProgressCallback(EdgeIndex)
+
+        SourceOut = Outgoing.get(Source, [])
+        DestIn = Incoming.get(Destination, [])
+        if not SourceOut or not DestIn:
+            # No way to emit or to accept the unit: unconditionally UNSAT, and
+            # correctly so -- an unreachable endpoint by construction. Emitted
+            # as an empty clause rather than raising, so the caller's solve
+            # reports it the same way as any other refutation.
+            return [()]
+
+        # --- Source: exactly one out, none in
+        Constraints.append(tuple((Name, False) for Name in SourceOut))
+        Constraints.extend(Instantiator._AtMostOneClauses(
+            SourceOut, Instantiator.FLOWAMOPREFIX + Source + "#out#"))
+        Constraints.extend(((Name, True),) for Name in Incoming.get(Source, []))
+
+        # --- Destination: exactly one in, none out
+        Constraints.append(tuple((Name, False) for Name in DestIn))
+        Constraints.extend(Instantiator._AtMostOneClauses(
+            DestIn, Instantiator.FLOWAMOPREFIX + Destination + "#in#"))
+        Constraints.extend(((Name, True),) for Name in Outgoing.get(Destination, []))
+
+        # --- every other node: at-most-one each way, and conservation
+        for NodeKey in set(Outgoing) | set(Incoming):
+            if NodeKey in (Source, Destination):
+                continue
+            In = Incoming.get(NodeKey, [])
+            Out = Outgoing.get(NodeKey, [])
+            InAux = Instantiator.FLOWINPREFIX + NodeKey
+            OutAux = Instantiator.FLOWOUTPREFIX + NodeKey
+
+            # InAux <-> OR(In), OutAux <-> OR(Out). A node with no edges on one
+            # side gets that side pinned false, which through the equivalence
+            # below also forbids flow on the other -- so a sink (DROP, accept)
+            # cannot absorb the unit and a source-like node cannot invent it.
+            for Aux, Edges in ((InAux, In), (OutAux, Out)):
+                if not Edges:
+                    Constraints.append(((Aux, True),))
+                    continue
+                Constraints.append(((Aux, True),) + tuple((Name, False) for Name in Edges))
+                Constraints.extend(((Name, True), (Aux, False)) for Name in Edges)
+
+            Constraints.append(((InAux, True), (OutAux, False)))
+            Constraints.append(((OutAux, True), (InAux, False)))
+
+            Constraints.extend(Instantiator._AtMostOneClauses(
+                In, Instantiator.FLOWAMOPREFIX + NodeKey + "#in#"))
+            Constraints.extend(Instantiator._AtMostOneClauses(
+                Out, Instantiator.FLOWAMOPREFIX + NodeKey + "#out#"))
+
+        return Constraints
+
+
     def _CreateGlobalConstraints(Kripke,Encoding):
         Constraints = []
         Variables = Instantiator._GetVariables(Encoding)

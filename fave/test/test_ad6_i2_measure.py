@@ -56,6 +56,7 @@ wrong answer rather than a crash:
     LOOKS like the untagged configuration was measured.
 """
 
+import io
 import os
 import sys
 import unittest
@@ -608,3 +609,43 @@ class TestAdmissionStamp(unittest.TestCase):
                 "in_admission_ports": 0,
                 "in_admission_pairs": 0,
             }, ir)
+
+
+class TestFlowPathCli(unittest.TestCase):
+    """ AD6_PLAN.md §5.4 B1 / §5.5: `--flow-path` swaps the rank/acyclic
+    grounding constraint for a per-query single-unit s-t flow. Because the
+    constraint names the query's own endpoints, reusing one solver across
+    queries would answer query 2 against query 1's endpoints -- a wrong
+    ANSWER, not a crash -- so the combination is refused rather than
+    resolved, the same discipline as `--probe-untag` without
+    `--faithful-vlan`. """
+
+    def test_flow_path_without_fresh_per_query_is_refused(self):
+        with self.assertRaises(SystemExit):
+            with mock.patch('sys.stderr', new_callable=io.StringIO):
+                main(["--flow-path", "--out", "/dev/null"])
+
+    def test_flow_path_with_fresh_per_query_is_accepted(self):
+        with mock.patch.object(bench.ad6_i2_measure, 'measure') as m:
+            main(["--flow-path", "--fresh-per-query", "--out", "/dev/null"])
+        self.assertTrue(m.called)
+        self.assertIs(m.call_args.kwargs["flow_path"], True)
+        self.assertIs(m.call_args.kwargs["fresh_per_query"], True)
+
+    def test_flow_path_defaults_off(self):
+        with mock.patch.object(bench.ad6_i2_measure, 'measure') as m:
+            main(["--out", "/dev/null"])
+        self.assertIs(m.call_args.kwargs["flow_path"], False)
+
+    def test_the_recommended_full_command_line_is_accepted(self):
+        """ The combination the plan recommends: flow REPLACES the rank block,
+        so `--skip-acyclic` goes with it rather than `--lite-acyclic`. """
+        with mock.patch.object(bench.ad6_i2_measure, 'measure') as m:
+            main(["--faithful-vlan", "--skip-acyclic", "--fresh-per-query",
+                  "--flow-path", "--pairs", "chic>salt", "--solver", "cadical195",
+                  "--out", "/dev/null"])
+        kw = m.call_args.kwargs
+        self.assertIs(kw["flow_path"], True)
+        self.assertIs(kw["skip_acyclic"], True)
+        self.assertIs(kw["fresh_per_query"], True)
+        self.assertIs(kw["faithful_vlan"], True)

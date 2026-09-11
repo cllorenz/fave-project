@@ -528,6 +528,7 @@ _SOLVERS = ("minisat22", "glucose4", "cadical195", "kissat404")
 
 def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minisat22",
             max_queries=None, checkpoint_every=10, pair_filter=None, fresh_per_query=False,
+            flow_path=False,
             faithful_vlan=False, probe_untag=False, pairs=None, dry_run=False,
             witness=False):
     if probe_untag and not faithful_vlan:
@@ -778,6 +779,11 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             next_index[0] += 1
             return aux, [[-lit, aux] for lit in lits] + [[-aux] + lits]
 
+        # AD6_PLAN.md §5.4 B1 / §5.5: which GROUNDING constraint produced this
+        # result. `skip_acyclic`/`lite_acyclic` alone no longer say -- a run
+        # can now be grounded by the rank encoding, by the per-query flow
+        # encoding, or (orientation-only) by neither.
+        result["flow_path"] = flow_path
         result["fresh_per_query"] = fresh_per_query
         if fresh_per_query:
             # AD6_PLAN.md §5.5 C2 follow-up: Kissat404 was disqualified from the
@@ -875,6 +881,25 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                     q_solver.add_clause(clause)
                 q_solver.add_clause([src_lit])
                 q_solver.add_clause([dst_lit])
+                # AD6_PLAN.md §5.4 B1 / §5.5: the single-unit s-t flow
+                # grounding constraint, the cheap alternative to the rank
+                # encoding. PER-QUERY by nature (source and destination appear
+                # in it), which is why `--flow-path` requires
+                # `--fresh-per-query`: added to a REUSED solver, query 1's
+                # flow constraints would still be asserted during query 2.
+                if flow_path:
+                    fp0 = time.time()
+                    flow_clauses = Instantiator._CreateFlowPathConstraints(
+                        kripke, source, destination)
+                    for clause in flow_clauses:
+                        q_solver.add_clause([
+                            -index_for(n) if neg else index_for(n)
+                            for n, neg in clause])
+                    q_flow = {"clauses": len(flow_clauses),
+                              "build_s": round(time.time() - fp0, 3)}
+                    del flow_clauses
+                else:
+                    q_flow = None
                 for untag_literal in untag_literals:
                     q_solver.add_clause([untag_literal])
                 last_solver_load_s = round(time.time() - lq0, 3)
@@ -898,6 +923,9 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
             # query regardless of checkpoint_every; only the on-disk WRITE cadence
             # is gated by checkpoint_every, to avoid excess I/O on a long run.
             elapsed = round(time.time() - q0, 3)
+            if flow_path and fresh_per_query and q_flow is not None:
+                result.setdefault("flow_path_clauses", q_flow["clauses"])
+                result.setdefault("flow_path_build_s", q_flow["build_s"])
             entry = {
                 "index": qi, "source": q['source'], "probe": q['probe'],
                 "elapsed_s": elapsed, "solver_load_s": last_solver_load_s, "sat": sat,
@@ -1020,6 +1048,13 @@ def main(argv=None):
                          "model identity -- then stop, before instantiate/solve. ~5 s "
                          "validation of a run configuration that would otherwise take "
                          "hours to discover a typo")
+    p.add_argument("--flow-path", action="store_true",
+                   help="ground each query with a single-unit s-t FLOW constraint "
+                        "(Instantiator._CreateFlowPathConstraints) instead of the "
+                        "rank/acyclic encoding -- AD6_PLAN.md Sec 5.4 B1. Requires "
+                        "--fresh-per-query (the constraint is per-query) and is "
+                        "normally combined with --skip-acyclic, since it REPLACES "
+                        "the rank block rather than adding to it.")
     p.add_argument("--fresh-per-query", action="store_true",
                     help="build a FRESH solver instance per query (unit clauses for "
                          "src/dst instead of assumptions) instead of one persistent "
@@ -1034,13 +1069,20 @@ def main(argv=None):
         p.error("--probe-untag requires --faithful-vlan: probe_vlan_literals() returns "
                 "nothing on a plain IR, so the run would stamp probe_untag: true while "
                 "measuring the untagless model (AD6_PLAN.md Sec 5.5 C4 part 2)")
+    if args.flow_path and not args.fresh_per_query:
+        p.error("--flow-path requires --fresh-per-query: the flow constraint names "
+                "the query's own source and destination, so adding it to a REUSED "
+                "solver would leave query 1's constraints asserted during query 2 -- "
+                "every later query would be answered against the wrong endpoints "
+                "(AD6_PLAN.md Sec 5.4 B1)")
     if args.pairs is not None and args.pair_filter is not None:
         p.error("--pairs and --pair-filter are mutually exclusive -- they select "
                 "queries in contradictory ways and one would silently win")
     measure(args.out, skip_acyclic=args.skip_acyclic, lite_acyclic=args.lite_acyclic,
             solver_name=args.solver, max_queries=args.max_queries,
             checkpoint_every=args.checkpoint_every, pair_filter=args.pair_filter,
-            fresh_per_query=args.fresh_per_query, faithful_vlan=args.faithful_vlan,
+            fresh_per_query=args.fresh_per_query, flow_path=args.flow_path,
+            faithful_vlan=args.faithful_vlan,
             probe_untag=args.probe_untag, pairs=args.pairs, dry_run=args.dry_run,
             witness=args.witness)
     return 0

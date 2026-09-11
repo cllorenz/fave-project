@@ -1267,3 +1267,197 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+class FlowPathConstraintTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.4 B1 / §5.5: `Instantiator._CreateFlowPathConstraints`,
+    the single-unit s-t FLOW alternative to the rank encoding for closing the
+    SECRYPT'15 grounding gap (ad6/FAVE_CHANGES.md §20).
+
+    Deliberately uses the SAME fixture the rank encoding is proven on
+    (`testAcyclicRankConstraintRejectsFloatingCycleStatically`), so the two
+    mechanisms are held to identical ground truth: the ungrounded pair must be
+    refused, and both genuine paths -- including the one that legitimately ends
+    INSIDE the cycle -- must still be accepted. That last case is what
+    separates "a witness may not USE a cycle" from "cycles in the graph are
+    forbidden"; an encoding that failed it would be sound and useless.
+
+    The fixture is also exactly the minimal counterexample recorded in §20:
+    `entry -> unrelated_sink` is the dead-end out-edge that discharges the
+    query's source-side conjunct, while `A` sits in a self-supporting cycle
+    that discharges the destination-side conjunct, with no path between them.
+    """
+
+    @staticmethod
+    def _fixture():
+        def hop(name, key, target):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('flowfw')
+        firewall.append(hop('a', 'A', 'B'))
+        firewall.append(hop('b', 'B', 'C'))
+        firewall.append(hop('c', 'C', 'A'))
+        firewall.append(hop('e', 'entry', 'unrelated_sink'))
+        firewall.append(hop('e2', 'entry2', 'B'))
+        sink_table = GenUtils.table('sink')
+        sink_rule = GenUtils.rule('sink', key='unrelated_sink')
+        sink_rule.append(GenUtils.action('accept'))
+        sink_table.append(sink_rule)
+        firewall.append(sink_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def _solve(self, source, destination, with_flow=True):
+        """ Base encoding with Acyclic=False (so the rank constraints are NOT
+        doing the work), converted to DIMACS, then the flow clauses resolved
+        against the same variable table and appended -- mirroring how
+        `bench/ad6_i2_measure.py` merges `_CreateAcyclicConstraintsLite`. """
+        config = self._fixture()
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False, Acyclic=False)
+        instance = Instantiator.InstantiateEndToEnd(
+            kripke, encoding, source, destination)
+
+        adapter = MiniSATAdapter()
+        variables, dimacs = adapter._ConvertToDIMACS(instance)
+        name_to_index = {name: i + 1 for i, name in enumerate(variables)}
+        nxt = [len(variables) + 1]
+
+        def index_for(name):
+            idx = name_to_index.get(name)
+            if idx is None:
+                idx = nxt[0]
+                name_to_index[name] = idx
+                nxt[0] += 1
+            return idx
+
+        if with_flow:
+            for clause in Instantiator._CreateFlowPathConstraints(
+                    kripke, source, destination):
+                dimacs.append([
+                    -index_for(n) if neg else index_for(n) for n, neg in clause])
+
+        import pycosat
+        return pycosat.solve(dimacs) != "UNSAT"
+
+    # --- the gap the flow constraint exists to close ------------------------
+
+    def test_the_ungrounded_pair_is_refused(self):
+        """ THE regression. `entry` reaches only `unrelated_sink`; `A` is fed
+        by the self-supporting cycle A->B->C->A. Without a grounding
+        constraint this is SAT (see the companion test below), which is
+        precisely the SECRYPT'15 formalism's gap. """
+        self.assertFalse(
+            self._solve('entry', 'A'),
+            "no unit of flow can reach A from entry -- the cycle cannot "
+            "manufacture one, because a cycle node's in-flow requires "
+            "out-flow and at-most-one forbids it absorbing a second unit")
+
+    def test_without_the_flow_constraint_the_same_pair_is_satisfiable(self):
+        """ Proves the test above measures the FLOW constraint and not some
+        other part of the encoding: identical fixture, identical query,
+        Acyclic=False, flow clauses omitted -> SAT via the floating cycle. """
+        self.assertTrue(
+            self._solve('entry', 'A', with_flow=False),
+            "without any grounding constraint the floating cycle satisfies "
+            "the query -- this is the published formalism's own behaviour")
+
+    def test_a_genuine_direct_path_is_accepted(self):
+        self.assertTrue(
+            self._solve('entry', 'unrelated_sink'),
+            "a real one-hop path must carry the unit")
+
+    def test_a_genuine_path_ending_inside_the_cycle_is_accepted(self):
+        """ Separates "a witness may not USE a cycle" from "cycles are
+        forbidden". entry2 -> B is real, and B is a cycle member. """
+        self.assertTrue(
+            self._solve('entry2', 'C'),
+            "a genuine multi-hop path from a real origin INTO the cycle must "
+            "still be accepted")
+
+    # --- structure ----------------------------------------------------------
+
+    def test_source_equals_destination_is_a_noop(self):
+        config = self._fixture()
+        kripke, _enc = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False, Acyclic=False)
+        self.assertEqual(
+            Instantiator._CreateFlowPathConstraints(kripke, 'A', 'A'), [],
+            "degenerate: 'emits one and accepts none' plus 'accepts one and "
+            "emits none' would be contradictory, so this must not be emitted")
+
+    def test_an_endpoint_with_no_usable_edge_is_an_empty_clause(self):
+        """ `unrelated_sink` has no outgoing edges, so it can never emit the
+        unit. Reported as an empty clause (immediate UNSAT) rather than an
+        exception, so the caller's solve refutes it like any other pair. """
+        config = self._fixture()
+        kripke, _enc = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False, Acyclic=False)
+        self.assertEqual(
+            Instantiator._CreateFlowPathConstraints(kripke, 'unrelated_sink', 'A'),
+            [()])
+
+    def test_every_flow_edge_implies_its_transition(self):
+        config = self._fixture()
+        kripke, _enc = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False, Acyclic=False)
+        clauses = Instantiator._CreateFlowPathConstraints(kripke, 'entry', 'A')
+        # The f_e -> InAux/OutAux clauses have the same 2-literal shape, so
+        # the conclusion must be screened for being a flow variable at all.
+        gates = [c for c in clauses
+                 if len(c) == 2 and c[0][0].startswith(Instantiator.FLOWEDGEPREFIX)
+                 and c[0][1] and not c[1][1]
+                 and not c[1][0].startswith(Instantiator.FLOWINPREFIX)
+                 and not c[1][0].startswith(Instantiator.FLOWOUTPREFIX)]
+        self.assertTrue(gates, "expected f_e -> y_e gate clauses")
+        for (flow, _neg), (trans, _n2) in gates:
+            self.assertEqual(flow[len(Instantiator.FLOWEDGEPREFIX):], trans,
+                             "the gate must name the edge's OWN transition")
+
+    # --- the at-most-one helper --------------------------------------------
+
+    def test_at_most_one_is_pairwise_for_small_sets(self):
+        clauses = Instantiator._AtMostOneClauses(['a', 'b', 'c'], 'aux#')
+        self.assertEqual(len(clauses), 3)
+        self.assertFalse(any('aux#' in n for c in clauses for n, _ in c),
+                         "small sets must not introduce auxiliaries")
+
+    def test_at_most_one_switches_to_sequential_when_wide(self):
+        """ wl_i2 has probe aggregates with 18-36 attachments; pairwise would
+        be quadratic exactly where the graph is widest. """
+        names = ['x%d' % i for i in range(10)]
+        clauses = Instantiator._AtMostOneClauses(names, 'aux#')
+        self.assertTrue(any('aux#' in n for c in clauses for n, _ in c))
+        self.assertLess(len(clauses), 10 * 9 // 2,
+                        "sequential must beat pairwise at this width")
+
+    def test_at_most_one_actually_forbids_two(self):
+        import pycosat
+        names = ['x%d' % i for i in range(8)]
+        idx = {n: i + 1 for i, n in enumerate(names)}
+        nxt = [len(names) + 1]
+
+        def index_for(n):
+            if n not in idx:
+                idx[n] = nxt[0]
+                nxt[0] += 1
+            return idx[n]
+
+        clauses = [[-index_for(n) if neg else index_for(n) for n, neg in c]
+                   for c in Instantiator._AtMostOneClauses(names, 'aux#')]
+        self.assertNotEqual(pycosat.solve(clauses + [[idx['x0']]]), "UNSAT",
+                            "one must be allowed")
+        self.assertEqual(pycosat.solve(clauses + [[idx['x0']], [idx['x5']]]),
+                         "UNSAT", "two must be forbidden")
+
+    def test_at_most_one_of_zero_or_one_is_vacuous(self):
+        self.assertEqual(Instantiator._AtMostOneClauses([], 'aux#'), [])
+        self.assertEqual(Instantiator._AtMostOneClauses(['a'], 'aux#'), [])
