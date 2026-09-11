@@ -42,7 +42,8 @@ import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's 
 
 from src.bigstack import run_with_big_stack  # noqa: E402
 from src.parser import favemodel  # noqa: E402
-from src.solver.incremental import IncrementalSession  # noqa: E402
+from src.solver.incremental import (  # noqa: E402
+    GROUNDING_RANK, GROUNDINGS, IncrementalSession)
 from src.xml.xmlutils import XMLUtils  # noqa: E402
 
 
@@ -136,6 +137,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--in', dest='infile', required=True)
     parser.add_argument('--out', dest='outfile', required=True)
+    # AD6_PLAN.md §5.4 B1 / §5.5: which grounding constraint closes the
+    # SECRYPT'15 gap for this run (src/solver/incremental.py's GROUNDINGS).
+    # Normally set by the caller through the payload -- Ad6Adapter's own
+    # `grounding` argument -- so this flag exists for driving the bridge by
+    # hand; when both are given the flag wins.
+    parser.add_argument('--grounding', choices=GROUNDINGS, default=None)
     args = parser.parse_args(argv)
 
     with open(args.infile) as raw:
@@ -166,7 +173,13 @@ def main(argv=None):
     # wl_stanford's B1 wall-clock NO-GO (~16 min for the real 256-pair
     # all-pairs matrix vs. an unfinished 6-hour run), 0 mismatches
     # against the old architecture on both.
-    session = IncrementalSession(kripke, encoding)
+    grounding = args.grounding or payload.get('grounding') or GROUNDING_RANK
+    session = IncrementalSession(kripke, encoding, grounding=grounding)
+    # Always announce it, even without AD6_BRIDGE_PROGRESS: the grounding is
+    # measurement-affecting configuration, so a run's own log must record which
+    # one produced its answers (AD6_PLAN.md's generality-debt gate).
+    print("[ad6 bridge] grounding=%s" % session.grounding, file=sys.stderr,
+          flush=True)
     results = []
     # Opt-in per-query progress (AD6_BRIDGE_PROGRESS=1) -- added after the
     # B1 Option 2 differential ran for hours with zero visibility into

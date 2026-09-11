@@ -5,7 +5,8 @@ import sys
 import os
 
 
-from core.instantiatortest import InstantiatorTest, FlowPathConstraintTest
+from core.instantiatortest import (
+    InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest)
 
 class InstantiatorSuite(TestSuite):
     def addTests(self):
@@ -50,6 +51,19 @@ class InstantiatorSuite(TestSuite):
             'test_at_most_one_of_zero_or_one_is_vacuous',
         ]
         self._suite.addTests(map(FlowPathConstraintTest,tests))
+        # AD6_PLAN.md §5.4 B1 / §5.5: the PRODUCTION session's grounding
+        # selector -- same MANUAL registry caveat as above.
+        tests = [
+            'test_flow_grounding_refuses_the_ungrounded_pair',
+            'test_rank_grounding_refuses_the_ungrounded_pair',
+            'test_both_groundings_agree_on_every_pair_of_the_fixture',
+            'test_flow_grounding_does_not_leak_between_queries',
+            'test_flow_grounding_refutes_an_endpoint_with_no_usable_edge',
+            'test_the_default_grounding_is_rank',
+            'test_an_unknown_grounding_is_refused',
+            'test_close_is_safe_under_the_flow_grounding',
+        ]
+        self._suite.addTests(map(IncrementalSessionGroundingTest,tests))
 
 
     def run(self):

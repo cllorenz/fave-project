@@ -7,6 +7,8 @@ from src.solver.pycosat import PycoSATAdapter
 from src.sat.satutils import SATUtils as sat
 from src.xml.genutils import GenUtils
 from src.core.structure import KripkeStructure, KripkeNode
+from src.solver.incremental import (
+    GROUNDING_FLOW, GROUNDING_RANK, IncrementalSession)
 
 class InstantiatorTest(unittest.TestCase):
     def deannotate(config):
@@ -1461,3 +1463,140 @@ class FlowPathConstraintTest(unittest.TestCase):
     def test_at_most_one_of_zero_or_one_is_vacuous(self):
         self.assertEqual(Instantiator._AtMostOneClauses([], 'aux#'), [])
         self.assertEqual(Instantiator._AtMostOneClauses(['a'], 'aux#'), [])
+
+
+class IncrementalSessionGroundingTest(unittest.TestCase):
+    """ AD6_PLAN.md §5.4 B1 / §5.5: `IncrementalSession`'s grounding selector
+    -- the PRODUCTION path's choice between the two constraints that close the
+    SECRYPT'15 formalism's grounding gap (ad6/FAVE_CHANGES.md §20).
+
+    Before this, the single-unit s-t flow existed ONLY in the two measurement
+    drivers (`bench/ad6_i2_measure.py --flow-path`,
+    `bench/ad6_faithful_measure.py --flow-path`), which sit off the production
+    path by design -- so nothing driven through FaVe could use it and the
+    approach was one cleanup away from being lost. These tests hold both
+    strategies to the SAME ground truth on the SAME fixture the rank encoding
+    and the raw flow constraint are each already proven on
+    (`FlowPathConstraintTest._fixture`), so "the production session can now
+    pick either" is a checked claim rather than a plumbing assertion. """
+
+    @staticmethod
+    def _session(grounding, inits=('entry', 'entry2')):
+        config = FlowPathConstraintTest._fixture()
+        # Acyclic=False: the base carries NO rank constraints, so whichever
+        # grounding the session applies is doing the work on its own.
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=list(inits), default_inits=False, Acyclic=False)
+        return IncrementalSession(kripke, encoding, grounding=grounding)
+
+    def _answer(self, grounding, source, destination):
+        session = self._session(grounding)
+        try:
+            return session.Query(source, destination)
+        finally:
+            session.Close()
+
+    # --- the gap, through the production session ---------------------------
+
+    def test_flow_grounding_refuses_the_ungrounded_pair(self):
+        """ THE new regression. `entry` reaches only `unrelated_sink`; `A` is
+        fed by the self-supporting cycle A->B->C->A. The flow grounding must
+        refuse it through `IncrementalSession`, not merely when a bench driver
+        merges the clauses by hand. """
+        self.assertFalse(
+            self._answer(GROUNDING_FLOW, 'entry', 'A'),
+            "no unit of flow can reach A from entry -- the floating cycle "
+            "cannot manufacture one")
+
+    def test_rank_grounding_refuses_the_ungrounded_pair(self):
+        """ The same pair under the default strategy: identical ground truth,
+        which is what makes the two interchangeable for reachability. """
+        self.assertFalse(
+            self._answer(GROUNDING_RANK, 'entry', 'A'),
+            "the rank encoding's numeric contradiction must refuse the same "
+            "floating cycle")
+
+    def test_both_groundings_agree_on_every_pair_of_the_fixture(self):
+        """ Not just the headline pair: the fixture's genuine paths must stay
+        accepted under both -- including `entry2 -> C`, which legitimately
+        ENDS INSIDE the cycle and separates "a witness may not use a cycle"
+        from "cycles are forbidden". """
+        expected = {
+            ('entry', 'A'): False,             # ungrounded: the gap itself
+            ('entry', 'unrelated_sink'): True,  # a real one-hop path
+            ('entry2', 'B'): True,              # real, into the cycle
+            ('entry2', 'C'): True,              # real, through the cycle
+        }
+        for (source, destination), want in expected.items():
+            for grounding in (GROUNDING_RANK, GROUNDING_FLOW):
+                self.assertEqual(
+                    self._answer(grounding, source, destination), want,
+                    "%s -> %s under grounding=%r" % (
+                        source, destination, grounding))
+
+    # --- the architectural hazard the flow strategy has to handle ----------
+
+    def test_flow_grounding_does_not_leak_between_queries(self):
+        """ THE reason `--flow-path` requires `--fresh-per-query`, asserted on
+        the session rather than left to a CLI check: the flow constraint names
+        its own endpoints, so a REUSED solver would still be asserting query
+        1's flow during query 2. Ask a satisfiable pair first, then the
+        ungrounded one on the SAME session -- if the first query's constraints
+        survived, the second's answer would be wrong. """
+        session = self._session(GROUNDING_FLOW)
+        try:
+            self.assertTrue(session.Query('entry2', 'C'),
+                            "a genuine path must be accepted")
+            self.assertFalse(
+                session.Query('entry', 'A'),
+                "the ungrounded pair must still be refused after an unrelated "
+                "query -- a leaked flow constraint would corrupt this")
+            self.assertTrue(
+                session.Query('entry', 'unrelated_sink'),
+                "and a genuine path must still be accepted after a refutation")
+        finally:
+            session.Close()
+
+    def test_flow_grounding_refutes_an_endpoint_with_no_usable_edge(self):
+        """ `_CreateFlowPathConstraints` reports "this endpoint can never emit
+        the unit" as a single EMPTY clause. The session must turn that into an
+        ordinary False instead of handing an empty clause to the solver. """
+        self.assertFalse(
+            self._answer(GROUNDING_FLOW, 'unrelated_sink', 'A'),
+            "unrelated_sink has no outgoing edge, so it can emit no unit")
+
+    # --- the contract -------------------------------------------------------
+
+    def test_the_default_grounding_is_rank(self):
+        """ Back-compatibility, and deliberate: 'rank' is property-agnostic
+        while the flow is reachability-specific, and every archived
+        wl_ifi/wl_up/wl_tum/wl_stanford result was produced under it. """
+        config = FlowPathConstraintTest._fixture()
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False,
+            Acyclic=False)
+        session = IncrementalSession(kripke, encoding)   # no grounding argument
+        try:
+            self.assertEqual(session.grounding, GROUNDING_RANK)
+            self.assertFalse(
+                session.Query('entry', 'A'),
+                "and the default must actually ground a witness, not just "
+                "carry the right label")
+        finally:
+            session.Close()
+
+    def test_an_unknown_grounding_is_refused(self):
+        """ A typo must fail loudly at construction -- silently falling back to
+        a default would mis-stamp whatever measurement followed. """
+        config = FlowPathConstraintTest._fixture()
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry'], default_inits=False, Acyclic=False)
+        with self.assertRaises(ValueError):
+            IncrementalSession(kripke, encoding, grounding='acyclic')
+
+    def test_close_is_safe_under_the_flow_grounding(self):
+        """ The flow strategy holds no persistent solver; Close must be a
+        no-op there rather than an AttributeError, and stay idempotent. """
+        session = self._session(GROUNDING_FLOW)
+        session.Close()
+        session.Close()

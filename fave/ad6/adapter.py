@@ -117,6 +117,17 @@ _FAVE = os.path.dirname(_HERE)                              # .../fave
 AD6_ROOT = os.path.normpath(os.path.join(_FAVE, '..', 'ad6'))
 BRIDGE = os.path.join(AD6_ROOT, 'fave_bridge.py')
 
+# AD6_PLAN.md §5.4 B1 / §5.5: the grounding strategies `fave_bridge.py`
+# accepts. DUPLICATED, not imported, on purpose -- this module drives ad6 as a
+# SUBPROCESS and deliberately imports nothing from the `ad6/` package (no
+# sys.path surgery, no pysat dependency on the FaVe side). The canonical
+# definition is `ad6/src/solver/incremental.py`'s GROUNDINGS, and
+# fave/test/test_ad6_grounding.py asserts these two lists stay identical, so
+# the duplication cannot drift silently.
+GROUNDING_RANK = 'rank'
+GROUNDING_FLOW = 'flow'
+GROUNDINGS = (GROUNDING_RANK, GROUNDING_FLOW)
+
 
 def available() -> bool:
     """ True iff the ad6 bridge script exists (no JVM/native-lib check needed
@@ -140,8 +151,35 @@ class Ad6Adapter(AbstractVerificationEngine):
     wl_ifi's model). """
 
     def __init__(self, logger: TraceLogger, faithful_vlan: bool = False,
-                 probe_untag: bool = False) -> None:
+                 probe_untag: bool = False,
+                 grounding: str = GROUNDING_RANK) -> None:
         self.logger = logger
+        # AD6_PLAN.md §5.4 B1 / §5.5: WHICH constraint grounds a witness in a
+        # real origin, closing the SECRYPT'15 formalism's gap
+        # (ad6/FAVE_CHANGES.md §20). Both answer the same question and are
+        # held to identical ground truth in ad6's own test suite; they differ
+        # in cost and in scope.
+        #
+        # 'rank' (default) is property-agnostic -- it forbids every floating
+        # cycle in the shared base, so it is the only option for a question
+        # that is not a single source->destination reachability query, and
+        # changing the default would silently re-measure every existing
+        # wl_ifi/wl_up/wl_tum/wl_stanford result.
+        #
+        # 'flow' is a per-query single-unit s-t flow: reachability-SPECIFIC,
+        # and on wl_stanford N=16 faithful-VLAN measured 21.7x faster wall /
+        # 32.3x faster query / 2.9x lower peak RSS for the identical answer
+        # (165 reachable pairs). Prefer it for an all-pairs reachability
+        # sweep; it cannot express anything else.
+        #
+        # Kept as an explicit constructor argument rather than inferred, so a
+        # result can be STAMPED with the encoding that produced it -- see
+        # AD6_PLAN.md's generality-debt gate.
+        if grounding not in GROUNDINGS:
+            raise ValueError(
+                "unknown grounding strategy %r -- expected one of %s" % (
+                    grounding, ', '.join(repr(g) for g in GROUNDINGS)))
+        self.grounding = grounding
         # AD6_PLAN.md §5.4 Stage B (B2): opt-in (default False, every existing
         # caller/benchmark unaffected -- wl_ifi/wl_up/wl_tum/B0-B1's own
         # plain wl_stanford tests never pass this). Ported (not imported)
@@ -942,7 +980,8 @@ class Ad6Adapter(AbstractVerificationEngine):
                     "src_cidr": self._gen_src.get(source_name),
                     "negated": bool(negated), "cond": self._cond_to_json(cond),
                 })
-        payload = {"ir": self._build_ir(), "queries": queries}
+        payload = {"ir": self._build_ir(), "queries": queries,
+                   "grounding": self.grounding}
         with tempfile.TemporaryDirectory(prefix="ad6_bridge_") as tmp:
             in_path = os.path.join(tmp, "in.json")
             out_path = os.path.join(tmp, "out.json")
