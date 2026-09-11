@@ -3588,12 +3588,15 @@ queries. So the rank encoding remains necessary for exactly the expressiveness �
 — the temporal/QBF properties the domain-specific tools structurally cannot express. **Two
 grounding strategies with different scopes, not a replacement.**
 
-**Still to do before this is quotable:** the wl_i2 flow/rank pair is NOT like-for-like (the
+**Still to do before this is quotable.** The wl_i2 flow/rank pair is NOT like-for-like (the
 flow run is faithful + port-scoped, the rank-lite run is plain mode), so only the
 wl_stanford figure above is defensible today; one matched wl_i2 re-run would fix that. And
-`ad6_faithful_measure.py` does not stamp its solver or its grounding at all, so the
-wl_stanford comparison currently rests on inferring the flow run's admission model from its
-date and clause count — see the generality-debt checklist, items 2 and 8.
+while `ad6_faithful_measure.py` stamps its solver and grounding as of 2026-09-11, **the two
+archived runs the 21.7x is computed from predate that**, so the figure still rests on
+inference until they are repeated under the stamping driver — cheap at ~35 min for the rank
+side and ~100 s for the flow side. The N=2 re-run done alongside the stamping change
+reproduces its archived counterpart exactly, which is evidence the inference was RIGHT, not
+a substitute for redoing the N=16 pair. See the generality-debt checklist, items 2 and 8.
 
 ---
 
@@ -3817,13 +3820,24 @@ fallback ADDS generality by defining a case no shipped benchmark has.
    - **DRIVER PARITY, found 2026-09-11 — the live violation is BETWEEN benchmarks, not
      within a sweep.** `bench/ad6_i2_measure.py` takes `--solver`, `--lite-acyclic`,
      `--fresh-per-query` and stamps all three. `bench/ad6_faithful_measure.py` (wl_stanford)
-     hardcodes `Minisat22`, has no acyclic option at all, and stamps NONE of them — so every
-     archived `ad6_faithful_*.json` is missing `solver`, `lite_acyclic`, `fresh_per_query`,
-     `probe_untag` and `in_admission_port_scoped`. **These are not stamps someone forgot to
-     add: the choices are not configurable there**, so discharging items 1, 2 and 8 on the
-     Stanford side is CODE work, not documentation. Until it is done, every wl_stanford
-     number is Minisat22 + general acyclic while every wl_i2 number is Cadical195 + lite
-     acyclic, and the two are quoted side by side.
+     hardcodes `Minisat22` and has no acyclic option at all. **These are not stamps someone
+     forgot to add: the choices are not configurable there**, so discharging items 1, 2 and 8
+     on the Stanford side is CODE work, not documentation. Every wl_stanford number is
+     Minisat22 + general acyclic while every wl_i2 number is Cadical195 + lite acyclic, and
+     the two are quoted side by side.
+   - **STAMPING HALF DONE 2026-09-11.** `ad6_faithful_measure.py` now records `solver`,
+     `grounding`, `lite_acyclic`, `skip_acyclic`, `fresh_per_query`, `probe_untag` and the
+     three `in_admission_*` fields, the last via `bench/ad6_stamp.py` so both drivers compute
+     admission by the IDENTICAL rule rather than a second implementation of it. The
+     constant/derived half sits in a pure `_config_stamp()` so it is unit-tested without a
+     model build (`fave/test/test_ad6_faithful_measure.py`), including a cross-driver pin
+     that the solver spelling stays inside the wl_i2 driver's own `_SOLVERS` vocabulary.
+     Verified not to move the measurement: a re-run of N=2 reproduces the archived
+     `ad6_faithful_N2_portscoped_sandbox.json` exactly (`clause_count` 161,249,
+     `reachable_pairs` 2), which also retroactively CONFIRMS that archived run was
+     port-scoped -- the fact that previously had to be inferred from its clause count.
+     **Still open: making solver and acyclic encoding selectable here**, which is what an
+     apples-to-apples wl_stanford-vs-wl_i2 table actually needs.
    - **State the denominator, and never compare totals across different query counts.**
      §5.5's header reads "~13x slower per query than Stanford's ~16 minutes for its full
      256-pair matrix", but 13x is total-wall / total-wall across **72 queries vs 256**. Per
@@ -3865,10 +3879,13 @@ fallback ADDS generality by defining a case no shipped benchmark has.
      default for that reason, not from caution.
    - **It also entangles item 3:** flow is per-query by construction, so choosing it CHOOSES
      `--fresh-per-query`. The two are not independent knobs and cannot be varied separately.
-   - **Currently unstamped on the Stanford side** (see item 2's driver-parity note): the
-     archived `ad6_faithful_*.json` carry no `grounding` field, so the 21.7x figure rests on
-     inferring which encoding each run used from the driver's source and the run's date.
-     Stamp it before quoting it.
+   - **Stamped on both sides since 2026-09-11** (see item 2's driver-parity note):
+     `ad6_faithful_measure.py` records `grounding` (derived from `--flow-path`, since the
+     flow REPLACES the rank encoding rather than supplementing it) alongside
+     `fresh_per_query`, so the architectural entanglement above is visible in the file
+     rather than only in this checklist. The ARCHIVED pre-2026-09-11 artifacts still carry
+     none of it, so any figure quoted from them -- the 21.7x included -- rests on inference
+     until those runs are repeated under the stamping driver.
 
 **The mechanism that discharges all of this already exists: the result files stamp their own
 configuration** -- `faithful_vlan`, `probe_untag`, `lite_acyclic`, `skip_acyclic`,

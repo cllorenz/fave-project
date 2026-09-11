@@ -191,6 +191,8 @@ import resource
 import sys
 import time
 
+from bench.ad6_stamp import admission_stamp
+
 sys.setrecursionlimit(10 ** 6)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))     # .../fave/bench
@@ -427,37 +429,12 @@ def _current_rss_mb():
     return None
 
 
-def _admission_stamp(ir):
-    """ AD6_PLAN.md §5.5: how `ir["in_vlans"]` gates admission, as three
-    provenance fields for the result file.
-
-    WHY THIS EXISTS. `faithful_vlan: true` alone does NOT identify the
-    encoding any more. Before 2026-09-10 `in_vlans` was a per-DEVICE VLAN
-    set; it is now the per-(port, VLAN) relation, and the two produce
-    genuinely different reachability on i2 -- the pre-fix model admitted
-    2,555 of the 2,564 route-crossings a real per-port configuration rejects.
-    Both models stamp `faithful_vlan: true` and `probe_untag: false`, so
-    without this a reader comparing
-    `eval/ad6_i2_faithful_untagoff_3pairs_sandbox.json` (pre-fix) against a
-    post-fix run of the SAME command has only `kripke_nodes` (78,078 vs
-    78,524) to tell them apart -- derivable, but implicit, and exactly the
-    kind of silent ambiguity between two archived artifacts this file's other
-    stamps exist to prevent.
-
-    Returns `port_scoped` False for a plain IR too (no `in_vlans` at all), so
-    the field never reads as "port-scoped" for a model that does no VLAN
-    admission whatsoever. """
-    in_vlans = ir.get("in_vlans") or {}
-    relations = [v for v in in_vlans.values() if isinstance(v, dict)]
-    return {
-        # True iff EVERY device carries the relation shape. Mixed would mean a
-        # partially-migrated IR, which should read as not-port-scoped rather
-        # than quietly claiming the stronger model.
-        "in_admission_port_scoped": bool(in_vlans) and len(relations) == len(in_vlans),
-        "in_admission_ports": sum(len(v) for v in relations),
-        "in_admission_pairs": sum(
-            len(vlans) for v in relations for vlans in v.values()),
-    }
+# Moved to bench/ad6_stamp.py 2026-09-11 so `bench/ad6_faithful_measure.py`
+# stamps admission by the IDENTICAL rule rather than a second implementation of
+# it -- two drivers computing "port-scoped" slightly differently would defeat
+# the stamp more quietly than omitting it. Re-exported under the original
+# private name: this module's own callers and tests are unchanged.
+_admission_stamp = admission_stamp
 
 
 def _build_ir(faithful_vlan=False, probe_untag=False):

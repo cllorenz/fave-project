@@ -61,6 +61,8 @@ import sys
 import tempfile
 import time
 
+from bench.ad6_stamp import admission_stamp
+
 _HERE = os.path.dirname(os.path.abspath(__file__))     # .../fave/bench
 _FAVE = os.path.dirname(_HERE)                          # .../fave
 _ROOT = os.path.dirname(_FAVE)                           # repo root
@@ -121,6 +123,49 @@ def _build_ir(routers):
     return ir, sources, probes
 
 
+def _config_stamp(flow_path):
+    """ AD6_PLAN.md generality-debt items 1/2/8, added 2026-09-11: the
+    measurement-affecting configuration behind a wl_stanford result.
+
+    Every archived `ad6_faithful_*.json` predating this carried NONE of these
+    fields, so the measured 21.7x flow-vs-rank result rested on inferring each
+    run's configuration from the driver's source and the file's mtime -- while
+    `bench/ad6_i2_measure.py` stamped all of it, making the two benchmarks'
+    numbers uncomparable in precisely the way the stamping gate exists to
+    prevent.
+
+    These are CONSTANTS here, not choices: unlike the wl_i2 driver this one
+    offers no `--solver` and no `--lite-acyclic`. That is exactly why they must
+    be stamped rather than left implicit -- a reader comparing a wl_stanford
+    number against a wl_i2 one has to be able to SEE that one is Minisat22 plus
+    the general acyclic encoding while the other is typically Cadical195 plus
+    the lite one. Making them selectable is the open half of generality-debt
+    item 2; stamping what actually ran is this half. """
+    return {
+        # Hardcoded in measure() (`MiniSATAdapter`/`Minisat22`), in both the
+        # persistent and the fresh-per-query paths. Spelled exactly as
+        # `bench/ad6_i2_measure.py`'s own `_SOLVERS` spells it, so the two
+        # drivers' result files compare directly (pinned by test).
+        "solver": "minisat22",
+        # Derived, not a second source of truth: `--flow-path` REPLACES the
+        # rank encoding, so the grounding is a function of that one switch.
+        "grounding": "flow" if flow_path else "rank",
+        # This driver always builds the GENERAL `_CreateAcyclicConstraints`.
+        # wl_i2 cannot (it OOMs at that scale) and runs `--lite-acyclic`, which
+        # is clause-identical by test but is still a different code path, so
+        # the difference has to be visible when the two are quoted together.
+        "lite_acyclic": False,
+        "skip_acyclic": bool(flow_path),
+        # Not an independent knob: the flow constraint names its endpoints, so
+        # choosing it chooses a fresh solver per query (generality-debt item 8).
+        "fresh_per_query": bool(flow_path),
+        # `_build_ir` constructs `Ad6Adapter(log, faithful_vlan=True)` and never
+        # passes `probe_untag`, so it is off here -- the cross-engine parity
+        # choice of generality-debt item 4, stamped rather than assumed.
+        "probe_untag": False,
+    }
+
+
 def measure(routers, out_path, flow_path=False):
     result = {
         "bench": "stanford", "engine": "ad6", "faithful_vlan": True,
@@ -131,12 +176,18 @@ def measure(routers, out_path, flow_path=False):
         # two different mechanisms for the same soundness job.
         "flow_path": flow_path,
     }
+    result.update(_config_stamp(flow_path))
     wall0 = time.time()
 
     ir, sources, probes = _build_ir(routers)
     result["sources"] = len(sources)
     result["probes"] = len(probes)
     result["devices"] = len(ir["devices"])
+    # The per-(port, VLAN) ingress admission relation, by the SAME rule the
+    # wl_i2 driver stamps (shared in bench/ad6_stamp.py). This is the field
+    # whose absence forced the port-scoped/pre-fix distinction between two
+    # archived wl_stanford runs to be inferred from their clause counts.
+    result.update(admission_stamp(ir))
 
     sys.path.insert(0, _AD6)
     from src.core.instantiator import Instantiator
