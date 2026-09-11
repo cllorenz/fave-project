@@ -3659,6 +3659,57 @@ enormous on i2 and modest on wl_stanford.
 
 **On the FAITHFUL model there is still no ratio, and that part of this section stands.**
 
+### 7.5c The flow 2x2: {minisat22, cadical195} x {plain, faithful} — all four complete
+
+Run 2026-09-11 in place of the rank measurements (owner decision above), strictly
+sequential on a 4-core box, 2 h cap each. **All four completed well inside their caps**;
+total measurement time 2 h 49 min of the 12 h budget.
+
+| solver | model | wall | build | query | clauses | peak RSS | reachable |
+|---|---|---:|---:|---:|---:|---:|---:|
+| cadical195 | plain | 1,424.0 s | 530.1 s | 879.6 s | 681,216 | 2,245 MB | 72/72 |
+| minisat22 | plain | 1,818.4 s | 356.8 s | 1,451.1 s | 681,216 | 2,478 MB | 72/72 |
+| cadical195 | faithful | 3,218.1 s | 716.2 s | 2,475.5 s | 3,508,560 | 9,153 MB | **61/72** |
+| minisat22 | faithful | 3,663.3 s | 706.9 s | 2,931.2 s | 3,508,560 | 9,666 MB | **61/72** |
+
+**Every verdict is solver-independent.** Both plain runs report all 72 reachable; both
+faithful runs report the SAME 11 unreachable pairs. The Chicago-crossing result is therefore
+now established across three independent engines (ad6, NetPlumber, the structural oracle)
+and, within ad6, reproduced across two SAT backends and two separate runs.
+
+**THE HEADLINE: the flow encoding rescues a backend the rank encoding disqualified.** Under
+the rank encoding at i2 scale, Minisat22 **had not resolved query 1 in 90+ minutes** (§5.5's
+solver comparison, which is why it was dropped from the shortlist). Under the flow encoding
+the same backend answers all 72 plain queries in **1,451 s of solving, ~20 s/query**. Nothing
+about the solver changed; the grounding constraint did. That is the sharpest single piece of
+evidence that at i2 scale the binding factor is the ENCODING, not the backend — and it
+retrospectively reframes §5.5's entire solver-comparison exercise, which spent four backends
+and ~30 hours searching for tractability in the wrong dimension.
+
+**The wl_stanford solver inversion does NOT generalise — question answered, negatively.**
+§7.5 found flow preferring minisat22 on wl_stanford (1.85x on query time) while rank
+preferred cadical195, and flagged whether that held at i2 scale as open. It does not:
+
+| benchmark, flow grounding | faster backend | margin (query time) |
+|---|---|---|
+| wl_stanford N=16 faithful | minisat22 | 1.85x |
+| wl_i2 plain | **cadical195** | 1.65x |
+| wl_i2 faithful | **cadical195** | 1.18x |
+
+So solver preference under the flow grounding is **benchmark-dependent, not a property of
+the grounding**. Combined with §5.5's finding that per-pair hardness is a solver-search
+artifact rather than an instance property, the standing rule for §7 is: **ad6 has no
+benchmark-independent best backend, and any claim about one must name the benchmark, the
+encoding AND the model.** Note also that cadical195's margin SHRINKS as the instance hardens
+(1.65x plain -> 1.18x faithful), so the two converge where it matters most; a single-model
+solver choice should not be extrapolated to a harder one.
+
+**Artifacts** (all `status: completed`, fully stamped):
+`eval/ad6_i2_flowpath_{plain,faithful}_cadical195_72pairs_sandbox.json`,
+`eval/ad6_i2_flowpath_{plain,faithful}_minisat22_72pairs_sandbox.json`. Sandbox/directional
+per the environment guardrail; all four ran sequentially on the same box, so the
+cross-solver and cross-model comparisons within this table are the defensible quantities.
+
 **Decision (owner, 2026-09-11): do not spend measurement budget on the rank encoding at i2
 scale.** (This is why the plain ratio above leans on ARCHIVED rank runs rather than a fresh
 matched pair, and why no faithful rank number exists at all.) *"I am not sure if it is really worthwile to measure the rank approach at all. As
