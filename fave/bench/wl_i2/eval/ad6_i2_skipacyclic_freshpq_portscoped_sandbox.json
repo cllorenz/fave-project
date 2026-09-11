@@ -1,0 +1,106 @@
+{
+  "bench": "i2",
+  "engine": "ad6",
+  "faithful_vlan": true,
+  "probe_untag": false,
+  "sources": 9,
+  "probes": 9,
+  "devices": 18,
+  "fwd_rules": 77460,
+  "out_rw_rewrites": 77451,
+  "in_admission_port_scoped": true,
+  "in_admission_ports": 223,
+  "in_admission_pairs": 596,
+  "probe_vlan": {
+    "probe.atla": "0",
+    "probe.chic": "0",
+    "probe.hous": "0",
+    "probe.kans": "0",
+    "probe.losa": "0",
+    "probe.newy32aoa": "0",
+    "probe.salt": "0",
+    "probe.seat": "0",
+    "probe.wash": "0"
+  },
+  "query_count": 3,
+  "max_queries": null,
+  "pair_filter": null,
+  "pairs": "hous>salt,chic>salt,chic>seat",
+  "status": "completed",
+  "dry_run": false,
+  "solver": "cadical195",
+  "kripke_nodes": 78524,
+  "build_s": 824.227,
+  "skip_acyclic": true,
+  "lite_acyclic": false,
+  "current_rss_after_encoding_handoff_mb": 7933.2,
+  "acyclic_constraint_s": null,
+  "acyclic_extra_clauses": 0,
+  "current_rss_before_dimacs_mb": 7933.2,
+  "dimacs_s": 18.126,
+  "variable_count": 1183179,
+  "clause_count": 3508560,
+  "current_rss_after_combined_free_mb": 8820.5,
+  "current_rss_after_variables_free_mb": 8854.2,
+  "fresh_per_query": true,
+  "solver_load_s": null,
+  "witness": false,
+  "query_log": [
+    {
+      "index": 0,
+      "source": "source.hous",
+      "probe": "probe.salt",
+      "elapsed_s": 3.462,
+      "solver_load_s": 1.783,
+      "sat": true
+    },
+    {
+      "index": 1,
+      "source": "source.chic",
+      "probe": "probe.salt",
+      "elapsed_s": 55.538,
+      "solver_load_s": 1.8,
+      "sat": true
+    },
+    {
+      "index": 2,
+      "source": "source.chic",
+      "probe": "probe.seat",
+      "elapsed_s": 17.895,
+      "solver_load_s": 1.667,
+      "sat": true
+    }
+  ],
+  "last_query_s": 17.895,
+  "last_query_solver_load_s": 1.667,
+  "last_query": {
+    "source": "source.chic",
+    "probe": "probe.seat"
+  },
+  "queries_done": 3,
+  "query_s": 76.925,
+  "reachable_pairs": 3,
+  "reach_matrix": {
+    "atla": [],
+    "chic": [],
+    "hous": [],
+    "kans": [],
+    "losa": [],
+    "newy32aoa": [],
+    "salt": [
+      "chic",
+      "hous"
+    ],
+    "seat": [
+      "chic"
+    ],
+    "wash": []
+  },
+  "wall_s": 932.87,
+  "peak_rss_mb": 9061.4,
+  "oracle_missing": {},
+  "oracle_extra": {},
+  "oracle_match": true,
+  "oracle_pairs_compared": 3,
+  "oracle_full_set": false
+}

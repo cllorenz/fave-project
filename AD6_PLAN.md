@@ -2243,9 +2243,15 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   | `chic->salt` (discriminator) | SAT, **63.4 s** | **no answer in 20,302 s** |
   | `chic->seat` (discriminator) | SAT, 1,246.9 s | not reached |
 
-  **The asymmetry is the signal.** The control got 1.4x FASTER while the discriminator
-  went from a 63 s SAT to undecided after 5h38m -- at least 320x with no verdict. That is
-  the signature of a verdict that has FLIPPED: the pre-fix 63 s was cheap precisely
+  **The asymmetry is suggestive -- and WEAKER than this section first claimed (corrected
+  2026-09-11).** The control got 1.4x FASTER while the discriminator went from a 63 s SAT
+  to undecided after 5h38m. This block originally called that "the signature of a verdict
+  that has FLIPPED"; the skip-acyclic probe below then showed the relaxed problem is still
+  SAT and answers `chic->salt` in 55 s, and that the acyclicity block is 84% of the
+  variables -- so the no-answer is substantially explained by ENCODING HARDNESS rather than
+  by a flip, and the timing argument alone was over-read. The flip is now well evidenced,
+  but by the grounded-witness probe, not by this timing asymmetry. The original reasoning
+  was: the pre-fix 63 s was cheap precisely
   because a satisfying model existed to exhibit, and refuting is a categorically harder
   job than exhibiting. It is CONSISTENT WITH `chic->salt` now being UNSAT -- i.e. with
   ad6 and NetPlumber agreeing on the Chicago pairs -- and it is NOT proof: an undecided
@@ -2257,11 +2263,57 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   recorded "case 2" is superseded either way: the pre-fix all-three-SAT result was
   produced by the projected admission gate and cannot stand.
 
-  **What would settle it:** `chic->salt` alone with a much longer budget, since the
-  build is only 771 s of the cost. Worth noting before spending it that 5h38m already
-  failed, so a longer wall may simply confirm intractability rather than yield a verdict
-  -- and that an intractability verdict on the faithful i2 model is itself a §5.5
-  tractability datum, distinct from the reachability question.
+  **SETTLED (to the level of strong evidence, not formal proof) 2026-09-11 BY A
+  SKIP-ACYCLIC GROUNDED-WITNESS PROBE. The fix removes exactly the grounded paths it
+  should and keeps the one it should.** Ran `--faithful-vlan --skip-acyclic
+  --fresh-per-query --witness --solver cadical195`: the whole three-query run COMPLETED in
+  932.9 s on a 9,061.4 MB peak, against the full encoding's 20,302 s with no answer and
+  18,501.7 MB.
+
+  | pair | pre-fix (per-device, full enc.) | port-scoped (relaxed) |
+  |---|---|---|
+  | `hous->salt` (control) | grounded, 141 nodes, real route | **grounded, 395 nodes, real route** |
+  | `chic->salt` | **grounded, 249 nodes** via `chic->kans->salt` | **NO grounded walk**, 7,656 ungrounded edges |
+  | `chic->seat` | **grounded, 619 nodes** via `chic->kans->salt->seat` | **NO grounded walk**, 15,417 ungrounded edges |
+
+  Both pre-fix Chicago witnesses ran THROUGH `in.kans` -- exactly the crossing where
+  `out.chic.220045` delivers `vlan=10` into a port admitting
+  `{11,20,21,30,31,32,40,60,70}`. The port-scoped gate closed that hop, and the solver can
+  now satisfy the relaxed formula only with a floating cycle: 19x and 39x the control's
+  edge count, none of it forming a source->destination walk.
+
+  **One half of this is formally solid.** The control's witness is ZERO-SLACK (394 edges
+  for 395 path nodes -- every true edge lies on one simple path), and a simple path admits
+  a valid rank assignment, so relaxed-SAT with a zero-slack grounded witness SOUNDLY
+  IMPLIES full-encoding SAT. The converse does not hold: an ungrounded witness means "this
+  model is not a real path", not "no real path exists" -- the solver might have found a
+  grounded one with different ordering or luck. So `chic->salt` being UNSAT on the full
+  encoding is now the strongly-evidenced reading, supported by four independent strands
+  (the route/VLAN arithmetic; NetPlumber's flow dump dying at `in.kans`/`in.hous`; the
+  grounded path disappearing under the fix; the control's surviving intact), but it is not
+  a proof. Only a full-encoding UNSAT is that.
+
+  **METHOD CORRECTION -- `--skip-acyclic` is sound as a one-directional UNSAT test and
+  PRACTICALLY NEAR-VACUOUS for refutation.** The rank encoding is purely additive, so
+  UNSAT-on-the-relaxation would imply UNSAT outright; but floating cycles satisfy the
+  relaxation, so it will essentially never RETURN unsat. The evidence for that was already
+  in `ad6/FAVE_CHANGES.md` §20, which records that the floating-cycle bug was DISCOVERED
+  because ungrounded witnesses made unreachable pairs look reachable -- the additivity was
+  read correctly and the corollary missed. What the flag is actually good for, unanticipated
+  and now the recommended use, is a cheap GROUNDED-WITNESS SEARCH: SAT + zero-slack
+  grounded walk soundly implies real reachability, and SAT + ungrounded blob is strong
+  evidence of unreachability at 1/20th the wall and half the memory.
+
+  **Why the relaxation is so much cheaper, measured:** the rank/acyclic block is 84% of all
+  variables (6,121,649 of 7,304,828) and 80% of all clauses (14,253,423 of 17,761,983).
+  Dropping it took the control from 425.8 s to 3.5 s (~120x). So the faithful i2 model is
+  NOT inherently intractable -- the cost is concentrated in the acyclicity encoding, which
+  reframes §5.5's tractability question and is directly relevant to `--lite-acyclic` being
+  mandatory here.
+
+  **Still outstanding:** a full-encoding UNSAT for `chic->salt` (the formal verdict), and
+  the six eastern pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}), which this probe did
+  not address.
 
   **MEASURED FOR wl_stanford, AND IT CORRECTS THIS SECTION'S OWN BLAST-RADIUS CLAIM.**
   Full N=16 faithful re-run with the fix: **`reachable_pairs` 165 of 256, IDENTICAL to
