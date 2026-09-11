@@ -1522,6 +1522,57 @@ corrected directly — see §4.4.)
     REPAIRING A GAP IN THE PUBLISHED FORMALISM under a domain lift. That reframes its 84%-of-
     variables cost as the price of a necessary correction, and makes OPTIMISING it the right
     avenue rather than hunting for a simpler mechanism that was never there.
+  - **OPTIONS FOR A CHEAPER GROUNDING CONSTRAINT (surveyed 2026-09-11, owner request).**
+    First, the negative result, so nobody hunts for something that does not exist:
+    **connectivity is a TRANSITIVE property and no purely local constraint expresses it.**
+    The sound options are essentially four -- a level/rank witness, a FLOW witness,
+    external propagation, or lazy loop formulas. Ranked by expected value here:
+
+    1. **Single-unit s-t FLOW (recommended, being built behind a flag).** Add a flow
+       variable `f_e` per edge with `f_e -> y_e`; the source emits exactly one unit and
+       accepts none, the destination accepts exactly one and emits none, and every other
+       node has at-most-one in-flow, at-most-one out-flow, and `(some in) <-> (some out)`.
+       In-degree and out-degree both <= 1 makes the flow subgraph a disjoint union of
+       simple paths and cycles; the source (in-deg 0, out-deg 1) therefore starts a path
+       that cannot branch and can only terminate where out-deg 0 is permitted, i.e. at the
+       destination. **Disjoint cycles may still carry flow and are harmless** -- the path
+       component is a genuine grounded s->t walk over true edges, which is exactly the
+       soundness `trans(C)` lacks. Complete too: any real path can carry the unit.
+       BOTH the at-most-one and the conservation halves are load-bearing -- conservation
+       alone still admits "source's flow runs into cycle A while the destination is fed by
+       a disjoint cycle B", the same disconnection failure as the rank-free encoding.
+       Estimated cost on i2: ~320k variables and ~1.2M clauses against the rank encoding's
+       measured 6,121,649 and 14,253,423 -- roughly 19x and 12x. **Arithmetic, not
+       measurement, until the flag lands.** It REPLACES the rank block rather than adding
+       to it. The catch: it is PER-QUERY (s and t appear in it), so it cannot live in the
+       shared base encoding and must require `--fresh-per-query`.
+    2. **External propagator (IPASIR-UP) -- available in this PySAT build.** Verified:
+       `Cadical195` exposes `connect_propagator` ("Attach an external propagator through
+       the IPASIR-UP interface"), `observe` and `enable_propagator`. This is the
+       SAT-modulo-acyclicity route (Gebser/Janhunen/Rintanen): ZERO CNF cost, with an
+       incremental union-find/DFS deciding groundedness inside the propagator. Highest
+       ceiling and most work; the real risk is Python callback overhead per assignment,
+       mitigated by `observe`-ing only the ~125k SCC-qualifying edge variables.
+    3. **Lazy loop formulas -- CEGAR done correctly.** The earlier CEGAR failed for a
+       DIAGNOSED reason, not a fundamental one: `_BlockWitness` negated every fired
+       transition (hyper-specific to one model) and `_BackwardSupport` shrank that to
+       1,066 of 1,067 edges (no help). The principled lemma is different in kind: for an
+       unfounded set U, add `OR over edges (s,t) with t in U and s not in U of y_(s,t)` --
+       "to use any of this, something must enter it from outside" -- which blocks the whole
+       loop FAMILY at once instead of one model. The witness machinery to compute U already
+       exists and builds its index in 0.26 s. Worst-case number of loop formulas is
+       exponential; in practice for reachability it is usually small.
+    4. **Shrinking `Width` below the SCC bound** only ever REMOVES models, so it is sound
+       as a reachability PROVER (SAT means genuinely reachable) and useless as a refuter --
+       which is the direction wl_i2 currently needs.
+
+    **A trap worth naming, because it is the obvious idea:** re-encoding rank in
+    UNARY/ORDER form to get a trivial comparator does not work here. Order encoding needs
+    one variable per LEVEL, and the levels must cover the longest chain of true edges --
+    the real i2 witness path was 395 nodes -- so ~500 levels x 78,524 nodes is far worse
+    than the 6.12M variables it would replace. The binary encoding is the right choice;
+    what is expensive is the PER-EDGE comparator auxiliaries (measured: 48.8 variables and
+    113.6 clauses per edge, over 125,468 edges).
   - **A static rank/distance encoding** (`Instantiator._CreateAcyclicConstraints`: a
     brand-new bounded "rank" field per node, `fired -> Rank(Target) > Rank(Node)` for every
     edge) is genuinely sound — no structural escape hatch, unlike `_CreateCycle`'s negation —
