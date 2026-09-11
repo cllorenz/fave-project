@@ -86,11 +86,13 @@ from copy import deepcopy
 #   'flow' -- Instantiator._CreateFlowPathConstraints, a single-unit s-t flow.
 #       Reachability-SPECIFIC: it names the endpoints, so it is per-query by
 #       construction and cannot live in a shared base. Measured on
-#       wl_stanford N=16 faithful-VLAN (same model, same 256 queries, same
-#       answer of 165 reachable pairs): 98.2s wall / 63.2s query / 1,442 MB
-#       peak against the rank encoding's 2,131.7s / 2,039.7s / 4,173 MB --
-#       21.7x wall, 32.3x query, 2.9x memory -- WHILE giving up incremental
-#       reuse across queries.
+#       wl_stanford N=16 faithful-VLAN under a MATCHED configuration (both
+#       cadical195, same model, same 256 queries, same answer of 165
+#       reachable pairs): 163.5s wall / 117.2s query / 1,491 MB peak against
+#       the rank encoding's 1,136.9s / 1,086.2s / 2,051 MB -- 7.0x wall, 9.3x
+#       query, 1.4x memory -- WHILE giving up incremental reuse across
+#       queries. (An earlier 21.7x figure compared the two under DIFFERENT
+#       solvers and encodings; see AD6_PLAN.md §7.5.)
 GROUNDING_RANK = 'rank'
 GROUNDING_FLOW = 'flow'
 GROUNDINGS = (GROUNDING_RANK, GROUNDING_FLOW)

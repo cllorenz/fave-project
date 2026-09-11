@@ -167,10 +167,11 @@ class Ad6Adapter(AbstractVerificationEngine):
         # wl_ifi/wl_up/wl_tum/wl_stanford result.
         #
         # 'flow' is a per-query single-unit s-t flow: reachability-SPECIFIC,
-        # and on wl_stanford N=16 faithful-VLAN measured 21.7x faster wall /
-        # 32.3x faster query / 2.9x lower peak RSS for the identical answer
-        # (165 reachable pairs). Prefer it for an all-pairs reachability
-        # sweep; it cannot express anything else.
+        # and on wl_stanford N=16 faithful-VLAN, under a matched configuration
+        # (both cadical195), measured 7.0x faster wall / 9.3x faster query /
+        # 1.4x lower peak RSS for the identical answer (165 reachable pairs).
+        # Prefer it for an all-pairs reachability sweep; it cannot express
+        # anything else.
         #
         # Kept as an explicit constructor argument rather than inferred, so a
         # result can be STAMPED with the encoding that produced it -- see

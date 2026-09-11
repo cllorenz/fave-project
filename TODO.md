@@ -29,7 +29,9 @@ The main theme below: several checks exist but **do not actually gate** (drift, 
 - [ ] **Feasibility work has deliberately collapsed the configuration space; unwind it before quoting a headline number.** Owner framing 2026-09-11: *"In this stage, this is fine but we need to generalize again when we want to work towards the real measurements."* The binding distinction is not general-vs-workload-specific but **whether a choice affects the number being reported** — selection scaffolding (`--pairs`, `--dry-run`, `--witness`, the NP leaf parser, the two measurement drivers, which sit off the production path by design) is harmless; the encoding, the solver and the session structure are not. Eight items, each to be discharged or explicitly restated: mandatory `--lite-acyclic` on i2 (a tool limitation, not a preference); solver-per-problem-class breaking uniformity; `--fresh-per-query` vs the persistent session being *different* measurements (the 439x cold/warm effect); `probe_untag` off being a parity not a fidelity choice; APKeep's unfixed per-device projection; a `--skip-acyclic` refutation being UNSAT-on-a-relaxation; and the deliberate loss of any flag reproducing the pre-fix per-device admission;
 and (added 2026-09-11) **which GROUNDING CONSTRAINT closed the SECRYPT'15 gap** — rank vs
 s-t flow are not interchangeable (rank is property-agnostic, flow is reachability-specific
-and forces `--fresh-per-query`) and do not cost the same (21.7x wall on wl_stanford N=16),
+and forces `--fresh-per-query`) and do not cost the same (7.0x wall on wl_stanford N=16
+under a MATCHED configuration -- the 21.7x first recorded here was flow at its best
+solver against rank at its worst, and the gate caught it),
 so a table mixing them mixes encodings. **Two further findings from the same pass:** the
 wl_stanford driver `bench/ad6_faithful_measure.py` hardcodes `Minisat22` with no acyclic
 option and stamps none of it, so discharging items 1/2/8 there is CODE work rather than

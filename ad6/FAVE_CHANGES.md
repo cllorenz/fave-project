@@ -2068,9 +2068,12 @@ Two strategies with different scopes, not a replacement -- flipping the default 
 narrow expressiveness and silently re-measure every archived number.
 
 **Where flow pays, and where it does not.** wl_stanford N=16 faithful-VLAN, same model, same
-256 queries, same answer of 165 reachable pairs: 98.2 s wall / 63.2 s query / 1,442 MB peak
-against rank's 2,131.7 s / 2,039.7 s / 4,173 MB -- 21.7x wall, 32.3x query, 2.9x memory,
-*while giving up incremental reuse entirely*. It does NOT pay on a small model: wl_ifi is
+256 queries, same answer of 165 reachable pairs, both sides on cadical195: 163.5 s wall /
+117.2 s query / 1,491 MB peak against rank's 1,136.9 s / 1,086.2 s / 2,051 MB -- **7.0x
+wall, 9.3x query, 1.4x memory**, *while giving up incremental reuse entirely*. (This entry
+originally quoted 21.7x/32.3x/2.9x from the only two artifacts that then existed; those
+differed in BOTH solver and acyclic encoding. Corrected 2026-09-11 after the matched re-run
+-- AD6_PLAN.md §7.5.) It does NOT pay on a small model: wl_ifi is
 1.2 s under flow vs 0.7 s under rank, where the per-query bootstrap dominates and there is
 no rank cost to avoid. Recorded so the flag is not read as a free win.
 

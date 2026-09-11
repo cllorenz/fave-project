@@ -2476,6 +2476,13 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   | clauses | 851,631 | **313,555** (+68,180/query) |
   | query_s (256 queries) | 2,039.7 | **63.2** (32x) |
   | wall_s | 2,131.7 | **98.2** (21.7x) |
+
+  **The 21.7x in this table is an UNMATCHED comparison and is retired -- see §7.5.**
+  Both rows are minisat22, but the rank row also carries the GENERAL acyclic encoding
+  while wl_i2 is forced onto the lite one. Re-run 2026-09-11 with both sides on
+  cadical195 and the rank side on `--lite-acyclic`: **7.0x wall, 9.3x query, 1.4x peak
+  RSS**, all runs still answering 165. Quote that, or the 11.6x best-of-each figure;
+  never this one.
   | peak RSS | 4,173.5 MB | **1,442.0 MB** |
 
   And that is DESPITE the flow path paying 256 fresh solver bootstraps where the rank path
@@ -3555,18 +3562,44 @@ from the measurement drivers:
 | session | one persistent incremental solver | fresh solver per query |
 | sized by | largest cyclic SCC (`Width` bits × qualifying edges) | Kripke edge count |
 
-**The measurement, like-for-like.** wl_stanford N=16, faithful VLAN, same model, same 256
-queries, both answering **165 reachable pairs**:
+**The measurement, MATCHED — and the first number quoted here was wrong.** Re-run
+2026-09-11 under one configuration (both sides `--solver cadical195`, port-scoped, faithful
+VLAN, same model, same 256 queries, all runs answering **165 reachable pairs**):
 
-| | wall | query | base clauses | peak RSS |
-|---|---:|---:|---:|---:|
-| rank (port-scoped) | 2,131.7 s | 2,039.7 s | 851,631 | 4,173 MB |
-| **flow** | **98.2 s** | **63.2 s** | **313,555** | **1,442 MB** |
+| N=16 run | solver | acyclic | wall | query | clauses | peak RSS |
+|---|---|---|---:|---:|---:|---:|
+| rank | cadical195 | lite | 1,136.9 s | 1,086.2 s | 851,631 | 2,051 MB |
+| **flow** | **cadical195** | — | **163.5 s** | **117.2 s** | **313,555** | **1,491 MB** |
+| rank (archived) | minisat22 | general | 2,131.7 s | 2,039.7 s | 851,631 | 4,173 MB |
+| flow (archived) | minisat22 | — | 98.2 s | 63.2 s | 313,555 | 1,442 MB |
 
-**21.7x wall, 32.3x query, 2.9x memory — while giving up incremental reuse across queries
-entirely.** That last clause is the interesting part: the flow strategy wins by that margin
-*despite* rebuilding a solver per query, which materially weakens the 439x cold/warm
-argument for the persistent session (generality-debt item 3).
+**Matched, the flow advantage is 7.0x wall / 9.3x query / 1.4x memory — not the 21.7x /
+32.3x / 2.9x previously quoted here.** The old figure compared flow *at its best* (minisat22)
+against rank *at its worst* (minisat22 + the general acyclic encoding), because those were
+the only two artifacts that existed. Moving the rank side to cadical195 + lite nearly halves
+it on its own (2,131.7 → 1,136.9 s), and the flow side is actually 1.66x SLOWER under
+cadical195 than under minisat22 (98.2 → 163.5 s). **This is exactly the failure
+generality-debt item 2 describes, caught in this plan's own headline number** — which is the
+best argument available for the stamping gate, so it is recorded rather than quietly
+corrected.
+
+Three figures, all defensible, for different claims:
+
+- **7.0x — matched configuration.** The one to quote for "how much does the grounding
+  constraint itself cost", since nothing else varies.
+- **11.6x — each at its own best** (rank 1,136.9 s at cadical195+lite, flow 98.2 s at
+  minisat22). The one to quote for "what does each approach achieve when tuned".
+- ~~21.7x~~ — **retired.** Two variables at once; not a valid comparison.
+
+Either way the shape of the result holds, and the interesting clause survives intact: flow
+wins *despite* giving up incremental reuse across queries entirely, which materially weakens
+the 439x cold/warm argument for the persistent session (generality-debt item 3).
+
+**A second finding from the same pair: the solver preference INVERTS with the grounding.**
+Rank is ~1.9x faster under cadical195+lite than minisat22+general; flow is 1.66x slower
+under cadical195 than minisat22. So "which solver is best for ad6" has no answer
+independent of the encoding — a sharper version of item 2's warning, and a caution against
+ever picking a backend once and reusing the choice across a table.
 
 **Why it wins, and the shape of the claim to make.** Flow SHRINKS the shared base (2.7x on
 wl_stanford, 4.2x on wl_i2) and pays per query instead. On wl_i2 the rank encoding is
@@ -3588,16 +3621,15 @@ queries. So the rank encoding remains necessary for exactly the expressiveness �
 — the temporal/QBF properties the domain-specific tools structurally cannot express. **Two
 grounding strategies with different scopes, not a replacement.**
 
-**Still to do before this is quotable.** The wl_i2 flow/rank pair is NOT like-for-like (the
-flow run is faithful + port-scoped, the rank-lite run is plain mode), so only the
-wl_stanford figure above is defensible today; one matched wl_i2 re-run would fix that. And
-**the two archived N=16 runs the 21.7x is computed from predate the stamping**, so the
-figure rests on inference until they are repeated — cheap at ~35 min for the rank side and
-~100 s for the flow side, and now worth doing under `--lite-acyclic --solver cadical195` so
-the wl_stanford row matches wl_i2's forced configuration in the same table. The N=2 re-run
-done alongside the stamping change reproduces its archived counterpart exactly, which is
-evidence the inference was RIGHT, not a substitute for redoing the N=16 pair. See the
-generality-debt checklist, items 2 and 8.
+**Status.** The wl_stanford pair is DONE and fully stamped (`eval/
+ad6_faithful_N16_lite_cadical195_sandbox.json`, `eval/
+ad6_faithful_N16_flowpath_cadical195_sandbox.json`, both `status: completed`,
+`reachable_pairs: 165`); it is the first wl_stanford result whose configuration needs no
+inference. **Still open:** the wl_i2 flow/rank pair is NOT like-for-like (the flow run is
+faithful + port-scoped, the rank-lite run is plain mode), so the i2 side has no matched
+figure at all yet — and given what matching did to the wl_stanford number, it should not be
+assumed to survive the same treatment. Sandbox/directional per the environment guardrail;
+the ratio is the defensible quantity, since both halves were measured on the same box.
 
 ---
 
@@ -3900,8 +3932,12 @@ fallback ADDS generality by defining a case no shipped benchmark has.
    (rank) and `_CreateFlowPathConstraints` (flow) both close the SECRYPT'15 grounding gap and
    are held to identical ground truth by test, but they are NOT interchangeable and they do
    not cost the same: on wl_stanford N=16 faithful-VLAN, same model, same 256 queries, same
-   165-pair answer, flow runs 21.7x faster in wall-clock and 2.9x smaller in peak RSS (§7.5).
+   165-pair answer, flow runs 7.0x wall / 9.3x query / 1.4x peak RSS under a MATCHED configuration (both cadical195) (§7.5).
    A table mixing the two is mixing encodings, exactly as item 2 forbids for solvers.
+   **This item caught an error in this plan's own headline figure**: the previously quoted
+   21.7x was flow-at-minisat22 against rank-at-minisat22-with-the-general-encoding, i.e. two
+   variables moving at once. Recorded rather than quietly corrected, because it is the best
+   evidence available that the gate is worth enforcing.
    - **The scope boundary must be restated wherever the flow number appears**, because it is
      easy to misread as a strictly better default: flow is REACHABILITY-SPECIFIC (it names
      its endpoints, forbids branching witnesses, and cannot express AF/AX, waypointing or
@@ -3914,8 +3950,9 @@ fallback ADDS generality by defining a case no shipped benchmark has.
      flow REPLACES the rank encoding rather than supplementing it) alongside
      `fresh_per_query`, so the architectural entanglement above is visible in the file
      rather than only in this checklist. The ARCHIVED pre-2026-09-11 artifacts still carry
-     none of it, so any figure quoted from them -- the 21.7x included -- rests on inference
-     until those runs are repeated under the stamping driver.
+     none of it; the wl_stanford N=16 pair has since been REPEATED under the stamping driver
+     (§7.5), which is how the 21.7x was found to be an unmatched comparison. wl_i2's own
+     flow/rank pair has not been repeated and remains unmatched.
 
 **The mechanism that discharges all of this already exists: the result files stamp their own
 configuration** -- `faithful_vlan`, `probe_untag`, `lite_acyclic`, `skip_acyclic`,
@@ -4137,11 +4174,13 @@ choice has no stamp, add the stamp before quoting the number.
       grounding=)`, `Ad6Adapter(..., grounding=)`, `fave_bridge.py --grounding`, commit
       `e1ba05b2`) rather than only from the measurement drivers — which is what stops the
       flow approach from being lost. Measured on wl_stanford N=16 faithful-VLAN, same model,
-      same 256 queries, same 165-pair answer: **21.7x wall, 32.3x query, 2.9x peak RSS**,
-      while giving up incremental reuse entirely. **Open before it is quotable:** the wl_i2
-      flow/rank pair is not like-for-like (one matched re-run fixes it), and
-      `ad6_faithful_measure.py` stamps neither solver nor grounding (generality-debt items 2
-      and 8).
+      same 256 queries, same 165-pair answer, MATCHED on cadical195 since 2026-09-11:
+      **7.0x wall, 9.3x query, 1.4x peak RSS**, while giving up incremental reuse entirely.
+      (The 21.7x/32.3x/2.9x first recorded here was an UNMATCHED comparison -- flow at its
+      best solver against rank at its worst -- and is retired; 11.6x is the best-of-each
+      figure. The correction is itself the strongest argument for generality-debt item 2.)
+      **Open:** wl_i2's flow/rank pair is still not like-for-like, and should not be assumed
+      to survive matching either.
 - [~] **§8 (deferred until wl_up + ideally Stanford/i2 work)** Architecture & design
       review: reconsider XML as ad6's primary data structure (config AND SAT-formula AST
       share one generic tree type); **§8.2 DONE 2026-08-21 — both known core bugs fixed

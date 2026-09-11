@@ -130,7 +130,7 @@ def _config_stamp(flow_path, solver_name="minisat22", lite_acyclic=False,
     measurement-affecting configuration behind a wl_stanford result.
 
     Every archived `ad6_faithful_*.json` predating this carried NONE of these
-    fields, so the measured 21.7x flow-vs-rank result rested on inferring each
+    fields, so the measured flow-vs-rank result rested on inferring each
     run's configuration from the driver's source and the file's mtime -- while
     `bench/ad6_i2_measure.py` stamped all of it, making the two benchmarks'
     numbers uncomparable in precisely the way the stamping gate exists to

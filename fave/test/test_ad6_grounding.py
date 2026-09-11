@@ -29,8 +29,8 @@ represents a path starting at an initial state" does not hold):
   * the acyclic RANK encoding, baked into the shared base -- property-agnostic,
     and what every archived result was produced under;
   * a per-query single-unit s-t FLOW -- reachability-specific, and measured far
-    cheaper at scale (wl_stanford N=16 faithful-VLAN: 21.7x wall, 32.3x query,
-    2.9x peak RSS, for the identical 165-pair answer).
+    cheaper at scale (wl_stanford N=16 faithful-VLAN, matched on cadical195:
+    7.0x wall, 9.3x query, 1.4x peak RSS, for the identical 165-pair answer).
 
 Until now the flow lived ONLY in `bench/ad6_i2_measure.py` and
 `bench/ad6_faithful_measure.py`, which sit off the production path by design,
