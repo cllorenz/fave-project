@@ -2485,6 +2485,51 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   91 genuinely UNREACHABLE pairs, i.e. exactly the direction that needs validating.** It
   requires adding the flag to `bench/ad6_faithful_measure.py` as well.
 
+  **NEW DIVERGENCE FOUND BY THE FULL SWEEP, 2026-09-11: `atla`/`newy32aoa`/`wash` -> `kans`
+  are UNSAT in faithful ad6 and are NOT among NetPlumber's 11.** ad6 is stricter here --
+  the opposite direction from everything §5.5 chased before. Investigated structurally
+  (IR + raw `routes.json` only, no solve, alongside the running sweep):
+
+  * **All three share ONE cause.** `out.atla -> in.kans` has no direct link, so this is
+    multi-hop. `in.kans`'s only live inbound crossings are `out.chic` (writes vlan 10 ->
+    REJECTED), `out.hous` (vlan 0, admitted) and `out.salt` (vlan 0, admitted). For the
+    115 sampled kans-bound destinations that `hous` reaches `kans` on, `atla`'s paths
+    traverse only `out.atla`/`out.chic`/`out.wash`/`out.newy32aoa` -- **never `out.hous` or
+    `out.salt`**. The eastern region's sole gateway to Kansas is Chicago, and that gateway
+    is the already-known blocked crossing.
+  * **ad6's IR is FAITHFUL to `routes.json`, verified directly.** `in.kans.400029` really
+    admits `{11,20,21,30,31,32,40,60,70}`; `vlan=10` is admitted on `in.kans` but only on
+    ports `400025/400026/400019/400022/400007`; `out.chic` egressing `220045` really writes
+    vlan 10 on 2,545 routes. So the UNSATs are CORRECT FOR THE MODEL.
+  * **A striking configuration detail:** `out.chic.220046 -> in.kans.400019` and
+    `out.chic.220047 -> in.kans.400022` are physical links whose arrival ports DO admit
+    vlan 10 -- and carry ZERO routes in the snapshot. All 2,547 of Chicago's kans-bound
+    routes leave via `220045`, the one link whose far end rejects their VLAN.
+  * **Hypothesis tested and REFUTED:** that the out-stage rewrite is per-in-port the way
+    the in-stage admission was. It is not -- 0 `(table, dst)` pairs have more than one
+    rewrite VLAN and 0 appear with different `in_ports`, over all 77,451 out rules.
+
+  **LEADING EXPLANATION -- A ROUTE-ORDERING WORKLOAD-PARITY GAP, and it is not specific to
+  these three pairs.** The two engines order the SAME FIB differently:
+  `Ad6Adapter._lpm_prio` recomputes priority as `65534 - prefix_length` (sequential
+  first-match, deliberately added so the more specific route sorts first --
+  `RoutingTableLPMTest`), whereas `netplumber/adapter.py` passes
+  `_calc_rule_index(rule.idx, ...)`, i.e. the rule index carried in `routes.json`, as the
+  NetPlumber rule id. **Measured: `routes.json`'s own order violates LPM for 3,731 rules**
+  -- 277 to 589 per out-table -- where a rule is shadowed by an EARLIER rule whose prefix
+  strictly contains it (e.g. `140.112.0.0/12` before `140.112.0.0/14`). For those
+  destinations a first-match-by-index engine and an LPM engine select different routes.
+  A real router does LPM, so ad6's semantics are the correct ones and NetPlumber's are
+  correct only if the input is already LPM-ordered, which it is not. **Stated as the
+  leading hypothesis, not as established:** the rule-id derivation is confirmed from the
+  adapter, but NetPlumber's own C++ matching semantics were not traced.
+
+  **METHOD NOTE, recorded because the first version of this check was WRONG:** an
+  adjacent-pairs-only scan reported ZERO overlapping inversions and would have killed this
+  hypothesis. Shadowing is not an adjacency property -- the containing rule can sit
+  anywhere earlier in the table. The correct scan (walk file order, probe every supernet of
+  each new prefix against what was already seen) finds 3,731.
+
   **Still outstanding:** the six eastern pairs (`atla`/`newy32aoa`/`wash` -> {salt, seat}),
   which neither probe addressed.
 
