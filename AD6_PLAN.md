@@ -1897,6 +1897,20 @@ corrected directly — see §4.4.)
     `{"type": "true"}` (line 1053), and `add_source_probe` is called with that plus a
     match vector built from `model.match` -- **empty** for every i2 probe. The header
     space never leaves Python.
+    - **OWNER CORRECTION 2026-09-11 -- this is NOT a NetPlumber defect, and earlier
+      wording here implying it weakens NetPlumber's verdicts is wrong.** The commented-out
+      flow analysis is an ARTIFACT OF A DELIBERATE MODE CHANGE, not a workaround for a
+      correctness problem: NetPlumber originally verified compliance by BACKWARD flow plus
+      path-pattern matching, where an incoming flow could be filtered and its path
+      analysed; the mode of operation was later changed to full flow-tree analysis, and
+      the (then-unused) probe-side filtering was deactivated because certain flows proved
+      prohibitively costly on reaching probe nodes. Accepting any flow at a probe is
+      moreover the RIGHT semantics for this model: **probes are not part of the network,
+      so no meaningful flow handling -- VLAN rewriting on an egress port, for instance --
+      should happen there.** So "NetPlumber does not enforce the untag" remains true and
+      is still the reason `probe_untag` defaults off for WORKLOAD PARITY; it is not
+      evidence of a NetPlumber fault, and the 11-pair disagreement cannot be attributed
+      to it.
   - **APKeep passes `None`.** `apkeep/adapter.py:1460` gates `tvlan` on
     `self._stanford and self._faithful_vlan`, so wl_stanford gets the untag and i2 does
     not -- even though `test_apkeep_ndd_fwd.py:166`'s docstring lists "probe untag"
@@ -2509,8 +2523,52 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
     the in-stage admission was. It is not -- 0 `(table, dst)` pairs have more than one
     rewrite VLAN and 0 appear with different `in_ports`, over all 77,451 out rules.
 
-  **LEADING EXPLANATION -- A ROUTE-ORDERING WORKLOAD-PARITY GAP, and it is not specific to
-  these three pairs.** The two engines order the SAME FIB differently:
+  **ESTABLISHED 2026-09-11 (owner pointed at the recorded history; it was already
+  diagnosed once): THE FaVe-BACKEND LPM FIX IS SCOPED TO `mid.*` AND wl_i2's FIB IS ON
+  `out.*`, SO wl_i2's NetPlumber RUNS ARE NOT LPM-CORRECTED.** This is the SAME bug that
+  collapsed wl_stanford's NetPlumber count from ~165 to 10 (commit `f1768c50`,
+  `APKEEP_STANFORD_NP_SPEC.md` Phase 1d): FaVe's fork made `--load` key NP priority by the
+  rule's stored id/file position instead of vanilla's `index=0` front-insertion, dropping
+  the load-side reversal that made vanilla NetPlumber do LPM. The fix,
+  `bench/np_preparation.py:_reprioritise_mid_lpm`, reassigns rule indices by descending
+  prefix length -- but it does so only for devices whose name starts with `mid.`:
+
+      for dev, positions in by_dev.items():
+          if not dev.startswith('mid.'):
+              continue
+
+  **wl_i2 has ZERO `mid.*` rules** (stages are `['in','out']`, its FIB is the `out.*`
+  stage), so the fix is a no-op there. The plan's own gate recorded the reason as benign --
+  *"0a (wl_ifi/wl_i2 -- no overlapping prefixes, reversal is a no-op) stays green"* -- and
+  **that premise is false for wl_i2**: measured, `routes.json`'s order leaves **3,731
+  rules** shadowed by an EARLIER rule whose prefix strictly contains them (277-589 per
+  out-table). `np_preparation.py` writes that file (line 421), so it is exactly what
+  NetPlumber ingests.
+
+  **Concrete, single-destination proof on the very link this section turns on:**
+
+      destination 140.112.0.0
+        NetPlumber (first match by index): idx=15  140.112.0.0/12 -> out.chic.220040  rw=vlan:281
+        ad6 (longest prefix match)       : idx=69  140.112.0.0/14 -> out.chic.220045  rw=vlan:10
+
+  Different egress port AND different egress VLAN -- and `220045` is precisely the link
+  into `in.kans.400029` whose admission rejects vlan 10. A real router does
+  longest-prefix-match, so **ad6 is right and the FaVe-backend NetPlumber i2 results are
+  computed on a non-LPM forwarding model.**
+
+  **CONSEQUENCE, and it reaches further than the three new pairs: every FaVe+NetPlumber
+  wl_i2 number in this plan -- INCLUDING THE 11 UNREACHABLE PAIRS THIS WHOLE SECTION HAS
+  BEEN CHASING -- was produced on a forwarding model that is wrong for 3,731 rules.** The
+  ad6-vs-NetPlumber agreement on the five Chicago pairs is therefore much weaker evidence
+  than it appeared: two engines agreeing while one of them mis-forwards is not
+  independent corroboration. **Fix first, re-measure, then re-read every §5.5 conclusion
+  that rests on NetPlumber's i2 output.** The fix is small and already proven in this
+  repo: widen `_reprioritise_mid_lpm` from a `mid.`-prefix test to "any FIB-bearing stage"
+  (or drop the device-name test entirely -- re-prioritising a table with no overlapping
+  prefixes is a no-op by construction), with the wl_stanford 165 result as the regression
+  gate.
+
+  **SUPERSEDED FRAMING, kept because the reasoning is still the route to the finding:** The two engines order the SAME FIB differently:
   `Ad6Adapter._lpm_prio` recomputes priority as `65534 - prefix_length` (sequential
   first-match, deliberately added so the more specific route sorts first --
   `RoutingTableLPMTest`), whereas `netplumber/adapter.py` passes
