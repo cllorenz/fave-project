@@ -11,6 +11,7 @@
         "wash"
     ],
     "table_types" : ["in", "out"],
+    "fib_table_types" : ["out"],
     "length" : 6,
     "with_paths" : false
 }

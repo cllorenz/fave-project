@@ -18,6 +18,7 @@
         "yozb_rtr"
     ],
     "table_types" : ["in", "mid", "out"],
+    "fib_table_types" : ["mid"],
     "length" : 16,
     "with_paths" : false
 }

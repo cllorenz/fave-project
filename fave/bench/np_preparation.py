@@ -20,6 +20,7 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import ipaddress
 import json
 
 from netplumber.mapping import FIELD_SIZES
@@ -179,38 +180,119 @@ def _prefix_len(match_fields):
     return -1
 
 
-def _reprioritise_mid_lpm(routes):
-    """ FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d).
+class FibDeclarationError(ValueError):
+    """ Raised when a raw-table benchmark's `config.json` does not declare which
+    of its table types are FIBs, or declares one that does not exist. Loud by
+    design: see `_reprioritise_fib_lpm`. """
+
+
+def _net_of(match_fields):
+    """ The ipv4_dst network of a route, or the match-all default. """
+    for clause in match_fields:
+        if clause.startswith('ipv4_dst='):
+            return ipaddress.ip_network(clause.split('=', 1)[1], strict=False)
+    return ipaddress.ip_network('0.0.0.0/0')
+
+
+def _forwards(actions):
+    return any(a.startswith('fd=') for a in actions)
+
+
+def fib_tables(routes, fib_table_types):
+    """ The device names in `routes` whose table type is declared a FIB.
+
+    Table type is the dotted stage prefix a raw-table benchmark composes its
+    devices from (`mid.bbra_rtr` -> `mid`), matching `config.json`'s own
+    `table_types`. """
+    return {
+        r[0] for r in routes
+        if r[0].split('.', 1)[0] in set(fib_table_types)
+    }
+
+
+def _reprioritise_fib_lpm(routes, fib_table_types):
+    """ FaVe-backend LPM fix (see APKEEP_STANFORD_NP_SPEC.md Phase 1d, and
+    AD6_PLAN.md §5.5 for why this function's PREDECESSOR silently skipped wl_i2).
 
     NetPlumber resolves rule priority by rule index (lower index = higher
-    priority). The FaVe stanford dataset feeds the mid-stage FIB in FILE ORDER
-    (shortest prefix first), so the `0.0.0.0/0` default outranks the specific
-    routes and NP forwards by the WRONG rule -- a non-LPM artifact (wl_stanford
-    reachability collapses to ~10 pairs). Vanilla NetPlumber avoids this because
-    its `--load` front-inserts every rule, reversing the file order back to
-    longest-first; the FaVe fork's list->map `--load` keys priority by the
-    stored rule id/file-position instead and dropped that reversal.
+    priority). A raw-table dataset that feeds its FIB in FILE ORDER
+    (shortest prefix first) therefore lets the `0.0.0.0/0` default outrank the
+    specific routes, and NP forwards by the WRONG rule -- a non-LPM artifact
+    (wl_stanford reachability collapses to ~10 pairs). Vanilla NetPlumber avoids
+    this because its `--load` front-inserts every rule, reversing file order back
+    to longest-first; the FaVe fork's list->map `--load` keys priority by the
+    stored rule id/file position instead and dropped that reversal. This restores
+    longest-prefix-match by reassigning each declared FIB table's rule index so
+    that longer dst prefixes get the lower index, stable within a prefix length.
 
-    This restores longest-prefix-match on the FaVe side by reassigning each
-    `mid.*` FIB table's rule index so that longer dst prefixes get the lower
-    index (= higher NP priority), stable within a prefix length. In/out ACL
-    stages are untouched, and benchmarks without a `mid` stage (e.g. wl_i2,
-    table_types ['in','out']) have no `mid.*` device, so this is a structural
-    no-op there. Mirrors bench/stanford_priority_check.py `_reprioritise_lpm`,
-    the transform proven to lift NP's wl_stanford count 10 -> ~165 (agreeing
-    with vanilla NetPlumber and APKeep and the real Cisco FIBs).
-    """
+    WHICH TABLES: declared, never inferred. `fib_table_types` comes from the
+    benchmark's own `config.json` (`"fib_table_types": ["mid"]` for wl_stanford,
+    `["out"]` for wl_i2). The predecessor hardcoded `dev.startswith('mid.')`,
+    which silently did NOTHING on wl_i2 -- whose FIB is the `out` stage -- so
+    every FaVe+NetPlumber wl_i2 number was computed on a non-LPM forwarding
+    model (3,731 rules shadowed by an earlier containing prefix). An EARLIER
+    design of this function inferred FIB-ness from rule shape ("matches only
+    ipv4_dst"); that was rejected, correctly, because a packet filter can have
+    the same shape and reordering one changes its filtering semantics -- and
+    because shape-matching on match fields is blind to ACTIONS, which is where
+    permit/deny lives.
+
+    SAFETY, because a declared FIB may still be impure: wl_stanford's `mid.*`
+    tables carry 3,372 forwarding rules AND 472 no-action DROPS, every one of
+    which overlaps a forwarding rule at a different prefix length (e.g.
+    `224.0.0.0/3` against the `0.0.0.0/0` default). Reordering them is only safe
+    because those drops are MORE SPECIFIC than what they shadow, so prefix order
+    agrees with the intended deny-before-permit precedence -- a property of that
+    data, not an invariant. So this refuses to reorder a table when doing so
+    would FLIP the relative order of any overlapping forwarding/non-forwarding
+    pair, rather than trusting the declaration blindly.
+
+    Raises FibDeclarationError on a missing or unknown declaration -- omission
+    must be loud, since a silent skip is precisely the bug this replaces. """
+    fibs = fib_tables(routes, fib_table_types)
+
     by_dev = {}
     for pos, route in enumerate(routes):
         by_dev.setdefault(route[0], []).append(pos)
 
-    for dev, positions in by_dev.items():
-        if not dev.startswith('mid.'):
-            continue
+    for dev in sorted(fibs):
+        positions = by_dev.get(dev, [])
         order = sorted(positions, key=lambda p: -_prefix_len(routes[p][3]))
+        _assert_reorder_preserves_filtering(routes, dev, positions, order)
         for new_idx, p in enumerate(order, start=1):
             t = routes[p]
             routes[p] = (t[0], t[1], new_idx, t[3], t[4], t[5])
+
+
+def _assert_reorder_preserves_filtering(routes, dev, before, after):
+    """ Refuse a reorder that would swap an overlapping forwarding rule past a
+    non-forwarding one (or vice versa) -- that is a permit/deny precedence
+    change, not a longest-prefix-match correction. Overlapping pairs within one
+    class are exactly what LPM is meant to reorder and are left alone. """
+    # "Before" is the rule's CURRENT NP priority -- its idx field -- not its
+    # position in the routes ARRAY. The two differ (a table's rules are not
+    # stored in idx order), and idx is what NetPlumber resolves priority by, so
+    # comparing array positions here compares the wrong thing entirely.
+    rank_before = {p: routes[p][2] for p in before}
+    rank_after = {p: i for i, p in enumerate(after)}
+    fwd = [p for p in before if _forwards(routes[p][4])]
+    other = [p for p in before if not _forwards(routes[p][4])]
+    for a in other:
+        net_a = _net_of(routes[a][3])
+        for b in fwd:
+            net_b = _net_of(routes[b][3])
+            if not net_a.overlaps(net_b):
+                continue
+            if (rank_before[a] < rank_before[b]) != (rank_after[a] < rank_after[b]):
+                raise FibDeclarationError(
+                    "refusing to LPM-reorder %s: it would flip %s (%s) past %s "
+                    "(%s), changing permit/deny precedence on overlapping "
+                    "prefixes. Either this table is not a FIB, or its filtering "
+                    "rules need handling before reordering." % (
+                        dev, net_a,
+                        "forward" if _forwards(routes[a][4]) else "no-forward",
+                        net_b,
+                        "forward" if _forwards(routes[b][4]) else "no-forward"))
 
 
 def prepare_benchmark(
@@ -228,6 +310,21 @@ def prepare_benchmark(
     config_json = json.load(open(config_file, 'r'))
     tables = config_json['tables']
     table_types = config_json['table_types']
+    # AD6_PLAN.md §5.5: which table types are FIBs is DECLARED by the benchmark,
+    # never inferred from rule shape. Absent = hard error, because a silent skip
+    # is exactly the bug this replaces (the predecessor hardcoded `mid.` and did
+    # nothing at all on wl_i2, whose FIB is the `out` stage).
+    if 'fib_table_types' not in config_json:
+        raise FibDeclarationError(
+            "%s must declare 'fib_table_types' (a subset of 'table_types' %s) so "
+            "the LPM re-prioritisation knows which tables are forwarding tables. "
+            "Use [] for a dataset with no FIB stage." % (config_file, table_types))
+    fib_table_types = config_json['fib_table_types']
+    unknown = sorted(set(fib_table_types) - set(table_types))
+    if unknown:
+        raise FibDeclarationError(
+            "%s declares fib_table_types %s not present in table_types %s"
+            % (config_file, unknown, table_types))
 
     # map table indices to table file names
     table_id_to_name = {
@@ -274,10 +371,10 @@ def prepare_benchmark(
                     rule_to_route(rule, table_id_to_name, mapping, intervals)
                 )
 
-    # FaVe-backend LPM fix: re-prioritise mid-stage FIBs by prefix length so
-    # NetPlumber forwards by longest-prefix-match (structural no-op for models
-    # without a `mid` stage). See _reprioritise_mid_lpm / Phase 1d.
-    _reprioritise_mid_lpm(routes)
+    # FaVe-backend LPM fix: re-prioritise the DECLARED FIB tables by prefix
+    # length so NetPlumber forwards by longest-prefix-match. See
+    # _reprioritise_fib_lpm / Phase 1d / AD6_PLAN.md §5.5.
+    _reprioritise_fib_lpm(routes, fib_table_types)
 
 
     # transform policy

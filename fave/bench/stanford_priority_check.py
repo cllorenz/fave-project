@@ -62,15 +62,26 @@ def _prefix_len(rule) -> int:
     return -1
 
 
+# wl_stanford's FIB stage. This harness is stanford-ONLY by construction (it
+# loads the stanford model via C._load_model), so naming the stage here is
+# correct rather than a hardcode -- but the SELECTION is shared with
+# bench/np_preparation.py:fib_tables so the two cannot drift. They did drift
+# once: np_preparation's own copy hardcoded `mid.` and therefore silently did
+# nothing on wl_i2, whose FIB is the `out` stage (AD6_PLAN.md §5.5).
+_STANFORD_FIB_TABLE_TYPES = ["mid"]
+
+
 def _reprioritise_lpm(model) -> None:
-    """ Reassign each mid.* table's rule idx (field[2]) so longer prefixes get
+    """ Reassign each FIB table's rule idx (field[2]) so longer prefixes get
     lower idx (= higher NP priority) -- longest-prefix-match. Stable within a
     prefix length. """
+    from bench.np_preparation import fib_tables
+    fibs = fib_tables(model["routes"], _STANFORD_FIB_TABLE_TYPES)
     by_dev = defaultdict(list)
     for route in model["routes"]:
         by_dev[route[0]].append(route)
     for dev, routes in by_dev.items():
-        if not dev.startswith("mid."):
+        if dev not in fibs:
             continue
         order = sorted(range(len(routes)), key=lambda i: -_prefix_len(routes[i]))
         for new_idx, i in enumerate(order, start=1):
