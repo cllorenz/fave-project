@@ -3190,6 +3190,71 @@ speculatively ahead of need.
 - **Vendoring hygiene:** ad6 edits as separate commits with a changelog.
 - **Metric stated explicitly** (build + query×count), reported both cold and warm.
 
+### Generality debt: the pre-measurement checklist (owner framing 2026-09-11)
+
+Feasibility work legitimately collapses the configuration space -- it adapts the tooling to
+one workload in order to find out whether correct results are obtainable at all. That is
+fine at this stage and must be UNWOUND before any headline measurement. The owner's
+framing, recorded verbatim because it is the standing rule: *"In this stage, this is fine
+but we need to generalize again when we want to work towards the real measurements."*
+
+**The distinction that actually binds is not general-vs-workload-specific, it is whether a
+choice affects the NUMBER being reported.** Two adaptations look alike and are not:
+
+  * *Selection scaffolding* -- `--pairs`, `--dry-run`, `--witness`, the NetPlumber leaf
+    parser, `bench/ad6_i2_measure.py` and `bench/ad6_faithful_measure.py` existing at all.
+    These change only WHAT IS ASKED. Both drivers deliberately sit off the production path
+    (they drive PySAT and ad6's `src.*` directly rather than through
+    `Ad6Adapter`/`fave_bridge.py`), so they cannot contaminate a production result. i2-shaped
+    is harmless here.
+  * *Measurement-affecting configuration* -- the encoding, the solver, the session
+    structure. This is where the debt accrues, and it is invisible unless stamped.
+
+**NOT debt, despite looking like it:** the per-(port, VLAN) admission fix (§5.5) is a MODEL
+CORRECTNESS fix, not a workload adaptation -- it applies to any workload with port-scoped
+VLAN admission, it changed wl_stanford by the identical mechanism, and its `_ANY_PORT`
+fallback ADDS generality by defining a case no shipped benchmark has.
+
+**The debt itself, to be discharged or explicitly restated at measurement time:**
+
+1. **`--lite-acyclic` is MANDATORY on i2, not chosen.** The general
+   `_CreateAcyclicConstraints` does not complete at all (one SCC over 99.3% of nodes). It is
+   clause-identical by test (`testAcyclicRankConstraintLiteMatchesGeneralEncoding`) so
+   results stay sound, but "the general path is unusable at this scale" is a TOOL LIMITATION
+   to report, not a flag preference to omit.
+2. **Solver-per-problem-class would break uniformity.** If refutation wants Kissat404 and
+   existence wants Cadical195, a 72-pair sweep mixes them and is no longer ONE
+   configuration. What made the earlier solver comparison valid was the same encoding AND
+   the same query order throughout (§5.5's WARM-SOLVER POSITIONAL EFFECT is why order
+   counts).
+3. **`--fresh-per-query` and the persistent session are DIFFERENT measurements**, not two
+   routes to one number -- that is the 439x cold/warm effect. Pick one and hold it across
+   the whole table.
+4. **`probe_untag` off is a cross-engine PARITY choice, not a fidelity choice** (§5.5
+   PROBE-UNTAG PARITY FINDING). It has to be restated wherever the number appears, since the
+   faithful model would enforce it.
+5. **`apkeep/adapter.py:_capture_in_admission` still carries the per-device projection**, so
+   cross-backend faithful comparison is unlike-for-like in principle (measured: 7 crossings,
+   0 reachability pairs on wl_stanford).
+6. **A `--skip-acyclic` refutation, if used, is UNSAT ON A RELAXATION.** Sound in that one
+   direction only (the rank encoding is purely additive, so removing it only ADDS models),
+   and it must be reported as such -- never folded into a reachability table as if it were a
+   normal run.
+7. **Deliberate, recorded loss: there is no flag to reproduce the pre-fix per-device
+   admission.** The archived pre-fix numbers are reproducible only from an ARCHIVED IR
+   (`favemodel._in_vlans_for` still reads the flat shape), not from the current adapter. A
+   defect is not a configuration -- but this is a real reproducibility narrowing, not a
+   free choice.
+
+**The mechanism that discharges all of this already exists: the result files stamp their own
+configuration** -- `faithful_vlan`, `probe_untag`, `lite_acyclic`, `skip_acyclic`,
+`fresh_per_query`, `solver`, `probe_vlan`, `oracle_match`, and (since 2026-09-10)
+`in_admission_port_scoped`/`in_admission_ports`/`in_admission_pairs`. That stamping IS how a
+later reader tells whether two numbers are comparable, which is exactly why the missing
+admission stamp was worth fixing mid-run. **The gate: every collapse of the configuration
+space must be a stamped field, never an undocumented habit.** If a measurement-affecting
+choice has no stamp, add the stamp before quoting the number.
+
 ## Open decisions (resolve at the §1.4 gate)
 - Integration level: (A) `AbstractVerificationEngine` backend vs (B) model translation.
 - ~~wl_up's stateful instantiator soundness — GO/NO-GO~~ **RESOLVED 2026-08-21g: NO-GO on
