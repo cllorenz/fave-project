@@ -2568,6 +2568,51 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   prefixes is a no-op by construction), with the wl_stanford 165 result as the regression
   gate.
 
+  **THE FIX, DESIGNED 2026-09-11 (owner review rejected my first design; the data proved
+  the owner right).** My first proposal was to select FIB tables by SHAPE -- "a table is a
+  FIB iff no rule matches any field other than `ipv4_dst`". The owner objected that a
+  packet-filtering table can have exactly that shape, and that reordering a table which
+  mixes passing and denying rules changes its filtering semantics. **Checked against the
+  data, and the objection is stronger than the argument:** wl_stanford's `mid.*` tables --
+  the ones the CURRENT fix already reorders -- hold 3,372 forwarding rules AND **472 rules
+  with no action at all (drops)**, and **all 472 overlap a forwarding rule at a different
+  prefix length** (`drop 224.0.0.0/3`, `127.0.0.0/8`, `10.0.0.0/8`, `0.0.0.0/8`, each
+  against `forward 0.0.0.0/0`). Reordering them is safe today only because those drops
+  happen to be MORE SPECIFIC than the default they shadow, so prefix-length order
+  coincides with the intended deny-before-permit precedence. That is a property of this
+  dataset, not an invariant. Worse, my predicate inspected MATCH FIELDS ONLY and never
+  looked at actions -- it was blind to exactly the case raised.
+
+  **Design, revised:**
+
+  1. **Each benchmark DECLARES its FIB stages, in `config.json` beside the existing
+     `table_types`** -- `"fib_table_types": ["mid"]` for wl_stanford, `["out"]` for wl_i2.
+     Both `config.json` files are git-tracked and nothing regenerates them (the
+     `gen_wl_*_inputs.sh` scripts consume them), so the declaration is stable. No shape
+     inference anywhere in the selector.
+  2. **Fail closed.** `prepare_benchmark` ERRORS when `fib_table_types` is absent, and
+     errors when a declared type is not in `table_types`. Declaration alone would merely
+     relocate the original bug -- someone adds a benchmark and forgets to declare -- so
+     omission has to be loud. That is exactly the property `dev.startswith('mid.')` lacked.
+  3. **Assert the transform is semantics-preserving**, per declared FIB table: partition
+     its rules into forwarding and non-forwarding, and REFUSE the reorder if it would flip
+     the relative order of any overlapping cross-class pair. This does not infer whether a
+     table is a filter; it verifies the reorder is safe on whatever was declared. Stanford's
+     472 drop/forward overlaps pass (drops are more specific); i2's out tables are 77,451/
+     77,451 forwarding, so the check is vacuous there.
+  4. **Blast radius: the two raw-table benchmarks only, by construction.** FaVe normally
+     works from DEVICE MODELS (routers, packet filters) where a device may hold some
+     FIB-like tables and some not; wl_stanford and wl_i2 are special in being composed
+     from RAW TABLES. Measured: 8 benchmarks subclass `GenericBenchmark` but only these 2
+     call `prepare_benchmark`. So the declaration is threaded through
+     `prepare_benchmark`'s own signature and `GenericBenchmark` is NOT touched -- the
+     device-model benchmarks (wl_ifi, wl_up, wl_tum, wl_example, wl_shadow,
+     wl_generic_fw) are unaffected because they never enter this path, not because of a
+     default value that would have to be argued safe.
+  5. **De-duplicate:** `bench/stanford_priority_check.py:_reprioritise_lpm` is a SECOND
+     copy of the same `mid.`-scoped logic. Point it at the shared helper -- that
+     duplication is part of why this recurred.
+
   **SUPERSEDED FRAMING, kept because the reasoning is still the route to the finding:** The two engines order the SAME FIB differently:
   `Ad6Adapter._lpm_prio` recomputes priority as `65534 - prefix_length` (sequential
   first-match, deliberately added so the more specific route sorts first --
