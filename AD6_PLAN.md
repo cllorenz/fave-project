@@ -2568,6 +2568,45 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
   prefixes is a no-op by construction), with the wl_stanford 165 result as the regression
   gate.
 
+  **FIX LANDED AND RE-MEASURED 2026-09-11 -- ad6 AND NETPLUMBER NOW AGREE EXACTLY ON ALL
+  11 PAIRS.** `_reprioritise_fib_lpm` now re-prioritises the DECLARED FIB tables
+  (`config.json`'s `fib_table_types`: `["mid"]` for wl_stanford, `["out"]` for wl_i2), both
+  datasets were regenerated, and NetPlumber was re-run on the corrected wl_i2 dataset
+  (`np_i2_flow_dump.py`, build 588.1 s, peak 1,938.5 MB).
+
+  | | NetPlumber BEFORE (non-LPM) | NetPlumber AFTER (LPM) | ad6 (flow-path, port-scoped) |
+  |---|---|---|---|
+  | unreachable pairs | 11 | **11** | **11** |
+  | `chic` -> {hous,kans,losa,salt,seat} | yes | yes | yes |
+  | eastern trio -> **salt** | yes | **NO** | no |
+  | eastern trio -> **kans** | no | **YES** | yes |
+
+  **The LPM fix moved exactly the three pairs that were in dispute, and moved them onto
+  ad6's answer.** `atla`/`newy32aoa`/`wash` -> `salt` became reachable; -> `kans` became
+  unreachable. Set difference against ad6 is now EMPTY in both directions.
+
+  **What this settles.** (a) The route-ordering gap WAS the whole of the remaining
+  ad6-vs-NetPlumber disagreement on wl_i2. (b) The three pairs ad6 alone reported
+  (`eastern -> kans`) were CORRECT, and NetPlumber's old `eastern -> salt` was the
+  artifact -- so the structural trace that predicted this (the eastern region's only
+  gateway to Kansas is Chicago, and `out.chic.220045` writes vlan 10 into a port admitting
+  {11,20,21,30,31,32,40,60,70}) was right. (c) **The agreement is now genuine corroboration
+  rather than two engines agreeing while one mis-forwards** -- the qualification this
+  section was carrying since the scoping gap was found.
+
+  **And it is independent corroboration in the strong sense:** ad6 reaches the answer by
+  SAT over a port-scoped admission relation with a single-unit s-t flow grounding
+  constraint; NetPlumber reaches it by HSA flow propagation. Nothing is shared but the
+  dataset. ad6's IR is HASH-IDENTICAL across the reordering (verified: `fwd_rules`,
+  `in_vlans`, `out_rw`, `edges`, `devices`), because ad6 recomputes LPM itself -- so the
+  ad6 side of this comparison did not move at all, and the 72-pair sweep result stands
+  exactly as run.
+
+  **Still open:** the 11 are now agreed but not EXPLAINED end to end -- `chic`'s five and
+  the eastern trio's `-> kans` trace to the Chicago VLAN-admission crossing, while
+  `eastern -> seat` has no structural account yet. That is the remaining §5.5 question,
+  and it is now a question about ONE model rather than a disagreement between two.
+
   **THE FIX, DESIGNED 2026-09-11 (owner review rejected my first design; the data proved
   the owner right).** My first proposal was to select FIB tables by SHAPE -- "a table is a
   FIB iff no rule matches any field other than `ipv4_dst`". The owner objected that a
