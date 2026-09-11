@@ -1460,6 +1460,68 @@ corrected directly — see §4.4.)
     real data: 117 iterations / ~45s for ONE query on a 3-router slice. A refinement (shrink
     the blocking clause to just Destination's own backward-closure) helped ~0%, because that
     closure turned out to be ~100% of the fired transitions on real FIB-table-heavy data.
+  - **ROOT OF THE WHOLE PROBLEM, established 2026-09-11 by reading the source paper
+    (`secrypt15.pdf`, Lorenz & Schnor, SECRYPT'15): THE GAP IS IN THE PUBLISHED FORMALISM,
+    NOT IN ad6's IMPLEMENTATION OF IT.** The paper's Kripke encoding is
+
+        trans(C) = forall (t,c,u) in delta. ( y(t,c,u) -> ( (c <-> trans(t, gamma(t)))
+                                             /\ (trans(t,init) \/ exists (s,b,t) in delta. y(s,b,t)) ) )
+
+    and `Instantiator._ConvertNodesToImplications` emits exactly that, term for term
+    (`Implicant` = y(t,c,u); `Equality` = (c <-> gamma(t)); `Disjunction` = the
+    exists-clause over `IterBTransitions`, with the INIT case as `constant(True)`).
+    **Nothing was lost in implementation.** The flawed step is the paper's own following
+    sentence: *"A solution for trans(C) represents a path through the model starting at an
+    initial state."* It does not. The support term `exists (s,b,t) in delta. y(s,b,t)` is
+    purely LOCAL -- "some incoming transition variable is true" -- with no requirement that
+    the predecessor itself be grounded, so a cycle discharges it self-referentially. Same
+    for `reach_constraint(C,t) = exists (s,b,t) in delta. y(s,b,t) \/ trans(t,init)`, which
+    the paper describes as enforcing "the existence of an incoming transition": a loop
+    containing `t` provides one.
+
+    **Minimal counterexample** (nodes A=INIT, P, B, C, D, E; all gammas true; edges
+    A->P, B->C, C->D, D->B, C->E; note `pred(B) = {D}` only, A does not feed B):
+
+        t_AP -> True     (A is INIT)      t_BC -> t_DB      t_CD -> t_BC
+        t_CE -> t_BC                      t_DB -> t_CD
+
+    The end-to-end query A->E asserts `t_AP /\ t_CE`. Setting all five edge variables true
+    satisfies every implication -- `t_CE -> t_BC -> t_DB -> t_CD -> t_BC` closes on itself
+    -- yet **A cannot reach E**: A goes only to P, and E is fed by a cycle A never touches.
+    The source-side conjunct is discharged by ANY out-edge of A (here the dead end), the
+    destination-side conjunct by ANY support chain (here a cyclic one), and nothing ties the
+    two together. Connectivity is a TRANSITIVE property and no amount of per-node local
+    implication expresses it.
+
+    **The paper contains its own corroboration.** Its cyclicity anomaly adds
+    `forall (s,b,t) in delta. (y(s,b,t) -> exists (t,c,u) in delta. y(t,c,u))` and explains:
+    *"The first part of the constraint ensures that every transition on the path has a
+    successor which means that they form a loop."* The cycle DETECTOR is built on the fact
+    that `trans(C)` admits loop-shaped solutions -- so the formalism itself establishes that
+    those models exist, and `reach_constraint` adds nothing that excludes a loop which
+    happens to contain the target.
+
+    **Why it was sound in the paper's own domain, and only broke here.** SECRYPT'15 scopes
+    reachability to RULE reachability inside a SINGLE firewall ("is this rule ever hit?"),
+    where the transition graph is a rule chain -- effectively a DAG, no cycles to exploit.
+    The gap is latent there, not wrong. It becomes live only when the construction is LIFTED
+    to network end-to-end reachability with redundant links: wl_up never exposed it, while
+    i2's Kripke graph is one SCC over 99.3% of nodes. Note also that the end-to-end form is
+    NOT in the paper at all -- `reach_constraint` pins only the destination side, and
+    `InstantiateEndToEnd`'s source-side disjunct is a FaVe-era addition. That addition is
+    what makes "both endpoints pinned, therefore a path between them" feel inevitable, and
+    it is exactly the step that does not follow.
+
+    **One deliberate deviation, in the SAFE direction:** the paper has
+    `trans(t,init) \/ exists...`, so an INIT node WITH predecessors would still get the init
+    disjunct; the code takes the INIT branch only when there are ZERO predecessors (see
+    `favemodel.gen_entry_key`'s docstring). Strictly fewer models than the paper, so it
+    cannot cause false reachability.
+
+    **CONSEQUENCE:** the rank encoding is not compensating for something ad6 lost -- it is
+    REPAIRING A GAP IN THE PUBLISHED FORMALISM under a domain lift. That reframes its 84%-of-
+    variables cost as the price of a necessary correction, and makes OPTIMISING it the right
+    avenue rather than hunting for a simpler mechanism that was never there.
   - **A static rank/distance encoding** (`Instantiator._CreateAcyclicConstraints`: a
     brand-new bounded "rank" field per node, `fired -> Rank(Target) > Rank(Node)` for every
     edge) is genuinely sound — no structural escape hatch, unlike `_CreateCycle`'s negation —
