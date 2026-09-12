@@ -5,7 +5,7 @@ import sys
 import os
 
 
-from core.kripketest import KripkeTest
+from core.kripketest import KripkeTest, MultiActionRuleTest
 
 class KripkeSuite(TestSuite):
     def addTests(self):
@@ -13,6 +13,20 @@ class KripkeSuite(TestSuite):
             'testKripke'
         ]
         self._suite.addTests(map(KripkeTest,tests))
+
+        # AD6_PLAN.md §9.7.2 option B: one <action> per forwarding target, read
+        # as one TRUE transition each. MANUAL registry -- a test not listed here
+        # does not run under this suite, however green it looks under pytest.
+        tests = [
+            'testASingleActionRuleIsUnchanged',
+            'testEveryActionBecomesItsOwnTrueTransition',
+            'testFanoutCoexistsWithTheFallthroughEdge',
+            'testAllFanoutTargetsAreReachable',
+            'testARuleWithNoActionHasNoTrueTransitionButStillFallsThrough',
+            'testOneRewriteSharedAcrossEveryFanoutAction',
+            'testConflictingRewritesOnOneRuleAreRefused',
+        ]
+        self._suite.addTests(map(MultiActionRuleTest,tests))
 
 
     def run(self):

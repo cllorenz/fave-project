@@ -4492,6 +4492,60 @@ test that a multi-action rule yields one TRUE edge per action and that a single-
 rule is unchanged; then `rule_to_ad6` follows directly.
 
 
+#### 9.7.3 DECISION (owner, 2026-09-12): option B, with A recorded as the fallback
+
+*"Please go with option B but record A as a fallback."*
+
+**B is DONE.** `ad6/src/core/kripke.py`'s `_HandleRule` now iterates
+`Rule.xpath(ACTIONPATH)` instead of taking `[0]`, so every `<action>` contributes its own
+TRUE transition. Seven tests in `ad6/test/core/kripketest.py::MultiActionRuleTest`,
+written BEFORE the change and red against the old reader (with `tgt_a` reachable while
+`tgt_b`/`tgt_c` were not -- the bug, exhibited), wired into `kripkesuite.py`'s manual
+registry.
+
+**The backward-compatibility claim was VERIFIED, not argued.** Every benchmark's Kripke
+was digested (nodes with their props and rewrites, plus forward and backward transition
+sets, canonicalised and hashed) before and after the change:
+
+| benchmark | nodes | forward edges | digest |
+|---|---|---|---|
+| wl_ifi | 298 | 290 | identical |
+| wl_up | 5,977 | 8,661 | identical |
+| wl_stanford_n2_plain / _faithful | 1,196 / 1,286 | 1,920 / 2,100 | identical |
+| wl_stanford_n16_plain / _faithful | 5,463 / 5,967 | 7,764 / 8,772 | identical |
+
+All six byte-identical, as the "every existing rule carries exactly one action" argument
+predicted. (wl_i2 was not digested -- its Kripke build is ~17 min -- but it is the
+benchmark LEAST able to exercise this: its rules never exceed two actions and never fan
+out.)
+
+Two deliberate semantic decisions came with it, neither incidental:
+
+  * **A rule with NO action now means "matches, forwards nowhere" -- a drop.** The old
+    `[0]` raised `IndexError` on that shape. FaVe produces many such rules (2,315 in
+    wl_up, 690 in wl_stanford N=16), so it needed a definite meaning rather than a crash;
+    the rule still falls through, so it does not swallow what follows.
+  * **Two actions disagreeing about one rewrite field are REFUSED**, not resolved by
+    last-write-wins. This is the single new failure mode the loop introduces -- under
+    `[0]` a second, disagreeing rewrite was simply unreachable. No benchmark produces it
+    (measurement: no rule anywhere carries more than one `Rewrite` action), which is
+    exactly why it must fail loudly if one ever does: a silently-picked rewrite is a wrong
+    answer inside a normal-looking run.
+
+**A stays on the record as the fallback**, and remains viable without modification: emit
+a rule whose single jump targets a synthetic `<key>_fanout` node, return the
+(fanout -> egress) edge list alongside the config, and apply it with `Kripke.Put` after
+`ConvertToKripke` -- the idiom `favemodel.wire_edges`/`wire_fanout` already use. It costs
+zero ad6 change and buys a model the XML only half-describes plus a translator that is no
+longer a pure function. **The condition under which A should be revisited:** if the
+per-NODE rewrite granularity ever stops being sufficient -- i.e. if some workload
+produces a rule whose fanout targets need DIFFERENT rewrites, which is precisely what
+§9.7.3's conflict guard will report. A's indirection node gives each target its own node
+and therefore its own rewrite set, so it is the natural answer to that case, and the
+guard is what would surface it. **Option C (one ad6 rule per port) stays rejected** on
+Phase 0.1's first-match-wins result; see §9.7.2.
+
+
 ---
 
 

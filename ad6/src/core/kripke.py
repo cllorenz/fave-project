@@ -225,21 +225,61 @@ class KripkeUtils:
             if FieldMatchConjuncts:
                 Node.Gamma.extend(FieldMatchConjuncts)
 
-        # true Transition
-        Action = Rule.xpath(XMLUtils.ACTIONPATH)[0]
-        if Action.attrib[XMLUtils.ATTRTYPE] == XMLUtils.JUMP:
-            Target = Action.attrib[XMLUtils.ATTRTARGET]
-            Kripke.Put(RKey,(Target,True))
+        # true Transition(s) -- AD6_PLAN.md §9.7.2 option B. EVERY <action>
+        # becomes its own TRUE edge, not just the first. Several simultaneous
+        # TRUE edges out of one node are OR/existential ("the packet may follow
+        # any of these"), which is the correct reading for a reachability
+        # question and the same one NetPlumber gives a branching flow;
+        # KripkeStructure.Put has always APPENDED (_AppendTransition), so the
+        # graph layer supported this before this reader did.
+        #
+        # This replaced `Rule.xpath(ACTIONPATH)[0]`, which silently ignored a
+        # rule's 2nd and later actions -- wl_stanford fans single rules out to
+        # as many as 16 egress ports, so that dropped 15 of them. Generalizing
+        # here rather than emitting one ad6 rule per port is deliberate: tables
+        # are first-match-wins (instantiatortest.RuleOrderSemanticsTest), so
+        # sibling rules sharing a condition would let only the first fire --
+        # see AD6_PLAN.md §9.7.2, where that option is rejected by name.
+        #
+        # STRICTLY a generalization: every rule ad6 emitted before this carried
+        # exactly one action, so the loop runs once and is indistinguishable
+        # from the old indexing (kripketest.MultiActionRuleTest pins it, and
+        # every benchmark's Kripke was verified byte-identical across the
+        # change). A rule with NO action now means "matches, forwards nowhere"
+        # -- a drop -- where the old indexing raised IndexError; FaVe produces
+        # many such rules, so the shape needs a definite meaning.
+        for Action in Rule.xpath(XMLUtils.ACTIONPATH):
+            if Action.attrib[XMLUtils.ATTRTYPE] == XMLUtils.JUMP:
+                Target = Action.attrib[XMLUtils.ATTRTARGET]
+                Kripke.Put(RKey,(Target,True))
 
-        # AD6_PLAN.md §5.4 Stage A: a rewrite only ever matters together
-        # with the jump edge it rides on (see GenUtils.action's docstring),
-        # so recording it here regardless of action type is harmless --
-        # Instantiator._CreateMutationConstraints only ever consults
-        # Node.Rewrites for a node that actually has an outgoing TRUE
-        # transition to gate it on.
-        RewriteField = Action.attrib.get('rewrite_field')
-        if RewriteField is not None:
-            Node.Rewrites[RewriteField] = int(Action.attrib['rewrite_value'])
+            # AD6_PLAN.md §5.4 Stage A: a rewrite only ever matters together
+            # with the jump edge it rides on (see GenUtils.action's docstring),
+            # so recording it here regardless of action type is harmless --
+            # Instantiator._CreateMutationConstraints only ever consults
+            # Node.Rewrites for a node that actually has an outgoing TRUE
+            # transition to gate it on.
+            #
+            # Rewrites are per-NODE, and measurement says that is the right
+            # granularity rather than a limitation: across wl_ifi/wl_up/wl_i2/
+            # wl_stanford no rule carries more than ONE Rewrite action, so a
+            # fanning-out rule has ONE rewrite shared by all of its targets
+            # (AD6_PLAN.md §9.7.1). Repeating the same pair on each action is
+            # therefore expected and idempotent; two actions DISAGREEING about
+            # one field is the single new failure mode the loop introduces, and
+            # it is refused rather than resolved by last-write-wins -- silently
+            # picking one would be a wrong answer inside a normal-looking run.
+            RewriteField = Action.attrib.get('rewrite_field')
+            if RewriteField is not None:
+                RewriteValue = int(Action.attrib['rewrite_value'])
+                Previous = Node.Rewrites.get(RewriteField)
+                if Previous is not None and Previous != RewriteValue:
+                    raise ValueError(
+                        "rule %s has conflicting rewrites of %r (%r and %r). A "
+                        "rule's actions share one per-node rewrite set, so they "
+                        "cannot disagree -- see AD6_PLAN.md §9.7." % (
+                            RKey, RewriteField, Previous, RewriteValue))
+                Node.Rewrites[RewriteField] = RewriteValue
 
         # false Transition
         try:
