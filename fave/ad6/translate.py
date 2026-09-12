@@ -157,10 +157,9 @@ _AD6_FIELD_NAME = {
     'packet.ether.vlan': 'vlan',
 }
 
+# Port provenance is STRUCTURAL in ad6, not a field. See _PORT_FIELDS below.
 _GENERIC = {
     'related',
-    'in_port',
-    'out_port',
     'module.limit',
     'module.ipv6header.header',
     # VLAN is here rather than among the typed primitives even though
@@ -177,6 +176,45 @@ _GENERIC = {
 # rather than emitting a vacuous one (favemodel._is_constrained does the same).
 # Both spellings of the IPv6 default route occur in real FaVe output.
 _MATCH_ALL = frozenset({'0.0.0.0/0', '::/0', '0::0/0'})
+
+
+# WHICH PORT A PACKET CAME IN ON / LEAVES BY IS STRUCTURAL IN ad6, NOT A FIELD.
+# FaVe carries it as ordinary header bookkeeping (`in_port`/`out_port`), because
+# NetPlumber's header space is where all of its state lives. ad6 instead has
+# real interface NODES (`iface_key(dev, port)` + '_in'/'_out'), so "arrived via
+# this port" is a property of the PATH, expressed with <interface direction=...>
+# -- which is why these two fields are handled by `rule_to_ad6` (as conditions
+# and edges) rather than by `field_to_match` (as values).
+#
+# Measured 2026-09-12, and this is what makes the choice safe rather than merely
+# tidy: EVERY rule carrying an `out_port` rewrite also carries exactly one
+# `Forward` (wl_ifi 27/27, wl_up 318/318), so the Forward is always the
+# authoritative forwarding decision and the rewrite is never the only record of
+# it. Half of those rewrites are not even ports: they set the field to a
+# 32-wide WILDCARD ("x"*32, i.e. "forget where this came from"), which
+# `kripke.py`'s `int(rewrite_value)` could not represent under any scheme -- so
+# treating port rewrites as field mutations was never an option that closed.
+#
+# PROVISIONAL, and recorded as such (AD6_PLAN.md §9.8): the equivalence of
+# "matches in_port == P" with "the path traversed interface node P" is sound by
+# construction but is only VALIDATED once Phase 3 reproduces each benchmark's
+# verdicts. The alternative, if it does not hold, is to keep ports as fields and
+# solve the wildcard/int problem in ad6 instead.
+_PORT_FIELDS = frozenset({'in_port', 'out_port'})
+
+# FaVe names a router port "<device>.<port>_ingress"/"_egress"; the direction is
+# carried by the suffix, and ad6 wants it as an attribute.
+_PORT_SUFFIX_DIRECTION = {'_ingress': 'in', '_egress': 'out'}
+
+
+def split_port_direction(port: str) -> Any:
+    """ "ifi.10_egress" -> ("ifi.10", "out"); "dev.1" -> ("dev.1", None).
+    The direction is None when the name carries no suffix, which is how
+    switch-style ports and FaVe's own table ports are spelled. """
+    for suffix, direction in _PORT_SUFFIX_DIRECTION.items():
+        if port.endswith(suffix):
+            return port[:-len(suffix)], direction
+    return port, None
 
 
 def rewrite_field_for(name: str) -> str:
@@ -218,6 +256,15 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
         # constraint.
         return None
 
+    if name in _PORT_FIELDS:
+        raise UnsupportedField(
+            "%r is port provenance, which ad6 expresses STRUCTURALLY (an "
+            "<interface> condition on the path) rather than as a field value. "
+            "rule_to_ad6 handles it; field_to_match deliberately does not, so "
+            "that there is exactly ONE representation of a port in the model "
+            "rather than two that could disagree. See fave/ad6/translate.py's "
+            "_PORT_FIELDS comment and AD6_PLAN.md 9.8." % name)
+
     if name in set(mutable) or name in _GENERIC:
         return GenUtils.fieldmatch(rewrite_field_for(name), str(value), negated=negated)
 
@@ -243,3 +290,154 @@ def supported_fields() -> Set[str]:
     model's mutable set. Used by the test suite to assert the table covers the
     vocabulary the real benchmarks actually use. """
     return set(_ADDRESSES) | set(_PORTS) | set(_SIMPLE) | set(_GENERIC)
+
+
+class UnsupportedAction(Exception):
+    """ A FaVe action with no ad6 representation. Raised for the same reason as
+    UnsupportedField: silently ignoring an action changes where packets go. """
+
+
+def _forward_ports(rule: Any) -> Any:
+    """ Every port this rule forwards to, in action order, deduplicated.
+
+    The `Forward` actions are the authoritative forwarding decision -- measured:
+    every rule carrying an `out_port` rewrite also carries exactly one Forward,
+    so the rewrite is never the sole record of an egress (see _PORT_FIELDS). """
+    ports = []
+    for action in (getattr(rule, 'actions', None) or []):
+        if type(action).__name__ != 'Forward':
+            continue
+        for port in (getattr(action, 'ports', None) or []):
+            if port not in ports:
+                ports.append(port)
+    return ports
+
+
+def _vlan_rewrite(rule: Any) -> Any:
+    """ The rule's genuine field rewrite, or None.
+
+    Returns (ad6_field_name, int_value). Port rewrites are skipped here by
+    design (_PORT_FIELDS). Measured: what remains is always `packet.ether.vlan`
+    and always a single field, 80,868 of 80,868 occurrences -- which is why
+    ad6's one rewrite_field/rewrite_value pair per action suffices
+    (AD6_PLAN.md 9.7.1). Anything else is refused rather than dropped. """
+    found = None
+    for action in (getattr(rule, 'actions', None) or []):
+        for field in (getattr(action, 'rewrite', None) or []):
+            if field.name in _PORT_FIELDS:
+                continue
+            name = rewrite_field_for(field.name)
+            try:
+                value = int(field.value)
+            except (TypeError, ValueError):
+                raise UnsupportedAction(
+                    "rewrite of %r to %r: ad6 stores a rewrite as an integer "
+                    "(kripke.py's int(rewrite_value)), and this value is not "
+                    "one. See AD6_PLAN.md 9.7.1." % (field.name, field.value))
+            if found is not None and found != (name, value):
+                raise UnsupportedAction(
+                    "rule rewrites more than one non-port field (%r and %r). "
+                    "ad6 carries one rewrite pair per action; no benchmark "
+                    "produces this, so it is refused rather than guessed "
+                    "(AD6_PLAN.md 9.7.1)." % (found, (name, value)))
+            found = (name, value)
+    return found
+
+
+def rule_to_ad6(rule: Any, key: str, resolve_target: Any,
+                mutable: Iterable[str] = (), position: Optional[int] = None) -> Any:
+    """ One FaVe `Rule` -> one ad6 <rule>, at its own position.
+
+    `resolve_target(port)` maps a FaVe forward port to the ad6 node key it
+    should jump to; `model_to_config` supplies it, so this function stays pure
+    and independent of how the port graph is laid out.
+
+    The rule's POSITION is its semantics, not decoration: ad6 evaluates a
+    table's rules first-match-wins in document order with an implicit
+    fall-through to the next (instantiatortest.RuleOrderSemanticsTest), and
+    FaVe's own interwoven rulesets encode their state semantics purely as rule
+    order (AD6_PLAN.md 9.2a). The caller must therefore emit rules in FaVe's
+    `idx` order and never re-sort them.
+
+    Emits one <action type="jump"> per forwarded port -- ad6 reads every action
+    as its own TRUE edge, giving OR/existential semantics across the fanout
+    (9.7.2 option B). A rule that forwards nowhere gets no action at all, which
+    ad6 reads as "matches, goes nowhere": a drop. """
+    element = GenUtils.rule(str(position if position is not None else 0), key=key)
+
+    for field in (getattr(rule, 'match', None) or []):
+        if field.name in _PORT_FIELDS:
+            # Structural, not a value: which interface the path went through.
+            port, _suffix_direction = split_port_direction(str(field.value))
+            direction = 'in' if field.name == 'in_port' else 'out'
+            element.append(GenUtils.interface(port, resolve_target(str(field.value)),
+                                              direction=direction,
+                                              negated=bool(getattr(field, 'negated', False))))
+            continue
+        match = field_to_match(field, mutable=mutable)
+        if match is not None:
+            element.append(match)
+
+    # `in_ports` is which port a rule is reachable FROM -- graph structure in
+    # FaVe, a path condition here. Several ports are a disjunction, which
+    # kripke.py builds for us from repeated <interface> elements.
+    for port in (getattr(rule, 'in_ports', None) or []):
+        name, _direction = split_port_direction(str(port))
+        element.append(GenUtils.interface(name, resolve_target(str(port)),
+                                          direction='in'))
+
+    rewrite = _vlan_rewrite(rule)
+    for port in _forward_ports(rule):
+        target = resolve_target(port)
+        if rewrite is None:
+            element.append(GenUtils.action('jump', target=target))
+        else:
+            field_name, value = rewrite
+            element.append(GenUtils.action('jump', target=target,
+                                           rewrite_field=field_name,
+                                           rewrite_value=value))
+
+    for action in (getattr(rule, 'actions', None) or []):
+        kind = type(action).__name__
+        if kind not in ('Forward', 'Rewrite', 'Miss'):
+            raise UnsupportedAction(
+                "no ad6 representation for action %r on rule %s -- never drop "
+                "an action, it changes where packets go" % (kind, key))
+
+    return element
+
+
+def table_key(device: str, table: str) -> str:
+    """ The ad6 key prefix for one FaVe table. Deterministic from (device,
+    table) alone, so `model_to_config` can resolve a jump target without
+    needing a second pass or a position re-derivation. """
+    safe = lambda part: str(part).replace('.', '_').replace('-', '_')
+    return "fw_%s_%s" % (safe(device), safe(table))
+
+
+def rule_key(device: str, table: str, position: int) -> str:
+    return "%s_r%d" % (table_key(device, table), position)
+
+
+def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
+                 mutable: Iterable[str] = ()) -> Any:
+    """ One FaVe table -> one ad6 <table>, rules in the order given.
+
+    ORDER IS PRESERVED, NEVER IMPOSED: the caller passes FaVe's own rule list
+    and this function does not sort it. `Rule.idx` is asserted to agree with
+    the list position, so a caller that reordered (or dropped) rules fails here
+    rather than producing a silently different model. """
+    element = GenUtils.table(str(table).replace('.', '_'))
+    for position, rule in enumerate(rules):
+        index = getattr(rule, 'idx', None)
+        if index is not None and int(index) != position:
+            raise ValueError(
+                "rule at position %d of %s/%s carries idx=%s. Rule ORDER is the "
+                "semantics here (first-match-wins with fall-through), so a list "
+                "whose positions disagree with its own indices has already lost "
+                "information -- refusing rather than guessing which is right."
+                % (position, device, table, index))
+        element.append(rule_to_ad6(rule, rule_key(device, table, position),
+                                   resolve_target, mutable=mutable,
+                                   position=position))
+    return element

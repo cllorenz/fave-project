@@ -30,10 +30,22 @@ import lxml.etree as et
 
 from ad6 import translate
 from ad6.translate import (
-    UnsupportedField, field_to_match, rewrite_field_for, rewritten_fields,
-    supported_fields,
+    UnsupportedAction, UnsupportedField, field_to_match, rewrite_field_for,
+    rewritten_fields, rule_key, rule_to_ad6, split_port_direction,
+    supported_fields, table_to_ad6,
 )
-from rule.rule_model import Forward, Rewrite, Rule, RuleField, Match
+from rule.rule_model import Forward, Miss, Rewrite, Rule, RuleField, Match
+
+
+# Port provenance is structural in ad6, so these two are handled by rule_to_ad6
+# as <interface> conditions, never by field_to_match as values.
+_STRUCTURAL = {'in_port', 'out_port'}
+
+
+def _target(port):
+    """ A stand-in port resolver, so the rule layer can be tested without a
+    port graph. """
+    return 'T_' + str(port).replace('.', '_')
 
 
 def _xml(element):
@@ -61,7 +73,7 @@ class TestFieldCoverage(unittest.TestCase):
     }
 
     def test_every_field_the_benchmarks_use_is_representable(self):
-        missing = sorted(self._MEASURED - supported_fields())
+        missing = sorted((self._MEASURED - _STRUCTURAL) - supported_fields())
         self.assertEqual(missing, [],
                          "fields used by a real benchmark with no ad6 representation: %s"
                          % missing)
@@ -70,7 +82,7 @@ class TestFieldCoverage(unittest.TestCase):
         """ Coverage by NAME is not coverage: a field reachable only when it
         happens to be in the model's mutable set would raise on a model that
         never rewrote it. Each one must translate on its own. """
-        for name in sorted(self._MEASURED):
+        for name in sorted(self._MEASURED - _STRUCTURAL):
             with self.subTest(field=name):
                 self.assertIsNotNone(_xml(field_to_match(RuleField(name, '1'))))
 
@@ -177,10 +189,18 @@ class TestMutableFieldsUseFieldmatch(unittest.TestCase):
                          '<fieldmatch field="vlan">10</fieldmatch>')
         self.assertEqual(rewrite_field_for('packet.ether.vlan'), 'vlan')
 
-    def test_ports_and_related_are_always_node_scoped(self):
-        for name in ('in_port', 'out_port', 'related'):
+    def test_related_is_node_scoped(self):
+        self.assertIn('<fieldmatch ', _xml(field_to_match(RuleField('related', '1'))))
+
+    def test_port_fields_are_REFUSED_by_the_field_layer(self):
+        """ Ports are structural in ad6 (real interface nodes), so there must be
+        exactly ONE representation of a port in the model -- an <interface>
+        condition emitted by rule_to_ad6 -- rather than two that could
+        disagree. field_to_match refusing them is what enforces that. """
+        for name in sorted(_STRUCTURAL):
             with self.subTest(field=name):
-                self.assertIn('<fieldmatch ', _xml(field_to_match(RuleField(name, '1'))))
+                with self.assertRaises(UnsupportedField):
+                    field_to_match(RuleField(name, 'dev.1_ingress'))
 
     def test_related_is_a_plain_field_not_a_state_element(self):
         """ §9.2(a): FaVe's interweaving strips conntrack and re-emits `related`
@@ -326,3 +346,155 @@ class TestPurity(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestPortNames(unittest.TestCase):
+    def test_router_suffixes_are_split_off(self):
+        self.assertEqual(split_port_direction('ifi.10_egress'), ('ifi.10', 'out'))
+        self.assertEqual(split_port_direction('ifi.10_ingress'), ('ifi.10', 'in'))
+
+    def test_an_unsuffixed_port_keeps_its_name_and_has_no_direction(self):
+        self.assertEqual(split_port_direction('dev.1'), ('dev.1', None))
+
+    def test_a_port_whose_name_merely_contains_the_word_is_not_split(self):
+        self.assertEqual(split_port_direction('ingress.dev.1'), ('ingress.dev.1', None))
+
+
+class TestRuleTranslation(unittest.TestCase):
+    """ The rule layer. Every case is built by hand, so what is asserted is the
+    emitted ad6 XML rather than a downstream verdict. """
+
+    @staticmethod
+    def _rule(match=None, actions=None, in_ports=None, idx=0):
+        return Rule('dev', 't', idx, in_ports=in_ports,
+                    match=Match(match or []), actions=actions or [])
+
+    def _xml_of(self, rule, mutable=(), position=0):
+        return _xml(rule_to_ad6(rule, 'k', _target, mutable=mutable, position=position))
+
+    def test_a_forward_becomes_a_jump_to_the_resolved_target(self):
+        out = self._xml_of(self._rule(actions=[Forward(['dev.2'])]))
+        self.assertIn('<action type="jump" target="T_dev_2"/>', out)
+
+    def test_each_fanout_port_gets_ITS_OWN_action(self):
+        """ ad6 reads every <action> as its own TRUE edge (§9.7.2 option B), so
+        N ports must produce N actions -- wl_stanford fans out to as many as
+        16, and emitting one would silently drop 15 egresses. """
+        out = self._xml_of(self._rule(actions=[Forward(['dev.2', 'dev.3', 'dev.4'])]))
+        self.assertEqual(out.count('<action '), 3)
+        for target in ('T_dev_2', 'T_dev_3', 'T_dev_4'):
+            self.assertIn(target, out)
+
+    def test_a_shared_rewrite_rides_on_every_fanout_action(self):
+        """ Measured: no rule carries more than one Rewrite, so a fanning-out
+        rule's single rewrite applies to all its targets. kripke.py folds the
+        repeats into one per-node entry and refuses disagreement. """
+        out = self._xml_of(self._rule(
+            actions=[Rewrite([RuleField('packet.ether.vlan', '10')]),
+                     Forward(['dev.2', 'dev.3'])]),
+            mutable={'packet.ether.vlan'})
+        self.assertEqual(out.count('rewrite_field="vlan"'), 2)
+        self.assertEqual(out.count('rewrite_value="10"'), 2)
+
+    def test_a_rule_that_forwards_nowhere_gets_no_action(self):
+        """ ad6 reads an action-less rule as "matches, goes nowhere" -- a drop
+        (kripketest.MultiActionRuleTest pins that). FaVe produces thousands of
+        these (2,315 in wl_up), so they must translate, not raise. """
+        out = self._xml_of(self._rule(
+            match=[RuleField('packet.ipv4.destination', '10.0.0.0/8')], actions=[]))
+        self.assertNotIn('<action', out)
+        self.assertIn('<address>10.0.0.0/8</address>', out)
+
+    def test_in_ports_become_interface_conditions(self):
+        out = self._xml_of(self._rule(in_ports=['dev.1'], actions=[Forward(['dev.2'])]))
+        self.assertIn('<interface direction="in">T_dev_1</interface>', out)
+
+    def test_several_in_ports_all_appear(self):
+        """ kripke.py ORs repeated <interface> elements of one direction, which
+        is the right reading of a rule reachable from several ports. """
+        out = self._xml_of(self._rule(in_ports=['dev.1', 'dev.2']))
+        self.assertEqual(out.count('<interface direction="in">'), 2)
+
+    def test_a_port_MATCH_becomes_an_interface_condition_not_a_value(self):
+        out = self._xml_of(self._rule(
+            match=[RuleField('in_port', 'dev.1_ingress')]))
+        self.assertIn('<interface direction="in">', out)
+        self.assertNotIn('fieldmatch', out)
+
+    def test_an_out_port_match_carries_the_out_direction(self):
+        out = self._xml_of(self._rule(match=[RuleField('out_port', 'dev.1_egress')]))
+        self.assertIn('direction="out"', out)
+
+    def test_port_REWRITES_emit_nothing(self):
+        """ They are NetPlumber bookkeeping, not a forwarding decision: every
+        rule carrying one also carries the Forward that actually decides, and
+        half of them set a 32-wide wildcard that ad6 could not store anyway. """
+        out = self._xml_of(self._rule(
+            actions=[Rewrite([RuleField('in_port', 'x' * 32),
+                              RuleField('out_port', 'x' * 32)]),
+                     Forward(['dev.2'])]))
+        self.assertNotIn('rewrite_field', out)
+        self.assertIn('target="T_dev_2"', out)
+
+    def test_a_match_all_address_contributes_no_condition(self):
+        out = self._xml_of(self._rule(
+            match=[RuleField('packet.ipv4.destination', '0.0.0.0/0')],
+            actions=[Forward(['dev.2'])]))
+        self.assertNotIn('<address>', out)
+        self.assertIn('<action ', out)
+
+    def test_duplicate_forward_ports_are_emitted_once(self):
+        out = self._xml_of(self._rule(actions=[Forward(['dev.2']), Forward(['dev.2'])]))
+        self.assertEqual(out.count('<action '), 1)
+
+    def test_a_non_integer_rewrite_is_refused(self):
+        with self.assertRaises(UnsupportedAction):
+            self._xml_of(self._rule(
+                actions=[Rewrite([RuleField('packet.ether.vlan', 'not-a-number')])]))
+
+    def test_two_disagreeing_non_port_rewrites_are_refused(self):
+        with self.assertRaises(UnsupportedAction):
+            self._xml_of(self._rule(actions=[
+                Rewrite([RuleField('packet.ether.vlan', '10')]),
+                Rewrite([RuleField('packet.ether.vlan', '20')])]))
+
+    def test_a_miss_action_is_accepted_and_forwards_nowhere(self):
+        out = self._xml_of(self._rule(actions=[Miss()]))
+        self.assertNotIn('<action', out)
+
+
+class TestTableTranslation(unittest.TestCase):
+    """ The table layer, whose single job is to NOT disturb order. """
+
+    @staticmethod
+    def _rules(count):
+        return [Rule('dev', 't', i, in_ports=['dev.1'],
+                     match=Match([RuleField('packet.ipv4.destination',
+                                            '10.0.%d.0/24' % i)]),
+                     actions=[Forward(['dev.2'])]) for i in range(count)]
+
+    def test_rules_keep_their_given_order(self):
+        table = table_to_ad6('dev', 't', self._rules(3), _target)
+        keys = [r.get('key') for r in table]
+        self.assertEqual(keys, [rule_key('dev', 't', i) for i in range(3)])
+
+    def test_rule_names_are_positional(self):
+        table = table_to_ad6('dev', 't', self._rules(3), _target)
+        self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
+
+    def test_a_reordered_rule_list_is_REFUSED(self):
+        """ Order IS the semantics -- FaVe's interwoven rulesets encode their
+        state purely as rule position (§9.2a). A list whose positions disagree
+        with its own indices has already lost information, so this fails rather
+        than silently producing a different model. """
+        rules = self._rules(3)
+        rules[0], rules[2] = rules[2], rules[0]
+        with self.assertRaises(ValueError):
+            table_to_ad6('dev', 't', rules, _target)
+
+    def test_an_empty_table_translates_to_an_empty_table(self):
+        self.assertEqual(len(table_to_ad6('dev', 't', [], _target)), 0)
+
+    def test_table_and_rule_keys_are_deterministic_and_dot_safe(self):
+        self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', 4),
+                         'fw_in_bbra_rtr_acl_in_r4')
