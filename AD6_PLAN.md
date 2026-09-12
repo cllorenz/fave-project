@@ -4059,6 +4059,177 @@ speculatively ahead of need.
 
 ---
 
+## 9. The ad6 adapter rewrite: structural translation (owner decision 2026-09-12)
+
+**Owner framing, recorded because it sets the scope:** *"I think we should invest in the
+integration now. FaVe's network model (mostly match-action tables with unidirectionally
+connected ports) is not too complicated and in an earlier session you said, that ad6's
+primitives should be sufficient for the implementation of the adapter. With wl_ifi at
+hand, we also have a rather small and fast running benchmark to accompany our work.
+Hence, we need an implementation plan (as always: test first)."*
+
+### 9.1 The diagnosis: semantic reconstruction, not translation
+
+`fave/ad6/adapter.py` does not translate FaVe's model. It RECOGNISES FaVe's naming
+conventions and rebuilds meaning from them, emitting an IR of interpreted CONCEPTS
+(`acl_in`, `acl_out`, `in_admit`, `mid_rw`, `out_rw`, `in_vlans`, `routing_rules`) rather
+than of rules. The evidence is explicit in the code:
+
+  * `_build_ir` sniffs the WORKLOAD -- `if any(d.split('.', 1)[0] == 'mid' for d in
+    devices)` is "this is wl_stanford", in the production path, with a comment saying
+    there is no other flag distinguishing the benchmark.
+  * Eight `_capture_*` methods recover concepts from the `in.*`/`mid.*`/`out.*` stage
+    convention, plus `_fold_mid_rewrites` and `_collapse_out_stage`.
+  * `load_bench_metadata` DISCARDS FaVe's already-parsed rules for every device carrying a
+    `ruleset_path` -- **136 of wl_up's 159 devices** -- and re-reads the raw ip6tables
+    text so ad6's own `IP6TablesParser` can parse it instead. Its docstring states the
+    rationale ("feed ad6 its native format directly", on the strength of
+    `IP6TablesParser`'s exact match on wl_tum's 3,795 rules).
+
+Every generality problem this plan has hit traces back to that design: the LPM tiebreak
+bug, the per-(port, VLAN) admission cross-product, the out-stage collapse, and the wl_up
+NO-GO (§5.1). **The wl_up NO-GO's REASONING was right and its SCOPE was one level too
+wide:** porting state-shell interweaving into `ad6/src/parser/iptables.py` is still not
+worth doing, but that conclusion was reached without questioning the bypass that makes
+`IP6TablesParser` load-bearing on the adapter path at all. FaVe already does the
+interweaving; the adapter throws the result away.
+
+**Target: STRUCTURAL TRANSLATION.** FaVe table -> ad6 table; FaVe rule -> ad6 rule in
+FaVe's own `idx` order; FaVe field -> ad6 match; FaVe action -> ad6 action; FaVe link ->
+ad6 connection. No name recognition, no concept recovery, no workload detection.
+
+### 9.2 Two prerequisites, both checked in the code before planning
+
+**(a) A FaVe backend needs NO stateful reasoning -- confirmed, and it is stronger than it
+sounds.** Owner framing: *"once ad6 can be used as a FaVe backend, there is no necessity
+for stateful reasoning anymore as FaVe only requires stateless verification engines."*
+`fave/iptables/generator.py:519`'s `_interweave_state_shell` does not merely derive the
+ESTABLISHED-accept leg -- it STRIPS the conntrack matches outright
+(`match=Match([f for f in rule.match if not is_conntrack(f)])`) and re-emits the derived
+rules carrying a plain `RuleField('related', '1')`/`('related', '0')` (`:368`, `:404`).
+`related` is an ordinary 8-bit header field in FaVe's model
+(`fave/netplumber/mapping.py:34`). So the engine sees no state at all, just a field named
+`related` -- one entry in a field-mapping table, and `_STATE_FOR_RELATED`'s state
+semantics leave the adapter path entirely.
+**The consequence that drives the design: the state semantics survive PURELY AS RULE
+POSITION.** The interwoven ruleset is correct only if evaluated in order. Rule-ordering
+fidelity is therefore the translator's critical property, not a detail.
+
+**(b) ad6's primitives suffice.** `ad6/src/xml/genutils.py` provides `firewall`, `table`,
+`rule(name, key)`, the generic `fieldmatch(field, value, negated)`, the typed
+`address`/`port`/`proto`/`vlan` matches, `action(type, target, rewrite_field,
+rewrite_value)`, `connection(target)` and `route(target, flag)` -- a complete match-action
+vocabulary. `ad6/src/core/kripke.py:62` walks a table's rules in DOCUMENT ORDER with the
+index in hand, so ordering is representable. (Whether the fall-through semantics are
+exactly first-match-wins is Phase 0.1's job to pin, not to assume.)
+
+### 9.3 The plan (test first, per the standing rule)
+
+**Phase 0 -- establish the ground before changing production code.**
+  1. **Settle ad6's rule-order semantics FIRST; it gates the design.** A two-rule table
+     where order decides the verdict (rule 0 accepts what rule 1 drops, then swapped).
+     If ad6 is not first-match-wins in document order, Phase 1's shape changes.
+  2. **Characterization tests.** Snapshot `_build_ir()` for all six benchmarks and the
+     verdict matrix from each of the 13 `fave/test/test_ad6_*` files. These are
+     TRIPWIRES, not specifications -- their only job is to make every change visible.
+  3. **Name the adjudicator BEFORE seeing a diff.** The recorded answers (wl_ifi 54/54,
+     wl_stanford 165 pairs, wl_i2 61/72 with the 11 named pairs) were produced BY THE
+     ADAPTER BEING REPLACED, so a difference is not automatically a regression. Each one
+     is adjudicated against NetPlumber's own matrix (§9.4) or, on i2, the structural
+     oracle. Deciding this in advance is what keeps the rewrite from silently ratifying
+     an existing bug.
+
+**Phase 1 -- the translator: pure, bottom-up, tests written first.** A new
+`fave/ad6/translate.py`, no I/O and no adapter state, each function's tests written from
+hand-built FaVe objects before the function exists:
+`field_to_match(RuleField)` (one test per field: ipv4/ipv6 src+dst, `vlan`, ports, proto,
+`related`, and negation on each) -> `rule_to_ad6(Rule, pos)` (matches + `in_ports` +
+`Forward`/`Rewrite`/`Miss`, position preserved) -> `table_to_ad6` -> `model_to_config`.
+All sub-second and benchmark-free: this is where the design work is and where tests are
+cheapest.
+
+**Phase 2 -- swap it in behind a STAMPED flag.** `Ad6Adapter(...,
+translation='semantic'|'structural')`, defaulting to `semantic`. Stamped in the IR and in
+every result file: the generality-debt gate applies, since this is measurement-affecting
+configuration. The 13 existing test files then run under BOTH, and the differential is
+the test.
+
+**Phase 3 -- climb the ladder, measuring model SIZE at each rung.** wl_example (10) ->
+**wl_ifi (54 checks, 2.1 s -- the inner loop)** -> wl_stanford plain -> wl_stanford
+faithful -> wl_i2 plain -> wl_i2 faithful. Record verdicts AND
+`kripke_nodes`/`clause_count` at every rung. **The main risk lives here:**
+`_collapse_out_stage` and `_fold_mid_rewrites` are partly model-size reductions, and a
+structural translation keeps every stage. **wl_ifi cannot reveal this** -- it will look
+free until i2. If size regresses, the collapses return as STRUCTURAL optimizations
+("collapse any table that is a pure port permutation"), stamped and separately
+toggleable, never name-triggered.
+
+**Phase 4 -- wl_up.** Delete `load_bench_metadata`'s ruleset bypass so those 136 devices
+arrive through `add_rules` with the interweaving intact, and test that wl_up's plain
+checks stop being vacuous (currently 1,712/1,713 false violations, §5.1). This settles
+§9.1's scope correction empirically and should be nearly free once Phase 1 exists.
+**Note what it would mean for the thesis:** wl_up going from NO-GO to working by DELETING
+an ad6-specific shortcut is a better result for the "generic tool, low integration cost"
+claim than wl_up staying out of scope.
+
+**Phase 5 -- delete.** Remove the semantic path, the `mid.*` sniff, the eight
+`_capture_*` methods, `_fold_mid_rewrites`, `_collapse_out_stage`, `ruleset_devices`,
+`_build_ruleset_firewall`, and `IP6TablesParser` from the adapter path; flip the default.
+`favemodel.py` loses most of its IR-interpretation surface with it. **The line count
+going sharply DOWN is the deliverable.**
+
+**Phase 6 -- production wiring (SEPARABLE, may run in parallel).** Backend selection in
+the aggregator -- `aggregator/aggregator_service.py:92` hardcodes `NetPlumberAdapter`
+and its `engine=` parameter is documented as a TEST injection seam, so no production
+route to ad6 (or APKeep) exists at all today; this is the §1.4 "Integration level: (A)
+`AbstractVerificationEngine` backend vs (B) model translation" decision, still open.
+Plus solver/grounding plumbing through `fave_bridge.py`: `IncrementalSession` hardcodes
+`Minisat22` at `incremental.py:134` and `:215`, so the production path cannot today
+reproduce the cadical195 configuration every wl_i2 number was measured under, and
+`lite_acyclic` is not plumbed there either -- which means **i2 through FaVe is only
+possible under flow grounding** (rank needs lite at that scale; the general path cannot
+reach DIMACS conversion). Survivable -- the flow 2x2 puts minisat22 only 14% behind
+cadical195 (3,663 s vs 3,218 s faithful) -- but it must be a stated, stamped choice.
+
+### 9.4 Scope of the accompanying agreement check (owner direction 2026-09-12)
+
+Item 1 of the owner's own list -- *"for each benchmark ad6 and NetPlumber should yield the
+same reachability matrix"* -- has a narrower real scope than it reads, established by
+counting the shipped check files:
+
+| benchmark | `checks.json` | `cchecks.json` | comparable matrix? |
+|---|---|---|---|
+| wl_example | 10 | 3 | yes |
+| wl_ifi | 299 | 17 | yes |
+| wl_up | 11,902 | 131 | **after Phase 4** |
+| wl_tum | **0** | **0** | nothing to compare |
+| wl_stanford | 240 | 16 | yes |
+| wl_i2 | 72 | 9 | yes |
+
+wl_tum ships zero checks in both files and `wl_tum/benchmark.py` never references checks
+-- it is a build/scale workload. wl_shadow, wl_expand, wl_generic_fw and
+wl_state_snapshots are not reachability benchmarks (shadow is anomaly detection;
+state_snapshots is stateful-snapshot work). **The matrix itself comes from NetPlumber's
+own flow-tree dump** (owner's method: roots and leaves of the dumped trees), for which
+`bench/np_i2_flow_dump.py` + `bench/np_i2_flow_leaves.py` are the existing, only lightly
+i2-specific machinery. The property any generalization must preserve is the one that tool
+already states: NetPlumber emits a leaf for any node with no onward flow, so **a leaf is
+either a probe arrival or a dropped branch and only the node id says which** --
+conflating them makes "ad6 forwarded past an NP leaf" trivially true at every probe.
+Two prerequisites sit upstream: the `bench` tier's `/dev/shm` exhaustion and its missing
+inter-workload cleanup (TODO item 1r).
+
+**Logical generality is explicitly NOT a goal here** (owner, 2026-09-12): *"I do not
+think that ad6 requires logical generality. Instead, I would document the gap and if
+necessary, e.g., through some benchmark, I'd approach the issue again with that specific
+use case."* With §9.2(a) settled, the documented gap narrows to what no in-scope
+benchmark asks: AF/AX, waypointing, and the anomaly queries. APKeep is out of scope for
+this effort (owner, same date), which also removes generality-debt item 5 from the
+critical path.
+
+---
+
+
 ## Cross-cutting guardrails (reused from the APKeep/NDD work)
 - **Soundness gate:** ad6 must never drop an NP-reachable pair (differential vs NP oracle).
 - **Env pinned** in the shared `Dockerfile`; measurements only trusted on the controlled
