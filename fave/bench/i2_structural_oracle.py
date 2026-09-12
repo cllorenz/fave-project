@@ -22,10 +22,24 @@
 """ Independent structural reachability oracle for wl_i2 (AD6_PLAN.md Sec. 5.5).
 
 Computes the wl_i2 source->probe reachability matrix DIRECTLY from the shipped
-JSON model, using neither ad6 nor NetPlumber. Its purpose is to be a third,
-independent witness: ad6 (SAT/QBF) and NetPlumber (HSA) agree on 11 unreachable
-pairs, and agreement between two engines is only worth as much as their
-independence. This oracle shares no code with either.
+JSON model, using neither ad6 nor NetPlumber. Its purpose is to be a third
+witness: ad6 (SAT/QBF) and NetPlumber (HSA) agree on 11 unreachable pairs, and
+agreement between two engines is only worth as much as their independence. This
+script shares no code with either.
+
+WHAT KIND OF INDEPENDENCE THIS IS, stated so the result is not oversold
+(AD6_PLAN.md Sec 5.5, "WHAT THE i2 ORACLE ACTUALLY IS"): independence of
+IMPLEMENTATION and of METHOD, not of expectation. There is no external ground
+truth for wl_i2's data plane -- `reachable.json` is policy intent from the same
+generator as `checks.json`, not verified truth -- and the 11-pair result both
+engines agree on was reached only after multiple rounds of correction to both.
+This script was written AFTER that agreement, by the same project, already
+knowing which answer would count as success; it is not a pre-registered
+prediction. What it genuinely adds is a different route to the number -- direct
+structural simulation, exhaustive over IPv4 -- and, with the manual trace to a
+single misconfigured Chicago->Kansas link, a check against the RAW data rather
+than against another tool's output. That last part is what a co-adapted shared
+error between the two engines would not survive.
 
 It is EXHAUSTIVE over IPv4, not a sample. Two destination addresses behave
 identically iff they pick the same longest-prefix-match winner at every device,

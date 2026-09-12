@@ -2611,9 +2611,54 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
 
   **ANSWERED 2026-09-11 -- `eastern -> seat` IS THE SAME CHICAGO CROSSING. There was
   never a second mechanism, and all 11 pairs now have ONE cause.** Established with a
-  third, independent witness: `bench/i2_structural_oracle.py` computes the reachability
+  third witness, independent in implementation and method (see the epistemic note below for
+  what that does and does not buy): `bench/i2_structural_oracle.py` computes the reachability
   matrix straight from the shipped JSON, sharing no code with ad6 or NetPlumber. **It
   reproduces the 11 pairs EXACTLY**, so the agreement is now three-way.
+
+  **WHAT THE i2 "ORACLE" ACTUALLY IS, EPISTEMICALLY — owner clarification 2026-09-12, and
+  it must accompany every use of the 11-pair result.** *"The oracle that you compare the
+  result with has not been externally provided but is an agreement of NetPlumber and ad6.
+  There have been multiple rounds of correction for both tools (more for ad6 than for
+  NetPlumber) and the oracle has been manually inspected finally. This way, some confidence
+  has been gained."*
+
+  **There is no external ground truth for wl_i2's data plane.** `reachable.json` is policy
+  INTENT emitted by the same generator as `checks.json` (TODO.md item 1s), so it cannot
+  serve; the 11-pair result is the project's own construction. Confidence in it is EARNED
+  by process, not derived from an authority, and rests on three legs of unequal strength:
+
+  1. **Convergence of two independently-implemented engines** — ad6 by SAT/QBF over a
+     port-scoped admission relation with a flow grounding constraint, NetPlumber by HSA
+     flow propagation, sharing nothing but the dataset. Real, but reached only AFTER
+     multiple rounds of correction to BOTH: many on the ad6 side (per-(port, VLAN)
+     admission replacing a per-device projection, the out-stage rewrite, the LPM tiebreak,
+     query seeding, the `/0` CIDR and IPv6 canonicalisation bugs, the grounding gap
+     itself), and at least one decisive one on the FaVe/NetPlumber side (`_reprioritise_fib_lpm`
+     reading the declared `fib_table_types`, which moved exactly the three disputed pairs).
+  2. **A third witness by a different METHOD** — `bench/i2_structural_oracle.py`, direct
+     structural simulation from the shipped JSON, exhaustive over IPv4 via prefix atoms,
+     sharing no code with either engine. Independent in implementation and technique, but
+     **written after the fact by the same project, not a pre-registered prediction**: its
+     author already knew which answer would count as success.
+  3. **Manual inspection against the RAW data** — the trace to a single misconfigured
+     Chicago→Kansas link (`220045→400029` admits {11,20,21,30,31,32,40,60,70}, no 10, while
+     carrying 2,547 routes of which 2,545 are tagged vlan 10), verified by hand against
+     `routes.json`/`topology.json`.
+
+  **Why leg 3 is load-bearing rather than a sanity check.** The stopping rule for legs 1-2
+  was *the tools agree* — which is exactly the condition a SHARED error would also satisfy.
+  Iterated mutual correction, where each round is motivated by a disagreement and halted by
+  agreement, is structurally vulnerable to co-adapting two tools onto a common mistake. Leg
+  3 is the only step that checks against something other than another tool's output, and it
+  is strong precisely because it is a far more constrained claim than "the numbers matched":
+  a co-adapted shared error would ALSO have to produce a coherent single-link explanation
+  that survives inspection of the raw JSON.
+
+  **So the phrasing to use, and to avoid.** Say: *corroborated by two engines and a
+  structural witness, root-caused to one misconfiguration in the raw data, after iterated
+  correction of both engines.* Do NOT say *"three independent engines confirm"* — the
+  implementations are independent, the PROCESS that produced the agreement was not.
 
   **The oracle is exhaustive over IPv4, not a sample.** Two destination addresses behave
   identically iff they pick the same LPM winner at every device, and that equivalence is
@@ -3737,8 +3782,13 @@ total measurement time 2 h 49 min of the 12 h budget.
 
 **Every verdict is solver-independent.** Both plain runs report all 72 reachable; both
 faithful runs report the SAME 11 unreachable pairs. The Chicago-crossing result is therefore
-now established across three independent engines (ad6, NetPlumber, the structural oracle)
-and, within ad6, reproduced across two SAT backends and two separate runs.
+now corroborated by two independently-implemented engines (ad6, NetPlumber) and a
+structural witness computed by a third method, and within ad6 reproduced across two SAT
+backends and two separate runs. **Read that with §5.5's "WHAT THE i2 ORACLE ACTUALLY IS":
+the implementations are independent, the process that produced the agreement was not** —
+both engines were corrected repeatedly until they agreed, so it is the manual root-cause
+inspection against the raw data, not the agreement itself, that rules out a co-adapted
+shared error.
 
 **THE HEADLINE: the flow encoding rescues a backend the rank encoding disqualified.** Under
 the rank encoding at i2 scale, Minisat22 **had not resolved query 1 in 90+ minutes** (§5.5's
@@ -3827,8 +3877,9 @@ as the archived run — `chic` unreachable from hous/kans/losa/salt/seat, and `a
 confirmation of the Chicago-crossing result, alongside the earlier ad6 run, NetPlumber, and
 the structural oracle. The archived figures: all 81 queries (72 cross-role +
 9 self) completed in **4,201 s wall / 3,410 s query — about 70 minutes — at 9,183 MB peak**,
-and it is the run whose 11 unreachable pairs are now three-way confirmed against NetPlumber
-and the independent structural oracle. Per query that is ~42 s against rank's extrapolated
+and it is the run whose 11 unreachable pairs are corroborated by NetPlumber and by the
+structural witness (§5.5's "WHAT THE i2 ORACLE ACTUALLY IS" for what that corroboration is
+worth, and what it is not). Per query that is ~42 s against rank's extrapolated
 ~678 s. **The comparison on the faithful model is not "7x"; it is "one finishes in about an
 hour using half the box, the other is a multi-hour run pressed against the memory
 ceiling."**
