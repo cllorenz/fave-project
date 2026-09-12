@@ -3704,6 +3704,15 @@ RSS, on 21.8x fewer clauses.** The range spans the two archived rank runs, whose
 spread is real run-to-run variance on this box; the honest figure is the range, not either
 endpoint, and it is against ARCHIVED rank runs rather than a same-session pair.
 
+**Two scope labels this figure must carry.** (1) It is **INTRA-AD6** — both sides are ad6,
+so the plain model's dst-IP-only workload-parity gap (§5.2's WORKLOAD PARITY note) does not
+affect it, but it also means this number may NOT be set beside a NetPlumber or APKeep
+figure; cross-family i2 comparison uses the faithful runs only. (2) It is a **PLAIN-model**
+ratio and should not be assumed to transfer to the faithful model: plain is an all-SAT
+instance (72/72 reachable), while faithful adds 11 UNSAT pairs that cost 6.6-7.4x a SAT pair
+(§7.5c), and whether that surcharge falls equally on both encodings is untested — there is
+no faithful rank run to compare against, by the owner's decision above.
+
 **The trend across the two benchmarks is the interesting part, and it goes the right way for
 the thesis.** wl_stanford N=16 matched: 7.0x wall, 1.4x memory. wl_i2 plain matched:
 9.0-10.8x wall, **6.0x memory**. The advantage GROWS with model size, and the memory
@@ -4383,11 +4392,34 @@ choice has no stamp, add the stamp before quoting the number.
       egress rewrite and its 390 `in.X` rules are pure VLAN admission -- all of which
       NetPlumber consumes (`netplumber/adapter.py:452-501`) and the faithful NDD run
       answers (`test_apkeep_ndd_fwd.py:166`, the instance BDD-APKeep cannot finish),
-      while `fave/ad6/adapter.py` has no `_capture_out_rewrite` at all and drops them in
-      BOTH modes. So no ad6 i2 figure is like-for-like with another family's, the bias
-      favours ad6, and C3's "does plain mode match the oracle" criterion cannot detect it
+      while `fave/ad6/adapter.py` had no `_capture_out_rewrite` at all and dropped them in
+      BOTH modes. So no ad6 i2 figure was like-for-like with another family's, the bias
+      favoured ad6, and C3's "does plain mode match the oracle" criterion cannot detect it
       (an all-reachable oracle has zero power against over-approximation). C3 is NOT
-      closable as a documentation decision. **Found independently the same day by the
+      closable as a documentation decision.
+      **RESOLVED FOR FAITHFUL MODE, AND THE PREDICTION ABOVE IS NOW MEASURED (2026-09-12).**
+      C4 part 1 built `_capture_out_rewrite` (`fave/ad6/adapter.py:608`,
+      `ad6/FAVE_CHANGES.md` §25) and the per-(port, VLAN) admission fix followed (§27), so
+      `--faithful-vlan` now carries **77,451 out-stage rewrites and a 223-port / 596-pair
+      ingress admission relation**, all stamped in the result file. The
+      "drops them in BOTH modes" clause is simply no longer true of faithful mode.
+      **What makes this a verification rather than a claim:** plain and faithful runs of the
+      identical driver, solver and pair set report **72/72 reachable vs 61/72** — so plain
+      over-approximates by EXACTLY the 11 pairs that NetPlumber and the independent
+      structural oracle both confirm unreachable. The paragraph above predicted precisely
+      this ("the bias favours ad6"; "an all-reachable oracle has zero power against
+      over-approximation") and the size of the bias is now a number rather than an argument.
+      Matching the all-reachable oracle, which plain mode does perfectly, is exactly the
+      symptom it warned about.
+      **STILL TRUE, and it is the live half:** PLAIN-mode i2 figures remain dst-IP-only and
+      are NOT cross-family comparable — that is what "plain" means, not a defect — so every
+      plain number, **§7.5b's 9.0-10.8x matched flow-vs-rank ratio included**, must be
+      labelled INTRA-AD6. Cross-family i2 comparison uses the faithful runs only. The one
+      remaining fidelity gap there is `probe_untag`, deliberately off as a cross-engine
+      parity choice (generality-debt item 4) and stamped in every artifact.
+      **For C3:** the workload-parity ground for holding it open is discharged — the
+      faithful model exists, is measured, and its verdict is corroborated by two independent
+      engines. **Found independently the same day by the
       parallel QA session, with counter-evidence this line lacked: FaVe+NetPlumber,
       cross-checked on i2 for the first time, reports 11 of the 72 pairs UNREACHABLE**,
       and a three-query faithful experiment is planned to decide C3 -- see "C3 REOPENED"
