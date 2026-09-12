@@ -3370,6 +3370,53 @@ Encoding`) in ~15-21 s, and all four recorded i2 artifacts carry `lite_acyclic: 
     `losa`↔`newy32aoa`), so `losa` may be a genuinely awkward endpoint while its worst
     partner is solver-search-dependent. Any §7 claim about "hard pairs" in i2 must be
     attributed to a specific solver.
+
+  **UPDATE 2026-09-12 -- THIS WHOLE COMPARISON IS RANK-ENCODING-SCOPED, AND ITS OWN CLOSING
+  PREDICTION WAS RIGHT.** Every number above was measured under the rank encoding
+  (`--lite-acyclic`) on the PLAIN model. That was never stated because at the time there was
+  only one encoding; it has to be stated now, because the flow encoding (§7.5/§7.5c) changes
+  the conclusions in two different directions.
+
+  - **The prediction lands, by a larger margin than it anticipated.** This section closed
+    with *"any further tractability gain has to come from the encoding, not the backend"*.
+    It does: same model, same solver, same 72 pairs, swapping only the grounding constraint
+    gives **9.0-10.8x wall and 6.0x peak RSS** (§7.5b). The encoding was the right lever and
+    the solver was not.
+  - **"Minisat22 never resolved past query 1" is an artifact of the ENCODING, not of the
+    backend.** Under the rank encoding it had not resolved query 1 in 90+ minutes, which is
+    why it was struck from the shortlist. Under the flow encoding the same backend answers
+    **all 72 plain queries in 1,451 s of solving (~20 s/query)**. So the shortlist's
+    conclusion -- "Cadical195 stands as the best available backend for i2 and no untested
+    candidate remains" -- must be read as scoped to the rank encoding. Under flow,
+    cadical195 still wins on i2 but only by 1.65x (plain) / 1.18x (faithful), and on
+    wl_stanford minisat22 wins outright. **A backend disqualified under one encoding can be
+    competitive under another; the shortlist was never a property of the solvers alone.**
+  - **The per-pair-hardness conclusion SURVIVES -- and a confound that could have broken it
+    is now identified.** Cross-solver correlation under the flow encoding, cadical195 vs
+    minisat22 on identical CNF:
+
+    | flow run | n | cross-solver correlation |
+    |---|---:|---:|
+    | plain (all SAT) | 72 | **-0.076** |
+    | faithful, pooled | 72 | **0.587** |
+    | faithful, SAT-only | 61 | **0.206** |
+    | faithful, UNSAT-only | 11 | **-0.128** |
+
+    The pooled faithful figure looks like a refutation of "hardness is solver-specific" and
+    is not. **UNSAT pairs are intrinsically expensive -- 6.6x the mean SAT cost under
+    cadical195 (122.15 s vs 18.53 s) and 7.4x under minisat22 (152.45 s vs 20.55 s)** --
+    because a refutation has to exhaust the search space while a witness can be found by
+    luck. Both solvers agree the 11 unreachable pairs are the dear ones, and pooling the two
+    satisfiability classes creates a two-cluster structure that inflates the correlation.
+    Split them and the correlation collapses back to noise in BOTH classes, matching the
+    plain model and the archived rank figure.
+
+    **So the statement to carry into §7 is sharper than the original:** satisfiability class
+    is a genuine instance property with a ~7x cost effect; per-pair hardness WITHIN a class
+    is a solver-search artifact. And the methodological rule: **never compute a per-pair
+    hardness correlation over a mixed SAT/UNSAT set** -- it measures the class split, not
+    the pairs. (The 0.199 above is unaffected: plain i2 is an all-reachable mesh, so it was
+    already an all-SAT measurement. It was clean; it was just never scoped as such.)
   - **Open curiosity, cheap to check, deliberately not chased:** Kissat's three slowest
     queries cluster within 4.9s of each other (1339.7s / 1341.9s / 1344.6s -- a 0.4%
     spread) despite finishing at 13:54, 15:32 and 11:33 respectively, i.e. before,
@@ -3710,6 +3757,16 @@ benchmark-independent best backend, and any claim about one must name the benchm
 encoding AND the model.** Note also that cadical195's margin SHRINKS as the instance hardens
 (1.65x plain -> 1.18x faithful), so the two converge where it matters most; a single-model
 solver choice should not be extrapolated to a harder one.
+
+**Per-pair hardness under the flow encoding (§5.5's question, re-asked on the new
+instances).** Cross-solver correlation on identical CNF is **-0.076** on plain and **0.587**
+on faithful — and that second figure is a confound, not a contradiction. UNSAT pairs cost
+**6.6x** the mean SAT pair under cadical195 (122.15 s vs 18.53 s) and **7.4x** under
+minisat22 (152.45 s vs 20.55 s), because a refutation must exhaust the search space while a
+witness can be found by luck. Splitting the classes returns the correlation to noise
+(SAT-only 0.206, UNSAT-only -0.128). **Satisfiability class is a real instance property with
+a ~7x cost effect; per-pair hardness within a class stays a solver-search artifact** — and
+no §7 hardness correlation may be computed over a mixed SAT/UNSAT set.
 
 **Artifacts** (all `status: completed`, fully stamped):
 `eval/ad6_i2_flowpath_{plain,faithful}_cadical195_72pairs_sandbox.json`,
