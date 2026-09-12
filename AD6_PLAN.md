@@ -4357,7 +4357,26 @@ choice has no stamp, add the stamp before quoting the number.
       directions, so i2's "hard pairs" are solver-search artifacts, not instance
       properties (corroborating the 2026-09-08 graph-property falsification from the
       other side); `losa` is in both solvers' top pairs, its worst partner is not.
-      Archived `eval/ad6_i2_kissat404_lite_freshpq_partial36of72.json`. C3/C4 (a
+      Archived `eval/ad6_i2_kissat404_lite_freshpq_partial36of72.json`.
+      **SCOPED AND PARTLY SUPERSEDED 2026-09-12 (§5.5 "UPDATE 2026-09-12", §7.5c):**
+      every figure in this solver comparison is a RANK-encoding (`--lite-acyclic`)
+      measurement on the PLAIN model -- never stated, because only one encoding then
+      existed. (a) Its own closing call was right and the lever it named delivered:
+      swapping ONLY the grounding, same model/solver/pairs, gives **9.0-10.8x wall and
+      6.0x peak RSS**. (b) But "the solver-side lever is exhausted" and "Cadical195 is
+      the best available" are RANK-scoped, not properties of the solvers: **Minisat22's
+      disqualification was an artifact of the encoding** -- query 1 unresolved in 90+ min
+      under rank, yet all 72 plain queries in 1,451 s (~20 s/query) under flow. Under
+      flow cadical195 still leads on i2 but only 1.65x (plain) / 1.18x (faithful), and on
+      wl_stanford minisat22 wins outright. (c) The per-pair conclusion SURVIVES, with a
+      confound now measured: cross-solver correlation under flow is -0.076 (plain, all
+      SAT) but 0.587 (faithful, pooled) -- which decomposes, because **UNSAT pairs cost
+      6.6-7.4x the mean SAT pair** (a refutation must exhaust the space; a witness can be
+      lucky), and splitting the classes returns it to noise (SAT-only 0.206, UNSAT-only
+      -0.128). So satisfiability class IS an instance property with a ~7x effect, while
+      per-pair hardness within a class stays a solver artifact -- and no hardness
+      correlation may be computed over a mixed SAT/UNSAT set. The 0.199 above is
+      unaffected (plain i2 is an all-reachable mesh, hence already all-SAT). C3/C4 (a
       cheaper general encoding, a further solver-level lever, or accepting this speed)
       still open; full write-up above. **WORKLOAD PARITY 2026-09-09**: every i2 number
       above is dst-IP-ONLY. The model's 77,451 `out.X` routes each carry a `rw=vlan:M`
