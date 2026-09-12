@@ -4546,6 +4546,80 @@ guard is what would surface it. **Option C (one ad6 rule per port) stays rejecte
 Phase 0.1's first-match-wins result; see §9.7.2.
 
 
+### 9.8 Phase 1 continued: ports are structural, and the port graph is a function
+
+#### 9.8.1 DECISION (provisional): `in_port`/`out_port` are structural, not fields
+
+FaVe carries port provenance as ordinary header bookkeeping, because NetPlumber's header
+space is where all of its state lives. ad6 has real interface NODES
+(`iface_key(dev, port)` + `_in`/`_out`), so "arrived via this port" is a property of the
+PATH. The translator therefore emits an `<interface direction=...>` CONDITION for a port
+match and an EDGE for a forward, and `field_to_match` REFUSES both field names outright --
+so the model carries exactly one representation of a port rather than two that could
+disagree.
+
+Two measurements make this safe rather than merely tidy:
+
+  * **Every rule carrying an `out_port` rewrite also carries exactly one `Forward`**
+    (wl_ifi 27/27, wl_up 318/318). The Forward is always the authoritative forwarding
+    decision; the rewrite is never the sole record of an egress.
+  * **Half of those rewrites are not ports at all.** They set a 32-wide WILDCARD
+    (`"x"*32` -- "forget where this came from"): wl_ifi 17 of 27 `out_port` and 17 of 34
+    `in_port`, wl_up 159 of 318 and 159 of 477. `kripke.py`'s `int(rewrite_value)` could
+    not represent a wildcard under ANY scheme, so treating port rewrites as field
+    mutations was never an option that closed.
+
+With ports structural, the residual rewrite set is `{packet.ether.vlan}` -- always single
+-field, always integral -- which is what makes §9.7.1's "gap 2 dissolves" true in the
+implementation and not only on paper.
+
+**PROVISIONAL, and flagged as such in the code.** "Matches `in_port == P`" and "the path
+traversed interface node P" are equivalent by construction, but that is VALIDATED only
+when Phase 3 reproduces each benchmark's verdicts. If it does not hold, the alternative is
+to keep ports as fields and solve the wildcard/int problem inside ad6 instead -- which is
+strictly more work, which is why it is the fallback and not the default.
+
+#### 9.8.2 The port graph: measured, and uniform across all three device shapes
+
+`Ad6Adapter.add_wiring` is a **no-op** -- *"internal device pipeline plumbing; not needed
+for a flat dst-IP model"*. FaVe DECLARES its intra-device pipeline
+(`AbstractDevice.wiring`, a list of unidirectional port-to-port links) and the current
+adapter discards it, then rebuilds an approximation of it by recognising table-name
+suffixes (`.acl_in`, `.routing`, `.pre_routing`). The structural translation gets the real
+thing for free. Measured 2026-09-12:
+
+| benchmark | devices | devices with declared wiring | wiring pairs |
+|---|---|---|---|
+| wl_ifi | 17 | 1 (the `ifi` router) | 8, emitted twice -- dedup required |
+| wl_up | 136 | 136 | 952 |
+| wl_stanford | 48 | **0** | 0 |
+
+The three shapes look different and resolve identically. wl_up declares the full packet
+-filter pipeline (`pre_routing_input -> input_filter_in -> internals_in -> ...`); wl_ifi
+declares only its router's four-stage chain; wl_stanford declares NONE, because its
+pipeline is expressed as SEPARATE `in.*`/`mid.*`/`out.*` devices joined by inter-device
+links. That last row is worth dwelling on: the stage-prefix convention §9.1 objects to is
+not a pipeline encoding at all, it is what a pipeline looks like when it has been spread
+across devices -- and inter-device links already describe it, with no name parsing.
+
+**THE DECISIVE STRUCTURAL FACT: `port -> table` is a FUNCTION.** Across all three
+benchmarks, no port appearing in any rule's `in_ports` maps to more than one table. So a
+port names an unambiguous table entry, and `model_to_config` can resolve a jump target
+without a second pass, a position re-derivation, or any name recognition:
+
+  1. dedup the declared wiring;
+  2. `port -> table` from the rules' own `in_ports`; entry is that table's rule 0, since
+     per-rule `in_ports` are emitted as `<interface>` CONDITIONS, leaving every table a
+     single linear first-match chain (§9.7.3, Phase 0.1);
+  3. to resolve a forwarded port P: follow intra-device `wiring` if P is a wiring source;
+     else P's own table if it has one; else follow the inter-device LINK from P to the
+     next device's port and resolve there.
+
+Everything the current adapter recovers by convention is recovered here from declared
+structure. Nothing in the rule is consulted except its matches, its `in_ports` and its
+actions.
+
+
 ---
 
 
