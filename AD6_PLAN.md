@@ -4296,6 +4296,88 @@ test module's docstring -- not only here.
 **Still open from Phase 0, deliberately:** nothing blocking. Phase 1 may start.
 
 
+### 9.6 Phase 1 -- the field layer, and what measuring the vocabulary found
+
+**The vocabulary is bounded and was MEASURED, not guessed** (2026-09-12, by replaying
+wl_ifi / wl_up / wl_i2 / wl_stanford through a recording `Ad6Adapter` subclass). Across
+~95,000 rules the whole model surface is **17 match fields**, and of those exactly three
+are ever REWRITTEN -- `packet.ether.vlan`, `in_port`, `out_port`. Also measured:
+**zero negated matches anywhere**, and forwarding actions that always carry exactly one
+port.
+
+| benchmark | rules | distinct match fields | rewrite fields | max actions on one rule |
+|---|---|---|---|---|
+| wl_ifi | 191 | 5 | in_port, out_port, vlan | 2 |
+| wl_up | 7,828 | 13 | in_port, out_port | 2 |
+| wl_i2 (faithful) | 77,841 | 2 | vlan | 2 |
+| wl_stanford N=16 (faithful) | 8,792 | 6 | vlan | **16** |
+
+**DELIVERED: `fave/ad6/translate.py`'s field layer**, with `fave/test/test_ad6_translate.py`
+(30 tests) written first. `field_to_match(RuleField, mutable)` -> one ad6 match element,
+or `None` for a match-all address; `rewritten_fields(rules)` computes the model-wide
+mutable set; `rewrite_field_for(name)` is the single source of the ad6 field name used by
+BOTH `<fieldmatch field=...>` and `<action rewrite_field=...>`, so the two cannot drift.
+The module is pinned by a test to branch on no device name, table name or benchmark.
+
+**The design rule the field table encodes.** ad6's typed primitives
+(`address`/`port`/`proto`/...) resolve against one model-wide global alias; `fieldmatch`
+resolves NODE-SCOPED against this node's own SSA copy. For a field some rule rewrites,
+only the latter is correct -- the field legitimately holds different values at different
+points along one path. So the choice is a property of the WHOLE MODEL, and the mutable
+set is an ARGUMENT rather than a hardcoded list: hardcoding it would be precisely the
+workload assumption §9 exists to remove.
+
+**A SILENT WRONG-ANSWER HAZARD, found by these tests before a single model was built.**
+FaVe canonicalises a protocol at `RuleField` construction (`'tcp'` -> `'6'`). ad6's
+`XMLUtils.CanonizeProto` looks its IANA table up BY NAME and, on a miss, silently returns
+the no-next-header code under a `# TODO: error handling` comment:
+
+```
+CanonizeProto('tcp')      -> 0 0 0 0 0 1 1 0   (6)   correct
+CanonizeProto('6')        -> 0 0 1 1 1 0 1 1   (59)  WRONG, no error
+CanonizeProto('nonsense') -> 0 0 1 1 1 0 1 1   (59)  indistinguishable
+```
+
+Passing FaVe's own canonical value through would have turned **every tcp/udp/icmp match
+into a no-next-header match**, undetectably -- `'6'` and a typo produce byte-identical
+output. `translate.py` therefore carries an explicit number->name map and REFUSES any
+protocol ad6 cannot name, rather than letting it through. The test asserts the round trip
+against `CanonizeProto` itself (6 -> tcp -> 6), not merely against the name. Measured
+protocol values across the benchmarks are 6, 17 and 58; ad6's table also knows 1.
+**This is the case for testing the field layer at this granularity**: the bug is
+invisible in a reachability matrix, and would have surfaced as a plausible-looking
+verdict difference somewhere in Phase 3.
+
+**A second, milder finding, recorded rather than fixed:** ad6's own vocabulary spells
+ICMPv6 types `neighbor-solicitation` while FaVe emits `neighbour-...`. These become
+plain string-keyed variables (`XMLUtils.ConvertToVariables`), so a spelling difference
+does not corrupt anything as long as ALL rules come from one source -- which is exactly
+what the structural translation guarantees and what the current adapter, mixing
+FaVe-parsed rules with ad6-`IP6TablesParser`-parsed ones, does not. An argument for §9
+that was not anticipated when it was written.
+
+**TWO REPRESENTATION GAPS now block `rule_to_ad6`; both need a decision before Phase 1
+continues.** Neither is a translation problem -- ad6's XML layer cannot express what
+FaVe's model contains:
+
+  1. **Multi-action rules.** `ad6/src/core/kripke.py:229` reads
+     `Rule.xpath(ACTIONPATH)[0]` -- the FIRST `<action>` only; any further action is
+     SILENTLY IGNORED. wl_stanford has rules carrying up to **16** actions (10,120
+     `Forward`s over 8,792 rules), i.e. genuine multi-port fanout. wl_i2 and wl_up never
+     exceed 2 (a `Rewrite` plus a `Forward`), which is why this has never been hit.
+  2. **Multi-field rewrites.** `GenUtils.action` takes a single
+     `rewrite_field`/`rewrite_value` pair, while **187 rules** across wl_ifi and wl_up
+     rewrite more than one field at once. The Kripke layer is already fine here --
+     `kripke.py:242` writes into a `Node.Rewrites` DICT -- so this gap is only in the XML
+     surface, and is the cheaper of the two to close. Note also that it stores
+     `int(rewrite_value)`, so a non-integer rewrite value has no representation today.
+
+  A third, smaller observation from the same reading: `kripke.py:246`'s
+  `Rules[Index+1].attrib['key']` false-transition IS the fall-through mechanism behind
+  Phase 0.1's first-match-wins result -- independent confirmation of that measurement
+  from the code side.
+
+
 ---
 
 
