@@ -4108,9 +4108,28 @@ fallback ADDS generality by defining a case no shipped benchmark has.
      question that has since been answered. **This is the failure mode stamping does not
      cover** — `lite_acyclic: true` is stamped correctly while the prose next to it is
      wrong, and the warning goes to stderr on every run, so the next reader of a log is
-     misled. Decide between promoting it to the default path and restating why it stays
-     opt-in; leaving it opt-in *and* mandatory on the largest benchmark is the least
-     defensible of the three.
+     misled.
+   - **DISCHARGED 2026-09-12 by restating, not by promoting.** All three stale sites are
+     corrected: `_CreateAcyclicConstraintsLite`'s docstring, the stderr line
+     `ad6_i2_measure.py` prints on every `--lite-acyclic` run, and that flag's `--help`.
+     They now say what is actually established -- clause-identical by test, byte-identical
+     CNF on real wl_stanford data, *cheaper* to build where both complete (10.4 s vs
+     15.9 s at N=2), and solving COMPLETES (cadical195 72/72 in 3.56 h, exact oracle
+     match) -- and they state the half that is still true: the GENERAL path cannot reach
+     DIMACS conversion at wl_i2 scale, so the flag is MANDATORY there and must be reported
+     as a tool limitation.
+     **Why restate rather than promote, which the earlier framing called the least
+     defensible option:** the reason it stays opt-in turns out to be ARCHITECTURAL, not
+     evidentiary, and that was never written down. The function returns plain
+     `(name, negated)` clause tuples; `_CreateAcyclicConstraints`' production callers
+     (`InstantiateBase`, `SolveAcyclicEndToEnd`, `IncrementalSession`) all `extend` an
+     lxml-Element formula list, and each of the two measurement drivers resolves the
+     tuples to DIMACS integers itself. Promoting it is therefore a plumbing change across
+     three production callers, not a switched default -- out of scope for a documentation
+     correction, and it would alter what every default path builds. Recording that reason
+     is what makes "opt-in *and* mandatory on the largest benchmark" defensible; the
+     previous framing was indefensible because the stated reason was a question that had
+     already been answered.
    - **Now measurable rather than only argued (2026-09-11):** `ad6_faithful_measure.py`
      takes `--lite-acyclic`, so the general-vs-lite difference can be measured on a
      benchmark where BOTH complete. At N=2 they produce byte-identical CNF (86,645 acyclic

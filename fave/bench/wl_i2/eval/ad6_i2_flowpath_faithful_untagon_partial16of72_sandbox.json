@@ -1,0 +1,189 @@
+{
+  "bench": "i2",
+  "engine": "ad6",
+  "faithful_vlan": true,
+  "probe_untag": true,
+  "sources": 9,
+  "probes": 9,
+  "devices": 18,
+  "fwd_rules": 77460,
+  "out_rw_rewrites": 77451,
+  "in_admission_port_scoped": true,
+  "in_admission_ports": 223,
+  "in_admission_pairs": 596,
+  "probe_vlan": {
+    "probe.atla": "0",
+    "probe.chic": "0",
+    "probe.hous": "0",
+    "probe.kans": "0",
+    "probe.losa": "0",
+    "probe.newy32aoa": "0",
+    "probe.salt": "0",
+    "probe.seat": "0",
+    "probe.wash": "0"
+  },
+  "query_count": 72,
+  "max_queries": null,
+  "pair_filter": "exclude-self",
+  "pairs": null,
+  "status": "running:querying",
+  "dry_run": false,
+  "solver": "cadical195",
+  "kripke_nodes": 78524,
+  "build_s": 999.485,
+  "skip_acyclic": true,
+  "lite_acyclic": false,
+  "current_rss_after_encoding_handoff_mb": 7932.6,
+  "acyclic_constraint_s": null,
+  "acyclic_extra_clauses": 0,
+  "current_rss_before_dimacs_mb": 7932.6,
+  "dimacs_s": 18.983,
+  "variable_count": 1183179,
+  "clause_count": 3508560,
+  "current_rss_after_combined_free_mb": 8841.5,
+  "current_rss_after_variables_free_mb": 8875.0,
+  "flow_path": true,
+  "fresh_per_query": true,
+  "solver_load_s": null,
+  "witness": false,
+  "query_log": [
+    {
+      "index": 0,
+      "source": "source.chic",
+      "probe": "probe.atla",
+      "elapsed_s": 7.221,
+      "solver_load_s": 5.203,
+      "sat": true
+    },
+    {
+      "index": 1,
+      "source": "source.hous",
+      "probe": "probe.atla",
+      "elapsed_s": 14.485,
+      "solver_load_s": 5.243,
+      "sat": true
+    },
+    {
+      "index": 2,
+      "source": "source.kans",
+      "probe": "probe.atla",
+      "elapsed_s": 103.844,
+      "solver_load_s": 5.15,
+      "sat": true
+    },
+    {
+      "index": 3,
+      "source": "source.losa",
+      "probe": "probe.atla",
+      "elapsed_s": 165.318,
+      "solver_load_s": 5.139,
+      "sat": true
+    },
+    {
+      "index": 4,
+      "source": "source.newy32aoa",
+      "probe": "probe.atla",
+      "elapsed_s": 8.831,
+      "solver_load_s": 6.087,
+      "sat": true
+    },
+    {
+      "index": 5,
+      "source": "source.salt",
+      "probe": "probe.atla",
+      "elapsed_s": 104.199,
+      "solver_load_s": 5.415,
+      "sat": true
+    },
+    {
+      "index": 6,
+      "source": "source.seat",
+      "probe": "probe.atla",
+      "elapsed_s": 150.815,
+      "solver_load_s": 5.4,
+      "sat": true
+    },
+    {
+      "index": 7,
+      "source": "source.wash",
+      "probe": "probe.atla",
+      "elapsed_s": 7.946,
+      "solver_load_s": 5.704,
+      "sat": true
+    },
+    {
+      "index": 8,
+      "source": "source.atla",
+      "probe": "probe.chic",
+      "elapsed_s": 67.88,
+      "solver_load_s": 6.398,
+      "sat": true
+    },
+    {
+      "index": 9,
+      "source": "source.hous",
+      "probe": "probe.chic",
+      "elapsed_s": 179.997,
+      "solver_load_s": 5.489,
+      "sat": true
+    },
+    {
+      "index": 10,
+      "source": "source.kans",
+      "probe": "probe.chic",
+      "elapsed_s": 7.694,
+      "solver_load_s": 5.721,
+      "sat": true
+    },
+    {
+      "index": 11,
+      "source": "source.losa",
+      "probe": "probe.chic",
+      "elapsed_s": 149.513,
+      "solver_load_s": 5.668,
+      "sat": true
+    },
+    {
+      "index": 12,
+      "source": "source.newy32aoa",
+      "probe": "probe.chic",
+      "elapsed_s": 116.026,
+      "solver_load_s": 6.293,
+      "sat": true
+    },
+    {
+      "index": 13,
+      "source": "source.salt",
+      "probe": "probe.chic",
+      "elapsed_s": 9.505,
+      "solver_load_s": 5.835,
+      "sat": true
+    },
+    {
+      "index": 14,
+      "source": "source.seat",
+      "probe": "probe.chic",
+      "elapsed_s": 8.182,
+      "solver_load_s": 5.505,
+      "sat": true
+    },
+    {
+      "index": 15,
+      "source": "source.wash",
+      "probe": "probe.chic",
+      "elapsed_s": 15.463,
+      "solver_load_s": 5.4,
+      "sat": true
+    }
+  ],
+  "probe_untag_literals": 12,
+  "flow_path_clauses": 1092507,
+  "flow_path_build_s": 2.942,
+  "last_query_s": 15.463,
+  "last_query_solver_load_s": 5.4,
+  "last_query": {
+    "source": "source.wash",
+    "probe": "probe.chic"
+  },
+  "queries_done": 16
+}

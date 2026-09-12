@@ -1019,15 +1019,34 @@ class Instantiator:
 
 
     def _CreateAcyclicConstraintsLite(Kripke, ProgressCallback=None):
-        """ EXPERIMENTAL (AD6_PLAN.md Sec 5.5) -- opt-in only, never called by any
-        default/production path (_CreateAcyclicConstraints, InstantiateBase,
-        SolveAcyclicEndToEnd, IncrementalSession all still use the general
-        implementation unchanged). Fixes wl_i2's C2 memory blowup, but C2 overall is
-        still NO-GO -- solving the resulting instance hangs regardless of which
-        SAT backend loads it (Sec 5.5's solver-comparison finding), root cause not
-        yet known. Kept experimental, not promoted or removed, until that solving
-        question is settled -- see this function's own callers for how to opt in
-        (`bench/ad6_i2_measure.py --lite-acyclic`).
+        """ OPT-IN, and NOT because the C2 solving question is still open. It was
+        SETTLED on 2026-09-05/06, and this docstring's previous claim -- that
+        solving "hangs regardless of which SAT backend loads it" -- is FALSE.
+        Under the lite encoding wl_i2 solves to completion: Cadical195 answered all
+        72 pairs in 3.56 h with an exact oracle match, Glucose4 in 15.3 h. What
+        remains true is only the other half: the GENERAL path cannot reach DIMACS
+        conversion at that scale at all (the per-edge retained memory described
+        below), so on wl_i2 this function is MANDATORY rather than preferred -- a
+        TOOL LIMITATION to report alongside any wl_i2 number, not a flag preference
+        to omit (AD6_PLAN.md Sec 5.5, generality-debt item 1).
+
+        It stays opt-in for an ARCHITECTURAL reason, not an evidentiary one: it
+        returns plain (VariableName, Negated) clause tuples, which do not compose
+        with the lxml-Element formula lists that _CreateAcyclicConstraints' callers
+        (InstantiateBase, SolveAcyclicEndToEnd, IncrementalSession) extend -- each
+        caller resolves the tuples to DIMACS integers itself. Promoting this to a
+        default is therefore a plumbing change in those callers, not a switched
+        constant. Its only callers today are the two measurement drivers
+        (`bench/ad6_i2_measure.py --lite-acyclic`,
+        `bench/ad6_faithful_measure.py --lite-acyclic`); no default/production path
+        uses it.
+
+        Equivalence is established rather than assumed. Beyond the exhaustive
+        per-edge test named at the end of this docstring, the two encodings produce
+        BYTE-IDENTICAL CNF on real wl_stanford data (86,645 acyclic clauses,
+        161,249 total, 59,521 variables either way) and identical verdicts, and
+        lite is also CHEAPER TO BUILD at a scale where both complete (10.4 s vs
+        15.9 s wall at N=2) -- so memory is not its only motivation.
 
         Memory-lite reimplementation of _CreateAcyclicConstraints, for use at scales
         (AD6_PLAN.md Sec 5.5, wl_i2's C2) where the lxml-Element-per-literal /

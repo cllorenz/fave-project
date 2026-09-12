@@ -115,9 +115,13 @@ Recipe, cheapest step first (from fave/, PYTHONPATH=., venv active):
       --pairs hous>salt,chic>salt,chic>seat \\
       --solver cadical195 --checkpoint-every 1 --out i2_faithful_untag_on.json
 
-`--lite-acyclic` IS REQUIRED ON i2, notwithstanding the flag's own
-"EXPERIMENTAL, opt-in only" help text -- that wording is about not promoting
-it to a default path, not about avoiding it here. The general
+`--lite-acyclic` IS REQUIRED ON i2. The flag is opt-in only because its
+plain-tuple return type does not compose with the lxml formula lists ad6's
+production callers extend -- that is about not promoting it to a default
+path, and says nothing against using it here. (It formerly read
+"EXPERIMENTAL", on the strength of a C2 solving question that was answered on
+2026-09-05/06; corrected 2026-09-12, AD6_PLAN.md generality-debt item 1.)
+The general
 `_CreateAcyclicConstraints` does not complete on i2 in this environment (it
 had not finished after 7-14 min: i2's Kripke graph is one giant non-trivial
 SCC covering 99.3% of nodes, so it never gets the "orders of magnitude" cut
@@ -672,9 +676,14 @@ def measure(out_path, skip_acyclic=False, lite_acyclic=False, solver_name="minis
                     _checkpoint(result, out_path, "acyclic_constraints_running")
 
             if lite_acyclic:
-                print("[experimental] --lite-acyclic: _CreateAcyclicConstraintsLite fixes "
-                      "C2's memory blowup but NOT C2 overall (solving still hangs "
-                      "regardless of backend) -- see AD6_PLAN.md Sec 5.5", file=sys.stderr)
+                print("[--lite-acyclic] _CreateAcyclicConstraintsLite: clause-IDENTICAL to "
+                      "the general _CreateAcyclicConstraints (testAcyclicRankConstraint"
+                      "LiteMatchesGeneralEncoding), so this changes cost, not verdicts. "
+                      "MANDATORY at wl_i2 scale -- the general path cannot reach DIMACS "
+                      "conversion there -- so report it as a TOOL LIMITATION, not a "
+                      "preference. Solving completes under it (cadical195: 72/72 in "
+                      "3.56 h, exact oracle match). See AD6_PLAN.md Sec 5.5, "
+                      "generality-debt item 1.", file=sys.stderr)
                 # AD6_PLAN.md §5.5 C2 NO-GO fix attempt: the general encoding's
                 # per-edge lxml/Tseitin machinery retains ~0.14-0.18 MB/edge
                 # (confirmed genuine, not reclaimable garbage -- memory
@@ -975,12 +984,16 @@ def main(argv=None):
                     help="orientation-only: skip _CreateAcyclicConstraints (cheap, but NOT "
                          "a soundness-complete C1 result -- see AD6_PLAN.md Sec 5.5)")
     p.add_argument("--lite-acyclic", action="store_true",
-                    help="EXPERIMENTAL, opt-in only: use _CreateAcyclicConstraintsLite "
-                         "(plain-Python clauses, no per-edge lxml/Tseitin construction) "
-                         "instead of the general _CreateAcyclicConstraints. Fixes C2's "
-                         "memory blowup but C2 overall is still NO-GO -- solving still "
-                         "hangs regardless (AD6_PLAN.md Sec 5.5) -- kept experimental "
-                         "until that's resolved, not promoted to any default path")
+                    help="use _CreateAcyclicConstraintsLite (plain-Python clauses, no "
+                         "per-edge lxml/Tseitin construction) instead of the general "
+                         "_CreateAcyclicConstraints. Clause-IDENTICAL by test, so it "
+                         "changes cost and not verdicts, and MANDATORY at wl_i2 scale "
+                         "(the general path cannot reach DIMACS conversion there). "
+                         "Solving completes under it: cadical195 72/72 in 3.56 h with an "
+                         "exact oracle match. Opt-in because its plain-tuple return type "
+                         "does not compose with the lxml formula lists the production "
+                         "callers extend -- NOT because C2 is unresolved "
+                         "(AD6_PLAN.md Sec 5.5, generality-debt item 1)")
     p.add_argument("--solver", choices=_SOLVERS, default="minisat22",
                     help="PySAT backend to load/solve with (default: minisat22, PySAT's "
                          "own default) -- solver-comparison plan, AD6_PLAN.md Sec 5.5")
