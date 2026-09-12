@@ -4378,6 +4378,120 @@ FaVe's model contains:
   from the code side.
 
 
+### 9.7 The two representation gaps: options worked out (2026-09-12)
+
+Owner direction: *"Please work out the options for both gaps before touching ad6."*
+Measured first, on all four benchmarks. **One of the two gaps turns out not to exist.**
+
+#### 9.7.1 Gap 2 (multi-field rewrites) DISSOLVES -- no ad6 change needed
+
+§9.6 recorded 187 rules rewriting more than one field, against a `GenUtils.action` that
+carries a single `rewrite_field`/`rewrite_value` pair. Measuring WHICH fields co-occur
+changes the conclusion entirely:
+
+| rewrite field set | wl_ifi | wl_up | wl_i2 | wl_stanford |
+|---|---|---|---|---|
+| `packet.ether.vlan` alone | 0 | 0 | 77,451 | 3,417 |
+| `in_port` alone | 16 | 318 | 0 | 0 |
+| `out_port` alone | 0 | 159 | 0 | 0 |
+| `in_port` + `out_port` | 17 | 159 | 0 | 0 |
+| `in_port` + `vlan` | 1 | 0 | 0 | 0 |
+| `out_port` + `vlan` | 10 | 0 | 0 | 0 |
+
+**Every multi-field rewrite involves a PORT.** And `in_port`/`out_port` are not packet
+fields being mutated -- they are FaVe's record of which port the packet entered or left
+by, i.e. the forwarding decision itself. In ad6 a forwarding decision is an EDGE (a jump
+to the interface node), not a field rewrite; the current adapter already reads it that
+way (`Ad6Adapter._out_ports` looks in the `out_port` Rewrite to find the jump target).
+
+So translating `in_port`/`out_port` as EDGES rather than as field rewrites leaves a
+residual genuine-field-rewrite set of exactly `{packet.ether.vlan}`, **which is always
+single-field** -- 80,868 of 80,868 occurrences. `GenUtils.action`'s single pair is
+sufficient. Two corroborating facts from the same measurement:
+
+  * **No rule anywhere has more than ONE `Rewrite` action** (max 1 across all four
+    benchmarks), so there is never a per-forward differing rewrite, and ad6's per-NODE
+    `KripkeNode.Rewrites` dict is the right granularity rather than a limitation.
+  * **The non-integer rewrite values are exactly the port ones** (`'ifi.10_egress'`,
+    `'adm.uni-potsdam.de.1_ingress'`; 61 in wl_ifi, 795 in wl_up). `kripke.py:242` does
+    `int(Action.attrib['rewrite_value'])`, which would raise on these -- loudly, not
+    silently. Treating ports as edges removes the only values that would ever reach it,
+    so the `int()` stays sound instead of becoming a latent crash.
+
+**Conclusion: gap 2 is closed by translating correctly, not by extending ad6.** This is
+the outcome most favourable to the thesis -- the gap was an artefact of reading FaVe's
+port bookkeeping as field mutation.
+
+#### 9.7.2 Gap 1 (multi-action rules / fanout) is real. Three options.
+
+wl_stanford genuinely fans one rule out to many egress ports -- up to 16 actions on a
+single rule, 10,120 `Forward`s over 8,792 rules, and **552 of those multi-Forward rules
+ALSO carry a rewrite**. `kripke.py:229` reads `Rule.xpath(ACTIONPATH)[0]`, the first
+`<action>` only, and silently ignores the rest. It is the ONLY site in ad6 that reads an
+action at all (grepped).
+
+The Kripke layer is already fine: `KripkeStructure.Put` calls `_AppendTransition`, so
+`_FTransitions[key]` is a LIST and several simultaneous TRUE edges out of one node give
+OR/existential semantics for free -- which is the correct reading for a reachability
+query (does SOME path arrive), and the same reading NetPlumber gives a branching flow.
+The gap is purely in the XML surface and its reader.
+
+**Option A -- fanout indirection node, wired in a post-pass. No ad6 change.**
+The translator emits a rule whose single jump targets a synthetic `<key>_fanout` node,
+and separately returns the list of (fanout node -> egress node) edges; the adapter
+applies them with `Kripke.Put` after `ConvertToKripke`.
+  * *Precedent:* this is exactly what `favemodel.wire_fanout` does today, already
+    validated on wl_stanford, and post-pass wiring is the ESTABLISHED idiom here --
+    `wire_edges` wires all topology connectivity the same way, by necessity, because
+    interface nodes do not exist until conversion has run.
+  * *For:* zero ad6 change, which is the outcome that best supports §0's "generic tool,
+    low integration cost" thesis. The single rewrite rides on the single jump, cleanly.
+  * *Against:* the XML no longer fully describes the model, so `translate.py` stops being
+    a pure `model -> config` map and returns `(config, fanout_edges)`. Adds one synthetic
+    node per fanout rule (552 on wl_stanford, 0 on wl_i2 -- negligible).
+  * *Note:* the fragility §9.1 objects to in today's `wire_fanout` -- "must re-derive each
+    route's rule position via the EXACT same filter+sort" -- does NOT carry over. Today it
+    re-derives keys from the IR; here the translator emits the edge list directly as it
+    assigns the keys.
+
+**Option B -- multiple `<action>` elements per rule, read as multiple TRUE edges.**
+Change `kripke.py:229` from `Rule.xpath(ACTIONPATH)[0]` to a loop over all actions, body
+unchanged. The translator emits one `<action type="jump">` per `Forward` port.
+  * *For:* the XML fully describes the model; no synthetic nodes, no edge manifest, no
+    key coordination; `translate.py` stays a pure function. It is a ONE-SITE, one-line
+    change, and a STRICT GENERALIZATION: every rule ad6 emits today has exactly one
+    action, so iterating is byte-identical on all existing input -- pinnable by a test
+    that an existing model's Kripke is unchanged.
+  * *Against:* it is still a change to ad6, however small. The shared rewrite must be
+    repeated on each of the N actions (harmless -- they write the same per-node dict
+    entry -- but redundant), or the reader must take the rewrite from whichever action
+    carries one.
+  * *Risk check:* `ACTIONPATH` has exactly one reader in the whole of `ad6/src/`
+    (`kripke.py:229`), and `<action>` is not among `RBODYPATHS`, so the rule's condition
+    extraction cannot be affected.
+
+**Option C -- one ad6 rule per (FaVe rule, port).** REJECTED, and the reason is Phase
+0.1's own result: ad6 tables are first-match-wins, so several rules sharing an identical
+condition would let only the FIRST fire, silently dropping every other port's
+reachability. `Ad6Adapter._add_fwd_route`'s docstring already records this conclusion
+from the previous encounter with the same problem. Recorded so it is not re-proposed.
+
+**RECOMMENDATION: Option B**, with A as the fallback.
+The deciding argument is that B's change is not a behavioural change at all but a
+generalization of a single expression, verifiable by asserting that every existing
+benchmark's Kripke is byte-identical before and after -- whereas A buys "no ad6 change"
+at the price of a model the XML only half-describes, a translator that is no longer a
+pure function, and a second mechanism to keep in step with the first. The thesis argument
+for A is weaker than it looks: "ad6 needed one expression generalized to accept a list"
+is not a meaningful integration cost, and §9.1's whole complaint is about mechanisms that
+live outside the declared model.
+
+**If B is taken, the work is:** generalize `kripke.py:229` to iterate; decide whether the
+rewrite is repeated per action or taken from whichever action carries one; add an ad6
+test that a multi-action rule yields one TRUE edge per action and that a single-action
+rule is unchanged; then `rule_to_ad6` follows directly.
+
+
 ---
 
 
