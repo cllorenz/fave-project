@@ -6,7 +6,8 @@ import os
 
 
 from core.instantiatortest import (
-    InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest)
+    InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest,
+    RuleOrderSemanticsTest)
 
 class InstantiatorSuite(TestSuite):
     def addTests(self):
@@ -64,6 +65,19 @@ class InstantiatorSuite(TestSuite):
             'test_close_is_safe_under_the_flow_grounding',
         ]
         self._suite.addTests(map(IncrementalSessionGroundingTest,tests))
+
+        # AD6_PLAN.md §9 Phase 0.1: the rule-order semantics the adapter
+        # rewrite's structural translation rests on -- same MANUAL registry
+        # caveat as above.
+        tests = [
+            'testAnIdenticallyMatchingLaterRuleIsShadowed',
+            'testSwappingTheOrderSwapsTheVerdict',
+            'testDisjointRulesAreBothReachable',
+            'testAWiderLaterRuleStaysReachableOnItsResidual',
+            'testANarrowerLaterRuleIsShadowedByAWiderEarlierOne',
+            'testAMatchAllEarlierRuleShadowsEverythingAfterIt',
+        ]
+        self._suite.addTests(map(RuleOrderSemanticsTest,tests))
 
 
     def run(self):

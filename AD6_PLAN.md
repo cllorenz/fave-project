@@ -4227,6 +4227,75 @@ benchmark asks: AF/AX, waypointing, and the anomaly queries. APKeep is out of sc
 this effort (owner, same date), which also removes generality-debt item 5 from the
 critical path.
 
+### 9.5 Phase 0 -- DONE 2026-09-12. The design is cleared to proceed.
+
+**0.1 -- ad6's rule-order semantics: FIRST-MATCH-WINS IN DOCUMENT ORDER, WITH
+GENUINE RESIDUALS.** Measured, not read off the code, then pinned as
+`ad6/test/core/instantiatortest.py::RuleOrderSemanticsTest` (6 tests, wired into
+`instantiatorsuite.py`'s manual registry). Two rules over the identical packet space:
+the first is reachable, the second UNREACHABLE, and swapping their positions swaps the
+verdict exactly -- so the asymmetry comes from POSITION, not from the rules. Three
+further cases pin the residual behaviour that LPM depends on:
+
+| rules, in document order | rule 0 reachable | rule 1 reachable |
+|---|---|---|
+| `10.0.0.1/32` then `10.0.0.1/32` (identical) | yes | **no** -- fully shadowed |
+| `10.0.0.1/32` then `10.0.0.2/32` (disjoint) | yes | yes |
+| `10.0.0.0/24` then `10.0.0.0/8` (narrow, then WIDER) | yes | **yes** -- on its residual |
+| `10.0.0.0/8` then `10.0.0.0/24` (wide, then narrower) | yes | **no** -- no residual left |
+| `0.0.0.0/0` (or no condition at all) then anything | yes | **no** |
+
+This is exactly iptables semantics, and it is the green light for §9's design: **the
+translator can simply preserve FaVe's own `idx` order and the semantics follow.** Two
+consequences. (a) The narrow-then-wider row is the property `_reprioritise_fib_lpm` and
+the whole LPM-tiebreak class of bug (ad6/FAVE_CHANGES.md §14) turn on -- a model that
+shadowed wholesale on any overlap would make every less-specific route dead, so this is
+pinned rather than assumed. (b) The `_lpm_prio` machinery in the adapter becomes
+unnecessary in principle: FaVe's delivered rule order already IS the semantics. Whether
+`Rule.idx` as delivered reflects the final intended priority is Phase 1's question, and
+`test_ad6_adapter_lpm_prio.py` is the existing pin on it.
+
+**0.2 -- characterization tripwires in place.** `bench/ad6_ir_snapshot.py` snapshots
+`Ad6Adapter._build_ir()` as a sha256 over the canonical IR plus a per-key SHAPE summary
+(the hash answers "did anything move", the shape answers "where" -- a bare hash would
+make every diff a bisection). Nine recipes covering every benchmark and every
+measurement-relevant configuration, recorded in `bench/ad6_ir_snapshots.json`:
+
+| recipe | IR bytes | build |
+|---|---|---|
+| wl_ifi | 11,949 | 0.1 s |
+| wl_up | 429,962 | 1.7 s |
+| wl_i2_plain / _faithful / _faithful_untag | 6.8 M / 10.1 M / 10.1 M | ~8 s each |
+| wl_stanford_n2_plain / _faithful | 105,976 / 151,888 | 0.2 s |
+| wl_stanford_n16_plain / _faithful | 544,767 / 732,853 | 0.9 s |
+
+The whole set rebuilds in ~28 s. `fave/test/test_ad6_ir_snapshot.py` (18 tests) pins
+them, with the three wl_i2 recipes behind `AD6_IR_SNAPSHOT_FULL=1` so the fast tier stays
+fast. Verified in BOTH directions -- reproducible on a re-run, and a perturbed stored
+hash is caught and localized to the key that moved. The suite also pins that the
+tripwires can DISCRIMINATE the configurations they exist to cover (plain vs faithful, and
+untag on vs off, must not hash alike); a snapshot that cannot tell two configurations
+apart is not a tripwire. **wl_up's recipe calls `load_bench_metadata` on purpose**, bypass
+and all -- a snapshot that did not pin the bypass could not witness Phase 4 removing it.
+
+Verdict matrices need no new machinery: the 13 existing `fave/test/test_ad6_*` files
+already pin them (e.g. `test_ad6_wl_ifi.py::test_reachability_matches_ground_truth`
+compares the FULL wl_ifi matrix against `reachable.json`), and the archived
+`bench/wl_*/eval/*.json` artifacts carry the rest.
+
+**0.3 -- the adjudication rule, fixed BEFORE the first diff.** A changed snapshot is a
+prompt to adjudicate, never by itself a regression: the IR being pinned is the one §9
+exists to REPLACE, so a difference may equally well be the rewrite CORRECTING an existing
+bug. Each difference is adjudicated against NetPlumber's own matrix (§9.4) and, on wl_i2,
+`bench/i2_structural_oracle.py`. Re-recording happens in the SAME commit as the change
+that moved it, so the diff shows both halves together; re-recording separately, or before
+adjudicating, destroys the only thing the tripwire provides. **This rule is written where
+someone hitting a failure will actually read it** -- the tool's module docstring and the
+test module's docstring -- not only here.
+
+**Still open from Phase 0, deliberately:** nothing blocking. Phase 1 may start.
+
+
 ---
 
 

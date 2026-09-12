@@ -1600,3 +1600,124 @@ class IncrementalSessionGroundingTest(unittest.TestCase):
         session = self._session(GROUNDING_FLOW)
         session.Close()
         session.Close()
+
+
+class RuleOrderSemanticsTest(unittest.TestCase):
+    """ AD6_PLAN.md §9, Phase 0.1 -- the question that GATES the adapter
+    rewrite's design, pinned as a test rather than left as an assumption.
+
+    The adapter rewrite (§9.1) replaces semantic reconstruction with a
+    STRUCTURAL translation: each FaVe rule becomes an ad6 rule at FaVe's own
+    `idx` position. That is only sound if ad6 evaluates a table's rules
+    first-match-wins in DOCUMENT ORDER, computing genuine RESIDUALS -- a later
+    rule stays reachable on whatever packet space the earlier rules did not
+    already claim.
+
+    Why it is load-bearing rather than a nicety (§9.2a): FaVe's
+    `iptables/generator.py:_interweave_state_shell` STRIPS the conntrack
+    matches and re-emits the derived ESTABLISHED rules as ordinary stateless
+    rules carrying a plain `related` header field. The stateful semantics
+    therefore survive PURELY AS RULE POSITION. If ad6's ordering were
+    approximate, every interwoven ruleset would be silently mis-modelled --
+    and it would look fine on wl_ifi, whose ACLs are state-blind.
+
+    `ad6/src/core/kripke.py:_HandleTable` enumerates a table's rules in
+    document order; these tests pin the SEMANTICS that ordering produces. """
+
+    @staticmethod
+    def _config(order):
+        """ One table whose rules all jump to a distinct target, so "was this
+        rule reached" is answerable as plain reachability of its target. `dst`
+        None means a rule with no condition at all. """
+        firewall = GenUtils.firewall('ofw')
+        table = GenUtils.table('t0')
+        for pos, (suffix, dst) in enumerate(order):
+            rule = GenUtils.rule(str(pos), key='ofw_t_r%d' % pos)
+            if dst is not None:
+                rule.append(GenUtils.address(dst, direction='dst', version='4'))
+            rule.append(GenUtils.action('jump', target='ofw_t_r_%s' % suffix))
+            table.append(rule)
+        firewall.append(table)
+
+        for suffix, _ in order:
+            target_table = GenUtils.table('t_%s' % suffix)
+            target = GenUtils.rule(suffix, key='ofw_t_r_%s' % suffix)
+            target.append(GenUtils.action('accept'))
+            target_table.append(target)
+            firewall.append(target_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def _reached(self, order):
+        """ {suffix: bool} -- which of the ordered rules can be reached at all,
+        entering the table at position 0. """
+        config = RuleOrderSemanticsTest._config(order)
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['ofw_t_r0'], default_inits=False)
+        solver = PycoSATAdapter()
+        return {
+            suffix: bool(solver.Solve(Instantiator.InstantiateReach(
+                kripke, encoding, 'ofw_t_r_%s' % suffix)))
+            for suffix, _ in order}
+
+    _DST = '10.0.0.1/32'
+
+    def testAnIdenticallyMatchingLaterRuleIsShadowed(self):
+        """ The discriminator. Two rules over the IDENTICAL packet space: under
+        first-match-wins only the first is reachable. If ad6 treated a table's
+        rules as independent entry points instead, BOTH would come back
+        reachable and §9's structural translation would be unsound. """
+        reached = self._reached([('A', self._DST), ('B', self._DST)])
+        self.assertTrue(reached['A'], "the first of two identical rules must be reachable")
+        self.assertFalse(reached['B'],
+                         "a rule fully shadowed by an identical earlier rule must be "
+                         "UNREACHABLE -- ad6 is not first-match-wins, and §9's "
+                         "position-preserving translation cannot be sound")
+
+    def testSwappingTheOrderSwapsTheVerdict(self):
+        """ The control for the test above: the asymmetry must come from
+        POSITION, not from anything about the rules themselves. """
+        reached = self._reached([('B', self._DST), ('A', self._DST)])
+        self.assertTrue(reached['B'])
+        self.assertFalse(reached['A'])
+
+    def testDisjointRulesAreBothReachable(self):
+        """ Shadowing must be about overlap, not about mere precedence --
+        otherwise every rule after the first would be dead. """
+        reached = self._reached([('A', '10.0.0.1/32'), ('B', '10.0.0.2/32')])
+        self.assertTrue(reached['A'])
+        self.assertTrue(reached['B'])
+
+    def testAWiderLaterRuleStaysReachableOnItsResidual(self):
+        """ The property LPM ordering actually depends on: a /8 placed AFTER a
+        /24 it contains is still reachable, on the part of the /8 the /24 did
+        not claim. A model that shadowed wholesale on any overlap would make
+        every less-specific route dead and silently re-introduce the LPM class
+        of bug (ad6/FAVE_CHANGES.md §14). """
+        reached = self._reached([('A', '10.0.0.0/24'), ('B', '10.0.0.0/8')])
+        self.assertTrue(reached['A'])
+        self.assertTrue(reached['B'],
+                        "a wider later rule must stay reachable on its residual")
+
+    def testANarrowerLaterRuleIsShadowedByAWiderEarlierOne(self):
+        """ The converse: a /24 placed after the /8 containing it has no
+        residual left and is dead. This is the shape `_reprioritise_fib_lpm`
+        exists to prevent in the FIB. """
+        reached = self._reached([('A', '10.0.0.0/8'), ('B', '10.0.0.0/24')])
+        self.assertTrue(reached['A'])
+        self.assertFalse(reached['B'])
+
+    def testAMatchAllEarlierRuleShadowsEverythingAfterIt(self):
+        """ Both spellings of "any": the explicit /0 FaVe emits for an `any`
+        match, and a rule carrying no condition element at all. Pinned
+        together because `favemodel._is_constrained` treats /0 as unconstrained
+        and drops the element, so the two must not diverge. """
+        for label, first in (("explicit /0", '0.0.0.0/0'), ("no condition", None)):
+            reached = self._reached([('A', first), ('B', self._DST)])
+            self.assertTrue(reached['A'], label)
+            self.assertFalse(reached['B'],
+                             "%s: nothing after a match-all rule can be reached" % label)
