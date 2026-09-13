@@ -4941,6 +4941,51 @@ construct rather than adding a guard around it, which is the right direction: th
 reachability, a core change with unclear blast radius and no other caller asking for it.
 
 
+### 9.13 Port-specific entry -- and wl_ifi AGREES, exactly
+
+§9.12.3's fix, implemented. `rule.in_ports` emits NO condition; instead
+`PortGraph.chains()` compiles each table once per ENTERING PORT, holding only the rules
+that port can reach, and `entry(port)` names rule 0 of that port's own chain. Ingress
+discrimination now lives in the graph, where the solver cannot wish it away.
+
+**wl_ifi, 289 pairs:**
+
+| | reachable | vs `reachable.json` | vs the other path |
+|---|---|---|---|
+| semantic | 70 | 0 of 17 roles differ | — |
+| structural | 70 | **0 of 17 roles differ** | **0 pairs differ** |
+
+**The first rung of Phase 3 is green: the structural translation reproduces wl_ifi's full
+reachability matrix exactly, pair for pair, and matches ground truth independently.**
+
+**Cost, measured before implementing rather than discovered after.** Total rules before ->
+after: wl_i2 77,841 -> 78,047 (1.00x), wl_up 7,828 -> 7,892 (1.01x), wl_ifi 191 -> 223
+(1.17x), wl_stanford 8,792 -> 14,821 (1.69x, its `in.*` stage carrying the whole spread).
+The expansion is small because heterogeneous `in_ports` are rare: `acl_in`, `acl_out`,
+`routing` and every host `.1` table have UNIFORM `in_ports` and compile to exactly one
+chain, while `ifi.pre_routing`'s 17 rules across 17 ports become 17 chains of one rule --
+the same 17 rules, each now reachable only from its own port.
+
+Details worth keeping:
+
+  * **A rule with no `in_ports` joins EVERY chain of its table** (155 such rules in wl_up),
+    since it is reachable from every port that enters.
+  * **A table no port enters yields one chain with `port=None`** -- a generator's own
+    injection table, which is entered by key rather than by arrival.
+  * Chain identity is part of the rule key (`chain_key`), so the same FaVe rule compiled
+    for two ports is two distinct ad6 nodes, as it must be: they have different
+    predecessors.
+
+**What this closes, and what it cost to find.** Three successive attempts at port handling,
+each refuted by measurement rather than argument: ports as `<interface>` conditions for
+BOTH provenance and intent (§9.8.1, circular for `out_port` -- killed every path at its own
+egress node); ports as fields with `in_ports` still a condition (§9.11, unsound -- the
+condition is a free variable, so a packet fired a rule written for the Internet uplink);
+and now ports as fields with ingress in the graph. The pattern across all three: **FaVe
+states as a per-rule attribute what ad6 can only express structurally, and each time the
+give-away was a verdict that moved in the direction of MORE reachability.**
+
+
 ---
 
 

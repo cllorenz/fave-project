@@ -449,15 +449,20 @@ class TestRuleTranslation(unittest.TestCase):
         self.assertNotIn('<action', out)
         self.assertIn('<address>10.0.0.0/8</address>', out)
 
-    def test_in_ports_become_interface_conditions(self):
+    def test_in_ports_emit_NO_condition(self):
+        """ §9.12.2. An <interface> condition would be UNSOUND: ad6 makes it a
+        free variable tied to nothing, so the solver may assert a packet came in
+        on whichever port suits it -- which on wl_ifi let a packet fire a rule
+        written for the Internet uplink, relabel its VLAN and walk past the deny
+        meant for it. Ingress discrimination is structural instead: each
+        entering port gets its own chain (PortGraph.chains). """
         out = self._xml_of(self._rule(in_ports=['dev.1'], actions=[Forward(['dev.2'])]))
-        self.assertIn('<interface direction="in">T_dev_1</interface>', out)
+        self.assertNotIn('<interface', out)
+        self.assertIn('<action ', out)
 
-    def test_several_in_ports_all_appear(self):
-        """ kripke.py ORs repeated <interface> elements of one direction, which
-        is the right reading of a rule reachable from several ports. """
+    def test_several_in_ports_still_emit_no_condition(self):
         out = self._xml_of(self._rule(in_ports=['dev.1', 'dev.2']))
-        self.assertEqual(out.count('<interface direction="in">'), 2)
+        self.assertNotIn('<interface', out)
 
     def test_a_port_MATCH_becomes_a_fieldmatch_on_its_dense_id(self):
         """ §9.10.2 option 1. An <interface> condition would be wrong for
@@ -539,12 +544,12 @@ class TestTableTranslation(unittest.TestCase):
                      actions=[Forward(['dev.2'])]) for i in range(count)]
 
     def test_rules_keep_their_given_order(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _iface, _port_id)
         keys = [r.get('key') for r in table]
-        self.assertEqual(keys, [rule_key('dev', 't', i) for i in range(3)])
+        self.assertEqual(keys, [rule_key('dev', 't', 'dev.1', i) for i in range(3)])
 
     def test_rule_names_are_positional(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _iface, _port_id)
         self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
 
     def test_rules_are_ordered_by_ASCENDING_idx_not_by_list_position(self):
@@ -557,7 +562,7 @@ class TestTableTranslation(unittest.TestCase):
         would run a default rule before the specific rule it backs up. """
         rules = self._rules(3)
         rules[0].idx, rules[1].idx, rules[2].idx = 65535, 1, 768
-        table = table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
         emitted = [r.xpath('.//address')[0].text for r in table]
         self.assertEqual(emitted, ['10.0.1.0/24', '10.0.2.0/24', '10.0.0.0/24'],
                          "expected idx order 1, 768, 65535")
@@ -566,7 +571,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         for rule in rules:
             rule.idx = None
-        table = table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
         self.assertEqual([r.xpath('.//address')[0].text for r in table],
                          ['10.0.0.0/24', '10.0.1.0/24', '10.0.2.0/24'])
 
@@ -576,7 +581,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = rules[0].idx
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
+            table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
 
     def test_a_PARTIALLY_indexed_table_is_refused(self):
         """ There is no defensible place to interleave an unindexed rule among
@@ -584,13 +589,13 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = None
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
+            table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
 
     def test_an_empty_table_translates_to_an_empty_table(self):
-        self.assertEqual(len(table_to_ad6('dev', 't', [], _target, _iface, _port_id)), 0)
+        self.assertEqual(len(table_to_ad6('dev', 't', None, [], _target, _iface, _port_id)), 0)
 
     def test_table_and_rule_keys_are_deterministic_and_dot_safe(self):
-        self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', 4),
+        self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', None, 4),
                          'fw_in_bbra_rtr_acl_in_r4')
 
 
@@ -639,7 +644,7 @@ class TestPortGraph(unittest.TestCase):
 
     def test_entry_is_rule_zero_of_the_table_that_port_enters(self):
         graph = self._graph({'a': self._dev('a', [self._rule(in_ports=['a.in'])])})
-        self.assertEqual(graph.entry('a.in'), rule_key('a', 'a.t0', 0))
+        self.assertEqual(graph.entry('a.in'), rule_key('a', 'a.t0', 'a.in', 0))
 
     def test_entry_is_none_for_a_port_no_table_declares(self):
         graph = self._graph({'a': self._dev('a', [], ports=['out'])})
@@ -674,7 +679,7 @@ class TestPortGraph(unittest.TestCase):
                                   ports=['in'])}
         edges = self._graph(devices, [('a.out', 'b.in')]).edges()
         self.assertIn(('favenet_a_out_out', 'favenet_b_in_in'), edges)
-        self.assertIn(('favenet_b_in_in', rule_key('b', 'b.t0', 0)), edges)
+        self.assertIn(('favenet_b_in_in', rule_key('b', 'b.t0', 'b.in', 0)), edges)
 
     def test_intra_device_wiring_produces_the_same_shape_as_a_link(self):
         """ wl_up declares its pipeline as wiring, wl_stanford spreads the same
@@ -684,7 +689,7 @@ class TestPortGraph(unittest.TestCase):
                                   wiring=[('a.x', 'a.mid')])}
         edges = self._graph(devices).edges()
         self.assertIn(('favenet_a_x_out', 'favenet_a_mid_in'), edges)
-        self.assertIn(('favenet_a_mid_in', rule_key('a', 'a.t0', 0)), edges)
+        self.assertIn(('favenet_a_mid_in', rule_key('a', 'a.t0', 'a.mid', 0)), edges)
 
     def test_edges_are_deduplicated(self):
         devices = {'a': self._dev('a', [self._rule(in_ports=['a.in'])])}
@@ -738,15 +743,15 @@ class TestModelToConfig(unittest.TestCase):
         reaches = self._chain('10.0.0.0/24')
         for device in ('a', 'b', 'c'):
             with self.subTest(device=device):
-                self.assertTrue(reaches(rule_key(device, device + '.t0', 0)))
+                self.assertTrue(reaches(rule_key(device, device + '.t0', device + '.in', 0)))
 
     def test_a_chain_with_DISJOINT_matches_is_REFUTED(self):
         """ The test that matters. Any translator can make things reachable --
         dropping a constraint does it. This asserts the model still says NO
         when the two hops cannot agree on a packet. """
         reaches = self._chain('192.168.0.0/16')
-        self.assertTrue(reaches(rule_key('a', 'a.t0', 0)))
-        self.assertFalse(reaches(rule_key('c', 'c.t0', 0)),
+        self.assertTrue(reaches(rule_key('a', 'a.t0', 'a.in', 0)))
+        self.assertFalse(reaches(rule_key('c', 'c.t0', 'c.in', 0)),
                          "c must be unreachable: no packet matches both "
                          "10.0.0.0/8 and 192.168.0.0/16")
 
@@ -767,7 +772,7 @@ class TestModelToConfig(unittest.TestCase):
         solver = PycoSATAdapter()
         self.assertFalse(bool(solver.Solve(
             Instantiator.InstantiateReach(kripke, encoding,
-                                          rule_key('b', 'b.t0', 0)))))
+                                          rule_key('b', 'b.t0', 'b.in', 0)))))
 
     def test_the_config_declares_a_firewall_and_a_node_per_device(self):
         devices = {'a': self._dev('a', [self._fwd('a', None, None)], ['in'])}

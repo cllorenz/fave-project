@@ -405,13 +405,14 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any
         if match is not None:
             element.append(match)
 
-    # `in_ports` is which port a rule is reachable FROM -- graph structure in
-    # FaVe, a path condition here. Several ports are a disjunction, which
-    # kripke.py builds for us from repeated <interface> elements.
-    for port in (getattr(rule, 'in_ports', None) or []):
-        name, _direction = split_port_direction(str(port))
-        element.append(GenUtils.interface(name, resolve_interface(str(port)),
-                                          direction='in'))
+    # `in_ports` is deliberately NOT emitted as a condition. It is handled
+    # STRUCTURALLY instead, by `PortGraph.chains()` giving each entering port
+    # its own chain of applicable rules -- see that method. An <interface>
+    # condition would be UNSOUND: ad6 turns it into a plain free variable and
+    # ties it to nothing, so the solver may simply assert that a packet came in
+    # on whichever port suits it (AD6_PLAN.md §9.12.2, where that let a wl_ifi
+    # packet fire a rule written for the Internet uplink, relabel its VLAN and
+    # walk past the deny meant for it).
 
     rewrites = _rewrites(rule, port_id)
     for port in _forward_ports(rule):
@@ -436,12 +437,23 @@ def table_key(device: str, table: str) -> str:
     return "fw_%s_%s" % (safe(device), safe(table))
 
 
-def rule_key(device: str, table: str, position: int) -> str:
-    return "%s_r%d" % (table_key(device, table), position)
+def chain_key(device: str, table: str, port: Optional[str]) -> str:
+    """ The ad6 key prefix for ONE chain: a (table, entering port) pair.
+
+    The port is part of the identity because a table is compiled once per port
+    that enters it, each copy holding only the rules applicable to that port
+    (see PortGraph.chains). `port=None` is the chain of a table no port enters
+    -- a generator's own injection table. """
+    base = table_key(device, table)
+    return base if port is None else "%s__%s" % (base, _safe(port))
 
 
-def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
-                 resolve_interface: Any, port_id: Any,
+def rule_key(device: str, table: str, port: Optional[str], position: int) -> str:
+    return "%s_r%d" % (chain_key(device, table, port), position)
+
+
+def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
+                 resolve_target: Any, resolve_interface: Any, port_id: Any,
                  mutable: Iterable[str] = ()) -> Any:
     """ One FaVe table -> one ad6 <table>, rules ordered by ASCENDING `idx`.
 
@@ -464,7 +476,8 @@ def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
     Indices must be UNIQUE within a table, since two rules sharing one would
     leave the order genuinely ambiguous. Measured: no table in any benchmark has
     a duplicate, so this is refused rather than broken arbitrarily. """
-    element = GenUtils.table(str(table).replace('.', '_'))
+    element = GenUtils.table(
+        _safe(table) if port is None else "%s__%s" % (_safe(table), _safe(port)))
 
     indexed = list(enumerate(rules))
     seen = {}
@@ -494,7 +507,7 @@ def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
             % (device, table, len(seen), len(indexed) - len(seen)))
 
     for position, (_original, rule) in enumerate(indexed):
-        element.append(rule_to_ad6(rule, rule_key(device, table, position),
+        element.append(rule_to_ad6(rule, rule_key(device, table, port, position),
                                    resolve_target, resolve_interface, port_id,
                                    mutable=mutable, position=position))
     return element
@@ -659,19 +672,64 @@ class PortGraph:
                                for index, name in enumerate(names, start=1)}
         return self._port_id_cache
 
+    def chains(self) -> Any:
+        """ [(device, table, port, rules)] -- one chain per (table, ENTERING
+        PORT), holding only the rules that port can reach.
+
+        THIS IS WHERE INGRESS DISCRIMINATION LIVES, and it has to be structural.
+        FaVe says which ports a rule is reachable from with `in_ports`; the
+        obvious translation, an <interface> condition on the rule, is UNSOUND
+        because ad6 makes that a free variable tied to nothing -- the solver can
+        assert a packet arrived anywhere it likes (AD6_PLAN.md §9.12.2). Giving
+        each port its own chain puts the distinction in the GRAPH, where the
+        solver cannot wish it away, and is what the semantic path's
+        `entry_key(device, port, ir)` does by a different route.
+
+        A rule with NO `in_ports` is reachable from every port entering its
+        table, so it appears in every chain (155 such rules in wl_up). A table
+        no port enters at all yields one chain with `port=None` -- a generator's
+        own injection table, entered by key rather than by arrival.
+
+        The cost is small because heterogeneous `in_ports` are rare. Measured
+        2026-09-13, total rules before -> after: wl_i2 77,841 -> 78,047 (1.00x),
+        wl_up 7,828 -> 7,892 (1.01x), wl_ifi 191 -> 223 (1.17x), wl_stanford
+        8,792 -> 14,821 (1.69x, its `in.*` stage carrying the whole spread). A
+        table whose rules agree on their ports compiles to exactly one chain,
+        which is what most tables do. """
+        if getattr(self, '_chain_cache', None) is not None:
+            return self._chain_cache
+        result = []
+        for device, model in sorted(self._devices.items()):
+            for table, rules in sorted(model.get('tables', {}).items()):
+                rules = list(rules)
+                ports = set()
+                for rule in rules:
+                    ports |= {str(p) for p in (getattr(rule, 'in_ports', None) or [])}
+                if not ports:
+                    result.append((device, table, None, rules))
+                    continue
+                for port in sorted(ports):
+                    applicable = [
+                        rule for rule in rules
+                        if not (getattr(rule, 'in_ports', None) or [])
+                        or port in {str(p) for p in rule.in_ports}]
+                    result.append((device, table, port, applicable))
+        self._chain_cache = result
+        return result
+
     def entry(self, port: str) -> Optional[str]:
         """ The rule a packet arriving at `port` starts at: rule 0 of the table
         that port enters, or None if no table declares it.
 
-        Rule 0 ALWAYS, never a port-specific offset, because per-rule `in_ports`
-        are emitted as <interface> CONDITIONS -- so each table stays one linear
-        first-match chain and the arrival port filters within it rather than
-        choosing where to start. """
+        Rule 0 OF THAT PORT'S OWN CHAIN, not of the whole table: each entering
+        port gets its own copy of the applicable rules (see `chains`), so the
+        arrival port decides WHICH chain is walked rather than being asked about
+        inside a shared one. """
         owner = self._table_of_port.get(port)
         if owner is None:
             return None
         device, table = owner
-        return rule_key(device, table, 0)
+        return rule_key(device, table, str(port), 0)
 
     # --- edges ------------------------------------------------------------
 
@@ -786,8 +844,10 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
     firewalls = GenUtils.firewalls()
     for device in sorted(devices):
         firewall = GenUtils.firewall("fw_" + _safe(device))
-        for table, rules in sorted(devices[device].get('tables', {}).items()):
-            firewall.append(table_to_ad6(device, table, rules,
+        for chain_device, table, port, rules in graph.chains():
+            if chain_device != device:
+                continue
+            firewall.append(table_to_ad6(device, table, port, rules,
                                          graph.target, graph.interface,
                                          graph.port_id, mutable=mutable))
         firewalls.append(firewall)
@@ -935,6 +995,7 @@ def instantiate_base(config: Any, edges: Iterable[Any], inits: Iterable[str],
 
 GENERATOR_TABLE = 'generator'
 PROBE_TABLE = 'probe'
+PROBE_PORT = '1'
 
 
 def _single_valued(fields: Any, kind: str) -> Any:
@@ -1048,11 +1109,12 @@ def probe_device(name: str, *, port: str = '1') -> Dict[str, Any]:
 def generator_entry_key(name: str) -> str:
     """ The node a query from this source starts at -- its own injection rule.
     Pass it to `instantiate_base`'s `inits`. """
-    return rule_key(name, "%s.%s" % (name, GENERATOR_TABLE), 0)
+    return rule_key(name, "%s.%s" % (name, GENERATOR_TABLE), None, 0)
 
 
 def probe_entry_key(name: str) -> str:
     """ The node a query to this probe targets -- its own terminal rule,
     reachable exactly when a packet arrives at the probe's port. Adding probe
     filtering would change this: see probe_device. """
-    return rule_key(name, "%s.%s" % (name, PROBE_TABLE), 0)
+    return rule_key(name, "%s.%s" % (name, PROBE_TABLE),
+                    "%s.%s" % (name, PROBE_PORT), 0)
