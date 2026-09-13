@@ -735,3 +735,209 @@ class TestModelToConfig(unittest.TestCase):
         xml = et.tostring(config).decode()
         self.assertIn('<fieldmatch field="vlan">10</fieldmatch>', xml,
                       "b's VLAN match must be node-scoped because a REWRITES vlan")
+
+
+class TestGeneratorsAndProbes(unittest.TestCase):
+    """ Neither gets a mechanism of its own: a generator is a device with one
+    rule that forwards to its own port, a probe a device with one terminal
+    rule, and the topology's existing links carry both. These tests assert that
+    -- and then assert the model still REFUTES, which is the only way to tell a
+    correct translation from a permissive one. """
+
+    @staticmethod
+    def _router(dst=None, vlan_admit=None):
+        match = []
+        if dst:
+            match.append(RuleField('packet.ipv4.destination', dst))
+        if vlan_admit is not None:
+            match.append(RuleField('packet.ether.vlan', str(vlan_admit)))
+        return {'tables': {'r.t0': [Rule('r', 'r.t0', 0, in_ports=['r.in'],
+                                         match=Match(match),
+                                         actions=[Forward(['r.out'])])]},
+                'ports': ['in', 'out'], 'wiring': []}
+
+    def _reaches(self, devices, links, source, probe):
+        from ad6.translate import (model_to_config, instantiate_base,
+                                   generator_entry_key, probe_entry_key)
+        from src.core.instantiator import Instantiator
+        from src.solver.pycosat import PycoSATAdapter
+        from src.xml.xmlutils import XMLUtils
+        config, edges = model_to_config(devices, links)
+        XMLUtils.deannotate(config)
+        kripke, encoding = instantiate_base(
+            config, edges, inits=[generator_entry_key(source)],
+            mutable_fields={'vlan': 12})
+        solver = PycoSATAdapter()
+        return bool(solver.Solve(Instantiator.InstantiateReach(
+            kripke, encoding, probe_entry_key(probe))))
+
+    def _wire(self, generator, probe, router=None):
+        from ad6.translate import generator_device, probe_device
+        devices = {'r': router if router is not None else self._router()}
+        devices['source.a'] = generator
+        devices['probe.b'] = probe
+        return devices, [('source.a.1', 'r.in'), ('r.out', 'probe.b.1')]
+
+    # --- shape ---------------------------------------------------------
+
+    def test_a_generator_has_no_in_ports(self):
+        """ Load-bearing, not incidental: ad6's INIT exemption only applies to
+        a node with NO predecessors, and every real device entry point has one
+        once the topology is wired. A generator that could be pointed into
+        would not be usable as a query source at all. """
+        from ad6.translate import generator_device
+        device = generator_device('source.a')
+        rule = list(device['tables'].values())[0][0]
+        self.assertFalse(rule.in_ports)
+
+    def test_a_generator_forwards_to_its_own_port(self):
+        from ad6.translate import generator_device
+        device = generator_device('source.a')
+        rule = list(device['tables'].values())[0][0]
+        self.assertEqual([p for a in rule.actions
+                          for p in (getattr(a, 'ports', None) or [])],
+                         ['source.a.1'])
+
+    def test_a_probe_receives_on_its_own_port_and_forwards_to_its_accept_port(self):
+        from ad6.translate import probe_device, PROBE_ACCEPT_PORT
+        device = probe_device('probe.b')
+        rule = list(device['tables'].values())[0][0]
+        self.assertEqual(rule.in_ports, ['probe.b.1'])
+        self.assertEqual([p for a in rule.actions
+                          for p in (getattr(a, 'ports', None) or [])],
+                         ['probe.b.' + PROBE_ACCEPT_PORT])
+
+    def test_the_query_target_is_the_accept_node_NOT_the_probe_rule(self):
+        """ Regression guard for a finding that cost a real debugging pass, so
+        that nobody "simplifies" the accept port away.
+
+        In ad6 a rule's condition gates its OUTGOING edges: a node's proposition
+        follows from its INCOMING transitions, and a transition carries the
+        condition of the node it LEAVES. A terminal rule therefore has its match
+        enforced by nothing, and asking whether its node is reachable asks only
+        whether a packet ARRIVED -- not whether it satisfied the probe.
+
+        Asserted as a real verdict difference, not as a claim: the probe below
+        demands a destination the router cannot deliver, so the accept node must
+        be unreachable while the probe RULE's own node is still reachable. """
+        from ad6.translate import (generator_device, probe_device, rule_key,
+                                   model_to_config, instantiate_base,
+                                   generator_entry_key, probe_entry_key,
+                                   PROBE_TABLE)
+        from src.core.instantiator import Instantiator
+        from src.solver.pycosat import PycoSATAdapter
+        from src.xml.xmlutils import XMLUtils
+
+        probe = probe_device('probe.b', {'packet.ipv4.destination': [
+            RuleField('packet.ipv4.destination', '192.168.0.0/16')]})
+        devices, links = self._wire(generator_device('source.a'), probe,
+                                    self._router(dst='10.0.0.0/8'))
+        config, edges = model_to_config(devices, links)
+        XMLUtils.deannotate(config)
+        kripke, encoding = instantiate_base(
+            config, edges, inits=[generator_entry_key('source.a')])
+        solver = PycoSATAdapter()
+        reach = lambda node: bool(solver.Solve(
+            Instantiator.InstantiateReach(kripke, encoding, node)))
+
+        self.assertTrue(
+            reach(rule_key('probe.b', 'probe.b.' + PROBE_TABLE, 0)),
+            "the probe RULE's node is reachable -- a packet does arrive; this "
+            "is precisely why it is the wrong thing to query")
+        self.assertFalse(
+            reach(probe_entry_key('probe.b')),
+            "the ACCEPT node must be unreachable: the arriving packet cannot "
+            "satisfy the probe's own condition")
+
+    def test_a_multi_valued_field_is_REFUSED(self):
+        """ A disjunction ad6 expresses for some match kinds and not others --
+        two <ip> elements CONJOIN, so an address would silently become
+        unsatisfiable rather than either value. """
+        from ad6.translate import generator_device
+        with self.assertRaises(UnsupportedField):
+            generator_device('source.a', {'packet.ipv4.source': [
+                RuleField('packet.ipv4.source', '10.0.0.0/8'),
+                RuleField('packet.ipv4.source', '11.0.0.0/8')]})
+
+    # --- verdicts ------------------------------------------------------
+
+    def test_a_consistent_source_to_probe_path_is_reachable(self):
+        from ad6.translate import generator_device, probe_device
+        devices, links = self._wire(generator_device('source.a'),
+                                    probe_device('probe.b'),
+                                    self._router(dst='10.0.0.0/8'))
+        self.assertTrue(self._reaches(devices, links, 'source.a', 'probe.b'))
+
+    def test_a_generator_constraint_DISJOINT_from_the_path_is_REFUTED(self):
+        """ The generator's own match has to constrain the packet, not decorate
+        it: a source that may only emit 192.168/16 cannot reach a probe behind
+        a router that forwards only 10/8. """
+        from ad6.translate import generator_device, probe_device
+        generator = generator_device('source.a', {'packet.ipv4.destination': [
+            RuleField('packet.ipv4.destination', '192.168.0.0/16')]})
+        devices, links = self._wire(generator, probe_device('probe.b'),
+                                    self._router(dst='10.0.0.0/8'))
+        self.assertFalse(self._reaches(devices, links, 'source.a', 'probe.b'))
+
+    def test_a_probe_condition_that_cannot_hold_REFUTES(self):
+        """ A probe's enforced fields are real conditions on arrival. """
+        from ad6.translate import generator_device, probe_device
+        probe = probe_device('probe.b', {'packet.ipv4.destination': [
+            RuleField('packet.ipv4.destination', '192.168.0.0/16')]})
+        devices, links = self._wire(generator_device('source.a'), probe,
+                                    self._router(dst='10.0.0.0/8'))
+        self.assertFalse(self._reaches(devices, links, 'source.a', 'probe.b'))
+
+    def test_a_generators_MUTABLE_field_is_rewritten_not_merely_matched(self):
+        """ AD6_PLAN.md §5.4 B2, the subtlest thing here. A source declaring
+        VLAN 48 against a device admitting only VLAN 10 must be REFUTED. If the
+        generator's VLAN were an ordinary match, it would leave the field a free
+        SSA variable that the admission check could satisfy by picking 10 --
+        silently reporting reachable. The rewrite is what pins it. """
+        from ad6.translate import generator_device, probe_device
+        # `mutable` is what the caller computed over the whole model; the
+        # router below rewrites nothing, so VLAN is mutable only because the
+        # generator sets it -- exactly the case that must still work.
+        generator = generator_device(
+            'source.a',
+            {'packet.ether.vlan': [RuleField('packet.ether.vlan', '48')]},
+            mutable={'packet.ether.vlan'})
+        devices, links = self._wire(generator, probe_device('probe.b'),
+                                    self._router(vlan_admit=10))
+        self.assertFalse(self._reaches(devices, links, 'source.a', 'probe.b'),
+                         "a source tagged 48 must not reach a device admitting "
+                         "only 10 -- the generator's VLAN is not pinned")
+
+    def test_a_matching_mutable_field_still_reaches(self):
+        """ The control for the test above: pinning must refute the wrong tag
+        without refuting the right one. """
+        from ad6.translate import generator_device, probe_device
+        generator = generator_device(
+            'source.a',
+            {'packet.ether.vlan': [RuleField('packet.ether.vlan', '10')]},
+            mutable={'packet.ether.vlan'})
+        devices, links = self._wire(generator, probe_device('probe.b'),
+                                    self._router(vlan_admit=10))
+        self.assertTrue(self._reaches(devices, links, 'source.a', 'probe.b'))
+
+    def test_an_unconstrained_generator_field_adds_no_condition(self):
+        """ FaVe spells "any source address" as 0.0.0.0/0 (every benchmark's
+        generators do), which must not become a real constraint. """
+        from ad6.translate import generator_device, probe_device, model_to_config
+        generator = generator_device('source.a', {'packet.ipv4.source': [
+            RuleField('packet.ipv4.source', '0.0.0.0/0')]})
+        devices, links = self._wire(generator, probe_device('probe.b'),
+                                    self._router(dst='10.0.0.0/8'))
+        config, _edges = model_to_config(devices, links)
+        generator_xml = et.tostring(
+            config.xpath('//*[local-name()="firewall"][@key="fw_source_a"]')[0]).decode()
+        self.assertNotIn('<address>', generator_xml)
+        self.assertTrue(self._reaches(devices, links, 'source.a', 'probe.b'))
+
+    def test_a_probe_with_no_link_is_unreachable(self):
+        from ad6.translate import generator_device, probe_device
+        devices, _links = self._wire(generator_device('source.a'),
+                                     probe_device('probe.b'),
+                                     self._router(dst='10.0.0.0/8'))
+        self.assertFalse(self._reaches(devices, [('source.a.1', 'r.in')],
+                                       'source.a', 'probe.b'))

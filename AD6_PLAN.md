@@ -4620,6 +4620,68 @@ structure. Nothing in the rule is consulted except its matches, its `in_ports` a
 actions.
 
 
+### 9.9 Generators and probes: no mechanism of their own
+
+A generator is a device with ONE rule that forwards to its own port; a probe is a device
+with one rule that forwards to its own ACCEPT port. The topology's existing links carry a
+generator onward and a probe inward, and `PortGraph` resolves both exactly as it resolves
+any other device -- so `model_to_config` contains no generator or probe case at all.
+
+That is the design working, not a coincidence. `Ad6Adapter`'s `_gen_firewall` needs four
+branches (is this a ruleset device? is the attachment FaVe's `output_filter_in` marker
+port? is the port admitted? which `entry_key` applies?) precisely because it reconstructs
+meaning. A translator carrying declared structure has nothing left to decide.
+
+**Measured vocabulary (2026-09-12), and it is small:** every generator and probe field
+carries EXACTLY ONE value across all four benchmarks, so no disjunction support is needed
+-- and a multi-valued field is REFUSED rather than half-supported, because ad6 ORs
+repeated `<vlan>`/`<port>` elements but CONJOINS two `<ip>` elements, which would make a
+two-valued address silently unsatisfiable rather than either value.
+
+| benchmark | generators | probes | generator fields | probe fields |
+|---|---|---|---|---|
+| wl_ifi | 17 | 17 | vlan (16), ipv4.source (10) | none |
+| wl_up | 137 | 137 | ipv6.source (137, all `::/0`) | `filter_fields` dport (21) |
+| wl_i2 | 9 | 9 | ipv4.destination (9, all `/0`) | `test_fields` vlan (9, all 0) |
+| wl_stanford | 16 | 16 | ipv4.destination (16, all `/0`) | `test_fields` vlan (16, all 0) |
+
+Two decisions the measurement forced:
+
+**A generator's MUTABLE field becomes a REWRITE on its injection edge, not a match**
+(AD6_PLAN.md §5.4 B2, found the hard way there and re-derived here). wl_ifi's generators
+declare real VLAN tags. A match would leave the field a free SSA variable that any
+downstream admission check could satisfy by picking a convenient value, silently
+over-approximating reachability instead of gating it. Pinned by a pair of tests: a source
+tagged 48 must NOT reach a device admitting only 10, and one tagged 10 must.
+
+**Which probe fields to enforce is the CALLER's choice, not the translator's.** FaVe keeps
+`filter_fields` (which flows the probe considers) and `test_fields` (the condition it
+tests on arrival) separately, and choosing between them is measurement-affecting
+configuration -- generality-debt item 4, `probe_untag`. `probe_device` enforces exactly
+what it is handed, so the choice stays where it can be stamped.
+
+#### 9.9.1 A TERMINAL NODE'S OWN CONDITION IS NOT ENFORCED -- found here, and it matters
+
+In ad6 a rule's condition gates its OUTGOING edges: `_ConvertNodesToImplications` makes a
+node's proposition follow from its INCOMING transitions, and a transition carries the
+condition of the node it LEAVES. **A terminal rule's match is therefore enforced by
+nothing.** Asking whether its node is reachable asks only whether a packet ARRIVED -- not
+whether it satisfied the probe.
+
+Measured directly rather than reasoned about: a probe demanding dst `192.168.0.0/16`
+behind a router forwarding only `10.0.0.0/8` came back REACHABLE. Giving the probe one
+outgoing edge to a dedicated accept port puts the condition back onto a real transition,
+and `probe_entry_key` names that port's egress node -- reachable exactly when a packet
+both arrived AND satisfied the probe.
+
+**This is the structural equivalent of `favemodel.probe_vlan_literals`**, which forces a
+probe's declared VLAN as explicit per-bit literals onto the query instance. That function
+exists because the current adapter has no accept edge to hang the condition on; with one,
+the query side needs no special case at all. The finding is pinned by a regression test
+that asserts the VERDICT DIFFERENCE -- the probe rule's own node reachable, the accept
+node not -- so the accept port cannot be "simplified" away later.
+
+
 ---
 
 

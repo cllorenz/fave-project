@@ -782,3 +782,134 @@ def instantiate_base(config: Any, edges: Iterable[Any], inits: Iterable[str],
     SATUtils.ConvertToCNF(encoding)
 
     return kripke, encoding
+
+
+# --- generators and probes ------------------------------------------------
+#
+# Neither needs a mechanism of its own. A generator is a device with ONE rule
+# that forwards to its own port; a probe is a device with one TERMINAL rule
+# that forwards nowhere. The topology's existing links carry a generator onward
+# and a probe inward, and `PortGraph` resolves both exactly as it resolves any
+# other device -- so `model_to_config` needs no generator or probe case at all.
+#
+# That is the design working rather than a coincidence. `Ad6Adapter` needs
+# `_gen_firewall` with four branches (is this a ruleset device? is the
+# attachment FaVe's `output_filter_in` marker port? is the port admitted? which
+# entry_key applies?) precisely because it reconstructs meaning; a translator
+# that carries the declared structure has nothing left to decide.
+
+GENERATOR_TABLE = 'generator'
+PROBE_TABLE = 'probe'
+# A probe's own egress, existing solely so its condition sits on a real
+# transition -- see probe_device.
+PROBE_ACCEPT_PORT = 'accept'
+
+
+def _single_valued(fields: Any, kind: str) -> Any:
+    """ Flattens a FaVe {name: [RuleField]} map, refusing a field that carries
+    several values.
+
+    Measured across wl_ifi/wl_up/wl_i2/wl_stanford: every generator and probe
+    field has exactly ONE value. Several would mean a disjunction, which ad6
+    expresses for some match kinds (kripke.py ORs repeated <vlan>/<port>
+    elements) and not for others (two <ip> elements CONJOIN, so a two-value
+    address would silently become unsatisfiable rather than either value).
+    Refused rather than half-supported -- this is unmeasured territory, not
+    impossible territory, and the message says so. """
+    flat = []
+    for name, values in sorted((fields or {}).items()):
+        values = list(values or [])
+        if len(values) > 1:
+            raise UnsupportedField(
+                "%s field %r carries %d values %r. A multi-valued field is a "
+                "DISJUNCTION, which ad6 expresses for some match kinds and not "
+                "others -- two <ip> elements conjoin, so an address would "
+                "silently become unsatisfiable. No benchmark produces this; add "
+                "support deliberately, with a test, rather than by accident."
+                % (kind, name, len(values), [str(v.value) for v in values]))
+        flat.extend(values)
+    return flat
+
+
+def generator_device(name: str, fields: Any = None, mutable: Iterable[str] = (),
+                     port: str = '1') -> Dict[str, Any]:
+    """ A FaVe generator -> a one-rule device that injects into its own port.
+
+    Its rule has NO `in_ports`, so nothing can point into it and its node has
+    zero backward transitions. That is load-bearing rather than incidental:
+    ad6's INIT exemption ("was this node entered") only applies to a node with
+    no predecessors, and every real device entry point HAS one once the topology
+    is wired -- so a generator needs a node of its own to be a usable query
+    source at all (the finding `favemodel.gen_entry_key`'s docstring records).
+
+    A constraint on a MUTABLE field becomes a REWRITE on the injection edge, not
+    a match. A match would leave the field a free SSA variable that any
+    downstream admission check could satisfy by picking a convenient value --
+    silently over-approximating reachability instead of gating it (AD6_PLAN.md
+    §5.4 B2, found the hard way there). Immutable fields stay ordinary matches.
+    `mutable` is the model-wide rewritten-field set, same as everywhere else. """
+    mutable = set(mutable)
+    matched, rewritten = [], []
+    for field in _single_valued(fields, 'generator'):
+        (rewritten if field.name in mutable else matched).append(field)
+
+    from rule.rule_model import Forward, Match, Rewrite, Rule
+
+    actions = []
+    if rewritten:
+        actions.append(Rewrite(rewritten))
+    actions.append(Forward(["%s.%s" % (name, port)]))
+
+    rule = Rule(name, "%s.%s" % (name, GENERATOR_TABLE), 0,
+                in_ports=None, match=Match(matched), actions=actions)
+    return {'tables': {"%s.%s" % (name, GENERATOR_TABLE): [rule]},
+            'ports': [port], 'wiring': []}
+
+
+def probe_device(name: str, fields: Any = None, port: str = '1') -> Dict[str, Any]:
+    """ A FaVe probe -> a one-rule device that receives and forwards nowhere.
+
+    `fields` is whatever the CALLER decided to enforce. FaVe keeps two separate
+    dicts -- `filter_fields` narrows which flows the probe considers at all,
+    `test_fields` is the condition it tests on flows that arrive -- and which of
+    them to enforce is a measurement-affecting choice (AD6_PLAN.md's
+    generality-debt item 4, `probe_untag`). It belongs to the caller, which can
+    stamp it; this function stays neutral and enforces exactly what it is
+    given.
+
+    THE PROBE FORWARDS TO A DEDICATED ACCEPT PORT, AND MUST. A rule's own
+    condition in ad6 gates its OUTGOING edges -- `_ConvertNodesToImplications`
+    makes a node's proposition follow from its incoming transitions, and a
+    transition carries the condition of the node it LEAVES. So a terminal rule's
+    match is never enforced by anything: asking whether its node is reachable
+    asks only whether a packet ARRIVED, not whether it satisfied the probe.
+    Measured here directly -- a probe demanding dst 192.168/16 behind a router
+    forwarding only 10/8 came back REACHABLE until this edge existed.
+
+    Giving the probe one outgoing edge to its own accept port puts the condition
+    back on a real transition, so `probe_entry_key` (that port's egress node) is
+    reachable exactly when a packet both arrived AND satisfied the probe. This
+    is the structural equivalent of what `favemodel.probe_vlan_literals` does
+    query-side, and it needs no query-side special case at all. """
+    from rule.rule_model import Forward, Match, Rule
+
+    rule = Rule(name, "%s.%s" % (name, PROBE_TABLE), 0,
+                in_ports=["%s.%s" % (name, port)],
+                match=Match(_single_valued(fields, 'probe')),
+                actions=[Forward(["%s.%s" % (name, PROBE_ACCEPT_PORT)])])
+    return {'tables': {"%s.%s" % (name, PROBE_TABLE): [rule]},
+            'ports': [port, PROBE_ACCEPT_PORT], 'wiring': []}
+
+
+def generator_entry_key(name: str) -> str:
+    """ The node a query from this source starts at -- its own injection rule.
+    Pass it to `instantiate_base`'s `inits`. """
+    return rule_key(name, "%s.%s" % (name, GENERATOR_TABLE), 0)
+
+
+def probe_entry_key(name: str) -> str:
+    """ The node a query to this probe targets: its ACCEPT port's egress node,
+    reachable exactly when a packet arrived AND satisfied the probe's own
+    conditions. Deliberately not the probe rule's node -- see probe_device for
+    why that one answers a weaker question. """
+    return iface_key(name, PROBE_ACCEPT_PORT) + '_out'
