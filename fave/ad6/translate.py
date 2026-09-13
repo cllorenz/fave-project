@@ -800,9 +800,6 @@ def instantiate_base(config: Any, edges: Iterable[Any], inits: Iterable[str],
 
 GENERATOR_TABLE = 'generator'
 PROBE_TABLE = 'probe'
-# A probe's own egress, existing solely so its condition sits on a real
-# transition -- see probe_device.
-PROBE_ACCEPT_PORT = 'accept'
 
 
 def _single_valued(fields: Any, kind: str) -> Any:
@@ -866,39 +863,51 @@ def generator_device(name: str, fields: Any = None, mutable: Iterable[str] = (),
             'ports': [port], 'wiring': []}
 
 
-def probe_device(name: str, fields: Any = None, port: str = '1') -> Dict[str, Any]:
-    """ A FaVe probe -> a one-rule device that receives and forwards nowhere.
+def probe_device(name: str, *, port: str = '1') -> Dict[str, Any]:
+    """ A FaVe probe -> a one-rule device that receives and terminates.
 
-    `fields` is whatever the CALLER decided to enforce. FaVe keeps two separate
-    dicts -- `filter_fields` narrows which flows the probe considers at all,
-    `test_fields` is the condition it tests on flows that arrive -- and which of
-    them to enforce is a measurement-affecting choice (AD6_PLAN.md's
-    generality-debt item 4, `probe_untag`). It belongs to the caller, which can
-    stamp it; this function stays neutral and enforces exactly what it is
-    given.
+    THE PROBE ACCEPTS ANY INCOMING TRAFFIC (owner decision 2026-09-13:
+    *"Please make the probe accept any incoming traffic. If we need filtering at
+    probes, we can implement that later, e.g., when used in a benchmark."*).
+    Its rule carries no match, so `probe_entry_key` is reachable exactly when a
+    packet arrives at the probe's port -- which is the reachability question
+    every benchmark in scope actually asks.
 
-    THE PROBE FORWARDS TO A DEDICATED ACCEPT PORT, AND MUST. A rule's own
-    condition in ad6 gates its OUTGOING edges -- `_ConvertNodesToImplications`
-    makes a node's proposition follow from its incoming transitions, and a
-    transition carries the condition of the node it LEAVES. So a terminal rule's
-    match is never enforced by anything: asking whether its node is reachable
-    asks only whether a packet ARRIVED, not whether it satisfied the probe.
-    Measured here directly -- a probe demanding dst 192.168/16 behind a router
-    forwarding only 10/8 came back REACHABLE until this edge existed.
+    WHAT ANYONE ADDING PROBE FILTERING MUST KNOW FIRST. A terminal rule's own
+    match would be enforced by NOTHING. In ad6 a rule's condition gates its
+    OUTGOING edges -- `_ConvertNodesToImplications` makes a node's proposition
+    follow from its INCOMING transitions, and a transition carries the condition
+    of the node it LEAVES -- so a filtering condition placed on this rule would
+    be silently ignored and every probe would report REACHABLE. Measured, not
+    reasoned about: a probe demanding dst 192.168.0.0/16 behind a router
+    forwarding only 10.0.0.0/8 came back reachable. The property is pinned
+    independently of probes by
+    `ad6/test/core/instantiatortest.py::TerminalConditionTest`.
 
-    Giving the probe one outgoing edge to its own accept port puts the condition
-    back on a real transition, so `probe_entry_key` (that port's egress node) is
-    reachable exactly when a packet both arrived AND satisfied the probe. This
-    is the structural equivalent of what `favemodel.probe_vlan_literals` does
-    query-side, and it needs no query-side special case at all. """
-    from rule.rule_model import Forward, Match, Rule
+    `port` is KEYWORD-ONLY on purpose: this function used to take a `fields`
+    dict second, and a caller still passing one positionally would otherwise
+    have bound it silently to `port` -- an unfiltered probe on a nonsense port,
+    with no error anywhere.
+
+    The fix, when filtering is wanted, is to give the probe one outgoing edge to
+    a dedicated accept port and query THAT node, so the condition sits on a real
+    transition -- the structural equivalent of what
+    `favemodel.probe_vlan_literals` does query-side today. What to enforce is
+    then a measurement-affecting choice that belongs to the caller and must be
+    stamped: FaVe keeps `filter_fields` (which flows the probe considers) and
+    `test_fields` (the condition it tests on arrival) separately, and choosing
+    between them is AD6_PLAN.md's generality-debt item 4. Measured shapes, for
+    whoever implements it: wl_i2 and wl_stanford probes declare
+    `test_fields={'packet.ether.vlan': ['0']}`, 21 wl_up probes declare
+    `filter_fields={'packet.upper.dport': ['22']}`, and wl_ifi declares
+    neither. """
+    from rule.rule_model import Match, Rule
 
     rule = Rule(name, "%s.%s" % (name, PROBE_TABLE), 0,
                 in_ports=["%s.%s" % (name, port)],
-                match=Match(_single_valued(fields, 'probe')),
-                actions=[Forward(["%s.%s" % (name, PROBE_ACCEPT_PORT)])])
+                match=Match([]), actions=[])
     return {'tables': {"%s.%s" % (name, PROBE_TABLE): [rule]},
-            'ports': [port, PROBE_ACCEPT_PORT], 'wiring': []}
+            'ports': [port], 'wiring': []}
 
 
 def generator_entry_key(name: str) -> str:
@@ -908,8 +917,7 @@ def generator_entry_key(name: str) -> str:
 
 
 def probe_entry_key(name: str) -> str:
-    """ The node a query to this probe targets: its ACCEPT port's egress node,
-    reachable exactly when a packet arrived AND satisfied the probe's own
-    conditions. Deliberately not the probe rule's node -- see probe_device for
-    why that one answers a weaker question. """
-    return iface_key(name, PROBE_ACCEPT_PORT) + '_out'
+    """ The node a query to this probe targets -- its own terminal rule,
+    reachable exactly when a packet arrives at the probe's port. Adding probe
+    filtering would change this: see probe_device. """
+    return rule_key(name, "%s.%s" % (name, PROBE_TABLE), 0)

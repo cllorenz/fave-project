@@ -7,7 +7,7 @@ import os
 
 from core.instantiatortest import (
     InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest,
-    RuleOrderSemanticsTest)
+    RuleOrderSemanticsTest, TerminalConditionTest)
 
 class InstantiatorSuite(TestSuite):
     def addTests(self):
@@ -78,6 +78,15 @@ class InstantiatorSuite(TestSuite):
             'testAMatchAllEarlierRuleShadowsEverythingAfterIt',
         ]
         self._suite.addTests(map(RuleOrderSemanticsTest,tests))
+
+        # AD6_PLAN.md §9.9.1: a terminal rule's own condition is enforced by
+        # nothing. Same MANUAL registry caveat as above.
+        tests = [
+            'testATerminalRulesOwnConditionIsNotEnforced',
+            'testTheSameConditionISEnforcedOnceTheRuleHasAnOutgoingEdge',
+            'testTheContradictionIsGenuineAndNotAnArtefactOfTheFixture',
+        ]
+        self._suite.addTests(map(TerminalConditionTest,tests))
 
 
     def run(self):

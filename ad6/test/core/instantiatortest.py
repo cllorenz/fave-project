@@ -1721,3 +1721,126 @@ class RuleOrderSemanticsTest(unittest.TestCase):
             self.assertTrue(reached['A'], label)
             self.assertFalse(reached['B'],
                              "%s: nothing after a match-all rule can be reached" % label)
+
+
+class TerminalConditionTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.9.1: a rule's own condition gates its OUTGOING edges, so
+    a rule with NO outgoing edge has its condition enforced by NOTHING.
+
+    `_ConvertNodesToImplications` makes a node's proposition follow from its
+    INCOMING transitions, and a transition carries the condition of the node it
+    LEAVES. Asking whether a terminal rule's node is reachable therefore asks
+    only whether a packet ARRIVED there -- never whether it satisfied that
+    rule's own match.
+
+    This is not a defect to fix; it is what "reachable" means here, and the
+    encoding is consistent about it. It is pinned because it is INVISIBLE and
+    the failure it causes is silent over-approximation -- the direction a
+    soundness error must never go. It was found the hard way while translating
+    FaVe probes (§9.9): a probe demanding a destination the network could not
+    deliver came back REACHABLE.
+
+    Two existing pieces of this codebase are explained by it. It is why
+    `favemodel.probe_vlan_literals` forces a probe's declared VLAN as explicit
+    per-bit literals onto the QUERY instance rather than relying on the probe
+    node's own condition. And it is why `fave/ad6/translate.py`'s
+    `probe_device` currently carries no match at all: a filtering condition
+    placed on a terminal rule would be silently ignored, so filtering must
+    instead put the condition on a real transition -- see that function for
+    what adding it would require. """
+
+    @staticmethod
+    def _config(terminal_jumps_onward):
+        """ entry (dst 10/8) -> terminal (dst 192.168/16, DISJOINT), optionally
+        continuing to a third node. The two conditions cannot hold together, so
+        anything downstream of the terminal rule must be unreachable. """
+        firewall = GenUtils.firewall('tfw')
+
+        table = GenUtils.table('t0')
+        entry = GenUtils.rule('0', key='tfw_t_r0')
+        entry.append(GenUtils.address('10.0.0.0/8', direction='dst', version='4'))
+        entry.append(GenUtils.action('jump', target='tfw_t_terminal'))
+        table.append(entry)
+        firewall.append(table)
+
+        terminal_table = GenUtils.table('t_term')
+        terminal = GenUtils.rule('term', key='tfw_t_terminal')
+        terminal.append(GenUtils.address('192.168.0.0/16', direction='dst', version='4'))
+        if terminal_jumps_onward:
+            terminal.append(GenUtils.action('jump', target='tfw_t_after'))
+        else:
+            terminal.append(GenUtils.action('accept'))
+        terminal_table.append(terminal)
+        firewall.append(terminal_table)
+
+        after_table = GenUtils.table('t_after')
+        after = GenUtils.rule('after', key='tfw_t_after')
+        after.append(GenUtils.action('accept'))
+        after_table.append(after)
+        firewall.append(after_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def _reaches(self, config, node):
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['tfw_t_r0'], default_inits=False)
+        return bool(PycoSATAdapter().Solve(
+            Instantiator.InstantiateReach(kripke, encoding, node)))
+
+    def testATerminalRulesOwnConditionIsNotEnforced(self):
+        """ The finding itself. `tfw_t_terminal` demands dst 192.168/16 and is
+        only reachable through a rule demanding dst 10/8 -- contradictory -- yet
+        it comes back REACHABLE, because nothing ever evaluates its condition. """
+        self.assertTrue(
+            self._reaches(self._config(terminal_jumps_onward=False),
+                          'tfw_t_terminal'),
+            "if this ever starts failing, ad6 has begun enforcing a terminal "
+            "rule's own condition -- a real semantic change, and probe "
+            "filtering could then be expressed directly (see translate.py's "
+            "probe_device)")
+
+    def testTheSameConditionISEnforcedOnceTheRuleHasAnOutgoingEdge(self):
+        """ The other half, and the fix it implies: give the rule an outgoing
+        edge and its condition lands on a real transition, so the contradiction
+        bites and whatever follows is correctly UNREACHABLE. """
+        config = self._config(terminal_jumps_onward=True)
+        self.assertFalse(
+            self._reaches(config, 'tfw_t_after'),
+            "no packet matches both 10.0.0.0/8 and 192.168.0.0/16, so nothing "
+            "downstream of the terminal rule may be reachable")
+
+    def testTheContradictionIsGenuineAndNotAnArtefactOfTheFixture(self):
+        """ Control: the identical shape with a CONSISTENT terminal condition
+        must reach the node after it. Without this, the test above would also
+        pass if the fixture were simply broken. """
+        firewall = GenUtils.firewall('cfw')
+        table = GenUtils.table('t0')
+        entry = GenUtils.rule('0', key='cfw_t_r0')
+        entry.append(GenUtils.address('10.0.0.0/8', direction='dst', version='4'))
+        entry.append(GenUtils.action('jump', target='cfw_t_terminal'))
+        table.append(entry)
+        firewall.append(table)
+        terminal_table = GenUtils.table('t_term')
+        terminal = GenUtils.rule('term', key='cfw_t_terminal')
+        terminal.append(GenUtils.address('10.0.0.0/24', direction='dst', version='4'))
+        terminal.append(GenUtils.action('jump', target='cfw_t_after'))
+        terminal_table.append(terminal)
+        firewall.append(terminal_table)
+        after_table = GenUtils.table('t_after')
+        after = GenUtils.rule('after', key='cfw_t_after')
+        after.append(GenUtils.action('accept'))
+        after_table.append(after)
+        firewall.append(after_table)
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['cfw_t_r0'], default_inits=False)
+        self.assertTrue(bool(PycoSATAdapter().Solve(
+            Instantiator.InstantiateReach(kripke, encoding, 'cfw_t_after'))))

@@ -4654,11 +4654,21 @@ downstream admission check could satisfy by picking a convenient value, silently
 over-approximating reachability instead of gating it. Pinned by a pair of tests: a source
 tagged 48 must NOT reach a device admitting only 10, and one tagged 10 must.
 
-**Which probe fields to enforce is the CALLER's choice, not the translator's.** FaVe keeps
-`filter_fields` (which flows the probe considers) and `test_fields` (the condition it
-tests on arrival) separately, and choosing between them is measurement-affecting
-configuration -- generality-debt item 4, `probe_untag`. `probe_device` enforces exactly
-what it is handed, so the choice stays where it can be stamped.
+**A PROBE ACCEPTS ANY INCOMING TRAFFIC (owner decision 2026-09-13):** *"Please make the
+probe accept any incoming traffic. If we need filtering at probes, we can implement that
+later, e.g., when used in a benchmark."* `probe_device` therefore carries no match at all,
+and `probe_entry_key` is reachable exactly when a packet arrives at the probe's port --
+the reachability question every in-scope benchmark actually asks. Every refutation in the
+translator's test suite consequently comes from the PATH (a generator's own constraint, a
+device's match, a missing link), never from the probe.
+
+This also removed the accept-port indirection §9.9.1 had introduced: with no probe
+condition to enforce, that edge was inert machinery kept only against a future need. What
+a future implementer needs instead is the FINDING below plus the measured shapes above --
+wl_i2 and wl_stanford probes declare `test_fields={'packet.ether.vlan': ['0']}`, 21 wl_up
+probes declare `filter_fields={'packet.upper.dport': ['22']}`, and which of the two to
+enforce is a measurement-affecting choice (generality-debt item 4) that belongs to the
+caller, where it can be stamped.
 
 #### 9.9.1 A TERMINAL NODE'S OWN CONDITION IS NOT ENFORCED -- found here, and it matters
 
@@ -4669,17 +4679,27 @@ nothing.** Asking whether its node is reachable asks only whether a packet ARRIV
 whether it satisfied the probe.
 
 Measured directly rather than reasoned about: a probe demanding dst `192.168.0.0/16`
-behind a router forwarding only `10.0.0.0/8` came back REACHABLE. Giving the probe one
-outgoing edge to a dedicated accept port puts the condition back onto a real transition,
-and `probe_entry_key` names that port's egress node -- reachable exactly when a packet
-both arrived AND satisfied the probe.
+behind a router forwarding only `10.0.0.0/8` came back REACHABLE.
 
-**This is the structural equivalent of `favemodel.probe_vlan_literals`**, which forces a
-probe's declared VLAN as explicit per-bit literals onto the query instance. That function
-exists because the current adapter has no accept edge to hang the condition on; with one,
-the query side needs no special case at all. The finding is pinned by a regression test
-that asserts the VERDICT DIFFERENCE -- the probe rule's own node reachable, the accept
-node not -- so the accept port cannot be "simplified" away later.
+**This is not a defect to fix; it is what "reachable" means here**, and the encoding is
+consistent about it. It is recorded because it is INVISIBLE and the failure it causes is
+silent over-approximation -- reporting reachable what is not, the one direction a
+soundness error must never go.
+
+It explains two existing pieces of this codebase. It is why
+`favemodel.probe_vlan_literals` forces a probe's declared VLAN as explicit per-bit
+literals onto the QUERY instance rather than relying on the probe node's own condition.
+And it is why probe filtering, when it is wanted, cannot simply be a match on the probe's
+rule: the condition has to sit on a real transition, which means giving the probe one
+outgoing edge to a dedicated accept port and querying THAT node.
+
+**Pinned at the ad6 level, not the translator's**, since it is a property of the encoding
+rather than of probes: `ad6/test/core/instantiatortest.py::TerminalConditionTest`, three
+tests -- that a contradictory terminal condition is reachable, that the SAME condition
+does bite once the rule has an outgoing edge, and a control proving the contradiction is
+genuine and not a broken fixture. The first will start failing if ad6 ever begins
+enforcing terminal conditions, which would be a real semantic change and would make probe
+filtering expressible directly.
 
 
 ---

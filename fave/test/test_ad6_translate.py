@@ -798,66 +798,25 @@ class TestGeneratorsAndProbes(unittest.TestCase):
                           for p in (getattr(a, 'ports', None) or [])],
                          ['source.a.1'])
 
-    def test_a_probe_receives_on_its_own_port_and_forwards_to_its_accept_port(self):
-        from ad6.translate import probe_device, PROBE_ACCEPT_PORT
+    def test_a_probe_receives_on_its_own_port_and_terminates(self):
+        """ Owner decision 2026-09-13: a probe ACCEPTS ANY incoming traffic.
+        Filtering can come later, when a benchmark needs it -- and
+        probe_device's docstring records what adding it requires, because a
+        condition on a terminal rule would be silently ignored
+        (instantiatortest.TerminalConditionTest). """
+        from ad6.translate import probe_device
         device = probe_device('probe.b')
         rule = list(device['tables'].values())[0][0]
         self.assertEqual(rule.in_ports, ['probe.b.1'])
-        self.assertEqual([p for a in rule.actions
-                          for p in (getattr(a, 'ports', None) or [])],
-                         ['probe.b.' + PROBE_ACCEPT_PORT])
+        self.assertEqual(rule.match, [])
+        self.assertEqual(rule.actions, [])
 
-    def test_the_query_target_is_the_accept_node_NOT_the_probe_rule(self):
-        """ Regression guard for a finding that cost a real debugging pass, so
-        that nobody "simplifies" the accept port away.
-
-        In ad6 a rule's condition gates its OUTGOING edges: a node's proposition
-        follows from its INCOMING transitions, and a transition carries the
-        condition of the node it LEAVES. A terminal rule therefore has its match
-        enforced by nothing, and asking whether its node is reachable asks only
-        whether a packet ARRIVED -- not whether it satisfied the probe.
-
-        Asserted as a real verdict difference, not as a claim: the probe below
-        demands a destination the router cannot deliver, so the accept node must
-        be unreachable while the probe RULE's own node is still reachable. """
-        from ad6.translate import (generator_device, probe_device, rule_key,
-                                   model_to_config, instantiate_base,
-                                   generator_entry_key, probe_entry_key,
-                                   PROBE_TABLE)
-        from src.core.instantiator import Instantiator
-        from src.solver.pycosat import PycoSATAdapter
-        from src.xml.xmlutils import XMLUtils
-
-        probe = probe_device('probe.b', {'packet.ipv4.destination': [
-            RuleField('packet.ipv4.destination', '192.168.0.0/16')]})
-        devices, links = self._wire(generator_device('source.a'), probe,
-                                    self._router(dst='10.0.0.0/8'))
-        config, edges = model_to_config(devices, links)
-        XMLUtils.deannotate(config)
-        kripke, encoding = instantiate_base(
-            config, edges, inits=[generator_entry_key('source.a')])
-        solver = PycoSATAdapter()
-        reach = lambda node: bool(solver.Solve(
-            Instantiator.InstantiateReach(kripke, encoding, node)))
-
-        self.assertTrue(
-            reach(rule_key('probe.b', 'probe.b.' + PROBE_TABLE, 0)),
-            "the probe RULE's node is reachable -- a packet does arrive; this "
-            "is precisely why it is the wrong thing to query")
-        self.assertFalse(
-            reach(probe_entry_key('probe.b')),
-            "the ACCEPT node must be unreachable: the arriving packet cannot "
-            "satisfy the probe's own condition")
-
-    def test_a_multi_valued_field_is_REFUSED(self):
-        """ A disjunction ad6 expresses for some match kinds and not others --
-        two <ip> elements CONJOIN, so an address would silently become
-        unsatisfiable rather than either value. """
-        from ad6.translate import generator_device
-        with self.assertRaises(UnsupportedField):
-            generator_device('source.a', {'packet.ipv4.source': [
-                RuleField('packet.ipv4.source', '10.0.0.0/8'),
-                RuleField('packet.ipv4.source', '11.0.0.0/8')]})
+    def test_a_probe_takes_no_field_arguments(self):
+        """ Filtering is deliberately absent rather than accidentally missing:
+        passing fields must fail loudly, not be silently ignored. """
+        from ad6.translate import probe_device
+        with self.assertRaises(TypeError):
+            probe_device('probe.b', {'packet.ipv4.destination': []})
 
     # --- verdicts ------------------------------------------------------
 
@@ -879,14 +838,16 @@ class TestGeneratorsAndProbes(unittest.TestCase):
                                     self._router(dst='10.0.0.0/8'))
         self.assertFalse(self._reaches(devices, links, 'source.a', 'probe.b'))
 
-    def test_a_probe_condition_that_cannot_hold_REFUTES(self):
-        """ A probe's enforced fields are real conditions on arrival. """
+    def test_a_probe_accepts_whatever_the_network_delivers(self):
+        """ The probe itself never refutes. Every refutation in this suite comes
+        from the PATH -- a generator's own constraint, a device's match, a
+        missing link -- which is what "the probe accepts any incoming traffic"
+        means operationally. """
         from ad6.translate import generator_device, probe_device
-        probe = probe_device('probe.b', {'packet.ipv4.destination': [
-            RuleField('packet.ipv4.destination', '192.168.0.0/16')]})
-        devices, links = self._wire(generator_device('source.a'), probe,
+        devices, links = self._wire(generator_device('source.a'),
+                                    probe_device('probe.b'),
                                     self._router(dst='10.0.0.0/8'))
-        self.assertFalse(self._reaches(devices, links, 'source.a', 'probe.b'))
+        self.assertTrue(self._reaches(devices, links, 'source.a', 'probe.b'))
 
     def test_a_generators_MUTABLE_field_is_rewritten_not_merely_matched(self):
         """ AD6_PLAN.md §5.4 B2, the subtlest thing here. A source declaring
