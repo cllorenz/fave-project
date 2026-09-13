@@ -4864,6 +4864,83 @@ rule's condition gates its OUTGOING edges (§9.9.1). Reachability of the rules f
 463 and 464 from a source declaring VLAN 477 is therefore expected and proves nothing.
 
 
+### 9.12 Adjudication: the acl_out hypothesis is REFUTED; `<interface>` is a free variable
+
+Owner asked (2026-09-13) for §9.11's acl_out-grouping hypothesis to be adjudicated against
+NetPlumber. It does not survive first contact with the shared model, and chasing it led to
+the actual root cause, which is more serious and invalidates a §9.8.2 design decision.
+
+#### 9.12.1 The hypothesis, refuted by the model both engines consume
+
+§9.11 guessed that the two paths applied DIFFERENT acl_out groups -- the semantic path
+binding the group to the egress port, the structural path to the packet's own VLAN field,
+"which `routing` rewrites on only 10 of its rules". Dumping `ifi.routing` settles it: all
+10 rules rewrite VLAN, one per destination prefix, and the route to admin's `10.0.14.0/23`
+sets `vlan := 464` together with `out_port := ifi.4_egress`. **Both paths therefore apply
+acl_out group 464.** The hypothesis was wrong, and no NetPlumber run was needed to retire
+it -- the shared model answers it directly.
+
+#### 9.12.2 The real cause, traced: ad6's `<interface>` condition is NOT reachability
+
+wl_ifi's ingress ACL denies cam outright -- `ifi.acl_in` idx 7632, `vlan=477 -> DROP`,
+matching `reachable.json`'s `cam.ifi: []`. The structural model lets cam through anyway.
+Reading the VLAN bit-vector out of a satisfying assignment, node by node along the path:
+
+| node | vlan |
+|---|---|
+| `favenet_source_cam_ifi_1_out` | 477 |
+| `favenet_cam_ifi_2_in` / host rules / `favenet_cam_ifi_1_out` | 477 |
+| `favenet_ifi_acl_in_in_in` and every `acl_in` rule | **4095** |
+
+4095 is written by exactly one rule: `ifi.pre_routing` r0, whose condition is the ingress
+interface `ifi.1_ingress` -- the INTERNET UPLINK, not cam's port. The solver fires that
+rule, relabels the packet 4095, and sails past the vlan-477 deny into `acl_in`'s final
+`vlan=4095 -> PERMIT`.
+
+It can do that because **the interface condition is a free variable**:
+
+```
+node favenet_ifi_1_ingress_in  REACHABLE from cam : False
+variable favenet_ifi_1_ingress_in in the model    : True
+```
+
+The node is provably unreachable and the variable is nonetheless true. `<interface
+direction="in">K</interface>` becomes `XMLUtils.variable(K + '_in')`, and nothing ties that
+variable to the node of the same name having been entered -- `_ConvertNodesToImplications`
+constrains TRANSITIONS, not node propositions. §9.8.2's design ("entry is rule 0 always;
+per-rule `in_ports` become `<interface>` CONDITIONS, leaving every table one linear
+first-match chain") is therefore UNSOUND: a packet may take a rule written for a different
+ingress port.
+
+**How the semantic path avoids it, and why this is the deeper lesson:** it never asks the
+solver which port a packet came in on. `entry_key(device, port, ir)` sends a packet
+arriving on port P to a PORT-SPECIFIC entry node, so ingress discrimination lives in the
+GRAPH. That is the same shape as §9.10.2's finding about `out_port` -- twice now, a thing
+FaVe expresses as a per-rule attribute has turned out to need a structural counterpart in
+ad6 rather than a condition. The difference is that `out_port` had no structural
+counterpart at all (hence option 1, ports as fields), whereas `in_ports` has an obvious
+one.
+
+#### 9.12.3 The fix, and why it is cheap
+
+Drop the `<interface>` condition for `rule.in_ports` and make ENTRY port-specific: for each
+(table, entering port) emit a chain containing only the rules applicable to that port, with
+the fall-through running down that chain.
+
+Measured, this barely grows the model, because heterogeneous `in_ports` are rare:
+
+  * `ifi.acl_in`, `ifi.acl_out`, `ifi.routing` and every host `.1` table have UNIFORM
+    `in_ports` across their rules -- one chain, exactly today's output.
+  * `ifi.pre_routing` has 17 rules across 17 ports, ONE rule per port -- 17 chains of one
+    rule each, i.e. the same 17 rules, just reachable only from their own port.
+
+So the specialization is per (table, port) and collapses to a no-op wherever a table's
+rules agree on their ports, which is almost everywhere. It also removes an unsound
+construct rather than adding a guard around it, which is the right direction: the
+`<interface>` condition cannot be made sound without ad6 tying interface propositions to
+reachability, a core change with unclear blast radius and no other caller asking for it.
+
+
 ---
 
 
