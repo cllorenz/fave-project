@@ -56,6 +56,19 @@ class XMLUtils:
     EGRESS = "egress"
     IP = "ip"
     PROTO = "proto"
+    # AD6_PLAN.md §9.10.2: a rule's action may rewrite SEVERAL fields, spelled
+    # as <rewrite field= value=/> children (the single rewrite_field/
+    # rewrite_value attribute pair still works and means the same thing).
+    REWRITE = "rewrite"
+    REWRITEPATH = "./rewrite"
+
+    # A rewrite with NO value: the field becomes UNCONSTRAINED, which in the
+    # SSA encoding is the ABSENCE of any axiom on that edge -- neither forcing
+    # the target's bits to a constant nor framing the source's across. Spelled
+    # as a sentinel object rather than a reserved integer on purpose: a
+    # reserved value would still be a VALUE, and a later equality match could
+    # read it, which is exactly what "wildcard" must not allow.
+    CLEAR = "__CLEAR__"
     ICMP6TYPE = "icmp6-type"
     ICMP6LIMIT = "icmp6-limit"
     RTTYPE = "rt-type"

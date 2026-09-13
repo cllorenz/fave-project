@@ -157,7 +157,6 @@ _AD6_FIELD_NAME = {
     'packet.ether.vlan': 'vlan',
 }
 
-# Port provenance is STRUCTURAL in ad6, not a field. See _PORT_FIELDS below.
 _GENERIC = {
     'related',
     'module.limit',
@@ -178,28 +177,36 @@ _GENERIC = {
 _MATCH_ALL = frozenset({'0.0.0.0/0', '::/0', '0::0/0'})
 
 
-# WHICH PORT A PACKET CAME IN ON / LEAVES BY IS STRUCTURAL IN ad6, NOT A FIELD.
-# FaVe carries it as ordinary header bookkeeping (`in_port`/`out_port`), because
-# NetPlumber's header space is where all of its state lives. ad6 instead has
-# real interface NODES (`iface_key(dev, port)` + '_in'/'_out'), so "arrived via
-# this port" is a property of the PATH, expressed with <interface direction=...>
-# -- which is why these two fields are handled by `rule_to_ad6` (as conditions
-# and edges) rather than by `field_to_match` (as values).
+# PORT PROVENANCE AND INTENT ARE FIELDS, WITH DENSE INTERNAL IDS.
 #
-# Measured 2026-09-12, and this is what makes the choice safe rather than merely
-# tidy: EVERY rule carrying an `out_port` rewrite also carries exactly one
-# `Forward` (wl_ifi 27/27, wl_up 318/318), so the Forward is always the
-# authoritative forwarding decision and the rewrite is never the only record of
-# it. Half of those rewrites are not even ports: they set the field to a
-# 32-wide WILDCARD ("x"*32, i.e. "forget where this came from"), which
-# `kripke.py`'s `int(rewrite_value)` could not represent under any scheme -- so
-# treating port rewrites as field mutations was never an option that closed.
+# An earlier cut of this module made both structural -- an <interface>
+# condition rather than a value (§9.8.1). That is right for `in_port`, which
+# records where a packet HAS BEEN and really is a property of the path, and
+# WRONG for `out_port`, which records where it IS GOING: written by a `routing`
+# rule and read by a later `post_routing` rule in the same device. ad6 has no
+# "where am I headed" register, so translating that match as "the path already
+# traversed that egress interface" is CIRCULAR -- the rule that leads to the
+# egress node demands the path had been through it. Measured on wl_ifi: the
+# model crossed the whole router and died at `favenet_ifi_5_egress_out`, whose
+# own condition is `constant true` (§9.10.2).
 #
-# PROVISIONAL, and recorded as such (AD6_PLAN.md §9.8): the equivalence of
-# "matches in_port == P" with "the path traversed interface node P" is sound by
-# construction but is only VALIDATED once Phase 3 reproduces each benchmark's
-# verdicts. The alternative, if it does not hold, is to keep ports as fields and
-# solve the wildcard/int problem in ad6 instead.
+# Both are therefore ordinary mutable fields here, and FaVe's own rules supply
+# the whole lifecycle -- nothing is synthesised:
+#
+#     pre_routing   in_port  := <this ingress port>
+#     routing       out_port := <chosen egress>      (and reads out_port)
+#     post_routing  reads both, then CLEARS both
+#
+# Values are DENSE IDS this module assigns (PortGraph.port_id), not FaVe's own
+# port numbers: the field is only ever compared for equality against values
+# assigned here, so a dense numbering is sound and far cheaper -- wl_up has
+# 4,808 declared ports, 13 bits, against the 32 FIELD_SIZES gives the field.
+#
+# The CLEAR is not housekeeping. The next device's `routing` READS `out_port`
+# before overwriting it (318 such reads in wl_up), so a stale egress surviving
+# the hop would be read as that device's own decision. ad6 spells it as a
+# <rewrite> with no value, meaning "no axiom on this edge" -- see
+# XMLUtils.CLEAR and instantiatortest.ClearedFieldTest.
 _PORT_FIELDS = frozenset({'in_port', 'out_port'})
 
 # FaVe names a router port "<device>.<port>_ingress"/"_egress"; the direction is
@@ -258,12 +265,11 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
 
     if name in _PORT_FIELDS:
         raise UnsupportedField(
-            "%r is port provenance, which ad6 expresses STRUCTURALLY (an "
-            "<interface> condition on the path) rather than as a field value. "
-            "rule_to_ad6 handles it; field_to_match deliberately does not, so "
-            "that there is exactly ONE representation of a port in the model "
-            "rather than two that could disagree. See fave/ad6/translate.py's "
-            "_PORT_FIELDS comment and AD6_PLAN.md 9.8." % name)
+            "%r carries a port NAME, which only the model-wide id map can turn "
+            "into a value (ports are compared for equality against dense ids "
+            "this module assigns -- see the _PORT_FIELDS comment). rule_to_ad6 "
+            "resolves it; field_to_match has no id map and must not guess."
+            % name)
 
     if name in set(mutable) or name in _GENERIC:
         return GenUtils.fieldmatch(rewrite_field_for(name), str(value), negated=negated)
@@ -313,39 +319,56 @@ def _forward_ports(rule: Any) -> Any:
     return ports
 
 
-def _vlan_rewrite(rule: Any) -> Any:
-    """ The rule's genuine field rewrite, or None.
+def _is_wildcard(value: Any) -> bool:
+    """ FaVe spells "forget this field" as an all-`x` mask of the field's own
+    width (`"x"*32` for a port). """
+    text = str(value)
+    return bool(text) and set(text) == {'x'}
 
-    Returns (ad6_field_name, int_value). Port rewrites are skipped here by
-    design (_PORT_FIELDS). Measured: what remains is always `packet.ether.vlan`
-    and always a single field, 80,868 of 80,868 occurrences -- which is why
-    ad6's one rewrite_field/rewrite_value pair per action suffices
-    (AD6_PLAN.md 9.7.1). Anything else is refused rather than dropped. """
-    found = None
+
+def _rewrites(rule: Any, port_id: Any) -> Any:
+    """ Every field this rule rewrites, as [(ad6_field_name, value_or_None)],
+    where None means CLEAR.
+
+    `port_id(port)` maps a port name to its dense id; it is passed in rather
+    than looked up here so this stays a pure function of the rule.
+
+    Measured across all four benchmarks: no rule carries more than ONE
+    `Rewrite` action, so there is never a per-target disagreement, and every
+    value is either an integer, a port name, or an all-`x` wildcard. Anything
+    else is refused rather than guessed -- ad6 stores a rewrite as an integer,
+    so a value it cannot represent must not be silently dropped. """
+    collected = []
+    seen = {}
     for action in (getattr(rule, 'actions', None) or []):
         for field in (getattr(action, 'rewrite', None) or []):
-            if field.name in _PORT_FIELDS:
-                continue
             name = rewrite_field_for(field.name)
-            try:
-                value = int(field.value)
-            except (TypeError, ValueError):
+            if _is_wildcard(field.value):
+                value = None
+            elif field.name in _PORT_FIELDS:
+                value = port_id(str(field.value))
+            else:
+                try:
+                    value = int(field.value)
+                except (TypeError, ValueError):
+                    raise UnsupportedAction(
+                        "rewrite of %r to %r: ad6 stores a rewrite as an "
+                        "integer and this value is neither one nor a wildcard."
+                        % (field.name, field.value))
+            if name in seen and seen[name] != value:
                 raise UnsupportedAction(
-                    "rewrite of %r to %r: ad6 stores a rewrite as an integer "
-                    "(kripke.py's int(rewrite_value)), and this value is not "
-                    "one. See AD6_PLAN.md 9.7.1." % (field.name, field.value))
-            if found is not None and found != (name, value):
-                raise UnsupportedAction(
-                    "rule rewrites more than one non-port field (%r and %r). "
-                    "ad6 carries one rewrite pair per action; no benchmark "
-                    "produces this, so it is refused rather than guessed "
-                    "(AD6_PLAN.md 9.7.1)." % (found, (name, value)))
-            found = (name, value)
-    return found
+                    "rule rewrites %r to both %r and %r; a rule's actions share "
+                    "one per-node rewrite set and cannot disagree."
+                    % (name, seen[name], value))
+            if name not in seen:
+                seen[name] = value
+                collected.append((name, value))
+    return collected
 
 
 def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any,
-                mutable: Iterable[str] = (), position: Optional[int] = None) -> Any:
+                port_id: Any, mutable: Iterable[str] = (),
+                position: Optional[int] = None) -> Any:
     """ One FaVe `Rule` -> one ad6 <rule>, at its own position.
 
     `resolve_target(port)` maps a FaVe forward port to the ad6 node key to jump
@@ -371,12 +394,12 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any
 
     for field in (getattr(rule, 'match', None) or []):
         if field.name in _PORT_FIELDS:
-            # Structural, not a value: which interface the path went through.
-            port, _suffix_direction = split_port_direction(str(field.value))
-            direction = 'in' if field.name == 'in_port' else 'out'
-            element.append(GenUtils.interface(port, resolve_interface(str(field.value)),
-                                              direction=direction,
-                                              negated=bool(getattr(field, 'negated', False))))
+            # An ordinary field match against this port's dense id. NOT an
+            # <interface> condition: `out_port` is where the packet is GOING,
+            # which no interface on the path has been through yet.
+            element.append(GenUtils.fieldmatch(
+                rewrite_field_for(field.name), port_id(str(field.value)),
+                negated=bool(getattr(field, 'negated', False))))
             continue
         match = field_to_match(field, mutable=mutable)
         if match is not None:
@@ -390,16 +413,10 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any
         element.append(GenUtils.interface(name, resolve_interface(str(port)),
                                           direction='in'))
 
-    rewrite = _vlan_rewrite(rule)
+    rewrites = _rewrites(rule, port_id)
     for port in _forward_ports(rule):
-        target = resolve_target(port)
-        if rewrite is None:
-            element.append(GenUtils.action('jump', target=target))
-        else:
-            field_name, value = rewrite
-            element.append(GenUtils.action('jump', target=target,
-                                           rewrite_field=field_name,
-                                           rewrite_value=value))
+        element.append(GenUtils.action('jump', target=resolve_target(port),
+                                       rewrites=rewrites))
 
     for action in (getattr(rule, 'actions', None) or []):
         kind = type(action).__name__
@@ -424,7 +441,8 @@ def rule_key(device: str, table: str, position: int) -> str:
 
 
 def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
-                 resolve_interface: Any, mutable: Iterable[str] = ()) -> Any:
+                 resolve_interface: Any, port_id: Any,
+                 mutable: Iterable[str] = ()) -> Any:
     """ One FaVe table -> one ad6 <table>, rules ordered by ASCENDING `idx`.
 
     `Rule.idx` IS A PRIORITY, NOT A LIST POSITION -- measured on real data
@@ -477,7 +495,7 @@ def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
 
     for position, (_original, rule) in enumerate(indexed):
         element.append(rule_to_ad6(rule, rule_key(device, table, position),
-                                   resolve_target, resolve_interface,
+                                   resolve_target, resolve_interface, port_id,
                                    mutable=mutable, position=position))
     return element
 
@@ -599,6 +617,47 @@ class PortGraph:
         condition holds exactly when the path went through that node. """
         device, name = self.split(port)
         return iface_key(device, name)
+
+    def port_id(self, port: str) -> int:
+        """ This port's DENSE id, the value `in_port`/`out_port` are compared
+        against. 1-based, assigned in sorted order so a model always produces
+        the same ids.
+
+        Dense rather than FaVe's own port numbers because the field is only
+        ever compared for equality against ids assigned here, so the numbering
+        is free -- and much cheaper: wl_up declares 4,808 ports (13 bits)
+        against the 32 that FIELD_SIZES gives the field, and ad6 pays that
+        width per node per mutable field.
+
+        An unknown port raises rather than getting an id on the fly: a port no
+        rule, link or declaration ever mentioned cannot be matched by anything,
+        so seeing one means the caller resolved a name this graph never saw. """
+        ids = self._port_ids()
+        try:
+            return ids[str(port)]
+        except KeyError:
+            raise KeyError(
+                "port %r has no id: it appears in no rule, link or port "
+                "declaration this graph was built from." % (port,))
+
+    def port_id_width(self) -> int:
+        """ Bits needed to hold every assigned id. """
+        count = len(self._port_ids())
+        width = 1
+        while (1 << width) <= count:
+            width += 1
+        return width
+
+    def _port_ids(self) -> Dict[str, int]:
+        if getattr(self, '_port_id_cache', None) is not None:
+            return self._port_id_cache
+        names = sorted(
+            "%s.%s" % (device, port)
+            for device, ports in self._ports_by_device().items()
+            for port in ports)
+        self._port_id_cache = {name: index
+                               for index, name in enumerate(names, start=1)}
+        return self._port_id_cache
 
     def entry(self, port: str) -> Optional[str]:
         """ The rule a packet arriving at `port` starts at: rule 0 of the table
@@ -730,7 +789,7 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
         for table, rules in sorted(devices[device].get('tables', {}).items()):
             firewall.append(table_to_ad6(device, table, rules,
                                          graph.target, graph.interface,
-                                         mutable=mutable))
+                                         graph.port_id, mutable=mutable))
         firewalls.append(firewall)
     config.append(firewalls)
 
@@ -755,7 +814,8 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
 MUTABLE_FIELD_WIDTHS = {'vlan': 12}
 
 
-def mutable_field_widths(mutable: Iterable[str]) -> Dict[str, int]:
+def mutable_field_widths(mutable: Iterable[str],
+                         port_width: Optional[int] = None) -> Dict[str, int]:
     """ The `MutableFields` declaration ad6 needs for a model whose rules
     rewrite `mutable`, keyed by ad6's own field names.
 
@@ -767,15 +827,23 @@ def mutable_field_widths(mutable: Iterable[str]) -> Dict[str, int]:
     declaration to the flag would leave ad6 raising on a fieldmatch it was never
     told about.
 
-    Port fields are excluded: they are structural here (see _PORT_FIELDS), so
-    they never reach a <fieldmatch> and need no width. Anything else without a
-    known width is refused -- ad6 encodes a mutable field as a fixed-width bit
-    vector, and guessing a width would silently truncate or over-widen it. """
+    Port fields take `port_width`, which the caller gets from
+    `PortGraph.port_id_width()` -- their values are dense ids this module
+    assigns, so only the graph knows how many bits they need. Anything else
+    without a known width is refused: ad6 encodes a mutable field as a
+    fixed-width bit vector, and guessing would silently truncate or
+    over-widen it. """
     widths: Dict[str, int] = {}
     for field in sorted(set(mutable)):
-        if field in _PORT_FIELDS:
-            continue
         name = rewrite_field_for(field)
+        if field in _PORT_FIELDS:
+            if port_width is None:
+                raise UnsupportedField(
+                    "field %r is a port, whose values are dense ids assigned by "
+                    "the PortGraph -- pass port_width=graph.port_id_width()."
+                    % (field,))
+            widths[name] = port_width
+            continue
         width = MUTABLE_FIELD_WIDTHS.get(name)
         if width is None:
             raise UnsupportedField(

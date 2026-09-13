@@ -269,17 +269,27 @@ class KripkeUtils:
             # one field is the single new failure mode the loop introduces, and
             # it is refused rather than resolved by last-write-wins -- silently
             # picking one would be a wrong answer inside a normal-looking run.
+            Rewrites = []
             RewriteField = Action.attrib.get('rewrite_field')
             if RewriteField is not None:
-                RewriteValue = int(Action.attrib['rewrite_value'])
-                Previous = Node.Rewrites.get(RewriteField)
-                if Previous is not None and Previous != RewriteValue:
+                Rewrites.append((RewriteField, int(Action.attrib['rewrite_value'])))
+            # AD6_PLAN.md §9.10.2: <rewrite field= value=/> children carry what
+            # the attribute pair cannot -- several fields at once, and a CLEAR
+            # (no value) meaning the field becomes unconstrained downstream.
+            for Rewrite in Action.xpath(XMLUtils.REWRITEPATH):
+                Value = Rewrite.attrib.get('value')
+                Rewrites.append((Rewrite.attrib['field'],
+                                 XMLUtils.CLEAR if Value is None else int(Value)))
+
+            for Field, Value in Rewrites:
+                Previous = Node.Rewrites.get(Field)
+                if Previous is not None and Previous != Value:
                     raise ValueError(
                         "rule %s has conflicting rewrites of %r (%r and %r). A "
                         "rule's actions share one per-node rewrite set, so they "
                         "cannot disagree -- see AD6_PLAN.md §9.7." % (
-                            RKey, RewriteField, Previous, RewriteValue))
-                Node.Rewrites[RewriteField] = RewriteValue
+                            RKey, Field, Previous, Value))
+                Node.Rewrites[Field] = Value
 
         # false Transition
         try:

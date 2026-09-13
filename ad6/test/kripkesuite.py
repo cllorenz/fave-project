@@ -5,7 +5,7 @@ import sys
 import os
 
 
-from core.kripketest import KripkeTest, MultiActionRuleTest
+from core.kripketest import KripkeTest, MultiActionRuleTest, MultiRewriteTest
 
 class KripkeSuite(TestSuite):
     def addTests(self):
@@ -27,6 +27,16 @@ class KripkeSuite(TestSuite):
             'testConflictingRewritesOnOneRuleAreRefused',
         ]
         self._suite.addTests(map(MultiActionRuleTest,tests))
+
+        # AD6_PLAN.md §9.10.2 option 1: several rewrites per action, and CLEAR.
+        tests = [
+            'testASingleRewriteStillWorksThroughTheAttributeForm',
+            'testSeveralFieldsAreRewrittenByOneAction',
+            'testAClearIsRecordedDistinctlyFromAnyValue',
+            'testAClearAndAnAssignmentCoexistOnOneAction',
+            'testTheChildFormAndTheAttributeFormAgree',
+        ]
+        self._suite.addTests(map(MultiRewriteTest,tests))
 
 
     def run(self):

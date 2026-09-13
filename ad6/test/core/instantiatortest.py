@@ -1844,3 +1844,99 @@ class TerminalConditionTest(unittest.TestCase):
             config, Inits=['cfw_t_r0'], default_inits=False)
         self.assertTrue(bool(PycoSATAdapter().Solve(
             Instantiator.InstantiateReach(kripke, encoding, 'cfw_t_after'))))
+
+
+class ClearedFieldTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.10.2 option 1: a CLEARED field becomes UNCONSTRAINED
+    downstream, not zero and not frozen.
+
+    FaVe's `post_routing` clears `in_port`/`out_port` before a packet leaves a
+    device. That is not housekeeping: the next device's `routing` table READS
+    `out_port` (318 such reads in wl_up) before overwriting it, so a stale
+    egress surviving the hop would be read as if it were this device's own
+    decision.
+
+    In ad6's SSA encoding "unconstrained" is the ABSENCE of an axiom on that
+    edge -- neither a REWRITE (forcing the target's bits to a constant) nor a
+    FRAME (copying the source's bits across). These tests pin all three cases
+    against each other, because the two failure modes are opposite and both
+    silent: frame-instead-of-clear wrongly REFUTES, and zero-instead-of-clear
+    wrongly matches a rule testing for port 0. """
+
+    @staticmethod
+    def _config(first_action_rewrites, match_value):
+        """ r0 (rewrites/clears `f`) -> r1 (fieldmatch f == match_value). """
+        firewall = GenUtils.firewall('cfw')
+
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='cfw_t_r0')
+        rule.append(GenUtils.action('jump', target='cfw_t_second',
+                                    rewrites=first_action_rewrites))
+        table.append(rule)
+        firewall.append(table)
+
+        second_table = GenUtils.table('t_second')
+        second = GenUtils.rule('s', key='cfw_t_second')
+        second.append(GenUtils.fieldmatch('f', match_value))
+        second.append(GenUtils.action('jump', target='cfw_t_third'))
+        second_table.append(second)
+        firewall.append(second_table)
+
+        third_table = GenUtils.table('t_third')
+        third = GenUtils.rule('t', key='cfw_t_third')
+        third.append(GenUtils.action('accept'))
+        third_table.append(third)
+        firewall.append(third_table)
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def _reaches_third(self, rewrites, match_value):
+        kripke, encoding = Instantiator.InstantiateBase(
+            self._config(rewrites, match_value), Inits=['cfw_t_r0'],
+            default_inits=False, MutableFields={'f': 8})
+        return bool(PycoSATAdapter().Solve(
+            Instantiator.InstantiateReach(kripke, encoding, 'cfw_t_third')))
+
+    def testAnAssignedValueIsFramedAcrossTheEdge(self):
+        """ Control: assignment works and survives. """
+        self.assertTrue(self._reaches_third([('f', 10)], 10))
+
+    def testAnAssignedValueRefutesADifferentMatch(self):
+        """ Control: the frame axiom really does pin the value, so the test
+        below is measuring the CLEAR and not a vacuous encoding. """
+        self.assertFalse(self._reaches_third([('f', 10)], 20))
+
+    def testAClearedFieldMatchesAnyValue(self):
+        """ The property itself: after a clear, downstream is free to be
+        anything, so a match on a value the field never held is satisfiable. """
+        self.assertTrue(
+            self._reaches_third([('f', None)], 20),
+            "a cleared field must be UNCONSTRAINED downstream -- if this "
+            "refutes, CLEAR is being treated as a frame and every post_routing "
+            "clear silently under-approximates")
+
+    def testAClearedFieldIsNotZero(self):
+        """ The other failure mode. A reserved sentinel value would still be a
+        VALUE: a rule testing for port 0 would match it. Clearing must not make
+        0 special in either direction. """
+        self.assertTrue(self._reaches_third([('f', None)], 0))
+        self.assertTrue(self._reaches_third([('f', None)], 255))
+
+    def testClearingOneFieldLeavesAnotherFramed(self):
+        """ A clear is per FIELD, not per edge -- wl_ifi's routing rules set
+        out_port and vlan together, and its post_routing rules clear both
+        while other fields must keep flowing. """
+        config = self._config([('f', None), ('g', 7)], 20)
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['cfw_t_r0'], default_inits=False,
+            MutableFields={'f': 8, 'g': 8})
+        solver = PycoSATAdapter()
+        self.assertTrue(bool(solver.Solve(
+            Instantiator.InstantiateReach(kripke, encoding, 'cfw_t_third'))),
+            "f is cleared, so the f==20 match must still be satisfiable")
+        self.assertEqual(kripke.GetNode('cfw_t_r0').Rewrites,
+                         {'f': XMLUtils.CLEAR, 'g': 7})

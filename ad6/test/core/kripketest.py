@@ -227,3 +227,106 @@ class MultiActionRuleTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._kripke(self._config(
                 ['tgt_a', 'tgt_b'], rewrites=[('vlan', 10), ('vlan', 20)]))
+
+
+class MultiRewriteTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.10.2 option 1: a rule may rewrite SEVERAL fields, and
+    may CLEAR a field rather than assign it.
+
+    Both come from FaVe's port bookkeeping, whose lifecycle is explicit in its
+    own rules: `pre_routing` sets `in_port`, `routing` sets `out_port` (and
+    reads it), `post_routing` reads both and then clears both. The clear is not
+    cosmetic -- without it a stale egress would survive into the next device,
+    where `routing` reads `out_port` before overwriting it (318 such reads in
+    wl_up).
+
+    A CLEAR is "this field becomes unconstrained", which in ad6's SSA encoding
+    is the ABSENCE of any axiom for that field on that edge -- neither a rewrite
+    (forcing bits to a constant) nor a frame (copying the source's bits). It is
+    therefore spelled as a <rewrite> with no value, not as a reserved sentinel
+    value: a sentinel would still be a VALUE, and a later equality match could
+    read it. """
+
+    @staticmethod
+    def _rule_with(rewrites, target='tgt'):
+        """ `rewrites`: list of (field, value) with value None meaning CLEAR. """
+        firewall = GenUtils.firewall('rfw')
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='rfw_t_r0')
+        rule.append(GenUtils.action('jump', target=target, rewrites=rewrites))
+        table.append(rule)
+        firewall.append(table)
+        target_table = GenUtils.table('t_tgt')
+        target_rule = GenUtils.rule('t', key=target)
+        target_rule.append(GenUtils.action('accept'))
+        target_table.append(target_rule)
+        firewall.append(target_table)
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def _rewrites(self, rewrites):
+        kripke = KripkeUtils.ConvertToKripke(self._rule_with(rewrites),
+                                            default_inits=False)
+        return kripke.GetNode('rfw_t_r0').Rewrites
+
+    def testASingleRewriteStillWorksThroughTheAttributeForm(self):
+        """ Backward compatibility: every rule ad6 emitted before this change
+        carries the rewrite as a pair of ATTRIBUTES on the action. """
+        firewall = GenUtils.firewall('afw')
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='afw_t_r0')
+        rule.append(GenUtils.action('jump', target='tgt',
+                                    rewrite_field='vlan', rewrite_value=10))
+        table.append(rule)
+        firewall.append(table)
+        target_table = GenUtils.table('t_tgt')
+        target_rule = GenUtils.rule('t', key='tgt')
+        target_rule.append(GenUtils.action('accept'))
+        target_table.append(target_rule)
+        firewall.append(target_table)
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        kripke = KripkeUtils.ConvertToKripke(config, default_inits=False)
+        self.assertEqual(kripke.GetNode('afw_t_r0').Rewrites, {'vlan': 10})
+
+    def testSeveralFieldsAreRewrittenByOneAction(self):
+        """ wl_ifi's `routing` rules set `out_port` AND `vlan` together (10 of
+        them); the attribute form can carry only one pair. """
+        self.assertEqual(self._rewrites([('vlan', 10), ('out_port', 7)]),
+                         {'vlan': 10, 'out_port': 7})
+
+    def testAClearIsRecordedDistinctlyFromAnyValue(self):
+        rewrites = self._rewrites([('in_port', None)])
+        self.assertIn('in_port', rewrites)
+        self.assertIs(rewrites['in_port'], XMLUtils.CLEAR)
+
+    def testAClearAndAnAssignmentCoexistOnOneAction(self):
+        self.assertEqual(self._rewrites([('vlan', 3), ('in_port', None)]),
+                         {'vlan': 3, 'in_port': XMLUtils.CLEAR})
+
+    def testTheChildFormAndTheAttributeFormAgree(self):
+        """ Two spellings of one thing must not drift. """
+        firewall = GenUtils.firewall('bfw')
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='bfw_t_r0')
+        rule.append(GenUtils.action('jump', target='tgt',
+                                    rewrite_field='vlan', rewrite_value=10))
+        table.append(rule)
+        firewall.append(table)
+        tt = GenUtils.table('t_tgt')
+        tr = GenUtils.rule('t', key='tgt')
+        tr.append(GenUtils.action('accept'))
+        tt.append(tr)
+        firewall.append(tt)
+        config = GenUtils.config()
+        fws = GenUtils.firewalls()
+        fws.append(firewall)
+        config.append(fws)
+        attribute_form = KripkeUtils.ConvertToKripke(
+            config, default_inits=False).GetNode('bfw_t_r0').Rewrites
+        self.assertEqual(attribute_form, self._rewrites([('vlan', 10)]))

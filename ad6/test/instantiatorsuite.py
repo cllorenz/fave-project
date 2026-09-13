@@ -7,7 +7,7 @@ import os
 
 from core.instantiatortest import (
     InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest,
-    RuleOrderSemanticsTest, TerminalConditionTest)
+    RuleOrderSemanticsTest, TerminalConditionTest, ClearedFieldTest)
 
 class InstantiatorSuite(TestSuite):
     def addTests(self):
@@ -87,6 +87,17 @@ class InstantiatorSuite(TestSuite):
             'testTheContradictionIsGenuineAndNotAnArtefactOfTheFixture',
         ]
         self._suite.addTests(map(TerminalConditionTest,tests))
+
+        # AD6_PLAN.md §9.10.2 option 1: a cleared field is unconstrained
+        # downstream. Same MANUAL registry caveat as above.
+        tests = [
+            'testAnAssignedValueIsFramedAcrossTheEdge',
+            'testAnAssignedValueRefutesADifferentMatch',
+            'testAClearedFieldMatchesAnyValue',
+            'testAClearedFieldIsNotZero',
+            'testClearingOneFieldLeavesAnotherFramed',
+        ]
+        self._suite.addTests(map(ClearedFieldTest,tests))
 
 
     def run(self):

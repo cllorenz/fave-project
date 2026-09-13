@@ -667,6 +667,19 @@ class Instantiator:
                     TransitionLit = XMLUtils.CreateTransition(NodeKey, Target, Flag)
                     RewriteValue = Node.Rewrites.get(Field) if Flag else None
 
+                    # AD6_PLAN.md §9.10.2: a CLEARED field becomes
+                    # UNCONSTRAINED downstream -- emit NEITHER axiom, leaving
+                    # the target's own copy a free variable. FaVe's
+                    # post_routing clears in_port/out_port before a packet
+                    # leaves a device, and the next device's routing table
+                    # READS out_port before overwriting it, so framing a
+                    # cleared value across the hop would silently
+                    # under-approximate. A reserved integer would not do: it
+                    # would still be a VALUE, readable by a rule testing for
+                    # that port.
+                    if RewriteValue == XMLUtils.CLEAR:
+                        continue
+
                     Conjunction = XMLUtils.conjunction()
                     if RewriteValue is not None:
                         BitVector = XMLUtils._CanonizeBitvector(RewriteValue, Width).split(' ')

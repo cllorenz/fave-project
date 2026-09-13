@@ -1068,6 +1068,7 @@ class Ad6Adapter(AbstractVerificationEngine):
         for probe in self._probes:
             devices[probe] = translate.probe_device(probe)
 
+        graph = translate.PortGraph(devices, self._raw_edges)
         config, edges = translate.model_to_config(devices, self._raw_edges)
         # Deannotated HERE rather than in the bridge, so what crosses the
         # boundary is plain XML the bridge can parse without knowing how it was
@@ -1098,7 +1099,8 @@ class Ad6Adapter(AbstractVerificationEngine):
             # Derived from what was emitted, not from faithful_vlan: the
             # structural path emits a <fieldmatch> whenever some rule rewrites
             # the field, which on wl_ifi is true in plain mode too.
-            "mutable_fields": translate.mutable_field_widths(mutable),
+            "mutable_fields": translate.mutable_field_widths(
+                mutable, port_width=graph.port_id_width()),
         }
 
     def check_compliance(self, rules: Any) -> None:

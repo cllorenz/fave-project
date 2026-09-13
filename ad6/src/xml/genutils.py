@@ -47,7 +47,16 @@ class GenUtils():
             rule.attrib['raw_line_no'] = str(raw_line_no)
         return rule
 
-    def action(actiontype,target='',rewrite_field=None,rewrite_value=None):
+    def rewrite(field, value=None):
+        """ One field assignment on an action. `value=None` means CLEAR --
+        the field becomes unconstrained downstream (AD6_PLAN.md §9.10.2). """
+        elem = et.Element('rewrite', {'field': field})
+        if value is not None:
+            elem.set('value', str(value))
+        return elem
+
+    def action(actiontype,target='',rewrite_field=None,rewrite_value=None,
+               rewrites=None):
         elem = et.Element('action',{'type':actiontype})
         if actiontype == 'jump':
             elem.attrib['target'] = target
@@ -60,6 +69,12 @@ class GenUtils():
         if rewrite_field is not None:
             elem.attrib['rewrite_field'] = rewrite_field
             elem.attrib['rewrite_value'] = str(rewrite_value)
+        # AD6_PLAN.md §9.10.2: several fields at once, and/or a CLEAR, which
+        # the attribute pair above cannot express. FaVe needs both -- wl_ifi's
+        # routing rules set out_port AND vlan together, and its post_routing
+        # rules clear in_port and out_port.
+        for field, value in (rewrites or []):
+            elem.append(GenUtils.rewrite(field, value))
         return elem
 
     def proto(name, negated=False):

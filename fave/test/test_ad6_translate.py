@@ -53,6 +53,15 @@ def _iface(port):
     return 'T_' + str(port).replace('.', '_')
 
 
+_PORT_IDS = {}
+
+
+def _port_id(port):
+    """ A stand-in dense id map, so the rule layer stays testable without a
+    port graph. Stable within a run, like the real one. """
+    return _PORT_IDS.setdefault(str(port), len(_PORT_IDS) + 1)
+
+
 def _xml(element):
     return et.tostring(element).decode() if element is not None else None
 
@@ -405,7 +414,7 @@ class TestRuleTranslation(unittest.TestCase):
                     match=Match(match or []), actions=actions or [])
 
     def _xml_of(self, rule, mutable=(), position=0):
-        return _xml(rule_to_ad6(rule, 'k', _target, _iface, mutable=mutable,
+        return _xml(rule_to_ad6(rule, 'k', _target, _iface, _port_id, mutable=mutable,
                                position=position))
 
     def test_a_forward_becomes_a_jump_to_the_resolved_target(self):
@@ -429,8 +438,7 @@ class TestRuleTranslation(unittest.TestCase):
             actions=[Rewrite([RuleField('packet.ether.vlan', '10')]),
                      Forward(['dev.2', 'dev.3'])]),
             mutable={'packet.ether.vlan'})
-        self.assertEqual(out.count('rewrite_field="vlan"'), 2)
-        self.assertEqual(out.count('rewrite_value="10"'), 2)
+        self.assertEqual(out.count('<rewrite field="vlan" value="10"/>'), 2)
 
     def test_a_rule_that_forwards_nowhere_gets_no_action(self):
         """ ad6 reads an action-less rule as "matches, goes nowhere" -- a drop
@@ -451,26 +459,47 @@ class TestRuleTranslation(unittest.TestCase):
         out = self._xml_of(self._rule(in_ports=['dev.1', 'dev.2']))
         self.assertEqual(out.count('<interface direction="in">'), 2)
 
-    def test_a_port_MATCH_becomes_an_interface_condition_not_a_value(self):
+    def test_a_port_MATCH_becomes_a_fieldmatch_on_its_dense_id(self):
+        """ §9.10.2 option 1. An <interface> condition would be wrong for
+        out_port -- it says "the path went through this egress", which is
+        circular for the rule that LEADS to that egress. """
         out = self._xml_of(self._rule(
             match=[RuleField('in_port', 'dev.1_ingress')]))
-        self.assertIn('<interface direction="in">', out)
-        self.assertNotIn('fieldmatch', out)
+        self.assertIn('<fieldmatch field="in_port">', out)
+        self.assertNotIn('<interface direction="in">dev', out)
 
-    def test_an_out_port_match_carries_the_out_direction(self):
+    def test_out_port_matches_the_same_way_as_in_port(self):
         out = self._xml_of(self._rule(match=[RuleField('out_port', 'dev.1_egress')]))
-        self.assertIn('direction="out"', out)
+        self.assertIn('<fieldmatch field="out_port">', out)
 
-    def test_port_REWRITES_emit_nothing(self):
-        """ They are NetPlumber bookkeeping, not a forwarding decision: every
-        rule carrying one also carries the Forward that actually decides, and
-        half of them set a 32-wide wildcard that ad6 could not store anyway. """
+    def test_a_port_REWRITE_carries_the_ports_id(self):
+        out = self._xml_of(self._rule(
+            actions=[Rewrite([RuleField('out_port', 'dev.9_egress')]),
+                     Forward(['dev.2'])]))
+        self.assertIn('<rewrite field="out_port" value=', out)
+
+    def test_a_WILDCARD_port_rewrite_becomes_a_CLEAR(self):
+        """ FaVe's post_routing clears both port fields before a packet leaves
+        a device, spelled as an all-`x` mask. A clear carries no value: the
+        field becomes unconstrained downstream, which a reserved value could
+        not express (instantiatortest.ClearedFieldTest). """
         out = self._xml_of(self._rule(
             actions=[Rewrite([RuleField('in_port', 'x' * 32),
                               RuleField('out_port', 'x' * 32)]),
                      Forward(['dev.2'])]))
-        self.assertNotIn('rewrite_field', out)
-        self.assertIn('target="T_dev_2_out"', out)
+        self.assertIn('<rewrite field="in_port"/>', out)
+        self.assertIn('<rewrite field="out_port"/>', out)
+        self.assertNotIn('value=', out.split('<action')[1])
+
+    def test_several_fields_are_rewritten_by_one_action(self):
+        """ wl_ifi's routing rules set out_port AND vlan together. """
+        out = self._xml_of(self._rule(
+            actions=[Rewrite([RuleField('out_port', 'dev.9_egress'),
+                              RuleField('packet.ether.vlan', '10')]),
+                     Forward(['dev.2'])]),
+            mutable={'packet.ether.vlan', 'out_port'})
+        self.assertIn('<rewrite field="out_port" value=', out)
+        self.assertIn('<rewrite field="vlan" value="10"/>', out)
 
     def test_a_match_all_address_contributes_no_condition(self):
         out = self._xml_of(self._rule(
@@ -510,12 +539,12 @@ class TestTableTranslation(unittest.TestCase):
                      actions=[Forward(['dev.2'])]) for i in range(count)]
 
     def test_rules_keep_their_given_order(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface)
+        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface, _port_id)
         keys = [r.get('key') for r in table]
         self.assertEqual(keys, [rule_key('dev', 't', i) for i in range(3)])
 
     def test_rule_names_are_positional(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface)
+        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface, _port_id)
         self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
 
     def test_rules_are_ordered_by_ASCENDING_idx_not_by_list_position(self):
@@ -528,7 +557,7 @@ class TestTableTranslation(unittest.TestCase):
         would run a default rule before the specific rule it backs up. """
         rules = self._rules(3)
         rules[0].idx, rules[1].idx, rules[2].idx = 65535, 1, 768
-        table = table_to_ad6('dev', 't', rules, _target, _iface)
+        table = table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
         emitted = [r.xpath('.//address')[0].text for r in table]
         self.assertEqual(emitted, ['10.0.1.0/24', '10.0.2.0/24', '10.0.0.0/24'],
                          "expected idx order 1, 768, 65535")
@@ -537,7 +566,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         for rule in rules:
             rule.idx = None
-        table = table_to_ad6('dev', 't', rules, _target, _iface)
+        table = table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
         self.assertEqual([r.xpath('.//address')[0].text for r in table],
                          ['10.0.0.0/24', '10.0.1.0/24', '10.0.2.0/24'])
 
@@ -547,7 +576,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = rules[0].idx
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', rules, _target, _iface)
+            table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
 
     def test_a_PARTIALLY_indexed_table_is_refused(self):
         """ There is no defensible place to interleave an unindexed rule among
@@ -555,10 +584,10 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = None
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', rules, _target, _iface)
+            table_to_ad6('dev', 't', rules, _target, _iface, _port_id)
 
     def test_an_empty_table_translates_to_an_empty_table(self):
-        self.assertEqual(len(table_to_ad6('dev', 't', [], _target, _iface)), 0)
+        self.assertEqual(len(table_to_ad6('dev', 't', [], _target, _iface, _port_id)), 0)
 
     def test_table_and_rule_keys_are_deterministic_and_dot_safe(self):
         self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', 4),

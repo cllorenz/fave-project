@@ -4796,6 +4796,74 @@ only that it is harmless on this workload.
      weakens the model, which is the direction this plan has refused everywhere else.
 
 
+### 9.11 Option 1 implemented: ports are fields. The circularity is gone.
+
+Owner decision 2026-09-13: *"Please go with option 1."* `in_port`/`out_port` are ordinary
+mutable fields, and §9.8.1's "ports are structural" is withdrawn for `out_port` (it stands
+for `in_port`'s role in the port GRAPH, which is a different mechanism -- see below).
+
+**ad6 gained two capabilities, both test-first and both strictly additive:**
+
+  * **Several rewrites per action.** `<rewrite field= value=/>` children alongside the
+    existing `rewrite_field`/`rewrite_value` attribute pair, which still works and means
+    the same thing (pinned by a test that the two forms agree). Needed because wl_ifi's
+    `routing` rules set `out_port` AND `vlan` together.
+  * **CLEAR -- a rewrite with no value**, meaning the field becomes UNCONSTRAINED
+    downstream. In the SSA encoding that is the ABSENCE of any axiom on that edge: neither
+    a REWRITE forcing the target's bits to a constant nor a FRAME copying the source's
+    across. Spelled as a valueless element rather than a reserved integer on purpose -- a
+    sentinel would still be a VALUE, readable by a rule testing for that port.
+    `instantiatortest.ClearedFieldTest` pins all three cases against each other, because
+    the two failure modes are opposite and both silent: frame-instead-of-clear wrongly
+    REFUTES, zero-instead-of-clear wrongly MATCHES.
+
+**The translator uses DENSE IDS, not FaVe's port numbers.** The field is only ever compared
+for equality against ids this module assigns, so the numbering is free -- and much cheaper:
+wl_ifi needs 7 bits and wl_up 13, against the 32 `FIELD_SIZES` gives the field, and ad6
+pays that width per node per mutable field. Measured declaration on wl_ifi:
+`{'in_port': 7, 'out_port': 7, 'vlan': 12}`.
+
+**FaVe supplies the whole lifecycle; nothing is synthesised** -- `pre_routing` sets
+`in_port`, `routing` sets `out_port` (and reads it), `post_routing` reads both then clears
+both.
+
+**RESULT: the circularity is gone and the direction of the disagreement FLIPPED.**
+
+| wl_ifi, 289 pairs | reachable | vs `reachable.json` |
+|---|---|---|
+| semantic | 70 | **exact match, 0 roles differ** |
+| structural, ports structural (§9.10) | 16 | 54 pairs missing |
+| structural, ports as fields (this) | 122 | 8 roles with EXTRA reachability, 0 missing |
+
+The over-approximation is now the only gap, and it is one-directional: the structural model
+never refuses something ground truth calls reachable. The affected sources are exactly
+those whose generator declares NO `packet.ipv4.source` (`cam.ifi`, `hpc_ic.ifi`,
+`hpc_mgt.ifi`, `mgt.ifi`, ...), which leaves their source address a free variable.
+
+**Working hypothesis for Phase 3, recorded rather than acted on.** Both models contain the
+identical `acl_out` rules -- verified by dumping each -- including, for VLAN 464:
+
+```
+idx 7432  src=10.0.0.0/16   dst=10.0.14.0/23  -> DROP     (internal sources not listed above)
+idx 7433  src=0.0.0.0/0     dst=10.0.14.0/23  -> PERMIT   (anything else)
+```
+
+so a free source address simply picks its way past 7432 into 7433. The two paths then
+differ in WHICH acl_out group a packet is subject to: the semantic path binds the group to
+the EGRESS PORT (`out_port_vlan`), while the structural path applies the group matching the
+packet's own VLAN FIELD -- which `routing` rewrites on only 10 of its rules, so a packet
+may still be carrying its INGRESS vlan when it reaches `acl_out`. If that is the mechanism,
+the structural reading is the one faithful to FaVe's rules and the semantic one is a
+structural shortcut that happens to be right here; that has to be adjudicated against
+NetPlumber (§9.3 Phase 0.3), not settled by which one matches the number we already have.
+
+**A diagnostic that does NOT discriminate, recorded so it is not repeated:** asking whether
+an `acl_in` rule's NODE is reachable says nothing about whether its condition held. A rule
+is entered by its predecessor's FALSE (fall-through) edge as well as by matching, and a
+rule's condition gates its OUTGOING edges (§9.9.1). Reachability of the rules for VLANs 48,
+463 and 464 from a source declaring VLAN 477 is therefore expected and proves nothing.
+
+
 ---
 
 
