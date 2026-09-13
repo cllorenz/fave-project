@@ -344,13 +344,17 @@ def _vlan_rewrite(rule: Any) -> Any:
     return found
 
 
-def rule_to_ad6(rule: Any, key: str, resolve_target: Any,
+def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any,
                 mutable: Iterable[str] = (), position: Optional[int] = None) -> Any:
     """ One FaVe `Rule` -> one ad6 <rule>, at its own position.
 
-    `resolve_target(port)` maps a FaVe forward port to the ad6 node key it
-    should jump to; `model_to_config` supplies it, so this function stays pure
-    and independent of how the port graph is laid out.
+    `resolve_target(port)` maps a FaVe forward port to the ad6 node key to jump
+    to (a port's `_out` interface node); `resolve_interface(port)` maps one to
+    the UNSUFFIXED interface key an <interface direction=...> condition names.
+    They are separate arguments on purpose -- passing the jump key to a
+    condition would name a node that exists but is never on the path, making
+    the rule quietly unsatisfiable. `model_to_config` supplies both, so this
+    function stays pure and independent of how the port graph is laid out.
 
     The rule's POSITION is its semantics, not decoration: ad6 evaluates a
     table's rules first-match-wins in document order with an implicit
@@ -370,7 +374,7 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any,
             # Structural, not a value: which interface the path went through.
             port, _suffix_direction = split_port_direction(str(field.value))
             direction = 'in' if field.name == 'in_port' else 'out'
-            element.append(GenUtils.interface(port, resolve_target(str(field.value)),
+            element.append(GenUtils.interface(port, resolve_interface(str(field.value)),
                                               direction=direction,
                                               negated=bool(getattr(field, 'negated', False))))
             continue
@@ -383,7 +387,7 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any,
     # kripke.py builds for us from repeated <interface> elements.
     for port in (getattr(rule, 'in_ports', None) or []):
         name, _direction = split_port_direction(str(port))
-        element.append(GenUtils.interface(name, resolve_target(str(port)),
+        element.append(GenUtils.interface(name, resolve_interface(str(port)),
                                           direction='in'))
 
     rewrite = _vlan_rewrite(rule)
@@ -420,7 +424,7 @@ def rule_key(device: str, table: str, position: int) -> str:
 
 
 def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
-                 mutable: Iterable[str] = ()) -> Any:
+                 resolve_interface: Any, mutable: Iterable[str] = ()) -> Any:
     """ One FaVe table -> one ad6 <table>, rules in the order given.
 
     ORDER IS PRESERVED, NEVER IMPOSED: the caller passes FaVe's own rule list
@@ -438,6 +442,343 @@ def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
                 "information -- refusing rather than guessing which is right."
                 % (position, device, table, index))
         element.append(rule_to_ad6(rule, rule_key(device, table, position),
-                                   resolve_target, mutable=mutable,
-                                   position=position))
+                                   resolve_target, resolve_interface,
+                                   mutable=mutable, position=position))
     return element
+
+
+# --- the port graph -------------------------------------------------------
+
+_NET = 'favenet'
+
+
+def _safe(part: Any) -> str:
+    return str(part).replace('.', '_').replace('-', '_')
+
+
+def iface_key(device: str, port: str) -> str:
+    """ The ad6 interface key for one FaVe port. Must match what
+    `KripkeUtils._HandleInterface` derives for the <node>/<interface> this
+    module emits: NetKey + '_' + node name + '_' + interface name. The two
+    Kripke nodes it creates are this key plus '_in' and '_out'. """
+    return "%s_%s_%s" % (_NET, _safe(device), _safe(port))
+
+
+class PortGraph:
+    """ Resolves FaVe ports to ad6 node keys, from DECLARED structure only.
+
+    Everything `Ad6Adapter` recovers by recognising names -- which table is an
+    ACL, which device is a transit router, which stage a `mid.*` prefix means --
+    is recovered here from three declared facts: a rule's own `in_ports`, a
+    device's own `wiring`, and the topology's own links. Nothing reads a device
+    or table name.
+
+    THE STRUCTURAL FACT THIS RESTS ON (measured across wl_ifi/wl_up/
+    wl_stanford, AD6_PLAN.md §9.8.2): `port -> table` is a FUNCTION. No port
+    appearing in any rule's `in_ports` maps to more than one table, so a port
+    names an unambiguous table entry and a jump target resolves in one pass. It
+    is checked here rather than assumed -- a workload that broke it would raise,
+    not silently pick one.
+
+    The three device shapes in the benchmarks look different and resolve
+    identically: wl_up declares a full packet-filter pipeline (952 wiring pairs
+    over 136 devices), wl_ifi declares only its router's four-stage chain, and
+    wl_stanford declares NO wiring at all because its pipeline is spread across
+    separate devices joined by inter-device links. """
+
+    def __init__(self, devices: Dict[str, Any], links: Iterable[Any] = ()) -> None:
+        self._devices = dict(devices)
+        self._table_of_port: Dict[str, Any] = {}
+        self._wiring: Dict[str, str] = {}
+        self._links: Dict[str, Any] = {}
+
+        for device, model in sorted(self._devices.items()):
+            for table, rules in model.get('tables', {}).items():
+                for rule in rules:
+                    for port in (getattr(rule, 'in_ports', None) or []):
+                        owner = self._table_of_port.get(port)
+                        if owner is not None and owner != (device, table):
+                            raise ValueError(
+                                "port %r is the entry of two different tables "
+                                "(%s and %s). `port -> table` must be a function "
+                                "for a jump target to resolve unambiguously -- "
+                                "see AD6_PLAN.md §9.8.2." % (port, owner,
+                                                             (device, table)))
+                        self._table_of_port[port] = (device, table)
+
+            for pair in (model.get('wiring') or []):
+                source, target = pair[0], pair[1]
+                existing = self._wiring.get(source)
+                if existing is not None and existing != target:
+                    raise ValueError(
+                        "port %r is wired to both %r and %r; a FaVe wiring pair "
+                        "is a unidirectional link, so this is ambiguous"
+                        % (source, existing, target))
+                # Duplicates are expected, not exceptional: FaVe replays a
+                # device's wiring once per add_wiring call and wl_ifi's router
+                # arrives twice.
+                self._wiring[source] = target
+
+        for pair in links:
+            source, target = pair[0], pair[1]
+            targets = self._links.setdefault(source, [])
+            if target not in targets:
+                targets.append(target)
+
+    # --- port naming ------------------------------------------------------
+
+    def split(self, port: str) -> Any:
+        """ "adm.uni-potsdam.de.1_egress" -> ("adm.uni-potsdam.de", "1_egress").
+
+        A FaVe port is its device's name plus one final dotted component, so the
+        last dot splits it -- checked against the declared device set rather
+        than trusted, since a device name containing no dot and a port name
+        containing one would otherwise be indistinguishable. """
+        device, _dot, name = str(port).rpartition('.')
+        if device in self._devices:
+            return device, name
+        # Fall back to the longest declared device that prefixes this port.
+        best = None
+        for candidate in self._devices:
+            if str(port).startswith(candidate + '.') and (
+                    best is None or len(candidate) > len(best)):
+                best = candidate
+        if best is None:
+            raise KeyError(
+                "port %r belongs to no declared device. Ports are resolved "
+                "against the device set, never parsed by convention." % (port,))
+        return best, str(port)[len(best) + 1:]
+
+    def target(self, port: str) -> str:
+        """ Where a rule forwarding to `port` jumps: that port's egress
+        interface node. Uniform for every port -- an inter-device egress, an
+        intra-device pipeline port, a switch port -- so nothing downstream has
+        to know which kind it is. """
+        device, name = self.split(port)
+        return iface_key(device, name) + '_out'
+
+    def interface(self, port: str) -> str:
+        """ The UNSUFFIXED key an <interface direction=...> condition names.
+        `kripke.py` turns <interface direction="in">K</interface> into the
+        variable K_in, which is the ingress node's own proposition -- so the
+        condition holds exactly when the path went through that node. """
+        device, name = self.split(port)
+        return iface_key(device, name)
+
+    def entry(self, port: str) -> Optional[str]:
+        """ The rule a packet arriving at `port` starts at: rule 0 of the table
+        that port enters, or None if no table declares it.
+
+        Rule 0 ALWAYS, never a port-specific offset, because per-rule `in_ports`
+        are emitted as <interface> CONDITIONS -- so each table stays one linear
+        first-match chain and the arrival port filters within it rather than
+        choosing where to start. """
+        owner = self._table_of_port.get(port)
+        if owner is None:
+            return None
+        device, table = owner
+        return rule_key(device, table, 0)
+
+    # --- edges ------------------------------------------------------------
+
+    def edges(self) -> Any:
+        """ The (from_key, to_key) Kripke edges that XML cannot express, to be
+        applied with `Kripke.Put(from, (to, True))` after ConvertToKripke.
+
+        A post-pass rather than declarative <connection keyref=...> elements,
+        for a specific reason: `KripkeUtils._HandleInterface` wires a connection
+        in BOTH directions (kripke.py, `IFaceKey_out -> ConKey_in` AND
+        `ConKey_out -> IFaceKey_in`), while a FaVe link is UNIDIRECTIONAL.
+        Declaring them would add edges the model does not have, and an extra
+        edge is an over-approximation -- it reports reachable what is not, the
+        one direction a soundness error must never go. This is also why
+        `favemodel.wire_edges` exists, so the shape is not new.
+
+        Two kinds, resolved identically:
+          * `_out(source) -> _in(target)` for every wiring pair and every link;
+          * `_in(port) -> entry(port)` for every port that enters a table.
+        """
+        result = []
+        seen = set()
+
+        def add(source_key, target_key):
+            pair = (source_key, target_key)
+            if pair not in seen:
+                seen.add(pair)
+                result.append(pair)
+
+        for source, target in sorted(self._wiring.items()):
+            add(self.target(source), self.interface(target) + '_in')
+        for source in sorted(self._links):
+            for target in self._links[source]:
+                add(self.target(source), self.interface(target) + '_in')
+        for port in sorted(self._table_of_port):
+            entry = self.entry(port)
+            if entry is not None:
+                add(self.interface(port) + '_in', entry)
+        return result
+
+    def ports_of(self, device: str) -> Any:
+        """ Every port of `device` this model needs an interface node for --
+        declared ports, plus any port actually referenced by a rule or a link.
+        Referenced-but-undeclared ports are INCLUDED rather than rejected: FaVe
+        names a router's pipeline ports (`.acl_in_in`) without listing them in
+        `ports`, and a jump to a node that does not exist is a dead end that
+        looks like a legitimate refutation. """
+        return sorted(self._ports_by_device().get(device, set()))
+
+    def _ports_by_device(self) -> Dict[str, Any]:
+        if getattr(self, '_ports_cache', None) is not None:
+            return self._ports_cache
+        ports: Dict[str, Any] = {device: set() for device in self._devices}
+
+        def note(port):
+            try:
+                device, name = self.split(port)
+            except KeyError:
+                return
+            ports.setdefault(device, set()).add(name)
+
+        for device, model in self._devices.items():
+            for port in (model.get('ports') or []):
+                note(port if str(port).startswith(device + '.')
+                     else "%s.%s" % (device, port))
+            for _table, rules in model.get('tables', {}).items():
+                for rule in rules:
+                    for port in (getattr(rule, 'in_ports', None) or []):
+                        note(port)
+                    for port in _forward_ports(rule):
+                        note(port)
+                    for field in (getattr(rule, 'match', None) or []):
+                        if field.name in _PORT_FIELDS:
+                            note(str(field.value))
+        for source, target in self._wiring.items():
+            note(source)
+            note(target)
+        for source, targets in self._links.items():
+            note(source)
+            for target in targets:
+                note(target)
+        self._ports_cache = ports
+        return ports
+
+
+def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
+    """ The whole FaVe model -> (ad6 config, Kripke edges).
+
+    `devices` maps a device name to `{'tables': {name: [Rule]}, 'ports': [...],
+    'wiring': [(from, to)]}` -- FaVe's own captured model, not an interpreted
+    IR. `links` are the topology's unidirectional (from_port, to_port) pairs.
+
+    Returns the config ready for `KripkeUtils.ConvertToKripke` (after
+    `XMLUtils.deannotate`) together with the edge list `PortGraph.edges()`
+    describes, which the caller applies afterwards -- see that method for why
+    those cannot be declared in the XML.
+
+    The mutable-field set is computed over EVERY rule of EVERY device before
+    any rule is translated: a field rewritten on one device must be matched
+    node-scoped on all of them, or the same field would resolve against a
+    global alias in one place and an SSA copy in another (§9.6). """
+    graph = PortGraph(devices, links)
+
+    every_rule = [rule
+                  for model in devices.values()
+                  for rules in model.get('tables', {}).values()
+                  for rule in rules]
+    mutable = rewritten_fields(every_rule)
+
+    config = GenUtils.config()
+
+    firewalls = GenUtils.firewalls()
+    for device in sorted(devices):
+        firewall = GenUtils.firewall("fw_" + _safe(device))
+        for table, rules in sorted(devices[device].get('tables', {}).items()):
+            firewall.append(table_to_ad6(device, table, rules,
+                                         graph.target, graph.interface,
+                                         mutable=mutable))
+        firewalls.append(firewall)
+    config.append(firewalls)
+
+    networks = GenUtils.networks()
+    network = GenUtils.network(_NET)
+    for device in sorted(devices):
+        node = GenUtils.node(_safe(device))
+        for port in graph.ports_of(device):
+            node.append(GenUtils.interface(port, iface_key(device, port)))
+        node.append(GenUtils.nodeFirewall("fw_" + _safe(device)))
+        network.append(node)
+    networks.append(network)
+    config.append(networks)
+
+    return config, graph.edges()
+
+
+# `vlan` is the one genuinely mutable field (§9.7.1); the width matches ad6's
+# own global VLAN encoding (XMLUtils.ConvertVLANToVariables) deliberately, so a
+# <fieldmatch> and the structural <vlan> primitive can never disagree about how
+# many bits a tag needs. Kept equal to favemodel.MUTABLE_FIELDS.
+MUTABLE_FIELD_WIDTHS = {'vlan': 12}
+
+
+def instantiate_base(config: Any, edges: Iterable[Any], inits: Iterable[str],
+                     mutable_fields: Optional[Dict[str, int]] = None) -> Any:
+    """ `Instantiator.InstantiateBase`'s body with this module's own edges
+    spliced in between `ConvertToKripke` and the base-implication build.
+
+    The splice is unavoidable, not a shortcut: the edges reference interface
+    NODES, which do not exist until conversion has run, and there is no public
+    seam between the two halves -- the same reason `favemodel.instantiate_base`
+    exists and calls the same ad6-internal helpers. Keep in sync with
+    `src/core/instantiator.py:InstantiateBase` if that changes.
+
+    Returns (kripke, encoding). """
+    from src.core.kripke import KripkeUtils
+    from src.core.instantiator import Instantiator
+    from src.sat.satutils import SATUtils
+    from src.xml.xmlutils import XMLUtils
+
+    kripke = KripkeUtils.ConvertToKripke(config, default_inits=False)
+
+    for init in inits:
+        node = kripke.GetNode(init)
+        if XMLUtils.INIT not in node.Props:
+            node.Props.append(XMLUtils.INIT)
+        kripke.PutInit(init, node)
+
+    for source, target in edges:
+        kripke.Put(source, (target, True))
+
+    encoding = Instantiator._InstantiateBase(kripke)
+
+    if mutable_fields:
+        encoding[0].extend(
+            Instantiator._CreateMutationConstraints(kripke, dict(mutable_fields)))
+
+    # THE VARIABLE-EXPANSION PASS, and it is not optional. Up to here a CIDR is
+    # still one opaque alias variable ("dst_ip4_10.0.0.0/8"); two different
+    # prefixes are two INDEPENDENT booleans, so nothing makes 10.0.0.0/8 and
+    # 192.168.0.0/16 mutually exclusive and every disjoint chain comes back
+    # spuriously REACHABLE. `_HandlePrefixes` and friends expand each alias into
+    # the shared per-bit encoding that gives prefixes their overlap semantics.
+    #
+    # Omitting this was a real bug in the first cut of this function, caught by
+    # test_a_chain_with_DISJOINT_matches_is_REFUTED -- which is exactly why that
+    # test asserts a REFUTATION: every other test here would have passed, since
+    # dropping a constraint only ever makes more things reachable.
+    handled: Dict[str, Any] = {}
+    for variable in encoding.iterdescendants(XMLUtils.VARIABLE):
+        Instantiator._HandlePrefixes(variable, handled)
+        Instantiator._HandlePorts(variable, handled)
+        Instantiator._HandleVlans(variable, handled)
+        Instantiator._HandleFieldMatches(variable, handled, mutable_fields)
+        Instantiator._HandleOthers(variable, handled)
+
+    keys = list(handled)
+    Instantiator._ShortenPrefixes(handled, [k for k in keys if k.startswith('src_')])
+    Instantiator._ShortenPrefixes(handled, [k for k in keys if k.startswith('dst_')])
+
+    encoding[0].extend(list(handled.values()))
+    encoding[0].extend(Instantiator._CreateGlobalConstraints(kripke, encoding))
+    SATUtils.ConvertToCNF(encoding)
+
+    return kripke, encoding

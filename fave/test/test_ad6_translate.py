@@ -43,8 +43,13 @@ _STRUCTURAL = {'in_port', 'out_port'}
 
 
 def _target(port):
-    """ A stand-in port resolver, so the rule layer can be tested without a
-    port graph. """
+    """ Stand-in resolvers, so the rule layer can be tested without a port
+    graph. They differ exactly as the real ones do: a jump target names the
+    port's egress NODE, a condition names the unsuffixed interface key. """
+    return 'T_' + str(port).replace('.', '_') + '_out'
+
+
+def _iface(port):
     return 'T_' + str(port).replace('.', '_')
 
 
@@ -329,23 +334,53 @@ class TestPurity(unittest.TestCase):
     """ §9's structural discipline, asserted rather than trusted: nothing in
     this module may branch on a device name, a table name or a benchmark. """
 
-    def test_the_module_mentions_no_stage_prefix_or_benchmark_name(self):
+    # Names that would mean the translator had learned a workload's shape.
+    _FORBIDDEN = ('in.', 'mid.', 'out.', 'acl_in', 'acl_out', 'routing',
+                  'pre_routing', 'post_routing', 'input_filter', 'forward_filter',
+                  'wl_stanford', 'wl_i2', 'wl_ifi', 'wl_up')
+
+    def test_no_STRING_LITERAL_in_the_code_names_a_workload_shape(self):
+        """ Parsed rather than grepped. An earlier version of this test scanned
+        the raw source and tripped over prose in docstrings -- which are exactly
+        where naming a benchmark is legitimate, since that is where the
+        MEASUREMENTS are cited. What must stay clean is executable code, so this
+        walks the AST and inspects only string constants that are not
+        docstrings. """
+        import ast
+
         with open(translate.__file__.replace('.pyc', '.py')) as handle:
-            source = handle.read()
-        # Only the docstring may name a workload (it cites the measurement);
-        # no CODE line may.
-        code = [line for line in source.split('\n')
-                if line.strip() and not line.strip().startswith('#')]
-        body = '\n'.join(code)
-        body = body.split('"""', 2)[-1] if body.count('"""') >= 2 else body
-        for forbidden in ("'in.", "'mid.", "'out.", 'wl_stanford', 'wl_i2', 'wl_ifi',
-                          'wl_up', '.acl_in', '.routing'):
-            self.assertNotIn(forbidden, body,
-                             "structural translation must not branch on %r" % forbidden)
+            tree = ast.parse(handle.read())
 
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef,
+                                 ast.FunctionDef, ast.AsyncFunctionDef)):
+                doc = ast.get_docstring(node, clean=False)
+                if doc is not None:
+                    docstrings.add(doc)
 
-if __name__ == '__main__':
-    unittest.main()
+        offenders = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            if node.value in docstrings:
+                continue
+            for forbidden in self._FORBIDDEN:
+                if forbidden in node.value:
+                    offenders.append((node.lineno, node.value[:60], forbidden))
+
+        self.assertEqual(offenders, [],
+                         "structural translation must not branch on a workload's "
+                         "own vocabulary: %s" % offenders)
+
+    def test_the_check_would_actually_catch_a_violation(self):
+        """ A purity test that cannot fail is decoration. """
+        import ast
+        tree = ast.parse("stage = 'mid.'\n")
+        found = [n.value for n in ast.walk(tree)
+                 if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                 and any(f in n.value for f in self._FORBIDDEN)]
+        self.assertEqual(found, ['mid.'])
 
 
 class TestPortNames(unittest.TestCase):
@@ -370,11 +405,12 @@ class TestRuleTranslation(unittest.TestCase):
                     match=Match(match or []), actions=actions or [])
 
     def _xml_of(self, rule, mutable=(), position=0):
-        return _xml(rule_to_ad6(rule, 'k', _target, mutable=mutable, position=position))
+        return _xml(rule_to_ad6(rule, 'k', _target, _iface, mutable=mutable,
+                               position=position))
 
     def test_a_forward_becomes_a_jump_to_the_resolved_target(self):
         out = self._xml_of(self._rule(actions=[Forward(['dev.2'])]))
-        self.assertIn('<action type="jump" target="T_dev_2"/>', out)
+        self.assertIn('<action type="jump" target="T_dev_2_out"/>', out)
 
     def test_each_fanout_port_gets_ITS_OWN_action(self):
         """ ad6 reads every <action> as its own TRUE edge (§9.7.2 option B), so
@@ -382,7 +418,7 @@ class TestRuleTranslation(unittest.TestCase):
         16, and emitting one would silently drop 15 egresses. """
         out = self._xml_of(self._rule(actions=[Forward(['dev.2', 'dev.3', 'dev.4'])]))
         self.assertEqual(out.count('<action '), 3)
-        for target in ('T_dev_2', 'T_dev_3', 'T_dev_4'):
+        for target in ('T_dev_2_out', 'T_dev_3_out', 'T_dev_4_out'):
             self.assertIn(target, out)
 
     def test_a_shared_rewrite_rides_on_every_fanout_action(self):
@@ -434,7 +470,7 @@ class TestRuleTranslation(unittest.TestCase):
                               RuleField('out_port', 'x' * 32)]),
                      Forward(['dev.2'])]))
         self.assertNotIn('rewrite_field', out)
-        self.assertIn('target="T_dev_2"', out)
+        self.assertIn('target="T_dev_2_out"', out)
 
     def test_a_match_all_address_contributes_no_condition(self):
         out = self._xml_of(self._rule(
@@ -474,12 +510,12 @@ class TestTableTranslation(unittest.TestCase):
                      actions=[Forward(['dev.2'])]) for i in range(count)]
 
     def test_rules_keep_their_given_order(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target)
+        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface)
         keys = [r.get('key') for r in table]
         self.assertEqual(keys, [rule_key('dev', 't', i) for i in range(3)])
 
     def test_rule_names_are_positional(self):
-        table = table_to_ad6('dev', 't', self._rules(3), _target)
+        table = table_to_ad6('dev', 't', self._rules(3), _target, _iface)
         self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
 
     def test_a_reordered_rule_list_is_REFUSED(self):
@@ -490,11 +526,212 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[0], rules[2] = rules[2], rules[0]
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', rules, _target)
+            table_to_ad6('dev', 't', rules, _target, _iface)
 
     def test_an_empty_table_translates_to_an_empty_table(self):
-        self.assertEqual(len(table_to_ad6('dev', 't', [], _target)), 0)
+        self.assertEqual(len(table_to_ad6('dev', 't', [], _target, _iface)), 0)
 
     def test_table_and_rule_keys_are_deterministic_and_dot_safe(self):
         self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', 4),
                          'fw_in_bbra_rtr_acl_in_r4')
+
+
+class TestPortGraph(unittest.TestCase):
+    """ Resolution from DECLARED structure only -- a rule's own in_ports, a
+    device's own wiring, the topology's own links. Nothing reads a name. """
+
+    @staticmethod
+    def _rule(in_ports=None, forwards=None, idx=0, match=None):
+        return Rule('d', 't', idx, in_ports=in_ports, match=Match(match or []),
+                    actions=[Forward(forwards)] if forwards else [])
+
+    @staticmethod
+    def _dev(name, rules, ports=(), wiring=()):
+        return {'tables': {name + '.t0': list(rules)},
+                'ports': list(ports), 'wiring': list(wiring)}
+
+    def _graph(self, devices, links=()):
+        from ad6.translate import PortGraph
+        return PortGraph(devices, links)
+
+    def test_a_port_splits_against_the_declared_device_set(self):
+        graph = self._graph({'adm.uni-potsdam.de': self._dev('adm.uni-potsdam.de', [])})
+        self.assertEqual(graph.split('adm.uni-potsdam.de.1_egress'),
+                         ('adm.uni-potsdam.de', '1_egress'))
+
+    def test_splitting_is_not_a_convention_but_a_lookup(self):
+        """ A device name containing no dot and a port name containing one are
+        indistinguishable by parsing -- so an unknown port must raise rather
+        than be guessed at. """
+        graph = self._graph({'a': self._dev('a', [])})
+        with self.assertRaises(KeyError):
+            graph.split('somewhere.else.1')
+
+    def test_a_forward_target_is_the_ports_egress_node(self):
+        graph = self._graph({'a': self._dev('a', [])})
+        self.assertEqual(graph.target('a.out'), 'favenet_a_out_out')
+
+    def test_an_interface_condition_key_carries_no_suffix(self):
+        """ The jump key and the condition key must differ: naming the '_out'
+        node in a condition would reference a node that exists but is never on
+        the ingress path, making the rule quietly unsatisfiable. """
+        graph = self._graph({'a': self._dev('a', [])})
+        self.assertEqual(graph.interface('a.out'), 'favenet_a_out')
+        self.assertNotEqual(graph.interface('a.out'), graph.target('a.out'))
+
+    def test_entry_is_rule_zero_of_the_table_that_port_enters(self):
+        graph = self._graph({'a': self._dev('a', [self._rule(in_ports=['a.in'])])})
+        self.assertEqual(graph.entry('a.in'), rule_key('a', 'a.t0', 0))
+
+    def test_entry_is_none_for_a_port_no_table_declares(self):
+        graph = self._graph({'a': self._dev('a', [], ports=['out'])})
+        self.assertIsNone(graph.entry('a.out'))
+
+    def test_a_port_entering_two_tables_is_REFUSED(self):
+        """ `port -> table` being a function is what lets a jump resolve in one
+        pass; measured true on every benchmark, and checked rather than
+        assumed. """
+        device = {'tables': {'a.t0': [self._rule(in_ports=['a.in'])],
+                             'a.t1': [self._rule(in_ports=['a.in'])]},
+                  'ports': [], 'wiring': []}
+        with self.assertRaises(ValueError):
+            self._graph({'a': device})
+
+    def test_duplicate_wiring_is_tolerated(self):
+        """ FaVe replays a device's wiring once per add_wiring call -- wl_ifi's
+        router arrives twice -- so duplicates are expected, not exceptional. """
+        device = self._dev('a', [], wiring=[('a.x', 'a.y'), ('a.x', 'a.y')])
+        self.assertIsNotNone(self._graph({'a': device}))
+
+    def test_contradictory_wiring_is_REFUSED(self):
+        device = self._dev('a', [], wiring=[('a.x', 'a.y'), ('a.x', 'a.z')])
+        with self.assertRaises(ValueError):
+            self._graph({'a': device})
+
+    def test_edges_chain_egress_to_ingress_to_entry(self):
+        devices = {'a': self._dev('a', [self._rule(in_ports=['a.in'],
+                                                   forwards=['a.out'])],
+                                  ports=['in', 'out']),
+                   'b': self._dev('b', [self._rule(in_ports=['b.in'])],
+                                  ports=['in'])}
+        edges = self._graph(devices, [('a.out', 'b.in')]).edges()
+        self.assertIn(('favenet_a_out_out', 'favenet_b_in_in'), edges)
+        self.assertIn(('favenet_b_in_in', rule_key('b', 'b.t0', 0)), edges)
+
+    def test_intra_device_wiring_produces_the_same_shape_as_a_link(self):
+        """ wl_up declares its pipeline as wiring, wl_stanford spreads the same
+        pipeline across devices joined by links. Both must resolve identically
+        or the translator would be workload-shaped after all. """
+        devices = {'a': self._dev('a', [self._rule(in_ports=['a.mid'])],
+                                  wiring=[('a.x', 'a.mid')])}
+        edges = self._graph(devices).edges()
+        self.assertIn(('favenet_a_x_out', 'favenet_a_mid_in'), edges)
+        self.assertIn(('favenet_a_mid_in', rule_key('a', 'a.t0', 0)), edges)
+
+    def test_edges_are_deduplicated(self):
+        devices = {'a': self._dev('a', [self._rule(in_ports=['a.in'])])}
+        edges = self._graph(devices, [('a.out', 'a.in'), ('a.out', 'a.in')]).edges()
+        self.assertEqual(len(edges), len(set(edges)))
+
+    def test_a_referenced_but_undeclared_port_still_gets_an_interface(self):
+        """ FaVe names a router's pipeline ports without listing them in
+        `ports`. A jump to a node that does not exist is a dead end that looks
+        exactly like a legitimate refutation, so they are included. """
+        devices = {'a': self._dev('a', [self._rule(in_ports=['a.in'],
+                                                   forwards=['a.undeclared'])])}
+        self.assertIn('undeclared', self._graph(devices).ports_of('a'))
+
+
+class TestModelToConfig(unittest.TestCase):
+    """ The whole model, asserted by BUILDING it and solving -- the first point
+    in the translator where a verdict, rather than a shape, is available. """
+
+    @staticmethod
+    def _dev(name, rules, ports=(), wiring=()):
+        return {'tables': {name + '.t0': list(rules)},
+                'ports': list(ports), 'wiring': list(wiring)}
+
+    @staticmethod
+    def _fwd(name, dst, out, idx=0):
+        return Rule(name, name + '.t0', idx, in_ports=[name + '.in'],
+                    match=Match([RuleField('packet.ipv4.destination', dst)]
+                                if dst else []),
+                    actions=[Forward([out])] if out else [])
+
+    def _chain(self, b_dst):
+        """ a --10.0.0.0/8--> b --<b_dst>--> c """
+        devices = {
+            'a': self._dev('a', [self._fwd('a', '10.0.0.0/8', 'a.out')], ['in', 'out']),
+            'b': self._dev('b', [self._fwd('b', b_dst, 'b.out')], ['in', 'out']),
+            'c': self._dev('c', [self._fwd('c', None, None)], ['in']),
+        }
+        from ad6.translate import model_to_config, instantiate_base
+        from src.core.instantiator import Instantiator
+        from src.solver.pycosat import PycoSATAdapter
+        from src.xml.xmlutils import XMLUtils
+        config, edges = model_to_config(devices, [('a.out', 'b.in'), ('b.out', 'c.in')])
+        XMLUtils.deannotate(config)
+        kripke, encoding = instantiate_base(config, edges, inits=['favenet_a_in_in'])
+        solver = PycoSATAdapter()
+        return lambda target: bool(solver.Solve(
+            Instantiator.InstantiateReach(kripke, encoding, target)))
+
+    def test_a_consistent_chain_is_reachable_end_to_end(self):
+        reaches = self._chain('10.0.0.0/24')
+        for device in ('a', 'b', 'c'):
+            with self.subTest(device=device):
+                self.assertTrue(reaches(rule_key(device, device + '.t0', 0)))
+
+    def test_a_chain_with_DISJOINT_matches_is_REFUTED(self):
+        """ The test that matters. Any translator can make things reachable --
+        dropping a constraint does it. This asserts the model still says NO
+        when the two hops cannot agree on a packet. """
+        reaches = self._chain('192.168.0.0/16')
+        self.assertTrue(reaches(rule_key('a', 'a.t0', 0)))
+        self.assertFalse(reaches(rule_key('c', 'c.t0', 0)),
+                         "c must be unreachable: no packet matches both "
+                         "10.0.0.0/8 and 192.168.0.0/16")
+
+    def test_a_missing_link_refutes(self):
+        """ Reachability must come from the declared topology, not from nodes
+        happening to exist in one config. """
+        devices = {
+            'a': self._dev('a', [self._fwd('a', '10.0.0.0/8', 'a.out')], ['in', 'out']),
+            'b': self._dev('b', [self._fwd('b', None, None)], ['in']),
+        }
+        from ad6.translate import model_to_config, instantiate_base
+        from src.core.instantiator import Instantiator
+        from src.solver.pycosat import PycoSATAdapter
+        from src.xml.xmlutils import XMLUtils
+        config, edges = model_to_config(devices, [])        # no link at all
+        XMLUtils.deannotate(config)
+        kripke, encoding = instantiate_base(config, edges, inits=['favenet_a_in_in'])
+        solver = PycoSATAdapter()
+        self.assertFalse(bool(solver.Solve(
+            Instantiator.InstantiateReach(kripke, encoding,
+                                          rule_key('b', 'b.t0', 0)))))
+
+    def test_the_config_declares_a_firewall_and_a_node_per_device(self):
+        devices = {'a': self._dev('a', [self._fwd('a', None, None)], ['in'])}
+        from ad6.translate import model_to_config
+        config, _edges = model_to_config(devices, [])
+        self.assertEqual(len(config.xpath('//*[local-name()="firewall"][@key]')), 1)
+        self.assertEqual(len(config.xpath('//*[local-name()="node"]')), 1)
+
+    def test_the_mutable_set_is_computed_across_EVERY_device(self):
+        """ A field rewritten on one device must be matched node-scoped on all
+        of them, or the same field resolves against a global alias in one place
+        and an SSA copy in another (§9.6). """
+        rewriter = Rule('a', 'a.t0', 0, in_ports=['a.in'], match=Match([]),
+                        actions=[Rewrite([RuleField('packet.ether.vlan', '10')]),
+                                 Forward(['a.out'])])
+        matcher = Rule('b', 'b.t0', 0, in_ports=['b.in'],
+                       match=Match([RuleField('packet.ether.vlan', '10')]),
+                       actions=[])
+        devices = {'a': self._dev('a', [rewriter], ['in', 'out']),
+                   'b': self._dev('b', [matcher], ['in'])}
+        from ad6.translate import model_to_config
+        config, _edges = model_to_config(devices, [('a.out', 'b.in')])
+        xml = et.tostring(config).decode()
+        self.assertIn('<fieldmatch field="vlan">10</fieldmatch>', xml,
+                      "b's VLAN match must be node-scoped because a REWRITES vlan")
