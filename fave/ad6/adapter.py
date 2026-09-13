@@ -68,6 +68,14 @@ _VLAN = 'packet.ether.vlan'
 # equal favemodel._ANY_PORT (this adapter deliberately imports nothing from
 # the ad6 tree, see the module docstring, so the two are pinned equal by
 # test_ad6_wl_i2_admission.py instead of shared).
+# AD6_PLAN.md §9: the two model-construction paths. A local tuple, like
+# GROUNDINGS below: this adapter imports nothing from ad6/ or from
+# translate.py at module scope, and the spelling is pinned by a test
+# (fave/test/test_ad6_translation_flag.py) so the two cannot drift.
+TRANSLATION_SEMANTIC = 'semantic'
+TRANSLATION_STRUCTURAL = 'structural'
+TRANSLATIONS = (TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL)
+
 _ANY_PORT = '*'
 _RELATED = 'related'    # AD6_PLAN.md §4.2: connection-state match, "0"=NEW,
                         # "1"=ESTABLISHED (mirrors apkeep/adapter.py:_RELATED;
@@ -152,7 +160,8 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     def __init__(self, logger: TraceLogger, faithful_vlan: bool = False,
                  probe_untag: bool = False,
-                 grounding: str = GROUNDING_RANK) -> None:
+                 grounding: str = GROUNDING_RANK,
+                 translation: str = TRANSLATION_SEMANTIC) -> None:
         self.logger = logger
         # AD6_PLAN.md §5.4 B1 / §5.5: WHICH constraint grounds a witness in a
         # real origin, closing the SECRYPT'15 formalism's gap
@@ -181,6 +190,40 @@ class Ad6Adapter(AbstractVerificationEngine):
                 "unknown grounding strategy %r -- expected one of %s" % (
                     grounding, ', '.join(repr(g) for g in GROUNDINGS)))
         self.grounding = grounding
+
+        # AD6_PLAN.md §9: which TRANSLATION built the model this adapter hands
+        # to ad6. Measurement-affecting configuration, so it is an explicit
+        # argument and a stamped field rather than a habit.
+        #
+        #   'semantic'   (default) -- the original path. RECONSTRUCTS meaning
+        #       from FaVe's naming conventions (in./mid./out. stage prefixes,
+        #       .acl_in/.routing table suffixes) into an IR of interpreted
+        #       concepts, which ad6/src/parser/favemodel.py then builds from.
+        #       Every archived measurement came from this path.
+        #   'structural' -- fave/ad6/translate.py. Translates FaVe's model as
+        #       given: a table becomes a table, a rule becomes a rule at its
+        #       own position, a port is resolved from declared wiring and
+        #       links. Reads no device or table name.
+        #
+        # The default stays 'semantic' until the differential says the two
+        # agree on every benchmark (§9.3 Phase 3) -- switching first would
+        # silently re-measure every existing result.
+        if translation not in TRANSLATIONS:
+            raise ValueError(
+                "unknown translation %r -- expected one of %s" % (
+                    translation, ', '.join(repr(t) for t in TRANSLATIONS)))
+        self.translation = translation
+
+        # Raw model capture for the structural path. Buffered unconditionally:
+        # it is a few references per rule, and making it conditional would mean
+        # the two paths saw DIFFERENT captures, which is exactly what a
+        # differential must not have. `_raw_edges` keeps the UNNORMALISED port
+        # names -- `add_link` strips "_ingress"/"_egress" for the IR, and the
+        # structural path needs the real ones to resolve an interface.
+        self._tables: Dict[str, Dict[str, Any]] = {}
+        self._wiring: Dict[str, List[Any]] = {}
+        self._raw_edges: List[List[str]] = []
+        self._gen_fields: Dict[str, Any] = {}
         # AD6_PLAN.md §5.4 Stage B (B2): opt-in (default False, every existing
         # caller/benchmark unaffected -- wl_ifi/wl_up/wl_tum/B0-B1's own
         # plain wl_stanford tests never pass this). Ported (not imported)
@@ -319,6 +362,13 @@ class Ad6Adapter(AbstractVerificationEngine):
         self._devices.add(model.node)
 
     def add_rules(self, model: Any) -> None:
+        # AD6_PLAN.md §9: the raw capture the structural path translates. Taken
+        # before any interpretation below, and kept even under 'semantic', so
+        # the two paths can never be comparing different captures.
+        device_tables = self._tables.setdefault(model.node, {})
+        for table_name, table_rules in model.tables.items():
+            device_tables[table_name] = list(table_rules)
+
         # AD6_PLAN.md §5.4 Stage B (B0): wl_stanford's device names are
         # "in.<router>"/"mid.<router>"/"out.<router>" -- this stage prefix
         # is the same dispatch key fave/apkeep/adapter.py's own Stanford
@@ -788,9 +838,20 @@ class Ad6Adapter(AbstractVerificationEngine):
             store.setdefault(vlan, []).append([rule.idx, permit, src, dst, related])
 
     def add_wiring(self, model: Any) -> None:
-        pass  # internal device pipeline plumbing; not needed for a flat dst-IP model
+        """ FaVe DECLARES each device's internal pipeline as unidirectional
+        port-to-port links (AbstractDevice.wiring). The semantic path ignores
+        it and rebuilds an approximation by recognising table-name suffixes;
+        the structural path uses the declaration. Captured unconditionally so
+        both paths see one capture (AD6_PLAN.md §9.8.2). """
+        pairs = getattr(model, 'wiring', None) or []
+        if pairs:
+            self._wiring.setdefault(model.node, []).extend(
+                [list(pair) for pair in pairs])
 
     def add_link(self, sport: str, dport: str) -> None:
+        # UNNORMALISED, for the structural path: the normalisation below strips
+        # the "_ingress"/"_egress" suffix that names which interface a port is.
+        self._raw_edges.append([sport, dport])
         # Normalise router "_ingress"/"_egress"-suffixed endpoints (see
         # _split_port) so every consumer of self._edges (and the IR it feeds
         # to the ad6 bridge) sees plain "device.port" throughout.
@@ -802,6 +863,7 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     def add_generator(self, model: Any) -> None:
         self._generators[model.node] = model.node + '.1'
+        self._gen_fields[model.node] = getattr(model, 'fields', None) or {}
         fields = getattr(model, 'fields', None)
         if fields:
             for fname, rfields in fields.items():
@@ -967,6 +1029,78 @@ class Ad6Adapter(AbstractVerificationEngine):
             out.append(field.to_json() if hasattr(field, "to_json") else field)
         return out
 
+    def _build_structural(self) -> Dict[str, Any]:
+        """ AD6_PLAN.md §9: the structural payload -- ad6 config XML plus the
+        Kripke edges XML cannot express, plus each source's and probe's own
+        query node.
+
+        Translation happens HERE, in FaVe's process, rather than in the bridge,
+        because `translate.py` needs both vocabularies at once: ad6's GenUtils
+        to emit, and FaVe's own `rule_model` classes to read. Only the finished
+        XML crosses the subprocess boundary, so the bridge still needs nothing
+        from FaVe. (The adapter's own no-ad6-imports discipline is not weakened:
+        `translate` is imported inside this method, so a 'semantic' run never
+        touches ad6's package tree at all.) """
+        import lxml.etree as et
+
+        from ad6 import translate
+        from src.xml.xmlutils import XMLUtils      # translate put ad6 on sys.path
+
+        devices: Dict[str, Any] = {
+            device: {'tables': tables,
+                     'ports': [],
+                     'wiring': self._wiring.get(device, [])}
+            for device, tables in self._tables.items()
+        }
+
+        # The mutable set spans EVERY device's rules, and the generators' own
+        # rewrites depend on it -- so it is computed before they are built
+        # (§9.6: a field rewritten anywhere must be matched node-scoped
+        # everywhere, or the same field resolves against a global alias in one
+        # place and an SSA copy in another).
+        mutable = translate.rewritten_fields(
+            rule for tables in self._tables.values()
+            for table_rules in tables.values() for rule in table_rules)
+
+        for source in self._generators:
+            devices[source] = translate.generator_device(
+                source, self._gen_fields.get(source), mutable=mutable)
+        for probe in self._probes:
+            devices[probe] = translate.probe_device(probe)
+
+        config, edges = translate.model_to_config(devices, self._raw_edges)
+        # Deannotated HERE rather than in the bridge, so what crosses the
+        # boundary is plain XML the bridge can parse without knowing how it was
+        # produced.
+        XMLUtils.deannotate(config)
+
+        # THE NAMESPACE MUST NOT SURVIVE THE ROUND TRIP, and getting this wrong
+        # fails SILENTLY. `GenUtils.config()` declares xmlns="http://config" on
+        # the root while every child it builds carries no namespace at all --
+        # which is consistent in memory, where ad6's unprefixed xpaths
+        # (XMLUtils.RULEPATH and friends) match. Serialize it, though, and the
+        # declaration becomes the DEFAULT namespace for the whole document, so
+        # on re-parse every descendant is suddenly in it and every one of those
+        # xpaths matches NOTHING -- no error, just an empty model. Re-rooting
+        # onto a plain <config> keeps the serialized form matching the in-memory
+        # semantics. Pinned by test_ad6_translation_flag.py.
+        plain = et.Element('config')
+        for child in list(config):
+            plain.append(child)
+
+        return {
+            "config": et.tostring(plain).decode('utf-8'),
+            "edges": [list(edge) for edge in edges],
+            "sources": {name: translate.generator_entry_key(name)
+                        for name in self._generators},
+            "probes": {name: translate.probe_entry_key(name)
+                       for name in self._probes},
+            # Derived from what was emitted, not from faithful_vlan: the
+            # structural path emits a <fieldmatch> whenever some rule rewrites
+            # the field, which on wl_ifi is true in plain mode too.
+            "mutable_fields": translate.mutable_field_widths(mutable),
+        }
+
     def check_compliance(self, rules: Any) -> None:
         """ rules: {probe_name: [(source_name, negated, cond), ...]}. Builds
         the ad6 model and answers every pair in one bridge subprocess call. """
@@ -982,7 +1116,10 @@ class Ad6Adapter(AbstractVerificationEngine):
                     "negated": bool(negated), "cond": self._cond_to_json(cond),
                 })
         payload = {"ir": self._build_ir(), "queries": queries,
-                   "grounding": self.grounding}
+                   "grounding": self.grounding,
+                   "translation": self.translation}
+        if self.translation == TRANSLATION_STRUCTURAL:
+            payload["structural"] = self._build_structural()
         with tempfile.TemporaryDirectory(prefix="ad6_bridge_") as tmp:
             in_path = os.path.join(tmp, "in.json")
             out_path = os.path.join(tmp, "out.json")

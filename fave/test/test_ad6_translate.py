@@ -518,13 +518,42 @@ class TestTableTranslation(unittest.TestCase):
         table = table_to_ad6('dev', 't', self._rules(3), _target, _iface)
         self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
 
-    def test_a_reordered_rule_list_is_REFUSED(self):
-        """ Order IS the semantics -- FaVe's interwoven rulesets encode their
-        state purely as rule position (§9.2a). A list whose positions disagree
-        with its own indices has already lost information, so this fails rather
-        than silently producing a different model. """
+    def test_rules_are_ordered_by_ASCENDING_idx_not_by_list_position(self):
+        """ `Rule.idx` is a PRIORITY, and FaVe hands rules out in an order that
+        often disagrees with it -- 4 of wl_ifi's 38 tables, 138 of wl_up's
+        1,134. Lower index wins: 65535 is FaVe's max-priority default rule, and
+        np_preparation._reprioritise_fib_lpm repairs a FIB by reassigning
+        indices in descending prefix-length order. Since ad6 evaluates a table
+        first-match-wins in DOCUMENT order, emitting the list as handed over
+        would run a default rule before the specific rule it backs up. """
         rules = self._rules(3)
-        rules[0], rules[2] = rules[2], rules[0]
+        rules[0].idx, rules[1].idx, rules[2].idx = 65535, 1, 768
+        table = table_to_ad6('dev', 't', rules, _target, _iface)
+        emitted = [r.xpath('.//address')[0].text for r in table]
+        self.assertEqual(emitted, ['10.0.1.0/24', '10.0.2.0/24', '10.0.0.0/24'],
+                         "expected idx order 1, 768, 65535")
+
+    def test_an_unindexed_table_keeps_the_order_it_was_given(self):
+        rules = self._rules(3)
+        for rule in rules:
+            rule.idx = None
+        table = table_to_ad6('dev', 't', rules, _target, _iface)
+        self.assertEqual([r.xpath('.//address')[0].text for r in table],
+                         ['10.0.0.0/24', '10.0.1.0/24', '10.0.2.0/24'])
+
+    def test_a_DUPLICATE_idx_is_refused(self):
+        """ Two rules sharing an index leave the evaluation order genuinely
+        ambiguous. Measured: no table in any benchmark has one. """
+        rules = self._rules(3)
+        rules[1].idx = rules[0].idx
+        with self.assertRaises(ValueError):
+            table_to_ad6('dev', 't', rules, _target, _iface)
+
+    def test_a_PARTIALLY_indexed_table_is_refused(self):
+        """ There is no defensible place to interleave an unindexed rule among
+        prioritised ones. """
+        rules = self._rules(3)
+        rules[1].idx = None
         with self.assertRaises(ValueError):
             table_to_ad6('dev', 't', rules, _target, _iface)
 

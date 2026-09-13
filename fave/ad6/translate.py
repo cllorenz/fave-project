@@ -425,22 +425,57 @@ def rule_key(device: str, table: str, position: int) -> str:
 
 def table_to_ad6(device: str, table: str, rules: Any, resolve_target: Any,
                  resolve_interface: Any, mutable: Iterable[str] = ()) -> Any:
-    """ One FaVe table -> one ad6 <table>, rules in the order given.
+    """ One FaVe table -> one ad6 <table>, rules ordered by ASCENDING `idx`.
 
-    ORDER IS PRESERVED, NEVER IMPOSED: the caller passes FaVe's own rule list
-    and this function does not sort it. `Rule.idx` is asserted to agree with
-    the list position, so a caller that reordered (or dropped) rules fails here
-    rather than producing a silently different model. """
+    `Rule.idx` IS A PRIORITY, NOT A LIST POSITION -- measured on real data
+    (2026-09-13), and the first cut of this function got it wrong by assuming
+    the two coincided. FaVe hands rules out in an order that often disagrees
+    with their own indices: 4 of wl_ifi's 38 tables, 9 of wl_i2's 36, 16 of
+    wl_stanford's 96 and 138 of wl_up's 1,134. Lower index wins -- 65535 is
+    FaVe's max-priority default rule, and `np_preparation._reprioritise_fib_lpm`
+    repairs a FIB by REASSIGNING indices in descending prefix-length order, so
+    the longest prefix gets the lowest index and is evaluated first.
+
+    That matters more here than in most models, because ad6 evaluates a table
+    first-match-wins in DOCUMENT order with an implicit fall-through
+    (instantiatortest.RuleOrderSemanticsTest): emitting the list as handed over
+    would silently evaluate a default rule before the specific rule it is meant
+    to back up. FaVe's own interwoven rulesets encode their state semantics
+    purely as order too (§9.2a), so getting this wrong is not a cosmetic error.
+
+    Indices must be UNIQUE within a table, since two rules sharing one would
+    leave the order genuinely ambiguous. Measured: no table in any benchmark has
+    a duplicate, so this is refused rather than broken arbitrarily. """
     element = GenUtils.table(str(table).replace('.', '_'))
-    for position, rule in enumerate(rules):
+
+    indexed = list(enumerate(rules))
+    seen = {}
+    for original, rule in indexed:
         index = getattr(rule, 'idx', None)
-        if index is not None and int(index) != position:
+        if index is None:
+            continue
+        if index in seen:
             raise ValueError(
-                "rule at position %d of %s/%s carries idx=%s. Rule ORDER is the "
-                "semantics here (first-match-wins with fall-through), so a list "
-                "whose positions disagree with its own indices has already lost "
-                "information -- refusing rather than guessing which is right."
-                % (position, device, table, index))
+                "%s/%s has two rules with idx=%s (list positions %d and %d). "
+                "The index is the evaluation ORDER, so a duplicate makes it "
+                "ambiguous -- refusing rather than picking one."
+                % (device, table, index, seen[index], original))
+        seen[index] = original
+
+    # Only an entirely-indexed table is reordered. A table with no indices at
+    # all keeps exactly the order it was handed, and a PARTIALLY indexed one is
+    # refused above rather than silently interleaved -- there is no sensible
+    # place to put an unindexed rule among prioritised ones.
+    if len(seen) == len(indexed):
+        indexed.sort(key=lambda pair: pair[1].idx)
+    elif seen:
+        raise ValueError(
+            "%s/%s mixes %d rules carrying an idx with %d that do not. The "
+            "index is the evaluation order, and there is no defensible place "
+            "to interleave an unindexed rule among prioritised ones."
+            % (device, table, len(seen), len(indexed) - len(seen)))
+
+    for position, (_original, rule) in enumerate(indexed):
         element.append(rule_to_ad6(rule, rule_key(device, table, position),
                                    resolve_target, resolve_interface,
                                    mutable=mutable, position=position))
@@ -718,6 +753,38 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
 # <fieldmatch> and the structural <vlan> primitive can never disagree about how
 # many bits a tag needs. Kept equal to favemodel.MUTABLE_FIELDS.
 MUTABLE_FIELD_WIDTHS = {'vlan': 12}
+
+
+def mutable_field_widths(mutable: Iterable[str]) -> Dict[str, int]:
+    """ The `MutableFields` declaration ad6 needs for a model whose rules
+    rewrite `mutable`, keyed by ad6's own field names.
+
+    Derived from what the TRANSLATION actually emitted, never from a benchmark
+    flag. `Ad6Adapter`'s semantic path declares mutable fields only under
+    `faithful_vlan`, which is right for it -- that is the only mode where it
+    emits a `<fieldmatch>`. The structural path emits one whenever some rule
+    rewrites the field, which on wl_ifi is true in PLAIN mode too, so tying the
+    declaration to the flag would leave ad6 raising on a fieldmatch it was never
+    told about.
+
+    Port fields are excluded: they are structural here (see _PORT_FIELDS), so
+    they never reach a <fieldmatch> and need no width. Anything else without a
+    known width is refused -- ad6 encodes a mutable field as a fixed-width bit
+    vector, and guessing a width would silently truncate or over-widen it. """
+    widths: Dict[str, int] = {}
+    for field in sorted(set(mutable)):
+        if field in _PORT_FIELDS:
+            continue
+        name = rewrite_field_for(field)
+        width = MUTABLE_FIELD_WIDTHS.get(name)
+        if width is None:
+            raise UnsupportedField(
+                "field %r is rewritten by some rule but has no declared bit "
+                "width in MUTABLE_FIELD_WIDTHS. ad6 encodes a mutable field as "
+                "a fixed-width bit vector; guessing would silently truncate or "
+                "over-widen it." % (field,))
+        widths[name] = width
+    return widths
 
 
 def instantiate_base(config: Any, edges: Iterable[Any], inits: Iterable[str],

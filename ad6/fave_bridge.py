@@ -45,6 +45,9 @@ from src.parser import favemodel  # noqa: E402
 from src.solver.incremental import (  # noqa: E402
     GROUNDING_RANK, GROUNDINGS, IncrementalSession)
 from src.xml.xmlutils import XMLUtils  # noqa: E402
+from src.core.kripke import KripkeUtils  # noqa: E402
+from src.core.instantiator import Instantiator  # noqa: E402
+from src.sat.satutils import SATUtils  # noqa: E402
 
 
 def _seed_literals(cidr):
@@ -133,6 +136,57 @@ def _state_literals(cond):
     return literals
 
 
+def _instantiate_structural(config, edges, inits, mutable_fields=None):
+    """ Instantiator.InstantiateBase's body with the translator's own edges
+    spliced in between ConvertToKripke and the base-implication build.
+
+    The splice is unavoidable rather than a shortcut: the edges reference
+    interface NODES, which do not exist until conversion has run, and there is
+    no public seam between the two halves -- the same reason
+    favemodel.instantiate_base exists. Mirrors fave/ad6/translate.py's own
+    instantiate_base (which is what the translator's unit tests drive); keep the
+    two, and src/core/instantiator.py:InstantiateBase, in step.
+
+    The variable-expansion pass at the end is NOT optional: without it a CIDR
+    stays one opaque alias variable and two prefixes are independent booleans,
+    so nothing makes 10.0.0.0/8 and 192.168.0.0/16 mutually exclusive and every
+    disjoint path comes back spuriously reachable. """
+    kripke = KripkeUtils.ConvertToKripke(config, default_inits=False)
+
+    for init in inits:
+        node = kripke.GetNode(init)
+        if XMLUtils.INIT not in node.Props:
+            node.Props.append(XMLUtils.INIT)
+        kripke.PutInit(init, node)
+
+    for source, target in edges:
+        kripke.Put(source, (target, True))
+
+    encoding = Instantiator._InstantiateBase(kripke)
+
+    if mutable_fields:
+        encoding[0].extend(
+            Instantiator._CreateMutationConstraints(kripke, mutable_fields))
+
+    handled = {}
+    for variable in encoding.iterdescendants(XMLUtils.VARIABLE):
+        Instantiator._HandlePrefixes(variable, handled)
+        Instantiator._HandlePorts(variable, handled)
+        Instantiator._HandleVlans(variable, handled)
+        Instantiator._HandleFieldMatches(variable, handled, mutable_fields)
+        Instantiator._HandleOthers(variable, handled)
+
+    keys = list(handled)
+    Instantiator._ShortenPrefixes(handled, [k for k in keys if k.startswith('src_')])
+    Instantiator._ShortenPrefixes(handled, [k for k in keys if k.startswith('dst_')])
+
+    encoding[0].extend(list(handled.values()))
+    encoding[0].extend(Instantiator._CreateGlobalConstraints(kripke, encoding))
+    SATUtils.ConvertToCNF(encoding)
+
+    return kripke, encoding
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--in', dest='infile', required=True)
@@ -150,9 +204,36 @@ def main(argv=None):
     ir = payload['ir']
     queries = payload['queries']
 
-    config = favemodel.build_config(ir)
-    XMLUtils.deannotate(config)
-    kripke, encoding = favemodel.instantiate_base(config, ir)
+    # AD6_PLAN.md §9: two model-construction paths, one query loop.
+    #
+    # 'structural' arrives already translated -- fave/ad6/translate.py runs in
+    # FaVe's process, because it needs BOTH vocabularies at once (ad6's GenUtils
+    # to emit, FaVe's own rule_model to read) and only this side has ad6. What
+    # crosses the boundary is finished, namespace-free XML plus the Kripke edges
+    # that XML cannot express (a FaVe link is unidirectional; a declarative
+    # <connection keyref=...> would be wired BOTH ways and over-approximate).
+    # So the bridge still imports nothing from FaVe, and the two paths differ
+    # only in how `kripke`/`encoding` come to exist.
+    structural = payload.get('structural')
+    if structural is not None:
+        config = et.fromstring(structural['config'].encode('utf-8'))
+        kripke, encoding = _instantiate_structural(
+            config,
+            edges=structural['edges'],
+            inits=sorted(structural['sources'].values()),
+            # Sent by the translator, which knows what it emitted -- NOT derived
+            # from ir['faithful_vlan'] here, since the structural path emits a
+            # <fieldmatch> whenever some rule rewrites the field regardless of
+            # that flag.
+            mutable_fields=structural.get('mutable_fields') or None)
+        source_key = lambda q: structural['sources'][q['source']]
+        destination_key = lambda q: structural['probes'][q['probe']]
+    else:
+        config = favemodel.build_config(ir)
+        XMLUtils.deannotate(config)
+        kripke, encoding = favemodel.instantiate_base(config, ir)
+        source_key = lambda q: favemodel.gen_entry_key(q['source'])
+        destination_key = lambda q: favemodel.query_destination_key(q['probe'], ir)
     # Mutual exclusion between generators (at most one of favemodel.init_keys()
     # fires per query) is enforced by KripkeUtils._CreateInitConstraints on
     # the base model itself -- no per-query exclusivity assertion needed here
@@ -204,17 +285,23 @@ def main(argv=None):
         progress_out = open(progress_file, 'a', buffering=1)
     total = len(queries)
     for index, q in enumerate(queries, start=1):
-        source = favemodel.gen_entry_key(q['source'])
-        destination = favemodel.query_destination_key(q['probe'], ir)
+        source = source_key(q)
+        destination = destination_key(q)
         extra_vars = []
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
             extra_vars.extend(_seed_literals(q['src_cidr']))
         extra_vars.extend(_state_literals(q.get('cond')))
-        # AD6_PLAN.md §5.5 C4 (part 2): the probe's own declared arrival VLAN
-        # (wl_i2's access-port untag). Opt-in via ir["probe_untag"] -- a no-op
-        # for every benchmark and every existing run, which never set it.
-        extra_vars.extend(
-            favemodel.probe_vlan_literals(q['probe'], ir, destination))
+        if structural is None:
+            # AD6_PLAN.md §5.5 C4 (part 2): the probe's own declared arrival
+            # VLAN (wl_i2's access-port untag). Opt-in via ir["probe_untag"] --
+            # a no-op for every benchmark and every existing run, which never
+            # set it. The structural path has no equivalent BY DECISION: its
+            # probes accept any incoming traffic (§9.9, owner 2026-09-13), and
+            # a condition on a terminal rule would be silently ignored anyway
+            # (§9.9.1) -- so forcing these literals there would compare two
+            # different questions.
+            extra_vars.extend(
+                favemodel.probe_vlan_literals(q['probe'], ir, destination))
         if progress:
             start = time.time()
         reachable = session.Query(source, destination, extra_vars=extra_vars)

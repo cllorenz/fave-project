@@ -4702,6 +4702,100 @@ enforcing terminal conditions, which would be a real semantic change and would m
 filtering expressible directly.
 
 
+### 9.10 Phase 2: the selector works, the differential does not -- `out_port` is INTENT
+
+`Ad6Adapter(translation='semantic'|'structural')` is in place and stamped, the structural
+payload crosses the subprocess boundary, and the bridge builds a model from it. wl_ifi runs
+end to end under both paths. **They do not agree, and the cause is a genuine semantic gap
+that §9.8.1's provisional decision got half right.**
+
+| wl_ifi, 289 pairs | reachable |
+|---|---|
+| semantic | 70 |
+| structural | 16 |
+| differ | 54 pairs, ALL in one direction (structural more restrictive) |
+
+#### 9.10.1 Two real corrections found on the way, both keepers
+
+**`Rule.idx` IS A PRIORITY, NOT A LIST POSITION.** `table_to_ad6` originally asserted the
+two agreed and refused when they did not -- which is how the mistake surfaced, on
+`admin.ifi` carrying `idx=65535` at list position 1. FaVe hands rules out in an order that
+often disagrees with their own indices: 4 of wl_ifi's 38 tables, 9 of wl_i2's 36, 16 of
+wl_stanford's 96, 138 of wl_up's 1,134. Lower index wins (65535 is the max-priority default
+rule, and `np_preparation._reprioritise_fib_lpm` repairs a FIB by reassigning indices in
+descending prefix-length order). Since ad6 evaluates a table first-match-wins in DOCUMENT
+order, emitting the list as handed over would run a default rule before the specific rule it
+backs up. Now sorted by ascending idx, with duplicates and partially-indexed tables refused
+(measured: neither occurs).
+
+**A SERIALIZED CONFIG SILENTLY LOSES ITS XPATHS.** `GenUtils.config()` declares
+`xmlns="http://config"` on the root while every child it builds carries no namespace --
+consistent in memory, where ad6's unprefixed xpaths match. Serialize it and that
+declaration becomes the document's DEFAULT namespace, so on re-parse EVERY descendant is in
+it and every one of those xpaths matches NOTHING: no error, just an empty model. The adapter
+re-roots onto a plain `<config>` before serializing. Pinned, with a negative control, by
+`fave/test/test_ad6_translation_flag.py`.
+
+#### 9.10.2 THE OBSTACLE: `in_port` is provenance, `out_port` is intent
+
+§9.8.1 decided both port fields are structural -- "which port a packet came in on is a
+property of the PATH, expressed as an `<interface>` condition". **That is correct for
+`in_port` and wrong for `out_port`,** and the difference is not a detail:
+
+  * `in_port` records where the packet HAS BEEN. ad6 has exactly that: the path really did
+    traverse the ingress interface node, so the condition is satisfiable and means what it
+    says.
+  * `out_port` records where the packet IS GOING -- a decision written by one rule
+    (`Rewrite(out_port=...)` in `routing`) and READ by a later rule in the same device
+    (`post_routing`). ad6 has no counterpart: it makes the egress decision by TAKING AN
+    EDGE and has no readable "where am I headed" register.
+
+Translating an `out_port` MATCH as "the path traversed that egress interface" is therefore
+circular, and the trace shows it exactly. Following `source.admin.ifi -> probe.office.ifi`
+node by node, the structural model crosses the whole router correctly -- ingress, `acl_in`,
+`routing`, `acl_out`, all 22 `post_routing` rules -- and then dies at
+`favenet_ifi_5_egress_out`, whose own Gamma is `constant true`. The rule that would LEAD to
+that node demands the path had already been through it.
+
+**Where it bites, measured:**
+
+| benchmark | `out_port` matched in | count |
+|---|---|---|
+| wl_stanford | nowhere | 0 |
+| wl_i2 | nowhere | 0 |
+| wl_ifi | `post_routing` | 34 |
+| wl_up | `routing` 318, `post_routing` 318, `forward_filter` 2, `output_filter` 2 | 640 |
+
+So the structural path is already sound for the two benchmarks the headline numbers come
+from, and blocked on the two with a real packet-filter pipeline. wl_ifi's 34 split cleanly
+into two shapes: 17 rules with an `out_port` match and one Forward (egress selection), and
+17 with `in_port` + `out_port` and NO action -- the hairpin drop, "do not send a packet back
+out the interface it arrived on".
+
+**What the semantic path does about this: nothing.** It never reads `post_routing` at all
+(it dispatches only on `.routing`/`.1`/`.acl_in`/`.acl_out`/`.pre_routing`), so it does not
+see the hairpin rule and over-approximates by construction -- and still matches wl_ifi's
+accepted answer, because no wl_ifi reachability question turns on a hairpin. That is worth
+stating plainly: the 70-pair result is not evidence that ignoring `out_port` is CORRECT,
+only that it is harmless on this workload.
+
+**Options, none of them free:**
+
+  1. **Make `out_port` a genuine mutable field.** FaVe's `model.ports` already maps a port
+     name to a number, so integer values exist, and the width is 32. Blocker: half of the
+     port rewrites are a 32-wide WILDCARD (`"x"*32`, "forget where this came from"), and
+     `kripke.py` stores a rewrite as `int(rewrite_value)` -- there is no "clear" operation.
+     A reserved sentinel would be readable by a later match and is therefore not sound.
+  2. **Expand the register into the graph** -- one post-routing branch per possible egress,
+     so "intent" becomes "which branch you are on". Structurally faithful and needs no ad6
+     change, at the cost of a per-device product blow-up (wl_up: 136 devices x their port
+     counts).
+  3. **Drop `out_port` matches, and say so.** Matches what the semantic path effectively
+     does, keeps the model small, and is an over-approximation that must then be STAMPED
+     and reported -- the hairpin check disappears. This is the only option that silently
+     weakens the model, which is the direction this plan has refused everywhere else.
+
+
 ---
 
 
