@@ -1058,9 +1058,12 @@ class Ad6Adapter(AbstractVerificationEngine):
         # (§9.6: a field rewritten anywhere must be matched node-scoped
         # everywhere, or the same field resolves against a global alias in one
         # place and an SSA copy in another).
-        mutable = translate.rewritten_fields(
-            rule for tables in self._tables.values()
-            for table_rules in tables.values() for rule in table_rules)
+        every_rule = [rule for tables in self._tables.values()
+                      for table_rules in tables.values() for rule in table_rules]
+        mutable = translate.rewritten_fields(every_rule)
+        # Generic fields that are MATCHED also reach a <fieldmatch> and also
+        # need a declared width, even though nothing rewrites them.
+        matched_generic = translate.matched_generic_fields(every_rule)
 
         for source in self._generators:
             devices[source] = translate.generator_device(
@@ -1100,7 +1103,8 @@ class Ad6Adapter(AbstractVerificationEngine):
             # structural path emits a <fieldmatch> whenever some rule rewrites
             # the field, which on wl_ifi is true in plain mode too.
             "mutable_fields": translate.mutable_field_widths(
-                mutable, port_width=graph.port_id_width()),
+                mutable, port_width=graph.port_id_width(),
+                matched=matched_generic),
         }
 
     def check_compliance(self, rules: Any) -> None:

@@ -263,6 +263,21 @@ def split_port_direction(port: str) -> Any:
     return port, None
 
 
+# A <fieldmatch> is resolved against a BIT-VECTOR of the field's declared
+# width (Instantiator._HandleFieldMatches), so every field routed to one needs
+# both a width and an integer value. These are the widths FaVe itself declares
+# (netplumber/mapping.py's FIELD_SIZES) for the generic fields that have one.
+#
+# `module.limit` ('900/min') and `module.ipv6header.header` ('ipv6-route') are
+# deliberately absent: their values are not numbers in any base, so no width
+# would help. They are refused at translation time rather than reaching ad6,
+# where the failure surfaces as a confusing error inside the instantiator long
+# after the rule that caused it is out of sight.
+_GENERIC_FIELD_WIDTHS = {
+    'related': 8,
+}
+
+
 def rewrite_field_for(name: str) -> str:
     """ The name ad6 uses for a FaVe field, in both <fieldmatch field="..."> and
     <action rewrite_field="...">. One function so the two can never drift. """
@@ -311,6 +326,13 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
             % name)
 
     if name in set(mutable) or name in _GENERIC:
+        if not str(value).lstrip('-').isdigit():
+            raise UnsupportedField(
+                "field %r matches %r, which is not an integer. ad6 resolves a "
+                "<fieldmatch> against a BIT-VECTOR of the field's declared "
+                "width, so a non-numeric value has no encoding -- and letting "
+                "it through fails deep inside the instantiator, long after the "
+                "rule that caused it is out of sight." % (name, value))
         return GenUtils.fieldmatch(rewrite_field_for(name), str(value), negated=negated)
 
     if name in _ADDRESSES:
@@ -918,8 +940,25 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
 MUTABLE_FIELD_WIDTHS = {'vlan': 12}
 
 
+def matched_generic_fields(rules: Iterable[Any]) -> Set[str]:
+    """ The `_GENERIC` fields any of `rules` MATCHES.
+
+    A field reaches a <fieldmatch> either by being rewritten somewhere or by
+    being generic, and ad6 needs a declared width for BOTH -- a never-rewritten
+    field still gets a bit-vector to compare against. Collecting only the
+    rewritten ones left wl_up raising on `related` (3,137 matches, rewritten
+    nowhere). """
+    found: Set[str] = set()
+    for rule in rules:
+        for field in (getattr(rule, 'match', None) or []):
+            if field.name in _GENERIC:
+                found.add(field.name)
+    return found
+
+
 def mutable_field_widths(mutable: Iterable[str],
-                         port_width: Optional[int] = None) -> Dict[str, int]:
+                         port_width: Optional[int] = None,
+                         matched: Iterable[str] = ()) -> Dict[str, int]:
     """ The `MutableFields` declaration ad6 needs for a model whose rules
     rewrite `mutable`, keyed by ad6's own field names.
 
@@ -948,6 +987,9 @@ def mutable_field_widths(mutable: Iterable[str],
                     % (field,))
             widths[name] = port_width
             continue
+        if name not in MUTABLE_FIELD_WIDTHS and field in _GENERIC_FIELD_WIDTHS:
+            widths[name] = _GENERIC_FIELD_WIDTHS[field]
+            continue
         width = MUTABLE_FIELD_WIDTHS.get(name)
         if width is None:
             raise UnsupportedField(
@@ -955,6 +997,18 @@ def mutable_field_widths(mutable: Iterable[str],
                 "width in MUTABLE_FIELD_WIDTHS. ad6 encodes a mutable field as "
                 "a fixed-width bit vector; guessing would silently truncate or "
                 "over-widen it." % (field,))
+        widths[name] = width
+
+    for field in sorted(set(matched)):
+        name = rewrite_field_for(field)
+        if name in widths:
+            continue
+        width = _GENERIC_FIELD_WIDTHS.get(field) or MUTABLE_FIELD_WIDTHS.get(name)
+        if width is None:
+            raise UnsupportedField(
+                "field %r is matched with a <fieldmatch> but has no declared "
+                "bit width. ad6 compares it against a bit-vector; guessing the "
+                "width would silently truncate or over-widen it." % (field,))
         widths[name] = width
     return widths
 

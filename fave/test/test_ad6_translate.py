@@ -218,12 +218,24 @@ class TestMutableFieldsUseFieldmatch(unittest.TestCase):
     different values at different points along one path. """
 
     def test_a_rewritten_field_switches_from_typed_primitive_to_fieldmatch(self):
-        field = RuleField('packet.ipv4.destination', '10.0.0.0/8')
-        self.assertIn('<ip ', _xml(field_to_match(field)))
+        """ Uses a port, whose value is numeric. The switch itself is the point:
+        the SAME field resolves against the global alias when nothing rewrites
+        it and node-scoped when something does. """
+        field = RuleField('packet.upper.dport', '80')
+        self.assertIn('<port ', _xml(field_to_match(field)))
         self.assertIn('<fieldmatch ',
-                      _xml(field_to_match(field, mutable={'packet.ipv4.destination'})),
+                      _xml(field_to_match(field, mutable={'packet.upper.dport'})),
                       "a field some rule rewrites must not resolve against the "
                       "model-wide global alias")
+
+    def test_a_rewritten_field_with_a_NON_NUMERIC_value_is_refused(self):
+        """ A <fieldmatch> is resolved against a bit-vector, so a CIDR has no
+        encoding -- an address rewrite (NAT) would need one and no benchmark
+        has it. Refused at translation time rather than deep inside ad6's
+        instantiator, where the rule that caused it is long out of sight. """
+        with self.assertRaises(UnsupportedField):
+            field_to_match(RuleField('packet.ipv4.destination', '10.0.0.0/8'),
+                           mutable={'packet.ipv4.destination'})
 
     def test_vlan_uses_ad6s_own_field_name(self):
         """ <fieldmatch field="vlan"> must agree with <action rewrite_field="vlan">
