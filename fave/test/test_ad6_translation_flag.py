@@ -28,6 +28,7 @@ import lxml.etree as et
 from ad6.adapter import (
     Ad6Adapter, TRANSLATIONS, TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL,
 )
+from util.in_process_driver import InProcessFaVe
 
 
 def _adapter(**kwargs):
@@ -64,6 +65,49 @@ class TestTranslationSelector(unittest.TestCase):
                          (TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL))
         self.assertEqual((TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL),
                          ('semantic', 'structural'))
+
+
+class TestFaithfulVlanDoesNotApplyToStructural(unittest.TestCase):
+    """ AD6_PLAN.md §9.16.1. `faithful_vlan` is a property of the SEMANTIC
+    path, not of the model: its plain mode deliberately discards VLAN, while
+    the structural path translates FaVe's rules as given and they carry VLAN
+    whatever the flag says.
+
+    Measured on wl_i2: plain SEMANTIC reports all 72 pairs reachable, plain
+    STRUCTURAL reports the 11 unreachable pairs that ad6, NetPlumber and
+    bench/i2_structural_oracle.py independently agree on. A structural result
+    stamped `faithful_vlan: false` would therefore be MISLABELLED, and the
+    generality-debt gate's whole rule is that a stamp must say what produced
+    the number. """
+
+    def test_the_stamp_reports_faithful_vlan_as_not_applicable(self):
+        stamp = _adapter(faithful_vlan=False,
+                         translation=TRANSLATION_STRUCTURAL).configuration_stamp()
+        self.assertFalse(stamp['faithful_vlan_applies'])
+        self.assertIsNone(stamp['faithful_vlan'],
+                          "reporting the value that was passed and ignored is "
+                          "exactly the mislabelling this guards against")
+
+    def test_the_stamp_reports_it_normally_for_the_semantic_path(self):
+        for value in (True, False):
+            with self.subTest(faithful_vlan=value):
+                stamp = _adapter(faithful_vlan=value,
+                                 translation=TRANSLATION_SEMANTIC).configuration_stamp()
+                self.assertTrue(stamp['faithful_vlan_applies'])
+                self.assertEqual(stamp['faithful_vlan'], value)
+
+    def test_the_flag_really_does_not_change_the_structural_model(self):
+        """ The empirical claim behind the stamp, asserted rather than trusted:
+        the two settings must produce a BYTE-IDENTICAL config. If this ever
+        fails, `faithful_vlan` has started to matter and the stamp above is
+        wrong. """
+        configs = []
+        for value in (False, True):
+            engine = _adapter(faithful_vlan=value, translation=TRANSLATION_STRUCTURAL)
+            with InProcessFaVe(engine) as fave:
+                fave.replay("bench/wl_ifi")
+                configs.append(engine._build_structural()['config'])
+        self.assertEqual(configs[0], configs[1])
 
 
 class TestStructuralPayloadBoundary(unittest.TestCase):

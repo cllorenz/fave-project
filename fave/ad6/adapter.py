@@ -208,6 +208,18 @@ class Ad6Adapter(AbstractVerificationEngine):
         # The default stays 'semantic' until the differential says the two
         # agree on every benchmark (§9.3 Phase 3) -- switching first would
         # silently re-measure every existing result.
+        # AD6_PLAN.md §9.16.1: `faithful_vlan` DOES NOT APPLY under the
+        # structural translation, and saying so is a correctness requirement,
+        # not a nicety. The semantic path's plain mode deliberately discards
+        # VLAN ("structural only, never a match field", see this class's own
+        # docstring); the structural path translates FaVe's rules as given, and
+        # they carry VLAN whatever the flag says. Measured on wl_i2: plain
+        # SEMANTIC reports all 72 pairs reachable, plain STRUCTURAL reports the
+        # 11 unreachable pairs that ad6, NetPlumber and bench/
+        # i2_structural_oracle.py independently agree on. A structural result
+        # stamped `faithful_vlan: false` would therefore be mislabelled -- and
+        # the generality-debt gate's whole rule is that the stamp must say what
+        # produced the number.
         if translation not in TRANSLATIONS:
             raise ValueError(
                 "unknown translation %r -- expected one of %s" % (
@@ -315,6 +327,29 @@ class Ad6Adapter(AbstractVerificationEngine):
         # Surface the aggregator dispatch touches, like APKeepAdapter.
         self.links: Dict[Any, List[Any]] = {}
         self.asyncore_socks: Dict[Any, Any] = {}
+
+    @property
+    def faithful_vlan_applies(self) -> bool:
+        """ Whether this adapter's `faithful_vlan` setting affects its answers.
+
+        False under the structural translation, where VLAN is carried
+        unconditionally (§9.16.1). Anything stamping a result from this adapter
+        must consult THIS rather than `faithful_vlan`, or it will mislabel a
+        faithful answer as a plain one. """
+        return self.translation == TRANSLATION_SEMANTIC
+
+    def configuration_stamp(self) -> Dict[str, Any]:
+        """ The honest configuration behind this adapter's answers, for a
+        caller that records measurements. `faithful_vlan` is reported as None
+        when it does not apply, rather than as the value that was passed and
+        ignored. """
+        return {
+            "translation": self.translation,
+            "grounding": self.grounding,
+            "faithful_vlan": self._faithful_vlan if self.faithful_vlan_applies else None,
+            "faithful_vlan_applies": self.faithful_vlan_applies,
+            "probe_untag": self._probe_untag if self.faithful_vlan_applies else None,
+        }
 
     def global_port(self, port: Any) -> Any:
         return port
