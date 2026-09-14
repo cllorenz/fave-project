@@ -5234,6 +5234,73 @@ structural path.** The translation reproduces every number the semantic path get
 plus one it gets wrong.
 
 
+### 9.19 wl_up: BOTH paths are wrong, in opposite directions -- and the Phase 4 prediction is REFUTED
+
+Adjudicated against `bench/wl_up/eval/mat_np.json`, FaVe+NetPlumber's own wl_up reachability
+matrix (3,661 reachable pairs; §5.1 records APKeep reproducing it exactly). All 137x137 =
+18,769 pairs, plain:
+
+| | reachable | agree with NP | ad6-only | NP-only |
+|---|---|---|---|---|
+| **NetPlumber** | **3,661** | -- | -- | -- |
+| semantic | 18,768 | 3,661 | **15,107** | 0 |
+| structural | 83 | 75 | 8 | **3,586** |
+
+**Neither is usable.** The semantic path is vacuously all-reachable -- it never misses a
+real path, it invents 15,107 -- which is §5.1's NO-GO reproduced quantitatively rather than
+argued. The structural path is the opposite and worse in its own way: it finds 83 pairs where
+NetPlumber finds 3,661, MISSING 3,586 real paths. That is a severe over-constraint, not a
+subtle one.
+
+The 11,902-check `cchecks.json` differential shows the same thing from the policy side, and
+its mirror-image shape is what pointed here: wl_up's policy is `related:0` (NEW) MUST REACH
+and `related:1` (ESTABLISHED) MUST NOT. Semantic violated the must-not-reach half (3,371
+violations, over-approximating); structural violated the must-reach half (8,596,
+under-approximating); they agreed on 75 of 11,902 -- the same 75 pairs both get right.
+
+#### 9.19.1 The prediction this refutes, stated plainly
+
+§9.3 Phase 4 predicted: *"Delete `load_bench_metadata`'s ruleset bypass so those 136 devices
+arrive through `add_rules` with the interweaving intact, and test that wl_up's plain checks
+stop being vacuous... should be nearly free once Phase 1 exists."* And §9.1 argued the wl_up
+NO-GO's scope was "one level too wide".
+
+The bypass IS out of the picture for the structural path -- it reads FaVe's interwoven rules,
+never ad6's `IP6TablesParser` -- and `related` IS constrained correctly (§9.19.2). The plain
+checks did stop being vacuous. They became over-constrained instead. **Removing the bypass was
+necessary and is not sufficient**, and the claim that wl_up was recoverable "nearly free"
+was wrong.
+
+#### 9.19.2 What is NOT the cause
+
+  * **Not the `related` forcing.** The bridge's `_state_literals` emits ad6 `<state>`
+    variables, which the structural model never uses -- it carries `related` as an ordinary
+    field with a node-scoped `<fieldmatch>`. Feeding it state variables would have
+    constrained NOTHING, making the `related:0` and `related:1` variants of every check
+    return the same answer silently. `_structural_state_literals` now forces the field's own
+    bits at the query's source node (sufficient because nothing rewrites `related`, so the
+    frame axioms carry it along the path), verified to produce FaVe's own `_normalize_related`
+    encoding. This was fixed BEFORE the run, so the run measures the model, not that gap.
+  * **Not the other four benchmarks.** wl_ifi, wl_stanford plain/faithful and wl_i2
+    plain/faithful all agreed and matched their references. wl_up is the only one that
+    exercises `in_port`/`out_port` as HEAVILY MATCHED AND REWRITTEN fields (163 + 640 matches,
+    477 + 318 rewrites) together with a full declared packet-filter pipeline -- 952 wiring
+    pairs over 136 devices, versus wl_ifi's 8 and wl_stanford's none.
+
+#### 9.19.3 Where to look next
+
+The suspect is the port-field machinery under a real pipeline, which only wl_up has:
+`post_routing`'s hairpin rules match `in_port` AND `out_port` together, `routing` both reads
+and writes `out_port`, and `post_routing` CLEARS both before egress. Any one of those three
+being mistranslated would block traffic at the last stage of every device -- which is the
+shape of a model that reaches 83 pairs instead of 3,661.
+
+**This is a diagnosis to run, not to reason out.** The same trap as §9.11: two wrong models
+cannot adjudicate each other, and now there IS a reference (`mat_np.json`) plus a cheap
+route to a witness -- pick one NP-reachable pair the structural path misses and walk it node
+by node, exactly as §9.12.2's VLAN trace did.
+
+
 ---
 
 

@@ -136,6 +136,38 @@ def _state_literals(cond):
     return literals
 
 
+def _structural_state_literals(cond, field_widths, node):
+    """ AD6_PLAN.md §9.19: force a `related:N` query condition for the
+    STRUCTURAL translation.
+
+    `_state_literals` below is the semantic path's mechanism: it emits ad6
+    `<state>` variables, which the structural model never uses -- it carries
+    `related` as an ordinary field, matched with a node-scoped <fieldmatch>
+    (§9.2a: FaVe's interweaving strips conntrack and re-emits `related` as a
+    plain header field). Feeding state variables to it would constrain NOTHING,
+    and 3,302 of wl_up's 11,902 cchecks carry such a condition -- so the
+    `related:0` and `related:1` variants of one check would come back with the
+    SAME answer, silently.
+
+    Forcing the bits at the QUERY's own source node is sufficient because
+    nothing rewrites `related`: _CreateMutationConstraints frames it unchanged
+    across every edge, so pinning one node on the path pins the whole path. """
+    width = (field_widths or {}).get('related')
+    if width is None:
+        return []
+
+    literals = []
+    for condition in (cond or []):
+        if not isinstance(condition, dict) or condition.get("name") != "related":
+            continue
+        value = int(condition.get("value"))
+        bits = XMLUtils._CanonizeBitvector(value, width).split(' ')
+        for index, bit in enumerate(bits):
+            literals.append(XMLUtils.variable(
+                XMLUtils.FieldBitName('related', node, index), bit == '1'))
+    return literals
+
+
 def _instantiate_structural(config, edges, inits, mutable_fields=None):
     """ Instantiator.InstantiateBase's body with the translator's own edges
     spliced in between ConvertToKripke and the base-implication build.
@@ -290,7 +322,11 @@ def main(argv=None):
         extra_vars = []
         if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
             extra_vars.extend(_seed_literals(q['src_cidr']))
-        extra_vars.extend(_state_literals(q.get('cond')))
+        if structural is None:
+            extra_vars.extend(_state_literals(q.get('cond')))
+        else:
+            extra_vars.extend(_structural_state_literals(
+                q.get('cond'), structural.get('mutable_fields'), source))
         if structural is None:
             # AD6_PLAN.md §5.5 C4 (part 2): the probe's own declared arrival
             # VLAN (wl_i2's access-port untag). Opt-in via ir["probe_untag"] --
