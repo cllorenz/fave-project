@@ -31,8 +31,8 @@ import lxml.etree as et
 from ad6 import translate
 from ad6.translate import (
     UnsupportedAction, UnsupportedField, field_to_match, rewrite_field_for,
-    rewritten_fields, rule_key, rule_to_ad6, split_port_direction,
-    supported_fields, table_to_ad6,
+    mutable_field_widths, rewritten_fields, rule_key, rule_to_ad6,
+    split_port_direction, supported_fields, table_to_ad6,
 )
 from rule.rule_model import Forward, Miss, Rewrite, Rule, RuleField, Match
 
@@ -329,44 +329,50 @@ class TestIcmp6TypeNames(unittest.TestCase):
             field_to_match(RuleField('packet.ipv6.icmpv6.type', 'router-advertisement'))
 
 
-class TestOpaqueFields(unittest.TestCase):
-    """ Values with no bit encoding at all, carried as uninterpreted
-    propositions. Sound only while the field is single-valued. """
+class TestNormalisedFields(unittest.TestCase):
+    """ Fields ad6 has no primitive for, encoded with FaVe'S OWN normaliser.
 
-    def test_a_non_numeric_value_becomes_an_opaque_condition(self):
-        for name, value in (('module.limit', '900/min'),
-                            ('module.ipv6header.header', 'ipv6-route')):
-            with self.subTest(field=name):
-                element = field_to_match(RuleField(name, value))
-                self.assertEqual(element.tag, 'opaque')
-                self.assertEqual(element.get('field'), name)
-                self.assertEqual(element.text, value)
+    This is the point: `util.ip6np_util.field_value_to_bitvector` is exactly
+    what the NetPlumber adapter feeds its backend, so ad6 and NetPlumber model
+    the same quantity by construction rather than by coincidence. NetPlumber
+    treats these as NUMBERS -- `module.limit` '900/min' is 54000 over 32 bits,
+    `module.ipv6header.header` 'ipv6-route' is 43 (the IPv6 Routing header
+    number) over 8 -- and so now does this. """
 
-    def test_opaque_fields_are_reported_as_supported(self):
-        self.assertIn('module.limit', supported_fields())
+    def test_a_rate_is_encoded_as_the_number_fave_computes(self):
+        element = field_to_match(RuleField('module.limit', '900/min'))
+        self.assertEqual(element.tag, 'fieldmatch')
+        self.assertEqual(element.text, '54000', "900 per minute is 54000 per hour")
 
-    def test_a_MULTI_VALUED_opaque_field_is_refused_by_the_model(self):
-        """ Two values become two INDEPENDENT propositions, so a packet could
-        satisfy both -- an over-approximation. Checked model-wide, because
-        single-valuedness is not visible from one field alone. """
-        from ad6.translate import model_to_config
-        rules = [Rule('d', 'd.t0', i, in_ports=['d.in'],
-                      match=Match([RuleField('module.limit', v)]),
-                      actions=[Forward(['d.out'])])
-                 for i, v in enumerate(('900/min', '60/sec'))]
-        devices = {'d': {'tables': {'d.t0': rules}, 'ports': ['in', 'out'],
-                         'wiring': []}}
-        with self.assertRaises(UnsupportedField):
-            model_to_config(devices, [])
+    def test_a_header_NAME_is_encoded_as_its_protocol_number(self):
+        self.assertEqual(
+            field_to_match(RuleField('module.ipv6header.header', 'ipv6-route')).text,
+            '43')
 
-    def test_a_single_valued_opaque_field_is_accepted_by_the_model(self):
-        from ad6.translate import model_to_config
-        rules = [Rule('d', 'd.t0', i, in_ports=['d.in'],
-                      match=Match([RuleField('module.limit', '900/min')]),
-                      actions=[Forward(['d.out'])]) for i in range(2)]
-        devices = {'d': {'tables': {'d.t0': rules}, 'ports': ['in', 'out'],
-                         'wiring': []}}
-        self.assertIsNotNone(model_to_config(devices, [])[0])
+    def test_two_spellings_of_one_value_become_ONE_condition(self):
+        """ The bug the earlier opaque form had: keyed on the raw string,
+        '900/min' and '54000/sec' were two different propositions even though
+        they are the same rate. Normalising first is what fixes it. """
+        self.assertEqual(
+            field_to_match(RuleField('module.limit', '900/min')).text,
+            field_to_match(RuleField('module.limit', '54000/sec')).text)
+
+    def test_the_width_is_faves_own_declared_width(self):
+        """ Not a number chosen here: the same one NetPlumber allocates. """
+        from netplumber.mapping import FIELD_SIZES
+        widths = mutable_field_widths(set(), matched={'module.limit',
+                                                      'module.ipv6header.header'})
+        self.assertEqual(widths['module.limit'], FIELD_SIZES['module.limit'])
+        self.assertEqual(widths['module.ipv6header.header'],
+                         FIELD_SIZES['module.ipv6header.header'])
+
+    def test_different_values_are_now_MUTUALLY_EXCLUSIVE(self):
+        """ What the numeric encoding buys over the opaque one: two rates are
+        two different numbers in one field, so no packet satisfies both. The
+        opaque form made them independent booleans and needed a model-wide
+        single-value guard to stay sound; this form needs none. """
+        self.assertNotEqual(field_to_match(RuleField('module.limit', '900/min')).text,
+                            field_to_match(RuleField('module.limit', '60/sec')).text)
 
 
 class TestMatchAllSuppression(unittest.TestCase):

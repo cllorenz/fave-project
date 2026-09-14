@@ -5130,6 +5130,58 @@ since semantic declares VLAN mutable there too -- a prediction this record commi
 the result.
 
 
+### 9.18 wl_up's fields: use FaVe's OWN encoding, not an invented one
+
+Owner question 2026-09-14: *"Could you please elaborate on how exactly you modeled these
+fields and values? And did you double check on how that was modeled for NetPlumber as a
+backend?"* -- the second half of which had NOT been checked, and answering it overturned
+the design.
+
+**What the first attempt did, and why it was wrong.** `module.limit` ('900/min') and
+`module.ipv6header.header` ('ipv6-route') were carried as UNINTERPRETED propositions -- one
+boolean per (field, raw value) -- on the reasoning that the values "are not numbers in any
+base". Checking NetPlumber shows they are:
+`util.ip6np_util.field_value_to_bitvector`, which is exactly what
+`netplumber/adapter.py` feeds its backend, normalises them to real numbers over FaVe's own
+declared widths.
+
+| field | value | FaVe -> NetPlumber | meaning |
+|---|---|---|---|
+| `module.limit` | `900/min` | `...1101001011110000` | **54000** = 900 x 60, 32 bits |
+| `module.ipv6header.header` | `ipv6-route` | `00101011` | **43**, the IPv6 Routing header number, 8 bits |
+| `packet.ipv6.icmpv6.type` | `neighbour-advertisement` | `10001000xxxxxxxx` | **136**, distinct from solicitation's 135 |
+
+So the opaque form was wrong twice over. NetPlumber models these as NUMBERS, and keying a
+proposition on the RAW STRING would have made `'900/min'` and `'54000/sec'` -- the same rate
+-- two different conditions. Both are now normalised through FaVe's own function, which makes
+ad6 and NetPlumber model the same quantity BY CONSTRUCTION rather than by coincidence, and
+the width comes from `netplumber/mapping.py`'s `FIELD_SIZES` rather than a number chosen
+here.
+
+The numeric form is also strictly stronger: two different rates are two different numbers in
+one field, so no packet satisfies both. The opaque form made them independent booleans and
+needed a model-wide single-value guard to stay sound. That guard, and the `<opaque>` element
+added to ad6 for it, are both REMOVED -- leaving an unused element that looks meaningful is
+the trap §9's own `resolve_interface` cleanup exists to avoid.
+
+**The ICMPv6 fix is INDEPENDENTLY CONFIRMED by the same check.** FaVe's normaliser spells
+these the British way with distinct type numbers (135 solicitation, 136 advertisement); ad6's
+table spells them the American way and returned type 0 for both, colliding with each other
+and with every typo. After translation ad6 encodes 135/136/128, the same NUMBERS NetPlumber
+uses -- the two differ only in bit LAYOUT (ad6 puts the number in the low 8 bits of 16,
+FaVe in the high 8 with the code don't-care), which is internal to each engine and does not
+affect agreement.
+
+**wl_up's structural build**: 8,166 rules in 1,280 chains, 2,528 edges, mutable
+`{in_port: 12, out_port: 12, module.ipv6header.header: 8, module.limit: 32, related: 8}`.
+
+**The lesson, which generalises past this field.** Three of this phase's findings --
+`proto`, ICMPv6 type, and now these -- were cases of ad6 and FaVe disagreeing about how to
+name or encode the same quantity, and in every one ad6 failed SILENTLY (a lookup miss
+returning a plausible value). The check that catches them is not reading ad6's code: it is
+asking what FaVe already hands NetPlumber, because that is the encoding the other backend is
+measured under.
+
 ### 9.17 wl_i2 complete -- and the like-for-like cost is a WASH
 
 | wl_i2, 72 pairs (exclude-self) | plain | faithful |

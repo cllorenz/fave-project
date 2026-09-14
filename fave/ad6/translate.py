@@ -215,14 +215,45 @@ def _icmp6_type(value: str, negated: bool = False) -> Any:
     return GenUtils.icmp6type(name, negated=negated)
 
 
-# Values with no bit encoding at all, carried as uninterpreted propositions
-# (XMLUtils.OPAQUE). Sound only while the field is SINGLE-VALUED across the
-# model, which `model_to_config` checks -- two values would be two independent
-# booleans and a packet could satisfy both.
-_OPAQUE_FIELDS = frozenset({
-    'module.limit',                 # wl_up: '900/min'
-    'module.ipv6header.header',     # wl_up: 'ipv6-route'
+# Fields whose values FaVe itself normalises into a number, and which ad6 has
+# no typed primitive for. THE ENCODING IS FaVe'S OWN, not one invented here:
+# `util.ip6np_util.field_value_to_bitvector` is exactly what the NetPlumber
+# adapter feeds its backend, so using it makes ad6 and NetPlumber model the
+# same quantity by construction rather than by coincidence.
+#
+#     module.limit              '900/min'    -> 54000   (900 x 60, 32 bits)
+#     module.ipv6header.header  'ipv6-route' ->    43   (the IPv6 Routing
+#                                                        header number, 8 bits)
+#
+# An earlier version of this module carried these as uninterpreted
+# propositions keyed on the RAW STRING. That was wrong twice over: NetPlumber
+# models them as numbers, and two spellings of one value ('900/min' and
+# '54000/sec') would have become two different propositions. Normalising first
+# fixes both, and removes the single-value restriction the opaque form needed --
+# real numbers are mutually exclusive, propositions are not.
+_NORMALISED_FIELDS = frozenset({
+    'module.limit',
+    'module.ipv6header.header',
 })
+
+
+def _normalised_value(name: str, value: Any) -> int:
+    """ FaVe's own bit encoding for `value`, as an integer.
+
+    Refuses a vector carrying don't-cares: ad6's <fieldmatch> compares against
+    a fully determined bit-vector, and dropping the free bits would WIDEN the
+    match. Neither field needs it (both encode exactly), so a don't-care here
+    means a value shape nothing has measured. """
+    from util.ip6np_util import field_value_to_bitvector
+    from rule.rule_model import RuleField
+
+    bits = ''.join(field_value_to_bitvector(RuleField(name, value)).vector)
+    if 'x' in bits:
+        raise UnsupportedField(
+            "field %r normalises %r to %r, which carries don't-cares. ad6's "
+            "<fieldmatch> compares a fully determined bit-vector, and ignoring "
+            "the free bits would widen the match." % (name, value, bits))
+    return int(bits, 2)
 
 
 _SIMPLE = {
@@ -315,6 +346,14 @@ def split_port_direction(port: str) -> Any:
 # would help. They are refused at translation time rather than reaching ad6,
 # where the failure surfaces as a confusing error inside the instantiator long
 # after the rule that caused it is out of sight.
+def _fave_field_width(name: str) -> Optional[int]:
+    """ FaVe's own declared width for a field (netplumber/mapping.py's
+    FIELD_SIZES) -- the same number NetPlumber allocates, so ad6 compares the
+    same quantity over the same number of bits. """
+    from netplumber.mapping import FIELD_SIZES
+    return FIELD_SIZES.get(name)
+
+
 _GENERIC_FIELD_WIDTHS = {
     'related': 8,
 }
@@ -367,8 +406,9 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
             "resolves it; field_to_match has no id map and must not guess."
             % name)
 
-    if name in _OPAQUE_FIELDS:
-        return GenUtils.opaque(name, str(value), negated=negated)
+    if name in _NORMALISED_FIELDS:
+        return GenUtils.fieldmatch(rewrite_field_for(name),
+                                   _normalised_value(name, value), negated=negated)
 
     if name in set(mutable) or name in _GENERIC:
         if not str(value).lstrip('-').isdigit():
@@ -399,27 +439,12 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
         "through, since a dropped match is a silently weaker model." % (name, value))
 
 
-def opaque_field_values(rules: Iterable[Any]) -> Dict[str, Set[str]]:
-    """ {opaque field: {values it is matched with}} across `rules`.
-
-    `model_to_config` uses this to refuse a multi-valued opaque field: two
-    values become two INDEPENDENT propositions, so a packet could satisfy both
-    -- an over-approximation, and the one direction a soundness error must
-    never go (kripketest.OpaqueConditionTest pins the independence). """
-    seen: Dict[str, Set[str]] = {}
-    for rule in rules:
-        for field in (getattr(rule, 'match', None) or []):
-            if field.name in _OPAQUE_FIELDS:
-                seen.setdefault(field.name, set()).add(str(field.value))
-    return seen
-
-
 def supported_fields() -> Set[str]:
     """ Every field name `field_to_match` can represent without being told the
     model's mutable set. Used by the test suite to assert the table covers the
     vocabulary the real benchmarks actually use. """
     return (set(_ADDRESSES) | set(_PORTS) | set(_SIMPLE) | set(_GENERIC)
-            | set(_OPAQUE_FIELDS))
+            | set(_NORMALISED_FIELDS))
 
 
 class UnsupportedAction(Exception):
@@ -966,14 +991,6 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
                   for rule in rules]
     mutable = rewritten_fields(every_rule)
 
-    for field, values in sorted(opaque_field_values(every_rule).items()):
-        if len(values) > 1:
-            raise UnsupportedField(
-                "opaque field %r is matched with %d different values (%s). Each "
-                "becomes its own INDEPENDENT proposition, so a packet could "
-                "satisfy several at once -- an over-approximation. A field like "
-                "this needs a real encoding, not an opaque one."
-                % (field, len(values), ', '.join(sorted(values)[:4])))
 
     config = GenUtils.config()
 
@@ -1021,7 +1038,7 @@ def matched_generic_fields(rules: Iterable[Any]) -> Set[str]:
     found: Set[str] = set()
     for rule in rules:
         for field in (getattr(rule, 'match', None) or []):
-            if field.name in _GENERIC:
+            if field.name in _GENERIC or field.name in _NORMALISED_FIELDS:
                 found.add(field.name)
     return found
 
@@ -1057,6 +1074,9 @@ def mutable_field_widths(mutable: Iterable[str],
                     % (field,))
             widths[name] = port_width
             continue
+        if field in _NORMALISED_FIELDS:
+            widths[name] = _fave_field_width(field)
+            continue
         if name not in MUTABLE_FIELD_WIDTHS and field in _GENERIC_FIELD_WIDTHS:
             widths[name] = _GENERIC_FIELD_WIDTHS[field]
             continue
@@ -1073,7 +1093,8 @@ def mutable_field_widths(mutable: Iterable[str],
         name = rewrite_field_for(field)
         if name in widths:
             continue
-        width = _GENERIC_FIELD_WIDTHS.get(field) or MUTABLE_FIELD_WIDTHS.get(name)
+        width = (_GENERIC_FIELD_WIDTHS.get(field) or MUTABLE_FIELD_WIDTHS.get(name)
+                 or (_fave_field_width(field) if field in _NORMALISED_FIELDS else None))
         if width is None:
             raise UnsupportedField(
                 "field %r is matched with a <fieldmatch> but has no declared "

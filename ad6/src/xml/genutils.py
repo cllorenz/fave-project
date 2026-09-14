@@ -168,15 +168,6 @@ class GenUtils():
             elem.attrib['direction'] = direction
         return elem
 
-    def opaque(field, value, negated=False):
-        # AD6_PLAN.md §9.18: an UNINTERPRETED condition -- one boolean per
-        # (field, value) -- for a value with no bit encoding. See
-        # XMLUtils.OPAQUE for when this is sound and when it is not.
-        elem = et.Element('opaque', {'field': field})
-        elem.text = str(value)
-        if negated: elem.attrib['negated'] = 'true'
-        return elem
-
     def fieldmatch(field, value, negated=False):
         # AD6_PLAN.md §5.4 Stage A2: match a mutable field's own per-node SSA
         # value (as carried in by whichever edge fired into this rule's own

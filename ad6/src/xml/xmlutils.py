@@ -80,15 +80,6 @@ class XMLUtils:
     VLAN = "vlan"
     TCPFLAGS = "tcp-flags"
     FIELDMATCH = "fieldmatch"
-    # AD6_PLAN.md §9.18: a condition ad6 carries as an UNINTERPRETED
-    # proposition, one boolean per (field, value). For values that have no bit
-    # encoding at all -- FaVe matches `module.limit` = '900/min' and
-    # `module.ipv6header.header` = 'ipv6-route' -- where the alternative is to
-    # drop the condition and silently weaken the model. Sound only while the
-    # field carries ONE value: two values become two INDEPENDENT booleans, so
-    # a packet could satisfy both. The emitter is responsible for that
-    # (fave/ad6/translate.py refuses a multi-valued opaque field).
-    OPAQUE = "opaque"
     ATTRFIELD = "field"
 
     FIREWALLPATH = "/*/firewalls/"+FIREWALL
@@ -112,7 +103,6 @@ class XMLUtils:
     VLANPATH="./"+VLAN
     TCPFLAGSPATH="./"+TCPFLAGS
     FIELDMATCHPATH="./"+FIELDMATCH
-    OPAQUEPATH="./"+OPAQUE
     RBODYPATHS = [
         PROTOPATH,
         IPPATH,
@@ -125,8 +115,7 @@ class XMLUtils:
         RTSEGSLEFTPATH,
         VLANPATH,
         TCPFLAGSPATH,
-        FIELDMATCHPATH,
-        OPAQUEPATH
+        FIELDMATCHPATH
     ]
 
     DEFAULTINPUT = "input"
@@ -390,15 +379,6 @@ class XMLUtils:
         elif Config.tag == XMLUtils.INTERFACE:
             Prefix = Config.attrib.get(XMLUtils.ATTRKEYREF, Config.text) + '_' + Config.attrib[XMLUtils.ATTRDIRECTION]
             XML = XMLUtils.variable(Prefix)
-
-        elif Config.tag == XMLUtils.OPAQUE:
-            # '#' as the separator, deliberately: _HandleOthers splits a
-            # variable name on '_' and unpacks into exactly two, so a field
-            # whose own name contains '_' would raise there. Nothing claims a
-            # name shaped like this, so it survives as a free proposition --
-            # which IS the intended meaning.
-            XML = XMLUtils.variable('%s#%s#%s' % (
-                XMLUtils.OPAQUE, Config.attrib[XMLUtils.ATTRFIELD], Config.text))
 
         elif Config.tag in [XMLUtils.PROTO,XMLUtils.ICMP6TYPE,XMLUtils.ICMP6LIMIT,XMLUtils.STATE]:
             XML = XMLUtils.variable(Config.tag + '_' + Config.text)
