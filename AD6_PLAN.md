@@ -5130,6 +5130,58 @@ since semantic declares VLAN mutable there too -- a prediction this record commi
 the result.
 
 
+### 9.17 wl_i2 complete -- and the like-for-like cost is a WASH
+
+| wl_i2, 72 pairs (exclude-self) | plain | faithful |
+|---|---|---|
+| semantic | 72/72 reachable **(wrong)** | **61/72** |
+| structural | **61/72** | **61/72** |
+| differ | 11 pairs | **0 pairs** |
+
+All three cells that find 11 unreachable pairs find **the same 11** -- set equality against
+the archived, three-way-corroborated set, checked not eyeballed. Structural plain and
+structural faithful are pair-identical, confirming §9.16.1's inertness claim on real data as
+well as by the byte-identical-config test.
+
+**The faithful differential agrees on all 72 pairs.** That is the comparison the
+differential is actually about: the only i2 configuration in which the two paths are asked
+the same question.
+
+#### 9.17.1 Cost: the structural translation is not a regression
+
+| wl_i2 faithful | wall | peak RSS |
+|---|---|---|
+| semantic | 4,465 s | 9.7 GB |
+| structural | 4,232 s | 10.3 GB |
+| ratio | **0.95x** | **1.06x** |
+
+Like for like, the structural path is slightly FASTER and uses 6% more memory. The 1.6x
+wall / 4.3x memory gap seen in plain mode (§9.16) was never the translation being wasteful:
+it was the two paths computing different things, and it vanishes the moment the semantic
+path is asked to carry VLAN too. The verdict side and the cost side were two signals of one
+cause, and this record predicted the collapse before the run.
+
+Across the whole of Phase 3 the structural path costs 1.47x/1.43x wall on wl_stanford
+(where per-port chaining grows the model 1.69x) and 0.95x on wl_i2 (where it grows it
+1.00x). The cost tracks MODEL GROWTH, which tracks how heterogeneous a benchmark's
+`in_ports` are -- not the translation strategy itself.
+
+#### 9.17.2 Phase 3 scoreboard
+
+| rung | pairs | differ | note |
+|---|---|---|---|
+| wl_ifi | 289 | 0 | both match `reachable.json` on all 17 roles |
+| wl_stanford N=16 plain | 256 | 0 | 165 of 240 non-self, the NetPlumber oracle |
+| wl_stanford N=16 faithful | 256 | 0 | 165 again; VLAN mutable-field path at scale |
+| wl_i2 plain | 72 | **11** | **structural right, semantic wrong** (§9.16) |
+| wl_i2 faithful | 72 | 0 | 61/72, the corroborated 11 |
+| wl_up | -- | -- | BLOCKED: non-numeric field values (§9.14.1 item 3) |
+
+**949 pairs compared across four benchmarks; one disagreement, and it favours the
+structural path.** The translation reproduces every number the semantic path gets right,
+plus one it gets wrong.
+
+
 ---
 
 
