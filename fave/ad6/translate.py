@@ -104,6 +104,45 @@ _PORTS = {
     'packet.upper.dport': 'dst',
 }
 
+# A transport port is 16 bits, and FaVe spells a port RANGE as a bit-vector with
+# trailing don't-cares rather than as a decimal -- wl_stanford has 236 of them
+# against 1,321 plain decimals (`1xxxxxxxxxxxxxxx` for 32768-65535,
+# `000000000001010x` for FTP's 20-21). ad6's <port> text already understands a
+# `value/prefix` form: ConvertPortToVariables splits on '/' and truncates the
+# bit-vector to `prefix` bits, which is exactly a prefix mask.
+#
+# Found by wl_stanford's N=16 sweep CRASHING in CanonizePort's int(), not by
+# reading the data -- no other benchmark emits one, and the semantic path never
+# looks at transport ports at all, so nothing had ever exercised this.
+_PORT_WIDTH = 16
+
+
+def _port_value(value: str) -> Optional[str]:
+    """ A FaVe transport-port value -> ad6's <port> text, or None if it
+    constrains nothing.
+
+    Decimal passes through. A bit-vector becomes `value/prefix`. An all-`x`
+    vector is no constraint at all. A mask whose don't-cares are NOT a suffix
+    is REFUSED: ad6's form can only express a prefix, and dropping the low bits
+    anyway would WIDEN the match -- an over-approximation, the direction that
+    reports reachable what is not. """
+    text = str(value)
+    if text.isdigit():
+        return text
+    if set(text) - set('01x'):
+        raise UnsupportedField(
+            "transport port %r is neither a decimal nor a bit-vector" % (value,))
+    if set(text) == {'x'}:
+        return None
+    prefix = len(text.rstrip('x'))
+    if 'x' in text[:prefix]:
+        raise UnsupportedField(
+            "transport port %r has an INTERIOR don't-care. ad6 expresses a port "
+            "set as a prefix (value/prefix), which cannot describe this one, and "
+            "ignoring the low bits would widen the match rather than narrow it."
+            % (value,))
+    return "%d/%d" % (int(text.replace('x', '0'), 2), prefix)
+
 # PROTOCOL NUMBER -> the NAME ad6 knows it by. This map is not a convenience:
 # it closes a silent wrong-answer hazard found 2026-09-12 while writing this
 # module's tests. FaVe canonicalises a protocol at RuleField construction
@@ -280,7 +319,9 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
                                 negated=negated)
 
     if name in _PORTS:
-        return GenUtils.port(str(value), _PORTS[name], negated=negated)
+        port = _port_value(value)
+        return None if port is None else GenUtils.port(port, _PORTS[name],
+                                                       negated=negated)
 
     if name in _SIMPLE:
         return _SIMPLE[name](str(value), negated=negated)

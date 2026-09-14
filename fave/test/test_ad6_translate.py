@@ -114,6 +114,41 @@ class TestImmutableFieldsUseTypedPrimitives(unittest.TestCase):
             with self.subTest(field=name):
                 self.assertIn('version="6"', _xml(field_to_match(RuleField(name, '2001:db8::/32'))))
 
+    def test_a_MASKED_transport_port_becomes_ad6s_value_prefix_form(self):
+        """ FaVe spells a port RANGE as a bit-vector with trailing don't-cares
+        -- wl_stanford has 236 of them against 1,321 plain decimals, e.g.
+        `1xxxxxxxxxxxxxxx` for 32768-65535. ad6's <port> text already supports a
+        `value/prefix` form (ConvertPortToVariables splits on '/'), which
+        truncates the bit-vector to `prefix` bits -- exactly a prefix mask.
+
+        Found by wl_stanford's N=16 sweep crashing in CanonizePort's int(), not
+        by reading: no other benchmark emits one, and the semantic path never
+        looks at transport ports at all. """
+        element = field_to_match(RuleField('packet.upper.dport', '000000000001010x'))
+        self.assertEqual(element.text, '20/15')
+        element = field_to_match(RuleField('packet.upper.dport', '1' + 'x' * 15))
+        self.assertEqual(element.text, '32768/1')
+
+    def test_a_masked_port_round_trips_through_ad6s_own_encoder(self):
+        """ The property that matters is the BITS ad6 finally constrains, not
+        the spelling: `000000000001010x` must pin the 15 bits it names and
+        leave the last free. """
+        from src.xml.xmlutils import XMLUtils
+        element = field_to_match(RuleField('packet.upper.dport', '000000000001010x'))
+        bits = [v.get('name').split('=')[1]
+                for v in XMLUtils.ConvertPortToVariables(element.text, 'dst')]
+        self.assertEqual(''.join(bits), '000000000001010')
+
+    def test_a_NON_PREFIX_mask_is_refused(self):
+        """ ad6's form can only express don't-cares as a SUFFIX. A mask with an
+        interior `x` is a set no prefix describes, and silently dropping the
+        low bits would widen the match. No benchmark emits one. """
+        with self.assertRaises(UnsupportedField):
+            field_to_match(RuleField('packet.upper.dport', '00000000000x0100'))
+
+    def test_an_all_wildcard_port_constrains_nothing(self):
+        self.assertIsNone(field_to_match(RuleField('packet.upper.dport', 'x' * 16)))
+
     def test_transport_ports_carry_their_direction(self):
         self.assertEqual(_xml(field_to_match(RuleField('packet.upper.dport', '80'))),
                          '<port direction="dst">80</port>')
