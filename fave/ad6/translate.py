@@ -181,9 +181,53 @@ def _proto(value: str, negated: bool = False) -> Any:
     return GenUtils.proto(name, negated=negated)
 
 
+# ICMPv6 TYPE NAME -> the spelling ad6's own table uses. A second instance of
+# the `proto` hazard (§9.6), found the same way and just as silent:
+# XMLUtils.ConvertICMP6TypeToVariables looks its table up BY NAME and, on a
+# miss, returns type number ZERO. Measured:
+#
+#     echo-request            -> 128   correct
+#     neighbour-advertisement ->   0    WRONG
+#     neighbour-solicitation  ->   0    WRONG -- and equal to the line above
+#     total-nonsense          ->   0    indistinguishable from both
+#
+# FaVe spells these the British way and ad6 the American way, so two DISTINCT
+# ICMPv6 types collapse onto one another and onto every typo. That is 458 of
+# wl_up's 1,766 icmp6 matches. Translating the name, and REFUSING one ad6
+# cannot name, is the only safe direction -- exactly as for _PROTO_NAMES.
+_ICMP6_TYPE_NAMES = {
+    'neighbour-advertisement': 'neighbor-advertisement',
+    'neighbour-solicitation': 'neighbor-solicitation',
+}
+
+
+def _icmp6_type(value: str, negated: bool = False) -> Any:
+    from src.xml.xmlutils import XMLUtils
+
+    name = _ICMP6_TYPE_NAMES.get(str(value), str(value))
+    if name not in XMLUtils.ICMP6TYPES:
+        raise UnsupportedField(
+            "ICMPv6 type %r is not in ad6's table (known: %s). It must NOT be "
+            "passed through: ConvertICMP6TypeToVariables silently returns type "
+            "0 for anything it cannot look up, so an unmapped name becomes a "
+            "wrong answer that also COLLIDES with every other unmapped one."
+            % (value, ', '.join(sorted(XMLUtils.ICMP6TYPES))))
+    return GenUtils.icmp6type(name, negated=negated)
+
+
+# Values with no bit encoding at all, carried as uninterpreted propositions
+# (XMLUtils.OPAQUE). Sound only while the field is SINGLE-VALUED across the
+# model, which `model_to_config` checks -- two values would be two independent
+# booleans and a packet could satisfy both.
+_OPAQUE_FIELDS = frozenset({
+    'module.limit',                 # wl_up: '900/min'
+    'module.ipv6header.header',     # wl_up: 'ipv6-route'
+})
+
+
 _SIMPLE = {
     'packet.ipv6.proto':             _proto,
-    'packet.ipv6.icmpv6.type':       GenUtils.icmp6type,
+    'packet.ipv6.icmpv6.type':       _icmp6_type,
     'packet.upper.tcp.flags':        GenUtils.tcp_flags,
     'module.ipv6header.rt.type':     GenUtils.rttype,
     'module.ipv6header.rt.segsleft': GenUtils.rtsegsleft,
@@ -198,8 +242,6 @@ _AD6_FIELD_NAME = {
 
 _GENERIC = {
     'related',
-    'module.limit',
-    'module.ipv6header.header',
     # VLAN is here rather than among the typed primitives even though
     # GenUtils.vlan() exists, for a reason independent of mutability:
     # that primitive REQUIRES an ingress/egress direction which FaVe's
@@ -325,6 +367,9 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
             "resolves it; field_to_match has no id map and must not guess."
             % name)
 
+    if name in _OPAQUE_FIELDS:
+        return GenUtils.opaque(name, str(value), negated=negated)
+
     if name in set(mutable) or name in _GENERIC:
         if not str(value).lstrip('-').isdigit():
             raise UnsupportedField(
@@ -354,11 +399,27 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
         "through, since a dropped match is a silently weaker model." % (name, value))
 
 
+def opaque_field_values(rules: Iterable[Any]) -> Dict[str, Set[str]]:
+    """ {opaque field: {values it is matched with}} across `rules`.
+
+    `model_to_config` uses this to refuse a multi-valued opaque field: two
+    values become two INDEPENDENT propositions, so a packet could satisfy both
+    -- an over-approximation, and the one direction a soundness error must
+    never go (kripketest.OpaqueConditionTest pins the independence). """
+    seen: Dict[str, Set[str]] = {}
+    for rule in rules:
+        for field in (getattr(rule, 'match', None) or []):
+            if field.name in _OPAQUE_FIELDS:
+                seen.setdefault(field.name, set()).add(str(field.value))
+    return seen
+
+
 def supported_fields() -> Set[str]:
     """ Every field name `field_to_match` can represent without being told the
     model's mutable set. Used by the test suite to assert the table covers the
     vocabulary the real benchmarks actually use. """
-    return set(_ADDRESSES) | set(_PORTS) | set(_SIMPLE) | set(_GENERIC)
+    return (set(_ADDRESSES) | set(_PORTS) | set(_SIMPLE) | set(_GENERIC)
+            | set(_OPAQUE_FIELDS))
 
 
 class UnsupportedAction(Exception):
@@ -904,6 +965,15 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
                   for rules in model.get('tables', {}).values()
                   for rule in rules]
     mutable = rewritten_fields(every_rule)
+
+    for field, values in sorted(opaque_field_values(every_rule).items()):
+        if len(values) > 1:
+            raise UnsupportedField(
+                "opaque field %r is matched with %d different values (%s). Each "
+                "becomes its own INDEPENDENT proposition, so a packet could "
+                "satisfy several at once -- an over-approximation. A field like "
+                "this needs a real encoding, not an opaque one."
+                % (field, len(values), ', '.join(sorted(values)[:4])))
 
     config = GenUtils.config()
 

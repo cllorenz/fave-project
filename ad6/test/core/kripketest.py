@@ -330,3 +330,93 @@ class MultiRewriteTest(unittest.TestCase):
         attribute_form = KripkeUtils.ConvertToKripke(
             config, default_inits=False).GetNode('bfw_t_r0').Rewrites
         self.assertEqual(attribute_form, self._rewrites([('vlan', 10)]))
+
+
+class OpaqueConditionTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.18: `<opaque field="F">V</opaque>` -- a condition ad6
+    carries as an uninterpreted proposition.
+
+    Some FaVe field values are not numbers in any base and have no bit
+    encoding: wl_up matches `module.limit` = '900/min' (436 rules) and
+    `module.ipv6header.header` = 'ipv6-route' (10). A bit-vector is impossible
+    and DROPPING them would weaken the model silently, so they become one
+    boolean per (field, value) instead: the packet either satisfies that
+    condition or it does not, consistently everywhere.
+
+    SOUND ONLY FOR A SINGLE-VALUED FIELD, which is why these tests pin the
+    independence too. Two different values of one field become two INDEPENDENT
+    booleans, so a packet could satisfy both -- nonsense for a real field, and
+    an over-approximation. `fave/ad6/translate.py` therefore refuses an opaque
+    field that carries more than one value across the model; here we pin the
+    ad6-level behaviour that makes that refusal necessary. """
+
+    @staticmethod
+    def _config(first, second):
+        """ r0 (opaque `first`) -> target; r1 (opaque `second`) -> target2. """
+        firewall = GenUtils.firewall('ofw')
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='ofw_t_r0')
+        rule.append(GenUtils.opaque('module.limit', first))
+        rule.append(GenUtils.action('jump', target='ofw_t_hit'))
+        table.append(rule)
+        second_rule = GenUtils.rule('1', key='ofw_t_r1')
+        second_rule.append(GenUtils.opaque('module.limit', second))
+        second_rule.append(GenUtils.action('jump', target='ofw_t_hit2'))
+        table.append(second_rule)
+        firewall.append(table)
+        for key in ('ofw_t_hit', 'ofw_t_hit2'):
+            t = GenUtils.table('t_' + key)
+            r = GenUtils.rule(key, key=key)
+            r.append(GenUtils.action('accept'))
+            t.append(r)
+            firewall.append(t)
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+        return config
+
+    def testAnOpaqueConditionBecomesAPropositionOnTheRule(self):
+        kripke = KripkeUtils.ConvertToKripke(self._config('900/min', '900/min'),
+                                            default_inits=False)
+        gamma = et.tostring(kripke.GetNode('ofw_t_r0').Gamma).decode()
+        self.assertIn('opaque', gamma)
+        self.assertIn('900/min', gamma)
+
+    def testTheSameValueIsTheSameProposition(self):
+        """ Two rules testing the same condition must agree about it. """
+        kripke = KripkeUtils.ConvertToKripke(self._config('900/min', '900/min'),
+                                             default_inits=False)
+        first = et.tostring(kripke.GetNode('ofw_t_r0').Gamma).decode()
+        second = et.tostring(kripke.GetNode('ofw_t_r1').Gamma).decode()
+        self.assertEqual(first, second)
+
+    def testDifferentValuesAreDIFFERENTPropositions(self):
+        kripke = KripkeUtils.ConvertToKripke(self._config('900/min', '60/sec'),
+                                             default_inits=False)
+        first = et.tostring(kripke.GetNode('ofw_t_r0').Gamma).decode()
+        second = et.tostring(kripke.GetNode('ofw_t_r1').Gamma).decode()
+        self.assertNotEqual(first, second)
+
+    def testDifferentValuesAreNOTMutuallyExclusive(self):
+        """ The limitation, pinned rather than left implicit: nothing stops a
+        packet satisfying two different values of one opaque field at once.
+        That is why translate.py refuses a multi-valued opaque field, and this
+        test is what makes that refusal justified rather than cautious. """
+        config = self._config('900/min', '60/sec')
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['ofw_t_r0'], default_inits=False)
+        solver = PycoSATAdapter()
+        self.assertTrue(bool(solver.Solve(
+            Instantiator.InstantiateReach(kripke, encoding, 'ofw_t_hit'))))
+
+    def testAFieldNameWithUnderscoresDoesNotCollideWithOthersHandling(self):
+        """ `_HandleOthers` splits a variable name on '_' and unpacks into two,
+        so an opaque name joined with '_' would raise there for any field whose
+        name contains one. The separator is '#', which no other naming
+        convention in XMLUtils uses. """
+        kripke, encoding = Instantiator.InstantiateBase(
+            self._config('900/min', '900/min'), Inits=['ofw_t_r0'],
+            default_inits=False)
+        self.assertTrue(bool(PycoSATAdapter().Solve(
+            Instantiator.InstantiateReach(kripke, encoding, 'ofw_t_hit'))))

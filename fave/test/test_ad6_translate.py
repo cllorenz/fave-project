@@ -87,13 +87,31 @@ class TestFieldCoverage(unittest.TestCase):
                          "fields used by a real benchmark with no ad6 representation: %s"
                          % missing)
 
+    # A value each field actually carries in some benchmark. A single generic
+    # value will not do: `packet.ipv6.proto` wants an IANA number ad6 knows and
+    # `packet.ipv6.icmpv6.type` a type NAME, and both now refuse anything else
+    # rather than silently encoding a wrong one.
+    _REPRESENTATIVE = {
+        'packet.ipv6.proto': '6',
+        'packet.ipv6.icmpv6.type': 'echo-request',
+        'module.limit': '900/min',
+        'module.ipv6header.header': 'ipv6-route',
+        'packet.ipv4.source': '10.0.0.0/8',
+        'packet.ipv4.destination': '10.0.0.0/8',
+        'packet.ipv6.source': '2001:db8::/32',
+        'packet.ipv6.destination': '2001:db8::/32',
+        'packet.upper.tcp.flags': '1xxxxxxx',
+    }
+
     def test_every_measured_field_translates_without_a_mutable_set(self):
         """ Coverage by NAME is not coverage: a field reachable only when it
         happens to be in the model's mutable set would raise on a model that
-        never rewrote it. Each one must translate on its own. """
+        never rewrote it. Each one must translate on its own, with a value it
+        really carries. """
         for name in sorted(self._MEASURED - _STRUCTURAL):
             with self.subTest(field=name):
-                self.assertIsNotNone(_xml(field_to_match(RuleField(name, '1'))))
+                value = self._REPRESENTATIVE.get(name, '1')
+                self.assertIsNotNone(_xml(field_to_match(RuleField(name, value))))
 
 
 class TestImmutableFieldsUseTypedPrimitives(unittest.TestCase):
@@ -263,6 +281,92 @@ class TestMutableFieldsUseFieldmatch(unittest.TestCase):
         as an ordinary header field. Translating it back into ad6's <state>
         would re-introduce the state semantics the whole design drops. """
         self.assertNotIn('<state', _xml(field_to_match(RuleField('related', '1'))))
+
+
+class TestIcmp6TypeNames(unittest.TestCase):
+    """ A second instance of the `proto` hazard, and just as silent:
+    ConvertICMP6TypeToVariables looks its table up BY NAME and returns type 0
+    on a miss. FaVe spells these the British way, ad6 the American way, so two
+    DISTINCT types collapse onto each other and onto every typo -- 458 of
+    wl_up's 1,766 icmp6 matches. """
+
+    def test_the_british_spellings_are_translated(self):
+        for british, american in (('neighbour-advertisement', 'neighbor-advertisement'),
+                                  ('neighbour-solicitation', 'neighbor-solicitation')):
+            with self.subTest(name=british):
+                element = field_to_match(RuleField('packet.ipv6.icmpv6.type', british))
+                self.assertEqual(element.text, american)
+
+    def test_a_name_ad6_shares_passes_through(self):
+        self.assertEqual(
+            field_to_match(RuleField('packet.ipv6.icmpv6.type', 'echo-request')).text,
+            'echo-request')
+
+    def test_every_translated_name_encodes_to_a_DISTINCT_type(self):
+        """ The property that matters is the number ad6 finally encodes. """
+        from src.xml.xmlutils import XMLUtils
+        seen = {}
+        for name in ('echo-request', 'echo-reply', 'neighbour-advertisement',
+                     'neighbour-solicitation', 'destination-unreachable'):
+            element = field_to_match(RuleField('packet.ipv6.icmpv6.type', name))
+            bits = ''.join(v.get('name').split('=')[1]
+                           for v in XMLUtils.ConvertICMP6TypeToVariables(element.text))
+            self.assertNotIn(int(bits, 2), seen,
+                             "%s collides with %s" % (name, seen.get(int(bits, 2))))
+            self.assertNotEqual(int(bits, 2), 0, "%s encodes to the miss value" % name)
+            seen[int(bits, 2)] = name
+
+    def test_passing_the_british_name_through_WOULD_have_collided(self):
+        """ The negative control that justifies the map. """
+        from src.xml.xmlutils import XMLUtils
+        miss = XMLUtils.ConvertICMP6TypeToVariables('total-nonsense')[0].get('name')
+        self.assertEqual(
+            XMLUtils.ConvertICMP6TypeToVariables('neighbour-advertisement')[0].get('name'),
+            miss, "if this stops holding, ad6's table gained the British spelling")
+
+    def test_a_type_ad6_cannot_name_is_refused(self):
+        with self.assertRaises(UnsupportedField):
+            field_to_match(RuleField('packet.ipv6.icmpv6.type', 'router-advertisement'))
+
+
+class TestOpaqueFields(unittest.TestCase):
+    """ Values with no bit encoding at all, carried as uninterpreted
+    propositions. Sound only while the field is single-valued. """
+
+    def test_a_non_numeric_value_becomes_an_opaque_condition(self):
+        for name, value in (('module.limit', '900/min'),
+                            ('module.ipv6header.header', 'ipv6-route')):
+            with self.subTest(field=name):
+                element = field_to_match(RuleField(name, value))
+                self.assertEqual(element.tag, 'opaque')
+                self.assertEqual(element.get('field'), name)
+                self.assertEqual(element.text, value)
+
+    def test_opaque_fields_are_reported_as_supported(self):
+        self.assertIn('module.limit', supported_fields())
+
+    def test_a_MULTI_VALUED_opaque_field_is_refused_by_the_model(self):
+        """ Two values become two INDEPENDENT propositions, so a packet could
+        satisfy both -- an over-approximation. Checked model-wide, because
+        single-valuedness is not visible from one field alone. """
+        from ad6.translate import model_to_config
+        rules = [Rule('d', 'd.t0', i, in_ports=['d.in'],
+                      match=Match([RuleField('module.limit', v)]),
+                      actions=[Forward(['d.out'])])
+                 for i, v in enumerate(('900/min', '60/sec'))]
+        devices = {'d': {'tables': {'d.t0': rules}, 'ports': ['in', 'out'],
+                         'wiring': []}}
+        with self.assertRaises(UnsupportedField):
+            model_to_config(devices, [])
+
+    def test_a_single_valued_opaque_field_is_accepted_by_the_model(self):
+        from ad6.translate import model_to_config
+        rules = [Rule('d', 'd.t0', i, in_ports=['d.in'],
+                      match=Match([RuleField('module.limit', '900/min')]),
+                      actions=[Forward(['d.out'])]) for i in range(2)]
+        devices = {'d': {'tables': {'d.t0': rules}, 'ports': ['in', 'out'],
+                         'wiring': []}}
+        self.assertIsNotNone(model_to_config(devices, [])[0])
 
 
 class TestMatchAllSuppression(unittest.TestCase):
