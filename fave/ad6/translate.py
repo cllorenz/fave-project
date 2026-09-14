@@ -366,18 +366,21 @@ def _rewrites(rule: Any, port_id: Any) -> Any:
     return collected
 
 
-def rule_to_ad6(rule: Any, key: str, resolve_target: Any, resolve_interface: Any,
-                port_id: Any, mutable: Iterable[str] = (),
+def rule_to_ad6(rule: Any, key: str, resolve_target: Any, port_id: Any,
+                mutable: Iterable[str] = (),
                 position: Optional[int] = None) -> Any:
     """ One FaVe `Rule` -> one ad6 <rule>, at its own position.
 
     `resolve_target(port)` maps a FaVe forward port to the ad6 node key to jump
-    to (a port's `_out` interface node); `resolve_interface(port)` maps one to
-    the UNSUFFIXED interface key an <interface direction=...> condition names.
-    They are separate arguments on purpose -- passing the jump key to a
-    condition would name a node that exists but is never on the path, making
-    the rule quietly unsatisfiable. `model_to_config` supplies both, so this
-    function stays pure and independent of how the port graph is laid out.
+    to (that port's `_out` interface node) and `port_id(port)` to its dense id;
+    both are passed in, so this function stays pure and independent of how the
+    port graph is laid out.
+
+    There is deliberately no interface resolver any more. This function briefly
+    took one, for <interface> CONDITIONS on `in_ports` and on port matches --
+    both of which turned out to be wrong (§9.12.2, §9.10.2) and are now handled
+    structurally and as field values respectively. `PortGraph.interface` still
+    exists because `edges()` needs it to name `_in`/`_out` nodes; no RULE does.
 
     The rule's POSITION is its semantics, not decoration: ad6 evaluates a
     table's rules first-match-wins in document order with an implicit
@@ -453,7 +456,7 @@ def rule_key(device: str, table: str, port: Optional[str], position: int) -> str
 
 
 def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
-                 resolve_target: Any, resolve_interface: Any, port_id: Any,
+                 resolve_target: Any, port_id: Any,
                  mutable: Iterable[str] = ()) -> Any:
     """ One FaVe table -> one ad6 <table>, rules ordered by ASCENDING `idx`.
 
@@ -508,7 +511,7 @@ def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
 
     for position, (_original, rule) in enumerate(indexed):
         element.append(rule_to_ad6(rule, rule_key(device, table, port, position),
-                                   resolve_target, resolve_interface, port_id,
+                                   resolve_target, port_id,
                                    mutable=mutable, position=position))
     return element
 
@@ -848,8 +851,8 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
             if chain_device != device:
                 continue
             firewall.append(table_to_ad6(device, table, port, rules,
-                                         graph.target, graph.interface,
-                                         graph.port_id, mutable=mutable))
+                                         graph.target, graph.port_id,
+                                         mutable=mutable))
         firewalls.append(firewall)
     config.append(firewalls)
 

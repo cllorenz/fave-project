@@ -43,14 +43,9 @@ _STRUCTURAL = {'in_port', 'out_port'}
 
 
 def _target(port):
-    """ Stand-in resolvers, so the rule layer can be tested without a port
-    graph. They differ exactly as the real ones do: a jump target names the
-    port's egress NODE, a condition names the unsuffixed interface key. """
+    """ A stand-in jump resolver, so the rule layer can be tested without a
+    port graph. Names the port's egress NODE, as the real one does. """
     return 'T_' + str(port).replace('.', '_') + '_out'
-
-
-def _iface(port):
-    return 'T_' + str(port).replace('.', '_')
 
 
 _PORT_IDS = {}
@@ -414,7 +409,7 @@ class TestRuleTranslation(unittest.TestCase):
                     match=Match(match or []), actions=actions or [])
 
     def _xml_of(self, rule, mutable=(), position=0):
-        return _xml(rule_to_ad6(rule, 'k', _target, _iface, _port_id, mutable=mutable,
+        return _xml(rule_to_ad6(rule, 'k', _target, _port_id, mutable=mutable,
                                position=position))
 
     def test_a_forward_becomes_a_jump_to_the_resolved_target(self):
@@ -544,12 +539,12 @@ class TestTableTranslation(unittest.TestCase):
                      actions=[Forward(['dev.2'])]) for i in range(count)]
 
     def test_rules_keep_their_given_order(self):
-        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _port_id)
         keys = [r.get('key') for r in table]
         self.assertEqual(keys, [rule_key('dev', 't', 'dev.1', i) for i in range(3)])
 
     def test_rule_names_are_positional(self):
-        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', self._rules(3), _target, _port_id)
         self.assertEqual([r.get('name') for r in table], ['r0', 'r1', 'r2'])
 
     def test_rules_are_ordered_by_ASCENDING_idx_not_by_list_position(self):
@@ -562,7 +557,7 @@ class TestTableTranslation(unittest.TestCase):
         would run a default rule before the specific rule it backs up. """
         rules = self._rules(3)
         rules[0].idx, rules[1].idx, rules[2].idx = 65535, 1, 768
-        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _port_id)
         emitted = [r.xpath('.//address')[0].text for r in table]
         self.assertEqual(emitted, ['10.0.1.0/24', '10.0.2.0/24', '10.0.0.0/24'],
                          "expected idx order 1, 768, 65535")
@@ -571,7 +566,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         for rule in rules:
             rule.idx = None
-        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
+        table = table_to_ad6('dev', 't', 'dev.1', rules, _target, _port_id)
         self.assertEqual([r.xpath('.//address')[0].text for r in table],
                          ['10.0.0.0/24', '10.0.1.0/24', '10.0.2.0/24'])
 
@@ -581,7 +576,7 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = rules[0].idx
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
+            table_to_ad6('dev', 't', 'dev.1', rules, _target, _port_id)
 
     def test_a_PARTIALLY_indexed_table_is_refused(self):
         """ There is no defensible place to interleave an unindexed rule among
@@ -589,10 +584,10 @@ class TestTableTranslation(unittest.TestCase):
         rules = self._rules(3)
         rules[1].idx = None
         with self.assertRaises(ValueError):
-            table_to_ad6('dev', 't', 'dev.1', rules, _target, _iface, _port_id)
+            table_to_ad6('dev', 't', 'dev.1', rules, _target, _port_id)
 
     def test_an_empty_table_translates_to_an_empty_table(self):
-        self.assertEqual(len(table_to_ad6('dev', 't', None, [], _target, _iface, _port_id)), 0)
+        self.assertEqual(len(table_to_ad6('dev', 't', None, [], _target, _port_id)), 0)
 
     def test_table_and_rule_keys_are_deterministic_and_dot_safe(self):
         self.assertEqual(rule_key('in.bbra_rtr', 'acl_in', None, 4),
