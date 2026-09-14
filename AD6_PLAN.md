@@ -4986,6 +4986,59 @@ states as a per-rule attribute what ad6 can only express structurally, and each 
 give-away was a verdict that moved in the direction of MORE reachability.**
 
 
+### 9.14 Phase 3 rung 2: wl_stanford N=16 plain -- identical, and it lands on 165
+
+| wl_stanford N=16 plain, 256 pairs | reachable | wall |
+|---|---|---|
+| semantic | 176 | 1,022 s |
+| structural | 176 | 1,498 s (1.47x) |
+| **differ** | **0 pairs** | |
+
+**Both paths give 165 of the 240 NON-SELF pairs** -- exactly the figure §5.4 B3 records
+against the NetPlumber-proven plain oracle. The 176 is that 165 plus 11 reachable
+self-pairs (5 of the 16 self-pairs are unreachable), which an all-pairs sweep includes and
+the archived measurement did not. So the structural translation reproduces the canonical
+answer, and does so through a model built from FaVe's declared structure with no stage-name
+recognition anywhere.
+
+The 1.47x wall cost tracks the 1.69x model growth (8,792 FaVe rules -> 14,853 ad6 rules in
+981 chains), which is the price of per-port entry chains (§9.13).
+
+**NOTE ON THE ORACLE, since wl_stanford differs from wl_ifi here:** `reachable.json`
+declares 240 pairs -- every non-self pair -- so like wl_i2's all-reachable mesh it CANNOT
+discriminate, and the differential test's independent ground-truth check (which wl_ifi has)
+would be vacuous on wl_stanford. The reference here is the 165-pair NetPlumber oracle
+recorded in §5.4, not the shipped JSON.
+
+#### 9.14.1 Three constraint classes the structural path carries and the semantic one drops
+
+Reaching this rung required three fixes, and all three are the same shape: FaVe states a
+constraint the semantic path never looks at, so nothing had ever exercised it.
+
+  1. **Transport port RANGES as masked bit-vectors.** wl_stanford has 236 of them against
+     1,321 plain decimals (`1xxxxxxxxxxxxxxx` = 32768-65535, `000000000001010x` = FTP's
+     20-21). It surfaced as a CRASH -- `int('000000000001010x')` inside ad6's `CanonizePort`
+     -- which is the right failure. ad6 already had the answer: its `<port>` text accepts a
+     `value/prefix` form that truncates the bit-vector, exactly a prefix mask. A mask whose
+     don't-cares are not a suffix is REFUSED, since ignoring the low bits would WIDEN the
+     match. The semantic path never reads transport ports at all.
+  2. **Fields that are MATCHED but never rewritten still need a declared width**, because a
+     `<fieldmatch>` is resolved against a bit-vector. Collecting only the rewritten set left
+     wl_up raising on `related` (3,137 matches). Caught by checking wl_up ahead of its turn
+     rather than by waiting to be surprised.
+  3. **Some field values are not numbers in any base** -- `module.limit` = `'900/min'`,
+     `module.ipv6header.header` = `'ipv6-route'`. No width helps. These are now refused at
+     TRANSLATION time, naming field and value, instead of failing deep inside the
+     instantiator long after the causing rule is out of sight. wl_up's structural build
+     stops there today, which is the honest state for a rung not yet reached.
+
+The asymmetry is itself a result worth stating plainly: **the structural translation carries
+constraints the semantic one discards.** That is the point of the rewrite, and it is also
+why its numbers need not have matched the archived ones -- that they DO, on the benchmark
+where a real oracle exists, is the evidence that the extra constraints are right rather than
+merely extra.
+
+
 ---
 
 
