@@ -5039,6 +5039,45 @@ where a real oracle exists, is the evidence that the extra constraints are right
 merely extra.
 
 
+### 9.15 Phase 3 rung 3: wl_stanford N=16 FAITHFUL -- identical, and 165 again
+
+| wl_stanford N=16 faithful, 256 pairs | reachable | wall |
+|---|---|---|
+| semantic | 176 | 1,194 s |
+| structural | 176 | 1,712 s (1.43x) |
+| **differ** | **0 pairs** | |
+
+**165 of the 240 non-self pairs, matching the archived `faithful_vlan=True` figure
+exactly** (`bench/wl_stanford/eval/ad6_faithful_N16_portscoped_sandbox.json`). Faithful
+and plain also agree pair-for-pair under the structural path (0 of 256 differ), which
+reproduces §5.4 B3's own finding that wl_stanford's VLAN admission does not move its
+reachability answer.
+
+**This is the first run of the VLAN mutable-field path at scale in the structural
+translation**, and the part plain mode could not exercise: 3,417 VLAN rewrites and 4,267
+VLAN matches become 12 bits of per-node SSA state across ~15k rule nodes, with a
+`<fieldmatch>` per match and a `<rewrite>` per assignment. Plain mode declares no mutable
+field at all, so none of that machinery ran there.
+
+#### 9.15.1 A DRIVER difference on self-pairs, not a translation difference
+
+The archived faithful run reports 165 reachable over 256 queries with **zero self-pairs
+among them** -- all 16 were unreachable. Both adapter-path translations find **11 of 16
+self-pairs reachable** (5 unreachable). The non-self figure, which is what the NetPlumber
+oracle covers, is 165 either way.
+
+This is a difference between `bench/ad6_faithful_measure.py` and the `Ad6Adapter` path, not
+between the two translations -- they agree with each other on every one of the 256 pairs,
+self-pairs included. It cannot therefore affect the differential. It does mean the two
+DRIVERS are not asking quite the same question when a source and a probe hang off the same
+router, so §9.4's "state the denominator" rule applies whenever the two numbers appear side
+by side: **165 of 240 non-self is the comparable quantity; 176 of 256 is not.**
+
+Recorded rather than chased: it is orthogonal to §9's question, and chasing it now would be
+the same mistake as §9.11's acl_out hypothesis -- reasoning about a number before the thing
+it is supposed to test has been established.
+
+
 ---
 
 
