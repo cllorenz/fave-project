@@ -1,0 +1,110 @@
+{
+  "semantic": {
+    "queries": 72,
+    "unreachable": [],
+    "reachable": 72,
+    "wall_s": 3370.5,
+    "peak_gb": 2.38
+  },
+  "structural": {
+    "queries": 72,
+    "unreachable": [
+      [
+        "source.atla",
+        "probe.kans"
+      ],
+      [
+        "source.atla",
+        "probe.seat"
+      ],
+      [
+        "source.chic",
+        "probe.hous"
+      ],
+      [
+        "source.chic",
+        "probe.kans"
+      ],
+      [
+        "source.chic",
+        "probe.losa"
+      ],
+      [
+        "source.chic",
+        "probe.salt"
+      ],
+      [
+        "source.chic",
+        "probe.seat"
+      ],
+      [
+        "source.newy32aoa",
+        "probe.kans"
+      ],
+      [
+        "source.newy32aoa",
+        "probe.seat"
+      ],
+      [
+        "source.wash",
+        "probe.kans"
+      ],
+      [
+        "source.wash",
+        "probe.seat"
+      ]
+    ],
+    "reachable": 61,
+    "wall_s": 5387.4,
+    "peak_gb": 10.27
+  },
+  "differ": {
+    "sem_only": [],
+    "str_only": [
+      [
+        "source.atla",
+        "probe.kans"
+      ],
+      [
+        "source.atla",
+        "probe.seat"
+      ],
+      [
+        "source.chic",
+        "probe.hous"
+      ],
+      [
+        "source.chic",
+        "probe.kans"
+      ],
+      [
+        "source.chic",
+        "probe.losa"
+      ],
+      [
+        "source.chic",
+        "probe.salt"
+      ],
+      [
+        "source.chic",
+        "probe.seat"
+      ],
+      [
+        "source.newy32aoa",
+        "probe.kans"
+      ],
+      [
+        "source.newy32aoa",
+        "probe.seat"
+      ],
+      [
+        "source.wash",
+        "probe.kans"
+      ],
+      [
+        "source.wash",
+        "probe.seat"
+      ]
+    ]
+  }
+}

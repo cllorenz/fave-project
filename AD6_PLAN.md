@@ -5078,6 +5078,58 @@ the same mistake as §9.11's acl_out hypothesis -- reasoning about a number befo
 it is supposed to test has been established.
 
 
+### 9.16 wl_i2 PLAIN: the differential differs on 11 pairs -- and structural is RIGHT
+
+| wl_i2 plain, 72 pairs (exclude-self) | reachable | wall | peak |
+|---|---|---|---|
+| semantic | **72** (none unreachable) | 3,370 s | 2.4 GB |
+| structural | **61** | 5,387 s (1.6x) | 10.3 GB (4.3x) |
+| differ | **11 pairs** | | |
+
+**The 11 are EXACTLY the archived set** -- `chic`->{hous,kans,losa,salt,seat} and
+`atla`/`newy32aoa`/`wash`->{kans,seat} -- the pairs corroborated three independent ways in
+§5.5: ad6 via SAT, FaVe+NetPlumber via HSA, and `bench/i2_structural_oracle.py` by a third
+method over the raw JSON. Set equality checked, not eyeballed.
+
+**This is the differential FAILING and that being the right outcome.** Everywhere else a
+difference meant the structural path was wrong. Here the semantic path is: in plain mode it
+finds wl_i2 entirely reachable, which §5.5 already recorded as plain mode being INSUFFICIENT
+for i2, and the structural path recovers the corroborated answer without being asked.
+
+#### 9.16.1 Why: `faithful_vlan` is INERT for the structural path
+
+`Ad6Adapter._build_structural` never reads `self._faithful_vlan` -- verified by walking its
+AST, not by grepping prose. It translates FaVe's rules as given, and FaVe's i2 rules carry
+VLAN matches and rewrites regardless of any flag. The semantic path's plain mode
+DELIBERATELY discards VLAN (the adapter's own docstring: *"VLAN is structural only (which
+port's ACL group applies), never a match field"*), which is what makes plain i2 come back
+all-reachable.
+
+So the plain/faithful distinction is a property of the SEMANTIC path, not of the model. Two
+consequences, and the second is a defect:
+
+  * It explains §9.15's otherwise-curious result that wl_stanford structural plain and
+    structural faithful agree pair-for-pair on all 256. They are the same computation.
+  * **A structural result stamped `faithful_vlan: false` is not a plain result.** That
+    breaks the generality-debt gate's own rule -- the stamp must say what produced the
+    number -- and it must be fixed before any structural measurement is quoted. The honest
+    stamp is that `faithful_vlan` does not apply under `translation: structural`.
+
+#### 9.16.2 What the plain rung was, and what it was not
+
+§9.16's plain sweep was described in advance as a scale-and-plumbing test, because a 72/72
+semantic matrix has no refutations and agreement on it would prove nothing. That reading
+was right about the SEMANTIC side and wrong about the rung: the structural side produced 11
+refutations, and they are the corroborated ones. The rung turned out to be the strongest
+correctness evidence in Phase 3, by accident of the semantic path being the weaker one here.
+
+**Cost.** 1.6x wall and 4.3x peak RSS. The memory gap is explained by the same mechanism:
+structural carries VLAN as a 12-bit mutable field across ~78k rule nodes while semantic-plain
+carries no mutable field at all. The FAITHFUL comparison, now running, should narrow it,
+since semantic declares VLAN mutable there too -- a prediction this record commits to before
+the result.
+
+
 ---
 
 
