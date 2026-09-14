@@ -5301,6 +5301,62 @@ route to a witness -- pick one NP-reachable pair the structural path misses and 
 by node, exactly as §9.12.2's VLAN trace did.
 
 
+### 9.20 The witness walk: a switch is a table nothing can enter
+
+§9.19 left wl_up's structural path finding 83 reachable pairs against NetPlumber's 3,661.
+The walk of §9.12.2 -- BFS the Kripke from the source's generator over BOTH edge kinds, then
+test SAT-reachability along that path -- localised it in one pass, and the answer was not the
+`post_routing` hypothesis §9.19.3 offered.
+
+**The trace.** `source.clients.api -> probe.adm` (NetPlumber: reachable). The model runs the
+source device's whole pipeline correctly -- `output_filter` -> `routing` -> `post_routing` ->
+egress -- and stops at the NEXT HOP'S INGRESS NODE, `favenet_api_uni_potsdam_de_7_in`. Only
+15 nodes were reachable at all, and the target was not among them: a GRAPH failure, not a
+constraint one, so no SAT solve was even needed to see it.
+
+**The cause.** `api.uni-potsdam.de` is one of wl_up's 21 org switches: ONE table, 7 rules,
+and NO `in_ports` on any of them. `PortGraph` assumed every table is entered via a port some
+rule NAMES, so such a table got a `port=None` chain that nothing linked to. The device was
+structurally unreachable, and since every inter-org path crosses one, almost everything died.
+
+**Two fixes, both narrow.**
+
+  1. **A non-empty table declaring no `in_ports` is enterable from ANY port of its device** --
+     the table-level reading of the rule this module already applied per rule ("a rule with no
+     `in_ports` joins every chain"). EMPTY tables are excluded deliberately: 136 wl_up devices
+     carry an empty `internals` table, and entering one would name a rule 0 that does not
+     exist. Measured: no device has more than one such table, so the fallback is unambiguous,
+     and it RAISES rather than guessing if that ever changes.
+  2. **`edges()` must wire every port something can ARRIVE at**, not only the ports some rule
+     names. It iterated `_table_of_port`, so a link target named BARE -- which is how FaVe
+     writes a physical port, 431 of wl_up's 862 link endpoints -- never got an ingress edge.
+
+**Result:**
+
+| wl_up, 18,769 pairs | reachable | agree with NP | ad6-only | NP-only |
+|---|---|---|---|---|
+| **NetPlumber** | **3,661** | -- | -- | -- |
+| structural BEFORE | 83 | 75 | 8 | 3,586 |
+| **structural AFTER** | **3,401** | **3,372** | 29 | **289** |
+| semantic (unchanged) | 18,768 | 3,661 | 15,107 | 0 |
+
+**Agreement with NetPlumber goes from 2.0% to 92.1%**, closing 3,297 of the 3,586 missing
+paths. The four green rungs are unaffected (`test.sh fast` 619 passed, wl_ifi differential
+included).
+
+**wl_up is no longer a NO-GO in the way §5.1 recorded it.** The semantic path still invents
+15,107 paths that do not exist -- vacuously all-reachable, exactly as §5.1 found. The
+structural path is now within 318 pairs of NetPlumber in both directions combined. That is
+the §9.3 Phase 4 claim finally earning its keep, though not for the reason it gave: removing
+the ruleset bypass was necessary, and so was fixing how a switch is entered, which nothing
+about the bypass predicted.
+
+**Still open: 289 paths NetPlumber finds that ad6 does not, and 29 the reverse.** Same
+method applies -- pick one of the 289 and walk it. Recorded rather than guessed at; the
+`post_routing` hypothesis in §9.19.3 was wrong, and offering a second one before tracing
+would repeat that.
+
+
 ---
 
 

@@ -710,6 +710,37 @@ class PortGraph:
         self._wiring: Dict[str, str] = {}
         self._links: Dict[str, Any] = {}
 
+        # A NON-EMPTY table whose rules declare no `in_ports` at all is
+        # enterable from ANY port of its device -- the table-level reading of
+        # the same rule this module already applies per rule ("a rule with no
+        # in_ports joins every chain"). wl_up's 21 org switches are exactly
+        # this shape: one table, rules with no in_ports, and links that name
+        # their ports BARE. Without the fallback in `entry`, nothing can enter
+        # them and every path through one dies -- measured: 83 reachable pairs
+        # instead of NetPlumber's 3,661 (§9.19).
+        #
+        # Empty tables are excluded on purpose: `entry` would otherwise name
+        # rule 0 of a table that has no rule 0, producing an edge to a node
+        # that does not exist. 136 wl_up devices carry an empty `internals`
+        # table of exactly that kind.
+        #
+        # Measured: no device has more than ONE such table, so the fallback is
+        # unambiguous; it is checked rather than assumed.
+        self._portless_table: Dict[str, Any] = {}
+        for device, model in sorted(self._devices.items()):
+            for table, rules in model.get('tables', {}).items():
+                if not rules:
+                    continue
+                if any((getattr(rule, 'in_ports', None) or []) for rule in rules):
+                    continue
+                if device in self._portless_table:
+                    raise ValueError(
+                        "device %r has two tables declaring no in_ports (%s and "
+                        "%s). Such a table is entered from any port, so two of "
+                        "them leave the entry point ambiguous."
+                        % (device, self._portless_table[device][1], table))
+                self._portless_table[device] = (device, table)
+
         for device, model in sorted(self._devices.items()):
             for table, rules in model.get('tables', {}).items():
                 for rule in rules:
@@ -878,10 +909,21 @@ class PortGraph:
         arrival port decides WHICH chain is walked rather than being asked about
         inside a shared one. """
         owner = self._table_of_port.get(port)
-        if owner is None:
+        if owner is not None:
+            device, table = owner
+            return rule_key(device, table, str(port), 0)
+
+        # No table names this port. If the port's own device has a table that
+        # names NO ports, that table is enterable from any of them -- see
+        # __init__. This is how a switch-shaped device is entered at all.
+        try:
+            device, _name = self.split(port)
+        except KeyError:
             return None
-        device, table = owner
-        return rule_key(device, table, str(port), 0)
+        fallback = self._portless_table.get(device)
+        if fallback is None:
+            return None
+        return rule_key(fallback[0], fallback[1], None, 0)
 
     # --- edges ------------------------------------------------------------
 
@@ -916,7 +958,17 @@ class PortGraph:
         for source in sorted(self._links):
             for target in self._links[source]:
                 add(self.target(source), self.interface(target) + '_in')
-        for port in sorted(self._table_of_port):
+        # Every port that something can ARRIVE at needs its ingress node wired
+        # to wherever that arrival starts processing -- not merely the ports
+        # some rule happens to name. A wl_up switch is entered on a port no
+        # rule mentions (its links name the port BARE, and its one table
+        # declares no in_ports at all), so iterating `_table_of_port` alone
+        # left 21 devices with no way in and every path through one dead.
+        arrivals = set(self._table_of_port)
+        arrivals.update(self._wiring.values())
+        for targets in self._links.values():
+            arrivals.update(targets)
+        for port in sorted(arrivals):
             entry = self.entry(port)
             if entry is not None:
                 add(self.interface(port) + '_in', entry)
