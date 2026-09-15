@@ -40,6 +40,26 @@ AD6_ROOT = os.path.join(_ROOT, 'ad6')
 sys.setrecursionlimit(10 ** 6)
 
 
+
+def _cond_fields(cond):
+    """ cchecks.json stores conditions as "name:value" STRINGS; every consumer
+    downstream expects RuleField.to_json() dicts.
+
+    Passing the raw strings does not fail -- `fave_bridge._state_literals` used
+    to skip them with a bare `continue`, so every "stateful" query here was
+    actually solved UNCONDITIONED while still being counted as stateful. That
+    is AD6_PLAN.md §9.23.2a, the same bug that invalidated the wl_up cchecks
+    figures. The bridge now refuses a non-dict condition outright, so this
+    conversion is required rather than merely correct. """
+    fields = []
+    for token in (cond or []):
+        if isinstance(token, dict):
+            fields.append(token)
+            continue
+        name, value = token.split(':', 1)
+        fields.append({"name": name, "value": value, "negated": False})
+    return fields
+
 def build_real_wlup():
     """Returns (engine, ir) via the real, unmodified FaVe+ad6 integration
     path -- mirrors fave/test/test_ad6_wl_up.py's setUpClass exactly, up
@@ -136,7 +156,7 @@ def load_cchecks_as_queries(engine, sample_plain=150, sample_stateful=150):
             q = {
                 "source": source_name, "probe": probe_name,
                 "src_cidr": engine._gen_src.get(source_name),
-                "negated": not valid, "cond": cond or [],
+                "negated": not valid, "cond": _cond_fields(cond),
             }
             (stateful if cond else plain).append(q)
 

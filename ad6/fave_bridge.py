@@ -98,6 +98,51 @@ def _seed_literals(cidr):
 # query-orchestration to force it here.
 _RELATED_STATE = {"0": "NEW", "1": "ESTABLISHED"}
 
+# The only query-condition field either path can force onto an instance. A
+# check conditioned on anything else (wl_example emits `protocol`/`port`)
+# cannot be honoured at all -- see _validated_conditions.
+_SUPPORTED_COND_FIELDS = ("related",)
+
+
+def _validated_conditions(cond, path):
+    """ The `related` entries of `cond`, REFUSING anything this bridge cannot
+    force onto the query instance (AD6_PLAN.md §9.23.2a).
+
+    Both query paths used to `continue` past whatever they did not recognise.
+    That is the most expensive shape of bug this codebase has produced: a
+    dropped condition does not fail, it answers the UNCONDITIONED question and
+    returns a confident number. §9.23 is a full post-mortem of one such number
+    -- a published finding about `related` "not discriminating" that was
+    entirely an artifact of conditions passed in the wrong shape and silently
+    discarded.
+
+    So nothing is skipped. Either a condition is honoured or the caller hears
+    about it. """
+    for condition in (cond or []):
+        if not isinstance(condition, dict):
+            raise ValueError(
+                "malformed query condition %r on the %s path: expected a "
+                "RuleField.to_json() dict like {'name': 'related', 'value': "
+                "'0'}, got %s. Skipping it would answer the UNCONDITIONED "
+                "question -- AD6_PLAN.md §9.23.2a."
+                % (condition, path, type(condition).__name__))
+
+        name = condition.get("name")
+        if name is None:
+            raise ValueError(
+                "malformed query condition %r on the %s path: no 'name' field "
+                "(AD6_PLAN.md §9.23.2a)." % (condition, path))
+
+        if name not in _SUPPORTED_COND_FIELDS:
+            raise ValueError(
+                "query condition %r cannot be honoured: the %s query path "
+                "forces only %s, not %r. It is NOT dropped, because answering "
+                "the unconditioned question looks like a result "
+                "(AD6_PLAN.md §9.23.2a)."
+                % (condition, path, "/".join(_SUPPORTED_COND_FIELDS), name))
+
+        yield condition
+
 
 def _state_literals(cond):
     """ The individual (already-canonical) state-bit literals to force onto
@@ -125,14 +170,25 @@ def _state_literals(cond):
     top-level child must be its own flat literal/clause, so this flattens
     the conjunction's children before appending. See
     ad6/FAVE_CHANGES.md and AD6_PLAN.md §4.2 for the fixture that pinned
-    this down.) """
+    this down.)
+
+    Shape and field-name validation live in `_validated_conditions`, shared
+    with `_structural_state_literals`. On top of it this path refuses a
+    `related` value that maps to no conntrack state -- `_RELATED_STATE` covers
+    only "0"/"1", and anything else used to vanish silently, a second instance
+    of the §9.23.2a failure. Pinned by fave/test/test_ad6_bridge_cond.py. """
     literals = []
-    for c in (cond or []):
-        if not isinstance(c, dict) or c.get("name") != "related":
-            continue
-        state = _RELATED_STATE.get(str(c.get("value")))
-        if state is not None:
-            literals.extend(list(XMLUtils.ConvertStateToVariables(state)))
+    for condition in _validated_conditions(cond, "semantic"):
+        raw = condition.get("value")
+        state = _RELATED_STATE.get(str(raw))
+        if state is None:
+            # The path's OWN silent drop, closed with the rest: only "0"/"1"
+            # map to a conntrack state, and anything else used to vanish.
+            raise ValueError(
+                "malformed query condition %r: 'related' value %r maps to no "
+                "conntrack state (known: %s) -- AD6_PLAN.md §9.23.2a."
+                % (condition, raw, ", ".join(sorted(_RELATED_STATE))))
+        literals.extend(list(XMLUtils.ConvertStateToVariables(state)))
     return literals
 
 
@@ -151,16 +207,38 @@ def _structural_state_literals(cond, field_widths, node):
 
     Forcing the bits at the QUERY's own source node is sufficient because
     nothing rewrites `related`: _CreateMutationConstraints frames it unchanged
-    across every edge, so pinning one node on the path pins the whole path. """
-    width = (field_widths or {}).get('related')
-    if width is None:
-        return []
+    across every edge, so pinning one node on the path pins the whole path.
 
+    Shape and field-name validation live in `_validated_conditions`, shared
+    with `_state_literals` -- nothing is ever skipped (§9.23.2a). On top of
+    that this path refuses two cases of its own:
+
+      * a non-integer `related` value;
+      * a well-formed `related` condition against a structural model that
+        declares no `related` field, so there is nothing to bind the bits to.
+        Forcing nothing here would silently answer the UNCONDITIONED question,
+        which is the exact failure §9.23 is a post-mortem of.
+
+    Pinned by fave/test/test_ad6_bridge_cond.py. """
     literals = []
-    for condition in (cond or []):
-        if not isinstance(condition, dict) or condition.get("name") != "related":
-            continue
-        value = int(condition.get("value"))
+    for condition in _validated_conditions(cond, "structural"):
+        width = (field_widths or {}).get('related')
+        if width is None:
+            raise ValueError(
+                "query condition %r cannot be honoured: this structural model "
+                "declares no 'related' field, so nothing can be forced and the "
+                "query would silently answer the UNCONDITIONED question "
+                "(AD6_PLAN.md §9.23.2a). Declared fields: %s."
+                % (condition, sorted(field_widths or {})))
+
+        raw = condition.get("value")
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "malformed query condition %r: 'related' value %r is not an "
+                "integer (AD6_PLAN.md §9.23.2a)." % (condition, raw)) from None
+
         bits = XMLUtils._CanonizeBitvector(value, width).split(' ')
         for index, bit in enumerate(bits):
             literals.append(XMLUtils.variable(

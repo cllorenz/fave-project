@@ -5648,11 +5648,64 @@ re-implemented a load step that a committed script already did correctly, and si
 the correctness.** The committed loader even documented the trap. The rule that follows:
 an ad-hoc differential must import the committed loader, not retype it. No error was
 detectable from the output -- all three produced plausible, internally consistent numbers
-that invited interpretation, and the interpretation is what got published. Error 3 is the
-worst of the family: `fave_bridge._structural_state_literals` skips a malformed condition
-**silently**, so a caller that gets the shape wrong gets a confident answer to a different
-question. That is a latent trap for any future caller, and the honest fix is to make it
-raise rather than `continue` -- logged as a follow-up, not done here.
+that invited interpretation, and the interpretation is what got published. Error 3 was the
+worst of the family: `fave_bridge._structural_state_literals` skipped a malformed condition
+**silently**, so a caller that got the shape wrong got a confident answer to a different
+question.
+
+**Fixed (2026-09-15, Claas's call).** It now raises `ValueError` rather than `continue`ing,
+distinguishing two ways a condition gets lost:
+
+* **malformed** -- not a dict (the `['related:0']` shape that caused this), a dict with no
+  `name`, or a `related` value that is not an integer;
+* **unsatisfiable** -- a well-formed `related` condition against a structural model that
+  declares no `related` field, so there is nothing to bind the bits to. Silently answering
+  the unconditioned question is the identical failure, so it refuses identically.
+
+Pinned by `fave/test/test_ad6_bridge_cond.py` (11 tests). The 4 refusal tests all failed
+against the old code, so the regression is genuinely pinned rather than asserted.
+
+**The two remaining silent cases are closed as well (Claas's call, same day).** Shape and
+field-name validation moved into one shared `_validated_conditions(cond, path)` used by BOTH
+query paths, and nothing is skipped any more:
+
+1. A well-formed condition naming a field other than `related` (`protocol`, `port` --
+   wl_example emits these alongside it) now RAISES on both paths. Neither path can force a
+   generic field, so the only choice was between refusing and answering a different question.
+   It costs no working run: nothing routes wl_example through ad6 -- `bench/wl_example/
+   benchmark.py` is a `GenericBenchmark`, i.e. the NetPlumber backend.
+2. `_state_literals` -- the SEMANTIC counterpart -- had the same `continue` PLUS a second
+   silent drop of its own (`if state is not None`: `_RELATED_STATE` maps only "0"/"1", so any
+   other value vanished). Both now raise.
+
+Pinned by `fave/test/test_ad6_bridge_cond.py`, 19 tests; the 11 refusal tests were confirmed
+failing against the old code first.
+
+#### 9.23.5a The same bug, found in the encoding benchmarks
+
+Closing case 2 turned up live instances rather than a hypothetical. `ad6_encoding_bench/
+axis6_wlup_real.py` and `axis6b_wlup_full_scale.py` both read `bench/wl_up/cchecks.json`
+themselves and pass `cond` **verbatim** into `_state_literals`:
+
+```python
+"negated": not valid, "cond": cond or [],       # cond is ['related:0'], a STRING
+```
+
+So every query those axes counted as *stateful* was in fact solved **unconditioned**, while
+being partitioned into the `stateful` bucket and compared against the `plain` one.
+`axis7_native_incremental.py` imports both builders and inherits it. Fixed here by converting
+to `RuleField.to_json()` dicts at construction (`_cond_fields`), which the hardened bridge now
+requires rather than merely prefers.
+
+**What this means for those axes' published numbers is not assessed here.** They measure
+encoding cost and solve time, not reachability, so a missing handful of forced literals per
+query does not invalidate them the way it invalidated §9.23's correctness figures -- but any
+plain-vs-stateful *comparison* they draw was comparing two unconditioned populations, and
+should be re-run before being quoted. Logged, not done.
+
+This is now the FOURTH independent instance of the same defect (§9.23.2, §9.23.2a, and both
+axis scripts), all from the same root: `cchecks.json`'s on-disk format is not the format every
+consumer needs, and the conversion was open-coded at each call site instead of shared.
 
 
 ---

@@ -32,6 +32,26 @@ from axis6_wlup_real import (
 )
 
 
+
+def _cond_fields(cond):
+    """ cchecks.json stores conditions as "name:value" STRINGS; every consumer
+    downstream expects RuleField.to_json() dicts.
+
+    Passing the raw strings does not fail -- `fave_bridge._state_literals` used
+    to skip them with a bare `continue`, so every "stateful" query here was
+    actually solved UNCONDITIONED while still being counted as stateful. That
+    is AD6_PLAN.md §9.23.2a, the same bug that invalidated the wl_up cchecks
+    figures. The bridge now refuses a non-dict condition outright, so this
+    conversion is required rather than merely correct. """
+    fields = []
+    for token in (cond or []):
+        if isinstance(token, dict):
+            fields.append(token)
+            continue
+        name, value = token.split(':', 1)
+        fields.append({"name": name, "value": value, "negated": False})
+    return fields
+
 def load_all_cchecks_as_queries(engine):
     """Every real cchecks.json entry whose source/probe survived the real
     model build -- the full, unsampled query set (same polarity-flip
@@ -50,7 +70,7 @@ def load_all_cchecks_as_queries(engine):
             queries.append({
                 "source": source_name, "probe": probe_name,
                 "src_cidr": engine._gen_src.get(source_name),
-                "negated": not valid, "cond": cond or [],
+                "negated": not valid, "cond": _cond_fields(cond),
             })
     return queries
 
