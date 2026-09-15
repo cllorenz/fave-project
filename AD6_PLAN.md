@@ -5253,10 +5253,12 @@ NetPlumber finds 3,661, MISSING 3,586 real paths. That is a severe over-constrai
 subtle one.
 
 The 11,902-check `cchecks.json` differential shows the same thing from the policy side, and
-its mirror-image shape is what pointed here: wl_up's policy is `related:0` (NEW) MUST REACH
-and `related:1` (ESTABLISHED) MUST NOT. Semantic violated the must-not-reach half (3,371
-violations, over-approximating); structural violated the must-reach half (8,596,
-under-approximating); they agreed on 75 of 11,902 -- the same 75 pairs both get right.
+its mirror-image shape is what pointed here. **NOTE (corrected in §9.23): the policy model
+stated here -- "`related:0` (NEW) MUST REACH and `related:1` (ESTABLISHED) MUST NOT" -- is
+WRONG, and the violation counts quoted with it were produced under an inverted polarity.
+See §9.23.1-§9.23.2 for the actual three-category structure and the corrected figures.**
+The qualitative point this paragraph was making (semantic over-approximates, structural
+under-approximated before §9.20-§9.22's fixes) is unaffected.
 
 #### 9.19.1 The prediction this refutes, stated plainly
 
@@ -5467,53 +5469,190 @@ strongest argument in this plan for keeping a cross-engine comparison in the loo
 than treating one implementation's output as ground truth.
 
 
-### 9.23 wl_up cchecks: exact on the plain half, blind on the stateful half
+### 9.23 wl_up cchecks: 0 violations of 11,902 -- and three bugs in the analysis that hid it
 
-Re-run of the 11,902-check policy differential after §9.20-§9.22's three fixes. The raw
-totals invert the truth, so they are decomposed:
+**CORRECTION (2026-09-15).** This section previously reported a decomposition of the
+11,902-check differential and drew two conclusions from it. Both the figures and the model
+of the policy behind them were wrong. Claas caught it by asking whether the three checks
+FPL's `<->>` emits had been accounted for; they had not.
 
-| | unconditioned (8,600) | stateful (3,302) | total |
+#### 9.23.1 Error 1 -- the policy structure was mis-stated
+
+The claim was: *"wl_up's policy pairs every (source, probe) with both `related:0` (must
+reach) and `related:1` (must not)"* -- two variants of ONE direction, differing only in
+`related`. `bench/reach_csv_to_checks.py:129-151` shows what is actually emitted, per cell
+of `reachability.csv`:
+
+| csv flag | emits | direction | count |
 |---|---|---|---|
-| **implied by NetPlumber's matrix** | **8,600** | -- | -- |
-| structural | **8,600** (exact) | 1,651 | 10,251 |
-| semantic | 1,719 | 1,652 | 3,371 |
+| `X` | `s=... && EF p=...` | forward, unconditioned, **must reach** | 1,719 |
+| `(X)` | `... && f=related:1` | backward, **must reach** (return traffic) | 1,651 |
+| `(X)` | `! ... && f=related:0` | backward, **must NOT reach** (everything else) | 1,651 |
+| *(other)* | `! s=... && EF p=...` | unconditioned, must not reach (default deny) | 6,881 |
 
-**A LOWER VIOLATION COUNT IS NOT A BETTER RESULT HERE.** The semantic path reports 3,371
-against structural's 10,251 and is far worse: being vacuously all-reachable (§9.22) it
-satisfies every `negated=False` check for free, so only the 1,719 `negated=True` ones can
-fail. The structural path's 8,600 is NetPlumber's own answer, necessarily, since its plain
-reachability matches pair-for-pair.
+**The initiation check carries NO `related` condition** (Claas, correcting a natural
+misreading of "forward fields, e.g. destination IP, related:0"): the `X` cell emits a bare
+`s=... && EF p=...`. Initiation is not *required* to be `related:0` -- the check is satisfied
+by any packet that gets through, whatever its state. Only the two backward checks are
+state-conditioned, and they are the only place `related` appears in `cchecks.json`.
 
-**wl_up's policy is ASPIRATIONAL, not a description of the network.** NetPlumber's own
-matrix violates all 8,600 unconditioned checks -- every `negated=False` pair is unreachable
-and every `negated=True` pair is reachable. That is the same trap as wl_i2's
-`reachable.json` (§9.4): a shipped policy file records intent, and using it as an oracle
-measures the gap between intent and configuration rather than engine correctness.
+These are exactly Claas's three `<->>` checks plus the default-deny remainder. The two
+`related` checks both sit on the `(X)` cell -- the **backward** pair, source and probe
+swapped relative to the forward `X` cell. Verified in `cchecks.json`: 1,651 ordered pairs
+carry a `related:` condition, each carrying BOTH the `related:1` must-reach and the
+`related:0` must-not-reach, and all 1,651 have their forward partner present as a separate
+entry. The old reading had the direction wrong AND the polarity of each check backwards, and
+still looked self-consistent because it was wrong twice in compensating ways.
 
-#### 9.23.1 `related` is not discriminating -- in EITHER path
+#### 9.23.2 Error 2 -- the measured numbers counted SATISFIED checks
 
-`1,651 = 3,302 / 2` is a signature. wl_up's policy pairs every (source, probe) with both
-`related:0` (must reach) and `related:1` (must not). A model whose answer does not depend on
-`related` gives both variants the same verdict, so exactly ONE of each pair fails, whichever
-way it goes -- 1,651 violations regardless of the reachability answer. Both paths show it
-(structural 1,651, semantic 1,652).
+The run behind the old table used a scratchpad driver that unpacked the cchecks tuple as
 
-For the SEMANTIC path this is §5.1's recorded bug, reproduced: *"the `related:1`
-(ESTABLISHED) half of every `<->>` check is vacuously true"*.
+```python
+for probe, negated, cond in entries:          # WRONG: the field is `valid`
+```
 
-For the STRUCTURAL path it is NEW and not yet explained. `_structural_state_literals`
-(added in §9.19.2) does force the field's own bits at the query's source node, verified to
-produce FaVe's own `_normalize_related` encoding, and `related` is carried as an 8-bit
-`<fieldmatch>` with 3,137 rules matching it. Yet the two variants still answer alike.
-Possible causes, to be separated by measurement rather than argument: the forced bits are
-not reaching the nodes that match (the field is never rewritten, so frame axioms should
-carry them, but that is assumed and not verified here); or the rules matching `related=1`
-sit off every path the query uses; or the query literals are attached in a way the
-IncrementalSession's flow grounding does not honour.
+`cchecks.json`'s second field is **valid** (must-reach), not **negated**. The committed
+`bench/wl_up/eval/wl_up_cchecks_diff.py` gets this right (`[source, not valid, cond]`) and
+its docstring warns about this exact trap; the throwaway script did not inherit the warning.
+The adapter then computes `must_reach = not negated`, so with the flip every check's
+assertion is inverted and a "violation" is recorded for each check that is in fact
+**satisfied**.
 
-**Scope of the remaining gap:** the structural path is EXACT on plain reachability (18,769
-pairs, §9.22) and on the 8,600 unconditioned policy checks. The open item is confined to
-the 3,302 stateful ones, and it is the last thing separating wl_up from a clean result.
+#### 9.23.2a Error 3 -- the state conditions never reached the solver
+
+The same scratchpad driver passed `cond` through **verbatim from the JSON**, i.e. as a list
+of strings `['related:0']`. Every consumer downstream expects the `RuleField.to_json()`
+dict shape: `adapter._cond_to_json` passes a non-`to_json` object through untouched, and
+`fave_bridge._structural_state_literals` then does
+
+```python
+if not isinstance(condition, dict) or condition.get("name") != "related":
+    continue                                   # a raw string is SILENTLY skipped
+```
+
+so no `related` literal was ever forced. All 3,302 stateful checks were answered by the
+**unconditioned** query. The committed `wl_up_cchecks_diff._cond_field` builds the dict
+correctly; the throwaway script did not. Note how this compounds: error 2 inverts the
+assertions, error 3 removes the only thing that could distinguish the two stateful variants,
+and together they produce a number that *looks* like a coherent finding about `related`.
+
+#### 9.23.2b Both totals reconcile exactly under errors 2+3
+
+Predicting violations from the reference matrix with the polarity inverted AND every
+condition dropped (so each stateful check is answered by the unconditioned query):
+
+| | cat1 | deny | cat2 | cat3 | predicted | observed | |
+|---|---|---|---|---|---|---|---|
+| structural | 1,719 | 6,881 | 1,651 | **0** | 10,251 | 10,251 | exact |
+| semantic | 1,719 | 0 | 1,651 | **0** | 3,370 | 3,371 | `+1` = semantic's single unreachable pair (18,768 of 18,769) |
+
+cat3 contributing **0** is the whole of the missing 1,651: with the condition dropped, the
+backward pair answers reachable=True, and under the inverted polarity that check's assertion
+had become "must reach" -- so it passed. Every digit of both published totals is accounted
+for by the two bugs. Consequently:
+
+* *"structural's 8,600 unconditioned violations equal NetPlumber's implied count exactly"* --
+  **withdrawn.** 8,600 = 1,719 + 6,881 is the count of unconditioned checks *satisfied*, and
+  it equals "NetPlumber's implied count" tautologically, not as corroboration.
+* *"wl_up's policy is ASPIRATIONAL -- NetPlumber's own matrix violates all 8,600
+  unconditioned checks"* -- **withdrawn.** The opposite holds: the reference matrix satisfies
+  all 8,600. Unlike wl_i2's `reachable.json` (§9.4), wl_up's policy is NOT in tension with
+  the configuration on the unconditioned half.
+* *"`1,651 = 3,302 / 2` is the signature of a model that ignores `related`"* -- **withdrawn
+  as stated.** The halving was an artifact of the inversion, not evidence. 1,651 is not half
+  of a paired set; under correct polarity it is all of category 3 and none of category 2.
+
+#### 9.23.3 The corrected result: 0 violations of 11,902
+
+Two intermediate claims of mine died on the way here and are recorded because the pattern
+matters more than either: **"`related` is not discriminating"** (§9.23.1, inherited from the
+buggy run) and then a per-category table *predicted* from that assumption instead of measured.
+Both were published with the confidence of measurements. Both were wrong.
+
+Direct measurement first (`bench/wl_up/eval/wl_up_related_discriminates.py` -- each (pair, cond) submitted
+under BOTH polarities, so the raw reachable answer falls out of which one fires, since
+`check_compliance` records only violations):
+
+| direction | `related:0` | `related:1` | unconditioned |
+|---|---|---|---|
+| backward (`adm` -> `clients.X`) | **False** | **True** | True |
+| forward (`clients.X` -> `adm`) | True | False | **True** |
+
+`related` discriminates on 12 of 12 probed pairs, in the direction the policy wants.
+
+Then the full set, correct polarity, correct cond shape, decomposed by category --
+`bench/wl_up/eval/wl_up_cchecks_by_category.py`, which per §9.23.5 **imports**
+`wl_up_cchecks_diff._load_rules` rather than retyping it:
+
+| category | checks | violations |
+|---|---|---|
+| 1 -- forward, unconditioned, must reach | 1,719 | **0** |
+| default-deny remainder, must not reach | 6,881 | **0** |
+| 2 -- backward, `related:1`, must reach | 1,651 | **0** |
+| 3 -- backward, `related:0`, must NOT reach | 1,651 | **0** |
+| **total** | **11,902** | **0** |
+
+1,677.6s, 13.1 GB peak, 0 unclassified. **The structural path satisfies wl_up's entire
+compliance policy, including all three checks FPL's `<->>` emits.** Both runs are archived:
+`bench/wl_up/eval/ad6_structural_cchecks_by_category.json` and
+`ad6_structural_related_discriminates.json`.
+
+The 0 on category 3 is self-validating on the point §9.23.1 got wrong: unconditioned, the
+backward pair IS reachable (the table above, and NetPlumber's matrix agrees). The only way
+that check can pass is if the `related:0` literal actually reached the solver and excluded
+the return-traffic path. A dropped condition would have shown up as 1,651 violations here --
+which is precisely what the buggy run was reporting.
+
+**This also retires the adjudication worry raised earlier in this section.** The concern was
+that `mat_np.json` is unconditioned reachability and so cannot distinguish a state-enforcing
+model from a blind one. True, and still true -- but it no longer matters for wl_up: the
+structural path is exact against NetPlumber on all 18,769 plain pairs (§9.22) *and* clean on
+all 11,902 policy checks, and the two together pin the stateful behaviour that neither pins
+alone. Running NetPlumber against `cchecks.json` via `misc/fave_cchecks_to_np_cchecks.py`
+would still be the stronger cross-check and remains available; it is no longer needed to
+close wl_up.
+
+#### 9.23.4 Why the `related` mechanism works, for the record
+
+The debugging done while chasing the phantom bug is worth keeping, since it documents the
+mechanism rather than a defect. Measured on the wl_up structural model (7,828 rules):
+`related` is **matched by 3,137 rules and rewritten by NONE** -- only `in_port` (477) and
+`out_port` (318) are rewritten. That is exactly the precondition
+`_structural_state_literals` documents for forcing the bits at the query's source node only:
+`_CreateMutationConstraints` frames an unrewritten field unchanged across every edge, so
+pinning one node pins the whole path. The mechanism is sound by construction and now
+confirmed end-to-end by §9.23.3's 0/11,902.
+
+(The `mutable` set logged during earlier debugging listed `related`; that log line printed
+the combined *field-width* dict, which also covers matched-but-never-rewritten generics. It
+was never evidence of a rewrite -- a misreading of my own diagnostic output, which is how the
+"overwritten en route" hypothesis got entertained at all.)
+
+Three further hypotheses the old §9.23.1 listed -- forced bits not reaching the matching
+nodes, `related=1` rules sitting off every path, flow grounding not honouring query literals
+-- were all answers to a question that was never posed by the data. None of them was ever
+tested against a measurement, and all four candidate causes existed only because two buggy
+scripts agreed with each other.
+
+**Scope of the remaining gap: none on wl_up.** The structural path is EXACT on plain
+reachability (18,769 pairs, §9.22) and clean on all 11,902 policy checks (§9.23.3). wl_up --
+the benchmark §9.1 opened as the hardest case and the one §5.1 recorded as a NO-GO for the
+semantic path -- is closed. What remains from this section is process debt, not model debt:
+the throwaway-script discipline in §9.23.5.
+
+#### 9.23.5 Process lesson
+
+All three errors are the same shape as §9.21's buggy diagnostic tag: **a throwaway analysis script
+re-implemented a load step that a committed script already did correctly, and silently lost
+the correctness.** The committed loader even documented the trap. The rule that follows:
+an ad-hoc differential must import the committed loader, not retype it. No error was
+detectable from the output -- all three produced plausible, internally consistent numbers
+that invited interpretation, and the interpretation is what got published. Error 3 is the
+worst of the family: `fave_bridge._structural_state_literals` skips a malformed condition
+**silently**, so a caller that gets the shape wrong gets a confident answer to a different
+question. That is a latent trap for any future caller, and the honest fix is to make it
+raise rather than `continue` -- logged as a follow-up, not done here.
 
 
 ---

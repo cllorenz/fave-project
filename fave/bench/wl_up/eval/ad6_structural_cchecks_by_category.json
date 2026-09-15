@@ -1,0 +1,15 @@
+{
+  "translation": "structural",
+  "checks": {
+    "deny-uncond-must-NOT-reach": 6881,
+    "cat1-fwd-uncond-must-reach": 1719,
+    "cat2-bwd-rel1-must-reach": 1651,
+    "cat3-bwd-rel0-must-NOT-reach": 1651
+  },
+  "violations_by_cat": {},
+  "total_violations": 0,
+  "unclassified": 0,
+  "elapsed_s": 1677.6,
+  "peak_gb": 13.13,
+  "violations": []
+}
