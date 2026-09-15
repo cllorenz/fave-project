@@ -31,7 +31,7 @@ import lxml.etree as et
 from ad6 import translate
 from ad6.translate import (
     UnsupportedAction, UnsupportedField, field_to_match, rewrite_field_for,
-    mutable_field_widths, rewritten_fields, rule_key, rule_to_ad6,
+    _forward_ports, mutable_field_widths, rewritten_fields, rule_key, rule_to_ad6,
     split_port_direction, supported_fields, table_to_ad6,
 )
 from rule.rule_model import Forward, Miss, Rewrite, Rule, RuleField, Match
@@ -683,6 +683,56 @@ class TestRuleTranslation(unittest.TestCase):
     def test_a_miss_action_is_accepted_and_forwards_nowhere(self):
         out = self._xml_of(self._rule(actions=[Miss()]))
         self.assertNotIn('<action', out)
+
+
+class TestHairpinExclusion(unittest.TestCase):
+    """ A packet is never sent back out the port it arrived on.
+
+    THIS IS NETPLUMBER'S INVARIANT, NOT THE MODEL'S. `Node::should_block_flow`
+    (net_plumber/src/net_plumber/node.cc) returns `f->in_port == out_port` at
+    the input layer, walking a flow's provenance back to the port it entered
+    by, and the caller blocks propagation on that pipe. No rule anywhere states
+    it.
+
+    FaVe's packet filters state it explicitly -- `post_routing`'s high-priority
+    rule drops `in_port == out_port` -- but its SWITCHES do not, because
+    NetPlumber enforces it for them. Carrying only what the model declares let a
+    switch send a packet straight back to the device it came from: the 29 wl_up
+    pairs ad6 called reachable and NetPlumber did not, every one a self-pair
+    hairpinned at the source's own upstream switch. """
+
+    @staticmethod
+    def _rule(forwards):
+        return Rule('d', 'd.t0', 0, in_ports=['d.9'], match=Match([]),
+                    actions=[Forward(list(forwards))])
+
+    def test_the_arrival_port_is_removed_from_the_forwards(self):
+        self.assertEqual(_forward_ports(self._rule(['d.9', 'd.2']), 'd.9'), ['d.2'])
+
+    def test_other_ports_survive(self):
+        self.assertEqual(_forward_ports(self._rule(['d.2', 'd.3']), 'd.9'),
+                         ['d.2', 'd.3'])
+
+    def test_a_rule_forwarding_ONLY_back_becomes_a_drop(self):
+        """ And a drop, not a fall-through: in NetPlumber the rule still
+        MATCHES and the flow is blocked on that pipe, so later rules never see
+        the packet. An empty forward list gives a rule with no action, which
+        ad6 reads exactly that way (kripketest.MultiActionRuleTest). """
+        self.assertEqual(_forward_ports(self._rule(['d.9']), 'd.9'), [])
+
+    def test_no_arrival_port_excludes_nothing(self):
+        """ A chain with no arrival port -- a generator's own injection table --
+        must not lose forwards. """
+        self.assertEqual(_forward_ports(self._rule(['d.9', 'd.2'])), ['d.9', 'd.2'])
+
+    def test_the_exclusion_reaches_the_emitted_rule(self):
+        """ End to end through table_to_ad6, since the arrival port has to be
+        threaded from the chain to the rule to take effect. """
+        table = table_to_ad6('d', 'd.t0', 'd.9', [self._rule(['d.9'])],
+                             _target, _port_id)
+        self.assertNotIn('<action', _xml(table[0]),
+                         "a switch rule pointing back at the arrival port must "
+                         "emit no forwarding edge")
 
 
 class TestTableTranslation(unittest.TestCase):

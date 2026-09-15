@@ -452,17 +452,41 @@ class UnsupportedAction(Exception):
     UnsupportedField: silently ignoring an action changes where packets go. """
 
 
-def _forward_ports(rule: Any) -> Any:
-    """ Every port this rule forwards to, in action order, deduplicated.
+def _forward_ports(rule: Any, arrival_port: Optional[str] = None) -> Any:
+    """ Every port this rule forwards to, in action order, deduplicated --
+    EXCEPT the port the packet arrived on.
 
-    The `Forward` actions are the authoritative forwarding decision -- measured:
-    every rule carrying an `out_port` rewrite also carries exactly one Forward,
-    so the rewrite is never the sole record of an egress (see _PORT_FIELDS). """
+    THE EXCLUSION IS NETPLUMBER'S OWN INVARIANT, and it is not in the model.
+    `net_plumber/src/net_plumber/node.cc`'s `Node::should_block_flow` returns
+    `f->in_port == out_port` at the input layer, walking back through a flow's
+    provenance to find the port it entered by; the caller blocks propagation on
+    that pipe. So NetPlumber never sends a packet back out the interface it
+    arrived on, and no rule anywhere says so.
+
+    FaVe's PACKET FILTERS state the invariant explicitly -- `post_routing`'s
+    high-priority hairpin rule drops `in_port == out_port` -- but its SWITCHES
+    do not, because they never needed to. Carrying only what the model declares
+    therefore let a switch send a packet straight back to the device it came
+    from, which is exactly the 29 wl_up pairs ad6 called reachable and
+    NetPlumber did not: every one a self-pair, `source.X -> probe.X`, hairpinned
+    at X's upstream switch (§9.22).
+
+    Per-port chains make the fix structural: the chain for port P already knows
+    the arrival port, so P is simply removed here. A rule left with no forward
+    becomes a no-action drop, which is the right reading -- in NetPlumber the
+    rule still MATCHES and the flow is blocked on that pipe; it does not fall
+    through to later rules.
+
+    The `Forward` actions remain the authoritative forwarding decision --
+    measured: every rule carrying an `out_port` rewrite also carries exactly one
+    Forward, so the rewrite is never the sole record of an egress. """
     ports = []
     for action in (getattr(rule, 'actions', None) or []):
         if type(action).__name__ != 'Forward':
             continue
         for port in (getattr(action, 'ports', None) or []):
+            if arrival_port is not None and str(port) == str(arrival_port):
+                continue
             if port not in ports:
                 ports.append(port)
     return ports
@@ -516,8 +540,8 @@ def _rewrites(rule: Any, port_id: Any) -> Any:
 
 
 def rule_to_ad6(rule: Any, key: str, resolve_target: Any, port_id: Any,
-                mutable: Iterable[str] = (),
-                position: Optional[int] = None) -> Any:
+                mutable: Iterable[str] = (), position: Optional[int] = None,
+                arrival_port: Optional[str] = None) -> Any:
     """ One FaVe `Rule` -> one ad6 <rule>, at its own position.
 
     `resolve_target(port)` maps a FaVe forward port to the ad6 node key to jump
@@ -567,7 +591,7 @@ def rule_to_ad6(rule: Any, key: str, resolve_target: Any, port_id: Any,
     # walk past the deny meant for it).
 
     rewrites = _rewrites(rule, port_id)
-    for port in _forward_ports(rule):
+    for port in _forward_ports(rule, arrival_port):
         element.append(GenUtils.action('jump', target=resolve_target(port),
                                        rewrites=rewrites))
 
@@ -660,8 +684,8 @@ def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
 
     for position, (_original, rule) in enumerate(indexed):
         element.append(rule_to_ad6(rule, rule_key(device, table, port, position),
-                                   resolve_target, port_id,
-                                   mutable=mutable, position=position))
+                                   resolve_target, port_id, mutable=mutable,
+                                   position=position, arrival_port=port))
     return element
 
 
@@ -883,47 +907,94 @@ class PortGraph:
             return self._chain_cache
         result = []
         for device, model in sorted(self._devices.items()):
-            for table, rules in sorted(model.get('tables', {}).items()):
-                rules = list(rules)
-                ports = set()
+            tables = sorted(model.get('tables', {}).items())
+            named = set()
+            for _table, rules in tables:
                 for rule in rules:
-                    ports |= {str(p) for p in (getattr(rule, 'in_ports', None) or [])}
-                if not ports:
-                    result.append((device, table, None, rules))
-                    continue
+                    named |= {str(p) for p in (getattr(rule, 'in_ports', None) or [])}
+
+            # A port the device can RECEIVE on but that no rule names still
+            # needs a chain: the rules declaring no `in_ports` apply to every
+            # port, so a packet arriving there is forwarded by them. Deriving
+            # entering ports from named `in_ports` alone left wl_up's dmz
+            # switch with no chain for its UPLINK port -- its 8 forwarding
+            # rules name nothing, and the only rule that does is the default
+            # sending downlink traffic back up -- so everything arriving from
+            # the core died there, and with it every path to the 8 central
+            # services (§9.21).
+            unnamed = sorted(self._receive_ports(device) - named)
+
+            for table, rules in tables:
+                rules = list(rules)
+                portless = [rule for rule in rules
+                            if not (getattr(rule, 'in_ports', None) or [])]
+                ports = {str(p) for rule in rules
+                         for p in (getattr(rule, 'in_ports', None) or [])}
+
                 for port in sorted(ports):
-                    applicable = [
+                    result.append((device, table, port, [
                         rule for rule in rules
                         if not (getattr(rule, 'in_ports', None) or [])
-                        or port in {str(p) for p in rule.in_ports}]
-                    result.append((device, table, port, applicable))
+                        or port in {str(p) for p in rule.in_ports}]))
+
+                # Only a table that HAS portless rules can receive on a port no
+                # rule names; one whose every rule names ports simply does not
+                # apply there.
+                if portless:
+                    for port in unnamed:
+                        result.append((device, table, port, portless))
+                    if not ports:
+                        # nothing enters by name and nothing arrives: keep the
+                        # anonymous chain so the rules still exist in the model
+                        # (a generator's own injection table is this shape).
+                        if not unnamed:
+                            result.append((device, table, None, rules))
         self._chain_cache = result
         return result
 
+    def _receive_ports(self, device: str) -> Set[str]:
+        """ Ports of `device` that something can arrive at -- the targets of
+        links and of intra-device wiring. """
+        found: Set[str] = set()
+        prefix = device + '.'
+        for target in self._wiring.values():
+            if str(target).startswith(prefix):
+                found.add(str(target))
+        for targets in self._links.values():
+            for target in targets:
+                if str(target).startswith(prefix):
+                    found.add(str(target))
+        return found
+
     def entry(self, port: str) -> Optional[str]:
-        """ The rule a packet arriving at `port` starts at: rule 0 of the table
-        that port enters, or None if no table declares it.
+        """ The rule a packet arriving at `port` starts at: rule 0 of THAT
+        PORT'S OWN chain, or None if nothing the device has applies there.
 
-        Rule 0 OF THAT PORT'S OWN CHAIN, not of the whole table: each entering
-        port gets its own copy of the applicable rules (see `chains`), so the
-        arrival port decides WHICH chain is walked rather than being asked about
-        inside a shared one. """
-        owner = self._table_of_port.get(port)
-        if owner is not None:
-            device, table = owner
-            return rule_key(device, table, str(port), 0)
+        Resolved from `chains()` rather than from the rules' `in_ports`, because
+        a port the device can receive on gets a chain even when no rule names it
+        -- the rules that name no ports apply to every port (§9.21). """
+        owner = self._chain_of_port().get(str(port))
+        if owner is None:
+            return None
+        device, table = owner
+        return rule_key(device, table, str(port), 0)
 
-        # No table names this port. If the port's own device has a table that
-        # names NO ports, that table is enterable from any of them -- see
-        # __init__. This is how a switch-shaped device is entered at all.
-        try:
-            device, _name = self.split(port)
-        except KeyError:
-            return None
-        fallback = self._portless_table.get(device)
-        if fallback is None:
-            return None
-        return rule_key(fallback[0], fallback[1], None, 0)
+    def _chain_of_port(self) -> Dict[str, Any]:
+        if getattr(self, '_chain_of_port_cache', None) is not None:
+            return self._chain_of_port_cache
+        found: Dict[str, Any] = {}
+        for device, table, port, rules in self.chains():
+            if port is None or not rules:
+                continue
+            existing = found.get(port)
+            if existing is not None and existing != (device, table):
+                raise ValueError(
+                    "port %r enters two different tables (%s and %s); a packet "
+                    "arriving there would have two starting points."
+                    % (port, existing, (device, table)))
+            found[port] = (device, table)
+        self._chain_of_port_cache = found
+        return found
 
     # --- edges ------------------------------------------------------------
 

@@ -1,0 +1,134 @@
+{
+  "netplumber_pairs": 3661,
+  "structural": {
+    "sources": 137,
+    "probes": 137,
+    "reachable": 3690,
+    "wall_s": 1761.7,
+    "peak_gb": 14.28,
+    "vs_np": {
+      "agree": 3661,
+      "ad6_only": 29,
+      "np_only": 0
+    },
+    "np_only_pairs": [],
+    "ad6_only_pairs": [
+      [
+        "source.adm.uni-potsdam.de",
+        "probe.adm.uni-potsdam.de"
+      ],
+      [
+        "source.clients.api.uni-potsdam.de",
+        "probe.clients.api.uni-potsdam.de"
+      ],
+      [
+        "source.clients.asta.uni-potsdam.de",
+        "probe.clients.asta.uni-potsdam.de"
+      ],
+      [
+        "source.clients.botanischer-garten-potsdam.de",
+        "probe.clients.botanischer-garten-potsdam.de"
+      ],
+      [
+        "source.clients.chem.uni-potsdam.de",
+        "probe.clients.chem.uni-potsdam.de"
+      ],
+      [
+        "source.clients.cs.uni-potsdam.de",
+        "probe.clients.cs.uni-potsdam.de"
+      ],
+      [
+        "source.clients.geo.uni-potsdam.de",
+        "probe.clients.geo.uni-potsdam.de"
+      ],
+      [
+        "source.clients.geographie.uni-potsdam.de",
+        "probe.clients.geographie.uni-potsdam.de"
+      ],
+      [
+        "source.clients.hgp-potsdam.de",
+        "probe.clients.hgp-potsdam.de"
+      ],
+      [
+        "source.clients.hpi.uni-potsdam.de",
+        "probe.clients.hpi.uni-potsdam.de"
+      ],
+      [
+        "source.clients.hssport.uni-potsdam.de",
+        "probe.clients.hssport.uni-potsdam.de"
+      ],
+      [
+        "source.clients.intern.uni-potsdam.de",
+        "probe.clients.intern.uni-potsdam.de"
+      ],
+      [
+        "source.clients.jura.uni-potsdam.de",
+        "probe.clients.jura.uni-potsdam.de"
+      ],
+      [
+        "source.clients.ling.uni-potsdam.de",
+        "probe.clients.ling.uni-potsdam.de"
+      ],
+      [
+        "source.clients.math.uni-potsdam.de",
+        "probe.clients.math.uni-potsdam.de"
+      ],
+      [
+        "source.clients.mmz-potsdam.de",
+        "probe.clients.mmz-potsdam.de"
+      ],
+      [
+        "source.clients.physik.uni-potsdam.de",
+        "probe.clients.physik.uni-potsdam.de"
+      ],
+      [
+        "source.clients.pogs.uni-potsdam.de",
+        "probe.clients.pogs.uni-potsdam.de"
+      ],
+      [
+        "source.clients.psych.uni-potsdam.de",
+        "probe.clients.psych.uni-potsdam.de"
+      ],
+      [
+        "source.clients.sq-brandenburg.de",
+        "probe.clients.sq-brandenburg.de"
+      ],
+      [
+        "source.clients.ub.uni-potsdam.de",
+        "probe.clients.ub.uni-potsdam.de"
+      ],
+      [
+        "source.clients.welcome-center-potsdam.de",
+        "probe.clients.welcome-center-potsdam.de"
+      ],
+      [
+        "source.data.uni-potsdam.de",
+        "probe.data.uni-potsdam.de"
+      ],
+      [
+        "source.dns.uni-potsdam.de",
+        "probe.dns.uni-potsdam.de"
+      ],
+      [
+        "source.file.uni-potsdam.de",
+        "probe.file.uni-potsdam.de"
+      ],
+      [
+        "source.ldap.uni-potsdam.de",
+        "probe.ldap.uni-potsdam.de"
+      ],
+      [
+        "source.mail.uni-potsdam.de",
+        "probe.mail.uni-potsdam.de"
+      ],
+      [
+        "source.vpn.uni-potsdam.de",
+        "probe.vpn.uni-potsdam.de"
+      ],
+      [
+        "source.web.uni-potsdam.de",
+        "probe.web.uni-potsdam.de"
+      ]
+    ]
+  }
+}

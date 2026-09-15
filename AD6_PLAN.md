@@ -5357,6 +5357,61 @@ method applies -- pick one of the 289 and walk it. Recorded rather than guessed 
 would repeat that.
 
 
+### 9.21 The second wl_up bug: entering ports are what a device RECEIVES on
+
+§9.20's switch fix left 289 pairs NetPlumber finds and ad6 did not. The witness walk
+localised the cause exactly, and it was a generalisation of the same mistake.
+
+**The trace.** `source.clients.api -> probe.dns` (NetPlumber: reachable). The path crosses
+the source device, its org switch, the core `pgf`, and stops at
+`favenet_dmz_uni_potsdam_de_1_in` -- the DMZ switch's uplink port, where traffic from the
+core arrives. `entry('dmz.uni-potsdam.de.1')` returned **None**.
+
+**The cause.** `dmz`'s table is MIXED:
+
+```
+idx 0-7     in_ports=[]                                destination-based -> ports 2..9
+idx 65535   in_ports=['dmz...2', ..., 'dmz...9']       (any)             -> port 1
+```
+
+`chains()` derived a table's entering ports from the UNION OF NAMED `in_ports`, which here
+is {2..9} and comes entirely from that one default rule. So **port 1 got no chain**, even
+though rules 0-7 name no ports and therefore apply to arrivals on any port including 1.
+That is why `api.uni-potsdam.de` worked and `dmz` did not: api's rules are ALL portless, so
+§9.20's fallback caught it. **The fallback was treating a symptom** -- it fired only in the
+all-portless case and missed every mixed table.
+
+**The fix, and the rule it establishes: a table's entering ports are the ports the DEVICE
+CAN RECEIVE ON** -- targets of links and of intra-device wiring -- not the ports some rule
+happens to name. A port no rule names gets a chain of exactly the rules that name none.
+`entry()` now resolves from `chains()` rather than from `in_ports`, and raises if a port
+ever maps to two tables. §9.20's portless-table fallback is subsumed and removed.
+
+| wl_up, 18,769 pairs, vs NetPlumber's 3,661 | reachable | agree | ad6-only | NP-only |
+|---|---|---|---|---|
+| before the switch fix (§9.19) | 83 | 75 | 8 | 3,586 |
+| after the switch fix (§9.20) | 3,401 | 3,372 | 29 | 289 |
+| **after this fix** | **3,690** | **3,661** | **29** | **0** |
+
+**ad6 now finds EVERY path NetPlumber finds.** The model grew 8,166 -> 9,056 rules for the
+extra per-port chains. The four exact rungs are unaffected (`test.sh fast` 624 passed).
+
+#### 9.21.1 Two diagnostic mistakes, recorded because both cost real time
+
+  * **A buggy tag sent a whole turn down a false path.** Searching reachable nodes for a
+    device used `dev.replace('.', '_')`, which leaves the HYPHEN in `uni-potsdam`, while node
+    names go through `_safe()` (replacing `.` AND `-`). So `pgf_uni-potsdam_de` matched
+    nothing and the conclusion "traffic never reaches the core" was reported. It was false:
+    2,271 pgf nodes were reachable. **A diagnostic that constructs the name it searches for
+    must build it with the same function the model does.**
+  * **The wrong witness was chosen.** The first trace picked the source with the MOST
+    NP-reachable probes, on the theory that it maximised the chance of finding a miss. A
+    well-connected source is precisely one that WORKS; 29 minutes produced "this one is
+    clean". Worse, it ran in-process at ~13 s per solve when the bridge's incremental session
+    does the whole 18,769-pair sweep at 0.07 s/query. **Get the failing pair list first, then
+    trace a pair known to fail.**
+
+
 ---
 
 
