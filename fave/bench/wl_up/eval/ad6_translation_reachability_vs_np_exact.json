@@ -1,0 +1,17 @@
+{
+  "netplumber_pairs": 3661,
+  "structural": {
+    "sources": 137,
+    "probes": 137,
+    "reachable": 3661,
+    "wall_s": 1140.0,
+    "peak_gb": 13.11,
+    "vs_np": {
+      "agree": 3661,
+      "ad6_only": 0,
+      "np_only": 0
+    },
+    "np_only_pairs": [],
+    "ad6_only_pairs": []
+  }
+}

@@ -5412,6 +5412,61 @@ extra per-port chains. The four exact rungs are unaffected (`test.sh fast` 624 p
     trace a pair known to fail.**
 
 
+### 9.22 wl_up AGREES EXACTLY with NetPlumber -- the NO-GO is closed
+
+| wl_up, 18,769 pairs, vs NetPlumber's 3,661 | reachable | agree | ad6-only | NP-only |
+|---|---|---|---|---|
+| §9.19 semantic path | 18,768 | 3,661 | **15,107** | 0 |
+| §9.19 structural, as first built | 83 | 75 | 8 | 3,586 |
+| §9.20 + switch entry | 3,401 | 3,372 | 29 | 289 |
+| §9.21 + receive ports | 3,690 | 3,661 | 29 | 0 |
+| **§9.22 + hairpin exclusion** | **3,661** | **3,661** | **0** | **0** |
+
+**Exact agreement, both directions, on every one of 18,769 pairs.** §5.1 recorded wl_up as
+NO-GO for ad6 on the strength of 1,712 of 1,713 plain checks being vacuously violated; the
+SEMANTIC path still reproduces that failure exactly, inventing 15,107 paths that do not
+exist. The structural translation matches NetPlumber.
+
+#### 9.22.1 The third bug: an ENGINE invariant that is in no model
+
+The 29 residual pairs were all self-pairs, `source.X -> probe.X`. The walk showed the path
+leaving X, reaching X's upstream switch, and being sent straight back:
+
+```
+source.adm -> adm output_filter -> routing -> post_routing -> adm.1_egress
+   -> dmz.9_in -> dmz rules r0..r7 -> dmz.9_out      <- in on port 9, out on port 9
+   -> adm.1_ingress -> adm pre_routing -> input_filter -> probe.adm
+```
+
+`net_plumber/src/net_plumber/node.cc`:
+
+```cpp
+bool Node<T1,T2>::should_block_flow(Flow<T1,T2> *f, uint32_t out_port) {
+  if (is_input_layer) { return f->in_port == out_port; }
+  else { return (*f->p_flow)->node->should_block_flow(*f->p_flow, out_port); }
+}
+```
+
+**NetPlumber never sends a packet back out the port it arrived on**, walking a flow's
+provenance back to the input layer to find that port. NO RULE STATES THIS. FaVe's PACKET
+FILTERS encode it explicitly -- `post_routing`'s high-priority `in_port == out_port` drop --
+but its SWITCHES do not, because they never had to.
+
+Per-port chains made the fix structural rather than conditional: the chain for arrival port
+P already knows P, so P is removed from each rule's forwards. A rule left with no forward
+becomes a no-action drop, which is the correct reading -- in NetPlumber the rule still
+MATCHES and the flow is blocked on that pipe; it does not fall through to later rules. An
+`<interface>` condition would have been the obvious alternative and is unsound (§9.12.2).
+
+**This is a category the other findings are not.** The `proto`, ICMPv6-type and
+port-range bugs were "the model says X and ad6 renders it wrong". The switch-entry and
+receive-port bugs were "the model declares X and the translator did not read it". This one
+is **"the ENGINE enforces X and nothing declares it at all"** -- undiscoverable from the
+model by construction, and findable only by differential against another engine. It is the
+strongest argument in this plan for keeping a cross-engine comparison in the loop rather
+than treating one implementation's output as ground truth.
+
+
 ---
 
 
