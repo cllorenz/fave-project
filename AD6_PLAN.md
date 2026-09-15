@@ -5467,6 +5467,55 @@ strongest argument in this plan for keeping a cross-engine comparison in the loo
 than treating one implementation's output as ground truth.
 
 
+### 9.23 wl_up cchecks: exact on the plain half, blind on the stateful half
+
+Re-run of the 11,902-check policy differential after §9.20-§9.22's three fixes. The raw
+totals invert the truth, so they are decomposed:
+
+| | unconditioned (8,600) | stateful (3,302) | total |
+|---|---|---|---|
+| **implied by NetPlumber's matrix** | **8,600** | -- | -- |
+| structural | **8,600** (exact) | 1,651 | 10,251 |
+| semantic | 1,719 | 1,652 | 3,371 |
+
+**A LOWER VIOLATION COUNT IS NOT A BETTER RESULT HERE.** The semantic path reports 3,371
+against structural's 10,251 and is far worse: being vacuously all-reachable (§9.22) it
+satisfies every `negated=False` check for free, so only the 1,719 `negated=True` ones can
+fail. The structural path's 8,600 is NetPlumber's own answer, necessarily, since its plain
+reachability matches pair-for-pair.
+
+**wl_up's policy is ASPIRATIONAL, not a description of the network.** NetPlumber's own
+matrix violates all 8,600 unconditioned checks -- every `negated=False` pair is unreachable
+and every `negated=True` pair is reachable. That is the same trap as wl_i2's
+`reachable.json` (§9.4): a shipped policy file records intent, and using it as an oracle
+measures the gap between intent and configuration rather than engine correctness.
+
+#### 9.23.1 `related` is not discriminating -- in EITHER path
+
+`1,651 = 3,302 / 2` is a signature. wl_up's policy pairs every (source, probe) with both
+`related:0` (must reach) and `related:1` (must not). A model whose answer does not depend on
+`related` gives both variants the same verdict, so exactly ONE of each pair fails, whichever
+way it goes -- 1,651 violations regardless of the reachability answer. Both paths show it
+(structural 1,651, semantic 1,652).
+
+For the SEMANTIC path this is §5.1's recorded bug, reproduced: *"the `related:1`
+(ESTABLISHED) half of every `<->>` check is vacuously true"*.
+
+For the STRUCTURAL path it is NEW and not yet explained. `_structural_state_literals`
+(added in §9.19.2) does force the field's own bits at the query's source node, verified to
+produce FaVe's own `_normalize_related` encoding, and `related` is carried as an 8-bit
+`<fieldmatch>` with 3,137 rules matching it. Yet the two variants still answer alike.
+Possible causes, to be separated by measurement rather than argument: the forced bits are
+not reaching the nodes that match (the field is never rewritten, so frame axioms should
+carry them, but that is assumed and not verified here); or the rules matching `related=1`
+sit off every path the query uses; or the query literals are attached in a way the
+IncrementalSession's flow grounding does not honour.
+
+**Scope of the remaining gap:** the structural path is EXACT on plain reachability (18,769
+pairs, §9.22) and on the 8,600 unconditioned policy checks. The open item is confined to
+the 3,302 stateful ones, and it is the last thing separating wl_up from a clean result.
+
+
 ---
 
 
