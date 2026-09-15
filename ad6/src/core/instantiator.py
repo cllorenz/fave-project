@@ -482,7 +482,25 @@ class Instantiator:
         return Instance
 
 
-    def _GetVariables(Formula,Variables={}):
+    def _GetVariables(Formula,Variables=None):
+        """ NOT `Variables={}`. Python evaluates a default once, at def time,
+        so a mutable default is shared by every call for the life of the
+        process -- and `_CreateGlobalConstraints` calls this without a second
+        argument, so every model instantiated in one process accumulated into
+        the same dict and `_CreateBitConstraints` emitted per-bit constraints
+        for every variable ever seen anywhere.
+
+        The leaked constraints are (not x_i=0 or not x_i=1) over variables the
+        current model never mentions, which are trivially satisfiable -- so no
+        reachability answer was ever wrong, but every encoding after the first
+        in a process carried dead clauses and reported phantom variables in its
+        model. It also made the four exact-model tests (testReach, testCycle,
+        testShadow, testCross) order-dependent: they passed alone and failed
+        under `make test`. See test/core/instantiatortest.py's
+        EncodingIsolationTest. """
+        if Variables is None:
+            Variables = {}
+
         if Formula.tag == XMLUtils.VARIABLE:
             Variables[Formula.attrib[XMLUtils.ATTRNAME]] = True
         else:

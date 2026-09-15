@@ -2097,3 +2097,64 @@ this package's canonical one so it cannot drift silently.
 were "baked in unconditionally", which stopped being true with this change.
 
 `make test`: all suites OK. `test.sh fast`: 468 passed (was 460). mypy: clean.
+
+## 29. `_GetVariables` had a MUTABLE DEFAULT: one model's variables leaked into every
+##     later model's encoding, in the same process  **[FIX]**
+
+Found by chasing the 4 `InstantiatorTest` failures (`testReach`, `testCycle`, `testShadow`,
+`testCross`) that `make test` had been reporting. They were not stale expectations, which is
+what they looked like -- the expectations were right and the encoding was wrong.
+
+```python
+def _GetVariables(Formula, Variables={}):        # evaluated ONCE, at def time
+```
+
+Python evaluates a default argument once, when the `def` executes, so that dict is
+process-global. `_CreateGlobalConstraints` calls `_GetVariables(Encoding)` with no second
+argument, so **every model instantiated in a process accumulated into the same dict**, and
+`_CreateBitConstraints` then emitted per-bit constraints for every variable ever seen
+anywhere in that process.
+
+### Why it survived so long
+
+The leaked clauses are `(not x_i=0 or not x_i=1)` over variables the current model never
+mentions. Those are trivially satisfiable, so **no reachability answer was ever wrong** --
+it is an encoding-size and reported-model leak, not a soundness bug. Its only visible
+symptom was making the four exact-model tests order-dependent: each asserts one specific
+solver model, and they failed only when they ran after `testMatchAllReachable`, which is the
+one test that introduces IPv4 address variables. In isolation all four passed. That is
+exactly the profile of a test that looks stale and is not.
+
+Measured: the shared dict went 0 -> 24 entries after `testReach`, then 40 after
+`testMatchAllReachable`, and `testReach`'s reported model grew from 24 variables to 40 --
+the extra 16 being `ip4_dst_0..7=0/1` from a model it has nothing to do with.
+
+### Blast radius, checked rather than assumed
+
+Every committed entry point builds ONE model per process, so nothing measured is affected:
+
+* `fave_bridge.py` calls `_instantiate_structural` (or `InstantiateBase`) once, BEFORE its
+  query loop -- so a bridge process populates the dict exactly once, however many thousands
+  of queries it then answers. The §9.22 reachability sweeps and §9.23's 11,902-check
+  differential each run one bridge process per measurement and are unaffected.
+* `ad6_encoding_bench/axis6*`, `axis7` each instantiate one model per run.
+
+The leak would bite any future process that builds a second model -- which is precisely what
+the test suite does.
+
+### Fix
+
+`Variables=None` with an `if Variables is None: Variables = {}` guard. The recursive call
+still passes the dict explicitly, so accumulation within a single top-level call is
+unchanged.
+
+Test-first, in `test/core/instantiatortest.py::EncodingIsolationTest`: the unit statement
+(two successive calls must not see each other's variables), a direct assertion that no
+non-empty dict survives as a default, and the end-to-end order that broke `testReach`
+(instantiate, interpose an unrelated IPv4 model, instantiate again, demand an identical
+variable set). All three failed against the old code. Registered in
+`test/instantiatorsuite.py` -- that registry is MANUAL, and a class added without an entry
+is silently never run (item 11's lesson, restated in the suite's own comments).
+
+`make test` now passes clean: the instantiator suite goes 53 -> 56 tests with zero failures,
+where it previously reported 4.

@@ -1940,3 +1940,89 @@ class ClearedFieldTest(unittest.TestCase):
             "f is cleared, so the f==20 match must still be satisfiable")
         self.assertEqual(kripke.GetNode('cfw_t_r0').Rewrites,
                          {'f': XMLUtils.CLEAR, 'g': 7})
+
+
+class EncodingIsolationTest(unittest.TestCase):
+    """ One model's variables must never leak into the next model's encoding.
+
+    `Instantiator._GetVariables(Formula, Variables={})` carried a MUTABLE
+    DEFAULT. Python evaluates a default once, at def time, so that dict was
+    process-global: `_CreateGlobalConstraints` calls `_GetVariables(Encoding)`
+    without a second argument, so EVERY model instantiated in a process
+    accumulated into the same dict, and `_CreateBitConstraints` then emitted
+    per-bit constraints for every variable ever seen anywhere.
+
+    Why it went unnoticed for so long: the leaked constraints are
+    (not x_i=0 or not x_i=1) over variables the current model never mentions.
+    Those are trivially satisfiable, so no reachability answer changes -- it
+    is an encoding-size and reported-model leak, not a wrong answer. What it
+    DID do is make four exact-model tests order-dependent: testReach, testCycle,
+    testShadow and testCross assert one specific solver model each, and they
+    failed only when they ran after a test that had introduced IPv4 address
+    variables (testMatchAllReachable), which is why they passed in isolation
+    and failed under `make test`. """
+
+    @staticmethod
+    def _ipv4_model():
+        """ A model whose encoding introduces ip4_* variables -- the shape that
+        exposed the leak. """
+        firewall = GenUtils.firewall('leakfw')
+        table = GenUtils.table('t0')
+        rule = GenUtils.rule('0', key='leakfw_t_r0')
+        rule.append(GenUtils.address('10.0.0.0/8', direction='dst', version='4'))
+        rule.append(GenUtils.action('accept'))
+        table.append(rule)
+        firewall.append(table)
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config = GenUtils.config()
+        config.append(firewalls)
+        return config
+
+    @staticmethod
+    def _reach_variables():
+        examinee = et.parse('./test/core/testReach.xml').getroot()
+        InstantiatorTest.deannotate(examinee)
+        instances = Instantiator.Instantiate(examinee)
+        return {v.attrib[XMLUtils.ATTRNAME]
+                for v in instances['net0_n0_drop_r0_reach'][0].iter(XMLUtils.VARIABLE)}
+
+    def testGetVariablesDoesNotAccumulateAcrossCalls(self):
+        """ The unit-level statement of the bug. """
+        first = XMLUtils.conjunction()
+        first.append(XMLUtils.variable('alpha=0'))
+        second = XMLUtils.conjunction()
+        second.append(XMLUtils.variable('beta=0'))
+
+        self.assertEqual(set(Instantiator._GetVariables(first)), {'alpha=0'})
+        self.assertEqual(
+            set(Instantiator._GetVariables(second)), {'beta=0'},
+            "the previous call's variables leaked in -- _GetVariables is "
+            "accumulating into a shared default dict")
+
+    def testTheDefaultIsNotASharedMutableObject(self):
+        """ Directly: calling it must not grow a default that outlives the call. """
+        before = Instantiator._GetVariables.__defaults__
+        formula = XMLUtils.conjunction()
+        formula.append(XMLUtils.variable('gamma=1'))
+        Instantiator._GetVariables(formula)
+        after = Instantiator._GetVariables.__defaults__
+        self.assertFalse(
+            any(isinstance(d, dict) and d for d in (after or ())),
+            "a non-empty dict survives as a default argument: %r" % (after,))
+        self.assertEqual(before, after)
+
+    def testAModelsEncodingDoesNotInheritAnotherModelsVariables(self):
+        """ End-to-end, and the exact order that broke testReach under
+        `make test`: the same model instantiated before and after an unrelated
+        IPv4 model must encode to the same variable set. """
+        baseline = EncodingIsolationTest._reach_variables()
+
+        config = EncodingIsolationTest._ipv4_model()
+        Instantiator.InstantiateBase(config)
+
+        after = EncodingIsolationTest._reach_variables()
+        leaked = sorted(after - baseline)
+        self.assertEqual(
+            after, baseline,
+            "an unrelated model's variables leaked into this encoding: %s" % leaked)

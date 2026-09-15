@@ -7,7 +7,8 @@ import os
 
 from core.instantiatortest import (
     InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest,
-    RuleOrderSemanticsTest, TerminalConditionTest, ClearedFieldTest)
+    RuleOrderSemanticsTest, TerminalConditionTest, ClearedFieldTest,
+    EncodingIsolationTest)
 
 class InstantiatorSuite(TestSuite):
     def addTests(self):
@@ -98,6 +99,16 @@ class InstantiatorSuite(TestSuite):
             'testClearingOneFieldLeavesAnotherFramed',
         ]
         self._suite.addTests(map(ClearedFieldTest,tests))
+
+        # _GetVariables' mutable default: one model's variables leaking into
+        # the next model's encoding. This is what made testReach/testCycle/
+        # testShadow/testCross order-dependent. Same MANUAL registry caveat.
+        tests = [
+            'testGetVariablesDoesNotAccumulateAcrossCalls',
+            'testTheDefaultIsNotASharedMutableObject',
+            'testAModelsEncodingDoesNotInheritAnotherModelsVariables',
+        ]
+        self._suite.addTests(map(EncodingIsolationTest,tests))
 
 
     def run(self):
