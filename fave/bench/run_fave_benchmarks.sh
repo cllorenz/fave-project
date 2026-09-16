@@ -19,6 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 function check_integrity {
   # first run, there is no previous data
   [ "$(ls -A $LAST_NP)" ] && return 0
@@ -56,7 +63,7 @@ for i in $(seq 1 $RUNS); do
   SOUT=$RAW_DIR/stdout.log
   SERR=$RAW_DIR/stderr.log
   echo -n "run benchmark $i: $BENCH... "
-  python3 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
+  "$PYTHON" $BENCH $OPTS $RULESET > $SOUT 2> $SERR
   echo "done"
 
   sleep 1
@@ -76,7 +83,7 @@ echo -n "run netplumber directly for $BENCH ..."
 BENCHDIR=$(dirname $BENCH)
 NPCCHECKS=$BENCHDIR/np_cchecks.json
 mv $LAST_NP/* np_dump
-python3 misc/fave_cchecks_to_np_cchecks.py $BENCHDIR/cchecks.json np_dump/fave.json $NPCCHECKS
+"$PYTHON" misc/fave_cchecks_to_np_cchecks.py $BENCHDIR/cchecks.json np_dump/fave.json $NPCCHECKS
 HDR_LEN=$(grep "length" np_dump/fave.json | tr -d ' ,' | cut -d: -f2 | awk '{ print $1/8; }')
 for i in $(seq 1 $RUNS); do
   RAW_DIR=$RDIR/np/$i.raw

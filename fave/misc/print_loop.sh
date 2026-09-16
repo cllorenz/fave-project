@@ -19,11 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 export PYTHONPATH=.
 while read line; do
     if [[ $line =~ ^\@.* ]]; then
-        python3 misc/rule_print.py np_dump/fave.json <(echo "$line")
+        "$PYTHON" misc/rule_print.py np_dump/fave.json <(echo "$line")
     else
-        python3 misc/hs_print.py np_dump/fave.json <(echo "$line")
+        "$PYTHON" misc/hs_print.py np_dump/fave.json <(echo "$line")
     fi
 done <$1

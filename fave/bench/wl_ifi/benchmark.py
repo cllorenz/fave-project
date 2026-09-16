@@ -25,7 +25,7 @@
 import os
 import logging
 
-from bench.generic_benchmark import GenericBenchmark
+from bench.generic_benchmark import GenericBenchmark, PYTHON
 
 
 class IFIBenchmark(GenericBenchmark):
@@ -33,7 +33,7 @@ class IFIBenchmark(GenericBenchmark):
     """
 
     def _pre_preparation(self):
-        os.system("python3 bench/wl_ifi/cisco_to_inventory.py")
+        os.system("%s bench/wl_ifi/cisco_to_inventory.py" % PYTHON)
 
 
 

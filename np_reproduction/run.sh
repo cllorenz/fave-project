@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 BENCH=$1
 
 LOG=stdout.log
@@ -57,13 +64,13 @@ python2 $JSON_GENERATOR \
 cat $JSON_LOG >> $LOG
 
 echo "generate policy"
-python3 create_policy.py $VANILLA_DIR >> $LOG
+"$PYTHON" create_policy.py $VANILLA_DIR >> $LOG
 
 echo "rename tfs"
 bash rename_workload.sh $VANILLA_DIR
 
 echo "transform to favenp workload"
-python3 transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
+"$PYTHON" transform.py $VANILLA_DIR $FAVENP_DIR >> $LOG
 
 echo "run vanillanp on vanilla workload"
 $HASSEL_DIR/net_plumber/Ubuntu-NetPlumber-Release/net_plumber \
@@ -94,7 +101,7 @@ echo "init: "$(echo $LOAD_FAVENP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_FAVENP s"
 
 echo "compare results"
-python3 analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
+"$PYTHON" analyze_output.py $BENCH $VANILLA_LOG $FAVENP_LOG
 
 echo "run favenp on favenp dump"
 net_plumber \
@@ -111,7 +118,7 @@ echo "init: "$(echo $LOAD_DUMP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_DUMP s"
 
 echo "compare results"
-python3 analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
+"$PYTHON" analyze_output.py $BENCH $FAVENP_LOG $DUMP_LOG
 
 FAVE_DIR=$BENCH"_json_fave"
 cp -r $FAVENP_DIR $FAVE_DIR
@@ -126,7 +133,7 @@ echo "run fave on favenp workload"
 
 cd ../fave
 
-PYTHONPATH=. python3 bench/wl_$BENCH/benchmark.py > $FAVE_LOG
+PYTHONPATH=. "$PYTHON" bench/wl_$BENCH/benchmark.py > $FAVE_LOG
 cat $FAVE_LOG >> $LOG
 
 FAVE_INIT=`grep "seconds" /dev/shm/np/aggregator.log | grep -v "dump\|stop" | \
@@ -186,4 +193,4 @@ echo "init: "$(echo $LOAD_FAVE_DUMP | awk '{ print $1 / 1000000.0; }')" s"
 echo "reach: $POLICY_FAVE_DUMP s"
 
 echo "compare results"
-python3 analyze_output.py $BENCH $FAVENP_LOG $FAVE_DUMP_LOG
+"$PYTHON" analyze_output.py $BENCH $FAVENP_LOG $FAVE_DUMP_LOG

@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 RSPATH="bench/up"
 
 DMZ="file \
@@ -92,7 +99,7 @@ for SUBNET in $SUBNETS; do
 done
 
 export PYTHONPATH=.
-python3 $RSPATH/gen_large.py
+"$PYTHON" $RSPATH/gen_large.py
 
 ANOMALIES="end_to_end"
 
@@ -114,7 +121,7 @@ while getopts "ha:" o; do
     esac
 done
 
-python3 main.py \
+"$PYTHON" main.py \
     --no-active-interfaces \
     --network bench/up/large.xml \
     --rulesets $RULESETS \

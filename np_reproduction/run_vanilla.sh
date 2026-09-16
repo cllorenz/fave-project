@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 RUNS=10
 BENCH=$1
 RESULTS=$2
 
 BDIR=$BENCH"_json_vanilla"
 export PYTHONIOENCODING=utf8
-HDR_LEN=$(cat $BDIR/config.json | python3 -c "import sys, json; print(json.load(sys.stdin)['length'])")
+HDR_LEN=$(cat $BDIR/config.json | "$PYTHON" -c "import sys, json; print(json.load(sys.stdin)['length'])")
 
 mkdir -p $RESULTS/$BENCH
 

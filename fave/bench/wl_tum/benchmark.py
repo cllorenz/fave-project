@@ -11,7 +11,7 @@ import logging
 
 from util.bench_utils import create_topology, add_rulesets, add_routes, add_policies, add_sources
 
-from bench.generic_benchmark import GenericBenchmark
+from bench.generic_benchmark import GenericBenchmark, PYTHON
 
 class TUMBenchmark(GenericBenchmark):
     """ This class provides the TUM benchmark.
@@ -33,7 +33,7 @@ class TUMBenchmark(GenericBenchmark):
 
     def _compliance(self):
         self.logger.info("wait for fave")
-        os.system("python3 misc/await_fave.py")
+        os.system("%s misc/await_fave.py" % PYTHON)
         self.logger.info("fave stopped successfully")
 
 

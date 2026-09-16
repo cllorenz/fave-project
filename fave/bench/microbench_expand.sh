@@ -20,6 +20,13 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 RUNS=10
 RESULTS=results/mb_expand
 mkdir -p $RESULTS
@@ -29,7 +36,7 @@ export PYTHONPATH=.
 
 for count in 10 100 1000 10000 20000 30000 40000 50000 60000; do
 	for i in $(seq 1 $RUNS); do
-		python3 bench/wl_expand/benchmark.py -v -c $count
+		"$PYTHON" bench/wl_expand/benchmark.py -v -c $count
 		cp /dev/shm/np/rpc.log $RESULTS/$count.$i.rpc.log
 	done
 done

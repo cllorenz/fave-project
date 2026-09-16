@@ -46,7 +46,14 @@ fi
 
 # pybind11 include: prefer the python module, fall back to the system headers
 # (pybind11-dev installs /usr/include/pybind11).
-PYBIND_INC="$(python3 -c 'import pybind11; print("-I"+pybind11.get_include())' 2>/dev/null || true)"
+# pybind11 is a pip package, so it may exist ONLY in the project venv -- with a
+# bare `python3` the import silently fails and the build falls through to the
+# system headers, which is a different (possibly absent, possibly mismatched)
+# pybind11. `python3-config` below stays bare on purpose: it reports the C ABI of
+# the base interpreter, which a venv shares, and a venv has no python3-config of
+# its own.
+PYTHON="${PYTHON:-python3}"
+PYBIND_INC="$("$PYTHON" -c 'import pybind11; print("-I"+pybind11.get_include())' 2>/dev/null || true)"
 if [ -z "$PYBIND_INC" ] && [ -d /usr/include/pybind11 ]; then
     PYBIND_INC="-I/usr/include"
 fi

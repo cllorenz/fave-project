@@ -30,7 +30,7 @@ import time
 import json
 
 
-from bench.generic_benchmark import GenericBenchmark
+from bench.generic_benchmark import GenericBenchmark, PYTHON
 
 
 class ShadowingBenchmark(GenericBenchmark):
@@ -39,8 +39,8 @@ class ShadowingBenchmark(GenericBenchmark):
 
 
     def _post_preparation(self):
-        os.system("python3 bench/wl_shadow/topogen.py %s %s" % (
-            self.ip, self.files['shadow_ruleset']
+        os.system("%s bench/wl_shadow/topogen.py %s %s" % (
+            PYTHON, self.ip, self.files['shadow_ruleset']
         ))
 
 

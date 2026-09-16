@@ -72,6 +72,10 @@ if [ $? -eq 0 ]; then
     sudo apt-get $APT_CONFS install libcppunit-1.15-0
     sudo apt-get $APT_CONFS install libcppunit-dev
 
+    # DELIBERATELY a bare `python3`, and the one exception to the
+    # `PYTHON="${PYTHON:-python3}"` rule every other script in this repo follows:
+    # this line CREATES the venv, so it must run the system interpreter. Honouring
+    # $PYTHON here would let an already-resolved venv build a venv of itself.
     python3 -m venv ~/.venv
     export PATH="~/.venv/bin:$PATH"
 

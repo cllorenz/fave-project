@@ -19,6 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 RUNS=10
 RES_SHADOW=$(pwd)/results/shadow
 #rm -rf $RES_SHADOW/*
@@ -36,7 +43,7 @@ for fw in $FWS; do
         mkdir -p $RES_RUN
 	for r in $(seq 1 $RUNS); do
 #            echo $RES_RUN/$r/$fw"_"$c".fw"
-            python3 bench/wl_shadow/benchmark.py -u -r bench/wl_shadow/rulesets/$fw"_"$c".fw"
+            "$PYTHON" bench/wl_shadow/benchmark.py -u -r bench/wl_shadow/rulesets/$fw"_"$c".fw"
             cp /dev/shm/np/aggregator.log $RES_RUN/$r"_fave.log"
             cp /dev/shm/np/rpc.log $RES_RUN/$r"_np.log"
         done

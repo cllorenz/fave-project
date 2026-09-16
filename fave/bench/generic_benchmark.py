@@ -46,6 +46,9 @@ def _unpack(topo):
 # The interpreter THIS process is running under, quoted for the shell -- never a
 # bare "python3".
 #
+# Imported by the workload benchmarks too (wl_ifi/wl_tum/wl_shadow/wl_expand/
+# wl_state_snapshots), which spawn their own sub-steps the same way.
+#
 # Every sub-step below is spawned through os.system(), so a bare "python3" is
 # whatever PATH resolves first, which in a container whose venv is not activated
 # is the SYSTEM interpreter with none of FaVe's dependencies. The failure that
@@ -54,7 +57,7 @@ def _unpack(topo):
 # reach FaVe, and every flow check fails as though the MODEL were wrong (the same
 # shape as the net_plumber-not-on-PATH bug, see test.sh's resolve_net_plumber).
 # sys.executable is exact by construction and needs no environment plumbing.
-_PYTHON = shlex.quote(sys.executable)
+PYTHON = shlex.quote(sys.executable)
 
 
 def _exit_code(status):
@@ -157,7 +160,7 @@ class GenericBenchmark(object):
     def _generate_policy_matrix(self):
         self.logger.info("generate policy matrix...")
         os.system(
-            "%s ../policy_translator/policy_translator.py " % _PYTHON + ' '.join(
+            "%s ../policy_translator/policy_translator.py " % PYTHON + ' '.join(
                 (["--strict"] if self.strict else []) +
                 (["--no-internet"] if not self.use_internet else []) +
                 (
@@ -177,7 +180,7 @@ class GenericBenchmark(object):
     def _convert_policy_to_checks(self):
         self.logger.info("convert policy matrix to checks...")
         os.system(
-            "%s bench/reach_csv_to_checks.py " % _PYTHON + ' '.join(
+            "%s bench/reach_csv_to_checks.py " % PYTHON + ' '.join(
                 (['-s', self.suffix] if self.suffix else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
@@ -196,15 +199,15 @@ class GenericBenchmark(object):
         self._generate_policy_matrix()
 
         self.logger.info("generate inventory...")
-        os.system("%s %s/inventorygen.py" % (_PYTHON, self.prefix))
+        os.system("%s %s/inventorygen.py" % (PYTHON, self.prefix))
         self.logger.info("generated inventory.")
 
         self._convert_policy_to_checks()
 
         self.logger.info("generate topology, routes, and probes...")
-        os.system("%s %s/topogen.py" % (_PYTHON, self.prefix))
-        os.system("%s %s/routegen.py" % (_PYTHON, self.prefix))
-        os.system("%s %s/policygen.py" % (_PYTHON, self.prefix))
+        os.system("%s %s/topogen.py" % (PYTHON, self.prefix))
+        os.system("%s %s/routegen.py" % (PYTHON, self.prefix))
+        os.system("%s %s/policygen.py" % (PYTHON, self.prefix))
         self.logger.info("generated topology, routes, and probes.")
 
 
@@ -292,7 +295,7 @@ class GenericBenchmark(object):
 
     def _wait_for_fave(self):
         self.logger.info("wait for fave")
-        os.system("%s misc/await_fave.py" % _PYTHON)
+        os.system("%s misc/await_fave.py" % PYTHON)
 
 
     def _compliance(self):
@@ -301,7 +304,7 @@ class GenericBenchmark(object):
 #            self.files['checks'], self.threads, "np_dump"
 #        ))
         os.system("%s bench/compliance_checker.py %s %s" % (
-            _PYTHON,
+            PYTHON,
             "-u" if self.use_unix else "",
             self.files['checks']
         ))
@@ -344,7 +347,7 @@ class GenericBenchmark(object):
         # the open decision in TODO.md item 1n, not something to settle here.
         steps = (
             ("report.md", "%s reporting/report.py %s" % (
-                _PYTHON, "-u" if self.use_unix else ""
+                PYTHON, "-u" if self.use_unix else ""
             )),
             ("report.pdf", "pandoc report.md -o report.pdf"),
         )

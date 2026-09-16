@@ -11,6 +11,7 @@ import sys
 
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
+from bench.generic_benchmark import PYTHON
 from util.bench_utils import create_topology
 from devices.switch import SwitchCommand
 from rule.rule_model import Rule, Match, RuleField, Forward
@@ -144,7 +145,7 @@ def main(argv):
     dumper.main(["-u"] if use_unix else [])
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
-    os.system("python3 misc/await_fave.py")
+    os.system("%s misc/await_fave.py" % PYTHON)
 
     os.system("rm -f np_dump/.lock")
     if verbose: print("Benchmark finished")

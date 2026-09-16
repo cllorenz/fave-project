@@ -10,6 +10,7 @@ import time
 import argparse
 import sys
 
+from bench.generic_benchmark import PYTHON
 from util.model_util import TABLE_MAX
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.aggregator_utils import FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT, FAVE_DEFAULT_UNIX
@@ -192,7 +193,7 @@ if __name__ == '__main__':
 
     os.system("bash scripts/stop_fave.sh %s" % ("-u" if use_unix else ""))
     t_start = time.time()
-    os.system("python3 misc/await_fave.py")
+    os.system("%s misc/await_fave.py" % PYTHON)
     t_end = time.time()
 
     os.system("rm -f np_dump/.lock")

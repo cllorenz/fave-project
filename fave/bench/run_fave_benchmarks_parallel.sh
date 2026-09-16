@@ -19,6 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 function check_integrity {
   # first run, there is no previous data
   [ "$(ls -A $LAST_NP)" ] && return 0
@@ -59,7 +66,7 @@ for threads in 24 16 8 4 2 1; do
     SERR=$RAW_DIR/stderr.log
     echo -n "run benchmark $i: $BENCH with $threads threads... "
     OPTS="$threads"
-    python3 $BENCH $OPTS $RULESET > $SOUT 2> $SERR
+    "$PYTHON" $BENCH $OPTS $RULESET > $SOUT 2> $SERR
     echo "done"
   
     sleep 1

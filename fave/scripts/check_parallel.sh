@@ -20,13 +20,20 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 
+# The interpreter to run this project's Python with. A bare `python3` is whatever
+# PATH resolves first, which in a container whose venv is not activated is the
+# SYSTEM interpreter, with none of the dependencies -- see resolve_python.sh.
+# `./test.sh` exports the interpreter it resolved; standalone callers keep the
+# old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 CHECKS=$1
 THREADS=$2
 
 DUMP=$3
 
 for i in $(seq 0 $((THREADS-1))); do
-     python3 test/check_flows.py -b -r -t "$i:$THREADS" -f "$CHECKS" -d $DUMP &
+     "$PYTHON" test/check_flows.py -b -r -t "$i:$THREADS" -f "$CHECKS" -d $DUMP &
      pids[${i}]=$!
 done
 
