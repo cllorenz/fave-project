@@ -79,6 +79,24 @@ resolve_python() {
     done
     return 0
 }
+
+# scripts/start_np.sh invokes a BARE `net_plumber`, so the binary has to be on
+# PATH -- `make -C net_plumber/build install` is what normally puts it there.
+# A sandbox that resets system state keeps the build directory (it lives in the
+# repo) but loses /usr/local/bin, so the binary is present and unreachable at
+# the same time. The failure that produces is maximally misleading: start_np.sh
+# backgrounds the process and reports "ok" regardless, the aggregator then
+# cannot reach NetPlumber on 44001, and every flow check fails as though the
+# MODEL were wrong. Falling back to the in-repo build costs nothing when the
+# binary is properly installed (PATH wins) and needs no root when it is not.
+resolve_net_plumber() {
+    command -v net_plumber >/dev/null 2>&1 && return 0
+    [ -x "$ROOT/net_plumber/build/net_plumber" ] || return 0
+    PATH="$ROOT/net_plumber/build:$PATH"
+    export PATH
+    NET_PLUMBER_FROM_BUILD_DIR=1
+    return 0
+}
 COVERAGE="${COVERAGE:-0}"
 
 # FaVe test modules that are NOT pure-Python and so are excluded from `fast`.
@@ -364,11 +382,25 @@ run_doctor() {
     done < <(grep -oP 'apt-get \$APT_CONFS install \K[a-z0-9.+-]+' "$ROOT/Dockerfile" | sort -u)
 
     echo "== env doctor: native artifacts =="
-    if [ -x "$ROOT/net_plumber/build/net_plumber" ]; then
-        printf '  [ok]      %-30s\n' "net_plumber binary"
+    # Check RESOLVABILITY, not just existence. Checking only the build artifact
+    # reported [ok] -- and "environment complete for every tier" -- while the
+    # smoke tier could not start NetPlumber at all, because start_np.sh invokes
+    # a bare `net_plumber` and nothing had put it on PATH. A doctor that
+    # validates something other than what the scripts use is worse than no
+    # doctor: it actively certifies a broken environment.
+    if command -v net_plumber >/dev/null 2>&1; then
+        if [ -n "${NET_PLUMBER_FROM_BUILD_DIR:-}" ]; then
+            printf '  [ok]      %-30s %s\n' "net_plumber binary" \
+                "(from net_plumber/build; not installed on PATH)"
+        else
+            printf '  [ok]      %-30s\n' "net_plumber binary"
+        fi
     else
+        # No "built but unreachable" branch: resolve_net_plumber has already
+        # prepended the build directory, so reaching here means the binary is
+        # genuinely absent (or not executable), not merely uninstalled.
         printf '  [MISSING] %-30s %s\n' "net_plumber binary" \
-            "-> make -C net_plumber/build all   [integration/e2e/bench]"
+            "-> make -C net_plumber/build all && make -C net_plumber/build install   [smoke/integration/e2e/bench]"
         rc=1
     fi
     if compgen -G "$ROOT/net_plumber/python/libnetplumber*.so" >/dev/null; then
@@ -438,6 +470,7 @@ run_doctor() {
 tier="${1:-}"
 rc=0
 resolve_python
+resolve_net_plumber
 case "$tier" in
     fast)        run_fast || rc=1 ;;
     smoke)       run_smoke || rc=1 ;;
