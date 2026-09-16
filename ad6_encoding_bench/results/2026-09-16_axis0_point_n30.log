@@ -1,0 +1,12 @@
+n_routers=30 R/hop=200  24282 vars, 63284 clauses  (5 repeats)
+  minisat (2010, ad6-native)           median 0.0648s  min 0.0646s  max 0.0654s
+  clasp (2012, ad6-native)             median 0.0648s  min 0.0647s  max 0.0654s
+  cadical (2023, modern CDCL)          median 0.0330s  min 0.0325s  max 0.0652s
+  cryptominisat5 (2023, modern CDCL)   median 0.0324s  min 0.0321s  max 0.0329s
+
+n_routers=30 R/hop=400  48282 vars, 126164 clauses  (5 repeats)
+  minisat (2010, ad6-native)           median 0.1147s  min 0.1144s  max 0.1163s
+  clasp (2012, ad6-native)             median 0.1156s  min 0.1148s  max 0.1159s
+  cadical (2023, modern CDCL)          median 0.0651s  min 0.0645s  max 0.0661s
+  cryptominisat5 (2023, modern CDCL)   median 0.0647s  min 0.0644s  max 0.0654s
+

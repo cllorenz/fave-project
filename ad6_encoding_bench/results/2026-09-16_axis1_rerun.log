@@ -1,0 +1,17 @@
+equisatisfiability check on largest captured formula: naive=True tseitin=True -> MATCH
+
+n_routers=5 distractors_per_router=10 -> 178 ConvertToCNF call sites captured
+  naive  (ad6's own):  total_time=0.0426s  total_clauses=1158
+  tseitin (standard):  total_time=0.0047s  total_clauses=3987
+n_routers=5 distractors_per_router=50 -> 778 ConvertToCNF call sites captured
+  naive  (ad6's own):  total_time=0.1697s  total_clauses=4338
+  tseitin (standard):  total_time=0.0155s  total_clauses=16367
+n_routers=5 distractors_per_router=100 -> 1528 ConvertToCNF call sites captured
+  naive  (ad6's own):  total_time=0.3217s  total_clauses=8458
+  tseitin (standard):  total_time=0.0366s  total_clauses=31987
+n_routers=5 distractors_per_router=200 -> 3028 ConvertToCNF call sites captured
+  naive  (ad6's own):  total_time=0.6593s  total_clauses=16698
+  tseitin (standard):  total_time=0.0832s  total_clauses=63227
+n_routers=5 distractors_per_router=400 -> 6028 ConvertToCNF call sites captured
+  naive  (ad6's own):  total_time=1.5049s  total_clauses=33178
+  tseitin (standard):  total_time=0.1341s  total_clauses=125707

@@ -333,6 +333,43 @@ regime it was assumed to be safe in." Whether this generalizes to real benchmark
 dominate over Factor B (per-query build cost) — is not yet tested; that's the natural next
 step once this preliminary read is reviewed.
 
+### 3.1a Axes 0 and 1 re-run (2026-09-16): both reproduce, and they measure the machine
+
+`cadical` and `cryptominisat5` had been lost from the sandbox (apt state resets, the venv
+survives — `AD6_PLAN.md` §9.23.5's own lesson about environments that look complete). Axis 0
+needs them for its whole point and Axis 1 for its equisatisfiability self-check, so both had
+been unrunnable. Reinstalled (`cadical` 1.7.4, `cryptominisat` 5.11.15 — the versions §3
+already pins) and re-run.
+
+**Axis 1 reproduces the encoding EXACTLY.** Every clause count is identical to §3.1's table
+to the digit — 1,158/3,987 at R=10, 8,458/31,987 at R=100, 33,178/125,707 at R=400 (Tseitin
+3.79× more clauses, the "~3.8×"). The equisatisfiability self-check, the part that needed
+`cadical`, **passes**: `naive=True tseitin=True -> MATCH`. Conversion times are lower across
+the board (naive 2.807s → **1.505s** at R=400; Tseitin 0.177s → **0.134s**), so the headline
+ratio reads ~11× here rather than §3.1's ~16× — same sharp signal, same direction, same
+conclusion; the exact multiple is not a stable quantity across machines.
+
+**Axis 0 reproduces too, and sharpens slightly**: at §3.1's own point (n_routers=30,
+R=200/hop) the instance is 24,282 vars / 63,284 clauses — matching "~24k vars, 63k clauses"
+exactly — and medians over 5 repeats are minisat 0.0648s, clasp 0.0648s, **cadical 0.0330s,
+cryptominisat5 0.0324s**: a **~2.0×** modern-engine win where §3.1 measured ~1.7×, with
+everything still far sub-second. At R=400 (48,282 vars / 126,164 clauses) it is 0.115s /
+0.116s vs 0.065s / 0.065s — 1.77×. §3.1's reading stands: a real but modest constant-factor
+effect, not a search-algorithm rescue.
+
+**A usability trap worth recording**: `axis0_solver_swap.py`'s own `main()` sweeps N at a
+fixed **R=10**/hop, where every solver lands at 4–19 ms — process startup, not solving, and
+no signal at all. §3.1's result comes from calling `run(n_routers=30, distractors_per_router=200)`
+directly. Running the script as documented does not reproduce the section it supports.
+
+**And the one genuinely new fact: this sandbox is ~1.8–2.0× faster than the machine behind
+the 2026-08-24/25 numbers.** Axis 1 is an unusually clean instrument for that, because its
+clause counts are byte-identical across the two runs — the *work* is provably the same, so
+the time difference is the machine: 2.807s → 1.505s = **1.87×**. Axis 0 agrees independently
+on identical DIMACS (1.77× minisat, 2.04× cadical at R=200). §3.9a's environment caveat said
+absolute times "move in both directions" and read that as noise; with the factor actually
+measured, the correct reading is stated there instead.
+
 ### 3.2 Axis 3 (2026-08-25): array/UF/quantified FIB modeling — CONFIRMED, a genuine
 structural win, not just mature tooling — with an important scope caveat
 
@@ -842,9 +879,30 @@ PySAT-incremental — this time on genuinely conditioned stateful queries.
 **Environment caveat, stated rather than hidden.** These re-runs are on a rebuilt
 sandbox with `z3-solver` freshly installed at **5.1.0**; the version behind the original
 numbers was never recorded. Absolute times therefore are not comparable across runs, and
-indeed move in *both* directions (Axis 6 ~1.8× faster, Axes 6b/7 ~20–50% slower) — which
-is itself the evidence that the spread is environment and sample composition, not the
-condition fix. What is comparable is each run's internal ratios, and those are unchanged.
+move in *both* directions (Axis 6 ~1.8× faster, Axes 6b/7 ~20–50% slower). What is
+comparable is each run's internal ratios, and those are unchanged.
+
+**Corrected 2026-09-16 (see §3.1a).** I first read that two-directional spread as evidence
+that the whole difference was environment noise. It is not, and the correction is worth
+more than the original claim. Axis 1's re-run produces **byte-identical clause counts** to
+§3.1's, so its conversion time measures the machine rather than the work: this sandbox is
+**~1.87× faster** than the one behind the 2026-08-25 numbers (Axis 0 agrees independently,
+1.77–2.04× on identical DIMACS). Remove that factor and the three axes stop pointing in
+opposite directions:
+
+| | wall-clock vs published | machine-adjusted |
+|---|---|---|
+| Axis 6 | 1.82× faster | ~1.0× — the condition fix is free here |
+| Axis 6b | 1.33× slower | **~2.5× slower** |
+| Axis 7 | 1.24× slower | **~2.3× slower** |
+
+So enforcing the conditions genuinely costs more on the two larger axes — plausibly because
+the `related:0` half turns UNSAT once forced, and refuting is not free. Two honest limits on
+that reading: it is an adjustment by a factor measured on a different workload, not a
+controlled re-measurement on the original machine; and §3.8 had already flagged §3.7's own
+ad6-real baseline (1.363s/query against a documented ~0.5s/query) as inflated by its small
+front-loaded sample, which is a separate confound in the Axis 6 row. None of this touches
+the conclusions — the incremental-vs-ad6-real ratios are internal to each run.
 
 ### 3.10 Axis 8 (2026-08-25/27): the incremental lever against the REAL Stanford
 differential — RESCUES the B1 wall-clock NO-GO for the tested primitive

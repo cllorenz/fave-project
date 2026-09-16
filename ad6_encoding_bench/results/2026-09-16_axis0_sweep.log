@@ -1,0 +1,6 @@
+   N  R/hop    #vars  #clauses   minisat (2010, ad6-native)     clasp (2012, ad6-native)  cadical (2023, modern CDCL) cryptominisat5 (2023, modern CDCL)
+   4     10      312       682                      0.0039s                      0.0038s                      0.0041s                      0.0037s
+   8     10      492      1230                      0.0037s                      0.0037s                      0.0039s                      0.0081s
+  16     10      852      2326                      0.0082s                      0.0038s                      0.0037s                      0.0036s
+  20     10     1032      2874                      0.0187s                      0.0081s                      0.0083s                      0.0080s
+  40     10     1932      5614                      0.0161s                      0.0083s                      0.0081s                      0.0082s

@@ -152,7 +152,18 @@ matching on every pairing). Numbers and the environment caveat — rebuilt sandb
 `z3-solver` reinstalled at 5.1.0, original version never recorded — in
 `AD6_ENCODING_PLAN.md` §3.9a.
 
-**Sandbox note (2026-09-16):** `minisat`, `clasp` and `z3-solver` are present; `cadical` and
-`cryptominisat5` are **not** — Axis 0's modern-CDCL comparison and Axis 1's
-equisatisfiability self-check need them (`apt-get install cadical cryptominisat`). Axes 2–8
-do not.
+**Axes 0 and 1 re-run 2026-09-16 — both reproduce.** `cadical`/`cryptominisat5` had been
+lost from the sandbox (apt state resets, the venv survives), which left Axis 0 pointless and
+Axis 1's equisatisfiability self-check unrunnable; reinstalled, both re-run. Axis 1's clause
+counts are **identical to the published table to the digit** and the self-check passes; Axis
+0 gives a **~2.0×** modern-engine win at the published point (§3.1 measured ~1.7×), still far
+sub-second. Because Axis 1's work is provably identical across the two runs, its time
+difference measures the machine: **this sandbox is ~1.87× faster** than the one behind the
+2026-08 numbers — which is what corrects §3.9a's reading of the Axis 6/6b/7 spread. See
+`AD6_ENCODING_PLAN.md` §3.1a.
+
+**Trap in `axis0_solver_swap.py`:** its `main()` sweeps N at a fixed **R=10**/hop, where every
+solver finishes in 4–19 ms — that is process startup, not solving, and it shows no difference
+between engines at all. §3.1's result comes from `run(n_routers=30, distractors_per_router=200)`
+called directly. Running the script as its own usage line documents does **not** reproduce the
+section it supports.
