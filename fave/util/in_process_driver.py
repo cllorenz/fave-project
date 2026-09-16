@@ -36,10 +36,14 @@ It is the substrate for the FaVe+APKeep vs FaVe+NetPlumber comparison
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 import threading
 
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
+
+from util import barrier
 
 _BENCH_FILES = (
     ("topology", "topology.json"),
@@ -73,6 +77,14 @@ class InProcessFaVe:
             {}, {}, mapping=None, engine=engine, reporter=reporter
         )
         self.engine = engine
+
+        # Barriers in a private directory, so a harness instance never sees
+        # another one's (or a live aggregator's) state under /dev/shm/np. We
+        # are both the client and the releaser here, so this process publishes
+        # itself as the owner `barrier.wait` checks for liveness.
+        self._barrier_dir: Optional[str] = tempfile.mkdtemp(
+            prefix="fave_inproc_barrier_")
+        barrier.publish_owner(self._barrier_dir)
 
         self._patched: List[Any] = []
         self._install_transport()
@@ -146,9 +158,35 @@ class InProcessFaVe:
     def check_compliance(self, rules: Dict[str, List[Any]]) -> None:
         """ Issue a check_compliance command (same shape the live benchmark
         sends) and block until the engine has answered. rules maps a probe name
-        to a list of [source, negated, cond] entries. """
-        self._agg.queue.put(json.dumps({"type": "check_compliance", "rules": rules}))
+        to a list of [source, negated, cond] entries.
+
+        BARRIER-GUARDED, exactly as bench/compliance_checker.py's own
+        check_compliance is. Without the guard a backend that RAISED was
+        indistinguishable from one that found nothing: `AggregatorService`
+        catches every exception out of `_dispatch` and reports it through the
+        barrier, so with none armed the error was logged and this returned
+        normally, leaving the caller to read `get_compliance_results() == []`
+        as "zero violations". See test/test_in_process_driver.py for the full
+        rationale and AD6_PLAN.md §9.23 for the class of published-number bug
+        that shape produces.
+
+        Raises `util.barrier.BarrierError` carrying the engine's own message
+        if the check could not be answered.
+
+        NOTE the remaining gap: `replay()` above is NOT guarded -- its messages
+        are serialized by topology.py/switch.py and put straight onto the queue
+        by the patched transport, so guarding them means injecting a barrier
+        per message (thousands, on wl_up). A build failure there still only
+        reaches the log. Narrower in practice, because a model that failed to
+        build produces answers the assertions catch; worth closing separately.
+        """
+        guard = barrier.arm(self._barrier_dir)
+        self._agg.queue.put(json.dumps(
+            {"type": "check_compliance", "rules": rules, "barrier": guard}))
         self._agg.queue.join()
+        # `_handler` releases in a `finally` BEFORE its `task_done()`, so the
+        # join above already guarantees this resolves on the first poll.
+        barrier.wait(guard, directory=self._barrier_dir)
 
     # -- lifecycle ------------------------------------------------------------
 
@@ -157,6 +195,12 @@ class InProcessFaVe:
         self._agg.queue.put("")  # unblock the blocking queue.get()
         self._worker.join(timeout=10)
         self._restore_transport()
+        if self._barrier_dir is not None:
+            # Withdraw first: a waiter that somehow outlives us must read "no
+            # aggregator is registered" rather than poll a vanished directory.
+            barrier.withdraw_owner(self._barrier_dir)
+            shutil.rmtree(self._barrier_dir, ignore_errors=True)
+            self._barrier_dir = None
 
     def __enter__(self) -> "InProcessFaVe":
         return self
