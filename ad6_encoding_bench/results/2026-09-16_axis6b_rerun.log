@@ -1,0 +1,39 @@
+building real wl_up FaVe model...
+generators=137 probes=137 devices=159
+full real query set: 11902 total (3302 stateful, 8600 plain)
+
+ad6-real/Z3-fresh measurement sample: 300 queries (150 stateful)
+
+instantiating real ad6 Kripke/CNF model...
+build time: 7.48s, 5977 Kripke nodes
+
+-- ad6 real, measured sample (300 queries) --
+ad6 real: 300 queries in 240.63s (0.8021s/query), 0 escalated
+EXTRAPOLATED to full 11902: 9546.6s (159.1 min / 2.65 hr)
+
+capturing pre-CNF formula for Z3 conversion...
+captured in 8.37s
+XML->Z3 conversion: 7.37s
+
+building 300 Z3 assumption terms for the sample (Z3-fresh)...
+built in 1.62s
+
+-- Z3 fresh, measured sample --
+Z3 fresh: 300 queries in 90.13s (0.3004s/query)
+EXTRAPOLATED to full 11902: 3575.8s (59.6 min)
+
+-- correctness: ad6 real vs Z3 fresh on the sample --
+match: True
+
+-- Z3 incremental: ACTUALLY RUN on the FULL real query set (11902 queries) --
+built all 11902 assumption terms in 71.87s
+Z3 incremental FULL RUN: 11902 queries in 97.14s (1.6 min) -- 0.008162s/query average
+
+-- correctness: ad6 real (sample) vs Z3 incremental (same indices in full run) --
+match: True
+
+-- SUMMARY --
+total real queries: 11902 (3302 stateful, 8600 plain)
+ad6 real        (extrapolated from 300-sample):   9546.6s (2.65 hr)
+Z3 fresh        (extrapolated from 300-sample):   3575.8s (59.6 min)
+Z3 incremental  (MEASURED, full run):              97.1s (1.6 min)

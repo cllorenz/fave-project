@@ -1,0 +1,43 @@
+building real wl_up FaVe model...
+generators=137 probes=137 devices=159
+
+instantiating real ad6 Kripke/CNF model...
+build time: 9.71s, 5977 Kripke nodes
+sample: 300 queries (150 stateful)
+
+-- ad6 real (Instantiator.SolveAcyclicEndToEnd, actual production path) --aad6 real: 300 queries in 253.04s (0.8435s/query)
+
+building DIMACS bridge from the same base encoding...
+base: 15819 vars, 71631 clauses (0.40s)
+
+building per-query gates (assumptions + extra clauses)...
+built in 0.49s
+
+-- PySAT/Minisat22 FRESH (new solver + full base + this query's gate, per query) --
+PySAT fresh: 300 queries in 9.9195s (0.03307s/query)
+
+-- PySAT/Minisat22 INCREMENTAL (one persistent solver, native assumptions) --
+PySAT incremental: 300 queries in 0.1940s (0.00065s/query)
+
+-- correctness --
+ad6 real vs PySAT fresh:       match = True
+ad6 real vs PySAT incremental: match = True
+
+-- SUMMARY (n=300, 150 stateful) --
+ad6 real (CLI subprocess, current architecture):  253.035s  (0.84345s/query)
+PySAT/Minisat22 fresh (native lib, no reuse):        9.920s  (0.03307s/query)
+PySAT/Minisat22 incremental (native, reused):        0.194s  (0.00065s/query)
+
+-- PySAT/Minisat22 incremental: ACTUALLY RUN on the FULL real query set --
+full set: 11902 queries
+built all gates in 12.83s
+PySAT incremental FULL RUN: 11902 queries in 24.88s (0.4 min) -- 0.002090s/query average
+
+EXTRAPOLATED ad6-real for full 11902: 10038.7s (2.79 hr)
+
+# NOTE: the stray "a" before "ad6 real: 300 queries" is a leftover byte, not a typo in
+# the script. An earlier n=100 run of this axis was still writing to this same path when
+# the n=300 run truncated it (I killed the launcher subshell, not its python child), so
+# one byte of the old content survived at that offset. Everything above is the n=300
+# run's own output; the n=100 run's numbers were: ad6 real 90.94s (0.909s/q), PySAT fresh
+# 4.43s, PySAT incremental 0.173s, full 11,902 incremental 35.17s, both matches True.

@@ -137,3 +137,22 @@ Axis 6b's two Z3 full runs, though not a controlled engine-vs-engine comparison)
 **Bonus, separable finding**: switching from CLI-subprocess to a native library call
 *alone* (no incrementality at all) is already ~24× faster than ad6-real by itself — a
 smaller, easier win available independent of adopting full incremental solving.
+
+**Re-run 2026-09-16 — Axes 6 / 6b / 7, because their "stateful" queries were not
+stateful.** `cchecks.json` stores conditions as `"related:0"` *strings*; these axes passed
+them straight into `fave_bridge._state_literals`, which used to skip every non-dict. So the
+`<->>` forcing the Axis 6/6b/7 write-ups advertise never reached the solver — the same
+defect as `AD6_PLAN.md` §9.23.2a, found while closing it. `_cond_fields()` now converts at
+construction, and the bridge *refuses* a non-dict condition rather than dropping it. The
+condition genuinely bites: on Axis 6's own 50-query stateful sample (25 `related:0`, 25
+`related:1`), **25 of 50 ad6-real answers flip** — every `related:0` query goes reachable →
+unreachable. All three axes were re-run with the forcing applied; **every conclusion holds**
+(incremental-vs-ad6-real: Axis 6 77×→79×, Axis 6b ~100×→98×, Axis 7 ~488×→403×, correctness
+matching on every pairing). Numbers and the environment caveat — rebuilt sandbox,
+`z3-solver` reinstalled at 5.1.0, original version never recorded — in
+`AD6_ENCODING_PLAN.md` §3.9a.
+
+**Sandbox note (2026-09-16):** `minisat`, `clasp` and `z3-solver` are present; `cadical` and
+`cryptominisat5` are **not** — Axis 0's modern-CDCL comparison and Axis 1's
+equisatisfiability self-check need them (`apt-get install cadical cryptominisat`). Axes 2–8
+do not.

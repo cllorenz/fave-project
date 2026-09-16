@@ -630,6 +630,11 @@ a fair, representative comparison here.
 | Z3 fresh | 43.3s | 0.433s/query |
 | Z3 incremental | **1.78s** | **0.018s/query** |
 
+> **Partly superseded by §3.9a (2026-09-16).** This run's *stateful* queries were
+> solved **unconditioned** — `cchecks.json`'s `cond` strings never reached the solver.
+> Re-run with the `<->>` forcing actually applied: ratios unchanged, absolute times
+> differ, and 25 of 50 sampled stateful answers flip. See §3.9a.
+
 **~77× faster than ad6's real architecture, ~24× faster than a fresh-Z3-per-query
 control — on the real model, real rules, real stateful queries, no extrapolation.**
 Correctness: **exact match** with ad6 real across all 100 queries, plain and stateful
@@ -676,6 +681,11 @@ worth actually measuring rather than extrapolating, unlike the other two.
 | ad6 real | 180.7s (0.602s/query) | ~7,168s / **~2.0 hr** (extrapolated) |
 | Z3 fresh | 63.2s (0.211s/query) | ~2,506s / **~41.8 min** (extrapolated) |
 | Z3 incremental | — | **71.1s / ~1.2 min (MEASURED, full run)** |
+
+> **Partly superseded by §3.9a (2026-09-16).** This run's *stateful* queries were
+> solved **unconditioned** — `cchecks.json`'s `cond` strings never reached the solver.
+> Re-run with the `<->>` forcing actually applied: ratios unchanged, absolute times
+> differ, and 25 of 50 sampled stateful answers flip. See §3.9a.
 
 **Correctness, doubly checked**: ad6-real matches Z3-fresh exactly on the 300-query
 sample; ad6-real's sample also matches Z3-incremental's answers at the corresponding
@@ -755,6 +765,11 @@ stateful):
 | PySAT/Minisat22 fresh (native lib, no reuse) | 8.67s | 0.029s/query |
 | PySAT/Minisat22 incremental (native, reused) | **0.176s** | **0.00059s/query** |
 
+> **Partly superseded by §3.9a (2026-09-16).** This run's *stateful* queries were
+> solved **unconditioned** — `cchecks.json`'s `cond` strings never reached the solver.
+> Re-run with the `<->>` forcing actually applied: ratios unchanged, absolute times
+> differ, and 25 of 50 sampled stateful answers flip. See §3.9a.
+
 **Correctness**: both PySAT fresh and PySAT incremental match ad6-real exactly across
 all 300 queries.
 
@@ -786,6 +801,50 @@ this whole lever (§3.4–3.9) has been about.
 binding found within reasonable effort) not tested — only `minisat`, via PySAT, was;
 PySAT-vs-Z3 full-run timing difference (16.6s vs 71–102s) isn't a controlled comparison
 and shouldn't be read as one.
+
+### 3.9a Re-run (2026-09-16): §3.7–3.9's "stateful" half was solved UNCONDITIONED —
+corrected, and every conclusion survives
+
+**The defect.** `bench/wl_up/cchecks.json` stores a query's conditions as `"related:0"`
+**strings**; `axis6_wlup_real.py` and `axis6b_wlup_full_scale.py` passed them verbatim
+into `fave_bridge._state_literals`, which skipped every non-dict with a bare `continue`.
+`axis7_native_incremental.py` imports both builders and inherited it. So every query
+these three axes *counted* as stateful carried **no forced literal at all** — the
+`<->>` forcing §3.7 advertises never happened. Same root defect as `AD6_PLAN.md`
+§9.23.2a, found while closing it (§9.23.5a). Fixed at construction (`_cond_fields()`);
+the bridge now **refuses** a non-dict condition instead of dropping it, so this class of
+silent failure cannot recur here.
+
+**How much it mattered — measured, not argued.** On axis 6's own 50-query stateful
+sample (exactly 25 `related:0`, 25 `related:1`), ad6-real answers **25 of 50
+differently** once the condition is actually applied: every `related:0` query goes
+reachable → unreachable, the `related:1` half is unchanged. Unconditioned, all 50 are
+reachable. So the stateful half of §3.7/§3.8/§3.9 was answering a different question
+than its label claimed, and "exact match … plain and stateful alike" was agreement
+between two *unconditioned* populations.
+
+**Why the headline survives anyway.** ad6-real and every comparand (Z3 fresh, Z3
+incremental, PySAT fresh, PySAT incremental) went through the *same* no-op, so the
+comparison was fair — of the wrong workload. Re-run with the conditions genuinely
+applied, each axis lands in the same band:
+
+| | published | re-run (2026-09-16) |
+|---|---|---|
+| **Axis 6** (§3.7, n=100) — ad6 real / Z3 fresh / Z3 incr | 136.3s / 43.3s / 1.78s | 74.9s / 26.9s / 0.942s |
+| **Axis 6b** (§3.8, n=300 sample; incr on all 11,902) — ad6 real / Z3 fresh / Z3 incr full | 180.7s / 63.2s / 71.1s (and 101.6s) | 240.6s / 90.1s / 97.1s |
+| **Axis 7** (§3.9, n=300 sample; incr on all 11,902) — ad6 real / PySAT fresh / PySAT incr / incr full | 204.3s / 8.67s / 0.176s / 16.6s | 253.0s / 9.92s / 0.194s / 24.9s |
+
+Incremental-vs-ad6-real ratio: Axis 6 **77× → 79×**, Axis 6b **~100× → 98×**, Axis 7
+**~488× → 403×**. Still zero CEGAR escalations (Axes 6 and 6b). Correctness matched in
+every re-run — ad6-real vs Z3-fresh, vs Z3-incremental, vs PySAT-fresh, vs
+PySAT-incremental — this time on genuinely conditioned stateful queries.
+
+**Environment caveat, stated rather than hidden.** These re-runs are on a rebuilt
+sandbox with `z3-solver` freshly installed at **5.1.0**; the version behind the original
+numbers was never recorded. Absolute times therefore are not comparable across runs, and
+indeed move in *both* directions (Axis 6 ~1.8× faster, Axes 6b/7 ~20–50% slower) — which
+is itself the evidence that the spread is environment and sample composition, not the
+condition fix. What is comparable is each run's internal ratios, and those are unchanged.
 
 ### 3.10 Axis 8 (2026-08-25/27): the incremental lever against the REAL Stanford
 differential — RESCUES the B1 wall-clock NO-GO for the tested primitive

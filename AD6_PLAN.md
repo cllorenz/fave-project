@@ -5701,7 +5701,21 @@ requires rather than merely prefers.
 encoding cost and solve time, not reachability, so a missing handful of forced literals per
 query does not invalidate them the way it invalidated §9.23's correctness figures -- but any
 plain-vs-stateful *comparison* they draw was comparing two unconditioned populations, and
-should be re-run before being quoted. Logged, not done.
+should be re-run before being quoted.
+
+**DONE 2026-09-16 -- all three axes re-run; written up as `AD6_ENCODING_PLAN.md` §3.9a.**
+The condition does bite: on Axis 6's own 50-query stateful sample (exactly 25 `related:0`,
+25 `related:1`), ad6-real answers **25 of 50 differently** once the cond is applied -- every
+`related:0` query goes reachable -> unreachable, the `related:1` half unchanged; unconditioned,
+all 50 were reachable. That is the same mechanism §9.23.4 describes, reproduced independently
+in a harness that never intended to test it. The axes' *conclusions* survive, because ad6-real
+and every comparand went through the identical no-op -- a fair comparison of the wrong
+workload. Re-run with the forcing genuinely applied, the incremental-vs-ad6-real ratio holds
+in every case (Axis 6 77x -> 79x, Axis 6b ~100x -> 98x, Axis 7 ~488x -> 403x), correctness
+matches on every pairing, and absolute times move in BOTH directions (Axis 6 ~1.8x faster,
+Axes 6b/7 ~20-50% slower) -- environment and sample composition, not the fix. Caveat recorded
+there: rebuilt sandbox, `z3-solver` reinstalled at 5.1.0, original version never recorded, so
+only each run's internal ratios are comparable.
 
 This is now the FOURTH independent instance of the same defect (§9.23.2, §9.23.2a, and both
 axis scripts), all from the same root: `cchecks.json`'s on-disk format is not the format every

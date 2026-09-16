@@ -1,0 +1,9 @@
+stateful sample: 50
+with cond:    25 reachable of 50  (36.2s)
+without cond: 50 reachable of 50  (38.6s)
+answers that DIFFER: 25 of 50
+   ('source.print.api.uni-potsdam.de', 'probe.clients.api.uni-potsdam.de', [{'name': 'related', 'value': '0', 'negated': False}], False, True)
+   ('source.file.api.uni-potsdam.de', 'probe.clients.api.uni-potsdam.de', [{'name': 'related', 'value': '0', 'negated': False}], False, True)
+   ('source.web.api.uni-potsdam.de', 'probe.clients.api.uni-potsdam.de', [{'name': 'related', 'value': '0', 'negated': False}], False, True)
+   ('source.web.api.uni-potsdam.de', 'probe.clients.asta.uni-potsdam.de', [{'name': 'related', 'value': '0', 'negated': False}], False, True)
+   ('source.web.api.uni-potsdam.de', 'probe.clients.botanischer-garten-potsdam.de', [{'name': 'related', 'value': '0', 'negated': False}], False, True)

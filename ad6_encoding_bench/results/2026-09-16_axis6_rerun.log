@@ -1,0 +1,32 @@
+building real wl_up FaVe model (Ad6Adapter + InProcessFaVe)...
+generators=137 probes=137 devices=159
+
+instantiating real ad6 Kripke/CNF model (favemodel.instantiate_base)...
+build time: 7.85s, 5977 Kripke nodes
+
+sampling real bench/wl_up/cchecks.json (50 plain + 50 stateful requested)...
+got 50 plain, 50 stateful (of 3302 real stateful entries, related:0/1 mixed)
+
+-- ad6 real (Instantiator.SolveAcyclicEndToEnd, the actual production path) --
+ad6 real: 100 queries in 74.94s (0.7494s/query), 0 escalated to the CEGAR path
+
+capturing pre-CNF formula for the SAME real model (for Z3 conversion)...
+captured in 8.14s
+XML->Z3 conversion: 6.65s
+
+building 100 Z3 assumption terms...
+built in 0.45s
+
+-- Z3 fresh (no incremental reuse) --
+Z3 fresh: 100 queries in 26.8707s (0.26871s/query)
+
+-- Z3 incremental (one persistent solver) --
+Z3 incremental: 100 queries in 0.9424s (0.00942s/query)
+
+-- correctness: ad6 real vs. Z3 incremental --
+match: True
+
+-- summary --
+ad6 real:          74.935s  (0.74935s/query)
+Z3 fresh:          26.871s  (0.26871s/query)
+Z3 incremental:     0.942s  (0.00942s/query)
