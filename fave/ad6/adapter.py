@@ -33,7 +33,7 @@ check_compliance() translates it to ad6's config XML and drives
 `ad6/fave_bridge.py` as a subprocess to build the ad6 model and answer the
 queries.
 
-THE TRANSLATION IS STRUCTURAL, AND SINCE §9.3 PHASE 5 IT IS THE ONLY ONE.
+THE TRANSLATION IS LITERAL, AND SINCE §9.3 PHASE 5 IT IS THE ONLY ONE.
 A FaVe table becomes an ad6 table, a FaVe rule becomes an ad6 rule AT ITS OWN
 `idx`, a FaVe match field becomes an ad6 match, a FaVe action becomes an ad6
 action, a FaVe link becomes an ad6 connection. No device or table NAME is ever
@@ -48,7 +48,8 @@ The translation itself lives in `fave/ad6/translate.py`; this module buffers,
 serializes and drives the bridge.
 
 WHAT WAS DELETED HERE, AND WHERE TO FIND IT. Until Phase 5 this adapter also
-carried a SEMANTIC path that reconstructed meaning from FaVe's naming
+carried an INTERPRETED path (called 'semantic' at the time -- see §9.26 on why
+both names changed) that reconstructed meaning from FaVe's naming
 conventions (`in.`/`mid.`/`out.` stage prefixes, `.acl_in`/`.routing` table
 suffixes) into an IR of interpreted concepts, which `ad6/src/parser/favemodel.py`
 built from. Every measurement archived before Phase 5 came from it, and every
@@ -84,18 +85,30 @@ _VLAN = 'packet.ether.vlan'
 
 # AD6_PLAN.md §9: the model-construction path, kept as an explicit, stamped
 # field even though only one value is live -- a result file must say what
-# produced it, and 'structural' is what distinguishes a post-Phase-5 number
-# from an archived one stamped 'semantic'. This module imports nothing from
-# ad6/ or from translate.py at module scope, so the spelling is pinned by a
-# test (fave/test/test_ad6_translation_flag.py) rather than shared.
-TRANSLATION_STRUCTURAL = 'structural'
-TRANSLATIONS = (TRANSLATION_STRUCTURAL,)
+# produced it. This module imports nothing from ad6/ or from translate.py at
+# module scope, so the spelling is pinned by a test
+# (fave/test/test_ad6_translation_flag.py) rather than shared.
+#
+# RENAMED at §9.26, because the old pair misdescribed itself. The two paths
+# were called 'semantic' and 'structural', which reads as though one respected
+# meaning and the other only shape -- the opposite of the truth. 'semantic'
+# RECONSTRUCTED meaning the model never stated, by recognising device and table
+# NAMES; this one copies what FaVe actually wrote, rule for rule, and is the
+# more semantically faithful of the two. So: 'interpreted' and 'literal', which
+# each say in one word what the adapter READS.
+TRANSLATION_LITERAL = 'literal'
+TRANSLATIONS = (TRANSLATION_LITERAL,)
 
-# Deleted at §9.25. Named here so the refusal below can be specific: a caller
-# asking for it is asking for an encoding this tree no longer contains, and
-# the useful answer is which commit still has it -- not a silent fallback to a
-# different one.
-_TRANSLATION_DELETED = 'semantic'
+# Accepted, and normalised to 'literal'. Every result stamped by Phase 5a
+# carries the old spelling for the IDENTICAL encoding, so refusing it would
+# strand those numbers over a rename.
+_TRANSLATION_ALIASES = {'structural': TRANSLATION_LITERAL}
+
+# Deleted at §9.25, under both its names. Named here so the refusal below can be
+# specific: a caller asking for it wants an encoding this tree no longer
+# contains, and the useful answer is which commit still has it -- not a silent
+# fallback to a different one.
+_TRANSLATION_DELETED = ('semantic', 'interpreted')
 _TRANSLATION_DELETED_AT = '86114970'
 
 _HERE = os.path.dirname(os.path.abspath(__file__))         # .../fave/ad6
@@ -126,7 +139,7 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     def __init__(self, logger: TraceLogger,
                  grounding: str = GROUNDING_RANK,
-                 translation: str = TRANSLATION_STRUCTURAL) -> None:
+                 translation: str = TRANSLATION_LITERAL) -> None:
         self.logger = logger
         # AD6_PLAN.md §5.4 B1 / §5.5: WHICH constraint grounds a witness in a
         # real origin, closing the SECRYPT'15 formalism's gap
@@ -160,17 +173,18 @@ class Ad6Adapter(AbstractVerificationEngine):
         # survives the deletion of the second path on purpose -- it is what a
         # result file carries to distinguish a structural number from an
         # archived semantic one.
-        if translation == _TRANSLATION_DELETED:
+        if translation in _TRANSLATION_DELETED:
             raise ValueError(
                 "the %r translation was DELETED at AD6_PLAN.md §9.25 -- it "
                 "reconstructed meaning from FaVe's device and table names, and "
                 "every generality bug §9 chased traced back to it. This tree "
-                "cannot produce a %r result. To reproduce a measurement "
+                "cannot produce such a result. To reproduce a measurement "
                 "archived under it, check out commit %s, where it still runs. "
                 "Refusing rather than falling back to %r, which would answer a "
                 "DIFFERENT question under the requested label."
-                % (_TRANSLATION_DELETED, _TRANSLATION_DELETED,
-                   _TRANSLATION_DELETED_AT, TRANSLATION_STRUCTURAL))
+                % (translation, _TRANSLATION_DELETED_AT, TRANSLATION_LITERAL))
+        # §9.26: the pre-rename spelling of the SAME encoding.
+        translation = _TRANSLATION_ALIASES.get(translation, translation)
         if translation not in TRANSLATIONS:
             raise ValueError(
                 "unknown translation %r -- expected one of %s" % (
@@ -275,7 +289,7 @@ class Ad6Adapter(AbstractVerificationEngine):
             out.append(field.to_json() if hasattr(field, "to_json") else field)
         return out
 
-    def _build_structural(self) -> Dict[str, Any]:
+    def _build_literal(self) -> Dict[str, Any]:
         """ AD6_PLAN.md §9: the payload -- ad6 config XML plus the Kripke edges
         XML cannot express, plus each source's and probe's own query node.
 
@@ -368,7 +382,7 @@ class Ad6Adapter(AbstractVerificationEngine):
         payload = {"queries": queries,
                    "grounding": self.grounding,
                    "translation": self.translation,
-                   "structural": self._build_structural()}
+                   "literal": self._build_literal()}
         with tempfile.TemporaryDirectory(prefix="ad6_bridge_") as tmp:
             in_path = os.path.join(tmp, "in.json")
             out_path = os.path.join(tmp, "out.json")

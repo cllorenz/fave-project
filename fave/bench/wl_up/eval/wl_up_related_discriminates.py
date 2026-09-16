@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" Does the structural model's answer actually depend on `related`?
+""" Does the model's answer actually depend on `related`?
 (AD6_PLAN.md §9.23.3)
 
 A targeted counterpart to wl_up_cchecks_by_category.py: that one scores the
@@ -59,7 +59,7 @@ _CONDS = ("related:0", "related:1", None)
 
 def _cond(token):
     """ RuleField.to_json() shape. A raw string is silently DROPPED by
-    fave_bridge._structural_state_literals -- see §9.23.2a. """
+    fave_bridge._state_field_literals -- see §9.23.2a. """
     if token is None:
         return []
     name, value = token.split(':', 1)
@@ -99,11 +99,11 @@ def main():
     started = time.time()
     log = logging.getLogger("wl_up_related_discriminates")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log, translation="structural")
+    engine = Ad6Adapter(log, translation=TRANSLATION_LITERAL)
     # AD6_PLAN.md §9.25: `engine.load_bench_metadata(...)` was removed with the
     # semantic path. It re-read wl_up's raw ip6tables text so ad6's own parser
     # could re-parse rules FaVe had already parsed, discarding FaVe's state-shell
-    # interweaving in the process; a structural translation takes them from the
+    # interweaving in the process; a literal translation takes them from the
     # model as delivered, which is what made wl_up agree with NetPlumber exactly.
     with InProcessFaVe(engine) as fave:
         fave.replay(_PREFIX)

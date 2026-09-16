@@ -21,7 +21,7 @@
 
 """ Subprocess bridge driven by fave/ad6/adapter.py (AD6_PLAN.md §4.2/§4.4).
 
-Reads a JSON payload {"structural": <Ad6Adapter._build_structural() output>,
+Reads a JSON payload {"literal": <Ad6Adapter._build_literal() output>,
 "queries": [...]}, builds the ad6 Kripke/SAT model from the config XML the
 translator already produced, answers every query (source->probe existential
 reachability, src-IP seeded when the source has one), and writes back
@@ -65,7 +65,7 @@ def _seed_literals(cidr):
     "ip<version>_src_<i>=<bit>" literals in the shared bit-vector space every
     rule's own address condition is built over), FLATTENED and appended
     individually as top-level clauses -- the same discipline
-    `_structural_state_literals` below follows for state, and for the same
+    `_state_field_literals` below follows for state, and for the same
     reason: a bare named-alias variable (XMLUtils.ConvertToVariables's
     <ip>-element form, what this used to build) only carries meaning if that
     EXACT alias name happens to already be `Handled` (defined via an
@@ -182,9 +182,9 @@ def _is_constrained(cidr):
     return cidr not in _MATCH_ALL
 
 
-def _structural_state_literals(cond, field_widths, node):
-    """ AD6_PLAN.md §9.19: force a `related:N` query condition for the
-    STRUCTURAL translation.
+def _state_field_literals(cond, field_widths, node):
+    """ AD6_PLAN.md §9.19: force a `related:N` query condition onto the
+    model's own `related` FIELD (hence the name -- §9.26).
 
     The model carries `related` as an ordinary field, matched with a
     node-scoped <fieldmatch> (§9.2a: FaVe's interweaving strips conntrack and
@@ -204,18 +204,18 @@ def _structural_state_literals(cond, field_widths, node):
     of its own:
 
       * a non-integer `related` value;
-      * a well-formed `related` condition against a structural model that
+      * a well-formed `related` condition against a model that
         declares no `related` field, so there is nothing to bind the bits to.
         Forcing nothing here would silently answer the UNCONDITIONED question,
         which is the exact failure §9.23 is a post-mortem of.
 
     Pinned by fave/test/test_ad6_bridge_cond.py. """
     literals = []
-    for condition in _validated_conditions(cond, "structural"):
+    for condition in _validated_conditions(cond, "literal"):
         width = (field_widths or {}).get('related')
         if width is None:
             raise ValueError(
-                "query condition %r cannot be honoured: this structural model "
+                "query condition %r cannot be honoured: this model "
                 "declares no 'related' field, so nothing can be forced and the "
                 "query would silently answer the UNCONDITIONED question "
                 "(AD6_PLAN.md §9.23.2a). Declared fields: %s."
@@ -236,7 +236,7 @@ def _structural_state_literals(cond, field_widths, node):
     return literals
 
 
-def _instantiate_structural(config, edges, inits, mutable_fields=None):
+def _instantiate_literal(config, edges, inits, mutable_fields=None):
     """ Instantiator.InstantiateBase's body with the translator's own edges
     spliced in between ConvertToKripke and the base-implication build.
 
@@ -309,16 +309,16 @@ def main(argv=None):
     # that XML cannot express (a FaVe link is unidirectional; a declarative
     # <connection keyref=...> would be wired BOTH ways and over-approximate).
     # So this script imports nothing from FaVe.
-    structural = payload['structural']
-    config = et.fromstring(structural['config'].encode('utf-8'))
-    kripke, encoding = _instantiate_structural(
+    literal = payload['literal']
+    config = et.fromstring(literal['config'].encode('utf-8'))
+    kripke, encoding = _instantiate_literal(
         config,
-        edges=structural['edges'],
-        inits=sorted(structural['sources'].values()),
+        edges=literal['edges'],
+        inits=sorted(literal['sources'].values()),
         # Sent by the translator, which knows what it emitted.
-        mutable_fields=structural.get('mutable_fields') or None)
-    source_key = lambda q: structural['sources'][q['source']]
-    destination_key = lambda q: structural['probes'][q['probe']]
+        mutable_fields=literal.get('mutable_fields') or None)
+    source_key = lambda q: literal['sources'][q['source']]
+    destination_key = lambda q: literal['probes'][q['probe']]
     # Mutual exclusion between generators (at most one init key fires per
     # query) is enforced by KripkeUtils._CreateInitConstraints on
     # the base model itself -- no per-query exclusivity assertion needed here
@@ -375,12 +375,12 @@ def main(argv=None):
         extra_vars = []
         if q.get('src_cidr') and _is_constrained(q['src_cidr']):
             extra_vars.extend(_seed_literals(q['src_cidr']))
-        extra_vars.extend(_structural_state_literals(
-            q.get('cond'), structural.get('mutable_fields'), source))
+        extra_vars.extend(_state_field_literals(
+            q.get('cond'), literal.get('mutable_fields'), source))
         # NOTE (AD6_PLAN.md §5.5 C4 part 2, §9.9): there is deliberately no
         # probe-side VLAN forcing here. The semantic path had an opt-in
         # `probe_untag` that enforced a probe's declared arrival VLAN; a
-        # structural probe accepts whatever the network delivers (owner
+        # probe accepts whatever the network delivers (owner
         # 2026-09-13), and a condition on a terminal rule would be silently
         # ignored anyway (§9.9.1) -- so forcing it would ask a different
         # question under the same name. Deleted with the rest of that path.

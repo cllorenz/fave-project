@@ -126,7 +126,7 @@ def main():
         print("orgs sampled: %s (+ always-included singleton/central sources)" % args.orgs)
     sys.stdout.flush()
 
-    from ad6.adapter import Ad6Adapter, TRANSLATION_STRUCTURAL, available
+    from ad6.adapter import Ad6Adapter, TRANSLATION_LITERAL, available
     if not available():
         print("ad6 fave_bridge.py unavailable")
         return 1
@@ -135,17 +135,17 @@ def main():
     log.setLevel(logging.WARNING)
     # AD6_PLAN.md §9.3 Phase 5: pinned rather than inherited. STRUCTURAL is the
     # only defensible choice on wl_up -- §9.19 found both paths wrong in
-    # opposite directions, and §9.20-§9.22 fixed the structural one until it
+    # opposite directions, and §9.20-§9.22 fixed the literal one until it
     # agrees with NetPlumber EXACTLY (3,661 = 3,661, both directions), which is
     # the result §9.23's cchecks analysis rests on. A semantic run here would
     # produce a known-wrong number. Stated explicitly because it is
     # measurement-affecting: the generality-debt gate forbids leaving it to
     # whatever the adapter currently defaults to.
-    engine = Ad6Adapter(log, translation=TRANSLATION_STRUCTURAL)
+    engine = Ad6Adapter(log, translation=TRANSLATION_LITERAL)
     # AD6_PLAN.md §9.25: `engine.load_bench_metadata(...)` was removed with the
     # semantic path. It re-read wl_up's raw ip6tables text so ad6's own parser
     # could re-parse rules FaVe had already parsed, discarding FaVe's state-shell
-    # interweaving in the process; a structural translation takes them from the
+    # interweaving in the process; a literal translation takes them from the
     # model as delivered, which is what made wl_up agree with NetPlumber exactly.
 
     from util.in_process_driver import InProcessFaVe

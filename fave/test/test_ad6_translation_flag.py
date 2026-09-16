@@ -20,17 +20,18 @@
 """ AD6_PLAN.md §9: the `translation` selector on Ad6Adapter, and the boundary
 the structural payload crosses.
 
-Since §9.25 there is only ONE translation. The selector survives the deletion
-of the second one because a result file must still say what produced it -- a
-number stamped `structural` is not comparable with one stamped `semantic`, and
-the tree can no longer produce the latter at all. """
+Since §9.25 there is only ONE translation, renamed at §9.26 from 'structural'
+to 'literal' (its partner was 'semantic', now 'interpreted' -- see the adapter
+for why both names were wrong). The selector survives the deletion of the second
+path because a result file must still say what produced it, and the tree can no
+longer produce an interpreted number at all. """
 
 import logging
 import unittest
 
 import lxml.etree as et
 
-from ad6.adapter import Ad6Adapter, TRANSLATIONS, TRANSLATION_STRUCTURAL
+from ad6.adapter import Ad6Adapter, TRANSLATIONS, TRANSLATION_LITERAL
 from util.in_process_driver import InProcessFaVe
 
 
@@ -43,11 +44,18 @@ def _adapter(**kwargs):
 class TestTranslationSelector(unittest.TestCase):
 
     def test_the_default_is_structural(self):
-        self.assertEqual(_adapter().translation, TRANSLATION_STRUCTURAL)
+        self.assertEqual(_adapter().translation, TRANSLATION_LITERAL)
 
-    def test_structural_is_the_only_vocabulary(self):
-        self.assertEqual(TRANSLATIONS, (TRANSLATION_STRUCTURAL,))
-        self.assertEqual(TRANSLATION_STRUCTURAL, 'structural')
+    def test_literal_is_the_only_vocabulary(self):
+        self.assertEqual(TRANSLATIONS, (TRANSLATION_LITERAL,))
+        self.assertEqual(TRANSLATION_LITERAL, 'literal')
+
+    def test_the_pre_rename_spelling_is_accepted_and_normalised(self):
+        """ §9.26. 'structural' named the IDENTICAL encoding, and every result
+        Phase 5a stamped carries it -- refusing it would strand those numbers
+        over a rename. It normalises, so the stamp says one thing. """
+        self.assertEqual(_adapter(translation='structural').translation,
+                         TRANSLATION_LITERAL)
 
     def test_every_accepted_translation_round_trips(self):
         for translation in TRANSLATIONS:
@@ -61,17 +69,21 @@ class TestTranslationSelector(unittest.TestCase):
         with self.assertRaises(ValueError):
             _adapter(translation='structrual')          # sic
 
-    def test_the_DELETED_semantic_translation_is_refused_by_name(self):
+    def test_the_DELETED_interpreted_translation_is_refused_by_name(self):
         """ §9.25. Asking for the deleted path must not quietly get the
         surviving one: that would answer a DIFFERENT question under the
         requested label, which is the whole failure mode §9.23 documents. The
         refusal names the commit that still has it, because "reproduce the
         archived number" is the only reason to ask. """
+        for name in ('semantic', 'interpreted'):
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError) as caught:
+                    _adapter(translation=name)
+                self.assertIn(name, str(caught.exception))
+
         with self.assertRaises(ValueError) as caught:
             _adapter(translation='semantic')
-
         message = str(caught.exception)
-        self.assertIn('semantic', message)
         self.assertIn('86114970', message,
                       "the refusal must say WHERE the deleted path still "
                       "lives, or an archived measurement is simply lost")
@@ -83,7 +95,7 @@ class TestTranslationSelector(unittest.TestCase):
         with it. An archived stamp carrying them came from a run this tree
         cannot reproduce. """
         self.assertEqual(_adapter().configuration_stamp(),
-                         {"translation": "structural", "grounding": "rank"})
+                         {"translation": "literal", "grounding": "rank"})
 
     def test_the_deleted_flags_are_gone_from_the_constructor(self):
         """ Not silently ignored -- gone. A caller still passing

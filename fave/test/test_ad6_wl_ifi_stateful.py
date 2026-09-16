@@ -23,9 +23,10 @@
 Ad6Adapter: the 245 plain checks are answered, the 54 stateful `related`
 checks are REFUSED, and this pins both.
 
-WHAT CHANGED AT THE §9.3 PHASE 5 GATE. The adapter's default translation is
-now 'structural', and under it wl_ifi's stateful subset is UNANSWERABLE. This
-file used to be a CHARACTERIZATION of the semantic path's answer to those
+WHAT CHANGED AT THE §9.3 PHASE 5 GATE. The adapter's only translation is now
+the LITERAL one (called 'structural' until §9.26 renamed the pair), and under
+it wl_ifi's stateful subset is UNANSWERABLE. This file used to be a
+CHARACTERIZATION of the deleted interpreted path's answer to those
 checks (27 pass / 27 fail, AD6_PLAN.md §4.2's open question); the open question
 is now closed as MALFORMED, by owner decision, and the file pins the refusal
 instead.
@@ -34,16 +35,16 @@ WHY THE CHECKS CANNOT BE ANSWERED, and why that is the better answer.
 `related` is an ordinary 8-bit header field in FaVe's model -- §9.2(a):
 fave/iptables/generator.py's `_interweave_state_shell` STRIPS the conntrack
 matches and re-emits the derived rules carrying a plain `RuleField('related',
-...)`, so a structural translation carries the state semantics for free
+...)`, so a literal translation carries the state semantics for free
 wherever FaVe put them. wl_ifi is the benchmark where FaVe puts them NOWHERE:
 its ACLs are parsed from Cisco IOS text (bench/wl_ifi/acls.txt) that contains
 no `established`/ctstate qualifier at all, so the interweaving has nothing to
-strip and emits no `related` rule. The structural model consequently declares
+strip and emits no `related` rule. The model consequently declares
 no `related` field -- `mutable_fields` is {in_port, out_port, vlan} -- and
-ad6/fave_bridge.py's `_structural_state_literals` refuses the condition rather
+ad6/fave_bridge.py's `_state_field_literals` refuses the condition rather
 than forcing nothing and answering the UNCONDITIONED question (§9.23.2a).
 
-The semantic path did answer them, by forcing ad6 `<state>` variables onto
+The deleted interpreted path did answer them, by forcing ad6 `<state>` variables onto
 that same state-blind model: both `related:1` and `related:0` necessarily
 resolved through the one state-blind permit, so all 27 related:1 checks passed
 and all 27 related:0 checks failed -- a perfectly systematic split that looked
@@ -51,13 +52,14 @@ like a finding about wl_ifi's ACLs and was an artifact of asking a question the
 model cannot represent. Refusing is the honest answer to a malformed question.
 
 NOTE WHAT IS *NOT* CLAIMED HERE: that ad6 cannot answer stateful checks. It
-can, and does -- wl_up's 3,302 stateful checks are answered structurally and
+can, and does -- wl_up's 3,302 stateful checks are answered and
 agree exactly with NetPlumber (§9.22/§9.23), because wl_up's rulesets are real
 ip6tables text whose `ctstate ESTABLISHED` FaVe's interweaving turns into real
 `related` rules. The gap is wl_ifi's input data, not the translation.
 
-Reproducing the old numbers is still possible without editing anything:
-pass translation=TRANSLATION_SEMANTIC (see test_ad6_translation_flag.py).
+The old numbers are reproducible only by checking out commit 86114970: the
+path that produced them was deleted at §9.25, and asking for it by name here
+raises rather than quietly answering with this one.
 """
 
 import json
@@ -191,7 +193,7 @@ class TestAd6WlIfiStateful(unittest.TestCase):
     def test_the_model_really_has_no_related_field_to_bind(self):
         """ Pins the CAUSE, not just the symptom: wl_ifi's Cisco ACLs carry no
         conntrack qualifier, so FaVe's interweaving emits no `related` rule and
-        the structural model declares no such field. If this ever starts
+        the model declares no such field. If this ever starts
         failing, the refusal above is no longer correct behaviour and the
         checks should be answered instead of refused. """
         from util.in_process_driver import InProcessFaVe
@@ -201,7 +203,7 @@ class TestAd6WlIfiStateful(unittest.TestCase):
         engine = Ad6Adapter(log)
         with InProcessFaVe(engine) as fave:
             fave.replay(_PREFIX)
-            fields = engine._build_structural()["mutable_fields"]
+            fields = engine._build_literal()["mutable_fields"]
 
         self.assertNotIn("related", fields)
         related_matches = [

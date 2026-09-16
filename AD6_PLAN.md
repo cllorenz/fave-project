@@ -4061,10 +4061,15 @@ speculatively ahead of need.
 
 ## 9. The ad6 adapter rewrite: structural translation (owner decision 2026-09-12)
 
-**Status: Phases 0-4 DONE; Phase 5a (the default flip) DONE 2026-09-16, §9.24; Phase
-5b (deleting the semantic path) is a SEPARATE decision -- see §9.24.4 for what it
-costs and why it does not follow automatically from the flip. Phase 6 (production
-wiring) untouched.**
+**Status: Phases 0-5 DONE (2026-09-16). 5a flipped the default (§9.24); 5b deleted
+the interpreted path, -9,269 lines (§9.25); §9.26 renamed the surviving vocabulary
+'structural' -> 'literal'. Phase 6 (production wiring) untouched -- the aggregator
+still hardcodes `NetPlumberAdapter`, so no production route to ad6 exists yet.**
+
+**READING NOTE for §§9.1-9.24: they were written while the two paths were called
+'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
+because the old pair said the opposite of the truth. The historical sections are
+left as written; read across.**
 
 **Owner framing, recorded because it sets the scope:** *"I think we should invest in the
 integration now. FaVe's network model (mostly match-action tables with unidirectionally
@@ -5836,6 +5841,131 @@ which both paths use, and the `witness_*` walk `bench/ad6_i2_measure.py` depends
 across the seven files built on `faithful_vlan`/`probe_untag`, which §9.16.1 already
 establishes DO NOT APPLY under structural -- plus the 18-test IR-snapshot tripwire, whose
 retirement Phase 0.2 anticipated. **~3,200 lines and ~240 tests.**
+
+### 9.25 Phase 5b: the semantic path is deleted -- -9,269 lines
+
+**DONE 2026-09-16.** "The line count going sharply DOWN is the deliverable" (§9.3).
+
+#### 9.25.1 What the pre-deletion audit found, and why it changed the decision
+
+The deletion was scoped by asking a question Phase 5 does not: *which consumers actually
+use the adapter AS A BACKEND?* Classifying all ten `Ad6Adapter` callers by whether they
+go model -> `check_compliance` -> bridge subprocess, or merely use the adapter as a
+model-builder:
+
+| driver | `check_compliance` | calls `_build_ir()` | drives ad6's solver itself |
+|---|---|---|---|
+| `wl_up/eval/wl_up_cchecks_diff.py` | yes | -- | -- |
+| `axis6_wlup_real.py` | one arm | yes | yes |
+| `axis8_stanford_incremental.py` | one arm | yes | yes |
+| `ad6_faithful_measure.py` | -- | yes | yes |
+| `ad6_i2_measure.py` | -- | yes | yes |
+| `ad6_i2_query_distance.py` | -- | yes | yes |
+| `ad6_ir_snapshot.py` | -- | yes | -- |
+| `axis8b` / `axis8c` / `axis8d` | -- | yes | yes |
+
+**Seven of ten never touch the adapter's query path at all**, and nine of ten call
+`_build_ir()` and then drive `favemodel.build_config`/`instantiate_base`/
+`IncrementalSession` in-process. They are experiment harnesses that use the adapter as a
+FaVe-model-to-IR front end, not as a verification backend.
+
+So the FaVe BACKEND integration -- the thing §9 exists to build -- was already almost free
+of the semantic path. Its entire residual dependency was three small things: a vestigial
+`payload["ir"]` that nothing read under structural, `favemodel._is_constrained` (ten lines),
+and `load_bench_metadata`, already a no-op. **The deletion's blast radius falls on the
+experiment harnesses, not on the backend** -- which is what made "delete" a defensible
+call rather than a destructive one, and it is confirmed by the seven canonical-path test
+files that were green throughout.
+
+#### 9.25.2 What went
+
+| | |
+|---|---|
+| `fave/ad6/adapter.py` | **1,226 -> 434 lines.** Eight `_capture_*`, `_build_ir`, `_fold_mid_rewrites`, `_collapse_out_stage`, `_lpm_prio`/`_prefix_len`, `load_bench_metadata`, `_ingress_port`, `_split_port`, 22 IR-only attributes |
+| `ad6/src/parser/favemodel.py` | 1,300 lines, gone |
+| `ad6/test/parser/favemodeltest.py` + `parsersuite.py` | 65 tests, gone; `ParserSuite` unregistered from `test/test.py` and `runner/runnertest.py` |
+| `fave/bench/` | `ad6_ir_snapshot`, `ad6_faithful_measure`, `ad6_i2_measure`, `ad6_i2_query_distance` |
+| `fave/test/` | `_ir_snapshot`, `_faithful_measure`, `_i2_measure`, `_adapter_lpm_prio`, `_adapter_multi_device_acl`, `_wl_i2_faithful`, `_wl_stanford_faithful`, `_wl_i2_admission`, `_translation_differential` |
+| `ad6_encoding_bench/` | axes 6, 6b, 7, 8, 8b, 8c, 8d -- 1,746 lines, own commit (§9.25.5) |
+
+`faithful_vlan`/`probe_untag` went with it: §9.16.1 had already established they DO NOT
+APPLY to a structural model, so they were semantic-path configuration. They are **removed
+from the constructor rather than ignored** -- a caller still passing one gets a `TypeError`
+instead of an unflagged answer.
+
+#### 9.25.3 Refuse, don't fall back
+
+`translation='semantic'` now RAISES, naming commit `86114970` where the path still runs.
+Serving the surviving translation under the requested label would be the §9.23 failure
+mode exactly: a confident number answering a different question. The same discipline the
+bridge already applies to an unhonourable query condition, applied to an unavailable
+encoding.
+
+#### 9.25.4 Three tests are INVERTED, not deleted
+
+Their subject reversed, so deleting them would have lost the fact rather than retired it:
+
+* `test_ad6_wl_stanford{,_plain}.py::test_out_stage_collapsed` ->
+  `test_every_stage_is_kept_including_out`. The collapse was name-triggered
+  (`if any(d.split('.', 1)[0] == 'mid' ...)`), i.e. the very thing §9 exists to remove.
+  **Both files' reachability assertions are unchanged and still match NetPlumber**, which
+  is what establishes the collapse was an optimisation and not a correctness requirement.
+* `test_ad6_wl_up.py::test_ruleset_devices_loaded` ->
+  `test_every_ruleset_device_arrives_through_faves_own_model`. Its exact inverse: it used
+  to assert 136 devices' raw ip6tables TEXT had been re-read so ad6's own parser could
+  re-parse rules FaVe had already parsed; it now asserts they arrive as FaVe `Rule`
+  objects carrying `related` fields -- which is what makes wl_up's stateful checks
+  answerable (§9.22).
+
+#### 9.25.5 The collateral, and where the line fell
+
+Seven `ad6_encoding_bench/` axis scripts imported `favemodel` directly and are retired in
+their own commit (`df1a1920`), revertible independently. **The line the deletion fell along
+is itself informative: axes 0-5b are untouched**, because they never went through the FaVe
+adapter -- they build from `gen_topology.py` or ad6's own `IP6TablesParser`. Exactly the
+axes that used a real FaVe model are the ones that needed the semantic translation.
+
+Their findings stand (`AD6_ENCODING_PLAN.md` §§3.7-3.10, raw logs under
+`ad6_encoding_bench/results/`). Rebuilding them on the structural translation would be a
+NEW measurement, not a port: a structural model keeps every stage the semantic one
+collapsed, so the numbers would not be comparable with the published ones.
+
+#### 9.25.6 Verification
+
+ad6 `make test`: 10 suites, all OK, exit 0 (was 11 with `ParserSuite`). fave ad6 suite:
+149 passed, 2 skipped, 0 failed. `fast` tier 468 passed. mypy clean.
+
+### 9.26 The vocabulary was wrong: 'semantic'/'structural' -> 'interpreted'/'literal'
+
+**DONE 2026-09-16, owner decision.** The old pair misdescribed itself, and the naming was
+about to harden into the write-up.
+
+"semantic" and "structural" read as though one path respected MEANING and the other only
+SHAPE. The truth is the reverse. The 'semantic' path reconstructed meaning the model never
+stated, by recognising device and table NAMES; the 'structural' path copies what FaVe
+actually wrote, rule for rule, and is **the more semantically faithful of the two**. A
+reader meeting the two words cold would infer the wrong one is trustworthy.
+
+The replacement says in one word each what the adapter READS:
+
+| was | is | what it does |
+|---|---|---|
+| `semantic` | `interpreted` | infers concepts from naming conventions (DELETED, §9.25) |
+| `structural` | `literal` | transcribes FaVe's tables, rules, fields, actions and links as given |
+
+Renamed in code: `TRANSLATION_LITERAL`, `_build_literal`, the `"literal"` payload key,
+`_instantiate_literal`, and `_structural_state_literals` -> `_state_field_literals` (it
+forces state onto a FIELD -- the old name would have become "literal state literals").
+
+**`'structural'` is still ACCEPTED and normalised to `'literal'`**, because every result
+Phase 5a stamped carries the old spelling for the identical encoding, and stranding those
+numbers over a rename would be its own generality-debt violation. `'interpreted'` raises
+alongside `'semantic'`: that path is gone, not renamed.
+
+**The historical prose in §§9.1-9.24 is deliberately NOT rewritten.** Those sections record
+what was decided and measured while the old words were the words; retitling them would
+falsify the record. Read "structural" there as "literal" and "semantic" as "interpreted".
+
 
 
 

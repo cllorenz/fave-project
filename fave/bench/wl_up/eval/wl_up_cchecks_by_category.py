@@ -42,12 +42,12 @@ TWO THINGS IT DELIBERATELY DOES NOT DO ITSELF (§9.23.5):
     reported the SATISFIED checks as violations.
 
   * it builds each condition as a RuleField-shaped dict via that module's
-    `_cond_field`. `fave_bridge._structural_state_literals` SILENTLY skips a
+    `_cond_field`. `fave_bridge._state_field_literals` SILENTLY skips a
     condition that is not a dict, so passing the raw `['related:0']` strings
     from the JSON answers every stateful check as though it were unconditioned.
 
 Usage (from fave/, PYTHONPATH=.):
-    python3 bench/wl_up/eval/wl_up_cchecks_by_category.py OUT.json [structural|semantic]
+    python3 bench/wl_up/eval/wl_up_cchecks_by_category.py OUT.json [literal]
 """
 
 import collections
@@ -99,7 +99,10 @@ def _category_index():
 
 def main():
     out = sys.argv[1]
-    translation = sys.argv[2] if len(sys.argv) > 2 else "structural"
+    # §9.25/§9.26: "literal" is the only translation left. "structural" is
+    # accepted as its pre-rename spelling, so an archived invocation still runs;
+    # "semantic" raises, because that path is gone rather than renamed.
+    translation = sys.argv[2] if len(sys.argv) > 2 else "literal"
 
     rules, kept, _all = _load_rules(None)
     total = sum(len(v) for v in rules.values())
@@ -115,7 +118,7 @@ def main():
     # AD6_PLAN.md §9.25: `engine.load_bench_metadata(...)` was removed with the
     # semantic path. It re-read wl_up's raw ip6tables text so ad6's own parser
     # could re-parse rules FaVe had already parsed, discarding FaVe's state-shell
-    # interweaving in the process; a structural translation takes them from the
+    # interweaving in the process; a literal translation takes them from the
     # model as delivered, which is what made wl_up agree with NetPlumber exactly.
     with InProcessFaVe(engine) as fave:
         fave.replay(_PREFIX)
