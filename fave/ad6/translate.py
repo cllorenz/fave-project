@@ -870,6 +870,9 @@ class PortGraph:
 
     def _port_ids(self) -> Dict[str, int]:
         if getattr(self, '_port_id_cache', None) is not None:
+            # pylint: disable=access-member-before-definition
+            # -- the attribute is a lazy memo, never set in __init__, and this
+            # line only runs when the getattr() guard above found it set.
             return self._port_id_cache
         names = sorted(
             "%s.%s" % (device, port)
@@ -904,6 +907,9 @@ class PortGraph:
         table whose rules agree on their ports compiles to exactly one chain,
         which is what most tables do. """
         if getattr(self, '_chain_cache', None) is not None:
+            # pylint: disable=access-member-before-definition
+            # -- the attribute is a lazy memo, never set in __init__, and this
+            # line only runs when the getattr() guard above found it set.
             return self._chain_cache
         result = []
         for device, model in sorted(self._devices.items()):
@@ -981,6 +987,9 @@ class PortGraph:
 
     def _chain_of_port(self) -> Dict[str, Any]:
         if getattr(self, '_chain_of_port_cache', None) is not None:
+            # pylint: disable=access-member-before-definition
+            # -- the attribute is a lazy memo, never set in __init__, and this
+            # line only runs when the getattr() guard above found it set.
             return self._chain_of_port_cache
         found: Dict[str, Any] = {}
         for device, table, port, rules in self.chains():
@@ -1056,6 +1065,9 @@ class PortGraph:
 
     def _ports_by_device(self) -> Dict[str, Any]:
         if getattr(self, '_ports_cache', None) is not None:
+            # pylint: disable=access-member-before-definition
+            # -- the attribute is a lazy memo, never set in __init__, and this
+            # line only runs when the getattr() guard above found it set.
             return self._ports_cache
         ports: Dict[str, Any] = {device: set() for device in self._devices}
 

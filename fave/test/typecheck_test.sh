@@ -30,7 +30,13 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PYTHON="${PYTHON:-python3}"
+# Same resolver test.sh uses, so `bash fave/test/typecheck_test.sh` (what the
+# README documents and what CI's typecheck job runs) finds the project's venv
+# instead of reporting "mypy is not installed" against a system interpreter that
+# never had it. $PYTHON and an active $VIRTUAL_ENV still win.
+FAVE_PYTHON_ROOT="$ROOT"
+. "$ROOT/resolve_python.sh"
+resolve_python mypy
 
 cd "$ROOT"
 

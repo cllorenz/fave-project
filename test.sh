@@ -45,40 +45,22 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_FROM_ENV="${PYTHON:-}"
-PYTHON="${PYTHON:-python3}"
-PYTHON_RESOLVED=""
+# Interpreter resolution lives in resolve_python.sh so that the standalone gates
+# (fave/test/typecheck_test.sh) get exactly the same answer as this runner --
+# it used to be inline here, and they got none of it. See that file for why.
+FAVE_PYTHON_ROOT="$ROOT"
+. "$ROOT/resolve_python.sh"
 
-# Find an interpreter that actually has this project's dependencies.
-#
-# WHY THIS EXISTS. Every tier, and the doctor especially, used to run whatever
-# `python3` was first on PATH. In a container where the venv lives outside the
-# checkout that is the SYSTEM interpreter, which has none of the deps -- so
-# `./test.sh fast` died with "No module named pytest" and, far worse, the DOCTOR
-# reported pytest/mypy/pycosat/python-sat/pybison/JPype1 as [MISSING] and exited
-# FAILED while all six were installed and working. A doctor whose verdict
-# depends on whether the caller remembered to activate a venv is worse than no
-# doctor: its repair advice (`pip install ...`) would install into the wrong
-# interpreter, and the tier it names as blocked is not blocked.
-#
-# An explicit $PYTHON or an active $VIRTUAL_ENV always wins -- this only fills
-# in when the caller said nothing. The candidates are exactly the two locations
-# this project's own docs create: the README's in-checkout `.venv` and
-# `fave/setup.sh`'s `~/.venv`. `import pytest` is the liveness probe because
-# every tier needs it.
-resolve_python() {
-    [ -n "$PYTHON_FROM_ENV" ] && return 0
-    [ -n "${VIRTUAL_ENV:-}" ] && return 0
-    local candidate
-    for candidate in "$ROOT/.venv/bin/python3" "$HOME/.venv/bin/python3"; do
-        if [ -x "$candidate" ] && "$candidate" -c 'import pytest' >/dev/null 2>&1; then
-            PYTHON="$candidate"
-            PYTHON_RESOLVED="$candidate"
-            return 0
-        fi
-    done
-    return 0
-}
+# EXPORT it, do not merely set it. Every script this runner shells out to --
+# examples/example.sh, scripts/start_aggr.sh, the gen_wl_*_inputs.sh generators,
+# typecheck_test.sh, lint_test.sh -- already honours `PYTHON="${PYTHON:-python3}"`,
+# but an unexported shell variable reaches none of them, so they all fell back to
+# whatever `python3` PATH resolved: the SYSTEM interpreter, with none of FaVe's
+# dependencies. resolve_python then "worked" for this file's own pytest calls while
+# the smoke tier died on `No module named 'filelock'` in a backgrounded aggregator
+# nobody reads, and all 13 example flow checks failed as though the MODEL were
+# wrong. One `export` is the whole fix for every script that already asks.
+export PYTHON
 
 # scripts/start_np.sh invokes a BARE `net_plumber`, so the binary has to be on
 # PATH -- `make -C net_plumber/build install` is what normally puts it there.
@@ -381,6 +363,13 @@ run_doctor() {
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
     printf '  %s\n' "$("$PYTHON" --version 2>&1)"
+    # Say it explicitly: the packages probed below are probed against THIS
+    # interpreter, and this is also the one every child script now gets. Before
+    # the export those two were different things, and the doctor was reporting
+    # on an interpreter the smoke tier never ran.
+    echo "  [exported] child scripts (example.sh, start_aggr.sh, the gen_wl_*"
+    echo "            generators, typecheck_test.sh) inherit PYTHON and use this"
+    echo "            same interpreter; the package checks below probe it."
     if [ -n "$PYTHON_RESOLVED" ]; then
         echo "  [auto]    no VIRTUAL_ENV set; resolved this interpreter by probing for the"
         echo "            project's deps (resolve_python). Note the venv may live OUTSIDE"

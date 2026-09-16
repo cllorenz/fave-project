@@ -24,6 +24,7 @@
 
 import os
 import os.path
+import shlex
 import sys
 import logging
 import json
@@ -40,6 +41,20 @@ TMPDIR = "/dev/shm/np"
 
 def _unpack(topo):
     return topo['devices'], topo['links']
+
+
+# The interpreter THIS process is running under, quoted for the shell -- never a
+# bare "python3".
+#
+# Every sub-step below is spawned through os.system(), so a bare "python3" is
+# whatever PATH resolves first, which in a container whose venv is not activated
+# is the SYSTEM interpreter with none of FaVe's dependencies. The failure that
+# produces is maximally misleading: the aggregator dies on `No module named
+# 'filelock'` in a backgrounded process nobody reads, the benchmark then cannot
+# reach FaVe, and every flow check fails as though the MODEL were wrong (the same
+# shape as the net_plumber-not-on-PATH bug, see test.sh's resolve_net_plumber).
+# sys.executable is exact by construction and needs no environment plumbing.
+_PYTHON = shlex.quote(sys.executable)
 
 
 def _exit_code(status):
@@ -142,7 +157,7 @@ class GenericBenchmark(object):
     def _generate_policy_matrix(self):
         self.logger.info("generate policy matrix...")
         os.system(
-            "python3 ../policy_translator/policy_translator.py " + ' '.join(
+            "%s ../policy_translator/policy_translator.py " % _PYTHON + ' '.join(
                 (["--strict"] if self.strict else []) +
                 (["--no-internet"] if not self.use_internet else []) +
                 (
@@ -162,7 +177,7 @@ class GenericBenchmark(object):
     def _convert_policy_to_checks(self):
         self.logger.info("convert policy matrix to checks...")
         os.system(
-            "python3 bench/reach_csv_to_checks.py " + ' '.join(
+            "%s bench/reach_csv_to_checks.py " % _PYTHON + ' '.join(
                 (['-s', self.suffix] if self.suffix else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
@@ -181,15 +196,15 @@ class GenericBenchmark(object):
         self._generate_policy_matrix()
 
         self.logger.info("generate inventory...")
-        os.system("python3 %s/inventorygen.py" % self.prefix)
+        os.system("%s %s/inventorygen.py" % (_PYTHON, self.prefix))
         self.logger.info("generated inventory.")
 
         self._convert_policy_to_checks()
 
         self.logger.info("generate topology, routes, and probes...")
-        os.system("python3 %s/topogen.py" % self.prefix)
-        os.system("python3 %s/routegen.py" % self.prefix)
-        os.system("python3 %s/policygen.py" % self.prefix)
+        os.system("%s %s/topogen.py" % (_PYTHON, self.prefix))
+        os.system("%s %s/routegen.py" % (_PYTHON, self.prefix))
+        os.system("%s %s/policygen.py" % (_PYTHON, self.prefix))
         self.logger.info("generated topology, routes, and probes.")
 
 
@@ -277,7 +292,7 @@ class GenericBenchmark(object):
 
     def _wait_for_fave(self):
         self.logger.info("wait for fave")
-        os.system("python3 misc/await_fave.py")
+        os.system("%s misc/await_fave.py" % _PYTHON)
 
 
     def _compliance(self):
@@ -285,7 +300,8 @@ class GenericBenchmark(object):
 #        os.system("bash scripts/check_parallel.sh %s %s %s" % (
 #            self.files['checks'], self.threads, "np_dump"
 #        ))
-        os.system("python3 bench/compliance_checker.py %s %s" % (
+        os.system("%s bench/compliance_checker.py %s %s" % (
+            _PYTHON,
             "-u" if self.use_unix else "",
             self.files['checks']
         ))
@@ -327,8 +343,8 @@ class GenericBenchmark(object):
         # artifact. Whether a failed sub-step should fail the whole benchmark is
         # the open decision in TODO.md item 1n, not something to settle here.
         steps = (
-            ("report.md", "python3 reporting/report.py %s" % (
-                "-u" if self.use_unix else ""
+            ("report.md", "%s reporting/report.py %s" % (
+                _PYTHON, "-u" if self.use_unix else ""
             )),
             ("report.pdf", "pandoc report.md -o report.pdf"),
         )

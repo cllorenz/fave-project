@@ -48,7 +48,7 @@ def _get_negated_from_rule(rule):
     return [arg[0] for opt, arg in rule if opt == 'negated']
 
 # from: Diekmann et al., Semantics-Preserving Simplification of Real-World Firewall Rule Sets, 2015.
-# type: ()x[[()]] -> [[()]]
+# signature: ()x[[()]] -> [[()]]
 def _add_negated_match(match, rules):
     if not match:
         return []
@@ -65,7 +65,7 @@ def _add_negated_match(match, rules):
 
 
 # from: Diekmann et al., Semantics-Preserving Simplification of Real-World Firewall Rule Sets, 2015.
-# type: [()]x[[()]] -> [[()]]
+# signature: [()]x[[()]] -> [[()]]
 def _add_match(match, rules):
     if isinstance(match, tuple):
         return [[match] + rule for rule in rules]
@@ -79,7 +79,7 @@ def _add_match(match, rules):
 
 
 # from: Diekmann et al., Semantics-Preserving Simplification of Real-World Firewall Rule Sets, 2015.
-# type: [[()]] -> [[()]]
+# signature: [[()]] -> [[()]]
 def _flatten_chain(chain):
     if not chain:
         return []
@@ -95,7 +95,7 @@ def _flatten_chain(chain):
 
 
 # from: Diekmann et al., Semantics-Preserving Simplification of Real-World Firewall Rule Sets, 2015.
-# type: [[()]]x{[[()]]} -> [[()]]
+# signature: [[()]]x{[[()]]} -> [[()]]
 def _flatten_call(chain, chain_name, custom_chains):
     if not chain:
         return []

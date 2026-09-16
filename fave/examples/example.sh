@@ -79,6 +79,16 @@ echo "ip6tables -A FORWARD -d 2001:db8::2 -p udp --dport 80 -j ACCEPT" >> $RS
 
 echo "ok"
 
+# The interpreter to run FaVe's Python with. A bare `python3` is whatever PATH
+# resolves first, which in a container whose venv is not activated is the SYSTEM
+# interpreter with none of FaVe's dependencies -- and the aggregator then dies on
+# `No module named 'filelock'` inside a backgrounded process nobody reads, while
+# this script still prints "start aggregator... ok", so every flow check below
+# fails as though the MODEL were wrong. `./test.sh` exports the interpreter it
+# resolved; standalone callers keep the old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+export PYTHON
+
 export PYTHONPATH="$ROOTDIR:${PYTHONPATH}"
 
 echo -n "start netplumber... "
@@ -115,23 +125,23 @@ CNT=0
 # test topology
 echo -n "read topology... "
 # $SWITCH
-python3 $ROOTDIR/topology/topology.py -a -t switch -n $SWITCH -p 2
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t switch -n $SWITCH -p 2
 CNT=$(( $? + CNT ))
 # packet filter $FIREWALL
-python3 $ROOTDIR/topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t packet_filter -n $FIREWALL -i 2001:db8::3 -p "['eth0','eth1']" -r $RS
 CNT=$(( $? + CNT ))
 # links: $SWITCH <-> $FIREWALL
-python3 $ROOTDIR/topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
+"$PYTHON" $ROOTDIR/topology/topology.py -a -l $SWITCH.2:$FIREWALL.eth0:False,$FIREWALL.eth0:$SWITCH.2:False
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 echo -n "add generators... "
 # generators $HOST1 $HOST2 $FWSOURCE
-python3 $ROOTDIR/topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t generators -G "$HOST1\ipv6_src=2001:db8::2|$HOST2\ipv6_src=2001:db8::1|$FWSOURCE\ipv6_src=2001:db8::3"
 CNT=$(( $? + CNT ))
 
 #links: $HOST1 --> $FIREWALL, $HOST2 --> $SWITCH, $FWSOURCE -> $FIREWALL
-python3 $ROOTDIR/topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
+"$PYTHON" $ROOTDIR/topology/topology.py -a -l $HOST1.1:$FIREWALL.eth1:True,$HOST2.1:$SWITCH.1:True,$FWSOURCE.1:$FIREWALL".output_filter_in":True
 CNT=$(( $? + CNT ))
 
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
@@ -139,48 +149,48 @@ CNT=0
 
 echo -n "add probes... "
 # PROBE1 $PROBE1
-python3 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t probe -n $PROBE1 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # PROBE2 $PROBE2
-python3 $ROOTDIR/topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t probe -n $PROBE2 -q universal -P ".*;(table in ($FIREWALL))"
 CNT=$(( $? + CNT ))
 # FIREWALL $FWPROBE
-python3 $ROOTDIR/topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
+"$PYTHON" $ROOTDIR/topology/topology.py -a -t probe -n $FWPROBE -q universal -P ".*;(table in ($FIREWALL))"
 
 # link: $FIREWALL --> $PROBE1
-python3 $ROOTDIR/topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
+"$PYTHON" $ROOTDIR/topology/topology.py -a -l $FIREWALL.eth1:$PROBE1.1:False
 CNT=$(( $? + CNT ))
 # link: $SWITCH --> PROBE2
-python3 $ROOTDIR/topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
+"$PYTHON" $ROOTDIR/topology/topology.py -a -l $SWITCH.1:$PROBE2.1:False
 CNT=$(( $? + CNT ))
 # link: $FW INPUT --> PROBE2
-python3 $ROOTDIR/topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
+"$PYTHON" $ROOTDIR/topology/topology.py -a -l $FIREWALL".input_filter_accept":$FWPROBE.1:False
 CNT=$(( $? + CNT ))
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 # test rule setting
 echo -n "add switch rules... "
-python3 $ROOTDIR/devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
+"$PYTHON" $ROOTDIR/devices/switch.py -a -i 1 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::1 -c fd=$SWITCH.1
 CNT=$(( $? + CNT ))
-python3 $ROOTDIR/devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
+"$PYTHON" $ROOTDIR/devices/switch.py -a -i 2 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::2 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
-python3 $ROOTDIR/devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
-CNT=$(( $? + CNT ))
-
-python3 $ROOTDIR/devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+"$PYTHON" $ROOTDIR/devices/switch.py -a -i 3 -n $SWITCH -t 1 -f ipv6_dst=2001:db8::3 -c fd=$SWITCH.2
 CNT=$(( $? + CNT ))
 
-python3 $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
+"$PYTHON" $ROOTDIR/devices/switch.py -a -i 1 -n $FIREWALL -f ipv6_dst=2001:db8::2 -c fd=$FIREWALL.eth1
+CNT=$(( $? + CNT ))
+
+"$PYTHON" $ROOTDIR/devices/switch.py -a -i 2 -n $FIREWALL -f ipv6_dst=2001:db8::1 -c fd=$FIREWALL.eth0
 [ $(( $? + CNT )) -eq 0 ] && echo "ok" || echo "fail"
 CNT=0
 
 echo -n "dump fave and netplumber... "
-python3 $ROOTDIR/netplumber/dump_np.py -anpft
+"$PYTHON" $ROOTDIR/netplumber/dump_np.py -anpft
 [ $? -eq 0 ] && echo "ok" || echo "failure"
 
 echo -n "initiate compliance check inside netplumber... "
-python3 $ROOTDIR/netplumber/check_compliance.py -f $ROOTDIR/examples/example_checks.json
+"$PYTHON" $ROOTDIR/netplumber/check_compliance.py -f $ROOTDIR/examples/example_checks.json
 [ $? -eq 0 ] && echo "ok" || echo "failure"
 
 # test flow propagation
@@ -221,7 +231,7 @@ EXPECT=(pass pass pass pass pass pass pass pass fail pass pass pass pass)
 
 FLOW_FAILURES=0
 for i in "${!SPECS[@]}"; do
-    if python3 $ROOTDIR/test/check_flows.py -b -c "${SPECS[$i]}" > /dev/null 2>&1; then
+    if "$PYTHON" $ROOTDIR/test/check_flows.py -b -c "${SPECS[$i]}" > /dev/null 2>&1; then
         actual=pass
     else
         actual=fail
@@ -252,7 +262,7 @@ fi
 #echo "start openflow proxy..."
 #PYTHONPATH=. python3 openflow/ofproxy.py
 
-python3 $ROOTDIR/reporting/report.py
+"$PYTHON" $ROOTDIR/reporting/report.py
 
 pandoc report.md -o report.pdf
 

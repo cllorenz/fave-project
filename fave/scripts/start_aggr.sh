@@ -19,6 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
+# The interpreter to run FaVe's Python with. A bare `python3` is whatever PATH
+# resolves first, which in a container whose venv is not activated is the SYSTEM
+# interpreter with none of FaVe's dependencies -- and the aggregator then dies on
+# `No module named 'filelock'` inside a backgrounded process nobody reads, so every
+# flow check fails as though the MODEL were wrong. `./test.sh` exports the
+# interpreter it resolved; standalone callers keep the old default or set $PYTHON.
+PYTHON="${PYTHON:-python3}"
+
 DIR=/dev/shm
 mkdir -p $DIR/np
 
@@ -67,7 +75,7 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
-python3 aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
+"$PYTHON" aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid

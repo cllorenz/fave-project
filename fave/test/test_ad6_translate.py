@@ -1081,6 +1081,9 @@ class TestGeneratorsAndProbes(unittest.TestCase):
         passing fields must fail loudly, not be silently ignored. """
         from ad6.translate import probe_device
         with self.assertRaises(TypeError):
+            # pylint: disable=too-many-function-args
+            # -- the extra argument is the point: this asserts probe_device
+            # REFUSES fields rather than silently ignoring them.
             probe_device('probe.b', {'packet.ipv4.destination': []})
 
     # --- verdicts ------------------------------------------------------
