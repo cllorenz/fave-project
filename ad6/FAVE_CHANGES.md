@@ -2158,3 +2158,32 @@ is silently never run (item 11's lesson, restated in the suite's own comments).
 
 `make test` now passes clean: the instantiator suite goes 53 -> 56 tests with zero failures,
 where it previously reported 4.
+
+## 30. `make test` and the bench/demo scripts ran whatever `python3` PATH resolved
+##     first  **[INFRA]**
+
+`Makefile`'s `test`/`demo` targets, `ad6_up.sh`, `ad6_tum.sh`, `bench/up/run_{small,medium,
+large}.sh` and `deprecated/main.sh` all invoked a **bare** `python3`. ad6 needs
+`lxml`/`pycosat`/`python-sat`, so in a container whose venv is not activated -- the normal
+state of a sandbox that resets system packages while a `$HOME` venv survives -- that is the
+system interpreter, and `make test` dies with:
+
+```
+ModuleNotFoundError: No module named 'pycosat'
+make: *** [Makefile:5: test] Error 1
+```
+
+which reads as a broken checkout rather than a missing venv. It is the same class of defect
+as FaVe's own `net_plumber`-not-on-PATH bug: the tool is present and unreachable at the same
+time, and the error names something other than the cause.
+
+`Makefile` now takes `PYTHON ?= python3` and the scripts the `PYTHON="${PYTHON:-python3}"`
+idiom, so an explicit `$PYTHON` (or FaVe's `./test.sh`, which exports the interpreter its
+`resolve_python.sh` resolved) reaches them, and a bare invocation behaves exactly as before.
+
+`ad6/install.sh` is deliberately untouched: its `apt-get install python3` / `pacman -S
+python3` are **package names**, not invocations -- an automated pass rewrote them once, and
+that was wrong.
+
+Verified: `PYTHON=~/.venv/bin/python3 make test` with a bare `PATH` (no venv on it, no
+`VIRTUAL_ENV`) runs all 11 suites, 189 tests, OK. No library behaviour changes.
