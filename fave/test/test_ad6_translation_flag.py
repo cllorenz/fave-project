@@ -89,13 +89,20 @@ class TestTranslationSelector(unittest.TestCase):
                       "lives, or an archived measurement is simply lost")
         self.assertIn('§9.25', message)
 
-    def test_the_stamp_reports_the_translation_and_grounding(self):
-        """ And nothing else: `faithful_vlan`/`probe_untag` were semantic-path
-        flags (§9.16.1 -- they never applied to a structural model) and went
-        with it. An archived stamp carrying them came from a run this tree
-        cannot reproduce. """
-        self.assertEqual(_adapter().configuration_stamp(),
-                         {"translation": "literal", "grounding": "rank"})
+    def test_the_stamp_reports_the_translation(self):
+        """ `faithful_vlan`/`probe_untag` are NOT in it: they were
+        interpreted-path flags (§9.16.1 -- they never applied to this model)
+        and went with that path. An archived stamp carrying them came from a
+        run this tree cannot reproduce.
+
+        Only the translation field is asserted here; the stamp's full contract
+        (and the §9.3 Phase 6 solver/lite_acyclic fields) is
+        test_ad6_solver.py::TestConfigurationStamp's, so adding a stamped
+        option does not have to be written down twice. """
+        stamp = _adapter().configuration_stamp()
+        self.assertEqual(stamp["translation"], "literal")
+        for gone in ("faithful_vlan_applies", "probe_untag"):
+            self.assertNotIn(gone, stamp)
 
     def test_the_deleted_flags_are_gone_from_the_constructor(self):
         """ Not silently ignored -- gone. A caller still passing

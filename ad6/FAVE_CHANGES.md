@@ -2187,3 +2187,75 @@ that was wrong.
 
 Verified: `PYTHON=~/.venv/bin/python3 make test` with a bare `PATH` (no venv on it, no
 `VIRTUAL_ENV`) runs all 11 suites, 189 tests, OK. No library behaviour changes.
+
+
+## 31. `IncrementalSession` hardcoded its solver and could not reach the lite
+##     acyclic encoding at all  **[FEATURE]**
+
+AD6_PLAN.md §9.3 Phase 6 (production wiring). Two measurement-affecting choices
+existed in this tree and were reachable only from FaVe's two measurement drivers --
+which §9.25 deleted. Without this commit the capability would have gone with them.
+
+### What was hardcoded
+
+`IncrementalSession` constructed `Minisat22` in two places (the persistent
+rank-grounded session, and the fresh per-query solver the flow grounding builds).
+So the production path could not reproduce the **cadical195** configuration every
+wl_i2 number was measured under -- and the gap is not academic: on wl_i2's 72-pair
+matrix, same encoding and same exact oracle match, Cadical195 completed in ~3.56 h
+against Glucose4's ~15.3 h.
+
+`Instantiator._CreateAcyclicConstraintsLite` had **zero callers** after §9.25. It is
+MANDATORY on wl_i2 -- the general lxml/Tseitin path OOMs before reaching DIMACS
+conversion at all (~0.14 MB per qualifying edge over 140,613 edges) -- so i2 through
+FaVe was possible only under flow grounding.
+
+### The refusal that matters more than the feature
+
+`SOLVERS_WITHOUT_ASSUMPTIONS` moved here from `fave/bench/ad6_stamp.py` (orphaned by
+§9.25, now deleted) and became a **hard error** rather than a note.
+
+Kissat404's PySAT wrapper SILENTLY IGNORES `assumptions` -- it emits a RuntimeWarning
+and solves anyway. The rank grounding answers a query by assumption-solving the
+persistent session on `[src_lit, dst_lit]`, so under that backend both endpoint
+literals are dropped and EVERY query is solved against the bare base encoding, which
+is satisfiable for essentially any model. **Nothing crashes. The run reports
+everything reachable.** `IncrementalSession` now refuses the COMBINATION at
+construction, naming the grounding that does work -- the flow path asserts endpoints
+as unit clauses on a fresh solver, so the same backend is fine there.
+
+This is the same discipline as the query-condition refusals: an option that cannot be
+honoured must fail, never quietly answer a different question.
+
+### How lite acyclic is plumbed
+
+It stayed opt-in for an architectural reason its own docstring records: it returns
+plain `(name, negated)` clause tuples, which do not compose with the lxml-Element
+formula lists the general path extends into `combined[0]`. The session now resolves
+them to DIMACS itself, *after* `_ConvertToDIMACS` has established the numbering, with
+`_index_for` allocating for the rank encoding's own `eq_i`/`gt_i` variables -- exactly
+what the flow path already does with `_CreateFlowPathConstraints`' identically-shaped
+output. No change to either encoding.
+
+`lite_acyclic` is reported as False under the flow grounding whatever was requested,
+because no rank constraints are built there; claiming it would mis-stamp the result
+(the mistake §9.16.1 caught for `faithful_vlan`).
+
+### Tests
+
+`instantiatortest.py::IncrementalSessionSolverTest` (5) and
+`::IncrementalSessionLiteAcyclicTest` (4), both registered in
+`instantiatorsuite.py`'s manual registry -- a class added without an entry is silently
+never run (see item 24). Written before the plumbing existed, and red first.
+
+The solver test does not merely check that a backend runs: it holds **every** declared
+solver to the minisat22 baseline's verdicts on the same fixture, in both groundings.
+That is what would catch the silent all-reachable failure if the refusal above ever
+regressed. The lite test pins that the session's two acyclic paths agree on real
+verdicts, plus a guard that lite still *grounds* the witness -- two encodings that
+both ground nothing would also agree.
+
+Verified end-to-end through the real subprocess bridge on wl_ifi: minisat22, glucose4
+and cadical195 (rank), cadical195 and minisat22 with `lite_acyclic`, and kissat404
+(flow) all return the IDENTICAL 7-unreachable matrix, each stamping its own
+configuration. `make test`: 10 suites, 198 tests, OK.

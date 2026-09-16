@@ -8,7 +8,8 @@ from src.sat.satutils import SATUtils as sat
 from src.xml.genutils import GenUtils
 from src.core.structure import KripkeStructure, KripkeNode
 from src.solver.incremental import (
-    GROUNDING_FLOW, GROUNDING_RANK, IncrementalSession)
+    GROUNDING_FLOW, GROUNDING_RANK, SOLVERS, IncrementalSession,
+    needs_fresh_per_query)
 
 class InstantiatorTest(unittest.TestCase):
     def deannotate(config):
@@ -2026,3 +2027,177 @@ class EncodingIsolationTest(unittest.TestCase):
         self.assertEqual(
             after, baseline,
             "an unrelated model's variables leaked into this encoding: %s" % leaked)
+
+
+class IncrementalSessionSolverTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.3 Phase 6: `IncrementalSession`'s SOLVER selector.
+
+    Before this the session hardcoded `Minisat22` in two places, so the
+    production path could not reproduce the cadical195 configuration every
+    wl_i2 number was measured under -- the measurement drivers could pick a
+    backend and FaVe could not, which is backwards.
+
+    Held to the same ground truth on the same fixture the grounding selector
+    uses, so "production can now pick a backend" is a checked claim and not a
+    plumbing assertion. """
+
+    @staticmethod
+    def _session(**kwargs):
+        config = FlowPathConstraintTest._fixture()
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False,
+            Acyclic=False)
+        return IncrementalSession(kripke, encoding, **kwargs)
+
+    def test_the_default_solver_is_minisat22(self):
+        """ Back-compatibility: every archived result came from it. """
+        session = self._session()
+        try:
+            self.assertEqual(session.solver, 'minisat22')
+        finally:
+            session.Close()
+
+    def test_an_unknown_solver_is_refused(self):
+        """ Loudly, at construction -- a silent fallback would mis-stamp
+        whatever measurement followed. """
+        with self.assertRaises(ValueError):
+            self._session(solver='minisat')          # sic: the PySAT name is minisat22
+
+    def test_every_declared_solver_agrees_with_the_default(self):
+        """ The point of the selector: a different backend must answer the
+        SAME question, not merely run. Any solver that disagrees here is
+        mis-plumbed, and on a no-assumptions backend that is exactly how the
+        silent all-reachable failure would show up. """
+        pairs = [('entry', 'A'), ('entry', 'B'), ('entry2', 'A')]
+        expected = {}
+        session = self._session()
+        try:
+            for source, destination in pairs:
+                expected[(source, destination)] = session.Query(source, destination)
+        finally:
+            session.Close()
+
+        for name in SOLVERS:
+            for grounding in (GROUNDING_RANK, GROUNDING_FLOW):
+                if grounding == GROUNDING_RANK and needs_fresh_per_query(name):
+                    continue        # refused by construction; covered below
+                with self.subTest(solver=name, grounding=grounding):
+                    session = self._session(solver=name, grounding=grounding)
+                    try:
+                        for source, destination in pairs:
+                            self.assertEqual(
+                                session.Query(source, destination),
+                                expected[(source, destination)],
+                                "%s/%s disagrees with the minisat22 baseline on "
+                                "%s->%s" % (name, grounding, source, destination))
+                    finally:
+                        session.Close()
+
+    def test_a_no_assumptions_solver_is_REFUSED_under_rank(self):
+        """ THE TRAP THIS SELECTOR MUST NOT OPEN, and the reason the refusal is
+        a hard error rather than a warning.
+
+        The rank grounding answers a query by assumption-solving the persistent
+        session on `[src_lit, dst_lit]`. Kissat404's PySAT wrapper SILENTLY
+        IGNORES `assumptions` (it emits a RuntimeWarning and solves anyway), so
+        both endpoint literals would be dropped and EVERY query would be solved
+        against the bare base encoding -- satisfiable for essentially any
+        model. Nothing crashes; the run just reports everything reachable.
+
+        Under the flow grounding the endpoints go in as unit clauses on a fresh
+        per-query solver instead, so the same backend is fine there -- which is
+        why this refuses the COMBINATION and not the solver. """
+        with self.assertRaises(ValueError) as caught:
+            self._session(solver='kissat404', grounding=GROUNDING_RANK)
+        message = str(caught.exception)
+        self.assertIn('kissat404', message)
+        self.assertIn('assumption', message.lower())
+        self.assertIn(GROUNDING_FLOW, message,
+                      "the refusal must name the grounding that DOES work, or "
+                      "it reads as 'this backend is unusable'")
+
+    def test_the_same_no_assumptions_solver_is_accepted_under_flow(self):
+        session = self._session(solver='kissat404', grounding=GROUNDING_FLOW)
+        try:
+            self.assertFalse(session.Query('entry', 'A'))
+        finally:
+            session.Close()
+
+
+class IncrementalSessionLiteAcyclicTest(unittest.TestCase):
+    """ AD6_PLAN.md §9.3 Phase 6: `lite_acyclic` through the PRODUCTION session.
+
+    `_CreateAcyclicConstraintsLite` had ZERO callers after Phase 5b deleted the
+    two measurement drivers -- and it is MANDATORY on wl_i2, where the general
+    lxml/Tseitin path OOMs before reaching DIMACS conversion (~0.14 MB per
+    qualifying edge, ~22 GB projected for i2's 140,613-edge set). So without
+    this, i2 through FaVe was possible only under flow grounding.
+
+    It stayed opt-in for an architectural reason, not an evidentiary one: it
+    returns plain (name, negated) clause tuples, which do not compose with the
+    lxml-Element formula lists the general path extends. The session resolves
+    them to DIMACS itself -- the same thing its flow path already does with
+    `_CreateFlowPathConstraints`' identically-shaped output. """
+
+    @staticmethod
+    def _session(**kwargs):
+        config = FlowPathConstraintTest._fixture()
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry', 'entry2'], default_inits=False,
+            Acyclic=False)
+        return IncrementalSession(kripke, encoding, **kwargs)
+
+    def test_the_default_is_off(self):
+        session = self._session()
+        try:
+            self.assertFalse(session.lite_acyclic)
+        finally:
+            session.Close()
+
+    def test_lite_answers_EXACTLY_what_the_general_encoding_answers(self):
+        """ The whole claim. The two encodings are proven clause-identical at
+        the unit level (LiteAcyclicEquivalenceTest); this pins that the
+        SESSION's two paths through them agree on real verdicts, which is what
+        a caller actually depends on. """
+        pairs = [('entry', 'A'), ('entry', 'B'), ('entry2', 'A'), ('A', 'B')]
+
+        general = self._session(lite_acyclic=False)
+        lite = self._session(lite_acyclic=True)
+        try:
+            for source, destination in pairs:
+                with self.subTest(pair=(source, destination)):
+                    self.assertEqual(
+                        lite.Query(source, destination),
+                        general.Query(source, destination),
+                        "lite and general acyclic disagree on %s->%s"
+                        % (source, destination))
+        finally:
+            general.Close()
+            lite.Close()
+
+    def test_lite_still_grounds_the_witness(self):
+        """ Guards the test above: two encodings that both ground NOTHING also
+        agree. The fixture's 'entry'->'A' is the pair the grounding gap turns
+        on -- unreachable only if a floating cycle is forbidden. """
+        session = self._session(lite_acyclic=True)
+        try:
+            self.assertFalse(
+                session.Query('entry', 'A'),
+                "lite acyclic must forbid the floating cycle, or it is not "
+                "grounding anything and the agreement above is vacuous")
+        finally:
+            session.Close()
+
+    def test_lite_is_ignored_under_the_flow_grounding_and_says_so(self):
+        """ The flow grounding builds no rank constraints at all, so
+        `lite_acyclic` cannot apply. Reporting it as applied would mis-stamp
+        the result -- the same reason `faithful_vlan` was removed rather than
+        ignored at §9.25. """
+        session = self._session(lite_acyclic=True, grounding=GROUNDING_FLOW)
+        try:
+            self.assertFalse(
+                session.lite_acyclic,
+                "a flow-grounded session must not claim a rank-encoding "
+                "option it never applied")
+        finally:
+            session.Close()

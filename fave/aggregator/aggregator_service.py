@@ -71,6 +71,66 @@ from rule.rule_model import RuleField
 def _has_asyncore_socks(socks: Dict[Any, Any]) -> bool:
     return socks != {} and all(v is not None for v in socks.values())
 
+
+# AD6_PLAN.md §9.3 Phase 6: the verification engines FaVe can be run on.
+#
+# WHY THIS EXISTS. Three engines live in this tree -- NetPlumber (HSA), APKeep
+# (BDD/NDD) and ad6 (SAT/QBF) -- but until now `AggregatorService` constructed
+# `NetPlumberAdapter` unconditionally, and its `engine=` parameter is
+# documented as, and remains, a TEST injection seam. There was no production
+# route to the other two at all: running FaVe on ad6 meant building the service
+# from Python and injecting the engine, which no benchmark or script does.
+#
+# NetPlumber is first, and the default, because every existing benchmark,
+# script and CI job invokes the aggregator without naming a backend.
+BACKEND_NETPLUMBER = 'netplumber'
+BACKEND_APKEEP = 'apkeep'
+BACKEND_AD6 = 'ad6'
+BACKENDS = (BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6)
+
+
+def build_engine(
+        backend: str, logger: Any, socks: Optional[List[Any]] = None,
+        asyncore_socks: Optional[Dict[Any, Any]] = None,
+        mapping: Optional[Any] = None, apkeep_engine: str = 'bdd',
+        faithful_vlan: bool = False, grounding: Optional[str] = None,
+        solver: Optional[str] = None, lite_acyclic: bool = False
+) -> Any:
+    """ The verification engine named by `backend`.
+
+    Imports the chosen adapter LAZILY, because the three have very different
+    dependency footprints -- APKeep needs a JVM through JPype, ad6 needs
+    nothing at import time but reaches a subprocess later -- and an aggregator
+    running on NetPlumber should not pay for, or fail on, either.
+
+    Backend-specific options are accepted and ignored by the backends they do
+    not apply to, so one command line can switch engines without also having to
+    edit away its flags. What must NOT be silently ignored is a malformed value
+    for the backend actually selected: those are validated by the adapters
+    themselves, at construction, before any model is built.
+    """
+    if backend not in BACKENDS:
+        raise ValueError(
+            "unknown backend %r -- expected one of %s" % (
+                backend, ', '.join(repr(b) for b in BACKENDS)))
+
+    if backend == BACKEND_NETPLUMBER:
+        return NetPlumberAdapter(
+            list(socks or []), logger,
+            asyncore_socks=asyncore_socks or {}, mapping=mapping)
+
+    if backend == BACKEND_APKEEP:
+        from apkeep.adapter import APKeepAdapter
+        return APKeepAdapter(logger, mapping=mapping,
+                             faithful_vlan=faithful_vlan, engine=apkeep_engine)
+
+    from ad6.adapter import GROUNDING_RANK, SOLVER_MINISAT22, Ad6Adapter
+    return Ad6Adapter(
+        logger,
+        grounding=grounding or GROUNDING_RANK,
+        solver=solver or SOLVER_MINISAT22,
+        lite_acyclic=lite_acyclic)
+
 class AggregatorService(AbstractAggregator):
     """ This class provides FaVe's central aggregation service.
     """
@@ -78,7 +138,8 @@ class AggregatorService(AbstractAggregator):
     def __init__(
             self, socks: Dict[Any, Any], asyncore_socks: Dict[Any, Any],
             mapping: Optional[Any] = None,
-            engine: Optional[Any] = None, reporter: Optional[Any] = None
+            engine: Optional[Any] = None, reporter: Optional[Any] = None,
+            backend: str = BACKEND_NETPLUMBER, **backend_options: Any
     ) -> None:
         self.queue: Queue[Any] = Queue()
         self.models: Dict[str, Any] = {}
@@ -89,11 +150,19 @@ class AggregatorService(AbstractAggregator):
         # objects). Tests pass a recording engine and a stub reporter to drive
         # the dispatch/diff logic without a live backend or the log-tailing
         # daemon (which opens /dev/shm/np/stdout.log).
-        self.verification_engine = engine if engine is not None else NetPlumberAdapter(
-            list(socks.values()),
+        #
+        # `backend` is the PRODUCTION route (AD6_PLAN.md §9.3 Phase 6) and
+        # `engine` stays the test one: an explicitly injected object wins, so
+        # every existing test keeps working unchanged. Before Phase 6 there was
+        # only the seam, which is why no benchmark could run on anything but
+        # NetPlumber.
+        self.verification_engine = engine if engine is not None else build_engine(
+            backend,
             AggregatorService.LOGGER,
+            socks=list(socks.values()),
             asyncore_socks=asyncore_socks,
-            mapping=mapping
+            mapping=mapping,
+            **backend_options
         )
         # XXX: make log file configurable
         self.reporter = reporter if reporter is not None else Reporter(
@@ -763,6 +832,31 @@ def main(argv: List[str]) -> None:
         const=True,
         default=False
     )
+    # AD6_PLAN.md §9.3 Phase 6: the production route to a non-NetPlumber
+    # engine. Defaults to netplumber, so every existing invocation is
+    # unaffected.
+    parser.add_argument(
+        '-b', '--backend',
+        dest='backend',
+        choices=BACKENDS,
+        default=BACKEND_NETPLUMBER
+    )
+    # ad6-only, and measurement-affecting -- the reason Phase 6 exists at all.
+    # A production path that can run only ONE configuration cannot reproduce
+    # the archived numbers, and the drivers that could were deleted at §9.25.
+    parser.add_argument('--grounding', dest='grounding', default=None)
+    parser.add_argument('--solver', dest='solver', default=None)
+    parser.add_argument(
+        '--lite-acyclic',
+        dest='lite_acyclic',
+        action='store_const',
+        const=True,
+        default=False
+    )
+    # apkeep-only.
+    parser.add_argument(
+        '--apkeep-engine', dest='apkeep_engine',
+        choices=('bdd', 'ndd'), default='bdd')
 
     args = parser.parse_args(argv)
 
@@ -780,21 +874,45 @@ def main(argv: List[str]) -> None:
     AggregatorService.LOGGER.addHandler(log_handler)
     AggregatorService.LOGGER.setLevel(log_level)
 
-    for np_server, np_port in args.servers:
-        try:
-            sock = jsonrpc.connect_to_netplumber(np_server, np_port)
-            socks[(np_server, np_port)] = sock
-            if args.use_dynamic:
-                asyncore_sock = None # NodeLinkDispatcher(np_server, np_port)
-                asyncore_socks[(np_server, np_port)] = asyncore_sock
-        except jsonrpc.RPCError as err:
-            AggregatorService.LOGGER.error(str(err))
-            print("could not connect to server: %s %s" % (np_server, np_port), file=sys.stderr)
-            parser.print_help()
-            sys.exit(1)
+    # Only NetPlumber speaks this transport. APKeep runs in-process and ad6 as
+    # a subprocess per check_compliance, so insisting on a net_plumber
+    # connection under those backends would refuse to start for the absence of
+    # something they never use (AD6_PLAN.md §9.3 Phase 6).
+    if args.backend == BACKEND_NETPLUMBER:
+        for np_server, np_port in args.servers:
+            try:
+                sock = jsonrpc.connect_to_netplumber(np_server, np_port)
+                socks[(np_server, np_port)] = sock
+                if args.use_dynamic:
+                    asyncore_sock = None # NodeLinkDispatcher(np_server, np_port)
+                    asyncore_socks[(np_server, np_port)] = asyncore_sock
+            except jsonrpc.RPCError as err:
+                AggregatorService.LOGGER.error(str(err))
+                print("could not connect to server: %s %s" % (np_server, np_port), file=sys.stderr)
+                parser.print_help()
+                sys.exit(1)
 
     global AGGREGATOR
-    AGGREGATOR = AggregatorService(socks, asyncore_socks=asyncore_socks, mapping=args.mapping)
+    try:
+        AGGREGATOR = AggregatorService(
+            socks, asyncore_socks=asyncore_socks, mapping=args.mapping,
+            backend=args.backend,
+            grounding=args.grounding, solver=args.solver,
+            lite_acyclic=args.lite_acyclic, apkeep_engine=args.apkeep_engine)
+    except ValueError as err:
+        # A malformed backend option (an unknown solver, or a solver/grounding
+        # combination that would silently answer the wrong question). Reported
+        # here rather than as a traceback, because it is a command-line error.
+        print("backend configuration error: %s" % err, file=sys.stderr)
+        sys.exit(1)
+
+    # The configuration is measurement-affecting, so the run's own log records
+    # it (the generality-debt gate). `configuration_stamp` is ad6's; the other
+    # adapters do not carry one, and the backend name is the whole story there.
+    stamp = getattr(AGGREGATOR.verification_engine, 'configuration_stamp', None)
+    AggregatorService.LOGGER.info(
+        "backend: %s%s", args.backend,
+        " %s" % (stamp(),) if callable(stamp) else "")
 
     register_signals()
 

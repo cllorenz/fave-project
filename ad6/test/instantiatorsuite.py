@@ -7,6 +7,7 @@ import os
 
 from core.instantiatortest import (
     InstantiatorTest, FlowPathConstraintTest, IncrementalSessionGroundingTest,
+    IncrementalSessionSolverTest, IncrementalSessionLiteAcyclicTest,
     RuleOrderSemanticsTest, TerminalConditionTest, ClearedFieldTest,
     EncodingIsolationTest)
 
@@ -66,6 +67,27 @@ class InstantiatorSuite(TestSuite):
             'test_close_is_safe_under_the_flow_grounding',
         ]
         self._suite.addTests(map(IncrementalSessionGroundingTest,tests))
+
+        # AD6_PLAN.md §9.3 Phase 6: the PRODUCTION session's SOLVER selector --
+        # same MANUAL registry caveat as above.
+        tests = [
+            'test_the_default_solver_is_minisat22',
+            'test_an_unknown_solver_is_refused',
+            'test_every_declared_solver_agrees_with_the_default',
+            'test_a_no_assumptions_solver_is_REFUSED_under_rank',
+            'test_the_same_no_assumptions_solver_is_accepted_under_flow',
+        ]
+        self._suite.addTests(map(IncrementalSessionSolverTest,tests))
+
+        # AD6_PLAN.md §9.3 Phase 6: `lite_acyclic` through the production
+        # session -- same MANUAL registry caveat as above.
+        tests = [
+            'test_the_default_is_off',
+            'test_lite_answers_EXACTLY_what_the_general_encoding_answers',
+            'test_lite_still_grounds_the_witness',
+            'test_lite_is_ignored_under_the_flow_grounding_and_says_so',
+        ]
+        self._suite.addTests(map(IncrementalSessionLiteAcyclicTest,tests))
 
         # AD6_PLAN.md §9 Phase 0.1: the rule-order semantics the adapter
         # rewrite's structural translation rests on -- same MANUAL registry

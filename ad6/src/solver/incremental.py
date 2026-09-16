@@ -67,7 +67,7 @@ from src.core.instantiator import Instantiator
 from src.solver.solver import AbstractSolver
 from src.xml.xmlutils import XMLUtils
 
-from pysat.solvers import Minisat22
+from pysat.solvers import Cadical195, Glucose4, Kissat404, Minisat22
 
 from copy import deepcopy
 
@@ -97,6 +97,48 @@ GROUNDING_RANK = 'rank'
 GROUNDING_FLOW = 'flow'
 GROUNDINGS = (GROUNDING_RANK, GROUNDING_FLOW)
 
+# AD6_PLAN.md §9.3 Phase 6: the PySAT backends this session can be pointed at.
+# Canonical here, where the solver is actually constructed; fave/ad6/adapter.py
+# duplicates the tuple so it imports nothing from ad6/ at module scope, and
+# fave/test/test_ad6_solver.py pins the two identical -- the same arrangement
+# GROUNDINGS already uses.
+#
+# MOVED here from `fave/bench/ad6_stamp.py`, which Phase 5b orphaned along with
+# the two measurement drivers that were its only users. Solver choice is
+# measurement-affecting configuration, so it belongs on the production path
+# rather than in a bench helper nothing imports.
+SOLVER_MINISAT22 = 'minisat22'
+SOLVERS = ('minisat22', 'glucose4', 'cadical195', 'kissat404')
+
+_SOLVER_CLASSES = {
+    'minisat22': Minisat22,
+    'glucose4': Glucose4,
+    'cadical195': Cadical195,
+    'kissat404': Kissat404,
+}
+
+# Backends whose PySAT wrapper SILENTLY IGNORES `assumptions`. Verified by
+# experiment, not taken from documentation: bootstrapped with `[[1, 2]]` and
+# solved under `assumptions=[-1, -2]`, Minisat22/Glucose4/Cadical195 all return
+# UNSAT while Kissat404 returns SAT, emitting only a RuntimeWarning ("Kissat
+# does not support assumptions. The assumptions parameter will be ignored.").
+#
+# WHY THIS MATTERS ENOUGH TO BE A HARD REFUSAL. The rank grounding answers a
+# query by assumption-solving the persistent session on `[src_lit, dst_lit]`.
+# Under a backend in this tuple those two literals are dropped, so EVERY query
+# is solved against the bare base encoding -- satisfiable for essentially any
+# model. Nothing crashes and the output looks normal; the run just reports
+# everything reachable. The flow grounding is unaffected, because it puts the
+# endpoints in as unit clauses on a fresh per-query solver, so what is refused
+# below is the COMBINATION rather than the backend.
+SOLVERS_WITHOUT_ASSUMPTIONS = ('kissat404',)
+
+
+def needs_fresh_per_query(solver_name):
+    """ True iff `solver_name` cannot be driven by the persistent
+    assumption-based session without silently answering the wrong question. """
+    return solver_name in SOLVERS_WITHOUT_ASSUMPTIONS
+
 
 class IncrementalSession:
     """ One persistent incremental-solving session for one Kripke/base-
@@ -105,33 +147,79 @@ class IncrementalSession:
     query. Not thread-safe (PySAT's Minisat22 isn't); one session per
     process, matching `fave_bridge.py`'s own single-threaded query loop. """
 
-    def __init__(self, kripke, encoding, grounding=GROUNDING_RANK):
+    def __init__(self, kripke, encoding, grounding=GROUNDING_RANK,
+                 solver=SOLVER_MINISAT22, lite_acyclic=False):
         if grounding not in GROUNDINGS:
             raise ValueError(
                 "unknown grounding strategy %r -- expected one of %s" % (
                     grounding, ', '.join(repr(g) for g in GROUNDINGS)))
+        if solver not in SOLVERS:
+            raise ValueError(
+                "unknown solver %r -- expected one of %s" % (
+                    solver, ', '.join(repr(s) for s in SOLVERS)))
+        if grounding == GROUNDING_RANK and needs_fresh_per_query(solver):
+            raise ValueError(
+                "solver %r cannot be used with grounding %r: its PySAT wrapper "
+                "SILENTLY IGNORES `assumptions`, and the rank grounding forces "
+                "this query's endpoints as assumptions on a persistent solver. "
+                "Both would be dropped, every query would be solved against the "
+                "bare base encoding, and the run would report EVERYTHING "
+                "reachable without failing. Use grounding=%r, which asserts the "
+                "endpoints as unit clauses on a fresh per-query solver instead."
+                % (solver, GROUNDING_RANK, GROUNDING_FLOW))
         self._kripke = kripke
         # Public on purpose: a caller reporting a measurement has to be able to
-        # stamp WHICH grounding produced it (AD6_PLAN.md's generality-debt
-        # gate -- the encoding is measurement-affecting configuration).
+        # stamp WHICH grounding, solver and acyclic encoding produced it
+        # (AD6_PLAN.md's generality-debt gate -- all three are
+        # measurement-affecting configuration).
         self.grounding = grounding
+        self.solver = solver
+        # Reported as False under the flow grounding whatever was requested: no
+        # rank constraints are built there, so claiming the option would
+        # mis-stamp the result. Same reason `faithful_vlan` was REMOVED rather
+        # than ignored at §9.25.
+        self.lite_acyclic = bool(lite_acyclic) and grounding == GROUNDING_RANK
+        solver_class = _SOLVER_CLASSES[solver]
 
         combined = encoding
+        # AD6_PLAN.md §9.3 Phase 6: the lite acyclic encoding emits plain
+        # (name, negated) clause tuples rather than lxml formula elements, so it
+        # cannot be extended into `combined` -- it is resolved to DIMACS below,
+        # after the numbering exists. That mismatch is the ONLY reason it stayed
+        # opt-in; the two encodings are proven clause-identical
+        # (instantiatortest.py::LiteAcyclicEquivalenceTest). It is MANDATORY on
+        # wl_i2, where the general path OOMs before reaching DIMACS conversion
+        # at all (~0.14 MB per qualifying edge over 140,613 edges).
+        lite_clauses = ()
         if grounding == GROUNDING_RANK:
-            acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
-            combined = deepcopy(encoding)
-            combined[0].extend(deepcopy(acyclic_constraints))
+            if self.lite_acyclic:
+                lite_clauses = Instantiator._CreateAcyclicConstraintsLite(kripke)
+            else:
+                acyclic_constraints = Instantiator._CreateAcyclicConstraints(kripke)
+                combined = deepcopy(encoding)
+                combined[0].extend(deepcopy(acyclic_constraints))
 
         adapter = AbstractSolver()
-        # Read-only on its argument, so 'flow' hands it `encoding` directly and
-        # skips the deepcopy the rank path needs in order to extend it.
+        # Read-only on its argument, so 'flow' (and the lite rank path, which
+        # adds nothing to the formula tree) hands it `encoding` directly and
+        # skips the deepcopy the general rank path needs in order to extend it.
         variables, dimacs_clauses = adapter._ConvertToDIMACS(combined)
         self._name_to_index = {name: i + 1 for i, name in enumerate(variables)}
         self._next_index = len(variables) + 1
 
+        if lite_clauses:
+            # `_index_for` allocates for the rank encoding's own eq_i/gt_i
+            # variables, which the base numbering above has never seen. Exactly
+            # what the flow path already does with `_CreateFlowPathConstraints`'
+            # identically-shaped output.
+            dimacs_clauses = list(dimacs_clauses) + [
+                [-self._index_for(name) if negated else self._index_for(name)
+                 for name, negated in clause]
+                for clause in lite_clauses]
+
         if grounding == GROUNDING_RANK:
             self._dimacs_clauses = None
-            self._solver = Minisat22(bootstrap_with=dimacs_clauses)
+            self._solver = solver_class(bootstrap_with=dimacs_clauses)
         else:
             # The flow constraint names THIS query's endpoints, so a reused
             # solver would still assert query 1's flow during query 2 (see
@@ -212,7 +300,7 @@ class IncrementalSession:
             # comes back as an ordinary False like any other refutation.
             return False
 
-        solver = Minisat22(bootstrap_with=self._dimacs_clauses)
+        solver = _SOLVER_CLASSES[self.solver](bootstrap_with=self._dimacs_clauses)
         try:
             for clause in src_clauses + dst_clauses:
                 solver.add_clause(clause)

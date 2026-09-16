@@ -48,7 +48,7 @@ import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's 
 
 from src.bigstack import run_with_big_stack  # noqa: E402
 from src.solver.incremental import (  # noqa: E402
-    GROUNDING_RANK, GROUNDINGS, IncrementalSession)
+    GROUNDING_RANK, GROUNDINGS, SOLVER_MINISAT22, SOLVERS, IncrementalSession)
 from src.xml.xmlutils import XMLUtils  # noqa: E402
 from src.core.kripke import KripkeUtils  # noqa: E402
 from src.core.instantiator import Instantiator  # noqa: E402
@@ -296,6 +296,12 @@ def main(argv=None):
     # `grounding` argument -- so this flag exists for driving the bridge by
     # hand; when both are given the flag wins.
     parser.add_argument('--grounding', choices=GROUNDINGS, default=None)
+    # AD6_PLAN.md §9.3 Phase 6: same arrangement as --grounding. Normally set by
+    # the caller through the payload (Ad6Adapter's own arguments); these exist
+    # for driving the bridge by hand, and when both are given the flag wins.
+    parser.add_argument('--solver', choices=SOLVERS, default=None)
+    parser.add_argument('--lite-acyclic', dest='lite_acyclic',
+                        action='store_true', default=None)
     args = parser.parse_args(argv)
 
     with open(args.infile) as raw:
@@ -340,12 +346,20 @@ def main(argv=None):
     # all-pairs matrix vs. an unfinished 6-hour run), 0 mismatches
     # against the old architecture on both.
     grounding = args.grounding or payload.get('grounding') or GROUNDING_RANK
-    session = IncrementalSession(kripke, encoding, grounding=grounding)
-    # Always announce it, even without AD6_BRIDGE_PROGRESS: the grounding is
-    # measurement-affecting configuration, so a run's own log must record which
-    # one produced its answers (AD6_PLAN.md's generality-debt gate).
-    print("[ad6 bridge] grounding=%s" % session.grounding, file=sys.stderr,
-          flush=True)
+    solver = args.solver or payload.get('solver') or SOLVER_MINISAT22
+    lite_acyclic = (args.lite_acyclic if args.lite_acyclic is not None
+                    else bool(payload.get('lite_acyclic')))
+    session = IncrementalSession(kripke, encoding, grounding=grounding,
+                                 solver=solver, lite_acyclic=lite_acyclic)
+    # Always announce them, even without AD6_BRIDGE_PROGRESS: all three are
+    # measurement-affecting configuration, so a run's own log must record what
+    # produced its answers (AD6_PLAN.md's generality-debt gate). Read back off
+    # the SESSION rather than echoed from the request -- `lite_acyclic` does not
+    # apply under the flow grounding, and the log must say what was actually
+    # used, not what was asked for.
+    print("[ad6 bridge] grounding=%s solver=%s lite_acyclic=%s" % (
+        session.grounding, session.solver, session.lite_acyclic),
+        file=sys.stderr, flush=True)
     results = []
     # Opt-in per-query progress (AD6_BRIDGE_PROGRESS=1) -- added after the
     # B1 Option 2 differential ran for hours with zero visibility into

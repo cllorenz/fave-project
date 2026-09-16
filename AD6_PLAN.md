@@ -4061,10 +4061,13 @@ speculatively ahead of need.
 
 ## 9. The ad6 adapter rewrite: structural translation (owner decision 2026-09-12)
 
-**Status: Phases 0-5 DONE (2026-09-16). 5a flipped the default (§9.24); 5b deleted
+**Status: Phases 0-6 DONE (2026-09-16). 5a flipped the default (§9.24); 5b deleted
 the interpreted path, -9,269 lines (§9.25); §9.26 renamed the surviving vocabulary
-'structural' -> 'literal'. Phase 6 (production wiring) untouched -- the aggregator
-still hardcodes `NetPlumberAdapter`, so no production route to ad6 exists yet.**
+'structural' -> 'literal'; §9.27 wired production -- `--backend ad6` plus selectable
+solver and `lite_acyclic`, so FaVe can be run on ad6 and every archived
+configuration is reachable again. NEXT: no benchmark yet passes `--backend ad6`,
+and `fave/bench/wl_*/benchmark.py` still spawns NetPlumber unconditionally, so a
+full workload end-to-end on ad6 through the live aggregator is the open step.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -5965,6 +5968,101 @@ alongside `'semantic'`: that path is gone, not renamed.
 **The historical prose in §§9.1-9.24 is deliberately NOT rewritten.** Those sections record
 what was decided and measured while the old words were the words; retitling them would
 falsify the record. Read "structural" there as "literal" and "semantic" as "interpreted".
+
+### 9.27 Phase 6: production wiring -- FaVe can now be run on ad6
+
+**DONE 2026-09-16.** Three gaps, all of them the same shape: a capability that existed
+only in code sitting off the production path, and in two cases only in code §9.25 had
+just deleted.
+
+#### 9.27.1 Backend selection: there was no production route to ANY engine but NetPlumber
+
+`AggregatorService.__init__` constructed `NetPlumberAdapter` unconditionally. Its
+`engine=` parameter is documented as -- and remains -- a TEST injection seam. So although
+three verification engines live in this tree, running FaVe on ad6 (or APKeep) meant
+building the service from Python and injecting the engine, which no benchmark or script
+does.
+
+`build_engine(backend, ...)` + `--backend {netplumber,apkeep,ad6}`, defaulting to
+netplumber so every existing invocation is unaffected. `engine=` still wins when both are
+given, so the whole existing test suite keeps working untouched. Adapters are imported
+LAZILY -- APKeep needs a JVM through JPype, and an aggregator running on NetPlumber should
+neither pay for that nor fail on it.
+
+One behavioural change beyond selection: `main()` now performs the net_plumber connection
+loop **only under the netplumber backend**. APKeep runs in-process and ad6 as a subprocess
+per `check_compliance`, so insisting on that connection would have refused to start for
+the absence of something those backends never use. Verified: with no `net_plumber`
+running at all, `--backend ad6` starts, binds and listens.
+
+#### 9.27.2 The solver was hardcoded, so no archived wl_i2 number was reproducible
+
+`IncrementalSession` built `Minisat22` in two places. Phase 6 threads a `solver` argument
+from `Ad6Adapter` through the payload to the session, with `SOLVERS` canonical in
+`incremental.py` and duplicated in `adapter.py` under the same
+pinned-by-test arrangement `GROUNDINGS` already uses (`test_ad6_solver.py`).
+
+This is not a convenience. On wl_i2's 72-pair matrix, same encoding and same exact oracle
+match, Cadical195 completed in ~3.56 h against Glucose4's ~15.3 h -- and the production
+path could reach neither.
+
+**The refusal is the more important half.** Kissat404's PySAT wrapper SILENTLY IGNORES
+`assumptions` (RuntimeWarning, then solves anyway). The rank grounding forces a query's
+endpoints AS assumptions on a persistent solver, so under that backend both are dropped,
+every query is solved against the bare base encoding -- satisfiable for essentially any
+model -- and **the run reports everything reachable without failing**. The combination is
+now refused at construction, naming the flow grounding, which asserts endpoints as unit
+clauses on a fresh per-query solver and is therefore unaffected. The backend is not
+banned; the combination is.
+
+#### 9.27.3 `lite_acyclic` had zero callers, which made wl_i2 flow-only
+
+`Instantiator._CreateAcyclicConstraintsLite` lost its only two callers at §9.25. It is
+MANDATORY on wl_i2 -- the general path OOMs before reaching DIMACS conversion (~0.14 MB
+per qualifying edge over 140,613 edges) -- so **i2 through FaVe was possible only under
+flow grounding**, which §9.3 Phase 6 had already flagged.
+
+It stayed opt-in for an architectural reason, not an evidentiary one: it emits plain
+`(name, negated)` clause tuples that do not compose with the lxml formula lists the
+general path extends. The session now resolves them to DIMACS after the numbering exists,
+allocating for the rank encoding's own `eq_i`/`gt_i` variables via `_index_for` -- exactly
+what the flow path already does with `_CreateFlowPathConstraints`' identically-shaped
+output. Neither encoding changed.
+
+Reported as False under the flow grounding whatever was requested, since no rank
+constraints are built there. `configuration_stamp()` therefore says what was USED, not
+what was asked for -- the mistake §9.16.1 caught for `faithful_vlan`.
+
+#### 9.27.4 The stamp now carries all four
+
+`{translation, grounding, solver, lite_acyclic}`, and the aggregator logs it at startup.
+That is the generality-debt gate's requirement met for the production path, not just for
+drivers: a run's own log records the configuration that produced its answers.
+
+`fave/bench/ad6_stamp.py` is deleted. It held this vocabulary for the two measurement
+drivers; §9.25 orphaned it, and its live half (`SOLVERS`,
+`SOLVERS_WITHOUT_ASSUMPTIONS`, `needs_fresh_per_query`) now lives in `incremental.py`
+where the solver is actually constructed. Its `admission_stamp(ir)` went with the IR.
+
+#### 9.27.5 Verification
+
+Written test-first and red first: `instantiatortest.py::IncrementalSessionSolverTest` (5)
+and `::IncrementalSessionLiteAcyclicTest` (4) on the ad6 side, both added to the manual
+suite registry; `test_ad6_solver.py` (13) and `test_aggregator_backend.py` (11) on the
+FaVe side. The solver test holds EVERY declared backend to the minisat22 baseline's
+verdicts in both groundings, which is what would catch the silent all-reachable failure
+if the refusal regressed.
+
+End-to-end through the real subprocess bridge on wl_ifi, five configurations --
+minisat22/glucose4/cadical195 under rank, cadical195 and minisat22 with `lite_acyclic`,
+kissat404 under flow -- return the IDENTICAL 7-unreachable matrix, each stamping itself
+correctly.
+
+**What Phase 6 does NOT do.** It wires the plumbing; it does not re-measure anything. No
+benchmark yet passes `--backend ad6`, and the `fave/bench/wl_*/benchmark.py` drivers still
+spawn NetPlumber unconditionally -- running a full workload end-to-end on ad6 through the
+live aggregator is the next step, not this one.
+
 
 
 

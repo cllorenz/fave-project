@@ -127,6 +127,24 @@ GROUNDING_RANK = 'rank'
 GROUNDING_FLOW = 'flow'
 GROUNDINGS = (GROUNDING_RANK, GROUNDING_FLOW)
 
+# AD6_PLAN.md §9.3 Phase 6: the PySAT backends the bridge can be pointed at.
+# Duplicated from `ad6/src/solver/incremental.py`'s SOLVERS for the same reason
+# GROUNDINGS is -- this module imports nothing from the `ad6/` package -- and
+# pinned identical by fave/test/test_ad6_solver.py so the two cannot drift.
+#
+# Until Phase 6 the bridge hardcoded minisat22, so FaVe could not reproduce the
+# cadical195 configuration every wl_i2 number was measured under: the deleted
+# measurement drivers could pick a backend and the production path could not.
+SOLVER_MINISAT22 = 'minisat22'
+SOLVERS = ('minisat22', 'glucose4', 'cadical195', 'kissat404')
+
+# Backends whose PySAT wrapper SILENTLY IGNORES `assumptions`, so the rank
+# grounding (which forces the query endpoints AS assumptions on a persistent
+# solver) would drop both and report EVERYTHING reachable without failing. The
+# combination is refused in `IncrementalSession`, where the solver is actually
+# built; named here so a caller can avoid constructing it in the first place.
+SOLVERS_WITHOUT_ASSUMPTIONS = ('kissat404',)
+
 
 def available() -> bool:
     """ True iff the ad6 bridge script exists (no JVM/native-lib check needed
@@ -139,6 +157,8 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     def __init__(self, logger: TraceLogger,
                  grounding: str = GROUNDING_RANK,
+                 solver: str = SOLVER_MINISAT22,
+                 lite_acyclic: bool = False,
                  translation: str = TRANSLATION_LITERAL) -> None:
         self.logger = logger
         # AD6_PLAN.md §5.4 B1 / §5.5: WHICH constraint grounds a witness in a
@@ -168,6 +188,40 @@ class Ad6Adapter(AbstractVerificationEngine):
                 "unknown grounding strategy %r -- expected one of %s" % (
                     grounding, ', '.join(repr(g) for g in GROUNDINGS)))
         self.grounding = grounding
+
+        # AD6_PLAN.md §9.3 Phase 6: WHICH PySAT backend answers the queries.
+        # Measurement-affecting and highly so -- on wl_i2's 72-pair matrix,
+        # same encoding and same exact oracle match, Cadical195 completed in
+        # ~3.56 h against Glucose4's ~15.3 h. Validated at construction here as
+        # well as in the session, so a typo fails before a model is built
+        # rather than after.
+        if solver not in SOLVERS:
+            raise ValueError(
+                "unknown solver %r -- expected one of %s" % (
+                    solver, ', '.join(repr(s) for s in SOLVERS)))
+        if grounding == GROUNDING_RANK and solver in SOLVERS_WITHOUT_ASSUMPTIONS:
+            raise ValueError(
+                "solver %r cannot be used with grounding %r: its PySAT wrapper "
+                "silently ignores `assumptions`, which is how the rank "
+                "grounding forces a query's endpoints -- every query would be "
+                "solved against the bare base encoding and the run would report "
+                "EVERYTHING reachable without failing. Use grounding=%r."
+                % (solver, GROUNDING_RANK, GROUNDING_FLOW))
+        self.solver = solver
+
+        # AD6_PLAN.md §9.3 Phase 6: the memory-lite acyclic encoding
+        # (Instantiator._CreateAcyclicConstraintsLite), proven clause-identical
+        # to the general one. OPT-IN because it is a different code path, not
+        # because it is less trusted -- and MANDATORY on wl_i2, where the
+        # general lxml/Tseitin path OOMs before reaching DIMACS conversion at
+        # all (~0.14 MB per qualifying edge over 140,613 edges). Before Phase 6
+        # it was reachable only from the two measurement drivers, so i2 through
+        # FaVe was possible only under flow grounding.
+        #
+        # Does not apply under GROUNDING_FLOW, which builds no rank constraints
+        # -- `configuration_stamp` reports what was USED, not what was asked
+        # for, so a flow result never claims it.
+        self._lite_acyclic = bool(lite_acyclic)
 
         # AD6_PLAN.md §9.25: one live translation, still stamped. The argument
         # survives the deletion of the second path on purpose -- it is what a
@@ -219,7 +273,20 @@ class Ad6Adapter(AbstractVerificationEngine):
         return {
             "translation": self.translation,
             "grounding": self.grounding,
+            "solver": self.solver,
+            "lite_acyclic": self.lite_acyclic_applies,
         }
+
+    @property
+    def lite_acyclic_applies(self) -> bool:
+        """ Whether the requested `lite_acyclic` actually affects the answers.
+
+        False under the flow grounding, which builds no rank constraints at all.
+        Anything stamping a result must consult THIS rather than the constructor
+        argument, or it will label a flow result with a rank-encoding option
+        that was never applied -- the mistake §9.16.1 caught for
+        `faithful_vlan`. """
+        return self._lite_acyclic and self.grounding == GROUNDING_RANK
 
     def global_port(self, port: Any) -> Any:
         return port
@@ -381,6 +448,8 @@ class Ad6Adapter(AbstractVerificationEngine):
                 })
         payload = {"queries": queries,
                    "grounding": self.grounding,
+                   "solver": self.solver,
+                   "lite_acyclic": self.lite_acyclic_applies,
                    "translation": self.translation,
                    "literal": self._build_literal()}
         with tempfile.TemporaryDirectory(prefix="ad6_bridge_") as tmp:
