@@ -57,10 +57,18 @@ from typing import Any, Callable, Dict, List, Tuple
 
 
 def _engine(faithful_vlan: bool = False, probe_untag: bool = False) -> Any:
-    from ad6.adapter import Ad6Adapter
+    # AD6_PLAN.md §9.3 Phase 5: the adapter default flipped to 'structural' at
+    # the Phase 5 gate. This driver's archived numbers were all measured on the
+    # SEMANTIC path, so it pins that explicitly -- leaving it implicit would have
+    # re-measured every one of them silently, which is exactly what the
+    # generality-debt gate forbids (a measurement-affecting choice is a stamped
+    # field, never a habit). Re-measuring structurally is a deliberate act: change
+    # this line and re-run, do not inherit a new default.
+    from ad6.adapter import Ad6Adapter, TRANSLATION_SEMANTIC
     log = logging.getLogger("ad6_ir_snapshot")
     log.setLevel(logging.WARNING)
-    return Ad6Adapter(log, faithful_vlan=faithful_vlan, probe_untag=probe_untag)
+    return Ad6Adapter(log, faithful_vlan=faithful_vlan, probe_untag=probe_untag,
+                      translation=TRANSLATION_SEMANTIC)
 
 
 def _replay(engine: Any, prefix: str, files: Any = None) -> Dict[str, Any]:

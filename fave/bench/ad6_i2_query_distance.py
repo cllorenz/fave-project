@@ -58,13 +58,21 @@ def _base(name):
 
 
 def _build_ir():
-    from ad6.adapter import Ad6Adapter
+    # AD6_PLAN.md §9.3 Phase 5: the adapter default flipped to 'structural' at
+    # the Phase 5 gate. This driver's archived numbers were all measured on the
+    # SEMANTIC path, so it pins that explicitly -- leaving it implicit would have
+    # re-measured every one of them silently, which is exactly what the
+    # generality-debt gate forbids (a measurement-affecting choice is a stamped
+    # field, never a habit). Re-measuring structurally is a deliberate act: change
+    # this line and re-run, do not inherit a new default.
+    from ad6.adapter import Ad6Adapter, TRANSLATION_SEMANTIC
     from util.in_process_driver import InProcessFaVe
     import logging
 
     log = logging.getLogger("ad6_i2_query_distance")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log, faithful_vlan=False)
+    engine = Ad6Adapter(log, faithful_vlan=False,
+                        translation=TRANSLATION_SEMANTIC)
 
     files = {"topology": "device_topology.json", "routes": "routes.json",
              "policies": "probes.json", "sources": "sources.json"}

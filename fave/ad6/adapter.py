@@ -161,7 +161,7 @@ class Ad6Adapter(AbstractVerificationEngine):
     def __init__(self, logger: TraceLogger, faithful_vlan: bool = False,
                  probe_untag: bool = False,
                  grounding: str = GROUNDING_RANK,
-                 translation: str = TRANSLATION_SEMANTIC) -> None:
+                 translation: str = TRANSLATION_STRUCTURAL) -> None:
         self.logger = logger
         # AD6_PLAN.md §5.4 B1 / §5.5: WHICH constraint grounds a witness in a
         # real origin, closing the SECRYPT'15 formalism's gap
@@ -195,19 +195,35 @@ class Ad6Adapter(AbstractVerificationEngine):
         # to ad6. Measurement-affecting configuration, so it is an explicit
         # argument and a stamped field rather than a habit.
         #
-        #   'semantic'   (default) -- the original path. RECONSTRUCTS meaning
-        #       from FaVe's naming conventions (in./mid./out. stage prefixes,
-        #       .acl_in/.routing table suffixes) into an IR of interpreted
-        #       concepts, which ad6/src/parser/favemodel.py then builds from.
-        #       Every archived measurement came from this path.
-        #   'structural' -- fave/ad6/translate.py. Translates FaVe's model as
-        #       given: a table becomes a table, a rule becomes a rule at its
-        #       own position, a port is resolved from declared wiring and
-        #       links. Reads no device or table name.
+        #   'structural' (default since §9.3 Phase 5) -- fave/ad6/translate.py.
+        #       Translates FaVe's model as given: a table becomes a table, a
+        #       rule becomes a rule at its own position, a port is resolved
+        #       from declared wiring and links. Reads no device or table name.
+        #   'semantic'   -- the original path, RETAINED ONLY FOR COMPARISON.
+        #       RECONSTRUCTS meaning from FaVe's naming conventions (in./mid./
+        #       out. stage prefixes, .acl_in/.routing table suffixes) into an
+        #       IR of interpreted concepts, which ad6/src/parser/favemodel.py
+        #       then builds from. Every measurement archived before Phase 5
+        #       came from this path, which is why it is still selectable.
         #
-        # The default stays 'semantic' until the differential says the two
-        # agree on every benchmark (§9.3 Phase 3) -- switching first would
-        # silently re-measure every existing result.
+        # The default flipped only after the differential agreed on every
+        # benchmark in scope (§9.3 Phase 3: wl_ifi 54/54, wl_stanford 165 plain
+        # and faithful, wl_i2 -- where structural is the one that is RIGHT on
+        # the 11 disputed pairs, §9.16 -- and wl_up 3,661 = 3,661 against
+        # NetPlumber, §9.22). Anything re-measured from here is measured
+        # STRUCTURALLY; an archived number is comparable only to a run that
+        # passes translation=TRANSLATION_SEMANTIC explicitly.
+        #
+        # ONE DELIBERATE LOSS OF SCOPE, owner decision at the Phase 5 gate:
+        # wl_ifi's 54 stateful `related` checks are UNANSWERABLE structurally
+        # and the bridge refuses them rather than answering the unconditioned
+        # question. wl_ifi's ACLs come from Cisco text carrying no conntrack
+        # qualifier, so FaVe's interweaving has nothing to strip and emits no
+        # `related` field for the translator to carry. The semantic path
+        # answered them by forcing ad6 <state> variables onto a state-blind
+        # model (27 pass / 27 fail, §4.2's open question); the refusal is the
+        # more honest answer, so the question is closed as MALFORMED rather
+        # than inherited. See test_ad6_wl_ifi_stateful.py.
         # AD6_PLAN.md §9.16.1: `faithful_vlan` DOES NOT APPLY under the
         # structural translation, and saying so is a correctness requirement,
         # not a nicety. The semantic path's plain mode deliberately discards

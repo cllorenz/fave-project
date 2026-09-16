@@ -93,12 +93,20 @@ def _build_ir(routers):
     faithful_bdd_measure.py's _prepare_replay_dir + measure()'s own replay
     step, but stops at the IR (this script drives ad6's OWN build/solve
     machinery directly afterwards, not through the subprocess bridge). """
-    from ad6.adapter import Ad6Adapter
+    # AD6_PLAN.md §9.3 Phase 5: the adapter default flipped to 'structural' at
+    # the Phase 5 gate. This driver's archived numbers were all measured on the
+    # SEMANTIC path, so it pins that explicitly -- leaving it implicit would have
+    # re-measured every one of them silently, which is exactly what the
+    # generality-debt gate forbids (a measurement-affecting choice is a stamped
+    # field, never a habit). Re-measuring structurally is a deliberate act: change
+    # this line and re-run, do not inherit a new default.
+    from ad6.adapter import Ad6Adapter, TRANSLATION_SEMANTIC
     from util.in_process_driver import InProcessFaVe
 
     log = logging.getLogger("ad6_faithful_measure")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log, faithful_vlan=True)
+    engine = Ad6Adapter(log, faithful_vlan=True,
+                        translation=TRANSLATION_SEMANTIC)
 
     tmp = None
     if routers:

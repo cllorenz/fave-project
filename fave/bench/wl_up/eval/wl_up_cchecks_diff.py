@@ -126,14 +126,22 @@ def main():
         print("orgs sampled: %s (+ always-included singleton/central sources)" % args.orgs)
     sys.stdout.flush()
 
-    from ad6.adapter import Ad6Adapter, available
+    from ad6.adapter import Ad6Adapter, TRANSLATION_STRUCTURAL, available
     if not available():
         print("ad6 fave_bridge.py unavailable")
         return 1
 
     log = logging.getLogger("wl_up_cchecks_diff")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log)
+    # AD6_PLAN.md §9.3 Phase 5: pinned rather than inherited. STRUCTURAL is the
+    # only defensible choice on wl_up -- §9.19 found both paths wrong in
+    # opposite directions, and §9.20-§9.22 fixed the structural one until it
+    # agrees with NetPlumber EXACTLY (3,661 = 3,661, both directions), which is
+    # the result §9.23's cchecks analysis rests on. A semantic run here would
+    # produce a known-wrong number. Stated explicitly because it is
+    # measurement-affecting: the generality-debt gate forbids leaving it to
+    # whatever the adapter currently defaults to.
+    engine = Ad6Adapter(log, translation=TRANSLATION_STRUCTURAL)
     engine.load_bench_metadata(_PREFIX)
 
     from util.in_process_driver import InProcessFaVe

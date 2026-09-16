@@ -474,12 +474,20 @@ def _build_ir(faithful_vlan=False, probe_untag=False):
     gate can only ADD reachability and that oracle is an all-reachable 72/72
     mesh with zero expected-unreachable pairs. See the module docstring's
     WORKLOAD SCOPE note and §5.5's WORKLOAD-PARITY FINDING. """
-    from ad6.adapter import Ad6Adapter
+    # AD6_PLAN.md §9.3 Phase 5: the adapter default flipped to 'structural' at
+    # the Phase 5 gate. This driver's archived numbers were all measured on the
+    # SEMANTIC path, so it pins that explicitly -- leaving it implicit would have
+    # re-measured every one of them silently, which is exactly what the
+    # generality-debt gate forbids (a measurement-affecting choice is a stamped
+    # field, never a habit). Re-measuring structurally is a deliberate act: change
+    # this line and re-run, do not inherit a new default.
+    from ad6.adapter import Ad6Adapter, TRANSLATION_SEMANTIC
     from util.in_process_driver import InProcessFaVe
 
     log = logging.getLogger("ad6_i2_measure")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log, faithful_vlan=faithful_vlan, probe_untag=probe_untag)
+    engine = Ad6Adapter(log, faithful_vlan=faithful_vlan, probe_untag=probe_untag,
+                        translation=TRANSLATION_SEMANTIC)
 
     files = {"topology": "device_topology.json", "routes": "routes.json",
              "policies": "probes.json", "sources": "sources.json"}

@@ -4061,6 +4061,11 @@ speculatively ahead of need.
 
 ## 9. The ad6 adapter rewrite: structural translation (owner decision 2026-09-12)
 
+**Status: Phases 0-4 DONE; Phase 5a (the default flip) DONE 2026-09-16, §9.24; Phase
+5b (deleting the semantic path) is a SEPARATE decision -- see §9.24.4 for what it
+costs and why it does not follow automatically from the flip. Phase 6 (production
+wiring) untouched.**
+
 **Owner framing, recorded because it sets the scope:** *"I think we should invest in the
 integration now. FaVe's network model (mostly match-action tables with unidirectionally
 connected ports) is not too complicated and in an earlier session you said, that ad6's
@@ -5720,6 +5725,118 @@ only each run's internal ratios are comparable.
 This is now the FOURTH independent instance of the same defect (§9.23.2, §9.23.2a, and both
 axis scripts), all from the same root: `cchecks.json`'s on-disk format is not the format every
 consumer needs, and the conversion was open-coded at each call site instead of shared.
+
+
+### 9.24 Phase 5a: the default is STRUCTURAL -- and the flip found a swallowed exception
+
+**DONE 2026-09-16.** `Ad6Adapter`'s `translation` default is now
+`TRANSLATION_STRUCTURAL`. Phase 5's *deletion* half is deliberately NOT in this step;
+what it costs is measured below and the decision is recorded in §9.24.4.
+
+#### 9.24.1 The prerequisite the flip uncovered: `InProcessFaVe` hid every backend failure
+
+Measuring the flip before performing it -- flip the default, run all 18
+`fave/test/test_ad6_*.py` files, revert -- produced exactly two failures, and the
+interesting one was NOT what it appeared to be. `test_ad6_wl_ifi_stateful` reported **27
+stateful violations under semantic, 0 under structural**, which reads as structural
+silently answering §4.2's open question correctly.
+
+It was not answering it at all. The structural wl_ifi model declares
+`mutable_fields = {in_port, out_port, vlan}` and **no `related` field**, so
+`_structural_state_literals` RAISES (correctly -- that is what commit `8f389a52` added).
+The test never saw the exception: it drives the engine through
+`InProcessFaVe.check_compliance`, which queued the task with **no `barrier` key** and
+merely `queue.join()`ed. `AggregatorService._handler` catches every exception out of
+`_dispatch` and reports it THROUGH the barrier, so with none armed the failure was logged
+and the call returned normally -- leaving the caller to read
+`get_compliance_results() == []` as "zero violations".
+
+**This is §9.23's failure shape one layer up, and it had the same reach.** The bridge below
+had just been taught to REFUSE a query it cannot honour rather than answer the
+unconditioned question; this harness turned the refusal back into a silent pass. **Six of
+the ad6 test files** drive their engine this way (`wl_ifi`, `wl_ifi_stateful`, `wl_up`,
+`wl_stanford`, `wl_stanford_plain`, `grounding`), as do the APKeep ones -- none of them
+could fail on a backend exception.
+
+The real client never had the hole: `bench/compliance_checker.py` arms a barrier on its own
+`check_compliance`. So the fix is the existing protocol, not a new one (commit `dcd5b1a4`,
+`fave/test/test_in_process_driver.py`). The same wl_ifi run now ERRORS with the bridge's own
+traceback. **`replay()` remains unguarded** and is stated as such in the docstring: its
+messages are serialized by `topology.py`/`switch.py` straight onto the queue, so guarding
+them means a barrier per message (thousands, on wl_up). Narrower in practice -- a model that
+failed to build produces answers the assertions catch -- but open.
+
+#### 9.24.2 The one deliberate loss of scope: wl_ifi's 54 stateful checks
+
+Owner decision at the Phase 5 gate: **declare them out of scope, stamped**, and close §4.2's
+open question as MALFORMED rather than inherit it.
+
+`related` is an ordinary 8-bit header field in FaVe's model (§9.2a), so a structural
+translation carries state semantics for free *wherever FaVe puts them*. wl_ifi is the
+benchmark where FaVe puts them nowhere: its ACLs are parsed from Cisco IOS text
+(`bench/wl_ifi/acls.txt`) carrying no `established`/ctstate qualifier, so the interweaving
+has nothing to strip and emits no `related` rule. The semantic path answered those checks by
+forcing ad6 `<state>` variables onto that state-blind model -- both polarities necessarily
+resolved through the one state-blind permit, hence the perfectly systematic 27-pass/27-fail
+split that looked like a finding about wl_ifi's ACLs and was an artifact of asking a question
+the model cannot represent.
+
+**What is NOT claimed: that ad6 cannot answer stateful checks.** wl_up's 3,302 are answered
+structurally and agree exactly with NetPlumber (§9.22/§9.23), because wl_up's rulesets are
+real ip6tables text whose `ctstate ESTABLISHED` the interweaving turns into real `related`
+rules. The gap is wl_ifi's input data, not the translation.
+`test_ad6_wl_ifi_stateful.py` now pins the refusal, the message that explains it, AND the
+cause (no `related` field, no `related` rule) -- so if the premise ever changes the test says
+so instead of quietly passing.
+
+#### 9.24.3 What the flip costs, measured rather than predicted
+
+Phase 3 warned that the semantic collapses (`_collapse_out_stage`, `_fold_mid_rewrites`) are
+partly model-size reductions and that **wl_ifi could not reveal it**. Measured on the full
+ad6 suite, semantic vs structural, same machine:
+
+| file | tier | semantic | structural |
+|---|---|---|---|
+| `test_ad6_wl_up.py` | integration | 16.8 s | **455.5 s** (27x) |
+| `test_ad6_wl_stanford_plain.py` | integration | 7.7 s | 20.3 s |
+| `test_ad6_grounding.py` | fast | 3.1 s | 15.4 s |
+| `test_ad6_translation_differential.py` | fast | 5.3 s | 6.0 s (runs both either way) |
+| `test_ad6_wl_ifi.py` | fast | 0.9 s | 4.4 s |
+| `test_ad6_wl_ifi_stateful.py` | fast | 1.1 s | 3.9 s |
+| **suite total** | | **39.6 s** | **~600 s** |
+
+The cost is **concentrated, not diffuse**: wl_up alone is ~75% of it, and it is an
+*integration*-tier file. The `fast` tier -- the merge gate -- goes from ~15 s to ~35 s, so
+nothing needed re-tiering. Owner decision: **accept now, optimize later.** The optimization
+is the one Phase 3 already named -- bring the collapses back as STRUCTURAL rules ("collapse
+any table that is a pure port permutation"), stamped and separately toggleable, never
+name-triggered -- with the per-rung `kripke_nodes`/`clause_count` numbers Phase 3 asked for.
+
+#### 9.24.4 What the flip silently re-pointed, and what was done about it
+
+**Ten drivers construct `Ad6Adapter` with no `translation=`**, so the flip would have
+re-measured all of them by inheritance -- the exact thing the generality-debt gate forbids.
+All are now pinned explicitly:
+
+* to **SEMANTIC**, because their archived numbers came from that path:
+  `bench/ad6_faithful_measure.py`, `bench/ad6_i2_measure.py`, `bench/ad6_i2_query_distance.py`,
+  `bench/ad6_ir_snapshot.py`, and `ad6_encoding_bench/`'s `axis6_wlup_real.py` +
+  `axis8{,b,c,d}_stanford_*.py` (whose numbers were re-run as recently as 2026-09-16).
+* to **STRUCTURAL**, because semantic is known-wrong there:
+  `bench/wl_up/eval/wl_up_cchecks_diff.py` (§9.19 found both paths wrong in opposite
+  directions; §9.20-§9.22 fixed structural until it matches NetPlumber exactly).
+  `wl_up_cchecks_by_category.py` already stamped its own default.
+
+**This is what makes the deletion a separate decision rather than a continuation.** Deleting
+the semantic path makes every one of those semantic-pinned drivers unrunnable and every
+archived number reproducible only by `git checkout`. Scoped, the deletion is roughly:
+`adapter.py` ~670 of 1,226 lines; `ad6/src/parser/favemodel.py` ~1,300 (less `_is_constrained`,
+which both paths use, and the `witness_*` walk `bench/ad6_i2_measure.py` depends on);
+`ad6/test/parser/favemodeltest.py` 1,212 lines / 65 tests; and on the FaVe side ~173 tests
+across the seven files built on `faithful_vlan`/`probe_untag`, which §9.16.1 already
+establishes DO NOT APPLY under structural -- plus the 18-test IR-snapshot tripwire, whose
+retirement Phase 0.2 anticipated. **~3,200 lines and ~240 tests.**
+
 
 
 ---

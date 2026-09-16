@@ -39,11 +39,20 @@ def _adapter(**kwargs):
 
 class TestTranslationSelector(unittest.TestCase):
 
-    def test_the_default_is_semantic(self):
-        """ Every archived measurement came from the semantic path; changing
-        the default before the differential agrees would silently re-measure
-        all of them. """
-        self.assertEqual(_adapter().translation, TRANSLATION_SEMANTIC)
+    def test_the_default_is_structural(self):
+        """ AD6_PLAN.md §9.3 Phase 5. The default flipped once the differential
+        agreed on every benchmark in scope; before that it was 'semantic',
+        because switching earlier would have silently re-measured every
+        archived result. It still would -- which is why `semantic` remains
+        selectable and why this pins the direction rather than merely checking
+        that SOME default exists. """
+        self.assertEqual(_adapter().translation, TRANSLATION_STRUCTURAL)
+
+    def test_semantic_is_still_reachable(self):
+        """ Guards the flip: archived numbers came from the semantic path, so
+        reproducing one must stay possible without editing the adapter. """
+        self.assertEqual(_adapter(translation=TRANSLATION_SEMANTIC).translation,
+                         TRANSLATION_SEMANTIC)
 
     def test_both_translations_are_accepted(self):
         for translation in TRANSLATIONS:

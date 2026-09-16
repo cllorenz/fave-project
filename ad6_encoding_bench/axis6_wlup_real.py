@@ -65,12 +65,19 @@ def build_real_wlup():
     path -- mirrors fave/test/test_ad6_wl_up.py's setUpClass exactly, up
     to (not including) the check_compliance subprocess call."""
     sys.path.insert(0, FAVE_ROOT)
-    from ad6.adapter import Ad6Adapter
+    # AD6_PLAN.md §9.3 Phase 5: the adapter default flipped to 'structural' at
+    # the Phase 5 gate. This driver's archived numbers were all measured on the
+    # SEMANTIC path, so it pins that explicitly -- leaving it implicit would have
+    # re-measured every one of them silently, which is exactly what the
+    # generality-debt gate forbids (a measurement-affecting choice is a stamped
+    # field, never a habit). Re-measuring structurally is a deliberate act: change
+    # this line and re-run, do not inherit a new default.
+    from ad6.adapter import Ad6Adapter, TRANSLATION_SEMANTIC
     from util.in_process_driver import InProcessFaVe
 
     log = logging.getLogger("axis6_wlup_real")
     log.setLevel(logging.WARNING)
-    engine = Ad6Adapter(log)
+    engine = Ad6Adapter(log, translation=TRANSLATION_SEMANTIC)
 
     cwd = os.getcwd()
     os.chdir(FAVE_ROOT)
