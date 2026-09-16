@@ -133,72 +133,26 @@ class TestStructuralStateLiteralsRefusesMalformed(unittest.TestCase):
 
 
 class TestUnsupportedConditionFieldsRefused(unittest.TestCase):
-    """ wl_example emits `protocol`/`port` next to `related`. Neither path can
-    force a generic field, so both must refuse rather than answer the
-    unconditioned question. """
+    """ wl_example emits `protocol`/`port` next to `related`. A generic field
+    cannot be forced, so it must be refused rather than answered
+    unconditioned. """
 
-    def test_structural_refuses_an_unsupported_field(self):
-        with self.assertRaises(ValueError) as ctx:
-            fave_bridge._structural_state_literals(
-                [{"name": "protocol", "value": "tcp", "negated": False}],
-                _WIDTHS, "node")
-        self.assertIn("protocol", str(ctx.exception))
+    def test_an_unsupported_field_is_refused(self):
+        for field in ({"name": "protocol", "value": "tcp", "negated": False},
+                      {"name": "port", "value": "80", "negated": False}):
+            with self.subTest(field=field["name"]):
+                with self.assertRaises(ValueError) as ctx:
+                    fave_bridge._structural_state_literals(
+                        [field], _WIDTHS, "node")
+                self.assertIn(field["name"], str(ctx.exception))
 
-    def test_semantic_refuses_an_unsupported_field(self):
-        with self.assertRaises(ValueError) as ctx:
-            fave_bridge._state_literals(
-                [{"name": "port", "value": "80", "negated": False}])
-        self.assertIn("port", str(ctx.exception))
-
-    def test_structural_refuses_even_when_a_related_entry_is_also_present(self):
+    def test_it_is_refused_even_when_a_related_entry_is_also_present(self):
         """ The dangerous shape: enough of the condition is honoured to look
         like it worked. """
         with self.assertRaises(ValueError):
             fave_bridge._structural_state_literals(
                 [{"name": "protocol", "value": "tcp"}, _related("1")],
                 _WIDTHS, "node")
-
-    def test_semantic_refuses_even_when_a_related_entry_is_also_present(self):
-        with self.assertRaises(ValueError):
-            fave_bridge._state_literals(
-                [{"name": "protocol", "value": "tcp"}, _related("1")])
-
-
-class TestSemanticStateLiterals(unittest.TestCase):
-    """ `_state_literals` -- the semantic path's counterpart. Same `continue`,
-    plus a silent drop of its own: `_RELATED_STATE` maps only "0"/"1", and
-    anything else used to vanish. """
-
-    def test_related_condition_yields_state_literals(self):
-        self.assertTrue(fave_bridge._state_literals([_related("1")]))
-
-    def test_related_zero_and_one_differ(self):
-        import lxml.etree as et
-        as_text = lambda v: sorted(
-            et.tostring(l) for l in fave_bridge._state_literals([_related(v)]))
-        self.assertNotEqual(as_text("0"), as_text("1"))
-
-    def test_no_condition_is_not_an_error(self):
-        for empty in ([], None):
-            self.assertEqual(fave_bridge._state_literals(empty), [])
-
-    def test_raw_string_condition_raises(self):
-        with self.assertRaises(ValueError) as ctx:
-            fave_bridge._state_literals(["related:0"])
-        self.assertIn("related:0", str(ctx.exception))
-
-    def test_dict_without_a_name_raises(self):
-        with self.assertRaises(ValueError):
-            fave_bridge._state_literals([{"value": "1"}])
-
-    def test_unmapped_related_value_raises(self):
-        """ THE SECOND SILENT DROP. Only "0"/"1" are in _RELATED_STATE; "2" and
-        "ESTABLISHED" both used to return [] and answer the unconditioned
-        question. """
-        for bad in ("2", "ESTABLISHED", None):
-            with self.assertRaises(ValueError) as ctx:
-                fave_bridge._state_literals([_related(bad)])
-            self.assertIn("related", str(ctx.exception))
 
 
 class TestStructuralStateLiteralsRefusesUnsatisfiable(unittest.TestCase):

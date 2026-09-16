@@ -104,16 +104,32 @@ class TestAd6WlIfi(unittest.TestCase):
             cls.expected = json.load(raw)
 
     def test_network_built(self):
-        # 1 router + 16 switches; 17 generators; 17 probes.
-        self.assertEqual(len(self.engine._devices), 17)
+        """ 1 router + 16 switches; 17 generators; 17 probes. Guards the
+        reachability test below: an empty model also "matches" nothing.
+
+        Reads the STRUCTURAL capture (§9.25). This used to count the semantic
+        IR's `_devices`/`_fwd_rules`; those were concepts the adapter
+        reconstructed, and the corresponding fact now is simply that every
+        device arrived with its tables. """
+        self.assertEqual(len(self.engine._tables), 17)
         self.assertEqual(len(self.sources), 17)
         self.assertEqual(len(self.probes), 17)
-        self.assertGreater(len(self.engine._fwd_rules), 17)
+        rules = [rule for tables in self.engine._tables.values()
+                 for table_rules in tables.values() for rule in table_rules]
+        self.assertGreater(len(rules), 17)
 
     def test_acls_translated(self):
-        self.assertEqual(self.engine._acl_devices, {'ifi'})
-        self.assertTrue(self.engine._acl_in)
-        self.assertTrue(self.engine._acl_out)
+        """ wl_ifi's one ACL-carrying device is the router. The semantic path
+        recorded that as an interpreted `_acl_devices` set; structurally it is
+        just which device has `acl_in`/`acl_out` TABLES -- the same fact, read
+        off the model instead of inferred from it. """
+        acl_devices = {
+            device for device, tables in self.engine._tables.items()
+            if any(name.endswith(('.acl_in', '.acl_out')) for name in tables)
+        }
+        self.assertEqual(acl_devices, {'ifi'})
+        self.assertTrue(self.engine._tables['ifi'].get('ifi.acl_in'))
+        self.assertTrue(self.engine._tables['ifi'].get('ifi.acl_out'))
 
     def test_reachability_matches_ground_truth(self):
         """ Exact match to reachable.json (self-reach excluded). """

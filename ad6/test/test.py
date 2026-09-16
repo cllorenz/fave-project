@@ -22,7 +22,6 @@ if __name__ == "__main__":
     from test.integrationsuite import IntegrationSuite
     from test.systemsuite import SystemSuite
     from test.differentialsuite import DifferentialSuite
-    from test.parsersuite import ParserSuite
     from test.runnersuite import RunnerSuite
     from test.suiterunner import RunSuites
 
@@ -36,7 +35,6 @@ if __name__ == "__main__":
         IntegrationSuite(),
         SystemSuite(),
         DifferentialSuite(),
-        ParserSuite(),
         RunnerSuite()
     ]
     # Exit non-zero if ANY suite failed, so `make test` (and anything chaining

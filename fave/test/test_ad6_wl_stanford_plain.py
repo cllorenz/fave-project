@@ -39,8 +39,8 @@ Two layers:
   - Unit tests (fake Rule/RuleField/Forward/Rewrite objects, no ad6
     binary/subprocess/benchmark inputs) for the two new Ad6Adapter
     mechanisms this benchmark's real data actually needs:
-    `_out_ports`'s multi-port (ECMP) fix and blackhole/discard handling,
-    and `_capture_in_admit`'s port-admission tracking.
+    the multi-port (ECMP) forwarding and blackhole/discard handling the
+    translator has to get right at this scale.
   - A structural + differential test on the real N=2 slice, reusing
     `fave/bench/apkeep_convergence.py`'s own model-filtering/worker
     machinery for a true apples-to-apples comparison.
@@ -75,112 +75,6 @@ def _fwd_rule(idx, dst=None, ports=(), in_ports=()):
     return Rule('dev', 'mid.dev.1', idx, in_ports=list(in_ports), match=match, actions=actions)
 
 
-class TestAd6StanfordOutPorts(unittest.TestCase):
-    """ AD6_PLAN.md §5.4 Stage B (B0), Finding 1: `_out_ports` must return
-    EVERY port of a multi-port Forward (real wl_stanford mid.* ECMP
-    routes, e.g. one dst forwarding to 15 ports at once), not just the
-    first -- the old singular `_out_port` silently kept only
-    `action.ports[0]`. """
-
-    def setUp(self):
-        self.engine = Ad6Adapter(logging.getLogger("test_stanford_out_ports"))
-
-    def test_multi_port_forward_returns_all_ports(self):
-        rule = _fwd_rule(1, dst='10.0.0.0/24', ports=['mid.dev.1', 'mid.dev.2', 'mid.dev.3'])
-        self.assertEqual(
-            self.engine._out_ports(rule), ['mid.dev.1', 'mid.dev.2', 'mid.dev.3'])
-
-    def test_single_port_forward_still_works(self):
-        rule = _fwd_rule(1, dst='10.0.0.0/24', ports=['mid.dev.1'])
-        self.assertEqual(self.engine._out_ports(rule), ['mid.dev.1'])
-        # the singular convenience wrapper other call sites rely on
-        self.assertEqual(self.engine._out_port(rule), 'mid.dev.1')
-
-    def test_translate_fwd_rule_records_one_entry_with_all_ports(self):
-        """ A multi-port route must be ONE _fwd_rules entry carrying the
-        whole port list -- NOT one entry per port, which ad6's sequential
-        first-match table evaluation would reduce to "only the first port
-        ever reachable" (see fave_ad6/adapter.py::_add_fwd_route and
-        ad6/src/parser/favemodel.py::wire_fanout). """
-        rule = _fwd_rule(1, dst='10.0.0.0/24', ports=['mid.dev.1', 'mid.dev.2'])
-        self.engine._translate_fwd_rule('mid.dev', rule)
-        self.assertEqual(len(self.engine._fwd_rules), 1)
-        self.assertEqual(self.engine._fwd_rules[0]["ports"], ['mid.dev.1', 'mid.dev.2'])
-
-    def test_dst_only_discard_becomes_a_blackhole(self):
-        """ A dst-qualified rule with NO forward action (e.g. wl_stanford's
-        real dst=224.0.0.0/3 multicast discard) must become an explicit
-        drop, not silently vanish -- a silent no-op would let a broader
-        less-specific route (e.g. a /0 default on the same device) wrongly
-        claim that traffic instead (an over-approximation). """
-        rule = _fwd_rule(1, dst='224.0.0.0/3', ports=[])
-        self.engine._translate_fwd_rule('mid.dev', rule)
-        self.assertEqual(len(self.engine._fwd_rules), 1)
-        self.assertEqual(self.engine._fwd_rules[0]["ports"], ["__drop__"])
-        self.assertEqual(self.engine._fwd_rules[0]["dst"], '224.0.0.0/3')
-
-    def test_discard_qualified_by_unsupported_field_is_not_modelled(self):
-        """ Soundness guard (mirrors apkeep/adapter.py's own): a discard
-        qualified by something other than dst/vlan can't be expressed as a
-        dst-only drop without over-dropping traffic that discard never
-        actually applies to -- must stay a silent no-op, same as before
-        this fix (wl_ifi's existing, unaffected behaviour). """
-        match = Match([RuleField(_DST, '224.0.0.0/3'),
-                       RuleField('packet.ipv4.source', '10.0.0.0/8')])
-        rule = Rule('dev', 'mid.dev.1', 1, match=match, actions=[])
-        self.engine._translate_fwd_rule('mid.dev', rule)
-        self.assertEqual(self.engine._fwd_rules, [])
-
-    def test_no_dst_no_forward_discard_is_a_noop(self):
-        """ A match-all discard (no dst at all) needs no rule -- unmatched
-        space is already un-forwarded; unaffected wl_ifi behaviour. """
-        rule = Rule('dev', 'mid.dev.1', 1, match=Match([]), actions=[])
-        self.engine._translate_fwd_rule('mid.dev', rule)
-        self.assertEqual(self.engine._fwd_rules, [])
-
-    def test_repeated_identical_route_is_deduped(self):
-        """ wl_stanford's in.* stage: every per-VLAN admission rule shares
-        one identical unconditional default route to the device's fixed
-        internal egress port -- without dedup, one entry would be added
-        per admitted VLAN (harmless but wasteful Kripke-node bloat). """
-        rule = _fwd_rule(1, dst=None, ports=['in.dev.100000'])
-        for _ in range(5):
-            self.engine._translate_fwd_rule('in.dev', _fwd_rule(
-                1, dst=None, ports=['in.dev.100000']))
-        self.assertEqual(len(self.engine._fwd_rules), 1)
-
-
-class TestAd6StanfordInAdmit(unittest.TestCase):
-    """ AD6_PLAN.md §5.4 Stage B (B0): `_capture_in_admit` (direct port of
-    apkeep/adapter.py's own) -- the union of admitted physical ingress
-    ports per `in.*` device, VLAN ignored entirely (B0 has no VLAN
-    modelling at all). """
-
-    def setUp(self):
-        self.engine = Ad6Adapter(logging.getLogger("test_stanford_in_admit"))
-
-    def test_admitted_ports_accumulate_across_rules(self):
-        self.engine._capture_in_admit(
-            'in.dev', _fwd_rule(1, ports=['in.dev.100000'], in_ports=['in.dev.1']))
-        self.engine._capture_in_admit(
-            'in.dev', _fwd_rule(2, ports=['in.dev.100000'], in_ports=['in.dev.2']))
-        self.assertEqual(self.engine._in_admit['in.dev'], {'1', '2'})
-
-    def test_rule_with_no_in_port_marks_admit_all(self):
-        self.engine._capture_in_admit(
-            'in.dev', _fwd_rule(1, ports=['in.dev.100000'], in_ports=['in.dev.1']))
-        self.engine._capture_in_admit(
-            'in.dev', _fwd_rule(2, ports=['in.dev.100000'], in_ports=[]))
-        self.assertIsNone(self.engine._in_admit['in.dev'])
-        # once None (admit-all), a later rule must not resurrect a finite set
-        self.engine._capture_in_admit(
-            'in.dev', _fwd_rule(3, ports=['in.dev.100000'], in_ports=['in.dev.3']))
-        self.assertIsNone(self.engine._in_admit['in.dev'])
-
-
-@require_or_skip(available(), "the ad6 fave_bridge.py script is unavailable")
-@require_or_skip(_inputs_present(),
-                 "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
 class TestAd6WlStanfordPlainN2(unittest.TestCase):
     """ Structural + differential check on the real N=2 induced slice
     (`bbra_rtr,rozb_rtr` -- the same subset
@@ -233,19 +127,26 @@ class TestAd6WlStanfordPlainN2(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
-    def test_out_stage_collapsed(self):
-        """ B0 has no VLAN modelling at all, so `out.*` must be entirely
-        collapsed away in the built IR -- 2 routers x (in,mid) = 4 devices,
-        mirroring `test_apkeep_stanford.py::test_out_stage_collapsed`'s own
-        structural assertion. `engine._devices` itself still holds every
-        raw device `add_tables` ever saw (including `out.*`) -- the
-        collapse happens in `_build_ir`, not at capture time (mirrors
-        `apkeep/adapter.py`'s own `_build`-time, not capture-time, drop). """
-        self.assertIn('out.bbra_rtr', self.engine._devices)
-        ir = self.engine._build_ir()
-        stages = {d.split('.', 1)[0] for d in ir["devices"]}
-        self.assertEqual(stages, {'in', 'mid'})
-        self.assertEqual(len(ir["devices"]), 4)
+    def test_every_stage_is_kept_including_out(self):
+        """ AD6_PLAN.md §9.25 INVERTS this test, deliberately.
+
+        It used to assert that `out.*` was entirely COLLAPSED away -- 2 routers
+        x (in, mid) = 4 devices -- because the semantic path recognised a
+        wl_stanford out-stage as a pure port permutation and dropped it. That
+        collapse was name-triggered (`if any(d.split('.', 1)[0] == 'mid' ...)`),
+        which is exactly what §9 exists to remove, so it went with the rest of
+        that path.
+
+        A structural translation keeps every stage FaVe declares. The
+        reachability test below is unchanged and still matches NetPlumber
+        exactly, which is what says the collapse was an optimisation and not a
+        correctness requirement. Phase 3 flagged the size cost this implies; if
+        the collapse ever returns it must be a STRUCTURAL rule ("collapse any
+        table that is a pure port permutation"), stamped and toggleable, never
+        keyed on a device name. """
+        stages = {d.split('.', 1)[0] for d in self.engine._tables}
+        self.assertEqual(stages, {'in', 'mid', 'out'})
+        self.assertEqual(len(self.engine._tables), 6)  # 2 routers x 3 stages
 
     def test_reachability_matches_netplumber_on_the_induced_slice(self):
         def pairs(matrix):

@@ -17,17 +17,20 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" AD6_PLAN.md §9 Phase 2: the `translation` selector on Ad6Adapter, and the
-boundary the structural payload crosses. """
+""" AD6_PLAN.md §9: the `translation` selector on Ad6Adapter, and the boundary
+the structural payload crosses.
+
+Since §9.25 there is only ONE translation. The selector survives the deletion
+of the second one because a result file must still say what produced it -- a
+number stamped `structural` is not comparable with one stamped `semantic`, and
+the tree can no longer produce the latter at all. """
 
 import logging
 import unittest
 
 import lxml.etree as et
 
-from ad6.adapter import (
-    Ad6Adapter, TRANSLATIONS, TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL,
-)
+from ad6.adapter import Ad6Adapter, TRANSLATIONS, TRANSLATION_STRUCTURAL
 from util.in_process_driver import InProcessFaVe
 
 
@@ -40,21 +43,13 @@ def _adapter(**kwargs):
 class TestTranslationSelector(unittest.TestCase):
 
     def test_the_default_is_structural(self):
-        """ AD6_PLAN.md §9.3 Phase 5. The default flipped once the differential
-        agreed on every benchmark in scope; before that it was 'semantic',
-        because switching earlier would have silently re-measured every
-        archived result. It still would -- which is why `semantic` remains
-        selectable and why this pins the direction rather than merely checking
-        that SOME default exists. """
         self.assertEqual(_adapter().translation, TRANSLATION_STRUCTURAL)
 
-    def test_semantic_is_still_reachable(self):
-        """ Guards the flip: archived numbers came from the semantic path, so
-        reproducing one must stay possible without editing the adapter. """
-        self.assertEqual(_adapter(translation=TRANSLATION_SEMANTIC).translation,
-                         TRANSLATION_SEMANTIC)
+    def test_structural_is_the_only_vocabulary(self):
+        self.assertEqual(TRANSLATIONS, (TRANSLATION_STRUCTURAL,))
+        self.assertEqual(TRANSLATION_STRUCTURAL, 'structural')
 
-    def test_both_translations_are_accepted(self):
+    def test_every_accepted_translation_round_trips(self):
         for translation in TRANSLATIONS:
             with self.subTest(translation=translation):
                 self.assertEqual(
@@ -66,57 +61,38 @@ class TestTranslationSelector(unittest.TestCase):
         with self.assertRaises(ValueError):
             _adapter(translation='structrual')          # sic
 
-    def test_the_vocabulary_matches_translate_pys_own(self):
-        """ adapter.py keeps a LOCAL tuple so it imports nothing from ad6/ at
-        module scope. This pins the two spellings together, the same guard
-        test_ad6_grounding.py applies to GROUNDINGS. """
-        self.assertEqual(TRANSLATIONS,
-                         (TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL))
-        self.assertEqual((TRANSLATION_SEMANTIC, TRANSLATION_STRUCTURAL),
-                         ('semantic', 'structural'))
+    def test_the_DELETED_semantic_translation_is_refused_by_name(self):
+        """ §9.25. Asking for the deleted path must not quietly get the
+        surviving one: that would answer a DIFFERENT question under the
+        requested label, which is the whole failure mode §9.23 documents. The
+        refusal names the commit that still has it, because "reproduce the
+        archived number" is the only reason to ask. """
+        with self.assertRaises(ValueError) as caught:
+            _adapter(translation='semantic')
 
+        message = str(caught.exception)
+        self.assertIn('semantic', message)
+        self.assertIn('86114970', message,
+                      "the refusal must say WHERE the deleted path still "
+                      "lives, or an archived measurement is simply lost")
+        self.assertIn('§9.25', message)
 
-class TestFaithfulVlanDoesNotApplyToStructural(unittest.TestCase):
-    """ AD6_PLAN.md §9.16.1. `faithful_vlan` is a property of the SEMANTIC
-    path, not of the model: its plain mode deliberately discards VLAN, while
-    the structural path translates FaVe's rules as given and they carry VLAN
-    whatever the flag says.
+    def test_the_stamp_reports_the_translation_and_grounding(self):
+        """ And nothing else: `faithful_vlan`/`probe_untag` were semantic-path
+        flags (§9.16.1 -- they never applied to a structural model) and went
+        with it. An archived stamp carrying them came from a run this tree
+        cannot reproduce. """
+        self.assertEqual(_adapter().configuration_stamp(),
+                         {"translation": "structural", "grounding": "rank"})
 
-    Measured on wl_i2: plain SEMANTIC reports all 72 pairs reachable, plain
-    STRUCTURAL reports the 11 unreachable pairs that ad6, NetPlumber and
-    bench/i2_structural_oracle.py independently agree on. A structural result
-    stamped `faithful_vlan: false` would therefore be MISLABELLED, and the
-    generality-debt gate's whole rule is that a stamp must say what produced
-    the number. """
-
-    def test_the_stamp_reports_faithful_vlan_as_not_applicable(self):
-        stamp = _adapter(faithful_vlan=False,
-                         translation=TRANSLATION_STRUCTURAL).configuration_stamp()
-        self.assertFalse(stamp['faithful_vlan_applies'])
-        self.assertIsNone(stamp['faithful_vlan'],
-                          "reporting the value that was passed and ignored is "
-                          "exactly the mislabelling this guards against")
-
-    def test_the_stamp_reports_it_normally_for_the_semantic_path(self):
-        for value in (True, False):
-            with self.subTest(faithful_vlan=value):
-                stamp = _adapter(faithful_vlan=value,
-                                 translation=TRANSLATION_SEMANTIC).configuration_stamp()
-                self.assertTrue(stamp['faithful_vlan_applies'])
-                self.assertEqual(stamp['faithful_vlan'], value)
-
-    def test_the_flag_really_does_not_change_the_structural_model(self):
-        """ The empirical claim behind the stamp, asserted rather than trusted:
-        the two settings must produce a BYTE-IDENTICAL config. If this ever
-        fails, `faithful_vlan` has started to matter and the stamp above is
-        wrong. """
-        configs = []
-        for value in (False, True):
-            engine = _adapter(faithful_vlan=value, translation=TRANSLATION_STRUCTURAL)
-            with InProcessFaVe(engine) as fave:
-                fave.replay("bench/wl_ifi")
-                configs.append(engine._build_structural()['config'])
-        self.assertEqual(configs[0], configs[1])
+    def test_the_deleted_flags_are_gone_from_the_constructor(self):
+        """ Not silently ignored -- gone. A caller still passing
+        `faithful_vlan=True` was configuring the semantic path and must hear
+        about it rather than get an unflagged structural answer. """
+        for flag in ('faithful_vlan', 'probe_untag'):
+            with self.subTest(flag=flag):
+                with self.assertRaises(TypeError):
+                    _adapter(**{flag: True})
 
 
 class TestStructuralPayloadBoundary(unittest.TestCase):

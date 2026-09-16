@@ -11,7 +11,6 @@ from test.initconstraintssuite import InitConstraintsSuite
 from test.integrationsuite import IntegrationSuite
 from test.systemsuite import SystemSuite
 from test.differentialsuite import DifferentialSuite
-from test.parsersuite import ParserSuite
 
 
 # Every suite class test/test.py drives. Kept here rather than imported from
@@ -20,8 +19,7 @@ from test.parsersuite import ParserSuite
 # TheirResult below.
 _SUITES = [
     SATSuite, SolverSuite, XMLSuite, KripkeSuite, InstantiatorSuite,
-    InitConstraintsSuite, IntegrationSuite, SystemSuite, DifferentialSuite,
-    ParserSuite
+    InitConstraintsSuite, IntegrationSuite, SystemSuite, DifferentialSuite
 ]
 
 

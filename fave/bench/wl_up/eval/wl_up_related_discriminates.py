@@ -100,7 +100,11 @@ def main():
     log = logging.getLogger("wl_up_related_discriminates")
     log.setLevel(logging.WARNING)
     engine = Ad6Adapter(log, translation="structural")
-    engine.load_bench_metadata(_PREFIX)
+    # AD6_PLAN.md §9.25: `engine.load_bench_metadata(...)` was removed with the
+    # semantic path. It re-read wl_up's raw ip6tables text so ad6's own parser
+    # could re-parse rules FaVe had already parsed, discarding FaVe's state-shell
+    # interweaving in the process; a structural translation takes them from the
+    # model as delivered, which is what made wl_up agree with NetPlumber exactly.
     with InProcessFaVe(engine) as fave:
         fave.replay(_PREFIX)
         engine.check_compliance(rules)

@@ -132,13 +132,15 @@ class TestAd6WlStanford(unittest.TestCase):
             for p in cls.probes
         }
 
-    def test_out_stage_collapsed(self):
-        # 16 routers x {in, mid, out}; out.* is collapsed into the topology
-        # (B0), so only the 16 in.* + 16 mid.* devices remain.
-        ir = self.engine._build_ir()
-        stages = {d.split('.', 1)[0] for d in ir["devices"]}
-        self.assertEqual(stages, {'in', 'mid'})
-        self.assertEqual(len(ir["devices"]), 32)
+    def test_every_stage_is_kept_including_out(self):
+        # AD6_PLAN.md §9.25 inverts this: the name-triggered out-stage collapse
+        # went with the semantic path, so all 16 routers x {in, mid, out}
+        # survive. See test_ad6_wl_stanford_plain.py's copy for the full
+        # rationale; the reachability assertion below is what says the collapse
+        # was an optimisation, not a correctness requirement.
+        stages = {d.split('.', 1)[0] for d in self.engine._tables}
+        self.assertEqual(stages, {'in', 'mid', 'out'})
+        self.assertEqual(len(self.engine._tables), 48)
         self.assertEqual(len(self.sources), 16)
         self.assertEqual(len(self.probes), 16)
 

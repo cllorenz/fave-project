@@ -21,10 +21,16 @@
 
 """ Subprocess bridge driven by fave/ad6/adapter.py (AD6_PLAN.md §4.2/§4.4).
 
-Reads a JSON payload {"ir": <Ad6Adapter._build_ir() output>, "queries": [...]},
-builds the ad6 Kripke/SAT model via src.parser.favemodel, answers every query
-(source->probe existential reachability, src-IP seeded when the source has one),
-and writes back [{"source","probe","reachable","negated","cond"}, ...].
+Reads a JSON payload {"structural": <Ad6Adapter._build_structural() output>,
+"queries": [...]}, builds the ad6 Kripke/SAT model from the config XML the
+translator already produced, answers every query (source->probe existential
+reachability, src-IP seeded when the source has one), and writes back
+[{"source","probe","reachable","negated","cond"}, ...].
+
+AD6_PLAN.md §9.25: this used to have a SECOND path, building the model HERE
+from an IR of interpreted concepts via `src.parser.favemodel`. Both that path
+and `favemodel.py` are gone; the model now arrives already translated, so this
+script's whole job is to instantiate it and run the query loop.
 
 Usage: python3 fave_bridge.py --in payload.json --out results.json
 (run with cwd=ad6/, exactly like main.py -- see fave/ad6/adapter.py).
@@ -41,7 +47,6 @@ sys.setrecursionlimit(10 ** 6)
 import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's ordering)
 
 from src.bigstack import run_with_big_stack  # noqa: E402
-from src.parser import favemodel  # noqa: E402
 from src.solver.incremental import (  # noqa: E402
     GROUNDING_RANK, GROUNDINGS, IncrementalSession)
 from src.xml.xmlutils import XMLUtils  # noqa: E402
@@ -59,8 +64,8 @@ def _seed_literals(cidr):
     MUST use XMLUtils.ConvertCIDRToVariables directly (a flat conjunction of
     "ip<version>_src_<i>=<bit>" literals in the shared bit-vector space every
     rule's own address condition is built over), FLATTENED and appended
-    individually as top-level clauses -- exactly the same discipline
-    `_state_literals` below already follows for state, and for the same
+    individually as top-level clauses -- the same discipline
+    `_structural_state_literals` below follows for state, and for the same
     reason: a bare named-alias variable (XMLUtils.ConvertToVariables's
     <ip>-element form, what this used to build) only carries meaning if that
     EXACT alias name happens to already be `Handled` (defined via an
@@ -92,13 +97,15 @@ def _seed_literals(cidr):
 # then Ad6Adapter._cond_to_json's JSON-safe echo of RuleField.to_json()).
 # "0"=NEW / "1"=ESTABLISHED, matching fave/ad6/adapter.py:_RELATED and
 # fave/iptables/generator.py's state-shell, which only ever emits these two
-# values -- never a compound state. ad6 already carries the matching <state>
-# vocabulary end to end (favemodel.py emits it on the ACL rule whose ctstate
-# condition FaVe's model recorded); what's missing was the
-# query-orchestration to force it here.
+# values -- never a compound state. A STRUCTURAL model carries `related` as an
+# ordinary header field rather than as ad6's own <state> vocabulary (§9.2a:
+# FaVe's interweaving strips conntrack and re-emits a plain field), so this
+# mapping no longer forces anything -- it survives to NAME the two values a
+# `related` condition may carry. The <state>-forcing counterpart went with the
+# semantic path at §9.25.
 _RELATED_STATE = {"0": "NEW", "1": "ESTABLISHED"}
 
-# The only query-condition field either path can force onto an instance. A
+# The only query-condition field that can be forced onto an instance. A
 # check conditioned on anything else (wl_example emits `protocol`/`port`)
 # cannot be honoured at all -- see _validated_conditions.
 _SUPPORTED_COND_FIELDS = ("related",)
@@ -144,74 +151,57 @@ def _validated_conditions(cond, path):
         yield condition
 
 
-def _state_literals(cond):
-    """ The individual (already-canonical) state-bit literals to force onto
-    a query instance for a `{"name": "related", "value": "0"|"1"}` entry in
-    `cond`, or [] if `cond` carries no state condition.
+# MOVED HERE at AD6_PLAN.md §9.25 from `src/parser/favemodel.py`, which is
+# deleted. This pair was the one thing the surviving query path still took
+# from that module, so it is copied VERBATIM rather than re-derived -- a
+# paraphrase like `not cidr.endswith("/0")` is not the same predicate (it
+# would call an unlisted "10.0.0.0/0" unconstrained), and this decides whether
+# a query gets seeded at all.
+_MATCH_ALL = frozenset({"0.0.0.0/0", "::/0", "0::0/0", None})
 
-    MUST use XMLUtils.ConvertStateToVariables(value) directly (a flat
-    conjunction of "state_<i>=<bit>" literals for the canonical STATES
-    bit-vector) rather than a raw <state>value</state> element run through
-    ConvertToVariables -- the latter produces ONE variable literally named
-    "state_<value>", which only gets canonicalised into the shared bit-vector
-    space by Instantiator._HandleOthers's build-time pass over the BASE
-    model's own variables; a value that never appears in any rule (e.g.
-    "NEW", when every ACL rule here only ever matches ctstate ESTABLISHED)
-    would stay an unconnected, unconstrained atom and silently fail to
-    conflict with an ESTABLISHED-only permit path. Calling
-    ConvertStateToVariables ourselves reuses the exact same canonical
-    "state_<i>=<bit>" names ad6 already assigns to ESTABLISHED via that same
-    function, so forcing NEW here correctly conflicts with an
-    ESTABLISHED-only branch regardless of whether "NEW" is otherwise used
-    anywhere in the model. (Verified empirically before relying on it --
-    appending the WHOLE <conjunction> XMLUtils.ConvertStateToVariables
-    returns as one nested child of instance[0] does NOT work, because
-    instance[0] is the already-CNF'd clause list from InstantiateBase: each
-    top-level child must be its own flat literal/clause, so this flattens
-    the conjunction's children before appending. See
-    ad6/FAVE_CHANGES.md and AD6_PLAN.md §4.2 for the fixture that pinned
-    this down.)
 
-    Shape and field-name validation live in `_validated_conditions`, shared
-    with `_structural_state_literals`. On top of it this path refuses a
-    `related` value that maps to no conntrack state -- `_RELATED_STATE` covers
-    only "0"/"1", and anything else used to vanish silently, a second instance
-    of the §9.23.2a failure. Pinned by fave/test/test_ad6_bridge_cond.py. """
-    literals = []
-    for condition in _validated_conditions(cond, "semantic"):
-        raw = condition.get("value")
-        state = _RELATED_STATE.get(str(raw))
-        if state is None:
-            # The path's OWN silent drop, closed with the rest: only "0"/"1"
-            # map to a conntrack state, and anything else used to vanish.
-            raise ValueError(
-                "malformed query condition %r: 'related' value %r maps to no "
-                "conntrack state (known: %s) -- AD6_PLAN.md §9.23.2a."
-                % (condition, raw, ", ".join(sorted(_RELATED_STATE))))
-        literals.extend(list(XMLUtils.ConvertStateToVariables(state)))
-    return literals
+def _is_constrained(cidr):
+    """ False for a match-all address (None, or the literal "0.0.0.0/0" FaVe
+    emits for an explicit "any" ACL match). A match-all condition is exactly
+    "no condition", so a query carrying one is left unseeded rather than
+    asserting it -- semantically identical either way, and one fewer variable
+    in the encoding.
+
+    This used to be load-bearing, not just a simplification:
+    XMLUtils.ConvertCIDRToVariables truncated a /0 prefix's bit-vector to
+    zero bits (Count*2 == 0), producing a Kripke node whose Gamma was an
+    EMPTY <conjunction/> instead of a trivially-true condition -- and
+    Instantiator._ShortenPrefixes treats a /0 entry as a (trivial) prefix of
+    every other same-direction CIDR, splicing a reference to it into their
+    conjunctions too, so the corruption spread to rules that never mentioned
+    0.0.0.0/0 at all. Fixed in ad6 core 2026-08-21 -- ConvertCIDRToVariables
+    now returns XMLUtils.constant() for a /0 prefix; see ad6/FAVE_CHANGES.md
+    §7 and ad6/test/core/instantiatortest.py:testMatchAllReachable for the
+    regression test. Kept anyway: omitting a redundant condition is good
+    hygiene independent of whether the underlying bug is fixed. """
+    return cidr not in _MATCH_ALL
 
 
 def _structural_state_literals(cond, field_widths, node):
     """ AD6_PLAN.md §9.19: force a `related:N` query condition for the
     STRUCTURAL translation.
 
-    `_state_literals` below is the semantic path's mechanism: it emits ad6
-    `<state>` variables, which the structural model never uses -- it carries
-    `related` as an ordinary field, matched with a node-scoped <fieldmatch>
-    (§9.2a: FaVe's interweaving strips conntrack and re-emits `related` as a
-    plain header field). Feeding state variables to it would constrain NOTHING,
-    and 3,302 of wl_up's 11,902 cchecks carry such a condition -- so the
-    `related:0` and `related:1` variants of one check would come back with the
-    SAME answer, silently.
+    The model carries `related` as an ordinary field, matched with a
+    node-scoped <fieldmatch> (§9.2a: FaVe's interweaving strips conntrack and
+    re-emits `related` as a plain header field), so the bits are forced onto
+    that field. The semantic path's deleted counterpart emitted ad6 `<state>`
+    variables instead, which this model never uses -- feeding it those would
+    have constrained NOTHING, and 3,302 of wl_up's 11,902 cchecks carry such a
+    condition, so the `related:0` and `related:1` variants of one check would
+    have come back with the SAME answer, silently.
 
     Forcing the bits at the QUERY's own source node is sufficient because
     nothing rewrites `related`: _CreateMutationConstraints frames it unchanged
     across every edge, so pinning one node on the path pins the whole path.
 
-    Shape and field-name validation live in `_validated_conditions`, shared
-    with `_state_literals` -- nothing is ever skipped (§9.23.2a). On top of
-    that this path refuses two cases of its own:
+    Shape and field-name validation live in `_validated_conditions` --
+    nothing is ever skipped (§9.23.2a). On top of that this refuses two cases
+    of its own:
 
       * a non-integer `related` value;
       * a well-formed `related` condition against a structural model that
@@ -252,8 +242,7 @@ def _instantiate_structural(config, edges, inits, mutable_fields=None):
 
     The splice is unavoidable rather than a shortcut: the edges reference
     interface NODES, which do not exist until conversion has run, and there is
-    no public seam between the two halves -- the same reason
-    favemodel.instantiate_base exists. Mirrors fave/ad6/translate.py's own
+    no public seam between the two halves. Mirrors fave/ad6/translate.py's own
     instantiate_base (which is what the translator's unit tests drive); keep the
     two, and src/core/instantiator.py:InstantiateBase, in step.
 
@@ -311,41 +300,27 @@ def main(argv=None):
 
     with open(args.infile) as raw:
         payload = json.load(raw)
-    ir = payload['ir']
     queries = payload['queries']
 
-    # AD6_PLAN.md §9: two model-construction paths, one query loop.
-    #
-    # 'structural' arrives already translated -- fave/ad6/translate.py runs in
+    # The model arrives ALREADY TRANSLATED -- fave/ad6/translate.py runs in
     # FaVe's process, because it needs BOTH vocabularies at once (ad6's GenUtils
-    # to emit, FaVe's own rule_model to read) and only this side has ad6. What
+    # to emit, FaVe's own rule_model to read) and only that side has FaVe. What
     # crosses the boundary is finished, namespace-free XML plus the Kripke edges
     # that XML cannot express (a FaVe link is unidirectional; a declarative
     # <connection keyref=...> would be wired BOTH ways and over-approximate).
-    # So the bridge still imports nothing from FaVe, and the two paths differ
-    # only in how `kripke`/`encoding` come to exist.
-    structural = payload.get('structural')
-    if structural is not None:
-        config = et.fromstring(structural['config'].encode('utf-8'))
-        kripke, encoding = _instantiate_structural(
-            config,
-            edges=structural['edges'],
-            inits=sorted(structural['sources'].values()),
-            # Sent by the translator, which knows what it emitted -- NOT derived
-            # from ir['faithful_vlan'] here, since the structural path emits a
-            # <fieldmatch> whenever some rule rewrites the field regardless of
-            # that flag.
-            mutable_fields=structural.get('mutable_fields') or None)
-        source_key = lambda q: structural['sources'][q['source']]
-        destination_key = lambda q: structural['probes'][q['probe']]
-    else:
-        config = favemodel.build_config(ir)
-        XMLUtils.deannotate(config)
-        kripke, encoding = favemodel.instantiate_base(config, ir)
-        source_key = lambda q: favemodel.gen_entry_key(q['source'])
-        destination_key = lambda q: favemodel.query_destination_key(q['probe'], ir)
-    # Mutual exclusion between generators (at most one of favemodel.init_keys()
-    # fires per query) is enforced by KripkeUtils._CreateInitConstraints on
+    # So this script imports nothing from FaVe.
+    structural = payload['structural']
+    config = et.fromstring(structural['config'].encode('utf-8'))
+    kripke, encoding = _instantiate_structural(
+        config,
+        edges=structural['edges'],
+        inits=sorted(structural['sources'].values()),
+        # Sent by the translator, which knows what it emitted.
+        mutable_fields=structural.get('mutable_fields') or None)
+    source_key = lambda q: structural['sources'][q['source']]
+    destination_key = lambda q: structural['probes'][q['probe']]
+    # Mutual exclusion between generators (at most one init key fires per
+    # query) is enforced by KripkeUtils._CreateInitConstraints on
     # the base model itself -- no per-query exclusivity assertion needed here
     # (there used to be one; removed once the ad6-core off-by-one it was
     # working around was fixed and verified sufficient on its own, see
@@ -398,24 +373,17 @@ def main(argv=None):
         source = source_key(q)
         destination = destination_key(q)
         extra_vars = []
-        if q.get('src_cidr') and favemodel._is_constrained(q['src_cidr']):
+        if q.get('src_cidr') and _is_constrained(q['src_cidr']):
             extra_vars.extend(_seed_literals(q['src_cidr']))
-        if structural is None:
-            extra_vars.extend(_state_literals(q.get('cond')))
-        else:
-            extra_vars.extend(_structural_state_literals(
-                q.get('cond'), structural.get('mutable_fields'), source))
-        if structural is None:
-            # AD6_PLAN.md §5.5 C4 (part 2): the probe's own declared arrival
-            # VLAN (wl_i2's access-port untag). Opt-in via ir["probe_untag"] --
-            # a no-op for every benchmark and every existing run, which never
-            # set it. The structural path has no equivalent BY DECISION: its
-            # probes accept any incoming traffic (§9.9, owner 2026-09-13), and
-            # a condition on a terminal rule would be silently ignored anyway
-            # (§9.9.1) -- so forcing these literals there would compare two
-            # different questions.
-            extra_vars.extend(
-                favemodel.probe_vlan_literals(q['probe'], ir, destination))
+        extra_vars.extend(_structural_state_literals(
+            q.get('cond'), structural.get('mutable_fields'), source))
+        # NOTE (AD6_PLAN.md §5.5 C4 part 2, §9.9): there is deliberately no
+        # probe-side VLAN forcing here. The semantic path had an opt-in
+        # `probe_untag` that enforced a probe's declared arrival VLAN; a
+        # structural probe accepts whatever the network delivers (owner
+        # 2026-09-13), and a condition on a terminal rule would be silently
+        # ignored anyway (§9.9.1) -- so forcing it would ask a different
+        # question under the same name. Deleted with the rest of that path.
         if progress:
             start = time.time()
         reachable = session.Query(source, destination, extra_vars=extra_vars)

@@ -24,8 +24,8 @@ measurement drivers (AD6_PLAN.md's generality-debt gate: "every collapse of the
 configuration space must be a stamped field, never an undocumented habit").
 
 Shared rather than duplicated because the whole POINT of these fields is that
-two result files can be COMPARED -- `bench/ad6_i2_measure.py` and
-`bench/ad6_faithful_measure.py` spelling a solver differently, or computing
+two result files can be COMPARED -- two drivers spelling a solver
+differently, or computing
 "port-scoped" by two slightly different rules, would defeat the stamp more
 quietly than omitting it. """
 

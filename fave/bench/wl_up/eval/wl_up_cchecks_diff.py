@@ -142,7 +142,11 @@ def main():
     # measurement-affecting: the generality-debt gate forbids leaving it to
     # whatever the adapter currently defaults to.
     engine = Ad6Adapter(log, translation=TRANSLATION_STRUCTURAL)
-    engine.load_bench_metadata(_PREFIX)
+    # AD6_PLAN.md §9.25: `engine.load_bench_metadata(...)` was removed with the
+    # semantic path. It re-read wl_up's raw ip6tables text so ad6's own parser
+    # could re-parse rules FaVe had already parsed, discarding FaVe's state-shell
+    # interweaving in the process; a structural translation takes them from the
+    # model as delivered, which is what made wl_up agree with NetPlumber exactly.
 
     from util.in_process_driver import InProcessFaVe
 

@@ -23,12 +23,15 @@
 FaVe device model from wl_ifi's Cisco-ACL router: wl_up's 136 devices are
 `packet_filter`/`host` models, each with its own real `ip6tables` ruleset
 (bench/wl_up/rulesets/*-ruleset, confirmed byte-identical to ad6's own
-bundled bench/up rulesets). Rule CONTENT for these devices is sourced from
-ad6's native IP6TablesParser directly (Ad6Adapter.load_bench_metadata),
-not hand-translated field by field; only topology wiring, dst-LPM routing,
-and the to-self/in-transit dispatch (ad6/src/parser/favemodel.py's
-_build_ruleset_firewall/_routing_table/_dispatch_table) are new adapter-side
-work. See that module's docstrings for the full mechanism.
+bundled bench/up rulesets).
+
+UNTIL §9.25 rule CONTENT for these devices came from ad6's native
+IP6TablesParser, re-reading the raw ruleset text through
+`Ad6Adapter.load_bench_metadata` and DISCARDING the rules FaVe had already
+parsed -- the bypass §9.1 identified as the root of the wl_up NO-GO, because
+FaVe's own state-shell interweaving was thrown away with them. The structural
+translation takes every rule from FaVe's model as delivered, interweaving
+intact, which is what made wl_up agree with NetPlumber exactly (§9.22).
 
 This is deliberately NOT a full differential against reachable.json (unlike
 test_ad6_wl_ifi.py) -- see the class docstring below for why wl_up's real
@@ -112,8 +115,12 @@ class TestAd6WlUp(unittest.TestCase):
 
         log = logging.getLogger("test_ad6_wl_up")
         log.setLevel(logging.WARNING)
+        # AD6_PLAN.md §9.25: `load_bench_metadata` is gone. It read wl_up's
+        # raw ip6tables text so ad6's own IP6TablesParser could re-parse rules
+        # FaVe had ALREADY parsed -- the bypass §9.1 identified as the root of
+        # the wl_up NO-GO, and dead under a structural translation, which takes
+        # the rules from FaVe's model with the state interweaving intact.
         cls.engine = Ad6Adapter(log)
-        cls.engine.load_bench_metadata(_PREFIX)
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX)
@@ -157,15 +164,38 @@ class TestAd6WlUp(unittest.TestCase):
     def test_network_built(self):
         # 159 devices (136 ruleset-bearing packet_filter/host + 23 switches
         # + pgf counted once among the 136); 137 generators/probes (n=137,
-        # AD6_PLAN.md §1.3's flagship count).
-        self.assertEqual(len(self.engine._devices), 159)
+        # AD6_PLAN.md §1.3's flagship count). Read off the STRUCTURAL capture
+        # since §9.25 -- `_devices`/`_routing_rules` were semantic IR concepts.
+        self.assertEqual(len(self.engine._tables), 159)
         self.assertEqual(len(self.sources), 137)
         self.assertEqual(len(self.probes), 137)
-        self.assertGreater(len(self.engine._routing_rules), 100)
+        rules = [rule for tables in self.engine._tables.values()
+                 for table_rules in tables.values() for rule in table_rules]
+        self.assertGreater(len(rules), 100)
 
-    def test_ruleset_devices_loaded(self):
-        self.assertEqual(len(self.engine._ruleset_text), 136)
-        self.assertIn("pgf.uni-potsdam.de", self.engine._ruleset_text)
+    def test_every_ruleset_device_arrives_through_faves_own_model(self):
+        """ AD6_PLAN.md §9.25, and the whole point of Phase 4.
+
+        This used to assert that 136 devices' raw ip6tables TEXT had been
+        re-read into `_ruleset_text` so ad6's own parser could re-parse it. That
+        bypass is what discarded FaVe's state-shell interweaving and produced
+        the wl_up NO-GO (§5.1, §9.1). The fact worth pinning now is its exact
+        inverse: those devices arrive as FaVe Rule objects, through the normal
+        dispatch, with `related` carried as an ordinary field -- which is what
+        makes wl_up's stateful checks answerable at all (§9.22). """
+        self.assertIn("pgf.uni-potsdam.de", self.engine._tables)
+
+        related = [
+            field
+            for tables in self.engine._tables.values()
+            for table_rules in tables.values() for rule in table_rules
+            for field in (getattr(rule, 'match', None) or [])
+            if getattr(field, 'name', '') == 'related']
+        self.assertTrue(
+            related,
+            "wl_up's interwoven rulesets must reach the adapter carrying "
+            "`related` match fields; without them the stateful checks below "
+            "would be answering the unconditioned question")
 
     def test_stateful_checks_on_real_pairs(self):
         self.assertEqual(
