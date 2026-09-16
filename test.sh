@@ -361,8 +361,22 @@ check_import() {
     fi
 }
 
+# The pip-side counterpart of apt_advisory(): declared in the Dockerfile, needed by
+# no ./test.sh tier, so its absence is a [warn] and never the verdict. Same reasoning
+# as apt_advisory() -- see the comment there. Appends the pip spec to $advisory_pip
+# (caller's scope) so the verdict can print one repair line for all of them.
+check_import_advisory() {
+    local label="$1" module="$2" spec="$3" note="${4:-}"
+    if ( cd "$ROOT" && "$PYTHON" -c "import $module" ) >/dev/null 2>&1; then
+        printf '  [ok]      %-22s\n' "$label"
+    else
+        printf '  [warn]    %-22s %s\n' "$label" "$note"
+        advisory_pip+=("$spec")
+    fi
+}
+
 run_doctor() {
-    local rc=0 missing_apt=() advisory_apt=() pkg status
+    local rc=0 missing_apt=() advisory_apt=() advisory_pip=() pkg status
 
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
@@ -389,6 +403,8 @@ run_doctor() {
     check_import "JPype1"      jpype                        "" "-> pip install JPype1                [APKeep backend]" || rc=1
     check_import "libnetplumber" libnetplumber net_plumber/python \
         "-> build_libnetplumber.sh, OR (more often) a missing liblog4cxx -- see below  [integration/e2e]" || rc=1
+    check_import_advisory "z3-solver" z3 "z3-solver==5.1.0.0" \
+        "ad6_encoding_bench Axes 2-7 (Z3 comparison engine) -- ADVISORY, blocks no tier"
 
     echo "== env doctor: apt packages declared in Dockerfile =="
     while read -r pkg; do
@@ -459,15 +475,21 @@ run_doctor() {
         echo "    sudo apt-get update && sudo apt-get install -y ${missing_apt[*]}"
         echo ""
     fi
-    if [ "${#advisory_apt[@]}" -gt 0 ]; then
+    local n_advisory=$(( ${#advisory_apt[@]} + ${#advisory_pip[@]} ))
+    if [ "$n_advisory" -gt 0 ]; then
         echo "  OPTIONAL (nothing in ./test.sh needs these; ad6_encoding_bench does):"
         echo ""
-        echo "    sudo apt-get update && sudo apt-get install -y ${advisory_apt[*]}"
+        [ "${#advisory_apt[@]}" -gt 0 ] && \
+            echo "    sudo apt-get update && sudo apt-get install -y ${advisory_apt[*]}"
+        [ "${#advisory_pip[@]}" -gt 0 ] && \
+            echo "    $PYTHON -m pip install ${advisory_pip[*]}"
         echo ""
     fi
     if [ "$rc" -eq 0 ]; then
-        if [ "${#advisory_apt[@]}" -gt 0 ]; then
-            echo "  environment complete for every tier (${#advisory_apt[@]} advisory package(s) absent, see [warn] above)"
+        if [ "$n_advisory" -gt 0 ]; then
+            local noun="dependencies"
+            [ "$n_advisory" -eq 1 ] && noun="dependency"
+            echo "  environment complete for every tier ($n_advisory advisory $noun absent, see [warn] above)"
         else
             echo "  environment complete for every tier"
         fi

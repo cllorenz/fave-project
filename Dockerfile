@@ -19,6 +19,7 @@ LABEL Description="This image is used to build, test, and benchmark the FaVe ver
 #   vendored JDD jar       : 111 (apkeep/local-maven-repo/.../JDD-111.jar, in-tree)
 #   cadical                : 1.7.4-1                    (advisory, encoding bench only)
 #   cryptominisat          : 5.11.15+dfsg1-1.1build1    (advisory, encoding bench only)
+#   z3-solver (pip)        : 5.1.0.0                    (advisory, encoding bench only)
 # Python deps are hard-pinned below (pure-Python -> stable across mirrors).
 # -----------------------------------------------------------------------------
 
@@ -115,6 +116,15 @@ RUN pip3 install lxml==6.1.2
 RUN pip3 install yappi==1.7.6
 RUN pip3 install pycosat==0.6.6
 RUN pip3 install python-sat==1.9.dev15
+# ad6 encoding microbenchmark harness (ad6_encoding_bench/, AD6_ENCODING_PLAN.md §3):
+# Z3 is the comparison engine for Axes 2-7 (native QF_BV modelling, and the
+# incremental/assumption-based solving lever). ADVISORY like cadical/cryptominisat
+# above -- no ./test.sh tier imports it, so `./test.sh doctor` reports it as [warn]
+# and does not fail on it. Declared and PINNED because it was neither: a container
+# reset took it out, nothing noticed, and when the axes were re-run the version had
+# to be guessed -- §3.9a can only say "the version behind the original numbers was
+# never recorded", which is exactly the confound a pin prevents next time.
+RUN pip3 install z3-solver==5.1.0.0
 
 COPY . $DIRPATH/
 
