@@ -314,6 +314,8 @@ apt_purpose() {
             echo "integration (APKeep backend: JVM + build)" ;;
         minisat|clasp)
             echo "ad6 (make test: solver adapters shell out to these binaries)" ;;
+        cadical|cryptominisat)
+            echo "ad6_encoding_bench Axis 0/1 (modern-CDCL comparison + Tseitin equisatisfiability self-check)" ;;
         pandoc|texlive-latex-base|texlive-latex-recommended|texlive-fonts-recommended|lmodern|inkscape)
             echo "bench (report.md -> report.pdf conversion)" ;;
         pylint)
@@ -325,6 +327,24 @@ apt_purpose() {
         apt-utils|wget|git|python3|python3-pip|python3-venv)
             echo "base tooling" ;;
         *)  echo "UNCLASSIFIED -- declared in Dockerfile, purpose not recorded in apt_purpose()" ;;
+    esac
+}
+
+# Declared in the Dockerfile, but blocking NO ./test.sh tier -- reported as [warn]
+# and excluded from the verdict, so an absent one cannot fail a doctor run.
+#
+# The distinction is real and worth keeping: a doctor that fails on a dependency
+# nothing in the suite needs trains people to ignore its verdict, which is exactly
+# how a REAL missing dependency gets read as a code bug (the failure mode this whole
+# tier exists to prevent -- see the notes below run_doctor). But leaving such a
+# dependency UNDECLARED is how cadical/cryptominisat went missing after a container
+# reset with the doctor having no opinion at all, and ad6_encoding_bench's Axis 0 was
+# silently unrunnable (AD6_ENCODING_PLAN.md §3.1a). Declared-but-advisory is the
+# position that catches it without crying wolf.
+apt_advisory() {
+    case "$1" in
+        cadical|cryptominisat) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
@@ -342,7 +362,7 @@ check_import() {
 }
 
 run_doctor() {
-    local rc=0 missing_apt=() pkg status
+    local rc=0 missing_apt=() advisory_apt=() pkg status
 
     echo "== env doctor: interpreter =="
     printf '  %s\n' "$("$PYTHON" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON NOT RUNNABLE")"
@@ -376,8 +396,14 @@ run_doctor() {
         status="$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null)"
         case "$status" in
             *"install ok installed"*) printf '  [ok]      %-30s\n' "$pkg" ;;
-            *) printf '  [MISSING] %-30s %s\n' "$pkg" "$(apt_purpose "$pkg")"
-               missing_apt+=("$pkg"); rc=1 ;;
+            *) if apt_advisory "$pkg"; then
+                   printf '  [warn]    %-30s %s\n' "$pkg" \
+                       "$(apt_purpose "$pkg") -- ADVISORY, blocks no tier"
+                   advisory_apt+=("$pkg")
+               else
+                   printf '  [MISSING] %-30s %s\n' "$pkg" "$(apt_purpose "$pkg")"
+                   missing_apt+=("$pkg"); rc=1
+               fi ;;
         esac
     done < <(grep -oP 'apt-get \$APT_CONFS install \K[a-z0-9.+-]+' "$ROOT/Dockerfile" | sort -u)
 
@@ -433,8 +459,18 @@ run_doctor() {
         echo "    sudo apt-get update && sudo apt-get install -y ${missing_apt[*]}"
         echo ""
     fi
+    if [ "${#advisory_apt[@]}" -gt 0 ]; then
+        echo "  OPTIONAL (nothing in ./test.sh needs these; ad6_encoding_bench does):"
+        echo ""
+        echo "    sudo apt-get update && sudo apt-get install -y ${advisory_apt[*]}"
+        echo ""
+    fi
     if [ "$rc" -eq 0 ]; then
-        echo "  environment complete for every tier"
+        if [ "${#advisory_apt[@]}" -gt 0 ]; then
+            echo "  environment complete for every tier (${#advisory_apt[@]} advisory package(s) absent, see [warn] above)"
+        else
+            echo "  environment complete for every tier"
+        fi
     else
         echo "  see the [MISSING] lines above; each names the tier it blocks."
         echo "  Nothing above is a code defect -- these are container-state gaps."

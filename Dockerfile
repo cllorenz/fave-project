@@ -17,6 +17,8 @@ LABEL Description="This image is used to build, test, and benchmark the FaVe ver
 #   m4                     : 1.4.19-4build1
 #   python3-dev            : 3.12.3-0ubuntu2.1
 #   vendored JDD jar       : 111 (apkeep/local-maven-repo/.../JDD-111.jar, in-tree)
+#   cadical                : 1.7.4-1                    (advisory, encoding bench only)
+#   cryptominisat          : 5.11.15+dfsg1-1.1build1    (advisory, encoding bench only)
 # Python deps are hard-pinned below (pure-Python -> stable across mirrors).
 # -----------------------------------------------------------------------------
 
@@ -68,6 +70,17 @@ RUN apt-get $APT_CONFS install libcppunit-dev
 # check solvers (AD6_PLAN.md §2.4).
 RUN apt-get $APT_CONFS install minisat
 RUN apt-get $APT_CONFS install clasp
+# ad6 encoding microbenchmark harness (ad6_encoding_bench/, AD6_ENCODING_PLAN.md §3):
+# the modern CDCL engines Axis 0 times ad6's own unmodified DIMACS through, and that
+# Axis 1 uses for its equisatisfiability self-check between ad6's naive CNF converter
+# and a standard Tseitin one. ADVISORY, and deliberately so: no ./test.sh tier needs
+# them, so `./test.sh doctor` reports them as [warn] and does NOT fail on their absence
+# (see apt_advisory() there). Declared here anyway because the alternative is what
+# actually happened -- a container reset removed both, doctor had no opinion about them
+# because they were not declared, and Axis 0 was left silently unrunnable until someone
+# went looking (AD6_ENCODING_PLAN.md §3.1a).
+RUN apt-get $APT_CONFS install cadical
+RUN apt-get $APT_CONFS install cryptominisat
 
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
