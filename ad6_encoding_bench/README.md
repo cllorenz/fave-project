@@ -47,18 +47,33 @@ adapters).
   n×(n−1)=18,632-pair all-pairs matrix. Z3 incremental is actually run in full; ad6-real/
   Z3-fresh are measured on a sample and extrapolated (a full run would take ~30 min).
   `python3 axis5b_wlup_scale.py`.
-- `axis6_wlup_real.py` — the real thing: builds the actual FaVe+ad6 wl_up model
-  in-process (`Ad6Adapter`+`InProcessFaVe`+`favemodel`, read-only use of `ad6/`/`fave/`'s
-  existing modules) and answers real `bench/wl_up/cchecks.json` queries (plain and
-  stateful `<->>`, via ad6's real `SolveAcyclicEndToEnd` production path) three ways.
-  Run from `ad6_encoding_bench/`: `python3 axis6_wlup_real.py [n_plain] [n_stateful]`.
-- `axis6b_wlup_full_scale.py` — scales Axis 6 up: a larger ad6-real/Z3-fresh sample, and
-  Z3 incremental run for real on **all 11,902** real `cchecks.json` queries (not a
-  sample). `python3 axis6b_wlup_full_scale.py [sample_size]`.
-- `axis7_native_incremental.py` — is the incremental win Z3/SMT-specific, or does ad6's
-  own solver family (Minisat) show it too via its real native incremental API (PySAT's
-  `Minisat22`, not the CLI subprocess `MiniSATAdapter` uses)? Same real wl_up
-  model/queries. `python3 axis7_native_incremental.py [sample_size]`.
+
+### Axes 6, 6b, 7 and 8x — REMOVED 2026-09-16, and why
+
+These seven scripts (`axis6_wlup_real`, `axis6b_wlup_full_scale`,
+`axis7_native_incremental`, `axis8{,b,c,d}_stanford_*`) were the ones that built a
+**real FaVe model** — `Ad6Adapter` + `InProcessFaVe` + `favemodel` — rather than a
+synthetic topology, and answered real `bench/wl_up/cchecks.json` /
+`bench/wl_stanford` queries through it.
+
+They depended on `Ad6Adapter._build_ir()` and `ad6/src/parser/favemodel.py`, i.e. on
+ad6's **semantic** translation of a FaVe model. That path was deleted at
+`AD6_PLAN.md` §9.25 (Phase 5b), so these scripts cannot run against this tree.
+
+* **Their findings are not lost.** The measurements are written up in
+  `AD6_ENCODING_PLAN.md` §§3.7–3.10 and the raw stdout of the 2026-09-16 re-runs is
+  committed under `results/`.
+* **To re-run one, check out commit `86114970`** — the last commit where both the
+  scripts and the translation they need exist.
+* **Re-creating them against the structural translation is a deliberate act, not a
+  port.** A structural model is a *different encoding* (it keeps every stage; the
+  semantic path collapsed some), so numbers from a rebuilt Axis 6 would not be
+  comparable with the published ones. If that comparison is wanted, it is its own
+  measurement with its own stamp.
+
+Axes 0–5b are unaffected: they never went through the FaVe adapter, building their
+models from `gen_topology.py` or ad6's own `IP6TablesParser` instead. That is exactly
+the line the deletion fell along.
 
 ## Running
 

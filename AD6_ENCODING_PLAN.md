@@ -20,6 +20,16 @@ pursued further. Owner: Claas Lorenz. Kept as its own file (not merged into
 carries the integrated summary. Started
 2026-08-24.
 
+**AXES 6-8x CANNOT BE RE-RUN AGAINST THIS TREE (2026-09-16).** Those seven scripts
+built a real FaVe model through `Ad6Adapter._build_ir()` + `ad6/src/parser/favemodel.py`
+-- the SEMANTIC translation, deleted at `AD6_PLAN.md` §9.25 (Phase 5b). Their findings
+stand: the write-ups below are unchanged and the raw 2026-09-16 re-run logs are committed
+under `ad6_encoding_bench/results/`. To re-run one, check out commit `86114970`.
+Rebuilding them on the structural translation would be a NEW measurement, not a port --
+a structural model keeps every stage the semantic one collapsed, so its numbers are not
+comparable with the published ones. Axes 0-5b are unaffected; they never went through the
+FaVe adapter. See `ad6_encoding_bench/README.md`.
+
 ## 0. Scope and relationship to `AD6_PLAN.md`
 
 Two complementary investigations are running in parallel on ad6:
