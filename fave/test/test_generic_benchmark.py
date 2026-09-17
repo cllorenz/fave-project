@@ -183,6 +183,115 @@ class TestLengthAndMappingArePairedInTheDrivers(unittest.TestCase):
                     "%s computes --hdr-len with true division; use // 8" % driver)
 
 
+class TestTeardownReportsFailure(unittest.TestCase):
+    """ AD6_PLAN.md §9.32: `_teardown` must not claim success when nothing was
+    stopped.
+
+    net_plumber has NO independent shutdown path: `stop_fave.sh` talks only to
+    the AGGREGATOR, which then calls `verification_engine.stop()`. If the
+    aggregator never came up, died, or was killed, the stop request reaches
+    nobody and net_plumber survives -- and `_teardown` discarded the exit status
+    and logged "fave ordered to stop" regardless.
+
+    That is how the leak went unnoticed: the first wl_i2 attempt aborted because
+    the aggregator could not bind (§9.30), teardown ran, `stop_fave.sh` exited 1
+    against an absent aggregator, and a net_plumber was orphaned for half an
+    hour while the log said it had been stopped.
+
+    NON-FATAL, unlike `_compliance`: teardown runs from a `finally`, and raising
+    there would mask the original error. It must be LOUD, not fatal. """
+
+    def test_a_failing_stop_is_reported_not_swallowed(self):
+        bench = _Bench()
+        messages = []
+        bench.logger = type("L", (), {
+            "info": lambda _s, m, *a: messages.append(("info", m % a if a else m)),
+            "error": lambda _s, m, *a: messages.append(("error", m % a if a else m)),
+            "exception": lambda _s, m, *a: messages.append(("exception", m)),
+        })()
+        with _SystemPatch(_FakeSystem(exit_code=1)):
+            bench._teardown()
+
+        errors = [m for lvl, m in messages if lvl == "error"]
+        self.assertTrue(errors, "a failed teardown logged nothing at error level")
+        self.assertNotIn(
+            "fave ordered to stop", [m for _lvl, m in messages],
+            "teardown claimed success after stop_fave.sh failed -- this is how "
+            "an orphaned net_plumber goes unnoticed")
+
+    def test_teardown_does_not_raise_even_when_stop_fails(self):
+        """ It runs from `run()`'s `finally`; raising would replace the real
+        error with a cleanup error. """
+        bench = _Bench()
+        with _SystemPatch(_FakeSystem(exit_code=1)):
+            bench._teardown()          # must not raise
+
+    def test_a_successful_stop_still_reports_success(self):
+        bench = _Bench()
+        messages = []
+        bench.logger = type("L", (), {
+            "info": lambda _s, m, *a: messages.append(m % a if a else m),
+            "error": lambda _s, m, *a: messages.append(m % a if a else m),
+            "exception": lambda _s, m, *a: messages.append(m),
+        })()
+        with _SystemPatch(_FakeSystem(exit_code=0)):
+            bench._teardown()
+        self.assertIn("fave ordered to stop", messages)
+
+
+class TestNetPlumberHasAnAggregatorIndependentShutdown(unittest.TestCase):
+    """ AD6_PLAN.md §9.32: net_plumber must be stoppable WITHOUT the aggregator.
+
+    Its only shutdown path used to be `stop_fave.sh` -> `aggregator/stop.py` ->
+    the aggregator -> `verification_engine.stop()`. An aggregator that never
+    started, died, or was killed therefore orphaned net_plumber silently, still
+    holding its unix socket and still writing logs -- observed for half an hour
+    after the first wl_i2 attempt aborted on the §9.30 socket bug.
+
+    `start_np.sh` now records each pid and `stop_fave.sh` falls back to it when
+    the aggregator is unreachable. Pinned as AGREEMENT on the pidfile between
+    the two scripts: the writer and the reader drifting apart would restore the
+    leak with no other symptom.
+
+    The behaviour itself needs a live net_plumber, so it is verified by hand
+    (§9.32.3) rather than here; what this guards is that the mechanism still
+    exists and that both halves still point at the same file. """
+
+    def _read(self, name):
+        import os
+        path = os.path.join("scripts", name)
+        return open(path).read() if os.path.isfile(path) else ""
+
+    def test_start_np_records_the_pid(self):
+        src = self._read("start_np.sh")
+        if not src:
+            self.skipTest("scripts/start_np.sh not present")
+        self.assertRegex(
+            src, r"\$!\s*>>\s*\$\{?DIR\}?/np/np\.pid",
+            "start_np.sh must APPEND net_plumber's pid to $DIR/np/np.pid -- "
+            "appended, because a multi-threaded benchmark starts one instance "
+            "per thread through separate invocations")
+
+    def test_stop_fave_falls_back_to_that_pidfile(self):
+        src = self._read("stop_fave.sh")
+        if not src:
+            self.skipTest("scripts/stop_fave.sh not present")
+        self.assertRegex(
+            src, r"PIDFILE=\$\{?DIR\}?/np/np\.pid",
+            "stop_fave.sh must read the same pidfile start_np.sh writes")
+
+    def test_the_fallback_verifies_the_process_before_killing_it(self):
+        """ A stale pidfile would otherwise shoot whatever process inherited
+        the number. """
+        src = self._read("stop_fave.sh")
+        if not src:
+            self.skipTest("scripts/stop_fave.sh not present")
+        self.assertIn("/comm", src,
+                      "the fallback must confirm the pid is still a "
+                      "net_plumber before killing it")
+        self.assertIn('"net_plumber"', src)
+
+
 class TestStaleSocketCleanup(unittest.TestCase):
     """ AD6_PLAN.md §9.30: the start scripts must test for a stale unix socket
     with `-S` (IS A SOCKET), never `-s` (SIZE > 0).

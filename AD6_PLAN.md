@@ -6412,6 +6412,85 @@ were not connected at the time and this is not proof.
 logs redirected to disk, reinforcing §9.29.4: this is not a bench-tier-only concern, and
 the *correct* run is the expensive one.
 
+### 9.32 The net_plumber leak: it had no shutdown path of its own
+
+**ROOT-CAUSED AND FIXED 2026-09-17.** A `net_plumber` was found alive 28 minutes after
+the wl_i2 runs finished, holding its unix socket and still attached to its logs, while the
+benchmark's log said `fave ordered to stop`.
+
+#### 9.32.1 The chain, and where it breaks
+
+`_teardown` -> `scripts/stop_fave.sh` -> `aggregator/stop.py` -> **the AGGREGATOR** ->
+`_dispatch`'s `stop` branch -> `self.verification_engine.stop()` ->
+`jsonrpc.stop(self.socks)` -> net_plumber exits.
+
+**Every arrow passes through the aggregator, and there is no other one.** Nothing in the
+tree could stop a net_plumber directly. So if the aggregator never started, died, or was
+killed, `stop.py` raised `could not connect to fave`, exited 1 -- and net_plumber ran on.
+
+Reproduced deterministically, which is what separates this from the one observation:
+
+| scenario | net_plumber after `stop_fave.sh` |
+|---|---|
+| aggregator running | stopped (exit 0) |
+| **no aggregator** | **still running** (exit 1, `could not connect to fave`) |
+
+#### 9.32.2 Why nobody noticed: the third swallowed sub-step
+
+`_teardown` discarded `stop_fave.sh`'s exit status and logged `"fave ordered to stop"`
+unconditionally -- the same pattern as `_compliance` (§9.28.3) and the `_report` steps
+before it (TODO items 1i/1n/1p). The log asserted a shutdown that had demonstrably not
+happened.
+
+**The actual sequence that produced the orphan was a three-defect chain**, each masking
+the next:
+
+1. §9.30 -- a stale socket `start_aggr.sh` never removed, so the aggregator could not bind.
+2. The benchmark aborted; `run()`'s `finally` (added in §9.28.3) correctly ran `_teardown`.
+3. `stop_fave.sh` found no aggregator, exited 1, and this section's defect discarded that
+   status -- so the orphan was created, reported as stopped, and left running.
+
+Worth noting that the `try/finally` which made teardown reliable is what surfaced this:
+before it, an aborting benchmark skipped teardown entirely and the leak had no chance to
+look like a success.
+
+#### 9.32.3 The fix, in two halves
+
+**Report the failure.** `_teardown` now logs at error level and names the consequence
+("a net_plumber may still be running"). Deliberately NOT fatal: it runs from a `finally`,
+and raising there would replace the original error with a cleanup error. Loud, not fatal.
+
+**Give net_plumber a shutdown path that does not depend on the aggregator.**
+`start_np.sh` now appends each pid to `$DIR/np/np.pid` (appends, because a multi-threaded
+benchmark starts one instance per thread through separate invocations -- the commented-out
+pidfile scaffolding already in that script gestured at this). `stop_fave.sh` falls back to
+that file **only when the aggregator was unreachable**, and kills a pid **only after
+confirming `/proc/<pid>/comm` is still `net_plumber`** -- a bare `kill` on a stale pidfile
+would shoot whatever process inherited the number. The pidfile is removed either way, so
+the next run's fallback cannot chase dead pids.
+
+Verified behaviourally, all four cases:
+
+| case | result |
+|---|---|
+| orphan + no aggregator | killed, pidfile removed |
+| normal shutdown via aggregator | exit 0, stopped, fallback not used |
+| pidfile holding a NON-net_plumber pid | innocent process survives |
+| full wl_ifi benchmark end to end | 27 violations (unchanged), no leak, pidfile cleaned |
+
+#### 9.32.4 The pattern, stated once
+
+This is the fourth defect in this stretch of exactly one shape: **a step that could not
+run was indistinguishable from a step that succeeded.** `_compliance` (§9.28.3), the
+report's compliance section (§9.28.2), `_teardown` (here), and -- in a different register
+-- `InProcessFaVe` swallowing backend exceptions (§9.24.1). Each was found by running
+something new through the harness rather than by reading it.
+
+The harness now checks the exit status of every sub-step it shells out to. `_compliance`
+is fatal; `_report` and `_teardown` are loud and non-fatal, because by the time they run
+the verdict already exists and a cleanup failure must not replace the real error.
+
+
 
 
 

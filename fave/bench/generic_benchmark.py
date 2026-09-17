@@ -289,7 +289,21 @@ class GenericBenchmark(object):
 
     def _teardown(self):
         self.logger.info("stopping fave and netplumber...")
-        os.system("bash scripts/stop_fave.sh %s" % ("-u" if self.use_unix else ""))
+        cmd = "bash scripts/stop_fave.sh %s" % ("-u" if self.use_unix else "")
+        code = _exit_code(os.system(cmd))
+        if code != 0:
+            # LOUD but NOT fatal (AD6_PLAN.md §9.32). This runs from `run()`'s
+            # `finally`, so raising would replace the real error with a cleanup
+            # error -- but claiming success is how an orphaned net_plumber goes
+            # unnoticed. net_plumber has no shutdown path of its own:
+            # `stop_fave.sh` talks only to the AGGREGATOR, which then calls
+            # `verification_engine.stop()`. Aggregator absent => request reaches
+            # nobody => net_plumber survives, holding its socket and its logs.
+            self.logger.error(
+                "teardown FAILED (exit %s): %s -- a net_plumber may still be "
+                "running. Check with `ps -C net_plumber` and kill it, or the "
+                "next run will start a second one alongside it.", code, cmd)
+            return
         self.logger.info("fave ordered to stop")
 
 

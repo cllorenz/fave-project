@@ -27,6 +27,8 @@
 # interpreter it resolved; standalone callers keep the old default or set $PYTHON.
 PYTHON="${PYTHON:-python3}"
 
+DIR=/dev/shm
+
 SOCK_PARAMS="-s 127.0.0.1 -p 44000"
 
 SERVER=""
@@ -68,3 +70,33 @@ elif [ -n "$UNIX" ]; then
 fi
 
 "$PYTHON" aggregator/stop.py $SOCK_PARAMS
+RC=$?
+
+# AD6_PLAN.md §9.32: net_plumber's ONLY shutdown path used to be the line above
+# -- stop.py talks to the AGGREGATOR, which then calls
+# verification_engine.stop(). If the aggregator never started, died, or was
+# killed, the request reached nobody and net_plumber was orphaned: still
+# holding its unix socket, still writing logs, and invisible to the benchmark,
+# which discarded this exit status entirely.
+#
+# So: when the aggregator could not be reached, fall back to the pids
+# start_np.sh recorded. Each is killed ONLY after confirming it is still a
+# net_plumber -- a bare `kill` on a stale pidfile would shoot whatever process
+# inherited the number.
+PIDFILE=$DIR/np/np.pid
+if [ $RC -ne 0 ] && [ -f "$PIDFILE" ]; then
+    echo "stop_fave: aggregator unreachable (rc=$RC); stopping net_plumber directly" >&2
+    while read -r PID; do
+        [ -n "$PID" ] || continue
+        COMM=$(cat "/proc/$PID/comm" 2>/dev/null)
+        if [ "$COMM" = "net_plumber" ]; then
+            kill "$PID" 2>/dev/null && echo "stop_fave: killed net_plumber $PID" >&2
+        fi
+    done < "$PIDFILE"
+fi
+
+# The pidfile describes THIS run only; a stale one would make the next run's
+# fallback chase dead pids.
+[ -f "$PIDFILE" ] && rm -f "$PIDFILE"
+
+exit $RC

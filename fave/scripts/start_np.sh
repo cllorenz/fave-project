@@ -89,6 +89,16 @@ else
     net_plumber $LEN_PARAMS $LOG_PARAMS $SOCK_PARAMS >> $DIR/np/stdout.log 2>> $DIR/np/stderr.log &
 fi
 
+# AD6_PLAN.md §9.32: record the pid so net_plumber can be stopped WITHOUT the
+# aggregator. Until now its only shutdown path was `stop_fave.sh` ->
+# `aggregator/stop.py` -> the aggregator -> `verification_engine.stop()`, so an
+# aggregator that never started (or died, or was killed) orphaned net_plumber
+# silently -- it kept its socket, its logs and its memory.
+#
+# APPENDED, not overwritten: a multi-threaded benchmark starts one instance per
+# thread, each through its own invocation of this script.
+echo $! >> $DIR/np/np.pid
+
 
 #taskset -p 0x00000001 $PID > /dev/null
 
