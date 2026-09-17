@@ -54,8 +54,41 @@ def _parse_cond(cond: str, mapping: Mapping) -> List[Tuple[str, str]]:
     return result
 
 
+def _backend_checks_anomalies(fave: Any) -> bool:
+    """ Whether the aggregator's backend implements anomaly detection.
+
+    Read off the SERVICE rather than probed on the engine: `Ad6Adapter` has a
+    `check_anomalies` that raises NotImplementedError, so `hasattr` would say
+    yes and the report would claim a clean anomaly verdict for a step the
+    benchmark deliberately skipped. Defaults to True so the NetPlumber path and
+    every existing caller are unaffected. """
+    from aggregator.aggregator_service import BACKENDS_WITH_ANOMALIES
+    backend = getattr(fave, 'backend', None)
+    return backend is None or backend in BACKENDS_WITH_ANOMALIES
+
+
+def _render_cond(cond: Any) -> List[str]:
+    """ An engine-reported condition as "name=value" strings.
+
+    `Ad6Adapter` hands back whatever `check_compliance` was given: a list of
+    `RuleField.to_json()` dicts. Rendered leniently -- a report is a
+    presentation artifact, and an unfamiliar shape should print as itself
+    rather than abort the run that produced the verdict. """
+    if not cond:
+        return []
+    if isinstance(cond, str):
+        return [cond]
+    rendered = []
+    for field in cond:
+        if isinstance(field, dict) and 'name' in field:
+            rendered.append("%s=%s" % (field['name'], field.get('value')))
+        else:
+            rendered.append(str(field))
+    return rendered
+
+
 class Reporter(threading.Thread):
-    def __init__(self, fave: Any, np_log: str) -> None:
+    def __init__(self, fave: Any, np_log: Optional[str]) -> None:
         super(Reporter, self).__init__()
 
         self.events: List[Any] = []
@@ -63,11 +96,29 @@ class Reporter(threading.Thread):
         self.last_anomalies = 0
         self.stop_reporter = False
         self.fave = fave
-        self.np_log_path = np_log
-        self.np_log = open(np_log, 'r')
+        self.np_log_path: Optional[str] = np_log
+        # AD6_PLAN.md §9.28: the log tail is OPTIONAL. It exists to read
+        # net_plumber's own verdict out of its stdout; an engine that reports
+        # its own results (ad6, APKeep) has no such log, and this used to
+        # `open()` unconditionally.
+        #
+        # A STALE log is the reason `np_log=None` is a real mode rather than
+        # just tolerated absence: this opens at offset 0, so a leftover
+        # /dev/shm/np/stdout.log from an earlier NetPlumber run would be
+        # replayed in full as THIS run's compliance events. Silently attributing
+        # one engine's verdict to another is exactly the class of error
+        # §9.23 is a post-mortem of.
+        self.np_log = None
+        if np_log is not None:
+            try:
+                self.np_log = open(np_log, 'r')
+            except (IOError, OSError):
+                # Absent is not fatal: nothing to tail, and `dump_report` falls
+                # back to whatever the engine reports for itself.
+                self.np_log = None
         # Bytes of np_log this tailer has actually consumed; compared against
         # the file size by `drain()`.
-        self.consumed = self.np_log.tell()
+        self.consumed = self.np_log.tell() if self.np_log is not None else 0
 
 
     def drain(self, poll: float = 0.01) -> None:
@@ -93,9 +144,13 @@ class Reporter(threading.Thread):
         Like the barrier itself, it waits on evidence (bytes remaining) rather
         than on a clock -- there is no timeout.
         """
+        if self.np_log is None or self.np_log_path is None:
+            return              # nothing is being tailed
+
+        path = self.np_log_path
         while not self.stop_reporter:
             try:
-                size = os.path.getsize(self.np_log_path)
+                size = os.path.getsize(path)
             except OSError:
                 return
             if self.consumed >= size:
@@ -103,13 +158,36 @@ class Reporter(threading.Thread):
             time.sleep(poll)
 
 
+    def _engine_violations(self) -> Optional[List[str]]:
+        """ The rendered violation lines an engine reports for ITSELF, or None
+        if it reports none of its own and the log tail is the source of truth.
+
+        AD6_PLAN.md §9.28. `get_compliance_results()` returns name-based
+        `(source, probe, must_reach, cond)` tuples -- no net_plumber node ids
+        and no header-space vector, so none of the id/mapping resolution below
+        applies (and `NetPlumberAdapter` has no such method at all, which is
+        what selects between the two paths).
+
+        `must_reach` is the polarity of the CHECK, and every tuple here is a
+        VIOLATION of it: a must-reach check that was violated reads "does not
+        reach", and a must-not-reach check that was violated reads "reaches".
+        """
+        results = getattr(self.fave.verification_engine, 'get_compliance_results', None)
+        if not callable(results):
+            return None
+
+        lines = []
+        for source, probe, must_reach, cond in results():
+            lines.append("- `{}` {} `{}`{}".format(
+                source,
+                "does not reach" if must_reach else "reaches",
+                probe,
+                " with \n    - " + '\n    - '.join(_render_cond(cond)) if cond else ""
+            ))
+        return lines
+
+
     def dump_report(self, dump: str) -> None:
-        # name : (idx, sid, model)
-        id_to_generator = {g[1] : n for n, g in list(self.fave.verification_engine.generators.items())}
-
-        # name : (idx, pid, model)
-        id_to_probe = {g[1] : n for n, g in list(self.fave.verification_engine.probes.items())}
-
         report = [
             "# Report",
             "<introductionary text>"
@@ -122,9 +200,25 @@ class Reporter(threading.Thread):
 
         anomaly_events = [entry for entry in self.events[self.last_anomalies:cur_event] if entry[0] == Log.Anomalies]
 
+        engine_violations = self._engine_violations()
+
         # generate report
         report.append("\n## Compliance Check")
-        if compliance_events:
+        if engine_violations is not None:
+            # The engine computed its own verdict; the log tail is not
+            # consulted at all, so a stale one cannot leak into it.
+            if engine_violations:
+                report.append("The following compliance violations have been found:\n")
+                report.extend(engine_violations)
+            else:
+                report.append("No compliance violations have been found.")
+        elif compliance_events:
+            # name : (idx, sid, model)
+            id_to_generator = {g[1] : n for n, g in list(self.fave.verification_engine.generators.items())}
+
+            # name : (idx, pid, model)
+            id_to_probe = {g[1] : n for n, g in list(self.fave.verification_engine.probes.items())}
+
             report.append("The following compliance violations have been found:\n")
             for event in compliance_events:
                 _, negated, from_, to_, cond = event
@@ -140,7 +234,14 @@ class Reporter(threading.Thread):
             report.append("No compliance violations have been found.")
 
         report.append("\n## Anomaly Check")
-        if anomaly_events:
+        if not _backend_checks_anomalies(self.fave):
+            # AD6_PLAN.md §9.28: the benchmark SKIPS this step for an engine
+            # that does not implement it, so "none found" would be a verdict
+            # nobody computed. Say which it was.
+            report.append(
+                "Not checked: the %s backend does not implement anomaly "
+                "detection." % getattr(self.fave, 'backend', 'selected'))
+        elif anomaly_events:
             report.append("The following anomalies have been found:\n")
 
             inv_rids = {}
@@ -191,6 +292,9 @@ class Reporter(threading.Thread):
 
 
     def run(self) -> None:
+        if self.np_log is None:
+            return              # no log to tail; the engine reports itself
+
         while not self.stop_reporter:
             raw_line = self.np_log.readline()
 

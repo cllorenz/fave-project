@@ -4064,10 +4064,11 @@ speculatively ahead of need.
 **Status: Phases 0-6 DONE (2026-09-16). 5a flipped the default (§9.24); 5b deleted
 the interpreted path, -9,269 lines (§9.25); §9.26 renamed the surviving vocabulary
 'structural' -> 'literal'; §9.27 wired production -- `--backend ad6` plus selectable
-solver and `lite_acyclic`, so FaVe can be run on ad6 and every archived
-configuration is reachable again. NEXT: no benchmark yet passes `--backend ad6`,
-and `fave/bench/wl_*/benchmark.py` still spawns NetPlumber unconditionally, so a
-full workload end-to-end on ad6 through the live aggregator is the open step.**
+solver and `lite_acyclic`; §9.28 RAN a full workload on it (wl_stanford, 240 checks,
+165 reachable, agreeing pair-for-pair with NetPlumber's own libnetplumber matrix --
+a two-implementation CONSENSUS, not an oracle). NEXT: §9.28.7's finding that the same
+benchmark on the netplumber backend answers 9 reachable rather than 165, which makes
+TODO item 1s's oracle question a question about CODE PATHS, not just artifacts.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6062,6 +6063,158 @@ correctly.
 benchmark yet passes `--backend ad6`, and the `fave/bench/wl_*/benchmark.py` drivers still
 spawn NetPlumber unconditionally -- running a full workload end-to-end on ad6 through the
 live aggregator is the next step, not this one.
+
+### 9.28 A full benchmark end-to-end on ad6 -- and three things that had to be true first
+
+**DONE 2026-09-17.** §9.27 wired the aggregator; this runs an actual workload through it.
+Getting there required fixing three defects, two of them pre-existing and
+backend-independent, all three of the same family: **a step that could not run was
+indistinguishable from a step that found nothing.**
+
+#### 9.28.1 The harness half of the wiring
+
+`GenericBenchmark` started net_plumber unconditionally and never named an engine.
+Added: a `backend` parameter, `FAVE_BACKEND` / `FAVE_ENGINE_OPTIONS` environment
+overrides, and `-b` / `-X` pass-through on `scripts/start_aggr.sh`.
+
+The environment override is not a convenience. Every `bench/wl_*/benchmark.py`
+constructs its subclass with hardcoded arguments, so a constructor parameter alone
+would have reached **none** of the six benchmark drivers -- running an existing
+workload on another engine would have meant editing each one.
+
+Two capability tuples now live next to `BACKENDS` in `aggregator_service.py`, imported
+by the harness rather than re-listed, so the two cannot disagree:
+`BACKENDS_NEEDING_NETPLUMBER` (only netplumber has a separate backend PROCESS) and
+`BACKENDS_WITH_ANOMALIES` (`Ad6Adapter.check_anomalies` raises by design, §9.4).
+
+#### 9.28.2 The report could not see a non-NetPlumber verdict -- and would have invented one
+
+`report.md`'s compliance section was produced ENTIRELY by tailing net_plumber's own
+stdout: `Reporter.run()` parses `DefaultComplianceLogger` lines into events carrying
+net_plumber NODE IDS, which `dump_report` resolves through
+`verification_engine.generators`/`.probes` and decodes with `.mapping`.
+
+ad6 and APKeep have none of those. Both compute a verdict and hold it in
+`get_compliance_results()`, which reached nothing. So a benchmark run on either would
+have reported **"No compliance violations have been found"** regardless of what it
+found.
+
+**And worse than a false clean verdict: a borrowed one.** The Reporter opens the log at
+offset 0, so a stale `/dev/shm/np/stdout.log` from an earlier NetPlumber run would have
+been replayed in full as *this* run's compliance events -- one engine's verdict
+attributed to another. The aggregator now passes `np_log` only for the backend that
+writes it, and `dump_report` prefers the engine's own results whenever it reports any
+(`NetPlumberAdapter` has no `get_compliance_results` at all, which is what selects
+between the two paths -- the NetPlumber rendering is untouched).
+
+The anomaly section had the same shape: a SKIPPED check rendered as "No anomalies have
+been found." It now says which backend did not check.
+
+#### 9.28.3 `_compliance` discarded its exit status -- the bug the ad6 run exposed
+
+Running wl_example on ad6 first, the checker aborted on its very first query, correctly
+refusing a `protocol` condition the ad6 query path cannot force
+(`_SUPPORTED_COND_FIELDS` is `related` only). The benchmark then logged **"checked flow
+trees."**, ran to completion, and wrote a report saying no violations were found.
+
+`_compliance` shelled out with `os.system()` and dropped the status -- the
+swallowed-sub-step pattern of TODO.md items 1i/1n/1p, in the one step where it is fatal
+rather than cosmetic. **This was never backend-specific**: a compliance checker that
+crashed under NetPlumber for any reason produced exactly the same clean report. It now
+raises.
+
+Making it fatal exposed a second defect: `run()` had no `try/finally`, so an aborting
+step left the aggregator and net_plumber alive, holding their ports and a stale
+`/dev/shm/np/aggregator.owner` that the NEXT run's barriers would wait on. A failed
+benchmark must not sabotage the following one. Teardown is now unconditional, and a
+failing teardown logs rather than replacing the real error.
+
+#### 9.28.4 Which benchmarks can run on ad6 at all
+
+The query path forces only `related` (`_SUPPORTED_COND_FIELDS`), and a `related`
+condition additionally needs the MODEL to declare that field. That splits the six
+cleanly, and the split is a property of the check sets, not of the engine's power:
+
+| benchmark | checks | conditions | on ad6 |
+|---|---|---|---|
+| wl_stanford | 240 | none | **runs** |
+| wl_i2 | 72 | none | runs (needs `--lite-acyclic`; hours) |
+| wl_tum | 0 | -- | nothing to check |
+| wl_up | 11,902 | 3,302 `related` | answerable -- its ip6tables rulesets DO carry `related` (§9.22) |
+| wl_ifi | 299 | 54 `related` | REFUSED: Cisco ACLs carry no ctstate, so the model declares no `related` field (§9.24.2) |
+| wl_example | 10 | `related` + `protocol` + `port` | REFUSED: `protocol`/`port` cannot be forced |
+
+wl_example's refusal is a genuine capability gap and is now visible instead of silent.
+It is narrower than it looks -- forcing a generic field at query time is the same
+mechanism `related` already uses -- but it is unbuilt, and no measurement should hide
+behind a dropped condition.
+
+#### 9.28.5 The run: wl_stanford, 240 checks, on ad6 through the live aggregator
+
+```
+FAVE_BACKEND=ad6 FAVE_ENGINE_OPTIONS="--solver cadical195" \
+    python3 bench/wl_stanford/benchmark.py
+```
+
+Completed. No net_plumber process was started; the aggregator logged
+`backend: ad6 {'translation': 'literal', 'grounding': 'rank', 'solver': 'cadical195',
+'lite_acyclic': False}`; `check_compliance` took **1,781.9 s (29.7 min)** for 240
+queries (~7.4 s/query, yolobox -- directional only, not a bare-metal measurement);
+`report.md` rendered from ad6's own `get_compliance_results()`, and the anomaly section
+read "Not checked: the ad6 backend does not implement anomaly detection."
+
+**75 violations of 240 -> 165 pairs reachable.**
+
+#### 9.28.6 What the 165 does and does not establish
+
+**It is a CONSENSUS, not an oracle** (owner, 2026-09-17, correcting this section's first
+draft). `bench/wl_stanford/reachable.json` lists all 240 pairs -- it is the POLICY's
+aspiration, the all-reachable mesh TODO.md item 1s already flags as "NOT a usable gate",
+the same defect §9.4 recorded for wl_i2. There is no independent ground truth for
+wl_stanford in this tree. The 165 that §5.2 cites is itself `NetPlumber == APKeep == 165`,
+i.e. agreement between implementations, and `[[stanford-forwarding-overapprox]]` records
+a caveat they may SHARE.
+
+So what this run establishes is precise and limited:
+
+* FaVe runs a full workload end-to-end on ad6 through the live aggregator -- the Phase 6
+  claim, now exercised rather than asserted.
+* ad6's answer agrees with NetPlumber's own **pair for pair**, not merely in count: the
+  165-pair set from `bench/apkeep_convergence.py --emit netplumber` (a libnetplumber
+  worker, no aggregator) is set-equal to the 165 this run leaves unviolated.
+* It does NOT establish that 165 is correct. A shared over-approximation would look
+  exactly like this, and adding a third agreeing implementation would not change that.
+
+#### 9.28.7 THE NEW FINDING: NetPlumber gives two different answers by code path
+
+The same benchmark on the netplumber backend reports **231 violations -> 9 reachable**,
+against the libnetplumber worker's **165** for the same model.
+
+Not a race, and not a resource limit. `check_compliance` returned in **13 ms**;
+net_plumber itself emitted exactly **231 `DefaultComplianceLogger` lines**, so the verdict
+is its own and deterministic. 17 probes were active with ~21,000 activations, so flows
+were certainly propagating, and `/dev/shm` was at 12% with no errors in `np.log`.
+
+The 9 pairs the pipeline calls reachable are **exactly the adjacent same-zone siblings**
+(coza<->cozb, poza<->pozb, soza<->sozb, yoza->yozb, gozb->goza, rozb->roza). Nothing
+multi-hop, nothing across the bbra/bbrb backbone.
+
+**HYPOTHESIS, not a conclusion** -- root-causing it is its own investigation: the
+benchmark's checks are `s=source.X && EF p=probe.Y`, i.e. probe-condition checks carrying
+a SOURCE constraint, which net_plumber must answer from flow-tree provenance; the
+libnetplumber worker instead enumerates a reachability matrix directly. If source
+attribution degrades with flow-tree depth, "only adjacent pairs survive" is exactly the
+shape that produces.
+
+**Why it matters beyond this run.** Item 1s asks "what artifact establishes the expected
+verdict?" and answers "none usable". This is worse than a missing oracle: the same
+engine, on the same model, answers 165 one way and 9 another. Any consensus-based oracle
+has to say WHICH path produced each number -- the generality-debt gate's rule, applied to
+the oracle itself rather than to the encoding.
+
+**Scope note:** this is a NetPlumber-path defect, found while running ad6 and unrelated to
+it. Not fixed here.
+
 
 
 

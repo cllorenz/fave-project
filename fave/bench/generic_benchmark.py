@@ -35,6 +35,12 @@ from util.bench_utils import create_topology, add_routes, add_sources, add_polic
 from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util import barrier
 from util.aggregator_utils import FAVE_DEFAULT_UNIX, FAVE_DEFAULT_IP, FAVE_DEFAULT_PORT
+# AD6_PLAN.md §9.28: which engine to run, and what it can do. Imported rather
+# than re-listed so the harness and the aggregator cannot disagree about either.
+from aggregator.aggregator_service import (
+    BACKEND_NETPLUMBER, BACKENDS, BACKENDS_NEEDING_NETPLUMBER,
+    BACKENDS_WITH_ANOMALIES,
+)
 
 TMPDIR = "/dev/shm/np"
 
@@ -91,8 +97,28 @@ class GenericBenchmark(object):
             length=0,
             suffix='',
             mapping=None,
-            anomalies=None
+            anomalies=None,
+            backend=BACKEND_NETPLUMBER,
+            engine_options=''
     ):
+        # AD6_PLAN.md §9.28: which verification engine this run uses.
+        # `engine_options` is passed through to the aggregator verbatim (e.g.
+        # "--solver cadical195 --lite-acyclic"); this harness has no business
+        # knowing an engine's vocabulary, and the aggregator validates it and
+        # exits non-zero on a bad value before any model is built.
+        #
+        # Overridable from the environment so an existing benchmark can be run
+        # on another engine WITHOUT editing its driver -- every wl_*/benchmark.py
+        # constructs its subclass with hardcoded arguments, so a parameter alone
+        # would reach none of them.
+        backend = os.environ.get('FAVE_BACKEND', backend)
+        if backend not in BACKENDS:
+            raise ValueError(
+                "unknown backend %r -- expected one of %s" % (
+                    backend, ', '.join(repr(b) for b in BACKENDS)))
+        self.backend = backend
+        self.engine_options = os.environ.get('FAVE_ENGINE_OPTIONS', engine_options)
+
         self.prefix = prefix
         files = {
             "inventory" : "inventory.json",
@@ -216,19 +242,31 @@ class GenericBenchmark(object):
 
 
     def _startup(self):
-        self.logger.info("starting netplumber...")
-        for number_ in range(1, self.threads+1):
-            if self.use_unix and not self.use_tcp_np:
-                sockopt = "-u /dev/shm/np%d.socket" % number_
-            else:
-                sockopt = "-s 127.0.0.1 -p %d" % (44000+number_)
+        # AD6_PLAN.md §9.28: only the netplumber backend has a separate backend
+        # PROCESS. APKeep runs in-process and ad6 as a subprocess per
+        # check_compliance, so starting net_plumber for them would leave a
+        # daemon nothing connects to -- and on a small /dev/shm its logs are
+        # not free.
+        if self.backend in BACKENDS_NEEDING_NETPLUMBER:
+            self.logger.info("starting netplumber...")
+            for number_ in range(1, self.threads+1):
+                if self.use_unix and not self.use_tcp_np:
+                    sockopt = "-u /dev/shm/np%d.socket" % number_
+                else:
+                    sockopt = "-s 127.0.0.1 -p %d" % (44000+number_)
 
-            if self.length: sockopt += " -L %d" % self.length
+                if self.length: sockopt += " -L %d" % self.length
 
-            os.system("bash scripts/start_np.sh -l %s %s" % (self.files['np_config'], sockopt))
-        self.logger.info("started netplumber.")
+                os.system("bash scripts/start_np.sh -l %s %s" % (self.files['np_config'], sockopt))
+            self.logger.info("started netplumber.")
+        else:
+            self.logger.info(
+                "backend %s needs no netplumber process; not starting one",
+                self.backend)
 
-        self.logger.info("starting aggregator...")
+        self.logger.info("starting aggregator (backend: %s%s)...",
+                         self.backend,
+                         " %s" % self.engine_options if self.engine_options else "")
         aggr_args = [
             "/dev/shm/np%d.socket" % no for no in range(1, self.threads+1)
         ] if self.use_unix else [
@@ -236,10 +274,12 @@ class GenericBenchmark(object):
         ]
 
         os.system(
-            "bash scripts/start_aggr.sh -S %s %s %s" % (
+            "bash scripts/start_aggr.sh -S %s %s %s -b %s %s" % (
                 ','.join(aggr_args),
                 "-u" if self.use_unix else "",
-                "-m %s" % self.mapping if self.mapping else ""
+                "-m %s" % self.mapping if self.mapping else "",
+                self.backend,
+                "-X %s" % shlex.quote(self.engine_options) if self.engine_options else ""
             )
         )
         self.logger.info("started aggregator.")
@@ -303,17 +343,46 @@ class GenericBenchmark(object):
 #        os.system("bash scripts/check_parallel.sh %s %s %s" % (
 #            self.files['checks'], self.threads, "np_dump"
 #        ))
-        os.system("%s bench/compliance_checker.py %s %s" % (
+        cmd = "%s bench/compliance_checker.py %s %s" % (
             PYTHON,
             "-u" if self.use_unix else "",
             self.files['checks']
-        ))
+        )
+        code = _exit_code(os.system(cmd))
+        if code != 0:
+            # FATAL, unlike _report's non-fatal sub-steps. The exit status used
+            # to be discarded and "checked flow trees." logged unconditionally,
+            # so a checker that ABORTED was indistinguishable from one that
+            # found nothing -- and the report then read "No compliance
+            # violations have been found" for a verdict nobody computed. Found
+            # running wl_example on the ad6 backend (AD6_PLAN.md §9.28), where
+            # the checker correctly refused a `protocol` condition that query
+            # path cannot force; but it is not backend-specific, and this is the
+            # one step whose result the whole benchmark exists to produce.
+            raise RuntimeError(
+                "compliance check FAILED (exit %s): %s -- the run has no "
+                "verdict, and reporting one anyway is how a benchmark comes to "
+                "publish a number nobody computed (TODO.md items 1i/1n/1p)."
+                % (code, cmd))
         self.logger.info("checked flow trees.")
 
 #        os.system("rm -f np_dump/.lock")
 
 
     def _anomalies(self):
+        # AD6_PLAN.md §9.28: `Ad6Adapter.check_anomalies` raises
+        # NotImplementedError BY DESIGN (§9.4 names the anomaly queries as a
+        # documented gap, not a goal), and APKeep offers none either. Skipped
+        # rather than attempted: the request is barrier-guarded, so sending it
+        # would abort the run on a capability the engine never claimed. Said out
+        # loud, because a silently-skipped verification step is how a benchmark
+        # comes to report a verdict it never computed.
+        if self.backend not in BACKENDS_WITH_ANOMALIES:
+            self.logger.info(
+                "SKIPPED anomaly check: backend %s does not implement it "
+                "(this run's verdict covers compliance only)", self.backend)
+            return
+
         self.logger.info("checking for anomalies...")
         fave = connect_to_fave(
             FAVE_DEFAULT_UNIX
@@ -377,12 +446,25 @@ class GenericBenchmark(object):
         self._pre_preparation()
         self._preparation()
         self._post_preparation()
+        # From here on a daemon may be running, so teardown is unconditional.
+        # `_compliance` is FATAL (see there), and before this a raising step
+        # left the aggregator -- and net_plumber -- alive, holding their ports
+        # and a stale /dev/shm/np/aggregator.owner that the NEXT run's barriers
+        # would then wait on. A failed benchmark must not sabotage the next one.
         self._startup()
-        self._initialization()
-        self._reachability()
-        self._compliance()
-        self._anomalies()
-        self._report()
-        if self.use_dump: self._dump_fave()
-        else: self._wait_for_fave()
-        self._teardown()
+        try:
+            self._initialization()
+            self._reachability()
+            self._compliance()
+            self._anomalies()
+            self._report()
+            if self.use_dump: self._dump_fave()
+            else: self._wait_for_fave()
+        finally:
+            try:
+                self._teardown()
+            except Exception:                   # pylint: disable=broad-except
+                # Never let a teardown failure REPLACE the real error: the
+                # exception propagating out of the try block is the one worth
+                # reading, and a bare `finally` would swallow it.
+                self.logger.exception("teardown failed")

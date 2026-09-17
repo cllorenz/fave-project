@@ -34,16 +34,32 @@ SOCK_PARAMS="-s 127.0.0.1 -p 44000"
 BACK_PARAMS=""
 DEBUG_PARAMS=""
 MAP_PARAMS=""
+# AD6_PLAN.md §9.3 Phase 6 / §9.28. `-S` is the net_plumber SERVER list and has
+# always been called "backend" in this script's own usage string; `-b` is the
+# verification ENGINE (netplumber|apkeep|ad6). Two different things, and the
+# older name is kept rather than renamed so no existing caller breaks.
+ENGINE_PARAMS=""
+# Verbatim pass-through for engine-specific options (--solver, --lite-acyclic,
+# --grounding, --apkeep-engine). One opaque string rather than a flag apiece:
+# this script has no business knowing an engine's vocabulary, and the
+# aggregator already validates it and exits non-zero on a bad value.
+EXTRA_PARAMS=""
 
 UNIX=""
 
-usage() { echo "usage: $0 [-hdut] [-S <backend>] [-m <mapping>]" 2>&2; }
+usage() { echo "usage: $0 [-hdut] [-S <np-servers>] [-m <mapping>] [-b <engine>] [-X <engine-opts>]" 2>&2; }
 
-while getopts "hadm:uS:t" o; do
+while getopts "hadm:uS:tb:X:" o; do
     case "${o}" in
         h)
             usage
             exit 0
+            ;;
+        b)
+            ENGINE_PARAMS="-b ${OPTARG}"
+            ;;
+        X)
+            EXTRA_PARAMS="${OPTARG}"
             ;;
         a)
             SOCK_PARAMS="-a"
@@ -75,7 +91,11 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
-"$PYTHON" aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $DEBUG_PARAMS &
+# EXTRA_PARAMS is deliberately unquoted: it carries several whitespace-separated
+# options (e.g. "--solver cadical195 --lite-acyclic") that must reach argparse as
+# separate words.
+# shellcheck disable=SC2086
+"$PYTHON" aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $ENGINE_PARAMS $EXTRA_PARAMS $DEBUG_PARAMS &
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid

@@ -88,6 +88,20 @@ BACKEND_APKEEP = 'apkeep'
 BACKEND_AD6 = 'ad6'
 BACKENDS = (BACKEND_NETPLUMBER, BACKEND_APKEEP, BACKEND_AD6)
 
+# Which backends need a separate `net_plumber` PROCESS to talk to. Only one
+# does: APKeep runs in-process (JPype) and ad6 as a subprocess per
+# check_compliance, so a benchmark that starts net_plumber for them would be
+# waiting on a backend they never use.
+BACKENDS_NEEDING_NETPLUMBER = (BACKEND_NETPLUMBER,)
+
+# Which backends implement `check_anomalies`. `Ad6Adapter` raises
+# NotImplementedError by design (AD6_PLAN.md §9.4: the anomaly queries are
+# named as a documented gap, not a goal), and APKeepAdapter does not offer it
+# either -- so a benchmark must SKIP that step rather than send a request that
+# can only fail. Declared here, next to BACKENDS, so the benchmark harness and
+# the adapters cannot disagree about it silently.
+BACKENDS_WITH_ANOMALIES = (BACKEND_NETPLUMBER,)
+
 
 def build_engine(
         backend: str, logger: Any, socks: Optional[List[Any]] = None,
@@ -164,9 +178,22 @@ class AggregatorService(AbstractAggregator):
             mapping=mapping,
             **backend_options
         )
+        # Recorded so the reporter can say WHICH engine produced (or did not
+        # produce) a verdict -- see reporting/reporter.py's
+        # `_backend_checks_anomalies`.
+        self.backend = backend
         # XXX: make log file configurable
+        #
+        # AD6_PLAN.md §9.28: the log tail is net_plumber's stdout, so it is
+        # passed only for the backend that writes it. Handing it to an ad6 or
+        # APKeep run would replay a STALE log from an earlier NetPlumber run --
+        # the Reporter opens at offset 0 -- and attribute one engine's verdict
+        # to another. Those engines report their own results instead
+        # (`get_compliance_results`).
+        np_log = ('/dev/shm/np/stdout.log'
+                  if backend in BACKENDS_NEEDING_NETPLUMBER else None)
         self.reporter = reporter if reporter is not None else Reporter(
-            self, '/dev/shm/np/stdout.log'
+            self, np_log
         )
         self.reporter.daemon = True
         self.model_types: Dict[str, Any] = {
