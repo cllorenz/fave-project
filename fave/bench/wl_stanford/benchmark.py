@@ -73,12 +73,23 @@ if __name__ == '__main__':
         'inventory' : 'bench/empty.json'
     }
 
-    length = json.load(open(files['stanford_mapping'], 'r'))['length'] / 8
+    # AD6_PLAN.md §9.29: `length` and `mapping` are ONE setting and must be passed
+    # TOGETHER. `length` pre-sizes net_plumber's vectors (`--hdr-len`, in BYTES);
+    # `mapping` pre-sizes the ADAPTER's own mapping, which is what every vector it
+    # builds is sized from. Passing only `length` starts the engine at 16 bytes
+    # while the adapter's mapping starts at 0 and grows, so every rule emitted
+    # before the mapping reaches its full width is interpreted against a wider
+    # space than it was built for -- and reachability collapses SILENTLY (240
+    # wl_stanford checks: 165 reachable when paired, 9 when not). wl_tum has always
+    # passed both; these two passed only half. Integer division, because
+    # `--hdr-len` is parsed with atoi and 128/8 would otherwise render as "16.0".
+    length = json.load(open(files['stanford_mapping'], 'r'))['length'] // 8
 
     StanfordBenchmark(
         "bench/wl_stanford",
         logger=logging.getLogger('stanford'),
         extra_files=files,
         use_internet=False,
-        length=length
+        length=length,
+        mapping=files['stanford_mapping']
     ).run()

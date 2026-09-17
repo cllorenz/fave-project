@@ -90,7 +90,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args(sys.argv[1:])
 
-    length = json.load(open(args.mapping, 'r'))['length'] / 8
+    # Integer division: `--hdr-len` is parsed with atoi, and Python 3's `/`
+    # rendered this as "16.0" on the command line -- it survived only by atoi
+    # truncating at the '.' (AD6_PLAN.md §9.29). wl_tum already pairs this with
+    # `mapping=` below, which is what keeps it correct.
+    length = json.load(open(args.mapping, 'r'))['length'] // 8
 
     files = {
         'tum_ruleset' : args.ruleset,

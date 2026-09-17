@@ -4066,9 +4066,11 @@ the interpreted path, -9,269 lines (§9.25); §9.26 renamed the surviving vocabu
 'structural' -> 'literal'; §9.27 wired production -- `--backend ad6` plus selectable
 solver and `lite_acyclic`; §9.28 RAN a full workload on it (wl_stanford, 240 checks,
 165 reachable, agreeing pair-for-pair with NetPlumber's own libnetplumber matrix --
-a two-implementation CONSENSUS, not an oracle). NEXT: §9.28.7's finding that the same
-benchmark on the netplumber backend answers 9 reachable rather than 165, which makes
-TODO item 1s's oracle question a question about CODE PATHS, not just artifacts.**
+a two-implementation CONSENSUS, not an oracle). §9.29 root-caused §9.28.7's 9-vs-165 split to a benchmark-driver
+bug -- `length` pre-sized net_plumber while `mapping` did not pre-size the adapter --
+and after the fix ad6 and NetPlumber agree at 165 through BOTH of NetPlumber's paths,
+with identical violation sets. NEXT: wl_i2 carries the same fix but is UNMEASURED; every
+archived wl_i2 NetPlumber benchmark number was produced under the defect.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6187,6 +6189,11 @@ So what this run establishes is precise and limited:
 
 #### 9.28.7 THE NEW FINDING: NetPlumber gives two different answers by code path
 
+**ROOT-CAUSED AND FIXED -- see §9.29.** It was a benchmark-driver bug (`length` passed
+without `mapping`), not an engine or ad6 bug. The hypothesis recorded below about
+flow-tree provenance was WRONG; the real mechanism is a header-width mismatch. Left
+in place because the reasoning from the evidence is worth seeing next to what it missed.
+
 The same benchmark on the netplumber backend reports **231 violations -> 9 reachable**,
 against the libnetplumber worker's **165** for the same model.
 
@@ -6214,6 +6221,105 @@ the oracle itself rather than to the encoding.
 
 **Scope note:** this is a NetPlumber-path defect, found while running ad6 and unrelated to
 it. Not fixed here.
+
+### 9.29 Root cause of §9.28.7: `length` and `mapping` are ONE setting, and two drivers passed half
+
+**FOUND AND FIXED 2026-09-17.** §9.28.7 recorded that the wl_stanford benchmark answered
+**9 reachable** on the netplumber backend while NetPlumber's own libnetplumber worker
+answered **165** for the same model. It is not an engine bug, an ad6 bug or a race. It is
+a benchmark-driver bug, and it silently corrupted every NetPlumber wl_stanford and wl_i2
+benchmark run.
+
+#### 9.29.1 The bisection
+
+Four experiments, each changing exactly one variable, all on the same model and the same
+240 all-pairs checks:
+
+| # | what was varied | result |
+|---|---|---|
+| 1 | benchmark model files, read by the libnetplumber worker | 165 -- so the MODEL is not the variable (the benchmark's own `_pre_preparation` regenerates `stanford-json`, and the worker reads what it wrote) |
+| 2 | worker's checks, driven through the RPC `NetPlumberAdapter` against a live daemon | **9** -- so CHECKS and RESULT-SOURCE are not the variable either |
+| 3 | lib adapter, initial header length 1 byte vs 16 | 165 vs **9** -- the variable is the engine's INITIAL LENGTH |
+| 4 | lib adapter, 16 bytes **plus a pre-sized adapter mapping** | **165** -- and there is the pairing |
+
+`NetPlumberLibAdapter` subclasses `NetPlumberAdapter` and reuses all of its model
+translation and `check_compliance`, which is what makes experiment 3 clean: same code,
+same process, one integer different.
+
+#### 9.29.2 The mechanism
+
+Two lengths must agree, and nothing enforced it:
+
+* **The engine's** vector width. `net_plumber --hdr-len N` is **N BYTES**
+  (`main.cc:267`, default 1). The `expand` RPC instead takes **BITS** and converts
+  (`rpc_handler.cc:512`: `expand((len / 8) + ((len % 8) ? 1 : 0))`).
+* **The adapter's** `self.mapping.length`, in BITS, which is what every vector it builds
+  is sized from. It starts at 0 and GROWS: `_update_mapping` extends it per new field and
+  calls `_expand()` after each extension.
+
+So `NetPlumberAdapter` is designed around an engine that starts at the default 1 byte and
+is grown by the adapter in lockstep with its own mapping. `NetPlumberLibAdapter` says so
+explicitly -- `LibNetPlumber(1)`, commented *"mirrors `net_plumber --hdr-len 1`"*.
+
+`wl_stanford/benchmark.py` computed `length = mapping.json['length'] / 8` and passed it as
+`length=`, which `_startup` forwards as `-L 16`. It did **not** pass `mapping=`. So the
+engine began 16 bytes wide while the adapter's mapping began at 0, and every rule emitted
+before the mapping reached its full 128 bits was interpreted against a wider space than it
+was built for. `NetPlumber::expand` only ever grows (`if (length > this->length)`), so
+nothing corrected it afterwards.
+
+The symptom fits exactly: the 9 surviving pairs were precisely the adjacent same-zone
+siblings (coza<->cozb, poza<->pozb, soza<->sozb, ...). Nothing multi-hop, nothing across
+the backbone -- over-constrained rules kill long paths first.
+
+**The correct pattern was already in the tree.** `wl_tum/benchmark.py` has always passed
+BOTH `length=` and `mapping=`. wl_stanford and wl_i2 passed only `length`.
+
+#### 9.29.3 The fix, and what it restores
+
+`mapping=files['stanford_mapping']` / `files['i2_mapping']` added to the two drivers, and
+`/ 8` -> `// 8` in all three (`--hdr-len` is parsed with `atoi`, so Python 3's true
+division was rendering "16.0" on the command line and surviving only by truncation).
+
+The same wl_stanford benchmark, unchanged otherwise:
+
+| path | violations | reachable |
+|---|---|---|
+| ad6, live aggregator | 75 | 165 |
+| NetPlumber libnetplumber worker | -- | 165 |
+| NetPlumber benchmark, BEFORE | 231 | 9 |
+| **NetPlumber benchmark, AFTER** | **75** | **165** |
+
+The violation SETS are identical, not merely the counts: ad6's 75 == NetPlumber's 75, and
+both complements equal the worker's 165-pair set.
+
+**This strengthens §9.28's claim without changing its epistemics.** ad6 now agrees with
+NetPlumber through BOTH of NetPlumber's own paths. It is still a consensus between
+implementations, not ground truth -- but the disagreement that made the consensus look
+unstable was ours, not the engines'.
+
+#### 9.29.4 Two further findings from the same pass
+
+* **`Mapping.from_json` consumed its input.** It did `del jd["length"]` on the caller's
+  dict, so a mapping loaded once and used twice raised `KeyError` on the second use and
+  the caller's own copy silently lost its length. The aggregator happens to call it
+  exactly once, which is the only reason it never bit. Fixed to copy; pinned by
+  `test_netplumber.py::TestMapping::test_from_json_does_not_consume_its_input`.
+* **The correct run needs ~111 MB of logs and `/dev/shm` here is 63 MB.** The BROKEN run
+  fit easily -- almost nothing matched, so almost nothing was logged. Fixing the model
+  made the run overflow `/dev/shm`, at which point the aggregator's own logging began
+  raising and the run neither completed nor failed cleanly; it merely appeared to hang.
+  **A correctness fix turned into a capacity failure**, which is worth recording as its
+  own hazard: TODO item 1r's `/dev/shm` exhaustion is not a bench-tier-only concern, and a
+  workload that starts passing can start overflowing.
+
+#### 9.29.5 What is NOT re-measured
+
+wl_i2 receives the identical fix but has **not** been re-run -- its 72-pair matrix is
+hours. Every archived wl_i2 NetPlumber benchmark number was produced under this defect and
+should be treated as suspect until re-measured. That is very likely what TODO item 1s
+means by "wl_i2's verdict is wrong (found 2026-09-09)", though this was not verified here.
+
 
 
 

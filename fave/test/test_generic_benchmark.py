@@ -128,6 +128,61 @@ class TestComplianceFailsLoudly(unittest.TestCase):
         self.assertIn("compliance_checker.py", fake.commands[0])
 
 
+class TestLengthAndMappingArePairedInTheDrivers(unittest.TestCase):
+    """ AD6_PLAN.md §9.29. `length` and `mapping` are ONE setting.
+
+    `length` pre-sizes net_plumber's vectors (`--hdr-len`, BYTES); `mapping`
+    pre-sizes the ADAPTER's own mapping, which is what every vector it builds is
+    sized from. Pass only `length` and the engine starts wide while the adapter's
+    mapping starts at 0 and grows, so every rule emitted before the mapping
+    reaches full width is interpreted against a wider space than it was built
+    for -- and reachability collapses SILENTLY.
+
+    Measured on wl_stanford's 240 checks: 165 reachable when paired, 9 when not.
+    wl_tum always passed both; wl_stanford and wl_i2 passed only `length`.
+
+    A source check rather than a behavioural one, deliberately: reproducing the
+    defect needs a live net_plumber and a full model build (minutes, and 111 MB
+    of logs), which is not a `fast`-tier test. What this pins is the INVARIANT,
+    at the only place it can be violated. """
+
+    _DRIVERS = ("bench/wl_stanford/benchmark.py", "bench/wl_i2/benchmark.py",
+                "bench/wl_tum/benchmark.py")
+
+    def test_every_driver_passing_length_also_passes_mapping(self):
+        import os
+        import re
+        for driver in self._DRIVERS:
+            if not os.path.isfile(driver):
+                continue
+            with self.subTest(driver=driver):
+                src = open(driver).read()
+                passes_length = re.search(r"^\s*length\s*=\s*length\s*,?\s*$",
+                                          src, re.M) is not None
+                passes_mapping = re.search(r"^\s*mapping\s*=", src, re.M) is not None
+                if passes_length:
+                    self.assertTrue(
+                        passes_mapping,
+                        "%s pre-sizes net_plumber with `length=` but never "
+                        "pre-sizes the adapter's mapping -- reachability will "
+                        "collapse silently (AD6_PLAN.md §9.29)" % driver)
+
+    def test_the_header_length_is_an_integer_not_a_float(self):
+        """ `--hdr-len` is parsed with atoi. Python 3's `/` made `128/8` render
+        as "16.0" on the command line -- it happened to survive atoi, but only
+        by truncation at the '.'. """
+        import os
+        import re
+        for driver in self._DRIVERS:
+            if not os.path.isfile(driver):
+                continue
+            with self.subTest(driver=driver):
+                src = open(driver).read()
+                self.assertNotRegex(
+                    src, r"\['length'\]\s*/\s*8",
+                    "%s computes --hdr-len with true division; use // 8" % driver)
+
+
 class TestTeardownAlwaysRuns(unittest.TestCase):
     """ Making `_compliance` fatal is only safe if the daemons still get
     stopped: `run()` had no `try/finally`, so an aborting step would leave the

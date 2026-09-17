@@ -121,6 +121,26 @@ class TestMapping(unittest.TestCase):
         )
 
 
+    def test_from_json_does_not_consume_its_input(self):
+        """ `from_json` used to `del jd["length"]`, MUTATING the caller's dict,
+        so a mapping loaded once and used twice raised KeyError on the second
+        use -- and the caller's own copy silently lost its length.
+
+        Found while root-causing AD6_PLAN.md §9.29: the aggregator happens to
+        call this exactly once, which is the only reason it never bit. Anything
+        holding a loaded mapping (a benchmark driver passing the same dict to
+        two engines, a differential comparing two backends) hits it
+        immediately. """
+        raw = {'length' : 128, 'packet.ipv6.source' : 0}
+
+        first = Mapping.from_json(raw)
+        self.assertIn('length', raw,
+                      "from_json consumed its caller's dict")
+        second = Mapping.from_json(raw)
+        self.assertEqual(first, second)
+        self.assertEqual(first.length, 128)
+
+
 class TestVector(unittest.TestCase):
     """ This class tests vector handling.
     """

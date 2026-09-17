@@ -130,10 +130,14 @@ class Mapping(Dict[str, int]):
 
         jd: JSONDict = json.loads(j) if isinstance(j, str) else j
 
-        length = jd["length"]
-        del jd["length"]
+        # COPY, never `del jd["length"]` in place: this used to consume the
+        # caller's dict, so a mapping loaded once and used twice raised KeyError
+        # on the second use and the caller's own copy silently lost its length.
+        # The aggregator happens to call this exactly once, which is the only
+        # reason it never bit (AD6_PLAN.md §9.29).
+        fields = {k: v for k, v in jd.items() if k != "length"}
         # remaining JSON values are field bit-offsets (ints)
-        return Mapping(length=length, mapping=cast(Dict[str, int], jd))
+        return Mapping(length=jd["length"], mapping=cast(Dict[str, int], fields))
 
 
     def __cmp__(self, other: object) -> bool:
