@@ -4072,8 +4072,12 @@ and after the fix ad6 and NetPlumber agree at 165 through BOTH of NetPlumber's p
 with identical violation sets. §9.31 re-measured wl_i2 both ways: 11 violations with the fix
 (set-equal to the corroborated answer) vs 31 without, the buggy set being a strict
 SUPERSET -- the defect only ever manufactured false violations, never hid real ones.
-§9.30 fixed a second harness bug found on the way (`start_aggr.sh` tested a unix socket
-with `-s`, so a stale socket was never removed).**
+§9.30 and §9.32 fixed two further harness bugs found on the way
+(`start_aggr.sh` tested a unix socket with `-s`, so a stale socket was never removed;
+and net_plumber had no shutdown path that did not go through the aggregator, so an
+aggregator that failed to start orphaned it silently). wl_stanford was then RE-RUN on
+ad6 and reproduced byte-for-byte, leaving all four measurement paths agreeing on the
+same 165-pair set.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6169,6 +6173,21 @@ queries (~7.4 s/query, yolobox -- directional only, not a bare-metal measurement
 read "Not checked: the ad6 backend does not implement anomaly detection."
 
 **75 violations of 240 -> 165 pairs reachable.**
+
+**RE-RUN 2026-09-17 after §9.29-§9.32, and BYTE-FOR-BYTE IDENTICAL.** Same 75 violations,
+same set, same `report.md` to the byte; `check_compliance` 1,835.4 s against the first
+run's 1,781.9 s (3%, noise on a shared box). This is the regression check those four fixes
+needed: none of them touches ad6's solving path, and the run proves it rather than
+asserting it. Two incidental confirmations -- `mapping=` (§9.29) now reaches
+`build_engine` and is correctly IGNORED for a backend that starts no net_plumber, and the
+ad6 path produced **16 KB** of logs against the NetPlumber path's 111 MB, so §9.29.4's
+`/dev/shm` hazard is specific to the backend that writes a net_plumber stdout log.
+
+**All four measurement paths now agree on the same 165-pair set**, checked by set
+equality: ad6 via the live aggregator (twice), NetPlumber via the benchmark (post-§9.29),
+and NetPlumber via the libnetplumber worker. Still a consensus between implementations
+rather than ground truth (§9.28.6) -- what has been removed is every disagreement that was
+ours.
 
 #### 9.28.6 What the 165 does and does not establish
 
