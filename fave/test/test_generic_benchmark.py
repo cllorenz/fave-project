@@ -183,6 +183,52 @@ class TestLengthAndMappingArePairedInTheDrivers(unittest.TestCase):
                     "%s computes --hdr-len with true division; use // 8" % driver)
 
 
+class TestStaleSocketCleanup(unittest.TestCase):
+    """ AD6_PLAN.md §9.30: the start scripts must test for a stale unix socket
+    with `-S` (IS A SOCKET), never `-s` (SIZE > 0).
+
+    A unix socket is always 0 bytes, so `-s` is never true and the stale socket
+    is never removed. After any unclean shutdown the aggregator then fails to
+    bind with "Address already in use" and the benchmark reports the far less
+    helpful "could not connect to fave" -- which is how this was found, on the
+    wl_i2 re-run, after an earlier run had been killed.
+
+    `start_np.sh` has always used `-S`; `start_aggr.sh` had a one-character
+    typo. Asserted as AGREEMENT between the two scripts rather than as a literal
+    string, so the invariant survives either script being rewritten.
+
+    A source check on purpose: reproducing it needs a leftover socket from a
+    killed run, which is not a `fast`-tier fixture. """
+
+    _SCRIPTS = ("scripts/start_aggr.sh", "scripts/start_np.sh")
+
+    def test_no_start_script_uses_a_size_test_on_a_socket(self):
+        import os
+        import re
+        for script in self._SCRIPTS:
+            if not os.path.isfile(script):
+                continue
+            with self.subTest(script=script):
+                src = open(script).read()
+                self.assertNotRegex(
+                    src, r"\[\s*-s\s+\$\{?UNIX",
+                    "%s tests a unix socket with -s (size > 0), which is never "
+                    "true for a socket, so a stale one is never removed "
+                    "(AD6_PLAN.md §9.30)" % script)
+
+    def test_both_start_scripts_test_for_a_socket(self):
+        import os
+        import re
+        for script in self._SCRIPTS:
+            if not os.path.isfile(script):
+                continue
+            with self.subTest(script=script):
+                src = open(script).read()
+                self.assertRegex(
+                    src, r"\[\s*-S\s+\$\{?UNIX",
+                    "%s must remove a stale unix socket before binding" % script)
+
+
 class TestTeardownAlwaysRuns(unittest.TestCase):
     """ Making `_compliance` fatal is only safe if the daemons still get
     stopped: `run()` had no `try/finally`, so an aborting step would leave the

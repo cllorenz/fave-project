@@ -4069,8 +4069,11 @@ solver and `lite_acyclic`; §9.28 RAN a full workload on it (wl_stanford, 240 ch
 a two-implementation CONSENSUS, not an oracle). §9.29 root-caused §9.28.7's 9-vs-165 split to a benchmark-driver
 bug -- `length` pre-sized net_plumber while `mapping` did not pre-size the adapter --
 and after the fix ad6 and NetPlumber agree at 165 through BOTH of NetPlumber's paths,
-with identical violation sets. NEXT: wl_i2 carries the same fix but is UNMEASURED; every
-archived wl_i2 NetPlumber benchmark number was produced under the defect.**
+with identical violation sets. §9.31 re-measured wl_i2 both ways: 11 violations with the fix
+(set-equal to the corroborated answer) vs 31 without, the buggy set being a strict
+SUPERSET -- the defect only ever manufactured false violations, never hid real ones.
+§9.30 fixed a second harness bug found on the way (`start_aggr.sh` tested a unix socket
+with `-s`, so a stale socket was never removed).**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6319,6 +6322,97 @@ wl_i2 receives the identical fix but has **not** been re-run -- its 72-pair matr
 hours. Every archived wl_i2 NetPlumber benchmark number was produced under this defect and
 should be treated as suspect until re-measured. That is very likely what TODO item 1s
 means by "wl_i2's verdict is wrong (found 2026-09-09)", though this was not verified here.
+
+### 9.30 `start_aggr.sh` never removed a stale socket: `-s` where `-S` was meant
+
+**FOUND AND FIXED 2026-09-17**, while re-running wl_i2 with §9.29's fix.
+
+The run died immediately with *"could not connect to fave:
+/dev/shm/np_aggregator.socket"*. The real error was one layer down, in the aggregator's
+own output: `OSError: [Errno 98] Address already in use`. An earlier killed run had left
+`/dev/shm/np_aggregator.socket` behind, and the cleanup that exists to prevent exactly
+this did not fire:
+
+```sh
+[ -s $UNIX ] && rm $UNIX      # -s: file exists and SIZE > 0
+```
+
+**A unix socket is always 0 bytes**, so `-s` is never true and the stale socket is never
+removed. The guard has never worked; it only ever appeared to, because a cleanly-exiting
+aggregator removes its own socket.
+
+`scripts/start_np.sh:53` has always used the correct `[ -S $UNIX ]` (IS A SOCKET). This
+was a one-character typo in the sibling script -- the third defect in this stretch whose
+correct form was already present elsewhere in the tree (cf. §9.29's `wl_tum` passing both
+`length` and `mapping`).
+
+**Why it is worth a section rather than a line.** The symptom is misattributed by two
+layers. The benchmark reports "could not connect to fave", which reads as a startup race
+or a missing dependency; the aggregator's bind failure is only visible in the captured
+subprocess output. Anyone hitting this after killing a long benchmark -- which is exactly
+what a bench-scale workload invites -- would reasonably go looking for the wrong thing.
+
+Pinned by `test_generic_benchmark.py::TestStaleSocketCleanup`, asserted as AGREEMENT
+between the two start scripts rather than as a literal string, so the invariant survives
+either being rewritten.
+
+### 9.31 wl_i2 re-measured: the defect cost 20 spurious violations, and the fix restores the corroborated 11
+
+**DONE 2026-09-17.** §9.29.5 left wl_i2 fixed but UNMEASURED. It is now measured, both
+ways, on the same tree.
+
+| wl_i2, 72 checks, netplumber backend | violations | reachable |
+|---|---|---|
+| **with** `mapping=` (fixed) | **11** | **61** |
+| **without** `mapping=` (the defect, restored for one A/B run) | 31 | 41 |
+
+**The 11 are set-equal to the archived answer**, not merely equal in count:
+`chic`->{hous, kans, losa, salt, seat} and `atla`/`newy32aoa`/`wash`->{kans, seat} -- the
+set §5.5 corroborated three independent ways (ad6 via SAT, FaVe+NetPlumber via HSA, and
+`bench/i2_structural_oracle.py` over the raw JSON). Checked by set difference, empty both
+directions.
+
+#### 9.31.1 The error is one-directional, and that matters for reading old results
+
+The buggy run's 31 are a **strict superset** of the correct 11: 20 spurious violations
+added, **zero real ones missed**.
+
+That follows from the mechanism (§9.29.2) rather than being a lucky observation. Rules
+emitted before the adapter's mapping reached full width are interpreted against a WIDER
+space than they were built for, i.e. OVER-constrained -- so flows disappear and pairs
+become unreachable. Over-constraint can only manufacture "does not reach"; it cannot
+invent a path.
+
+For a compliance tool that is the safe direction -- false alarms, never missed alarms --
+and it means **an archived wl_i2 or wl_stanford benchmark verdict of "no violations" was
+never wrong for this reason**. Any archived nonzero violation list, however, is suspect:
+it contains the real ones plus an unknown number of artifacts.
+
+The spurious 20 cluster hard on `atla` (12 of 20 involve it, in both directions), with
+`newy32aoa`/`wash`->{hous, losa, salt} making up most of the rest -- consistent with
+over-constraint biting specific longer paths first, the same signature as wl_stanford's
+"only adjacent siblings survive".
+
+#### 9.31.2 What this settles about the archived numbers
+
+**The benchmark path was never the source of §5.5's FaVe+NetPlumber "11".** It could not
+have been: run through the benchmark under the defect it yields 31. So that cross-check
+came from one of the non-benchmark routes (a libnetplumber worker, or the
+`bench/np_i2_flow_dump.py`/`np_i2_flow_leaves.py` tooling), which never pre-sized the
+engine and so was never affected. The three-way corroboration in §5.5 stands untouched.
+
+What does NOT stand is any wl_i2 or wl_stanford number taken from `benchmark.py` on the
+netplumber backend before this fix. TODO item 1s's "wl_i2's verdict is wrong (found
+2026-09-09)" is very plausibly this defect -- the shape matches exactly -- though the two
+were not connected at the time and this is not proof.
+
+#### 9.31.3 Cost
+
+~10 min per run; **168 MB of logs**, against a 63 MB `/dev/shm`. Both runs needed the
+logs redirected to disk, reinforcing §9.29.4: this is not a bench-tier-only concern, and
+the *correct* run is the expensive one.
+
+
 
 
 

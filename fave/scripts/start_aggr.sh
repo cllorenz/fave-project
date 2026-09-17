@@ -87,7 +87,12 @@ while getopts "hadm:uS:tb:X:" o; do
 done
 
 if [ -n "$UNIX" ]; then
-    [ -s $UNIX ] && rm $UNIX
+    # -S (is a SOCKET), not -s (size > 0): a unix socket is always 0 bytes, so
+    # `-s` was never true and a stale socket was never removed. After any
+    # unclean shutdown the aggregator then died on "Address already in use" and
+    # the benchmark reported the far less helpful "could not connect to fave".
+    # scripts/start_np.sh has always used -S; this was a one-character typo.
+    [ -S $UNIX ] && rm $UNIX
     SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
