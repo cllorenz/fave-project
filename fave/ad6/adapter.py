@@ -180,6 +180,17 @@ class Ad6Adapter(AbstractVerificationEngine):
         # Prefer it for an all-pairs reachability sweep; it cannot express
         # anything else.
         #
+        # ON wl_i2 FLOW IS NOT A PREFERENCE, IT IS THE ONLY OPTION (§9.33).
+        # Rank needs `lite_acyclic` there at all (the general encoding OOMs
+        # during construction, ~22 GB projected over i2's 140,613
+        # SCC-qualifying edges) -- and rank+lite only ever fitted the box on
+        # i2's PLAIN model, which no longer exists: `faithful_vlan` is inert
+        # under the literal translation (§9.16.1), plain mode was the deleted
+        # semantic path discarding VLAN, so every i2 run is now the
+        # faithful-scale problem. Measured: rank+lite peaks at ~18.0 GB on a
+        # 19 GB box and thrashes into swap; flow peaks at ~10.0 GB and
+        # completes in ~67 min for the same 61/72 answer.
+        #
         # Kept as an explicit constructor argument rather than inferred, so a
         # result can be STAMPED with the encoding that produced it -- see
         # AD6_PLAN.md's generality-debt gate.

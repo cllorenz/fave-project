@@ -4077,7 +4077,10 @@ SUPERSET -- the defect only ever manufactured false violations, never hid real o
 and net_plumber had no shutdown path that did not go through the aggregator, so an
 aggregator that failed to start orphaned it silently). wl_stanford was then RE-RUN on
 ad6 and reproduced byte-for-byte, leaving all four measurement paths agreeing on the
-same 165-pair set.**
+same 165-pair set; §9.33 ran wl_i2 on ad6 (61/72, agreeing with NetPlumber and with
+§5.5's corroborated set) and records that RANK is no longer a viable grounding for i2
+at all -- §9.25 deleted the semantic path and with it i2's "plain" model, so every i2
+run is now the faithful-scale problem that only flow fits.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6508,6 +6511,84 @@ something new through the harness rather than by reading it.
 The harness now checks the exit status of every sub-step it shells out to. `_compliance`
 is fatal; `_report` and `_teardown` are loud and non-fatal, because by the time they run
 the verdict already exists and a cleanup failure must not replace the real error.
+
+### 9.33 wl_i2 on ad6 through the live aggregator -- and why RANK is no longer an option for it
+
+**DONE 2026-09-17.** wl_i2, 72 checks, ad6 backend, live aggregator:
+
+```
+FAVE_BACKEND=ad6 FAVE_ENGINE_OPTIONS="--grounding flow --solver cadical195" \
+    python3 bench/wl_i2/benchmark.py
+```
+
+**11 violations of 72 -> 61 reachable**, set-equal both to §5.5's archived 11
+(`chic`->{hous,kans,losa,salt,seat}, `atla`/`newy32aoa`/`wash`->{kans,seat}) and to the
+post-§9.29 NetPlumber benchmark. Checked by set difference, empty both ways.
+
+| | this run | §5.5 archived (flow/cadical195/faithful) |
+|---|---|---|
+| verdict | 61/72 | 61/72 |
+| peak bridge RSS | 9,983 MB | 9,153 MB |
+| `check_compliance` | 4,023.6 s | 3,218.1 s total wall (716 s build + 2,476 s query) |
+
+~25% slower on a shared box, ~9% more memory; swap never rose above its idle 393 MB.
+Directionally consistent, not a like-for-like measurement.
+
+#### 9.33.1 The first attempt: rank + lite, killed after thrashing the box
+
+Run first under the DEFAULT rank grounding with `--lite-acyclic`, on the strength of
+§5.5's "`rank + lite` ... 3.56 h" -- **which is the PLAIN model's number, 13.4 GB peak**.
+The very next bullet of that same section records that rank + lite on the FAITHFUL model
+is where it stops scaling: 18,416 / 18,454 MB peak for **3 of 72 queries**, ~13.6 h
+extrapolated.
+
+This run peaked at **18,030 MB**, matching those archived faithful figures to within 2%,
+exhausted all 4 GB of swap (`pswpout` 3.7 M pages, ~14.6 GB written) and was killed.
+Owner caught it from the swap behaviour before the extrapolated 13.6 h had been spent.
+
+#### 9.33.2 The structural reason, which no section previously stated
+
+**§9.25 removed the configuration under which rank was tractable on i2, and nothing said
+so.** Two established facts that had never been put next to each other:
+
+* §9.16.1 -- `faithful_vlan` is INERT under the literal translation. It translates FaVe's
+  rules as given, and i2's rules carry VLAN whatever any flag says. "Plain" mode was the
+  SEMANTIC path deliberately discarding VLAN.
+* §9.25 -- the semantic path is deleted.
+
+Therefore **there is no plain i2 model on this tree any more.** Every i2 run through ad6 is
+now the faithful-scale problem, which is exactly the one rank cannot carry here. The
+archived `rank + lite = 3.56 h / 13.4 GB` result is not reproducible, not because of a
+regression but because the model it measured no longer exists.
+
+So for i2, flow is not merely *cheaper* than rank (§9.27.2's framing, true on
+wl_stanford): **it is the only grounding that fits the machine.** That is a scope
+statement about i2 specifically, and it should be read alongside the standing reason rank
+remains the default everywhere else -- it is property-agnostic, while flow can only
+express single source->destination reachability.
+
+#### 9.33.3 Comparability
+
+This number is **flow**-grounded; every wl_stanford ad6 number in §9.28/§9.31 is
+**rank**-grounded. They must not share a wall-clock column. That is the generality-debt
+gate's own rule, and the reason the grounding is a stamped field rather than a habit --
+§7.5's 21.7x that turned out to be flow-at-its-best against rank-at-its-worst is the
+cautionary case.
+
+#### 9.33.4 Where wl_i2 now stands
+
+Three paths, one answer, checked by set equality:
+
+| path | reachable |
+|---|---|
+| ad6, live aggregator, flow + cadical195 | 61/72 |
+| NetPlumber benchmark, post-§9.29 | 61/72 |
+| §5.5's three-way corroboration (ad6 SAT, NP HSA, `i2_structural_oracle.py`) | 61/72 |
+
+Still a consensus between implementations rather than ground truth (§9.28.6):
+`bench/wl_i2/reachable.json` is the same all-reachable policy mesh as wl_stanford's and
+cannot adjudicate.
+
 
 
 
