@@ -36,6 +36,15 @@ bench/wl_tum/rulesets/pgf.uni-potsdam.de-ruleset
 bench/wl_generic_fw/*.json
 bench/wl_generic_fw/*.csv
 
+# Blanket like the workloads above, so a newly generated artifact cannot leak
+# into a `git add .`. The exception is deliberate and load-bearing: oracle.json
+# is not generated, it is the hand-transcribed source of this workload's
+# third-party verdicts (CLOUD_BENCH_PLAN.md §1.4) and the only thing that makes
+# the run a correctness GATE rather than a self-comparison. Losing it would
+# quietly turn the benchmark into a reachability report.
+bench/wl_cloud/*.json
+!bench/wl_cloud/oracle.json
+
 *.pdf
 out
 *.svg
