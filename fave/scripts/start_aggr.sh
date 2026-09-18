@@ -101,6 +101,37 @@ fi
 # separate words.
 # shellcheck disable=SC2086
 "$PYTHON" aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $ENGINE_PARAMS $EXTRA_PARAMS $DEBUG_PARAMS &
+AGGR_PID=$!
+
+# WAIT FOR THE SOCKET, not merely for the process to be spawned. The aggregator
+# constructs its verification ENGINE before it binds, and that is not free: the
+# APKeep backend starts a JVM and loads a jar first (the NDD engine, now the
+# default, is the slowest of them). Nothing downstream covered this gap --
+# misc/await_fave.py waits on a FILE LOCK, not on the socket -- so the caller
+# raced the bind and lost, and the failure surfaced as the thoroughly
+# misleading "could not connect to fave: /dev/shm/np_aggregator.socket" from
+# topology.py, which reads like the aggregator never started rather than like
+# it had not started YET.
+#
+# Bounded, and loud when it expires: a silent give-up here would let the
+# benchmark carry on and blame the model (the swallowed-substep shape of
+# AD6_PLAN.md §9.28). $AGGR_WAIT seconds, overridable for a slow box.
+if [ -n "$UNIX" ]; then
+    AGGR_WAIT="${AGGR_WAIT:-120}"
+    waited=0
+    while [ ! -S "$UNIX" ]; do
+        if ! kill -0 "$AGGR_PID" 2>/dev/null; then
+            echo "start_aggr: aggregator exited before it could bind $UNIX" >&2
+            exit 1
+        fi
+        if [ "$waited" -ge "$AGGR_WAIT" ]; then
+            echo "start_aggr: could not bind $UNIX within ${AGGR_WAIT}s" >&2
+            exit 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+fi
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid
