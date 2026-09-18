@@ -51,6 +51,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 import re
 
 from bench.generic_benchmark import GenericBenchmark
@@ -216,10 +217,22 @@ class CloudBenchmark(GenericBenchmark):
         sources = json.load(open(self.files['sources'], 'r'))
         probes = json.load(open(self.files['policies'], 'r'))
 
+        # WHERE a measurement ran is part of what produced it. This project's
+        # own guardrail trusts wall-clock numbers only from the controlled
+        # bare-metal environment, and wl_stanford/eval/ already marks its
+        # sandbox runs by filename -- but a marker somebody has to remember to
+        # type is a marker that eventually goes missing. Detected and recorded
+        # instead, and carried into the filename so the distinction survives a
+        # directory listing.
+        sandbox = bool(os.environ.get('YOLOBOX') or os.environ.get('container'))
+
         stamp = {
             'bench': 'cloud',
             'scenario': 'cloud/base',
             'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'sandbox': sandbox,
+            'host': platform.node(),
+            'platform': platform.platform(),
             'engine': self.backend,
             'engine_options': self.engine_options,
             'use_interweaving': self.use_interweaving,
@@ -247,14 +260,18 @@ class CloudBenchmark(GenericBenchmark):
         odir = '%s/eval' % self.prefix
         if not os.path.isdir(odir):
             os.makedirs(odir)
-        path = '%s/%s-%s.json' % (
-            odir, self.backend, stamp['utc'].replace(':', '').replace('-', ''))
+        path = '%s/%s-%s%s.json' % (
+            odir, self.backend,
+            stamp['utc'].replace(':', '').replace('-', ''),
+            '_sandbox' if sandbox else '')
         with open(path, 'w') as out:
             out.write(json.dumps(stamp, indent=2) + '\n')
 
         self.logger.info(
-            "result stamped to %s: %d/%d oracle verdicts reproduced",
-            path, stamp['reproduced'], stamp['of'])
+            "result stamped to %s: %d/%d oracle verdicts reproduced%s",
+            path, stamp['reproduced'], stamp['of'],
+            " (SANDBOX -- wall-clock numbers are not comparable with the "
+            "controlled environment)" if sandbox else "")
 
 
 if __name__ == '__main__':
