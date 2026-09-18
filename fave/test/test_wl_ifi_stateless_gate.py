@@ -99,9 +99,16 @@ class TestWlIfiStatelessGate(unittest.TestCase):
         self.assertEqual(conds, [])
 
     def test_it_is_the_full_check_set(self):
-        """ 272 = the stateful set's 299 with each of the 27 stateful PAIRS
-        collapsed to one plain check. """
-        self.assertEqual(sum(len(v) for v in self.rules.values()), 272)
+        """ 288 = the stateful set's 315 with each of the 27 stateful PAIRS
+        collapsed to one plain check.
+
+        Was 272 against a 299-entry stateful set. Both grew by the same 16:
+        one SELF-check per role, which commit 7ec21124 stopped discarding as
+        degenerate and `gen_wl_ifi_inputs.sh` now generates because it passes
+        `--roles` (TODO.md item 14). The 27 stateful pairs are unchanged --
+        the new checks are plain.
+        """
+        self.assertEqual(sum(len(v) for v in self.rules.values()), 288)
 
     def test_zero_violations(self):
         self.assertEqual(

@@ -161,8 +161,12 @@ class TestWlIfiUnderBothGroundings(unittest.TestCase):
                 {p: [[s, False, []] for s in sources] for p in probes})
         unreachable = {(s, p) for (s, p, _mr, _c)
                        in engine.get_compliance_results()}
+        # Self-pairs KEPT -- see test_ad6_wl_ifi.py for why the
+        # `_base(s) != _base(p)` filter that used to be here is now wrong:
+        # wl_ifi's oracle asks `X -> X` since commit 7ec21124, and the switch
+        # answers it locally.
         return {_base(p): set(_base(s) for s in sources
-                              if (s, p) not in unreachable and _base(s) != _base(p))
+                              if (s, p) not in unreachable)
                 for p in probes}
 
     @classmethod
@@ -200,8 +204,12 @@ class TestWlIfiUnderBothGroundings(unittest.TestCase):
         everything would produce empty sets and match nothing, but an adapter
         that answered "reachable" for everything would still need this. """
         self.assertEqual(
-            sum(len(v) for v in self.matrices[GROUNDING_FLOW].values()), 54,
-            "wl_ifi's oracle is 54 reachable pairs")
+            sum(len(v) for v in self.matrices[GROUNDING_FLOW].values()), 70,
+            "wl_ifi's oracle is 70 reachable pairs: 54 between distinct roles "
+            "plus one SELF-pair per role since commit 7ec21124 (TODO.md item "
+            "14) -- each of the 16 roles abstracts a proper subnet, so its "
+            "self-rule is a real compliance question and the switch answers it "
+            "locally")
 
 
 if __name__ == '__main__':

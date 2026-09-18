@@ -24,8 +24,16 @@ W=bench/wl_ifi
 
 # ground truth: the committed policy matrix (reachability.csv) -> reachable.json
 # (+ checks/cchecks). -m bench/empty.json and -s .ifi mirror wl_ifi/benchmark.py.
+# --roles is what decides whether a role's SELF-rule states something real:
+# without it `_load_role_attributes` returns {} and every self-rule is dropped
+# as degenerate. wl_ifi's 16 roles each abstract a proper subnet, so each
+# self-rule is a genuine compliance question (commit 7ec21124, TODO.md item
+# 14). GenericBenchmark._convert_policy_to_checks passes it; this script did
+# not, so the two produced different ground truth for the same workload -- 54
+# pairs here against the benchmark's 70 -- and whichever ran last silently won.
 "$PYTHON" bench/reach_csv_to_checks.py -s .ifi -p "$W/reachability.csv" \
-    -m bench/empty.json -c "$W/checks.json" --cchecks "$W/cchecks.json" \
+    -m bench/empty.json --roles "$W/roles.json" \
+    -c "$W/checks.json" --cchecks "$W/cchecks.json" \
     -j "$W/reachable.json"
 # The STATELESS variant of the same policy (APKEEP_BACKEND.md, 2026-09-18):
 # `<-->` where the original says `<->>`, so the policy asks only for what
@@ -35,7 +43,8 @@ W=bench/wl_ifi
 # mismatch, and running both exercises a tool on each kind of policy.
 "$PYTHON" bench/reach_csv_to_checks.py -s .ifi \
     -p "$W/reachability_stateless.csv" \
-    -m bench/empty.json -c "$W/checks_stateless.json" \
+    -m bench/empty.json --roles "$W/roles.json" \
+    -c "$W/checks_stateless.json" \
     --cchecks "$W/cchecks_stateless.json" \
     -j "$W/reachable_stateless.json"
 

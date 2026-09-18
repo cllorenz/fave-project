@@ -91,12 +91,19 @@ class TestAd6WlIfi(unittest.TestCase):
         not_reachable = {
             (s, p) for (s, p, _mr, _c) in cls.engine.get_compliance_results()
         }
-        # base-name reachability matrix, excluding intra-switch self-reach
-        # (the policy matrix never asks source.X -> probe.X).
+        # Base-name reachability matrix. Self-pairs are KEPT: a role's
+        # self-rule used to be dropped as degenerate, so this filtered
+        # `_base(s) != _base(p)` out with the comment "the policy matrix never
+        # asks source.X -> probe.X". Since commit 7ec21124 it does -- each of
+        # wl_ifi's 16 roles abstracts a proper subnet, so `X <--> X` is a real
+        # compliance question, and the switch answers it locally: its
+        # forwarding rule takes in_ports [X.1, X.2], so traffic from the
+        # generator to its own subnet reaches the probe without touching the
+        # router. Filtering them out made ad6's matrix disagree with an oracle
+        # that now contains them (TODO.md item 14).
         cls.reach = {
             _base(p): set(
-                _base(s) for s in cls.sources
-                if (s, p) not in not_reachable and _base(s) != _base(p)
+                _base(s) for s in cls.sources if (s, p) not in not_reachable
             )
             for p in cls.probes
         }

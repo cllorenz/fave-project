@@ -839,7 +839,16 @@ Without `--roles`, `_load_role_attributes` returns `{}` and every self-rule is t
 
 `wl_up` is protected from exactly this by `test/test_wl_up_policy_artifacts.py` ("whatever sits in bench/wl_up/ is what the FPL sources produce"); wl_ifi has no equivalent, which is why the drift went unnoticed.
 
-- [ ] **Decide which oracle is right for wl_ifi.** Per `7ec21124`'s own reasoning the 70-pair version is intended — a subnet role's self-rule IS a compliance question. If so, `gen_wl_ifi_inputs.sh` needs `--roles`, AND the four ad6 tests need to account for self-pairs (ad6 does not model a role reaching itself, so this is ad6-side work, not a test-expectation edit).
+- [x] **RESOLVED 2026-09-18: the 70-pair oracle is the right one, and it was a TEST-side assumption, not an ad6 gap.** `gen_wl_ifi_inputs.sh` now passes `--roles` for both the stateful and the stateless variant, and the two paths produce a **byte-identical `reachable.json`** — verified by generating with each and diffing.
+
+  **ad6 was right all along and was being thrown away.** The tests filtered `_base(s) != _base(p)` out of the computed matrix, under the comment *"the policy matrix never asks source.X -> probe.X"* — true before `7ec21124`, false after. Removing the filter, ad6 matches the 70-pair oracle exactly under BOTH groundings. No ad6-side work was needed; my earlier note in this item guessed the opposite and was wrong.
+
+  **The pairs are genuinely reachable**, and not via a router hairpin as first supposed: each switch's own forwarding rule takes `in_ports = [X.1, X.2]`, so traffic from the generator to its own subnet reaches the probe locally without touching the router. NetPlumber agrees — the wl_ifi benchmark satisfies all 16 self-checks, its 27 violations being the known `related:0` ones.
+
+  Five tests updated, each with the reason recorded at the call site:
+  `test_ad6_wl_ifi.py`, `test_ad6_grounding.py` (filter, plus its non-vacuity guard 54 -> 70), `test_apkeep_wl_ifi.py` (same filter, same stale comment), `test_ad6_wl_ifi_stateful.py` (299/245 -> 315/261; **stateful unchanged at 54**, since the new checks come from the unconditional `X` diagonal), `test_wl_ifi_stateless_gate.py` (272 -> 288, and it still reports **zero violations**, so the model satisfies the new checks).
+
+  **`AD6_PLAN.md` §1.2's table is now stale for wl_ifi** — it records 299 checks / 54 stateful. Every other workload there is unaffected: their roles carry `0.0.0.0/0`, so their self-rules stay degenerate.
 - [ ] **Give wl_ifi the artifact invariant wl_up has** — the wl_up test is what makes this class of drift impossible to ignore, and it generalises to every workload with generated ground truth.
 - [ ] Check `gen_wl_{i2,stanford,tum}_inputs.sh` too. They pass no `--roles` either, but none of those workloads generates a `roles.json`, so the omission is currently inert rather than wrong.
 
