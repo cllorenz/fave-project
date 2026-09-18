@@ -24,6 +24,7 @@ import sys
 import csv
 import json
 import argparse
+import itertools
 
 
 # The one role whose self-reachability is not a question anyone can answer: the
@@ -119,6 +120,43 @@ def _generate_cchecks(checks):
     return cchecks
 
 
+def complement_terms(flag):
+    """ The complement of a conditionally permitted cell, in disjunctive form.
+
+    A cell such as `(protocol:tcp;port:80|protocol:tcp;port:22)` states the
+    ONLY traffic the policy permits between that pair. Verifying it needs the
+    other half of the claim -- that nothing else gets through -- and the engine
+    can only express that as "no flow outside the permitted set arrives", since
+    its one condition primitive is existential overlap with no universal
+    counterpart.
+
+    The complement of a union is the intersection of complements, and
+    `not (a and b)` is `not a or not b`, so complementing the cell gives one
+    term per way of contradicting every alternative at once: pick one field
+    from each alternative and negate it. Multiple check entries OR together, so
+    each term becomes its own must-not-reach check and the union of them is the
+    complement.
+
+    Terms that are supersets of another are dropped: more negations describe a
+    SMALLER set, so such a term is already covered. For the cell above that
+    leaves `not tcp` and `not 80 and not 22` -- two checks rather than four.
+    """
+    alternatives = [
+        tuple(sorted(set(alternative.split(';'))))
+        for alternative in flag.lstrip('(').rstrip(')').split('|')
+    ]
+
+    terms = set(
+        tuple(sorted(set(combination)))
+        for combination in itertools.product(*alternatives)
+    )
+
+    return sorted(
+        term for term in terms
+        if not any(set(other) < set(term) for other in terms)
+    )
+
+
 if __name__ == '__main__':
     checks = []
 
@@ -153,6 +191,18 @@ if __name__ == '__main__':
         '-s', '--suffix',
         dest='suffix',
         default=''
+    )
+    # OFF by default. Emitting it changes the check set of every workload with
+    # a conditionally permitted cell, and therefore what those workloads are
+    # expected to report -- a decision per workload, not a silent upgrade. See
+    # CLOUD_BENCH_PLAN.md 1.9.3.
+    parser.add_argument(
+        '--complement',
+        dest='complement',
+        action='store_true',
+        default=False,
+        help='also check that a conditionally permitted pair is UNreachable '
+             'outside its permitted services'
     )
     parser.add_argument(
         '--roles',
@@ -248,6 +298,20 @@ if __name__ == '__main__':
                                     condition.split(';')
                                 ]) for s in _peers(sources, target, keep_self)
                             ])
+
+                        # The other half of what the cell claims: these
+                        # services and NOTHING ELSE. Without it a conditional
+                        # permission is only ever checked in the direction that
+                        # confirms it, so "reachable on 331" passes whether or
+                        # not 332 also gets through.
+                        if args.complement:
+                            for term in complement_terms(flag):
+                                checks.extend([
+                                    '! ' + fstr % (s, target)
+                                    + ' && f=related:0 && '
+                                    + ' && '.join('f=!%s' % f for f in term)
+                                    for s in _peers(sources, target, keep_self)
+                                ])
 
                 else:
                     checks.extend(['! ' + fstr % (s, target) for s in sources])

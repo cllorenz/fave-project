@@ -249,7 +249,7 @@ manufacture a false disagreement.
 - [ ] **C7** Only then: express wl_cloud as an FPL policy — both the README's
       26x26 ACL matrix and the six oracle queries — so the workload goes through
       PolicyTranslator like every other one instead of hand-built checks.
-      **F1 and F2 fixed 2026-09-18; F3 (the complement check) remains: §1.9.**
+      **F1, F2 and F3 all implemented 2026-09-18: §1.9.** What remains is a decision, not a defect — which operator, and the expected-verdict table.
 
 ---
 
@@ -699,58 +699,110 @@ path.
       cloud ACLs do not provide — the wl_ifi pattern, where the violations are
       the finding rather than an artifact.
 
-### 1.9.3 F3 — without a complement check, q04 silently weakens
+### 1.9.3 F3 — "these services and NOTHING ELSE" — IMPLEMENTED 2026-09-18
 
-`internet ---> host22.331` under default-deny *means* "only 331 gets in". But
-`reach_csv_to_checks` emits only the **positive** check for a conditionally
-permitted cell; its unconditional `! s=… p=…` branch fires only for cells with no
-permission at all. So nothing would verify that 332, or anything else, stays out.
+A conditionally permitted cell states the only traffic the policy allows between
+a pair. Only the confirming half was ever checked. A *wholly* denied pair is
+checked (the empty-cell branch) and a permitted pair is checked, but a
+**partially** permitted one was checked in the direction that confirms it and
+never in the direction that constrains it — so `Internet ---> host22.S331` passed
+whether or not 332 also got through, and q04 would have degraded from *"nothing
+outside 331 enters"* to *"331 enters"*.
 
-Routed through FPL as written, q04 degrades from *"nothing outside 331 enters"*
-to *"331 enters"* — a strictly weaker statement than the `04.unsat.smt2` instance
-asserts, and the oracle instance would be silently spent.
+**Claas's framing, which is what this implements.** No legacy probe mechanics is
+needed: the reachability tree already answers it. For `A <--> B.S` the question
+is whether any flow reaching A from B carries something other than S — and the
+place it must hold is **the probe**, not the path. An ACL-enforcing router
+between them will produce leaves bearing other ports, and that is perfectly
+fine: those flows never arrive, so `check_compliance`, which iterates
+`dst->source_flow`, never sees them. Nothing has to reason about intermediate
+leaves.
 
-The engine offers no positive form: its only condition primitive is existential
-overlap, with no universal counterpart (probe filters and header tests are
-deactivated — `filter_expr = None`, and test-fields-only collapses to
-`{"type": "true"}`, with an `XXX` comment citing memory explosion). So *"only
-331"* is expressible **only** as *"nothing outside 331"* — a must-not-reach over
-the complement. That is not a stylistic choice; it is the sole mechanism.
+**"...unless some other rule allows it" is already computed.** That clause
+needs no logic in the generator, because `ReachabilityPolicy.update_conditions`
+has merged the rules before it gets there: another *conditional* rule joins as an
+OR operand, and another *unconditional* one wins outright ("the empty list
+overpowers all other lists of conditions"), leaving the cell plain `X` with no
+complement to check. So the generator complements the cell's own condition list
+and nothing else.
 
-- [ ] Emit the complement check for conditionally permitted cells in
-      `reach_csv_to_checks.py`. The `f=!field:value` syntax and its adapter-side
-      expansion already exist (§1.6b/c).
-- [ ] **Prerequisite:** fix `NetPlumberAdapter._expand_negations`, which keys
-      its per-field vectors by field NAME (`fields = set(f.name ...)`, then
-      `field_vectors[field.name] = ...`). Given two negated fields of the same
-      name it keeps only the last: measured, `_expand_negations([!80, !22])`
-      returns **the same 16 vectors as `_expand_negations([!22])`** — the `!80`
-      is dropped entirely.
+**Generalised beyond the third check.** The same argument applies to the forward
+direction, so this is a property of the MATRIX rather than of an operator: *every
+conditionally permitted cell gets a complement check, against the union of its
+own conditions.* `<-->` with a service therefore yields four checks, `--->` two
+plus the unconditional denial its empty reverse cell already produces, and no
+operator-specific code exists.
 
-      **The error direction is a FALSE VIOLATION, not a silent weakening** (an
-      earlier draft of this section said the latter, wrongly). The survivor
-      `¬22` is a strict SUPERSET of the intended `¬80 ∧ ¬22`, so the check
-      forbids more than the policy does: port 80 — which the cell *permits* —
-      overlaps the produced condition, and a must-not-reach entry fires on it.
-      Verified. That is at least visible rather than silent, but it would be
-      chased as a model defect.
+#### The shape
 
-      The fix: multiple check entries OR together (overlap distributes over
-      union), so an intersection of complements must be materialised as a union
-      of arrays — pairwise intersection of the expansions, unsatisfiable pairs
-      dropped. For `{tcp/80, tcp/22}` that is 256 candidate pairs, 253
-      satisfiable, **175 distinct**, plus 8 for the non-TCP half: ~183 check
-      entries for ONE cell. A set-complement by interval/prefix decomposition
-      would need **21** for the same thing, so the naive version is worth
-      replacing if cell counts grow.
+`not (a and b)` is `not a or not b`, and the complement of a union is the
+intersection of complements — so complementing a cell means contradicting every
+alternative at once: pick one field from each alternative and negate it, for
+every combination. Multiple check entries OR together, so each combination
+becomes its own must-not-reach check. Terms that are supersets of another are
+dropped, since more negations describe a smaller set.
 
-      **Not hypothetical and not deferrable: `wl_example` has such a cell
-      today**, so the generator change would misfire on the smallest workload in
-      the suite the moment it lands.
+    (protocol:tcp;port:331)                       -> NOT port:331
+                                                     NOT protocol:tcp
 
-wl_cloud itself stays clear of that case — its ACL matrix is boolean (26x26 of
-0/1, 25 declared services) and each oracle-derived service cell is a single
-service on a distinct role pair — but the generator change is suite-wide.
+    (protocol:tcp;port:80|protocol:tcp;port:22)   -> NOT port:22 and NOT port:80
+                                                     NOT protocol:tcp
+
+    (protocol:tcp;port:80|protocol:udp;port:53)   -> NOT port:53 and NOT port:80
+                                                     NOT port:53 and NOT protocol:tcp
+                                                     NOT port:80 and NOT protocol:udp
+                                                     NOT protocol:tcp and NOT protocol:udp
+
+The second collapses from four raw combinations to two; the third needs all four,
+and dropping any of them would admit traffic the cell forbids.
+
+#### OFF by default
+
+`bench/reach_csv_to_checks.py --complement`. Emitting these changes the check set
+of every workload with a conditionally permitted cell, and therefore what those
+workloads are expected to report — a decision per workload, not a silent upgrade.
+Verified unchanged with the flag off: wl_ifi, wl_up and wl_stanford regenerate
+byte-identical check sets, and wl_example's positive checks are identical
+(10 checks; 14 with the flag).
+
+#### Two defects it exposed, both fixed
+
+**The `_expand_negations` collision** (the prerequisite). It keyed per-field
+vectors by field NAME, so two negated fields of one name left only the last:
+`[!80, !22]` returned exactly the vectors of `[!22]`, measured identical. The
+error direction is a **false violation** — the survivor `¬22` is a strict
+superset of `¬80 ∧ ¬22`, so port 80, which the cell *permits*, overlaps it and
+the check fires. Several constraints on one field now INTERSECT (`_meet_all`),
+with contradictory pairs dropped; an intersection that is empty contributes no
+vectors at all.
+
+**The report could not render a complement.** `reporting/reporter.py::_parse_cond`
+asserted that any non-all-`x` field has a concrete value —
+`assert value is not None  # a non-all-x field has a concrete value`. True of
+every condition the suite could previously produce (a service names one exact
+port) and false by construction of a complement vector, which pins one bit and
+wildcards the rest. The report task died with a bare `AssertionError`, losing the
+whole report for a run whose compliance check had already completed. Partially
+determined fields now render as their bit pattern.
+
+#### What it found on wl_example
+
+wl_example is the only workload in the tree with service-conditional cells, so it
+is the only one the flag currently changes. Run with it:
+
+**261 violations, all on the single pair `office -> dmz`** — 253 naming
+`packet.upper.dport`, 8 naming `packet.ipv6.proto`. Every complement vector
+fires, which means the flow arriving at `dmz` from `office` is essentially
+unconstrained in both fields: the data plane does **not** restrict that pair to
+the services its policy permits.
+
+Two caveats, because the number is striking. The *cause* was not investigated —
+it may be that the toy model genuinely forwards everything on that path, or that
+nothing downstream of an unconstrained generator narrows `dport`. And 261
+violations of what is essentially one fact is a poor way to say it: when many
+complement vectors fire, the useful report is "this pair is reachable outside its
+permitted services", not an enumeration of bit patterns. Worth a summarising
+renderer before this is turned on for any workload with a large matrix.
 
 ### 1.9.4 What the throwaway inventory produced
 

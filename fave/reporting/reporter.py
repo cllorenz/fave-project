@@ -49,8 +49,17 @@ def _parse_cond(cond: str, mapping: Mapping) -> List[Tuple[str, str]]:
         field = get_field_from_vector(mapping, vec, name)
         if field != 'x' * FIELD_SIZES[name]:
             value = bitvector_to_field_value(field, name)
-            assert value is not None  # a non-all-x field has a concrete value
-            result.append((name, value))
+
+            # A field can also be PARTIALLY determined -- some bits pinned, the
+            # rest free -- which has no single value to print. Every condition
+            # the suite could produce before was exact (a service names one
+            # port), so this used to assert; a COMPLEMENT condition
+            # ("anything but port 80", bench/reach_csv_to_checks.py
+            # --complement) is partial by construction and killed the whole
+            # report task. Printing the pattern is less readable than a number
+            # and is the truth about the flow -- a witness nobody can see is
+            # worse than an ugly one. See test/test_reporter_partial_condition.py.
+            result.append((name, value if value is not None else field))
     return result
 
 

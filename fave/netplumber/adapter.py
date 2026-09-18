@@ -104,6 +104,43 @@ def _expand_field(field: RuleField) -> List[Vector]:
     return nvectors
 
 
+def _meet(one: Vector, other: Vector) -> Optional[Vector]:
+    """ The intersection of two field vectors, or None when they contradict.
+
+    A don't-care bit yields to a determined one; two determined bits must
+    agree. Used to combine SEVERAL constraints on the same field, which is what
+    the complement of a multi-valued permission needs: "not 80 and not 22" is
+    an intersection, while the vector list it has to be expressed as is a
+    union.
+    """
+    bits = []
+    for left, right in zip(one.vector, other.vector):
+        if left == 'x':
+            bits.append(right)
+        elif right == 'x' or left == right:
+            bits.append(left)
+        else:
+            return None
+
+    merged = deepcopy(one)
+    merged.vector = ''.join(bits)
+    return merged
+
+
+def _meet_all(left: List[Vector], right: List[Vector]) -> List[Vector]:
+    """ Every satisfiable pairing of two vector lists.
+
+    Each list is a UNION of vectors, so their intersection is the union of the
+    pairwise intersections; contradictory pairs simply drop out.
+    """
+    return [
+        met for met in (
+            _meet(one, other) for one in left for other in right
+        ) if met is not None
+    ]
+
+
+
 
 class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
@@ -292,12 +329,23 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         fields = set([f.name for f in match])
         self._update_mapping(fields)
 
-        field_vectors = {}
+        field_vectors: Dict[str, List[Vector]] = {}
         for field in match:
-            if field.negated:
-                field_vectors[field.name] = _expand_field(field)
+            vectors = _expand_field(field) if field.negated else [
+                field_value_to_bitvector(field)
+            ]
+
+            # SEVERAL constraints on one field INTERSECT; they do not replace
+            # one another. Assigning here (the previous behaviour) kept only
+            # the last, so "not 80 and not 22" became "not 22" -- a strict
+            # SUPERSET of what was meant, which as a must-not-reach condition
+            # fires on port 80, a value the policy permits. See
+            # test/test_adapter_negation_intersection.py.
+            if field.name in field_vectors:
+                field_vectors[field.name] = _meet_all(
+                    field_vectors[field.name], vectors)
             else:
-                field_vectors[field.name] = [field_value_to_bitvector(field)]
+                field_vectors[field.name] = vectors
 
         matches = []
 
