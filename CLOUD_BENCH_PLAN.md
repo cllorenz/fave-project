@@ -628,6 +628,48 @@ reachable (on 332). That denial is also emitted by *nothing* — it is default-d
 leaving the cell empty — so another rule granting B->A would make it vanish with
 no conflict raised.
 
+#### The `Internet` role does not offer anything — and fixing that is not enough
+
+Checked on the hypothesis that the builtin `Internet` should offer every service
+by default, the intuition being that the Internet lies outside the
+administrative boundary of whoever writes the policy, so its offerings cannot be
+enumerated or restricted.
+
+**It is not implemented.** `Policy.default_roles` is
+`{"Internet": [('interface', '"fw.generic.eth1"')]}` — an attribute and nothing
+else — and `Role.offers_service` is a plain `name in self.services` with no
+special case for Internet anywhere in the lookup path.
+
+**And implementing it would not fix `<-->`.** With no Internet in the rule at all:
+
+    host2 <--> host1.S350   ->   Fehler: Service host2.S350 unbekannt.
+
+The cause is structural rather than about Internet. `policy_builder` builds the
+backward direction as
+
+    policy.add_reachability_policy(role_to, role_from, service_to, condition=cond)
+
+so `add_reachability_policy` validates `service_to` against the new `role_to`,
+which is the original **source**. A service is offered by the *server* side, so
+the reverse role will essentially never offer it; `Internet` is merely the most
+conspicuous instance. Making Internet offer everything would fix the three
+Internet-sourced rules of §1.9.0 and leave q05/q06 broken exactly as they are.
+
+The real fix is the swap: the backward direction takes the *same* service —
+still offered by B — and applies its attributes reversed, without a second
+lookup on A.
+
+#### The scope of the damage, precisely
+
+`--->` and `<-->` are fine **without** a service, because `cond` is then `None`
+and no lookup happens. That is the form in production use:
+`wl_up/reach.txt` has `Internet <--> DMZPublicServers` and
+`wl_ifi/reach_stateless.txt` has `access_to_internet <--> Internet`; both yield a
+plain `X` in each direction, verified. **It is the service-carrying form of both
+operators that is wholly unexercised**, and both defects — F1's `provider`
+condition and the reverse-role lookup above — live on that one `if service_to`
+path.
+
 - [ ] Implement the reverse-direction swap for `<-->` (`dport` <-> `sport`, and
       whatever the analogous swap is for any address-valued service attribute),
       and stop looking the service up on the reverse role.
@@ -705,6 +747,29 @@ input while the three items above are open. It is ~60 lines and reconstructible
 from the tables in §1.4 and §1.9.0.
 
 ### 1.9.5 Still open
+
+- [ ] **What does "the Internet offers anything" mean, exactly?** Two coherent
+      readings, and they produce different check sets, so it wants deciding
+      rather than inheriting:
+      **(a)** Internet offers every *declared* service — then `Internet.S332`
+      resolves and `Internet.*` expands to the union of declared services, a
+      constrained cell.
+      **(b)** Internet offers *anything* — then `Internet.S` resolves for any S,
+      declared or not, and `Internet.*` is genuinely unconstrained.
+      Claas's phrasing ("one could not impose any restrictions on service
+      offerings by the Internet") reads closer to **(b)**.
+      Measured today, with Internet offering nothing:
+
+          host0 <->> host1.*      ->  (protocol:tcp;port:350|protocol:tcp;port:351)
+          host2 <->> Internet.*   ->  X
+
+      so `Internet.*` already collapses to an unconstrained `X` — which is
+      *correct by accident* under reading (b) and a **silent weakening** under
+      reading (a), since it permits any protocol and any port rather than the
+      declared services, and is indistinguishable in the matrix from a
+      deliberate blanket `X`. No workload uses a wildcard service today, so
+      nothing is currently affected either way.
+
 
 - [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
       written as FPL by hand with a script checking it against the README?
