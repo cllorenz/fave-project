@@ -1,14 +1,15 @@
 # APKeep as an Alternative FaVe Verification Backend — Design & Plan
 
-**Status:** INTEGRATED, with two named correctness gaps. `APKeepAdapter` is a
-selectable FaVe backend (`--backend apkeep` on the aggregator, `FAVE_BACKEND=apkeep`
-on any `bench/wl_*/benchmark.py`), carries two engines behind one adapter (BDD and
-NDD), is gated in the integration tier, and has now been run end to end on wl_ifi,
-wl_stanford, wl_i2 and wl_up through the live aggregator. **Open:** compliance
-CONDITIONS are silently dropped (wl_up: 1,651 phantom violations) — see
-"Production-path parity" below. The faithful-VLAN model is now the default and
-selectable (`--no-vlan` opts out), and the wl_i2 over-approximation it was suspected
-of has been root-caused and fixed (§9).
+**Status:** INTEGRATED, and in agreement with the other backends on every workload
+run so far. `APKeepAdapter` is a selectable FaVe backend (`--backend apkeep` on the
+aggregator, `FAVE_BACKEND=apkeep` on any `bench/wl_*/benchmark.py`), carries two
+engines behind one adapter (BDD and NDD), is gated in the integration tier, and has
+been run end to end on wl_ifi, wl_stanford, wl_i2 and wl_up through the live
+aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` opts
+out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
+11-pair over-approximation (a device-keyed, ingress-only VLAN admission gate) and the
+wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) — see
+"Production-path parity" in §9 for both.
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -319,7 +320,7 @@ count can hide two compensating errors.
 | wl_stanford | 240 | 75 viol → **165** reachable | 75 viol → **165** | **yes, set-equal** |
 | wl_ifi | 299 | 27 viol | 27 viol | **yes, set-equal** (but see below) |
 | wl_i2 | 72 | 11 viol → **61** | 0 viol → **72** | no — 11 pairs (**since fixed**, §9) |
-| wl_up | 11,902 | **0** viol (ad6: 0) | **1,651** viol | **no — 1,651 phantom** |
+| wl_up | 11,902 | **0** viol (ad6: 0) | **1,651** viol → **0** | no — 1,651 phantom (**since fixed**, §9) |
 
 Both NetPlumber runs were made for this comparison on the same day and the same box,
 not taken from the record.
@@ -430,9 +431,9 @@ defect on a two-router model: `out.b` writes VLAN 10 onto a link landing on `in.
 admits 99 on port 5 and 10 on port 6. Either the union or an ungated transit hop makes the
 probe reachable; both engines must call it unreachable.
 
-#### wl_up — the conditions never reach the query (and wl_ifi cannot show it)
-`apkeep/adapter.py:1451` unpacks `(source, negated, cond)` and uses `negated`; `cond`
-is carried into `self._results` for reporting and **never applied to the query**. The
+#### wl_up — the conditions never reach the query (and wl_ifi cannot show it) — FIXED
+`apkeep/adapter.py:1451` unpacked `(source, negated, cond)` and used `negated`; `cond`
+was carried into `self._results` for reporting and **never applied to the query**. The
 `related` bit *is* parsed into the rule encoding (`adapter.py:518`), so the rules carry
 state — only the queries do not. NetPlumber, for contrast, builds a header-space vector
 from the condition and ships it to the engine
@@ -468,12 +469,49 @@ there, and the 27 are genuine violations of it. Second, it is a clean illustrati
 why a differential needs a workload that can discriminate: three engines agreeing on
 wl_ifi says nothing about the capability wl_up exposes.
 
-**Fix options, in preference order:** (1) refuse — raise when a condition cannot be
-forced, matching ad6's `_validated_conditions`, turning wl_up's 1,651 phantom
-violations into an explicit "unanswerable"; (2) honour — constrain the query by the
-`related` bit the rules already carry, which is what NetPlumber does. (1) is smaller
-and is the honest floor; (2) is the real capability and the only one that makes
-FaVe+APKeep usable on a stateful workload.
+##### RESOLVED (2026-09-18): honour `related`, refuse everything else
+
+Both options this section originally weighed — (1) refuse, matching ad6's
+`_validated_conditions`; (2) honour, as NetPlumber does — are implemented, because they
+are not alternatives: honouring is the capability, and refusing is what must happen to
+the conditions honouring does not cover. `_cond_related` is the single gate. A
+`related:N` condition is forced onto the query; a condition naming any other field, a
+malformed one, a negated one, or a contradictory pair **raises**. Nothing is skipped,
+for the reason `AD6_PLAN.md` §9.23 is a post-mortem of: a dropped condition does not
+fail, it answers the unconditioned question and returns a confident number.
+
+**Where the bit is forced: at ARRIVAL, not at the source seed.** Nothing in FaVe's
+models ever *rewrites* `related` — `iptables/generator.py`'s state shell emits it as a
+match, never as an action — so traffic arrives carrying exactly the state bit it was
+injected with. "Does the header set arriving at the probe contain a `related=N` packet"
+is therefore the same question as "does an injected `related=N` packet survive", and the
+arrival form is strictly cheaper: the per-source traversal stays state-independent, so
+the `related:0` and `related:1` variants of a pair share one cached flood instead of
+forcing two. This is the same argument ad6's `_state_field_literals` makes for forcing
+the bits at one node ("nothing rewrites `related` … so pinning one node on the path pins
+the whole path"), applied at the other end of the path.
+
+Both engines already carried the field, so only the query side changed:
+
+| layer | change |
+|---|---|
+| `apkeep/adapter.py` | `_cond_related` validates/extracts; `check_compliance` threads it into every query |
+| `apkeep/lib_ndd.py`, `NddReachabilityEngine.java` | `isReachable(..., related)`; arrival intersected with `exact(REL, N, 1)` (field index 5, already declared) |
+| `apkeep/lib_apkeep.py`, `ReachabilityChecker.java` | `setRelatedHeader(bdd)`; arrival intersected in `arrives()`, kept separate from the vlan `targetHeader` so the two compose |
+| `common/BDDACLWrapper.java` | `ConvertRelated(int)` — the same `relatedVar` the rule encoder constrains |
+
+**Measured on the production path** (`InProcessFaVe`, the real `bench/wl_up` models, the
+real `checks.json` posted the way `bench/compliance_checker.py` posts it — 11,902 checks,
+3,302 of them conditioned): **0 violations**, matching FaVe+NetPlumber and FaVe+ad6.
+Replay 1.7 s, `check_compliance` 1.0 s — unchanged from the unconditioned run, which is
+the flood cache staying shared.
+
+**The gate asserts both halves, because either alone passes for the wrong reason.**
+`test/test_apkeep_compliance_cond.py` (NDD tier) runs the same policy twice: with the
+conditions it must report **zero**, and with the very same checks stripped of their
+conditions it must report **exactly 1,651** — every one of them a check that carried a
+condition. A condition that bound to nothing would satisfy the first assertion and fail
+the second, which is precisely the failure mode wl_ifi cannot detect.
 
 #### The wl_ifi stateless variant — giving the benchmark a zero-violation oracle
 Owner proposal, 2026-09-18, and implemented the same day. wl_ifi pairs a policy that
@@ -1138,15 +1176,16 @@ correctness. Work on (1) starts next.
 
 ## 10. Open questions / decisions log
 
-- **OPEN (2026-09-18) — compliance conditions are dropped.** `check_compliance`
-  receives `RuleField` conditions and ignores them, so every state-conditioned check is
-  answered by the unconditioned query. On wl_up that is **1,651 phantom violations of
-  11,902** (exactly the `related:0` set) where FaVe+NetPlumber and ad6 both report 0.
-  wl_ifi agrees with NetPlumber exactly and is NOT evidence to the contrary — its model
-  declares no state field, so the condition is a no-op there. Decide between REFUSING
-  (ad6's `_validated_conditions`) and HONOURING (what NetPlumber does,
-  `netplumber/adapter.py:194`). Until then FaVe+APKeep cannot be used on a stateful
-  workload. See "Production-path parity" in §9.
+- **RESOLVED (2026-09-18) — compliance conditions are dropped.** `check_compliance`
+  received `RuleField` conditions and ignored them, so every state-conditioned check was
+  answered by the unconditioned query: **1,651 phantom violations of 11,902** on wl_up
+  (exactly the `related:0` set) where FaVe+NetPlumber and ad6 both report 0. The two
+  candidate fixes turned out not to be alternatives — `related` is HONOURED (forced onto
+  the query at arrival, on both engines) and everything else is REFUSED (`_cond_related`,
+  the same discipline as ad6's `_validated_conditions`). wl_up now reports 0. Full
+  derivation in §9; pinned by `test/test_apkeep_compliance_cond.py`, which also asserts
+  that dropping the conditions would still produce the 1,651 — otherwise a condition
+  that bound to nothing would pass. FaVe+APKeep is usable on a stateful workload.
 - **RESOLVED (2026-09-18) — `faithful_vlan` now has a production route, and is the
   DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD with it,
   because faithful-on-BDD completes on neither wl_stanford nor wl_i2.
