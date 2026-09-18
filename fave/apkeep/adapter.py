@@ -1342,39 +1342,62 @@ class APKeepAdapter(AbstractVerificationEngine):
                 nat_rules.append("+ nat %s %s vlan %s %d %s" % (
                     mid_dev, egress_port, ip, plen, effective))
 
-        # Ingress VLAN admission: splice a per-router ACLElement onto the single
-        # in.X -> mid.X internal edge (all ingress funnels through it), permitting
-        # only the VLANs the in-stage admits; the rest drop. This gates transit
-        # propagation -- a VLAN an upstream mid assigned survives only where the
-        # next router's ingress admits it. Single-universe (no ACL division, set
-        # in LibAPKeep) lets this compose with the mid VLAN rewrite. The element is
+        # Ingress VLAN admission: one ACLElement per (in.X, physical ingress
+        # port), spliced onto EVERY edge delivering there -- source and transit
+        # alike -- permitting only the VLANs that port admits; the rest drop.
+        # This gates transit propagation: a VLAN an upstream mid assigned
+        # survives only where the next router's ingress admits it, on the port it
+        # actually arrives on. Single-universe (no ACL division, set in
+        # LibAPKeep) lets this compose with the mid VLAN rewrite. The element is
         # named "iacl_<idx>" (no dots/underscores in the device part) so APKeep's
         # "<a>_<b>_..._{in,out}" node convention resolves it -- stanford device
         # names like in.bbra_rtr would break the 2-token split.
+        #
+        # Keyed by PORT, not by device, and gated at the ARRIVAL edge rather than
+        # on the one in.X -> mid.X internal edge this used to splice. The
+        # per-device union is what the in-stage is NOT: every one of wl_stanford's
+        # 16 routers admits a different set on each ingress port (in.goza_rtr: 151
+        # tags in the union, at most 128 on any single port), so a union gate
+        # admits tags the arrival port does not. The funnel could not carry a
+        # per-port gate at all -- it sits downstream of the merge, where the
+        # arrival port is already lost -- which is why this moves rather than
+        # tightens. wl_i2's builder had the same port-blind keying and lost 11
+        # pairs to it (sec. 9); here the surplus tags happened to be ones nothing
+        # upstream assigns towards those ports, so it cost nothing observable.
         device_acls: Dict[str, List[str]] = {}
         acl_rules: List[str] = []
-        routers = sorted({d.split('.', 1)[1] for d in self._in_vlans})
-        idx_of = {r: i for i, r in enumerate(routers)}
+        # An in-port-agnostic admission rule (key port None) applies to every
+        # port of that device, so fold it into each concrete port's set.
+        anyport = {dev: vlans for (dev, port), vlans in self._in_port_vlans.items()
+                   if port is None}
+
+        def admitted(dev: str, port: str) -> set:
+            return (self._in_port_vlans.get((dev, port), set())
+                    | anyport.get(dev, set()))
+
+        keys = sorted({(d_dev, d_port) for d_dev, d_port in
+                       (tuple(e.split()[2:4]) for e in kept)
+                       if admitted(d_dev, d_port)})
+        idx_of = {k: i for i, k in enumerate(keys)}
         acl_names: set = set()
         spliced: List[str] = []
         for edge in kept:
             s_dev, s_port, d_dev, d_port = edge.split()
-            router = s_dev.split('.', 1)[1] if '.' in s_dev else None
-            if (s_dev.split('.', 1)[0] == 'in' and d_dev.split('.', 1)[0] == 'mid'
-                    and router in idx_of and self._in_vlans.get(s_dev)):
-                idx = idx_of[router]
-                node = "iacl_%d_i_in" % idx
-                acl_names.add(str(idx))
-                spliced.append("%s %s %s inport" % (s_dev, s_port, node))
-                spliced.append("%s permit %s %s" % (node, d_dev, d_port))
-                # One permit rule matching the whole admitted-VLAN SET (APKeep ORs
-                # the comma-separated tags), not ~114 per-VLAN rules -- far fewer
-                # atomic-predicate splits, so the faithful build stays tractable.
-                vlan_set = ",".join(sorted(self._in_vlans[s_dev], key=int))
-                acl_rules.append(_acl_rule_string(
-                    "iacl_%d" % idx, True, None, None, 0, vlan=vlan_set))
-            else:
+            idx = idx_of.get((d_dev, d_port))
+            if idx is None:
                 spliced.append(edge)
+                continue
+            node = "iacl_%d_i_in" % idx
+            acl_names.add(str(idx))
+            spliced.append("%s %s %s inport" % (s_dev, s_port, node))
+            spliced.append("%s permit %s %s" % (node, d_dev, d_port))
+        for (dev, port), idx in idx_of.items():
+            # One permit rule matching the whole admitted-VLAN SET (APKeep ORs
+            # the comma-separated tags), not one rule per VLAN -- far fewer
+            # atomic-predicate splits, so the faithful build stays tractable.
+            vlan_set = ",".join(sorted(admitted(dev, port), key=int))
+            acl_rules.append(_acl_rule_string(
+                "iacl_%d" % idx, True, None, None, 0, vlan=vlan_set))
         if acl_names:
             device_acls["iacl"] = sorted(acl_names, key=int)
         return (spliced, {d: sorted(p) for d, p in device_nats.items()}, nat_rules,
