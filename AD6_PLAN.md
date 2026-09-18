@@ -187,6 +187,13 @@ model files rather than trusting the old audit further:
 | wl_stanford | 1× `<-->` | 0 / 240 |
 | wl_i2 | 1× `<-->` | 0 / 72 |
 
+wl_up's 11911 is the post-`--strict` count (`9d746a5d`). §1.3's table and the
+paragraph below it still read 11902 and have been swept to match; the 11902s
+further down — §4.2's narrative, the §7.5 and §9 result tables — are records of
+what specific runs measured and are left alone on purpose. wl_ifi is 299 and
+stays there: the 315 it briefly showed was the loose-mode diagonal regression
+`APKEEP_BACKEND.md` Sec. 10 records, not a real check set.
+
 So only wl_stanford/wl_i2 are pure k=1 existential reachability; **wl_up (§5.1's flagship
 ad6-home-turf benchmark) and wl_ifi both require the stateful 3-check semantics** — and,
 corrected in §4.4 below, wl_ifi is very much in scope (my initial "moot regardless" note
@@ -225,7 +232,7 @@ wl_ifi.** For NP/APKeep/NDD, "related" is just another matched header/state fiel
 already-computed result, not extra floods: still ~O(n) per source. For ad6, each of the
 3 checks is a **separate, independent SAT solve** (a fresh state-literal assertion forces a
 fresh solve, no warm-start) — so wl_up's true query count is close to 3× what a pure
-existential comparison would suggest (**empirically: 11902**, not 137²=18769×1 — the actual
+existential comparison would suggest (**empirically: 11911**, not 137²=18769×1 — the actual
 `cchecks.json` count already reflects the true instance count and should be used directly
 instead of a `k·n²` estimate). This makes wl_up an even sharper worst case for ad6 than
 originally modelled.
@@ -269,7 +276,7 @@ instantiation, is where Factor A bites.
 | benchmark | n (roles) | R (rule/route count) | true query count (`cchecks.json`) | predicted dominant factor | ad6 outlook |
 |---|---|---|---|---|---|
 | wl_ifi | 17+17 ⇒ ~34 | small (`ifi.csv`/`acls.txt`, dozens of rules) | 299 (54 stateful) | neither — cheap on both axes | **REINSTATED (§4.4):** not ad6-native *text* format, but that's irrelevant — the FaVe adapter emits ad6's IR directly, never touching ad6's own parser. Best translator-development target: small, fast, and exercises ACL+forwarding+VLAN together |
-| wl_up | 137 | large — `ad6/bench/up/up-gw-alt-ruleset` alone is 6606 lines, dozens of per-department rulesets on top | **11902 (3302 stateful)** | **Factor A dominates hardest of all four** — true query count (11902) is ~0.6× n², not the naive n²≈18.8k, because FaVe's compliance translation doesn't check every ordered pair at k=3 uniformly, but it's still ~86× wl_ifi's count with a widened per-pair cost (§1.2 correction: `<->>` pairs cost ad6 3 independent solves vs ~free extra reads for NP/APKeep/NDD) — worst case for ad6, and worse than §0 originally modelled | ad6's own bundled `bench/up/run_large.sh` builds `bench/up/large.xml` with `--anomalies end_to_end` over an all-pairs target list (internet + gateway + wifi-clients + 8 DMZ hosts + 21 subnets × 6 subhosts) that sums to **exactly n=137** — the *same* role count as FaVe's wl_up. This is almost certainly the "known ~36 min baseline" referenced in §3.2 — **but note `_measure_end_to_end` as coded only issues the plain (non-stateful) check, so that historical ~36 min number was NOT exercising `<->>` either; a faithful re-measurement will need the stateful instantiator built first and will very likely take substantially longer** |
+| wl_up | 137 | large — `ad6/bench/up/up-gw-alt-ruleset` alone is 6606 lines, dozens of per-department rulesets on top | **11911 (3302 stateful)** | **Factor A dominates hardest of all four** — true query count (11902) is ~0.6× n², not the naive n²≈18.8k, because FaVe's compliance translation doesn't check every ordered pair at k=3 uniformly, but it's still ~86× wl_ifi's count with a widened per-pair cost (§1.2 correction: `<->>` pairs cost ad6 3 independent solves vs ~free extra reads for NP/APKeep/NDD) — worst case for ad6, and worse than §0 originally modelled | ad6's own bundled `bench/up/run_large.sh` builds `bench/up/large.xml` with `--anomalies end_to_end` over an all-pairs target list (internet + gateway + wifi-clients + 8 DMZ hosts + 21 subnets × 6 subhosts) that sums to **exactly n=137** — the *same* role count as FaVe's wl_up. This is almost certainly the "known ~36 min baseline" referenced in §3.2 — **but note `_measure_end_to_end` as coded only issues the plain (non-stateful) check, so that historical ~36 min number was NOT exercising `<->>` either; a faithful re-measurement will need the stateful instantiator built first and will very likely take substantially longer** |
 | wl_tum | very small (single firewall `fw.tum`, essentially a 1-Kripke-endpoint model per `policies.json`) | large (`ad6/bench/tum/tum-ruleset` = 3795 lines; FaVe's `wl_tum` cites "3.8k stateful rules") | **Factor B alone** — n² term is negligible, this isolates raw per-solve/per-flood cost vs ruleset size | cleanest single-axis measurement: if ad6 loses here it's pure representation/solve cost, not query amortisation |
 | wl_stanford | 16 (240 all-pairs checks) | IPv4 LPM FIB, not iptables — **not yet ad6-encodable** (§5.2 risk); `ap_num` ~21.6k on the faithful VLAN variant | small n keeps Factor A cheap even at k=3; Factor B depends entirely on the (unbuilt) IPv4/VLAN encoding | feasibility gate, not a cost question, until §5.2's encoding exists |
 | wl_i2 | 9 (72 checks) | ~77k dst-IP FIB routes | tiny n²=81 but potentially huge `C_solve(R)` per query — the sharpest test of the "intuition-flipping" hypothesis | **the decisive case**: if a plain per-rule SAT encoding of dst-IP LPM forwarding stays roughly linear in clause count (unlike BDD's monolithic blowup — `[[stanford-forwarding-overapprox]]`/`[[apkeep-vlan-admission-tractability]]` found NDD/BDD blow up on field-*independent* VLAN admission, not on LPM alone), ad6 could plausibly be **competitive or fast** here purely because it only issues 81 solves total — same feasibility caveat as Stanford (§5.2) |
