@@ -16,9 +16,10 @@ retiring the ForwardElement-trie bullseye. Lever A (elide pass-through filter
 elements) + Lever B (query-time src-IPv6 seed retires the per-source .sf, which was
 ~80 % of the partition). **C3: the full 136-device build now CONVERGES in ~11.5 min
 (was >124 min, non-converging); ap_num 62 420→14 561. Phase D: full-scale NP-parity
-is EXACT (0 diffs, 3660/3660 pairs over 137×137). Phase C DONE + validated. Phase E
-(PLANNED): two-universe field decomposition — cross-product sizing shows building
-dst/proto-port dimensions separately costs ~29× less PPM at 8 subnets (ratio grows);
+is EXACT (0 diffs over 137×137; 3660/3660 meaningful pairs, 3661/3661 raw). Phase C
+DONE + validated. Phase E (PLANNED): two-universe field decomposition — cross-product
+sizing shows building dst/proto-port dimensions separately costs ~29× less PPM at 8
+subnets (ratio grows);
 also evaluating NDDs (APKeep-group related work) as a complementary/subsuming lever.**
 Owner: Claas Lorenz. Driver:
 PhD-thesis future work. Companion to [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
@@ -663,7 +664,7 @@ Ran the complete APKeep-vs-NetPlumber differential on the FULL 136-device model
 (137 probes × 137 sources = 18 769 ordered pairs): APKeep build+query 851 s, NP 49 s.
 
 **Result: EXACT NP-PARITY — 0 differing probes, 3660/3660 reachable pairs
-identical, over-approx = 0, under-approx = 0.** APKeep neither adds a pair NP
+identical (self-excluded; 3661/3661 raw), over-approx = 0, under-approx = 0.** APKeep neither adds a pair NP
 rejects nor drops a pair NP reaches, across the entire model. This is the
 definitive at-scale correctness proof: the query-time src seed (Lever B) is exact
 not just on the cs/jura slices but on the whole workload. Phase C (build-cost

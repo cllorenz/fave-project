@@ -670,11 +670,24 @@ zero violations end to end).
    APKeep report reads `<rule.rule_model.RuleField object at 0x...>`. Lenient by design
    so it cannot abort a run, but unreadable at exactly the line that states the verdict.
    `_render_cond` should handle objects with `.name`/`.value`.
-3. **wl_up's headline number is under-reported by one.** `mat_np.json` and
-   `mat_apk.json` (`bench/wl_up/eval/`) are **3,661 = 3,661, 0 diffs either direction**
-   over 137 probes — matching ad6's §9.22 figure exactly. The "3660/3660" in
+3. ~~**wl_up's headline number is under-reported by one.**~~ **WITHDRAWN — the finding
+   was wrong, and the sites are now unambiguous instead (2026-09-18).** `mat_np.json`
+   and `mat_apk.json` (`bench/wl_up/eval/`) do hold **3,661 = 3,661, 0 diffs either
+   direction** over 137 probes, matching ad6's §9.22 figure. But "3660/3660" in
    `APKEEP_NDD_PLAN.md` (5, 80, 163), `APKEEP_TUM_UP_PLAN.md` (19, 665) and
-   `AD6_PLAN.md` (828) is off by the single self-pair.
+   `AD6_PLAN.md` (828) is not an off-by-one: it is the **self-excluded convention**,
+   which `bench/wl_up/eval/apkeep_up_diff.py` *implements* and argues for in
+   `_meaningful`'s docstring ("a host reaching 'itself' is not a compliance question"),
+   which `APKEEP_BDD_BASELINE.md` §4.1 freezes as the Phase D headline, and which the
+   tool prints alongside the raw count. Both numbers are right; 3660 appears in eight
+   files, so flipping three of them would have produced three fresh inconsistencies with
+   the tool that computes it.
+
+   The real defect was that the plan files never SAID which convention they used, so a
+   reader who opened the matrices and counted 3,661 found an apparent contradiction.
+   Every one of the six sites now carries both figures. Note the exactness verdict is
+   convention-independent either way: over- and under-approximation are 0 on the full
+   set, self-pairs included, and both backends agree on the one self-pair.
 
 #### Coverage of these runs
 All four benchmarks were run on both backends except wl_i2/APKeep-faithful (no

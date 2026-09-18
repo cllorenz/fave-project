@@ -2,9 +2,11 @@
 
 **Status:** PLANNING (2026-08-17). Prerequisite context: Phase C is DONE — the FaVe/
 APKeep(BDD) backend builds the full 136-device wl_up model from zero in ~11.5 min and
-matches NetPlumber **exactly** (0 diffs, 3660/3660 pairs). The residual build cost is a
-per-field **cross-product** in APKeep's single global atomic-predicate partition; the
-sizing measurement shows building the dst vs proto/port dimensions *separately* costs
+matches NetPlumber **exactly** (0 diffs; **3660/3660** meaningful pairs, **3661/3661**
+raw — they differ by the single host-to-self pair, `APKEEP_BDD_BASELINE.md` §4.1). The
+residual build cost is a per-field **cross-product** in APKeep's single global
+atomic-predicate partition; the sizing measurement shows building the dst vs
+proto/port dimensions *separately* costs
 **~29× less PPM** at 8 subnets (ratio growing). The **NDD** paper (Li, Zhang, Zhang,
 Yang, *"NDD: A Decision Diagram for Network Verification"*, NSDI '25) generalises exactly
 that decomposition to **all fields** and provides it as a reusable library — so NDD is
@@ -77,7 +79,7 @@ having been reinstalled)
   NDD paper's APKeep(BDD) vs APKeep(NDD) structure, so the BDD numbers are a *comparison
   point* and must reproduce on the pinned env.
 - **Re-measure the *timing* headlines on the pinned env before freezing.** Correctness
-  numbers (3660/3660, exactness gate) are deterministic and safe as-is. But the build-time
+  numbers (3660/3660 self-excluded, exactness gate) are deterministic and safe as-is. But the build-time
   headlines (692 s, the Lever A/B deltas, ~29×) were produced on the pre-reset environment
   that no longer exists; a different Java build can shift timings. Re-run on the documented
   env so the frozen numbers actually reproduce.
@@ -160,7 +162,7 @@ gate (19 passed, 0 skipped):
 
 | benchmark | correctness | NDD vs BDD |
 |---|---|---|
-| wl_up (IPv6 5-tuple) | exact 3660/3660 vs frozen BDD golden | **~0.5 s vs BDD ~1079 s** (~2000×) |
+| wl_up (IPv6 5-tuple) | exact 3660/3660 self-excluded (3661 raw) vs frozen BDD golden | **~0.5 s vs BDD ~1079 s** (~2000×) |
 | wl_tum (IPv4 5-tuple) | exact == BDD | on par / faster |
 | wl_stanford-P7a (IPv4 fwd) | exact == BDD | on par (single-field) |
 | wl_i2 (77k IPv4 dst) | exact == reachable.json | 0.7 s (216-atom AP engine) vs BDD s-scale |
