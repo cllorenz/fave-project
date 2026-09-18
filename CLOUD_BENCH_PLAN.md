@@ -400,6 +400,95 @@ evidence that it is the same problem.
 
 ---
 
+## 1.8 Everything is regenerated from the raw data (owner principle 2026-09-18)
+
+> *"I regularly ran into the challenge of errors in the data that I fed into
+> FaVe/NetPlumber due to manual changes while debugging. In the end, I overcame
+> this by scripting any transformation from the raw data to the actual input
+> data. It is important that in the end, we can recreate any benchmark and
+> measurement from the raw data."*
+
+**Agreed, and this workload did not meet it when first built.** Three of its
+artifacts were produced by hand — `network.tf` and `README.txt` were `cp`-ed out
+of the extracted archive, `np.conf` was copied from `wl_stanford`, and
+`oracle.json`, *the artifact the whole result rests on*, was transcribed by eye
+from `grep` output over the `.smt2` files.
+
+That last one is the dangerous shape: a single mistyped node id would have
+produced a wrong oracle that FaVe then "agreed" with — a self-confirming result
+with nothing able to notice. It was checked afterwards and was correct, but
+"checked afterwards" is the wrong order, and it is only checkable at all because
+a derivation was written.
+
+**The same failure is already in this tree, years old.** §1.6 records it:
+`wl_stanford/stanford-json/*.tf.json` cannot be regenerated from the
+`stanford-tfs/*.tf` beside it, because their rewrite masks are inverted. Nothing
+is wrong today only because the committed JSON and `np_preparation` happen to
+agree — but which of the two is authoritative is now unanswerable. That is what
+a derived artifact with no derivation looks like after a few years.
+
+### The chain, all of it scripted
+
+    cloud_bench.tar.bz2
+      -> bench/wl_cloud/cloud-tf/     the raw cloud/base scenario, TRACKED WHOLE
+                                      (6.7 MB, 9 files, exactly as shipped),
+                                      covered byte-for-byte by SHA256SUMS
+      -> oracle.json                  DERIVED by cloud_oracle.py from the six
+                                      .smt2 instances
+      -> topology / routes / sources / policies / mapping / checks
+                                      DERIVED by cloud_tf.py + cloud_preparation.py
+      -> eval/<engine>-<utc>.json     the STAMPED result
+
+Everything after the first arrow is gitignored and rebuilt by
+`fave/test/gen_wl_cloud_inputs.sh`, which follows the `gen_wl_*_inputs.sh`
+convention the suite already uses. `--from-archive` re-extracts the raw scenario
+and checks it against `SHA256SUMS`, which is how you verify that what is
+committed really is what the archive ships. It was run that way: the vendored
+copy is byte-identical to the archive member.
+
+Four properties, each enforced rather than intended:
+
+- **The raw data is verified before anything is derived.** `verify_raw` checks
+  every vendored file against `SHA256SUMS` at the start of every run and refuses
+  loudly on a mismatch — a manual edit made while debugging is precisely the
+  failure being prevented, and it is unrecoverable once forgotten.
+- **The oracle is derived, never written.** `cloud_oracle.py` reads the argument
+  order *out of each file* rather than assuming it, and refuses anything it does
+  not fully understand instead of returning a partial query, which would weaken
+  the gate without changing its shape. The six derived queries are pinned
+  explicitly in `test_cloud_oracle.py`, so a parser change cannot quietly change
+  what the benchmark is gated on.
+- **`oracle.json` is no longer tracked.** It was, while hand-written. Tracking a
+  generated oracle is how a benchmark ends up gated on an artifact nobody can
+  rebuild.
+- **The measurement is stamped too.** Every run writes
+  `eval/<engine>-<utc>.json` carrying the engine and its options, the header
+  length, the model census, the per-query verdict, and **the sha256 of each
+  `.smt2` the verdicts came from** — so a result names the exact bytes behind
+  it. The stamp's reading of `report.md` is its own tested function, because a
+  stamp that always says "all reproduced" manufactures evidence.
+
+### Provenance — incomplete, needs the owner
+
+|  | sha256 | size |
+|---|---|---|
+| `cloud_bench.tar.bz2` | `0c13076b0b2aa7a6be108bf44fb3f3ea37f814a55ea2e36950c35cd5b621d147` | 21 MB |
+| `deltanet-NSDI17-dataset.tar.gz` | `cc67472319e5d4791b96d8ceed1a5038af1ea719c360c3ce30040f3cc17f334b` | 9.6 GB |
+
+Internal evidence of origin, and nothing more: the cloud archive's members are
+owned by `nlopes/algos` and dated 2013-07/2013-09, consistent with the
+Network-Optimized-Datalog line of work; the Delta-net members are owned by
+`ali/ali` and dated 2016-09, re-tarred 2019-10.
+
+**Neither download URL was recorded, and I cannot supply one** — inventing a
+plausible one would be worse than leaving the gap visible. Since the Delta-net
+archive is too large to vendor, its reproduction chain depends on a file that is
+not in the repository, so its origin needs to be written down here by whoever
+fetched it. The cloud archive no longer has that problem: its scenario is
+vendored, so the repository is self-contained even if the archive is lost.
+
+---
+
 ## 2. The Delta-net traces (`deltanet-NSDI17-dataset.tar.gz`)
 
 11 CSVs of forwarding-rule updates, format `+<prefix>,<router>,<next_hop>,<N>`:
@@ -454,6 +543,14 @@ weaker claim than the cloud dataset's, and it should be written up as such.
 
 ### 2.2 Build plan — deferred until `wl_cloud` reaches C5
 
+- [ ] **D0** **Script the extraction first, per §1.8.** The two only-inserts
+      traces were extracted with ad-hoc `tar` commands that exist nowhere in the
+      repository. Before any converter: a `gen_wl_deltanet_inputs.sh` that pulls
+      the scoped members out of the archive and verifies them against a
+      manifest, and the archive's origin URL written into §1.8's provenance
+      table. Delta-net cannot vendor its raw data — that is exactly why its
+      chain has to be scripted and checksummed from the start rather than
+      retrofitted.
 - [ ] **D1** Establish the meaning of the fourth CSV field before writing any
       converter.
 - [ ] **D2** Replay `airtel2-only-inserts.csv` into a final FIB; report the
