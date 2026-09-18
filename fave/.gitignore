@@ -55,6 +55,14 @@ bench/wl_cloud/*.json
 out
 *.svg
 
+# The vendored raw scenario is tracked WHOLE, exactly as the dataset ships it,
+# so no curation decision of ours sits between the archive and the benchmark.
+# network.svg is a rendering nothing reads, but `*.svg` above would drop it
+# from a fresh clone and SHA256SUMS -- which covers the whole directory --
+# would then fail to verify. Placed BELOW the rule it exempts from, because
+# the last matching pattern is the one that decides.
+!bench/wl_cloud/cloud-tf/network.svg
+
 *.so
 *.so.bak
 
