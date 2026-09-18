@@ -95,17 +95,12 @@ class TestAPKeepWlIfi(unittest.TestCase):
         not_reachable = {
             (s, p) for (s, p, _mr, _c) in cls.engine.get_compliance_results()
         }
-        # Base-name reachability matrix. Self-pairs are KEPT -- the filter
-        # that used to drop them said "the policy matrix never asks
-        # source.X -> probe.X; it never hits the router", and both halves are
-        # now wrong: since commit 7ec21124 the oracle DOES ask it (each of
-        # wl_ifi's roles abstracts a proper subnet), and it never needed the
-        # router -- the switch's own rule takes in_ports [X.1, X.2], so traffic
-        # from the generator to its own subnet reaches the probe locally.
-        # TODO.md item 14.
+        # base-name reachability matrix, excluding intra-switch self-reach (the
+        # policy matrix never asks source.X -> probe.X; it never hits the router).
         cls.reach = {
             _base(p): set(
-                _base(s) for s in cls.sources if (s, p) not in not_reachable
+                _base(s) for s in cls.sources
+                if (s, p) not in not_reachable and _base(s) != _base(p)
             )
             for p in cls.probes
         }

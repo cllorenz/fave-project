@@ -159,23 +159,13 @@ class TestAd6WlIfiStateful(unittest.TestCase):
             return engine.get_compliance_results()
 
     def test_check_set_matches_plan(self):
-        """ Sanity: the shape of wl_ifi's check set.
-
-        **315, not the 299 AD6_PLAN.md §1.2's table records.** The 16 extra are
-        the per-role SELF-checks: commit 7ec21124 stopped dropping a subnet
-        role's self-rule as degenerate, and `gen_wl_ifi_inputs.sh` now passes
-        `--roles` so this script sees the same check set the benchmark does
-        (TODO.md item 14). All 16 are PLAIN -- they come from the unconditional
-        `X` diagonal -- so the stateful count is unchanged at 54 and only the
-        plain count moves, 245 -> 261. AD6_PLAN §1.2's figure is stale for
-        wl_ifi; every other workload there is unaffected, since their roles
-        carry `0.0.0.0/0` and their self-rules stay degenerate.
-        """
+        """ Sanity: this is the same 299-entry/54-stateful check set
+        AD6_PLAN.md §1.2's table records for wl_ifi. """
         total = sum(len(v) for v in self.rules.values())
         stateful = sum(len(v) for v in self.stateful.values())
-        self.assertEqual(total, 315)
+        self.assertEqual(total, 299)
         self.assertEqual(stateful, 54)
-        self.assertEqual(sum(len(v) for v in self.plain.values()), 261)
+        self.assertEqual(sum(len(v) for v in self.plain.values()), 245)
 
     def test_plain_checks_have_no_violations(self):
         """ The cond=[] subset: exact parity with test_ad6_wl_ifi.py's
