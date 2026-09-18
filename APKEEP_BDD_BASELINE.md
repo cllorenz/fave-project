@@ -114,6 +114,12 @@ had written, and emptying them sends each to the same must-not-reach branch as t
 other 61 (APKEEP_BACKEND.md §10, "superrole self-expansion"). `reachable.json` stays at
 3,371 pairs and the headline at 3,661, so nothing in this baseline moves.
 
+**Both additions are confirmed on BDD at full scale** (2026-09-18, this env): the whole
+11,911-check set answered in one run, **0 violations**, 3,302 of the checks
+state-conditioned. See §4.2 for that run's timings — the structural numbers reproduce
+exactly, which is the invariant to expect here, since a check set is queries and has no
+influence on the model build.
+
 Self-exclusion never changed over/under (both backends agree on the pair), so the
 EXACT verdict was never affected — only the headline.
 
@@ -143,6 +149,27 @@ timing is context, not a correctness gate. The residual cost is the dst-prefix �
 proto/port cross-product in APKeep's single global AP partition (~29× sizing,
 `APKEEP_TUM_UP_PLAN.md` Phase E) — the term NDD targets. Curve:
 `bench/wl_up/eval/up_build.jsonl` (51 samples).
+
+**Re-measured 2026-09-18** against the 11,911-check set, in-process (`InProcessFaVe`, no
+subprocess, JVM warm), so the walls below are not comparable with the subprocess rows
+above — only the structural numbers are:
+
+| metric | 2026-08-18 | 11,903 checks (2026-09-18) | 11,911 checks (2026-09-18) |
+|---|---|---|---|
+| replay | — | 3.7 s | **1.9 s** |
+| APKeep from-zero build (`net.run`) | 680–748 s | 469.6 s | **425.9 s** |
+| full query pass | — | — | **110.9 s** (11,911 answered, 107.5 checks/s) |
+| total wall | 1079 s (subprocess) | 9 m 56 s | **8 m 59 s** |
+| final `ap_num` | 14 561 | 14 561 | **14 561** (exact) |
+| elements | 543 | 543 | **543** (exact) |
+| PPM share of build | 96 % | 95 % | **94 %** (encode 0.3 s, insert 15.3 s, ppm 402.3 s, merge 4.0 s) |
+
+`ap_num` 14 561 and 543 elements across all three, the build wall moving ~10 % between
+runs: the same picture §4.2 already describes, on a workload whose model did not change.
+The eight `DMZ*` must-not-reach checks the strict-mode fix added are in the answered set
+and pass — the data plane does not deliver a DMZ server to itself, which is what makes
+emptying those diagonals correct rather than merely tidier. `deadline_hit: false`, so
+this is a complete run and not a partial one under the driver's soft deadline.
 
 ### 4.3 NDD GO/NO-GO — wl_up field-locality (§2.0)
 

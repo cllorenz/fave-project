@@ -1476,7 +1476,9 @@ correctness. Work on (1) starts next.
   **wl_up, measured:** non-empty diagonals 9 → **1** (`Wifi`), no off-diagonal cell
   touched, `roles.json` byte-identical, checks **11,903 → 11,911**, negative self-checks
   **61 → 69**, positive checks **3,371 unchanged**, `reachable.json` **3,371 pairs**,
-  headline **3,661**, still **0 violations**. The eight diagonals do not vanish from
+  headline **3,661**, still **0 violations** — on NDD in the gated test, and confirmed
+  at full scale on BDD (8 m 59 s, all 11,911 checks answered, `ap_num` 14 561 reproducing
+  `APKEEP_BDD_BASELINE.md` §4.2 exactly). The eight diagonals do not vanish from
   compliance — emptied, they take the ordinary empty-diagonal branch and each yields a
   must-not-reach check, which is what strict mode plus default-deny implies and matches
   the 61 the generator already emitted.
