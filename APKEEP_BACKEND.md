@@ -288,6 +288,174 @@ coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
     data plane needs the VLAN-coupled ACLs, which require a VLAN **rewrite** (P7b =
     P8); see the P7 subsection for the NetPlumber cross-check that quantifies this.
 
+### Production-path parity: four benchmarks through the live aggregator (2026-09-18)
+
+`AD6_PLAN.md` §9.27/§9.28 built the production route to a non-NetPlumber engine
+(`build_engine()` + `--backend {netplumber,apkeep,ad6}`, and `FAVE_BACKEND` /
+`FAVE_ENGINE_OPTIONS` on `GenericBenchmark`, because all six `wl_*/benchmark.py`
+drivers hardcode their constructor arguments). APKeep was wired into that route at
+the same time but **never exercised through it**; every APKeep result up to here was
+produced through `InProcessFaVe` or the adapter directly. This is that exercise: the
+same `bench/<wl>/benchmark.py`, backend the only variable, verdict read from the
+generated `report.md`.
+
+**Method and its limits.** Verdicts only — the runs are not a timing comparison: this
+box is a 4-core yolobox and the NetPlumber run needed its log files redirected off a
+63 MB `/dev/shm` (below), so wall-clock is not like-for-like. Agreement is checked as
+**set equality of the violation/reachability sets**, never as equal counts; a matching
+count can hide two compensating errors.
+
+| workload | checks | NetPlumber | APKeep | agree? |
+|---|---:|---|---|---|
+| wl_stanford | 240 | 75 viol → **165** reachable | 75 viol → **165** | **yes, set-equal** |
+| wl_ifi | 299 | 27 viol | 27 viol | **yes, set-equal** (but see below) |
+| wl_i2 | 72 | 11 viol → **61** | 0 viol → **72** | **no — 11 pairs** |
+| wl_up | 11,902 | **0** viol (ad6: 0) | **1,651** viol | **no — 1,651 phantom** |
+
+Both NetPlumber runs were made for this comparison on the same day and the same box,
+not taken from the record.
+
+#### wl_stanford — exact, and on a better oracle than the one P5 claims
+`FAVE_BACKEND=apkeep bench/wl_stanford/benchmark.py` → 75 violations of 240 → 165
+reachable. Set-compared against NetPlumber's own matrix from
+`bench/apkeep_convergence.py --emit netplumber`: **0 NetPlumber-only, 0 APKeep-only**
+(after discounting the 16 self-pairs the 240-check set excludes from its 256). This is
+the same 165 `AD6_PLAN.md` §9.28/§9.31 reports for ad6 and for the post-§9.29
+NetPlumber benchmark, so all three families now agree pair-for-pair on wl_stanford.
+
+Worth stating plainly because P5 above undersells it: that bullet records wl_stanford
+as "matches the bundled `reachable.json`", and `reachable.json` is the artificial
+all-to-all policy mesh — matching it proves forwarding completeness and nothing about
+over-approximation. Matching **NetPlumber's 165** is the stronger claim. Note this is
+the plain P7a model (`faithful_vlan=False`, the only thing the production path can
+build — see the gap below), not the faithful VLAN one.
+
+#### wl_i2 — APKeep over-approximates by exactly 11 pairs
+`FAVE_BACKEND=apkeep` → **0 violations of 72** (everything reachable).
+`FAVE_BACKEND=netplumber`, same driver → **11 violations of 72** → 61 reachable:
+
+    chic  -> hous, kans, losa, salt, seat
+    atla  -> kans, seat
+    newy32aoa -> kans, seat
+    wash  -> kans, seat
+
+Those 11 are **set-identical** to ad6's archived faithful result under both solvers
+(`bench/wl_i2/eval/ad6_i2_flowpath_faithful_{cadical195,minisat22}_72pairs_sandbox.json`),
+and to `bench/i2_structural_oracle.py`. So the 61 has four independent witnesses
+(NetPlumber, ad6, the structural oracle, and now a second NetPlumber run through the
+benchmark driver) and APKeep is alone at 72.
+
+**Why the gated tests cannot see this.** `test_apkeep_i2.py:98`,
+`test_apkeep_ndd_fwd.py:100` and `:166` all assert equality with
+`bench/wl_i2/reachable.json`, which is an **all-reachable 72/72 policy mesh** emitted
+by the same generator as `checks.json`. It scores any relaxed encoding at 100% by
+construction — the exact defect `TODO.md` item 1s names and `AD6_PLAN.md` §5.5 "C3
+REOPENED" re-derived for ad6. `APKEEP_NDD_EVAL.md` §2.6's "faithful reachability ==
+72 = NP" is contradicted by NetPlumber itself; it predates the §9.29 `length`/`mapping`
+fix and was never re-run. **These three gates should be repointed at NetPlumber.**
+
+Caveat on which model this measures: the production path can only build
+`faithful_vlan=False` (below), where over-approximation is expected — plain mode
+relaxes the VLAN constraint and relaxing can only add reachability. It is therefore
+*not* proof of a bug on its own. But the faithful model is not exculpated either:
+`test_i2_faithful_vlan_matches_ground_truth` builds it through the adapter and also
+asserts 72. Both APKeep models say 72; NetPlumber, ad6 and the structural oracle say 61.
+
+#### wl_up — the conditions never reach the query (and wl_ifi cannot show it)
+`apkeep/adapter.py:1451` unpacks `(source, negated, cond)` and uses `negated`; `cond`
+is carried into `self._results` for reporting and **never applied to the query**. The
+`related` bit *is* parsed into the rule encoding (`adapter.py:518`), so the rules carry
+state — only the queries do not. NetPlumber, for contrast, builds a header-space vector
+from the condition and ships it to the engine
+(`netplumber/adapter.py:194`, `self._build_vector(cond).vector if cond else None`).
+
+**wl_up is the decisive case, and APKeep fails it.** 1,651 violations of 11,902, and
+the violation set is **exactly** the 1,651 `related:0` checks (verified pair-for-pair
+against `cchecks.json`; note wl_up stores the backward `(X)` checks with source and
+probe swapped, §9.23.1, so the comparison must normalise by name prefix, not by
+position). **Zero** of the 8,600 unconditioned checks fail — which corroborates
+APKeep's plain wl_up reachability and is consistent with the committed
+`bench/wl_up/eval/mat_apk.json` == `mat_np.json`. FaVe+NetPlumber, run through the
+same driver on the same day, reports **0 violations of 11,902**, as does ad6
+(`AD6_PLAN.md` §9.34). So all 1,651 are phantom, and they are phantom for one reason:
+the condition was dropped. wl_up earns this status — 136 of its 139 rulesets match on
+`ctstate`/`ESTABLISHED`.
+
+**wl_ifi looks like agreement and is not evidence.** APKeep reports 27 violations of
+299; NetPlumber reports 27; the two sets are **identical** (0 either way), and both are
+exactly the 27 `related:0` checks. But `related` occurs in wl_ifi *only* in
+`checks.json`/`cchecks.json` — the queries — and **zero** times in `policies.json`,
+`routes.json` or `topology.json`: the model has no state field at all, its Cisco ACLs
+being state-blind. Conditioning on `related` therefore cannot change reachability, and
+an engine that drops the condition gets the right answer for the wrong reason. The
+agreement is accidental, and wl_ifi must not be quoted as evidence that APKeep handles
+conditions.
+
+Two things follow that are worth keeping. First, this is the **live-NetPlumber
+confirmation** `AD6_PLAN.md` §4.2 wanted and never had: it traced wl_ifi's 27
+`related:0` failures to a state-blind ACL rule and recorded the conclusion as "NOT yet
+confirmed against a live NetPlumber oracle". Confirmed — the policy is aspirational
+there, and the 27 are genuine violations of it. Second, it is a clean illustration of
+why a differential needs a workload that can discriminate: three engines agreeing on
+wl_ifi says nothing about the capability wl_up exposes.
+
+**Fix options, in preference order:** (1) refuse — raise when a condition cannot be
+forced, matching ad6's `_validated_conditions`, turning wl_up's 1,651 phantom
+violations into an explicit "unanswerable"; (2) honour — constrain the query by the
+`related` bit the rules already carry, which is what NetPlumber does. (1) is smaller
+and is the honest floor; (2) is the real capability and the only one that makes
+FaVe+APKeep usable on a stateful workload.
+
+#### Three defects found in passing
+
+1. **`faithful_vlan` has no CLI flag.** `build_engine()` accepts it
+   (`aggregator_service.py:110,139`) and `AggregatorService` threads `**backend_options`,
+   but argparse wires only `--grounding`/`--solver`/`--lite-acyclic` (ad6) and
+   `--apkeep-engine`. So `FAVE_BACKEND=apkeep` always builds the plain, VLAN-blind
+   model — and the faithful-VLAN model, which the entire NDD headline rests on
+   (`APKEEP_NDD_EVAL.md` §2.6: BDD intractable at ap_num≈21.6k, NDD ~3 s), **cannot be
+   selected in production at all.** §9.27 went after ad6's measurement-affecting options
+   deliberately; APKeep's equivalent was missed. Add `--faithful-vlan`.
+2. **The report renders APKeep's conditions as object reprs.**
+   `aggregator_service.py:290` hands the engine `RuleField` *objects*
+   (`RuleField.from_json`); `Ad6Adapter` converts them back to dicts, `APKeepAdapter`
+   stores them as-is, and `reporting/reporter.py:70`'s `_render_cond` — whose docstring
+   assumes dicts — falls through to `str(field)`. Every conditioned violation in an
+   APKeep report reads `<rule.rule_model.RuleField object at 0x...>`. Lenient by design
+   so it cannot abort a run, but unreadable at exactly the line that states the verdict.
+   `_render_cond` should handle objects with `.name`/`.value`.
+3. **wl_up's headline number is under-reported by one.** `mat_np.json` and
+   `mat_apk.json` (`bench/wl_up/eval/`) are **3,661 = 3,661, 0 diffs either direction**
+   over 137 probes — matching ad6's §9.22 figure exactly. The "3660/3660" in
+   `APKEEP_NDD_PLAN.md` (5, 80, 163), `APKEEP_TUM_UP_PLAN.md` (19, 665) and
+   `AD6_PLAN.md` (828) is off by the single self-pair.
+
+#### Coverage of these runs
+All four benchmarks were run on both backends except wl_i2/APKeep-faithful (no
+production route, see below) and the anomaly step, which APKeep does not implement and
+which the harness now skips-and-says-so rather than reporting "none found"
+(`AD6_PLAN.md` §9.28). wl_tum was not run: it is a single-device stateful firewall
+already covered by the gated `test_apkeep_tum` differential against NetPlumber, and it
+adds no case the four above do not.
+
+#### Environment notes for the next person
+* **`benchmark.py` bypasses `test.sh`'s `resolve_net_plumber`.** Run directly, the
+  NetPlumber backend dies with `net_plumber: command not found` inside
+  `scripts/start_np.sh`, which surfaces two layers up as "could not connect to fave" —
+  the binary is present in `net_plumber/build/` and unreachable at the same time. Put
+  it on `PATH` (or `make -C net_plumber/build install`).
+* **63 MB `/dev/shm` cannot hold a wl_i2 NetPlumber run.** It produced **169 MB** of
+  logs. Filling it does not fail the run cleanly: net_plumber becomes a zombie and the
+  benchmark hangs indefinitely (observed, ~1 h wasted) — the capacity failure §9.29
+  records for wl_stanford, on a second workload. `np.conf`'s three
+  `RollingFileAppender` paths are redirectable, but `stdout.log` is *not*: log4j
+  additivity mirrors every probe event to the console appender, and
+  `aggregator_service.py:193` hardcodes `/dev/shm/np/stdout.log` as the reporter's
+  verdict source. Both were redirected to disk for these runs via temporary edits to
+  `bench/wl_i2/np.conf` and `scripts/start_np.sh` (log destinations only, no
+  verification setting touched), **reverted afterwards**. A permanent fix would make
+  the log directory configurable end to end rather than hardcoded in three places.
+
 ### Capability reassessment (APKeep paper, NSDI '20) — what is *conceptually* in scope
 
 Reading the paper (Zhang et al., NSDI '20; copy in repo root) overturns the
