@@ -200,13 +200,22 @@ node classes derived above:
 | 02 | internet `1500000` | none | `1200449` | **unsat** |
 | 03 | internet `1500000` | `dport=0x014C`, `proto=6` | `1100043` | **sat** |
 | 04 | internet `1500000` | `dport != 0x014B` | `1400233` | **unsat** |
-| 05 | host `1100380` | `dport=0x015E` | `1000067` | **sat** |
-| 06 | host `1100376` | `dport=0x015F` | `1000067` | **unsat** |
+| 05 | host `1100380` (`dc1_leaf6_host2`, 10.0.7.8/30) | `dport=0x015E` (350) | `1000067` (`dc0_leaf1_host1`, 10.0.0.132/30) | **sat** |
+| 06 | host `1100376` (`dc1_leaf6_host0`, 10.0.7.0/30) | `dport=0x015F` (351) | `1000067` (the same host) | **unsat** |
 
 Query 04 is the interesting one: *"from the internet, on any port other than
 331, can anything reach `1400233`?"* — a genuine security property, not a
-synthetic pair. 05/06 are a matched pair differing only in destination port
-(350 permitted, 351 not), which isolates the ACL from the forwarding.
+synthetic pair.
+
+**05/06 are NOT a matched pair, contrary to what this section first said.** They
+differ in SOURCE HOST as well as in port — `dc1_leaf6_host2` (10.0.7.8/30) on
+350 against `dc1_leaf6_host0` (10.0.7.0/30) on 351. Both sources sit behind the
+same leaf router in dc1 and both target the same host in dc0, so the forwarding
+path from that leaf onward is shared and the contrast is close to
+single-variable — but it is not the port-only contrast originally claimed, and
+if either ever disagrees with the oracle the cause could be the source address
+rather than the ACL. Corrected 2026-09-18 while laying the oracle out endpoint
+by endpoint.
 
 **Open discrepancy, to resolve before trusting a disagreement.** The README says
 the public TCP port is **331**; query 04 excludes `0x014B` = 331, consistent with
