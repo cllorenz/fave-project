@@ -52,7 +52,7 @@ bash scripts/generate-clients-rulesets.sh "$W"
 # the matrix produced above, so it belongs between the two steps.
 "$PYTHON" "$W/inventorygen.py"
 "$PYTHON" bench/reach_csv_to_checks.py -p "$W/reachability.csv" \
-    -m "$W/inventory.json" --roles "$W/roles.json" \
+    -m "$W/inventory.json" --roles "$W/roles.json" --strict \
     -c "$W/checks.json" --cchecks "$W/cchecks.json" -j "$W/reachable.json"
 
 echo "wl_up inputs generated under $W/"

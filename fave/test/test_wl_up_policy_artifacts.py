@@ -119,7 +119,7 @@ class TestWlUpPolicyArtifacts(unittest.TestCase):
         cls.reach_path = os.path.join(tmp, "reachable.json")
         run([sys.executable, "bench/reach_csv_to_checks.py",
              "-p", csv_path, "-m", "%s/inventory.json" % _W,
-             "--roles", roles_path,
+             "--roles", roles_path, "--strict",
              "-c", cls.checks_path, "--cchecks", os.path.join(tmp, "cchecks.json"),
              "-j", cls.reach_path])
 

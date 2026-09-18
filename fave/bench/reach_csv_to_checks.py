@@ -162,6 +162,16 @@ if __name__ == '__main__':
              'whose single node stands for a whole subnet carry a self-check; '
              'without it every self-rule is treated as degenerate.'
     )
+    parser.add_argument(
+        '--strict',
+        dest='strict',
+        action='store_true',
+        help='The matrix came from `policy_translator --strict`, so a filled '
+             'diagonal means an FPL rule asked for it. WITHOUT this, the '
+             'translator injects an implicit self-policy for EVERY atomic role '
+             '(policy_builder.build_policies), so a diagonal carries no '
+             'information and no positive self-check is emitted.'
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -197,11 +207,16 @@ if __name__ == '__main__':
 
                 if target != 'Internet': target += args.suffix
 
-                # Does this cell's self-pair carry a check? Only on a role's own
-                # diagonal, and only where that role's single node stands for a
-                # subnet rather than one device -- see _abstracts_a_subnet.
+                # Does this cell's self-pair carry a check? Only when the
+                # matrix came from strict mode -- loose mode gives EVERY atomic
+                # role a diagonal whether or not the policy asked for one, so a
+                # filled diagonal there is not evidence of anything -- and then
+                # only on a role's own diagonal, and only where that role's
+                # single node stands for a subnet rather than one device (see
+                # _abstracts_a_subnet).
                 keep_self = (
-                    source_role == target_role
+                    args.strict
+                    and source_role == target_role
                     and source_role != _INTERNET
                     and len(sources) == 1 and len(targets) == 1
                     and _abstracts_a_subnet(role_attributes.get(source_role, {}))

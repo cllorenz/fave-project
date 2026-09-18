@@ -212,7 +212,8 @@ class GenericBenchmark(object):
         self.logger.info("convert policy matrix to checks...")
         os.system(
             "%s bench/reach_csv_to_checks.py " % PYTHON + ' '.join(
-                (['-s', self.suffix] if self.suffix else []) + [
+                (['-s', self.suffix] if self.suffix else [])
+                + (['--strict'] if self.strict else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
                     '--roles', self.files['roles_json'],
