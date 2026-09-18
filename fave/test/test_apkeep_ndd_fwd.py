@@ -42,6 +42,7 @@ import unittest
 from apkeep.adapter import APKeepAdapter
 from apkeep.lib_ndd import available as ndd_available
 from test.backend_gate import require_or_skip
+from test.i2_oracle import load_unreachable, plain_model_violations
 
 
 def _base(name):
@@ -70,13 +71,14 @@ def _matrix(prefix, engine, files=None, faithful=False):
 
 _I2_PREFIX = "bench/wl_i2/i2-json"
 _I2_FILES = {"topology": "device_topology.json", "policies": "probes.json"}
-_I2_ORACLE = "bench/wl_i2/reachable.json"
 # The real oracle: 11 unreachable pairs, exhaustive over IPv4, agreed by
-# NetPlumber and ad6 -- unlike reachable.json, which is policy intent.
+# NetPlumber and ad6 -- unlike reachable.json, which is policy intent (an
+# all-to-all 72/72 mesh that scores any over-approximation at 100%), and is no
+# longer asserted by either i2 test here.
 _I2_STRUCTURAL_ORACLE = "bench/wl_i2/eval/i2_structural_oracle_atoms.json"
 _I2_INPUTS = ["%s/%s" % (_I2_PREFIX, f) for f in
               ("device_topology.json", "routes.json", "sources.json",
-               "probes.json")] + [_I2_ORACLE, _I2_STRUCTURAL_ORACLE]
+               "probes.json")] + [_I2_STRUCTURAL_ORACLE]
 
 _IFI_PREFIX = "bench/wl_ifi"
 _IFI_ORACLE = "bench/wl_ifi/reachable.json"
@@ -100,27 +102,29 @@ class TestNddIPv4Forwarding(unittest.TestCase):
 
     @require_or_skip(all(os.path.isfile(f) for f in _I2_INPUTS),
                      "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
-    def test_i2_matches_ground_truth(self):
-        """ wl_i2 (77k dst-IP routes) NDD reachability == reachable.json. Routed
-        to the atomic-predicate forwarding engine (AtomForwarding): elementary
-        dst intervals + per-device LPM + signature-merge to the minimal 216-atom
+    def test_i2_plain_is_sound_and_over_approximates_by_the_known_11(self):
+        """ wl_i2 (77k dst-IP routes) on the PLAIN model, routed to the
+        atomic-predicate forwarding engine (AtomForwarding): elementary dst
+        intervals + per-device LPM + signature-merge to the minimal 216-atom
         partition (= APKeep's ap_num), atom-set flood -- builds in ~0.7s where the
-        monolithic residual OOMs/times out. See APKEEP_NDD_EVAL.md §2.6. """
-        eng, sources, probes, reach = _matrix(_I2_PREFIX, 'ndd', files=_I2_FILES)
-        got = {
-            _base(p): set(_base(s) for s in sources
-                          if (s, p) in reach and _base(s) != _base(p))
-            for p in probes
-        }
-        with open(_I2_ORACLE) as raw:
-            expected = json.load(raw)
-        diffs = {}
-        for role in sorted(set(got) | set(expected)):
-            g = got.get(role, set())
-            e = set(expected.get(role, []))
-            if g != e:
-                diffs[role] = {"missing": sorted(e - g), "extra": sorted(g - e)}
-        self.assertEqual(diffs, {}, "wl_i2 NDD differs from reachable.json: %s" % diffs)
+        monolithic residual OOMs/times out. See APKEEP_NDD_EVAL.md §2.6.
+
+        The plain model drops the VLAN dimension, so it over-approximates by
+        construction: it reaches all 72 where the data plane delivers 61. This
+        used to assert equality with `reachable.json`, the all-to-all policy
+        mesh, which reads as an exactness claim and is satisfied by every
+        over-approximation. Judged against the structural oracle instead, by the
+        same `test/i2_oracle.py` the BDD gate uses -- see that module on what its
+        three properties do and do not detect. Equality with the oracle is a real
+        assertion only for the faithful model: the test below. """
+        _eng, sources, probes, reach = _matrix(_I2_PREFIX, 'ndd', files=_I2_FILES)
+        all_pairs = {(_base(s), _base(p)) for p in probes for s in sources
+                     if _base(s) != _base(p)}
+        got = {(_base(s), _base(p)) for p in probes for s in sources
+               if (s, p) in reach and _base(s) != _base(p)}
+        self.assertEqual(
+            plain_model_violations(
+                got, all_pairs, load_unreachable(_I2_STRUCTURAL_ORACLE)), [])
 
     @require_or_skip(all(os.path.isfile(f) for f in _IFI_INPUTS),
                      "wl_ifi inputs not generated (run test/gen_wl_ifi_inputs.sh)")
