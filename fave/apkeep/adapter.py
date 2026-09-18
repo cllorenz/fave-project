@@ -111,6 +111,83 @@ _IN_PORT = 'in_port'                 # Phase 3: ingress-port qualifier (anti-spo
 # the largest forward_filter index (a TUM ruleset has ~5k rules).
 _FILTER_PRIO_BASE = 10_000_000
 
+# The only compliance-check CONDITION this backend can force onto a query. Both
+# engines carry `related` as a real header field (APKeep: BDDACLWrapper's
+# relatedVar; NDD: field REL), so a `related:N` check can be answered as the
+# conditioned question. Nothing else can -- see _cond_related.
+_SUPPORTED_COND_FIELDS = (_RELATED,)
+
+
+def _cond_field(field: Any, key: str) -> Any:
+    """ One `cond` entry's attribute. Real dispatch (aggregator_service's
+    `_handler`) hands us RuleField objects; a test driving check_compliance
+    directly may hand us the plain RuleField.to_json() dicts. """
+    if isinstance(field, dict):
+        return field.get(key)
+    return getattr(field, key, None)
+
+
+def _cond_related(cond: Any, source: str, probe: str) -> Optional[int]:
+    """ The connection state a compliance check's `cond` restricts the query to
+    (0 = NEW, 1 = ESTABLISHED), or None for an unconditioned check. REFUSES
+    anything this backend cannot force onto the query.
+
+    Nothing is ever skipped. A dropped condition does not fail -- it answers the
+    UNCONDITIONED question and returns a confident number, which is the most
+    expensive shape of bug this codebase has produced. `check_compliance` used to
+    unpack `cond` out of the triple and never look at it again, so all 3302 of
+    wl_up's state-conditioned checks were answered unconditioned and the
+    `related:0` half came back as 1651 phantom violations where FaVe+NetPlumber
+    and FaVe+ad6 both report none. ad6/fave_bridge.py's `_validated_conditions`
+    is the same guard against the same failure (AD6_PLAN.md 9.23 is a post-mortem
+    of one such published number).
+
+    So either a condition is honoured, or the caller hears about it. """
+    value: Optional[int] = None
+    for field in (cond or []):
+        where = "check %s -> %s" % (source, probe)
+
+        name = _cond_field(field, "name")
+        if name is None:
+            raise ValueError(
+                "malformed query condition %r on %s: expected a RuleField (or "
+                "its to_json() dict) carrying a 'name'. Skipping it would "
+                "answer the UNCONDITIONED question." % (field, where))
+
+        if name not in _SUPPORTED_COND_FIELDS:
+            raise ValueError(
+                "query condition %r on %s cannot be honoured: APKeep forces "
+                "only %s, not %r. It is NOT dropped, because answering the "
+                "unconditioned question looks like a result."
+                % (field, where, "/".join(_SUPPORTED_COND_FIELDS), name))
+
+        if _cond_field(field, "negated"):
+            raise ValueError(
+                "negated query condition %r on %s is not supported: a negated "
+                "match is not the same query, and answering the positive one "
+                "silently would be a wrong number." % (field, where))
+
+        raw = _cond_field(field, "value")
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(
+                "malformed query condition %r on %s: 'related' value %r is not "
+                "an integer." % (field, where, raw)) from None
+        if parsed not in (0, 1):
+            raise ValueError(
+                "query condition %r on %s: 'related' is a single bit, 0 (NEW) "
+                "or 1 (ESTABLISHED), not %r." % (field, where, parsed))
+
+        if value is not None and value != parsed:
+            raise ValueError(
+                "contradictory query conditions on %s: 'related' constrained to "
+                "both %d and %d. The conjunction is empty, so answering either "
+                "one would be a different question." % (where, value, parsed))
+        value = parsed
+
+    return value
+
 
 def _ternary_port_range(val: Any) -> Tuple[int, int]:
     """ A FaVe transport-port match value -> (lo, hi). It is either a decimal
@@ -1491,12 +1568,17 @@ class APKeepAdapter(AbstractVerificationEngine):
     def check_compliance(self, rules: Any) -> None:
         """ rules: {probe_name: [(source_name, negated, cond), ...]}. For each
         pair, existential reachability source->probe; a violation is recorded
-        when reachability disagrees with the rule's expectation. """
+        when reachability disagrees with the rule's expectation.
+
+        A check's `cond` RESTRICTS that question (wl_up asks reachability
+        separately for NEW and ESTABLISHED traffic). It is honoured, or refused
+        loudly -- never dropped; see _cond_related. """
         self._build()
         for probe_name, src_rules in rules.items():
             pdev, pport = _split_port(self._probes[probe_name])
             for source_name, negated, cond in src_rules:
                 sdev, sport = _split_port(self._generators[source_name])
+                related = _cond_related(cond, source_name, probe_name)
                 # With ACLs present, seed reachability with the source's actual
                 # src-IP so source-matching ACLs bite (a 0.0.0.0/0 source -> len
                 # 0 -> full space, the unconstrained case).
@@ -1508,6 +1590,17 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if self._engine == 'ndd' and self._ndd_fwd_mode:
                     # pure dst-IP FIB: AtomForwarding floods the full dst space
                     # (forwarding is source-independent), no src/VLAN constraint.
+                    if related is not None:
+                        # This model has ONE dimension (the dst prefix); there is
+                        # no state bit to force, so the condition cannot be
+                        # answered. Refusing beats returning the unconditioned
+                        # number. (No conditioned benchmark uses this mode -- it
+                        # serves wl_i2/wl_stanford's pure FIBs.)
+                        raise ValueError(
+                            "check %s -> %s carries a 'related' condition, but "
+                            "the dst-IP atomic-forwarding model has no "
+                            "connection-state dimension to force it onto."
+                            % (source_name, probe_name))
                     reachable = self._ndd.fwd_is_reachable(sdev, sport, pdev, pport)
                 elif self._engine == 'ndd':
                     # The NDD engine takes the source's src space directly as the
@@ -1515,21 +1608,23 @@ class APKeepAdapter(AbstractVerificationEngine):
                     # enforces the faithful wl_stanford probe's vlan=0 at arrival.
                     reachable = self._ndd.is_reachable(
                         sdev, sport, pdev, pport, src_cidr=src_cidr,
-                        target_vlan=tvlan)
+                        target_vlan=tvlan, related=related)
                 elif self._acl_device is not None and src_cidr is not None:
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
-                        sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan)
+                        sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan,
+                        related=related)
                 elif self._src_seeded_source(src_cidr):
                     # Phase C1 Lever B: single-universe IPv6 source -> seed the
                     # exact src-IPv6 BDD into the query (excludes spoofed-src
                     # reachability at arrival) instead of a partition-splitting .sf.
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan,
-                        src_cidr=str(src_cidr))
+                        src_cidr=str(src_cidr), related=related)
                 else:
                     reachable = self._lib.is_reachable(
-                        sdev, sport, pdev, pport, target_vlan=tvlan)
+                        sdev, sport, pdev, pport, target_vlan=tvlan,
+                        related=related)
                 # `negated` True means "must not reach"; violation if the
                 # observed reachability contradicts the expectation.
                 must_reach = not negated
