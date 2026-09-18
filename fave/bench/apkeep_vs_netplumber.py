@@ -154,7 +154,7 @@ def main(argv):
           "in-process, %d iterations:\n" % (workload, iterations))
     # NetPlumber first (no warm-up); then APKeep (first run pays JVM boot+JIT).
     _benchmark("NetPlumber", lambda: NetPlumberLibAdapter(log), prefix, files, iterations, warmup)
-    _benchmark("APKeep", lambda: APKeepAdapter(log), prefix, files, iterations, warmup)
+    _benchmark("APKeep", lambda: APKeepAdapter(log, faithful_vlan=False, engine='bdd'), prefix, files, iterations, warmup)
     print("\nNote: APKeep 'cold' includes JVM boot + JIT (one-time per process); "
           "'steady' is the warm-JVM from-zero. NetPlumber has no warm-up.")
     return 0

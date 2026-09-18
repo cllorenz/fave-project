@@ -39,7 +39,11 @@ subprocess, so they run in the `fast` tier.
 """
 
 import logging
+import sys
+import types
 import unittest
+
+from unittest import mock
 
 from aggregator.aggregator_service import (
     BACKENDS, BACKEND_AD6, BACKEND_APKEEP, BACKEND_NETPLUMBER, build_engine,
@@ -110,6 +114,80 @@ class TestBackendConstruction(unittest.TestCase):
                               solver='cadical195', lite_acyclic=True)
         self.assertEqual(type(engine).__name__, 'NetPlumberAdapter')
         self.assertFalse(hasattr(engine, 'solver'))
+
+
+class _RecordingAdapter:
+    """ Stands in for APKeepAdapter so these stay fast-tier tests.
+
+    The real adapter constructs LibAPKeep/LibNDD in `__init__`, which starts a
+    JVM; what is under test here is which OPTIONS `build_engine` hands it, not
+    what it then does with them. """
+
+    def __init__(self, logger, mapping=None, faithful_vlan=None, engine=None):
+        self.logger = logger
+        self.mapping = mapping
+        self.faithful_vlan = faithful_vlan
+        self.engine = engine
+
+
+def _build_apkeep(**kwargs):
+    """ `build_engine` imports the adapter lazily, so a stub module in
+    sys.modules is enough -- and keeps jpype out of the fast tier. """
+    stub = types.ModuleType("apkeep.adapter")
+    stub.APKeepAdapter = _RecordingAdapter
+    with mock.patch.dict(sys.modules, {"apkeep.adapter": stub}):
+        return build_engine(BACKEND_APKEEP, _LOG, **kwargs)
+
+
+class TestAPKeepDefaults(unittest.TestCase):
+    """ Faithful VLAN handling is a PRIMARY objective, not an opt-in: ad6 and
+    NetPlumber both model it, and an APKeep run that quietly drops it is not
+    answering the same question. So the default is the faithful model, and the
+    plain one has to be asked for.
+
+    That forces the engine default too. The faithful model is exactly where
+    BDD-APKeep's atomic-predicate cross-product explodes -- it does not finish
+    wl_stanford or wl_i2 (APKEEP_NDD_EVAL.md §2.6/§2.6b) -- while the per-field
+    NDD engine builds both in seconds. A faithful default on the BDD engine
+    would be a default that cannot complete, so the two flips belong together. """
+
+    def test_the_faithful_vlan_model_is_the_default(self):
+        self.assertIs(_build_apkeep().faithful_vlan, True)
+
+    def test_the_ndd_engine_is_the_default(self):
+        self.assertEqual(_build_apkeep().engine, 'ndd')
+
+    def test_the_plain_model_stays_selectable(self):
+        """ Still needed: the P7a out-stage-collapse tests and the
+        convergence harness measure the plain model deliberately. """
+        self.assertIs(_build_apkeep(faithful_vlan=False).faithful_vlan, False)
+
+    def test_the_bdd_engine_stays_selectable(self):
+        """ The BDD engine is the comparand in every Sigma-vs-Pi result; it
+        must remain reachable by name. """
+        self.assertEqual(_build_apkeep(apkeep_engine='bdd').engine, 'bdd')
+
+
+class TestAPKeepCommandLine(unittest.TestCase):
+    """ The aggregator's own CLI, which is what a benchmark actually reaches
+    through `FAVE_ENGINE_OPTIONS`. """
+
+    def _parse(self, argv):
+        from aggregator.aggregator_service import build_parser
+        return build_parser().parse_args(argv)
+
+    def test_the_faithful_model_is_on_without_any_flag(self):
+        self.assertIs(self._parse([]).faithful_vlan, True)
+
+    def test_no_vlan_turns_it_off(self):
+        self.assertIs(self._parse(['--no-vlan']).faithful_vlan, False)
+
+    def test_the_engine_defaults_to_ndd(self):
+        self.assertEqual(self._parse([]).apkeep_engine, 'ndd')
+
+    def test_the_bdd_engine_is_reachable_from_the_command_line(self):
+        self.assertEqual(
+            self._parse(['--apkeep-engine', 'bdd']).apkeep_engine, 'bdd')
 
 
 class TestServiceWiring(unittest.TestCase):

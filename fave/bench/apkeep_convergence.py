@@ -159,7 +159,8 @@ def _make_engine(backend: str) -> Any:
     log.setLevel(logging.WARNING)
     if backend == "apkeep":
         from apkeep.adapter import APKeepAdapter
-        return APKeepAdapter(log)
+        # Plain wl_stanford on BDD -- what this harness has always measured.
+        return APKeepAdapter(log, faithful_vlan=False, engine='bdd')
     if backend == "netplumber":
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return NetPlumberLibAdapter(log)

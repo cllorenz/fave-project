@@ -69,7 +69,7 @@ def main(out_path):
         return 1
     from util.in_process_driver import InProcessFaVe
 
-    engine = APKeepAdapter(log)
+    engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
     with InProcessFaVe(engine) as fave:
         fave.replay("bench/wl_up")
         sources = sorted(engine._generators)

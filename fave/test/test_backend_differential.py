@@ -111,7 +111,8 @@ class TestBackendDifferential(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from netplumber.lib_adapter import NetPlumberLibAdapter
-        cls.apkeep = _matrix(APKeepAdapter(_logger()))
+        cls.apkeep = _matrix(
+            APKeepAdapter(_logger(), faithful_vlan=False, engine='bdd'))
         cls.netplumber = _matrix(NetPlumberLibAdapter(_logger()))
         with open("%s/reachable.json" % _PREFIX) as raw:
             cls.oracle = json.load(raw)

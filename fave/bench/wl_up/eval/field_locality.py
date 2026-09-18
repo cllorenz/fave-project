@@ -162,7 +162,7 @@ def main():
     # relative to the fave/ cwd.
     model_rel = os.path.join("bench", "wl_up")
 
-    engine = APKeepAdapter(log)
+    engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
     # replay populates the adapter's model buffers; call _build() DIRECTLY (not
     # via check_compliance, whose threaded aggregator path deadlocks when the JVM
     # build is stubbed). _build assembles the rule batch -> our stubbed run().

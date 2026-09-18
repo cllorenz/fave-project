@@ -106,8 +106,8 @@ BACKENDS_WITH_ANOMALIES = (BACKEND_NETPLUMBER,)
 def build_engine(
         backend: str, logger: Any, socks: Optional[List[Any]] = None,
         asyncore_socks: Optional[Dict[Any, Any]] = None,
-        mapping: Optional[Any] = None, apkeep_engine: str = 'bdd',
-        faithful_vlan: bool = False, grounding: Optional[str] = None,
+        mapping: Optional[Any] = None, apkeep_engine: str = 'ndd',
+        faithful_vlan: bool = True, grounding: Optional[str] = None,
         solver: Optional[str] = None, lite_acyclic: bool = False
 ) -> Any:
     """ The verification engine named by `backend`.
@@ -795,18 +795,13 @@ def _parse_servers(arg: str) -> List[Tuple[str, int]]:
     return servers
 
 
-def main(argv: List[str]) -> None:
-    """ Connects to net_plumber backend and starts aggregator.
-    """
-
-    log_level = logging.INFO
-    socks: Dict[Any, Any] = {}
-    asyncore_socks: Dict[Any, Any] = {}
-
-    logging._srcfile = None
-    logging.logThreads = False
-    logging.logProcesses = False
-
+def build_parser() -> argparse.ArgumentParser:
+    """ The aggregator's command line, built separately from `main` so the
+    defaults are testable without starting a service. Which options exist is
+    part of the backend contract: a measurement-affecting setting that has no
+    flag cannot be reproduced from the production path (AD6_PLAN.md §9.27),
+    and `faithful_vlan` was exactly that until APKEEP_BACKEND.md's
+    production-path parity pass found it. """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-a', '--use-dynamic',
@@ -880,11 +875,45 @@ def main(argv: List[str]) -> None:
         const=True,
         default=False
     )
-    # apkeep-only.
+    # apkeep-only. The NDD engine is the default because the faithful VLAN
+    # model below is: BDD-APKeep's single global atomic-predicate partition
+    # cross-products (dst x VLAN) and finishes neither wl_stanford nor wl_i2
+    # faithfully (APKEEP_NDD_EVAL.md §2.6/§2.6b), where per-field NDD builds
+    # both in seconds. `bdd` stays reachable by name -- it is the comparand in
+    # every Sigma-vs-Pi result.
     parser.add_argument(
         '--apkeep-engine', dest='apkeep_engine',
-        choices=('bdd', 'ndd'), default='bdd')
+        choices=('bdd', 'ndd'), default='ndd')
+    # Faithful VLAN handling is ON by default and this turns it OFF, rather
+    # than the other way round: ad6 and NetPlumber both model VLAN admission
+    # and rewrite, so an APKeep run that silently drops them is not answering
+    # the same question, and a differential against it is not like-for-like.
+    # The plain model stays available because it is a legitimate measurement
+    # (the P7a out-stage collapse, the convergence harness) -- it just has to
+    # be asked for now.
+    parser.add_argument(
+        '--no-vlan',
+        dest='faithful_vlan',
+        action='store_false',
+        default=True
+    )
 
+    return parser
+
+
+def main(argv: List[str]) -> None:
+    """ Connects to net_plumber backend and starts aggregator.
+    """
+
+    log_level = logging.INFO
+    socks: Dict[Any, Any] = {}
+    asyncore_socks: Dict[Any, Any] = {}
+
+    logging._srcfile = None
+    logging.logThreads = False
+    logging.logProcesses = False
+
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.debug: log_level = logging.DEBUG
@@ -925,7 +954,8 @@ def main(argv: List[str]) -> None:
             socks, asyncore_socks=asyncore_socks, mapping=args.mapping,
             backend=args.backend,
             grounding=args.grounding, solver=args.solver,
-            lite_acyclic=args.lite_acyclic, apkeep_engine=args.apkeep_engine)
+            lite_acyclic=args.lite_acyclic, apkeep_engine=args.apkeep_engine,
+            faithful_vlan=args.faithful_vlan)
     except ValueError as err:
         # A malformed backend option (an unknown solver, or a solver/grounding
         # combination that would silently answer the wrong question). Reported

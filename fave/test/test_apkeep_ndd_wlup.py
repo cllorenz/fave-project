@@ -68,7 +68,7 @@ class TestAPKeepNddWlup(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_ndd_wlup")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log, engine='ndd')
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX)

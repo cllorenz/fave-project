@@ -84,7 +84,10 @@ class TestAPKeepStanford(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_stanford")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log)
+        # P7a measures the PLAIN out-stage collapse on the BDD engine; both are
+        # explicit since the defaults became faithful/NDD (2026-09-18), and
+        # faithful wl_stanford does not finish on BDD at all.
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX, files=_FILES)

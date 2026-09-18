@@ -66,7 +66,9 @@ class TestAPKeepI2(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_i2")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log)
+        # The plain dst-only i2 model on the BDD engine, explicitly: the faithful
+        # one is now the default and does not finish on BDD (§2.6b).
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX, files=_FILES)

@@ -76,7 +76,7 @@ def _make_engine(backend: str) -> Any:
     log.setLevel(logging.WARNING)
     if backend == "apkeep":
         from apkeep.adapter import APKeepAdapter
-        return APKeepAdapter(log)
+        return APKeepAdapter(log, faithful_vlan=False, engine='bdd')
     if backend == "netplumber":
         from netplumber.lib_adapter import NetPlumberLibAdapter
         return NetPlumberLibAdapter(log)

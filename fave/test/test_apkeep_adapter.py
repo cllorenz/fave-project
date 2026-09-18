@@ -69,7 +69,7 @@ class TestAPKeepAdapter(unittest.TestCase):
                  Match([RuleField(_DST, '10.0.0.0/8')]), [Forward(['sw.3'])])
         ]})
 
-        cls.adapter = APKeepAdapter(_logger())
+        cls.adapter = APKeepAdapter(_logger(), faithful_vlan=False, engine='bdd')
         for model in (router, switch):
             cls.adapter.add_tables(model)
             cls.adapter.add_rules(model)

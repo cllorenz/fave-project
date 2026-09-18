@@ -233,7 +233,7 @@ class APKeepAdapter(AbstractVerificationEngine):
     """ Drive APKeep as a FaVe verification backend (forwarding-only, P4). """
 
     def __init__(self, logger: TraceLogger, mapping: Optional[Any] = None,
-                 faithful_vlan: bool = False, engine: str = 'bdd') -> None:
+                 faithful_vlan: bool = True, engine: str = 'ndd') -> None:
         self.logger = logger
         # One shared adapter, two backend ENGINES (APKEEP_NDD_PLAN §2.5e). The
         # model construction below is engine-agnostic (it emits neutral "+ filter"
@@ -253,10 +253,17 @@ class APKeepAdapter(AbstractVerificationEngine):
         else:
             self._lib = LibAPKeep()
             self._ndd = None
-        # P7b: when set, model the wl_stanford VLAN semantics faithfully (mid-stage
-        # VLAN rewrite via NAT + probe vlan=0 filter) instead of the forwarding-only
+        # P7b: model the wl_stanford/wl_i2 VLAN semantics faithfully (VLAN rewrite
+        # via NAT + admission ACLs + probe untag) instead of the forwarding-only
         # out-stage collapse (P7a, which only matches the artificial all-to-all
-        # policy). Off by default so the P7a path/test are unchanged.
+        # policy). ON by default since 2026-09-18: ad6 and NetPlumber both model
+        # VLANs, so the plain model is not a like-for-like comparand, and the
+        # differential that found this (APKEEP_BACKEND.md, production-path parity)
+        # measured the plain model only because it was the sole one reachable.
+        # Pass False for the P7a path and the convergence harness, which measure
+        # the plain model deliberately -- and note it is inert on a workload with
+        # no VLAN stage (wl_up, wl_tum, wl_ifi): `_i2_faithful` additionally
+        # requires `_out_rw` and an `out.` forwarding device.
         self._faithful_vlan = faithful_vlan
         # mid.X -> [(dst_cidr, egress_port, vlan_N)] ; out.X reset set {(inport130, vlan)}
         self._mid_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}

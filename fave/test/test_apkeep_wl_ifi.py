@@ -79,7 +79,9 @@ class TestAPKeepWlIfi(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_wl_ifi")
         log.setLevel(logging.WARNING)
-        cls.engine = APKeepAdapter(log)
+        # wl_ifi has no VLAN stage, so faithful_vlan is inert here; pinned anyway
+        # so the configuration is stated rather than inherited.
+        cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
 
         with InProcessFaVe(cls.engine) as fave:
             fave.replay(_PREFIX)
