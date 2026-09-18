@@ -9,7 +9,10 @@ aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` o
 out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
 11-pair over-approximation (a device-keyed, ingress-only VLAN admission gate) and the
 wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) — see
-"Production-path parity" in §9 for both.
+"Production-path parity" in §9 for both. **No open item in §10 is an APKeep defect any
+more**: the two that remain are questions about the FPL-to-checks translation (a role
+whose addressing cannot be classified, and superrole self-expansion), and they affect
+what every backend is asked, not what APKeep answers.
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -324,6 +327,12 @@ count can hide two compensating errors.
 
 Both NetPlumber runs were made for this comparison on the same day and the same box,
 not taken from the record.
+
+*(wl_up's check count is **11,902** throughout this section and **11,903** in §10. Both
+are right: every measurement here was made against the 11,902-check set, and the
+generator gained wl_up's missing `Wifi <--> Wifi` self-check later the same day — see
+§10, "wl_up's headline was under-reported by one". The added check passes, so no verdict
+in this section moves.)*
 
 #### wl_stanford — exact, and on a better oracle than the one P5 claims
 `FAVE_BACKEND=apkeep bench/wl_stanford/benchmark.py` → 75 violations of 240 → 165
@@ -662,14 +671,15 @@ zero violations end to end).
    configuration they measured. Verified end to end: wl_stanford on the new defaults is
    75 violations → 165 reachable in 1.05 s, the violation set identical to the
    plain-BDD run and to NetPlumber's own matrix.
-2. **The report renders APKeep's conditions as object reprs.**
+2. **The report renders APKeep's conditions as object reprs. FIXED (2026-09-18).**
    `aggregator_service.py:290` hands the engine `RuleField` *objects*
    (`RuleField.from_json`); `Ad6Adapter` converts them back to dicts, `APKeepAdapter`
    stores them as-is, and `reporting/reporter.py:70`'s `_render_cond` — whose docstring
-   assumes dicts — falls through to `str(field)`. Every conditioned violation in an
-   APKeep report reads `<rule.rule_model.RuleField object at 0x...>`. Lenient by design
-   so it cannot abort a run, but unreadable at exactly the line that states the verdict.
-   `_render_cond` should handle objects with `.name`/`.value`.
+   assumed dicts — fell through to `str(field)`. Every conditioned violation in an
+   APKeep report read `<rule.rule_model.RuleField object at 0x...>`. Lenient by design
+   so it could not abort a run, but unreadable at exactly the line that states the
+   verdict. `_render_cond` now also accepts objects carrying `.name`/`.value`; pinned in
+   `test_reporter_engine_results.py`.
 3. **wl_up's headline number was under-reported by one. RESOLVED — the headline is
    3,661 everywhere, and the missing pair is now checked (2026-09-18).** `mat_np.json`
    and `mat_apk.json` (`bench/wl_up/eval/`) hold **3,661 = 3,661, 0 diffs either
@@ -1303,7 +1313,8 @@ correctness. Work on (1) starts next.
 - **RESOLVED (2026-09-18) — compliance conditions are dropped.** `check_compliance`
   received `RuleField` conditions and ignored them, so every state-conditioned check was
   answered by the unconditioned query: **1,651 phantom violations of 11,902** on wl_up
-  (exactly the `related:0` set) where FaVe+NetPlumber and ad6 both report 0. The two
+  (the check count at the time; 11,903 since the `Wifi` self-rule was restored, below)
+  — exactly the `related:0` set, where FaVe+NetPlumber and ad6 both report 0. The two
   candidate fixes turned out not to be alternatives — `related` is HONOURED (forced onto
   the query at arrival, on both engines) and everything else is REFUSED (`_cond_related`,
   the same discipline as ad6's `_validated_conditions`). wl_up now reports 0 on the NDD
@@ -1333,6 +1344,51 @@ correctness. Work on (1) starts next.
   exactly those 11. Those are equivalent while it reaches everything, so this buys
   attribution rather than detection power, and both the test docstrings and §9 say so.
   Table in §9.
+- **RESOLVED (2026-09-18) — the report rendered APKeep's conditions as object reprs.**
+  `_render_cond` assumed the dict shape ad6 normalises to; `APKeepAdapter` echoes back
+  the `RuleField` objects the aggregator built, so every conditioned violation printed
+  `<rule.rule_model.RuleField object at 0x...>` on the line that states the verdict. It
+  now accepts both shapes (§9, finding 2).
+- **RESOLVED (2026-09-18) — wl_up's headline was under-reported by one, because a
+  subnet role's self-rule was being dropped.** The frozen 3660 excluded
+  `source.clients.wifi -> probe.clients.wifi`, on the grounds that a host reaching
+  itself is not a compliance question. `Wifi` is not a host: `roles_and_services.txt`
+  defines it as an IPv6 /64 with **no `hosts` list**, so its one model node stands for
+  every client device in the subnet, and `reach.txt:17`'s `Wifi <--> Wifi` says those
+  devices may reach each other — how wifi networks generally work, layer 2 being
+  unrestricted. `reach_csv_to_checks.py`'s `[s for s in sources if s != target]` filter
+  discarded it. That filter was never a considered convention: the generator has always
+  emitted **61** self-checks for wl_up, one per role whose diagonal is EMPTY
+  (`! s=source.X && EF p=probe.X`), suppressing them only where the policy GRANTED
+  self-reachability. The filter now keeps the self-pair where the role's single node
+  denotes a proper subnet (not a bare address, not a `/0` placeholder), via each role's
+  FPL attributes carried through `--roles`. wl_up: **11,903 checks, `reachable.json`
+  3,371 pairs, headline 3,661, still 0 violations**; every other workload byte-identical.
+  `Internet` stays excluded — it is external, outside the administrative reach of
+  whoever writes the policy, so its self-reachability is not answerable.
+  *(This entry had a wrong intermediate state the same day: the discrepancy was marked
+  WITHDRAWN on the grounds that 3660 was a deliberate self-excluded convention and both
+  numbers were right. Reading the tooling supported that; reading the POLICY refuted
+  it.)*
+- **OPEN — a role with placeholder addressing cannot be classified, so its self-rule is
+  silently suppressed.** The discriminator above reads the role's FPL address. wl_i2 and
+  wl_stanford give **every** role `ipv4 = '0.0.0.0/0'`, which carries no cardinality at
+  all, so their `All <--> All` self-rules produce no checks — even though wl_i2's nine
+  self-pairs *are* reachable in the data plane and the policy does assert them. That may
+  be correct (each role is a single router, and `All <--> All` is the artificial
+  HSA-paper policy rather than a considered statement) or it may be exactly the
+  suppression wl_up just had. **Nothing currently distinguishes the two, and no gate
+  would notice either way.** Resolving it needs real addressing in those inventories, or
+  an explicit marker in FPL.
+- **OPEN — superrole self-expansion asserts reachability nobody wrote.** `DMZ <--> DMZ`
+  expands onto each *member's own* diagonal, so wl_up's policy asserts
+  `DMZFileServer` reaching itself, eight times over. Those are degenerate (single named
+  servers), the data plane does not deliver them, and nothing is checked, so nothing
+  fails today. But by the time the policy is a role×role CSV the provenance is gone —
+  a superrole-expanded diagonal is indistinguishable from a deliberate fine-grained
+  self-rule, which is why the discriminator had to work from role cardinality rather
+  than from where the rule came from. If a superrole member were ever a subnet role, its
+  expanded diagonal would silently become a real assertion nobody wrote.
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
 - **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
