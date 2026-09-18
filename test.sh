@@ -162,10 +162,13 @@ coverage_report() {
 # ---- tiers ------------------------------------------------------------------
 
 run_fast() {
-    local rc=0 pt
+    local rc=0 pt label
     pt="$(pytest_cmd)"
+    # `all` runs this tier twice and labels the second pass, so the two are
+    # told apart in a log; every other caller gets the plain name.
+    label="${1:-fast}"
 
-    echo "== fast: policy_translator =="
+    echo "== $label: policy_translator =="
     ( cd "$ROOT" && PYTHONPATH=policy_translator $pt policy_translator/test ) || rc=1
 
     # Run from fave/, like the integration and e2e tiers: the benchmark-driven
@@ -175,7 +178,7 @@ run_fast() {
     # skipped themselves as "inputs not generated" in every tier -- a silent,
     # permanent skip, exactly the "a skip is NOT a pass" hazard
     # test/backend_gate.py exists to prevent.
-    echo "== fast: fave (pure-Python units) =="
+    echo "== $label: fave (pure-Python units) =="
     local ignores=()
     local t
     for t in "${FAVE_NATIVE_TESTS[@]}"; do ignores+=("--ignore=$t"); done
@@ -528,7 +531,19 @@ case "$tier" in
     integration) run_integration || rc=1 ;;
     e2e)         run_e2e || rc=1 ;;
     bench)       run_bench || rc=1 ;;
-    all)         run_fast || rc=1; run_integration || rc=1; run_e2e || rc=1 ;;
+    all)
+        run_fast || rc=1
+        run_integration || rc=1
+        run_e2e || rc=1
+        # The integration and smoke tiers REGENERATE the gitignored benchmark
+        # artifacts that fast-tier tests assert on, and they do it after fast
+        # has run -- so a green `all` could be validating STALE artifacts. That
+        # is not hypothetical: the wl_ifi self-check regression (commit
+        # 7706daae) passed `all` and failed the very next `fast`, because smoke
+        # rewrote wl_ifi's checks.json once the tests reading it were done.
+        # Running fast again at the end closes the window, at ~23 s.
+        run_fast "fast (re-run, against regenerated artifacts)" || rc=1
+        ;;
     doctor)      run_doctor || rc=1 ;;
     *)
         echo "usage: $0 {fast|smoke|integration|e2e|bench|all|doctor}" >&2
