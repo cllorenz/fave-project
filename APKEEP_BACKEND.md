@@ -1,6 +1,14 @@
 # APKeep as an Alternative FaVe Verification Backend — Design & Plan
 
-**Status:** PLAN (scoping complete; no integration code yet).
+**Status:** INTEGRATED, with two named correctness gaps. `APKeepAdapter` is a
+selectable FaVe backend (`--backend apkeep` on the aggregator, `FAVE_BACKEND=apkeep`
+on any `bench/wl_*/benchmark.py`), carries two engines behind one adapter (BDD and
+NDD), is gated in the integration tier, and has now been run end to end on wl_ifi,
+wl_stanford, wl_i2 and wl_up through the live aggregator. **Open:** compliance
+CONDITIONS are silently dropped, and the faithful-VLAN model has no production route
+— both in "Production-path parity" below.
+*(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
+by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
 
 This document is the deep design plan for adding **APKeep** (atomic-predicate
