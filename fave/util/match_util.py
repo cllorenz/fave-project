@@ -61,5 +61,10 @@ OXM_FIELD_TO_MATCH_FIELD = {
     'module.ipv6header.header' : "module.ipv6header.header",
     'packet.upper.dport' : "packet.upper.dport",
     'packet.upper.sport' : "packet.upper.sport",
-    'port' : 'packet.upper.dport'
+    # The policy matrix spells a service's port as `port` when the traffic is
+    # addressed TO the provider, and as `sport` when it is the return direction
+    # carrying the service as its SOURCE port (Policy._condition_to_csv).
+    'port' : 'packet.upper.dport',
+    'dport' : 'packet.upper.dport',
+    'sport' : 'packet.upper.sport'
 }

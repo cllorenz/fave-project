@@ -239,24 +239,46 @@ class Policy(object):
             and self.roles[role_from].get_roles() == [role_from]
         )
 
+        # `provider` names the side that OFFERS the service, and it is a
+        # QUALIFIER of the service condition rather than a condition of its own:
+        # renderers read it off the same dict as `port` to decide whether the
+        # service is identified by its destination port (traffic TO the
+        # provider) or its source port (traffic FROM it). Seeding `conditions`
+        # with it made it a separate OR operand, which disabled that choice
+        # everywhere and leaked `provider:<role>` into the CSV. See
+        # test/test_service_direction.py.
+        provider = condition.get('provider') if condition else None
+        standalone = {
+            k: v for k, v in condition.items() if k != 'provider'
+        } if condition else {}
+
         for role_from_ in self.roles[role_from].get_roles():
             for role_to_ in self.roles[role_to].get_roles():
                 if self.strict and role_from_ == role_to_ and not literal_diagonal:
                     continue
 
-                conditions = [copy.deepcopy(condition)] if condition is not None else []
+                conditions = [copy.deepcopy(standalone)] if standalone else []
+
+                # A service belongs to its provider. Without one named, the
+                # reached role is the provider, which is the plain forward case.
+                owner = provider if provider is not None else role_to_
 
                 services: Iterable[str]
                 if service_to == "*":
-                    services = self.roles[role_to_].get_services()[role_to_]
+                    services = set()
+                    for offered in self.roles[owner].get_services().values():
+                        services.update(offered)
                 else:
                     services = [service_to] if service_to is not None else []
 
                 for service in services:
-                    if self.roles[role_to_].offers_service(service):
-                        conditions.append(copy.deepcopy(self.services[service].attributes))
+                    if self.roles[owner].offers_service(service):
+                        attributes = copy.deepcopy(self.services[service].attributes)
+                        if provider is not None:
+                            attributes['provider'] = provider
+                        conditions.append(attributes)
                     else:
-                        raise ServiceUnknownException(service, role_to_)
+                        raise ServiceUnknownException(service, owner)
 
                 if not self.policy_exists(role_from_, role_to_):
                     self.policies[(role_from_, role_to_)] = ReachabilityPolicy(
@@ -469,6 +491,36 @@ class Policy(object):
 
         return "".join(csv_list)
 
+    def _condition_to_csv(self, cond: Dict[str, Any], role_from: str) -> str:
+        """One condition as CSV text, with the service's direction resolved.
+
+        `provider` is internal bookkeeping: it names the side that offers the
+        service, which is what decides whether the service is identified by its
+        destination port or its source port. Traffic TOWARDS the provider is
+        addressed to the service (`port`); traffic FROM it is the return
+        direction and carries the service as its SOURCE port (`sport`). The
+        same choice `to_iptables` makes with `--dport`/`--sport`.
+
+        The marker itself does not belong in the CSV -- a consumer of the
+        matrix should read a header field, not have to know who offers what --
+        so it is dropped once it has been used.
+        """
+        provider = cond.get('provider')
+        reverse = provider is not None and role_from in set(
+            self.roles[provider].get_roles()
+        )
+
+        fields = []
+        for field, value in cond.items():
+            if field == 'provider':
+                continue
+            if field == 'port' and reverse:
+                field = 'sport'
+            fields.append('%s:%s' % (field, value))
+
+        return ';'.join(fields)
+
+
     def roles_to_csv(self) -> str:
         """Creates a reachability table in CSV format using role names as table
         headings.
@@ -489,9 +541,9 @@ class Policy(object):
                     if {'state' : 'RELATED,ESTABLISHED'} in self.policies[(role_from, role_to)].conditions:
                         csv_list.append(',(X)')
                     else:
-                        csv_list.append(',(%s)' % '|'.join([';'.join(
-                            ['%s:%s' % (f, v) for f, v in cond.items()]
-                        ) for cond in self.policies[
+                        csv_list.append(',(%s)' % '|'.join([
+                            self._condition_to_csv(cond, role_from)
+                        for cond in self.policies[
                             (role_from, role_to)
                         ].conditions]))
                 elif self.policy_exists(role_from, role_to):

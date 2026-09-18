@@ -84,6 +84,22 @@ class TestCheckSyntax(unittest.TestCase):
 
         self.assertEqual([c['negated'] for c in cond], [False, True])
 
+    def test_the_reverse_direction_port_resolves_to_the_source_port(self):
+        """ A service-scoped permission in its RETURN direction is spelled
+        `sport` by the policy matrix (Policy._condition_to_csv), against `port`
+        for the forward one. Both must land on the right header field, or a
+        bidirectional rule silently checks the same direction twice. """
+        _src, _dst, _negated, cond = _parse_check(
+            's=source.a p=probe.b f=sport:350')
+
+        self.assertEqual(cond[0]['name'], 'packet.upper.sport')
+
+    def test_the_forward_direction_port_is_unchanged(self):
+        _src, _dst, _negated, cond = _parse_check(
+            's=source.a p=probe.b f=port:350')
+
+        self.assertEqual(cond[0]['name'], 'packet.upper.dport')
+
     def test_a_check_without_both_endpoints_is_refused(self):
         with self.assertRaises(AssertionError):
             _parse_check('s=source.a')
