@@ -177,8 +177,19 @@ class Ad6Adapter(AbstractVerificationEngine):
         # and on wl_stanford N=16 faithful-VLAN, under a matched configuration
         # (both cadical195), measured 7.0x faster wall / 9.3x faster query /
         # 1.4x lower peak RSS for the identical answer (165 reachable pairs).
-        # Prefer it for an all-pairs reachability sweep; it cannot express
-        # anything else.
+        # Prefer it for a SMALL-n reachability sweep; it cannot express
+        # anything else, and it does not scale in QUERY COUNT (§9.34).
+        #
+        # THE SIGN OF THE EFFECT DEPENDS ON QUERY COUNT, measured on matched
+        # runs (cadical195, grounding the only variable):
+        #   wl_stanford,   240 queries: flow 3.65x FASTER  (502.8 s vs 1,835.4 s)
+        #   wl_up,      11,902 queries: flow >31.4x SLOWER (>6 h UNFINISHED
+        #                               vs 688.4 s)
+        # Rank lives in the shared base, so one persistent session amortises it
+        # across every query; flow's s-t constraint names THIS query's endpoints
+        # and forces a fresh solver each time. There is therefore no such thing
+        # as "flow is Nx faster" -- always state the workload and its query
+        # count. (§7.5 already caught a weaker version of that error.)
         #
         # ON wl_i2 FLOW IS NOT A PREFERENCE, IT IS THE ONLY OPTION (§9.33).
         # Rank needs `lite_acyclic` there at all (the general encoding OOMs

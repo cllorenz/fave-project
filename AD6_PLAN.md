@@ -4080,7 +4080,10 @@ ad6 and reproduced byte-for-byte, leaving all four measurement paths agreeing on
 same 165-pair set; §9.33 ran wl_i2 on ad6 (61/72, agreeing with NetPlumber and with
 §5.5's corroborated set) and records that RANK is no longer a viable grounding for i2
 at all -- §9.25 deleted the semantic path and with it i2's "plain" model, so every i2
-run is now the faithful-scale problem that only flow fits.**
+run is now the faithful-scale problem that only flow fits. §9.34 then measured rank vs
+flow matched on two workloads and found the Factor-A CROSSOVER: flow is 3.65x faster at
+wl_stanford's 240 queries and >31.4x slower at wl_up's 11,902 (unfinished at 6 h), so the
+SIGN of the rank/flow ratio depends on query count and no single ratio may be quoted.**
 
 **READING NOTE for §§9.1-9.24: they were written while the two paths were called
 'semantic' and 'structural'. §9.26 renamed them to 'interpreted' and 'literal'
@@ -6588,6 +6591,88 @@ Three paths, one answer, checked by set equality:
 Still a consensus between implementations rather than ground truth (§9.28.6):
 `bench/wl_i2/reachable.json` is the same all-reachable policy mesh as wl_stanford's and
 cannot adjudicate.
+
+### 9.34 rank vs flow, matched on two workloads: the Factor-A crossover, measured
+
+**DONE 2026-09-17/18.** Four runs, ad6 backend through the live aggregator, cadical195
+throughout, varying ONLY the grounding. This is the §0 "query amortisation" axis measured
+end to end rather than argued.
+
+| workload | queries | grounding | verdict | `check_compliance` | peak bridge RSS |
+|---|---:|---|---|---:|---:|
+| wl_stanford | 240 | rank | 165/240 | 1,835.4 s | -- |
+| wl_stanford | 240 | **flow** | 165/240 | **502.8 s** | 2,739 MB |
+| wl_up | 11,902 | rank | **0 violations** | **688.4 s** | 13,690 MB |
+| wl_up | 11,902 | **flow** | **NO ANSWER** | **>21,592 s** | 7,751 MB |
+
+**The verdicts are grounding-invariant where both completed** -- wl_stanford's violation
+sets are equal, not merely equally sized. That is the required outcome: the two
+constraints answer the same question and differ only in cost.
+
+#### 9.34.1 The crossover
+
+* At **240 queries**, flow is **3.65x FASTER** than rank.
+* At **11,902 queries**, flow is **>31.4x SLOWER** -- and did not finish at all.
+
+This is Factor A. The rank grounding lives in the shared base encoding, so one
+persistent incremental session amortises it across every query; flow's single-unit s-t
+constraint names THIS query's endpoints, so it cannot be shared and forces a fresh solver
+per query (`IncrementalSession` documents exactly this, and
+`test_flow_grounding_does_not_leak_between_queries` pins why it must). At 240 queries the
+cheaper per-solve wins; at 11,902 the rebuild dominates by more than an order of
+magnitude.
+
+**So there is no such thing as "flow is Nx faster".** §7.5 already caught one version of
+that error (the 21.7x that was flow-at-its-best against rank-at-its-worst). This is a
+second, stronger version: the SIGN of the effect depends on query count. Any table
+quoting a rank/flow ratio must state the workload and its query count alongside it.
+
+#### 9.34.2 The wl_up flow figure is a BOUND, not a measurement
+
+`timeout 21600` fired: the bridge was SIGTERMed (`ad6 bridge failed (rc=-15)`,
+`completed task unknown in 21592.04 seconds`) with no `report.md` written. **>6 h,
+unfinished.** The true completion time is unknown and could be far larger; the >31.4x is
+therefore a floor on the ratio, not an estimate of it.
+
+Memory was never the constraint here -- 7,751 MB peak with swap at its idle 391 MB,
+*lower* than rank's 13,690 MB because flow builds no rank constraints and each per-query
+solver is freed. It was purely compute.
+
+**Not re-run with a longer budget** (owner decision): the bound already establishes the
+crossover, and the exact figure would cost many more hours for a number whose only use is
+to say how much worse an option nobody should pick for this workload.
+
+#### 9.34.3 Two methodology notes, both earned the hard way
+
+**A missing `report.md` reads as a clean verdict to a naive check.** `grep -c '^- ' report.md`
+on an absent file returns `0`, indistinguishable from "0 violations" -- and that is how this
+run was first misread here, one section after three instances of the same class of bug were
+fixed in the harness (§9.28.2/§9.28.3/§9.32). When reading any run's outcome, confirm
+`report.md` EXISTS and that the log carries `completed task check_compliance`, before
+believing a count. The benchmark itself is not at fault: `_compliance` raised correctly and
+wrote no report.
+
+**Enable `AD6_BRIDGE_PROGRESS_FILE` for any run expected to exceed an hour.** It exists
+precisely for this -- its own comment records that it was added "after the B1 Option 2
+differential ran for hours with zero visibility into which query it was on". Without it,
+this run's 6 hours yielded a bound and nothing else: not even how many of the 11,902
+queries were answered, which would have turned the bound into a usable per-query rate.
+
+**An externally killed benchmark still orphans its aggregator.** SIGTERM to the benchmark
+bypasses `run()`'s `finally`, so `_teardown` never runs -- the §9.32 pattern, reached by an
+external kill rather than an internal abort. §9.32's pidfile fallback does not help here,
+because it covers net_plumber and this backend starts none. Cleaned up by hand; worth
+knowing before a long ad6 run is interrupted.
+
+#### 9.34.4 What this says about the default
+
+Rank remains the right default, and for a second independent reason. It was already the
+only property-agnostic option (flow expresses single source->destination reachability and
+nothing else). It is now also the only one that scales in query count -- and query count is
+precisely what the all-pairs compliance matrices this project runs are made of. Flow's
+place is a small-n sweep: wl_stanford (240) yes, wl_i2 (72) mandatory for memory reasons
+(§9.33), wl_up (11,902) no.
+
 
 
 
