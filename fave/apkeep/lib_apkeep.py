@@ -213,7 +213,8 @@ class LibAPKeep:
                      dst_device: str, dst_port: str,
                      src_prefix: Optional[int] = None, src_len: int = 0,
                      target_vlan: Optional[int] = None,
-                     src_cidr: Optional[str] = None) -> bool:
+                     src_cidr: Optional[str] = None,
+                     related: Optional[int] = None) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
@@ -223,12 +224,21 @@ class LibAPKeep:
         must inject the source's actual src-IP prefix (src_prefix as a uint32 +
         src_len); otherwise the ACL packet space is the full space and a flow
         counts as reachable whenever *any* source is permitted. Pass src_prefix
-        None (the default) for forwarding-only networks (no ACL division). """
+        None (the default) for forwarding-only networks (no ACL division).
+
+        `related` (0 = NEW, 1 = ESTABLISHED) answers a FaVe compliance check's
+        `related:N` condition: the traffic ARRIVING at the target must carry that
+        connection state. It composes with every overload below, because the
+        checker keeps it separate from the vlan target header. """
         if self._net is None:
             raise RuntimeError("init_snapshot() must be called first")
         checker = self._ReachabilityChecker(self._net)
         src = self._PositionTuple(src_device, src_port)
         dst = self._PositionTuple(dst_device, dst_port)
+        if related is not None:
+            checker.setRelatedHeader(
+                self._APKeeper.bddengine.ConvertRelated(jpype.JInt(int(related)))
+            )
         # target_vlan (P7b): require the packets reaching the probe to carry this
         # VLAN (wl_stanford probes only accept vlan=0). Uses the 5-arg checker
         # overload; the source seed defaults to the full space when unconstrained.

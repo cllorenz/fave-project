@@ -1554,6 +1554,24 @@ public class BDDACLWrapper implements Serializable{
       }
 
       /**
+       * convert an exact connection-state value to a bdd representation (FaVe
+       * fork, Phase 5): 1 = ESTABLISHED/RELATED, 0 = NEW. The single relatedVar
+       * is the same variable {@link #ConvertACLRule} constrains, so a query
+       * seeded/filtered with this intersects rule predicates exactly.
+       *
+       * This exists so a FaVe compliance check carrying a `related:N` CONDITION
+       * can be answered as the conditioned question. Without it the condition
+       * had nowhere to bind and was dropped, which does not fail -- it answers
+       * the UNCONDITIONED question and returns a confident number (1651 phantom
+       * wl_up violations; APKEEP_BACKEND.md sec. 9).
+       */
+      public int ConvertRelated(int related)
+      {
+            return related == 0 ? aclBDD.ref(aclBDD.not(relatedVar))
+                                : aclBDD.ref(relatedVar);
+      }
+
+      /**
        * convert a range of source port numbers to a bdd representation
        */
       public int ConvertSrcPort(Range r)

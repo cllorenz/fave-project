@@ -59,6 +59,25 @@ public class ReachabilityChecker {
     // that reach the probe to overlap a given header BDD. BDDTrue = no constraint.
     private int targetHeader = BDDACLWrapper.BDDTrue;
 
+    // A CONNECTION-STATE constraint on the arriving traffic (FaVe fork, Phase 5):
+    // a FaVe compliance check may carry a `related:N` condition, which asks the
+    // reachability question for NEW (0) or ESTABLISHED (1) traffic only.
+    //
+    // Constraining at ARRIVAL rather than seeding the source is equivalent here
+    // and strictly cheaper: nothing in FaVe's models ever REWRITES `related` (it
+    // is a match-only conntrack-shell field -- iptables/generator.py emits it on
+    // matches, never as an action), so the traffic that arrives carries exactly
+    // the state bit it was injected with. Asking "does the arriving space contain
+    // a related=N packet" is therefore the same question as "does an injected
+    // related=N packet survive", and it leaves the per-source traversal
+    // state-independent. Kept SEPARATE from targetHeader, which the vlan overload
+    // assigns, so the two compose with no ordering hazard.
+    private int relatedHeader = BDDACLWrapper.BDDTrue;
+
+    /** Constrain arriving traffic to one connection state; BDDTrue = any.
+     *  Set before an isReachable(...) overload -- it survives all of them. */
+    public void setRelatedHeader(int relatedBDD) { this.relatedHeader = relatedBDD; }
+
     // Witness capture (FaVe fork, gap-2 diagnosis): on the first arrival, record
     // the exact hop sequence and the surviving forwarding APs, so we can compare
     // APKeep's over-approximating path against NetPlumber hop by hop. Public so a
@@ -159,15 +178,21 @@ public class ReachabilityChecker {
      *  what Element.hasOverlap does; we just additionally intersect the target
      *  header. BDDTrue on a side is the full space and intersects to the other. */
     private boolean arrives(Set<Integer> fwd_aps, Set<Integer> acl_aps) {
-        if (targetHeader == BDDACLWrapper.BDDTrue) {
+        if (targetHeader == BDDACLWrapper.BDDTrue
+                && relatedHeader == BDDACLWrapper.BDDTrue) {
             return Element.hasOverlap(fwd_aps, acl_aps);
         }
         BDDACLWrapper bdd = APKeeper.bddengine;
+        // The two arrival constraints are independent (vlan, connection state);
+        // either may be unset, in which case BDDTrue intersects to the other.
+        int header = targetHeader == BDDACLWrapper.BDDTrue ? relatedHeader
+                   : relatedHeader == BDDACLWrapper.BDDTrue ? targetHeader
+                   : bdd.and(targetHeader, relatedHeader);
         for (int f : fwd_aps) {
             for (int a : acl_aps) {
                 int both = bdd.and(f, a);   // packets forwarded here AND permitted
                 if (both == BDDACLWrapper.BDDFalse) continue;
-                if (bdd.and(both, targetHeader) != BDDACLWrapper.BDDFalse) return true;
+                if (bdd.and(both, header) != BDDACLWrapper.BDDFalse) return true;
             }
         }
         return false;

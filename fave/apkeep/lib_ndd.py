@@ -121,19 +121,25 @@ class LibNDD:
     def is_reachable(self, src_device: str, src_port: str,
                      dst_device: str, dst_port: str,
                      src_cidr: Optional[str] = None,
-                     target_vlan: Optional[int] = None) -> bool:
+                     target_vlan: Optional[int] = None,
+                     related: Optional[int] = None) -> bool:
         """ Existential reachability source->probe over the built model. The
         source emits its own src space (`src_cidr`, None => unconstrained); a
         probe counts as reached iff its DEVICE received a non-empty header set.
         When `target_vlan` is given (faithful wl_stanford probes accept only
-        vlan 0), arrival additionally requires that VLAN. Flood cached engine-side. """
+        vlan 0), arrival additionally requires that VLAN. When `related` is given
+        (0 = NEW, 1 = ESTABLISHED -- a FaVe compliance check's `related:N`
+        condition), arrival additionally requires that connection state; the
+        per-source flood is state-independent, so both variants share one cached
+        flood. Flood cached engine-side. """
         if not self._built:
             raise RuntimeError("build() must be called first")
         tv = -1 if target_vlan is None else int(target_vlan)
+        rel = -1 if related is None else int(related)
         return bool(self._eng.isReachable(
             str(src_device), str(src_port),
             None if src_cidr is None else str(src_cidr),
-            str(dst_device), str(dst_port), tv
+            str(dst_device), str(dst_port), tv, rel
         ))
 
     def build_fwd_atoms(self, rules: List[str], edges: List[str]) -> None:

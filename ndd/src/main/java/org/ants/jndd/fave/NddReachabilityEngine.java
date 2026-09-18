@@ -296,10 +296,34 @@ public final class NddReachabilityEngine {
      */
     public boolean isReachable(String srcDev, String srcPort, String cidr,
                                String dstDev, String dstPort, int targetVlan) {
+        return isReachable(srcDev, srcPort, cidr, dstDev, dstPort, targetVlan, -1);
+    }
+
+    /**
+     * As above, additionally constrained to one CONNECTION STATE: {@code related}
+     * 0 (NEW) or 1 (ESTABLISHED); &lt; 0 imposes no constraint. This is what a
+     * FaVe compliance check's {@code related:N} condition reduces to.
+     *
+     * Constraining at ARRIVAL rather than seeding the source is equivalent and
+     * strictly cheaper. Nothing in FaVe's models REWRITES {@code related} -- it is
+     * a match-only conntrack-shell field, so no rule ever sets it -- hence the
+     * traffic arriving at a probe carries exactly the state bit it was injected
+     * with, and "the arriving space contains a related=N packet" is the same
+     * question as "an injected related=N packet survives". It also keeps the
+     * per-source flood state-INDEPENDENT, so the related:0 and related:1 variants
+     * of a pair share one cached flood instead of forcing two.
+     */
+    public boolean isReachable(String srcDev, String srcPort, String cidr,
+                               String dstDev, String dstPort, int targetVlan,
+                               int related) {
         Integer h = reachedHeaders(srcDev, srcPort, cidr).get(dstDev);
         if (h == null) return false;
-        if (targetVlan < 0) return h != NDD.getFalse();
-        return NDD.and(h, exact(VLAN, targetVlan, W[VLAN])) != NDD.getFalse();
+        int arriving = h;
+        if (targetVlan >= 0)
+            arriving = NDD.and(arriving, exact(VLAN, targetVlan, W[VLAN]));
+        if (related >= 0)
+            arriving = NDD.and(arriving, exact(REL, related, W[REL]));
+        return arriving != NDD.getFalse();
     }
 
     /** Back-compat: no VLAN constraint. */
