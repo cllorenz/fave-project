@@ -395,9 +395,10 @@ true 61 into 72:
    for wl_i2. Since sources inject VLAN-unconstrained, the source-edge gate is close to a
    no-op anyway, so in practice **no** admission was enforced on any packet that mattered.
 
-`_build_stanford_faithful` does not have defect 2: wl_stanford funnels all ingress through
-the single `in.X → mid.X` internal edge and gates there, which catches transit traffic.
-That is why only wl_i2 was affected. It does still share defect 1.
+`_build_stanford_faithful` did not have defect 2: wl_stanford funnels all ingress through
+the single `in.X → mid.X` internal edge and gated there, which catches transit traffic.
+That is why only wl_i2 was affected. It did share defect 1, and that is now fixed too —
+see "wl_stanford shared defect 1" below.
 
 **How this was established.** `bench/i2_structural_oracle.py` re-run with one property
 relaxed at a time (the model semantics substituted, everything else identical):
@@ -430,6 +431,47 @@ Pinned by `test/test_apkeep_i2_admission.py` (integration tier), which reproduce
 defect on a two-router model: `out.b` writes VLAN 10 onto a link landing on `in.a:5`, which
 admits 99 on port 5 and 10 on port 6. Either the union or an ungated transit hop makes the
 probe reachable; both engines must call it unreachable.
+
+##### wl_stanford shared defect 1 — fixed, with no verdict change (2026-09-18)
+
+The port-blind keying was not wl_i2's alone. `_build_stanford_faithful` spliced one
+ACLElement per ROUTER onto that router's `in.X → mid.X` edge, permitting
+`self._in_vlans[in.X]` — the union over its ingress ports. Measured on the real model,
+that union **strictly exceeds every single port's set at all 16 routers**:
+
+| router | union | widest single port | ports |
+|---|---:|---:|---:|
+| `in.goza_rtr` | 151 | 128 | 23 |
+| `in.gozb_rtr` | 152 | 128 | 23 |
+| `in.boza_rtr` | 114 | 98 | 14 |
+| `in.bbra_rtr` | 47 | 23 | 34 |
+| `in.bbrb_rtr` | 17 | 9 | 20 |
+
+So the gate admitted tags the arrival port does not — the same over-approximation that
+cost wl_i2 its 11 pairs. Fixed the same way: one element per `(in.X, ingress port)`,
+spliced onto every edge delivering there, permitting that port's own set. Note this
+**moves** the gate rather than tightening it. A per-port gate could not have been
+expressed where the old one stood: the `in.X → mid.X` funnel is downstream of the merge,
+so by the time traffic reaches it the arrival port is already lost. Cost: 60 elements
+instead of 16, and *fewer* VLAN tags overall (939 against 1,340), because the per-port
+sets are smaller than the union.
+
+**No verdict changed** — faithful wl_stanford on NDD is still pair-for-pair identical to
+NetPlumber. That is the expected outcome, and it is why the defect survived here while
+wl_i2 lost 11 pairs to it: the surplus tags happen to be ones nothing upstream assigns
+towards those ports, so the relaxation admits traffic that never arrives.
+
+**Which is exactly why the new gate is STRUCTURAL.** The reachability gate
+(`test_apkeep_ndd_fwd.py`'s faithful wl_stanford test) cannot see this defect — it passed
+before the fix and after it. `test/test_apkeep_stanford_admission.py` asserts the shape
+instead: one element per reached ingress port, each permitting exactly that port's set
+and never the device union, and every live ingress edge passing a gate (the only ungated
+ones deliver to dead ports `_gate_dead_ingress` removes outright). It first asserts the
+model really is port-non-uniform, so it cannot pass vacuously on a model where the two
+keyings coincide. Against the pre-fix builder it produces 103 failures. This is the
+distinction between a right answer and a right answer for the right reason, and it is
+the general lesson of both defects: a workload where the over-approximation is
+unobservable gates nothing.
 
 #### wl_up — the conditions never reach the query (and wl_ifi cannot show it) — FIXED
 `apkeep/adapter.py:1451` unpacked `(source, negated, cond)` and used `negated`; `cond`
@@ -1215,9 +1257,10 @@ correctness. Work on (1) starts next.
   and spliced only onto source edges, so transit VLANs were never checked. Either
   defect alone accounts for the full 72-vs-61 gap; both are fixed and faithful APKeep
   now returns the 11 pairs set-identical to NetPlumber, ad6 and the structural oracle.
-  Full derivation in §9. Note wl_stanford's faithful builder still shares the
-  port-blind keying (it gates the right edge, so it was not caught here) — worth
-  tightening for symmetry, though it currently matches NetPlumber.
+  Full derivation in §9. wl_stanford's faithful builder shared the port-blind keying
+  (it gated the right edge, so nothing was observed there) and is now fixed the same
+  way, with no verdict change and a structural gate — the reachability gate cannot see
+  that defect, which is the whole point.
 - **PARTLY RESOLVED (2026-09-18) — the wl_i2 gates asserted the wrong oracle.**
   `test_apkeep_ndd_fwd`'s faithful i2 test now asserts the 11 unreachable pairs from
   `bench/wl_i2/eval/i2_structural_oracle_atoms.json` (exhaustive over IPv4, agreed by
