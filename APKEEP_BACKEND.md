@@ -504,14 +504,33 @@ Both engines already carried the field, so only the query side changed:
 real `checks.json` posted the way `bench/compliance_checker.py` posts it — 11,902 checks,
 3,302 of them conditioned): **0 violations**, matching FaVe+NetPlumber and FaVe+ad6.
 Replay 1.7 s, `check_compliance` 1.0 s — unchanged from the unconditioned run, which is
-the flood cache staying shared.
+the flood cache staying shared. That is the NDD engine, wl_up's production default.
+
+**Confirmed on the BDD engine too, at full wl_up scale.** The two engines force the bit
+through different machinery — `ReachabilityChecker`'s arrival test against a
+`BDDACLWrapper` predicate, versus an NDD `and` on field REL — so neither covers the other,
+and the committed gate exercises the BDD path only on a two-rule model. Same models, same
+11,902 checks, `engine='bdd'`: **0 violations**, set-identical to the NDD result. Total
+9 m 56 s: replay 1.7 s, build 469.6 s, queries 124.2 s (95.8 checks/s, 3.99 M DFS nodes,
+no single check above 0.1 s).
+
+The build reproduces the frozen baseline's structural fingerprint **exactly** —
+`APKEEP_BDD_BASELINE.md` §4.2 records `ap_num` 14 561 and 543 elements across two
+environments, and this run gives 14 561 and 543 again, PPM-dominated at 95 % (`ppm_ms`
+444.3 s of 469.6 s; insert 16.8 s, merge 4.3 s, encode 0.3 s) against that table's 96 %.
+So honouring the condition changed the query and left the model untouched, which is what
+it should do. The build wall itself is faster than §4.2's 680–748 s; that table already
+flags ~10 % run-to-run variance plus env sensitivity on a BDD-heavy workload, and this
+run had `FAVE_JVM_XMX=12g` and an idle box, so it is not evidence of a speedup.
 
 **The gate asserts both halves, because either alone passes for the wrong reason.**
 `test/test_apkeep_compliance_cond.py` (NDD tier) runs the same policy twice: with the
 conditions it must report **zero**, and with the very same checks stripped of their
 conditions it must report **exactly 1,651** — every one of them a check that carried a
 condition. A condition that bound to nothing would satisfy the first assertion and fail
-the second, which is precisely the failure mode wl_ifi cannot detect.
+the second, which is precisely the failure mode wl_ifi cannot detect. The gate runs wl_up
+on NDD and both engines on a two-rule stateful firewall; the BDD wl_up run above is a
+manual confirmation, not part of the tier, because 8 of its 10 minutes are build.
 
 #### The wl_ifi stateless variant — giving the benchmark a zero-violation oracle
 Owner proposal, 2026-09-18, and implemented the same day. wl_ifi pairs a policy that
@@ -1182,10 +1201,12 @@ correctness. Work on (1) starts next.
   (exactly the `related:0` set) where FaVe+NetPlumber and ad6 both report 0. The two
   candidate fixes turned out not to be alternatives — `related` is HONOURED (forced onto
   the query at arrival, on both engines) and everything else is REFUSED (`_cond_related`,
-  the same discipline as ad6's `_validated_conditions`). wl_up now reports 0. Full
-  derivation in §9; pinned by `test/test_apkeep_compliance_cond.py`, which also asserts
-  that dropping the conditions would still produce the 1,651 — otherwise a condition
-  that bound to nothing would pass. FaVe+APKeep is usable on a stateful workload.
+  the same discipline as ad6's `_validated_conditions`). wl_up now reports 0 on the NDD
+  engine and, confirmed separately at full scale, on the BDD engine — which matters
+  because the two force the bit through different machinery. Full derivation in §9;
+  pinned by `test/test_apkeep_compliance_cond.py`, which also asserts that dropping the
+  conditions would still produce the 1,651 — otherwise a condition that bound to nothing
+  would pass. FaVe+APKeep is usable on a stateful workload.
 - **RESOLVED (2026-09-18) — `faithful_vlan` now has a production route, and is the
   DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD with it,
   because faithful-on-BDD completes on neither wl_stanford nor wl_i2.
