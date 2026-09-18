@@ -5,9 +5,12 @@
 #
 # Chain, all of it scripted:
 #
-#   cloud_bench.tar.bz2  (not in the repo; see --from-archive below)
-#     -> bench/wl_cloud/cloud-tf/   the raw cloud/base scenario, TRACKED,
-#                                   covered byte-for-byte by SHA256SUMS
+#   bench/wl_cloud/cloud-tf/        the raw cloud/base scenario, TRACKED,
+#                                   covered byte-for-byte by SHA256SUMS. This
+#                                   IS the raw data as far as the repository is
+#                                   concerned -- the source archive is not kept,
+#                                   and git is what reveals an edit to these
+#                                   files (owner decision 2026-09-18).
 #     -> oracle.json                DERIVED from the six .smt2 instances
 #                                   (cloud_oracle.py): source, target, header
 #                                   constraints and the sat/unsat verdict each
@@ -22,11 +25,6 @@
 #
 # Usage:
 #   bash fave/test/gen_wl_cloud_inputs.sh
-#   bash fave/test/gen_wl_cloud_inputs.sh --from-archive /path/to/cloud_bench.tar.bz2
-#
-# With --from-archive the vendored raw scenario is re-extracted first and
-# checked against SHA256SUMS, which is how you verify that what is committed
-# really is what the archive ships.
 
 set -euo pipefail
 
@@ -36,21 +34,11 @@ export PYTHONPATH="$(pwd)"
 
 RAW=bench/wl_cloud/cloud-tf
 
-if [ "${1:-}" = "--from-archive" ]; then
-    ARCHIVE="${2:?--from-archive needs the path to cloud_bench.tar.bz2}"
-    echo "re-extracting the raw scenario from $ARCHIVE"
-    TMP="$(mktemp -d)"
-    trap 'rm -rf "$TMP"' EXIT
-    tar xjf "$ARCHIVE" -C "$TMP" cloud/base
-    # Keep SHA256SUMS: it is ours, not the dataset's, and is what the
-    # comparison below is against.
-    cp "$TMP"/cloud/base/* "$RAW"/
-    chmod 644 "$RAW"/*
-fi
-
 # Integrity BEFORE derivation. A byte that changed here silently changes what
 # the benchmark measures, and a manual edit made while debugging is exactly how
-# that happens.
+# that happens. Complementary to git rather than a replacement for it: git
+# reveals a committed change to the raw scenario, this catches an uncommitted
+# one at the moment it would affect a measurement.
 echo "verifying the raw scenario against $RAW/SHA256SUMS"
 ( cd "$RAW" && sha256sum -c SHA256SUMS --quiet )
 
