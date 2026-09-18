@@ -720,15 +720,31 @@ the complement. That is not a stylistic choice; it is the sole mechanism.
 - [ ] Emit the complement check for conditionally permitted cells in
       `reach_csv_to_checks.py`. The `f=!field:value` syntax and its adapter-side
       expansion already exist (§1.6b/c).
-- [ ] **Prerequisite:** fix `NetPlumberAdapter._expand_negations`, which keys its
-      per-field vectors by field NAME. For a cell permitting alternatives —
-      `(protocol:tcp;port:80|protocol:tcp;port:22)`, whose complement is
-      `¬80 ∧ ¬22` — the second `packet.upper.dport` silently overwrites the
-      first, so half the complement would be checked while the output looked
-      complete. Multiple check entries OR together, so the intersection must be
-      materialised as a union of arrays: pairwise intersection of the two
-      expansions, unsatisfiable pairs dropped.
-      **This is not hypothetical and not deferrable: `wl_example` has such a cell
+- [ ] **Prerequisite:** fix `NetPlumberAdapter._expand_negations`, which keys
+      its per-field vectors by field NAME (`fields = set(f.name ...)`, then
+      `field_vectors[field.name] = ...`). Given two negated fields of the same
+      name it keeps only the last: measured, `_expand_negations([!80, !22])`
+      returns **the same 16 vectors as `_expand_negations([!22])`** — the `!80`
+      is dropped entirely.
+
+      **The error direction is a FALSE VIOLATION, not a silent weakening** (an
+      earlier draft of this section said the latter, wrongly). The survivor
+      `¬22` is a strict SUPERSET of the intended `¬80 ∧ ¬22`, so the check
+      forbids more than the policy does: port 80 — which the cell *permits* —
+      overlaps the produced condition, and a must-not-reach entry fires on it.
+      Verified. That is at least visible rather than silent, but it would be
+      chased as a model defect.
+
+      The fix: multiple check entries OR together (overlap distributes over
+      union), so an intersection of complements must be materialised as a union
+      of arrays — pairwise intersection of the expansions, unsatisfiable pairs
+      dropped. For `{tcp/80, tcp/22}` that is 256 candidate pairs, 253
+      satisfiable, **175 distinct**, plus 8 for the non-TCP half: ~183 check
+      entries for ONE cell. A set-complement by interval/prefix decomposition
+      would need **21** for the same thing, so the naive version is worth
+      replacing if cell counts grow.
+
+      **Not hypothetical and not deferrable: `wl_example` has such a cell
       today**, so the generator change would misfire on the smallest workload in
       the suite the moment it lands.
 
