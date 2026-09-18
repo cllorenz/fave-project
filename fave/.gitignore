@@ -43,13 +43,15 @@ bench/wl_generic_fw/*.json
 bench/wl_generic_fw/*.csv
 
 # Blanket like the workloads above, so a newly generated artifact cannot leak
-# into a `git add .`. The exception is deliberate and load-bearing: oracle.json
-# is not generated, it is the hand-transcribed source of this workload's
-# third-party verdicts (CLOUD_BENCH_PLAN.md §1.4) and the only thing that makes
-# the run a correctness GATE rather than a self-comparison. Losing it would
-# quietly turn the benchmark into a reachability report.
+# into a `git add .`. oracle.json is among them ON PURPOSE: it used to be
+# hand-transcribed and tracked, and is now DERIVED from the vendored .smt2
+# instances on every run (bench/wl_cloud/cloud_oracle.py). Tracking a generated
+# oracle is how a benchmark ends up gated on an artifact nobody can rebuild --
+# see CLOUD_BENCH_PLAN.md §1.8, and stanford-json/ for what that looks like
+# years later. The raw scenario it is derived FROM is tracked instead, under
+# bench/wl_cloud/cloud-tf/, with a SHA256SUMS the run verifies before deriving.
 bench/wl_cloud/*.json
-!bench/wl_cloud/oracle.json
+
 
 *.pdf
 out
