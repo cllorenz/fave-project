@@ -9,8 +9,13 @@
 # depend only on tracked sources -- no live backend, no reachability.csv needed.
 #
 # The reachability ORACLE for the NDD test is the tracked frozen BDD baseline
-# matrix bench/wl_up/eval/mat_apk.json, NOT reachable.json, so the ground-truth
-# generation steps (reachability.csv -> reachable.json) are intentionally absent.
+# matrix bench/wl_up/eval/mat_apk.json, NOT reachable.json. The policy artifacts
+# are generated here all the same (they were not, until 2026-09-18): they are
+# gitignored, test_apkeep_compliance_cond consumes checks.json, and without this
+# it SKIPPED on a clean checkout rather than running. Generating them here also
+# makes the invariant executable -- checks.json / cchecks.json / reachable.json
+# are derived from the FPL inventory and policy (roles_and_services.txt +
+# reach.txt) and from nothing else.
 
 set -euo pipefail
 
@@ -34,5 +39,20 @@ bash scripts/generate-clients-rulesets.sh "$W"
 "$PYTHON" "$W/topogen.py"
 "$PYTHON" "$W/routegen.py"
 "$PYTHON" "$W/policygen.py"
+
+# policy artifacts: FPL inventory + policy -> reachability matrix -> checks.
+# --strict and the default (enabled) Internet role mirror wl_up/benchmark.py;
+# --roles carries each role's FPL attributes through to the check generator, so
+# a role whose one node stands for a subnet (wl_up's Wifi, a /64 with no hosts)
+# keeps the self-check its `Wifi <--> Wifi` rule asks for.
+"$PYTHON" ../policy_translator/policy_translator.py --strict --csv \
+    --out "$W/reachability.csv" --roles "$W/roles.json" \
+    "$W/roles_and_services.txt" "$W/reach.txt"
+# inventory.json (role -> model hosts) is gitignored too, and inventorygen reads
+# the matrix produced above, so it belongs between the two steps.
+"$PYTHON" "$W/inventorygen.py"
+"$PYTHON" bench/reach_csv_to_checks.py -p "$W/reachability.csv" \
+    -m "$W/inventory.json" --roles "$W/roles.json" \
+    -c "$W/checks.json" --cchecks "$W/cchecks.json" -j "$W/reachable.json"
 
 echo "wl_up inputs generated under $W/"

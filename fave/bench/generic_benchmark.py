@@ -132,6 +132,11 @@ class GenericBenchmark(object):
             "reach_json" : "reachable.json",
             "roles_services" : "roles_and_services.txt",
             "reach_policies" : "reach.txt",
+            # Atomic roles + their FPL attributes, dumped by the translator and
+            # read back by reach_csv_to_checks: a role whose single node stands
+            # for a whole subnet may carry a self-check, one standing for a
+            # single device may not. See reach_csv_to_checks._abstracts_a_subnet.
+            "roles_json" : "roles.json",
             "np_config" : 'np.conf'
         }
 
@@ -210,6 +215,7 @@ class GenericBenchmark(object):
                 (['-s', self.suffix] if self.suffix else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
+                    '--roles', self.files['roles_json'],
                     '-c', self.files['checks'],
                     '--cchecks', self.files['cchecks'],
                     '-j', self.files['reach_json']
