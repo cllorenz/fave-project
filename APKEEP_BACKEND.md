@@ -5,8 +5,10 @@ selectable FaVe backend (`--backend apkeep` on the aggregator, `FAVE_BACKEND=apk
 on any `bench/wl_*/benchmark.py`), carries two engines behind one adapter (BDD and
 NDD), is gated in the integration tier, and has now been run end to end on wl_ifi,
 wl_stanford, wl_i2 and wl_up through the live aggregator. **Open:** compliance
-CONDITIONS are silently dropped, and the faithful-VLAN model has no production route
-— both in "Production-path parity" below.
+CONDITIONS are silently dropped (wl_up: 1,651 phantom violations) — see
+"Production-path parity" below. The faithful-VLAN model is now the default and
+selectable (`--no-vlan` opts out), and the wl_i2 over-approximation it was suspected
+of has been root-caused and fixed (§9).
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -280,9 +282,11 @@ coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
     ~24x faster** -- APKeep reproduced `reachable.json` exactly. **That match is
     NOT a correctness result** (added 2026-09-18): `reachable.json` is an
     all-reachable 72/72 policy mesh, so any relaxed encoding scores 100% on it by
-    construction. Measured against NetPlumber instead, APKeep is 11 pairs
-    OVER-approximate -- see "Production-path parity" below. The timing result
-    stands; the exactness claim does not.
+    construction. Measured against NetPlumber instead, APKeep was 11 pairs
+    OVER-approximate -- root-caused and fixed later the same day (the faithful
+    VLAN admission gate; see "Production-path parity" below). The timing result
+    always stood; the exactness claim did not, and this measurement was of the
+    PLAIN model, which over-approximates by construction.
     The crossover is decisive at scale: header-space flow propagation is the
     bottleneck (NetPlumber's 341 s is almost entirely model build), atomic
     predicates are not. This is the result the comparison was built to show.
@@ -314,7 +318,7 @@ count can hide two compensating errors.
 |---|---:|---|---|---|
 | wl_stanford | 240 | 75 viol → **165** reachable | 75 viol → **165** | **yes, set-equal** |
 | wl_ifi | 299 | 27 viol | 27 viol | **yes, set-equal** (but see below) |
-| wl_i2 | 72 | 11 viol → **61** | 0 viol → **72** | **no — 11 pairs** |
+| wl_i2 | 72 | 11 viol → **61** | 0 viol → **72** | no — 11 pairs (**since fixed**, §9) |
 | wl_up | 11,902 | **0** viol (ad6: 0) | **1,651** viol | **no — 1,651 phantom** |
 
 Both NetPlumber runs were made for this comparison on the same day and the same box,
@@ -335,7 +339,7 @@ over-approximation. Matching **NetPlumber's 165** is the stronger claim. Note th
 the plain P7a model (`faithful_vlan=False`, the only thing the production path can
 build — see the gap below), not the faithful VLAN one.
 
-#### wl_i2 — APKeep over-approximates by exactly 11 pairs
+#### wl_i2 — APKeep over-approximated by exactly 11 pairs (root-caused and fixed)
 `FAVE_BACKEND=apkeep` → **0 violations of 72** (everything reachable).
 `FAVE_BACKEND=netplumber`, same driver → **11 violations of 72** → 61 reachable:
 
@@ -368,8 +372,63 @@ selectable, `FAVE_BACKEND=apkeep bench/wl_i2/benchmark.py` builds the full dst �
 model on the NDD engine (41.9 s of `check_compliance`) and **still reports 0 violations
 of 72**. The over-approximation therefore survives the faithful model and the
 VLAN-blind alibi is gone: both APKeep models, on both engines, say 72 where NetPlumber,
-ad6 and `bench/i2_structural_oracle.py` say 61. The cause lies somewhere other than the
-VLAN admission × rewrite coupling, and is not yet identified.
+ad6 and `bench/i2_structural_oracle.py` say 61.
+
+##### ROOT CAUSE (2026-09-18): the VLAN admission gate was keyed by device, and never applied to transit
+
+Two independent defects in `_build_i2_faithful`, **either one sufficient** to turn the
+true 61 into 72:
+
+1. **Admission was keyed by DEVICE, not by (ingress port, VLAN).** `_capture_in_admission`
+   recorded `self._in_vlans[in.X] |= {vlan}`, discarding `rule.in_ports` — the union over
+   every port of the router. wl_i2's in-stage is emphatically not port-uniform: `in.kans`
+   admits `{11,20,21,30,31,32,40,60,70}` on port `400029` and `{10,20,30}` on ports
+   `400019/400022/400025/400026`. The union therefore admits VLAN 10 at Kansas, and VLAN 10
+   is exactly what `out.chic` writes onto the link `220045 → 400029`. The union is larger
+   than any single port's set at **all nine routers** (kans 40 vs max-per-port 11; chic 94
+   vs 26).
+2. **The gate was spliced only onto `source.* → in.X` edges.** The splice condition was
+   `s_dev in self._generators`, so a transit hop `out.Y:p → in.X:q` passed **ungated** —
+   no admission check at all. The docstring's own stated intent ("a VLAN an upstream mid
+   assigned propagates only if the next router's ingress admits it") was never realised
+   for wl_i2. Since sources inject VLAN-unconstrained, the source-edge gate is close to a
+   no-op anyway, so in practice **no** admission was enforced on any packet that mattered.
+
+`_build_stanford_faithful` does not have defect 2: wl_stanford funnels all ingress through
+the single `in.X → mid.X` internal edge and gates there, which catches transit traffic.
+That is why only wl_i2 was affected. It does still share defect 1.
+
+**How this was established.** `bench/i2_structural_oracle.py` re-run with one property
+relaxed at a time (the model semantics substituted, everything else identical):
+
+| oracle variant | reachable pairs |
+|---|---:|
+| per-port admission, checked every hop (the truth) | **61** — the same 11 pairs |
+| port-blind union, checked every hop (defect 1 alone) | **72** |
+| per-port admission, checked at ingress only (defect 2 alone) | **72** |
+
+Both counterfactuals reproduce APKeep's answer exactly. The oracle's `--explain atla seat`
+names the mechanism directly: all 5 IPv4 atoms that reach `probe.seat` from anywhere die
+at `BLOCKED@in.kans.400029(vlan=10;admits=[11,20,21,30,31,32,40,60,70])`.
+
+**Fix and verification.** Admission is now captured per `(in.X, ingress port)`
+(`_in_port_vlans`, with an in-port-agnostic rule folded into every port of its device), and
+an admission element is spliced onto **every** edge delivering to an in-stage — transit and
+source alike — each permitting that arrival port's own VLAN set. On wl_i2 that is 63
+elements (one per reached `(device, port)`) instead of 9, one permit rule each, so the
+atomic-predicate cost is unchanged in kind. Measured on the production path, faithful +
+NDD: replay 6.4 s, `check_compliance` 38.2 s, **61 of 72 reachable, the 11 unreachable
+pairs set-identical to NetPlumber, ad6 and the structural oracle** (missing 0, extra 0).
+
+Corroboration that this is the intended semantics and not a tuning choice: ad6's archived
+faithful run records `in_admission_port_scoped: true`, `in_admission_ports: 223`,
+`in_admission_pairs: 596` — it models admission per port, and it is one of the engines
+that gets 61.
+
+Pinned by `test/test_apkeep_i2_admission.py` (integration tier), which reproduces the
+defect on a two-router model: `out.b` writes VLAN 10 onto a link landing on `in.a:5`, which
+admits 99 on port 5 and 10 on port 6. Either the union or an ungated transit hop makes the
+probe reachable; both engines must call it unreachable.
 
 #### wl_up — the conditions never reach the query (and wl_ifi cannot show it)
 `apkeep/adapter.py:1451` unpacks `(source, negated, cond)` and uses `negated`; `cond`
@@ -1090,12 +1149,22 @@ correctness. Work on (1) starts next.
   workload. See "Production-path parity" in §9.
 - **RESOLVED (2026-09-18) — `faithful_vlan` now has a production route, and is the
   DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD with it,
-  because faithful-on-BDD completes on neither wl_stanford nor wl_i2. It did **not**
-  close the wl_i2 gap: faithful APKeep still says 72 against NetPlumber's 61, so that
-  disagreement is not a VLAN-modelling artifact and still needs a root cause.
-- **OPEN (2026-09-18) — the wl_i2 gates assert the wrong oracle.** `test_apkeep_i2` and
-  both `test_apkeep_ndd_fwd` i2 tests compare against `reachable.json`, an
-  all-reachable mesh that cannot detect over-approximation. Repoint at NetPlumber.
+  because faithful-on-BDD completes on neither wl_stanford nor wl_i2.
+- **RESOLVED (2026-09-18) — the wl_i2 11-pair over-approximation.** Root cause: the
+  faithful VLAN admission gate was keyed by DEVICE (the union over its ingress ports)
+  and spliced only onto source edges, so transit VLANs were never checked. Either
+  defect alone accounts for the full 72-vs-61 gap; both are fixed and faithful APKeep
+  now returns the 11 pairs set-identical to NetPlumber, ad6 and the structural oracle.
+  Full derivation in §9. Note wl_stanford's faithful builder still shares the
+  port-blind keying (it gates the right edge, so it was not caught here) — worth
+  tightening for symmetry, though it currently matches NetPlumber.
+- **PARTLY RESOLVED (2026-09-18) — the wl_i2 gates asserted the wrong oracle.**
+  `test_apkeep_ndd_fwd`'s faithful i2 test now asserts the 11 unreachable pairs from
+  `bench/wl_i2/eval/i2_structural_oracle_atoms.json` (exhaustive over IPv4, agreed by
+  NetPlumber and ad6) instead of `reachable.json`. `test_apkeep_i2` and
+  `test_apkeep_ndd_fwd`'s PLAIN i2 test still compare against `reachable.json`; that is
+  defensible for the plain model, which over-approximates by construction, but they
+  should say so rather than read as exactness claims.
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
 - **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
