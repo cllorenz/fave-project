@@ -192,8 +192,18 @@ run_smoke() {
     local rc=0
     echo "== smoke: example.sh =="
     ( cd "$ROOT/fave" && PYTHONPATH=. bash examples/example.sh ) || rc=1
+    # TODO.md item 13a: an `-o` match in a filter chain is REFUSED by default,
+    # because FaVe runs its filter chains before routing and the match would
+    # silently constrain nothing. wl_example's pgf-ruleset uses one, so this
+    # tier opts in explicitly; the run then prints one line per affected device
+    # saying what is not being modelled. Scoped to the command that needs it,
+    # NOT exported -- `./test.sh all` runs the integration tier in the same
+    # shell, and test_iptables_out_iface.py asserts the default is refusal.
+    # DELETE once routing precedes the filter chains (item 13a): the refusal
+    # and this override go together.
     echo "== smoke: wl_example =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" bench/wl_example/benchmark.py ) || rc=1
+    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+        "$PYTHON" bench/wl_example/benchmark.py ) || rc=1
     echo "== smoke: wl_ifi =="
     ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" bench/wl_ifi/benchmark.py ) || rc=1
     return $rc
@@ -278,9 +288,20 @@ run_e2e() {
 
 run_bench() {
     local rc=0 wl
+    local envs
     for wl in wl_up wl_tum wl_stanford wl_i2; do
         echo "== bench: $wl =="
-        ( cd "$ROOT/fave" && PYTHONPATH=. "$PYTHON" "bench/$wl/benchmark.py" ) || rc=1
+        # TODO.md item 13a, as in run_smoke. wl_up's gateway firewall carries
+        # one `-o` rule and wl_tum's tum-ruleset carries 3,286; wl_stanford and
+        # wl_i2 have no rulesets at all, so they are left strict rather than
+        # opted in wholesale. Passed via `env` because an assignment that comes
+        # from an expansion is NOT recognised as an assignment prefix.
+        envs=()
+        case "$wl" in
+            wl_up|wl_tum) envs=(FAVE_ALLOW_OUT_IFACE=1) ;;
+        esac
+        ( cd "$ROOT/fave" && PYTHONPATH=. env "${envs[@]}" \
+            "$PYTHON" "bench/$wl/benchmark.py" ) || rc=1
     done
     return $rc
 }

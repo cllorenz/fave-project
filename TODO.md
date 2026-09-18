@@ -825,6 +825,26 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
 - [ ] **Write-up (§7).** "Price of genericity" section (two-factor decomposition, scaling curves, crossover analysis), expressiveness table, and the BDD-APKeep phase-split bridge figure — kept **separate** from the clean 3-engine reachability comparison.
 - [~] **Architecture & design review (§8, deferred until wl_up + ideally Stanford/i2 work).** Claas, in hindsight: probably would not choose XML as ad6's primary data structure (config AND the SAT-formula AST share one generic `lxml` tree type, no type safety between them). **The two known core bugs are now FIXED (2026-08-21), test-first, ahead of the rest of this review** — Claas asked for proper fixes rather than leaving them as documented workarounds. `ConvertCIDRToVariables` now returns `constant()` for a `/0` prefix instead of an empty (silently-broken) conjunction (`ad6/FAVE_CHANGES.md` §7). `_CreateInitConstraints`'s chained-XOR turned out to be far more broken than first diagnosed — a brute-force sweep found only the very first pair of marked-INIT transitions was ever correctly mutually-excluded for any N>3, not just "the last few of >16" — fixed by replacing the chain with the same direct pairwise encoding the N∈{2,3} case already used correctly (§8). Both have dedicated regression tests (`ad6/test/xml/xmlutilstest.py`, `ad6/test/core/instantiatortest.py`, new `ad6/test/core/initconstraintstest.py`) confirmed failing before the fix. `fave_bridge.py`'s per-query exclusivity workaround is removed (verified redundant). Remaining review scope (still deferred): XML-vs-typed-AST, test coverage for the XMLUtils/SATUtils/Instantiator layer more broadly, and the frontend/backend seam now that two frontends exist.
 
+### 14. `gen_wl_ifi_inputs.sh` does not pass `--roles`, so it and the benchmark disagree (found 2026-09-18)
+**Not caused by this session's work; surfaced by running the smoke tier after it.** Commit `7ec21124` ("wl_up: a subnet role's self-rule is a compliance question, and was dropped") added `--roles` to `GenericBenchmark._convert_policy_to_checks` and to `test/gen_wl_up_inputs.sh`. **`test/gen_wl_ifi_inputs.sh` was not updated**, and wl_ifi is the only other workload with a generated `roles.json` — so the two paths that produce its ground truth now disagree:
+
+| produced by | `reachable.json` | self-pairs |
+|---|---:|---:|
+| `bench/wl_ifi/benchmark.py` (passes `--roles`) | **70** pairs | 16 |
+| `test/gen_wl_ifi_inputs.sh` (does not) | **54** pairs | 0 |
+
+Without `--roles`, `_load_role_attributes` returns `{}` and every self-rule is treated as degenerate — "exactly as before this argument existed", as its own docstring says. With it, each of wl_ifi's 16 roles abstracts a proper subnet, so each self-rule becomes a real compliance question.
+
+**The consequence is a test tier that flips depending on what ran last.** `reachable.json` is gitignored, so whichever generator ran most recently defines it. Run `./test.sh smoke` (or the wl_ifi benchmark) and the next `./test.sh fast` fails four ad6 tests — `test_ad6_grounding.py` (both groundings), `test_ad6_wl_ifi.py`, `test_ad6_wl_ifi_stateful.py` — because ad6 computes no self-reachability and the 70-pair oracle expects 16 of them (the stateful one simply counts: `315 != 299`). Run `gen_wl_ifi_inputs.sh` and they pass again. Neither failure means anything about ad6.
+
+`wl_up` is protected from exactly this by `test/test_wl_up_policy_artifacts.py` ("whatever sits in bench/wl_up/ is what the FPL sources produce"); wl_ifi has no equivalent, which is why the drift went unnoticed.
+
+- [ ] **Decide which oracle is right for wl_ifi.** Per `7ec21124`'s own reasoning the 70-pair version is intended — a subnet role's self-rule IS a compliance question. If so, `gen_wl_ifi_inputs.sh` needs `--roles`, AND the four ad6 tests need to account for self-pairs (ad6 does not model a role reaching itself, so this is ad6-side work, not a test-expectation edit).
+- [ ] **Give wl_ifi the artifact invariant wl_up has** — the wl_up test is what makes this class of drift impossible to ignore, and it generalises to every workload with generated ground truth.
+- [ ] Check `gen_wl_{i2,stanford,tum}_inputs.sh` too. They pass no `--roles` either, but none of those workloads generates a `roles.json`, so the omission is currently inert rather than wrong.
+
+---
+
 ### 13. `-o` in a FORWARD rule is inert: the packet filter chains before it routes (found 2026-09-18)
 **Found by the new complement check on its first run** (item 12 / [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md) §1.9.3), which is a fair argument for that check: it exposed a modelling infidelity in the *smallest* workload in the suite, one that had been invisible because nothing ever asked "and nothing else".
 
