@@ -1027,6 +1027,19 @@ correctness. Work on (1) starts next.
 
 ## 10. Open questions / decisions log
 
+- **OPEN (2026-09-18) — compliance conditions are dropped.** `check_compliance`
+  receives `RuleField` conditions and ignores them, so every state-conditioned check is
+  answered by the unconditioned query. On wl_up that is **1,651 phantom violations of
+  11,902** (exactly the `related:0` set) where FaVe+NetPlumber and ad6 both report 0.
+  wl_ifi agrees with NetPlumber exactly and is NOT evidence to the contrary — its model
+  declares no state field, so the condition is a no-op there. Decide between REFUSING
+  (ad6's `_validated_conditions`) and HONOURING (what NetPlumber does,
+  `netplumber/adapter.py:194`). Until then FaVe+APKeep cannot be used on a stateful
+  workload. See "Production-path parity" in §9.
+- **OPEN (2026-09-18) — `faithful_vlan` has no production route.** Accepted by
+  `build_engine()`, never wired into argparse, so `FAVE_BACKEND=apkeep` can only build
+  the plain model — including for wl_stanford and wl_i2, whose faithful-VLAN variants
+  are the whole point of the NDD result. Add `--faithful-vlan`.
 - **OPEN (2026-09-18) — the wl_i2 gates assert the wrong oracle.** `test_apkeep_i2` and
   both `test_apkeep_ndd_fwd` i2 tests compare against `reachable.json`, an
   all-reachable mesh that cannot detect over-approximation. Repoint at NetPlumber.
