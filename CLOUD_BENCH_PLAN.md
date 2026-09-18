@@ -6,9 +6,12 @@ structural encoding reason (§1.7.2); APKeep under-approximates by 3 (§1.7.3).
 Three defects fixed in shared code along the way (§1.6). Delta-net not started.**
 
 Two third-party datasets arrived in the tree as untracked archives
-(`cloud_bench.tar.bz2`, `deltanet-NSDI17-dataset.tar.gz`). This document records
-what they actually contain, what each is good for, and the build plan for the
-new workloads. It is the sibling of [`AD6_PLAN.md`](AD6_PLAN.md) for the
+(`cloud_bench.tar.bz2`, 21 MB; `deltanet-NSDI17-dataset.tar.gz`, 9.6 GB). This
+document records what they contain, what each is good for, and the build plan
+for the new workloads. **The archives themselves are no longer kept** — the
+parts in scope are vendored, extracted, under
+`fave/bench/wl_cloud/cloud-tf/` and `fave/bench/wl_deltanet/deltanet-traces/`,
+and git is what reveals a change to them (§1.8). It is the sibling of [`AD6_PLAN.md`](AD6_PLAN.md) for the
 *benchmark* axis rather than the *backend* axis.
 
 **Owner decisions 2026-09-18:**
@@ -19,7 +22,10 @@ new workloads. It is the sibling of [`AD6_PLAN.md`](AD6_PLAN.md) for the
    final FIB and verify it statically; decide on the incremental benchmark after,
    with evidence.
 3. Extract only the two `*-only-inserts.csv` files (2.4 MB total).
-4. Keep the source tarballs in place for now.
+4. **Do not keep the source archives** (revised 2026-09-18): they are far too
+   large, the extracted copies live in the repository instead, and git is what
+   reveals a change to them. Claas will re-supply an archive if one is ever
+   needed again.
 
 ---
 
@@ -429,10 +435,10 @@ a derived artifact with no derivation looks like after a few years.
 
 ### The chain, all of it scripted
 
-    cloud_bench.tar.bz2
-      -> bench/wl_cloud/cloud-tf/     the raw cloud/base scenario, TRACKED WHOLE
+    bench/wl_cloud/cloud-tf/          the raw cloud/base scenario, TRACKED WHOLE
                                       (6.7 MB, 9 files, exactly as shipped),
-                                      covered byte-for-byte by SHA256SUMS
+                                      covered byte-for-byte by SHA256SUMS.
+                                      THIS is the raw data; the archive is gone.
       -> oracle.json                  DERIVED by cloud_oracle.py from the six
                                       .smt2 instances
       -> topology / routes / sources / policies / mapping / checks
@@ -441,10 +447,11 @@ a derived artifact with no derivation looks like after a few years.
 
 Everything after the first arrow is gitignored and rebuilt by
 `fave/test/gen_wl_cloud_inputs.sh`, which follows the `gen_wl_*_inputs.sh`
-convention the suite already uses. `--from-archive` re-extracts the raw scenario
-and checks it against `SHA256SUMS`, which is how you verify that what is
-committed really is what the archive ships. It was run that way: the vendored
-copy is byte-identical to the archive member.
+convention the suite already uses. It reads the vendored scenario and nothing
+else -- there is deliberately no live-extraction path (owner decision
+2026-09-18). Before the archive was removed the script's `--from-archive` mode
+was run once and confirmed the vendored copy is byte-identical to what the
+archive ships; that check is what the tracked `SHA256SUMS` now carries forward.
 
 Four properties, each enforced rather than intended:
 
@@ -470,6 +477,11 @@ Four properties, each enforced rather than intended:
 
 ### Provenance — incomplete, needs the owner
 
+The archives are **not kept** (owner decision 2026-09-18 — far too large, and
+git reveals any change to the extracted copies that replace them). Their
+checksums are recorded here so that a re-supplied archive can be identified as
+the same one these files came from:
+
 |  | sha256 | size |
 |---|---|---|
 | `cloud_bench.tar.bz2` | `0c13076b0b2aa7a6be108bf44fb3f3ea37f814a55ea2e36950c35cd5b621d147` | 21 MB |
@@ -481,11 +493,13 @@ Network-Optimized-Datalog line of work; the Delta-net members are owned by
 `ali/ali` and dated 2016-09, re-tarred 2019-10.
 
 **Neither download URL was recorded, and I cannot supply one** — inventing a
-plausible one would be worse than leaving the gap visible. Since the Delta-net
-archive is too large to vendor, its reproduction chain depends on a file that is
-not in the repository, so its origin needs to be written down here by whoever
-fetched it. The cloud archive no longer has that problem: its scenario is
-vendored, so the repository is self-contained even if the archive is lost.
+plausible one would be worse than leaving the gap visible. It needs writing down
+here by whoever fetched them.
+
+What that gap now costs is bounded, because both datasets' in-scope parts are
+vendored: the repository reproduces every benchmark it defines without either
+archive. The gap only bites if the scope ever widens — a second cloud scenario
+for the scaling axis, or a Delta-net trace beyond the two insert-only ones.
 
 ---
 
@@ -512,7 +526,12 @@ physically out of reach:
 in size, supporting the reading that the latter is a churn-randomised derivative
 of the former.
 
-**In scope (extracted):** `airtel1-only-inserts.csv`, `airtel2-only-inserts.csv`.
+**In scope, and VENDORED** under `fave/bench/wl_deltanet/deltanet-traces/`
+(2.4 MB, with its own `SHA256SUMS` and a README recording the scope and what is
+known about the format): `airtel1-only-inserts.csv`, `airtel2-only-inserts.csv`.
+They were copied out of the archive before it was deleted; nothing else from the
+archive survives in the repository, and re-deriving anything else would need
+Claas to supply the archive again.
 
 The airtel2 insert trace measures: **38,100 inserts, 57 routers, 52 next-hops,
 1,400 distinct prefixes**, prefix lengths 14–25 (so genuine LPM). The fourth CSV
@@ -543,14 +562,14 @@ weaker claim than the cloud dataset's, and it should be written up as such.
 
 ### 2.2 Build plan — deferred until `wl_cloud` reaches C5
 
-- [ ] **D0** **Script the extraction first, per §1.8.** The two only-inserts
-      traces were extracted with ad-hoc `tar` commands that exist nowhere in the
-      repository. Before any converter: a `gen_wl_deltanet_inputs.sh` that pulls
-      the scoped members out of the archive and verifies them against a
-      manifest, and the archive's origin URL written into §1.8's provenance
-      table. Delta-net cannot vendor its raw data — that is exactly why its
-      chain has to be scripted and checksummed from the start rather than
-      retrofitted.
+- [x] **D0** **The raw traces are vendored and checksummed** (2026-09-18).
+      They had been extracted with ad-hoc `tar` commands existing nowhere in the
+      repository, which would have left the whole Delta-net phase resting on my
+      shell history; the archive has since been deleted, so that debt is now
+      settled rather than merely noted. `deltanet-traces/` holds both CSVs, a
+      `SHA256SUMS`, and a README recording the scope decision, the measured
+      shape of the data and the unresolved fourth-column question.
+      **Still open:** the archive's origin URL, which nobody recorded.
 - [ ] **D1** Establish the meaning of the fourth CSV field before writing any
       converter.
 - [ ] **D2** Replay `airtel2-only-inserts.csv` into a final FIB; report the

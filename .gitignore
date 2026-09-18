@@ -3,10 +3,12 @@ Pyrex-0.9.9.tar.gz
 Pyrex-0.9.9
 pybison
 
-# Third-party benchmark source archives, kept locally and never committed:
-# together they are ~10 GB, and the workloads vendor only what they read
-# (fave/bench/wl_cloud/cloud-tf/, the two only-inserts traces). See
-# CLOUD_BENCH_PLAN.md for what is in them and why the rest stays out.
+# Third-party benchmark source archives. These are NOT kept at all any more
+# (owner decision 2026-09-18: ~10 GB between them, far too large) -- the scoped
+# parts are vendored extracted instead, under fave/bench/wl_cloud/cloud-tf/ and
+# fave/bench/wl_deltanet/deltanet-traces/, where git reveals any change to them.
+# The patterns stay as a guard, so that re-supplying an archive to re-derive
+# something cannot end with it committed by accident.
 cloud_bench.tar.bz2
 deltanet-NSDI17-dataset.tar.gz
 nsdi-data-sets/
