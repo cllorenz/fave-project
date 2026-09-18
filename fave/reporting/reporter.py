@@ -70,10 +70,11 @@ def _backend_checks_anomalies(fave: Any) -> bool:
 def _render_cond(cond: Any) -> List[str]:
     """ An engine-reported condition as "name=value" strings.
 
-    `Ad6Adapter` hands back whatever `check_compliance` was given: a list of
-    `RuleField.to_json()` dicts. Rendered leniently -- a report is a
-    presentation artifact, and an unfamiliar shape should print as itself
-    rather than abort the run that produced the verdict. """
+    An engine hands back whatever `check_compliance` was given: `Ad6Adapter`
+    normalises to `RuleField.to_json()` dicts, `APKeepAdapter` echoes the
+    `RuleField` objects the aggregator built. Both shapes render; anything else
+    prints as itself, because a report is a presentation artifact and an
+    unfamiliar shape should not abort the run that produced the verdict. """
     if not cond:
         return []
     if isinstance(cond, str):
@@ -82,6 +83,8 @@ def _render_cond(cond: Any) -> List[str]:
     for field in cond:
         if isinstance(field, dict) and 'name' in field:
             rendered.append("%s=%s" % (field['name'], field.get('value')))
+        elif getattr(field, 'name', None) is not None:
+            rendered.append("%s=%s" % (field.name, getattr(field, 'value', None)))
         else:
             rendered.append(str(field))
     return rendered

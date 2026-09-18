@@ -95,6 +95,19 @@ class TestEngineReportedCompliance(unittest.TestCase):
         self.assertIn('probe.admin.ifi', text)
         self.assertIn('related=0', text)
 
+    def test_a_condition_renders_whether_it_is_a_dict_or_a_rulefield(self):
+        """ `Ad6Adapter` normalises `cond` to `RuleField.to_json()` dicts;
+        `APKeepAdapter` echoes back the `RuleField` objects the aggregator
+        built. Both are shapes the reporter receives in practice, and a
+        `RuleField` used to render as its repr. """
+        from rule.rule_model import RuleField
+        text = _report_text(_EngineWithResults([
+            ('source.internal.ifi', 'probe.admin.ifi', False,
+             [RuleField('related', '0')]),
+        ]))
+        self.assertIn('related=0', text)
+        self.assertNotIn('RuleField object at', text)
+
     def test_no_violations_reads_as_clean_not_as_missing(self):
         text = _report_text(_EngineWithResults([]))
         self.assertIn('No compliance violations have been found', text)
