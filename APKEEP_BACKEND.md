@@ -359,12 +359,17 @@ REOPENED" re-derived for ad6. `APKEEP_NDD_EVAL.md` §2.6's "faithful reachabilit
 72 = NP" is contradicted by NetPlumber itself; it predates the §9.29 `length`/`mapping`
 fix and was never re-run. **These three gates should be repointed at NetPlumber.**
 
-Caveat on which model this measures: the production path can only build
-`faithful_vlan=False` (below), where over-approximation is expected — plain mode
-relaxes the VLAN constraint and relaxing can only add reachability. It is therefore
-*not* proof of a bug on its own. But the faithful model is not exculpated either:
-`test_i2_faithful_vlan_matches_ground_truth` builds it through the adapter and also
-asserts 72. Both APKeep models say 72; NetPlumber, ad6 and the structural oracle say 61.
+**The faithful model does not fix it — measured, not inferred (2026-09-18).** When
+this section was first written the production path could build only
+`faithful_vlan=False`, where over-approximation is expected by construction (plain mode
+relaxes the VLAN constraint, and relaxing can only add reachability), so the 11 pairs
+were not yet evidence of a defect. With the faithful model now the default and
+selectable, `FAVE_BACKEND=apkeep bench/wl_i2/benchmark.py` builds the full dst × VLAN
+model on the NDD engine (41.9 s of `check_compliance`) and **still reports 0 violations
+of 72**. The over-approximation therefore survives the faithful model and the
+VLAN-blind alibi is gone: both APKeep models, on both engines, say 72 where NetPlumber,
+ad6 and `bench/i2_structural_oracle.py` say 61. The cause lies somewhere other than the
+VLAN admission × rewrite coupling, and is not yet identified.
 
 #### wl_up — the conditions never reach the query (and wl_ifi cannot show it)
 `apkeep/adapter.py:1451` unpacks `(source, negated, cond)` and uses `negated`; `cond`
@@ -411,16 +416,63 @@ violations into an explicit "unanswerable"; (2) honour — constrain the query b
 and is the honest floor; (2) is the real capability and the only one that makes
 FaVe+APKeep usable on a stateful workload.
 
+#### The wl_ifi stateless variant — giving the benchmark a zero-violation oracle
+Owner proposal, 2026-09-18, and implemented the same day. wl_ifi pairs a policy that
+asks for stateful reachability with a model that faithfully reproduces Cisco ACLs'
+inability to express it; the 27 violations are the honest consequence, and both
+engines report them. But a nonzero expected set is a poor gate (it has to be spelled
+out and maintained) and a poor discriminator (a tool that DROPS the condition scores
+exactly like one that honours it).
+
+Replacing `<->>` with `<-->` — "statefully" with "bidirectionally", both already in
+the FPL grammar (`policy_translator/fpl_grammar.py:133`) — makes the policy ask only
+what the model can express, and a correct tool must then report **zero**. Running both
+configurations exercises a tool on each kind of policy, and separates one that
+**refuses** a condition it cannot honour (ad6) from one that answers anyway.
+
+| wl_ifi configuration | checks | conditioned | NetPlumber | APKeep |
+|---|---:|---:|---:|---:|
+| stateful (`<->>`) | 299 | 54 | 27 | 27 (set-identical) |
+| stateless (`<-->`) | 272 | 0 | **0** | **0** |
+
+The 27 stateful *pairs* (`related:1` must-reach + `related:0` must-not-reach) collapse
+to 27 plain must-reach checks: 299 − 54 + 27 = 272. The reachability oracle
+(`reachable.json`) is byte-identical between the two, so the variant changes only what
+is asked, never what the network is expected to do — which is what keeps the two
+configurations comparable. The NetPlumber figures come from the same InProcessFaVe path
+with the stateful set as a control (27, as expected) so the 0 is a measured zero rather
+than an adapter that populates no results.
+
+**A trap found while building it, worth the next person's time.** `reach.txt` is *not*
+the source of wl_ifi's policy matrix. `roles_and_services.txt` carries its own copy of
+the same four rules (lines 172-181), the translator CONCATENATES its positional files
+before parsing, and so editing `reach.txt` alone changes nothing — deleting a whole rule
+from it leaves the generated matrix byte-identical. Both files have to change, and a
+fast-tier test now pins that the two copies agree, since if they ever diverge the
+concatenation order decides silently.
+
+Artifacts: `reach_stateless.txt`, `roles_and_services_stateless.txt` and
+`reachability_stateless.csv` are tracked inputs; `gen_wl_ifi_inputs.sh` derives
+`checks_stateless.json` / `cchecks_stateless.json` / `reachable_stateless.json`
+alongside the originals. Gates: `test_wl_ifi_stateless_policy.py` (fast — policy,
+matrix and both derived check sets) and `test_wl_ifi_stateless_gate.py` (integration —
+zero violations end to end).
+
 #### Three defects found in passing
 
-1. **`faithful_vlan` has no CLI flag.** `build_engine()` accepts it
-   (`aggregator_service.py:110,139`) and `AggregatorService` threads `**backend_options`,
-   but argparse wires only `--grounding`/`--solver`/`--lite-acyclic` (ad6) and
-   `--apkeep-engine`. So `FAVE_BACKEND=apkeep` always builds the plain, VLAN-blind
-   model — and the faithful-VLAN model, which the entire NDD headline rests on
-   (`APKEEP_NDD_EVAL.md` §2.6: BDD intractable at ap_num≈21.6k, NDD ~3 s), **cannot be
-   selected in production at all.** §9.27 went after ad6's measurement-affecting options
-   deliberately; APKeep's equivalent was missed. Add `--faithful-vlan`.
+1. **`faithful_vlan` had no CLI flag — FIXED 2026-09-18, and the default inverted.**
+   `build_engine()` accepted it and argparse never wired it, so `FAVE_BACKEND=apkeep`
+   could only ever build the plain, VLAN-blind model, and the faithful model the whole
+   NDD headline rests on could not be selected in production at all. Faithful VLAN
+   handling is now the **default** — ad6 and NetPlumber both model it, so an APKeep run
+   that drops it is not a like-for-like comparand — and `--no-vlan` turns it off. The
+   engine default moved with it of necessity: the faithful model is precisely where
+   BDD's atomic-predicate cross-product explodes (it finishes neither wl_stanford nor
+   wl_i2), so the default engine is now **NDD**, which builds both in seconds. `bdd`
+   stays reachable by name, and all 13 existing call sites are pinned explicitly to the
+   configuration they measured. Verified end to end: wl_stanford on the new defaults is
+   75 violations → 165 reachable in 1.05 s, the violation set identical to the
+   plain-BDD run and to NetPlumber's own matrix.
 2. **The report renders APKeep's conditions as object reprs.**
    `aggregator_service.py:290` hands the engine `RuleField` *objects*
    (`RuleField.from_json`); `Ad6Adapter` converts them back to dicts, `APKeepAdapter`
@@ -1036,10 +1088,11 @@ correctness. Work on (1) starts next.
   (ad6's `_validated_conditions`) and HONOURING (what NetPlumber does,
   `netplumber/adapter.py:194`). Until then FaVe+APKeep cannot be used on a stateful
   workload. See "Production-path parity" in §9.
-- **OPEN (2026-09-18) — `faithful_vlan` has no production route.** Accepted by
-  `build_engine()`, never wired into argparse, so `FAVE_BACKEND=apkeep` can only build
-  the plain model — including for wl_stanford and wl_i2, whose faithful-VLAN variants
-  are the whole point of the NDD result. Add `--faithful-vlan`.
+- **RESOLVED (2026-09-18) — `faithful_vlan` now has a production route, and is the
+  DEFAULT.** `--no-vlan` turns it off; the APKeep engine default moved to NDD with it,
+  because faithful-on-BDD completes on neither wl_stanford nor wl_i2. It did **not**
+  close the wl_i2 gap: faithful APKeep still says 72 against NetPlumber's 61, so that
+  disagreement is not a VLAN-modelling artifact and still needs a root cause.
 - **OPEN (2026-09-18) — the wl_i2 gates assert the wrong oracle.** `test_apkeep_i2` and
   both `test_apkeep_ndd_fwd` i2 tests compare against `reachable.json`, an
   all-reachable mesh that cannot detect over-approximation. Repoint at NetPlumber.
