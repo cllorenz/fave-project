@@ -9,10 +9,11 @@ aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` o
 out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
 11-pair over-approximation (a device-keyed, ingress-only VLAN admission gate) and the
 wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) — see
-"Production-path parity" in §9 for both. **No open item in §10 is an APKeep defect any
-more**: the one that remains is a question about the FPL-to-checks translation
-(superrole self-expansion), and it affects what every backend is asked, not what APKeep
-answers.
+"Production-path parity" in §9 for both. **§10 has no open item left.** The last one was
+not an APKeep defect at all but an FPL translation defect — superrole expansion granted
+self-reachability in `--strict` mode, the one mode that promises not to — and it is
+fixed in `policy_translator/policy.py`, so it changed what every backend is asked rather
+than what any of them answered.
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -328,11 +329,12 @@ count can hide two compensating errors.
 Both NetPlumber runs were made for this comparison on the same day and the same box,
 not taken from the record.
 
-*(wl_up's check count is **11,902** throughout this section and **11,903** in §10. Both
-are right: every measurement here was made against the 11,902-check set, and the
-generator gained wl_up's missing `Wifi <--> Wifi` self-check later the same day — see
-§10, "wl_up's headline was under-reported by one". The added check passes, so no verdict
-in this section moves.)*
+*(wl_up's check count moved twice. It is **11,902** throughout this section, **11,903**
+where §10 restores the `Wifi <--> Wifi` self-check, and **11,911** today, after §10's
+superrole-self-expansion fix emptied eight spurious `DMZ*` diagonals and so gave each of
+them a negative self-check. Every measurement in this section was made against the
+11,902-check set and none of it moves: both later additions pass, and the positive check
+count — the one every reachability verdict is read from — is unchanged at 3,371.)*
 
 #### wl_stanford — exact, and on a better oracle than the one P5 claims
 `FAVE_BACKEND=apkeep bench/wl_stanford/benchmark.py` → 75 violations of 240 → 165
@@ -703,8 +705,8 @@ zero violations end to end).
    question" — simply does not apply to it.
 
    The decisive evidence that self-exclusion was never a considered convention:
-   `reach_csv_to_checks.py` has always emitted **61** self-checks for wl_up, one per role
-   whose policy diagonal is *empty* (`! s=source.X && EF p=probe.X`). Self-reachability
+   `reach_csv_to_checks.py` has always emitted self-checks for wl_up -- **61** at the
+   time, 69 today -- one per role whose policy diagonal is *empty* (`! s=source.X && EF p=probe.X`). Self-reachability
    was always a compliance question there; the `s != target` filter suppressed it only in
    the branches where the policy GRANTED it. That asymmetry, not a convention, is what
    dropped the pair.
@@ -717,6 +719,11 @@ zero violations end to end).
    `Internet` stays excluded, for the reason it always was: it is external, outside the
    administrative reach of whoever writes the policy, so its self-reachability is not
    answerable.
+
+   *(The check count is **11,911** today. The eight `DMZ*` diagonals this paragraph
+   classifies as single hosts turned out not to belong in the matrix at all — see §10,
+   "superrole self-expansion". The attribute test above survives that fix and still
+   decides `Wifi`; 3,371 pairs and the 3,661 headline are unaffected.)*
 
 #### Coverage of these runs
 All four benchmarks were run on both backends except wl_i2/APKeep-faithful (no
@@ -1313,7 +1320,8 @@ correctness. Work on (1) starts next.
 - **RESOLVED (2026-09-18) — compliance conditions are dropped.** `check_compliance`
   received `RuleField` conditions and ignored them, so every state-conditioned check was
   answered by the unconditioned query: **1,651 phantom violations of 11,902** on wl_up
-  (the check count at the time; 11,903 since the `Wifi` self-rule was restored, below)
+  (the check count at the time; 11,903 since the `Wifi` self-rule was restored, and
+  11,911 since superrole self-expansion was fixed, both below)
   — exactly the `related:0` set, where FaVe+NetPlumber and ad6 both report 0. The two
   candidate fixes turned out not to be alternatives — `related` is HONOURED (forced onto
   the query at arrival, on both engines) and everything else is REFUSED (`_cond_related`,
@@ -1358,12 +1366,13 @@ correctness. Work on (1) starts next.
   devices may reach each other — how wifi networks generally work, layer 2 being
   unrestricted. `reach_csv_to_checks.py`'s `[s for s in sources if s != target]` filter
   discarded it. That filter was never a considered convention: the generator has always
-  emitted **61** self-checks for wl_up, one per role whose diagonal is EMPTY
+  emitted self-checks for wl_up -- **61** then, 69 now -- one per role whose diagonal is EMPTY
   (`! s=source.X && EF p=probe.X`), suppressing them only where the policy GRANTED
   self-reachability. The filter now keeps the self-pair where the role's single node
   denotes a proper subnet (not a bare address, not a `/0` placeholder), via each role's
   FPL attributes carried through `--roles`. wl_up: **11,903 checks, `reachable.json`
   3,371 pairs, headline 3,661, still 0 violations**; every other workload byte-identical.
+  (11,911 checks today, after the superrole fix below; 3,371 pairs and 3,661 unchanged.)
   `Internet` stays excluded — it is external, outside the administrative reach of
   whoever writes the policy, so its self-reachability is not answerable.
   *(This entry had a wrong intermediate state the same day: the discrepancy was marked
@@ -1420,15 +1429,70 @@ correctness. Work on (1) starts next.
   also that hop-0 vacuity is a property of THIS modelling (probes tapped on every egress
   of the device the source attaches to), not of backbone benchmarks in general: attach
   probes differently and self-reachability could become informative again.
-- **OPEN — superrole self-expansion asserts reachability nobody wrote.** `DMZ <--> DMZ`
-  expands onto each *member's own* diagonal, so wl_up's policy asserts
-  `DMZFileServer` reaching itself, eight times over. Those are degenerate (single named
-  servers), the data plane does not deliver them, and nothing is checked, so nothing
-  fails today. But by the time the policy is a role×role CSV the provenance is gone —
-  a superrole-expanded diagonal is indistinguishable from a deliberate fine-grained
-  self-rule, which is why the discriminator had to work from role cardinality rather
-  than from where the rule came from. If a superrole member were ever a subnet role, its
-  expanded diagonal would silently become a real assertion nobody wrote.
+- **RESOLVED (2026-09-18) — superrole self-expansion asserted reachability nobody wrote,
+  in strict mode.** `DMZ <--> DMZ` expanded onto each *member's own* diagonal, so wl_up's
+  policy asserted `DMZFileServer` reaching itself, eight times over. Nothing named a
+  member reaching itself.
+
+  The item was first logged as provenance loss — a role×role CSV cannot say whether a
+  diagonal was written or expanded, which is why the `Wifi` discriminator above had to
+  work from role cardinality. **That was the symptom.** The defect is one stage earlier:
+  FPL's `--strict` mode exists precisely to require an explicit rule for
+  self-reachability, and superrole expansion walked straight through it. Minimal case,
+  atomic `A`/`B` inside superrole `Grp`, one rule `Grp <--> Grp`:
+
+  | mode | diagonals produced |
+  |---|---|
+  | `--strict` | `A→A`, `B→B` |
+  | loose (default) | `A→A`, `B→B`, `Internet→Internet` |
+
+  Strict granted `A` self-reachability from a rule that never names `A`, and the two
+  modes differed on nothing but `Internet`. The mechanism also explains why it stayed
+  invisible: loose mode's injector at `policy_builder.py` is guarded by
+  `if not policy.policy_exists(role, role)`, so expansion having already filled the
+  diagonal makes the injector skip exactly the roles it would otherwise be blamed for.
+  The suite stated the contract (`test_policy_builder.py`: *"Uses strict mode so the
+  implicit self-reachability policies are suppressed"*) but only ever exercised atomic
+  roles, so the superrole path was untested in both directions.
+
+  **Fixed where the distinction still exists.** `add_reachability_policy` has the
+  *written* role names in scope while it expands, so an explicit diagonal and an expanded
+  one are told apart locally — no provenance plumbing, no CSV format change:
+
+  ```python
+  literal_diagonal = (role_from == role_to
+                      and self.roles[role_from].get_roles() == [role_from])
+  ...
+  if self.strict and role_from_ == role_to_ and not literal_diagonal:
+      continue
+  ```
+
+  `Wifi <--> Wifi` survives (both endpoints name the same atomic role). `DMZ <--> DMZ`,
+  `DMZAdminConsole <->> DMZ` and `All <->> DMZDNSServer` stop producing diagonals. Loose
+  mode is untouched by construction, and `wl_ifi`/`wl_example` — the only other workloads
+  with superroles — are byte-identical, verified by regeneration; `wl_i2`/`wl_stanford`
+  have no superroles at all.
+
+  **wl_up, measured:** non-empty diagonals 9 → **1** (`Wifi`), no off-diagonal cell
+  touched, `roles.json` byte-identical, checks **11,903 → 11,911**, negative self-checks
+  **61 → 69**, positive checks **3,371 unchanged**, `reachable.json` **3,371 pairs**,
+  headline **3,661**, still **0 violations**. The eight diagonals do not vanish from
+  compliance — emptied, they take the ordinary empty-diagonal branch and each yields a
+  must-not-reach check, which is what strict mode plus default-deny implies and matches
+  the 61 the generator already emitted.
+
+  **What this changes about the `Wifi` discriminator.** It stays, and still does the
+  work: `reach_csv_to_checks.py` serves loose-mode callers too, where every diagonal is
+  injected regardless. But in strict mode it is now a second line of defence rather than
+  the thing standing between the check set and eight fabricated assertions. The hazard
+  the item was logged for — a superrole member that is itself a subnet role, whose
+  expanded diagonal would have become a *positive* check nobody wrote — is removed at
+  the source rather than filtered downstream.
+
+  *(Found by the owner, who pointed out that `--strict` exists and turns implicit
+  self-reachability off. The entry above it had reasoned about the pipeline from
+  `reach_csv_to_checks.py` backwards and mis-scoped the fix as expensive on that basis.
+  Checking what strict mode actually promises made it six lines.)*
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
 - **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is

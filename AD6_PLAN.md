@@ -182,7 +182,7 @@ model files rather than trusting the old audit further:
 
 | benchmark | FPL operators in `reach.txt` | checks with a `related:` condition in `cchecks.json` |
 |---|---|---|
-| wl_up | 30× `<->>`, 3× `<-->` | **3302 / 11903** |
+| wl_up | 30× `<->>`, 3× `<-->` | **3302 / 11911** |
 | wl_ifi | 4× `<->>` | **54 / 299** |
 | wl_stanford | 1× `<-->` | 0 / 240 |
 | wl_i2 | 1× `<-->` | 0 / 72 |

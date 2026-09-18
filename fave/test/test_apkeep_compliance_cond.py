@@ -24,7 +24,7 @@ is never silently dropped -- APKEEP_BACKEND.md Sec. 9, "the wl_up state
 conditions".
 
 wl_up asks reachability separately for NEW and ESTABLISHED traffic: 3302 of its
-11902 checks carry a `related:N` condition, and the `related:0` half is
+11911 checks carry a `related:N` condition, and the `related:0` half is
 precisely the set the policy expects NOT to get through (a host may answer an
 established connection, not open one). `check_compliance` used to unpack `cond`
 out of the (source, negated, cond) triple and never look at it again, which does

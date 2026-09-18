@@ -108,6 +108,12 @@ only where the policy GRANTED self-reachability, which is backwards.
 `bench/reach_csv_to_checks.py` now emits the `Wifi` self-check too (11,903 checks,
 `reachable.json` 3,371 pairs), so the headline and the compliance artifacts agree.
 
+The count has since moved again, to **11,911** with **69** negative self-checks:
+`--strict` mode was letting superrole expansion fill eight `DMZ*` diagonals no FPL rule
+had written, and emptying them sends each to the same must-not-reach branch as the
+other 61 (APKEEP_BACKEND.md §10, "superrole self-expansion"). `reachable.json` stays at
+3,371 pairs and the headline at 3,661, so nothing in this baseline moves.
+
 Self-exclusion never changed over/under (both backends agree on the pair), so the
 EXACT verdict was never affected — only the headline.
 
