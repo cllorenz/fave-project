@@ -550,7 +550,7 @@ stateless. Nothing in a policy says which outcome is the expected one.
 
 **Every expectation must be labelled by PROVENANCE.** Six come from the `.smt2`
 files and are third-party. Every other check an FPL policy generates is an
-expectation *we* derived — and §1.9.2 shows there will be many. Unlabelled in one
+expectation *we* derived — and §1.9.4 shows there will be many. Unlabelled in one
 table, a mistake in our own understanding freezes in and reads as authoritative
 as the external verdicts, which is precisely the property §1.8 exists to protect.
 
@@ -577,53 +577,64 @@ undisturbed. Four of the six rules above use it, so it blocks the route outright
       fix the OR/AND confusion, and add the `--->`-with-service path to the
       translator's tests, which currently have no coverage of it.
 
-### 1.9.2 F2 — choose an operator, knowing the backward check is ours, not the oracle's
+### 1.9.2 F2 — `<-->`'s backward direction must SWAP the service, not copy it
 
-**Measured, not argued.** The reverse direction of q05 — generator at
-`dc0_leaf1_host1_tx`, probe at `dc1_leaf6_host2_rx`:
+**Owner specification 2026-09-18.** `A <--> B.S` should yield two checks:
 
-| reverse check | result |
-|---|---|
-| unconstrained | **reachable** |
-| on TCP 350 | **not reachable** |
-| on TCP 40000 | **not reachable** |
+* forward — A reaches B with S's attributes **in forward direction**
+  (`proto=tcp`, `dport=80` for HTTP);
+* backward — B reaches A with S's attributes **in reverse direction**
+  (`proto=tcp`, **`sport=80`**).
 
-Because `dc1_leaf6`'s ACL has exactly three rules — `dst=10.0.7.0/25 dport=332
--> forward`, `dst=10.0.7.0/25 -> DROP`, `(any) -> default route`. Leaf6 publishes
-**only port 332**, so reverse traffic gets in on 332 and nothing else.
+What is implemented instead passes `service_to` to the backward policy verbatim,
+so the backward check asks for `dport=80` again *and* looks the service up on the
+reverse role — which is why
 
-That breaks both candidate operators, and the verified semantics say why:
+    Internet <--> host20.S332   ->   Fehler: Service Internet.S332 unbekannt.
 
-| operator | forward | backward |
+`--->` and `<-->` have had far less exercise than `<->>`, which is the likely
+explanation for the shape of both this and F1's `provider` condition.
+
+#### The measurement, corrected
+
+A first pass here tested the backward direction with `dport=350` and concluded
+`<-->` was unusable. **That was measuring the buggy implementation, not the
+intended semantics.** Re-measured with the reverse-direction condition — all four
+on q05's pair, generator at `dc0_leaf1_host1_tx`, probe at `dc1_leaf6_host2_rx`:
+
+| check | condition | result |
 |---|---|---|
-| `--->` | reachability + service conditions | **nothing emitted** — the denial comes from default-deny leaving the cell empty |
-| `<-->` | same | same, **carrying the same service** |
-| `<->>` | reachability with service | `{"state": "RELATED,ESTABLISHED"}`, **no service** |
+| forward (control, = q05) | `dport=350` | **reachable** |
+| backward, unconstrained | — | **reachable** |
+| backward, **as intended** | `sport=350` | **reachable** |
+| backward, mechanism check | `sport=350, dport=332` | **reachable** |
+| backward, as implemented | `dport=350` | **not** reachable |
+| backward, ephemeral | `dport=40000` | **not** reachable |
 
-- **`--->`** asserts backward unreachability *unconditionally*. FaVe's conditions
-  are existential over header space (`hs_overlaps_arr`), so that means "no packet
-  whatsoever from B reaches A" — and one does, on 332. Spurious violation.
-- **`<-->`** asserts backward reachability *on the same service*, 350. Measured
-  false. Also a spurious violation. It additionally **refuses to compile** unless
-  both roles offer the service (`Fehler: Service HostA.S350 unbekannt.`), because
-  the backward policy is added with the same `service_to`. `<->>` escapes this
-  only because its backward policy carries no service at all.
+`dc1_leaf6`'s ACL is three rules — `dst=10.0.7.0/25 dport=332 -> forward`,
+`dst=10.0.7.0/25 -> DROP`, `(any) -> default route` — so leaf6 publishes **only
+port 332**, and the last row is why `dport=350` backward fails.
 
-So the real difficulty is not statelessness: **the oracle makes one directed,
-service-scoped statement, while every FPL operator emits a directed pair.**
-Whichever is chosen, the backward check asserts something the dataset never said,
-and here it is measurably wrong in both directions.
+So under the specified semantics **`<-->` holds for q05 and is the right
+operator**: stateless ACLs, TCP, and return traffic characterised by its source
+port. One honesty note on the evidence: the checks are existential over header
+space, so `sport=350` passes because *some* packet with `sport=350` and
+`dport=332` gets in. That is weaker than "the return flow of the 350 session
+works", which a stateless model cannot express at all.
 
-That is survivable — §1.9.0's expectation table simply records the backward
-violations as expected — but it means roughly half the generated checks are
-self-derived, which is what makes the provenance labelling load-bearing rather
-than tidy.
+`--->` remains wrong here for the reason first measured, which does survive: its
+backward denial is unconditional, and the unconstrained backward direction is
+reachable (on 332). That denial is also emitted by *nothing* — it is default-deny
+leaving the cell empty — so another rule granting B->A would make it vanish with
+no conflict raised.
 
-- [ ] Choose the operator, with the backward expectation stated explicitly for
-      each rule and marked self-derived.
-- [ ] Also fix, or document, `<-->`-with-service requiring both roles to offer
-      it — today it is a parse-time refusal with a message that does not hint at
-      the cause.
+- [ ] Implement the reverse-direction swap for `<-->` (`dport` <-> `sport`, and
+      whatever the analogous swap is for any address-valued service attribute),
+      and stop looking the service up on the reverse role.
+- [ ] Decide `<-->` vs `<->>` for wl_cloud once it works. `<->>` needs **no
+      fixes at all** (§1.9.4) but asserts stateful return traffic that stateless
+      cloud ACLs do not provide — the wl_ifi pattern, where the violations are
+      the finding rather than an artifact.
 
 ### 1.9.3 F3 — without a complement check, q04 silently weakens
 
@@ -662,7 +673,38 @@ wl_cloud itself stays clear of that case — its ACL matrix is boolean (26x26 of
 0/1, 25 declared services) and each oracle-derived service cell is a single
 service on a distinct role pair — but the generator change is suite-wide.
 
-### 1.9.4 Still open
+### 1.9.4 What the throwaway inventory produced
+
+A fabricated inventory for the six queries — one role per endpoint host carrying
+its real /30, one service per port named by the oracle — compiled against all
+three operators:
+
+| operator | outcome |
+|---|---|
+| `--->` | compiles; **crashes at check time** on `f=provider:` (F1) |
+| `<-->` | **refuses to compile**: `Fehler: Service Internet.S332 unbekannt.` (F2) |
+| `<->>` | **compiles cleanly, no `provider` operand** — its forward call passes no condition |
+
+`<->>` is therefore the only operator that works with services today.
+
+**The number that matters for provenance.** Five policy rules become **60 checks**
+(9 must-reach, 51 must-not-reach); `<->>` gives 61. Six of those correspond to
+oracle statements. **So ~54 of 60 expectations would be self-derived** — an order
+of magnitude more than the third-party ones, which is what makes §1.9.0's
+provenance labelling structural rather than tidy-minded.
+
+Also observed, and to be decided rather than inherited: the diagonal fills with
+`X` self-reachability for every atomic role (added whenever `policy.strict` is
+false), and `<->>` additionally emits a `related:0` must-not-reach on every
+backward pair. The cloud model has **no state field at all**, so those conditions
+name a field outside its mapping — worth measuring before relying on it, since
+extending the mapping at check time is `AD6_PLAN.md` §9.29's territory.
+
+The inventory itself is deliberately **not** committed: it would read as a live
+input while the three items above are open. It is ~60 lines and reconstructible
+from the tables in §1.4 and §1.9.0.
+
+### 1.9.5 Still open
 
 - [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
       written as FPL by hand with a script checking it against the README?
