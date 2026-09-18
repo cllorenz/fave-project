@@ -796,13 +796,41 @@ fires, which means the flow arriving at `dmz` from `office` is essentially
 unconstrained in both fields: the data plane does **not** restrict that pair to
 the services its policy permits.
 
-Two caveats, because the number is striking. The *cause* was not investigated —
-it may be that the toy model genuinely forwards everything on that path, or that
-nothing downstream of an unconstrained generator narrows `dport`. And 261
-violations of what is essentially one fact is a poor way to say it: when many
-complement vectors fire, the useful report is "this pair is reachable outside its
-permitted services", not an enumeration of bit patterns. Worth a summarising
-renderer before this is turned on for any workload with a large matrix.
+**ROOT-CAUSED — it is a real modelling infidelity, not a toy-model shrug.**
+The cause is the single rule
+
+    ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT
+
+which implements `Office <->> Internet` by permitting the office subnet out
+**port 1, the internet port**. Controlled experiment, using material already in
+the tree: `rulesets/violation-ruleset` differs from `pgf-ruleset` in exactly that
+line (commented out). Re-run with it, the office->dmz violations drop from **261
+to 0**, leaving only the two expected `Office <->> Internet` failures that
+ruleset exists to demonstrate.
+
+**Why an `-o 1` rule permits traffic out port 2.** `devices/packet_filter.py`
+wires the pipeline `forward_filter -> routing -> post_routing`, so the FORWARD
+chain runs BEFORE the routing decision. At that point the packet's `out_port`
+field is still wildcard, so matching `out_port = pgf.1_egress` does not fail --
+it NARROWS the header space. The routing table then *writes* `out_port`
+(`post_routing`'s own comment: "forward packets according to out port field set
+by the routing table"; `AD6_PLAN.md` §9.10.2 says the same from ad6's side --
+"a decision written by one rule (`Rewrite(out_port=...)` in `routing`) and READ
+by a later rule in the same device"), overwriting the narrowing. The rule
+therefore reduces to *"accept anything sourced from 2001:db8::200/120"*.
+
+Linux is the other way round: netfilter routes before the FORWARD chain, which
+is what makes `-o` meaningful there. **Any `-o` match in a FORWARD rule is
+therefore inert in FaVe's model**, and the direction of the resulting error
+depends on the target -- `-j ACCEPT` over-permits, `-j DROP` over-restricts.
+Tracked as its own item in `TODO.md`; it is a modelling question for FaVe, not
+something wl_cloud should decide.
+
+One caveat on presentation, separate from the cause: 261 violations of what is
+essentially one fact is a poor way to say it. When many complement vectors fire,
+the useful report is "this pair is reachable outside its permitted services", not
+an enumeration of bit patterns. Worth a summarising renderer before this is
+turned on for any workload with a large matrix.
 
 ### 1.9.4 What the throwaway inventory produced
 
