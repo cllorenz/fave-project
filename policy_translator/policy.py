@@ -33,6 +33,19 @@ from policy_exceptions import NameTakenException, InvalidAttributeException, Inv
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
 from policy_logger import PT_LOGGER
 
+#: The builtin role standing for everything outside the administrative boundary
+#: of whoever writes the policy. It OFFERS EVERY DECLARED SERVICE: a rule naming
+#: a service on the Internet side cannot be expected to declare that the
+#: Internet offers it, since nobody administers the Internet. "Declared" rather
+#: than "anything at all" is deliberate -- a service's conditions come from its
+#: inventory entry, never from its name, so accepting an undeclared service name
+#: would mean inventing attributes from a table of well-known ports. HTTP would
+#: then always mean 80, an HTTP service on port 123 would be unsayable, and a
+#: custom service could not be expressed at all. See
+#: policy_translator/test/test_internet_services.py.
+INTERNET_ROLE = "Internet"
+
+
 class Policy(object):
     """Represents a security policy for a computer network. Contains roles,
     services and reachability policies.
@@ -50,7 +63,7 @@ class Policy(object):
     """
 
     # XXX: make interface configurable or use more sane default
-    default_roles = {"Internet" : [('interface', '"fw.generic.eth1"')]}
+    default_roles = {INTERNET_ROLE : [('interface', '"fw.generic.eth1"')]}
 
     def __init__(self, strict: bool = False, use_internet: bool = True) -> None:
         """Initialises a Policy object with role "Internet", no services, no
@@ -899,6 +912,9 @@ class Role(object):
             dictionary as value.
         """
 
+        if self.name == INTERNET_ROLE:
+            return {self.name: self.policy.services}
+
         return {self.name: self.services}
 
     def offers_services(self) -> bool:
@@ -908,6 +924,9 @@ class Role(object):
             A boolean value.
         """
 
+        if self.name == INTERNET_ROLE:
+            return len(self.policy.services) > 0
+
         return len(self.services) > 0
 
     def offers_service(self, name: str) -> bool:
@@ -916,6 +935,9 @@ class Role(object):
         Returns:
             A boolean value.
         """
+
+        if self.name == INTERNET_ROLE:
+            return name in self.policy.services
 
         return name in self.services
 

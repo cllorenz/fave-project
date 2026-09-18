@@ -652,8 +652,14 @@ backward direction as
 so `add_reachability_policy` validates `service_to` against the new `role_to`,
 which is the original **source**. A service is offered by the *server* side, so
 the reverse role will essentially never offer it; `Internet` is merely the most
-conspicuous instance. Making Internet offer everything would fix the three
-Internet-sourced rules of §1.9.0 and leave q05/q06 broken exactly as they are.
+conspicuous instance. Making Internet offer everything fixes the three
+Internet-sourced rules of §1.9.0 and leaves q05/q06 broken exactly as they are.
+
+**Done 2026-09-18 (§1.9.5), and it behaved exactly so.** With `Internet`
+offering every declared service, the full six-rule `<-->` policy stops failing
+on `Internet.S332` and fails on `host2.S350` instead — the error moved down to
+the first host-to-host rule, and an Internet-only `<-->` policy compiles. So the
+Internet-shaped instance is closed and the general one is untouched.
 
 The real fix is the swap: the backward direction takes the *same* service —
 still offered by B — and applies its attributes reversed, without a second
@@ -748,28 +754,32 @@ from the tables in §1.4 and §1.9.0.
 
 ### 1.9.5 Still open
 
-- [ ] **What does "the Internet offers anything" mean, exactly?** Two coherent
-      readings, and they produce different check sets, so it wants deciding
-      rather than inheriting:
-      **(a)** Internet offers every *declared* service — then `Internet.S332`
-      resolves and `Internet.*` expands to the union of declared services, a
-      constrained cell.
-      **(b)** Internet offers *anything* — then `Internet.S` resolves for any S,
-      declared or not, and `Internet.*` is genuinely unconstrained.
-      Claas's phrasing ("one could not impose any restrictions on service
-      offerings by the Internet") reads closer to **(b)**.
-      Measured today, with Internet offering nothing:
+- [x] **What "the Internet offers anything" means — RESOLVED 2026-09-18,
+      reading (a): every DECLARED service.** Implemented in `policy.py`
+      (`INTERNET_ROLE`, honoured by `offers_service`, `offers_services` and
+      `get_services`), 12 tests in
+      `policy_translator/test/test_internet_services.py`.
 
-          host0 <->> host1.*      ->  (protocol:tcp;port:350|protocol:tcp;port:351)
-          host2 <->> Internet.*   ->  X
+      **Claas's argument, which is the whole reason for choosing (a) over
+      "anything at all":** a service's conditions come from its inventory entry,
+      never from its name. If a service did not have to be declared, its
+      attributes could only come from a table of well-known names — HTTP would
+      then always mean port 80, an HTTP service on port 123 would be unsayable,
+      and a custom service (ABC on tcp/1234) could not be expressed at all. So
+      every compliance-relevant service stays explicit in the inventory even
+      when the Internet is the side offering it, and `Internet.*` picks up
+      exactly those.
 
-      so `Internet.*` already collapses to an unconstrained `X` — which is
-      *correct by accident* under reading (b) and a **silent weakening** under
-      reading (a), since it permits any protocol and any port rather than the
-      declared services, and is indistinguishable in the matrix from a
-      deliberate blanket `X`. No workload uses a wildcard service today, so
-      nothing is currently affected either way.
+      Effect, measured:
 
+          host2 <->> Internet.*   before:  X
+                                   after:  (protocol:tcp;port:331|...332|...350|...351)
+
+      and `Internet <--> host20.S332` now compiles, where it used to raise
+      `Fehler: Service Internet.S332 unbekannt.` **Inert for existing
+      workloads** — no policy in the tree names a service on the Internet side
+      or uses a wildcard service, so nothing that compiled before compiles
+      differently.
 
 - [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
       written as FPL by hand with a script checking it against the README?
