@@ -273,6 +273,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         # but i2 has no mid stage -- out.X IS the dst FIB).
         self._out_rw: Dict[str, List[Tuple[Optional[str], str, str]]] = {}
         self._in_vlans: Dict[str, set] = {}   # in.X -> admitted (permit) VLAN tags
+        # (in.X, physical ingress port) -> admitted VLAN tags. The per-DEVICE set
+        # above is the union over every port, which is what wl_i2's in-stage is
+        # NOT: in.kans admits {11,20,21,30,31,32,40,60,70} on port 400029 and 10
+        # on ports 400007/400019/400022/400025/400026, and a packet is checked
+        # against the set of the port it actually arrives on. Keying the gate by
+        # device admits any VLAN any port admits -- see _build_i2_faithful.
+        self._in_port_vlans: Dict[Tuple[str, Optional[str]], set] = {}
         # in.X -> set of physical ingress ports with an admission rule (None once
         # an in-port-agnostic rule is seen => the device admits every port). Traffic
         # entering an in-stage port ABSENT from this set is admitted by no rule, so
@@ -683,7 +690,15 @@ class APKeepAdapter(AbstractVerificationEngine):
             return  # a drop (no forward) -- not an admission
         for field in (rule.match or []):
             if field.name == _VLAN:
-                self._in_vlans.setdefault(node, set()).add(str(field.value))
+                vlan = str(field.value)
+                self._in_vlans.setdefault(node, set()).add(vlan)
+                # ... and per ingress port, which is the granularity the gate
+                # needs. An in-port-agnostic rule admits the VLAN everywhere, so
+                # record it against every port the device is later seen to have
+                # (the sentinel port None, resolved at build).
+                for port in (rule.in_ports or [None]):
+                    key = (node, None if port is None else _split_port(port)[1])
+                    self._in_port_vlans.setdefault(key, set()).add(vlan)
 
     def _capture_out_reset(self, model: Any) -> None:
         """ P7b: the out-stage mostly passes the mid-assigned VLAN through, but a
@@ -1295,12 +1310,24 @@ class APKeepAdapter(AbstractVerificationEngine):
 
           * a NAT per out.X route: `+ nat out.X <egress_port> vlan <dstIP> <plen>
             <M>` (device_nats[out.X] = the rewritten ports); and
-          * a per-router VLAN-admission ACL on each source->in.X ingress edge
-            (`iadm_<idx>`, permitting the admitted VLAN set) -- sources inject
-            VLAN-unconstrained, so this independent admission is what makes the
-            joint (dst,VLAN) partition a cross-product for BDD-APKeep while NDD
-            keeps the fields separate. ACL element names avoid dots ("iadm_<idx>")
-            for APKeep's `<a>_<b>_..._{in,out}` node convention.
+          * a VLAN-admission ACL on EVERY edge delivering to an in.X stage --
+            transit hops (out.Y:p -> in.X:q) as much as source hops -- each
+            permitting the VLAN set that in.X admits ON THAT ARRIVAL PORT
+            (`iadm_<idx>`). Sources inject VLAN-unconstrained, so this
+            independent admission is what makes the joint (dst,VLAN) partition a
+            cross-product for BDD-APKeep while NDD keeps the fields separate.
+            ACL element names avoid dots ("iadm_<idx>") for APKeep's
+            `<a>_<b>_..._{in,out}` node convention.
+
+        Both the per-port keying and the transit gate are load-bearing, and this
+        used to get each of them wrong: the gate was keyed by DEVICE (the union
+        over its ports) and spliced only onto source->in.X edges, so a transit
+        VLAN was never checked at all. Either mistake alone turns wl_i2's true
+        61 reachable pairs into 72 -- confirmed by re-running
+        `bench/i2_structural_oracle.py` with one relaxed at a time, and it is
+        precisely the over-approximation APKEEP_BACKEND.md Sec. 9 recorded.
+        wl_stanford funnels all ingress through one in.X -> mid.X edge and gates
+        there (_build_stanford_faithful), which is why only wl_i2 was affected.
 
         Returns (edges, device_nats, nat_rules, device_acls, acl_rules). """
         device_nats: Dict[str, set] = {}
@@ -1313,28 +1340,41 @@ class APKeepAdapter(AbstractVerificationEngine):
                 nat_rules.append("+ nat %s %s vlan %s %d %s" % (
                     out_dev, egress_port, ip, plen, vlan_m))
 
-        routers = sorted(self._in_vlans)             # in.X device names
-        idx_of = {r: i for i, r in enumerate(routers)}
+        # One admission element per (in.X, arrival port) actually reached by an
+        # edge. An in-port-agnostic admission rule (key port None) applies to
+        # every port of that device, so fold it into each concrete port's set.
+        anyport = {dev: vlans for (dev, port), vlans in self._in_port_vlans.items()
+                   if port is None}
+
+        def admitted(dev: str, port: str) -> set:
+            return (self._in_port_vlans.get((dev, port), set())
+                    | anyport.get(dev, set()))
+
+        keys = sorted({(d_dev, d_port) for d_dev, d_port in
+                       (tuple(e.split()[2:4]) for e in edges)
+                       if admitted(d_dev, d_port)})
+        idx_of = {k: i for i, k in enumerate(keys)}
         device_acls: Dict[str, List[str]] = {}
         acl_rules: List[str] = []
         acl_names: set = set()
         spliced: List[str] = []
         for edge in edges:
             s_dev, s_port, d_dev, d_port = edge.split()
-            if (s_dev in self._generators and d_dev in idx_of
-                    and self._in_vlans.get(d_dev)):
-                idx = idx_of[d_dev]
-                node = "iadm_%d_i_in" % idx
-                acl_names.add(str(idx))
-                spliced.append("%s %s %s inport" % (s_dev, s_port, node))
-                spliced.append("%s permit %s %s" % (node, d_dev, d_port))
-            else:
+            idx = idx_of.get((d_dev, d_port))
+            if idx is None:
                 spliced.append(edge)
-        for r, idx in idx_of.items():
-            if self._in_vlans.get(r):
-                vlan_set = ",".join(sorted(self._in_vlans[r], key=int))
-                acl_rules.append(_acl_rule_string(
-                    "iadm_%d" % idx, True, None, None, 0, vlan=vlan_set))
+                continue
+            node = "iadm_%d_i_in" % idx
+            acl_names.add(str(idx))
+            spliced.append("%s %s %s inport" % (s_dev, s_port, node))
+            spliced.append("%s permit %s %s" % (node, d_dev, d_port))
+        for (dev, port), idx in idx_of.items():
+            # One permit rule carrying the whole admitted-VLAN set (APKeep ORs
+            # the comma-separated tags), not one rule per VLAN -- far fewer
+            # atomic-predicate splits, so the faithful build stays tractable.
+            vlan_set = ",".join(sorted(admitted(dev, port), key=int))
+            acl_rules.append(_acl_rule_string(
+                "iadm_%d" % idx, True, None, None, 0, vlan=vlan_set))
         if acl_names:
             device_acls["iadm"] = sorted(acl_names, key=int)
         return (spliced, {d: sorted(p) for d, p in device_nats.items()}, nat_rules,

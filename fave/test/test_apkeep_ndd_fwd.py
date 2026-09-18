@@ -71,9 +71,12 @@ def _matrix(prefix, engine, files=None, faithful=False):
 _I2_PREFIX = "bench/wl_i2/i2-json"
 _I2_FILES = {"topology": "device_topology.json", "policies": "probes.json"}
 _I2_ORACLE = "bench/wl_i2/reachable.json"
+# The real oracle: 11 unreachable pairs, exhaustive over IPv4, agreed by
+# NetPlumber and ad6 -- unlike reachable.json, which is policy intent.
+_I2_STRUCTURAL_ORACLE = "bench/wl_i2/eval/i2_structural_oracle_atoms.json"
 _I2_INPUTS = ["%s/%s" % (_I2_PREFIX, f) for f in
               ("device_topology.json", "routes.json", "sources.json",
-               "probes.json")] + [_I2_ORACLE]
+               "probes.json")] + [_I2_ORACLE, _I2_STRUCTURAL_ORACLE]
 
 _IFI_PREFIX = "bench/wl_ifi"
 _IFI_ORACLE = "bench/wl_ifi/reachable.json"
@@ -163,28 +166,33 @@ class TestNddIPv4Forwarding(unittest.TestCase):
 
     @require_or_skip(all(os.path.isfile(f) for f in _I2_INPUTS),
                      "wl_i2 inputs not generated (run test/gen_wl_i2_inputs.sh)")
-    def test_i2_faithful_vlan_matches_ground_truth(self):
+    def test_i2_faithful_vlan_matches_the_structural_oracle(self):
         """ Faithful wl_i2 (dst x VLAN) on the two-field NDD engine: out.* dst-FIB
-        + rw=vlan NAT + in.* VLAN admission + probe untag. NDD keeps dst (216
-        atoms) and VLAN (37 classes) as SEPARATE fields, so it BUILDS this in
-        ~15 s and is exact (== reachable.json), whereas BDD-APKeep's single joint
-        partition explodes (ap_num >= 19k, does not finish in 28 min) -- the
-        second field-independence Sigma-vs-Pi win. See APKEEP_NDD_EVAL.md §2.6. """
+        + rw=vlan NAT + in.* per-port VLAN admission + probe untag. NDD keeps dst
+        (216 atoms) and VLAN (37 classes) as SEPARATE fields, so it BUILDS this in
+        seconds, whereas BDD-APKeep's single joint partition explodes (ap_num >=
+        19k, does not finish in 28 min) -- the second field-independence
+        Sigma-vs-Pi win. See APKEEP_NDD_EVAL.md §2.6.
+
+        The oracle is `bench/wl_i2/eval/i2_structural_oracle_atoms.json` -- the
+        11 unreachable pairs, exhaustive over IPv4 (9,673 LPM atoms), which
+        NetPlumber and ad6 independently agree on. It is NOT `reachable.json`:
+        that file is the all-to-all POLICY mesh emitted by the same generator as
+        checks.json, so it scores any over-approximation at 100% by construction
+        and this gate passed for months while APKeep reported all 72 pairs
+        reachable (APKEEP_BACKEND.md Sec. 9/10). """
         eng, sources, probes, reach = _matrix(
             _I2_PREFIX, 'ndd', files=_I2_FILES, faithful=True)
         got = {
-            _base(p): set(_base(s) for s in sources
-                          if (s, p) in reach and _base(s) != _base(p))
-            for p in probes
+            (_base(s), _base(p)) for p in probes for s in sources
+            if (s, p) not in reach and _base(s) != _base(p)
         }
-        with open(_I2_ORACLE) as raw:
-            expected = json.load(raw)
-        diffs = {}
-        for role in sorted(set(got) | set(expected)):
-            g = got.get(role, set()); e = set(expected.get(role, []))
-            if g != e:
-                diffs[role] = {"missing": sorted(e - g), "extra": sorted(g - e)}
-        self.assertEqual(diffs, {}, "faithful wl_i2 NDD differs from reachable.json: %s" % diffs)
+        with open(_I2_STRUCTURAL_ORACLE) as raw:
+            expected = {tuple(pair) for pair in json.load(raw)["unreachable"]}
+        self.assertEqual(expected - got, set(),
+                         "OVER: pairs the oracle calls unreachable that NDD reaches")
+        self.assertEqual(got - expected, set(),
+                         "UNSOUND: pairs NDD drops that the oracle reaches")
 
     @require_or_skip(all(os.path.isfile(f) for f in _ST_INPUTS),
                      "wl_stanford inputs not generated")
