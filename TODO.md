@@ -852,7 +852,15 @@ Linux is the other way round -- netfilter routes *before* the FORWARD chain, whi
 `-i` matches are unaffected: the ingress port IS known when the chain runs.
 
 - [x] **REFUSE it loudly — DONE 2026-09-18** (Claas's call). `iptables/generator.py` raises `OutInterfaceUnsupported` for an `-o` match in any filter chain, naming the device, the chain, the offending rule verbatim, why the model cannot represent it, and which direction the error would have gone. `fave/test/test_iptables_out_iface.py` (integration tier, needs pybison). Silently modelling it as no constraint was the worst of the available options; this is the honest interim, **not the fix**.
-  - [ ] **Consequence to decide: three workloads now refuse to run** -- wl_example (smoke tier), wl_up and wl_tum (bench tier). Options: an explicit opt-out (`FAVE_ALLOW_OUT_IFACE=1`) that logs loudly and lets a run proceed with the known infidelity; refusing only the *unqualified* `-o <port>` form and warning on `-o <iface>.<vlan>`, whose `dvlan` half survives; or editing the three rulesets. The first keeps the suite runnable while item 13 proper is decided.
+- [x] **`FAVE_ALLOW_OUT_IFACE=1` opt-out — DONE 2026-09-18** (Claas's call), because the refusal alone stopped three workloads: wl_example (smoke tier), wl_up and wl_tum (bench tier). Set it and the `-o` match is modelled exactly as the old code did — as NO CONSTRAINT — so the override restores the previous behaviour rather than some third thing. It is announced ONCE PER DEVICE on stderr, with a count, because wl_tum's `tum-ruleset` alone carries 3,286 and a per-rule warning would bury the run it is meant to qualify:
+
+        [iptables] pgf: 1 `-o` match(es) modelled as NO CONSTRAINT because
+        FAVE_ALLOW_OUT_IFACE is set. This device's filter chains run before
+        routing, so the egress restriction is not represented: results are
+        over-permissive where the rule ACCEPTs and over-restrictive where it
+        DROPs. See TODO.md item 13a.
+
+  An exported-but-empty value, `0`, `false`, `no` and `off` do NOT count as opting in — an empty exported variable is a common accident and must not silently re-enable a known infidelity. Verified: wl_example runs green again with it set. **This exists to be deleted — see item 13a.**
 
 ### 13a. The faithful fix: route BEFORE the filter chains -- and why it is not small
 **This is what item 13 should eventually do**, and the refusal above is only a placeholder for it.
@@ -879,7 +887,10 @@ Three further consequences to work through:
 - The `routing` table's `Rewrite(out_port=...)` becomes an *input* to filtering rather than its output, which inverts the dependency `AD6_PLAN.md` §9.10.2 describes ("written by one rule ... READ by a later rule in the same device") -- and that section is about whether ad6 can express the read at all, so the ad6 translation has to be re-checked against the new order.
 - **Every packet-filter result could change**, so wl_example, wl_up and wl_tum all need re-validation afterwards, and any archived number computed from them is suspect until they are. wl_tum especially: 3,286 rules currently carry an inert `-o`.
 
+**THE OPT-OUT IS PART OF THIS ITEM'S DEFINITION OF DONE.** `FAVE_ALLOW_OUT_IFACE` exists only because `-o` is currently inexpressible. Once routing precedes the filter chains, an `-o` match becomes a real constraint on a field that is already set when the rule runs — there is then nothing to refuse and nothing to override, and **both the refusal and the opt-out should be deleted** rather than left as vestigial switches that a later reader would have to reverse-engineer. Leaving an override in place for a limitation that no longer exists is how a workaround becomes folklore.
+
 - [ ] Decide whether to do it, and if so re-validate the three workloads against their previous results before and after.
+- [ ] If done: delete `OutInterfaceUnsupported`, `_out_iface_allowed`, `_count_out_iface`, the stderr notice, `FAVE_ALLOW_OUT_IFACE` from every caller and CI job, and `fave/test/test_iptables_out_iface.py` — replacing the last with a test that `-o` now CONSTRAINS, which is the property worth pinning once it holds.
 - [ ] **Re-examine wl_up's DROP rule** specifically -- an over-restrictive drop produces false "does not reach" results, which is the direction that looks like a correct verdict.
 
 ---

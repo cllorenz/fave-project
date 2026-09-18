@@ -41,14 +41,24 @@ the office subnet", and the DMZ became reachable on every port and protocol --
 
 REFUSING IS NOT THE FIX, it is the honest interim. Reordering the pipeline so
 routing precedes the filters is the faithful answer and is not trivial; see item
-13. Until then a ruleset whose meaning FaVe cannot represent must say so rather
+13a. Until then a ruleset whose meaning FaVe cannot represent must say so rather
 than be quietly modelled as something weaker or stronger than it is -- the
 direction of the error follows the target, `ACCEPT` over-permitting and `DROP`
 over-restricting.
 
+`FAVE_ALLOW_OUT_IFACE=1` overrides the refusal so the three affected workloads
+(wl_example, wl_up, wl_tum) stay runnable while item 13a is decided. It restores
+the OLD behaviour exactly -- the match is modelled as no constraint -- and says
+so once per device, with a count. The difference from before is only that it can
+no longer happen by accident. **It exists to be deleted**: once routing precedes
+the filter chains, `-o` becomes expressible and both the refusal and the
+override should go.
+
 `-i` is unaffected: the ingress port IS known when the chain runs.
 """
 
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -107,6 +117,74 @@ class TestRefusal(unittest.TestCase):
                 'ip6tables -A FORWARD -o eth1.110 -i eth1.152 '
                 '-s 2001:db8::1 -j ACCEPT'
             ), 'fw', None, ['1', '2', '3'])
+
+
+class TestTheOptOut(unittest.TestCase):
+    """ `FAVE_ALLOW_OUT_IFACE=1`: run anyway, with the infidelity stated. """
+
+    def setUp(self):
+        self._saved = os.environ.get('FAVE_ALLOW_OUT_IFACE')
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        if self._saved is None:
+            os.environ.pop('FAVE_ALLOW_OUT_IFACE', None)
+        else:
+            os.environ['FAVE_ALLOW_OUT_IFACE'] = self._saved
+
+    def _generate(self):
+        return generate(_rules(
+            'ip6tables -A FORWARD -o 1 -s 2001:db8::200/120 -j ACCEPT'
+        ), 'fw', None, ['1', '2', '3'])
+
+    def test_set_to_one_it_generates_instead_of_raising(self):
+        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
+        self.assertIsNotNone(self._generate())
+
+    def test_unset_it_still_refuses(self):
+        os.environ.pop('FAVE_ALLOW_OUT_IFACE', None)
+        with self.assertRaises(OutInterfaceUnsupported):
+            self._generate()
+
+    def test_an_empty_value_is_not_an_opt_in(self):
+        """ An exported-but-empty variable is a common accident and must not
+        silently re-enable a known infidelity. """
+        os.environ['FAVE_ALLOW_OUT_IFACE'] = ''
+        with self.assertRaises(OutInterfaceUnsupported):
+            self._generate()
+
+    def test_zero_and_false_are_not_opt_ins(self):
+        for value in ('0', 'false', 'False', 'no'):
+            os.environ['FAVE_ALLOW_OUT_IFACE'] = value
+            with self.assertRaises(OutInterfaceUnsupported):
+                self._generate()
+
+    def test_it_says_so_on_stderr_with_a_count(self):
+        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self._generate()
+        said = stderr.getvalue()
+
+        self.assertIn('FAVE_ALLOW_OUT_IFACE', said)
+        self.assertIn('1', said)
+        self.assertIn('fw', said)
+
+    def test_the_vlan_half_still_survives_under_the_opt_out(self):
+        """ `-o eth1.110` also yields a dvlan match, and THAT is a real header
+        field routing does not overwrite. Only the port half is lost. """
+        os.environ['FAVE_ALLOW_OUT_IFACE'] = '1'
+        model = generate(_rules(
+            'ip6tables -A FORWARD -o eth1.110 -i eth1.152 '
+            '-s 2001:db8::1 -j ACCEPT'
+        ), 'fw', None, ['eth1', '2', '3'])
+
+        fields = [
+            field.name
+            for rules in model.tables.values() for rule in rules
+            for field in (rule.match or [])
+        ]
+        self.assertIn('packet.ether.dvlan', fields)
 
 
 class TestWhatStaysAllowed(unittest.TestCase):
