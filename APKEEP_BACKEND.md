@@ -277,7 +277,12 @@ coverage map by what we use, prioritized Phase-0 test roadmap, ratchet) lives in
   - **wl_ifi (18 devices):** steady-state ~49 ms (NetPlumber) vs ~140 ms
     (APKeep) -- at small scale NetPlumber's low constant overhead wins.
   - **wl_i2 (Internet2, 77k dst-IP routes): NetPlumber 341 s vs APKeep 14 s,
-    ~24x faster** -- APKeep verified exactly (reachability == reachable.json).
+    ~24x faster** -- APKeep reproduced `reachable.json` exactly. **That match is
+    NOT a correctness result** (added 2026-09-18): `reachable.json` is an
+    all-reachable 72/72 policy mesh, so any relaxed encoding scores 100% on it by
+    construction. Measured against NetPlumber instead, APKeep is 11 pairs
+    OVER-approximate -- see "Production-path parity" below. The timing result
+    stands; the exactness claim does not.
     The crossover is decisive at scale: header-space flow propagation is the
     bottleneck (NetPlumber's 341 s is almost entirely model build), atomic
     predicates are not. This is the result the comparison was built to show.
@@ -1022,6 +1027,9 @@ correctness. Work on (1) starts next.
 
 ## 10. Open questions / decisions log
 
+- **OPEN (2026-09-18) — the wl_i2 gates assert the wrong oracle.** `test_apkeep_i2` and
+  both `test_apkeep_ndd_fwd` i2 tests compare against `reachable.json`, an
+  all-reachable mesh that cannot detect over-approximation. Repoint at NetPlumber.
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
 - **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
