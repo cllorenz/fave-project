@@ -13,7 +13,10 @@ wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) �
 anywhere it touches. The last one was not an APKeep defect at all but an FPL translation
 defect — superrole expansion granted self-reachability in `--strict` mode, the one mode
 that promises not to — and it is fixed in `policy_translator/policy.py`, so it changed
-what every backend is asked rather than what any of them answered. What remains in §10 is
+what every backend is asked rather than what any of them answered. Its sibling — the
+`Wifi` self-check fix asserting self-reachability for all sixteen wl_ifi roles, because
+that fix is only sound for a strict-mode matrix — is fixed and recorded beside it, along
+with the reason a green full-suite run hid it for one run. What remains in §10 is
 one deferred feature (IPv6, an implementation lift) and one licensing question that only
 the owner can settle (`JDD`, and it is larger than it was logged as). Neither is a
 correctness risk.
@@ -1486,18 +1489,61 @@ correctness. Work on (1) starts next.
   must-not-reach check, which is what strict mode plus default-deny implies and matches
   the 61 the generator already emitted.
 
-  **What this changes about the `Wifi` discriminator.** It stays, and still does the
-  work: `reach_csv_to_checks.py` serves loose-mode callers too, where every diagonal is
-  injected regardless. But in strict mode it is now a second line of defence rather than
-  the thing standing between the check set and eight fabricated assertions. The hazard
-  the item was logged for — a superrole member that is itself a subnet role, whose
-  expanded diagonal would have become a *positive* check nobody wrote — is removed at
-  the source rather than filtered downstream.
+  **What this changes about the `Wifi` discriminator.** It stays, but it is now a second
+  line of defence rather than the thing standing between the check set and eight
+  fabricated assertions: the hazard the item was logged for — a superrole member that is
+  itself a subnet role, whose expanded diagonal would have become a *positive* check
+  nobody wrote — is removed at the source rather than filtered downstream.
+
+  *(This paragraph first claimed the discriminator "still does the work" for loose-mode
+  callers, "where every diagonal is injected regardless". That was exactly backwards, and
+  the next entry is the regression it caused: where every diagonal is injected, a
+  discriminator reading the diagonal has nothing to read. Loose mode now emits no
+  positive self-check at all.)*
 
   *(Found by the owner, who pointed out that `--strict` exists and turns implicit
   self-reachability off. The entry above it had reasoned about the pipeline from
   `reach_csv_to_checks.py` backwards and mis-scoped the fix as expensive on that basis.
   Checking what strict mode actually promises made it six lines.)*
+- **RESOLVED (2026-09-18) — the `Wifi` self-check fix broke wl_ifi, and a green
+  full-suite run hid it.** Restoring wl_up's `Wifi <--> Wifi` self-check taught
+  `reach_csv_to_checks.py` to keep the self-check on a diagonal whose role abstracts a
+  subnet. That rule is only sound for a matrix built in **strict** mode. In the
+  translator's DEFAULT loose mode, `policy_builder.build_policies` injects an implicit
+  self-reachability policy for *every* atomic role, so every diagonal is filled whether
+  or not the policy asked for one — and a discriminator that reads the diagonal has
+  nothing left to read.
+
+  wl_ifi runs loose, and all sixteen of its roles are subnets. Regenerating it produced
+  **16 positive self-checks asserting reachability nobody wrote**: 299 → 315 checks, 16
+  self-pairs in `reachable.json`, and four red ad6 gates
+  (`test_ad6_grounding`, `test_ad6_wl_ifi`, `test_ad6_wl_ifi_stateful`). Same shape as
+  the superrole item above, reached through loose-mode injection instead of expansion.
+
+  **Fixed the same way, one layer out.** The generator cannot tell an asserted diagonal
+  from an injected one — that is the same provenance loss — so the caller states it:
+  `--strict`, threaded from `generic_benchmark`'s own `self.strict` and from
+  `gen_wl_up_inputs.sh`. Without it no positive self-check is emitted, which is what
+  every loose workload had before. wl_up unchanged (11,911 checks, one self-pair);
+  wl_ifi back to 299 and zero through both its generation paths.
+  `test_reach_csv_self_checks.py` pins both directions on a synthetic matrix, so the
+  rule is tested where it is decided rather than through a workload.
+
+  **Why it took a second run to see.** `test.sh all` regenerates the gitignored
+  benchmark artifacts in the integration and smoke tiers, *after* the fast tier that
+  asserts on them has run. The `all` reported green here had therefore validated the
+  previous run's artifacts; the very next `./test.sh fast` went red on the ones smoke had
+  just written. `all` now ends with a second fast pass against what the earlier tiers
+  actually produced — verified to catch this exact breakage (4 failed, exit 1, against
+  reproduced 315/16 artifacts) rather than assumed to.
+
+  **The general lesson, which the two entries above share.** Every rule in this pipeline
+  that reads meaning out of a policy matrix is reading an artifact whose provenance was
+  discarded upstream. A filled cell means "someone or something asserted this", and the
+  "something" differs per translator mode. Neither `_abstracts_a_subnet` nor any
+  successor can recover that; the mode has to be carried alongside the matrix. Both fixes
+  do that — one inside the translator, one across its boundary.
+
 - **DECIDED — doc name / framing.** `APKEEP_BACKEND.md`. Generalize to "pluggable
   backends" only if a third backend appears; two do not justify the rename.
 - **CLOSED (2026-09-18) — non-reachability (`AG`) invariants are already the majority
