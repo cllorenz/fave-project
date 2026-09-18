@@ -83,6 +83,13 @@ class TestRenderers(unittest.TestCase):
         self.assertEqual(by_name['A']['attributes'], {'vlan': 10, 'ipv4': '10.0.0.1'})
         self.assertEqual(by_name['B']['attributes'], {'vlan': 20})
 
+    def test_roles_to_json_is_ordered_by_name(self):
+        """ The dump is a pipeline artifact (`--roles`), and `get_atomic_roles`
+        returns a SET, so without sorting it reordered on every run and each
+        regeneration produced a spurious diff. """
+        names = [r['name'] for r in _policy_with_roles().roles_to_json()]
+        self.assertEqual(names, sorted(names))
+
     def test_vlans_to_csv_matrix(self):
         """ vlans_to_csv is a vlan-by-vlan reachability matrix (header + rows). """
         csv = _policy_with_roles().vlans_to_csv()

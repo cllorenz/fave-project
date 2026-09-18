@@ -761,9 +761,14 @@ class Policy(object):
 
 
     def roles_to_json(self) -> List[Any]:
-        """ Dumps atomic roles as json.
+        """ Dumps atomic roles as json, ordered by name.
+
+        SORTED because this dump is a build artifact of the benchmark pipeline
+        (`policy_translator --roles`, consumed by bench/reach_csv_to_checks.py):
+        `get_atomic_roles` returns a set, so an unsorted dump reordered itself on
+        every run and every regeneration produced a spurious diff.
         """
-        return [self.roles[r].to_json() for r in self.get_atomic_roles()]
+        return [self.roles[r].to_json() for r in sorted(self.get_atomic_roles())]
 
 
 class Role(object):
