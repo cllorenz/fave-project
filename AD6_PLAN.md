@@ -6883,9 +6883,28 @@ space must be a stamped field, never an undocumented habit.** If a measurement-a
 choice has no stamp, add the stamp before quoting the number.
 
 ## Open decisions (resolve at the §1.4 gate)
-- Integration level: (A) `AbstractVerificationEngine` backend vs (B) model translation.
-- ~~wl_up's stateful instantiator soundness — GO/NO-GO~~ **RESOLVED 2026-08-21g: NO-GO on
-  wl_up via ad6, both stateful and plain.** The second bug (7/8 hosts bypassing a
+- ~~Integration level: (A) `AbstractVerificationEngine` backend vs (B) model
+  translation.~~ **RESOLVED IN PRACTICE 2026-09-16/17 — it is BOTH, and the dichotomy was
+  false.** `Ad6Adapter` *is* an `AbstractVerificationEngine` (A) whose implementation is a
+  model translation (B): §9 rebuilt the translation as structural/literal (§9.25), and
+  Phase 6 (§9.27) added the production route (A) that had never existed —
+  `--backend {netplumber,apkeep,ad6}`, with the engine constructed by
+  `aggregator_service.build_engine` instead of being hardcoded. Exercised end to end on
+  wl_stanford, wl_i2 and wl_up (§9.28, §9.33, §9.34).
+- ~~wl_up's stateful instantiator soundness — GO/NO-GO~~ **NO-GO (2026-08-21g), then
+  REVERSED 2026-09-15 — see §9.22. Read the paragraph below as history, not as the
+  current state.** The NO-GO's REASONING was sound and its SCOPE was one level too wide:
+  it concluded that porting state-shell interweaving into `IP6TablesParser` was not worth
+  it, which is still true — but it never questioned the bypass that made
+  `IP6TablesParser` load-bearing at all. Deleting `load_bench_metadata`'s ruleset bypass
+  (§9.25) let wl_up's rules arrive from FaVe's own model with the interweaving intact, and
+  wl_up then agreed with NetPlumber EXACTLY (3,661 = 3,661, both directions, §9.22) with 0
+  violations of its 11,902 cchecks (§9.23). Confirmed again end to end on the ad6 backend
+  through the live aggregator: 0 violations, 688.4 s (§9.34). **wl_up going from NO-GO to
+  working by DELETING an ad6-specific shortcut is a better result for the "generic tool,
+  low integration cost" claim than wl_up staying out of scope.** The original reasoning,
+  preserved:
+  **RESOLVED 2026-08-21g: NO-GO on wl_up via ad6, both stateful and plain.** The second bug (7/8 hosts bypassing a
   source-scoped DROP under `related:0`) was root-caused and fixed (`ad6/fave_bridge.py`'s
   query seeding, commit `dfd543b0`) and generalizes at scale (1/1126 stateful violations
   post-fix, was ~45%). But the follow-on plain-query measurement it enabled found *plain*
@@ -6956,7 +6975,10 @@ choice has no stamp, add the stamp before quoting the number.
 - [x] **§3.3** Pin ad6 env (Python deps + SAT binaries) in the Dockerfile. **DONE 2026-08-20,
       same commit as §3.1.**
 - [x] **§4.1** Decide integration level (A vs B) from a scoping pass. **DECIDED 2026-08-20:
-      (B) model translation. `ad6/bench/tum/tum-ruleset` is byte-identical to FaVe's own
+      (B) model translation. UPDATE 2026-09-17: it turned out to be BOTH — Phase 6
+      (§9.27) added the (A) production route that had never existed, so the adapter is an
+      `AbstractVerificationEngine` whose implementation is a model translation; see "Open
+      decisions". `ad6/bench/tum/tum-ruleset` is byte-identical to FaVe's own
       default (ipv4) `fave/bench/wl_tum/rulesets/tum-ruleset` — zero ruleset translation
       needed for wl_tum. Initial "topology gap" note was premature (walked back after
       checking FaVe's own wl_tum model, which is equally interface-agnostic) — see §4.3.**
@@ -7124,7 +7146,15 @@ choice has no stamp, add the stamp before quoting the number.
       and its WORKLOAD-PARITY companion in §5.5. Note a `faithful_vlan` switch alone will
       not suffice: `Ad6Adapter` needs `_capture_out_rewrite` written first, which is C4.
       Intra-ad6 solver comparisons are unaffected (identical encoding throughout).
-- [ ] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
+- [x] **§6** (optional) Prototype incremental-SAT source-amortisation; measure O(n²)→O(n).
+      **DONE and IN PRODUCTION** — `ad6/src/solver/incremental.py`'s `IncrementalSession`,
+      wired into `ad6/fave_bridge.py` as the only call site
+      (`AD6_ENCODING_PLAN.md` §§3.4-3.10). One persistent assumption-based session over a
+      shared base: ~100-490x faster on wl_up's full real 11,902-query set, and it rescued
+      wl_stanford's B1 wall-clock NO-GO. The amortisation was then measured AGAINST its
+      absence in §9.34: flow grounding forces a fresh solver per query, and the same
+      wl_up set goes from 688.4 s (amortised) to >6 h UNFINISHED (not) — Factor A, end
+      to end.
 - [ ] **§7** Write the "price of genericity" section + expressiveness table + bridge figure.
 - [~] **§7.5** (new 2026-09-11) Write up the grounding constraint as a CORRECTION to the
       SECRYPT'15 formalism, not an implementation note: `trans(C)`'s support term is purely
