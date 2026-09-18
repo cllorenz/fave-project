@@ -46,9 +46,12 @@ dataset's own queries, not a policy of ours. Compiling the README's 26x26 ACL
 matrix into a full compliance matrix is phase C7, after the oracle reproduces.
 """
 
+import datetime
+import hashlib
 import json
 import logging
 import os
+import re
 
 from bench.generic_benchmark import GenericBenchmark
 from bench.wl_cloud.cloud_oracle import derive_oracle
@@ -57,6 +60,58 @@ from bench.wl_cloud.cloud_tf import CLOUD_MAPPING, classify_nodes, parse_tf
 
 
 _PREFIX = 'bench/wl_cloud'
+
+
+class RawDataError(Exception):
+    """ The vendored raw data does not match its manifest. """
+
+
+def verify_raw(raw_dir):
+    """ Check every vendored file against `SHA256SUMS`.
+
+    The whole workload is regenerated from this directory on every run, so a
+    byte that changed here silently changes what the benchmark measures. Loud,
+    and BEFORE anything is derived: a manual edit made while debugging is
+    exactly how a benchmark comes to measure something nobody intended, and it
+    is unrecoverable once the edit is forgotten.
+    """
+    manifest = os.path.join(raw_dir, 'SHA256SUMS')
+    if not os.path.isfile(manifest):
+        raise RawDataError("%s is missing: the raw data has no manifest to "
+                           "check against" % manifest)
+
+    bad = []
+    for line in open(manifest, 'r'):
+        expected, name = line.split()
+        path = os.path.join(raw_dir, name)
+        if not os.path.isfile(path):
+            bad.append("%s is missing" % name)
+            continue
+        digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+        if digest != expected:
+            bad.append("%s: expected %s, found %s" % (name, expected, digest))
+
+    if bad:
+        raise RawDataError(
+            "the vendored raw data under %s does not match SHA256SUMS:\n  %s"
+            % (raw_dir, "\n  ".join(bad)))
+
+
+def violated_queries(report_path):
+    """ The query names `report.md` reports a violation for.
+
+    Its own function, and tested, because a result stamp that always reports
+    "all reproduced" is worse than no stamp at all -- it manufactures evidence.
+    The report names a violating pair by its generator, and this workload names
+    one generator per query (`source.q04`), so the generator name IS the query.
+    """
+    if not os.path.isfile(report_path):
+        return set()
+
+    violated = set()
+    for line in open(report_path, 'r'):
+        violated.update(re.findall(r'`source\.(\w+)`', line))
+    return violated
 
 
 def load_queries(path):
@@ -101,6 +156,7 @@ class CloudBenchmark(GenericBenchmark):
         # benchmark reads was produced by hand, which is the only way a
         # measurement can be recreated from the raw data later.
         raw = self.files['cloud_raw']
+        verify_raw(raw)
 
         with open(self.files['oracle'], 'w') as out:
             out.write(json.dumps(derive_oracle(raw), indent=2) + '\n')
@@ -129,6 +185,76 @@ class CloudBenchmark(GenericBenchmark):
         # the base class need `roles.txt`/`reach.txt`, which this phase has no
         # use for -- its checks are the dataset's queries (see module docstring).
         self._delete_artifacts()
+
+    def _report(self):
+        super()._report()
+        try:
+            self._stamp_result()
+        except Exception:                       # pylint: disable=broad-except
+            # Non-fatal for the same reason _report is: by now the verdict
+            # exists. But say so -- a silently missing stamp is how a number
+            # ends up with no record of what produced it.
+            self.logger.exception("could not write the result stamp")
+
+    def _stamp_result(self):
+        """ Write `eval/<backend>-<utc>.json`: the verdict plus everything
+        needed to say what produced it.
+
+        A run whose configuration is not recorded cannot be compared with
+        another one -- AD6_PLAN.md's "every collapse of the configuration space
+        must be a stamped result field, never an undocumented habit". Here that
+        means the backend and its options, the model census, and the sha256 of
+        each `.smt2` the verdicts came from.
+        """
+        oracle = json.load(open(self.files['oracle'], 'r'))
+        queries = oracle['queries']
+
+        violated = violated_queries(self.files.get('report', 'report.md'))
+
+        topology = json.load(open(self.files['topology'], 'r'))
+        routes = json.load(open(self.files['routes'], 'r'))
+        sources = json.load(open(self.files['sources'], 'r'))
+        probes = json.load(open(self.files['policies'], 'r'))
+
+        stamp = {
+            'bench': 'cloud',
+            'scenario': 'cloud/base',
+            'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'engine': self.backend,
+            'engine_options': self.engine_options,
+            'use_interweaving': self.use_interweaving,
+            'hdr_len_bytes': self.length,
+            'devices': len(topology['devices']),
+            'links': len(topology['links']),
+            'routes': len(routes),
+            'generators': len(sources['devices']),
+            'probes': len(probes['devices']),
+            'oracle_derived_by': oracle['derived_by'],
+            'queries': [
+                {
+                    'name': q['name'],
+                    'smt2': q['smt2'],
+                    'sha256': q['sha256'],
+                    'expect': q['expect'],
+                    'agrees': q['name'] not in violated,
+                } for q in queries
+            ],
+            'violations': sorted(violated),
+            'reproduced': len(queries) - len(violated),
+            'of': len(queries),
+        }
+
+        odir = '%s/eval' % self.prefix
+        if not os.path.isdir(odir):
+            os.makedirs(odir)
+        path = '%s/%s-%s.json' % (
+            odir, self.backend, stamp['utc'].replace(':', '').replace('-', ''))
+        with open(path, 'w') as out:
+            out.write(json.dumps(stamp, indent=2) + '\n')
+
+        self.logger.info(
+            "result stamped to %s: %d/%d oracle verdicts reproduced",
+            path, stamp['reproduced'], stamp['of'])
 
 
 if __name__ == '__main__':
