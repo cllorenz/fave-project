@@ -188,7 +188,10 @@ class Policy(object):
         """Adds or updates a reachability policy concerning two roles.
 
         If one or both of the roles are superroles, reachability policies will
-        be added or updated for all combinations of their subroles.
+        be added or updated for all combinations of their subroles -- except,
+        in strict mode, the combinations where a subrole would reach itself:
+        strict mode requires an explicit rule for self-reachability, and no
+        rule over a superrole names a member reaching itself.
 
         If a service is specified, its attributes will be added as conditions.
         If the service specified is "*" (wildcard), all services of the reached
@@ -212,8 +215,22 @@ class Policy(object):
         if not self.role_exists(role_to):
             raise RoleUnknownException(role_to)
 
+        # Strict mode promises that self-reachability needs an explicit FPL rule.
+        # Expanding a superrole over its own members would break that promise
+        # silently: `DMZ <--> DMZ` puts a diagonal on every member, and
+        # `AdminConsole <->> DMZ` does so for the one member it names, although
+        # neither rule mentions any member reaching itself. A diagonal is only
+        # written when both endpoints name the same *atomic* role.
+        literal_diagonal = (
+            role_from == role_to
+            and self.roles[role_from].get_roles() == [role_from]
+        )
+
         for role_from_ in self.roles[role_from].get_roles():
             for role_to_ in self.roles[role_to].get_roles():
+                if self.strict and role_from_ == role_to_ and not literal_diagonal:
+                    continue
+
                 conditions = [copy.deepcopy(condition)] if condition is not None else []
 
                 services: Iterable[str]

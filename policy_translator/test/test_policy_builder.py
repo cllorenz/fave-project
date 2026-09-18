@@ -248,3 +248,55 @@ class TestPolicyBuilderErrors(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestSuperroleSelfExpansion(unittest.TestCase):
+
+    """ Tests that superrole expansion does not fabricate self-reachability.
+
+    Strict mode's contract is that a role reaches itself only when an FPL rule
+    says so. Expanding a superrole over its own members used to break that
+    silently: every member of `Grp <--> Grp` picked up a diagonal although no
+    rule named a member reaching itself. Non-strict mode is unaffected -- it
+    grants every atomic role a diagonal by design.
+    """
+
+    def _policy(self, strict):
+        policy = Policy(strict=strict, use_internet=False)
+        policy.add_role('A')
+        policy.add_role('B')
+        policy.add_superrole('Grp')
+        policy.roles['Grp'].add_subrole('A')
+        policy.roles['Grp'].add_subrole('B')
+        return policy
+
+    def _build(self, policy, rule):
+        PolicyBuilder.build_policies(
+            'define policies (default: deny)\n\t%s\nend\n' % rule, policy
+        )
+        return policy.policies
+
+    def test_superrole_self_rule_grants_no_member_diagonal(self):
+        """ `Grp <--> Grp` connects the members without self-reachability. """
+        policies = self._build(self._policy(strict=True), 'Grp <--> Grp')
+        self.assertIn(('A', 'B'), policies)
+        self.assertIn(('B', 'A'), policies)
+        self.assertNotIn(('A', 'A'), policies)
+        self.assertNotIn(('B', 'B'), policies)
+
+    def test_member_to_own_superrole_grants_no_diagonal(self):
+        """ A member reaching its own superrole does not reach itself. """
+        policies = self._build(self._policy(strict=True), 'A <--> Grp')
+        self.assertIn(('A', 'B'), policies)
+        self.assertNotIn(('A', 'A'), policies)
+
+    def test_explicit_atomic_self_rule_survives(self):
+        """ A diagonal written between two atomic roles is kept (wl_up's Wifi). """
+        policies = self._build(self._policy(strict=True), 'A <--> A')
+        self.assertIn(('A', 'A'), policies)
+
+    def test_non_strict_mode_still_grants_every_diagonal(self):
+        """ The guard is strict-mode only; loose mode keeps its own semantics. """
+        policies = self._build(self._policy(strict=False), 'Grp <--> Grp')
+        self.assertIn(('A', 'A'), policies)
+        self.assertIn(('B', 'B'), policies)

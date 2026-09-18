@@ -38,9 +38,10 @@ The self-rule handling this pins (APKEEP_BACKEND.md, the wl_up headline entry):
   * `Internet` never does. It is external, outside the administrative reach of
     whoever writes the policy, so its self-reachability is not answerable. FPL
     carries it as a builtin role, so it appears in nearly every policy.
-  * a single-host role does not either, even with an X on its diagonal:
-    wl_up's eight `DMZ*` diagonals come from `DMZ <--> DMZ` superrole expansion,
-    and a named server reaching itself is not a network question.
+  * a single-host role does not either. wl_up's eight `DMZ*` diagonals used to
+    be filled by `DMZ <--> DMZ` superrole expansion, although no rule names a
+    member reaching itself; strict mode now suppresses that, so each member is
+    an ordinary empty diagonal carrying a negative self-check.
   * a role whose diagonal is EMPTY keeps its negative self-check. This was
     always the behaviour and is what shows self-reachability was never exempt
     from compliance -- the old filter suppressed it only where the policy
@@ -66,6 +67,17 @@ _DMZ_SERVER = "file.uni-potsdam.de"          # DMZFileServer: one named host
 
 def _sources_present():
     return all(os.path.isfile(os.path.join(_FAVE, f)) for f in _SOURCES)
+
+
+def _diagonal(csv_path, role):
+    """ The role's own cell in the policy matrix, '' when the policy is empty. """
+    with open(csv_path) as raw:
+        rows = [line.rstrip('\n').split(',') for line in raw]
+    column = rows[0].index(role)
+    for row in rows[1:]:
+        if row and row[0] == role:
+            return row[column].strip()
+    raise AssertionError("role %s not in the matrix" % role)
 
 
 def _self_checks(checks, host):
@@ -134,10 +146,23 @@ class TestWlUpPolicyArtifacts(unittest.TestCase):
         self.assertEqual(_self_checks(self.checks, 'internet'), [])
         self.assertNotIn('internet', self.reach.get('internet', []))
 
-    def test_a_single_host_role_gets_no_self_check_despite_its_diagonal(self):
-        """ wl_up's eight DMZ diagonals are `DMZ <--> DMZ` superrole expansion;
-        a named server reaching itself is not a network question. """
-        self.assertEqual(_self_checks(self.checks, _DMZ_SERVER), [])
+    def test_superrole_expansion_writes_no_member_diagonal(self):
+        """ `DMZ <--> DMZ` connects the eight members without granting any of
+        them self-reachability: strict mode needs an explicit rule for that,
+        and no rule in reach.txt names a DMZ member reaching itself. """
+        self.assertEqual(_diagonal(self.csv_path, 'DMZFileServer'), '',
+                         "superrole expansion must not fill a member diagonal")
+        self.assertNotEqual(_diagonal(self.csv_path, 'Wifi'), '',
+                            "the explicit `Wifi <--> Wifi` rule must survive")
+
+    def test_a_single_host_role_gets_a_negative_self_check(self):
+        """ With its spurious diagonal gone, a DMZ member is an ordinary empty
+        diagonal, and empty diagonals have always produced a must-not-reach
+        check. """
+        checks = _self_checks(self.checks, _DMZ_SERVER)
+        self.assertEqual(len(checks), 1, checks)
+        self.assertTrue(checks[0].startswith('! '),
+                        "no rule grants it, so the check is negative")
         self.assertNotIn(_DMZ_SERVER, self.reach.get(_DMZ_SERVER, []))
 
     def test_an_empty_diagonal_still_yields_a_negative_self_check(self):
