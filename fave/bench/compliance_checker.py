@@ -42,8 +42,21 @@ def _parse_check(check):
         elif token.startswith('s='): src = token[2:]
         elif token.startswith('p='): dst = token[2:]
         elif token.startswith('f='):
+            # `f=!field:value` negates the FIELD, which is independent of the
+            # leading `!` that negates the reachability. RuleField has always
+            # carried the flag and NetPlumberAdapter._expand_negated_field has
+            # always expanded it; only this parser hardcoded False, which made
+            # "reaches on any port other than X" inexpressible
+            # (CLOUD_BENCH_PLAN.md §1.4, query 04).
             field, value = token[2:].split(':')
-            cond.append({'name' : OXM_FIELD_TO_MATCH_FIELD[field], 'value' : value, 'negated' : False})
+            field_negated = field.startswith('!')
+            if field_negated:
+                field = field[1:]
+            cond.append({
+                'name' : OXM_FIELD_TO_MATCH_FIELD[field],
+                'value' : value,
+                'negated' : field_negated
+            })
 
     assert src is not None and dst is not None
 

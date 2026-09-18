@@ -161,6 +161,30 @@ class TestAdapterAddTables(_AdapterTestBase):
         self.assertEqual(self.jsonrpc.add_table.call_count, 1)
         self.assertIn('sw.1', self.adapter.tables)
 
+    def test_declared_table_ids_survive_a_device_name_ending_in_one(self):
+        """ `add_tables` looked its declared index up with `name.rstrip('.1')`,
+        a CHARACTER-SET strip: it eats the '.' separator and then keeps eating
+        '1's out of the device name itself. `leaf1.1` became `leaf` and the
+        lookup raised KeyError, taking the whole model-add task down.
+
+        Every workload in the suite predating wl_cloud happens to name its
+        devices `bbra_rtr`, `fw`, `sw` -- none ends in '1' -- so nothing hit
+        it. wl_cloud's `lin.dc0_leaf1` does. See CLOUD_BENCH_PLAN.md §1.5 C5,
+        and TestGetIndexForSrc below for the sibling site that is NOT affected
+        (its two-step strip lets the '.' act as a barrier).
+        """
+        switch = SwitchModel('lin.dc0_leaf1', ports=['1'], table_ids={'lin.dc0_leaf1': 7})
+        self.adapter.add_tables(switch)
+
+        self.assertEqual(self.adapter.tables['lin.dc0_leaf1.1'], 7)
+
+    def test_declared_table_ids_survive_a_device_name_ending_in_a_dot_run(self):
+        """ The same strip also eats a name ending in several '1's. """
+        switch = SwitchModel('leaf11', ports=['1'], table_ids={'leaf11': 3})
+        self.adapter.add_tables(switch)
+
+        self.assertEqual(self.adapter.tables['leaf11.1'], 3)
+
     def test_existing_table_not_re_added(self):
         model = PacketFilterModel('fw', ports=['1', '2'])
         self.adapter.add_tables(model)

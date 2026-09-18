@@ -191,7 +191,33 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             for src_rule in src_rules:
                 src, negated, cond = src_rule
                 _, src_id, _ = self.generators[src]
-                res[dst_id].append((src_id, not negated, self._build_vector(cond).vector if cond else None))
+                must_reach = not negated
+
+                # A NEGATED condition field used to be silently flattened into
+                # a positive one: `_build_vector` writes each field's value and
+                # never looks at `RuleField.negated`, so "on any port other
+                # than 331" was checked as "on port 331" -- the opposite
+                # question, answered confidently. See
+                # test_adapter_compliance_conditions.py and
+                # CLOUD_BENCH_PLAN.md §1.6.
+                if cond and any(f.negated for f in cond):
+                    if must_reach:
+                        raise ValueError(
+                            "a negated condition on a MUST-REACH check is not "
+                            "supported: %s -> %s. The complement expands to "
+                            "several vectors and each is checked "
+                            "independently, so requiring reachability would "
+                            "demand it under EVERY one of them -- stronger "
+                            "than the question asked. Refused rather than "
+                            "approximated." % (src, dst))
+
+                    for vector in self._expand_negations(Match(list(cond))):
+                        res[dst_id].append((src_id, must_reach, vector.vector))
+                    continue
+
+                res[dst_id].append((
+                    src_id, must_reach,
+                    self._build_vector(cond).vector if cond else None))
 
         return res
 
@@ -367,7 +393,13 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                 # truthiness, not presence: SwitchModel always binds table_ids
                 # (None when unset); a None/absent value means fresh index.
                 if getattr(model, 'table_ids', None):
-                    idx = model.table_ids[name.rstrip('.1')]
+                    # A SUFFIX strip, not a character-set one. `rstrip('.1')`
+                    # ate the separator and then kept eating '1's out of the
+                    # device name -- `lin.dc0_leaf1.1` resolved to
+                    # `lin.dc0_leaf` and raised KeyError. A switch's table is
+                    # always `<node>.1` (SwitchModel.__init__), so removing
+                    # exactly that suffix is the intent.
+                    idx = model.table_ids[name.removesuffix('.1')]
                     self.fresh_table_index = idx + 1 # XXX: only works if tables appear in order
                 else:
                     idx = self.fresh_table_index
