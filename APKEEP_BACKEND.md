@@ -9,11 +9,14 @@ aggregator. The faithful-VLAN model is the default and selectable (`--no-vlan` o
 out). Both correctness gaps this document named on 2026-09-18 are closed: the wl_i2
 11-pair over-approximation (a device-keyed, ingress-only VLAN admission gate) and the
 wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) — see
-"Production-path parity" in §9 for both. **§10 has no open item left.** The last one was
-not an APKeep defect at all but an FPL translation defect — superrole expansion granted
-self-reachability in `--strict` mode, the one mode that promises not to — and it is
-fixed in `policy_translator/policy.py`, so it changed what every backend is asked rather
-than what any of them answered.
+"Production-path parity" in §9 for both. **§10 has no open defect left**, in APKeep or
+anywhere it touches. The last one was not an APKeep defect at all but an FPL translation
+defect — superrole expansion granted self-reachability in `--strict` mode, the one mode
+that promises not to — and it is fixed in `policy_translator/policy.py`, so it changed
+what every backend is asked rather than what any of them answered. What remains in §10 is
+one deferred feature (IPv6, an implementation lift) and one licensing question that only
+the owner can settle (`JDD`, and it is larger than it was logged as). Neither is a
+correctness risk.
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -1495,18 +1498,56 @@ correctness. Work on (1) starts next.
   self-reachability off. The entry above it had reasoned about the pipeline from
   `reach_csv_to_checks.py` backwards and mis-scoped the fix as expensive on that basis.
   Checking what strict mode actually promises made it six lines.)*
-- **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
-  "pluggable backends" if a third backend appears.
-- **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
-  `h` BDD bits and explicitly extensible (§9 reassessment). It's an
-  implementation lift (P9): add the IPv6 fields + wire the scaffolded
-  `ForwardingRule6` / IPv6 ACL path. Out of scope *as currently coded*, not as a
-  technique.
-- **Non-reachability (`AG`) invariants:** not in the target benchmarks; trivial
-  complement if needed later (§5).
-- **GraalVM native-image for APKeep:** optional future polish, not the baseline
-  (§6).
-- **`JDD` license:** verify once before publishing the fork (§7).
+- **DECIDED — doc name / framing.** `APKEEP_BACKEND.md`. Generalize to "pluggable
+  backends" only if a third backend appears; two do not justify the rename.
+- **CLOSED (2026-09-18) — non-reachability (`AG`) invariants are already the majority
+  of the work.** The entry above this one used to read *"not in the target benchmarks;
+  trivial complement if needed later"*. That was wrong, and had been for as long as the
+  benchmarks have had compliance artifacts:
+
+  | workload | checks | negated (`! s=source.X && EF p=probe.X`) |
+  |---|---|---|
+  | wl_up | 11,911 | **8,540 (72%)** |
+  | wl_ifi | 315 | **245 (78%)** |
+  | wl_i2 | 72 | 0 |
+  | wl_stanford | 240 | 0 |
+
+  A negated `EF` check *is* `AG ¬p`, and it is evaluated rather than skipped:
+  `adapter.py` sets `must_reach = not negated` and records a violation when
+  `reachable != must_reach`. Today's full BDD run answered all 11,911 wl_up checks —
+  8,540 of them non-reachability — with 0 violations, so the negative half is exercised
+  at scale on both engines. The stale claim is explicable: wl_i2 and wl_stanford, the
+  two workloads §5 was written around, genuinely have none. Nothing to build.
+- **NOT PURSUED (2026-09-18) — GraalVM native-image for APKeep.** It targets JVM startup
+  and JIT warmup. Measured here: startup is **29–31 ms** over three launches, against a
+  **539 s** wl_up run — 0.006%. The cost that matters is the AP partition: **94% of the
+  build is PPM** (402.3 s of 425.9 s, `APKEEP_BDD_BASELINE.md` §4.2), an algorithmic BDD
+  cost AOT compilation does not reduce — and native-image also gives up the JIT, which on
+  a seven-minute pointer-chasing workload usually costs more than it saves. Reopen only
+  if a short-lived-process use case appears; the benchmarks are the opposite of that.
+- **DEFERRED — IPv6.** Unchanged and still the one piece of genuinely deferred work in
+  this section. **Not a conceptual limitation** — the paper's header is `h` BDD bits and
+  explicitly extensible (§9 reassessment) — but an implementation lift (P9): add the
+  IPv6 fields and wire the scaffolded `ForwardingRule6` / IPv6 ACL path. Out of scope
+  *as currently coded*, not as a technique. Note that wl_up's policy is IPv6-heavy at the
+  FPL level (`Wifi` is a /64), which the model handles structurally; this item is about
+  the BDD header, not about the benchmarks being IPv4-only.
+- **OPEN — the `JDD` licence, and it is a larger question than this item used to say.**
+  Logged as "verify once before publishing the fork" (§7). Verifying it turned up three
+  findings, none of which resolves it:
+  - neither `apkeep/local-maven-repo/.../JDD-111.jar` nor `ndd/lib/jdd-111.jar` contains
+    a `LICENSE`, `COPYING` or `NOTICE` entry;
+  - the vendored POM is an `install:install-file` stub — no `<licenses>` element, no
+    upstream metadata;
+  - `ndd/src/main/java/jdd/` is **decompiled bytecode** (`Decompiled with CFR 0.152` in
+    every header), not upstream source. Redistributing a decompiled reconstruction is a
+    different and larger question than redistributing the jar, and the item as written
+    did not contemplate it.
+
+  This is not closable by reading the tree: it needs upstream's actual terms
+  (bitbucket.org/vahidi/JDD) and the owner's decision. Recorded rather than guessed —
+  asserting a licence here on recollection is precisely the failure mode to avoid before
+  publishing.
 
 ## 11. Build & toolchain notes (P0 — done)
 
