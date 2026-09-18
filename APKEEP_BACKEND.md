@@ -355,14 +355,45 @@ and to `bench/i2_structural_oracle.py`. So the 61 has four independent witnesses
 (NetPlumber, ad6, the structural oracle, and now a second NetPlumber run through the
 benchmark driver) and APKeep is alone at 72.
 
-**Why the gated tests cannot see this.** `test_apkeep_i2.py:98`,
-`test_apkeep_ndd_fwd.py:100` and `:166` all assert equality with
-`bench/wl_i2/reachable.json`, which is an **all-reachable 72/72 policy mesh** emitted
-by the same generator as `checks.json`. It scores any relaxed encoding at 100% by
-construction — the exact defect `TODO.md` item 1s names and `AD6_PLAN.md` §5.5 "C3
+**Why the gated tests could not see this (all three now repointed).**
+`test_apkeep_i2.py:98`, `test_apkeep_ndd_fwd.py:100` and `:166` all asserted equality
+with `bench/wl_i2/reachable.json`, which is an **all-reachable 72/72 policy mesh**
+emitted by the same generator as `checks.json`. It scores any relaxed encoding at 100%
+by construction — the exact defect `TODO.md` item 1s names and `AD6_PLAN.md` §5.5 "C3
 REOPENED" re-derived for ad6. `APKEEP_NDD_EVAL.md` §2.6's "faithful reachability ==
 72 = NP" is contradicted by NetPlumber itself; it predates the §9.29 `length`/`mapping`
-fix and was never re-run. **These three gates should be repointed at NetPlumber.**
+fix and was never re-run.
+
+All three now assert against `bench/wl_i2/eval/i2_structural_oracle_atoms.json`
+instead, each stating what its own model is actually entitled to claim:
+
+| gate | model | asserts |
+|---|---|---|
+| `test_apkeep_ndd_fwd.py:test_i2_faithful_vlan_matches_the_structural_oracle` | faithful | **equality** — the 11 pairs exactly, over and under |
+| `test_apkeep_i2.py` (BDD) | plain | reaches all 72; drops nothing the data plane delivers; surplus is exactly those 11 |
+| `test_apkeep_ndd_fwd.py:test_i2_plain_is_sound_and_over_approximates_by_the_known_11` | plain | the same three |
+
+Equality with the oracle is the right bar only for the faithful model, and there it is a
+real, falsifiable assertion. The plain model relaxes the VLAN dimension by construction,
+so demanding 61 of it would be demanding a model it is not.
+
+**Be precise about what the plain gates gained: attribution, not detection power.**
+While the plain model reaches all 72, its soundness and surplus assertions follow
+algebraically from "reaches all 72", so they detect exactly what the old
+`reachable.json` comparison detected. That is measured, not assumed — dropping a pair
+from the oracle leaves them passing, which is how the first version of this change was
+caught claiming more than it delivered. What changes is that each assertion names the
+property it stands for and is checked against the real data plane rather than against
+policy intent: a plain model that loses a DELIVERABLE pair reports unsoundness, while
+one that correctly sheds one of the 11 reports only drift. `reachable.json` reported
+those two identically, and read as a claim that the model is exact.
+
+Both gates judge through one shared `test/i2_oracle.py`, so the BDD and NDD runs of the
+same model cannot drift apart in what they demand of it, and the attribution property
+itself is pinned by `test/test_i2_oracle_classification.py` (fast tier, synthetic sets,
+no engine) — including the vacuity case above, frozen so a future rewrite cannot
+re-make the claim without confronting it. No test asserts `wl_i2/reachable.json` any
+more.
 
 **The faithful model does not fix it — measured, not inferred (2026-09-18).** When
 this section was first written the production path could build only
@@ -1261,13 +1292,15 @@ correctness. Work on (1) starts next.
   (it gated the right edge, so nothing was observed there) and is now fixed the same
   way, with no verdict change and a structural gate — the reachability gate cannot see
   that defect, which is the whole point.
-- **PARTLY RESOLVED (2026-09-18) — the wl_i2 gates asserted the wrong oracle.**
-  `test_apkeep_ndd_fwd`'s faithful i2 test now asserts the 11 unreachable pairs from
-  `bench/wl_i2/eval/i2_structural_oracle_atoms.json` (exhaustive over IPv4, agreed by
-  NetPlumber and ad6) instead of `reachable.json`. `test_apkeep_i2` and
-  `test_apkeep_ndd_fwd`'s PLAIN i2 test still compare against `reachable.json`; that is
-  defensible for the plain model, which over-approximates by construction, but they
-  should say so rather than read as exactness claims.
+- **RESOLVED (2026-09-18) — the wl_i2 gates asserted the wrong oracle.** All three now
+  assert against `bench/wl_i2/eval/i2_structural_oracle_atoms.json` (exhaustive over
+  IPv4, agreed by NetPlumber and ad6) instead of `reachable.json`, the all-to-all policy
+  mesh that scores any over-approximation at 100%. The faithful gate asserts equality
+  (the 11 pairs, over and under) — a real assertion. The two PLAIN gates assert that the
+  model reaches all 72, drops nothing the data plane delivers, and over-approximates by
+  exactly those 11. Those are equivalent while it reaches everything, so this buys
+  attribution rather than detection power, and both the test docstrings and §9 say so.
+  Table in §9.
 - **Doc name / framing:** `APKEEP_BACKEND.md` (chosen). Could later generalize to
   "pluggable backends" if a third backend appears.
 - **IPv6:** postponed, but **not a conceptual limitation** — the paper's header is
