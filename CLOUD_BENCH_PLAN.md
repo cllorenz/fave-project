@@ -249,7 +249,7 @@ manufacture a false disagreement.
 - [ ] **C7** Only then: express wl_cloud as an FPL policy — both the README's
       26x26 ACL matrix and the six oracle queries — so the workload goes through
       PolicyTranslator like every other one instead of hand-built checks.
-      **Blocked on three work items, all found by trying it: §1.9.**
+      **F1 and F2 fixed 2026-09-18; F3 (the complement check) remains: §1.9.**
 
 ---
 
@@ -554,7 +554,7 @@ expectation *we* derived — and §1.9.4 shows there will be many. Unlabelled in
 table, a mistake in our own understanding freezes in and reads as authoritative
 as the external verdicts, which is precisely the property §1.8 exists to protect.
 
-### 1.9.1 F1 — `--->` with a service emits a condition that crashes the checker
+### 1.9.1 F1 — `provider` was an OR operand instead of a qualifier — FIXED 2026-09-18
 
 `policy_builder` attaches `{"provider": role_to}` to a `--->`/`<-->` rule that
 names a service, and `add_reachability_policy` appends the service's attributes
@@ -577,7 +577,7 @@ undisturbed. Four of the six rules above use it, so it blocks the route outright
       fix the OR/AND confusion, and add the `--->`-with-service path to the
       translator's tests, which currently have no coverage of it.
 
-### 1.9.2 F2 — `<-->`'s backward direction must SWAP the service, not copy it
+### 1.9.2 F2 — `<-->`'s backward direction must SWAP the service — FIXED 2026-09-18
 
 **Owner specification 2026-09-18.** `A <--> B.S` should yield two checks:
 
@@ -676,9 +676,24 @@ operators that is wholly unexercised**, and both defects — F1's `provider`
 condition and the reverse-role lookup above — live on that one `if service_to`
 path.
 
-- [ ] Implement the reverse-direction swap for `<-->` (`dport` <-> `sport`, and
-      whatever the analogous swap is for any address-valued service attribute),
-      and stop looking the service up on the reverse role.
+- [x] **DONE 2026-09-18.** `provider` is merged into the service condition as
+      a qualifier and the service is looked up on the provider, not the reached
+      role; the wildcard expands over the provider's services too.
+      `Policy._condition_to_csv` resolves the direction where both role names
+      are in scope — `port` towards the provider, `sport` away from it — and
+      drops the marker, so a matrix consumer reads a header field rather than
+      needing to know who offers what. `sport`/`dport` added to
+      `OXM_FIELD_TO_MATCH_FIELD`, which carried only the forward `port`.
+      The six-rule `<-->` policy now compiles, all 56 generated checks parse,
+      and none mentions `provider`:
+
+          host1,,(protocol:tcp;sport:351),X,(protocol:tcp;sport:350),,,,
+          host2,,,(protocol:tcp;port:350),X,,,,
+
+      **No existing workload changes** — a condition without a provider takes
+      the same path as before, which is every use in the tree. Verified by
+      regenerating and diffing: wl_example, wl_ifi and wl_up matrices are
+      byte-identical.
 - [ ] Decide `<-->` vs `<->>` for wl_cloud once it works. `<->>` needs **no
       fixes at all** (§1.9.4) but asserts stateful return traffic that stateless
       cloud ACLs do not provide — the wl_ifi pattern, where the violations are
