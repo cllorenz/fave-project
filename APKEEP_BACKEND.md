@@ -10,9 +10,9 @@ out). Both correctness gaps this document named on 2026-09-18 are closed: the wl
 11-pair over-approximation (a device-keyed, ingress-only VLAN admission gate) and the
 wl_up 1,651 phantom violations (compliance CONDITIONS never reached the query) — see
 "Production-path parity" in §9 for both. **No open item in §10 is an APKeep defect any
-more**: the two that remain are questions about the FPL-to-checks translation (a role
-whose addressing cannot be classified, and superrole self-expansion), and they affect
-what every backend is asked, not what APKeep answers.
+more**: the one that remains is a question about the FPL-to-checks translation
+(superrole self-expansion), and it affects what every backend is asked, not what APKeep
+answers.
 *(This line read "PLAN (scoping complete; no integration code yet)" until 2026-09-18,
 by which point it had been wrong for months — P4/P5 landed in the tree long before.)*
 **Owner:** Claas Lorenz. **Driver:** PhD-thesis future work.
@@ -1370,16 +1370,56 @@ correctness. Work on (1) starts next.
   WITHDRAWN on the grounds that 3660 was a deliberate self-excluded convention and both
   numbers were right. Reading the tooling supported that; reading the POLICY refuted
   it.)*
-- **OPEN — a role with placeholder addressing cannot be classified, so its self-rule is
-  silently suppressed.** The discriminator above reads the role's FPL address. wl_i2 and
-  wl_stanford give **every** role `ipv4 = '0.0.0.0/0'`, which carries no cardinality at
-  all, so their `All <--> All` self-rules produce no checks — even though wl_i2's nine
-  self-pairs *are* reachable in the data plane and the policy does assert them. That may
-  be correct (each role is a single router, and `All <--> All` is the artificial
-  HSA-paper policy rather than a considered statement) or it may be exactly the
-  suppression wl_up just had. **Nothing currently distinguishes the two, and no gate
-  would notice either way.** Resolving it needs real addressing in those inventories, or
-  an explicit marker in FPL.
+- **RESOLVED (2026-09-18) — wl_i2's and wl_stanford's self-rules are correctly
+  suppressed, but not for the reason the code tests for.** Both workloads set
+  `All <--> All`, so every role carries a diagonal, and both give every role
+  `ipv4 = '0.0.0.0/0'` — so `_abstracts_a_subnet` finds no cardinality and emits no
+  self-check. The open question was whether that was right, or the same silent
+  suppression wl_up had. It is right, and measurably so.
+
+  **Measured:** every one of wl_i2's nine routers reaches its own probe **at hop 0** —
+  tapped on the first FIB lookup, before traversing a single link — on a /24 or /23
+  behind its own access port:
+
+      atla  hop 0  (atla, port 120019, vlan 0, /24)
+      chic  hop 0  (chic, port 220025, vlan 0, /24)
+      ...   all nine identical in shape
+
+  So `source.X -> probe.X` is one local LPM inside one router. It never exercises
+  forwarding *between* devices, which is the entire subject of these benchmarks, and its
+  destination lies in an adjacent network — a Stanford department or the Internet, a
+  metropolitan network at I2 — that is attached but **not modelled**, so nothing about it
+  could be decided anyway. The check would be **vacuous**: 9 of 9, uniform, unable to
+  fail for any data plane that routes at all. (Owner's framing, 2026-09-18: these roles
+  and policies are synthetic, following the NetPlumber paper's pairwise-reachability
+  experiment, which did not include self-pairs. The paper is not re-checked here; every
+  artifact in this tree is consistent with it.)
+
+  **The contrast with wl_up is the discriminator**, and it is what makes restoring
+  `Wifi <--> Wifi` and suppressing these two consistent rather than contradictory:
+
+  | workload | roles reaching themselves | reading |
+  |---|---|---|
+  | wl_i2 | **9 of 9** | hop-0 local tap — structural, so vacuous |
+  | wl_stanford | self-excluded by construction (240 = 16×15) | same |
+  | wl_up | **1 of 137** | not structural; if it were, all 137 would |
+
+  Uniform ⇒ structural ⇒ vacuous. Singular ⇒ carries information.
+
+  Three artifacts written at different times already encoded this: `reachable.json` is
+  72 = 9×8 and 240 = 16×15 with no self-pair in either, and `bench/i2_structural_oracle.py`
+  — written independently to reproduce the paper's experiment — computes
+  `len(sources) × (len(sources) - 1)` and labels its delivery sets "from some **other**
+  source".
+
+  **Recorded because the code gets the right answer for a weaker reason.** The `/0` test
+  means "there is no addressing to reason about", not "this pair is vacuous". The real
+  justification is hop-0 delivery against an absent adjacent network. Detecting *that* in
+  the check generator would cost far more than it is worth, so the heuristic stays — but
+  it is a heuristic, and the next person should not mistake it for the argument. Note
+  also that hop-0 vacuity is a property of THIS modelling (probes tapped on every egress
+  of the device the source attaches to), not of backbone benchmarks in general: attach
+  probes differently and self-reachability could become informative again.
 - **OPEN — superrole self-expansion asserts reachability nobody wrote.** `DMZ <--> DMZ`
   expands onto each *member's own* diagonal, so wl_up's policy asserts
   `DMZFileServer` reaching itself, eight times over. Those are degenerate (single named
