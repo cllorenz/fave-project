@@ -25,6 +25,12 @@ bench/wl_ifi/*.css
 bench/wl_ifi/*.html
 bench/wl_ifi/*.orig.*
 bench/wl_ifi/*.csv
+# ...except the policy MATRICES, which are inputs, not artifacts: they are the
+# tracked source `bench/reach_csv_to_checks.py` derives every wl_ifi check set
+# from. `reachability.csv` predates the rule above and was tracked anyway;
+# stating both exemptions keeps that intentional rather than historical.
+!bench/wl_ifi/reachability.csv
+!bench/wl_ifi/reachability_stateless.csv
 
 bench/wl_example/reachability.csv
 bench/wl_example/policy.csv

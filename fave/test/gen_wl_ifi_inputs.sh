@@ -27,6 +27,17 @@ W=bench/wl_ifi
 "$PYTHON" bench/reach_csv_to_checks.py -s .ifi -p "$W/reachability.csv" \
     -m bench/empty.json -c "$W/checks.json" --cchecks "$W/cchecks.json" \
     -j "$W/reachable.json"
+# The STATELESS variant of the same policy (APKEEP_BACKEND.md, 2026-09-18):
+# `<-->` where the original says `<->>`, so the policy asks only for what
+# wl_ifi's state-blind Cisco ACLs can express and a correct tool must report
+# ZERO violations. Generated alongside rather than instead of the original --
+# the stateful configuration is the one that documents the policy/model
+# mismatch, and running both exercises a tool on each kind of policy.
+"$PYTHON" bench/reach_csv_to_checks.py -s .ifi \
+    -p "$W/reachability_stateless.csv" \
+    -m bench/empty.json -c "$W/checks_stateless.json" \
+    --cchecks "$W/cchecks_stateless.json" \
+    -j "$W/reachable_stateless.json"
 
 # device model: topology, routes, sources + probes
 "$PYTHON" "$W/topogen.py"
