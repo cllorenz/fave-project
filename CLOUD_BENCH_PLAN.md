@@ -246,8 +246,10 @@ manufacture a false disagreement.
 - [~] **C6** **ad6 REFUSES the workload** (§1.7.2, a structural encoding limit);
       **APKeep drops all three reachable pairs** (§1.7.3). NetPlumber is
       therefore the only family that currently answers this workload.
-- [ ] **C7** Only then: compile the README's 26x26 ACL matrix + service->prefix
-      table into `roles.txt`/`reach.csv` for a full compliance workload.
+- [ ] **C7** Only then: express wl_cloud as an FPL policy — both the README's
+      26x26 ACL matrix and the six oracle queries — so the workload goes through
+      PolicyTranslator like every other one instead of hand-built checks.
+      **Blocked on three work items, all found by trying it: §1.9.**
 
 ---
 
@@ -509,6 +511,165 @@ What that gap now costs is bounded, because both datasets' in-scope parts are
 vendored: the repository reproduces every benchmark it defines without either
 archive. The gap only bites if the scope ever widens — a second cloud scenario
 for the scaling axis, or a Delta-net trace beyond the two insert-only ones.
+
+---
+
+## 1.9 The FPL route: three work items (owner direction 2026-09-18)
+
+**Decision:** wl_cloud should be expressed as an **FPL policy** rather than as
+hand-built checks — both the 26x26 ACL matrix and the six oracle queries. The
+argument is tooling consolidation and human-readability: one fewer
+benchmark-specific transformation, and a workload that exercises FaVe's policy
+layer rather than only its verification engine. Fabricating an inventory (a role
+per endpoint host carrying its /30, a service per port) has no real-world
+counterpart, which is odd, but is a fair price.
+
+It also plugs wl_cloud into machinery it currently cannot reach: `reachable.json`
+and `cchecks.json` are what `bench/apkeep_convergence.py`,
+`bench/apkeep_tum_diff.py` and `bench/i2_structural_oracle.py` consume, and this
+workload produces neither. §1.7.3's APKeep under-approximation had to be reported
+by hand for exactly that reason.
+
+### 1.9.0 The shape, and why a policy is not enough
+
+Claas's formulation of the six queries:
+
+| query | FPL rule | expected |
+|---|---|---|
+| q01 | `internet ---> host5` | satisfied |
+| q02 | *(nothing — default deny covers it)* | satisfied |
+| q03 | `internet ---> host20.332` | satisfied |
+| q04 | `internet ---> host22.331` (the double negative turns positive) | satisfied |
+| q05 | `host2 ---> host1.350` | satisfied |
+| q06 | `host0 ---> host1.351` | **violated** |
+
+**A policy is an INTENT, not a fact, so the oracle is policy + an expected
+verdict per check.** wl_ifi is the precedent: the same data plane reports 27
+violations under `<->>` and none under `<-->`, because its Cisco ACLs really are
+stateless. Nothing in a policy says which outcome is the expected one.
+
+**Every expectation must be labelled by PROVENANCE.** Six come from the `.smt2`
+files and are third-party. Every other check an FPL policy generates is an
+expectation *we* derived — and §1.9.2 shows there will be many. Unlabelled in one
+table, a mistake in our own understanding freezes in and reads as authoritative
+as the external verdicts, which is precisely the property §1.8 exists to protect.
+
+### 1.9.1 F1 — `--->` with a service emits a condition that crashes the checker
+
+`policy_builder` attaches `{"provider": role_to}` to a `--->`/`<-->` rule that
+names a service, and `add_reachability_policy` appends the service's attributes
+as a **separate** condition — which its own docstring defines as an **OR**
+operand. So `HostA ---> HostB.S350` compiles to
+
+    HostA,X,(provider:HostB|protocol:tcp;port:350)
+
+Two things wrong. `provider` is metadata, not a header field, and it is OR-ed
+with the service instead of qualifying it, so the cell reads *"provider is HostB
+**or** tcp/350"*. `bench/reach_csv_to_checks.py` then emits it verbatim and
+`bench/compliance_checker.py` dies:
+
+    KeyError: 'provider'
+
+No workload exercises `--->`-with-a-service today, which is why this has sat
+undisturbed. Four of the six rules above use it, so it blocks the route outright.
+
+- [ ] Decide what `provider` is *for* (it may simply not belong in `conditions`),
+      fix the OR/AND confusion, and add the `--->`-with-service path to the
+      translator's tests, which currently have no coverage of it.
+
+### 1.9.2 F2 — choose an operator, knowing the backward check is ours, not the oracle's
+
+**Measured, not argued.** The reverse direction of q05 — generator at
+`dc0_leaf1_host1_tx`, probe at `dc1_leaf6_host2_rx`:
+
+| reverse check | result |
+|---|---|
+| unconstrained | **reachable** |
+| on TCP 350 | **not reachable** |
+| on TCP 40000 | **not reachable** |
+
+Because `dc1_leaf6`'s ACL has exactly three rules — `dst=10.0.7.0/25 dport=332
+-> forward`, `dst=10.0.7.0/25 -> DROP`, `(any) -> default route`. Leaf6 publishes
+**only port 332**, so reverse traffic gets in on 332 and nothing else.
+
+That breaks both candidate operators, and the verified semantics say why:
+
+| operator | forward | backward |
+|---|---|---|
+| `--->` | reachability + service conditions | **nothing emitted** — the denial comes from default-deny leaving the cell empty |
+| `<-->` | same | same, **carrying the same service** |
+| `<->>` | reachability with service | `{"state": "RELATED,ESTABLISHED"}`, **no service** |
+
+- **`--->`** asserts backward unreachability *unconditionally*. FaVe's conditions
+  are existential over header space (`hs_overlaps_arr`), so that means "no packet
+  whatsoever from B reaches A" — and one does, on 332. Spurious violation.
+- **`<-->`** asserts backward reachability *on the same service*, 350. Measured
+  false. Also a spurious violation. It additionally **refuses to compile** unless
+  both roles offer the service (`Fehler: Service HostA.S350 unbekannt.`), because
+  the backward policy is added with the same `service_to`. `<->>` escapes this
+  only because its backward policy carries no service at all.
+
+So the real difficulty is not statelessness: **the oracle makes one directed,
+service-scoped statement, while every FPL operator emits a directed pair.**
+Whichever is chosen, the backward check asserts something the dataset never said,
+and here it is measurably wrong in both directions.
+
+That is survivable — §1.9.0's expectation table simply records the backward
+violations as expected — but it means roughly half the generated checks are
+self-derived, which is what makes the provenance labelling load-bearing rather
+than tidy.
+
+- [ ] Choose the operator, with the backward expectation stated explicitly for
+      each rule and marked self-derived.
+- [ ] Also fix, or document, `<-->`-with-service requiring both roles to offer
+      it — today it is a parse-time refusal with a message that does not hint at
+      the cause.
+
+### 1.9.3 F3 — without a complement check, q04 silently weakens
+
+`internet ---> host22.331` under default-deny *means* "only 331 gets in". But
+`reach_csv_to_checks` emits only the **positive** check for a conditionally
+permitted cell; its unconditional `! s=… p=…` branch fires only for cells with no
+permission at all. So nothing would verify that 332, or anything else, stays out.
+
+Routed through FPL as written, q04 degrades from *"nothing outside 331 enters"*
+to *"331 enters"* — a strictly weaker statement than the `04.unsat.smt2` instance
+asserts, and the oracle instance would be silently spent.
+
+The engine offers no positive form: its only condition primitive is existential
+overlap, with no universal counterpart (probe filters and header tests are
+deactivated — `filter_expr = None`, and test-fields-only collapses to
+`{"type": "true"}`, with an `XXX` comment citing memory explosion). So *"only
+331"* is expressible **only** as *"nothing outside 331"* — a must-not-reach over
+the complement. That is not a stylistic choice; it is the sole mechanism.
+
+- [ ] Emit the complement check for conditionally permitted cells in
+      `reach_csv_to_checks.py`. The `f=!field:value` syntax and its adapter-side
+      expansion already exist (§1.6b/c).
+- [ ] **Prerequisite:** fix `NetPlumberAdapter._expand_negations`, which keys its
+      per-field vectors by field NAME. For a cell permitting alternatives —
+      `(protocol:tcp;port:80|protocol:tcp;port:22)`, whose complement is
+      `¬80 ∧ ¬22` — the second `packet.upper.dport` silently overwrites the
+      first, so half the complement would be checked while the output looked
+      complete. Multiple check entries OR together, so the intersection must be
+      materialised as a union of arrays: pairwise intersection of the two
+      expansions, unsatisfiable pairs dropped.
+      **This is not hypothetical and not deferrable: `wl_example` has such a cell
+      today**, so the generator change would misfire on the smallest workload in
+      the suite the moment it lands.
+
+wl_cloud itself stays clear of that case — its ACL matrix is boolean (26x26 of
+0/1, 25 declared services) and each oracle-derived service cell is a single
+service on a distinct role pair — but the generator change is suite-wide.
+
+### 1.9.4 Still open
+
+- [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
+      written as FPL by hand with a script checking it against the README?
+- [ ] The matrix is 26 wide but only 25 services are declared (0-24). The 26th
+      index is probably the internet/public, given the public IP and TCP/331 —
+      **to be confirmed from the data, not assumed**, since it decides whether
+      `Internet` is a fabricated role or one the dataset names.
 
 ---
 
