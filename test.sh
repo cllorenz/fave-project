@@ -90,6 +90,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_topology.py
     test/test_packet_filter.py
     test/test_iptables_parser.py
+    test/test_iptables_out_iface.py  # `-o` in a filter chain is refused (item 13); needs pybison
     test/test_apkeep_lib.py   # libapkeep + reachability (JPype + apkeep jar); skips if unavailable
     test/test_apkeep_acl.py   # APKeep ACL mechanic: src-seeded reachability through an ACLElement; skips if unavailable
     test/test_apkeep_adapter.py  # APKeepAdapter: FaVe model -> APKeep (P4); skips if unavailable

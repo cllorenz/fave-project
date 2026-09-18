@@ -838,9 +838,48 @@ Linux is the other way round -- netfilter routes *before* the FORWARD chain, whi
 - `-o X -j ACCEPT` over-PERMITS (accepts traffic leaving other ports) -- wl_example.
 - `-o X -j DROP` over-RESTRICTS (drops traffic leaving other ports) -- wl_up.
 
-**Blast radius (`-A FORWARD ... -o `):** `wl_example` 1 of 2 rulesets; `wl_up` 1 of 139 (`-o 1 -d 2001:db8:abc::0/48 -j DROP`); `wl_tum` 1 of 2 (several `-o eth1.110 -i eth1.152 ... -j ACCEPT`). `wl_ifi` and `wl_generic_fw` use none. **Not verified:** wl_tum's are `-o eth1.<vlan>`, which `iptables/generator.py` also turns into a `dvlan` match -- that half is not an `out_port` field and plausibly survives routing, so those rules may be partially effective. Worth checking before quoting any wl_tum number that turns on them. `-i` matches are unaffected: the ingress port IS known when the chain runs.
+**Blast radius, measured by running the parser over every ruleset** (an earlier figure here said "wl_tum 1 of 2" -- it came from a grep for `ip6tables` and missed the IPv4 ruleset entirely):
 
-- [ ] **Decide what to do.** Options as they look now: reorder the pipeline so routing precedes the forward filter (faithful to netfilter, but a structural change to every packet-filter model and every result computed from one); enforce the `out_port` field at `post_routing` instead of rewriting it; or REFUSE an `-o` match in a FORWARD rule loudly, on the grounds that silently modelling it as no constraint is the worst of the three. The last is cheap and would have surfaced this years ago.
+| workload | rulesets refused | note |
+|---|---|---|
+| `wl_example` | 1 of 2 | `pgf-ruleset` -- breaks the **smoke** tier |
+| `wl_up` | 1 of 139 | `pgf.uni-potsdam.de-ruleset`, the gateway firewall |
+| `wl_tum` | **2 of 2** | `tum-ruleset` alone carries **3,286** `-o` rules |
+| `wl_ifi`, `wl_generic_fw` | 0 | use no `-o` |
+
+**wl_tum's are only PARTIALLY inert, and that matters given the count.** They are all of the form `-o eth1.110 -i eth1.152 ...`, and `iptables/generator.py` turns a VLAN-qualified interface into *two* things: an `out_port` field (inert, per above) **and** a `dvlan` match. `dvlan` is an ordinary header field that routing does not overwrite, so the egress VLAN stays constrained and only the port half is lost. Whether that is equivalent to the intended restriction depends on whether VLAN and egress port are 1:1 in these models -- **not established**. So wl_tum is blocked on 3,286 rules whose practical infidelity may be small, which is an argument for softening the refusal (see below) rather than for keeping wl_tum unrunnable.
+
+`-i` matches are unaffected: the ingress port IS known when the chain runs.
+
+- [x] **REFUSE it loudly — DONE 2026-09-18** (Claas's call). `iptables/generator.py` raises `OutInterfaceUnsupported` for an `-o` match in any filter chain, naming the device, the chain, the offending rule verbatim, why the model cannot represent it, and which direction the error would have gone. `fave/test/test_iptables_out_iface.py` (integration tier, needs pybison). Silently modelling it as no constraint was the worst of the available options; this is the honest interim, **not the fix**.
+  - [ ] **Consequence to decide: three workloads now refuse to run** -- wl_example (smoke tier), wl_up and wl_tum (bench tier). Options: an explicit opt-out (`FAVE_ALLOW_OUT_IFACE=1`) that logs loudly and lets a run proceed with the known infidelity; refusing only the *unqualified* `-o <port>` form and warning on `-o <iface>.<vlan>`, whose `dvlan` half survives; or editing the three rulesets. The first keeps the suite runnable while item 13 proper is decided.
+
+### 13a. The faithful fix: route BEFORE the filter chains -- and why it is not small
+**This is what item 13 should eventually do**, and the refusal above is only a placeholder for it.
+
+**Why reordering is the faithful answer.** In netfilter the routing decision happens *before* the chain that can match on egress, in both directions:
+
+    forwarded traffic:  prerouting -> ROUTING -> FORWARD -> postrouting
+    local traffic:                    ROUTING -> OUTPUT  -> postrouting
+
+so by the time either chain runs, the egress interface is decided and `-o` means what it says. FaVe's `devices/packet_filter.py` wires it the other way round:
+
+    (node + ".pre_routing_forward", node + ".forward_filter_in"),
+    (node + ".forward_filter_accept", node + ".routing_in"),
+    (node + ".internals_out",  node + ".output_filter_in"),
+    (node + ".output_filter_accept", node + ".routing_in"),
+    (node + ".routing_out", node + ".post_routing_in")
+
+Routing is *downstream* of both filters. Putting it upstream would make `out_port` a real, readable field during filtering -- exactly the property that makes `-o` expressible -- and would also match the mental model a reader brings from iptables.
+
+**Why it is not trivial, and the OUTPUT chain is the reason.** The single `routing` table is shared: `forward_filter_accept` and `output_filter_accept` both feed `routing_in`, and `routing_out` is the only path to `post_routing`. Moving routing before the filters therefore cannot be done for the forward path alone -- **the output path depends on routing in exactly the same way**, so a reordering has to give routing two upstream entry points (`pre_routing_forward` and `internals_out`) and let both filtered paths converge on `post_routing` afterwards. That is either a duplicated routing table per path, or a re-wiring in which one table is entered twice from different predecessors; NetPlumber tables are per-device singletons, so the two are not interchangeable.
+
+Three further consequences to work through:
+- `post_routing` currently does two jobs -- dispatch by the `out_port` field, and the hairpin drop (`in_port == out_port`, "do not send a packet back out the interface it arrived on"). With routing moved earlier, the dispatch half stays but the field it reads is written further upstream.
+- The `routing` table's `Rewrite(out_port=...)` becomes an *input* to filtering rather than its output, which inverts the dependency `AD6_PLAN.md` §9.10.2 describes ("written by one rule ... READ by a later rule in the same device") -- and that section is about whether ad6 can express the read at all, so the ad6 translation has to be re-checked against the new order.
+- **Every packet-filter result could change**, so wl_example, wl_up and wl_tum all need re-validation afterwards, and any archived number computed from them is suspect until they are. wl_tum especially: 3,286 rules currently carry an inert `-o`.
+
+- [ ] Decide whether to do it, and if so re-validate the three workloads against their previous results before and after.
 - [ ] **Re-examine wl_up's DROP rule** specifically -- an over-restrictive drop produces false "does not reach" results, which is the direction that looks like a correct verdict.
 
 ---

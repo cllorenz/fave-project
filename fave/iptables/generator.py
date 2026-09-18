@@ -118,6 +118,24 @@ _TAGS = {
     "dvlan" : "packet.ether.dvlan"
 }
 
+class OutInterfaceUnsupported(Exception):
+    """ An `-o` match in a filter chain, which FaVe cannot model.
+
+    `devices/packet_filter.py` wires `forward_filter -> routing ->
+    post_routing`, so a filter chain runs BEFORE the routing decision. The
+    packet's `out_port` field is still wildcard there: matching it does not
+    fail, it NARROWS the header space, and `routing` then WRITES `out_port` and
+    overwrites the narrowing. The match constrains nothing.
+
+    Linux is the other way round -- netfilter routes before FORWARD and before
+    OUTPUT -- so a ruleset written for Linux means something this model does not
+    represent. Raised rather than modelled, because the direction of the error
+    follows the rule's target: `-j ACCEPT` over-PERMITS, `-j DROP`
+    over-RESTRICTS, and neither announces itself. See TODO.md item 13 for the
+    faithful fix and why it is not a small one.
+    """
+
+
 def _ast_to_rule(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
     is_default = False
     strip_ap = lambda x: x.lstrip('-')
@@ -153,14 +171,26 @@ def _ast_to_rule(node: str, ast: Tree, idx: int = 0) -> Dict[str, Any]:
         else:
             _req(tmp.get_first()).value = node+'.'+value(tmp)+'_ingress'
     if ast.has_child("-o"):
-        tmp = _req(ast.get_child("-o"))
-        if "." in value(tmp):
-            iface, vlan = value(tmp).split(".")
-            _req(tmp.get_first()).value = node+'.'+iface+'_egress'
-            vast = ast.add_child("dvlan")
-            vast.add_child(vlan)
-        else:
-            _req(tmp.get_first()).value = node+'.'+value(tmp)+'_egress'
+        # Refused, not modelled: see OutInterfaceUnsupported. The chain is read
+        # here rather than at line ~180 because the rewrite below would
+        # otherwise have already turned the interface into an `out_port` value
+        # and lost the raw text the message quotes.
+        raise OutInterfaceUnsupported(
+            "%s: `-o` is not supported in a %s rule.\n"
+            "  %s\n"
+            "FaVe's packet filter runs its filter chains BEFORE routing "
+            "(forward_filter -> routing -> post_routing), so `out_port` is "
+            "still unset when the rule is evaluated and is then overwritten by "
+            "the routing table -- the match would constrain nothing, silently, "
+            "and the resulting error would over-PERMIT for `-j ACCEPT` and "
+            "over-RESTRICT for `-j DROP`. Linux routes before FORWARD and "
+            "OUTPUT, which is what makes `-o` meaningful there.\n"
+            "Rewrite the rule without `-o`, or see TODO.md item 13 for the "
+            "pipeline reordering that would make it expressible." % (
+                node,
+                _get_chain_from_ast(ast).replace('_filter', '').upper(),
+                raw_line.strip() if raw_line else '(rule at line %s)' % lineno
+            ))
 
     has_src = ast.has_child("-s")
     has_dst = ast.has_child("-d")
