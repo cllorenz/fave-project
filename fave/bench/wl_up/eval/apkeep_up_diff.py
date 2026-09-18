@@ -23,7 +23,7 @@
 
 The flagship correctness result for the FaVe/APKeep(BDD) backend: the full
 136-device wl_up model built from zero through BOTH backends must agree on the
-whole 137x137 source->probe reachability matrix (Phase D: 0 diffs, 3660/3660
+whole 137x137 source->probe reachability matrix (Phase D: 0 diffs, 3661/3661
 reachable pairs). This harness reconstructs (and commits, out of scratchpad) the
 throwaway driver that produced that number, so it reproduces on the pinned env
 and serves as the differential ORACLE for the later NDD engine (an NDD backend
@@ -146,13 +146,27 @@ def _base(name: str) -> str:
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
-def _meaningful(pairs: Set[Pair]) -> Set[Pair]:
-    """ Drop host-to-self pairs (base(source) == base(probe)). A host reaching
-    "itself" is not a compliance question; the frozen Phase D headline (3660)
-    excludes the single such pair, source.clients.wifi -> probe.clients.wifi.
-    (wl_tum keeps same-base pairs because its ONLY pair is source.tum->probe.tum;
-    wl_up has 137 hosts, so self-exclusion is the right convention here.) """
-    return {(s, p) for (s, p) in pairs if _base(s) != _base(p)}
+def _self_pairs(pairs: Set[Pair]) -> Set[Pair]:
+    """ The same-base pairs (base(source) == base(probe)), reported alongside the
+    headline rather than subtracted from it.
+
+    This used to be `_meaningful`, which DROPPED them on the grounds that "a host
+    reaching itself is not a compliance question", making the headline 3660. That
+    reasoning does not survive contact with the policy (2026-09-18). wl_up has
+    exactly one such reachable pair, source.clients.wifi -> probe.clients.wifi,
+    and it is there because `reach.txt` says `Wifi <--> Wifi` -- a deliberate,
+    fine-grained, unconditional rule, and the only self-rule in the file that is
+    not superrole expansion. `Wifi` is not a host: `roles_and_services.txt`
+    defines it as an IPv6 /64 with no `hosts` at all, so the rule states that
+    wifi clients may talk to each other, which is how wifi networks work. It is
+    an ordinary compliance question, and `bench/reach_csv_to_checks.py` now emits
+    a check for it.
+
+    The giveaway that self-exclusion was never a considered convention: the check
+    generator has always emitted 61 self-checks for wl_up, one per role whose
+    policy diagonal is EMPTY (`! s=source.X && EF p=probe.X`). It only suppressed
+    them where the policy GRANTED self-reachability. """
+    return {(s, p) for (s, p) in pairs if _base(s) == _base(p)}
 
 
 def _emit_worker(backend: str, out: str) -> Tuple[Matrix, float]:
@@ -192,13 +206,16 @@ def run_differential(save: bool) -> int:
     ap_pairs, np_pairs = _pairs(ap), _pairs(np)
     over = ap_pairs - np_pairs      # APKeep says reachable, NP says not
     under = np_pairs - ap_pairs     # NP says reachable, APKeep drops it: unsound
-    # Headline count uses meaningful (non-self) pairs to match the frozen Phase D
-    # number; over/under are computed on the full set (self-pairs, agreed by both
-    # backends, cannot create a divergence anyway).
-    ap_m, np_m = _meaningful(ap_pairs), _meaningful(np_pairs)
+    # The headline is the FULL set -- 3661 -- because wl_up's one same-base pair
+    # is a policy-asserted, checked reachability (see _self_pairs). Same-base
+    # pairs are still reported separately, since they are the ones whose meaning
+    # depends on what the role's node stands for. over/under are computed on the
+    # full set either way (a pair both backends agree on cannot create a
+    # divergence).
+    ap_s, np_s = _self_pairs(ap_pairs), _self_pairs(np_pairs)
 
-    print("APKeep reachable pairs:     %d  (%d excl. host-to-self)" % (len(ap_pairs), len(ap_m)))
-    print("NetPlumber reachable pairs: %d  (%d excl. host-to-self)" % (len(np_pairs), len(np_m)))
+    print("APKeep reachable pairs:     %d  (%d of them same-base)" % (len(ap_pairs), len(ap_s)))
+    print("NetPlumber reachable pairs: %d  (%d of them same-base)" % (len(np_pairs), len(np_s)))
     print("OVER-APPROX  (apkeep \\ np): %d" % len(over))
     print("UNDER-APPROX (np \\ apkeep): %d" % len(under))
 
@@ -212,9 +229,9 @@ def run_differential(save: bool) -> int:
                 print("  ... (%d more)" % (len(diffs) - 50))
 
     exact = not over and not under
-    print("\nDIFFERENTIAL: over=%d under=%d %s (%d/%d meaningful reachable pairs agree)" % (
+    print("\nDIFFERENTIAL: over=%d under=%d %s (%d/%d reachable pairs agree)" % (
         len(over), len(under), "EXACT" if exact else "DIVERGENT",
-        len(ap_m & np_m), len(ap_m | np_m)))
+        len(ap_pairs & np_pairs), len(ap_pairs | np_pairs)))
     return 0 if exact else 1
 
 

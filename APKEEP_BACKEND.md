@@ -670,24 +670,43 @@ zero violations end to end).
    APKeep report reads `<rule.rule_model.RuleField object at 0x...>`. Lenient by design
    so it cannot abort a run, but unreadable at exactly the line that states the verdict.
    `_render_cond` should handle objects with `.name`/`.value`.
-3. ~~**wl_up's headline number is under-reported by one.**~~ **WITHDRAWN — the finding
-   was wrong, and the sites are now unambiguous instead (2026-09-18).** `mat_np.json`
-   and `mat_apk.json` (`bench/wl_up/eval/`) do hold **3,661 = 3,661, 0 diffs either
-   direction** over 137 probes, matching ad6's §9.22 figure. But "3660/3660" in
-   `APKEEP_NDD_PLAN.md` (5, 80, 163), `APKEEP_TUM_UP_PLAN.md` (19, 665) and
-   `AD6_PLAN.md` (828) is not an off-by-one: it is the **self-excluded convention**,
-   which `bench/wl_up/eval/apkeep_up_diff.py` *implements* and argues for in
-   `_meaningful`'s docstring ("a host reaching 'itself' is not a compliance question"),
-   which `APKEEP_BDD_BASELINE.md` §4.1 freezes as the Phase D headline, and which the
-   tool prints alongside the raw count. Both numbers are right; 3660 appears in eight
-   files, so flipping three of them would have produced three fresh inconsistencies with
-   the tool that computes it.
+3. **wl_up's headline number was under-reported by one. RESOLVED — the headline is
+   3,661 everywhere, and the missing pair is now checked (2026-09-18).** `mat_np.json`
+   and `mat_apk.json` (`bench/wl_up/eval/`) hold **3,661 = 3,661, 0 diffs either
+   direction** over 137 probes, matching ad6's §9.22 figure. The old 3,660 excluded the
+   single same-base pair `source.clients.wifi -> probe.clients.wifi`.
 
-   The real defect was that the plan files never SAID which convention they used, so a
-   reader who opened the matrices and counted 3,661 found an apparent contradiction.
-   Every one of the six sites now carries both figures. Note the exactness verdict is
-   convention-independent either way: over- and under-approximation are 0 on the full
-   set, self-pairs included, and both backends agree on the one self-pair.
+   *(This entry went through a wrong intermediate state earlier the same day: it was
+   marked WITHDRAWN on the grounds that 3,660 was a deliberate self-excluded convention
+   — `apkeep_up_diff.py` implements it, `APKEEP_BDD_BASELINE.md` froze it — and that
+   both numbers were therefore right. That reading did not survive looking at the
+   POLICY, which is what settled it.)*
+
+   `Wifi` is not a host. `bench/wl_up/roles_and_services.txt:1586` defines it as an IPv6
+   **/64 with no `hosts` list**, i.e. a subnet role whose one model node stands for every
+   client device in it, and `bench/wl_up/reach.txt:17` says `Wifi <--> Wifi` — a
+   deliberate, fine-grained, unconditional rule, and the only self-rule in that file that
+   is not superrole expansion (`DMZ <--> DMZ` on line 6 yields the other eight diagonals,
+   all unreachable). It states that wifi clients may reach each other: on a wifi network
+   layer 2 is generally unrestricted, so this is a very common fact rather than an
+   oversight. The exclusion's stated reason — "a host reaching itself is not a compliance
+   question" — simply does not apply to it.
+
+   The decisive evidence that self-exclusion was never a considered convention:
+   `reach_csv_to_checks.py` has always emitted **61** self-checks for wl_up, one per role
+   whose policy diagonal is *empty* (`! s=source.X && EF p=probe.X`). Self-reachability
+   was always a compliance question there; the `s != target` filter suppressed it only in
+   the branches where the policy GRANTED it. That asymmetry, not a convention, is what
+   dropped the pair.
+
+   Fixed at the source: `--roles` carries each role's FPL attributes into the check
+   generator, and a role whose single node denotes a proper subnet (not a bare address,
+   not a `/0` placeholder — wl_i2 and wl_stanford give every router `ipv4 = 0.0.0.0/0`)
+   keeps its self-check. wl_up: **11,903 checks, `reachable.json` 3,371 pairs, still 0
+   violations**. Every other workload is byte-identical, verified by regeneration.
+   `Internet` stays excluded, for the reason it always was: it is external, outside the
+   administrative reach of whoever writes the policy, so its self-reachability is not
+   answerable.
 
 #### Coverage of these runs
 All four benchmarks were run on both backends except wl_i2/APKeep-faithful (no

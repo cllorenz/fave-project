@@ -154,7 +154,7 @@ fork and swap the engine** from a scoping pass, not an assumption. The pass says
   exactly the files the reference also rewrote. Everything else (adapter, rule strings,
   topology, drivers) is agnostic/shared.
 - Our value-adds (IPv6 fields, `FilterElement`, `ReachabilityChecker` with witness +
-  query-seed, the exact-165/3660 modelling) are **adapter- and semantics-facing** and
+  query-seed, the exact-165/3661 modelling) are **adapter- and semantics-facing** and
   would have to be **re-implemented on the authors' structurally-different base**
   (`NetworkNDDAP`/`FieldNode`, not `Network`/`Element`) under path (A).
 - The reference gives us the **exact algorithm to port** (atomization, `split_ap_*`,
@@ -163,7 +163,7 @@ fork and swap the engine** from a scoping pass, not an assumption. The pass says
 
 ⇒ **Preliminary recommendation: (B) engine-swap**, first milestone targeting **wl_up**
 (single-universe, no NAT — so the unsolved NAT-on-NDD is out of scope), gated on the
-frozen BDD baseline (3660/3660). NAT-on-NDD (for wl_stanford faithful-VLAN) is a
+frozen BDD baseline (3661/3661). NAT-on-NDD (for wl_stanford faithful-VLAN) is a
 follow-on, and is the one genuinely new piece we'd design (using `exist` per field).
 This is a recommendation for owner confirmation, not a committed decision.
 
@@ -243,7 +243,7 @@ reachability engine for the full wl_up model, run against the frozen BDD golden
 (`fave/bench/wl_up/eval/mat_apk.json`, via line files from `wl_up_dump2.py`):
 
     NDD pairs=3661  golden=3661  OVER(ndd\bdd)=0  UNDER(bdd\ndd)=0
-    EXACT PARITY: 3661 pairs   (= 3660 meaningful, self-pair excluded)
+    EXACT PARITY: 3661 pairs
 
 **The (B) engine-swap is correctness-proven on wl_up: the NDD engine reproduces the
 BDD baseline pair-for-pair (0 over, 0 under).** Engine design: 269 filter devices
@@ -284,7 +284,7 @@ sub-second) from-zero cost while BDD-APKeep pays ~692 s. Timings are cold single
 the gap dwarfs any warm-up effect.
 
 ### §2.5 — status: DONE (prototype). Productionization: §2.5e DONE (wl_up)
-The (B) engine-swap is proven on wl_up: **correct** (§2.5c, 3660/3660) and **fast**
+The (B) engine-swap is proven on wl_up: **correct** (§2.5c, 3661/3661) and **fast**
 (§2.5d, ~0.5 s vs ~1079 s). Remaining to make it a real second backend:
 1. ✅ **§2.5e (DONE):** productionized into the adapter as a selectable second engine
    ("one shared adapter, two engines"); wl_up NDD wired into the exactness gate.
@@ -611,6 +611,6 @@ differential test now lives in `ndd/src/test/...` and runs in the subtree's own
    (differential vs a BDD reference).
 2. §2.3 owner decision: confirm **(B) engine-swap** (see §2.2 scoping) vs (A) re-fork.
 3. Under (B): first NDD milestone = wl_up (single-universe, no NAT), gated on the frozen
-   BDD baseline (3660/3660). Follow-on: NAT-on-NDD (per-field `exist`) for wl_stanford
+   BDD baseline (3661/3661). Follow-on: NAT-on-NDD (per-field `exist`) for wl_stanford
    faithful-VLAN.
 4. Pin the `NDD.toNDD(int)` NPE robustness gap (missing 0/FALSE base case).

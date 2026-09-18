@@ -60,7 +60,7 @@ package`).
 - **Correctness — the wl_up flagship differential (this pass reconstructs it; the
   original scratchpad `up_diff.py` was destroyed by the reset):**
   ```
-  PYTHONPATH=. python3 bench/wl_up/eval/apkeep_up_diff.py --save   # -> EXACT, 3660/3660
+  PYTHONPATH=. python3 bench/wl_up/eval/apkeep_up_diff.py --save   # -> EXACT, 3661/3661
   ```
 - **Timing — from-zero build curve (opt-in JSONL profiler):**
   ```
@@ -83,14 +83,33 @@ probes = 18 769 ordered pairs.
 |---|---|
 | over-approx (APKeep \ NP) | **0** |
 | under-approx (NP \ APKeep) | **0** |
-| reachable pairs (identical) | **3660 / 3660** meaningful |
+| reachable pairs (identical) | **3661 / 3661** |
 
-The APKeep and NetPlumber matrices are **byte-identical**. The raw matrices hold
-3661 reachable pairs; the headline **3660** excludes the single host-to-self pair
-(`source.clients.wifi.uni-potsdam.de -> probe.clients.wifi...`, `base(src)==base(probe)`),
-matching the Phase D convention (a host reaching "itself" is not a compliance
-question). Self-exclusion cannot change over/under (both backends agree on it), so
-the EXACT verdict is convention-independent.
+The APKeep and NetPlumber matrices are **byte-identical**.
+
+**This headline was 3660 until 2026-09-18, and that was wrong.** The number
+excluded the single same-base pair
+(`source.clients.wifi.uni-potsdam.de -> probe.clients.wifi...`) on the stated
+grounds that "a host reaching itself is not a compliance question". `Wifi` is not
+a host: `bench/wl_up/roles_and_services.txt` defines it as an IPv6 **/64 with no
+`hosts` list at all**, so it is a subnet role whose single model node stands for
+every client device in it. `bench/wl_up/reach.txt:17` says `Wifi <--> Wifi` — a
+deliberate, fine-grained, unconditional rule, and the only self-rule in that file
+that is not superrole expansion (`DMZ <--> DMZ` on line 6 produces the other
+eight diagonals, all of them unreachable). It states that wifi clients may reach
+each other, which is how wifi networks work: layer 2 is generally unrestricted,
+you either have network access or you do not. That is an ordinary compliance
+question, the data plane delivers it, and both backends agree.
+
+The giveaway that self-exclusion was never a considered convention: the check
+generator has always emitted **61** self-checks for wl_up — one per role whose
+policy diagonal is *empty* (`! s=source.X && EF p=probe.X`). It suppressed them
+only where the policy GRANTED self-reachability, which is backwards.
+`bench/reach_csv_to_checks.py` now emits the `Wifi` self-check too (11,903 checks,
+`reachable.json` 3,371 pairs), so the headline and the compliance artifacts agree.
+
+Self-exclusion never changed over/under (both backends agree on the pair), so the
+EXACT verdict was never affected — only the headline.
 
 Also green: the exactness gate (Java core 29 tests + wl_ifi/wl_i2/wl_stanford/wl_tum
 differentials, `FAVE_REQUIRE_BACKENDS=1`).

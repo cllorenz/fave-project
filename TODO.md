@@ -691,7 +691,7 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
   generic_benchmark.py` defaults `use_interweaving=True`, routing wl_up's ruleset text
   through FaVe's *own* `fave/iptables/generator.py` state-shell interweaving at
   model-construction time, so there's no free bit for a plain query to exploit; this
-  codebase already has an exact-match, 0-diff, 3660/3660 APKeep-vs-NetPlumber result on
+  codebase already has an exact-match, 0-diff, 3661/3661 APKeep-vs-NetPlumber result on
   wl_up's full plain reachability matrix (`bench/wl_up/eval/apkeep_up_diff.py`'s docstring,
   `[[apkeep-ndd-baseline-and-gonogo]]`) against a *sparse* (~3370-pair) reachable set — not
   ad6's near-universal answer.

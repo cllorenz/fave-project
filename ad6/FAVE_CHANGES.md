@@ -659,7 +659,7 @@ and splices it in as a real flow-space constraint at model-construction time, so
 no free bit for a plain query to exploit. `ad6/src/parser/iptables.py`'s `IP6TablesParser`
 has no equivalent pass. Corroborating evidence already in this codebase (cited, not
 re-measured this session): `fave/bench/wl_up/eval/apkeep_up_diff.py`'s docstring records
-an exact match, 0 diffs, 3660/3660, between APKeep and NetPlumber on wl_up's full 137x137
+an exact match, 0 diffs, 3661/3661, between APKeep and NetPlumber on wl_up's full 137x137
 plain reachability matrix -- a *sparse* reachable set (`reachable.json` itself lists 3370
 policy-intended reachable pairs), not anything close to ad6's near-universal answer. Two
 independent real engines agreeing on a restrictive plain-reachability result is strong

@@ -182,7 +182,7 @@ model files rather than trusting the old audit further:
 
 | benchmark | FPL operators in `reach.txt` | checks with a `related:` condition in `cchecks.json` |
 |---|---|---|
-| wl_up | 30× `<->>`, 3× `<-->` | **3302 / 11902** |
+| wl_up | 30× `<->>`, 3× `<-->` | **3302 / 11903** |
 | wl_ifi | 4× `<->>` | **54 / 299** |
 | wl_stanford | 1× `<-->` | 0 / 240 |
 | wl_i2 | 1× `<-->` | 0 / 72 |
@@ -825,10 +825,9 @@ corrected directly — see §4.4.)
   bug 1's whole root cause, restated at the model-construction level. Corroborating
   evidence already in this codebase (not re-measured this session, but from the same
   pinned environment): `bench/wl_up/eval/apkeep_up_diff.py`'s docstring records an
-  **exact match, 0 diffs, 3660/3660** (its self-excluded headline; 3661/3661 raw in the
-  committed matrices), between APKeep and NetPlumber on wl_up's full 137×137 plain
-  reachability matrix (`[[apkeep-ndd-baseline-and-gonogo]]`) — a *sparse*
-  reachable set (`reachable.json` itself lists 3370 policy-intended reachable pairs), not
+  **exact match, 0 diffs, 3661/3661**, between APKeep and NetPlumber on wl_up's full
+  137×137 plain reachability matrix (`[[apkeep-ndd-baseline-and-gonogo]]`) — a *sparse*
+  reachable set (`reachable.json` itself lists 3371 policy-intended reachable pairs), not
   anything close to ad6's near-universal answer. Two independent real engines agreeing on a
   restrictive plain-reachability answer is strong evidence this is an ad6-specific gap, not
   a generic HSA/state limitation.
