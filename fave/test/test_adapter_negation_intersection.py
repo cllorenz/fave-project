@@ -37,7 +37,12 @@ INTERSECTION of complements. Multiple check entries OR together (overlap
 distributes over union), so that intersection has to be materialised as a union
 of vectors before it can be sent. A firewall rule never carries two negated
 matches on one field, which is why the case sat unexercised -- but a policy cell
-permitting two services does, and `wl_example` has one today.
+permitting two services does, and `wl_example` has one today:
+`Office <->> WebServer.HTTP` and `Office <->> WebServer.SSH` meet in the cell
+`(protocol:tcp;port:80|protocol:tcp;port:22)`, whose complement is this shape.
+That is a claim about a workload rather than about this module, so it is
+asserted in test_wl_example_policy_artifacts.py -- without it these fixtures
+could outlive the only thing in the tree that produces what they describe.
 """
 
 import logging
