@@ -837,7 +837,11 @@ Real fragilities (match the author's "past deadlocks" experience); the lib backe
 **The lesson, which is the same one `APKEEP_BACKEND.md` Sec. 10 draws:** every rule that reads meaning out of a policy matrix is reading an artifact whose provenance was discarded upstream. I had four red gates and two plausible readings of them, and picked the one that made the red go away instead of the one that explained where the assertions came from. The gates were right.
 
 - [x] The two generation paths agree again — both go through the strict-aware `reach_csv_to_checks`.
-- [ ] **Still open from the original finding:** wl_ifi has no equivalent of `test/test_wl_up_policy_artifacts.py`, the invariant that makes this class of drift impossible to ignore. `ai` added a second fast pass at the end of `./test.sh all` (`314c3771`) so regenerated artifacts are re-asserted rather than trusted, which catches the *symptom*; the per-workload invariant would catch the *cause*, and generalises to every workload with generated ground truth.
+- [x] **`fave/test/test_wl_ifi_policy_artifacts.py` — ADDED 2026-09-19**, the sibling of wl_up's. It pins two things: that the TRACKED `reachability.csv`/`reachability_stateless.csv` are what their FPL sources produce (wl_ifi's matrices are tracked inputs AND the benchmark regenerates them, so drift between the two paths is exactly how the 299/315 split hid), and the loose-mode invariant itself — a loose matrix fills every one of the 17 diagonals with `X`, and **must still yield no self-check, positive or negative**. It also asserts the benchmark's `--roles` invocation and the shell generator's `--roles`-less one produce identical artifacts, which is the divergence detector proper.
+
+  **Verified by mutation, not by passing.** Removing the `args.strict` gate from `keep_self` — i.e. reintroducing the regression — turns three of the six red, including the path-divergence test. Perturbing one cell of the tracked matrix turns the first one red. Both mutations reverted and the files confirmed identical to HEAD.
+
+  `ai`'s second fast pass at the end of `./test.sh all` (`314c3771`) catches the *symptom* (stale artifacts asserted on); this catches the *cause*, and the pattern now exists twice, so it generalises to any workload with generated ground truth.
 
 ---
 
