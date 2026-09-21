@@ -265,9 +265,28 @@ class Policy(object):
 
                 services: Iterable[str]
                 if service_to == "*":
-                    services = set()
-                    for offered in self.roles[owner].get_services().values():
-                        services.update(offered)
+                    # DECLARATION ORDER, and deliberately so. This used to
+                    # collect the names into a `set`, whose iteration order
+                    # follows string hashing -- randomised per process -- so
+                    # the same policy compiled to two different spellings of
+                    # the same alternative across runs, and an artifact
+                    # compared byte for byte would fail intermittently with no
+                    # visible cause (TODO item 18).
+                    #
+                    # The order chosen is the one the `offers` lines were
+                    # written in (for `Internet`, the order of the `def
+                    # service` blocks), because that is the order a reader of
+                    # the inventory expects to see in the matrix; alphabetical
+                    # would be equally reproducible but would reorder the
+                    # writer's list for no reason. `get_services()` returns
+                    # dicts, which preserve insertion order, so that order
+                    # survives; `dict.fromkeys` deduplicates a service offered
+                    # by several subroles while keeping its first position.
+                    services = list(dict.fromkeys(
+                        service
+                        for offered in self.roles[owner].get_services().values()
+                        for service in offered
+                    ))
                 else:
                     services = [service_to] if service_to is not None else []
 

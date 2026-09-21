@@ -1323,7 +1323,7 @@ until the container restarts, and saying so is the whole fix available here.
 
 ---
 
-### 18. PolicyTranslator's output is not reproducible for a `.*` service (found 2026-09-21)
+### 18. PolicyTranslator's output is not reproducible for a `.*` service — DONE (found and fixed 2026-09-21)
 **Found by accident**, checking that item 15's comment change had not altered
 how any inventory parses. It had not — but the same file gave two different
 answers across runs with UNCHANGED code:
@@ -1365,15 +1365,36 @@ that `Internet.*` resolves, and §1.9.4 measured `host2 <->> Internet.*`
 directly. The first workload to use it would get an intermittently failing
 artifact test and no obvious reason.
 
-- [ ] **Fix is one word** — iterate `sorted(services)` — but decide the ORDER
-      deliberately rather than taking alphabetical by default: declaration order
-      (the sequence the role's `offers` lines appear in) would read better in a
-      matrix and is what a human would expect. `get_services()` returns a dict,
-      which preserves insertion order in Python 3.7+, so the information is
-      still there; it is the `set` that discards it.
-- [ ] **Then pin it**, since the symptom is invisible in a single run: a test
-      that builds the same policy twice under different `PYTHONHASHSEED` values
-      and asserts the CSV is identical.
+- [x] **Fixed in declaration order** (owner decision 2026-09-21), not
+      alphabetical. Both are reproducible; only one is the order the writer put
+      on the page, which is what a reader comparing a matrix against the
+      inventory expects — `sorted()` would silently reorder the author's list
+      for the convenience of the implementation. `get_services()` returns
+      dicts, so that order was still there; `list(dict.fromkeys(...))` keeps it
+      while preserving the deduplication the `set` provided for free. For
+      `Internet`, whose services are the whole policy's, the same rule reads as
+      the order of the `def service` blocks.
+- [x] **Pinned** — `policy_translator/test/test_wildcard_service_order.py`, 8
+      tests. Hash randomisation is fixed at interpreter start, so the
+      reproducibility half drives the real CLI across eight `PYTHONHASHSEED`
+      values (56 ms per run, so it stays in the `fast` tier). Its fixture
+      declares five services in a NON-alphabetical order, which makes the tests
+      distinguish the two reproducible orders instead of passing on either.
+- [x] **Verified no artifact moved.** Every inventory/policy pair in the tree
+      compiled before and after (9 workloads + 2 examples): exactly one output
+      differs, `examples/ifi-policy.txt`, the only file in the tree that uses
+      `.*`, and it now carries the declaration-order spelling
+      (`port:80|port:443`, from `offers HTTP` then `offers HTTPS`).
+
+**Mutation-verified, including one that stays green.** Reverting to `set()`
+turns 4–5 of the 8 red depending on the seed; `sorted()` in place of
+declaration order turns 5 red. Dropping the `dict.fromkeys` deduplication turns
+**none** red, and that is reported rather than papered over: no reachable
+inventory produces a duplicate today, because the only duplicate-producing
+shape is one service offered by two subroles of a superrole — and that shape is
+broken for a different reason, item 19 below. The deduplication is kept because
+removing it would change behaviour the `set` guaranteed, on a path that will
+start working when item 19 is fixed.
 
 ---
 
