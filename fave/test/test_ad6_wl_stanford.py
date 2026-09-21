@@ -39,7 +39,11 @@ item 19's cycle-soundness gap is now FIXED, correctly, via
 Instantiator.SolveAcyclicEndToEnd (SCC-scoped rank/distance encoding,
 lazily escalated only when a plain solve's witness turns out ungrounded
 -- see that function's docstring and ad6/test/core/instantiatortest.py).
-`test_out_stage_collapsed` passes. `test_reachability_matches_netplumber`
+The structural assertions (`TestAd6WlStanfordStructure`, ~1s) RUN, always:
+they were split out of the gated class because `setUpClass` is where the
+hours are spent, and until that split a routine run reported them skipped
+-- indistinguishable from a broken translation.
+`TestAd6WlStanford.test_reachability_matches_netplumber`
 is SKIPPED BY DEFAULT (not failing, not passing) -- NOT because of a
 correctness gap anymore, but because a real, instrumented full run (all
 256 queries, AD6_BRIDGE_PROGRESS=1 live-logged) hit a 6-HOUR cap having
@@ -63,6 +67,7 @@ for live per-query progress, since Ad6Adapter.check_compliance captures
 this script's stderr into a pipe that isn't readable until the whole
 (possibly many-hour) subprocess exits. """
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -92,6 +97,70 @@ def _base(name):
     return name.split('.', 1)[1] if name.startswith(('source.', 'probe.')) else name
 
 
+@contextlib.contextmanager
+def _replayed_model(logger_name):
+    """ Build the real 48-device model and hand it over, asking nothing of it.
+
+    THE SPLIT BELOW IS THIS FUNCTION: everything that makes the differential a
+    many-hour run is in `check_compliance`, which is deliberately NOT called
+    here. Replaying all 16 routers is 0.6s measured, because it only translates
+    FaVe's command stream into ad6 structures and solves nothing.
+
+    Yields `(engine, fave)` INSIDE the `InProcessFaVe` context so a caller that
+    wants the differential can still run it there. The engine's state outlives
+    the context either way -- the assertions read `_tables` after it closes,
+    exactly as this file always did.
+    """
+    from util.in_process_driver import InProcessFaVe
+
+    log = logging.getLogger(logger_name)
+    log.setLevel(logging.WARNING)
+    engine = Ad6Adapter(log)
+
+    with InProcessFaVe(engine) as fave:
+        fave.replay(_PREFIX, files=_FILES)
+        yield engine, fave
+
+
+@require_or_skip(available(), "the ad6 fave_bridge.py script is unavailable")
+@require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
+                 "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
+class TestAd6WlStanfordStructure(unittest.TestCase):
+    """ The full 16-router TRANSLATION, with no reachability question asked.
+
+    SPLIT OUT OF `TestAd6WlStanford` because that class is gated on a many-hour
+    opt-in and `setUpClass` is where the hours go, so these four assertions --
+    the only check anywhere that ad6 translates the FULL wl_stanford model
+    rather than a 2-router slice -- could not run without paying for the
+    differential. They were therefore never running: a routine suite run
+    reported them SKIPPED, and a skip reads the same whether the translation is
+    right or broken.
+
+    `test_ad6_wl_stanford_plain.py` asserts the same shape at N=2 (6 tables),
+    which is a WEAKER claim and not a substitute: 48 is where a name-keyed
+    collapse or a per-table regression shows up, and 6 is where it hides.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with _replayed_model("test_ad6_wl_stanford_structure") as (engine, _fave):
+            cls.engine = engine
+            cls.sources = sorted(engine._generators)
+            cls.probes = sorted(engine._probes)
+
+    def test_every_stage_is_kept_including_out(self):
+        # AD6_PLAN.md §9.25 inverts this: the name-triggered out-stage collapse
+        # went with the semantic path, so all 16 routers x {in, mid, out}
+        # survive. See test_ad6_wl_stanford_plain.py's copy for the full
+        # rationale; `TestAd6WlStanford`'s reachability assertion is what says
+        # the collapse was an optimisation, not a correctness requirement.
+        stages = {d.split('.', 1)[0] for d in self.engine._tables}
+        self.assertEqual(stages, {'in', 'mid', 'out'})
+        self.assertEqual(len(self.engine._tables), 48)
+        self.assertEqual(len(self.sources), 16)
+        self.assertEqual(len(self.probes), 16)
+
+
 @require_or_skip(available(), "the ad6 fave_bridge.py script is unavailable")
 @require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
                  "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
@@ -104,20 +173,17 @@ def _base(name):
 class TestAd6WlStanford(unittest.TestCase):
     """ Real wl_stanford (all 16 routers) -> Ad6Adapter (out-stage collapsed,
     in-stage admitted, B0) -> reachability == FaVe+NetPlumber (the faithful
-    plain data plane). """
+    plain data plane).
+
+    The structural assertions live in `TestAd6WlStanfordStructure` above and are
+    NOT gated -- see its docstring. This class is the differential alone. """
 
     @classmethod
     def setUpClass(cls):
-        from util.in_process_driver import InProcessFaVe
-
-        log = logging.getLogger("test_ad6_wl_stanford")
-        log.setLevel(logging.WARNING)
-        cls.engine = Ad6Adapter(log)
-
-        with InProcessFaVe(cls.engine) as fave:
-            fave.replay(_PREFIX, files=_FILES)
-            cls.sources = sorted(cls.engine._generators)
-            cls.probes = sorted(cls.engine._probes)
+        with _replayed_model("test_ad6_wl_stanford") as (engine, fave):
+            cls.engine = engine
+            cls.sources = sorted(engine._generators)
+            cls.probes = sorted(engine._probes)
             rules = {p: [[s, False, []] for s in cls.sources] for p in cls.probes}
             fave.check_compliance(rules)
 
@@ -131,18 +197,6 @@ class TestAd6WlStanford(unittest.TestCase):
             )
             for p in cls.probes
         }
-
-    def test_every_stage_is_kept_including_out(self):
-        # AD6_PLAN.md §9.25 inverts this: the name-triggered out-stage collapse
-        # went with the semantic path, so all 16 routers x {in, mid, out}
-        # survive. See test_ad6_wl_stanford_plain.py's copy for the full
-        # rationale; the reachability assertion below is what says the collapse
-        # was an optimisation, not a correctness requirement.
-        stages = {d.split('.', 1)[0] for d in self.engine._tables}
-        self.assertEqual(stages, {'in', 'mid', 'out'})
-        self.assertEqual(len(self.engine._tables), 48)
-        self.assertEqual(len(self.sources), 16)
-        self.assertEqual(len(self.probes), 16)
 
     def test_reachability_matches_netplumber(self):
         # NetPlumber in a SEPARATE process (a resident JVM/other backend

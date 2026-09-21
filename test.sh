@@ -105,7 +105,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
     # (a sys.executable subprocess), but these three reach past it:
     test/test_ad6_wl_up.py       # wl_up rulesets -> iptables/parser.py -> pybison
-    test/test_ad6_wl_stanford.py # full 256-query differential vs a libnetplumber worker; opt-in (AD6_STANFORD_FULL_DIFFERENTIAL), so normally skips here
+    test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
 )
