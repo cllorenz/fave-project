@@ -704,27 +704,67 @@ class Instantiator:
                     else:
                         BitVector = None
 
-                    # AD6_PLAN.md §9.36: a MASKED rewrite is the two axioms
-                    # above MIXED WITHIN ONE FIELD, chosen per bit. A determined
-                    # bit takes the rewrite axiom (forced to the constant); a
-                    # don't-care bit takes the frame axiom (copied from the
-                    # source), because under Hassel's `(h & mask) | rewrite` the
-                    # bits a rule does not replace are PRESERVED from the
-                    # incoming header -- not cleared, and not made arbitrary
-                    # (owner ruling 2026-09-21). wl_cloud's NAT needs exactly
-                    # this: it rewrites the destination to a SUBNET, so the host
-                    # bits must survive. Note this is NOT the CLEAR above, which
-                    # emits neither axiom and frees the field.
+                    # AD6_PLAN.md §9.36, CORRECTED 2026-09-21: a rewrite
+                    # replaces the WHOLE field, and a don't-care in its value
+                    # makes that bit FREE downstream -- it does not preserve the
+                    # incoming one.
+                    #
+                    # THE FIRST CUT FRAMED THOSE BITS and that was wrong, by
+                    # conflating two different sets of bits. Hassel really does
+                    # preserve what a rewrite does not replace, but WHICH bits
+                    # those are is decided by the MASK, not by the value:
+                    # net_plumber's array_rewrite says it outright -- "a 0 in
+                    # the mask means that the bit should be kept whereas a 1
+                    # means it should be rewritten" -- and a rewritten bit takes
+                    # the rewrite value's bit INCLUDING its `x`.
+                    #
+                    # FaVe's model has no mask-0 bit inside a rewritten field at
+                    # all: NetPlumberAdapter synthesises `"1"*FIELD_SIZES[f]`
+                    # for every field a Rewrite action names, so the whole field
+                    # is always replaced and the value's don't-cares are the
+                    # only wildcards there are. Framing them therefore preserved
+                    # bits nothing had asked to preserve.
+                    #
+                    # MEASURED, on the workload that motivated the feature.
+                    # wl_cloud's DNAT rewrites the destination to a /22 service
+                    # subnet while MATCHING a /32 public address, so the "kept"
+                    # low bits were fully determined by the match and the /22
+                    # collapsed to one host: ad6 reported every internet-sourced
+                    # pair unreachable, against NetPlumber and against the
+                    # dataset's own sat verdicts for q01/q03. cloud_preparation
+                    # had already written the symptom down --
+                    # "emitting the bare address instead pins traffic to one
+                    # host and every internet-sourced query answers
+                    # unreachable" (CLOUD_BENCH_PLAN.md §1.6).
+                    #
+                    # An ALL-don't-care rewrite is therefore exactly the CLEAR
+                    # above, and that is coherent rather than a coincidence:
+                    # both say the field is unconstrained downstream.
                     for Index in range(Width):
-                        TargetBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, Target, Index))
-                        if BitVector is not None and BitVector[Index] != 'x':
+                        if BitVector is not None:
+                            if BitVector[Index] == 'x':
+                                continue
                             SourceBit = XMLUtils.constant(BitVector[Index] == '1')
                         else:
                             SourceBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, NodeKey, Index))
+                        TargetBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, Target, Index))
                         Equality = XMLUtils.equality()
                         Equality.append(TargetBit)
                         Equality.append(SourceBit)
                         Conjunction.append(Equality)
+
+                    # Nothing to say about this field on this edge -- an
+                    # all-don't-care rewrite, which by the paragraph above is
+                    # exactly the CLEAR case, and takes visibly the same exit.
+                    #
+                    # NOT LOAD-BEARING, and said so rather than implied: a
+                    # mutation that removes this skip changes no test, because
+                    # `transition -> ()` CNF-converts to a bare
+                    # `<constant value="true"/>` which the DIMACS builder
+                    # already handles. What it buys is that the vacuous
+                    # constant never enters the clause list in the first place.
+                    if not len(Conjunction):
+                        continue
 
                     Implication = XMLUtils.implication()
                     Implication.extend([TransitionLit, Conjunction])

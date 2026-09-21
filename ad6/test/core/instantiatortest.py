@@ -698,59 +698,62 @@ class InstantiatorTest(unittest.TestCase):
         return bool(PycoSATAdapter().Solve(instance))
 
 
-    def testMaskedRewritePRESERVESTheBitsItDoesNotWrite(self):
+    def testAMaskedRewriteFREESTheBitsItDoesNotDetermine(self):
         """ A rewrite whose value carries don't-cares writes its DETERMINED
-        bits and leaves the rest of the field exactly as it arrived.
+        bits and leaves the rest of the field UNCONSTRAINED downstream.
 
-        This is Hassel's `(h & mask) | rewrite` (owner ruling 2026-09-21): the
-        bits a rule does not replace are PRESERVED from the incoming header,
-        not cleared and not made arbitrary. wl_cloud needs it -- its 28 NAT
-        rules rewrite the destination to a SUBNET (/23-/25, 24 distinct values,
-        none of them a host address), so a rewrite that could only write a whole
-        integer could not express them and the workload was refused
-        (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+        THIS TEST USED TO ASSERT THE OPPOSITE, and the correction is the point.
+        Hassel does preserve what a rewrite does not replace -- but WHICH bits
+        those are is decided by the MASK, not by the value. net_plumber's
+        `array_rewrite` says it outright ("a 0 in the mask means that the bit
+        should be kept whereas a 1 means it should be rewritten"), and a
+        rewritten bit takes the rewrite value's bit INCLUDING its `x`.
 
-        The encoding falls out of the machinery that was already there:
-        _CreateMutationConstraints emits, per bit, either a REWRITE axiom
-        (target bit = constant) or a FRAME axiom (target bit = source bit). A
-        masked rewrite is simply the two MIXED within one field, chosen per bit
-        by the mask.
+        FaVe's model has no mask-0 bit inside a rewritten field at all:
+        `NetPlumberAdapter` synthesises `"1"*FIELD_SIZES[f]` for every field a
+        Rewrite action names. So the value's don't-cares are the only wildcards
+        there are, and framing them preserved bits nothing had asked to
+        preserve.
 
-        vlan = 000000000101 (5), then a rewrite of 000000001xxx: the top nine
-        bits become 000000001 and the low three survive as 101, giving
-        000000001101 = 13. An implementation that zeroed the unwritten bits
-        would give 8 instead, and one that freed them would make both
-        satisfiable. """
-        self.assertTrue(
-            self._rewrite_chain_model(5, 'b000000001xxx', 13),
-            "the low three bits of 5 (101) must survive the masked rewrite, "
-            "giving 13 -- this is the preservation ruling itself")
-        self.assertFalse(
-            self._rewrite_chain_model(5, 'b000000001xxx', 8),
-            "8 is what zeroing the unwritten bits would produce; they are "
-            "preserved, not cleared")
-        self.assertFalse(
-            self._rewrite_chain_model(5, 'b000000001xxx', 5),
-            "the WRITTEN bits must actually change -- 5 is what no rewrite "
-            "at all would leave")
+        It was not caught by argument but by MEASUREMENT. wl_cloud's DNAT
+        rewrites the destination to a /22 service subnet while MATCHING a /32
+        public address, so the "kept" low bits were fully determined by the
+        match and the /22 collapsed to a single host: ad6 called every
+        internet-sourced pair unreachable, against NetPlumber and against the
+        dataset's own sat verdicts (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+
+        vlan = 000000000101 (5), then a rewrite of 000000001xxx. The top nine
+        bits become 000000001; the low three are free, so 8 through 15 are all
+        reachable and nothing below 8 is. """
+        for value in (8, 13, 15):
+            self.assertTrue(
+                self._rewrite_chain_model(5, 'b000000001xxx', value),
+                "%d is inside 000000001xxx, so the free low bits must be able "
+                "to take it" % value)
+        for value in (5, 7, 16):
+            self.assertFalse(
+                self._rewrite_chain_model(5, 'b000000001xxx', value),
+                "%d is outside 000000001xxx -- the DETERMINED bits still have "
+                "to be written" % value)
 
 
-    def testMaskedRewriteIsNotAClear(self):
-        """ An ALL-don't-care rewrite preserves the whole field. It must NOT
-        behave like a CLEAR, which leaves the field unconstrained downstream
-        (Sec. 9.10.2, what FaVe's post_routing does to in_port/out_port).
+    def testAnAllDontCareRewriteIsExactlyAClear(self):
+        """ A rewrite whose value is all don't-cares frees the whole field,
+        which is precisely what a CLEAR does (Sec. 9.10.2, what FaVe's
+        post_routing does to in_port/out_port).
 
-        The two are adjacent and easy to conflate -- both "write nothing" -- but
-        they are opposite downstream: preserved means the old value still holds,
-        cleared means any value does. Pinned because only the gate value tells
-        them apart. """
-        self.assertTrue(
-            self._rewrite_chain_model(5, 'b' + 'x' * 12, 5),
-            "an all-don't-care rewrite preserves 5")
-        self.assertFalse(
-            self._rewrite_chain_model(5, 'b' + 'x' * 12, 6),
-            "6 must be unreachable -- if it is not, the all-don't-care rewrite "
-            "was treated as a CLEAR and freed the field")
+        ALSO INVERTED from what it once asserted. The two were pinned apart on
+        the reading that a masked rewrite preserves; under the corrected
+        semantics they say the same thing, and that is coherent rather than a
+        coincidence -- "replace every bit with a wildcard" and "constrain this
+        field no further" are one statement. The test is kept, pointing the
+        other way, so the equivalence is deliberate and not a later accident.
+        """
+        for value in (5, 6, 4095):
+            self.assertTrue(
+                self._rewrite_chain_model(5, 'b' + 'x' * 12, value),
+                "an all-don't-care rewrite leaves the field free, so %d is "
+                "reachable" % value)
 
     def testAnUnmaskedRewriteStillOverwritesEverything(self):
         """ The no-regression end: a fully determined rewrite value keeps the
