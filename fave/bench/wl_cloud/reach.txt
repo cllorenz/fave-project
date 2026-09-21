@@ -1,0 +1,12 @@
+# The six oracle queries as an FPL policy. See README.md for why each rule is
+# written the way it is -- in particular why q02 has none and why q06 has one
+# it is EXPECTED to fail.
+# KEEP COMMENT RUNS SHORT (README.md, "A trap in the translator").
+
+describe policies (default: deny)
+    Internet ---> dc1_leaf5_host5
+    Internet ---> dc1_leaf0_host20.S332
+    Internet ---> dc4_leaf3_host22.S331
+    dc1_leaf6_host2 ---> dc0_leaf1_host1.S350
+    dc1_leaf6_host0 ---> dc0_leaf1_host1.S351
+end

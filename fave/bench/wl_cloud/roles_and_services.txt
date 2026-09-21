@@ -1,0 +1,72 @@
+# FPL inventory for wl_cloud's oracle phase. FABRICATED -- see README.md.
+# Checked against the model by benchmark.role_members: every role must be a
+# real endpoint carrying the ipv4 it declares.
+# KEEP COMMENT RUNS SHORT (README.md, "A trap in the translator").
+
+describe service S331
+    protocol = 'tcp'
+    port = 331
+end
+
+describe service S332
+    protocol = 'tcp'
+    port = 332
+end
+
+describe service S350
+    protocol = 'tcp'
+    port = 350
+end
+
+describe service S351
+    protocol = 'tcp'
+    port = 351
+end
+
+# q01's target: reached from the internet under no constraint at all.
+describe role dc1_leaf5_host5
+    description = 'q01 target.'
+    ipv4 = '10.0.6.148/30'
+end
+
+# q02's target: named by no rule, so default-deny covers it.
+describe role dc2_leaf7_host6
+    description = 'q02 target.'
+    ipv4 = '10.0.11.152/30'
+end
+
+# q03's target.
+describe role dc1_leaf0_host20
+    description = 'q03 target.'
+    ipv4 = '10.0.4.80/30'
+    offers S332
+end
+
+# q04's target: the query says nothing OUTSIDE 331 arrives, which is the
+# complement half of the rule naming S331.
+describe role dc4_leaf3_host22
+    description = 'q04 target.'
+    ipv4 = '10.0.17.216/30'
+    offers S331
+end
+
+# q05's and q06's target: two services, two peers, and the dataset's
+# verdicts differ between them.
+describe role dc0_leaf1_host1
+    description = 'q05 and q06 target.'
+    ipv4 = '10.0.0.132/30'
+    offers S350
+    offers S351
+end
+
+# q05's source.
+describe role dc1_leaf6_host2
+    description = 'q05 source.'
+    ipv4 = '10.0.7.8/30'
+end
+
+# q06's source.
+describe role dc1_leaf6_host0
+    description = 'q06 source.'
+    ipv4 = '10.0.7.0/30'
+end

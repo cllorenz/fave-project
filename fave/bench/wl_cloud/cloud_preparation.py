@@ -51,6 +51,7 @@ import os
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from bench.np_preparation import _reprioritise_fib_lpm
+from bench.wl_cloud.cloud_endpoints import Endpoint
 from bench.wl_cloud.cloud_tf import (
     CLOUD_MAPPING,
     NodeModel,
@@ -193,63 +194,37 @@ class _Ports:
         return [(o, t, p) for (o, t), p in sorted(self._out.items())]
 
 
-class Query:
-    """ One reachability question: inject at `source`, observe at `target`.
-
-    A query carries its own generator because the dataset's own queries do:
-    four of the six inject at the SAME node (the internet gateway) under
-    different header constraints (CLOUD_BENCH_PLAN.md §1.4), so a generator per
-    *node* could express at most one of them.
-    """
-
-    __slots__ = ('name', 'source', 'target', 'fields', 'expect')
-
-    def __init__(self, name, source, target, fields=None, expect='sat'):
-        self.name = name
-        self.source = source
-        self.target = target
-        self.fields = list(fields or [])
-        self.expect = expect
-
-    @property
-    def source_device(self) -> str:
-        return 'source.%s' % self.name
-
-    @property
-    def probe_device(self) -> str:
-        return 'probe.%s' % node_name(self.target)
-
-    def check(self) -> str:
-        """ The `bench/compliance_checker.py` line for this query.
-
-        `sat` becomes a plain check (a violation if the pair does NOT reach),
-        `unsat` a negated one (a violation if it does). A run with zero
-        violations has reproduced every verdict.
-        """
-        line = 's=%s p=%s' % (self.source_device, self.probe_device)
-        return line if self.expect == 'sat' else '! %s' % line
-
-
 def build_model(
         rules: List[Rule],
         model: NodeModel,
         endpoints: Optional[Iterable[int]] = None,
-        queries: Optional[Sequence[Query]] = None
+        role_members: Optional[Sequence[Endpoint]] = None
 ) -> Dict[str, Any]:
     """ FaVe's topology / routes / sources / probes for a cloud transfer function.
 
     `endpoints` restricts which source and sink nodes are instantiated, and
-    `queries` replaces the per-node generators with one generator per question.
+    `role_members` goes further: it names the endpoints an FPL policy talks
+    about, and gives each ONE name carried by both its generator and its probe.
     The full dataset has 1,200 generators and 1,201 probes, and every generator
     costs a full flow propagation whether or not a check asks about it, so the
-    oracle phase (§1.4) instantiates only what its six queries name.
+    oracle phase (§1.4) instantiates only what the policy names.
+
+    ONE NAME PER ROLE MEMBER IS A REQUIREMENT, NOT A CONVENIENCE.
+    `bench/reach_csv_to_checks.py` writes `s=source.<name>` and
+    `p=probe.<name>` from the same inventory entry, so a model that named the
+    two sides of a host differently could not be addressed by a policy at all
+    (see cloud_endpoints.Endpoint).
     """
     devices = list(model.devices)
 
-    if queries is not None:
-        endpoints = set(q.target for q in queries)
+    members = list(role_members) if role_members is not None else None
+
+    if members is not None:
+        endpoints = set(m.rx for m in members)
 
     wanted = set(endpoints) if endpoints is not None else None
+    probe_names_at = (
+        dict((m.rx, m.probe_device) for m in members) if members else {})
     ports = _Ports(devices)
 
     routes: List[Tuple[Any, ...]] = []
@@ -310,7 +285,7 @@ def build_model(
         # linked from each of them.
         if wanted is not None and target not in wanted:
             continue
-        name = 'probe.%s' % node_name(target)
+        name = probe_names_at.get(target, 'probe.%s' % node_name(target))
         if name not in probe_names:
             probe_names.add(name)
             probes['devices'].append(
@@ -345,9 +320,15 @@ def build_model(
             ('%s.1' % name, '%s.%d' % (device_name(target), ports.in_port(target)),
              True))
 
-    if queries is not None:
-        for query in queries:
-            _inject(query.source_device, query.source, query.fields)
+    if members is not None:
+        # No per-generator header fields: under an FPL policy a header
+        # constraint belongs to the CHECK, not to the injector. Four of the six
+        # oracle queries enter at the same internet gateway under different
+        # constraints (§1.4), which is exactly what one generator plus six
+        # conditioned checks expresses and what six constrained generators
+        # could not.
+        for member in members:
+            _inject(member.source_device, member.tx, [])
     else:
         for node in model.sources:
             if wanted is not None and node not in wanted:

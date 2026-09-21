@@ -51,6 +51,12 @@ bench/wl_generic_fw/*.csv
 # years later. The raw scenario it is derived FROM is tracked instead, under
 # bench/wl_cloud/cloud-tf/, with a SHA256SUMS the run verifies before deriving.
 bench/wl_cloud/*.json
+# reachability.csv joins them now that the workload compiles an FPL policy:
+# it is the translator's output, regenerated on every run from the two files
+# that ARE tracked (roles_and_services.txt, reach.txt). eval/ is deliberately
+# NOT matched -- a single `*` does not cross `/` -- because a result stamp is
+# the record of a run, tracked exactly as bench/wl_stanford/eval/ is.
+bench/wl_cloud/*.csv
 
 
 *.pdf
