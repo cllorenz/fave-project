@@ -958,6 +958,53 @@ Three further consequences to work through:
 
 ---
 
+### 15. FPL silently DROPS a role whose block does not parse (found 2026-09-21)
+**Found by C7, and it nearly shipped a policy missing 8 of 26 roles.**
+
+**The finding.** `policy_translator/fpl_grammar.py` defines a quoted attribute
+value as `value_text = pp.Word(pp.alphanums + ".:/-_ ,")`. A `+` is not in that
+set, so a role whose `description` contains one fails to match `field`, which
+fails `role`, and the top-level `inventory` grammar — an unanchored
+`pp.OneOrMore` with no `parseAll`/`StringEnd` — simply does not produce it.
+**The translator exits 0.** No error, no warning, no count. The policy then
+compiles against the roles that survived and produces a smaller, perfectly
+well-formed matrix.
+
+**Measured.** wl_cloud's generated inventory gave every role a description
+listing its prefixes joined with ` + `. Nine of 25 services have two prefixes;
+the 8 whose descriptions therefore carried a `+`, plus nothing else, vanished.
+`reachability.csv` came out **18x18 instead of 26x26** with every cell empty,
+and the only reason it was caught is that the emitter knows how many roles it
+wrote. A hand-written inventory has no such check.
+
+This is items 1i/1n/1p's swallowed-sub-step pattern in the POLICY layer: the
+step ran, produced an artifact, and answered a smaller question.
+
+- [ ] **Decide the fix.** Two independent halves, and the second matters more
+      than the first:
+  - **Widen `value_text`** (or make a quoted value `pp.QuotedString`, which is
+    what it is trying to be) so a description can hold ordinary punctuation.
+    Low risk; `value_word` is a separate production and unaffected.
+  - **Make an unparseable block LOUD.** Anchoring the inventory grammar with
+    `parseAll=True`, or comparing the parsed role count against the number of
+    `def role` lines, turns this class of defect from silent-and-smaller into a
+    failure. Widening the charset alone only moves the next character that
+    triggers it.
+- [x] **Worked around and guarded in wl_cloud** (2026-09-21). `cloud_policy.py`
+      joins prefixes with spaces, and three tests stand in for the missing
+      loudness: `test_cloud_policy.py` asserts every emitted value's charset
+      against `value_text`, asserts the translator returns 26 roles, and pins
+      the silent drop itself (`test_a_plus_in_a_description_silently_loses_the_role`)
+      so that fixing the grammar turns this file red and points here. The
+      benchmark additionally refuses to run if the FPL names a different
+      endpoint set than the model builds.
+- [ ] **Re-check the existing inventories** once the loud version exists. No
+      current workload is known to lose a role — wl_up/wl_ifi/wl_example all
+      round-trip their expected role counts in the fast tier — but that is
+      evidence from three workloads, not from the parser.
+
+---
+
 ## Python codebase test expansion (fave/ + policy_translator/)
 
 ### 9. Expand Python test coverage per the testing strategy — Phase 1 + Phase 2 DONE (see [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md))

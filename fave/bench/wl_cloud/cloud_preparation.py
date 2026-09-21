@@ -194,37 +194,165 @@ class _Ports:
         return [(o, t, p) for (o, t), p in sorted(self._out.items())]
 
 
+class RoleEndpoint:
+    """ One FPL role's presence at one leaf router (CLOUD_BENCH_PLAN.md §1.9.6).
+
+    The policy's roles are the dataset's 25 SERVICES plus the Internet, and a
+    service's hosts sit behind one to nine leaf routers, so a role is not one
+    place in the model. It is this: a generator that injects the leaf's address
+    block carrying the service's own source port, and a probe that observes
+    everything that leaf delivers to its hosts.
+
+    BOTH constraints are load-bearing, and for the same reason. A leaf's /25 can
+    belong to TWO services (services 2 and 3 are both 10.0.17.0/25), which the
+    data plane separates only by TCP port: a rule permitting service j names
+    `sport = 331+j` on the way in and `dport = 331+j` on the way out. Drop the
+    generator's source port and service 3's traffic satisfies service 2's ACL,
+    manufacturing reachability the matrix denies. The probe cannot carry the
+    mirror-image filter -- `netplumber/adapter.py` has `filter_fields` commented
+    out -- so the destination half is qualified in the CHECK instead, by
+    `reach_csv_to_checks --deny-per-service`.
+    """
+
+    __slots__ = ('name', 'inject', 'fields', 'observe')
+
+    def __init__(
+            self,
+            name: str,
+            inject: int,
+            fields: Sequence[str],
+            observe: Sequence[int]
+    ) -> None:
+        self.name = name
+        self.inject = inject
+        self.fields = list(fields)
+        self.observe = sorted(observe)
+
+    @property
+    def source_device(self) -> str:
+        return 'source.%s' % self.name
+
+    @property
+    def probe_device(self) -> str:
+        return 'probe.%s' % self.name
+
+
+def leaf_blocks(model: NodeModel) -> Dict[int, str]:
+    """ {leaf ingress node: the /25 it is responsible for}.
+
+    Read off the DATACENTER CORE's routing table -- one `fwd <prefix> -> <leaf>`
+    rule per leaf -- because that is the network stating where a prefix lives,
+    rather than inferred from the leaf's own drop rule. The two agree on all 40
+    leaves and `test_cloud_preparation.py` pins that they do; a disagreement
+    would mean the derivation had drifted from one of its two witnesses.
+    """
+    blocks: Dict[int, str] = {}
+
+    for node in model.devices:
+        if _stage(node) != STAGE_CORE:
+            continue
+        for rule in model.rules_at(node):
+            prefix = read_match_field(rule.match, 'packet.ipv4.destination')
+            if prefix is None:
+                continue
+            for target in rule.out_ports:
+                if _stage(target) == STAGE_LEAF_IN:
+                    blocks[target] = prefix
+
+    return blocks
+
+
+def role_endpoints(
+        model: NodeModel,
+        router_services: Dict[int, Sequence[int]],
+        service_port: Any,
+        endpoint_name: Any,
+        internet_name: str,
+) -> List[RoleEndpoint]:
+    """ One `RoleEndpoint` per (service, leaf) pair, plus the Internet.
+
+    `router_services` is the README's own `Services of router <id>` census and
+    `service_port` its port algebra, both from `cloud_readme.py`; the callables
+    are passed in rather than imported so this module keeps knowing only about
+    the transfer function.
+    """
+    blocks = leaf_blocks(model)
+    sinks = set(model.sinks)
+
+    # Which sinks does each device deliver to? A leaf's egress node feeds its
+    # own hosts; the internet egress is fed from all five cores.
+    delivers: Dict[int, List[int]] = {}
+    for node in model.devices:
+        for rule in model.rules_at(node):
+            for target in rule.out_ports:
+                if target in sinks:
+                    delivers.setdefault(node, []).append(target)
+
+    # The Internet injects AT the gateway (which holds the inbound NAT) and is
+    # observed at the egress sink, which is a different node -- and one fed
+    # from all five datacenter cores, so the probe carries five links.
+    endpoints = [RoleEndpoint(
+        internet_name, _INTERNET_GW, [],
+        [sink for sink in sinks if sink >= _INTERNET_GW],
+    )]
+
+    for leaf in sorted(router_services):
+        if leaf not in blocks:
+            raise ValueError(
+                "leaf %s carries services %s but no core routes a prefix to "
+                "it: the README and the transfer function disagree about "
+                "which leaf routers exist"
+                % (node_name(leaf), sorted(router_services[leaf])))
+
+        for index in sorted(router_services[leaf]):
+            endpoints.append(RoleEndpoint(
+                endpoint_name(index, leaf),
+                leaf,
+                ['ipv4_src=%s' % blocks[leaf],
+                 'tcp_src=%d' % service_port(index)],
+                delivers.get(leaf + 1, []),
+            ))
+
+    return endpoints
+
+
 def build_model(
         rules: List[Rule],
         model: NodeModel,
         endpoints: Optional[Iterable[int]] = None,
-        role_members: Optional[Sequence[Endpoint]] = None
+        role_members: Optional[Sequence[Any]] = None
 ) -> Dict[str, Any]:
     """ FaVe's topology / routes / sources / probes for a cloud transfer function.
 
-    `endpoints` restricts which source and sink nodes are instantiated, and
-    `role_members` goes further: it names the endpoints an FPL policy talks
-    about, and gives each ONE name carried by both its generator and its probe.
+    Two ways to name the model's endpoints, and they are alternatives:
+
+      * `endpoints` restricts which source and sink NODES are instantiated;
+      * `role_members` replaces both the generators and the probes with one of
+        each per FPL ROLE MEMBER, which is what a policy-driven phase needs.
+
     The full dataset has 1,200 generators and 1,201 probes, and every generator
-    costs a full flow propagation whether or not a check asks about it, so the
-    oracle phase (§1.4) instantiates only what the policy names.
+    costs a full flow propagation whether or not a check asks about it, so no
+    phase instantiates more than its policy names.
 
     ONE NAME PER ROLE MEMBER IS A REQUIREMENT, NOT A CONVENIENCE.
     `bench/reach_csv_to_checks.py` writes `s=source.<name>` and
     `p=probe.<name>` from the same inventory entry, so a model that named the
     two sides of a host differently could not be addressed by a policy at all
     (see cloud_endpoints.Endpoint).
+
+    A MEMBER IS A NAME, A PLACE TO INJECT, AND THE PLACES IT IS OBSERVED AT --
+    `inject`, `fields` and `observe`. `cloud_endpoints.Endpoint` is the simple
+    case (one sink, no header constraint) and `RoleEndpoint` the general one: a
+    role of the 26x26 matrix is a SERVICE, spread over one to nine leaf routers
+    and separated from the service sharing its address block only by a TCP
+    port. Both satisfy the same three attributes, so there is one code path
+    here rather than one per caller.
     """
     devices = list(model.devices)
 
     members = list(role_members) if role_members is not None else None
 
-    if members is not None:
-        endpoints = set(m.rx for m in members)
-
     wanted = set(endpoints) if endpoints is not None else None
-    probe_names_at = (
-        dict((m.rx, m.probe_device) for m in members) if members else {})
     ports = _Ports(devices)
 
     routes: List[Tuple[Any, ...]] = []
@@ -271,6 +399,17 @@ def build_model(
     source_set = set(model.sources)
     probe_names: set = set()
 
+    # Which probes observe a sink. One per sink when each member names its own,
+    # but a sink may be observed by SEVERAL, because two services can share a
+    # leaf's address block and therefore its hosts (services 2 and 3 are both
+    # 10.0.17.0/25). Those probes see identical flows, which is exactly why the
+    # check set has to name the port -- see `RoleEndpoint`.
+    observers: Dict[int, List[str]] = {}
+    if members is not None:
+        for member in members:
+            for sink in member.observe:
+                observers.setdefault(sink, []).append(member.probe_device)
+
     for owner, target, port in ports.links():
         src = '%s.%d' % (device_name(owner), port)
 
@@ -283,9 +422,18 @@ def build_model(
         # be targeted from SEVERAL devices -- the internet egress is reached
         # from all five datacenter cores -- so the probe is declared once and
         # linked from each of them.
+        if members is not None:
+            for name in observers.get(target, []):
+                if name not in probe_names:
+                    probe_names.add(name)
+                    probes['devices'].append(
+                        (name, 'probe', 'existential', None, None, None, None))
+                probes['links'].append((src, '%s.1' % name, False))
+            continue
+
         if wanted is not None and target not in wanted:
             continue
-        name = probe_names_at.get(target, 'probe.%s' % node_name(target))
+        name = 'probe.%s' % node_name(target)
         if name not in probe_names:
             probe_names.add(name)
             probes['devices'].append(
@@ -321,14 +469,15 @@ def build_model(
              True))
 
     if members is not None:
-        # No per-generator header fields: under an FPL policy a header
-        # constraint belongs to the CHECK, not to the injector. Four of the six
-        # oracle queries enter at the same internet gateway under different
-        # constraints (§1.4), which is exactly what one generator plus six
-        # conditioned checks expresses and what six constrained generators
-        # could not.
+        # A member's `fields` qualify its GENERATOR. They are empty for an
+        # endpoint the policy addresses by name alone -- under an FPL policy a
+        # header constraint belongs to the check, not to the injector, which is
+        # what lets several questions share one generator. They are NOT empty
+        # where two roles share an address block and the data plane tells them
+        # apart by port: there the constraint decides which role the traffic
+        # belongs to, and no check could add it afterwards (see `RoleEndpoint`).
         for member in members:
-            _inject(member.source_device, member.tx, [])
+            _inject(member.source_device, member.inject, member.fields)
     else:
         for node in model.sources:
             if wanted is not None and node not in wanted:

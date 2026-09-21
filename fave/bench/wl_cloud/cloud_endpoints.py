@@ -95,6 +95,24 @@ class Endpoint:
     def probe_device(self) -> str:
         return 'probe.%s' % self.name
 
+    # The three below are what `cloud_preparation.build_model` reads off a role
+    # member, and they are the reason it has ONE code path for both kinds. An
+    # `Endpoint` is the simple case of `cloud_preparation.RoleEndpoint`: it
+    # injects at one node, is observed at one node, and carries no header
+    # constraint of its own because the policy addresses it by name alone.
+
+    @property
+    def inject(self) -> int:
+        return self.tx
+
+    @property
+    def fields(self) -> List[str]:
+        return []
+
+    @property
+    def observe(self) -> List[int]:
+        return [self.rx]
+
 
 def _source_address(model: NodeModel, node: int) -> Optional[str]:
     """ The `/30` a source node's own rule constrains its traffic to.
