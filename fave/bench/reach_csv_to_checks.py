@@ -45,6 +45,59 @@ def _load_role_attributes(path):
     with open(path, 'r') as raw:
         return {role['name']: role.get('attributes', {}) for role in json.load(raw)}
 
+
+def _load_role_services(path):
+    """ {role name: [service attribute dict, ...]} from the same dump.
+
+    The translator records what each role OFFERS alongside what it is, so a
+    consumer can ask "which services does reaching this role mean?" without
+    re-reading the FPL. Only `--deny-per-service` uses it. """
+    if not path:
+        return {}
+    with open(path, 'r') as raw:
+        return {
+            role['name']: [
+                service.get('attributes', {})
+                for service in role.get('services', [])
+            ] for role in json.load(raw)
+        }
+
+
+def _service_terms(attributes):
+    """ One service's attributes as check terms, in declaration order. """
+    return ['f=%s:%s' % (field, value) for field, value in attributes.items()]
+
+
+def _deny_checks(fstr, sources, target, services):
+    """ The must-not-reach checks for one denied cell.
+
+    WITHOUT `--deny-per-service` a denied cell denies ALL traffic to the target,
+    which is the right reading where a role is a subnet: wl_up's `Wifi` is a set
+    of machines, and "must not reach Wifi" means no packet of any kind.
+
+    WITH it, a denied cell denies exactly the target's OFFERED SERVICES. That is
+    the right reading where a role is a SERVICE, because then two roles can name
+    the same machines -- `wl_cloud`'s services 2 and 3 are both 10.0.17.0/25,
+    distinguished in the data plane only by TCP port. Under the blanket reading
+    such a matrix is self-contradictory rather than merely strict: any row
+    permitting service 2 and denying service 3 asks for a packet to arrive at
+    those hosts and not arrive at them. Probe-side filtering would be the other
+    way to resolve it, but `netplumber/adapter.py` has `filter_fields` commented
+    out (memory explosion), so the qualification has to live in the check.
+
+    A role offering no service falls back to the blanket form: there is then no
+    service to name, and silently emitting nothing would delete the check. """
+    qualifiers = [terms for terms in map(_service_terms, services) if terms]
+
+    if not qualifiers:
+        return ['! ' + fstr % (s, target) for s in sources]
+
+    return [
+        '! ' + fstr % (s, target) + ' && ' + ' && '.join(terms)
+        for s in sources for terms in qualifiers
+    ]
+
+
 def _abstracts_a_subnet(attributes):
     """ True iff the role's declared address is a PROPER subnet: more than one
     address, but not the whole space.
@@ -239,6 +292,15 @@ if __name__ == '__main__':
 
     mapping = json.load(open(args.inventory_file, 'r'))
     role_attributes = _load_role_attributes(args.roles_file)
+    role_services = _load_role_services(args.roles_file)
+
+    if args.deny_per_service and not args.roles_file:
+        parser.error(
+            '--deny-per-service needs --roles: the offered services it names '
+            'come from the translator\'s role dump. Without it every denied '
+            'cell would silently fall back to the blanket form, which is the '
+            'behaviour the flag exists to change.'
+        )
 
     checks = []
     reach_json = {}
@@ -336,8 +398,11 @@ if __name__ == '__main__':
                     # device, which is why the two spellings agreed until a
                     # role spread over nine leaf routers arrived.
                     for target in targets:
-                        checks.extend(
-                            ['! ' + fstr % (s, target) for s in sources])
+                        checks.extend(_deny_checks(
+                            fstr, sources, target,
+                            role_services.get(target_role, [])
+                            if args.deny_per_service else []
+                        ))
 
 
     with open(args.checks_file, 'w') as checks_file:
