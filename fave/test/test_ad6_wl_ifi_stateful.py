@@ -20,42 +20,48 @@
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
 """ wl_ifi's REAL compliance policy (bench/wl_ifi/cchecks.json) through
-Ad6Adapter: the 245 plain checks are answered, the 54 stateful `related`
-checks are REFUSED, and this pins both.
+Ad6Adapter: the 245 plain checks and the 54 stateful `related` ones are all
+answered, and the stateful answers are the UNCONDITIONED ones -- because this
+model has no `related` field for the condition to bind to.
 
-WHAT CHANGED AT THE §9.3 PHASE 5 GATE. The adapter's only translation is now
-the LITERAL one (called 'structural' until §9.26 renamed the pair), and under
-it wl_ifi's stateful subset is UNANSWERABLE. This file used to be a
-CHARACTERIZATION of the deleted interpreted path's answer to those
-checks (27 pass / 27 fail, AD6_PLAN.md §4.2's open question); the open question
-is now closed as MALFORMED, by owner decision, and the file pins the refusal
-instead.
+WHAT CHANGED AT §9.37, AND IT IS A REVERSAL. This file used to pin a REFUSAL.
+`fave_bridge` forced exactly one field and refused a `related` condition
+against a model that declared none, on the reasoning that forcing nothing
+answers the UNCONDITIONED question (§9.23.2a). That reasoning conflated two
+opposite situations:
 
-WHY THE CHECKS CANNOT BE ANSWERED, and why that is the better answer.
-`related` is an ordinary 8-bit header field in FaVe's model -- §9.2(a):
-fave/iptables/generator.py's `_interweave_state_shell` STRIPS the conntrack
-matches and re-emits the derived rules carrying a plain `RuleField('related',
-...)`, so a literal translation carries the state semantics for free
-wherever FaVe put them. wl_ifi is the benchmark where FaVe puts them NOWHERE:
-its ACLs are parsed from Cisco IOS text (bench/wl_ifi/acls.txt) that contains
-no `established`/ctstate qualifier at all, so the interweaving has nothing to
-strip and emits no `related` rule. The model consequently declares
-no `related` field -- `mutable_fields` is {in_port, out_port, vlan} -- and
-ad6/fave_bridge.py's `_state_field_literals` refuses the condition rather
-than forcing nothing and answering the UNCONDITIONED question (§9.23.2a).
+  * the model HAS the field and the condition was dropped -- §9.23's phantom
+    finding, where `related:0` and `related:1` came back identical although
+    they genuinely differ;
+  * the model has NO such field, so every flow satisfies the condition and the
+    two variants are identical BY CONSTRUCTION. Reporting that is correct.
 
-The deleted interpreted path did answer them, by forcing ad6 `<state>` variables onto
-that same state-blind model: both `related:1` and `related:0` necessarily
-resolved through the one state-blind permit, so all 27 related:1 checks passed
-and all 27 related:0 checks failed -- a perfectly systematic split that looked
-like a finding about wl_ifi's ACLs and was an artifact of asking a question the
-model cannot represent. Refusing is the honest answer to a malformed question.
+The bridge now distinguishes them from the translator's `query_fields` recipe
+map, which is authoritative about what the model constrains, so the second
+case is honoured and announced instead of refused. `related` is an ordinary
+8-bit header field in FaVe's model (§9.2a: `_interweave_state_shell` strips the
+conntrack match and re-emits a plain `RuleField('related', ...)`), and wl_ifi
+is the benchmark where FaVe puts them NOWHERE -- its ACLs come from Cisco IOS
+text with no `established`/ctstate qualifier at all, so the interweaving has
+nothing to strip. `test_the_model_really_has_no_related_field_to_bind` pins
+that cause, and it is what licenses everything above.
 
-NOTE WHAT IS *NOT* CLAIMED HERE: that ad6 cannot answer stateful checks. It
-can, and does -- wl_up's 3,302 stateful checks are answered and
-agree exactly with NetPlumber (§9.22/§9.23), because wl_up's rulesets are real
-ip6tables text whose `ctstate ESTABLISHED` FaVe's interweaving turns into real
-`related` rules. The gap is wl_ifi's input data, not the translation.
+MEASURED, and not on ad6's word alone: the 54 stateful checks now report 27
+violations, which is exactly what NetPlumber reports for the same set, and
+exactly the 27 CLOUD_BENCH_PLAN.md §1.9.0 records for wl_ifi under `<->>`
+("the same data plane reports 27 violations under `<->>` and none under
+`<-->`, because its Cisco ACLs really are stateless"). The deleted interpreted
+path also produced 27/27, but by forcing ad6 `<state>` variables onto a
+state-blind model -- a systematic split that looked like a finding and was an
+artifact. The number is the same; what makes this one an answer rather than an
+artifact is that the condition is honoured against a field the model provably
+does not have, and that a second engine agrees.
+
+NOTE WHAT IS *NOT* CLAIMED HERE: that a vacuous condition is a free pass. Where
+a model DOES carry the field the condition is forced and the variants differ --
+wl_up's 3,302 stateful checks are answered and agree exactly with NetPlumber
+(§9.22/§9.23), and `test_ad6_bridge_cond.py` pins `related:0` against
+`related:1` at unit level.
 
 The old numbers are reproducible only by checking out commit 86114970: the
 path that produced them was deleted at §9.25, and asking for it by name here
@@ -69,7 +75,6 @@ import unittest
 
 from ad6.adapter import Ad6Adapter, available
 from test.backend_gate import require_or_skip
-from util.barrier import BarrierError
 
 _PREFIX = "bench/wl_ifi"
 
@@ -174,21 +179,36 @@ class TestAd6WlIfiStateful(unittest.TestCase):
         stateful refusal -- which is the point of splitting them. """
         self.assertEqual(self._run(self.plain), [])
 
-    def test_stateful_checks_are_REFUSED_not_answered(self):
-        """ THE POINT OF THIS FILE since Phase 5. The failure that must never
-        come back is a SILENT one: nothing forced, the unconditioned question
-        answered, and a confident count returned (AD6_PLAN.md §9.23). So this
-        asserts the refusal AND that it names the missing field, rather than
-        merely asserting that something went wrong. """
-        with self.assertRaises(BarrierError) as caught:
-            self._run(self.stateful)
+    def test_stateful_checks_are_answered(self):
+        """ THE REVERSAL (§9.37). These used to raise. """
+        violations = self._run(self.stateful)
+        self.assertEqual(
+            len(violations), 27,
+            "the 54 stateful checks must answer 27 violations -- the number "
+            "NetPlumber reports for the same set, and the one §1.9.0 records "
+            "for wl_ifi under `<->>`")
 
-        message = str(caught.exception)
-        self.assertIn("related", message)
-        self.assertIn("declares no 'related' field", message)
-        self.assertIn("UNCONDITIONED", message,
-                      "the refusal must still explain WHY answering anyway "
-                      "would be wrong -- that reasoning is the whole guard")
+    def test_the_condition_is_VACUOUS_here_and_that_is_demonstrated(self):
+        """ What "honoured because there is nothing there" has to MEAN, checked
+        rather than asserted: the same checks with the condition REMOVED must
+        give the identical answer.
+
+        This is deliberately the shape of the §9.23 bug, and the difference is
+        the next test: there the field existed and the condition was dropped;
+        here the model provably has no such field, so the two questions are the
+        same question. Both halves are needed -- this one alone would pass for
+        a dropped condition, and that one alone would not show the answers
+        coincide. """
+        stripped = {
+            probe: [[source, negated, []] for source, negated, _cond in entries]
+            for probe, entries in self.stateful.items()
+        }
+        # The (source, probe, must_reach) triple, not the whole tuple: the
+        # fourth element is the engine's echo of the condition it was GIVEN,
+        # which differs between the two runs by construction.
+        pairs = lambda rules: sorted(
+            (s, p, mr) for (s, p, mr, _c) in self._run(rules))
+        self.assertEqual(pairs(self.stateful), pairs(stripped))
 
     def test_the_model_really_has_no_related_field_to_bind(self):
         """ Pins the CAUSE, not just the symptom: wl_ifi's Cisco ACLs carry no
