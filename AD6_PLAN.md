@@ -7328,3 +7328,102 @@ And the cost question is untouched by any of this: making `ipv4_src`/`ipv4_dst`
 mutable gives every node its own 64-bit SSA copy, and wl_cloud is ~2,500 nodes by
 `_LEAF_SPAN`'s arithmetic. Translatable is not solvable; size the instance before
 solving it.
+
+---
+
+### 9.36 A masked REWRITE: the unwritten bits are PRESERVED
+
+**DONE 2026-09-21.** Owner ruling: *"the unwritten bits are preserved."* This is
+Hassel's `(h & mask) | rewrite` -- the bits a rule does not replace carry through
+from the incoming header. Not cleared, and not made arbitrary.
+
+#### 9.36.1 Why it was needed, and why §9.35 did not already do it
+
+§9.35 closed the MATCH side and uncovered this underneath it: wl_cloud's 28 NAT
+rules rewrite the destination to a SUBNET -- `10.0.0.0/24`, `10.0.12.0/23`,
+`10.0.16.128/25`, 24 distinct values and **not one of them a host address** --
+while `translate._rewrites` required an integer or an all-`x` wildcard. A rewrite
+that can only write a whole integer cannot express "put this flow on the service
+subnet and leave the host part alone".
+
+#### 9.36.2 The encoding was already there, split in two
+
+`Instantiator._CreateMutationConstraints` emits, per edge and per mutable field,
+exactly one of two axioms:
+
+* a **REWRITE** axiom -- the target's per-node bit is forced to a constant;
+* a **FRAME** axiom -- the target's bit equals the SOURCE's bit ("the field
+  survives an edge that doesn't touch it").
+
+Both were already built **per bit**, in the same loop. A masked rewrite is simply
+**the two mixed within one field, chosen per bit by the mask**: a determined bit
+takes the rewrite axiom, a don't-care takes the frame axiom. The change is one
+condition:
+
+    if BitVector is not None and BitVector[Index] != 'x':
+
+That the ruling landed on exactly the operation the frame axioms already perform
+is the reason this is four lines rather than a phase -- and it is worth recording
+that the semantics were settled BEFORE the encoding, because the three candidate
+readings (preserve / clear / arbitrary) are all implementable and only one is
+right.
+
+| file | change |
+|---|---|
+| `xmlutils.py` | `ValueToBitvector` -- the ONE place that knows a decimal from a ternary, now used by both the match and the rewrite side so they cannot drift; `ParseFieldValue` for the XML attribute |
+| `kripke.py` | `ParseFieldValue`, not `int()`, on `rewrite_value` and on a `<rewrite>` child |
+| `instantiator.py` | the per-bit mix above |
+| `fave/ad6/translate.py` | `_rewrites` renders a partially determined value with `_ternary_text` -- the same function the match side uses |
+
+#### 9.36.3 THREE outcomes, and they are genuinely different
+
+The subtle part, and what the tests exist to pin:
+
+| rewrite value | meaning downstream |
+|---|---|
+| fully determined (`5`) | the field is REPLACED outright |
+| partially determined (`b000000001xxx`) | written bits replaced, **the rest PRESERVED** |
+| all-`x` | **CLEAR** -- the field becomes UNCONSTRAINED (§9.10.2) |
+
+The last two both "write nothing" to the unwritten bits and mean opposite things
+there: preserved says the old value still holds, cleared says any value does. So
+`_rewrites` keeps its wildcard test AHEAD of the ternary path rather than folding
+one into the other, and `_CreateMutationConstraints` still emits NEITHER axiom
+for a `CLEAR`. FaVe needs all three -- `post_routing` clears `in_port`/`out_port`,
+routing replaces `out_port`, and cloud NAT masks an address.
+
+#### 9.36.4 Verified by mutation
+
+Three tests, a two-hop rewrite chain with a full-value gate at the end, so what
+the second rewrite did to the bits the first one set is what decides
+reachability. `vlan = 5` then a rewrite of `000000001xxx` must give **13** (the
+low `101` survives); **8** is what zeroing would give and **5** is what no
+rewrite would leave, and both must be unreachable.
+
+Both wrong readings are caught: zeroing the unwritten bits -> 2 red; freeing them
+-> 2 red. The second mutation is the one worth having, since it is the reading a
+careless implementation would fall into and it differs from a `CLEAR` only in a
+gate value.
+
+A leak found while doing it: `field_value_to_bitvector` raises
+`VectorConstructionError`, which escaped `_ternary_text` and surfaced three
+layers up instead of as a named refusal. Contained at `_ternary_text`, so both
+the match and rewrite sides are covered -- caught by an existing test
+(`test_a_non_integer_rewrite_is_refused`) that was right all along.
+
+#### 9.36.5 wl_cloud now translates -- entirely
+
+Measured on the dataset's own 2,941 rules:
+
+    address MATCH values  : 2480 translate, 0 refused
+    address REWRITE values:   24 translate, 0 refused
+
+Both boundaries `CLOUD_BENCH_PLAN.md` §1.7.2 recorded are closed, and **ad6 no
+longer refuses the workload**.
+
+**It is still not a RESULT.** Translatable is not solvable, and nothing here
+touches cost: `ipv4_src`/`ipv4_dst` being mutable gives every node its own 64-bit
+SSA copy over ~2,500 nodes, plus a frame or rewrite axiom per bit per edge. Size
+the instance before solving it, and item 0a applies to any number that comes out.
+Regression: ad6 `make test` 10 suites OK (72 -> 75); fave `fast` 694 -> 698; the
+ad6 fave suites 178 passed / 2 skipped; mypy clean.

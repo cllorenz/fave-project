@@ -383,18 +383,25 @@ takes a TERNARY bit-vector (`AD6_PLAN.md` §9.35), so a rewritten field can be
 matched by prefix. Measured on this dataset: **2,480 of 2,480 distinct address
 match values translate, 0 refused** — where previously every one was refused.
 
-**But the workload still does not translate, for a SECOND and different reason,
-which the first was hiding.** Its 28 NAT rules rewrite the destination to a
-SUBNET (`10.0.0.0/24`, `10.0.12.0/23`, `10.0.16.128/25` — 24 distinct values,
-none of them a host address), and `translate._rewrites` requires a rewrite value
-to be an integer or a wildcard: **0 of 24 accepted**. A masked REWRITE is a
-deeper change than a masked match — it touches
-`Instantiator._CreateMutationConstraints`'s per-bit frame axioms rather than a
-converter — and it needs a semantic ruling first: under Hassel's
-`(h & mask) | rewrite` the unwritten bits are PRESERVED from the incoming header,
-not made arbitrary, so the encoding is plausibly "overwrite the determined bits,
-frame-copy the rest" — which is what those axioms already do per bit. **Not
-implemented; owner decision.**
+**Closing it uncovered a SECOND boundary the first was hiding** — and that one is
+now closed too (`AD6_PLAN.md` §9.36). The 28 NAT rules rewrite the destination to
+a SUBNET (`10.0.0.0/24`, `10.0.12.0/23`, `10.0.16.128/25` — 24 distinct values,
+none of them a host address), and `translate._rewrites` required an integer or a
+wildcard: 0 of 24 accepted. **Owner ruling 2026-09-21: the unwritten bits are
+PRESERVED** — Hassel's `(h & mask) | rewrite`, not cleared and not arbitrary.
+That turned out to be the operation ad6's frame axioms already perform per bit,
+so a masked rewrite is the REWRITE and FRAME axioms mixed within one field,
+chosen per bit by the mask.
+
+**ad6 no longer refuses wl_cloud.** Measured on the dataset's own 2,941 rules:
+
+    address MATCH values  : 2480 translate, 0 refused
+    address REWRITE values:   24 translate, 0 refused
+
+**It is not yet a result.** Translatable is not solvable, and none of this
+touches cost — mutable addresses give every node its own 64-bit SSA copy over
+~2,500 nodes, plus a frame-or-rewrite axiom per bit per edge. Size the instance
+before solving it; item 0a applies to whatever number comes out.
 
 ### 1.7.3 APKeep — drops all three reachable pairs
 
