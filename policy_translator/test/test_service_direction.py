@@ -42,7 +42,7 @@ all of them silent:
     provider, so its `--sport`/`--dport` choice never fired and every rule got
     `--dport`;
   * the backward policy of `<-->` looked the service up on the reverse role
-    (`Fehler: Service host2.S350 unbekannt.`), because a service is offered by
+    (`Error: Service host2.S350 is unknown.`), because a service is offered by
     the server side and the reverse role is the client.
 
 Neither `--->` nor `<-->` is used with a service by any workload in the tree --
@@ -96,7 +96,7 @@ class TestProviderIsPartOfTheServiceCondition(unittest.TestCase):
     def test_the_service_is_looked_up_on_the_PROVIDER_not_the_target(self):
         """ The backward direction of `<-->`: from server to client, with the
         service still the server's. Looking it up on `client` is what raised
-        `Fehler: Service ... unbekannt.` """
+        `Error: Service ... is unknown.` """
         self.policy.add_reachability_policy(
             "server", "client", "S350", condition={"provider": "server"})
 

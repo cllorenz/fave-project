@@ -68,7 +68,7 @@ def main(argv: List[str]) -> None:
             PT_LOGGER.debug(f"read file {file_}")
             files.append(open(file_, 'r'))
     except IOError:
-        print("Fehler: Datei(en) konnte(n) nicht gelesen werden.")
+        print("Error: could not read the input file(s).")
         sys.exit(1)
 
     PT_LOGGER.debug("fetch data from files")
@@ -128,7 +128,7 @@ def main(argv: List[str]) -> None:
         # in this tree invokes the translator through `os.system`. The message
         # went to a log nobody reads while the pipeline carried on with whatever
         # had been written so far. See TODO.md item 15 and items 1i/1n/1p.
-        print(("Fehler: %s" % exception))
+        print(("Error: %s" % exception))
         sys.exit(1)
 
 if __name__ == "__main__":

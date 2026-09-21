@@ -49,13 +49,12 @@ THREE PROPERTIES, and the last is the one that is easy to leave out.
      the first -- while a prosa that rendered it as though it applied would be
      worse still, stating a permission the translator never created.
 
-GERMAN, because that is what this project's human-facing output is: the
-exceptions read "Rolle %s unbekannt.", "bietet keine Services an", and
-`to_html` titles itself "Policy-Translator -- HTML-Ausgabe". Prosa is that same
-audience. Only the template strings would change if that is ever revisited --
-they are two dicts on `Policy`, and the assertions below name sentence
-fragments rather than whole sentences so a wording change does not turn this
-file red for no reason.
+ENGLISH, like the rest of the project. Prosa was written in German to match
+the exceptions and `to_html`, which were the last German left in the tree; all
+of it was translated in the same breath (owner, 2026-09-21), so there is no
+longer a house style pulling the other way. The assertions below name sentence
+fragments rather than whole sentences, so a wording change does not turn this
+file red for no reason -- the templates are two dicts on `Policy`.
 """
 
 import os
@@ -149,8 +148,8 @@ class TestItWritesSomethingAtAll(unittest.TestCase):
             'default: allow', _prosa(['Alpha --/-> Zulu'], default='allow'))
 
     def test_the_header_counts_the_rules(self):
-        self.assertIn('1 Regel.', _prosa(['Alpha ---> Zulu']))
-        self.assertIn('2 Regeln.', _prosa(['Alpha ---> Zulu', 'Bravo ---> Zulu']))
+        self.assertIn('1 rule.', _prosa(['Alpha ---> Zulu']))
+        self.assertIn('2 rules.', _prosa(['Alpha ---> Zulu', 'Bravo ---> Zulu']))
 
 
 class TestDeclarationOrder(unittest.TestCase):
@@ -188,7 +187,7 @@ class TestDeclarationOrder(unittest.TestCase):
         text = _prosa(['Alpha ---> Zulu', 'Alpha ---> Zulu'])
 
         self.assertEqual(text.count('Alpha ---> Zulu'), 1)
-        self.assertIn('1 Regel.', text)
+        self.assertIn('1 rule.', text)
 
     def test_it_is_reproducible_across_hash_seeds(self):
         """ Across a process boundary, since hash randomisation is fixed at
@@ -223,18 +222,18 @@ class TestEachOperatorSaysItsOwnThing(unittest.TestCase):
     def test_the_three_permissions(self):
         text = _prosa(['Alpha ---> Zulu', 'Bravo <--> Zulu', 'Alpha <->> Bravo'])
 
-        self.assertIn('Alpha darf Zulu erreichen.', text)
-        self.assertIn('Bravo und Zulu dürfen sich gegenseitig erreichen.', text)
-        self.assertIn('Antworten dürfen zurückfließen', text)
+        self.assertIn('Alpha may reach Zulu.', text)
+        self.assertIn('Bravo and Zulu may reach each other.', text)
+        self.assertIn('replies may come back', text)
 
     def test_the_three_prohibitions(self):
         text = _prosa(
             ['Alpha --/-> Zulu', 'Bravo <-/-> Zulu', 'Alpha -/->> Bravo'],
             default='allow')
 
-        self.assertIn('Alpha darf Zulu nicht erreichen.', text)
-        self.assertIn('Bravo und Zulu dürfen sich nicht erreichen.', text)
-        self.assertIn('keine neuen Verbindungen', text)
+        self.assertIn('Alpha may not reach Zulu.', text)
+        self.assertIn('Bravo and Zulu may not reach each other.', text)
+        self.assertIn('may not open new connections', text)
 
     def test_no_two_operators_render_the_same_sentence(self):
         for table in (Policy.prosa_permits, Policy.prosa_forbids):
@@ -272,20 +271,20 @@ class TestAServiceIsNamed(unittest.TestCase):
     def test_a_named_service_appears_in_the_sentence(self):
         text = _prosa(['Alpha ---> Zulu.SSH'])
 
-        self.assertIn('Dienst SSH', text)
+        self.assertIn('service SSH', text)
 
     def test_a_rule_without_a_service_names_none(self):
         text = _prosa(['Alpha ---> Zulu'])
 
-        self.assertNotIn('Dienst', text.split('Alpha ---> Zulu')[1])
+        self.assertNotIn('service', text.split('Alpha ---> Zulu')[1])
 
     def test_a_wildcard_is_not_rendered_as_a_service_called_star(self):
         """ `Zulu.*` means every service Zulu offers, and a reader seeing
         "den Dienst *" would have to know that. """
         text = _prosa(['Alpha ---> Zulu.*'])
 
-        self.assertIn('alle angebotenen Dienste', text)
-        self.assertNotIn('Dienst *', text)
+        self.assertIn('every service it offers', text)
+        self.assertNotIn('service *', text)
 
 
 class TestARuleTheDefaultIgnoresIsMARKED(unittest.TestCase):
@@ -298,14 +297,14 @@ class TestARuleTheDefaultIgnoresIsMARKED(unittest.TestCase):
         text = _prosa(['Alpha ---> Zulu'], default='allow')
 
         self.assertIn('Alpha ---> Zulu', text, "the rule was dropped entirely")
-        self.assertIn('WIRKUNGSLOS', text)
+        self.assertIn('NO EFFECT', text)
         self.assertIn('default: deny', text)
 
     def test_a_prohibition_under_default_deny_is_marked(self):
         text = _prosa(['Alpha --/-> Zulu'], default='deny')
 
         self.assertIn('Alpha --/-> Zulu', text)
-        self.assertIn('WIRKUNGSLOS', text)
+        self.assertIn('NO EFFECT', text)
         self.assertIn('default: allow', text)
 
     def test_it_does_NOT_claim_the_rule_applies(self):
@@ -313,10 +312,10 @@ class TestARuleTheDefaultIgnoresIsMARKED(unittest.TestCase):
         anyway would state a permission the translator never created. """
         text = _prosa(['Alpha ---> Zulu'], default='allow')
 
-        self.assertNotIn('Alpha darf Zulu erreichen.', text)
+        self.assertNotIn('Alpha may reach Zulu.', text)
 
     def test_an_honoured_rule_is_not_marked(self):
-        self.assertNotIn('WIRKUNGSLOS', _prosa(['Alpha ---> Zulu']))
+        self.assertNotIn('NO EFFECT', _prosa(['Alpha ---> Zulu']))
 
 
 class TestItRendersTheAUTHORSRules(unittest.TestCase):
@@ -328,13 +327,13 @@ class TestItRendersTheAUTHORSRules(unittest.TestCase):
         text = _prosa(['Alpha ---> Zulu'], strict=False)
 
         self.assertNotIn('Alpha ---> Alpha', text)
-        self.assertIn('1 Regel.', text)
+        self.assertIn('1 rule.', text)
 
     def test_a_policy_with_no_rules_still_renders_its_header(self):
         text = _prosa([])
 
         self.assertIn('default: deny', text)
-        self.assertIn('0 Regeln.', text)
+        self.assertIn('0 rules.', text)
 
 
 if __name__ == '__main__':

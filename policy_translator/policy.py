@@ -400,7 +400,7 @@ class Policy(object):
             "<html>\n",
             "\t<head>\n",
             "\t\t<meta charset='UTF-8'>\n",
-            "\t\t<title>Policy-Translator -- HTML-Ausgabe</title>\n",
+            "\t\t<title>Policy Translator -- HTML output</title>\n",
             "\t\t<link rel='stylesheet' href='policies.css'>\n",
             "\t</head>\n",
             "\t<body>\n",
@@ -408,7 +408,7 @@ class Policy(object):
             "\t\t\t<tr>\n",
             "\t\t\t\t<td></td>\n",
             "\t\t\t\t<td></td>\n",
-            "\t\t\t\t<td class='label' colspan='%d'>ZIEL</td>\n" % len(roles),
+            "\t\t\t\t<td class='label' colspan='%d'>TARGET</td>\n" % len(roles),
             "\t\t\t</tr>\n",
             "\t\t\t<tr>\n",
             "\t\t\t\t<td></td>\n",
@@ -478,19 +478,19 @@ class Policy(object):
         html_list.append((
             "\t\t</table>\n\n"
             "\t\t<br/><br/>\n"
-            "\t\t<h3>Legende:</h3>\n\n"
+            "\t\t<h3>Legend:</h3>\n\n"
             "\t\t<table>\n"
             "\t\t\t<tr>\n"
             "\t\t\t\t<td class='allowed'>&#x2705;</td>\n"
-            "\t\t\t\t<td>Erlaubt</td>\n"
+            "\t\t\t\t<td>Allowed</td>\n"
             "\t\t\t</tr>\n"
             "\t\t\t<tr>\n"
             "\t\t\t\t<td class='cond_allowed'>&#x2705;</td>\n"
-            "\t\t\t\t<td>Nur bedingt erlaubt (Mouseover für mehr Informationen)</td>\n"
+            "\t\t\t\t<td>Conditionally allowed (mouse over for details)</td>\n"
             "\t\t\t</tr>\n"
             "\t\t\t<tr>\n"
             "\t\t\t\t<td class='disallowed'>&#x274c;</td>\n"
-            "\t\t\t\t<td>Nicht erlaubt</td>\n"
+            "\t\t\t\t<td>Not allowed</td>\n"
             "\t\t\t</tr>\n"
             "\t\t</table>\n"
             "\t</body>\n"
@@ -969,22 +969,21 @@ class Policy(object):
     #: output a human reads against that file, which makes it the right place
     #: to say so; see `_PROSA_INERT`.
     prosa_permits = {
-        "--->": "%(from)s darf %(to)s%(via)s erreichen.",
-        "<-->": "%(from)s und %(to)s dürfen sich gegenseitig%(via)s erreichen.",
+        "--->": "%(from)s may reach %(to)s%(via)s.",
+        "<-->": "%(from)s and %(to)s may reach each other%(via)s.",
         "<->>": (
-            "%(from)s darf %(to)s%(via)s erreichen; "
-            "Antworten dürfen zurückfließen."
+            "%(from)s may reach %(to)s%(via)s, and replies may come back."
         ),
     }
 
     prosa_forbids = {
-        "--/->": "%(from)s darf %(to)s%(via)s nicht erreichen.",
-        "<-/->": "%(from)s und %(to)s dürfen sich%(via)s nicht erreichen.",
-        "-/->>": "%(from)s darf keine neuen Verbindungen zu %(to)s aufbauen.",
+        "--/->": "%(from)s may not reach %(to)s%(via)s.",
+        "<-/->": "%(from)s and %(to)s may not reach each other%(via)s.",
+        "-/->>": "%(from)s may not open new connections to %(to)s.",
     }
 
     def to_prosa(self) -> str:
-        """ Renders the policy's own rules as German sentences.
+        """ Renders the policy's own rules as English sentences.
 
         FOR A HUMAN, and it used to be for nobody: this printed each rule's
         four raw fields to stdout and returned `'\n'.join([])`, so
@@ -1009,25 +1008,25 @@ class Policy(object):
             A String that contains the prosaic rules.
         """
         lines = [
-            "# Policy-Translator -- Prosa-Ausgabe",
+            "# Policy Translator -- prose output",
             "#",
-            "# Grundregel: %s" % (
-                "erlaubt ist alles, was hier nicht verboten wird "
+            "# Ground rule: %s" % (
+                "everything is allowed that is not forbidden here "
                 "(default: allow)." if self.default_policy else
-                "verboten ist alles, was hier nicht erlaubt wird "
+                "everything is forbidden that is not allowed here "
                 "(default: deny)."
             ),
-            "# %d Regel%s." % (
+            "# %d rule%s." % (
                 len(self.raw_policies),
-                "" if len(self.raw_policies) == 1 else "n"),
+                "" if len(self.raw_policies) == 1 else "s"),
         ]
 
         for role_from, role_to, service_to, operator in self.raw_policies:
             via = ""
             if service_to:
                 via = (
-                    " über alle angebotenen Dienste" if service_to == "*"
-                    else " über den Dienst %s" % service_to
+                    " via every service it offers" if service_to == "*"
+                    else " via the service %s" % service_to
                 )
 
             fields = {"from": role_from, "to": role_to, "via": via}
@@ -1048,11 +1047,12 @@ class Policy(object):
                 lines.append("\t" + honoured[operator] % fields)
             elif operator in other:
                 lines.append(
-                    "\tWIRKUNGSLOS: `%s` %s, gilt aber nur bei `default: %s`. "
-                    "Diese Regel wurde beim Übersetzen übergangen." % (
+                    "\tNO EFFECT: `%s` %s, but is only read under "
+                    "`default: %s`. This rule was skipped during translation."
+                    % (
                         operator,
-                        "verbietet" if operator in self.prosa_forbids
-                        else "erlaubt",
+                        "forbids" if operator in self.prosa_forbids
+                        else "permits",
                         "allow" if operator in self.prosa_forbids else "deny"))
             else:
                 # Unreachable through `policy_regex`, which matches the six
@@ -1060,8 +1060,8 @@ class Policy(object):
                 # the grammar and not to the two tables above would otherwise
                 # render as a blank line under its own source rule.
                 lines.append(
-                    "\tUNBEKANNTER OPERATOR `%s` -- `Policy.prosa_permits` und "
-                    "`Policy.prosa_forbids` kennen ihn nicht." % operator)
+                    "\tUNKNOWN OPERATOR `%s` -- neither `Policy.prosa_permits` "
+                    "nor `Policy.prosa_forbids` knows it." % operator)
 
         return "\n".join(lines) + "\n"
 

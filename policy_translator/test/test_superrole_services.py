@@ -31,7 +31,7 @@ What was broken is narrower than it first looks. `Superrole.offers_service` was
 `return False` unconditionally, so the guard in `add_reachability_policy`
 rejected services the group DOES declare:
 
-    All ---> All.ARP        ServiceUnknownException: Service All.ARP unbekannt.
+    All ---> All.ARP        ServiceUnknownException: Service All.ARP is unknown.
 
 over a `def role All` whose body reads `offers ARP`. That is
 `examples/fml-paper-policy.txt`, the FML paper's own policy, and it could not
@@ -275,7 +275,7 @@ class TestTheShippedExamples(unittest.TestCase):
         os.path.isfile(os.path.join(_HERE, 'examples', 'fml-paper-policy.txt')),
         "examples/fml-paper-policy.txt not present")
     def test_fml_paper_policy_gets_PAST_the_superrole_and_fails_on_its_data(self):
-        """ This file used to raise `Service All.ARP unbekannt.` -- the superrole
+        """ This file used to raise `Service All.ARP is unknown.` -- the superrole
         defect this module is about -- and it now gets past that and is refused
         for a different, real reason: `protocol = 'arp'` is not an IP protocol
         (TODO item 21). Asserting WHICH refusal is the point; a test that only
@@ -295,7 +295,7 @@ class TestTheShippedExamples(unittest.TestCase):
             _build(text)
 
         self.assertIn('arp', str(caught.exception))
-        self.assertNotIn('unbekannt', str(caught.exception),
+        self.assertNotIn('is unknown', str(caught.exception),
                          "still failing on the superrole, not on the protocol")
 
     @unittest.skipUnless(

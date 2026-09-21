@@ -223,7 +223,7 @@ The job's non-zero exit came **only** from the `fave` native pytest (`5 failed`)
 ### 1n. wl_ifi smoke: PolicyTranslator input — INPUT FILES RESOLVED (verified 2026-06-25); swallow still open
 - [x] **Missing wl_ifi input files committed + `benchmark.py` adapted (by Claas, commit `bfee2856`).** Added `fave/bench/wl_ifi/roles_and_services.txt` (182 lines) and `reach.txt` (13 lines) under standard file names, and adjusted `benchmark.py` (2-line change) to use them. This removes the original blocker (the files were simply never in the repo).
 - [x] **Verified end-to-end on my native stack (2026-06-25):** `python3 bench/wl_ifi/benchmark.py` → **exit 0, no `Fehler:` line**, policy matrix generated from the committed files, full pipeline runs (topology/routes/probes → flow trees → anomalies), and a fresh `report.md`/`report.pdf` is produced (pandoc + LaTeX from item 1m now installed). The report's Compliance Check lists the expected reachability violations (e.g. `source.external.ifi reaches probe.Internet`, multiple `... reaches probe.admin.ifi`), so the verification path actually ran — not just a clean skip. Confirms the user's setup result reproduces here.
-- [ ] **Still open — the benchmark swallows a failed sub-step (silent-failure theme, same as 1p/1i).** `policy_translator.py:67` still prints `"Fehler: Datei(en) konnte(n) nicht gelesen werden."` and `sys.exit(1)` on unreadable input, but the wl_ifi `benchmark.py` proceeds regardless ("generated policy matrix") and the non-zero exit is ignored. It no longer *triggers* (files exist now), but the latent swallow remains: if the input ever goes missing again, the benchmark would still pass green. Decide whether to make the benchmark fail on a non-zero sub-step. Minor extra: the error string is hardcoded German in an otherwise-English codebase.
+- [ ] **Still open — the benchmark swallows a failed sub-step (silent-failure theme, same as 1p/1i).** `policy_translator.py:67` still prints `"Fehler: Datei(en) konnte(n) nicht gelesen werden."` and `sys.exit(1)` on unreadable input, but the wl_ifi `benchmark.py` proceeds regardless ("generated policy matrix") and the non-zero exit is ignored. It no longer *triggers* (files exist now), but the latent swallow remains: if the input ever goes missing again, the benchmark would still pass green. Decide whether to make the benchmark fail on a non-zero sub-step. (Minor extra, DONE 2026-09-21: the error string was hardcoded German in an otherwise-English codebase — item 22 translated it and everything beside it.)
 
 ### 1o. NetPlumber build breaks on GCC 14+ (Ubuntu 26.04) — FIXED (verify on 26.04)
 - [x] **Fixed `-Wincompatible-pointer-types` errors in the C headerspace code.** GCC 14 promoted a family of C warnings to **default errors** (`-Wincompatible-pointer-types`, `-Wint-conversion`, `-Wimplicit-function-declaration`, `-Wimplicit-int`, `-Wreturn-mismatch`). On Ubuntu 24.04 (GCC 13) these only *warned*; on 26.04 (GCC 15) they fail the build. The reported error (`array.c:329`) was `&tmp` (a `char[]`/`array_t[]`) passed where the callee wants a plain `T*` — same address, wrong type. Dropped the erroneous `&` at: `array.c:270,329,335,850`; `hs.c:259,261,276,278,313,316` (compiled), plus `array.c:998` (in the dead `#ifdef NEW_HS` path, for completeness).
@@ -1650,10 +1650,11 @@ uni-action; the census was short by one.)
       Nothing in the tree consumes prosa, so the only thing that could have
       noticed was a human reading it.
 
-      It now renders each rule as its FPL line followed by a German sentence —
-      German because that is what this project's human-facing output already
-      is (`Rolle %s unbekannt.`, `Policy-Translator -- HTML-Ausgabe`); the
-      wording lives in two dicts on `Policy` if that is ever revisited.
+      It now renders each rule as its FPL line followed by an English
+      sentence. It was written in German first, to match the exceptions and
+      `to_html` — which were the last German in the tree — and translated with
+      the rest of them the same day (item 22); the wording lives in two dicts
+      on `Policy`.
 
       **Two things the rewrite had to decide, both of them the reason this was
       more than a one-line return.** `raw_policies` was a `set`, so the rules
@@ -1761,6 +1762,57 @@ deliberately does not have. Making it compile would mean editing published data
 to fit a language it predates. If it is ever wanted as a working policy, `SSH`
 needs a `protocol` and the `ProtNNNN` rules either go or wait for an
 `l2proto`/raw-protocol attribute.
+
+---
+
+### 22. The policy translator spoke German — DONE (2026-09-21)
+
+Owner decision: the German was a legacy from long ago, confined to
+`policy_translator/`, and the project has a strong English preference, so the
+alignment was overdue. Everything a user can see is now English.
+
+**What was translated.** All 13 exception messages in `policy_exceptions.py`
+(`Rolle %s unbekannt.` → `Role %s is unknown.`, and the long explanatory ones
+for `UnparsedBlockException`, `NoServicesOfferedException`,
+`UnrenderableConditionException`, `UnknownProtocolException` and
+`PortWithoutProtocolException` in full); both `print("Fehler: ...")` calls in
+`policy_translator.py`; `to_html`'s title, its `ZIEL` column label and its
+three-row legend; and `to_prosa`'s six operator sentences, header and markers
+(`WIRKUNGSLOS` → `NO EFFECT`). Nothing else in the tree had any — checked by
+scanning every tracked `.py` under `policy_translator/` for non-ASCII, which
+now finds only `§` in section references.
+
+**Two live dependencies on the German text, both updated.**
+`test_superrole_services.py` asserted `assertNotIn('unbekannt', ...)` — a test
+that would have passed vacuously against an English message, since the word can
+no longer appear at all. `test_to_prosa.py` asserted on German fragments
+throughout. Both now name the English.
+
+**The two example HTML artifacts** under `examples/` carry the same labels,
+which are static template text, so they were replaced there directly rather
+than regenerated. See the finding below for why regenerating was not an option.
+
+**Left as written: the German in this file and in `CLOUD_BENCH_PLAN.md`.**
+Roughly a dozen places quote a message the tool printed at the time — `Fehler:
+Service Internet.S332 unbekannt.`, `Service All.ARP unbekannt.` Those are
+transcripts, and rewriting them would make the record say something that was
+never on the screen. A reader grepping for `Fehler:` and finding nothing in the
+code should land here. The two places that described the German as CURRENT were
+updated: item 1o's "minor extra", and item 20's note on why prosa was written
+in German.
+
+- [ ] **Found while doing this, NOT fixed: the tracked example artifacts are
+      four years stale.** `examples/ifi-policy-reachability.{html,csv}` were
+      last written in 2021 (`4a927f9c`) and no current run reproduces them —
+      the CSV header is `,1,2,3,4,5,6` where the translator now emits role
+      names, and the HTML names roles (`TrustedClients`, `Sekretariate`) that
+      the current `ifi-policy.txt` does not define, with CSS classes (`role`,
+      `tooltip`) the current `to_html` no longer emits. They are checked-in
+      output nothing regenerates and nothing verifies, which is §1.8's
+      complaint exactly. `fml-paper-policy-reachability.*` cannot be
+      regenerated at all — its source deliberately does not compile (item 21) —
+      so the pair needs a decision rather than a command: regenerate the ifi
+      one and drop or freeze the fml one, or stop tracking both.
 
 ---
 

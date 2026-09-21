@@ -28,22 +28,22 @@ class PolicyException(Exception):
 
 class NameTakenException(PolicyException):
     def __init__(self, name: str) -> None:
-        self.message = "Name %s bereits vergeben." % name
+        self.message = "Name %s is already taken." % name
 
 class RoleUnknownException(PolicyException):
     def __init__(self, role: str) -> None:
-        self.message = "Rolle %s unbekannt." % role
+        self.message = "Role %s is unknown." % role
 
 class ServiceUnknownException(PolicyException):
     def __init__(self, service: str, role: Optional[str] = None) -> None:
         if role is not None:
-            self.message = "Service %s.%s unbekannt." % (role, service)
+            self.message = "Service %s.%s is unknown." % (role, service)
         else:
-            self.message = "Service %s unbekannt." % service
+            self.message = "Service %s is unknown." % service
 
 class InvalidSyntaxException(PolicyException):
     def __init__(self) -> None:
-        self.message = "Ungültige Syntax."
+        self.message = "Invalid syntax."
 
 class UnparsedBlockException(PolicyException):
     """A block the inventory DECLARES but the parser did not produce.
@@ -59,12 +59,12 @@ class UnparsedBlockException(PolicyException):
     def __init__(self, blocks: List[Tuple[str, str]]) -> None:
         listing = ", ".join("%s %s" % (kind, name) for kind, name in blocks)
         self.message = (
-            "Nicht lesbare Blöcke: %s. Deklariert, aber nicht geparst -- der "
-            "Block wurde übersprungen, nicht abgelehnt. Häufigste Ursache: ein "
-            "Zeichen im Attributwert, das die Grammatik nicht kennt "
-            "(erlaubt sind Buchstaben, Ziffern und _=-[]'\":.,*/ und "
-            "Leerzeichen; ein `+` etwa nicht). Auch `desc` als Schlüsselwort "
-            "wird hier nicht akzeptiert, anders als in fpl_grammar.py."
+            "Unreadable block(s): %s. Declared, but not parsed -- the block "
+            "was skipped rather than rejected. Most common cause: a character "
+            "in an attribute value the grammar does not know (letters, digits "
+            "and _=-[]'\":.,*/ and spaces are allowed; a `+`, for instance, is "
+            "not). `desc` as a keyword is also not accepted here, unlike in "
+            "fpl_grammar.py."
         ) % listing
 
 class NoServicesOfferedException(PolicyException):
@@ -89,14 +89,13 @@ class NoServicesOfferedException(PolicyException):
 
     def __init__(self, role: str) -> None:
         self.message = (
-            "Rolle %s bietet keine Services an, daher ist %s.* leer. Eine "
-            "leere Bedingungsliste bedeutet in FPL uneingeschränkte "
-            "Erreichbarkeit -- die Regel wäre also weiter als geschrieben. "
-            "Services werden nach UNTEN vererbt, nicht nach oben: eine "
-            "Superrolle bietet an, was ihre eigenen `offers`-Zeilen nennen "
-            "(bzw. ein `includes <Rolle>.<Service>`), nicht das, was ihre "
-            "Mitglieder anbieten. Entweder `offers` ergänzen oder den Dienst "
-            "in der Regel explizit nennen." % (role, role)
+            "Role %s offers no services, so %s.* is empty. In FPL an empty "
+            "condition list means UNRESTRICTED reachability, so the rule "
+            "would be wider than written. Services are inherited DOWNWARDS, "
+            "not upwards: a superrole offers what its own `offers` lines name "
+            "(or an `includes <Role>.<Service>`), not what its members offer. "
+            "Either add an `offers` line or name the service in the rule "
+            "explicitly." % (role, role)
         )
 
 class UnrenderableConditionException(PolicyException):
@@ -117,9 +116,9 @@ class UnrenderableConditionException(PolicyException):
 
     def __init__(self, field: str, value: Any) -> None:
         self.message = (
-            "Bedingung %s = %s kann nicht als CSV dargestellt werden: der Wert "
-            "enthält ein Komma und würde die Zelle zerteilen. Bekannt ist nur "
-            "`state = RELATED,ESTABLISHED`, das als `X` geschrieben wird."
+            "Condition %s = %s cannot be rendered as CSV: the value contains "
+            "a comma and would split the cell. The only known such value is "
+            "`state = RELATED,ESTABLISHED`, which is written as `X`."
         ) % (field, value)
 
 class UnknownProtocolException(PolicyException):
@@ -144,11 +143,11 @@ class UnknownProtocolException(PolicyException):
 
     def __init__(self, service: str, value: Any, known: List[str]) -> None:
         self.message = (
-            "Service %s: %r ist kein IP-Protokoll. Erlaubt sind %s. "
-            "`protocol` bezeichnet ausschließlich ein IP-Protokoll -- Layer-2-"
-            "Protokolle wie ARP lassen sich damit nicht ausdrücken (dafür wäre "
-            "ein eigenes Attribut nötig), und eine Protokollnummer ist kein "
-            "gültiger Wert, da beide Verbraucher den Namen erwarten."
+            "Service %s: %r is not an IP protocol. Allowed are %s. `protocol` "
+            "denotes an IP protocol and nothing else -- layer 2 protocols such "
+            "as ARP cannot be expressed with it (that would need an attribute "
+            "of its own), and a protocol NUMBER is not a valid value either, "
+            "because both consumers expect the name."
         ) % (service, value, ", ".join(known))
 
 
@@ -171,17 +170,16 @@ class PortWithoutProtocolException(PolicyException):
 
     def __init__(self, service_port: Any, role_from: str, role_to: str) -> None:
         self.message = (
-            "Regel %s -> %s nennt einen Port (%s) ohne Protokoll. iptables "
-            "kann einen Port nur zusammen mit `-p` prüfen, und ein angenommenes "
-            "`tcp` wäre eine erfundene Richtlinie. Dem Service ein `protocol` "
-            "geben."
+            "Rule %s -> %s names a port (%s) but no protocol. iptables can "
+            "only match a port together with `-p`, and assuming `tcp` would "
+            "invent policy. Give the service a `protocol`."
         ) % (role_from, role_to, service_port)
 
 
 class InvalidAttributeException(PolicyException):
     def __init__(self, name: str) -> None:
-        self.message = "Attribut %s ist ungültig." % name
+        self.message = "Attribute %s is invalid." % name
 
 class InvalidValueException(PolicyException):
     def __init__(self, attribute: str, value: Any) -> None:
-        self.message = "Attributwert %s = %s ist ungültig." % (attribute, value)
+        self.message = "Attribute value %s = %s is invalid." % (attribute, value)
