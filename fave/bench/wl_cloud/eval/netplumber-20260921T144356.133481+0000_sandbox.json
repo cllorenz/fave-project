@@ -1,0 +1,95 @@
+{
+  "bench": "cloud",
+  "scenario": "cloud/base",
+  "utc": "2026-09-21T14:43:56.133481+00:00",
+  "sandbox": true,
+  "host": "d743717a3574",
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "engine": "netplumber",
+  "engine_options": "",
+  "use_interweaving": true,
+  "hdr_len_bytes": 17,
+  "devices": 86,
+  "links": 145,
+  "routes": 1741,
+  "generators": 8,
+  "probes": 8,
+  "oracle_derived_by": "bench/wl_cloud/cloud_oracle.py",
+  "checks_derived_by": "bench/reach_csv_to_checks.py --complement",
+  "queries": [
+    {
+      "name": "q01",
+      "smt2": "01.sat.smt2",
+      "sha256": "45aaea777d8a7c5177e032354efd0b1e6013ffa2a9d4686a23f783bfba61896f",
+      "expect": "sat",
+      "check": "s=source.internet && EF p=probe.dc1_leaf5_host5",
+      "must_reach": true,
+      "expected_violated": false,
+      "violated": false,
+      "agrees": true
+    },
+    {
+      "name": "q02",
+      "smt2": "02.unsat.smt2",
+      "sha256": "f29a15b5711bd19fc4891bb4d6b2a084d92a2c6168d288e6e26bf84871cb725a",
+      "expect": "unsat",
+      "check": "! s=source.internet && EF p=probe.dc2_leaf7_host6",
+      "must_reach": false,
+      "expected_violated": false,
+      "violated": false,
+      "agrees": true
+    },
+    {
+      "name": "q03",
+      "smt2": "03.sat.smt2",
+      "sha256": "5ad8e2351c9714734c781709284bcf81394dbb0b6525dc104cdc41b7a4658b51",
+      "expect": "sat",
+      "check": "s=source.internet && EF p=probe.dc1_leaf0_host20 && f=related:0 && f=protocol:tcp && f=port:332",
+      "must_reach": true,
+      "expected_violated": false,
+      "violated": false,
+      "agrees": true
+    },
+    {
+      "name": "q04",
+      "smt2": "04.unsat.smt2",
+      "sha256": "0af495b91e9d89df54bd24f50b2ce3b77eacc5a49bdf2cc4037c99e000ee6d81",
+      "expect": "unsat",
+      "check": "! s=source.internet && EF p=probe.dc4_leaf3_host22 && f=related:0 && f=!port:331",
+      "must_reach": false,
+      "expected_violated": false,
+      "violated": false,
+      "agrees": true
+    },
+    {
+      "name": "q05",
+      "smt2": "05.sat.smt2",
+      "sha256": "1acf1eabd89fc66fda81f8687fddcf47782a604ca584ab5d5d5b285c28232c53",
+      "expect": "sat",
+      "check": "s=source.dc1_leaf6_host2 && EF p=probe.dc0_leaf1_host1 && f=related:0 && f=protocol:tcp && f=port:350",
+      "must_reach": true,
+      "expected_violated": false,
+      "violated": false,
+      "agrees": true
+    },
+    {
+      "name": "q06",
+      "smt2": "06.unsat.smt2",
+      "sha256": "3fee8d827328d9701af03d6f7de64236fc9889211b8f381e1a0635f62c7165a0",
+      "expect": "unsat",
+      "check": "s=source.dc1_leaf6_host0 && EF p=probe.dc0_leaf1_host1 && f=related:0 && f=protocol:tcp && f=port:351",
+      "must_reach": true,
+      "expected_violated": true,
+      "violated": true,
+      "agrees": true
+    }
+  ],
+  "disagreements": [],
+  "reproduced": 6,
+  "of": 6,
+  "self_derived": {
+    "checks": 65,
+    "violated": 56,
+    "note": "expectations generated from bench/wl_cloud/reach.txt, which is OUR policy -- not third-party verdicts, and deliberately not summed with them"
+  }
+}

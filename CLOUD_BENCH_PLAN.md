@@ -4,9 +4,11 @@
 BOTH of its phases (§1.9).** The oracle phase states the dataset's six questions
 as five FPL rules over a fabricated inventory; the matrix phase states the
 dataset's own 26x26 ACL matrix (C7, §1.9.6). All six third-party oracle verdicts
-reproduced on NetPlumber before and after the switch (§1.7.1). ad6 refuses the
-workload for a structural encoding reason (§1.7.2); APKeep under-approximates by
-3 (§1.7.3). Three defects fixed in shared code building it (§1.6) and two more
+reproduced on NetPlumber before and after the switch (§1.7.1). Both other
+engine families first got it wrong and both were fixed: ad6 refused the workload
+outright, then answered every cell (§1.7.2), and APKeep answered ten of
+sixty-four cells wrong, then all of them (§1.7.3). **All three engines now agree
+on every check of all three phases.** Three defects fixed in shared code building it (§1.6) and two more
 building the policy (§1.9.6). Delta-net not started.
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
@@ -519,7 +521,8 @@ endpoints, unconditioned:
 |---|---:|
 | ad6, before | 58 / 64 |
 | ad6, after | **64 / 64** |
-| APKeep | 54 / 64 |
+| APKeep, before | 54 / 64 |
+| APKeep, after (§1.7.3) | **64 / 64** |
 
 and after the correction ad6 matches the dataset at q01, q02 and q03.
 
@@ -549,52 +552,144 @@ to the dataset. It exists because no unit test could have caught this: every
 piece was individually correct, and the test that pinned the encoding asserted
 the wrong behaviour *in its own name*.
 
-### 1.7.3 APKeep — drops all three reachable pairs
+### 1.7.3 APKeep — a forwarding table is not always a FIB (FIXED 2026-09-21)
 
-**Re-measured 2026-09-21 and now ISOLATED.** With ad6 corrected, the three-engine
-all-pairs matrix leaves APKeep as the only dissenter: ad6 and NetPlumber agree on
-all 64 cells, APKeep differs on 10 — six the internet-sourced pairs it drops
-(under-approximating, the failure below) and four it adds that neither other
-engine sees (`host6 → host6`, `host6 → internet`, `host22 → host6`,
-`internet → internet`). So it is wrong in BOTH directions, which rules out a
-single missing edge and is consistent with the name-coupling diagnosis below.
+**The first diagnosis here was wrong, and how it was wrong is half the lesson.**
+It read the symptom — nothing in the datacenter reached anything — as a missing
+topology, and blamed `apkeep/adapter.py`'s device-name coupling, since
+wl_cloud's `core.`/`lin.`/`lout.`/`gw.` devices fire none of the
+`in.`/`mid.`/`out.` branches that adapter is full of. That named a real defect
+(the coupling is there; `AD6_PLAN.md` §9.25 deleted the same construct from
+ad6) but not this one. Dumping the built model settles it: **86 devices, 165
+edges, 1,736 forwarding rules — the topology was built.** The evidence had been
+available from the start, and a plausible story was written instead of read.
 
-    - `source.q01` does not reach `probe.dc1_leaf5_host5_rx`
-    - `source.q03` does not reach `probe.dc1_leaf0_host20_rx`
-    - `source.q05` does not reach `probe.dc0_leaf1_host1_rx`
+**What was wrong is the element every forwarding table became.** APKeep's
+`ForwardElement` is a destination-prefix trie: one match field, longest prefix
+wins. `_translate_fwd_rule` turned every table into one, keeping the destination
+and dropping the rest — any source, protocol or port the rule matched, any
+header rewrite, and the rule ORDER, which it replaced with the prefix length.
+For a FIB that is exactly right, and every workload before this one had only
+FIBs. wl_cloud is the first whose forwarding tables carry ACLs:
 
-Exactly the three `sat` queries; the three `unsat` ones pass trivially, since
-"unreachable" satisfies a must-not-reach check whatever the reason. So this is a
-**pure under-approximation of 3**, which the project's own soundness gate
-(`bench/apkeep_convergence.py`: "APKeep must never drop a pair that NetPlumber
-reports reachable") forbids outright.
+    lin.dc1_leaf5
+      1  dst=10.0.6.128/25, proto=6, dport=332  -> forward to the hosts
+      2  dst=10.0.6.128/25                      -> drop
+      3  (default)                              -> forward upstream
 
-**Diagnosis (strongly supported, not yet proven by a controlled experiment):**
-`apkeep/adapter.py` still reconstructs meaning from FaVe's device NAMES. It
-branches on `model.node.split('.', 1)[0] == 'out'` / `'mid'` / `'in'` in at least
-eleven places, decides whether a link is internal or external the same way
-(`_build_stanford_faithful` 1313–1316, `_collapse_out_stage` 1496–1498),
-and carries a literal workload sniff, in `_build` at line 892:
+Rules 1 and 2 arrived as a forward and a drop on the same prefix at the same
+priority. **The two engines behind the one adapter then resolved that tie
+oppositely** — APKeep's BDD engine kept the drop (8 of 64 cells reachable), the
+NDD engine kept the forward (57) — which is as direct a demonstration as one
+could ask that the outcome had stopped being the policy's to decide. Beside it,
+the gateway's fourteen DNAT rules arrived with no rewrite (so internet-sourced
+traffic kept its public destination and no core had a route for it), and its
+five source-only anti-spoofing drops were skipped by the discard guard. Three
+widenings and one narrowing, one cause.
 
-    self._stanford = any(d.split('.', 1)[0] == 'mid' for d in self._fwd_devices)
+**And a fourth, found by fixing the first three.** With the tables right, the
+matrix phase still over-reported by 293 pairs. `add_generator` read the injected
+source ADDRESS and ignored every other field a generator states — which cost
+nothing while every workload injected only an address, and wl_cloud's matrix
+phase injects `tcp_src` as well, one per service endpoint, which its leaf ACLs
+match on. A source that emits from one port was queried as if it emitted from
+all of them.
 
-wl_cloud's devices are `core.` / `lin.` / `lout.` / `gw.`, so none of those
-branches fires and the inter-device topology is never built. The rule tables
-themselves ARE captured (`<node>.1` matches `fwd_tables`), which fits the
-symptom: rules present, links absent, nothing reaches anything. That q05 — a
-host-to-host query involving **no NAT at all** — also fails is what rules out
-"APKeep cannot do NAT" as the explanation.
+#### The fix: the table decides the element, from its rules
 
-**This is the same defect class `AD6_PLAN.md` §9 spent an entire phase removing
-from the ad6 adapter** — §9.25 names "a literal `if any(d.split('.', 1)[0] ==
-'mid' ...)` workload sniff in the production path" among the things deleted. The
-identical construct is still live in `apkeep/adapter.py:892`. A new workload with
-different naming rediscovered it in a day, which is an argument for the workload
-as much as a finding about the adapter.
+A table whose rules match only a destination prefix (plus `vlan`/`in_port`,
+which other mechanisms handle) and rewrite only `out_port` stays a
+`ForwardElement` — still every other workload, and wl_cloud's own 40 leaf-egress
+tables. Anything else becomes a `FilterElement`: a first-match list carrying the
+whole 5-tuple, with the rule index as the priority. An address rewrite on such a
+table becomes a `NATElement` inline on its egress port. On wl_cloud that is **46
+of 86 devices (40 `lin.`, 5 `core.`, 1 `gw.`), 541 filter rules and 28 address
+rewrites**; the other 40 keep the trie.
 
-**Not fixed here.** Doing to APKeep what §9 did to ad6 is a phase of work, and
-the owner decides whether it is worth it. What this run establishes is the
-evidence that it is the same problem.
+Nothing in that decision reads a device name (`_is_dst_lpm_table`), which is
+what the first diagnosis was right to care about while naming the wrong cause. A
+name-keyed fix would have been the same defect with a longer list of prefixes.
+One exemption remains and is deliberate: the HSA `in.`/`mid.`/`out.` stages are
+claimed by the wl_stanford/wl_i2 collapse paths, whose approximation is a
+decision taken in `APKEEP_STANFORD_NP_SPEC.md` rather than one to re-open here.
+Lifting it means giving the `FilterElement` a VLAN field.
+
+Three things had to be built rather than rewired:
+
+* **A source rewrite.** `NATElement` could rewrite the destination only, keyed
+  on a destination prefix (`common.Fields.src_ip` reached `get_field_bdd` and
+  got `BDDFalse` back). wl_cloud's cores rewrite the SOURCE of outbound traffic,
+  which is exactly what carries it past the gateway's anti-spoofing rules — and
+  two of those rewrites leave the same port with the same source /24, differing
+  only in `tcp_src`. So the rewrite is keyed on the rule's whole match, not on
+  an address: `+ nat <dev> <port> match <src|dst> <ip> <len> <that match>`.
+* **The same in the NDD engine**, whose `+ nat` handled the VLAN rewrite only.
+* **Check conditions beyond `related`.** The FPL check set puts
+  `f=protocol:tcp`, `f=port:332` and `f=!port:331` on its checks and the adapter
+  refused everything but `related` — the blocker ad6 cleared at `AD6_PLAN.md`
+  §9.37. Each condition is now the packet space of a one-field rule, or its
+  complement, intersected with what arrives at the probe. Constraining at
+  arrival equals injecting only that traffic exactly while nothing rewrites the
+  field, so a condition naming a field THIS model rewrites is refused rather
+  than answered — on wl_cloud that is both addresses.
+
+**A rewrite onto a prefix frees the bits it does not fix.** Both engines
+quantify the field away and then constrain it to the new predicate, so a DNAT
+onto a /22 reaches the whole /22 — the semantics §1.7.2 and `AD6_PLAN.md` §9.36
+had to correct on the other backend, where preserving those bits collapsed the
+/22 to one host.
+
+#### Result: APKeep agrees with NetPlumber everywhere this workload asks
+
+All-pairs over the eight FPL endpoints, unconditioned:
+
+| | agrees with NetPlumber |
+|---|---:|
+| ad6 | 64 / 64 |
+| APKeep, before | 54 / 64 |
+| APKeep, after | **64 / 64** |
+
+and through PolicyTranslator, on the identical generated model (86 devices, 145
+links, 1,741 routes, 8 generators, 8 probes), all three phases:
+
+| phase | checks | APKeep | NetPlumber |
+|---|---:|---:|---:|
+| oracle | 71 | 6/6 verdicts, 57 violated | 6/6, 57 violated |
+| matrix | 4,224 | 1,315 violations | 1,315 |
+| public | 4,199 | 3 violations | 3 |
+
+Not merely the same totals: the violated **check sets** are equal, pair for pair
+and condition for condition, in all three. The one remaining difference is
+presentational — NetPlumber decomposes a negated port condition into the ternary
+terms of its complement and reports one line per term, so its `report.md` has 58
+lines where APKeep's has 57 for the same 57 violated checks.
+
+The five unreachable cells are the ones the model explains: `dc2_leaf7_host6`
+neither reaches the internet (its /24 is in no core's source-NAT rule, so the
+gateway's anti-spoofing drops it) nor is reached (its leaf denies its own
+prefix, which is q02's `unsat`), plus `internet → internet`.
+
+**Guarded from here on.** `fave/test/test_apkeep_cloud_differential.py`
+(integration tier, one engine per process) holds APKeep and NetPlumber to the
+same matrix and both to the dataset; `fave/test/test_apkeep_first_match.py`
+(25 tests) pins each property separately, including the two refusals, which no
+reachability run can reach. Verified by mutation: making every table a FIB fails
+9, dropping the address rewrite fails 6, narrowing the generator seed back to
+the address fails 1. Dropping the check conditions is not a unit-test matter and
+was measured instead — the oracle phase falls to **4/6** and the public policy
+reports **817 violations instead of 3**.
+
+#### Still open: the BDD engine does not finish this model
+
+The default APKeep engine is NDD, and every number above is its. APKeep's own
+BDD engine (`--apkeep-engine bdd`) **did not complete the build within 40
+minutes** on the corrected model, where it took seconds on the lossy one. That
+is consistent with the atomic-predicate wall P7b hit on wl_stanford
+(`APKEEP_BACKEND.md`, "Performance analysis: BDDs vs APs"): 46 `FilterElement`s
+carrying a few hundred 5-tuple rules each split the AP partition, and
+`APKeeper.updateSplitAP` touches every element per split. **It is a cost result,
+not a correctness one** — no verdict was produced, so none is reported — and
+sizing it properly is its own piece of work.
 
 ---
 
@@ -708,8 +803,8 @@ counterpart, which is odd, but is a fair price.
 It also plugs wl_cloud into machinery it currently cannot reach: `reachable.json`
 and `cchecks.json` are what `bench/apkeep_convergence.py`,
 `bench/apkeep_tum_diff.py` and `bench/i2_structural_oracle.py` consume, and this
-workload produces neither. §1.7.3's APKeep under-approximation had to be reported
-by hand for exactly that reason.
+workload produces neither. §1.7.3's APKeep disagreement had to be reported by
+hand for exactly that reason.
 
 ### 1.9.0 The shape, and why a policy is not enough
 

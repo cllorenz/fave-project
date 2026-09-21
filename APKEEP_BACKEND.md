@@ -673,6 +673,75 @@ alongside the originals. Gates: `test_wl_ifi_stateless_policy.py` (fast — poli
 matrix and both derived check sets) and `test_wl_ifi_stateless_gate.py` (integration —
 zero violations end to end).
 
+#### wl_cloud — a forwarding table is not always a FIB (2026-09-21)
+
+Full account in `CLOUD_BENCH_PLAN.md` §1.7.3; what belongs here is what it
+changed about this backend.
+
+**The translation's shape, not its wiring.** `_translate_fwd_rule` turned every
+forwarding table into a `ForwardElement` — a destination-prefix trie — keeping
+the destination and dropping any other match field, any header rewrite, and the
+rule ORDER, which it replaced with the prefix length. That is exactly right for
+a FIB, and wl_i2, wl_stanford, wl_up, wl_ifi and wl_example have only FIBs.
+wl_cloud is the first workload whose *forwarding tables* carry ACLs, and there
+the loss is not a subtlety: a permit and a deny on the same prefix arrive at the
+same priority, and **the two engines resolved that tie oppositely** (BDD kept the
+deny, NDD kept the permit), which is the cleanest possible evidence that the
+answer had stopped depending on the model.
+
+A table now chooses its element from its RULES — `_is_dst_lpm_table`, which reads
+no device name:
+
+| the table | the element |
+|---|---|
+| matches only dst (+ `vlan`/`in_port`), rewrites only `out_port` | `ForwardElement` (unchanged) |
+| anything else | `FilterElement`, first-match, priority = rule index |
+| … and rewrites an address | + a `NATElement` inline on the egress port |
+
+One exemption stays and is deliberate: the HSA `in.`/`mid.`/`out.` stages, which
+`_build_stanford_faithful` / `_build_i2_faithful` / `_collapse_out_stage` already
+rewrite, and whose VLAN matches a `FilterElement` cannot carry anyway. It is the
+last device-name test in that decision, and lifting it means giving the
+`FilterElement` a VLAN field.
+
+**Three capabilities added, all in the engines:**
+
+| layer | change |
+|---|---|
+| `NATElement.java` | `+ nat <dev> <port> match <src\|dst> <ip> <len> <ACLRule body>` — an address rewrite that NAMES the field it writes and is keyed on the whole 5-tuple. The old form wrote the destination only and keyed on a destination prefix, which cannot distinguish two source rewrites that share a port and a source /24 and differ only in `tcp_src`. |
+| `common/BDDACLWrapper.java` | `srcIPField`, so `get_field_bdd(Fields.src_ip)` stops returning `BDDFalse`; `negate(int)` for a negated check condition |
+| `NddReachabilityEngine.java` | the same NAT form; `applyNat` generalised from VLAN to any field; `isReachable(..., List<String> conds)` |
+| `ReachabilityChecker.java` | `andArrivalHeader(int)` — the check conditions beyond `related`, composing with it |
+| `apkeep/adapter.py` | `_query_conditions` (protocol/port/address, positive and negated), refusing any condition on a field THIS model rewrites — the arrival form equals a source seed only while nothing rewrites the field |
+
+**A rewrite onto a prefix frees the bits it does not fix.** Both engines
+quantify the field away and then constrain it to the new predicate. This is the
+semantics `AD6_PLAN.md` §9.36 had to correct on the other backend, where framing
+those bits collapsed a /22 DNAT to a single host.
+
+**And one more, found by fixing those.** `add_generator` read the injected source
+ADDRESS and ignored every other field a generator states. Harmless while every
+workload injected only an address (wl_stanford's `ipv4_dst=0.0.0.0/0` is the full
+space; wl_up and wl_example inject `ipv6_src` alone); wl_cloud's matrix phase
+injects `tcp_src` per service endpoint and its leaf ACLs match on it, so the
+query asked about traffic from every source port and **293 denied pairs came back
+reachable**. `_source_src_filters` is now `_source_seed_filters` and carries the
+whole injected header, and an injected field it cannot express raises.
+
+**Result: APKeep agrees with NetPlumber on every check this workload asks** —
+all-pairs 64/64 (was 54/64), and through PolicyTranslator the oracle phase (6/6
+third-party verdicts, 57 violated of 71), the matrix phase (1,315 of 4,224) and
+the public phase (3 of 4,199), with the violated SETS equal and not merely the
+totals.
+
+**Open, and a cost result rather than a correctness one:** APKeep's own BDD
+engine does not finish the corrected model's build within 40 minutes, where it
+took seconds on the lossy one. 46 `FilterElement`s carrying a few hundred 5-tuple
+rules each split the AP partition, and `APKeeper.updateSplitAP` touches every
+element per split — the wall "Performance analysis: BDDs vs APs" below describes
+and P7b hit on wl_stanford. No verdict was produced, so none is reported. The
+default engine is NDD and every number above is its.
+
 #### Three defects found in passing
 
 1. **`faithful_vlan` had no CLI flag — FIXED 2026-09-18, and the default inverted.**
@@ -1626,6 +1695,19 @@ Upstream's build was **not reproducible** and required fork-local fixes (all in
   Fix: pin `maven-compiler-plugin` 3.11.0 with `release=11`.
 
 JDK 11 + Maven are added to the CI composite action and the `Dockerfile`.
+
+**The jars are build products, and a stale one fails LATE (2026-09-21).** Both
+`apkeep/target/apkeep-1.0.0.jar` and `ndd/target/ndd-1.0.1-jar-with-dependencies.jar`
+are gitignored, so an environment with a JRE but no JDK keeps whatever was built
+last and cannot rebuild it. That is not a quiet degradation: a Python caller
+whose Java counterpart has moved on gets `TypeError: No matching overloads
+found`, which surfaces mid-run inside a compliance check rather than at import.
+Encountered exactly that on wl_cloud — the NDD jar predated `isReachable(...,
+related)`, so the DEFAULT engine could not answer a conditioned check at all.
+`bash fave/test/apkeep_smoke.sh` and `bash fave/test/ndd_build.sh` rebuild them
+and guard the toolchain up front; run both after any change under `apkeep/src`
+or `ndd/src`, and treat an overload error from either engine as a stale jar
+until proven otherwise.
 
 ### libnetplumber build integration (P1)
 
