@@ -31,6 +31,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
+from policy_exceptions import NoServicesOfferedException
 from policy_logger import PT_LOGGER
 
 #: The builtin role standing for everything outside the administrative boundary
@@ -287,6 +288,16 @@ class Policy(object):
                         for offered in self.roles[owner].get_services().values()
                         for service in offered
                     ))
+
+                    # A `.*` that resolves to nothing is REFUSED, not obeyed.
+                    # The empty list is how FPL spells an unconditional rule
+                    # and `update_conditions` lets it overpower every other
+                    # condition, so the silent reading of `Y.*` over a role
+                    # offering nothing was "reach Y by any traffic at all" --
+                    # wider than what was written, and it also erased the
+                    # conditions an earlier rule had set (TODO item 19).
+                    if not services:
+                        raise NoServicesOfferedException(owner)
                 else:
                     services = [service_to] if service_to is not None else []
 
@@ -1152,33 +1163,67 @@ class Superrole(Role):
 
     def get_services(self) -> Dict[str, Dict[str, "Service"]]:
         """Returns a dictionary of all roles that are represented by this role
-        as keys, i.e., all subroles, and a dictionary of subservices of those
-        roles.
+        as keys, i.e., all subroles, and a dictionary of the services this
+        superrole offers through each of them.
+
+        A superrole "may contain all services of a role or only a certain
+        subset of services" (this class' own description), and which of the two
+        is what the inventory wrote:
+
+            includes Alpha            all of Alpha's services
+            includes Alpha.*          all of Alpha's services, said explicitly
+            includes Alpha.HTTPS      only HTTPS, through this group
+
+        `subservices` records the narrowing, so an EMPTY entry means nothing
+        was narrowed rather than nothing is offered -- and the subrole is then
+        asked what it offers. Returning `subservices` flat made the unnarrowed
+        case resolve to no services at all, which is how `Internet ---> Server.*`
+        in `examples/ifi-policy.txt` compiled to unconditional reachability
+        instead of HTTP and HTTPS (TODO item 19).
+
+        The subrole is asked rather than read, because `Role.get_services`
+        answers for `Internet` -- whose services are the whole policy's -- and
+        a superrole including it must get the same answer.
 
         Returns:
-            A dictionary containing the subrole names as keys and the
-            subservices dictionaries as values.
+            A dictionary containing the subrole names as keys and the offered
+            services as values.
         """
 
-        return self.subservices
+        services = {}
+        for name, subrole in self.subroles.items():
+            narrowed = self.subservices.get(name)
+            services[name] = narrowed if narrowed else subrole.get_services()[name]
+
+        return services
 
     def offers_services(self) -> bool:
         """Checks whether this role offers services or not.
 
+        A superrole offers what it represents: the services of its subroles,
+        narrowed where the inventory narrowed them. Answering False here made
+        `X ---> Superrole.SERVICE` raise `ServiceUnknownException` for a service
+        the group demonstrably offers -- `All ---> All.ARP` in
+        `examples/fml-paper-policy.txt` could not be compiled at all.
+
         Returns:
-            False. (Only roles offer services.)
+            A boolean value.
         """
 
-        return False
+        return any(self.get_services().values())
 
     def offers_service(self, name: str) -> bool:
         """Checks whether this role offers a certain service or not.
 
+        Read off `get_services`, deliberately: `add_reachability_policy` uses
+        this method to GUARD the services that method produces, so a definition
+        of its own could reject a service the wildcard had just resolved.
+
         Returns:
-            False. (Only roles offer services.)
+            A boolean value.
         """
 
-        return False
+        return any(name in offered for offered in self.get_services().values())
 
 
 class Service(object):

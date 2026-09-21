@@ -67,6 +67,32 @@ class UnparsedBlockException(PolicyException):
             "wird hier nicht akzeptiert, anders als in fpl_grammar.py."
         ) % listing
 
+class NoServicesOfferedException(PolicyException):
+    """`X ---> Y.*` where `Y` offers nothing, which cannot mean what it says.
+
+    An empty condition list is how FPL spells UNCONDITIONAL reachability, and
+    `ReachabilityPolicy.update_conditions` states that "the empty list
+    overpowers all other lists of conditions" -- so a wildcard that resolved to
+    no service did not merely fail to restrict the rule, it ERASED whatever an
+    earlier rule had established. `Internet ---> Server.*` in
+    `examples/ifi-policy.txt` did exactly that: the matrix cell came out
+    unconditional where the inventory asks for HTTP and HTTPS (TODO item 19).
+
+    A writer naming `.*` is asking for the services a role offers. If there are
+    none, every available reading -- "no traffic" and "all traffic" -- is a
+    guess, so the rule is refused instead.
+    """
+
+    def __init__(self, role: str) -> None:
+        self.message = (
+            "Rolle %s bietet keine Services an, daher ist %s.* leer. Eine "
+            "leere Bedingungsliste bedeutet in FPL uneingeschränkte "
+            "Erreichbarkeit -- die Regel wäre also weiter als geschrieben. "
+            "Entweder Services über `offers` ergänzen (bei einer Superrolle "
+            "über `includes <Rolle>` bzw. `includes <Rolle>.<Service>`) oder "
+            "den Dienst explizit nennen." % (role, role)
+        )
+
 class InvalidAttributeException(PolicyException):
     def __init__(self, name: str) -> None:
         self.message = "Attribut %s ist ungültig." % name

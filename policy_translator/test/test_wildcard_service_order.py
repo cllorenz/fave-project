@@ -166,14 +166,11 @@ class TestTheListNeverRepeatsAService(unittest.TestCase):
     deduplicate WITHOUT moving the survivor, which is why the fix is
     `dict.fromkeys` and not a plain list comprehension.
 
-    Only one duplicate is reachable today -- a role naming a service twice.
-    The other, one service offered by two subroles of a superrole, cannot be
-    reached because `X ---> Superrole.*` is broken for an unrelated reason
-    (TODO item 19): the builder makes the SUPERROLE the provider and
-    `Superrole.offers_service` returns False unconditionally, so that form
-    either raises `ServiceUnknownException` or yields no conditions at all.
-    `dict.fromkeys` is therefore partly a promise kept for when item 19 is
-    fixed -- stated here rather than left as an unexplained call.
+    Two duplicates are reachable: a role naming a service twice, below, and one
+    service offered by two subroles of a superrole, which lives in
+    `test_superrole_services.py` because it only became reachable when item 19
+    was fixed -- until then `X ---> Superrole.*` did not work at all, and
+    dropping this deduplication turned no test red.
     """
 
     def test_a_role_offering_the_same_service_twice_emits_it_once(self):

@@ -1386,17 +1386,17 @@ artifact test and no obvious reason.
       `.*`, and it now carries the declaration-order spelling
       (`port:80|port:443`, from `offers HTTP` then `offers HTTPS`).
 
-**Mutation-verified, including one that stays green.** Reverting to `set()`
-turns 4–5 of the 8 red depending on the seed; `sorted()` in place of
-declaration order turns 5 red. Dropping the `dict.fromkeys` deduplication turns
-**none** red, and that is reported rather than papered over: no reachable
-inventory produces a duplicate today, because the only duplicate-producing
-shape is one service offered by two subroles of a superrole — and that shape is
-broken for a different reason, item 19 below. The deduplication is kept because
-removing it would change behaviour the `set` guaranteed, on a path that will
-start working when item 19 is fixed.
+**Mutation-verified.** Reverting to `set()` turns 4–5 of the 8 red depending on
+the seed; `sorted()` in place of declaration order turns 5 red. Dropping the
+`dict.fromkeys` deduplication turned **none** red when this was committed, and
+that was reported rather than papered over: the only duplicate-producing shape
+is one service offered by two subroles of a superrole, and that shape was
+broken for a different reason (item 19 below). It was kept anyway, because
+removing it would change behaviour the `set` guaranteed on a path that would
+start working once item 19 was fixed. Item 19 is now fixed, the shape is
+reachable, and that mutation turns red — see item 19's verification.
 
-### 19. `X ---> Superrole.*` does not work in any of its three spellings (found 2026-09-21)
+### 19. `X ---> Superrole.*` works in none of its three spellings — DONE (found and fixed 2026-09-21)
 **Found while writing item 18's deduplication test**, which needed one service
 offered by two subroles — and could not be built, because every way of writing
 it fails. Characterised over a superrole `Both` including `Alpha` and `Beta`:
@@ -1427,20 +1427,57 @@ paper's own policy, tracked in this repository — declares `def role All` with
 **does not compile**, failing with `Service All.ARP unbekannt.` It fails
 identically at `HEAD~8`, before any of this branch's translator work.
 
-- [ ] **Decide what a superrole's services ARE** before touching the guard.
-      `offers_service` returning False is consistent with "only roles offer
-      services"; the `subservices` machinery and the `add_reachability_policy`
-      docstring assume the opposite. One of the two is the language, and the
-      other is a leftover — that question comes first, because either answer
-      makes the fix small and the wrong answer makes it invisible.
-- [ ] **Then make the empty case loud**, whichever way it is decided: a `.*`
-      that resolves to no service must not compile to unconditional
-      reachability. Same shape as item 15 — the failure is that a narrower
-      policy silently became a wider one.
-- [ ] **Then `fml-paper-policy.txt` is the test.** It is the one file in the
-      tree that exercises this, it is a published policy rather than a fixture,
-      and it currently cannot be compiled at all — so it is both the regression
-      test and the proof the item is closed.
+- [x] **Decided: superroles DO offer services** (owner, 2026-09-21) — the
+      services of their subroles, narrowed where the inventory narrowed them.
+      That is what the class already said about itself ("may contain all
+      services of a role or only a certain subset of services") and what
+      `subservices` was built to record; `offers_service` returning False was
+      the leftover. The consequence is that an EMPTY `subservices` entry means
+      *nothing was narrowed*, not *nothing is offered*, so `get_services()` now
+      asks the subrole — by delegating to `Role.get_services`, so a superrole
+      containing `Internet` gets the Internet's answer rather than a second
+      copy of that special case.
+- [x] **The empty case is loud** — `NoServicesOfferedException`. Worth stating
+      exactly how bad the silent case was: an empty condition list is how FPL
+      spells an *unconditional* rule, and `update_conditions` documents that
+      "the empty list overpowers all other lists of conditions", so a `.*`
+      resolving to nothing did not merely fail to restrict its own rule, it
+      **erased the conditions an earlier rule had set for the same pair**. The
+      refusal covers atomic roles too, not just superroles — the shape is the
+      same wherever `.*` resolves to nothing.
+- [x] **`fml-paper-policy.txt` compiles**, and `ifi-policy.txt`'s
+      `Internet ---> Server.*` now carries HTTP and HTTPS instead of a plain
+      `X`. Both are in `test/test_superrole_services.py` (10 tests) together
+      with one test per row of the table above; `test_policy.py`'s two
+      `TestSuperrole` `offers_*` tests pinned the overruled behaviour and were
+      rewritten, plus two new ones for the narrowed/unnarrowed distinction.
+
+**Mutation-verified, four ways**, all red: `offers_service` back to `False`;
+`get_services` back to bare `subservices`; the empty-wildcard refusal removed;
+and — new — item 18's `dict.fromkeys` deduplication removed. That last one
+**stayed green one commit ago** because no reachable inventory could produce a
+duplicate service; `includes Alpha` + `includes Beta` where both offer HTTPS is
+now exactly that shape, so item 18's deduplication is covered from here on.
+
+**Artifacts:** every inventory/policy pair recompiled, nine workloads
+byte-identical. Exactly two files move, both intended and both examples:
+`fml-paper-policy.txt` produces a matrix where it produced an error, and
+`ifi-policy.txt`'s `Internet`→`Webserver` cell goes from `X` to `(X)` (the
+renderer prints `(X)` whenever `RELATED,ESTABLISHED` is among the conditions —
+the conditions list itself now carries that *and* ports 80/443, where before it
+was empty).
+
+- [ ] **Left open deliberately, a decision that is not mine:** with a
+      `provider` (`Internet ---> Group.*`) the owner of the services is the
+      GROUP, so every member's cell gets the group's whole service list — a
+      member that does not offer Telnet still gets a Telnet condition. Without
+      a provider (`All <->> Group.*`) the owner is each MEMBER, so each gets
+      only its own. The two forms of the same idea disagree, and the
+      disagreement was invisible until now because the provider form did not
+      work at all. No tracked file distinguishes them (in `fml-paper-policy.txt`
+      the superrole's `offers` propagates to every member, so the two answers
+      coincide). Deciding costs nothing today and changes what a matrix means,
+      so it is filed rather than guessed.
 
 **Not urgent.** No workload uses a superrole with `.*` (checked: the nine
 inventories compile, and only `examples/ifi-policy.txt` uses `.*` at all, over

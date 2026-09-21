@@ -442,21 +442,70 @@ class TestSuperrole(unittest.TestCase):
 
     def test_offers_services(self):
 
-        """ Check whether any services are offered by the superrole directly.
+        """ A superrole offers what it represents (TODO item 19).
+
+        Both assertions used to be False -- "only roles offer services" --
+        although the class describes itself as containing "all services of a
+        role or only a certain subset". The guard in `add_reachability_policy`
+        believed the method, so `All ---> All.ARP` in
+        `examples/fml-paper-policy.txt` raised `ServiceUnknownException` for a
+        service `All` demonstrably offers, and the file could not be compiled.
         """
 
         self.assertFalse(self.superrole.offers_services())
         self.test_add_service()
-        self.assertFalse(self.superrole.offers_services())
+        self.assertTrue(self.superrole.offers_services())
 
 
     def test_offers_service(self):
 
-        """ Check whether the HTTP service is offered by the superrole directly.
-        """
+        """ By name, because that is how the reachability guard asks. """
 
         self.assertFalse(self.superrole.offers_service("HTTP"))
         self.test_add_service()
+        self.assertTrue(self.superrole.offers_service("HTTP"))
+        self.assertFalse(
+            self.superrole.offers_service("DNS"),
+            "a superrole must not claim a service none of its members offers")
+
+
+    def test_an_unnarrowed_subrole_contributes_all_its_services(self):
+
+        """ `includes Alpha` names no service, so `subservices[Alpha]` is
+        empty -- and empty there means NOTHING WAS NARROWED, not that nothing
+        is offered. Reading it as the latter is what made `Internet --->
+        Server.*` in `examples/ifi-policy.txt` resolve to no service at all.
+        """
+
+        self.superrole.policy.add_service("HTTP")
+        self.superrole.policy.add_role("WebService")
+        self.superrole.policy.roles["WebService"].add_service("HTTP")
+
+        self.superrole.add_subrole("WebService")          # no service named
+
+        self.assertEqual(self.superrole.subservices, {"WebService" : {}})
+        self.assertEqual(
+            list(self.superrole.get_services()["WebService"]), ["HTTP"])
+        self.assertTrue(self.superrole.offers_service("HTTP"))
+
+
+    def test_a_narrowed_subrole_contributes_only_what_was_named(self):
+
+        """ The other side of the line, and the reason the empty entry cannot
+        simply be replaced by the subrole's services everywhere: `includes
+        Alpha.HTTPS` is a deliberate restriction and must survive. """
+
+        for name in ("HTTP", "HTTPS"):
+            self.superrole.policy.add_service(name)
+        self.superrole.policy.add_role("WebService")
+        for name in ("HTTP", "HTTPS"):
+            self.superrole.policy.roles["WebService"].add_service(name)
+
+        self.superrole.add_subrole("WebService", service="HTTPS")
+
+        self.assertEqual(
+            list(self.superrole.get_services()["WebService"]), ["HTTPS"])
+        self.assertTrue(self.superrole.offers_service("HTTPS"))
         self.assertFalse(self.superrole.offers_service("HTTP"))
 
 
