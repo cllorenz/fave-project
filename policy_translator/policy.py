@@ -82,7 +82,17 @@ class Policy(object):
         self.roles: Dict[str, Role] = {}
         self.services: Dict[str, Service] = {}
         self.policies: Dict[Tuple[str, str], Any] = {}
-        self.raw_policies: Set[Any] = set()
+        # DECLARATION ORDER, via a dict used as an ordered set. This is the
+        # author's own list of rules and `to_prosa` renders it back to them, so
+        # a reader comparing the prosa against the policy file expects the two
+        # to read in the same order -- the same division item 18 drew, where a
+        # wildcard's services keep the order someone wrote and a traversal
+        # nobody wrote is sorted. As a `set` it also reordered itself between
+        # runs, which is TODO item 20's defect in a third place.
+        #
+        # Still deduplicating: writing one rule twice is a redundancy, not two
+        # rules, and the set said so. `dict` keeps the first occurrence.
+        self.raw_policies: Dict[Any, None] = {}
         self.default_policy = False
         for role, attributes in [
                 (r, a) for r, a in  self.default_roles.items() if (
@@ -947,15 +957,113 @@ class Policy(object):
         return result
 
 
+    #: What each FPL operator says, as a sentence. `%(from)s`, `%(to)s` and
+    #: `%(via)s` are filled in; `%(via)s` is empty for a rule naming no service.
+    #:
+    #: Split by DEFAULT POLICY because FPL's operators are: the three
+    #: permissions are read only under `default: deny` and the three
+    #: prohibitions only under `default: allow` (`PolicyBuilder.build_policies`).
+    #: An operator used under the other default is SKIPPED -- it reaches a
+    #: `PT_LOGGER.debug` and nothing else -- so a rule can sit in the policy
+    #: file looking effective while contributing nothing. `to_prosa` is the one
+    #: output a human reads against that file, which makes it the right place
+    #: to say so; see `_PROSA_INERT`.
+    prosa_permits = {
+        "--->": "%(from)s darf %(to)s%(via)s erreichen.",
+        "<-->": "%(from)s und %(to)s dürfen sich gegenseitig%(via)s erreichen.",
+        "<->>": (
+            "%(from)s darf %(to)s%(via)s erreichen; "
+            "Antworten dürfen zurückfließen."
+        ),
+    }
+
+    prosa_forbids = {
+        "--/->": "%(from)s darf %(to)s%(via)s nicht erreichen.",
+        "<-/->": "%(from)s und %(to)s dürfen sich%(via)s nicht erreichen.",
+        "-/->>": "%(from)s darf keine neuen Verbindungen zu %(to)s aufbauen.",
+    }
+
     def to_prosa(self) -> str:
-        """ Creates a list of prosaic rules for the given policies
+        """ Renders the policy's own rules as German sentences.
+
+        FOR A HUMAN, and it used to be for nobody: this printed each rule's
+        four raw fields to stdout and returned `'\n'.join([])`, so
+        `policy_translator.py -p -o FILE` wrote an empty file on every run and
+        the only output went to a terminal in a field order (`from to service
+        operator`) that is not the order the rule is written in. Nothing in the
+        tree consumes prosa, which is why it went unnoticed; TODO item 20.
+
+        Each rule is rendered as its FPL line followed by the sentence, so the
+        output can be read straight down against the policy file. A rule the
+        default policy does not permit is marked rather than dropped -- the
+        translator skips it silently, and a prosa that simply omitted it would
+        be a second silent skip on top of the first.
+
+        `raw_policies` holds what the POLICY FILE declared, so the implicit
+        self-reachability rules (`policy.strict` false) are deliberately absent:
+        they are the translator's, not the author's. For the same reason this
+        does not follow `--report`, which replaces the reachability matrix but
+        leaves the declared rules alone.
 
         Returns:
-            A String that contains the prosaic rules
+            A String that contains the prosaic rules.
         """
+        lines = [
+            "# Policy-Translator -- Prosa-Ausgabe",
+            "#",
+            "# Grundregel: %s" % (
+                "erlaubt ist alles, was hier nicht verboten wird "
+                "(default: allow)." if self.default_policy else
+                "verboten ist alles, was hier nicht erlaubt wird "
+                "(default: deny)."
+            ),
+            "# %d Regel%s." % (
+                len(self.raw_policies),
+                "" if len(self.raw_policies) == 1 else "n"),
+        ]
+
         for role_from, role_to, service_to, operator in self.raw_policies:
-            print(role_from, role_to, service_to, operator)
-        return '\n'.join([])
+            via = ""
+            if service_to:
+                via = (
+                    " über alle angebotenen Dienste" if service_to == "*"
+                    else " über den Dienst %s" % service_to
+                )
+
+            fields = {"from": role_from, "to": role_to, "via": via}
+            source = "%s %s %s" % (
+                role_from, operator,
+                "%s.%s" % (role_to, service_to) if service_to else role_to)
+
+            honoured = (
+                self.prosa_forbids if self.default_policy else self.prosa_permits
+            )
+            other = (
+                self.prosa_permits if self.default_policy else self.prosa_forbids
+            )
+
+            lines.append("")
+            lines.append(source)
+            if operator in honoured:
+                lines.append("\t" + honoured[operator] % fields)
+            elif operator in other:
+                lines.append(
+                    "\tWIRKUNGSLOS: `%s` %s, gilt aber nur bei `default: %s`. "
+                    "Diese Regel wurde beim Übersetzen übergangen." % (
+                        operator,
+                        "verbietet" if operator in self.prosa_forbids
+                        else "erlaubt",
+                        "allow" if operator in self.prosa_forbids else "deny"))
+            else:
+                # Unreachable through `policy_regex`, which matches the six
+                # operators and nothing else. Stated anyway: a seventh added to
+                # the grammar and not to the two tables above would otherwise
+                # render as a blank line under its own source rule.
+                lines.append(
+                    "\tUNBEKANNTER OPERATOR `%s` -- `Policy.prosa_permits` und "
+                    "`Policy.prosa_forbids` kennen ihn nicht." % operator)
+
+        return "\n".join(lines) + "\n"
 
 
     def roles_to_json(self) -> List[Any]:

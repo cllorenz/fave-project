@@ -1639,13 +1639,47 @@ uni-action; the census was short by one.)
       safe for the other reason. The distinction had been collapsed into one
       sentence that the file's own output contradicts.
 
-- [ ] **Unrelated, found while measuring this: `--prosa` writes an empty
-      file.** `Policy.to_prosa` (policy.py:957) `print`s each rule to stdout
-      and then `return '\n'.join([])`, so `policy_translator.py -p -o FILE`
-      always produces 0 bytes. Pre-existing, nothing in the tree consumes it,
-      and untouched by item 20 — the artifact is identical before and after.
-      Not fixed: it needs an owner decision on whether prosa output is still
-      wanted at all.
+- [x] **`--prosa` wrote an empty file — FIXED 2026-09-21** (owner decision:
+      prosa is a helper for the human and should return the rules it prints).
+      `Policy.to_prosa` `print`ed each rule's four raw fields to stdout and
+      returned `'\n'.join([])`, so `policy_translator.py -p -o FILE` produced
+      0 bytes on every run — and the terminal output listed the fields as
+      `from to service operator`, which is not the order a rule is written in.
+      Pre-existing; found only because item 20's before/after comparison
+      showed the prosa artifact identical, both times because it was empty.
+      Nothing in the tree consumes prosa, so the only thing that could have
+      noticed was a human reading it.
+
+      It now renders each rule as its FPL line followed by a German sentence —
+      German because that is what this project's human-facing output already
+      is (`Rolle %s unbekannt.`, `Policy-Translator -- HTML-Ausgabe`); the
+      wording lives in two dicts on `Policy` if that is ever revisited.
+
+      **Two things the rewrite had to decide, both of them the reason this was
+      more than a one-line return.** `raw_policies` was a `set`, so the rules
+      would have come out in a different order every run — item 20's defect in
+      a third place. It is now a dict used as an ordered set: DECLARATION
+      order, because prosa is read line by line against the policy file, and
+      still deduplicating, because a rule written twice is a redundancy rather
+      than two rules. And **a rule the default policy does not permit is now
+      MARKED, not dropped**: FPL reads its three permissions only under
+      `default: deny` and its three prohibitions only under `default: allow`,
+      and `build_policies` skips the others with nothing but a debug log. Such
+      a rule sits in the file looking effective while contributing nothing, and
+      prosa is the one output positioned to say so — dropping it would have
+      stacked a second silent skip on the first, and rendering it as though it
+      applied would have stated a permission the translator never created.
+
+      `test_to_prosa.py`, 22 tests, 6 mutations all caught (the empty return:
+      17 of 22 red; the `set` restored; the marker dropped; a skipped rule
+      omitted; the wildcard rendered as a service named `*`; an operator
+      removed from the tables). The operator table is pinned against the
+      GRAMMAR's own alternation, read out whole — a looser regex silently
+      missed `<->>` and made that test pass while checking five of six.
+
+      **Noted, not fixed:** `--report` replaces the reachability matrix but not
+      `raw_policies`, so `-r` combined with `-p` renders the declared rules
+      rather than the report's. Recorded in the docstring.
 
 ### 21. `protocol` was never validated, and three renderers disagreed — DONE (found and fixed 2026-09-21)
 **Pre-existing**, found while regression-testing item 20 — reproduced on the
