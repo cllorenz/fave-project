@@ -24,11 +24,19 @@
 """ Block-wise unit tests for Policy.to_iptables().
 
     Per the concept (thesis Sec. 7.3, Algorithm 7.1), a generated rule set is a
-    composition of mutually independent blocks emitted in a *fixed order*, and
-    each block is single-action so the order of rules *within* a block has no
-    impact on the filtering semantics. The generator marks block boundaries with
-    "# === <name> ===" section-header comments (semantically inert, also a
-    readability aid for human reviewers).
+    composition of mutually independent blocks emitted in a *fixed order*, and a
+    block whose rule order can vary is single-action, so the order of rules
+    *within* it has no impact on the filtering semantics. The generator marks
+    block boundaries with "# === <name> ===" section-header comments
+    (semantically inert, also a readability aid for human reviewers).
+
+    "Each block is single-action" -- as this said until TODO item 20 -- is not
+    quite true: "# === IPv6 Hardening ===" mixes DROP, RETURN and a jump, and
+    there the order does matter (the --rt-segsleft RETURNs must precede the
+    catch-all DROP). It is safe for the other reason, being a fixed literal
+    list nothing permutes. `test_iptables_reproducible.py` classifies every
+    block by which of the two arguments covers it, and fails if a block is
+    added that neither does.
 
     These tests therefore assert:
       1. the block order is exactly the canonical order, and

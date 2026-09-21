@@ -1592,22 +1592,60 @@ emits nothing, a `protocol` condition builds its rule. Only the
 reordering is confined to a **uni-action** block — anti-spoofing is literal
 `-j DROP`, and every access rule ends with `jumptarget`, which is loop-invariant.
 Measured over 5 scenarios × 24 seeds: block sequence and per-block multisets
-identical, only those two blocks permute. Permuting rules that share a terminal
+identical, only uni-action blocks permute. Permuting rules that share a terminal
 target is semantically the identity, so the manual verification this mechanism
 rests on is unaffected. `test_to_iptables.py` already said so in its module
-docstring; I should have read it.
+docstring; I should have read it. (**Count corrected 2026-09-21:** THREE blocks
+permute, not two — the `Access Rules` block does as well, because the
+self-reachability loop reorders insertion into `Policy.policies` and
+`to_iptables` walks that dict. Same argument covers it, the block being
+uni-action; the census was short by one.)
 
-- [ ] **What survives is artifact reproducibility, not correctness.** A
-      generated rule set cannot be compared byte for byte across runs, which
-      matters only if it becomes a tracked artifact or a gate — the §1.8
-      argument, and the same one that put `sorted()` in `roles_to_json`. Cheap
-      to fix; not urgent.
-- [ ] **Worth pinning while doing so:** the safety argument rests on
-      `jumptarget` being loop-invariant and anti-spoofing being literal-DROP.
-      Neither is enforced. A future `-j REJECT`, a per-policy target or a
-      log-and-continue rule would make the set ordering semantic overnight and
-      silently. A test that generates under several seeds and asserts every
-      block whose order varies is uni-action catches that.
+- [x] **Artifact reproducibility — DONE 2026-09-21.** `sorted()` at THREE
+      sites, not the two the filing named: `to_iptables`'s two anti-spoofing
+      loops, plus `policy_builder.build_policies`'s self-reachability loop —
+      that third one reorders INSERTION into `Policy.policies`, which
+      `to_iptables` walks to emit its Access Rules block, so a set in one
+      module moved rules in a file emitted by another. Measured on a five-role
+      fixture: 8 seeds → **7 different rule sets** before, 12 seeds → **1**
+      after, with the line multiset unchanged. Every committed pair
+      (wl_example, wl_ifi ×2, wl_up, wl_cloud) regenerates a byte-identical
+      **CSV**, and their firewalls differ only by a permutation confined to
+      those three blocks — which is also the measurement that says the CSV
+      never depended on any of it, and therefore why the item-14
+      artifact-invariant tests never caught this.
+
+      **Owner's framing, and it is the right one (2026-09-21):** sorting buys
+      comparability for quality control, not correctness. A block-aware
+      comparator would do the same job for tests — and in fact
+      `test_to_iptables.parse_blocks` already is one. Sorting the generator was
+      chosen over relying on that because a comparator fixes only comparison:
+      it does not make the artifact checksummable, does not make a `git diff`
+      of two runs readable, and requires every future consumer to know the rule
+      exists. **A flat whole-file line-multiset comparison would NOT be safe**
+      — iptables is first-match within a chain, so a rule crossing a block
+      boundary changes verdicts, and a flat multiset accepts that silently.
+- [x] **The safety argument is now enforced — DONE 2026-09-21**,
+      `test_iptables_reproducible.py` (7 tests, 4 mutations all caught: each
+      `sorted()` reverted independently, `jumptarget` made per-policy, and an
+      unclassified new block). It classifies every block by WHICH argument
+      makes it safe — single-action, or a fixed literal nothing can permute —
+      and fails if one is added that neither covers. A per-policy `jumptarget`,
+      the plausible future change, turns it red with the reason in the message.
+
+      **One claim in `test_to_iptables.py` was wrong and is corrected:** "each
+      block is single-action" is not true of `# === IPv6 Hardening ===`, which
+      mixes DROP, RETURN and a jump, and where order genuinely matters. It is
+      safe for the other reason. The distinction had been collapsed into one
+      sentence that the file's own output contradicts.
+
+- [ ] **Unrelated, found while measuring this: `--prosa` writes an empty
+      file.** `Policy.to_prosa` (policy.py:957) `print`s each rule to stdout
+      and then `return '\n'.join([])`, so `policy_translator.py -p -o FILE`
+      always produces 0 bytes. Pre-existing, nothing in the tree consumes it,
+      and untouched by item 20 — the artifact is identical before and after.
+      Not fixed: it needs an owner decision on whether prosa output is still
+      wanted at all.
 
 ### 21. `protocol` was never validated, and three renderers disagreed — DONE (found and fixed 2026-09-21)
 **Pre-existing**, found while regression-testing item 20 — reproduced on the

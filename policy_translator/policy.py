@@ -647,7 +647,23 @@ class Policy(object):
 
         #Anti-Spoofing Ipv4
         iptables_rules.append("# === IPv4 Anti-Spoofing ===")
-        for role in self.get_atomic_roles():
+        # SORTED, because `get_atomic_roles` returns a `set` and set iteration
+        # for strings follows a hash Python randomises per process. Nothing
+        # here was ever WRONG -- this block is entirely `-j DROP`, so a packet
+        # gets the same verdict from whichever rule matches first, and the
+        # thesis's Algorithm 7.1 (Sec. 7.3) rests on exactly that: a block is
+        # emitted in a fixed position and is single-action, so order WITHIN it
+        # carries no meaning.
+        #
+        # What it cost was the ARTIFACT. Measured on a five-role fixture before
+        # this line: eight `PYTHONHASHSEED` values produced seven different
+        # rule sets, so a generated firewall could not be checksummed, diffed
+        # against the previous run, or reviewed by eye without the reader
+        # having to decide for themselves which differences meant anything.
+        # CLOUD_BENCH_PLAN.md §1.8 asks every artifact to be recreatable from
+        # its raw data; recreatable and byte-identical is the useful form of
+        # that. See TODO item 20 and `test_iptables_reproducible.py`.
+        for role in sorted(self.get_atomic_roles()):
             if 'ipv4' in self.roles[role].attributes:
                 srcs = self.roles[role].attributes['ipv4']
                 srcs = srcs if isinstance(srcs, list) else [srcs]
@@ -665,7 +681,7 @@ class Policy(object):
 
         #Anti-Spoofing Ipv6
         iptables_rules.append("# === IPv6 Anti-Spoofing ===")
-        for role in self.get_atomic_roles():
+        for role in sorted(self.get_atomic_roles()):
             if 'ipv6' in self.roles[role].attributes:
                 srcs = self.roles[role].attributes['ipv6']
                 srcs = srcs if isinstance(srcs, list) else [srcs]

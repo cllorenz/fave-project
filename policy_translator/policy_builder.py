@@ -426,7 +426,19 @@ class PolicyBuilder(object):
 
         if not policy.strict:
             PT_LOGGER.debug("add default self reachability policies")
-            for role in policy.get_atomic_roles():
+            # SORTED, and this is the site that is easy to miss. The two in
+            # `to_iptables` reorder a block directly; this one reorders the
+            # order policies are INSERTED into `Policy.policies`, and
+            # `to_iptables` walks that dict to emit its Access Rules block. So
+            # a `set` here moved rules in a file two modules away.
+            #
+            # Inert for the same reason: every rule in that block ends in
+            # `jumptarget`, which is computed from `default_policy` alone and
+            # is therefore the same for every policy -- the block is
+            # single-action. The CSV, the prosa and the roles JSON are NOT
+            # affected (measured across eight seeds: one output each), because
+            # they iterate `roles` or sort for themselves.
+            for role in sorted(policy.get_atomic_roles()):
                 if not policy.policy_exists(role, role):
                     policy.add_reachability_policy(role, role)
                     PT_LOGGER.debug("self policy: %s ---> %s", role, role)
