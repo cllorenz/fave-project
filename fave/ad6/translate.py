@@ -69,6 +69,11 @@ if _AD6 not in sys.path:                                     # ad6/ is a sibling
     sys.path.insert(0, _AD6)
 
 from src.xml.genutils import GenUtils                        # noqa: E402
+from src.xml.xmlutils import XMLUtils as _XMLUtils           # noqa: E402
+
+# ad6's ternary-bit-string sigil, taken from ad6 rather than spelled again here
+# so the producer and the reader can never disagree about it.
+GenUtils_TERNARY = _XMLUtils.TERNARY
 
 
 class UnsupportedField(Exception):
@@ -256,6 +261,46 @@ def _normalised_value(name: str, value: Any) -> int:
     return int(bits, 2)
 
 
+def _ternary_text(name: str, value: Any) -> str:
+    """ FaVe's own bit encoding for `value` as ad6 <fieldmatch> TERNARY text
+    (the `b` sigil + one character per bit, see XMLUtils.TERNARY).
+
+    Used for a value that is NOT a plain integer -- a CIDR, or a bit-vector
+    with don't-cares. Those reach <fieldmatch> only when the field is MUTABLE
+    (rewritten by some rule somewhere), which is the case a typed
+    `GenUtils.address`/`port` primitive cannot serve: the typed primitives
+    resolve against one model-wide alias, and a rewritten field legitimately
+    holds different values at different points on a path.
+
+    The width is FaVe's own (`netplumber/mapping.py`'s FIELD_SIZES), which is
+    the same number `mutable_field_widths` declares to ad6, so the two agree by
+    construction. """
+    from util.ip6np_util import field_value_to_bitvector
+    from rule.rule_model import RuleField
+
+    width = _fave_field_width(name)
+    if width is None:
+        raise UnsupportedField(
+            "field %r matches %r, which is not an integer, and FaVe declares no "
+            "width for it -- so it cannot be rendered as a <fieldmatch> "
+            "bit-vector. Add it to netplumber/mapping.py's FIELD_SIZES."
+            % (name, value))
+
+    bits = ''.join(field_value_to_bitvector(RuleField(name, value)).vector)
+    if len(bits) != width:
+        raise UnsupportedField(
+            "field %r normalises %r to %d bits, but FaVe declares the field %d "
+            "wide. ad6 compares a fixed-width vector, so a mismatch would "
+            "silently truncate or over-widen the match."
+            % (name, value, len(bits), width))
+    illegal = set(bits) - set('01x')
+    if illegal:
+        raise UnsupportedField(
+            "field %r normalises %r to %r, which carries %r -- not a ternary "
+            "bit-vector." % (name, value, bits, ''.join(sorted(illegal))))
+    return GenUtils_TERNARY + bits
+
+
 _SIMPLE = {
     'packet.ipv6.proto':             _proto,
     'packet.ipv6.icmpv6.type':       _icmp6_type,
@@ -411,14 +456,18 @@ def field_to_match(field: Any, mutable: Iterable[str] = ()) -> Optional[Any]:
                                    _normalised_value(name, value), negated=negated)
 
     if name in set(mutable) or name in _GENERIC:
-        if not str(value).lstrip('-').isdigit():
-            raise UnsupportedField(
-                "field %r matches %r, which is not an integer. ad6 resolves a "
-                "<fieldmatch> against a BIT-VECTOR of the field's declared "
-                "width, so a non-numeric value has no encoding -- and letting "
-                "it through fails deep inside the instantiator, long after the "
-                "rule that caused it is out of sight." % (name, value))
-        return GenUtils.fieldmatch(rewrite_field_for(name), str(value), negated=negated)
+        # An integer keeps the decimal form it has always had -- byte-identical
+        # output for every field that works today (vlan, in_port, out_port,
+        # related), whose declared ad6 width may deliberately differ from
+        # FaVe's (MUTABLE_FIELD_WIDTHS maps vlan to 12 where FIELD_SIZES says
+        # 16). Anything else -- a CIDR, or a bit-vector with don't-cares -- is
+        # rendered as a ternary bit-vector, which is what lets a REWRITTEN
+        # field still be matched by PREFIX.
+        if str(value).lstrip('-').isdigit():
+            return GenUtils.fieldmatch(rewrite_field_for(name), str(value),
+                                       negated=negated)
+        return GenUtils.fieldmatch(rewrite_field_for(name),
+                                   _ternary_text(name, value), negated=negated)
 
     if name in _ADDRESSES:
         direction, version = _ADDRESSES[name]
@@ -1210,6 +1259,12 @@ def mutable_field_widths(mutable: Iterable[str],
             widths[name] = port_width
             continue
         if field in _NORMALISED_FIELDS:
+            widths[name] = _fave_field_width(field)
+            continue
+        if field in _ADDRESSES and name not in MUTABLE_FIELD_WIDTHS:
+            # An address is mutable only where some rule REWRITES it (NAT).
+            # Its width is FaVe's own, the same one _ternary_text renders
+            # against, so the declaration and the value cannot disagree.
             widths[name] = _fave_field_width(field)
             continue
         if name not in MUTABLE_FIELD_WIDTHS and field in _GENERIC_FIELD_WIDTHS:

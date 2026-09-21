@@ -246,14 +246,25 @@ class TestMutableFieldsUseFieldmatch(unittest.TestCase):
                       "a field some rule rewrites must not resolve against the "
                       "model-wide global alias")
 
-    def test_a_rewritten_field_with_a_NON_NUMERIC_value_is_refused(self):
-        """ A <fieldmatch> is resolved against a bit-vector, so a CIDR has no
-        encoding -- an address rewrite (NAT) would need one and no benchmark
-        has it. Refused at translation time rather than deep inside ad6's
-        instantiator, where the rule that caused it is long out of sight. """
-        with self.assertRaises(UnsupportedField):
-            field_to_match(RuleField('packet.ipv4.destination', '10.0.0.0/8'),
-                           mutable={'packet.ipv4.destination'})
+    def test_a_rewritten_field_with_a_CIDR_value_is_now_a_PREFIX_match(self):
+        """ INVERTED 2026-09-21, not deleted -- the subject reversed.
+
+        This used to assert that a CIDR on a rewritten field was REFUSED,
+        because <fieldmatch> compared for equality and a CIDR has no integer
+        encoding. That refusal was the boundary wl_cloud hit (it NATs ipv4_dst
+        and matches it with 1,668 non-/32 prefixes), and it was an artefact of
+        ConvertFieldToVariables rather than of the encoding: ad6's two OTHER
+        converters, ConvertPortToVariables and ConvertCIDRToVariables, were
+        already prefix-capable. <fieldmatch> now takes a ternary bit-vector, so
+        the value is expressible and the refusal would be wrong.
+
+        What is still refused is a value with no bit encoding at all -- see
+        TestUnsupportedFieldsRaise. """
+        element = field_to_match(RuleField('packet.ipv4.destination', '10.0.0.0/8'),
+                                 mutable={'packet.ipv4.destination'})
+        self.assertIn('<fieldmatch ', _xml(element))
+        self.assertEqual(element.text[1:][8:], 'x' * 24,
+                         "a /8 leaves its 24 host bits free")
 
     def test_vlan_uses_ad6s_own_field_name(self):
         """ <fieldmatch field="vlan"> must agree with <action rewrite_field="vlan">
@@ -424,6 +435,94 @@ class TestNegation(unittest.TestCase):
     def test_absence_of_negation_emits_no_attribute(self):
         self.assertNotIn('negated',
                          _xml(field_to_match(RuleField('packet.upper.dport', '80'))))
+
+
+class TestMutableAddressesMatchByPrefix(unittest.TestCase):
+    """ A field that some rule REWRITES must be matched with <fieldmatch>
+    everywhere (see the module docstring), and <fieldmatch> used to compare for
+    EQUALITY only -- so "rewritten AND matched by CIDR" was inexpressible. That
+    is the boundary wl_cloud reaches: it NATs `ipv4_dst` and matches it with
+    1,668 non-/32 prefixes (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+
+    A prefix is now rendered as a TERNARY bit-vector whose don't-care positions
+    emit no literal. Measured on the wl_cloud data (2026-09-21): of 2,941 rules
+    the dst matches are 1,259 wildcard / 20 /22 / 448 /25 / 1,200 /30 / 14 /32,
+    the src matches likewise, and NONE of either carries an interior
+    don't-care -- so every match in that workload is a clean prefix. """
+
+    MUTABLE = {'packet.ipv4.destination', 'packet.ipv6.destination'}
+
+    def test_a_prefix_determines_exactly_its_prefix_bits(self):
+        element = field_to_match(
+            RuleField('packet.ipv4.destination', '10.0.0.0/25'), self.MUTABLE)
+        bits = element.text
+        self.assertTrue(bits.startswith('b'), "ternary text carries the sigil")
+        bits = bits[1:]
+        self.assertEqual(len(bits), 32, "the full declared field width")
+        self.assertEqual(bits[:25], '0' * 4 + '1010' + '0' * 17,
+                         "10.0.0.0's first 25 bits")
+        self.assertEqual(bits[25:], 'x' * 7,
+                         "the 7 host bits are FREE -- pinning them would narrow "
+                         "the match to a single address")
+
+    def test_a_host_route_determines_every_bit(self):
+        bits = field_to_match(
+            RuleField('packet.ipv4.destination', '10.0.0.1/32'), self.MUTABLE).text[1:]
+        self.assertNotIn('x', bits)
+        self.assertEqual(int(bits, 2), 0x0A000001)
+
+    def test_an_ipv6_prefix_uses_the_ipv6_width(self):
+        bits = field_to_match(
+            RuleField('packet.ipv6.destination', '2001:db8::/32'), self.MUTABLE).text[1:]
+        self.assertEqual(len(bits), 128)
+        self.assertEqual(bits[32:], 'x' * 96)
+
+    def test_a_match_all_is_still_suppressed_when_mutable(self):
+        """ The match-all shortcut sits AHEAD of the mutability branch, so the
+        2,642 wildcard matches in wl_cloud never reach the encoder at all. """
+        self.assertIsNone(field_to_match(
+            RuleField('packet.ipv4.destination', '0.0.0.0/0'), self.MUTABLE))
+
+    def test_negation_survives_a_prefix(self):
+        """ wl_cloud's compliance path negates ("on any port other than ...",
+        and the complement checks), so the two features meet. """
+        element = field_to_match(
+            RuleField('packet.ipv4.destination', '10.0.0.0/25', negated=True),
+            self.MUTABLE)
+        self.assertIn('negated="true"', _xml(element))
+        self.assertEqual(element.text[26:], 'x' * 7)
+
+    def test_a_mutable_address_declares_faves_own_width(self):
+        self.assertEqual(
+            mutable_field_widths({'packet.ipv4.destination',
+                                  'packet.ipv6.destination'}),
+            {'packet.ipv4.destination': 32, 'packet.ipv6.destination': 128},
+            "the width _ternary_text renders against and the width declared to "
+            "ad6 must be the same number, or the comparison is off by padding")
+
+
+class TestIntegerMutableFieldsAreUnchanged(unittest.TestCase):
+    """ The no-regression pin for the prefix work.
+
+    Every field that reached <fieldmatch> before -- vlan, in_port, out_port,
+    related -- carries an INTEGER, and must still emit the identical decimal
+    text. This matters beyond byte-equality: ad6's declared width for a field
+    may deliberately differ from FaVe's (MUTABLE_FIELD_WIDTHS maps vlan to 12
+    where FIELD_SIZES says 16), so rendering these as full-width FaVe
+    bit-vectors would make _CanonizeTernary refuse them outright. """
+
+    def test_an_integer_valued_mutable_field_stays_decimal(self):
+        for name, value in (('packet.ether.vlan', '5'), ('related', '1')):
+            with self.subTest(field=name):
+                element = field_to_match(RuleField(name, value), {name})
+                self.assertEqual(element.text, value,
+                                 "must stay the plain decimal, not a bit-vector")
+                self.assertFalse(element.text.startswith('b'))
+
+    def test_vlans_declared_width_is_still_ad6s_not_faves(self):
+        self.assertEqual(mutable_field_widths({'packet.ether.vlan'}),
+                         {'vlan': 12},
+                         "MUTABLE_FIELD_WIDTHS still wins for vlan")
 
 
 class TestUnsupportedFieldsRaise(unittest.TestCase):
