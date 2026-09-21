@@ -438,7 +438,62 @@ touches cost — mutable addresses give every node its own 64-bit SSA copy over
 ~2,500 nodes, plus a frame-or-rewrite axiom per bit per edge. Size the instance
 before solving it; item 0a applies to whatever number comes out.
 
+#### The masked rewrite was implemented BACKWARDS — found 2026-09-21
+
+Running it produced a wrong answer, not a cost problem: **ad6 called every
+internet-sourced pair unreachable**, against NetPlumber and against the dataset's
+own `sat` verdicts for q01 and q03.
+
+The ruling was right and the implementation applied it to the wrong bits. Hassel
+preserves what a rewrite does not replace, but **which bits those are is decided
+by the MASK, not by the value** — net_plumber's `array_rewrite` says so outright
+("a 0 in the mask means that the bit should be kept whereas a 1 means it should
+be rewritten"), and a rewritten bit takes the rewrite value's bit *including its
+`x`*. FaVe's model has no mask-0 bit inside a rewritten field at all:
+`NetPlumberAdapter` synthesises `"1"*FIELD_SIZES[f]` for every field a `Rewrite`
+names. So a value's don't-cares are the only wildcards there are, and framing
+them preserved bits nothing had asked to preserve.
+
+**§1.6 had already written the symptom down**, for the mirror-image bug on the
+FaVe side of the same boundary: *"`10.0.0.0/24` leaves the low 8 bits free.
+Emitting the bare address instead pins traffic to one host and every
+internet-sourced query answers unreachable."* The DNAT matches a `/32` public
+address and rewrites to a `/22` subnet, so the framed bits were fully determined
+by the match and the `/22` collapsed to exactly one host — 10.0.6.1. Measured at
+the hop: of `dc1_core`'s fourteen out-ports, exactly one was reachable from the
+internet generator.
+
+Corrected in `AD6_PLAN.md` §9.36. All-pairs reachability over the eight FPL
+endpoints, unconditioned:
+
+| | agrees with NetPlumber |
+|---|---:|
+| ad6, before | 58 / 64 |
+| ad6, after | **64 / 64** |
+| APKeep | 54 / 64 |
+
+and after the correction ad6 matches the dataset at q01, q02 and q03.
+
+**What still blocks the benchmark is the query-seeding path, not the model.**
+`fave_bridge._SUPPORTED_COND_FIELDS` forces only `related`, and the FPL check set
+puts `f=related:0` on every conditional check against a model with no conntrack,
+so the run refuses. Unchanged by any of this, and tracked separately.
+
+**Guarded from here on.** `fave/test/test_ad6_cloud_differential.py`
+(integration tier, ~2 min) holds ad6 and NetPlumber to the same matrix and both
+to the dataset. It exists because no unit test could have caught this: every
+piece was individually correct, and the test that pinned the encoding asserted
+the wrong behaviour *in its own name*.
+
 ### 1.7.3 APKeep — drops all three reachable pairs
+
+**Re-measured 2026-09-21 and now ISOLATED.** With ad6 corrected, the three-engine
+all-pairs matrix leaves APKeep as the only dissenter: ad6 and NetPlumber agree on
+all 64 cells, APKeep differs on 10 — six the internet-sourced pairs it drops
+(under-approximating, the failure below) and four it adds that neither other
+engine sees (`host6 → host6`, `host6 → internet`, `host22 → host6`,
+`internet → internet`). So it is wrong in BOTH directions, which rules out a
+single missing edge and is consistent with the name-coupling diagnosis below.
 
     - `source.q01` does not reach `probe.dc1_leaf5_host5_rx`
     - `source.q03` does not reach `probe.dc1_leaf0_host20_rx`

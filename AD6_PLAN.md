@@ -7331,11 +7331,31 @@ solving it.
 
 ---
 
-### 9.36 A masked REWRITE: the unwritten bits are PRESERVED
+### 9.36 A masked REWRITE: the value's don't-cares are FREE
 
-**DONE 2026-09-21.** Owner ruling: *"the unwritten bits are preserved."* This is
-Hassel's `(h & mask) | rewrite` -- the bits a rule does not replace carry through
-from the incoming header. Not cleared, and not made arbitrary.
+**DONE 2026-09-21. CORRECTED THE SAME DAY, and the correction is the section.**
+
+The first cut implemented the owner ruling *"the unwritten bits are preserved"*
+by FRAMING the don't-care bits of a rewrite's value from the incoming header.
+That is Hassel's `(h & mask) | rewrite` applied to the wrong set of bits, and it
+made ad6 call every internet-sourced pair of wl_cloud unreachable -- against
+NetPlumber and against the dataset's own `sat` verdicts for q01 and q03.
+
+**WHICH BITS "UNWRITTEN" MEANS IS DECIDED BY THE MASK, NOT BY THE VALUE.**
+net_plumber's `array_rewrite` states it outright -- *"a 0 in the mask means that
+the bit should be kept whereas a 1 means it should be rewritten"* -- and a
+rewritten bit takes the rewrite value's bit **including its `x`**. FaVe's model
+has no mask-0 bit inside a rewritten field at all: `NetPlumberAdapter`
+synthesises `"1"*FIELD_SIZES[f]` for every field a `Rewrite` action names, so the
+whole field is always replaced and the value's don't-cares are the only wildcards
+there are.
+
+The ruling was right about Hassel. The implementation applied it to bits Hassel
+makes wildcard, and `bench/wl_cloud/cloud_preparation.py` had already written
+down what that costs, for the mirror-image bug on the other side of the
+boundary: *"`10.0.0.0/24` leaves the low 8 bits free. Emitting the bare address
+instead pins traffic to one host and every internet-sourced query answers
+unreachable"* (CLOUD_BENCH_PLAN.md §1.6).
 
 #### 9.36.1 Why it was needed, and why §9.35 did not already do it
 
@@ -7355,12 +7375,17 @@ exactly one of two axioms:
 * a **FRAME** axiom -- the target's bit equals the SOURCE's bit ("the field
   survives an edge that doesn't touch it").
 
-Both were already built **per bit**, in the same loop. A masked rewrite is simply
-**the two mixed within one field, chosen per bit by the mask**: a determined bit
-takes the rewrite axiom, a don't-care takes the frame axiom. The change is one
-condition:
+Both were already built **per bit**, in the same loop. A masked rewrite writes
+its determined bits with the rewrite axiom and emits **no axiom at all** for a
+don't-care, leaving the target's copy a free variable. The frame axiom survives
+only for an edge that rewrites nothing:
 
-    if BitVector is not None and BitVector[Index] != 'x':
+    if BitVector is not None:
+        if BitVector[Index] == 'x':
+            continue                      # FREE, not framed
+        SourceBit = XMLUtils.constant(BitVector[Index] == '1')
+    else:
+        SourceBit = XMLUtils.variable(FieldBitName(Field, NodeKey, Index))
 
 That the ruling landed on exactly the operation the frame axioms already perform
 is the reason this is four lines rather than a phase -- and it is worth recording
@@ -7382,28 +7407,40 @@ The subtle part, and what the tests exist to pin:
 | rewrite value | meaning downstream |
 |---|---|
 | fully determined (`5`) | the field is REPLACED outright |
-| partially determined (`b000000001xxx`) | written bits replaced, **the rest PRESERVED** |
-| all-`x` | **CLEAR** -- the field becomes UNCONSTRAINED (§9.10.2) |
+| partially determined (`b000000001xxx`) | written bits replaced, **the rest FREE** |
+| all-`x` | the whole field is free -- i.e. exactly a **CLEAR** (§9.10.2) |
 
-The last two both "write nothing" to the unwritten bits and mean opposite things
-there: preserved says the old value still holds, cleared says any value does. So
-`_rewrites` keeps its wildcard test AHEAD of the ternary path rather than folding
-one into the other, and `_CreateMutationConstraints` still emits NEITHER axiom
-for a `CLEAR`. FaVe needs all three -- `post_routing` clears `in_port`/`out_port`,
-routing replaces `out_port`, and cloud NAT masks an address.
+**There are really only two**, and the correction is what collapsed the third.
+An all-don't-care rewrite and a `CLEAR` say the same thing -- "constrain this
+field no further" -- which is coherent rather than a coincidence. The test that
+used to pin them APART now pins them together, deliberately and under that name,
+so the equivalence cannot be undone by accident.
 
-#### 9.36.4 Verified by mutation
+`_rewrites` still keeps its wildcard test ahead of the ternary path, but now only
+because a `CLEAR` carries no value to render at all, not because the two mean
+different things downstream.
+
+#### 9.36.4 Verified by mutation -- and why that was not enough
 
 Three tests, a two-hop rewrite chain with a full-value gate at the end, so what
 the second rewrite did to the bits the first one set is what decides
-reachability. `vlan = 5` then a rewrite of `000000001xxx` must give **13** (the
-low `101` survives); **8** is what zeroing would give and **5** is what no
-rewrite would leave, and both must be unreachable.
+reachability. `vlan = 5` then a rewrite of `000000001xxx`: **8 through 15** are
+all reachable (the low three bits are free) and nothing outside is, because the
+determined bits still have to be written.
 
-Both wrong readings are caught: zeroing the unwritten bits -> 2 red; freeing them
--> 2 red. The second mutation is the one worth having, since it is the reading a
-careless implementation would fall into and it differs from a `CLEAR` only in a
-gate value.
+**The mutations passed while the semantics were wrong, and that is the lesson.**
+A mutation test proves the code implements what its test says; it cannot notice
+that the test says the wrong thing. The first cut's test was called
+`testMaskedRewritePRESERVESTheBitsItDoesNotWrite` and asserted, in its own name,
+the behaviour that made q01 and q03 unreachable. Every piece was individually
+correct and individually tested -- the rule, the XML, the encoding.
+
+What caught it was DISAGREEMENT with another engine on a workload with external
+verdicts. That is now a standing gate:
+`fave/test/test_ad6_cloud_differential.py` (integration tier, ~2 min) requires
+ad6 and NetPlumber to agree on all 64 cells of wl_cloud's all-pairs matrix AND
+both to match the dataset at q01/q02/q03. Verified inverted -- reinstating the
+defect fails all three of its assertions.
 
 A leak found while doing it: `field_value_to_bitvector` raises
 `VectorConstructionError`, which escaped `_ternary_text` and surfaced three
@@ -7417,6 +7454,18 @@ Measured on the dataset's own 2,941 rules:
 
     address MATCH values  : 2480 translate, 0 refused
     address REWRITE values:   24 translate, 0 refused
+
+And, after the correction, ad6 ANSWERS it correctly too:
+
+    ad6 vs NetPlumber, wl_cloud all-pairs (8 endpoints, unconditioned)
+      before: 58/64 agree -- every internet-sourced pair unreachable in ad6
+      after : 64/64 agree, and both match the dataset at q01, q02, q03
+
+What still blocks the benchmark itself is the query-seeding path, not the model:
+`fave_bridge._SUPPORTED_COND_FIELDS` forces only `related`, so the FPL check set
+(which puts `f=related:0` on every conditional check, against a model with no
+conntrack) is refused. That is a separate boundary -- CLOUD_BENCH_PLAN.md
+§1.7.2.
 
 Both boundaries `CLOUD_BENCH_PLAN.md` §1.7.2 recorded are closed, and **ad6 no
 longer refuses the workload**.
