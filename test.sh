@@ -106,6 +106,8 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
+    test/test_apkeep_first_match.py  # a forwarding table decides its APKeep element by its RULES, not by the device name; skips if unavailable
+    test/test_apkeep_cloud_differential.py # APKeep vs libnetplumber on wl_cloud, one engine per process, anchored to the dataset
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own

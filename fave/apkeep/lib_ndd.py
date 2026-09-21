@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import os
 
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _NDD_JAR = os.path.join(
@@ -122,7 +122,8 @@ class LibNDD:
                      dst_device: str, dst_port: str,
                      src_cidr: Optional[str] = None,
                      target_vlan: Optional[int] = None,
-                     related: Optional[int] = None) -> bool:
+                     related: Optional[int] = None,
+                     conditions: Optional[List[Tuple[str, bool]]] = None) -> bool:
         """ Existential reachability source->probe over the built model. The
         source emits its own src space (`src_cidr`, None => unconstrained); a
         probe counts as reached iff its DEVICE received a non-empty header set.
@@ -131,11 +132,25 @@ class LibNDD:
         (0 = NEW, 1 = ESTABLISHED -- a FaVe compliance check's `related:N`
         condition), arrival additionally requires that connection state; the
         per-source flood is state-independent, so both variants share one cached
-        flood. Flood cached engine-side. """
+        flood. Flood cached engine-side.
+
+        `conditions` carries the check's other conditions -- protocol, port,
+        address -- as (rule_string, negated) pairs, each a `+ filter ...` rule
+        string, likewise intersected at arrival (or its complement, when
+        negated). """
         if not self._built:
             raise RuntimeError("build() must be called first")
         tv = -1 if target_vlan is None else int(target_vlan)
         rel = -1 if related is None else int(related)
+        if conditions:
+            jconds = self._ArrayList()
+            for rule_string, negated in conditions:
+                jconds.add("%d %s" % (1 if negated else 0, rule_string))
+            return bool(self._eng.isReachable(
+                str(src_device), str(src_port),
+                None if src_cidr is None else str(src_cidr),
+                str(dst_device), str(dst_port), tv, rel, jconds
+            ))
         return bool(self._eng.isReachable(
             str(src_device), str(src_port),
             None if src_cidr is None else str(src_cidr),

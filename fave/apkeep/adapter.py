@@ -117,6 +117,110 @@ _FILTER_PRIO_BASE = 10_000_000
 # conditioned question. Nothing else can -- see _cond_related.
 _SUPPORTED_COND_FIELDS = (_RELATED,)
 
+#: The other check conditions this backend can force, and the FilterElement slot
+#: each one occupies. `related` is not here: it has a dedicated, cheaper path in
+#: both engines (a single header bit) and keeps its own parsing in
+#: `_cond_related`. Everything in this table becomes an arrival constraint built
+#: from the same 5-tuple encoding the model's own rules use, so a condition and
+#: a rule mean the same thing by construction.
+_COND_SLOTS = {
+    _PROTO: 'proto',
+    _SPORT: 'sport',
+    _DPORT: 'dport',
+    _SRC: 'src', _SRC6: 'src',
+    _DST: 'dst', _DST6: 'dst',
+}
+
+# --- what a dst-LPM ForwardElement can and cannot say ------------------------
+#
+# APKeep's ForwardElement is a destination-prefix trie: one match field, and the
+# longest prefix wins. A forwarding TABLE that says anything else -- a source, a
+# protocol, a port, or a header rewrite -- is a first-match list, and the two are
+# not interchangeable. Translating the second as the first drops the extra match
+# fields AND replaces the rule order with the prefix length, which widens some
+# rules and silently reorders others.
+#
+# wl_cloud is where that stopped being theoretical: its leaf tables read
+#
+#     1  dst=10.0.6.128/25, proto=6, dport=332  -> forward
+#     2  dst=10.0.6.128/25                      -> drop
+#     3  (default)                              -> forward upstream
+#
+# and dst-only translation turns rules 1 and 2 into a forward and a drop on the
+# SAME prefix at the SAME priority, which leaves the outcome to whichever the
+# engine happens to keep. It kept the drop, and nothing in the datacenter
+# reached anything (CLOUD_BENCH_PLAN.md §1.7.3).
+#
+# So the table decides the element, by what it matches rather than by what the
+# device is called. These two sets are what the ForwardElement path can carry:
+# a destination prefix, plus the fields another mechanism already handles --
+# `vlan` and `in_port` are structural here (the VLAN stage and
+# `_gate_dead_ingress`), and an `out_port` rewrite IS the forward.
+_LPM_MATCH_FIELDS = frozenset({_DST, _DST6, _VLAN, _IN_PORT})
+_LPM_REWRITE_FIELDS = frozenset({_OUT_PORT, _VLAN})
+
+#: Header fields a NATElement can rewrite, and the token each takes in the
+#: `+ nat <dev> <port> match <field> ...` rule string.
+_NAT_IP_FIELDS = {_SRC: 'src', _DST: 'dst'}
+
+#: What a FilterElement rule can match (see `_filter_rule_string`). A forwarding
+#: table that needs first-match and carries anything else is refused, not
+#: approximated.
+_FILTER_MATCH_FIELDS = frozenset({
+    _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED})
+
+
+def _is_full_space(value: Any) -> bool:
+    """ True iff an injected generator field constrains nothing. Only an address
+    can be the full space: a port or a protocol names one value. """
+    text = str(value)
+    return text.endswith('/0') or text in ('0.0.0.0', '::', '0::0')
+
+
+def _is_dst_lpm_table(rows: List[Dict[str, Any]]) -> bool:
+    """ True iff every rule in this forwarding table fits a dst-prefix trie.
+
+    Deliberately a property of the RULES, not of the device: nothing here reads
+    a device name, so a workload that names its switches differently gets the
+    same decision. The cost of being wrong is asymmetric -- a table that needs
+    first-match and gets LPM answers a different question, while a pure FIB that
+    took the first-match path would merely be slower -- so anything unrecognised
+    counts as needing first-match.
+    """
+    for row in rows:
+        if set(row['match']) - _LPM_MATCH_FIELDS:
+            return False
+        if set(row['rw']) - _LPM_REWRITE_FIELDS:
+            return False
+    return True
+
+
+def _nat_ip_rule_string(device: str, port: str, field: str,
+                        new: str, match_body: str) -> str:
+    """ One address rewrite -> a "+ nat <dev> <port> match <src|dst> <ip> <len>
+    <match...>" string, where `match_body` is the SAME 5-tuple the rule matched
+    (a `+ filter` rule string with its "+ filter <device> " head removed).
+
+    The match has to be the whole 5-tuple, not the prefix of the rewritten
+    field. Two of wl_cloud's source-NAT rules leave `core.dc0_core` by the same
+    port with the same source /24 and differ only in `tcp_src` (342 vs 350) --
+    keyed on the address alone they would be the same rule twice, rewriting to
+    two different public addresses, and which one won would be an accident.
+
+    The NATElement sits INLINE on (device, port): `addNATs` re-points that
+    port's downstream through it, so a rewrite applies to what leaves by that
+    port and to nothing else.
+
+    The rewritten value is a PREFIX, and the bits it does not fix come out FREE.
+    That is Hassel's `(h & mask) | rewrite` with the mask naming the rewritten
+    bits, and it is the same semantics AD6_PLAN.md §9.36 had to correct in ad6:
+    a DNAT onto a /22 reaches the whole /22, and framing the low bits from the
+    matched /32 instead collapses it to one host.
+    """
+    new_ip, new_len = new.partition('/')[::2]
+    return "+ nat %s %s match %s %s %s %s" % (
+        device, port, field, new_ip, new_len or '32', match_body)
+
 
 def _cond_field(field: Any, key: str) -> Any:
     """ One `cond` entry's attribute. Real dispatch (aggregator_service's
@@ -390,6 +494,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         # off the accept port -- see _build_pf_pipeline. device -> [(dst, egress, plen)].
         self._filter_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
+        # Every forwarding-table rule VERBATIM, per device: {'idx', 'ports',
+        # 'match', 'rw'}. The dst-LPM translation above throws away whatever it
+        # cannot express, so the decision of WHICH element a table becomes has to
+        # be made from something that still has the whole rule -- see
+        # _is_dst_lpm_table and _build_first_match_tables.
+        self._fwd_table: Dict[str, List[Dict[str, Any]]] = {}
         self._edges: List[str] = []          # topology "dev port dev port"
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
@@ -407,6 +517,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         self._vlan_to_eport: Dict[str, str] = {}  # egress VLAN -> router port
         self._iport_vlan: Dict[str, str] = {}     # ingress port -> VLAN (pre_routing)
         self._gen_src: Dict[str, str] = {}        # source node -> src CIDR
+        # source node -> every header field its generator INJECTS. A generator
+        # states what the source emits, and constraining the query to less than
+        # all of it asks a broader question than the model does: wl_cloud's
+        # service endpoints inject `tcp_src` as well as an address, and its leaf
+        # ACLs match on it, so ignoring it made 293 denied pairs look reachable.
+        self._gen_fields: Dict[str, Dict[str, Any]] = {}
         self._gen_vlan: Dict[str, str] = {}       # source node -> ingress VLAN
         # wl_stanford: the HSA model splits every router into in./mid./out.
         # switches. in.=ingress ACL (pass-through here), mid.=dst-IP FIB, and
@@ -552,6 +668,7 @@ class APKeepAdapter(AbstractVerificationEngine):
                     # whose routing rewrites out_port (not an out_port match). The
                     # dst-FIB `_translate_fwd_rule` still runs but its filter-device
                     # output is dropped at build.
+                    self._capture_fwd_table_rule(model.node, rule)
                     self._translate_fib_rule(model.node, rule)
                     self._translate_fwd_rule(model.node, rule)
                     self._capture_vlan_port(rule)
@@ -581,6 +698,29 @@ class APKeepAdapter(AbstractVerificationEngine):
                 chain = table.rsplit('.', 1)[1]
                 for rule in rules:
                     self._capture_pf_rule(model.node, chain, rule)
+
+    def _capture_fwd_table_rule(self, device: str, rule: Any) -> None:
+        """ Buffer one forwarding-table rule whole, before anything is dropped.
+
+        `_translate_fwd_rule` runs beside this and keeps only the destination
+        prefix, which is the right thing for a FIB and a silent widening for a
+        table that also matches a source, a protocol or a port. Keeping the rule
+        as written is what lets `_build` decide, per device, which of the two a
+        table actually is.
+        """
+        row: Dict[str, Any] = {
+            'idx': rule.idx,
+            'ports': self._out_ports(rule),
+            'match': {},
+            'rw': {},
+        }
+        for field in (rule.match or []):
+            row['match'][field.name] = field.value
+        for action in (rule.actions or []):
+            if isinstance(action, Rewrite):
+                for field in action.rewrite:
+                    row['rw'][field.name] = field.value
+        self._fwd_table.setdefault(device, []).append(row)
 
     def _capture_pf_rule(self, device: str, chain: str, rule: Any) -> None:
         """ Buffer one packet_filter chain rule (input/output/forward). ACCEPT is a
@@ -869,10 +1009,22 @@ class APKeepAdapter(AbstractVerificationEngine):
             for fname, rfields in fields.items():
                 if not rfields:
                     continue
+                if fname == _VLAN:
+                    # Structural: the VLAN decides which ingress element this
+                    # source is wired to, not what its packets match.
+                    self._gen_vlan[model.node] = str(rfields[0].value)
+                    continue
                 if fname in (_SRC, _SRC6):
                     self._gen_src[model.node] = rfields[0].value
-                elif fname == _VLAN:
-                    self._gen_vlan[model.node] = str(rfields[0].value)
+                elif fname not in _FILTER_MATCH_FIELDS:
+                    raise ValueError(
+                        "generator %s injects %s, which the source-seed element "
+                        "cannot express. It is NOT ignored: a source that emits "
+                        "less than the full space and is queried as if it emitted "
+                        "everything answers a broader question, and the run still "
+                        "reports a number." % (model.node, fname))
+                self._gen_fields.setdefault(model.node, {})[fname] = \
+                    rfields[0].value
 
     def add_generators_bulk(self, models: Any, use_dynamic: bool = False) -> None:
         for model in models:
@@ -921,6 +1073,32 @@ class APKeepAdapter(AbstractVerificationEngine):
              device_acls, acl_rules) = self._build_i2_faithful(edges)
         if self._acl_device is not None:
             edges, device_acls, acl_rules = self._splice_acls(edges)
+        # A forwarding table that is not a destination-prefix trie is realised as
+        # a first-match FilterElement (plus a NATElement per address rewrite)
+        # instead of a ForwardElement. Decided from the RULES -- see
+        # _is_dst_lpm_table -- so it needs no device naming convention and fires
+        # on any workload whose forwarding tables carry ACL matches, rather than
+        # on the one that first needed it.
+        first_match = self._first_match_devices()
+        fm_rules: List[str] = []
+        if first_match:
+            fm_rules, fm_nats, fm_nat_rules = self._build_first_match_tables(
+                first_match)
+            self._fwd_devices -= first_match
+            fwd_rules = [r for r in fwd_rules if r.split()[2] not in first_match]
+            if fm_nats:
+                # The stanford/i2 paths hand back sorted LISTS; normalise before
+                # merging so a workload that needed both kinds of rewrite would
+                # not fail on the container type.
+                merged = dict((d, set(p)) for d, p in (device_nats or {}).items())
+                for dev, ports in fm_nats.items():
+                    merged.setdefault(dev, set()).update(ports)
+                device_nats = merged
+                nat_rules += fm_nat_rules
+            self.logger.info(
+                "apkeep: %d forwarding table(s) are first-match, not dst-LPM "
+                "(%d rules, %d address rewrites)",
+                len(first_match), len(fm_rules), len(fm_nat_rules))
         # Honour in-stage admission: drop traffic entering an ingress port no rule
         # admits (a real router drops it; our in-port-agnostic ForwardElement would
         # not). No-op unless an in-stage device has a finite admitted-port set.
@@ -941,7 +1119,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # (permit src=address, default-drop) so a source cannot reach a probe via a
         # spoofed src (NetPlumber seeds the source's src; here the packet_filters
         # filter on src in the forwarding AP universe, so we constrain it there).
-        edges, sf_elems, sf_rules = self._source_src_filters(edges)
+        edges, sf_elems, sf_rules = self._source_seed_filters(edges)
         pf_elems += sf_elems
         pf_rules += sf_rules
         # Plain IPv6 routers become dst-LPM FilterElement FIBs (the device itself);
@@ -951,8 +1129,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         for dev in ipv6_routers:
             for dst, egress, plen in self._router_fib.get(dev, []):
                 router_fib_rules.append(_fib_rule_string(dev, egress, dst, plen))
-        filter_devices = pf_elems + ipv6_routers
-        as_filter = self._filter_devices | set(ipv6_routers)
+        filter_devices = pf_elems + ipv6_routers + sorted(first_match)
+        as_filter = self._filter_devices | set(ipv6_routers) | first_match
         fwd_devices = sorted(self._fwd_devices - as_filter)
         # A device modelled as a FilterElement must not also carry its (IPv4-only,
         # here mis-collapsed) `+ fwd` dst-FIB rules -- a `+ fwd` dispatches by device
@@ -963,7 +1141,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # filters) -- out of the graph. Fewer elements => a smaller per-split
         # multiplier in APKeeper.updateSplitAP (the C1 PPM hotspot), at zero
         # correctness cost. Operates on the combined filter-rule universe.
-        filter_rules_all = pf_rules + router_fib_rules
+        filter_rules_all = pf_rules + router_fib_rules + fm_rules
         edges, filter_devices, filter_rules_all = self._elide_passthrough_filters(
             edges, filter_devices, filter_rules_all)
         # The combined, engine-neutral rule IR (identical to what the BDD engine's
@@ -1015,6 +1193,97 @@ class APKeepAdapter(AbstractVerificationEngine):
         is provably identical to the per-pair DFS. Requires _build() first. """
         self._build()
         return self._single_universe
+
+    def _first_match_devices(self) -> set:
+        """ The devices whose forwarding table is a first-match list.
+
+        The HSA in./mid./out. stages are exempt, and only because something
+        else already claims them: `_build_stanford_faithful`,
+        `_build_i2_faithful` and `_collapse_out_stage` rewrite those tables
+        themselves, and their rules carry VLAN matches this element cannot
+        express anyway -- so the approximation those paths make is a decision
+        already taken (APKEEP_STANFORD_NP_SPEC.md), not one to re-open here.
+
+        Keyed on the STAGE PREFIX rather than on whether a faithful path is
+        active, because the plain path (`faithful_vlan=False`, the convergence
+        harness and `test_apkeep_i2.py`) claims the same tables and would
+        otherwise get a second, conflicting treatment.
+
+        That exemption is the last device-name test left in this decision, and
+        it is a real limit: a new workload that happened to call a device
+        `in.something` would inherit it. Removing it means giving the
+        FilterElement a VLAN field, which is its own piece of work
+        (CLOUD_BENCH_PLAN.md §1.7.3).
+        """
+        staged = {d for d in self._fwd_table
+                  if d.split('.', 1)[0] in ('in', 'mid', 'out')}
+        return {dev for dev, rows in self._fwd_table.items()
+                if dev not in staged and not _is_dst_lpm_table(rows)}
+
+    def _build_first_match_tables(self, devices: set):
+        """ Realise each first-match forwarding table as a FilterElement, and
+        each address rewrite on it as a NATElement on the egress port.
+
+        Returns (filter_rules, {device: {port}}, nat_rules).
+
+        The rule ORDER is carried by the priority (`_FILTER_PRIO_BASE - idx`),
+        which is what makes this a first-match table rather than a set of
+        independent matches: wl_cloud's leaves permit one service and then deny
+        the whole prefix, and only the order distinguishes that from denying
+        everything.
+
+        REFUSES a match or a rewrite it cannot express, rather than emitting the
+        rule without it. A silently dropped match field answers a broader
+        question and returns a confident number -- the failure mode this file's
+        `_cond_related` exists to prevent, and the one that produced §1.7.3's
+        result in the first place.
+        """
+        rules: List[str] = []
+        nats: Dict[str, set] = {}
+        nat_rules: List[str] = []
+        for device in sorted(devices):
+            for row in sorted(self._fwd_table[device],
+                              key=lambda r: int(r['idx'])):
+                match = row['match']
+                unsupported = set(match) - _FILTER_MATCH_FIELDS
+                if unsupported:
+                    raise ValueError(
+                        "%s rule %s matches %s, which a first-match "
+                        "FilterElement cannot express. The rule is NOT emitted "
+                        "without it: a dropped match field widens the rule and "
+                        "the run still reports a number."
+                        % (device, row['idx'], sorted(unsupported)))
+                rewritten = set(row['rw']) - _NAT_IP_FIELDS.keys() - {_OUT_PORT}
+                if rewritten:
+                    raise ValueError(
+                        "%s rule %s rewrites %s on a first-match table; only "
+                        "%s can be modelled here (as a NATElement on the egress "
+                        "port). Dropping the rewrite would leave the header "
+                        "unchanged and the answer wrong in whichever direction "
+                        "the rewrite mattered."
+                        % (device, row['idx'], sorted(rewritten),
+                           sorted(_NAT_IP_FIELDS)))
+                ports = row['ports'] or [_FILTER_DROP]
+                for port in ports:
+                    rule_str = _filter_rule_string(
+                        device, port,
+                        match.get(_PROTO),
+                        match.get(_SRC, match.get(_SRC6)),
+                        match.get(_DST, match.get(_DST6)),
+                        match.get(_SPORT), match.get(_DPORT),
+                        match.get(_RELATED), int(row['idx']))
+                    rules.append(rule_str)
+                    # The NAT reuses this rule's own match, so it rewrites
+                    # exactly the packets the rule matched -- see
+                    # _nat_ip_rule_string on why the address alone will not do.
+                    body = rule_str.split(' ', 3)[3]
+                    for field, token in sorted(_NAT_IP_FIELDS.items()):
+                        if field not in row['rw'] or port == _FILTER_DROP:
+                            continue
+                        nats.setdefault(device, set()).add(port)
+                        nat_rules.append(_nat_ip_rule_string(
+                            device, port, token, str(row['rw'][field]), body))
+        return rules, nats, nat_rules
 
     def _build_pf_pipeline(self, edges: List[str], filter_devices: List[str]):
         """ Realise each FaVe packet_filter's internal pipeline as a subgraph of
@@ -1196,44 +1465,61 @@ class APKeepAdapter(AbstractVerificationEngine):
         if cidr is None or self._acl_device is not None:
             return False
         s = str(cidr)
-        if s.endswith('/0') or s in ('0.0.0.0', '::', '0::0'):
+        if _is_full_space(s):
             return False
         return ':' in s
 
-    def _source_src_filters(self, edges: List[str]):
-        """ Splice a src-constraining FilterElement onto each source whose injected
-        src-IP is a specific address (not the full space, e.g. the internet). The
-        element permits only `src=address` (default-drop), so the generator's
-        full-space injection is narrowed to the source's real src before it enters
-        the network -- preventing spoofed-src reachability. Returns (edges, elems,
-        rules). """
-        gen_src: Dict[str, str] = {}
-        for node, cidr in self._gen_src.items():
-            if cidr is None:
-                continue
-            s = str(cidr)
-            if s.endswith('/0') or s in ('0.0.0.0', '::', '0::0'):
-                continue                          # full space -> no constraint
-            # Phase C1 Lever B: a single-universe IPv6 source is constrained at
-            # QUERY time (check_compliance seeds acl_aps with the exact src BDD,
-            # intersected at arrival), not by a structural .sf element -- which
-            # would split the AP partition on the address (~80% of the wl_up
-            # partition). The .sf path stays for the ACL-division case (wl_stanford,
-            # IPv4 long-src seed) where forwarding-universe seeding does not apply.
-            if self._src_seeded_source(s):
-                continue
-            gen_src[node] = s
+    def _source_seed_filters(self, edges: List[str]):
+        """ Splice a FilterElement onto each source, permitting exactly the header
+        space its generator INJECTS and dropping the rest.
+
+        A generator states what a source emits. APKeep's query injects the full
+        space, so without this the question asked is "can ANY packet get from
+        here to there", which is a broader question than the model states and
+        wider in the only direction that matters: it invents reachability.
+
+        It used to carry the source ADDRESS alone, which was enough while every
+        workload's generators injected only that. wl_cloud's matrix phase injects
+        `tcp_src` too -- each service endpoint emits from its own port -- and its
+        leaf tables match on it, so dropping it made **293 denied pairs look
+        reachable** (1,608 violations against NetPlumber's 1,315). Nothing said
+        so; the field was simply not read.
+
+        Returns (edges, elems, rules).
+        """
+        seeds: Dict[str, Dict[str, Any]] = {}
+        for node, injected in self._gen_fields.items():
+            constrained = dict(
+                (name, value) for name, value in injected.items()
+                if not _is_full_space(value))
+            # Phase C1 Lever B: a single-universe IPv6 source has its ADDRESS
+            # constrained at QUERY time (check_compliance seeds acl_aps with the
+            # exact src BDD, intersected at arrival) rather than by a structural
+            # .sf element, which would split the AP partition on the address
+            # (~80% of the wl_up partition). Only the address; any other injected
+            # field still needs the element.
+            if self._src_seeded_source(self._gen_src.get(node)):
+                constrained.pop(_SRC, None)
+                constrained.pop(_SRC6, None)
+            if constrained:
+                seeds[node] = constrained
         elems: List[str] = []
         rules: List[str] = []
         new_edges: List[str] = []
         for edge in edges:
             s_dev, s_port, d_dev, d_port = edge.split()
-            if s_dev in gen_src:
+            if s_dev in seeds:
                 sf = s_dev + '.sf'
                 if sf not in elems:
+                    injected = seeds[s_dev]
                     elems.append(sf)
                     rules.append(_filter_rule_string(
-                        sf, 'sfpass', None, gen_src[s_dev], None, None, None, None, 0))
+                        sf, 'sfpass',
+                        injected.get(_PROTO),
+                        injected.get(_SRC, injected.get(_SRC6)),
+                        injected.get(_DST, injected.get(_DST6)),
+                        injected.get(_SPORT), injected.get(_DPORT),
+                        injected.get(_RELATED), 0))
                 new_edges.append("%s %s %s in" % (s_dev, s_port, sf))
                 new_edges.append("%s sfpass %s %s" % (sf, d_dev, d_port))
             else:
@@ -1588,6 +1874,82 @@ class APKeepAdapter(AbstractVerificationEngine):
 
         return new_edges, {dev: sorted(acl_names)}, acl_rules
 
+    def _rewritten_fields(self) -> set:
+        """ Every header field some rule in this model rewrites (`out_port`
+        excluded -- rewriting it IS the forward). Read by `_query_conditions`. """
+        fields: set = set()
+        for rows in self._fwd_table.values():
+            for row in rows:
+                fields |= set(row['rw'])
+        return fields - {_OUT_PORT}
+
+    def _query_conditions(self, cond: Any, source: str, probe: str):
+        """ One check's `cond` -> (related, [(rule_string, negated), ...]).
+
+        `related` keeps its own path (`_cond_related`): both engines carry it as
+        a single header bit, and it is the one condition that provably cannot be
+        rewritten. Everything else becomes a FilterElement rule string the engine
+        turns into a packet space and intersects with what ARRIVES at the probe.
+
+        Two refusals, both loud, because the alternative to each is a number that
+        answers a question nobody asked:
+
+          * a field neither engine can express. Dropping it answers the
+            UNCONDITIONED question -- the failure `_cond_related` was written for,
+            and the one AD6_PLAN.md 9.23 is a post-mortem of.
+          * a field THIS MODEL REWRITES. Constraining at arrival is equivalent to
+            injecting only that traffic exactly while nothing rewrites the field:
+            if something does, the two questions come apart and neither the
+            arrival form nor the seed form is the check as written. wl_cloud
+            rewrites both addresses, so a source- or destination-conditioned
+            check on it is refused here rather than answered.
+        """
+        related_fields: List[Any] = []
+        extra_fields: List[Any] = []
+        for field in (cond or []):
+            name = _cond_field(field, "name")
+            # A nameless field goes to _cond_related, which already says the
+            # right thing about it.
+            if name is None or name == _RELATED:
+                related_fields.append(field)
+            else:
+                extra_fields.append(field)
+
+        related = _cond_related(related_fields, source, probe)
+
+        rewritten = self._rewritten_fields()
+        conditions: List[Tuple[str, bool]] = []
+        for field in extra_fields:
+            where = "check %s -> %s" % (source, probe)
+            name = _cond_field(field, "name")
+            if name not in _COND_SLOTS:
+                raise ValueError(
+                    "query condition %r on %s cannot be honoured: APKeep forces "
+                    "%s, not %r. It is NOT dropped, because answering the "
+                    "unconditioned question looks like a result."
+                    % (field, where, "/".join(
+                        list(_SUPPORTED_COND_FIELDS) + sorted(_COND_SLOTS)), name))
+            if name in rewritten:
+                raise ValueError(
+                    "query condition %r on %s names %s, which this model "
+                    "REWRITES. The condition is forced on the traffic ARRIVING "
+                    "at the probe, which equals injecting only that traffic "
+                    "exactly while nothing rewrites the field -- and here "
+                    "something does, so the two are different questions."
+                    % (field, where, name))
+            slot = _COND_SLOTS[name]
+            args: Dict[str, Any] = {
+                'proto': None, 'src': None, 'dst': None,
+                'sport': None, 'dport': None,
+            }
+            args[slot] = _cond_field(field, "value")
+            conditions.append((
+                _filter_rule_string(
+                    'cond', 'cond', args['proto'], args['src'], args['dst'],
+                    args['sport'], args['dport'], None, 0),
+                bool(_cond_field(field, "negated"))))
+        return related, conditions
+
     def check_compliance(self, rules: Any) -> None:
         """ rules: {probe_name: [(source_name, negated, cond), ...]}. For each
         pair, existential reachability source->probe; a violation is recorded
@@ -1601,7 +1963,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             pdev, pport = _split_port(self._probes[probe_name])
             for source_name, negated, cond in src_rules:
                 sdev, sport = _split_port(self._generators[source_name])
-                related = _cond_related(cond, source_name, probe_name)
+                related, conditions = self._query_conditions(
+                    cond, source_name, probe_name)
                 # With ACLs present, seed reachability with the source's actual
                 # src-IP so source-matching ACLs bite (a 0.0.0.0/0 source -> len
                 # 0 -> full space, the unconstrained case).
@@ -1613,16 +1976,16 @@ class APKeepAdapter(AbstractVerificationEngine):
                 if self._engine == 'ndd' and self._ndd_fwd_mode:
                     # pure dst-IP FIB: AtomForwarding floods the full dst space
                     # (forwarding is source-independent), no src/VLAN constraint.
-                    if related is not None:
+                    if related is not None or conditions:
                         # This model has ONE dimension (the dst prefix); there is
-                        # no state bit to force, so the condition cannot be
+                        # no other field to force, so the condition cannot be
                         # answered. Refusing beats returning the unconditioned
                         # number. (No conditioned benchmark uses this mode -- it
                         # serves wl_i2/wl_stanford's pure FIBs.)
                         raise ValueError(
-                            "check %s -> %s carries a 'related' condition, but "
-                            "the dst-IP atomic-forwarding model has no "
-                            "connection-state dimension to force it onto."
+                            "check %s -> %s carries a condition, but the dst-IP "
+                            "atomic-forwarding model has only the destination "
+                            "prefix to force it onto."
                             % (source_name, probe_name))
                     reachable = self._ndd.fwd_is_reachable(sdev, sport, pdev, pport)
                 elif self._engine == 'ndd':
@@ -1631,23 +1994,25 @@ class APKeepAdapter(AbstractVerificationEngine):
                     # enforces the faithful wl_stanford probe's vlan=0 at arrival.
                     reachable = self._ndd.is_reachable(
                         sdev, sport, pdev, pport, src_cidr=src_cidr,
-                        target_vlan=tvlan, related=related)
+                        target_vlan=tvlan, related=related,
+                        conditions=conditions)
                 elif self._acl_device is not None and src_cidr is not None:
                     prefix, plen = _cidr_to_apkeep(src_cidr)
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, prefix, plen, target_vlan=tvlan,
-                        related=related)
+                        related=related, conditions=conditions)
                 elif self._src_seeded_source(src_cidr):
                     # Phase C1 Lever B: single-universe IPv6 source -> seed the
                     # exact src-IPv6 BDD into the query (excludes spoofed-src
                     # reachability at arrival) instead of a partition-splitting .sf.
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan,
-                        src_cidr=str(src_cidr), related=related)
+                        src_cidr=str(src_cidr), related=related,
+                        conditions=conditions)
                 else:
                     reachable = self._lib.is_reachable(
                         sdev, sport, pdev, pport, target_vlan=tvlan,
-                        related=related)
+                        related=related, conditions=conditions)
                 # `negated` True means "must not reach"; violation if the
                 # observed reachability contradicts the expectation.
                 must_reach = not negated

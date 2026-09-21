@@ -41,7 +41,7 @@ from __future__ import annotations
 import os
 import tempfile as _tempfile
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _APKEEP_JAR = os.path.join(_REPO_ROOT, "apkeep", "target", "apkeep-1.0.0.jar")
@@ -214,7 +214,8 @@ class LibAPKeep:
                      src_prefix: Optional[int] = None, src_len: int = 0,
                      target_vlan: Optional[int] = None,
                      src_cidr: Optional[str] = None,
-                     related: Optional[int] = None) -> bool:
+                     related: Optional[int] = None,
+                     conditions: Optional[List[Tuple[str, bool]]] = None) -> bool:
         """ Existential reachability over the current PPM: can traffic injected
         at (src_device, src_port) reach (dst_device, dst_port)? Implemented by
         apkeep.checker.ReachabilityChecker (P3); this is the query FaVe's
@@ -229,7 +230,14 @@ class LibAPKeep:
         `related` (0 = NEW, 1 = ESTABLISHED) answers a FaVe compliance check's
         `related:N` condition: the traffic ARRIVING at the target must carry that
         connection state. It composes with every overload below, because the
-        checker keeps it separate from the vlan target header. """
+        checker keeps it separate from the vlan target header.
+
+        `conditions` carries the check's OTHER conditions -- protocol, port,
+        address -- as (rule_string, negated) pairs, each a `+ filter ...` rule
+        string. Each becomes the packet space that rule describes (or its
+        complement, for a negated condition) and is intersected with the arriving
+        traffic. The adapter refuses any condition on a field this model rewrites
+        before it gets here; see `APKeepAdapter._query_conditions`. """
         if self._net is None:
             raise RuntimeError("init_snapshot() must be called first")
         checker = self._ReachabilityChecker(self._net)
@@ -239,6 +247,16 @@ class LibAPKeep:
             checker.setRelatedHeader(
                 self._APKeeper.bddengine.ConvertRelated(jpype.JInt(int(related)))
             )
+        for rule_string, negated in (conditions or []):
+            bddengine = self._APKeeper.bddengine
+            tokens = rule_string.split(' ')
+            head = len(tokens[0]) + len(tokens[1]) + len(tokens[2]) + 3
+            acl_rule = jpype.JClass("common.ACLRule")(
+                jpype.JString(rule_string[head:]))
+            node = bddengine.ConvertACLRule(acl_rule)
+            if negated:
+                node = bddengine.negate(jpype.JInt(node))
+            checker.andArrivalHeader(jpype.JInt(node))
         # target_vlan (P7b): require the packets reaching the probe to carry this
         # VLAN (wl_stanford probes only accept vlan=0). Uses the 5-arg checker
         # overload; the source seed defaults to the full space when unconstrained.
