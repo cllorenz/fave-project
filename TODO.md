@@ -1396,6 +1396,57 @@ broken for a different reason, item 19 below. The deduplication is kept because
 removing it would change behaviour the `set` guaranteed, on a path that will
 start working when item 19 is fixed.
 
+### 19. `X ---> Superrole.*` does not work in any of its three spellings (found 2026-09-21)
+**Found while writing item 18's deduplication test**, which needed one service
+offered by two subroles — and could not be built, because every way of writing
+it fails. Characterised over a superrole `Both` including `Alpha` and `Beta`:
+
+| written as | result of `Client ---> Both.*` |
+|---|---|
+| `includes Alpha` | **silently empty** — the policy is granted with NO service condition |
+| `includes Alpha.*` | `ServiceUnknownException: Service Both.Telnet unbekannt.` |
+| `includes Alpha.HTTPS` | `ServiceUnknownException: Service Both.HTTPS unbekannt.` |
+
+**The cause is one method.** `PolicyBuilder` passes `provider=<the superrole>`,
+so `add_reachability_policy` takes `owner = 'Both'` and then guards each service
+with `self.roles[owner].offers_service(service)` — and `Superrole.offers_service`
+is `return False`, unconditionally, with the docstring "False. (Only roles offer
+services.)". But `Superrole` *does* carry services: `add_service` propagates to
+every subrole and records `subservices`, and `add_reachability_policy`'s own
+docstring promises "If the reached role is a superrole, all subservices will be
+considered." The two disagree, and the guard wins.
+
+The empty-conditions row is the dangerous one. An FPL author writing
+`Client ---> Both.*` asks for *the services `Both` offers*; what they get is
+unconditional reachability — **wider** than they wrote, and silent. The two
+exceptions are wrong but loud.
+
+**This is not new and not mine**: `examples/fml-paper-policy.txt` — the FML
+paper's own policy, tracked in this repository — declares `def role All` with
+`offers ARP` / `offers SSH` over ten `includes`, writes `All ---> All.ARP`, and
+**does not compile**, failing with `Service All.ARP unbekannt.` It fails
+identically at `HEAD~8`, before any of this branch's translator work.
+
+- [ ] **Decide what a superrole's services ARE** before touching the guard.
+      `offers_service` returning False is consistent with "only roles offer
+      services"; the `subservices` machinery and the `add_reachability_policy`
+      docstring assume the opposite. One of the two is the language, and the
+      other is a leftover — that question comes first, because either answer
+      makes the fix small and the wrong answer makes it invisible.
+- [ ] **Then make the empty case loud**, whichever way it is decided: a `.*`
+      that resolves to no service must not compile to unconditional
+      reachability. Same shape as item 15 — the failure is that a narrower
+      policy silently became a wider one.
+- [ ] **Then `fml-paper-policy.txt` is the test.** It is the one file in the
+      tree that exercises this, it is a published policy rather than a fixture,
+      and it currently cannot be compiled at all — so it is both the regression
+      test and the proof the item is closed.
+
+**Not urgent.** No workload uses a superrole with `.*` (checked: the nine
+inventories compile, and only `examples/ifi-policy.txt` uses `.*` at all, over
+an atomic role). It is filed because it is a *silent widening*, which is the
+class of defect §1.8 and item 15 exist to refuse.
+
 ---
 
 ## Python codebase test expansion (fave/ + policy_translator/)
