@@ -107,6 +107,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ad6_wl_up.py       # wl_up rulesets -> iptables/parser.py -> pybison
     test/test_ad6_wl_stanford.py # full 256-query differential vs a libnetplumber worker; opt-in (AD6_STANFORD_FULL_DIFFERENTIAL), so normally skips here
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
+    test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
 )
 # Also integration-tier, but these must run in their OWN pytest process. JPype
 # allows exactly one JVM per process and APKeep holds its network in Java static
