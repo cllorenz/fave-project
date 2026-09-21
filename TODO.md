@@ -1088,11 +1088,37 @@ value rather than enable it. Fixing comments properly means letting
 `comment_pattern` interleave inside `role_content`/`service_content`, which is a
 grammar change rather than a character-class change.
 
-- [ ] **Decide, as a language question:** let comments interleave inside role
-      and service blocks (matching `policies_regex`, and the clearest gap), and
-      whether `description` should accept prose punctuation and non-ASCII —
-      most cleanly by giving it its own pattern rather than widening the one the
-      technical attributes share.
+- [x] **Comments interleave inside role and service blocks — DONE 2026-09-21**
+      (Claas's call). `role_content`/`service_content` now admit a comment line
+      among the attribute/`includes`/`offers` lines, and any of those lines may
+      carry a trailing one. That matches `policies_regex`, which has always
+      allowed it. **Verified as a no-op on every existing inventory**: all
+      eleven (wl_up, wl_ifi ×2, wl_example, wl_stanford, wl_i2, wl_generic_fw,
+      wl_shadow, wl_cloud, `examples/{ifi,up}-policy.txt`) produce identical
+      matrices and role dumps.
+
+      **THE HALF THAT NEARLY WENT WRONG.** The block patterns decide whether a
+      role parses; `role_attr_regex`, `role_incl_regex` and `role_offers_regex`
+      decide what is read OUT of it. Teaching only the block patterns turns a
+      loud refusal into a SILENT LOSS — measured mid-change: `description = 'x'
+      # note` left the role with no description at all, and an annotated
+      `offers` left it offering nothing, surfacing much later as "Service
+      unknown" from the policy. All three extractors take the comment too, and
+      every test asserts the annotated line was still read rather than only that
+      the block parsed.
+
+      `#` is kept OUT of `value_pattern`. Folding it in appears to work and
+      passes every behavioural test — but only because `Role.add_attribute`
+      hands the group to `ast.literal_eval`, which treats the tail as a PYTHON
+      comment and drops it. A coincidence between two languages, not a property
+      of this one, so the value group is pinned at the regex level.
+      13 tests in `policy_translator/test/test_block_comments.py`,
+      mutation-verified: reverting the block patterns turns 3 red, omitting the
+      extractors 6, folding `#` into `value_pattern` 1.
+- [ ] **Still open:** whether `description` should accept prose punctuation and
+      non-ASCII — most cleanly by giving it its own pattern rather than widening
+      the one the technical attributes share. Unchanged by the above; still a
+      language question, and still not urgent because the refusal is loud.
 - [x] **Not urgent, and this is why.** Every one of the cases above now fails
       LOUDLY and names the block, so a writer who hits one learns it in a single
       run instead of shipping a policy with a role silently missing. The cost of
@@ -1294,6 +1320,60 @@ was dropped rather than chosen: `start_np.sh` backgrounds net_plumber and then
 exits, so the process is reparented to pid 1 and only pid 1 can reap it.
 `stop_fave.sh` is not its parent and cannot wait on it. The entries persist
 until the container restarts, and saying so is the whole fix available here.
+
+---
+
+### 18. PolicyTranslator's output is not reproducible for a `.*` service (found 2026-09-21)
+**Found by accident**, checking that item 15's comment change had not altered
+how any inventory parses. It had not — but the same file gave two different
+answers across runs with UNCHANGED code:
+
+    $ for i in 1 2 3 4; do policy_translator.py -c examples/ifi-policy.txt; done
+    Intern,...,(protocol:tcp;port:80|protocol:tcp;port:443)
+    Intern,...,(protocol:tcp;port:80|protocol:tcp;port:443)
+    Intern,...,(protocol:tcp;port:443|protocol:tcp;port:80)
+    Intern,...,(protocol:tcp;port:443|protocol:tcp;port:80)
+
+**The cause is exact.** `policy.py` `add_reachability_policy`, the wildcard
+branch:
+
+    if service_to == "*":
+        services = set()
+        for offered in self.roles[owner].get_services().values():
+            services.update(offered)
+
+A `set` of service NAMES, iterated to build the condition list. Iteration order
+follows string hashing, which Python randomises per process, so a role offering
+two or more services under `X ---> Y.*` emits its alternatives in an order that
+varies between runs.
+
+**Scope, measured.** Only the `.*` wildcard form reaches that branch; the named
+form takes the `else` and is a one-element list. **No workload in the tree uses
+`.*`** — the only file that does is `policy_translator/examples/ifi-policy.txt`.
+So nothing tracked or gated is affected today, and
+`test_wl_example_policy_artifacts.py` is stable across eight `PYTHONHASHSEED`
+values although wl_example's matrix does carry an alternative cell (it comes
+from two separate FPL rules, not from `.*`).
+
+**Why it still matters.** CLOUD_BENCH_PLAN.md §1.8's principle is that every
+benchmark and measurement must be recreatable from the raw data, and the
+artifact-invariant tests (TODO item 14) compare generated matrices BYTE FOR
+BYTE. A translator that can emit two spellings of the same policy breaks both
+the moment a workload uses `.*` — and the wildcard form is live in this
+project's thinking, not hypothetical: §1.9.5's `INTERNET_ROLE` work exists so
+that `Internet.*` resolves, and §1.9.4 measured `host2 <->> Internet.*`
+directly. The first workload to use it would get an intermittently failing
+artifact test and no obvious reason.
+
+- [ ] **Fix is one word** — iterate `sorted(services)` — but decide the ORDER
+      deliberately rather than taking alphabetical by default: declaration order
+      (the sequence the role's `offers` lines appear in) would read better in a
+      matrix and is what a human would expect. `get_services()` returns a dict,
+      which preserves insertion order in Python 3.7+, so the information is
+      still there; it is the `set` that discards it.
+- [ ] **Then pin it**, since the symptom is invisible in a single run: a test
+      that builds the same policy twice under different `PYTHONHASHSEED` values
+      and asserts the CSV is identical.
 
 ---
 

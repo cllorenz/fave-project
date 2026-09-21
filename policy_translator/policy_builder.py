@@ -56,29 +56,54 @@ class PolicyBuilder(object):
     # test_policy_builder.py::TestCommentRunsAreLinear pins both halves.
     comment_pattern = r"[ \t]* \# .* (\r\n|[\r\n])"
     comment_pattern_nl = r"%s+" % comment_pattern
+    # A comment may follow any line of a block, and may be a line of its own
+    # INSIDE one. Neither used to parse: `role_content` was either a run of
+    # attribute lines OR a run of comments, never interleaved, so a single
+    # annotated role was dropped whole -- silently, until TODO.md item 15 made
+    # an unparsed block an error. `policies_regex` below has always allowed
+    # interleaved comments, and wl_ifi/reach_stateless.txt uses them, so a
+    # writer met the inconsistency the first time they annotated a role.
+    #
+    # `line_comment` is the TRAILING form, and it is kept SEPARATE from
+    # `value_pattern` rather than folded into it so that the `value` group holds
+    # the value and nothing else.
+    #
+    # Folding `#` in would appear to work -- measured, and it passes every test
+    # here -- but only because `Role.add_attribute` hands the group to
+    # `ast.literal_eval`, which treats the trailing text as a PYTHON comment and
+    # drops it. That is a coincidence between two languages, not a property of
+    # this one: it holds for every value FPL currently has because they are all
+    # Python literals, and it would stop holding the moment a consumer read the
+    # group as text. `test_block_comments.py` pins the group's content directly
+    # for that reason.
+    line_comment = r"([ \t]* \# [^\r\n]*)?"
+    block_comment = r"([ \t]* \# [^\r\n]* (\r\n|[\r\n])+)"
+
     role_pattern = r"""
     ((\r\n|[\r\n]) | %s)*
     %s [ ] role [ ] (?P<role_name> %s) (\r\n|[\r\n])+
     (?P<role_content>
-        (((\t | [ ]{4}) %s [ \t]* = [ \t]*+ %s (\r\n|[\r\n])+)
-        | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? (\r\n|[\r\n])+)
-        | ((\t | [ ]{4}) offers [ ] %s (\r\n|[\r\n])+))*
-        | (%s)
+        (((\t | [ ]{4}) %s [ \t]* = [ \t]*+ %s %s (\r\n|[\r\n])+)
+        | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? %s (\r\n|[\r\n])+)
+        | ((\t | [ ]{4}) offers [ ] %s %s (\r\n|[\r\n])+)
+        | %s)*
     )
     end (\r\n|[\r\n])+
     """ % (
         comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern,
-        name_pattern, name_pattern, name_pattern, comment_pattern_nl
+        line_comment, name_pattern, name_pattern, line_comment, name_pattern,
+        line_comment, block_comment
     )
     service_pattern = r"""
     ((\r\n|[\r\n]) | %s)*
     %s [ ] service [ ] (?P<service_name> %s) (\r\n|[\r\n])+
     (?P<service_content>
-        ((\t | [ ]{4}) %s [ \t]* = [ \t]* %s (\r\n|[\r\n])+)*
-        | (%s)
+        (((\t | [ ]{4}) %s [ \t]* = [ \t]*+ %s %s (\r\n|[\r\n])+)
+        | %s)*
     )
     end (\r\n|[\r\n])+
-    """ % (comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
+    """ % (comment_pattern, define_pattern, name_pattern, name_pattern,
+           value_pattern, line_comment, block_comment)
 
     # Every block the file DECLARES, found by its header alone. The parsers
     # above find a block only if the WHOLE block matches, and they search rather
@@ -103,6 +128,16 @@ class PolicyBuilder(object):
     role_regex = re.compile(role_pattern, re.X)
     service_regex = re.compile(service_pattern, re.X)
 
+    # THE EXTRACTORS MUST ALLOW THE TRAILING COMMENT TOO. The block patterns
+    # above decide whether a role parses at all; these three decide what is
+    # read OUT of it, and they run over the same text with `search`. Teaching
+    # only the block patterns about comments would have turned a loud refusal
+    # into a SILENT LOSS -- the role would parse and its annotated attribute,
+    # `includes` or `offers` line would simply not be there. Measured while
+    # making this change: `description = 'plain'  # note` left a role with no
+    # description at all, and an annotated `offers` left a role offering
+    # nothing, which surfaced only as "Service unknown" from the policy.
+    #
     # The SAME defect, one line lower down: `value_pattern` contains a space,
     # so `[ \t]*` and the value both match the blanks after the `=` and every
     # attribute line doubles the search space of the role it sits in. Latent
@@ -122,15 +157,15 @@ class PolicyBuilder(object):
     # inventory in this tree writes (checked), and an empty attribute is worth
     # refusing. Pinned by TestABlankAttributeValueIsRefused.
     role_attr_regex = re.compile(
-        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]*+ (?P<value> %s | \*) (\r\n|[\r\n])+" % (name_pattern, value_pattern),
+        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]*+ (?P<value> %s | \*) %s (\r\n|[\r\n])+" % (name_pattern, value_pattern, line_comment),
         re.X
     )
     role_incl_regex = re.compile(
-        r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? (\r\n|[\r\n])+" % (name_pattern, name_pattern),
+        r"(\t | [ ]{4}) includes [ ] (?P<role> %s)(.(?P<service> [\*] | %s))? %s (\r\n|[\r\n])+" % (name_pattern, name_pattern, line_comment),
         re.X
     )
     role_offers_regex = re.compile(
-        r"(\t | [ ]{4}) offers [ ] (?P<service> %s) (\r\n|[\r\n])+" % name_pattern,
+        r"(\t | [ ]{4}) offers [ ] (?P<service> %s) %s (\r\n|[\r\n])+" % (name_pattern, line_comment),
         re.X
     )
 

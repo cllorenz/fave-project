@@ -409,6 +409,42 @@ class TestCommentRunsAreLinear(_Deadline):
         self.assertIn('Alpha', policy.roles)
 
 
+class TestCommentRunsINSIDEABlockAreLinear(_Deadline):
+
+    r""" The same cost question for the comment form that lives in a BLOCK.
+
+    `role_content` did not admit a comment at all until TODO item 15's sibling
+    change made one an alternative of the group, and an alternative in a
+    repeated group is precisely where the exponent of the two cases above came
+    from. It is not one here -- `block_comment` matches the text after the `#`
+    with a single `[^\r\n]*`, so there is one way to match a comment line, not
+    two -- and this pins that rather than leaving it to inspection.
+
+    Measured while merging the two changes: 40 comment lines inside a role that
+    never closes take 6.5ms, and 24 blank-separated ones 0.7ms. The failing
+    direction is the expensive one, so it is the one driven here.
+    """
+
+    def test_a_long_comment_run_inside_a_role_that_never_closes(self):
+        comments = '\n'.join('\t# comment line %d' % i for i in range(40))
+        text = 'describe role Wide\n%s\n\tvlan = 23\n' % comments
+        self.assertEqual(
+            self._run("print(PolicyBuilder.role_regex.search(text) is None)",
+                      text),
+            'True')
+
+    def test_blank_separated_comment_blocks_inside_a_role(self):
+        """ The shape that measured worst at the top level. """
+        blocks = '\n\n'.join(
+            '\n'.join('\t# block %d line %d' % (b, i) for i in range(8))
+            for b in range(3))
+        text = 'describe role Wide\n%s\n\tvlan = 23\n' % blocks
+        self.assertEqual(
+            self._run("print(PolicyBuilder.role_regex.search(text) is None)",
+                      text),
+            'True')
+
+
 class TestAttributeLinesAreLinear(_Deadline):
 
     r""" The same defect one line further down, driven at the pattern.
