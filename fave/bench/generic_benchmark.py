@@ -99,7 +99,8 @@ class GenericBenchmark(object):
             mapping=None,
             anomalies=None,
             backend=BACKEND_NETPLUMBER,
-            engine_options=''
+            engine_options='',
+            use_complement=False
     ):
         # AD6_PLAN.md §9.28: which verification engine this run uses.
         # `engine_options` is passed through to the aggregator verbatim (e.g.
@@ -152,6 +153,13 @@ class GenericBenchmark(object):
         self.use_tcp_np = use_tcp_np
         self.use_interweaving = use_interweaving
         self.strict = strict
+        # CLOUD_BENCH_PLAN.md §1.9.3: also check that a conditionally permitted
+        # pair is UNREACHABLE outside its permitted services. OFF by default --
+        # turning it on changes the check set of every workload with a
+        # conditionally permitted cell, and therefore what that workload is
+        # expected to report, so it is a decision per workload rather than a
+        # silent upgrade.
+        self.use_complement = use_complement
         self.use_internet = use_internet
         self.ip = ip
         self.length = length
@@ -213,7 +221,8 @@ class GenericBenchmark(object):
         os.system(
             "%s bench/reach_csv_to_checks.py " % PYTHON + ' '.join(
                 (['-s', self.suffix] if self.suffix else [])
-                + (['--strict'] if self.strict else []) + [
+                + (['--strict'] if self.strict else [])
+                + (['--complement'] if self.use_complement else []) + [
                     '-p', self.files['reach_csv'],
                     '-m', self.files['inventory'],
                     '--roles', self.files['roles_json'],
