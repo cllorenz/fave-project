@@ -1521,3 +1521,95 @@ def probe_entry_key(name: str) -> str:
     filtering would change this: see probe_device. """
     return rule_key(name, "%s.%s" % (name, PROBE_TABLE),
                     "%s.%s" % (name, PROBE_PORT), 0)
+
+
+def constrained_fields(rules: Iterable[Any]) -> Set[str]:
+    """ Every FaVe field any of `rules` matches or rewrites.
+
+    The model's whole vocabulary, which is what makes `query_field_recipes`
+    authoritative: a field absent from it is one NO rule of this model looks
+    at, so a query condition naming it constrains nothing here. """
+    found: Set[str] = set()
+    for rule in rules:
+        for field in (getattr(rule, 'match', None) or []):
+            found.add(field.name)
+        for action in (getattr(rule, 'actions', None) or []):
+            for field in (getattr(action, 'rewrite', None) or []):
+                found.add(field.name)
+    return found
+
+
+def query_field_recipes(
+        rules: Iterable[Any],
+        mutable: Optional[Iterable[str]] = None,
+        port_width: Optional[int] = None
+) -> Dict[str, Dict[str, Any]]:
+    """ How the BRIDGE must force a query condition on each field this model
+    constrains, keyed by FaVe's own field name.
+
+    WHY A RECIPE AND NOT A RULE THE BRIDGE KNOWS. ad6 represents a field in one
+    of two utterly different ways, and which one a given model uses is a
+    property of that model, not of the field: a field some rule REWRITES is
+    matched node-scoped, over a per-node SSA copy (`XMLUtils.FieldBitName`),
+    while everything else resolves against a single GLOBAL bit-vector shared by
+    the whole model (`ConvertPortToVariables` and friends). Forcing a condition
+    into the wrong one of those namespaces constrains nothing at all -- the
+    §5.1 "bug 2" shape, where a query silently answers the UNCONDITIONED
+    question. Only the translator knows which it emitted, so it says so.
+
+    AUTHORITATIVE BY CONSTRUCTION. Every field in `constrained_fields(rules)`
+    gets an entry, so a field ABSENT from the result is one no rule of this
+    model matches or rewrites. That is what lets the bridge honour a condition
+    on it by forcing nothing -- not an assumption that it does not matter, but
+    a statement from the side that built the model that there is nothing there
+    to constrain. `related` against the stateless cloud model is exactly that
+    case (CLOUD_BENCH_PLAN.md §1.7.2).
+
+    A field this module can translate into a MATCH but cannot force as a query
+    CONDITION gets `scope: unsupported` rather than being left out, so the
+    bridge refuses it instead of reading its absence as "unconstrained".
+
+    THE PROTOCOL CARRIES ITS NAME TABLE. `XMLUtils.CanonizeProto` looks its
+    table up by NAME and silently returns the no-next-header code on a miss --
+    `CanonizeProto('6')` is `00111011`, i.e. 59, not 6 -- so the bridge must
+    pass `tcp`, never the number a `RuleField` canonicalises to. `_proto` has
+    refused unmapped protocols for exactly this reason since §9.6; the table
+    travels with the recipe so the condition path cannot drift from the match
+    path that produced the model's own bits.
+    """
+    mutable = set(mutable or ())
+    recipes: Dict[str, Dict[str, Any]] = {}
+
+    for name in sorted(constrained_fields(rules)):
+        ad6_name = rewrite_field_for(name)
+
+        if name in _PORT_FIELDS:
+            recipes[name] = {'scope': 'node', 'field': ad6_name,
+                             'width': port_width}
+        elif name in mutable or name in _GENERIC or name in _NORMALISED_FIELDS:
+            widths = mutable_field_widths(
+                [name] if name in mutable else [],
+                port_width=port_width,
+                matched=[name] if name not in mutable else [])
+            recipes[name] = {'scope': 'node', 'field': ad6_name,
+                             'width': widths[ad6_name]}
+        elif name in _PORTS:
+            recipes[name] = {'scope': 'global', 'kind': 'port',
+                             'direction': _PORTS[name]}
+        elif name == 'packet.ipv6.proto':
+            recipes[name] = {'scope': 'global', 'kind': 'proto',
+                             'names': dict(_PROTO_NAMES)}
+        elif name in _ADDRESSES:
+            direction, version = _ADDRESSES[name]
+            recipes[name] = {'scope': 'global', 'kind': 'cidr',
+                             'direction': direction, 'version': version}
+        else:
+            recipes[name] = {
+                'scope': 'unsupported',
+                'why': "%r is translated into a match by fave/ad6/translate.py "
+                       "but has no query-condition form yet. Refused rather "
+                       "than left out, because a field the recipe map omits is "
+                       "read as one no rule of this model constrains." % name,
+            }
+
+    return recipes

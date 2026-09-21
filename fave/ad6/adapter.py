@@ -452,6 +452,14 @@ class Ad6Adapter(AbstractVerificationEngine):
             "mutable_fields": translate.mutable_field_widths(
                 mutable, port_width=graph.port_id_width(),
                 matched=matched_generic),
+            # How the bridge must force a query CONDITION on each field this
+            # model constrains. Only this side knows whether a given field
+            # resolved to a node-scoped SSA copy or to the global bit-vector,
+            # and forcing into the wrong namespace constrains nothing at all
+            # (AD6_PLAN.md §5.1 "bug 2"). Authoritative: a field absent from it
+            # is one no rule matches or rewrites.
+            "query_fields": translate.query_field_recipes(
+                every_rule, mutable=mutable, port_width=graph.port_id_width()),
         }
 
     def check_compliance(self, rules: Any) -> None:

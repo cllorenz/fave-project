@@ -32,11 +32,22 @@ from an IR of interpreted concepts via `src.parser.favemodel`. Both that path
 and `favemodel.py` are gone; the model now arrives already translated, so this
 script's whole job is to instantiate it and run the query loop.
 
+THE CONDITION PATH IS RECIPE-DRIVEN (§9.37). It used to force exactly one
+field, `related`, and refuse everything else. What replaced the allowlist is
+`query_fields` in the payload: the translator says, per field, whether THIS
+model resolved it to a node-scoped SSA copy or to the global bit-vector, since
+that is a property of the model and forcing into the wrong namespace
+constrains nothing at all. A field the map omits is one no rule matches or
+rewrites, so a condition on it is honoured by forcing nothing -- announced on
+stderr, because "honoured, there was nothing there" and "quietly dropped" must
+not look alike.
+
 Usage: python3 fave_bridge.py --in payload.json --out results.json
 (run with cwd=ad6/, exactly like main.py -- see fave/ad6/adapter.py).
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -45,6 +56,8 @@ import time
 sys.setrecursionlimit(10 ** 6)
 
 import lxml.etree as et  # noqa: E402  (after recursionlimit, matches main.py's ordering)
+
+from copy import deepcopy  # noqa: E402
 
 from src.bigstack import run_with_big_stack  # noqa: E402
 from src.solver.incremental import (  # noqa: E402
@@ -55,7 +68,7 @@ from src.core.instantiator import Instantiator  # noqa: E402
 from src.sat.satutils import SATUtils  # noqa: E402
 
 
-def _seed_literals(cidr):
+def _seed_literals(cidr, recipes, field, node):
     """ The individual (already-canonical) src-IP bit literals to force onto
     a query instance so the packet's source is constrained to lie in `cidr`.
     Version is sniffed from the CIDR text (wl_ifi's generators are IPv4;
@@ -65,7 +78,7 @@ def _seed_literals(cidr):
     "ip<version>_src_<i>=<bit>" literals in the shared bit-vector space every
     rule's own address condition is built over), FLATTENED and appended
     individually as top-level clauses -- the same discipline
-    `_state_field_literals` below follows for state, and for the same
+    `_node_literals` below follows for a node-scoped field, and for the same
     reason: a bare named-alias variable (XMLUtils.ConvertToVariables's
     <ip>-element form, what this used to build) only carries meaning if that
     EXACT alias name happens to already be `Handled` (defined via an
@@ -79,76 +92,51 @@ def _seed_literals(cidr):
     also be referenced elsewhere in the corpus was actually constrained),
     silently bypassing an explicit source-scoped DROP rule for the other 7.
     Regression: ad6/test/core/instantiatortest.py:
-    testSrcCidrQuerySeedMustUseSharedBitVector. """
-    version = '6' if ':' in cidr else '4'
-    elem = et.fromstring(
-        '<ip xmlns="http://config" version="%s" direction="src">'
-        '<address>%s</address></ip>' % (version, cidr)
-    )
-    XMLUtils.deannotate(elem)
-    canonical = XMLUtils.CanonizeIP(elem)
-    return list(XMLUtils.ConvertCIDRToVariables(canonical, 'src'))
+    testSrcCidrQuerySeedMustUseSharedBitVector.
+
+    THE SHARED SPACE IS NOT ALWAYS THE GLOBAL ONE, which is what `recipes`
+    is for. `ip<version>_src_<i>` is where a source address lives only while
+    NOTHING REWRITES IT. A model with source NAT matches the field node-scoped
+    instead (§9.6), and forcing the global vector there constrains nothing at
+    all -- the same silent no-op this docstring is otherwise about, one level
+    up. wl_cloud is such a model. So the namespace comes from the translator's
+    own recipe, and the literals are forced at the SOURCE's node rather than
+    the probe's: a generator's declared address is the header the packet
+    STARTS with, which is a different statement from a check's condition on
+    the header that ARRIVES.
+    """
+    recipe = (recipes or {}).get(field)
+    if recipe is None:
+        return []                       # no rule constrains the source address
+    if recipe.get('scope') == 'node':
+        return _node_literals(
+            recipe, _cidr_to_ternary(cidr, recipe['width']), node,
+            {'name': field, 'value': cidr})
+    return _global_literals(recipe, cidr, {'name': field, 'value': cidr})
 
 
-# AD6_PLAN.md §4.2/§1.2/§1.4: FaVe's compliance-check semantics carry the
-# stateful `<->>` query's third dimension as a `RuleField`-shaped condition
-# in `cond` -- {"name": "related", "value": "0"|"1", ...} once it has
-# travelled through the aggregator's real dispatch (RuleField.from_json,
-# then Ad6Adapter._cond_to_json's JSON-safe echo of RuleField.to_json()).
-# "0"=NEW / "1"=ESTABLISHED, matching fave/ad6/adapter.py:_RELATED and
-# fave/iptables/generator.py's state-shell, which only ever emits these two
-# values -- never a compound state. A STRUCTURAL model carries `related` as an
-# ordinary header field rather than as ad6's own <state> vocabulary (§9.2a:
-# FaVe's interweaving strips conntrack and re-emits a plain field), so this
-# mapping no longer forces anything -- it survives to NAME the two values a
-# `related` condition may carry. The <state>-forcing counterpart went with the
-# semantic path at §9.25.
-_RELATED_STATE = {"0": "NEW", "1": "ESTABLISHED"}
+def _cidr_to_ternary(cidr, width):
+    """ A CIDR as a ternary bit-vector of `width` bits: the prefix determined,
+    the host part don't-care.
 
-# The only query-condition field that can be forced onto an instance. A
-# check conditioned on anything else (wl_example emits `protocol`/`port`)
-# cannot be honoured at all -- see _validated_conditions.
-_SUPPORTED_COND_FIELDS = ("related",)
-
-
-def _validated_conditions(cond, path):
-    """ The `related` entries of `cond`, REFUSING anything this bridge cannot
-    force onto the query instance (AD6_PLAN.md §9.23.2a).
-
-    Both query paths used to `continue` past whatever they did not recognise.
-    That is the most expensive shape of bug this codebase has produced: a
-    dropped condition does not fail, it answers the UNCONDITIONED question and
-    returns a confident number. §9.23 is a full post-mortem of one such number
-    -- a published finding about `related` "not discriminating" that was
-    entirely an artifact of conditions passed in the wrong shape and silently
-    discarded.
-
-    So nothing is skipped. Either a condition is honoured or the caller hears
-    about it. """
-    for condition in (cond or []):
-        if not isinstance(condition, dict):
-            raise ValueError(
-                "malformed query condition %r on the %s path: expected a "
-                "RuleField.to_json() dict like {'name': 'related', 'value': "
-                "'0'}, got %s. Skipping it would answer the UNCONDITIONED "
-                "question -- AD6_PLAN.md §9.23.2a."
-                % (condition, path, type(condition).__name__))
-
-        name = condition.get("name")
-        if name is None:
-            raise ValueError(
-                "malformed query condition %r on the %s path: no 'name' field "
-                "(AD6_PLAN.md §9.23.2a)." % (condition, path))
-
-        if name not in _SUPPORTED_COND_FIELDS:
-            raise ValueError(
-                "query condition %r cannot be honoured: the %s query path "
-                "forces only %s, not %r. It is NOT dropped, because answering "
-                "the unconditioned question looks like a result "
-                "(AD6_PLAN.md §9.23.2a)."
-                % (condition, path, "/".join(_SUPPORTED_COND_FIELDS), name))
-
-        yield condition
+    A node-scoped address field is compared bit by bit, so a prefix needs no
+    special case -- it is just a value whose low bits are free, exactly like a
+    masked <fieldmatch>. wl_cloud's generators carry a `/30` each, which is why
+    this is not the host-address-only shortcut it first looked like.
+    """
+    address, _, length = str(cidr).partition('/')
+    if ':' in address:
+        value, size = int(ipaddress.IPv6Address(address)), 128
+    else:
+        value = int.from_bytes(bytes(int(p) for p in address.split('.')), 'big')
+        size = 32
+    if size != width:
+        raise ValueError(
+            "address %r is %d bits but the model declares the field %d wide; "
+            "ad6 compares a fixed-width vector, so the two cannot be the same "
+            "field." % (cidr, size, width))
+    prefix = int(length) if length else size
+    return XMLUtils.TERNARY + format(value, '0%db' % size)[:prefix] + 'x' * (size - prefix)
 
 
 # MOVED HERE at AD6_PLAN.md §9.25 from `src/parser/favemodel.py`, which is
@@ -182,58 +170,233 @@ def _is_constrained(cidr):
     return cidr not in _MATCH_ALL
 
 
-def _state_field_literals(cond, field_widths, node):
-    """ AD6_PLAN.md §9.19: force a `related:N` query condition onto the
-    model's own `related` FIELD (hence the name -- §9.26).
+#: FaVe's name for the source address, by IP version -- the key a
+#: `query_fields` recipe for a generator's own address is filed under.
+_SRC_ADDRESS_FIELD = {'4': 'packet.ipv4.source', '6': 'packet.ipv6.source'}
 
-    The model carries `related` as an ordinary field, matched with a
-    node-scoped <fieldmatch> (§9.2a: FaVe's interweaving strips conntrack and
-    re-emits `related` as a plain header field), so the bits are forced onto
-    that field. The semantic path's deleted counterpart emitted ad6 `<state>`
-    variables instead, which this model never uses -- feeding it those would
-    have constrained NOTHING, and 3,302 of wl_up's 11,902 cchecks carry such a
-    condition, so the `related:0` and `related:1` variants of one check would
-    have come back with the SAME answer, silently.
 
-    Forcing the bits at the QUERY's own source node is sufficient because
-    nothing rewrites `related`: _CreateMutationConstraints frames it unchanged
-    across every edge, so pinning one node on the path pins the whole path.
+def _condition_recipe(condition, recipes, path):
+    """ The forcing recipe for one query condition, or None when the model does
+    not constrain the field at all (AD6_PLAN.md §9.23.2a).
 
-    Shape and field-name validation live in `_validated_conditions` --
-    nothing is ever skipped (§9.23.2a). On top of that this refuses two cases
-    of its own:
+    NOTHING IS EVER SILENTLY SKIPPED. That is the rule §9.23 is a post-mortem
+    of: a dropped condition does not fail, it answers the UNCONDITIONED
+    question and returns a confident number -- a published finding about
+    `related` "not discriminating" was entirely an artifact of conditions
+    passed in the wrong shape and quietly discarded.
 
-      * a non-integer `related` value;
-      * a well-formed `related` condition against a model that
-        declares no `related` field, so there is nothing to bind the bits to.
-        Forcing nothing here would silently answer the UNCONDITIONED question,
-        which is the exact failure §9.23 is a post-mortem of.
+    Returning None is NOT a skip. `query_fields` is authoritative: the
+    translator lists every field this model's rules match or rewrite, so a name
+    absent from it names something no rule looks at. Forcing nothing then
+    answers the SAME question the condition asks, because every flow in the
+    model already satisfies it. The stateless cloud model against a
+    `related:0` check is exactly that (CLOUD_BENCH_PLAN.md §1.7.2). A field the
+    translator CAN match but cannot yet force carries `scope: unsupported` and
+    is refused here, so absence never has to stand in for "not implemented".
+    """
+    if not isinstance(condition, dict):
+        raise ValueError(
+            "malformed query condition %r on the %s path: expected a "
+            "RuleField.to_json() dict like {'name': 'related', 'value': "
+            "'0'}, got %s. Skipping it would answer the UNCONDITIONED "
+            "question -- AD6_PLAN.md §9.23.2a."
+            % (condition, path, type(condition).__name__))
 
-    Pinned by fave/test/test_ad6_bridge_cond.py. """
-    literals = []
-    for condition in _validated_conditions(cond, "literal"):
-        width = (field_widths or {}).get('related')
-        if width is None:
+    name = condition.get("name")
+    if name is None:
+        raise ValueError(
+            "malformed query condition %r on the %s path: no 'name' field "
+            "(AD6_PLAN.md §9.23.2a)." % (condition, path))
+
+    if recipes is None:
+        raise ValueError(
+            "query condition %r cannot be honoured: this payload carries no "
+            "`query_fields`, so nothing says how -- or whether -- %r is "
+            "represented in the model. Refused rather than guessed "
+            "(AD6_PLAN.md §9.23.2a)." % (condition, name))
+
+    recipe = recipes.get(name)
+    if recipe is None:
+        return None                     # the model constrains nothing here
+
+    if recipe.get('scope') == 'unsupported':
+        raise ValueError(
+            "query condition %r cannot be honoured: %s"
+            % (condition, recipe.get('why', 'no reason recorded')))
+
+    return recipe
+
+
+def _global_literals(recipe, value, condition):
+    """ The shared bit-vector literals for a field ad6 represents GLOBALLY.
+
+    MUST go through ad6's own converters. A global field's bits live in one
+    vector for the whole model (`dst_port_<i>=<bit>`, `proto_<i>=<bit>`,
+    `ip4_dst_<i>=<bit>`), and every rule's own condition expands into exactly
+    those names -- so forcing them lands on the same variables the rules
+    constrain. Rebuilding the names here instead would be a second copy of a
+    naming convention, which is how the two drift.
+
+    The PROTOCOL is looked up by name, never passed as a number. ad6's
+    `CanonizeProto` looks its table up by name and silently returns the
+    no-next-header code on a miss -- `CanonizeProto('6')` is 59, not 6 -- so a
+    `RuleField`'s canonical '6' would force a bit pattern no rule ever matches.
+    The translator ships the table it used for the model's own bits.
+    """
+    kind = recipe['kind']
+    if kind == 'port':
+        return list(XMLUtils.ConvertPortToVariables(str(value),
+                                                    recipe['direction']))
+    if kind == 'proto':
+        name = (recipe.get('names') or {}).get(str(value))
+        if name is None:
             raise ValueError(
-                "query condition %r cannot be honoured: this model "
-                "declares no 'related' field, so nothing can be forced and the "
-                "query would silently answer the UNCONDITIONED question "
-                "(AD6_PLAN.md §9.23.2a). Declared fields: %s."
-                % (condition, sorted(field_widths or {})))
+                "query condition %r cannot be honoured: protocol %r has no "
+                "name in ad6's IANA table (known: %s). It must NOT be passed "
+                "through -- CanonizeProto silently returns the no-next-header "
+                "code for anything it cannot look up, so an unmapped protocol "
+                "becomes a wrong answer rather than an error."
+                % (condition, value,
+                   ', '.join(sorted((recipe.get('names') or {}).values()))))
+        return list(XMLUtils.ConvertProtoToVariables(name))
+    if kind == 'cidr':
+        text = str(value)
+        if '/' not in text:
+            text = '%s/%d' % (text, 32 if recipe['version'] == '4' else 128)
+        elem = et.fromstring(
+            '<ip xmlns="http://config" version="%s" direction="%s">'
+            '<address>%s</address></ip>'
+            % (recipe['version'], recipe['direction'], text))
+        XMLUtils.deannotate(elem)
+        return list(XMLUtils.ConvertCIDRToVariables(
+            XMLUtils.CanonizeIP(elem), recipe['direction']))
+    raise ValueError(
+        "query condition %r names a global field of unknown kind %r"
+        % (condition, kind))
 
-        raw = condition.get("value")
-        try:
-            value = int(raw)
-        except (TypeError, ValueError):
+
+def _node_literals(recipe, value, node, condition):
+    """ The per-node SSA bit literals for a field ad6 represents node-scoped.
+
+    FORCED AT THE PROBE'S OWN NODE, because that is where FaVe evaluates a
+    check's condition: `NetPlumberAdapter._create_compliance_rules` hands the
+    vector to the PROBE, whose incoming source flows carry the header as it
+    ARRIVES. For a field nothing rewrites the choice is immaterial -- the frame
+    axiom makes every node on a realised path carry the same value -- but for a
+    rewritten one only the probe is right, and this path must not have a
+    different answer depending on whether the field happens to be mutable.
+    """
+    try:
+        bits = XMLUtils.ValueToBitvector(value, recipe['width'])
+    except Exception:
+        raise ValueError(
+            "malformed query condition %r: %r is neither an integer nor a "
+            "ternary bit-vector, and a node-scoped field is compared against a "
+            "fixed-width vector (AD6_PLAN.md §9.23.2a)."
+            % (condition, value)) from None
+
+    # A don't-care bit contributes NO literal -- the same rule the match side
+    # follows (§9.35). Forcing it either way would narrow the question.
+    return [XMLUtils.variable(
+        XMLUtils.FieldBitName(recipe['field'], node, index), bit == '1')
+        for index, bit in enumerate(bits) if bit != 'x']
+
+
+def _negate(literals):
+    """ The complement of a conjunction of literals, as one disjunction.
+
+    WEAK ON PURPOSE, and it is the safe reading rather than a compromise.
+    `_CreateBitConstraints` gives a global bit an AT-MOST-ONE constraint over
+    its `=0`/`=1` pair and no at-least-one, so a bit the model never pins is
+    genuinely free. Asserting "some bit IS the other value" would name
+    variables that may not exist in the encoding at all, and a fresh variable
+    carries no exclusion against the one the path forces -- the answer would
+    come back satisfiable for the wrong reason. Negating only the literals a
+    POSITIVE condition would have forced uses exactly the variables the model
+    already has: where the path pins the field, every disjunct is false and the
+    query is refuted; where it does not, a free bit admits a differing value
+    and the disjunct is true, which is the right answer either way.
+    """
+    negated = []
+    for literal in literals:
+        flipped = deepcopy(literal)
+        flipped.attrib[XMLUtils.ATTRNEGATED] = (
+            'false' if flipped.attrib.get(XMLUtils.ATTRNEGATED) == 'true'
+            else 'true')
+        negated.append(flipped)
+    return negated
+
+
+def _condition_terms(cond, recipes, node, path="literal"):
+    """ (units, clauses, vacuous) for a check's whole condition list.
+
+    `units` are literals that must hold; `clauses` are disjunctions that must
+    hold, one per NEGATED condition; `vacuous` names the conditions the model
+    does not constrain, for the log -- they are honoured, and saying so out
+    loud is what keeps "honoured because there is nothing there" distinct from
+    "quietly dropped".
+    """
+    units = []
+    clauses = []
+    vacuous = []
+
+    for condition in (cond or []):
+        recipe = _condition_recipe(condition, recipes, path)
+        if recipe is None:
+            vacuous.append(condition.get("name"))
+            continue
+
+        value = condition.get("value")
+        if recipe['scope'] == 'global':
+            literals = _global_literals(recipe, value, condition)
+        else:
+            literals = _node_literals(recipe, value, node, condition)
+
+        if not literals:
+            # The value constrains nothing even though the field exists -- a
+            # match-all CIDR, say. Same standing as an unconstrained field.
+            vacuous.append(condition.get("name"))
+            continue
+
+        if condition.get("negated"):
+            clauses.append(_negate(literals))
+        else:
+            units.extend(literals)
+
+    _refuse_contradictions(units, cond)
+    return units, clauses, vacuous
+
+
+def _refuse_contradictions(units, cond):
+    """ Two positive conditions that pin one bit to both values at once.
+
+    Left alone this is not merely a contradictory question but a WRONGLY
+    SATISFIABLE one. `_CreateBitConstraints` gives a global bit its
+    at-most-one constraint only for the `=0`/`=1` pair the MODEL itself
+    mentions, so a bit no rule pins gets two fresh, unrelated variables and
+    both can be true at the same time. A check asking for two different ports
+    at once is malformed; it is refused rather than answered.
+    """
+    pinned = {}
+    for literal in units:
+        name = literal.attrib[XMLUtils.ATTRNAME]
+        if '=' in name:
+            # A global bit: the NAME carries the value ("dst_port_3=1"), and
+            # the same rstrip the bit constraints themselves key on.
+            body, value = name.rstrip('01'), name[len(name.rstrip('01')):]
+        else:
+            # A node-scoped SSA bit: an ordinary boolean, value in the polarity.
+            body = name
+            value = literal.attrib.get(XMLUtils.ATTRNEGATED) != 'true'
+
+        if body in pinned and pinned[body] != value:
             raise ValueError(
-                "malformed query condition %r: 'related' value %r is not an "
-                "integer (AD6_PLAN.md §9.23.2a)." % (condition, raw)) from None
-
-        bits = XMLUtils._CanonizeBitvector(value, width).split(' ')
-        for index, bit in enumerate(bits):
-            literals.append(XMLUtils.variable(
-                XMLUtils.FieldBitName('related', node, index), bit == '1'))
-    return literals
+                "query conditions %r pin %s to both %r and %r at once. That is "
+                "a contradictory question, and ad6's bit encoding would answer "
+                "it SATISFIABLE rather than refute it, because the at-most-one "
+                "constraint exists only between the values the model itself "
+                "mentions." % (cond, body, pinned[body], value))
+        pinned[body] = value
 
 
 def _instantiate_literal(config, edges, inits, mutable_fields=None):
@@ -388,9 +551,23 @@ def main(argv=None):
         destination = destination_key(q)
         extra_vars = []
         if q.get('src_cidr') and _is_constrained(q['src_cidr']):
-            extra_vars.extend(_seed_literals(q['src_cidr']))
-        extra_vars.extend(_state_field_literals(
-            q.get('cond'), literal.get('mutable_fields'), source))
+            extra_vars.extend(_seed_literals(
+                q['src_cidr'], literal.get('query_fields'),
+                _SRC_ADDRESS_FIELD['6' if ':' in q['src_cidr'] else '4'],
+                source))
+        units, clauses, vacuous = _condition_terms(
+            q.get('cond'), literal.get('query_fields'), destination)
+        extra_vars.extend(units)
+        extra_clauses = clauses
+        if vacuous:
+            # Said out loud, every time. A condition honoured because the model
+            # constrains nothing is a DIFFERENT thing from one quietly dropped,
+            # and the only way that distinction survives into a run's record is
+            # if the run says which fields it was.
+            print("[ad6 bridge] %s -> %s: condition on %s is vacuous -- no "
+                  "rule of this model matches or rewrites it" % (
+                      q['source'], q['probe'], ', '.join(sorted(set(vacuous)))),
+                  file=sys.stderr, flush=True)
         # NOTE (AD6_PLAN.md §5.5 C4 part 2, §9.9): there is deliberately no
         # probe-side VLAN forcing here. The semantic path had an opt-in
         # `probe_untag` that enforced a probe's declared arrival VLAN; a
@@ -400,7 +577,8 @@ def main(argv=None):
         # question under the same name. Deleted with the rest of that path.
         if progress:
             start = time.time()
-        reachable = session.Query(source, destination, extra_vars=extra_vars)
+        reachable = session.Query(source, destination, extra_vars=extra_vars,
+                                  extra_clauses=extra_clauses)
         if progress:
             print("[%d/%d] %s -> %s: reachable=%s (%.4fs)" % (
                 index, total, q['source'], q['probe'], reachable,

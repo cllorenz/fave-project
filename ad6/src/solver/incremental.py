@@ -263,12 +263,23 @@ class IncrementalSession:
         clauses = [[-lit, aux] for lit in literals] + [[-aux] + literals]
         return aux, clauses
 
-    def Query(self, source, destination, extra_vars=()):
+    def Query(self, source, destination, extra_vars=(), extra_clauses=()):
         """ source->destination existential reachability (the same
         question `Instantiator.InstantiateEndToEnd`/`SolveAcyclicEndToEnd`
         answer), plus any already-canonical extra XML `<variable>`
         literals to force (the same shape `fave_bridge.py`'s
-        `_seed_literals`/`_state_literals` already produce).
+        `_seed_literals`/`_condition_terms` already produce).
+
+        `extra_clauses` is a list of DISJUNCTIONS, each an iterable of the same
+        `<variable>` elements, all of which must hold. It exists because a
+        NEGATED query condition is not expressible as units: "the port is not
+        331" is "some bit differs", one clause of sixteen literals. Under the
+        rank grounding a clause cannot be an assumption (those are unit by
+        definition), so each gets a fresh selector `s` and the permanent clause
+        `(not s) or l1 or ... or ln`; assuming `s` turns it on for this query
+        and leaving it unassumed satisfies it trivially for every other, which
+        is the standard incremental-SAT idiom and the same shape `_or_gate`
+        already builds.
 
         Under GROUNDING_FLOW this answers the identical question through
         a fresh per-query solver carrying that query's own single-unit
@@ -288,6 +299,17 @@ class IncrementalSession:
             for clause in src_clauses + dst_clauses:
                 self._solver.add_clause(clause)
             assumptions = [src_lit, dst_lit] + [self._literal(v) for v in extra_vars]
+            for disjunction in extra_clauses:
+                literals = [self._literal(v) for v in disjunction]
+                if not literals:
+                    # An empty disjunction is FALSE, so the query is
+                    # unsatisfiable by construction. Answer it here rather than
+                    # handing the solver a clause it would read as garbage.
+                    return False
+                selector = self._next_index
+                self._next_index += 1
+                self._solver.add_clause([-selector] + literals)
+                assumptions.append(selector)
             return bool(self._solver.solve(assumptions=assumptions))
 
         flow_clauses = Instantiator._CreateFlowPathConstraints(
@@ -316,6 +338,14 @@ class IncrementalSession:
                     for name, negated in clause])
             for xml_var in extra_vars:
                 solver.add_clause([self._literal(xml_var)])
+            for disjunction in extra_clauses:
+                literals = [self._literal(v) for v in disjunction]
+                if not literals:
+                    return False
+                # Units, not assumptions, for the same reason as above: this
+                # solver is discarded at the end of the query, so no selector
+                # is needed to retract the clause.
+                solver.add_clause(literals)
             return bool(solver.solve())
         finally:
             solver.delete()
