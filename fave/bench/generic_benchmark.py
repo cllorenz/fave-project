@@ -45,6 +45,46 @@ from aggregator.aggregator_service import (
 TMPDIR = "/dev/shm/np"
 
 
+def _count(number, singular, plural=None):
+    """ "1 thing" / "3 things" -- so a message never reads "1 entries". """
+    if number == 1:
+        return "1 %s" % singular
+    return "%d %s" % (number, plural if plural else singular + "s")
+
+
+def net_plumber_processes():
+    """ `(live, zombies)` -- the pids of every net_plumber process, split.
+
+    A ZOMBIE is not a running backend. It holds no socket, writes no logs and
+    contends for nothing; it is an exit status nobody collected.
+    `scripts/start_np.sh` backgrounds net_plumber and nothing ever waits on it,
+    so each stopped backend leaves one behind wherever pid 1 does not reap --
+    which is the normal case inside a container. This box carried 85 of them and
+    zero live backends after a session of benchmark runs.
+
+    That distinction is the whole point of this function: the teardown used to
+    advise `ps -C net_plumber`, which lists both kinds identically, so a reader
+    following it saw 85 apparently-running backends and concluded the opposite
+    of the truth (TODO item 17).
+    """
+    live, zombies = [], []
+
+    for entry in os.listdir('/proc'):
+        if not entry.isdigit():
+            continue
+        try:
+            with open('/proc/%s/comm' % entry, encoding='utf-8') as raw:
+                if raw.read().strip() != 'net_plumber':
+                    continue
+        except (IOError, OSError):
+            continue                      # exited between listdir and open
+
+        pid = int(entry)
+        (zombies if barrier.process_state(pid) == 'Z' else live).append(pid)
+
+    return sorted(live), sorted(zombies)
+
+
 def _unpack(topo):
     return topo['devices'], topo['links']
 
@@ -315,10 +355,39 @@ class GenericBenchmark(object):
             # `stop_fave.sh` talks only to the AGGREGATOR, which then calls
             # `verification_engine.stop()`. Aggregator absent => request reaches
             # nobody => net_plumber survives, holding its socket and its logs.
+            # Report the STATE rather than advise a command whose output
+            # misleads: `ps -C net_plumber` lists zombies and live backends
+            # identically, and in a container there are usually many more of the
+            # former. Looking it up here costs one /proc scan and removes the
+            # step where the reader has to interpret.
+            live, zombies = net_plumber_processes()
+
+            if live:
+                detail = (
+                    "%s still RUNNING (pid%s %s) -- kill %s, or the next run "
+                    "will start another alongside." % (
+                        _count(len(live), "net_plumber process"),
+                        "" if len(live) == 1 else "s",
+                        ", ".join(str(pid) for pid in live),
+                        "it" if len(live) == 1 else "them")
+                )
+            else:
+                detail = (
+                    "no net_plumber is running, so nothing is orphaned and the "
+                    "next run is safe."
+                )
+
+            if zombies:
+                detail += (
+                    " `ps -C net_plumber` %s lists %s: an exit status nobody "
+                    "collected, holding no socket and contending for nothing "
+                    "-- harmless, and not what to kill." % (
+                        "also" if live else "nevertheless",
+                        _count(len(zombies), "ZOMBIE entry", "ZOMBIE entries"))
+                )
+
             self.logger.error(
-                "teardown FAILED (exit %s): %s -- a net_plumber may still be "
-                "running. Check with `ps -C net_plumber` and kill it, or the "
-                "next run will start a second one alongside it.", code, cmd)
+                "teardown FAILED (exit %s): %s -- %s", code, cmd, detail)
             return
         self.logger.info("fave ordered to stop")
 

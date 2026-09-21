@@ -42,11 +42,16 @@ deliberately non-fatal, because by then the verdict exists and the report is a
 presentation artifact.
 """
 
+import os
+import shutil
+import subprocess
+import tempfile
+import time
 import logging
 import unittest
 
 from bench import generic_benchmark
-from bench.generic_benchmark import GenericBenchmark
+from bench.generic_benchmark import net_plumber_processes, GenericBenchmark
 
 
 class _Bench(GenericBenchmark):
@@ -482,6 +487,134 @@ class TestBackendSelection(unittest.TestCase):
         aggr = [c for c in fake.commands if 'start_aggr.sh' in c][0]
         self.assertIn("-X '--solver cadical195'", aggr)
 
+
+
+class TestTeardownAdviceIsStateAware(unittest.TestCase):
+    """ A ZOMBIE is not an orphaned backend (TODO item 17).
+
+    `_teardown` used to advise `ps -C net_plumber`, which lists zombies and live
+    backends identically. `scripts/start_np.sh` backgrounds net_plumber and
+    nothing ever waits on it, so each stopped backend leaves an unreaped entry
+    wherever pid 1 does not reap -- the normal case in a container. This box
+    showed 85 such entries and ZERO live backends, so a reader following the
+    advice would have concluded the exact opposite of the truth.
+
+    Tested with REAL processes rather than a fake /proc: the classification is
+    the thing under test, and a fixture would have to fake the very field
+    (`/proc/<pid>/stat`) whose parsing is the subtle part.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sleep = shutil.which('sleep')
+
+    def setUp(self):
+        if not self.sleep:
+            self.skipTest("no sleep(1) to impersonate net_plumber with")
+        self.tmp = tempfile.mkdtemp(prefix='np_state_')
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+        # `comm` is the EXECUTABLE's name, so a copy under the right name is
+        # indistinguishable from the real thing to the classifier. A shell
+        # script would not do -- its `comm` is the interpreter's.
+        self.fake = os.path.join(self.tmp, 'net_plumber')
+        shutil.copy(self.sleep, self.fake)
+
+    def _spawn(self, seconds):
+        proc = subprocess.Popen([self.fake, str(seconds)])  # pylint: disable=consider-using-with
+        return proc
+
+    def test_a_live_process_is_reported_live(self):
+        proc = self._spawn(30)
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.kill)
+
+        for _ in range(100):                 # let it exec into the copy
+            live, _zombies = net_plumber_processes()
+            if proc.pid in live:
+                break
+            time.sleep(0.02)
+
+        live, zombies = net_plumber_processes()
+        self.assertIn(proc.pid, live)
+        self.assertNotIn(proc.pid, zombies)
+
+    def test_an_unreaped_exit_is_reported_as_a_zombie(self):
+        """ Popen without wait() leaves exactly the state the container does. """
+        proc = self._spawn(0)
+        self.addCleanup(proc.wait)
+
+        for _ in range(100):
+            _live, zombies = net_plumber_processes()
+            if proc.pid in zombies:
+                break
+            time.sleep(0.02)
+
+        live, zombies = net_plumber_processes()
+        self.assertIn(proc.pid, zombies,
+                      "an unreaped exit was not recognised as a zombie")
+        self.assertNotIn(proc.pid, live)
+
+    def _teardown_message(self):
+        bench = _Bench()
+        messages = []
+        bench.logger = type("L", (), {
+            "info": lambda _s, m, *a: messages.append(("info", m % a if a else m)),
+            "error": lambda _s, m, *a: messages.append(("error", m % a if a else m)),
+            "exception": lambda _s, m, *a: messages.append(("exception", m)),
+        })()
+        with _SystemPatch(_FakeSystem(exit_code=1)):
+            bench._teardown()
+        return ' '.join(m for lvl, m in messages if lvl == 'error')
+
+    def test_the_advice_no_longer_leaves_the_reader_to_interpret(self):
+        """ It used to say only "a net_plumber MAY still be running" and point
+        at a command. The state is knowable here, so it is stated. `ps` may
+        still be mentioned -- as an explanation of what the reader will see, not
+        as a question handed back to them. """
+        message = self._teardown_message()
+        self.assertNotIn('may still be running', message)
+        self.assertTrue(
+            'still RUNNING' in message or 'no net_plumber is running' in message,
+            "the teardown does not say whether anything is actually running")
+
+    def test_a_live_backend_is_named_by_pid(self):
+        proc = self._spawn(30)
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.kill)
+
+        for _ in range(100):
+            live, _z = net_plumber_processes()
+            if proc.pid in live:
+                break
+            time.sleep(0.02)
+
+        message = self._teardown_message()
+        self.assertIn('still RUNNING', message)
+        self.assertIn(str(proc.pid), message,
+                      "the reader is told something is running but not which")
+
+    def test_zombies_alone_are_reported_as_nothing_orphaned(self):
+        """ The case that was actively misleading: entries in `ps`, none of
+        them a backend. """
+        proc = self._spawn(0)
+        self.addCleanup(proc.wait)
+
+        for _ in range(100):
+            live, zombies = net_plumber_processes()
+            if proc.pid in zombies:
+                break
+            time.sleep(0.02)
+
+        live, _z = net_plumber_processes()
+        if live:
+            self.skipTest("a real net_plumber is running; cannot assert the "
+                          "zombies-only wording")
+
+        message = self._teardown_message()
+        self.assertIn('no net_plumber is running', message)
+        self.assertIn('ZOMBIE', message)
+        self.assertIn('not what to kill', message)
 
 if __name__ == '__main__':
     unittest.main()

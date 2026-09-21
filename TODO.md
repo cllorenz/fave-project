@@ -1124,7 +1124,7 @@ reading it. The check that settled it is eleven lines long.
 
 ---
 
-### 17. Two benchmarks in a row could not run — FIXED 2026-09-21, and the cause was not the one I filed
+### 17. Two benchmarks in a row could not run — FIXED 2026-09-21 (three defects), and the cause was not the one I filed
 **Filed as a `start_aggr.sh` gating bug. That was real but SECONDARY; the
 failure it explained was not the failure being reported.**
 
@@ -1189,18 +1189,48 @@ fix in place, six back-to-back runs still pass. So the withdrawal fix is the one
 that closes the reported failure, and the gate fix closes a separate, directly
 measured gap. Both are kept; neither is credited with the other's effect.
 
-#### The misleading diagnostic beside it — still open
-`stop_fave.sh`'s failure advice is *"Check with `ps -C net_plumber` and kill it,
-or the next run will start a second one alongside it."* In a container whose
-pid 1 does not reap, that reads wrong: after a session of benchmark runs this
-box showed **85 `net_plumber` entries, every one a ZOMBIE** (state `Z`, PPID 1)
-and **zero live**. `scripts/start_np.sh` backgrounds net_plumber and nothing
-ever waits on it. They hold no ports and contend for nothing, so this is hygiene
-rather than a cause — but a reader following the advice sees 85 apparently
-running backends and concludes the opposite of the truth.
+#### The misleading diagnostic beside it — FIXED 2026-09-21
+The teardown's failure advice was *"a net_plumber MAY still be running. Check
+with `ps -C net_plumber` and kill it, or the next run will start a second one
+alongside it."* In a container whose pid 1 does not reap, that reads wrong:
+after a session of benchmark runs this box showed **122 `net_plumber` entries,
+every one a ZOMBIE** (state `Z`, PPID 1) and **zero live**.
+`scripts/start_np.sh` backgrounds net_plumber and nothing ever waits on it, so
+each stopped backend leaves an entry `ps` renders identically to a running one.
+A reader following the advice saw 122 apparently-running backends and concluded
+the opposite of the truth.
 
-- [ ] Make the advice state-aware (`ps -C net_plumber -o pid,stat=`, and say
-      that `Z` entries are harmless), or have the stopper reap what it kills.
+- [x] **The teardown now REPORTS the state instead of asking the reader to
+      find it.** `net_plumber_processes()` splits live from zombie off `/proc`
+      and the message says which, naming live pids:
+
+          ... -- no net_plumber is running, so nothing is orphaned and the next
+          run is safe. `ps -C net_plumber` nevertheless lists 122 ZOMBIE
+          entries: an exit status nobody collected, holding no socket and
+          contending for nothing -- harmless, and not what to kill.
+
+          ... -- 1 net_plumber process still RUNNING (pid 92096) -- kill it, or
+          the next run will start another alongside. `ps -C net_plumber` also
+          lists 122 ZOMBIE entries: ...
+
+      `ps` is still named, but as an explanation of what the reader will see
+      rather than as a question handed back to them. The state lookup shares
+      `barrier.process_state()` (promoted from `_proc_identity`) rather than
+      re-parsing `/proc/<pid>/stat`, whose field layout is subtle — `comm` may
+      itself contain spaces and parentheses.
+- [x] Five tests in `fave/test/test_generic_benchmark.py`, driven by REAL
+      processes: a copy of `sleep(1)` named `net_plumber` is indistinguishable
+      to the classifier (`comm` is the executable's name, so a shell script
+      would not do — its `comm` is the interpreter's), and `Popen` without
+      `wait()` produces exactly the unreaped state the container does. Verified
+      by mutation: restoring the state-blind advice turns three red, counting
+      zombies as live one, counting live as zombies two.
+
+**Reaping them is NOT available**, which is why the other option in this item
+was dropped rather than chosen: `start_np.sh` backgrounds net_plumber and then
+exits, so the process is reparented to pid 1 and only pid 1 can reap it.
+`stop_fave.sh` is not its parent and cannot wait on it. The entries persist
+until the container restarts, and saying so is the whole fix available here.
 
 ---
 

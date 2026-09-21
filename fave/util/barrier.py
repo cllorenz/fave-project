@@ -119,6 +119,20 @@ def _proc_identity(pid: int) -> Optional[Tuple[str, str]]:
     return tail[0], tail[19]
 
 
+def process_state(pid: int) -> Optional[str]:
+    """ The scheduler state letter for `pid` (`R`, `S`, `Z`, ...), or None.
+
+    Public because a ZOMBIE is not a running process, and the difference decides
+    whether a leftover backend is something to go and kill or something to
+    ignore -- `bench/generic_benchmark.py` reports it in its teardown advice
+    (TODO item 17). Shared rather than reimplemented there because the field
+    parsing is subtle: `comm` may itself contain spaces and parentheses, so the
+    fields after it have to be taken from the LAST ')'.
+    """
+    identity = _proc_identity(pid)
+    return identity[0] if identity else None
+
+
 def owner_path(directory: str = None) -> str:
     """ Path of the file identifying the process that releases barriers. """
     return os.path.join(directory or BARRIER_DIR, OWNER_FILE)
