@@ -37,9 +37,10 @@ to parse is not rejected -- it is SILENTLY SKIPPED, and the translator exits 0
 with a smaller inventory and a policy that compiles against what is left. Eight
 of these 25 roles vanished that way the first time this ran, because their
 description contained a `+` and FPL's `value_text` does not admit one. The
-check set was 40% smaller and nothing said so. See TODO item 15;
-`test_a_plus_in_a_description_silently_loses_the_role` pins the defect itself so
-that fixing the grammar turns this file red and points at the item.
+check set was 40% smaller and nothing said so. TODO item 15 has since made that
+REFUSED -- `PolicyBuilder._assert_every_block_parsed` compares declared blocks
+against parsed ones and the translator exits non-zero -- and the test that
+pinned the defect flipped to pin the refusal.
 
 **Two roles can name the same machines.** Services 2 and 3 are both
 10.0.17.0/25. That is the reason for the generator's source-port constraint and
@@ -175,12 +176,20 @@ class TestCloudPolicy(unittest.TestCase):
                     bad, [],
                     "%r in %r is outside FPL's value_text" % (bad, line))
 
-    def test_a_plus_in_a_description_silently_loses_the_role(self):
-        """ PINS THE DEFECT, not the desired behaviour (TODO item 15).
+    def test_a_plus_in_a_description_is_now_REFUSED(self):
+        """ The inverse of what this test asserted when it was written.
 
-        FPL's `value_text` admits no `+`, and the parser neither raises nor
-        warns: the role simply is not there afterwards. When the grammar is
-        fixed, or the drop made loud, this test goes red -- which is the point.
+        FPL's value pattern admits no `+`, and the parser used to neither raise
+        nor warn: `PolicyBuilder` finds blocks with `regex.search`, so a
+        malformed one was skipped while every block after it was still found.
+        Eight of these 25 roles vanished that way and the matrix came out 18x18.
+
+        TODO item 15 fixed it: `_assert_every_block_parsed` compares the blocks
+        the file DECLARES against the blocks the parser produced, and the
+        translator now exits non-zero on a `PolicyException` instead of printing
+        and reporting success. This test flipped with it -- deliberately, so
+        that the pin and the fix cannot disagree about which behaviour is
+        current.
         """
         source = (
             "def service S331\n    protocol = 'tcp'\n    port     = 331\nend\n"
@@ -194,15 +203,25 @@ class TestCloudPolicy(unittest.TestCase):
         policy = "def policies (default: deny)\n    keeps ---> keeps.S331\nend\n"
 
         with tempfile.TemporaryDirectory(prefix='fpl_plus_') as tmp:
-            _rows, roles = _translate(source, policy, tmp)
+            with self.assertRaises(subprocess.CalledProcessError) as caught:
+                _translate(source, policy, tmp)
 
-        names = [role['name'] for role in roles]
-        self.assertIn('keeps', names)
-        self.assertNotIn(
-            'loses', names,
-            "a `+` in a description no longer loses the role -- TODO item 15 "
-            "may be fixed; invert this test and drop the workaround in "
-            "cloud_policy._role_block")
+        # and it must NAME the block, not merely fail: "invalid syntax" over a
+        # 700-line inventory is the same search problem in a different shape
+        self.assertIn('loses', caught.exception.stdout.decode())
+
+    def test_the_emitted_inventory_declares_exactly_what_it_parses(self):
+        """ The count guard, now that the parser enforces it too.
+
+        Kept because it checks the OTHER direction of the same invariant: the
+        parser refuses what it cannot read, and this asserts the emitter never
+        writes such a block in the first place.
+        """
+        declared = len(re.findall(r'^def (role|service) ', self.inventory_text,
+                                  re.M))
+        self.assertEqual(declared, 50)         # 25 services + 25 roles
+        self.assertEqual(
+            len(self.roles), 26)               # + the built-in Internet
 
     # -- the matrix survives the translator ----------------------------------
 

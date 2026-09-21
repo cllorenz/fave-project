@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Policy Translator.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import Any, Optional
+from typing import Any, List, Optional, Tuple
 
 
 class PolicyException(Exception):
@@ -44,6 +44,28 @@ class ServiceUnknownException(PolicyException):
 class InvalidSyntaxException(PolicyException):
     def __init__(self) -> None:
         self.message = "Ungültige Syntax."
+
+class UnparsedBlockException(PolicyException):
+    """A block the inventory DECLARES but the parser did not produce.
+
+    `PolicyBuilder` finds role and service blocks with `regex.search` over the
+    whole file, so a malformed one is simply not found while every block after
+    it still is. Without this the result was a smaller inventory, a policy that
+    compiled against what survived, and exit 0 -- see TODO.md item 15, where
+    eight of wl_cloud's 25 roles vanished because their description contained a
+    `+`.
+    """
+
+    def __init__(self, blocks: List[Tuple[str, str]]) -> None:
+        listing = ", ".join("%s %s" % (kind, name) for kind, name in blocks)
+        self.message = (
+            "Nicht lesbare Blöcke: %s. Deklariert, aber nicht geparst -- der "
+            "Block wurde übersprungen, nicht abgelehnt. Häufigste Ursache: ein "
+            "Zeichen im Attributwert, das die Grammatik nicht kennt "
+            "(erlaubt sind Buchstaben, Ziffern und _=-[]'\":.,*/ und "
+            "Leerzeichen; ein `+` etwa nicht). Auch `desc` als Schlüsselwort "
+            "wird hier nicht akzeptiert, anders als in fpl_grammar.py."
+        ) % listing
 
 class InvalidAttributeException(PolicyException):
     def __init__(self, name: str) -> None:

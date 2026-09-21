@@ -962,50 +962,78 @@ Three further consequences to work through:
 
 ---
 
-### 15. FPL silently DROPS a role whose block does not parse (found 2026-09-21)
+### 15. FPL silently DROPS a role whose block does not parse — FIXED 2026-09-21
 **Found by C7, and it nearly shipped a policy missing 8 of 26 roles.**
 
-**The finding.** `policy_translator/fpl_grammar.py` defines a quoted attribute
-value as `value_text = pp.Word(pp.alphanums + ".:/-_ ,")`. A `+` is not in that
-set, so a role whose `description` contains one fails to match `field`, which
-fails `role`, and the top-level `inventory` grammar — an unanchored
-`pp.OneOrMore` with no `parseAll`/`StringEnd` — simply does not produce it.
-**The translator exits 0.** No error, no warning, no count. The policy then
-compiles against the roles that survived and produces a smaller, perfectly
-well-formed matrix.
+**The finding.** `PolicyBuilder` finds role and service blocks with
+`regex.search` over the whole file, so a block that does not match is SKIPPED —
+and every block after it is still found. The result was not an error but a
+smaller inventory: the policy compiled against what survived, the matrix came
+out with fewer rows and columns, and **the translator exited 0.**
 
 **Measured.** wl_cloud's generated inventory gave every role a description
 listing its prefixes joined with ` + `. Nine of 25 services have two prefixes;
 the 8 whose descriptions therefore carried a `+`, plus nothing else, vanished.
-`reachability.csv` came out **18x18 instead of 26x26** with every cell empty,
-and the only reason it was caught is that the emitter knows how many roles it
-wrote. A hand-written inventory has no such check.
+`reachability.csv` came out **18x18 instead of 26x26** and the only reason it
+was caught is that the emitter knew how many roles it wrote. A hand-written
+inventory has no such check.
 
 This is items 1i/1n/1p's swallowed-sub-step pattern in the POLICY layer: the
 step ran, produced an artifact, and answered a smaller question.
 
-- [ ] **Decide the fix.** Two independent halves, and the second matters more
-      than the first:
-  - **Widen `value_text`** (or make a quoted value `pp.QuotedString`, which is
-    what it is trying to be) so a description can hold ordinary punctuation.
-    Low risk; `value_word` is a separate production and unaffected.
-  - **Make an unparseable block LOUD.** Anchoring the inventory grammar with
-    `parseAll=True`, or comparing the parsed role count against the number of
-    `def role` lines, turns this class of defect from silent-and-smaller into a
-    failure. Widening the charset alone only moves the next character that
-    triggers it.
-- [x] **Worked around and guarded in wl_cloud** (2026-09-21). `cloud_policy.py`
-      joins prefixes with spaces, and three tests stand in for the missing
-      loudness: `test_cloud_policy.py` asserts every emitted value's charset
-      against `value_text`, asserts the translator returns 26 roles, and pins
-      the silent drop itself (`test_a_plus_in_a_description_silently_loses_the_role`)
-      so that fixing the grammar turns this file red and points here. The
-      benchmark additionally refuses to run if the FPL names a different
-      endpoint set than the model builds.
-- [ ] **Re-check the existing inventories** once the loud version exists. No
-      current workload is known to lose a role — wl_up/wl_ifi/wl_example all
-      round-trip their expected role counts in the fast tier — but that is
-      evidence from three workloads, not from the parser.
+**CORRECTION to this item as first filed.** It blamed
+`policy_translator/fpl_grammar.py`'s `value_text`. That module is not the live
+path — `parse_fpl` is reached only from its own `__main__` and the deprecated
+tests. The parser that runs is the REGEX one in `policy_builder.py`, with its
+own `value_pattern`, which excludes `+` as well. Same symptom, wrong module;
+the fix below is in the parser that actually runs.
+
+- [x] **Made LOUD, in the way the item said mattered most.**
+      `PolicyBuilder._assert_every_block_parsed` compares the blocks the file
+      DECLARES (`block_header_regex`, matched at line starts so a commented-out
+      header does not count) against the blocks the parser produced, and raises
+      `UnparsedBlockException` NAMING each one that was skipped. The cause is
+      irrelevant to the check, which is what stops it being a patch for one
+      character: any block that fails to parse, for any reason, is refused.
+- [x] **And the process now says so.** `policy_translator.py` caught
+      `PolicyException`, printed `Fehler: ...` and **fell through to exit 0** —
+      so *every* policy error, not just this one, reported SUCCESS to its
+      caller, and every caller in this tree invokes the translator through
+      `os.system`. It now `sys.exit(1)`, like the `IOError` handler three lines
+      above it always did.
+- [x] **A second silent-drop cause, found by the same check and closed by it.**
+      `fpl_grammar.py` accepts `define`, `def`, `describe` AND `desc`;
+      `PolicyBuilder.define_pattern` accepts only the first three. A `desc`
+      block was therefore dropped exactly like a malformed one. It is now
+      refused and named. (Whether `desc` should be *accepted* is a separate
+      question — the two parsers disagreeing about the language is the defect,
+      and refusing is the safe half of it.)
+- [x] **Every FPL source in the tree still parses**, checked one by one:
+      wl_up, wl_ifi (both variants), wl_example, wl_stanford, wl_i2,
+      wl_generic_fw, wl_shadow, wl_cloud, and `examples/{ifi,up}-policy.txt`.
+      `fast` 734, the full `policy_translator` suite 110, `smoke`, and both
+      wl_cloud policy phases are unchanged (1,315 and 3, still agreeing with
+      their derived expectations pair for pair).
+- [x] **`policy_translator/test/test_unparsed_block.py`**, 7 tests at the parser
+      level where the rule lives, plus the inverted pin in
+      `fave/test/test_cloud_policy.py`. Verified by mutation: removing the check
+      turns 4 red, comparing COUNTS instead of names 2, dropping `desc` from the
+      header regex 1, and letting the header regex match mid-line (so comments
+      count) 1.
+
+**One pre-existing breakage surfaced, not fixed.**
+`policy_translator/examples/fml-paper-policy.txt` now exits 1 with `Fehler:
+Service All.ARP unbekannt.` It was already producing a truncated CSV — the
+build aborts partway — and simply never said so. It is referenced from
+`policy_translator/README.md` and by no test or script.
+
+- [ ] **Still open: widen the value pattern.** `value_pattern` is
+      `[A-Za-z0-9 _=\-\[\]'\":.,\*/]+`, so an ordinary `+` in a description is
+      unwriteable. That is now a loud refusal rather than a silent loss, which
+      is why it is no longer urgent — but it is still a language limitation with
+      no reason behind it, and the item's original note stands: widening alone
+      would only have moved the next character that triggers it. Decide as a
+      language question, not as a bug fix.
 
 ---
 

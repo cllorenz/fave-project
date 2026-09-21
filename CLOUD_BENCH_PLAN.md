@@ -1297,15 +1297,24 @@ roles with a published/unpublished split. TODO item 16 is closed.
 
 #### The defect that nearly shipped a wrong policy
 
-A role whose FPL block fails to parse is **silently skipped**: the translator
-exits 0 with a smaller inventory and a policy that compiles against what is
+A role whose FPL block failed to parse was **silently skipped**: the translator
+exited 0 with a smaller inventory and a policy that compiled against what was
 left. Eight of the 25 roles vanished on the first run because their description
-contained a `+`, and FPL's `value_text` is `Word(alphanums + ".:/-_ ,")`. The
-matrix came out 18x18 instead of 26x26 and nothing said so. Recorded as **TODO
-item 15**; worked around here by not emitting a `+`, and guarded three ways —
-the emitter's charset is asserted against `value_text`, the translator's role
-count is asserted to be 26, and the benchmark refuses to run if the FPL names a
-different endpoint set than the model builds.
+contained a `+`, which `PolicyBuilder.value_pattern` does not admit. The matrix
+came out 18x18 instead of 26x26 and nothing said so.
+
+**FIXED 2026-09-21 (TODO item 15).** `PolicyBuilder._assert_every_block_parsed`
+compares the blocks a file DECLARES against the blocks the parser produced and
+raises naming each one skipped, and `policy_translator.py` now exits non-zero on
+a `PolicyException` instead of printing and falling through — which had made
+*every* policy error, not just this one, report success to its caller. The same
+check also closes a second cause: `fpl_grammar.py` accepts `desc` and
+`PolicyBuilder` does not, so a `desc` block used to vanish identically.
+
+wl_cloud keeps its three guards anyway, because they check the other direction —
+the emitter's charset is asserted against the value pattern, the translator's
+role count is asserted to be 26, and the benchmark refuses to run if the FPL
+names a different endpoint set than the model builds.
 
 #### Provenance, stated
 

@@ -122,7 +122,14 @@ def main(argv: List[str]) -> None:
                 prosa_file.write(policy.to_prosa())
 
     except PolicyException as exception:
+        # NON-ZERO, like the IOError handler above. Printing and falling through
+        # meant every policy error -- an unknown service, an unknown role, an
+        # unparseable block -- reported SUCCESS to the caller, and every caller
+        # in this tree invokes the translator through `os.system`. The message
+        # went to a log nobody reads while the pipeline carried on with whatever
+        # had been written so far. See TODO.md item 15 and items 1i/1n/1p.
         print(("Fehler: %s" % exception))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

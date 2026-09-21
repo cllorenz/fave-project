@@ -27,7 +27,7 @@ import re
 from typing import Any, Callable, List, Optional
 
 from policy import Policy, Superrole
-from policy_exceptions import InvalidSyntaxException
+from policy_exceptions import InvalidSyntaxException, UnparsedBlockException
 from policy_logger import PT_LOGGER
 
 class PolicyBuilder(object):
@@ -79,6 +79,22 @@ class PolicyBuilder(object):
     )
     end (\r\n|[\r\n])+
     """ % (comment_pattern, define_pattern, name_pattern, name_pattern, value_pattern, comment_pattern_nl)
+
+    # Every block the file DECLARES, found by its header alone. The parsers
+    # above find a block only if the WHOLE block matches, and they search rather
+    # than scan, so a malformed one is skipped while every block after it is
+    # still found. Comparing the two is what turns that from a silent smaller
+    # inventory into an error -- TODO.md item 15.
+    #
+    # `desc` is listed here although `define_pattern` does NOT accept it: that
+    # divergence (fpl_grammar.py takes all four spellings, this parser three) is
+    # itself a way to lose a block silently, so a `desc` block is reported as
+    # unparsed rather than ignored.
+    block_header_regex = re.compile(
+        r"^[ \t]* (?P<keyword> def|define|describe|desc) [ ]+ "
+        r"(?P<kind> role|service) [ ]+ (?P<name> %s)" % name_pattern,
+        re.X | re.M
+    )
 
     role_service_regex = re.compile(
         "(%s | %s | %s)+" % (comment_pattern, role_pattern, service_pattern),
@@ -269,7 +285,43 @@ class PolicyBuilder(object):
                     "%s: added attribute %s:%s", role, match_.group("key"), match_.group("value")
                 )
 
+        cls._assert_every_block_parsed(
+            policy_chars, role_matches, service_matches)
+
         return role_service_match[0].end()
+
+    @classmethod
+    def _assert_every_block_parsed(
+            cls, policy_chars: str, role_matches: List[Any],
+            service_matches: List[Any]
+    ) -> None:
+        """Every declared role and service block must have been parsed.
+
+        The failure this prevents is not a wrong answer but a SMALLER question:
+        the inventory loses a role, the policy compiles against what is left,
+        and the run reports a clean verdict for a matrix that is missing a row
+        and a column. Nothing downstream can notice, because nothing downstream
+        knows how many blocks the file declared.
+        """
+        parsed = {
+            ('role', match.group('role_name')) for match in role_matches
+        } | {
+            ('service', match.group('service_name')) for match in service_matches
+        }
+
+        declared = [
+            (match.group('kind'), match.group('name'))
+            for match in cls.block_header_regex.finditer(policy_chars)
+        ]
+
+        missing = [block for block in declared if block not in parsed]
+
+        if missing:
+            PT_LOGGER.error(
+                "declared %d block(s), parsed %d; %s were skipped",
+                len(declared), len(parsed), missing
+            )
+            raise UnparsedBlockException(missing)
 
     @classmethod
     def build_policies(cls, policy_chars: str, policy: "Policy") -> None:
