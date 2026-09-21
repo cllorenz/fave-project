@@ -1801,18 +1801,27 @@ code should land here. The two places that described the German as CURRENT were
 updated: item 1o's "minor extra", and item 20's note on why prosa was written
 in German.
 
-- [ ] **Found while doing this, NOT fixed: the tracked example artifacts are
-      four years stale.** `examples/ifi-policy-reachability.{html,csv}` were
-      last written in 2021 (`4a927f9c`) and no current run reproduces them —
-      the CSV header is `,1,2,3,4,5,6` where the translator now emits role
-      names, and the HTML names roles (`TrustedClients`, `Sekretariate`) that
-      the current `ifi-policy.txt` does not define, with CSS classes (`role`,
-      `tooltip`) the current `to_html` no longer emits. They are checked-in
-      output nothing regenerates and nothing verifies, which is §1.8's
-      complaint exactly. `fml-paper-policy-reachability.*` cannot be
-      regenerated at all — its source deliberately does not compile (item 21) —
-      so the pair needs a decision rather than a command: regenerate the ifi
-      one and drop or freeze the fml one, or stop tracking both.
+- [x] **The tracked example artifacts were four years stale — UNTRACKED
+      2026-09-21 (owner decision).** `examples/ifi-policy-reachability.{html,csv}`
+      were last written in 2021 (`4a927f9c`) and no current run reproduced
+      them: the CSV header was `,1,2,3,4,5,6` where the translator now emits
+      role names, and the HTML named roles (`TrustedClients`, `Sekretariate`)
+      that the current `ifi-policy.txt` does not define, with CSS classes
+      (`role`, `tooltip`) the current `to_html` no longer emits. Checked-in
+      output that nothing regenerated and nothing verified — §1.8's complaint
+      exactly. `fml-paper-policy-reachability.*` could not be regenerated at
+      all, its source deliberately not compiling (item 21), which is what ruled
+      out simply refreshing them.
+
+      All four are now `git rm --cached` with `examples/*.html` and
+      `examples/*.csv` in `policy_translator/.gitignore` — a blanket rather
+      than the four names, because the README's own example writes
+      `examples/ifi.html`, which was never tracked and never ignored either.
+      Nothing in the tree read any of them (checked: every other
+      `reachability.csv` in the repo belongs to a `fave/bench/` workload and is
+      a different file entirely). The sources are `.txt` and `policies.css` is
+      hand-written, so neither pattern can match an input. Kept on disk,
+      untracked, rather than deleted — a fresh clone simply will not have them.
 
 ---
 

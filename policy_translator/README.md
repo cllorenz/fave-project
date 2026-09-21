@@ -88,6 +88,14 @@ This behaviour can be disabled by using the ``--strict`` option.
 
 Two example files that contain both an inventory and policies are enclosed with the policy translator. 
 
+**Only the inputs are kept.** The translator's output -- the HTML matrix, the
+CSV -- is not tracked, and ``examples/`` is gitignored for those two
+extensions. Rendered copies used to be committed beside the sources and went
+four years without being regenerated, so they described roles the policy no
+longer defined; every one of them is a single command away, and a stale one is
+worse than none. ``policies.css`` is hand-written and stays, since the
+generated HTML links to it.
+
 1. ``examples/ifi-policy.txt``
 2. ``examples/fml-paper-policy.txt`` -- **does not compile, deliberately.**
 

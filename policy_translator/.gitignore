@@ -1,2 +1,25 @@
 *.pyc
 ifi-policy-minimal.txt
+
+# The translator's OWN output, wherever it lands under examples/. Blanket
+# rather than the four names that used to be tracked, so a newly generated
+# artifact cannot leak back in through a `git add .` -- the README's own
+# example writes `examples/ifi.html`, which was never tracked and never
+# ignored either.
+#
+# THEY WERE TRACKED AND THEY WENT STALE, which is the reason (TODO item 22,
+# owner decision 2026-09-21). `ifi-policy-reachability.{html,csv}` were last
+# written in 2021 and no run since reproduces them: the CSV header was
+# `,1,2,3,4,5,6` where the translator emits role names, and the HTML named
+# roles `ifi-policy.txt` no longer defines, with CSS classes `to_html` no
+# longer emits. Four years of checked-in output that nothing regenerated and
+# nothing verified -- CLOUD_BENCH_PLAN.md §1.8's complaint exactly. Every
+# example is one command away (`policy_translator.py -w -o out.html
+# examples/ifi-policy.txt`), so there is nothing to keep.
+#
+# The sources are `.txt` and the stylesheet is `.css`, so neither pattern can
+# match an input. `policies.css` in particular is hand-written and stays
+# tracked: the generated HTML links to it, which makes it an INPUT to the
+# rendering rather than a product of it.
+examples/*.html
+examples/*.csv
