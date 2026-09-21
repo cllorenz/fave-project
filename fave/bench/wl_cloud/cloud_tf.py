@@ -54,9 +54,14 @@ from typing import Dict, Iterable, List, Optional, Union
 
 
 # CLOUD_BENCH_PLAN.md §1.1. Bit offsets into the 128-bit match string, in FaVe's
-# own field vocabulary, so this dict IS the workload's `mapping.json`.
+# own field vocabulary. This is the layout of the RAW DATA -- what was measured
+# out of the 2,941 rules' density profile, and what `parse_tf` decodes against.
 # `packet.ipv6.proto` is FaVe's name for the protocol byte even on IPv4 -- see
 # `wl_stanford/stanford-json/mapping.json`, which does the same.
+#
+# FaVe's own mapping is FAVE_MAPPING below, and the two are kept apart on
+# purpose: a field FaVe needs but the transfer function never mentions has no
+# business in a table whose whole claim is that it was measured.
 CLOUD_MAPPING: Dict[str, int] = {
     'packet.ether.vlan': 0,
     'packet.ipv4.source': 16,
@@ -67,6 +72,26 @@ CLOUD_MAPPING: Dict[str, int] = {
     'packet.upper.tcp.flags': 120,
     'length': 128,
 }
+
+# The mapping FaVe runs with: the measured layout plus `related`.
+#
+# WHY A FIELD THE DATASET DOES NOT HAVE. `bench/reach_csv_to_checks.py` puts
+# `f=related:0` on EVERY conditionally permitted check, and this network has no
+# conntrack at all -- its ACLs are stateless, which is the whole reason the
+# policy uses `--->` rather than `<->>` (see reach.txt). No rule and no
+# generator ever constrains the field, so it stays wildcard everywhere and the
+# condition overlaps every flow: exactly the "all packets are new" reading a
+# stateless model deserves.
+#
+# DECLARED UP FRONT rather than left to `NetPlumberAdapter._build_vector`,
+# which would `_update_mapping` and widen the vectors of an already-built model
+# at check time. AD6_PLAN.md §9.29 is about precisely that hazard, and a
+# workload whose header layout had to be recovered by measurement is the last
+# place to exercise it. Declaring it here keeps `length` and `mapping` the one
+# setting §9.29 requires them to be -- both are read from this dict.
+FAVE_MAPPING: Dict[str, int] = dict(
+    CLOUD_MAPPING, related=CLOUD_MAPPING['length'], length=CLOUD_MAPPING['length'] + 8)
+
 
 _FIELD_SIZES: Dict[str, int] = {
     'packet.ether.vlan': 16,
