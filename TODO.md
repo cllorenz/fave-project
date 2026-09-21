@@ -38,7 +38,13 @@ option and stamps none of it, so discharging items 1/2/8 there is CODE work rath
 documentation; and the gate needs a second clause — *state the denominator, never compare
 totals across different query counts* — since §5.5's "~13x slower per query" is actually
 total-wall/total-wall over 72 queries vs 256 (per query: ~62x, or ~22x against the
-post-admission-fix Stanford baseline). **The gate: every collapse of the configuration space must be a stamped result field, never an undocumented habit** — if a measurement-affecting choice has no stamp, add the stamp before quoting the number. Full checklist: [`AD6_PLAN.md`](AD6_PLAN.md) "Generality debt: the pre-measurement checklist".
+post-admission-fix Stanford baseline). **A third instance, 2026-09-21:** wl_up's
+check count moved 11,911 -> 18,811 when `reach_csv_to_checks.py`'s denied-cell branch
+was fixed to cover every endpoint of a multi-device role (item 12 / C7). All 6,900
+added checks pass, so no wl_up verdict changes -- but `AD6_PLAN.md`,
+`APKEEP_BACKEND.md` and `APKEEP_BDD_BASELINE.md` all quote the 11,911 denominator
+throughout and are now annotated at their first mention rather than rewritten,
+because each of those measurements was correct for the denominator it had. **The gate: every collapse of the configuration space must be a stamped result field, never an undocumented habit** — if a measurement-affecting choice has no stamp, add the stamp before quoting the number. Full checklist: [`AD6_PLAN.md`](AD6_PLAN.md) "Generality debt: the pre-measurement checklist".
   - **NOT debt despite looking like it:** the per-(port, VLAN) admission fix is a model correctness fix, general by nature — it changed wl_stanford identically, and its `_ANY_PORT` fallback adds generality by defining a case no benchmark has.
 
 ### 0. Migration to GitHub CI — DONE (workflow added; needs real-CI validation of heavy tiers)

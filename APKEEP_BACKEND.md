@@ -335,6 +335,15 @@ count can hide two compensating errors.
 Both NetPlumber runs were made for this comparison on the same day and the same box,
 not taken from the record.
 
+> **DENOMINATOR CHANGED 2026-09-21 — wl_up is now 18,811 checks, not 11,911.**
+> `bench/reach_csv_to_checks.py`'s denied-cell branch asserted only ONE endpoint
+> of a multi-device role (it used the loop-leaked `target` instead of iterating
+> `targets`), and wl_up has 40 roles mapping to two or three devices. Fixing it
+> for wl_cloud's service roles added **6,900 must-not-reach checks, all of which
+> PASS** — so no verdict in this document changes, but every count below is the
+> pre-fix denominator and must not be compared against a post-fix one
+> (TODO item 0a, CLOUD_BENCH_PLAN.md §1.9.6).
+
 *(wl_up's check count moved twice. It is **11,902** throughout this section, **11,903**
 where §10 restores the `Wifi <--> Wifi` self-check, and **11,911** today, after §10's
 superrole-self-expansion fix emptied eight spurious `DMZ*` diagonals and so gave each of

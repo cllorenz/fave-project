@@ -45,7 +45,6 @@ def _load_role_attributes(path):
     with open(path, 'r') as raw:
         return {role['name']: role.get('attributes', {}) for role in json.load(raw)}
 
-
 def _abstracts_a_subnet(attributes):
     """ True iff the role's declared address is a PROPER subnet: more than one
     address, but not the whole space.
@@ -204,6 +203,19 @@ if __name__ == '__main__':
         help='also check that a conditionally permitted pair is UNreachable '
              'outside its permitted services'
     )
+    # OFF by default, for the same reason `--complement` is: it changes what a
+    # denied cell asserts, and that is a decision per workload. See
+    # `_deny_checks` for when the two readings differ, and
+    # CLOUD_BENCH_PLAN.md §1.9.6.
+    parser.add_argument(
+        '--deny-per-service',
+        dest='deny_per_service',
+        action='store_true',
+        default=False,
+        help='a denied cell denies the target role\'s OFFERED SERVICES rather '
+             'than all traffic to it. For matrices whose roles are services '
+             'and may therefore share machines. Needs --roles.'
+    )
     parser.add_argument(
         '--roles',
         dest='roles_file',
@@ -314,7 +326,18 @@ if __name__ == '__main__':
                                 ])
 
                 else:
-                    checks.extend(['! ' + fstr % (s, target) for s in sources])
+                    # ITERATE `targets`, like every branch above. Using the
+                    # bare `target` here checked only ONE endpoint of a
+                    # multi-device role -- whichever the `for target in
+                    # targets` loop above happened to leave bound, i.e. the
+                    # last -- so a denied cell was asserted against one leaf
+                    # and silently unasserted against the other eight. Every
+                    # workload before wl_cloud maps each role to exactly one
+                    # device, which is why the two spellings agreed until a
+                    # role spread over nine leaf routers arrived.
+                    for target in targets:
+                        checks.extend(
+                            ['! ' + fstr % (s, target) for s in sources])
 
 
     with open(args.checks_file, 'w') as checks_file:

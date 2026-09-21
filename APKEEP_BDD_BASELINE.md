@@ -108,6 +108,15 @@ only where the policy GRANTED self-reachability, which is backwards.
 `bench/reach_csv_to_checks.py` now emits the `Wifi` self-check too (11,903 checks,
 `reachable.json` 3,371 pairs), so the headline and the compliance artifacts agree.
 
+> **DENOMINATOR CHANGED 2026-09-21 — wl_up is now 18,811 checks, not 11,911.**
+> `bench/reach_csv_to_checks.py`'s denied-cell branch asserted only ONE endpoint
+> of a multi-device role (it used the loop-leaked `target` instead of iterating
+> `targets`), and wl_up has 40 roles mapping to two or three devices. Fixing it
+> for wl_cloud's service roles added **6,900 must-not-reach checks, all of which
+> PASS** — so no verdict in this document changes, but every count below is the
+> pre-fix denominator and must not be compared against a post-fix one
+> (TODO item 0a, CLOUD_BENCH_PLAN.md §1.9.6).
+
 The count has since moved again, to **11,911** with **69** negative self-checks:
 `--strict` mode was letting superrole expansion fill eight `DMZ*` diagonals no FPL rule
 had written, and emptying them sends each to the same must-not-reach branch as the

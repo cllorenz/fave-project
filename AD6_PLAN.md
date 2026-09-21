@@ -187,6 +187,15 @@ model files rather than trusting the old audit further:
 | wl_stanford | 1× `<-->` | 0 / 240 |
 | wl_i2 | 1× `<-->` | 0 / 72 |
 
+> **DENOMINATOR CHANGED 2026-09-21 — wl_up is now 18,811 checks, not 11,911.**
+> `bench/reach_csv_to_checks.py`'s denied-cell branch asserted only ONE endpoint
+> of a multi-device role (it used the loop-leaked `target` instead of iterating
+> `targets`), and wl_up has 40 roles mapping to two or three devices. Fixing it
+> for wl_cloud's service roles added **6,900 must-not-reach checks, all of which
+> PASS** — so no verdict in this document changes, but every count below is the
+> pre-fix denominator and must not be compared against a post-fix one
+> (TODO item 0a, CLOUD_BENCH_PLAN.md §1.9.6).
+
 wl_up's 11911 is the post-`--strict` count (`9d746a5d`). §1.3's table and the
 paragraph below it still read 11902 and have been swept to match; the 11902s
 further down — §4.2's narrative, the §7.5 and §9 result tables — are records of
