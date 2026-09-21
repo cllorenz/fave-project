@@ -1295,8 +1295,10 @@ roles with a published/unpublished split. TODO item 16 is closed.
 - **`related` is declared, not extended at check time.** Every conditionally
   permitted cell emits `f=related:0` and the cloud model has no state field —
   §1.9.4's open concern. Measured: the adapter WOULD cope (`_build_vector` ->
-  `_update_mapping` -> `expand`), but `POLICY_MAPPING` appends the field up
-  front instead, at bit 128, leaving §1.1's measured layout untouched. A session
+  `_update_mapping` -> `expand`), but `cloud_tf.FAVE_MAPPING` appends the field
+  up front instead, at bit 128, leaving §1.1's measured layout untouched. Both
+  phases read it: the two arrived at the same table independently and it is one
+  table now. A session
   that silently changes its vector width partway through is not the thing being
   measured (AD6_PLAN.md §9.29). `related:0` is vacuous here rather than wrong —
   nothing sets the field, so it stays wildcard.
