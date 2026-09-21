@@ -14,11 +14,15 @@ building the policy (§1.9.6). Delta-net not started.
 predicted before the run** — the generator publishes a service with a
 source-less ACL rule, so all 11 public services are reachable from all 26 roles
 while the matrix authorises 102 of 286 such cells. Stating that makes the run
-clean. **3 violations survive both policies and are a real finding**: services
-1, 11 and 23 are published from two datacenters each, giving two gateway NAT
-rules with identical match, and NetPlumber's first-match semantics shadows the
-second — where NoD's Datalog relation would reach both. No oracle query probes a
-shadowed endpoint, so 4,224 questions found what 6 could not.
+clean. **3 violations survive both policies**, and they are a
+finding about the DATASET: services 1, 11 and 23 are the only public services
+whose prefixes span two datacenters, and the gateway publishes only one prefix
+of each, so half of each is unreachable from the Internet although matrix row 25
+authorises the service. `network.tf` carries a second, SHADOWED NAT rule for
+each; reduce it by Hassel's own priority rule and the file becomes exactly the
+Datalog's 11 gateway rules, so the dataset's two encodings agree and FaVe
+reproduces both (§1.9.6, TODO item 16 — which first recorded this as an engine
+semantic difference, wrongly).
 
 Two third-party datasets arrived in the tree as untracked archives
 (`cloud_bench.tar.bz2`, 21 MB; `deltanet-NSDI17-dataset.tar.gz`, 9.6 GB). This
@@ -1205,25 +1209,46 @@ The matrix's private half, by contrast, is enforced **exactly**: 113 ordered
 equality in both directions with no slack. That is what makes the public half's
 gap a property of the generator rather than noise in the reading.
 
-#### The 3 remaining violations — a genuine finding, NOT fixed
+#### The 3 remaining violations — the dataset's, not the engine's
 
     source.internet does not reach probe.dc4_leaf0_svc11  (dport 342)
     source.internet does not reach probe.dc4_leaf4_svc01  (dport 332)
     source.internet does not reach probe.dc4_leaf6_svc23  (dport 354)
 
-Services **1, 11 and 23 are the only three published from TWO datacenters**, and
-each therefore has two gateway NAT rules with **byte-identical match**
-(`dst=121.140.254.i/32, proto=6, dport=331+i`) and different rewrites and
-outputs — anycast. NetPlumber resolves same-match rules by priority, so the
-first wins and the second datacenter's half of the service is unreachable from
-the Internet. NoD's Datalog semantics is a RELATION: both rules fire and both
-datacenters are reachable.
+Services **1, 11 and 23 are the only PUBLIC services whose prefixes span two
+datacenters**, and the gateway publishes only one prefix of each:
 
-**So this is a semantic difference between the two engines on this dataset, not
-a modelling bug found here** — and the oracle could not have caught it, because
-none of the six queries probes a shadowed endpoint. 4,224 questions found what 6
-could not, which is the argument for C7 in one line. **Owner decision needed**
-before it is called either way; until then it is stamped, not silenced.
+| service | declared | published to the Internet |
+|---|---|---|
+| 1 | `10.0.4.0/22` + `10.0.18.0/25` | `10.0.4.0/22` |
+| 11 | `10.0.0.0/24` + `10.0.16.0/25` | `10.0.0.0/24` |
+| 23 | `10.0.2.0/24` + `10.0.19.0/25` | `10.0.2.0/24` |
+
+`network.tf` does carry a second NAT rule for each, pointing at the other
+datacenter with a **byte-identical match** — but it is SHADOWED, and by Hassel's
+own rule rather than by a choice made here: the vendored `tf.py` makes a rule
+`affected_by` every earlier rule it intersects and subtracts that header space,
+which for an identical match is total.
+
+**The check that settles it.** The dataset ships the same network a second time,
+as Z3-Datalog inside each `.smt2`. Its gateway carries **11** rules where the
+`.tf` carries **14** — and reducing the `.tf` by the shadowing above yields
+exactly those 11, identical, against all six instances. So the two encodings
+agree, there is no engine disagreement to adjudicate, and the three endpoints
+are unreachable in both. `fave/test/test_cloud_encodings_agree.py` pins it.
+
+This is the MIRROR of the 1,312: the generated data plane is more permissive
+than its own matrix for the services it publishes, and less permissive for the
+three it splits.
+
+**What remains open is a policy question, not a modelling one.**
+`reach_csv_to_checks` expands a role-level cell into a must-reach at EVERY
+endpoint of the target role. That universal reading is right for a subnet role
+and is what surfaced this at all; an existential one ("the Internet may reach
+service 11" holds if it reaches any of its hosts) would make these three green.
+These are the only roles in the suite with a published/unpublished split, so the
+two readings differ nowhere else — see TODO item 16, and do not change the
+default casually.
 
 #### What it cost in shared code
 

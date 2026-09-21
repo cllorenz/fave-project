@@ -1009,43 +1009,77 @@ step ran, produced an artifact, and answered a smaller question.
 
 ---
 
-### 16. wl_cloud: two gateway NAT rules with identical match, and first-match wins (found 2026-09-21)
-**A semantic difference between NetPlumber and the dataset's own engine, not a
-modelling bug here — and the oracle could not have seen it.**
+### 16. wl_cloud's 3 surviving violations — RESOLVED 2026-09-21, and my first diagnosis was wrong
+**The three are real and expected. Everything I wrote about WHY was not.**
+Recorded in full because the wrong turn is the instructive part, as in item 14.
 
-**The finding.** Services 1, 11 and 23 are the only three the cloud dataset
-publishes from **two datacenters**. Each therefore has two destination-NAT rules
-at the internet gateway with **byte-identical match** (`dst=121.140.254.i/32,
-proto=6, dport=331+i`) and different rewrites and out-ports — anycast. Hassel /
-NetPlumber resolve rules at a table by priority, so the first wins and the second
-datacenter's half of the service is unreachable from the Internet. NoD's Datalog
-semantics is a RELATION: both rules fire, and both datacenters are reachable.
+**What I claimed** (committed in `21cef327`): that services 1, 11 and 23 have two
+gateway NAT rules with identical match, that NetPlumber resolves same-match by
+priority while "NoD's Datalog semantics is a RELATION: both rules fire", and
+that the three unreachable endpoints were therefore *a semantic difference
+between the two engines* which the six-query oracle could not see.
 
-    source.internet does not reach probe.dc4_leaf0_svc11  (dport 342)
-    source.internet does not reach probe.dc4_leaf4_svc01  (dport 332)
-    source.internet does not reach probe.dc4_leaf6_svc23  (dport 354)
+**What is actually true.** The dataset ships its network TWICE and I compared
+neither encoding against the other:
 
-These three survive BOTH of C7's policies (CLOUD_BENCH_PLAN.md §1.9.6), which is
-what marks them out from the 1,312 expected ones.
+| encoding | gateway destination-NAT rules |
+|---|---:|
+| `network.tf` (Hassel) | **14** |
+| each of the six `.smt2` (Z3-Datalog) | **11** |
 
-**Why the oracle is silent on it.** None of the six `.smt2` queries targets a
-shadowed endpoint — q03 reaches service 1 in dc1, which is the FIRST of its two
-rules. So the external oracle agrees with FaVe here and always would have. It
-took the policy phase's 4,224 questions to ask the one the oracle does not.
+The Datalog does not contain the three extra rules at all — it publishes each
+public service from exactly one datacenter. And Hassel's resolution is not a
+convention this repository chose: the vendored `tf.py` makes a rule
+`affected_by` every EARLIER rule whose match intersects (`_find_influences`) and
+`apply_rewrite_rule` subtracts each applied one's header space ("subtract off
+all the higher priority rule's match patterns"). For an identical match that
+subtraction is total, so the later rule yields nothing.
 
-- [ ] **Decide what the model should do**, and it is genuinely open:
-  - treat it as correct — a Hassel transfer function IS priority-ordered, and
-    modelling the dataset in Hassel semantics is the whole premise; then the
-    three are an expected consequence and belong in the expected-verdict table;
-  - or treat the `.tf` as a Datalog relation, in which case an identical-match
-    pair should be modelled as two branches and NetPlumber's table semantics
-    cannot express it without duplicating the table.
-- [ ] **Check whether `wl_stanford`/`wl_i2` carry identical-match rule pairs**
-      too. If they do, the same reading question applies to results already
-      quoted, which is the reason not to leave this filed under wl_cloud alone.
-- [x] Stamped rather than silenced: `eval/<engine>-<utc>_policy-<which>.json`
-      records the violation count per policy, so neither number can be read
-      without knowing which policy produced it.
+**Apply Hassel's own rule and `network.tf` reduces to EXACTLY the Datalog's 11 —
+identical, zero differences, against all six instances.** The two encodings
+agree, there is no engine disagreement, and FaVe reproduces both correctly.
+`fave/test/test_cloud_encodings_agree.py` pins it; keeping the LAST rule instead
+of the first turns the agreement test red on its own.
+
+**The real finding, and it is about the DATASET.** Services 1, 11 and 23 are
+exactly the public services whose prefixes span two datacenters, and the gateway
+publishes only ONE prefix of each:
+
+| service | declared | published to the Internet |
+|---|---|---|
+| 1 | `10.0.4.0/22` + `10.0.18.0/25` | `10.0.4.0/22` only |
+| 11 | `10.0.0.0/24` + `10.0.16.0/25` | `10.0.0.0/24` only |
+| 23 | `10.0.2.0/24` + `10.0.19.0/25` | `10.0.2.0/24` only |
+
+So half of each is unreachable from the Internet in BOTH encodings, although
+matrix row 25 authorises the Internet to reach the service. That is the mirror
+of §1.9.6's 1,312: the generated data plane is more permissive than its matrix
+for the services it publishes, and less permissive for the three it splits.
+
+**So the three violations come from the POLICY, not the model.**
+`reach_csv_to_checks` expands a role-level cell into a must-reach at EVERY
+endpoint of the target role — universal, which is the right reading for a subnet
+role ("Wifi may reach the DMZ" should hold for every DMZ host) and is what makes
+these three red.
+
+- [ ] **Decide what a role-level cell means when the role has several
+      endpoints.** Universal (today) or existential ("the Internet may reach
+      service 11" is satisfied if it reaches any of its hosts). This is the only
+      place in the suite where the two differ, because these are the only roles
+      with a published/unpublished split — so it is cheap to decide here and
+      expensive to get wrong everywhere else. **Do not change the default
+      casually:** existential must-reach would silently weaken every workload,
+      and the universal reading is what surfaced this finding at all.
+- [x] Until then the three are an EXPECTED result of `--policy public`, recorded
+      in `CLOUD_BENCH_PLAN.md` §1.9.6 with the reason above, not with the engine
+      story.
+
+**The lesson.** I had two encodings of the same network in one directory and
+reasoned about engine semantics instead of diffing them. `AD6_PLAN.md` §9.28 and
+item 1s both say this suite's weakness is that correctness rests on consensus
+between implementations in this tree; the one workload that ships an INDEPENDENT
+second encoding is the one where I argued from first principles rather than
+reading it. The check that settled it is eleven lines long.
 
 ---
 
