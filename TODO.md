@@ -1049,6 +1049,90 @@ took the policy phase's 4,224 questions to ask the one the oracle does not.
 
 ---
 
+### 17. `start_aggr.sh` gates on the wrong artifact, so a second benchmark in a row can fail to start (found 2026-09-21)
+**A transient startup state reported as a permanent one.** Found running
+`benchmark.py --policy matrix` and `--policy public` back to back; it cost two
+runs before it was diagnosed, and it is not specific to wl_cloud.
+
+    util.barrier.BarrierError: FaVe will never finish the request:
+    no aggregator is registered (/dev/shm/np/aggregator.owner is absent)
+
+and the log directly above it reads `started aggregator.` -- so the harness
+believed the backend was up.
+
+**The mechanism, read off the code and confirmed by observation.**
+`aggregator_service.py` binds its socket and publishes the barrier owner on the
+NEXT statement:
+
+    sock.bind(server if port == 0 else (server, port))        # line 443
+    ...
+    barrier.publish_owner()                                   # line 449
+
+whose own comment says the owner is written after the bind "so its presence
+means an aggregator is actually up". But `scripts/start_aggr.sh` waits for the
+SOCKET, not for the owner:
+
+    while [ ! -S "$UNIX" ]; do ... sleep 1 ... done
+
+`sock.bind()` is what creates that socket file. **The gate therefore releases in
+the window between the two statements**, `GenericBenchmark._startup` logs
+"started aggregator" and calls `_wait_for_fave()` immediately, and the first
+barrier finds no owner. Probing right after `start_aggr.sh` returns, the owner
+file is frequently still absent -- 10 of 12 probes in one sample, though that
+sample ran on a box carrying leftover state from earlier runs, so treat it as
+"often", not as a rate.
+
+**Why it reads as fatal.** `barrier._owner_alive` maps an absent owner file to
+"no aggregator is registered", and `BarrierError`'s own docstring says it is
+raised when a request "can no longer complete it at all". For an aggregator that
+has DIED that is exactly right and is item 1r's whole point -- the harness must
+not wait forever on a dead backend. For one that has not published YET it is the
+opposite of right, and the two states are indistinguishable from the file alone.
+
+- [ ] **The fix is to gate on the artifact that means what the gate wants.**
+      `start_aggr.sh` should wait for `/dev/shm/np/aggregator.owner`, not for
+      the socket -- the owner file is published strictly after the bind, so
+      waiting for it subsumes the current check and closes the window with no
+      new mechanism. Two details: the loop must still abort when the aggregator
+      PROCESS dies (it already does, via `kill -0`), and the TCP path (`-s`/`-p`
+      rather than `-u`) has NO wait at all today, so it races unconditionally
+      and would gain one for the first time.
+- [ ] **Decide whether `_owner_alive` should distinguish "not yet" from "never".**
+      Gating correctly upstream makes this unnecessary for the benchmark path,
+      but the asymmetry is real: every OTHER caller of the barrier also treats
+      an absent owner as terminal, and nothing stamps how long the aggregator
+      had been up. A grace period would weaken item 1r's guarantee, so this is a
+      decision rather than an obvious improvement -- do not add one casually.
+
+#### The misleading diagnostic beside it
+`stop_fave.sh`'s failure advice is *"Check with `ps -C net_plumber` and kill it,
+or the next run will start a second one alongside it."* In a container whose
+pid 1 does not reap, that advice reads wrong: after a session of benchmark runs
+this box showed **65 `net_plumber` entries, every one of them a ZOMBIE** (state
+`Z`, PPID 1), and **zero live**. `scripts/start_np.sh` backgrounds net_plumber
+and nothing ever waits on it, so each stopped backend leaves an unreaped entry.
+They hold no ports and contend for nothing, so this is hygiene rather than a
+second cause of the failure above -- but a reader following the advice sees 65
+apparently-running backends and concludes the opposite of the truth.
+
+- [ ] Make the advice state-aware (`ps -C net_plumber -o pid,stat=` and say that
+      `Z` entries are harmless), or have the stopper reap what it kills.
+- [ ] **Not yet established:** whether a *live* leftover backend from a previous
+      run can also produce the `BarrierError` above, independently of the
+      publish window. The first failure in this session did leave a live one
+      behind (`stop_fave: aggregator unreachable (rc=1); stopping net_plumber
+      directly`), but that run had a genuinely dead aggregator for an unrelated
+      reason (a missing `filelock` on the system interpreter, because
+      `start_aggr.sh` uses `$PYTHON` and a standalone caller must export it).
+      So the two have been seen together and have NOT been shown to be the same
+      thing.
+
+**Workaround until fixed:** run one benchmark at a time, or re-run the second;
+the failure is loud and produces no verdict, which is the one thing it gets
+right (items 1i/1n/1p).
+
+---
+
 ## Python codebase test expansion (fave/ + policy_translator/)
 
 ### 9. Expand Python test coverage per the testing strategy — Phase 1 + Phase 2 DONE (see [`TESTING_STRATEGY_PYTHON.md`](TESTING_STRATEGY_PYTHON.md))
