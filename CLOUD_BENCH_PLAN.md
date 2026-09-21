@@ -1188,10 +1188,22 @@ here**, which is what C7 was waiting on.
 
 #### Results — two policies, two measurements
 
-| policy | checks | violations | what it means |
-|---|---:|---:|---|
-| `reach.txt` (matrix as written) | 4,224 | **1,315** | 1,312 expected + 3 findings |
-| `reach_public.txt` (+ what the generator implemented) | 4,199 | **3** | the same 3 findings |
+| policy | checks | violations | expected | agrees |
+|---|---:|---:|---:|---|
+| `reach.txt` (matrix as written) | 4,224 | **1,315** | 1,315 | pair for pair |
+| `reach_public.txt` (+ what the generator implemented) | 4,199 | **3** | 3 | pair for pair |
+
+**The expectation is DERIVED, never counted off a previous run.**
+`cloud_policy.expected_violations()` computes the (source endpoint, probe
+endpoint) pairs a run should report, from the raw data alone: the Internet
+against an endpoint the gateway does not publish (3, both policies — see below),
+plus every denied cell into a public service (1,312, `matrix` only). Each run
+compares its report against that set and stamps `expected_violations`,
+`unexpected`, `missing` and `agrees`; a difference is logged loudly. Without
+this, "3 violations" and "the RIGHT 3 violations" are the same sentence, which
+is TODO item 1s's defect in miniature. It is deliberately not fatal — making the
+bench tier exit non-zero on a wrong verdict is item 1s's job for every workload
+rather than this one's.
 
 **The 1,312 are the result, not a failure — and they were predicted exactly
 before the run.** A service in matrix row 25 is one the Internet may reach; the
@@ -1241,14 +1253,15 @@ This is the MIRROR of the 1,312: the generated data plane is more permissive
 than its own matrix for the services it publishes, and less permissive for the
 three it splits.
 
-**What remains open is a policy question, not a modelling one.**
+**DECIDED (owner, 2026-09-21): the UNIVERSAL reading stays**, so these three are
+a permanent expected result rather than an open question.
 `reach_csv_to_checks` expands a role-level cell into a must-reach at EVERY
-endpoint of the target role. That universal reading is right for a subnet role
-and is what surfaced this at all; an existential one ("the Internet may reach
-service 11" holds if it reaches any of its hosts) would make these three green.
-These are the only roles in the suite with a published/unpublished split, so the
-two readings differ nowhere else — see TODO item 16, and do not change the
-default casually.
+endpoint of the target role. The alternative was existential ("the Internet may
+reach service 11" holds if it reaches any of its hosts), which would have made
+these three green at the cost of weakening every must-reach check in every
+workload — and the universal reading is what surfaced the finding at all.
+wl_cloud is the only workload where the two differ, since these are the only
+roles with a published/unpublished split. TODO item 16 is closed.
 
 #### What it cost in shared code
 

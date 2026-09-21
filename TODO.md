@@ -1009,7 +1009,7 @@ step ran, produced an artifact, and answered a smaller question.
 
 ---
 
-### 16. wl_cloud's 3 surviving violations — RESOLVED 2026-09-21, and my first diagnosis was wrong
+### 16. wl_cloud's 3 surviving violations — CLOSED 2026-09-21 (universal reading kept), and my first diagnosis was wrong
 **The three are real and expected. Everything I wrote about WHY was not.**
 Recorded in full because the wrong turn is the instructive part, as in item 14.
 
@@ -1062,17 +1062,30 @@ endpoint of the target role — universal, which is the right reading for a subn
 role ("Wifi may reach the DMZ" should hold for every DMZ host) and is what makes
 these three red.
 
-- [ ] **Decide what a role-level cell means when the role has several
-      endpoints.** Universal (today) or existential ("the Internet may reach
-      service 11" is satisfied if it reaches any of its hosts). This is the only
-      place in the suite where the two differ, because these are the only roles
-      with a published/unpublished split — so it is cheap to decide here and
-      expensive to get wrong everywhere else. **Do not change the default
-      casually:** existential must-reach would silently weaken every workload,
-      and the universal reading is what surfaced this finding at all.
-- [x] Until then the three are an EXPECTED result of `--policy public`, recorded
-      in `CLOUD_BENCH_PLAN.md` §1.9.6 with the reason above, not with the engine
-      story.
+- [x] **DECIDED (Claas, 2026-09-21): the UNIVERSAL reading stays.** A role-level
+      cell asserts reachability at EVERY endpoint of the target role. Nothing
+      changes in `reach_csv_to_checks.py`; the alternative was existential
+      ("the Internet may reach service 11" satisfied if it reaches any of its
+      hosts), which would have made these three green at the cost of weakening
+      every must-reach check in every workload — and the universal reading is
+      what surfaced the finding at all. wl_cloud is the only workload where the
+      two differ, since these are the only roles with a published/unpublished
+      split, so the decision costs nothing elsewhere.
+- [x] **The three are now a DERIVED expectation, not a remembered number.**
+      `cloud_policy.expected_violations()` computes the pairs a run should
+      report, from the raw data: the Internet against an endpoint the gateway
+      does not publish (these three, both policies), plus every denied cell into
+      a public service (1,312, `matrix` only). Every run compares its report
+      against that set and stamps `expected_violations`, `unexpected`, `missing`
+      and `agrees`, logging loudly on any difference. Both policies currently
+      agree PAIR FOR PAIR — 3 of 3 and 1,315 of 1,315, with `unexpected` and
+      `missing` both empty.
+
+      This is what closing the item required rather than a nicety: "3
+      violations" and "the RIGHT 3 violations" were the same sentence until the
+      expectation was derived, which is item 1s's defect in miniature. Not made
+      fatal — the bench tier exiting non-zero on a wrong verdict is item 1s's
+      job for every workload, not this one's.
 
 **The lesson.** I had two encodings of the same network in one directory and
 reasoned about engine semantics instead of diffing them. `AD6_PLAN.md` §9.28 and

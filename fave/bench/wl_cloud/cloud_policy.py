@@ -84,11 +84,12 @@ sat behind them.
 from __future__ import annotations
 
 import ast
+import ipaddress
 
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from bench.wl_cloud.cloud_readme import CloudReadme, INTERNET_INDEX
-from bench.wl_cloud.cloud_tf import node_name
+from bench.wl_cloud.cloud_tf import node_name, read_match_field
 
 
 #: FPL's own name for the external role. `bench/reach_csv_to_checks.py`
@@ -241,6 +242,103 @@ def public_services(readme: CloudReadme) -> List[int]:
         index for index in sorted(readme.services)
         if readme.permits(INTERNET_INDEX, index)
     ]
+
+
+def published_prefix(model: Any, readme: CloudReadme) -> Dict[int, str]:
+    """ {service: the prefix the gateway ACTUALLY publishes to the Internet}.
+
+    `network.tf` carries one destination-NAT rule per (service, datacenter), so
+    a service whose prefixes span two datacenters gets two -- with a
+    byte-identical match. Hassel resolves that by priority and the LATER rule is
+    inert (`tf.py` `_find_influences` + the `affected_by` subtraction in
+    `apply_rewrite_rule`), which is why only the first is read here. Reducing
+    the file that way yields exactly the 11 rules the dataset's Datalog
+    encoding carries; `test_cloud_encodings_agree.py` pins it.
+    """
+    published: Dict[int, str] = {}
+
+    for rule in model.rules_at(readme.internet_port):
+        if rule.action != 'rw':
+            continue
+        service = read_match_field(
+            rule.match, 'packet.upper.dport') - readme.service_port_base
+        if service in published:
+            continue                          # shadowed by the earlier rule
+        published[service] = read_match_field(
+            rule.rewrite, 'packet.ipv4.destination')
+
+    return published
+
+
+def unpublished_endpoints(
+        readme: CloudReadme, model: Any, blocks: Dict[int, str]
+) -> List[str]:
+    """ Endpoints of a PUBLIC service that the gateway does not publish.
+
+    A public service spanning two datacenters is published from one of them
+    (see `published_prefix`), so the other datacenter's hosts are unreachable
+    from the Internet although matrix row 25 authorises the service. `blocks`
+    maps a leaf ingress node to the /25 it owns.
+    """
+    published = published_prefix(model, readme)
+    out = []
+
+    for leaf in sorted(readme.router_services):
+        for service in sorted(readme.router_services[leaf]):
+            if service not in published:
+                continue                      # private: no gateway rule at all
+            if _within(blocks[leaf], published[service]):
+                continue
+            out.append(endpoint_name(service, leaf))
+
+    return out
+
+
+def _within(prefix: str, container: str) -> bool:
+    return ipaddress.ip_network(prefix).subnet_of(ipaddress.ip_network(container))
+
+
+def expected_violations(
+        readme: CloudReadme, model: Any, blocks: Dict[int, str], policy: str
+) -> Set[Tuple[str, str]]:
+    """ The (source endpoint, probe endpoint) pairs a run of `policy` SHOULD
+    report -- derived from the data, never counted off a previous run.
+
+    Two populations, and they point in opposite directions:
+
+      * **must-REACH failures**, in BOTH policies: the Internet against an
+        unpublished endpoint of a public service. Three of them, and they are
+        the dataset being LESS permissive than its own matrix (TODO item 16).
+      * **must-NOT-reach violations**, in the `matrix` policy only: every denied
+        cell into a public service, because the generator implements "public" as
+        an ACL rule with no source constraint and so admits every source. The
+        `public` policy states those cells as permitted, which is what empties
+        this half. 1,312 of them, the dataset being MORE permissive.
+
+    A run that reports a different set is a finding either way: the point of
+    deriving the expectation is that "3 violations" and "the RIGHT 3 violations"
+    stop being the same sentence (TODO item 1s).
+    """
+    endpoints = role_endpoints(readme)
+    expected = set(
+        (INTERNET_ENDPOINT, probe)
+        for probe in unpublished_endpoints(readme, model, blocks)
+    )
+
+    if policy != 'matrix':
+        return expected
+
+    for target in public_services(readme):
+        for source in sorted(readme.services):
+            if readme.permits(source, target):
+                continue
+            expected.update(
+                (src, dst)
+                for src in endpoints[role_name(source)]
+                for dst in endpoints[role_name(target)]
+            )
+
+    return expected
 
 
 def emit_policy(readme: CloudReadme, public: bool = False) -> str:

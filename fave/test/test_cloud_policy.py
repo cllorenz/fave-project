@@ -63,10 +63,13 @@ from bench.wl_cloud.cloud_policy import (
     emit_inventory,
     emit_policy,
     endpoint_name,
+    expected_violations,
     public_services,
+    published_prefix,
     role_endpoints,
     role_name,
     service_name,
+    unpublished_endpoints,
 )
 from bench.wl_cloud.cloud_endpoints import derive_endpoints
 from bench.wl_cloud.cloud_preparation import (
@@ -373,6 +376,76 @@ class TestCloudPolicy(unittest.TestCase):
             [one.source_device])
         self.assertEqual(
             [dev[0] for dev in built['probes']['devices']], [one.probe_device])
+
+    # -- the derived expectation ---------------------------------------------
+
+    def test_the_gateway_publishes_one_prefix_of_each_split_service(self):
+        """ Hassel's shadowing, read as "what the Internet can actually reach".
+
+        The identical-match second rule is inert, so a service spanning two
+        datacenters is published from exactly one. See TODO item 16 and
+        `test_cloud_encodings_agree.py`, which checks the reduction against the
+        dataset's own Datalog encoding.
+        """
+        with open(_TF, 'r') as raw:
+            model = classify_nodes(parse_tf(raw))
+
+        published = published_prefix(model, self.readme)
+        self.assertEqual(sorted(published), public_services(self.readme))
+
+        for service, prefix in published.items():
+            self.assertIn(prefix, self.readme.services[service])
+
+    def test_the_unpublished_endpoints_are_the_three_split_services(self):
+        with open(_TF, 'r') as raw:
+            model = classify_nodes(parse_tf(raw))
+
+        unpublished = unpublished_endpoints(
+            self.readme, model, leaf_blocks(model))
+
+        self.assertEqual(
+            sorted(unpublished),
+            ['dc4_leaf0_svc11', 'dc4_leaf4_svc01', 'dc4_leaf6_svc23'])
+
+        # each names a service that IS public and DOES span two prefixes --
+        # otherwise the derivation would be finding something else
+        for name in unpublished:
+            service = int(name.rsplit('_svc', 1)[1])
+            self.assertTrue(self.readme.permits(INTERNET_INDEX, service))
+            self.assertEqual(len(self.readme.services[service]), 2)
+
+    def test_the_expected_violation_sets_are_what_the_runs_report(self):
+        """ The numbers §1.9.6 quotes, derived rather than counted off a run.
+
+        `public` expects only the three must-reach failures of item 16;
+        `matrix` expects those plus every denied cell into a public service,
+        which is the half `reach_public.txt` states away.
+        """
+        with open(_TF, 'r') as raw:
+            model = classify_nodes(parse_tf(raw))
+        blocks = leaf_blocks(model)
+
+        public = expected_violations(self.readme, model, blocks, 'public')
+        matrix = expected_violations(self.readme, model, blocks, 'matrix')
+
+        self.assertEqual(len(public), 3)
+        self.assertEqual(len(matrix), 1315)
+        self.assertTrue(public < matrix)
+        self.assertEqual(len(matrix - public), 1312)
+
+        # every `public` expectation is the Internet against an endpoint
+        self.assertEqual({src for src, _dst in public}, {INTERNET_ENDPOINT})
+
+        # and every EXTRA `matrix` expectation targets a public service, which
+        # is the property that makes the 1,312 a statement about the generator
+        # rather than a number
+        endpoint_service = {
+            name: index
+            for index in self.readme.services
+            for name in role_endpoints(self.readme)[role_name(index)]
+        }
+        for _src, dst in matrix - public:
+            self.assertIn(endpoint_service[dst], public_services(self.readme))
 
     # -- the two policies ----------------------------------------------------
 

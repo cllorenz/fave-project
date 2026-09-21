@@ -92,10 +92,11 @@ from bench.wl_cloud.cloud_policy import (
     emit_inventory,
     emit_policy,
     endpoint_name,
+    expected_violations,
     public_services,
 )
 from bench.wl_cloud.cloud_preparation import (
-    build_model, role_endpoints, write_model)
+    build_model, leaf_blocks, role_endpoints, write_model)
 from bench.wl_cloud.cloud_provenance import (
     check_key, pair_oracle_to_checks, parse_violations)
 from bench.wl_cloud.cloud_readme import read_readme
@@ -460,7 +461,22 @@ class CloudPolicyBenchmark(CloudBenchmark):
         """
         readme = read_readme(self.files['cloud_readme'])
         checks = json.load(open(self.files['checks'], 'r'))
-        violations = _report_violations(self.files.get('report', 'report.md'))
+        violations = set(
+            _report_violations(self.files.get('report', 'report.md')))
+
+        # THE EXPECTED SET IS DERIVED, never counted off a previous run. Both
+        # populations follow from the data: the Internet against an endpoint the
+        # gateway does not publish (item 16, in both policies), and every denied
+        # cell into a public service (the `matrix` policy only, because the
+        # generator implements "public" with no source constraint). Recording a
+        # COUNT alone would let "3 violations" and "the right 3 violations" pass
+        # for the same statement -- item 1s's defect in miniature.
+        model = classify_nodes(parse_tf(open(self.files['cloud_tf'], 'r')))
+        expected = expected_violations(
+            readme, model, leaf_blocks(model), self.policy)
+
+        unexpected = sorted(violations - expected)
+        missing = sorted(expected - violations)
 
         sandbox = in_sandbox()
 
@@ -483,6 +499,10 @@ class CloudPolicyBenchmark(CloudBenchmark):
             'must_reach': len([c for c in checks if not c.startswith('!')]),
             'must_not_reach': len([c for c in checks if c.startswith('!')]),
             'violations': len(violations),
+            'expected_violations': len(expected),
+            'unexpected': ['%s -> %s' % pair for pair in unexpected],
+            'missing': ['%s -> %s' % pair for pair in missing],
+            'agrees': not unexpected and not missing,
             'policy_derived_by': 'bench/wl_cloud/cloud_policy.py',
             'matrix_source': 'cloud-tf/README.txt',
         }
@@ -498,8 +518,22 @@ class CloudPolicyBenchmark(CloudBenchmark):
             out.write(json.dumps(stamp, indent=2) + '\n')
 
         self.logger.info(
-            "result stamped to %s: policy '%s', %d violations over %d checks",
-            path, self.policy, len(violations), len(checks))
+            "result stamped to %s: policy '%s', %d violations over %d checks "
+            "(%d expected)",
+            path, self.policy, len(violations), len(checks), len(expected))
+
+        # LOUD, because a silently different violation set is the whole reason
+        # the expectation is derived. Not fatal: the verdict exists and is
+        # stamped either way, and making the bench tier EXIT non-zero on a wrong
+        # verdict is item 1s's job for every workload rather than this one's.
+        if unexpected or missing:
+            self.logger.error(
+                "policy '%s' does NOT match its derived expectation: %d "
+                "unexpected %s, %d missing %s. Neither is a tolerance to widen "
+                "-- an unexpected pair is reachability nobody authorised, a "
+                "missing one is an expectation the data plane stopped meeting.",
+                self.policy, len(unexpected), unexpected[:3],
+                len(missing), missing[:3])
 
 
 def _report_violations(report_path):
