@@ -196,16 +196,38 @@ class KripkeUtils:
 
             FieldMatchConjuncts = []
             for Field, Elems in FieldMatchGroups.items():
-                Aliases = [
-                    XMLUtils.variable(XMLUtils.FieldMatchAliasName(Field, RKey, Elem.text))
-                    for Elem in Elems
-                ]
-                if len(Aliases) > 1:
+                # POLARITY IS READ FROM THE ELEMENT, never defaulted.
+                # Instantiator._HandleFieldMatches defines the alias as
+                # `alias <-> (this node's bits == value)`, so a negated
+                # <fieldmatch> used through a POSITIVE alias variable encodes
+                # NOT(f == v) as (f == v) -- an INVERSION, not a dropped match,
+                # which is why it produced a well-formed model answering the
+                # opposite question. Found latent 2026-09-21 (no benchmark emits
+                # a negated match; the tests pinned GenUtils.fieldmatch's
+                # OUTPUT and nothing pinned this reader).
+                Positives = []
+                Negatives = []
+                for Elem in Elems:
+                    Negated = Elem.attrib.get(XMLUtils.ATTRNEGATED, 'false') == 'true'
+                    Alias = XMLUtils.variable(
+                        XMLUtils.FieldMatchAliasName(Field, RKey, Elem.text),
+                        value=not Negated)
+                    (Negatives if Negated else Positives).append(Alias)
+
+                # Positives on ONE field are a disjunction (the admission-set
+                # shape: "vlan in {5,7}"). Their complements are a CONJUNCTION
+                # by De Morgan -- "vlan not in {5,7}" is `!=5 AND !=7`, and
+                # OR-ing them instead makes any two distinct values a
+                # TAUTOLOGY that silently admits everything. Mixed polarities
+                # compose as (OR of positives) AND (AND of negatives); Gamma is
+                # itself a conjunction, so the negatives just extend it.
+                if len(Positives) > 1:
                     Disjunction = XMLUtils.disjunction()
-                    Disjunction.extend(Aliases)
+                    Disjunction.extend(Positives)
                     FieldMatchConjuncts.append(Disjunction)
-                else:
-                    FieldMatchConjuncts.append(Aliases[0])
+                elif Positives:
+                    FieldMatchConjuncts.append(Positives[0])
+                FieldMatchConjuncts.extend(Negatives)
 
             Gamma = list(map(XMLUtils.ConvertToVariables,Gamma))
             Node.Gamma = XMLUtils.conjunction()

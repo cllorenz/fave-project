@@ -406,6 +406,154 @@ class InstantiatorTest(unittest.TestCase):
             "(proves the OR-of-values disjunction, not just a single value)")
 
 
+    def _fieldmatch_gate_model(self, gate_conditions):
+        """ Shared shape for the fieldmatch-gate tests: three entries rewrite
+        `vlan` to 5/6/7 on their way into ONE shared gate node, whose Gamma is
+        `gate_conditions` (a list of GenUtils.fieldmatch elements). Returns a
+        `reachable(entry)` predicate. Mirrors
+        testFieldMatchGatesOnMutatedSSAValue's model exactly so the positive
+        and negated cases differ only in the gate's conditions. """
+        def _hop(name, key, target, field=None, value=None):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action(
+                'jump', target=target, rewrite_field=field, rewrite_value=value))
+            table.append(rule)
+            return table
+
+        def _gate(name, key, target, conditions):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            for condition in conditions:
+                rule.append(condition)
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        def _sink(name, key):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('accept'))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('fieldmatchfw')
+        firewall.append(_hop('t0', 'entryA_r0', 'gate_r0', 'vlan', 5))
+        firewall.append(_hop('t1', 'entryB_r0', 'gate_r0', 'vlan', 6))
+        firewall.append(_hop('t2', 'entryC_r0', 'gate_r0', 'vlan', 7))
+        firewall.append(_gate('t3', 'gate_r0', 'accept_r0', gate_conditions))
+        firewall.append(_sink('t4', 'accept_r0'))
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entryA_r0', 'entryB_r0', 'entryC_r0'],
+            default_inits=False, MutableFields={'vlan': 12}
+        )
+        solver = PycoSATAdapter()
+
+        def reachable(source):
+            instance = Instantiator.InstantiateEndToEnd(
+                kripke, encoding, source, 'accept_r0')
+            return bool(solver.Solve(instance))
+
+        return reachable
+
+
+    def testNegatedFieldMatchExcludesItsValue(self):
+        """ A NEGATED <fieldmatch> must exclude its value, not admit it.
+
+        `GenUtils.fieldmatch(field, value, negated=True)` sets negated="true"
+        on the element, but KripkeUtils._HandleRule's FieldMatch branch read
+        only the field name and the text and built the alias variable with
+        XMLUtils.variable()'s DEFAULT polarity (negated="false"). Since
+        Instantiator._HandleFieldMatches defines that alias as
+        `alias <-> (per-node bits == value)`, an always-positive use site
+        encodes `NOT (f == v)` as `f == v` -- an INVERSION, not a dropped
+        match, so the model answers the opposite question and still looks
+        well-formed.
+
+        Latent when found (2026-09-21): fave/test/test_ad6_translate.py records
+        that no benchmark emits a negated match, and the tests that existed
+        pinned the PRODUCER (field_to_match emits negated="true") while nothing
+        pinned this CONSUMER. Reached by making addresses mutable, since the
+        compliance path negates them.
+
+        Gate: `vlan != 6` -- the exact complement of
+        testFieldMatchGatesOnMutatedSSAValue's admitted set. """
+        reachable = self._fieldmatch_gate_model(
+            [GenUtils.fieldmatch('vlan', 6, negated=True)])
+
+        self.assertTrue(
+            reachable('entryA_r0'),
+            "vlan=5 satisfies `vlan != 6` -- must be admitted")
+        self.assertFalse(
+            reachable('entryB_r0'),
+            "vlan=6 violates `vlan != 6` -- must be blocked. Admitting it means "
+            "the negation was dropped and the match encoded positively")
+        self.assertTrue(
+            reachable('entryC_r0'),
+            "vlan=7 satisfies `vlan != 6` -- must be admitted")
+
+
+    def testNegatedFieldMatchesOnOneFieldConjoin(self):
+        """ Several NEGATED matches on the SAME field must AND, not OR.
+
+        Positive matches on one field are a disjunction -- that is the VLAN
+        admission set testFieldMatchGatesOnMutatedSSAValue pins. Their
+        complement is a CONJUNCTION by De Morgan: `vlan not in {5,7}` is
+        `vlan != 5 AND vlan != 7`. Grouping negatives with the same OR would
+        yield `vlan != 5 OR vlan != 7`, which is a TAUTOLOGY for any two
+        distinct values -- the gate would admit everything, including the two
+        values it names, and would do so silently.
+
+        Gate: `vlan != 5 AND vlan != 7` -- the exact complement of that test's
+        admitted set, so the three verdicts must invert. """
+        reachable = self._fieldmatch_gate_model([
+            GenUtils.fieldmatch('vlan', 5, negated=True),
+            GenUtils.fieldmatch('vlan', 7, negated=True),
+        ])
+
+        self.assertFalse(
+            reachable('entryA_r0'),
+            "vlan=5 violates `vlan != 5` -- must be blocked")
+        self.assertTrue(
+            reachable('entryB_r0'),
+            "vlan=6 satisfies both `vlan != 5` and `vlan != 7` -- must be admitted")
+        self.assertFalse(
+            reachable('entryC_r0'),
+            "vlan=7 violates `vlan != 7` -- must be blocked. Admitting all three "
+            "means the negatives were OR-ed into a tautology")
+
+
+    def testMixedFieldMatchPolaritiesOnOneField(self):
+        """ Positives and negatives on ONE field compose as
+        (OR of positives) AND (AND of negatives).
+
+        Gate: `vlan in {5,6} AND vlan != 6` -- admits 5 alone. If the negative
+        joined the positives' disjunction the gate would read
+        `5 OR 6 OR NOT 6` = true and admit everything; if the positives were
+        conjoined it would admit nothing. """
+        reachable = self._fieldmatch_gate_model([
+            GenUtils.fieldmatch('vlan', 5),
+            GenUtils.fieldmatch('vlan', 6),
+            GenUtils.fieldmatch('vlan', 6, negated=True),
+        ])
+
+        self.assertTrue(
+            reachable('entryA_r0'),
+            "vlan=5 is in {5,6} and is not 6 -- must be admitted")
+        self.assertFalse(
+            reachable('entryB_r0'),
+            "vlan=6 is in {5,6} but IS 6 -- the negative must veto it")
+        self.assertFalse(
+            reachable('entryC_r0'),
+            "vlan=7 is not in {5,6} -- must be blocked")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)
