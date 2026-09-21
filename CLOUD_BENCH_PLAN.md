@@ -976,17 +976,41 @@ from the tables in §1.4 and §1.9.0.
         Declared up front rather than added by `_update_mapping` at check time,
         which is §9.29's hazard.
 
-- [ ] **`policy_builder.role_service_regex` is exponential in comment lines.**
-      Found while writing the inventory: `(comment | role | service)+` where
-      `role` and `service` themselves begin with `(newline | comment)*`, so a
-      run of comment lines before a definition can be split between the two in
-      exponentially many ways. Measured on this inventory — 10 lines 0.06s,
-      16 lines 0.20s, 20 lines 2.08s, 24 lines **over two minutes**. Blank lines
-      do not reset it (they are another alternative in the same group): three
-      blank-separated blocks of 8 measured 31.8s, worse than 20 consecutive.
-      Worked around by keeping the FPL files thin and putting the prose in
-      `bench/wl_cloud/README.md`, which is a workaround and not a fix — the next
-      person to document an inventory in this repo's usual style will hit it.
+- [x] **`policy_builder`'s catastrophic backtracking — FIXED 2026-09-21.**
+      Found while writing the inventory: `comment_pattern` was
+      `[ \t]* \# [ \t]* .* <nl>`, where the second quantifier and `.*` both
+      match the blanks after the `#`. The same language — `[ \t]*.*` accepts
+      exactly what `.*` accepts — but one extra way to match EVERY comment
+      line, so a run of them before a definition had 2^n parses to explore
+      before it could fail. Measured: 10 lines 0.06s, 16 lines 0.20s, 20 lines
+      2.08s, 24 lines over two minutes; and blank lines made it WORSE (three
+      blank-separated blocks of 8 measured 31.8s), because they are another
+      alternative in the same group.
+
+      The redundant quantifier is gone. The same overlap one line lower —
+      `[ \t]* = [ \t]*` against a `value_pattern` that contains a space, so
+      every attribute line doubled the search space of its role — is made
+      POSSESSIVE rather than deleted, because that quantifier is what keeps
+      the blanks out of the captured value. 200 comment lines and a
+      100-attribute role are now both flat.
+
+      **No policy in the tree changes.** All seven committed inventory/policy
+      pairs (wl_example, wl_ifi ×2, wl_up, wl_i2, wl_stanford, wl_cloud)
+      compile to a byte-identical matrix and roles dump. One input does change
+      meaning, deliberately and under test: `key =   ` followed by nothing but
+      a newline used to parse as an attribute whose value is a single space —
+      an artifact of the backtracking — and is now a syntax error. No
+      inventory has such a line.
+
+      The guards run the parse in a SUBPROCESS with a hard deadline. An
+      in-process budget cannot fail when the defect is present: the old
+      patterns take longer than any run will wait, so the test hangs instead of
+      reporting, and a signal handler does not help because `re` matching is
+      one C call that never yields to Python. Verified inverted — against the
+      shipped patterns the suite now fails in 60s where it previously hung.
+
+      wl_cloud's FPL files were written thin as a workaround; that is undone,
+      and they now carry their full rationale.
 
 - [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
       written as FPL by hand with a script checking it against the README?

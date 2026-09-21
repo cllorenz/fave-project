@@ -37,13 +37,30 @@ class PolicyBuilder(object):
     define_pattern = "(def | define | describe)"
     name_pattern = "[A-Za-z][A-Za-z0-9_]*"
     value_pattern = r"[A-Za-z0-9 _=\-\[\]'\":.,\*/]+"
-    comment_pattern = r"[ \t]* \# [ \t]* .* (\r\n|[\r\n])"
+    # CATASTROPHIC BACKTRACKING LIVES IN THE OVERLAP OF TWO QUANTIFIERS.
+    # This used to read `[ \t]* \# [ \t]* .*`, where the second `[ \t]*` and
+    # `.*` can both match the blanks after the `#`. That is the same language
+    # -- `[ \t]*.*` accepts exactly what `.*` accepts -- but it gives the
+    # engine one extra way to match EVERY comment line, so a run of n of them
+    # before a definition has 2^n parses to explore before it can fail.
+    #
+    # Measured on bench/wl_cloud's inventory, searching a comment block for a
+    # definition that never comes: 12 lines 0.010s, 16 lines 0.14s, 20 lines
+    # 2.35s, 24 lines over two minutes. Blank lines made it WORSE, not better
+    # (three blank-separated blocks of 8 measured 31.8s), because they are
+    # another alternative in the same group. Documenting an inventory in this
+    # repository's usual style was enough to hang the translator.
+    #
+    # Dropping the redundant quantifier is exactly equivalent and the exponent
+    # goes away entirely -- 20 lines drops from 2.35s to under a millisecond.
+    # test_policy_builder.py::TestCommentRunsAreLinear pins both halves.
+    comment_pattern = r"[ \t]* \# .* (\r\n|[\r\n])"
     comment_pattern_nl = r"%s+" % comment_pattern
     role_pattern = r"""
     ((\r\n|[\r\n]) | %s)*
     %s [ ] role [ ] (?P<role_name> %s) (\r\n|[\r\n])+
     (?P<role_content>
-        (((\t | [ ]{4}) %s [ \t]* = [ \t]* %s (\r\n|[\r\n])+)
+        (((\t | [ ]{4}) %s [ \t]* = [ \t]*+ %s (\r\n|[\r\n])+)
         | ((\t | [ ]{4}) includes [ ] %s([.] (\* | %s) )? (\r\n|[\r\n])+)
         | ((\t | [ ]{4}) offers [ ] %s (\r\n|[\r\n])+))*
         | (%s)
@@ -70,8 +87,26 @@ class PolicyBuilder(object):
     role_regex = re.compile(role_pattern, re.X)
     service_regex = re.compile(service_pattern, re.X)
 
+    # The SAME defect, one line lower down: `value_pattern` contains a space,
+    # so `[ \t]*` and the value both match the blanks after the `=` and every
+    # attribute line doubles the search space of the role it sits in. Latent
+    # rather than live -- no inventory in the tree has a role with enough
+    # attributes to notice (18 of them measured 0.24s) -- but it is the same
+    # bomb with a longer fuse.
+    #
+    # POSSESSIVE, not deleted: unlike the comment case the quantifier is load
+    # bearing, because it is what keeps the blanks out of the captured
+    # `value`. `*+` matches what the greedy form matches on its FIRST attempt
+    # and then refuses to give any of it back.
+    #
+    # ONE INPUT CHANGES MEANING, deliberately: `key =   ` followed by nothing
+    # but a newline. Backtracking used to hand one blank back so the value
+    # could match, capturing a single space; it is now a syntax error. A value
+    # made of one space is an artifact of the backtracking, not something any
+    # inventory in this tree writes (checked), and an empty attribute is worth
+    # refusing. Pinned by TestABlankAttributeValueIsRefused.
     role_attr_regex = re.compile(
-        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]* (?P<value> %s | \*) (\r\n|[\r\n])+" % (name_pattern, value_pattern),
+        r"(\t | [ ]{4})(?P<key> %s) [ \t]* = [ \t]*+ (?P<value> %s | \*) (\r\n|[\r\n])+" % (name_pattern, value_pattern),
         re.X
     )
     role_incl_regex = re.compile(

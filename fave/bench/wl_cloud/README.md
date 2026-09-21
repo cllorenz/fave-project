@@ -81,13 +81,16 @@ check that passes proves the broader question satisfiable, and a narrower
 must-not-reach check is implied by the broader unreachability. A surplus
 *negation* would do neither, so it is not a match.
 
-## A trap in the translator
+## A trap that was in the translator
 
-**Keep comment runs in the two FPL files short.** `policy_builder`'s
-`role_service_regex` is `(comment | role | service)+` where `role` and `service`
-themselves begin with `(newline | comment)*`, so a run of comment lines before a
-definition can be split between the two in exponentially many ways. Measured on
-this inventory:
+Writing this inventory in the repository's usual style is what found it, so it
+is recorded here even though it is fixed.
+
+`policy_builder.comment_pattern` was `[ \t]* \# [ \t]* .* <newline>`, where the
+second quantifier and `.*` both match the blanks after the `#`. Same language --
+`[ \t]*.*` accepts exactly what `.*` accepts -- but one extra way to match
+*every* comment line, so a run of them before a definition had 2^n parses to
+explore before it could fail:
 
 | comment lines before the first definition | translator |
 |---:|---:|
@@ -96,6 +99,13 @@ this inventory:
 | 20 | 2.08 s |
 | 24 | > 120 s |
 
-Blank lines do **not** help — they are another alternative in the same group, so
-three blank-separated blocks of 8 measured *worse* (31.8 s) than 20 consecutive
-lines. That is why the prose lives in this file. Tracked in `TODO.md`.
+Blank lines made it worse rather than better -- they are another alternative in
+the same group -- so three blank-separated blocks of 8 measured 31.8 s against
+20 consecutive lines' 2.08 s.
+
+**Fixed 2026-09-21** by dropping the redundant quantifier, plus the same overlap
+one line lower (`[ \t]* = [ \t]*` against a `value_pattern` that contains a
+space, made possessive). 200 comment lines and a 100-attribute role are now both
+flat. Every committed policy in the tree compiles to a byte-identical matrix.
+`policy_translator/test/test_policy_builder.py` guards both, with the parse in a
+subprocess so the defect returning is a *failure* rather than a hang.

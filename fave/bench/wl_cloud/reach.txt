@@ -1,7 +1,26 @@
-# The six oracle queries as an FPL policy. See README.md for why each rule is
-# written the way it is -- in particular why q02 has none and why q06 has one
-# it is EXPECTED to fail.
-# KEEP COMMENT RUNS SHORT (README.md, "A trap in the translator").
+# The six oracle queries as an FPL policy (CLOUD_BENCH_PLAN.md §1.9.0).
+#
+# A POLICY IS AN INTENT, NOT A FACT. These five rules compile to 71 checks;
+# six carry a third-party verdict and the other 65 are expectations WE derived.
+# benchmark.py labels every check by provenance for that reason, and
+# cloud_provenance.py refuses to report a verdict no check carries.
+#
+# `--->` and not `<->>`: the cloud ACLs are stateless, so asserting that return
+# traffic is permitted because the forward direction is would be a claim about
+# conntrack this network does not implement. `<-->` would assert a symmetric
+# permission the dataset states for no pair.
+#
+# WHY q02 HAS NO RULE. Its verdict is unsat -- nothing from the internet
+# reaches dc2_leaf7_host6 -- which is what the default-deny already says. A
+# rule would have to be a permission, i.e. the opposite of the verdict.
+#
+# WHY q06 HAS A RULE IT IS EXPECTED TO FAIL. Its verdict is also unsat, but
+# unlike q02 it is unsat ON ONE PORT: TCP 351 from dc1_leaf6_host0. Leaving it
+# to default-deny would generate an UNCONDITIONED denial -- a strictly stronger
+# claim than the dataset makes, and one it offers no evidence for. Stated as a
+# permission instead, the generated must-reach check asks exactly q06's
+# question, and the dataset's answer makes it a VIOLATION. That expected
+# violation is the reproduction.
 
 describe policies (default: deny)
     Internet ---> dc1_leaf5_host5

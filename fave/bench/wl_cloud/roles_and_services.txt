@@ -1,7 +1,24 @@
-# FPL inventory for wl_cloud's oracle phase. FABRICATED -- see README.md.
-# Checked against the model by benchmark.role_members: every role must be a
-# real endpoint carrying the ipv4 it declares.
-# KEEP COMMENT RUNS SHORT (README.md, "A trap in the translator").
+# FPL inventory for the wl_cloud oracle phase (CLOUD_BENCH_PLAN.md §1.9).
+#
+# FABRICATED, and deliberately so. The dataset ships no inventory: it states
+# its six questions as Z3-Datalog instances over bare node ids, and §1.9's
+# decision is to express them as an FPL policy instead. So one role per
+# endpoint the six queries name, and one service per port they name -- nothing
+# here has a counterpart in the raw data beyond those ids and ports.
+#
+# EVERY NAME IS DERIVED, NOT CHOSEN. A role is named after the node it stands
+# for (cloud_tf.node_name) and its `ipv4` is that node's own /30 as the
+# transfer function states it. cloud_endpoints.role_members refuses, at RUN
+# time, any role that names no endpoint or declares an address its generator
+# does not inject -- a fabricated role nothing contradicts is exactly how a
+# benchmark comes to agree with itself.
+#
+# The services are the four TCP ports the oracle's queries constrain. Both 331
+# and 332 are declared because both are asked about: README.txt calls 331 the
+# public service port, while query 03 is satisfiable on 332, which §1.4
+# records as an unresolved discrepancy.
+#
+# See README.md for why the policy beside this file is written as it is.
 
 describe service S331
     protocol = 'tcp'

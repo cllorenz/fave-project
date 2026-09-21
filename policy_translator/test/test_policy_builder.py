@@ -22,6 +22,9 @@
 """ This module provides unit tests for the PolicyBuilder class.
 """
 
+import os
+import subprocess
+import sys
 import unittest
 
 from policy import Policy
@@ -300,3 +303,183 @@ class TestSuperroleSelfExpansion(unittest.TestCase):
         policies = self._build(self._policy(strict=False), 'Grp <--> Grp')
         self.assertIn(('A', 'A'), policies)
         self.assertIn(('B', 'B'), policies)
+
+class _Deadline(unittest.TestCase):
+
+    r""" Base for the two catastrophic-backtracking guards.
+
+    THE PARSE RUNS IN A SUBPROCESS, and that is the whole design. A budget
+    checked after the fact -- `t = time.time(); parse(); assertLess(...)` --
+    cannot fail when the defect is present: the shipped patterns take longer
+    than any run will wait, so the test HANGS instead of reporting. Worse, the
+    obvious in-process rescue does not work either, because a signal handler
+    only runs between bytecode instructions and `re` matching is one C call
+    that never yields. Measured: the first cut of these tests hung the suite
+    until an external timeout killed it.
+
+    A child process can be killed, so a hang becomes an ordinary failure.
+    """
+
+    #: Generous by many orders of magnitude -- the point is that the defect
+    #: this guards against does not fit in it, not that parsing is fast.
+    BUDGET = 20.0
+
+    SCRIPT = (
+        "import sys\n"
+        "from policy import Policy\n"
+        "from policy_builder import PolicyBuilder\n"
+        "text = sys.stdin.read()\n"
+        "{body}\n"
+    )
+
+    def _run(self, body, text):
+        import policy_builder
+        env = dict(os.environ)
+        root = os.path.dirname(os.path.abspath(policy_builder.__file__))
+        env['PYTHONPATH'] = os.pathsep.join(
+            [root] + ([env['PYTHONPATH']] if env.get('PYTHONPATH') else []))
+        try:
+            done = subprocess.run(
+                [sys.executable, '-c', self.SCRIPT.format(body=body)],
+                input=text, capture_output=True, text=True,
+                timeout=self.BUDGET, env=env)
+        except subprocess.TimeoutExpired:
+            self.fail(
+                "parsing did not finish in %gs. That is the catastrophic "
+                "backtracking this guards against: the difference between an "
+                "ambiguous pattern and an unambiguous one is exponential, so "
+                "there is nothing between milliseconds and forever."
+                % self.BUDGET)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout.strip()
+
+
+class TestCommentRunsAreLinear(_Deadline):
+
+    r""" Comments must not cost exponentially (policy_builder.comment_pattern).
+
+    `[ \t]* \# [ \t]* .*` let the second quantifier and `.*` both match the
+    blanks after the `#`, so every comment line doubled the number of parses
+    the engine had to explore before it could fail. A run of them in front of a
+    definition -- i.e. an inventory documented the way everything else in this
+    repository is documented -- hung the translator: 20 lines took 2.35s and 24
+    took over two minutes, and blank lines made it worse rather than better.
+    """
+
+    ROLE = '\n'.join(["describe role Alpha", "\tvlan = 23", "end", ""])
+    # `Policy()` ships with the builtin `Internet` role, so the answer is
+    # whether the role in the text survived the comment run -- not the whole
+    # role set.
+    BODY = ("policy = Policy()\n"
+            "PolicyBuilder.build_roles_and_services(text, policy)\n"
+            "print('Alpha' in policy.roles)")
+
+    def test_a_long_comment_run_before_a_definition_stays_cheap(self):
+        comments = '\n'.join('# comment line %d' % i for i in range(40))
+        self.assertEqual(
+            self._run(self.BODY, '%s\n%s' % (comments, self.ROLE)), 'True')
+
+    def test_blank_separated_comment_blocks_stay_cheap(self):
+        """ The shape that measured WORST before the fix: blank lines are
+        another alternative in the same group, so they add parses instead of
+        resetting anything. Three blocks of 8 took 31.8s. """
+        blocks = '\n\n'.join(
+            '\n'.join('# block %d line %d' % (b, i) for i in range(8))
+            for b in range(3))
+        self.assertEqual(
+            self._run(self.BODY, '%s\n%s' % (blocks, self.ROLE)), 'True')
+
+    def test_the_comment_language_is_unchanged(self):
+        r""" The fix rewrites one pattern into an equivalent one, so every
+        shape of comment line that parsed before must still parse: `[ \t]*.*`
+        accepts exactly what `.*` accepts. Short enough to run in process --
+        it is about meaning, not cost. """
+        comments = '\n'.join([
+            "#tight",
+            "#   padded",
+            "   # indented",
+            "\t#\ttabbed",
+            "#",
+            "# trailing blanks   ",
+            "  \t #  every \t kind \t of blank ",
+        ])
+        policy = Policy()
+        PolicyBuilder.build_roles_and_services(
+            '%s\n%s' % (comments, self.ROLE), policy)
+        self.assertIn('Alpha', policy.roles)
+
+
+class TestAttributeLinesAreLinear(_Deadline):
+
+    r""" The same defect one line further down, driven at the pattern.
+
+    `[ \t]* = [ \t]* %(value)s` overlaps in exactly the same way, because
+    `value_pattern` contains a space: each attribute line doubles the search
+    space of the role it sits in. Latent rather than live -- no inventory in
+    the tree has a role wide enough to notice -- but the same bomb with a
+    longer fuse, and 18 lines already measured 0.24s.
+
+    Driven through `role_regex` rather than `build_roles_and_services` because
+    the exponent is in the PATTERN: the builder rejects an unknown attribute
+    name long before a role gets wide enough to matter, so it cannot reach the
+    shape this is about.
+    """
+
+    ATTRS = ["\tdescription = 'value %d'" % i for i in range(60)]
+
+    def test_a_wide_role_that_never_closes_stays_cheap(self):
+        """ No `end`, so the match must FAIL -- the expensive direction, and
+        the one a search scanning past a role takes. """
+        text = '\n'.join(["describe role Wide"] + self.ATTRS) + '\n'
+        self.assertEqual(
+            self._run("print(PolicyBuilder.role_regex.search(text) is None)",
+                      text),
+            'True')
+
+    def test_a_wide_role_that_does_close_still_parses(self):
+        text = '\n'.join(["describe role Wide"] + self.ATTRS + ["end", ""])
+        self.assertEqual(
+            self._run(
+                "m = PolicyBuilder.role_regex.search(text)\n"
+                "print(m.group('role_name'), len(PolicyBuilder.match("
+                "PolicyBuilder.role_attr_regex, m.group('role_content'), "
+                "PolicyBuilder.role_attr_regex.search)))",
+                text),
+            'Wide 60')
+
+
+class TestABlankAttributeValueIsRefused(unittest.TestCase):
+
+    r""" The one input whose meaning the fix changes, on purpose.
+
+    `key =   ` with nothing after the blanks used to match, because
+    backtracking handed one blank back so `value_pattern` had a character to
+    consume -- the attribute's value became a single space. That reading is an
+    artifact of the backtracking rather than anything an inventory means, and
+    the possessive quantifier that removes the exponent also removes it.
+
+    Recorded as a test rather than a comment because it IS a behaviour change,
+    and a behaviour change nobody wrote down is indistinguishable from a
+    regression six months later. No inventory in this tree has such a line
+    (checked); every real attribute is unaffected.
+    """
+
+    def _attr(self, line):
+        return PolicyBuilder.role_attr_regex.match(line)
+
+    def test_an_attribute_whose_value_is_only_blanks_no_longer_matches(self):
+        self.assertIsNone(self._attr("\tvlan =   \n"))
+
+    def test_an_attribute_with_no_value_at_all_never_matched(self):
+        """ The neighbouring case, to show where the boundary actually moved:
+        `key =` never matched, because `value_pattern` requires a character and
+        a newline is not one. Only the all-blank form changes. """
+        self.assertIsNone(self._attr("\tvlan =\n"))
+
+    def test_the_blanks_before_a_real_value_are_still_excluded(self):
+        """ What the quantifier is FOR, and why it was made possessive instead
+        of deleted: the blanks between `=` and the value stay out of the
+        captured value. """
+        match = self._attr("\tvlan =    23\n")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group('value'), '23')
