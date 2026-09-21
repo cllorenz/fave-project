@@ -1,9 +1,11 @@
 # Benchmark-suite extension: the NoD cloud dataset and the Delta-net traces
 
-**Status 2026-09-18 — `wl_cloud` built and running. All six third-party oracle
-verdicts reproduced on NetPlumber (§1.7.1). ad6 refuses the workload for a
-structural encoding reason (§1.7.2); APKeep under-approximates by 3 (§1.7.3).
-Three defects fixed in shared code along the way (§1.6). Delta-net not started.**
+**Status 2026-09-21 — `wl_cloud` built and running, and now driven by an FPL
+policy (§1.9) rather than hand-built checks. All six third-party oracle verdicts
+reproduced on NetPlumber before and after the switch (§1.7.1). ad6 refuses the
+workload for a structural encoding reason (§1.7.2); APKeep under-approximates by
+3 (§1.7.3). Three defects fixed in shared code along the way (§1.6). Delta-net
+not started.**
 
 Two third-party datasets arrived in the tree as untracked archives
 (`cloud_bench.tar.bz2`, 21 MB; `deltanet-NSDI17-dataset.tar.gz`, 9.6 GB). This
@@ -351,6 +353,39 @@ correctness result in this suite.
 The §1.4 port discrepancy (README says 331, q03 is sat on 332) never had to be
 resolved: both queries reproduce as labelled, so whatever the 331/332 difference
 means, FaVe and the oracle agree about it. It stays on record as unexplained.
+
+#### Re-verified under the FPL policy (2026-09-21)
+
+The workload is now expressed as an FPL policy (§1.9), so the six checks are no
+longer hand-built. **The verdict is unchanged: 6/6 reproduced**, which is what
+makes this a reformulation rather than a new result. Model census moved
+(**8 generators, 8 probes** — one per role member rather than one per query),
+because four of the six queries now share the internet gateway's single
+generator and carry their constraints on the check instead.
+
+Query 06 reproduces **by the violation its rule predicts** (§1.9.0's
+"expected verdict per check", now `cloud_provenance.expected_violated`), and
+query 04 by the complement term `--complement` generates.
+
+Alongside them, 65 self-derived expectations, reported separately and never
+summed:
+
+| what | outcome |
+|---|---|
+| unconditioned cross-pair denials | **48 of 50 violated** |
+| self-pair denials (host → its own rx node) | 6 of 7 violated |
+| complements of a conditional permission | **5 of 7 held** |
+| the conditional permission itself | 1 of 1 held |
+
+The 48 say that our fabricated default-deny does not describe this network:
+hosts in this datacenter reach each other freely, which the dataset never
+claimed otherwise. That is a statement about the policy we wrote, which is
+exactly why the two provenances are kept apart.
+
+**Every internet-facing complement held.** "These services and nothing else" is
+true at the perimeter for all three internet-sourced rules — the half of a
+conditional permission §1.9.3 added and which no workload had yet been able to
+check. The two that fail are both host-to-host, where no ACL sits.
 
 ### 1.7.2 ad6 — refuses the workload, for a structural reason
 
@@ -917,6 +952,41 @@ from the tables in §1.4 and §1.9.0.
       workloads** — no policy in the tree names a service on the Internet side
       or uses a wildcard service, so nothing that compiled before compiles
       differently.
+
+- [x] **Switch wl_cloud to the FPL route — DONE 2026-09-21.** Five rules over a
+      fabricated eight-role inventory, compiled with `--complement`, 71 checks.
+      6/6 oracle verdicts still reproduced (§1.7.1). The inventory IS committed
+      after all — the three blockers it was withheld for are closed, and
+      `cloud_endpoints.role_members` refuses at run time any role that names no
+      endpoint or declares an address its generator does not inject, so the
+      fabricated half cannot drift from the model.
+
+      Two things the shape forced, both worth keeping in mind for the 26x26
+      matrix:
+
+      * **A role must resolve to ONE name.** `reach_csv_to_checks` writes
+        `s=source.<name>` and `p=probe.<name>` from the same inventory entry,
+        and this dataset models a host as a `_tx`/`_rx` pair. `cloud_endpoints`
+        folds them; the internet is the one pair folded by hand, its gateway
+        being a device.
+      * **`related:0` rides on every conditional check.** The cloud model has no
+        conntrack, so `related` is declared in `FAVE_MAPPING` (not
+        `CLOUD_MAPPING`, which stays the measured layout) and is wildcard
+        everywhere — vacuous, which is the right reading for a stateless model.
+        Declared up front rather than added by `_update_mapping` at check time,
+        which is §9.29's hazard.
+
+- [ ] **`policy_builder.role_service_regex` is exponential in comment lines.**
+      Found while writing the inventory: `(comment | role | service)+` where
+      `role` and `service` themselves begin with `(newline | comment)*`, so a
+      run of comment lines before a definition can be split between the two in
+      exponentially many ways. Measured on this inventory — 10 lines 0.06s,
+      16 lines 0.20s, 20 lines 2.08s, 24 lines **over two minutes**. Blank lines
+      do not reset it (they are another alternative in the same group): three
+      blank-separated blocks of 8 measured 31.8s, worse than 20 consecutive.
+      Worked around by keeping the FPL files thin and putting the prose in
+      `bench/wl_cloud/README.md`, which is a workaround and not a fix — the next
+      person to document an inventory in this repo's usual style will hit it.
 
 - [ ] Is the 26x26 matrix parsed mechanically out of `README.txt` (per §1.8), or
       written as FPL by hand with a script checking it against the README?
