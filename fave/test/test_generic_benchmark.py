@@ -311,26 +311,31 @@ class TestStaleSocketCleanup(unittest.TestCase):
 
     _SCRIPTS = ("scripts/start_aggr.sh", "scripts/start_np.sh")
 
-    def test_start_aggr_waits_for_the_socket_before_returning(self):
-        """ The aggregator binds its unix socket only AFTER constructing its
-        engine, and `misc/await_fave.py` waits on a FILE LOCK, not on the
-        socket -- so nothing in the chain waited for the thing the next step
-        connects to. Invisible while engine construction was cheap (NetPlumber
-        builds no engine of its own; ad6 is a subprocess), and fatal once the
-        default APKeep engine became NDD, whose jar load loses the race: the
-        aggregator logged "open and bind unix socket" after topology.py had
-        already failed with "could not connect to fave". """
+    def test_start_aggr_waits_before_returning(self):
+        """ The aggregator binds its socket only AFTER constructing its engine,
+        and `misc/await_fave.py` waits on a FILE LOCK -- so nothing in the chain
+        waited for the thing the next step needs. Invisible while engine
+        construction was cheap (NetPlumber builds no engine of its own; ad6 is a
+        subprocess), and fatal once the default APKeep engine became NDD, whose
+        jar load loses the race.
+
+        WHAT it waits for has since moved from the socket to the barrier owner
+        file (TODO item 17): the bind and the registration are one statement
+        apart, and the socket is what the bind CREATES, so the old gate released
+        in between. The behaviour is tested for real in
+        `test_start_aggr_gate.py`; this only pins that a bounded wait exists at
+        all. """
         src = open('scripts/start_aggr.sh').read()
         self.assertIn('AGGR_WAIT', src,
-                      "start_aggr.sh must poll for the socket it just asked "
-                      "for, with a bounded timeout")
+                      "start_aggr.sh must poll for the aggregator it just "
+                      "started, with a bounded timeout")
 
-    def test_the_socket_wait_is_bounded_and_reports_failure(self):
+    def test_the_wait_is_bounded_and_reports_failure(self):
         """ A wait that gives up silently is the swallowed-substep shape this
         file already guards against elsewhere: the benchmark would carry on and
         blame the model. """
         src = open('scripts/start_aggr.sh').read()
-        self.assertIn('could not bind', src)
+        self.assertIn('did not register', src)
         self.assertIn('exit 1', src)
 
     def test_no_start_script_uses_a_size_test_on_a_socket(self):

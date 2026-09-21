@@ -96,6 +96,28 @@ if [ -n "$UNIX" ]; then
     SOCK_PARAMS="$SOCK_PARAMS -u"
 fi
 
+# WHERE the barrier owner file lives is util/barrier.py's business -- it honours
+# $FAVE_BARRIER_DIR and names the file itself -- so ask it rather than spell the
+# path a second time here and let the two drift.
+#
+# Failing here rather than falling back to a literal is deliberate: the only way
+# this import fails is a PYTHONPATH that does not reach fave/, and that is
+# exactly the condition under which the aggregator would later die inside a
+# backgrounded process nobody reads. Better to say so now, with the cause.
+OWNER="$("$PYTHON" -c 'from util import barrier; print(barrier.owner_path())' 2>&1)"
+if [ $? -ne 0 ] || [ -z "$OWNER" ]; then
+    echo "start_aggr: cannot locate the barrier owner file via util.barrier:" >&2
+    echo "  $OWNER" >&2
+    echo "  (is PYTHONPATH set to the fave/ directory?)" >&2
+    exit 1
+fi
+
+# A stale owner from an unclean shutdown, for the same reason the socket above
+# is removed: the wait below would return at once on a file belonging to a
+# process that is gone, and the barrier would then fail with "the aggregator
+# (pid N) no longer exists" instead of starting cleanly.
+rm -f "$OWNER"
+
 # EXTRA_PARAMS is deliberately unquoted: it carries several whitespace-separated
 # options (e.g. "--solver cadical195 --lite-acyclic") that must reach argparse as
 # separate words.
@@ -103,35 +125,48 @@ fi
 "$PYTHON" aggregator/aggregator_service.py $MAP_PARAMS $SOCK_PARAMS $BACK_PARAMS $ENGINE_PARAMS $EXTRA_PARAMS $DEBUG_PARAMS &
 AGGR_PID=$!
 
-# WAIT FOR THE SOCKET, not merely for the process to be spawned. The aggregator
-# constructs its verification ENGINE before it binds, and that is not free: the
-# APKeep backend starts a JVM and loads a jar first (the NDD engine, now the
-# default, is the slowest of them). Nothing downstream covered this gap --
-# misc/await_fave.py waits on a FILE LOCK, not on the socket -- so the caller
-# raced the bind and lost, and the failure surfaced as the thoroughly
-# misleading "could not connect to fave: /dev/shm/np_aggregator.socket" from
-# topology.py, which reads like the aggregator never started rather than like
-# it had not started YET.
+# WAIT FOR THE BARRIER OWNER FILE, not for the socket, and not merely for the
+# process to be spawned.
+#
+# The original wait was for the socket, because the aggregator constructs its
+# verification ENGINE before it binds and that is not free: the APKeep backend
+# starts a JVM and loads a jar first (the NDD engine, now the default, is the
+# slowest of them). That closed the large gap and left a small one. The
+# aggregator binds and then publishes the owner on the NEXT statement, and
+# `sock.bind()` is what CREATES the socket -- so this loop released between the
+# two, `GenericBenchmark._startup` logged "started aggregator" and called
+# `_wait_for_fave()` at once, and the first barrier found no owner. Since
+# `barrier._owner_alive` reads an absent owner as "no aggregator is registered"
+# and `BarrierError` means "can no longer complete at all", a state that lasts
+# microseconds was reported as permanent. Two benchmarks in a row hit it.
+#
+# The owner file is the right thing to wait for because it is the artifact the
+# waiter downstream actually reads, and aggregator_service.py's own comment
+# beside `publish_owner()` says so: it is written after the bind "so its
+# presence means an aggregator is actually up". Waiting for it SUBSUMES the
+# socket wait -- the publish cannot happen before the bind.
+#
+# Now unconditional. The TCP path had no wait at all, so it raced without even
+# the partial protection the unix path had; the owner file is published for both
+# socket types by the same statement.
 #
 # Bounded, and loud when it expires: a silent give-up here would let the
 # benchmark carry on and blame the model (the swallowed-substep shape of
 # AD6_PLAN.md §9.28). $AGGR_WAIT seconds, overridable for a slow box.
-if [ -n "$UNIX" ]; then
-    AGGR_WAIT="${AGGR_WAIT:-120}"
-    waited=0
-    while [ ! -S "$UNIX" ]; do
-        if ! kill -0 "$AGGR_PID" 2>/dev/null; then
-            echo "start_aggr: aggregator exited before it could bind $UNIX" >&2
-            exit 1
-        fi
-        if [ "$waited" -ge "$AGGR_WAIT" ]; then
-            echo "start_aggr: could not bind $UNIX within ${AGGR_WAIT}s" >&2
-            exit 1
-        fi
-        sleep 1
-        waited=$((waited + 1))
-    done
-fi
+AGGR_WAIT="${AGGR_WAIT:-120}"
+waited=0
+while [ ! -e "$OWNER" ]; do
+    if ! kill -0 "$AGGR_PID" 2>/dev/null; then
+        echo "start_aggr: aggregator exited before it registered at $OWNER" >&2
+        exit 1
+    fi
+    if [ "$waited" -ge "$AGGR_WAIT" ]; then
+        echo "start_aggr: aggregator did not register at $OWNER within ${AGGR_WAIT}s" >&2
+        exit 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+done
 
 #PID=$!
 #echo $PID > $DIR/aggr.pid
