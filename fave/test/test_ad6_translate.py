@@ -31,7 +31,8 @@ import lxml.etree as et
 from ad6 import translate
 from ad6.translate import (
     UnsupportedAction, UnsupportedField, field_to_match, rewrite_field_for,
-    _forward_ports, mutable_field_widths, rewritten_fields, rule_key, rule_to_ad6,
+    _forward_ports, _rewrites, mutable_field_widths, rewritten_fields, rule_key,
+    rule_to_ad6,
     split_port_direction, supported_fields, table_to_ad6,
 )
 from rule.rule_model import Forward, Miss, Rewrite, Rule, RuleField, Match
@@ -523,6 +524,68 @@ class TestIntegerMutableFieldsAreUnchanged(unittest.TestCase):
         self.assertEqual(mutable_field_widths({'packet.ether.vlan'}),
                          {'vlan': 12},
                          "MUTABLE_FIELD_WIDTHS still wins for vlan")
+
+
+class TestSubnetRewritesPreserveTheHostBits(unittest.TestCase):
+    """ `_rewrites` used to require an integer, so a NAT to a SUBNET had no
+    encoding. wl_cloud's 28 NAT rules rewrite the destination to a /23-/25
+    service subnet (24 distinct values, none a host address), which is the
+    SECOND boundary that closing the match-side one uncovered
+    (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+
+    Owner ruling 2026-09-21: the unwritten bits are PRESERVED from the incoming
+    header -- Hassel's `(h & mask) | rewrite` -- so a partially determined value
+    becomes a ternary rewrite whose don't-cares take ad6's existing frame axiom.
+    """
+
+    @staticmethod
+    def _rule(name, value):
+        return Rule('dev', 'tbl', 0, match=Match([]),
+                    actions=[Rewrite([RuleField(name, value)])])
+
+    def test_a_subnet_rewrite_determines_only_its_prefix_bits(self):
+        [(name, value)] = _rewrites(
+            self._rule('packet.ipv4.destination', '10.0.0.0/24'), lambda p: 0)
+        self.assertEqual(name, 'packet.ipv4.destination')
+        self.assertTrue(value.startswith('b'))
+        bits = value[1:]
+        self.assertEqual(len(bits), 32)
+        self.assertEqual(bits[:24], '0' * 4 + '1010' + '0' * 16)
+        self.assertEqual(bits[24:], 'x' * 8,
+                         "the 8 host bits are PRESERVED, so they must be "
+                         "don't-cares in the rewrite -- pinning them to 0 would "
+                         "NAT every flow onto one host, which is how this was "
+                         "found in the first place")
+
+    def test_a_host_rewrite_stays_a_plain_integer(self):
+        """ The no-regression end: a fully determined value keeps the integer
+        form every benchmark uses today, so nothing that encoded before encodes
+        differently. """
+        [(_, value)] = _rewrites(
+            self._rule('packet.ether.vlan', '5'), lambda p: 0)
+        self.assertEqual(value, 5)
+        self.assertIsInstance(value, int)
+
+    def test_a_wildcard_rewrite_is_still_a_CLEAR_not_a_preserve(self):
+        """ The distinction the ternary path must not swallow. An all-`x` value
+        CLEARS (the field becomes unconstrained downstream, which is what FaVe's
+        post_routing does to in_port/out_port); a PARTIALLY determined one
+        preserves. Both "write nothing" to the unwritten bits and they mean
+        opposite things there, so the wildcard test stays ahead of the ternary
+        path. """
+        [(_, value)] = _rewrites(
+            self._rule('packet.ether.vlan', 'x' * 16), lambda p: 0)
+        self.assertIsNone(value, "an all-wildcard rewrite is a CLEAR")
+
+    def test_every_wl_cloud_NAT_target_now_encodes(self):
+        """ The 24 distinct subnet targets the dataset actually carries, by
+        prefix length, rather than one hand-picked example. """
+        for cidr, plen in (('10.0.0.0/24', 24), ('10.0.12.0/23', 23),
+                           ('10.0.16.128/25', 25)):
+            with self.subTest(cidr=cidr):
+                [(_, value)] = _rewrites(
+                    self._rule('packet.ipv4.destination', cidr), lambda p: 0)
+                self.assertEqual(value[1:][plen:], 'x' * (32 - plen))
 
 
 class TestUnsupportedFieldsRaise(unittest.TestCase):

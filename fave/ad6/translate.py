@@ -275,7 +275,7 @@ def _ternary_text(name: str, value: Any) -> str:
     The width is FaVe's own (`netplumber/mapping.py`'s FIELD_SIZES), which is
     the same number `mutable_field_widths` declares to ad6, so the two agree by
     construction. """
-    from util.ip6np_util import field_value_to_bitvector
+    from util.ip6np_util import VectorConstructionError, field_value_to_bitvector
     from rule.rule_model import RuleField
 
     width = _fave_field_width(name)
@@ -286,7 +286,17 @@ def _ternary_text(name: str, value: Any) -> str:
             "bit-vector. Add it to netplumber/mapping.py's FIELD_SIZES."
             % (name, value))
 
-    bits = ''.join(field_value_to_bitvector(RuleField(name, value)).vector)
+    try:
+        bits = ''.join(field_value_to_bitvector(RuleField(name, value)).vector)
+    except VectorConstructionError as exc:
+        # FaVe itself cannot encode the value, so neither can ad6. Reported as
+        # an UnsupportedField rather than allowed to escape: this module's
+        # contract is that a value it cannot represent is REFUSED by name, and
+        # a VectorConstructionError surfacing from a caller three layers up is
+        # the "fails deep inside, long after the rule is out of sight" failure
+        # the refusals exist to prevent.
+        raise UnsupportedField(
+            "field %r cannot encode %r as a bit-vector: %s" % (name, value, exc)) from exc
     if len(bits) != width:
         raise UnsupportedField(
             "field %r normalises %r to %d bits, but FaVe declares the field %d "
@@ -557,9 +567,21 @@ def _rewrites(rule: Any, port_id: Any) -> Any:
 
     Measured across all four benchmarks: no rule carries more than ONE
     `Rewrite` action, so there is never a per-target disagreement, and every
-    value is either an integer, a port name, or an all-`x` wildcard. Anything
-    else is refused rather than guessed -- ad6 stores a rewrite as an integer,
-    so a value it cannot represent must not be silently dropped. """
+    value is either an integer, a port name, or an all-`x` wildcard.
+
+    A PARTIALLY determined value -- a CIDR, or a bit-vector with some don't-
+    cares -- becomes a ternary rewrite: the determined bits are written and the
+    rest are PRESERVED from the incoming header (`AD6_PLAN.md` §9.36, owner
+    ruling 2026-09-21, which is Hassel's `(h & mask) | rewrite`). wl_cloud's 28
+    NAT rules need it -- they rewrite the destination to a SUBNET, not to a
+    host, so the host bits must survive.
+
+    THREE OUTCOMES, AND THEY ARE GENUINELY DIFFERENT. An all-`x` value is a
+    CLEAR (`None` here), which frees the field downstream; a partially
+    determined one PRESERVES the bits it does not write; a fully determined one
+    replaces the field outright. The first two both "write nothing" to the
+    unwritten bits and mean opposite things there, so the wildcard test stays
+    ahead of the ternary path rather than being folded into it. """
     collected = []
     seen = {}
     for action in (getattr(rule, 'actions', None) or []):
@@ -573,10 +595,12 @@ def _rewrites(rule: Any, port_id: Any) -> Any:
                 try:
                     value = int(field.value)
                 except (TypeError, ValueError):
-                    raise UnsupportedAction(
-                        "rewrite of %r to %r: ad6 stores a rewrite as an "
-                        "integer and this value is neither one nor a wildcard."
-                        % (field.name, field.value))
+                    try:
+                        value = _ternary_text(field.name, field.value)
+                    except UnsupportedField as exc:
+                        raise UnsupportedAction(
+                            "rewrite of %r to %r has no ad6 encoding: %s"
+                            % (field.name, field.value, exc)) from exc
             if name in seen and seen[name] != value:
                 raise UnsupportedAction(
                     "rule rewrites %r to both %r and %r; a rule's actions share "
