@@ -274,15 +274,29 @@ class TestTheShippedExamples(unittest.TestCase):
     @unittest.skipUnless(
         os.path.isfile(os.path.join(_HERE, 'examples', 'fml-paper-policy.txt')),
         "examples/fml-paper-policy.txt not present")
-    def test_fml_paper_policy_compiles_at_all(self):
-        """ It did not. `All ---> All.ARP` raised `Service All.ARP unbekannt.`
-        for a service `def role All` declares with `offers ARP` -- verified
-        still failing at HEAD~8, so it predates this work. """
+    def test_fml_paper_policy_gets_PAST_the_superrole_and_fails_on_its_data(self):
+        """ This file used to raise `Service All.ARP unbekannt.` -- the superrole
+        defect this module is about -- and it now gets past that and is refused
+        for a different, real reason: `protocol = 'arp'` is not an IP protocol
+        (TODO item 21). Asserting WHICH refusal is the point; a test that only
+        checked "raises" would have passed before the superrole fix too.
+
+        Item 19's property itself is asserted on fixtures above
+        (`test_a_service_named_on_the_group_resolves`), so nothing is lost by
+        this file no longer compiling end to end.
+        """
+        from policy_exceptions import UnknownProtocolException
+
         with open(os.path.join(_HERE, 'examples', 'fml-paper-policy.txt'),
                   encoding='utf-8') as raw:
-            policy = _build(raw.read())
+            text = raw.read()
 
-        self.assertIn('protocol:arp', policy.roles_to_csv())
+        with self.assertRaises(UnknownProtocolException) as caught:
+            _build(text)
+
+        self.assertIn('arp', str(caught.exception))
+        self.assertNotIn('unbekannt', str(caught.exception),
+                         "still failing on the superrole, not on the protocol")
 
     @unittest.skipUnless(
         os.path.isfile(os.path.join(_HERE, 'examples', 'ifi-policy.txt')),

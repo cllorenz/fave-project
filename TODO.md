@@ -1600,7 +1600,7 @@ docstring; I should have read it.
       silently. A test that generates under several seeds and asserts every
       block whose order varies is uni-action catches that.
 
-### 21. `to_iptables` crashes on a service with a protocol but no port (found 2026-09-21)
+### 21. `protocol` was never validated, and three renderers disagreed — DONE (found and fixed 2026-09-21)
 **Pre-existing**, found while regression-testing item 20 — reproduced on the
 unmodified generator, so it is not a consequence of that change.
 
@@ -1608,20 +1608,75 @@ unmodified generator, so it is not a consequence of that change.
     KeyError: 'port'
     policy.py: serviceinfo = " --protocol " + cond['protocol'] + serviceport + str(cond['port'])
 
-`def service Prot1616` declares `protocol = 1616` and no port — a raw IP
-protocol number, which is legitimate FPL and which `roles_to_csv` renders
-without complaint (`protocol:1616`). `to_iptables` assumes every condition with
-a `protocol` also has a `port`.
+**It is three defects, and the crash is the least of them.** Measured on
+`examples/fml-paper-policy.txt`, the only file in the tree that writes anything
+but `'tcp'` or `'udp'`:
 
-Newly *reachable* rather than new: `examples/fml-paper-policy.txt` could not be
-compiled at all until item 19, so `-fw` never got that far.
+| declared | `roles_to_csv` | `to_iptables` |
+|---|---|---|
+| `protocol = 'arp'` | `protocol:arp` | `KeyError('port')` |
+| `protocol = 1616` (int) | `protocol:1616` | `TypeError` (int + str) |
+| `port = 22`, no protocol | `port:22` | **no rule at all** |
 
-- [ ] **Emit `--protocol <p>` with no port** when the service names none —
-      which is what iptables itself expects for a protocol-only match — rather
-      than reading a key that is not there.
-- [ ] **`fml-paper-policy.txt` is the test**, as it was for item 19: it is a
-      published policy rather than a fixture, and it exercises three
-      protocol-only services (`Prot1616`, `Prot1717`, `Prot1818`).
+The third is silent and is the dangerous one: `serviceinfo` stayed empty and the
+emission is guarded by `if serviceinfo`, so the rule vanished. Under a
+default-deny ruleset the generated firewall silently withheld traffic the policy
+**permits** — it no longer implements the specification it was derived from,
+which is exactly what `bench/wl_generic_fw` exists to detect and cannot, because
+no scenario there has a port-only service.
+
+**And "emit `--protocol 1616`" would have been the wrong fix.** `protocol` maps
+to `packet.ipv6.proto` in *both* consumers (`fave/util/match_util.py:36`,
+`fave/iptables/generator.py:77`), and `normalize_ipv6_proto` accepts six names.
+An IP protocol number is one byte, so 1616 is not one under any reading. Neither
+target can represent these values; the matrix was compiling into checks the
+verifier could not read.
+
+- [x] **Validated at the declaration** (`UnknownProtocolException`), where the
+      writer can act on it, rather than in one renderer.
+      `protocol` is an IP protocol and nothing else (owner, 2026-09-21).
+      Layer 2 is deliberately out of scope rather than forgotten: FPL says layer
+      2 with role attributes (`vlan`), and a service-level `l2proto` would be
+      the way to write ARP if a policy ever needs it — nothing does (owner).
+- [x] **A protocol NUMBER is refused too**, even a valid one. 6 is tcp, but both
+      consumers reach the field through a name table, so a number would be
+      dropped downstream rather than understood. Refusing is honest until the
+      vocabulary accepts numbers on *both* sides.
+- [x] **`to_iptables` emits `--protocol <p>` with no port** when the service
+      names none — icmp and gre carry none — and `str()`s the value.
+- [x] **A port without a protocol is refused when writing iptables**
+      (`PortWithoutProtocolException`), *not* at the declaration. The two
+      targets genuinely differ: FaVe matches `packet.upper.dport` regardless of
+      the upper protocol, so the shape is meaningful in the model and in the
+      matrix; only iptables needs `-p` to reach a port match, and assuming tcp
+      would invent policy.
+- [x] **The duplicated vocabulary is pinned.** `Service.valid_protocols`
+      restates `normalize_ipv6_proto`'s domain because `policy_translator/` is a
+      standalone source root and must not import `fave/`.
+      `fave/test/test_protocol_vocabulary_agrees.py` fails if the two drift, in
+      either direction — guessing instead of checking is how `arp` and `1616`
+      came to be written at all.
+- [x] **Tests:** `policy_translator/test/test_service_protocol.py` (11) and the
+      cross-tree test above (3). Mutation-verified four ways; widening the
+      vocabulary with `arp` turns the cross-tree test red as well, which is the
+      guard doing its job.
+- [x] **Nothing else moves.** Every other inventory declares only `'tcp'` and
+      `'udp'`: all nine workloads, `wl_generic_fw/default`, `examples/ifi-policy`
+      and `examples/up-policy` produce byte-identical matrices, and every
+      firewall scenario a byte-identical rule set.
+
+**`examples/fml-paper-policy.txt` no longer compiles**, and that is the right
+answer rather than a regression to absorb. It is an FML-paper policy using FML's
+own notion of "protocol"; three of its services (`Prot1616`, `Prot1717`,
+`Prot1818`) are not IP protocols, `ARP` is layer 2, and `SSH` names a port with
+no protocol. Item 19's test on that file is replaced by one asserting **which**
+refusal it gets — it now gets *past* the superrole and fails on its data — and
+item 19's own property is asserted on fixtures, so no coverage is lost.
+
+- [ ] **Open, if the example is wanted as a working policy:** give `SSH` a
+      `protocol`, and either drop the `ProtNNNN` rules or express them once an
+      `l2proto`/raw-protocol attribute exists. That is a change to published
+      data and has not been made.
 
 ---
 

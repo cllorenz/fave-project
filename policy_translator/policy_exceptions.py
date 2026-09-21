@@ -122,6 +122,62 @@ class UnrenderableConditionException(PolicyException):
             "`state = RELATED,ESTABLISHED`, das als `X` geschrieben wird."
         ) % (field, value)
 
+class UnknownProtocolException(PolicyException):
+    """A service naming something that is not an IP protocol.
+
+    `protocol` is an IP protocol and nothing else: both consumers of a service
+    map it to `packet.ipv6.proto` (`fave/util/match_util.py` and
+    `fave/iptables/generator.py`), so a value outside that vocabulary is one
+    neither the model nor a firewall can represent.
+
+    It was not checked anywhere, and the three renderers disagreed about what
+    to do with it: `roles_to_csv` wrote `protocol:1616` without complaint,
+    `to_iptables` raised `TypeError` on an int and `KeyError('port')` on a name
+    with no port, and FaVe's `normalize_ipv6_proto` rejects both -- so a matrix
+    could compile into checks the verifier could not read. Refused at the
+    declaration now, where the writer can act on it (TODO item 21).
+
+    Layer 2 is deliberately out of scope rather than forgotten: FPL expresses
+    it through role attributes (`vlan`), and a service-level `l2proto` would be
+    the way to say ARP if a policy ever needs to (owner, 2026-09-21).
+    """
+
+    def __init__(self, service: str, value: Any, known: List[str]) -> None:
+        self.message = (
+            "Service %s: %r ist kein IP-Protokoll. Erlaubt sind %s. "
+            "`protocol` bezeichnet ausschließlich ein IP-Protokoll -- Layer-2-"
+            "Protokolle wie ARP lassen sich damit nicht ausdrücken (dafür wäre "
+            "ein eigenes Attribut nötig), und eine Protokollnummer ist kein "
+            "gültiger Wert, da beide Verbraucher den Namen erwarten."
+        ) % (service, value, ", ".join(known))
+
+
+class PortWithoutProtocolException(PolicyException):
+    """A service naming a port but no protocol, at the point of writing a
+    firewall rule.
+
+    Refused HERE rather than at the declaration, because the two targets differ
+    in what they can express: FaVe matches `packet.upper.dport` independently of
+    the upper protocol, so a port-only service is meaningful in the model and in
+    the matrix. iptables cannot match a port without `-p`, and choosing tcp on
+    the writer's behalf would invent policy.
+
+    `to_iptables` used to build no service match at all for such a service and
+    then drop the rule entirely, because the emission is guarded by `if
+    serviceinfo`. Under a default-deny ruleset that silently withholds traffic
+    the policy PERMITS -- the generated firewall no longer implements the
+    specification it was derived from (TODO item 21).
+    """
+
+    def __init__(self, service_port: Any, role_from: str, role_to: str) -> None:
+        self.message = (
+            "Regel %s -> %s nennt einen Port (%s) ohne Protokoll. iptables "
+            "kann einen Port nur zusammen mit `-p` prüfen, und ein angenommenes "
+            "`tcp` wäre eine erfundene Richtlinie. Dem Service ein `protocol` "
+            "geben."
+        ) % (role_from, role_to, service_port)
+
+
 class InvalidAttributeException(PolicyException):
     def __init__(self, name: str) -> None:
         self.message = "Attribut %s ist ungültig." % name

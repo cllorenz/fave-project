@@ -33,6 +33,8 @@ from policy_exceptions import NameTakenException, InvalidAttributeException, Inv
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
 from policy_exceptions import NoServicesOfferedException
 from policy_exceptions import UnrenderableConditionException
+from policy_exceptions import UnknownProtocolException
+from policy_exceptions import PortWithoutProtocolException
 from policy_logger import PT_LOGGER
 
 #: The builtin role standing for everything outside the administrative boundary
@@ -836,8 +838,28 @@ class Policy(object):
                     if 'provider' in cond:
                         provider = cond['provider']
                     if 'protocol' in cond:
-                        serviceport = " --sport " if provider == from_ else " --dport "
-                        serviceinfo = " --protocol " + cond['protocol'] + serviceport + str(cond['port'])
+                        # A service may name a protocol WITHOUT a port -- icmp
+                        # and gre carry none. This used to read `cond['port']`
+                        # unconditionally and raise `KeyError('port')`.
+                        serviceinfo = " --protocol " + str(cond['protocol'])
+                        if 'port' in cond:
+                            serviceport = (
+                                " --sport " if provider == from_ else " --dport "
+                            )
+                            serviceinfo += serviceport + str(cond['port'])
+                    elif 'port' in cond:
+                        # A port with no protocol is expressible in FaVe --
+                        # `packet.upper.dport` does not depend on the upper
+                        # protocol -- but not in iptables, which needs `-p` to
+                        # reach a port match. Assuming tcp would invent policy.
+                        #
+                        # This branch used to fall through to `serviceinfo = ""`
+                        # and the rule was then dropped by the `if serviceinfo`
+                        # guard below: under a default-deny ruleset the
+                        # generated firewall silently withheld traffic the
+                        # policy PERMITS (TODO item 21).
+                        raise PortWithoutProtocolException(
+                            cond['port'], from_, to_)
                     else:
                         serviceinfo = ""
                     # check for states
@@ -1282,6 +1304,25 @@ class Service(object):
 
     valid_service_attr = ["protocol", "port"]
 
+    #: The IP protocols a service may name. `protocol` is an IP protocol and
+    #: nothing else (owner decision 2026-09-21): both consumers of a service
+    #: map it to the same packet field -- `fave/util/match_util.py` and
+    #: `fave/iptables/generator.py` each send `protocol` to
+    #: `packet.ipv6.proto` -- so a value outside this set is one neither the
+    #: model nor a firewall can represent.
+    #
+    #: This list DUPLICATES `fave/util/packet_util.py`'s `normalize_ipv6_proto`,
+    #: because policy_translator is a standalone tree and cannot import from
+    #: fave/. The duplication is pinned by
+    #: `fave/test/test_protocol_vocabulary_agrees.py`, which fails if the two
+    #: drift apart -- the alternative, guessing here, is how `arp` and `1616`
+    #: came to be written in the first place.
+    #
+    #: Layer 2 is deliberately absent. FPL expresses layer 2 through role
+    #: attributes (`vlan`); a service-level `l2proto` would be the way to say
+    #: ARP, and nothing needs it yet (owner, 2026-09-21).
+    valid_protocols = ["gre", "esp", "icmp", "icmpv6", "tcp", "udp"]
+
     def __init__(self, name: str, policy: "Policy", attributes: Optional[Dict[str, Any]] = None) -> None:
         """Initialises a Service object with the given name, policy, attributes
         and    services.
@@ -1318,13 +1359,26 @@ class Service(object):
                 valid attributes.
         """
 
-        if key in self.valid_service_attr:
-            try:
-                self.attributes[key] = ast.literal_eval(value)
-            except Exception:
-                raise InvalidValueException(key, value)
-        else:
+        if key not in self.valid_service_attr:
             raise InvalidAttributeException(key)
+
+        try:
+            parsed = ast.literal_eval(value)
+        except Exception:
+            raise InvalidValueException(key, value)
+
+        # Checked HERE, where the writer can act on it, rather than in a
+        # renderer. `examples/fml-paper-policy.txt` declares `protocol = 1616`
+        # and `protocol = 'arp'`, and the three consumers disagreed about what
+        # to do with them: `roles_to_csv` rendered `protocol:1616` happily,
+        # `to_iptables` raised TypeError on the int and KeyError('port') on the
+        # name, and FaVe's own normaliser rejects both -- so the matrix
+        # compiled into checks the verifier could not read. One refusal, at the
+        # declaration (TODO item 21).
+        if key == 'protocol' and parsed not in self.valid_protocols:
+            raise UnknownProtocolException(self.name, parsed, self.valid_protocols)
+
+        self.attributes[key] = parsed
 
     def to_json(self) -> Dict[str, Any]:
         """ Dump service as json.
