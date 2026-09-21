@@ -373,9 +373,28 @@ the right place, which is the designed behaviour.
 adding: it is the first workload in the suite that rewrites an ADDRESS field, and
 it converts "a generic model checker pays for genericity" from an argument into a
 measured boundary. It belongs in `AD6_PLAN.md` §7's expressiveness table.
-Whether it is *removable* — ad6's `<port>` text already accepts a `value/prefix`
-form, so a prefix-capable `fieldmatch` may be reachable — is ad6-core work and an
-owner decision, not something to slip in.
+
+**RESOLVED 2026-09-21, and the boundary was ONE THING TOO MANY.** The refusal was
+an artefact of `ConvertFieldToVariables`, not of the encoding: ad6's two OTHER
+converters (`ConvertPortToVariables`, `ConvertCIDRToVariables`) were already
+prefix-capable, and the newest one took an integer only because the fields it was
+built for (`vlan`, `in_port`, `out_port`) are exact-valued. `<fieldmatch>` now
+takes a TERNARY bit-vector (`AD6_PLAN.md` §9.35), so a rewritten field can be
+matched by prefix. Measured on this dataset: **2,480 of 2,480 distinct address
+match values translate, 0 refused** — where previously every one was refused.
+
+**But the workload still does not translate, for a SECOND and different reason,
+which the first was hiding.** Its 28 NAT rules rewrite the destination to a
+SUBNET (`10.0.0.0/24`, `10.0.12.0/23`, `10.0.16.128/25` — 24 distinct values,
+none of them a host address), and `translate._rewrites` requires a rewrite value
+to be an integer or a wildcard: **0 of 24 accepted**. A masked REWRITE is a
+deeper change than a masked match — it touches
+`Instantiator._CreateMutationConstraints`'s per-bit frame axioms rather than a
+converter — and it needs a semantic ruling first: under Hassel's
+`(h & mask) | rewrite` the unwritten bits are PRESERVED from the incoming header,
+not made arbitrary, so the encoding is plausibly "overwrite the determined bits,
+frame-copy the rest" — which is what those axioms already do per bit. **Not
+implemented; owner decision.**
 
 ### 1.7.3 APKeep — drops all three reachable pairs
 

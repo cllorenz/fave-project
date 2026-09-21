@@ -7197,3 +7197,134 @@ choice has no stamp, add the stamp before quoting the number.
       for the XMLUtils/SATUtils/Instantiator "generic infrastructure" layer (§8.3, still
       open — the three new tests are a start, not full coverage); revisit the
       frontend/backend seam with two frontends now in hand (§8.4, still open).
+
+---
+
+### 9.35 A mutable field can be matched by PREFIX -- and a latent negation inversion found on the way
+
+**DONE 2026-09-21.** Owner direction: option A', a mask-capable `<fieldmatch>`
+rather than a prefix-capable one, *"I don't want two idioms diverging later"* --
+a ternary form subsumes a prefix, so this path never needs a second mechanism
+bolted on beside it.
+
+#### 9.35.1 The boundary, and why it was narrower than it looked
+
+A field that any rule REWRITES must be matched with `<fieldmatch>` everywhere
+(this module's docstring, §5.4 Stage A2), and `<fieldmatch>` compared for
+EQUALITY -- so "rewritten AND matched by CIDR" was inexpressible. wl_cloud is
+the first workload to need both (`CLOUD_BENCH_PLAN.md` §1.7.2: NAT on
+`ipv4_dst`, plus 1,668 non-/32 prefix matches on it), and it was refused.
+
+That reads as an encoding limit of a generic model checker. It was not. ad6 had
+**two prefix-capable converters already** -- `ConvertPortToVariables` splits on
+`/` and truncates, `ConvertCIDRToVariables` truncates to `Count*2` -- and
+`ConvertFieldToVariables`, the newest, took an integer only because the fields
+§9 built it for (`vlan`, `in_port`, `out_port`) are exact-valued. The boundary
+was the third converter, not the encoding. **Worth stating plainly, because the
+publishable claim differs:** "a generic model checker cannot express address NAT
+alongside prefix matching" would not have survived a reader opening
+`ConvertPortToVariables`.
+
+#### 9.35.2 What changed
+
+`<fieldmatch>` text is now EITHER a decimal (unchanged, what every caller passed
+before) OR a ternary bit-string behind the `XMLUtils.TERNARY` (`b`) sigil, e.g.
+`b00000000010x`. The sigil is what keeps them apart: `101` is both a decimal and
+a bit pattern, so the caller declares which it means rather than the reader
+guessing.
+
+| file | change |
+|---|---|
+| `xmlutils.py` | `_CanonizeTernary` (sibling of `_CanonizeBitvector`, which takes an `int` and whose every caller passes one); `ConvertFieldToVariables` dispatches on the sigil and emits NO literal for a don't-care |
+| `instantiator.py` | `_HandleFieldMatches` no longer does `int(Value)` |
+| `fave/ad6/translate.py` | `_ternary_text`; `field_to_match`'s mutable branch renders a non-integer value as ternary; `mutable_field_widths` declares an address at FaVe's own `FIELD_SIZES` width |
+
+**An integer keeps the decimal form** -- byte-identical output for every field
+that reached `<fieldmatch>` before. That is not just tidiness: ad6's declared
+width for a field may deliberately differ from FaVe's (`MUTABLE_FIELD_WIDTHS`
+maps `vlan` to 12 where `FIELD_SIZES` says 16), so rendering those as full-width
+FaVe bit-vectors would make `_CanonizeTernary` refuse them outright.
+
+`_CanonizeTernary` requires the EXACT declared width. A short string is refused
+rather than padded, because the two plausible pads disagree -- a leading `0`
+narrows the match, a leading `x` widens it.
+
+#### 9.35.3 The prerequisite: a NEGATED `<fieldmatch>` was encoded POSITIVELY
+
+Pinned before the prefix work, at the owner's direction, because it was the one
+part of the encoding being inferred rather than confirmed. It was broken.
+
+`GenUtils.fieldmatch(field, value, negated=True)` sets `negated="true"`, but
+`KripkeUtils._HandleRule`'s FieldMatch branch read only `ATTRFIELD` and `.text`
+and built the alias with `XMLUtils.variable()`'s DEFAULT polarity. Since
+`_HandleFieldMatches` defines `alias <-> (bits == value)`, an always-positive use
+site encodes `NOT (f == v)` as `(f == v)`. **An INVERSION, not a dropped match**
+-- the model stays well-formed and answers the opposite question. Confirmed by
+probe before fixing: the two elements produced byte-identical output.
+
+**Latent, not live.** `fave/test/test_ad6_translate.py` records that no benchmark
+emits a negated match (0 of ~95k rules), so no result was wrong. The instructive
+part is *how* it survived: the tests that existed pinned the PRODUCER
+(`field_to_match` emits `negated="true"`) and nothing pinned the CONSUMER. It
+became reachable only because A' routes addresses through `<fieldmatch>` and the
+compliance path negates them.
+
+A second defect came with it. Positives on one field OR together (the admission
+set, `testFieldMatchGatesOnMutatedSSAValue`); their complements must AND, by
+De Morgan. OR-ing negatives makes any two distinct values a TAUTOLOGY that
+silently admits everything. Mixed polarities now compose as
+`(OR of positives) AND (AND of negatives)`.
+
+#### 9.35.4 Verified by mutation, and one guard removed because it could not be
+
+Seven tests in `instantiatortest.py` (registered in `instantiatorsuite.py` -- a
+MANUAL registry, and the test count not moving is what caught the omission), plus
+eight in `fave/test/test_ad6_translate.py`.
+
+Four mutations, three caught: don't-cares emitting literals again -> 4 red;
+kripke ignoring polarity -> 3 red; negatives OR-ed -> 1 red.
+
+**The fourth was NOT caught, and that changed the code.** The first cut copied
+`ConvertCIDRToVariables`'s empty-conjunction guard (all-`x` -> `constant()`).
+Removing it turned nothing red, and measuring the instance showed why -- identical
+clause count and verdict either way. The hazard that guard documents is specific
+to `Instantiator._ShortenPrefixes` splicing a `/0` into other CIDRs'
+conjunctions, machinery a `<fieldmatch>` never reaches (`_HandleFieldMatches`
+consumes the result as one side of an `<equality>`). **The guard came back out:**
+it was defensive code resting on a rationale imported from a neighbouring
+converter without checking that it applied, and an untestable branch is how a
+workaround becomes folklore. The test stayed -- it pins that an all-`x` mask
+admits everything, which is real and IS caught by the first mutation.
+
+One existing test INVERTED rather than deleted (§9.25.4's pattern):
+`test_a_rewritten_field_with_a_NON_NUMERIC_value_is_refused` ->
+`..._is_now_a_PREFIX_match`.
+
+Regression: ad6 `make test` 10 suites OK (instantiator 65 -> 72); fave `fast`
+686 -> 694; the ad6 fave suites 174 passed / 2 skipped under
+`FAVE_ALLOW_OUT_IFACE=1` -- which is the load-bearing one, since wl_ifi, wl_up,
+wl_i2 and wl_stanford emit no don't-care and so must encode identically.
+
+#### 9.35.5 What it bought, measured -- and the second boundary it uncovered
+
+On wl_cloud's own data (2,941 rules): **2,480 of 2,480 distinct address match
+values now translate, 0 refused.** Every one of them is a clean prefix -- the
+dataset carries ZERO interior don't-cares on either address field (dst: 1,259
+wildcard / 20 `/22` / 448 `/25` / 1,200 `/30` / 14 `/32`), so the ternary form's
+extra generality over a prefix form is unexercised by this workload. It was still
+the right call: it is one mechanism rather than two.
+
+**The workload still does not translate**, for a second reason the first was
+hiding: its 28 NAT rules rewrite the destination to a SUBNET (24 distinct values,
+`/23`-`/25`, none a host), and `translate._rewrites` requires an integer --
+**0 of 24 accepted**. A masked REWRITE is a deeper change than a masked match: it
+touches `_CreateMutationConstraints`'s per-bit frame axioms, not a converter. It
+also needs a semantic ruling first -- under Hassel's `(h & mask) | rewrite` the
+unwritten bits are PRESERVED from the incoming header rather than made arbitrary,
+so the encoding is plausibly "overwrite the determined bits, frame-copy the rest",
+which is what those axioms already do per bit. **Not implemented; owner decision.**
+
+And the cost question is untouched by any of this: making `ipv4_src`/`ipv4_dst`
+mutable gives every node its own 64-bit SSA copy, and wl_cloud is ~2,500 nodes by
+`_LEAF_SPAN`'s arithmetic. Translatable is not solvable; size the instance before
+solving it.
