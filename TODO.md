@@ -1523,7 +1523,7 @@ matrix where it produced an error, and `ifi-policy.txt` was corrected (below).
       invariant now means the two forms read *different sets* rather than the
       same one. No tracked file distinguishes them today.
 
-### 20. `to_iptables` drops the services of a stateful pair (found 2026-09-21)
+### 20. `to_iptables` drops the services of a stateful pair — DONE (found and fixed 2026-09-21)
 **The same defect as item 19's rendering half, in a second renderer**, found
 while fixing that one. `to_iptables` computes
 
@@ -1542,19 +1542,86 @@ port: 80, provider: Watcher}]`, and the generated firewall contains the forward
 `Watcher -> Server` ACCEPT and **nothing** for the return direction — the HTTP
 permission is silently absent.
 
-Not fixed here: the request was `roles_to_csv`, and this is rule generation
-rather than rendering — chains, directions, `singleway` and the jump target all
-turn on `relatedrule`, so it needs its own reading rather than the same one-line
-treatment. It is also unexercised today: no workload runs `-fw`, and
-`examples/ifi-policy.txt` produces an empty Access Rules section because its
-roles carry `vlan`/`hosts` rather than `ipv4`.
+**The suppression itself is right**, which I had not seen when filing this.
+The generator emits `-m conntrack --ctstate ESTABLISHED -j ACCEPT` once,
+unconditionally, for v4 and v6, so a direction carrying *only* the stateful
+condition genuinely needs no rule of its own. `relatedrule` asked one question
+where there are two, and conflated "carries state" with "carries nothing but
+state" — the same conflation `roles_to_csv` made with `(X)`. The per-condition
+loop was already correct: a `state` condition contributes no `serviceinfo` and
+emits nothing, a `protocol` condition builds its rule. Only the
+`ip4rule`/`ip6rule` guard was in the way.
 
-- [ ] **Decide what a mixed pair should emit** — most likely the conntrack
-      ESTABLISHED rule *and* the per-service rules, which is what the CSV now
-      says — then make `relatedrule` select an additional rule rather than
-      suppress the others.
-- [ ] **Give it the fixture above as a test.** It is three roles and two rules,
-      and it is the shape that has no coverage at all today.
+- [x] **`relatedrule` narrowed** to `stateful and len(conditions) == 1`.
+      Deliberately *not* "has a non-stateful condition": a pair with **no**
+      conditions is a plain permission, not something the ESTABLISHED rule
+      covers, and that spelling drops it — mutation-tested, it turns 11 of the
+      existing 23 `to_iptables` tests red.
+- [x] **`singleway` now also requires the direction not be stateful.** The half
+      a one-line fix misses. `singleway` decides whether connection tracking can
+      be switched off for a pair (`--ctstate NEW,NOTRACK` plus a raw/PREROUTING
+      NOTRACK), and it asks that of the *reverse* direction only — sound while a
+      stateful direction emitted nothing, wrong once a mixed one emits rules,
+      because NOTRACK would disable the very tracking the global ESTABLISHED
+      rule needs to admit the return traffic. My first draft did produce
+      `--ctstate NEW,NOTRACK` on the service rule.
+- [x] **Tests:** `policy_translator/test/test_iptables_stateful_pair.py` (9),
+      reusing `test_to_iptables.py`'s block vocabulary. Mutation-verified three
+      ways. They assert the *unchanged* half too — a state-only direction still
+      emits no rule, and the global ESTABLISHED rule is present, so that
+      assertion is not a hole.
+- [x] **Nothing else moves.** Every existing scenario generates a
+      byte-identical rule set at a fixed seed: the five in the determinism
+      checker, `wl_generic_fw/default`, and `examples/ifi-policy.txt`. None of
+      them contains a mixed direction, which is *why* the defect survived —
+      pinned as a test that goes red if one is ever added to the benchmark
+      scenario.
+
+**On the ordering worry in the filing above: it was wrong and is withdrawn.**
+`to_iptables` output does vary run to run (`get_atomic_roles` returns a set, and
+`policy_builder.py:393` iterates it to add default self-reachability), but every
+reordering is confined to a **uni-action** block — anti-spoofing is literal
+`-j DROP`, and every access rule ends with `jumptarget`, which is loop-invariant.
+Measured over 5 scenarios × 24 seeds: block sequence and per-block multisets
+identical, only those two blocks permute. Permuting rules that share a terminal
+target is semantically the identity, so the manual verification this mechanism
+rests on is unaffected. `test_to_iptables.py` already said so in its module
+docstring; I should have read it.
+
+- [ ] **What survives is artifact reproducibility, not correctness.** A
+      generated rule set cannot be compared byte for byte across runs, which
+      matters only if it becomes a tracked artifact or a gate — the §1.8
+      argument, and the same one that put `sorted()` in `roles_to_json`. Cheap
+      to fix; not urgent.
+- [ ] **Worth pinning while doing so:** the safety argument rests on
+      `jumptarget` being loop-invariant and anti-spoofing being literal-DROP.
+      Neither is enforced. A future `-j REJECT`, a per-policy target or a
+      log-and-continue rule would make the set ordering semantic overnight and
+      silently. A test that generates under several seeds and asserts every
+      block whose order varies is uni-action catches that.
+
+### 21. `to_iptables` crashes on a service with a protocol but no port (found 2026-09-21)
+**Pre-existing**, found while regression-testing item 20 — reproduced on the
+unmodified generator, so it is not a consequence of that change.
+
+    $ policy_translator.py -fw -o out examples/fml-paper-policy.txt
+    KeyError: 'port'
+    policy.py: serviceinfo = " --protocol " + cond['protocol'] + serviceport + str(cond['port'])
+
+`def service Prot1616` declares `protocol = 1616` and no port — a raw IP
+protocol number, which is legitimate FPL and which `roles_to_csv` renders
+without complaint (`protocol:1616`). `to_iptables` assumes every condition with
+a `protocol` also has a `port`.
+
+Newly *reachable* rather than new: `examples/fml-paper-policy.txt` could not be
+compiled at all until item 19, so `-fw` never got that far.
+
+- [ ] **Emit `--protocol <p>` with no port** when the service names none —
+      which is what iptables itself expects for a protocol-only match — rather
+      than reading a key that is not there.
+- [ ] **`fml-paper-policy.txt` is the test**, as it was for item 19: it is a
+      published policy rather than a fixture, and it exercises three
+      protocol-only services (`Prot1616`, `Prot1717`, `Prot1818`).
 
 ---
 

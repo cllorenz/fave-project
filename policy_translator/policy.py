@@ -730,8 +730,23 @@ class Policy(object):
                 ) if ("vlan" in to_role.attributes and "interface" in to_role.attributes) else ""
                 eth_to = eth_to_interface + eth_to_vlan
 
-            #test if this policy is a relatedrule
-            relatedrule = ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions)
+            conditions = self.policies[policy].conditions
+
+            # Does this direction rely on connection tracking?
+            stateful = RELATED_CONDITION in conditions
+
+            # Is it covered ENTIRELY by the global `--ctstate ESTABLISHED`
+            # rule, so that no rule of its own is needed?
+            #
+            # These are two questions and this used to ask only the first,
+            # suppressing the pair's rules whenever the stateful condition was
+            # present -- `relatedrule` conflated "carries state" with "carries
+            # nothing but state". A pair that is both (`A <->> B` giving B -> A
+            # the return direction, plus `B ---> A.SERVICE` giving it a
+            # service) therefore lost its service rules entirely: the firewall
+            # silently permitted less than the policy states. Same conflation
+            # `roles_to_csv` made with `(X)`, TODO item 20.
+            relatedrule = stateful and len(conditions) == 1
 
             #test for strict rules A--->A to convert to A<-->A later on
             strictrule = from_ == to_
@@ -740,8 +755,17 @@ class Policy(object):
             singleway = True
             revpol = (to_, from_)
             if revpol in self.policies:
-                revrelatedrule = ({'state' : 'RELATED,ESTABLISHED'} in self.policies[revpol].conditions)
+                revrelatedrule = (RELATED_CONDITION in self.policies[revpol].conditions)
                 singleway = not revrelatedrule
+
+            # ... and never for a direction that is itself stateful. `singleway`
+            # decides whether connection tracking can be switched off for the
+            # pair (`--ctstate NEW,NOTRACK` plus a raw/PREROUTING NOTRACK), and
+            # it asks that of the REVERSE direction only. That was sound while a
+            # stateful direction emitted no rules at all; now that a mixed one
+            # does, NOTRACK here would disable the very tracking the global
+            # ESTABLISHED rule needs to admit this direction's return traffic.
+            singleway = singleway and not stateful
 
             # set jumptarget depending on standard and singleway policy
             jumptarget = " -j ACCEPT" if not self.default_policy else " -j DROP"
