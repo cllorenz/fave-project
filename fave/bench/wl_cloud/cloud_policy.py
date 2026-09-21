@@ -38,18 +38,24 @@ the services and the policy are all the dataset's, so the provenance runs the
 other way: what is fabricated here is the *endpoint naming*, nothing else.
 
 **Two policies, because the matrix and the data plane disagree** (owner
-decision). `reach.txt` states the matrix as written. `reach_public.txt` states
-it plus what the generator ACTUALLY implemented. The delta between the two runs
-is the measurement:
+decision). `matrix/reach.txt` states the matrix as written and
+`matrix/reach_public.txt` states it plus what the generator ACTUALLY
+implemented. The delta between the two runs is the measurement:
 
   * A service in matrix row 25 is one the Internet may reach. The generator
     implements that as an ACL rule with NO SOURCE CONSTRAINT (43 of them) --
     which admits every source, not only the Internet. All 11 such services are
     therefore reachable from all 26 roles, while the matrix authorises 102 of
     those 275 cells.
-  * So `reach.txt` is expected to REPORT VIOLATIONS, concentrated entirely on
-    the 11 public services, and `reach_public.txt` is expected to be clean.
-    A violation anywhere else, or a clean `reach.txt`, is a finding.
+  * So `matrix/reach.txt` is expected to REPORT VIOLATIONS, concentrated
+    entirely on the 11 public services, and `matrix/reach_public.txt` is
+    expected to be clean. A violation anywhere else, or a clean
+    `matrix/reach.txt`, is a finding.
+
+Under `matrix/` because they are GENERATED. The two files of the same name one
+level up are the ORACLE phase's, hand-written and tracked -- a policy is an
+intent and cannot be derived. Same names, opposite provenance, so they do not
+share a directory.
 
 This is the wl_ifi precedent (27 violations under `<->>`, none under `<-->` on
 the same data plane): a policy is an INTENT, so the expected verdict is part of

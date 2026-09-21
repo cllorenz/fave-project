@@ -1,11 +1,24 @@
 # Benchmark-suite extension: the NoD cloud dataset and the Delta-net traces
 
-**Status 2026-09-21 — `wl_cloud` built and running, and now driven by an FPL
-policy (§1.9) rather than hand-built checks. All six third-party oracle verdicts
+**Status 2026-09-21 — `wl_cloud` built, running, and driven by an FPL policy in
+BOTH of its phases (§1.9).** The oracle phase states the dataset's six questions
+as five FPL rules over a fabricated inventory; the matrix phase states the
+dataset's own 26x26 ACL matrix (C7, §1.9.6). All six third-party oracle verdicts
 reproduced on NetPlumber before and after the switch (§1.7.1). ad6 refuses the
 workload for a structural encoding reason (§1.7.2); APKeep under-approximates by
-3 (§1.7.3). Three defects fixed in shared code along the way (§1.6). Delta-net
-not started.**
+3 (§1.7.3). Three defects fixed in shared code building it (§1.6) and two more
+building the policy (§1.9.6). Delta-net not started.
+
+**C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
+26 roles. Under the matrix as written, **1,312 violations, every one of them
+predicted before the run** — the generator publishes a service with a
+source-less ACL rule, so all 11 public services are reachable from all 26 roles
+while the matrix authorises 102 of 286 such cells. Stating that makes the run
+clean. **3 violations survive both policies and are a real finding**: services
+1, 11 and 23 are published from two datacenters each, giving two gateway NAT
+rules with identical match, and NetPlumber's first-match semantics shadows the
+second — where NoD's Datalog relation would reach both. No oracle query probes a
+shadowed endpoint, so 4,224 questions found what 6 could not.
 
 Two third-party datasets arrived in the tree as untracked archives
 (`cloud_bench.tar.bz2`, 21 MB; `deltanet-NSDI17-dataset.tar.gz`, 9.6 GB). This
@@ -265,10 +278,19 @@ internet is not a service.
 - [~] **C6** **ad6 REFUSES the workload** (§1.7.2, a structural encoding limit);
       **APKeep drops all three reachable pairs** (§1.7.3). NetPlumber is
       therefore the only family that currently answers this workload.
-- [ ] **C7** Only then: express wl_cloud as an FPL policy — both the README's
-      26x26 ACL matrix and the six oracle queries — so the workload goes through
-      PolicyTranslator like every other one instead of hand-built checks.
-      **F1, F2 and F3 all implemented 2026-09-18: §1.9.** What remains is a decision, not a defect — which operator, and the expected-verdict table.
+- [x] **C7 DONE 2026-09-21 for the MATRIX — §1.9.6.** wl_cloud goes through
+      PolicyTranslator like every other workload: 26 roles (the dataset's 25
+      services plus the Internet) over 65 endpoints, 215 FPL rules covering all
+      226 ordered 1-cells, 4,224 checks. Two policies, because the matrix and
+      the data plane disagree by design (owner decision): `reach.txt` states the
+      matrix and reports 1,315 violations, `reach_public.txt` adds what the
+      generator implemented and reports 3. Operators: `--->` twice per service
+      pair, `<-->` for the Internet pairs — so F1 and F2 are both load-bearing.
+      **The six oracle queries stay as they are** (owner direction 2026-09-21):
+      they name individual hosts, and expressing them as FPL would cost seven
+      fabricated roles overlapping the service roles, putting the one
+      third-party artifact through a self-derived pipeline. Follow-up, not
+      a gap.
 
 ---
 
@@ -1122,6 +1144,153 @@ from the tables in §1.4 and §1.9.0.
       `test_cloud_readme.py` asserts all four so the reading cannot rot. This is
       what lets wl_cloud's policy be third-party evidence instead of a
       fabrication — the inversion of §1.9.4's "~54 of 60 self-derived".
+
+---
+
+### 1.9.6 C7 DONE — wl_cloud as an FPL policy (2026-09-21)
+
+The workload now goes through PolicyTranslator like every other one, and
+produces the `reachable.json`/`cchecks.json` that `apkeep_convergence.py`,
+`apkeep_tum_diff.py` and `i2_structural_oracle.py` consume and it did not have.
+
+**The premise changed, which is why this is smaller than §1.9.4 predicted.**
+That section costed a FABRICATED inventory — a role per endpoint host, a service
+per port — at ~54 self-derived expectations out of 60. None of that was needed.
+`cloud-tf/README.txt` declares 25 services with their prefixes and a 26x26
+authorisation matrix over them, and index 25 is the Internet (§1.9.5). The
+roles, the services and the policy are all the dataset's; the only fabrication
+left is how model endpoints are NAMED.
+
+    README.txt --(cloud_readme.py)--> 26x26 matrix + service algebra
+               --(cloud_policy.py)--> FPL inventory + two policies
+               --(PolicyTranslator)--> reachability.csv  (676 cells)
+               --(reach_csv_to_checks)--> checks.json    (4,224 checks)
+
+**Shape.** 26 roles over **65 model endpoints**: one generator + one probe per
+(service, leaf router) pair, 64 of them, plus the Internet. A service spans one
+to nine leaf routers, so a role is not one place in the model. Derived two ways
+that agree on all 40 leaves and all 64 pairs — the README's `Services of router
+<id>` census, and containing each leaf's /25 (read off its core's routing table)
+in a declared service prefix.
+
+**Operators.** A service pair is realised as two independent ACL rules, one per
+direction, each pinning its own destination port, so it becomes **two `--->`
+rules** — 204 of them. The Internet pairs are different and `<-->` IS their
+shape: inbound is DNAT + the source-less ACL on `dport=331+i`, outbound is the
+cores' SNAT on `sport=331+i`. Destination port towards the provider, source port
+away from it — exactly the direction resolution F2 added. 11 `<-->` rules, 215
+in total, covering all 226 ordered 1-cells. **F1 and F2 are both load-bearing
+here**, which is what C7 was waiting on.
+
+#### Results — two policies, two measurements
+
+| policy | checks | violations | what it means |
+|---|---:|---:|---|
+| `reach.txt` (matrix as written) | 4,224 | **1,315** | 1,312 expected + 3 findings |
+| `reach_public.txt` (+ what the generator implemented) | 4,199 | **3** | the same 3 findings |
+
+**The 1,312 are the result, not a failure — and they were predicted exactly
+before the run.** A service in matrix row 25 is one the Internet may reach; the
+generator implements that as an ACL rule with **no source constraint**, which
+admits every source. So all 11 public services are reachable from all 26 roles,
+while the matrix authorises 102 of those 286 cells. Expanded over endpoints that
+is 1,312 device-level cells, and the run reports 1,312 — over **184 role pairs,
+every one of which targets a public service, none of which the matrix
+authorises**. Stating that in `reach_public.txt` makes the run clean, and the
+delta between the two IS the finding: *the generated network does not enforce
+its own matrix for the services it publishes.*
+
+The matrix's private half, by contrast, is enforced **exactly**: 113 ordered
+1-cells into source-constrained services, 113 source-constrained ACL rules, set
+equality in both directions with no slack. That is what makes the public half's
+gap a property of the generator rather than noise in the reading.
+
+#### The 3 remaining violations — a genuine finding, NOT fixed
+
+    source.internet does not reach probe.dc4_leaf0_svc11  (dport 342)
+    source.internet does not reach probe.dc4_leaf4_svc01  (dport 332)
+    source.internet does not reach probe.dc4_leaf6_svc23  (dport 354)
+
+Services **1, 11 and 23 are the only three published from TWO datacenters**, and
+each therefore has two gateway NAT rules with **byte-identical match**
+(`dst=121.140.254.i/32, proto=6, dport=331+i`) and different rewrites and
+outputs — anycast. NetPlumber resolves same-match rules by priority, so the
+first wins and the second datacenter's half of the service is unreachable from
+the Internet. NoD's Datalog semantics is a RELATION: both rules fire and both
+datacenters are reachable.
+
+**So this is a semantic difference between the two engines on this dataset, not
+a modelling bug found here** — and the oracle could not have caught it, because
+none of the six queries probes a shadowed endpoint. 4,224 questions found what 6
+could not, which is the argument for C7 in one line. **Owner decision needed**
+before it is called either way; until then it is stamped, not silenced.
+
+#### What it cost in shared code
+
+- **`reach_csv_to_checks.py`: a denied cell now names EVERY endpoint of the
+  target role.** It used the bare `target`, which the `for target in targets`
+  loop above it had left bound to the last element — so a multi-device role was
+  asserted unreachable at one endpoint and silently unasserted at the rest. Only
+  reachable by a workload with multi-device roles in denied cells. **wl_up had
+  40 such roles**: its check set moves 11,911 → 18,811, and **all 6,900
+  previously missing checks PASS** (re-run 2026-09-21, zero violations), so
+  nothing was hiding behind them — but they were not being asked. Every
+  quoted wl_up check count predating this is a different denominator (TODO
+  item 0a).
+- **`reach_csv_to_checks.py --deny-per-service`, OFF by default.** A denied cell
+  normally denies all traffic to the target, which is right where a role is a
+  subnet. Where a role is a SERVICE two roles can name the same machines —
+  services 2 and 3 are both `10.0.17.0/25`, separated only by TCP port — and the
+  blanket reading makes such a matrix self-contradictory rather than strict: a
+  row permitting service 2 and denying service 3 asks for a packet to arrive at
+  those hosts and not arrive at them. Probe-side filtering would be the other
+  resolution, but `netplumber/adapter.py` has `filter_fields` commented out
+  (memory explosion) and never reads `match`, so the qualification lives in the
+  check. The mirror-image constraint is on the generator, which pins
+  `sport=331+i` — without it service 3's traffic satisfies service 2's ACL.
+- **`related` is declared, not extended at check time.** Every conditionally
+  permitted cell emits `f=related:0` and the cloud model has no state field —
+  §1.9.4's open concern. Measured: the adapter WOULD cope (`_build_vector` ->
+  `_update_mapping` -> `expand`), but `POLICY_MAPPING` appends the field up
+  front instead, at bit 128, leaving §1.1's measured layout untouched. A session
+  that silently changes its vector width partway through is not the thing being
+  measured (AD6_PLAN.md §9.29). `related:0` is vacuous here rather than wrong —
+  nothing sets the field, so it stays wildcard.
+
+#### The defect that nearly shipped a wrong policy
+
+A role whose FPL block fails to parse is **silently skipped**: the translator
+exits 0 with a smaller inventory and a policy that compiles against what is
+left. Eight of the 25 roles vanished on the first run because their description
+contained a `+`, and FPL's `value_text` is `Word(alphanums + ".:/-_ ,")`. The
+matrix came out 18x18 instead of 26x26 and nothing said so. Recorded as **TODO
+item 15**; worked around here by not emitting a `+`, and guarded three ways —
+the emitter's charset is asserted against `value_text`, the translator's role
+count is asserted to be 26, and the benchmark refuses to run if the FPL names a
+different endpoint set than the model builds.
+
+#### Provenance, stated
+
+| expectation | source | count |
+|---|---|---|
+| the 26x26 matrix | `cloud-tf/README.txt` | 676 cells |
+| service ports, prefixes, public addresses | `cloud-tf/README.txt`, cross-checked against `network.tf` | 25 services |
+| the Internet role | matrix row 25, confirmed four ways against `network.tf` | 1 role |
+| endpoint NAMES, and the (service, leaf) split | ours | 65 endpoints |
+| the six oracle verdicts | the `.smt2` filenames | 6 queries |
+
+The oracle phase is unchanged and still runs — `bench/wl_cloud/benchmark.py`
+with no argument, 6/6 reproduced (re-verified 2026-09-21). It is the only part
+of this workload whose expectations come from outside the repository, and the
+policy phase does not replace it: intent and third-party verdict are different
+kinds of evidence. `--policy matrix` and `--policy public` select the others,
+and each stamps `eval/<engine>-<utc>_policy-<which>.json` recording which policy
+produced the number.
+
+**Still open from C7:** expressing the six oracle queries themselves as FPL
+(owner direction 2026-09-21: matrix first, oracle queries as a follow-up — they
+name individual hosts, so uniformity would cost seven fabricated roles
+overlapping the service roles).
 
 ---
 

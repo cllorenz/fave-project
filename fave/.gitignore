@@ -58,6 +58,15 @@ bench/wl_cloud/*.json
 # the record of a run, tracked exactly as bench/wl_stanford/eval/ is.
 bench/wl_cloud/*.csv
 
+# The MATRIX phase's whole directory, because there the FPL itself is DERIVED
+# (C7): `cloud_policy.py` emits roles_and_services.txt and reach.txt from
+# `cloud-tf/README.txt` on every run. The two files of the same name one level
+# up are the opposite -- hand-written, tracked, and stating an intent nobody
+# can derive -- which is exactly why the generated pair does not share their
+# directory. It is also why `test_cloud_policy.py` regenerates from the README
+# rather than comparing against a file in the tree.
+bench/wl_cloud/matrix/
+
 
 *.pdf
 out
