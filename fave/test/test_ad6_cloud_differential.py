@@ -57,18 +57,27 @@ _INPUTS = ['%s/%s' % (_PREFIX, f) for f in
            ('topology.json', 'routes.json', 'sources.json', 'policies.json',
             'mapping.json')]
 
-#: The cells the dataset itself states a verdict for, unconditioned.
+#: The cells the dataset itself determines for the UNCONDITIONED question.
 #:
-#: q01/q03 are `sat` and are the two this test exists for. q02 is `unsat` and
-#: is the control that keeps the assertion from being satisfiable by an engine
-#: that simply says yes to everything. q04's instance forbids only the ports
-#: OTHER than 331, and q05/q06 constrain a port, so their unconditioned cells
-#: are supersets and state nothing here -- they are deliberately absent rather
-#: than asserted loosely.
+#: WHICH VERDICTS CARRY OVER IS DECIDED BY THEIR DIRECTION, not by whether the
+#: instance constrains anything. These checks ask a BROADER question than most
+#: of the instances do, so:
+#:
+#:   * a `sat` verdict carries over. A packet satisfying a narrower constraint
+#:     is still a packet, so q03 (`tcp_dst=332, ip_proto=6`) and q05
+#:     (`tcp_dst=350`) pin their cells to reachable exactly as the
+#:     unconstrained q01 does.
+#:   * an `unsat` verdict does NOT, unless the instance was unconditioned to
+#:     begin with. q02 is, so it is here -- and it is the control that keeps
+#:     this from being satisfied by an engine that simply says yes to
+#:     everything. q06 says only that tcp/351 does not get through and q04 only
+#:     that the ports OTHER than 331 do not, and neither settles whether
+#:     ANYTHING does. Both are absent rather than asserted loosely.
 _ORACLE = {
-    ('internet', 'dc1_leaf5_host5'): True,       # q01, sat
-    ('internet', 'dc2_leaf7_host6'): False,      # q02, unsat
-    ('internet', 'dc1_leaf0_host20'): True,      # q03, sat
+    ('internet', 'dc1_leaf5_host5'): True,           # q01, sat, unconditioned
+    ('internet', 'dc2_leaf7_host6'): False,          # q02, unsat, unconditioned
+    ('internet', 'dc1_leaf0_host20'): True,          # q03, sat on tcp/332
+    ('dc1_leaf6_host2', 'dc0_leaf1_host1'): True,    # q05, sat on tcp/350
 }
 
 
