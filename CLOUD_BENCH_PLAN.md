@@ -286,12 +286,18 @@ internet is not a service.
       PolicyTranslator like every other workload: 26 roles (the dataset's 25
       services plus the Internet) over 65 endpoints, 215 FPL rules covering all
       226 ordered 1-cells, 4,224 checks. Two policies, because the matrix and
-      the data plane disagree by design (owner decision): `reach.txt` states the
-      matrix and reports 1,315 violations, `reach_public.txt` adds what the
+      the data plane disagree by design (owner decision): `matrix/reach.txt`
+      states the matrix and reports 1,315 violations, `matrix/reach_public.txt`
+      adds what the
       generator implemented and reports 3. Operators: `--->` twice per service
       pair, `<-->` for the Internet pairs — so F1 and F2 are both load-bearing.
-      **The six oracle queries stay as they are** (owner direction 2026-09-21):
-      they name individual hosts, and expressing them as FPL would cost seven
+      **The six oracle queries became FPL too**, in a parallel session and by
+      the other route (§1.9, eight fabricated host roles). This half had
+      expected them to stay as they are, on the grounds that host roles would
+      overlap the service roles — they do, and the two phases are kept in
+      separate directories because of it. The original reasoning follows, since
+      the overlap it names is real: they name individual hosts, and expressing
+      them as FPL would cost seven
       fabricated roles overlapping the service roles, putting the one
       third-party artifact through a self-derived pipeline. Follow-up, not
       a gap.
@@ -1190,8 +1196,8 @@ here**, which is what C7 was waiting on.
 
 | policy | checks | violations | expected | agrees |
 |---|---:|---:|---:|---|
-| `reach.txt` (matrix as written) | 4,224 | **1,315** | 1,315 | pair for pair |
-| `reach_public.txt` (+ what the generator implemented) | 4,199 | **3** | 3 | pair for pair |
+| `matrix/reach.txt` (matrix as written) | 4,224 | **1,315** | 1,315 | pair for pair |
+| `matrix/reach_public.txt` (+ what the generator implemented) | 4,199 | **3** | 3 | pair for pair |
 
 **The expectation is DERIVED, never counted off a previous run.**
 `cloud_policy.expected_violations()` computes the (source endpoint, probe
@@ -1212,7 +1218,7 @@ admits every source. So all 11 public services are reachable from all 26 roles,
 while the matrix authorises 102 of those 286 cells. Expanded over endpoints that
 is 1,312 device-level cells, and the run reports 1,312 — over **184 role pairs,
 every one of which targets a public service, none of which the matrix
-authorises**. Stating that in `reach_public.txt` makes the run clean, and the
+authorises**. Stating that in `matrix/reach_public.txt` makes the run clean, and the
 delta between the two IS the finding: *the generated network does not enforce
 its own matrix for the services it publishes.*
 

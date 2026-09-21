@@ -4,6 +4,14 @@ Full background: `CLOUD_BENCH_PLAN.md` §1. This file covers only what the two
 hand-written inputs in this directory mean, because they are the one part of
 the workload that is *not* derived from the raw data.
 
+**There is a second phase, and its two files have the same names.** The oracle
+phase described here states the dataset's six questions; the matrix phase
+(`--policy matrix` / `--policy public`, C7 / §1.9.6) states the dataset's own
+26x26 ACL matrix over 26 roles. Its `roles_and_services.txt` and `reach.txt` are
+**generated** from `cloud-tf/README.txt` by `cloud_policy.py` on every run, so
+they live under `matrix/` and are gitignored — same names, opposite provenance,
+which is exactly why they do not share a directory with the two below.
+
 ## What is derived and what is not
 
 Everything under `cloud-tf/` is vendored raw data, checked against `SHA256SUMS`
@@ -23,7 +31,7 @@ Not derived, and not derivable:
 | `roles_and_services.txt` | a role is an *intent*; the dataset ships none |
 | `reach.txt` | likewise — a policy states what *should* hold |
 
-`benchmark.role_members` is what keeps the fabricated half honest: every role
+`cloud_endpoints.role_members` is what keeps the fabricated half honest: every role
 must name an endpoint the transfer function actually has, and must declare the
 `ipv4` that endpoint's generator actually injects. Both are refused at run time,
 not only in a test.
