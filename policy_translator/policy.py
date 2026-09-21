@@ -32,6 +32,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from policy_exceptions import NameTakenException, InvalidAttributeException, InvalidValueException
 from policy_exceptions import ServiceUnknownException, RoleUnknownException
 from policy_exceptions import NoServicesOfferedException
+from policy_exceptions import UnrenderableConditionException
 from policy_logger import PT_LOGGER
 
 #: The builtin role standing for everything outside the administrative boundary
@@ -45,6 +46,12 @@ from policy_logger import PT_LOGGER
 #: custom service could not be expressed at all. See
 #: policy_translator/test/test_internet_services.py.
 INTERNET_ROLE = "Internet"
+
+#: The condition a `<->>` rule puts on the return direction. It is the one
+#: condition the CSV spells as a bare `X` rather than as `field:value` pairs:
+#: its value contains a comma, which a comma-separated cell cannot carry, and
+#: `X` is the spelling every consumer of the matrix already knows.
+RELATED_CONDITION = {'state': 'RELATED,ESTABLISHED'}
 
 
 class Policy(object):
@@ -535,6 +542,9 @@ class Policy(object):
         matrix should read a header field, not have to know who offers what --
         so it is dropped once it has been used.
         """
+        if cond == RELATED_CONDITION:
+            return 'X'
+
         provider = cond.get('provider')
         reverse = provider is not None and role_from in set(
             self.roles[provider].get_roles()
@@ -546,6 +556,8 @@ class Policy(object):
                 continue
             if field == 'port' and reverse:
                 field = 'sport'
+            if ',' in str(value):
+                raise UnrenderableConditionException(field, value)
             fields.append('%s:%s' % (field, value))
 
         return ';'.join(fields)
@@ -568,14 +580,26 @@ class Policy(object):
             csv_list.append(role_from)
             for role_to in sorted(roles):
                 if self.conditional_policy_exists(role_from, role_to):
-                    if {'state' : 'RELATED,ESTABLISHED'} in self.policies[(role_from, role_to)].conditions:
-                        csv_list.append(',(X)')
-                    else:
-                        csv_list.append(',(%s)' % '|'.join([
-                            self._condition_to_csv(cond, role_from)
-                        for cond in self.policies[
-                            (role_from, role_to)
-                        ].conditions]))
+                    # ONE PATH, and `X` is just the operand the stateful
+                    # condition renders as. The stateful case used to
+                    # short-circuit the whole cell, so a pair carrying
+                    # RELATED,ESTABLISHED *and* a service lost the service:
+                    # `examples/ifi-policy.txt`'s Internet -> Webserver printed
+                    # `(X)` while the policy held ports 80 and 443. Worse than
+                    # cosmetic, because `bench/reach_csv_to_checks.py` reads
+                    # `(X)` as "related traffic and NOTHING else" and emits a
+                    # must-NOT-reach check for everything unrelated -- the
+                    # opposite of what such a cell permits.
+                    #
+                    # A cell whose only condition is the stateful one still
+                    # renders exactly `(X)`, by construction rather than by a
+                    # second branch, which is why the 738 such cells in the
+                    # tree are untouched.
+                    csv_list.append(',(%s)' % '|'.join([
+                        self._condition_to_csv(cond, role_from)
+                    for cond in self.policies[
+                        (role_from, role_to)
+                    ].conditions]))
                 elif self.policy_exists(role_from, role_to):
                     csv_list.append(',X')
                 else:

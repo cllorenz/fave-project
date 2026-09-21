@@ -1490,17 +1490,71 @@ matrix where it produced an error, and `ifi-policy.txt` was corrected (below).
       **No file in the tree uses `.*` any longer**, so item 18's cross-seed
       coverage runs on fixtures — noted there, since that was the workload
       argument for fixing it.
-- [ ] **Cosmetic, pre-existing, now more visible:** `roles_to_csv` prints
-      `(X)` for any cell whose conditions include `RELATED,ESTABLISHED` and
-      drops the rest, so `Internet`→`Webserver` renders as `(X)` although the
-      policy holds ports 80 and 443. The matrix understates the policy wherever
-      a stateful rule and a service rule meet. Not touched here — the
-      conditions are right and the tests assert those, not the rendering.
+- [x] **`roles_to_csv` fixed** (2026-09-21) — and it was **not cosmetic**,
+      which is worth recording because that is what I first called it. The
+      renderer short-circuited to `(X)` whenever `RELATED,ESTABLISHED` was
+      among a pair's conditions and dropped the rest. But
+      `bench/reach_csv_to_checks.py` reads `(X)` as *related traffic and
+      nothing else* and emits `! s=source.X && EF p=probe.Y && f=related:0` —
+      a **must-not-reach** check. For a pair that also permits HTTP that is the
+      opposite of the policy, so a correct data plane fails it: the rendering
+      did not hide information, it **inverted a verification claim**.
+      One path now, with `X` as the operand the stateful condition renders as,
+      so a cell whose only condition is that one still prints exactly `(X)` by
+      construction — the 738 such cells in the tree are untouched, and
+      `wl_up`'s 18,811 generated checks are byte-identical across the change.
+      The reader learned the `(X|<service>…)` form to match, complementing over
+      the service alternatives only (each term is asserted under `related:0`,
+      where the stateful alternative permits nothing). Operand order follows
+      condition order, the same choice item 18 made. Tests:
+      `policy_translator/test/test_stateful_cell_rendering.py` (6) and
+      `fave/test/test_reach_csv_stateful_alternatives.py` (7), mutation-verified
+      four ways.
+- [x] **A comma that could not be written is refused** rather than written.
+      A cell is comma-separated, so `-/->>`'s `state = NEW,INVALID` used to
+      emit `(state:NEW` and `INVALID)` into adjacent columns with no error.
+      `RELATED,ESTABLISHED` is the one such value with a spelling (`X`);
+      anything else now raises `UnrenderableConditionException`. No inventory
+      in the tree writes `-/->>`, so this refuses a shape that is reachable
+      rather than one that is used.
 - [ ] **Also still open** (unchanged by the above): with a `provider`
       (`Internet ---> Group.*`) the owner of the services is the GROUP;
       without one (`All <->> Group.*`) it is each MEMBER, which under this
       invariant now means the two forms read *different sets* rather than the
       same one. No tracked file distinguishes them today.
+
+### 20. `to_iptables` drops the services of a stateful pair (found 2026-09-21)
+**The same defect as item 19's rendering half, in a second renderer**, found
+while fixing that one. `to_iptables` computes
+
+    relatedrule = ({'state':'RELATED,ESTABLISHED'} in self.policies[policy].conditions)
+    ...
+    ip4rule = (not relatedrule) and (...)
+
+so a pair carrying the stateful condition generates **no address rule at all**,
+whatever else it permits. Measured on a two-role fixture with `ipv4` attributes:
+
+    Watcher <->> Server
+    Server  ---> Watcher.HTTP
+
+`Server -> Watcher` holds `[{state: RELATED,ESTABLISHED}, {protocol: tcp,
+port: 80, provider: Watcher}]`, and the generated firewall contains the forward
+`Watcher -> Server` ACCEPT and **nothing** for the return direction — the HTTP
+permission is silently absent.
+
+Not fixed here: the request was `roles_to_csv`, and this is rule generation
+rather than rendering — chains, directions, `singleway` and the jump target all
+turn on `relatedrule`, so it needs its own reading rather than the same one-line
+treatment. It is also unexercised today: no workload runs `-fw`, and
+`examples/ifi-policy.txt` produces an empty Access Rules section because its
+roles carry `vlan`/`hosts` rather than `ipv4`.
+
+- [ ] **Decide what a mixed pair should emit** — most likely the conntrack
+      ESTABLISHED rule *and* the per-service rules, which is what the CSV now
+      says — then make `relatedrule` select an additional rule rather than
+      suppress the others.
+- [ ] **Give it the fixture above as a test.** It is three roles and two rules,
+      and it is the shape that has no coverage at all today.
 
 ---
 

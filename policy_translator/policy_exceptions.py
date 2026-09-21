@@ -99,6 +99,29 @@ class NoServicesOfferedException(PolicyException):
             "in der Regel explizit nennen." % (role, role)
         )
 
+class UnrenderableConditionException(PolicyException):
+    """A condition value the CSV cannot carry, refused instead of written.
+
+    A cell is comma-separated, so a value containing a comma silently splits it
+    and the row ends up with more fields than the header has columns. The one
+    such value in the language, `state = RELATED,ESTABLISHED`, has always been
+    spelled `X` instead; `-/->>` produces `state = NEW,INVALID`, which had no
+    spelling and so corrupted the file -- `(state:NEW` and `INVALID)` in
+    adjacent columns, and no error.
+
+    No inventory in the tree writes `-/->>`, so this refuses a shape that is
+    reachable rather than one that is used. Giving it a rendering would mean
+    giving every consumer of the matrix a new token to understand, which is a
+    language decision; corrupting the file quietly is not an option either way.
+    """
+
+    def __init__(self, field: str, value: Any) -> None:
+        self.message = (
+            "Bedingung %s = %s kann nicht als CSV dargestellt werden: der Wert "
+            "enthält ein Komma und würde die Zelle zerteilen. Bekannt ist nur "
+            "`state = RELATED,ESTABLISHED`, das als `X` geschrieben wird."
+        ) % (field, value)
+
 class InvalidAttributeException(PolicyException):
     def __init__(self, name: str) -> None:
         self.message = "Attribut %s ist ungültig." % name

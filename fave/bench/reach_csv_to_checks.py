@@ -364,9 +364,26 @@ if __name__ == '__main__':
                                        for s in _peers(sources, target, keep_self)])
 
                 elif flag.startswith('(') and flag.endswith(')'):
+                    # `X` may appear among the alternatives, meaning the pair
+                    # also carries the stateful condition -- `(X|<service>...)`.
+                    # The matrix used to print such a cell as a bare `(X)`,
+                    # which the branch above reads as "related traffic and
+                    # NOTHING else" and turns into a must-NOT-reach check for
+                    # everything unrelated: the exact opposite of what the cell
+                    # permits. A cell that is ONLY `X` still takes that branch,
+                    # unchanged.
+                    alternatives = flag[1:-1].split('|')
+                    stateful = 'X' in alternatives
+                    conditions = [a for a in alternatives if a != 'X']
+
                     for target in targets:
                         reach_json[target].extend(_peers(sources, target, keep_self))
-                        for condition in flag.lstrip('(').rstrip(')').split('|'):
+
+                        if stateful:
+                            checks.extend([fstr % (s, target) + ' && f=related:1'
+                                           for s in _peers(sources, target, keep_self)])
+
+                        for condition in conditions:
                             checks.extend([
                                 fstr % (s, target) + ' && f=related:0 && ' + ' && '.join(['f='+f for f in
                                     condition.split(';')
@@ -378,8 +395,14 @@ if __name__ == '__main__':
                         # permission is only ever checked in the direction that
                         # confirms it, so "reachable on 331" passes whether or
                         # not 332 also gets through.
+                        #
+                        # Complemented over the SERVICE alternatives only. Each
+                        # term is asserted under `related:0`, where the
+                        # stateful alternative permits nothing, so including
+                        # `X` would negate a token that is not a field and
+                        # would wrongly forbid the services beside it.
                         if args.complement:
-                            for term in complement_terms(flag):
+                            for term in complement_terms('(%s)' % '|'.join(conditions)):
                                 checks.extend([
                                     '! ' + fstr % (s, target)
                                     + ' && f=related:0 && '
