@@ -573,7 +573,8 @@ reports reachable") forbids outright.
 `apkeep/adapter.py` still reconstructs meaning from FaVe's device NAMES. It
 branches on `model.node.split('.', 1)[0] == 'out'` / `'mid'` / `'in'` in at least
 eleven places, decides whether a link is internal or external the same way
-(lines 1214–1264, 1349–1351), and carries a literal workload sniff:
+(`_build_stanford_faithful` 1313–1316, `_collapse_out_stage` 1496–1498),
+and carries a literal workload sniff, in `_build` at line 892:
 
     self._stanford = any(d.split('.', 1)[0] == 'mid' for d in self._fwd_devices)
 
@@ -587,7 +588,7 @@ host-to-host query involving **no NAT at all** — also fails is what rules out
 **This is the same defect class `AD6_PLAN.md` §9 spent an entire phase removing
 from the ad6 adapter** — §9.25 names "a literal `if any(d.split('.', 1)[0] ==
 'mid' ...)` workload sniff in the production path" among the things deleted. The
-identical construct is still live in `apkeep/adapter.py:793`. A new workload with
+identical construct is still live in `apkeep/adapter.py:892`. A new workload with
 different naming rediscovered it in a day, which is an argument for the workload
 as much as a finding about the adapter.
 
