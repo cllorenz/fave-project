@@ -1500,7 +1500,12 @@ class Instantiator:
         var = deepcopy(Variable)
         var.attrib[XMLUtils.ATTRNEGATED] = 'false'
         Equality.append(var)
-        Equality.append(XMLUtils.ConvertFieldToVariables(Field, Node, int(Value), Width))
+        # NOT int(Value): the text may be a TERNARY bit-string (XMLUtils.TERNARY
+        # sigil) carrying don't-cares, which is how a mutable field expresses a
+        # PREFIX match -- the form wl_cloud's NAT-rewritten addresses need.
+        # ConvertFieldToVariables dispatches on the sigil; a decimal still
+        # canonizes exactly as before.
+        Equality.append(XMLUtils.ConvertFieldToVariables(Field, Node, Value, Width))
 
         Handled[Name] = Equality
 

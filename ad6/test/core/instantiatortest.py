@@ -554,6 +554,100 @@ class InstantiatorTest(unittest.TestCase):
             "vlan=7 is not in {5,6} -- must be blocked")
 
 
+    def testMaskedFieldMatchConstrainsOnlyItsDeterminedBits(self):
+        """ A <fieldmatch> whose text is a TERNARY bit-string constrains the
+        '0'/'1' positions and leaves the 'x' positions FREE.
+
+        This is what lets a mutable field carry a prefix match. ad6 already had
+        two prefix-capable converters -- ConvertPortToVariables and
+        ConvertCIDRToVariables both truncate a bit-vector to a prefix -- but
+        ConvertFieldToVariables, the newest, was written for exact-valued
+        fields (vlan, in_port, out_port) and took an int, so a mutable field
+        could only ever be matched for EQUALITY. A field rewritten anywhere
+        must use <fieldmatch> everywhere, so that made "rewritten AND matched
+        by prefix" inexpressible -- the boundary wl_cloud's NAT reaches
+        (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+
+        Gate: vlan matches `00000000010x` -- i.e. {4, 5}. The three entries
+        rewrite vlan to 5/6/7, so only the first is admitted. A mask read as an
+        exact value would admit none of them. """
+        reachable = self._fieldmatch_gate_model(
+            [GenUtils.fieldmatch('vlan', 'b00000000010x')])
+
+        self.assertTrue(
+            reachable('entryA_r0'),
+            "vlan=5 (000000000101) matches the mask 00000000010x -- must be admitted")
+        self.assertFalse(
+            reachable('entryB_r0'),
+            "vlan=6 (000000000110) does not match 00000000010x -- must be blocked")
+        self.assertFalse(
+            reachable('entryC_r0'),
+            "vlan=7 (000000000111) does not match 00000000010x -- must be blocked")
+
+
+    def testMaskedFieldMatchDontCaresAreGenuinelyFree(self):
+        """ The 'x' positions must be UNCONSTRAINED, not implicitly zero.
+
+        The complement of the test above: widening the mask by one bit to
+        `0000000001xx` covers {4,5,6,7}, so all three entries are admitted. If
+        a don't-care emitted a literal (or was zero-padded), 6 and 7 would stay
+        blocked and the mask would silently narrow -- an under-approximation,
+        the direction that reports unreachable what is reachable. """
+        reachable = self._fieldmatch_gate_model(
+            [GenUtils.fieldmatch('vlan', 'b0000000001xx')])
+
+        for entry, value in (('entryA_r0', 5), ('entryB_r0', 6), ('entryC_r0', 7)):
+            self.assertTrue(
+                reachable(entry),
+                "vlan=%d is in {4,5,6,7} = 0000000001xx -- must be admitted; "
+                "blocking it means the don't-care bits were pinned" % value)
+
+
+    def testWhollyUnconstrainedFieldMatchIsVacuouslyTrue(self):
+        """ An ALL-don't-care mask constrains nothing, so it admits everything.
+
+        The degenerate end of the mask range, pinned because it is the case a
+        naive implementation gets wrong in the UNSATISFIABLE direction -- a
+        condition that constrains nothing must not become a condition nothing
+        satisfies.
+
+        It does NOT pin any empty-conjunction guard. ConvertCIDRToVariables
+        guards its equivalent /0 case, and the first version of this work
+        copied that guard across; a mutation check then showed removing it
+        changes no test, and measuring the instance showed why -- the hazard
+        there is Instantiator._ShortenPrefixes splicing a /0 into other CIDRs'
+        conjunctions, machinery a <fieldmatch> never reaches. The guard came
+        back out. """
+        reachable = self._fieldmatch_gate_model(
+            [GenUtils.fieldmatch('vlan', 'b' + 'x' * 12)])
+
+        for entry, value in (('entryA_r0', 5), ('entryB_r0', 6), ('entryC_r0', 7)):
+            self.assertTrue(
+                reachable(entry),
+                "an all-don't-care mask constrains nothing, so vlan=%d must be "
+                "admitted; blocking it means the empty conjunction went out as "
+                "an unsatisfiable condition" % value)
+
+
+    def testNegatedMaskedFieldMatchExcludesTheWholeRange(self):
+        """ Negation and masking compose: `NOT (vlan in {4,5})` blocks 5 and
+        admits 6 and 7. Pins the two changes against each other, since the
+        compliance path that needs masks (wl_cloud's complement checks) is
+        also the one that negates. """
+        reachable = self._fieldmatch_gate_model(
+            [GenUtils.fieldmatch('vlan', 'b00000000010x', negated=True)])
+
+        self.assertFalse(
+            reachable('entryA_r0'),
+            "vlan=5 IS in {4,5} -- the negated mask must block it")
+        self.assertTrue(
+            reachable('entryB_r0'),
+            "vlan=6 is not in {4,5} -- must be admitted")
+        self.assertTrue(
+            reachable('entryC_r0'),
+            "vlan=7 is not in {4,5} -- must be admitted")
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

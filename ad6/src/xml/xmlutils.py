@@ -340,6 +340,37 @@ class XMLUtils:
         return Formatter.format(int(Element)).replace('0','0 ').replace('1','1 ').rstrip()
 
 
+    TERNARY = 'b'
+
+    def _CanonizeTernary(Bits,Length):
+        """ A TERNARY bit-string ('0'/'1'/'x') -> the same space-separated
+        shape _CanonizeBitvector produces from an integer.
+
+        Kept SEPARATE from _CanonizeBitvector rather than folded into it:
+        that one takes an int (`int(Element)`) and every caller passes one, so
+        a merged function would have to GUESS whether '101' means the decimal
+        or the bit pattern. The caller says which it means instead -- see
+        ConvertFieldToVariables and the XMLUtils.TERNARY sigil.
+
+        The width must match EXACTLY. A short string is refused rather than
+        padded, because the two plausible pads disagree: a leading '0' narrows
+        the match and a leading 'x' widens it, and silently picking either is
+        how a wrong model gets built. """
+        Bits = str(Bits)
+        Illegal = set(Bits) - set('01x')
+        if Illegal:
+            raise ValueError(
+                "ternary bit-string %r carries %r; only '0', '1' and 'x' are "
+                "bit values" % (Bits, ''.join(sorted(Illegal))))
+        if len(Bits) != Length:
+            raise ValueError(
+                "ternary bit-string %r is %d bits but the field is declared %d. "
+                "Refused rather than padded: a leading '0' pad narrows the match "
+                "and a leading 'x' pad widens it, so neither is safe to guess."
+                % (Bits, len(Bits), Length))
+        return ' '.join(Bits)
+
+
     def CanonizeProto(Proto):
         Lookup = XMLUtils.IANA
 
@@ -579,13 +610,45 @@ class XMLUtils:
         ad6/fave_bridge.py's `_seed_literals`/`_state_literals` already do
         for the global-bit-vector case) before appending to a query
         instance's clause list -- appending the whole <conjunction> as one
-        nested child is a no-op against an already-CNF'd instance. """
-        BitVector = XMLUtils._CanonizeBitvector(Value, Width).split(' ')
+        nested child is a no-op against an already-CNF'd instance.
+
+        `Value` is EITHER a fully determined value -- an int or decimal
+        string, canonized to `Width` bits, which is what every caller passed
+        before 2026-09-21 -- OR a TERNARY bit-string prefixed with
+        XMLUtils.TERNARY ('b'), e.g. 'b00000000010x'. The sigil is what keeps
+        the two unambiguous: '101' is both a decimal and a bit pattern, so the
+        caller declares which it means rather than this function guessing.
+
+        A don't-care position emits NO literal, leaving that bit free. That is
+        what makes a PREFIX or mask match expressible for a mutable field, and
+        so what lets a model both REWRITE an address (NAT) and match it by
+        CIDR -- previously mutually exclusive, since a rewritten field must use
+        <fieldmatch> everywhere and <fieldmatch> could only compare for
+        equality. ConvertPortToVariables and ConvertCIDRToVariables were
+        already prefix-capable; this is the third and last. """
+        Text = str(Value)
+        if Text.startswith(XMLUtils.TERNARY):
+            BitVector = XMLUtils._CanonizeTernary(
+                Text[len(XMLUtils.TERNARY):], Width).split(' ')
+        else:
+            BitVector = XMLUtils._CanonizeBitvector(Value, Width).split(' ')
+
         XML = XMLUtils.conjunction()
 
         for Index, Bit in enumerate(BitVector):
+            if Bit == 'x':
+                continue          # a don't-care contributes NO literal
             XML.append(XMLUtils.variable(XMLUtils.FieldBitName(Field, Node, Index), value=(Bit == '1')))
 
+        # An ALL-don't-care mask leaves XML with no children. That is correct
+        # and needs no special case here: measured 2026-09-21, the resulting
+        # instance is identical (same clause count, same verdict) to the one
+        # built from XMLUtils.constant(). ConvertCIDRToVariables DOES guard its
+        # equivalent /0 case, but the hazard it documents is specific to
+        # Instantiator._ShortenPrefixes splicing a /0 entry into other CIDRs'
+        # conjunctions -- prefix-sharing machinery this path never reaches,
+        # since _HandleFieldMatches consumes the result as one side of an
+        # <equality>. Verified by mutation: adding the guard changes no test.
         return XML
 
 
