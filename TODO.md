@@ -1027,13 +1027,76 @@ Service All.ARP unbekannt.` It was already producing a truncated CSV — the
 build aborts partway — and simply never said so. It is referenced from
 `policy_translator/README.md` and by no test or script.
 
-- [ ] **Still open: widen the value pattern.** `value_pattern` is
-      `[A-Za-z0-9 _=\-\[\]'\":.,\*/]+`, so an ordinary `+` in a description is
-      unwriteable. That is now a loud refusal rather than a silent loss, which
-      is why it is no longer urgent — but it is still a language limitation with
-      no reason behind it, and the item's original note stands: widening alone
-      would only have moved the next character that triggers it. Decide as a
-      language question, not as a bug fix.
+#### What the value pattern accepts, and what `+` was really about (measured 2026-09-21)
+
+**CORRECTION.** This item used to end "widen the value pattern … a language
+limitation with no reason behind it", taking `+` as the example. Both halves
+were wrong: `+` is not needed for anything, and the set is conservative for a
+reason.
+
+`value_pattern` is `[A-Za-z0-9 _=\-\[\]'\":.,\*/]+` — 75 printable characters:
+alphanumerics, space, and ``_ = - [ ] ' " : . , * /``. It rejects 20 printable
+ones — ``! # $ % & ( ) + ; < > ? @ \ ^ ` { | } ~`` — and **all non-ASCII**.
+
+It is not binding on anything in the tree. Across every inventory (wl_up,
+wl_ifi, wl_example, wl_stanford, wl_i2 and the three `examples/`), the only
+non-alphanumeric characters any value uses are ``,-./:[]``. The pattern is sized
+for TECHNICAL values — addresses, VLANs, host lists — and every one of those
+fits with room to spare.
+
+**`+` was mine, not the language's.** wl_cloud's generator joined a role's two
+prefixes with `" + "`; joining them with a space says the same thing. Nothing
+in the tree wants a `+`, and nothing would gain from one.
+
+**Where the pattern does bite is free prose**, because `description` shares one
+pattern with the technical attributes. Measured against the real parser, each of
+these refuses the whole role:
+
+    description = 'Servers (public)'            parentheses
+    description = 'Mail & web servers'          ampersand
+    description = 'web; mail'                   semicolon
+    description = 'Do not touch!'               exclamation
+    description = '100% internal'               percent
+    description = 'Universität Potsdam'         any non-ASCII
+
+The last is the one worth weighing: this project's subject is a German
+university and its own error messages are German, so an umlaut in a description
+is a plausible thing for its author to type. The existing descriptions are short
+English sentences that happen to avoid all of the above.
+
+**And the sharpest case is not a character at all — it is comments.** A comment
+anywhere inside a role or service block refuses it, in both forms:
+
+    def role Probe
+        description = 'plain'   # the office     <- refused
+    end
+
+    def role Probe
+        # the office                             <- refused
+        description = 'plain'
+    end
+
+`role_content` is *either* a run of attribute/`includes`/`offers` lines *or* a
+run of comments, never the two interleaved. **`policies_regex` does allow
+interleaved comments**, and `wl_ifi/reach_stateless.txt` uses them — so comments
+work in a policy block and not in an inventory block, which is an inconsistency
+a writer meets the first time they try to annotate a role.
+
+**Why widening is not free.** `#` cannot simply be added: an attribute's value
+runs to end-of-line, so admitting `#` would swallow a trailing comment into the
+value rather than enable it. Fixing comments properly means letting
+`comment_pattern` interleave inside `role_content`/`service_content`, which is a
+grammar change rather than a character-class change.
+
+- [ ] **Decide, as a language question:** let comments interleave inside role
+      and service blocks (matching `policies_regex`, and the clearest gap), and
+      whether `description` should accept prose punctuation and non-ASCII —
+      most cleanly by giving it its own pattern rather than widening the one the
+      technical attributes share.
+- [x] **Not urgent, and this is why.** Every one of the cases above now fails
+      LOUDLY and names the block, so a writer who hits one learns it in a single
+      run instead of shipping a policy with a role silently missing. The cost of
+      the limitation is now an error message, not a wrong result.
 
 ---
 
