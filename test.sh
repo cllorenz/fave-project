@@ -98,16 +98,33 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_backend_differential.py  # APKeep-vs-NetPlumber reachability differential (P5); skips if either backend unavailable
     test/test_apkeep_i2.py       # APKeep scale validation on wl_i2 (77k dst-IP routes, P5); skips if unavailable
     test/test_apkeep_stanford.py # APKeep on wl_stanford (in/mid/out HSA, out-stage collapse, P7); skips if unavailable
-    test/test_apkeep_tum.py      # APKeep vs NP on wl_tum stateful firewall (Phase 1 characterization); skips if unavailable
     test/test_wl_ifi_stateless_gate.py  # wl_ifi's <--> policy variant end to end: zero violations; needs the JVM + generated stateless inputs
     test/test_apkeep_i2_admission.py  # wl_i2 faithful VLAN admission is per (ingress port, VLAN) and applies to transit hops; skips if unavailable
     test/test_apkeep_stanford_admission.py  # wl_stanford faithful VLAN admission is per (ingress port, VLAN) and gates the arrival edge; skips if unavailable
     # ad6 tests with a NATIVE dependency -- the ad6 bridge itself is pure Python
-    # (a sys.executable subprocess), but these three reach past it:
-    test/test_ad6_wl_up.py       # wl_up rulesets -> iptables/parser.py -> pybison
+    # (a sys.executable subprocess), but these reach past it:
     test/test_ad6_wl_stanford.py # full-model structural translation (48 tables, ~1s, ALWAYS runs) + the 256-query differential vs a libnetplumber worker, which is opt-in (AD6_STANFORD_FULL_DIFFERENTIAL) and normally skips
     test/test_ad6_wl_stanford_plain.py # N=2 differential vs a libnetplumber worker (bench.apkeep_convergence._emit_worker)
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
+)
+# Integration-tier too, but these parse a ruleset that USES `-o` in a filter
+# chain, which TODO.md item 13a refuses by default -- so they run in their own
+# pytest process with FAVE_ALLOW_OUT_IFACE=1. Split out rather than exporting
+# the variable for the whole tier, because `test_iptables_out_iface.py` (above)
+# asserts that the default IS refusal, and setting it group-wide would turn that
+# test green for the wrong reason.
+#
+# They errored on every integration run from 5105a23a (which opted smoke and
+# bench in, but not this tier) until the split: 9 setup errors, all
+# `iptables.generator.OutInterfaceUnsupported`, on fw.tum and
+# pgf.uni-potsdam.de. A tier that cannot run a test reports the same red as a
+# tier whose test fails, and neither was being looked at.
+#
+# DELETE once routing precedes the filter chains (item 13a): this list, the
+# refusal, and run_smoke/run_bench's overrides all go together.
+FAVE_OUT_IFACE_TESTS=(
+    test/test_ad6_wl_up.py       # wl_up's gateway firewall carries one `-o` rule
+    test/test_apkeep_tum.py      # wl_tum's tum-ruleset carries 3,286 of them
 )
 # Also integration-tier, but these must run in their OWN pytest process. JPype
 # allows exactly one JVM per process and APKeep holds its network in Java static
@@ -116,8 +133,13 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
 # `java.lang.OutOfMemoryError: Java heap space` (default JVM heap is ~1/4 of RAM;
 # ~4 GB on a 16 GB CI runner). A fresh JVM per engine is the robust split; raising
 # FAVE_JVM_XMX only moves the wall. Both are gated by FAVE_REQUIRE_BACKENDS.
+# ALL THREE also need FAVE_ALLOW_OUT_IFACE=1 (see FAVE_OUT_IFACE_TESTS): every
+# one of them replays wl_up or wl_tum. That is why this group takes the opt-in
+# wholesale instead of being split again -- but it does mean a future NDD test
+# asserting the refusal would be silently defeated here, so that assertion
+# belongs in `test_iptables_out_iface.py`, which stays strict.
 FAVE_NDD_TESTS=(
-    test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar)
+    test/test_apkeep_ndd_fwd.py  # NDD engine: IPv4 forwarding benchmarks (needs the NDD jar); wl_tum
     test/test_apkeep_ndd_wlup.py # NDD engine: wl_up parity vs the frozen BDD baseline (needs jar + wl_up inputs)
     test/test_apkeep_compliance_cond.py # a check's `related:N` CONDITION is honoured (or refused), never dropped; needs jar + wl_up inputs
 )
@@ -126,7 +148,8 @@ FAVE_E2E_TESTS=(           # need a live net_plumber backend + /dev/shm state
     test/test_lib_equivalence.py  # libnetplumber vs net_plumber-RPC (skips if .so unbuilt)
 )
 # Everything excluded from the fast tier (pure-Python discovery ignores these).
-FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_NDD_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
+FAVE_NATIVE_TESTS=( "${FAVE_INTEGRATION_TESTS[@]}" "${FAVE_OUT_IFACE_TESTS[@]}" \
+                    "${FAVE_NDD_TESTS[@]}" "${FAVE_E2E_TESTS[@]}" )
 
 # When measuring coverage, pin the data file to an absolute path. `coverage run
 # -p` runs from different CWDs (repo root for the policy_translator step, fave/
@@ -269,9 +292,18 @@ run_integration() {
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
 
-    # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS).
+    # Own process so the opt-in is SCOPED: test_iptables_out_iface.py, in the
+    # group above, asserts that `-o` is refused by default (see
+    # FAVE_OUT_IFACE_TESTS).
+    echo "== integration: tests needing FAVE_ALLOW_OUT_IFACE (item 13a) =="
+    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+        $pt "${FAVE_OUT_IFACE_TESTS[@]}" ) || rc=1
+
+    # Separate process => fresh JVM for the NDD engine (see FAVE_NDD_TESTS),
+    # which also needs the item 13a opt-in -- all three replay wl_up or wl_tum.
     echo "== integration: NDD engine tests (own JVM) =="
-    ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
+    ( cd "$ROOT/fave" && PYTHONPATH=. FAVE_ALLOW_OUT_IFACE=1 \
+        $pt "${FAVE_NDD_TESTS[@]}" ) || rc=1
 
     return $rc
 }
