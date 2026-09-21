@@ -67,7 +67,8 @@ def policies(default: deny)
 	AdminNetz       	<->> All
 
 	# Alle Rechner können den Webserver mit HTTP und HTTPS erreichen und Antworten erhalten.
-	All					<->> Server.*
+	All					<->> Webserver.HTTP
+	All					<->> Webserver.HTTPS
 
 	# Trusted Clients können Trusted Clients erreichen.
 	TrustedClients		---> TrustedClients
@@ -81,5 +82,6 @@ def policies(default: deny)
 	MitInternetzugriff	<->> Internet
 
 	# Alle Rechner im Internet können die Server erreichen.
-	Internet			---> Server.*
+	Internet			---> Webserver.HTTP
+	Internet			---> Webserver.HTTPS
 end

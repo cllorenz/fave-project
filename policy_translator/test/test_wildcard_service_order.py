@@ -32,10 +32,12 @@ same inventory compiled to a different CSV from one run to the next:
     ... (protocol:tcp;port:443|protocol:tcp;port:80)
     ... (protocol:tcp;port:443|protocol:tcp;port:80)
 
-(That transcript no longer reproduces: `examples/ifi-policy.txt` stopped
-compiling when item 19 refused its `Internet ---> Server.*`, which names a
-group declaring no `offers`. The behaviour below is unchanged; only the file
-that first showed it is gone.)
+(That transcript no longer reproduces. Item 19 refused `ifi-policy.txt`'s
+`Internet ---> Server.*` -- it names a group declaring no `offers` -- and the
+file's two wildcard rules were then rewritten to name the webserver and its
+services directly. NO file in the tree uses `.*` any more, so every case below
+is a fixture. The behaviour is unchanged; only the file that first showed it
+is gone.)
 
 Only `.*` reached that branch -- the named form builds a one-element list --
 and no workload in the tree uses `.*`, so nothing measured was ever wrong.
@@ -286,11 +288,8 @@ class TestItIsReproducible(unittest.TestCase):
         the deduplication then has to keep in order.
 
         This replaces a run over `examples/ifi-policy.txt`, the file whose two
-        spellings are quoted above. That file no longer compiles: its
-        `Internet ---> Server.*` names a group declaring no `offers`, which
-        item 19 refuses instead of silently reading as an unconditional rule.
-        No file in the tree uses `.*` and compiles, so the second case is a
-        fixture now.
+        spellings are quoted above and which no longer uses `.*` at all (see
+        the note there), so the second case is a fixture now.
         """
         csv = self._assert_stable(_SERVICES + """
 def role Alpha

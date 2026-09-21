@@ -287,32 +287,38 @@ class TestTheShippedExamples(unittest.TestCase):
     @unittest.skipUnless(
         os.path.isfile(os.path.join(_HERE, 'examples', 'ifi-policy.txt')),
         "examples/ifi-policy.txt not present")
-    def test_ifi_policy_is_under_specified_AND_SAYS_SO(self):
-        """ A TRIPWIRE, not an endorsement -- see TODO item 19.
+    def test_ifi_policy_reaches_the_webserver_with_HTTP_and_HTTPS(self):
+        """ The cell this whole item was visible in.
 
-        `ifi-policy.txt` writes `Internet ---> Server.*` where `def role Server`
-        is `vlan = 5` plus `includes Webserver` and declares no `offers`. Under
-        the invariant that group offers nothing, so the rule cannot mean what
-        its comment says ("Alle Rechner im Internet koennen die Server
-        erreichen", HTTP and HTTPS per the rule above it).
+        The file used to write `Internet ---> Server.*` over a `def role Server`
+        that is `vlan = 5` plus `includes Webserver` and declares no `offers`.
+        Under the invariant that group offers nothing, so the rule could not
+        mean what its own comment says -- and before the refusal it compiled to
+        an UNCONDITIONAL cell that had also erased the `RELATED,ESTABLISHED` an
+        earlier rule set for the pair. Both wildcard rules now name the
+        webserver and its two services directly (owner, 2026-09-21), which is
+        what the comment described all along.
 
-        It used to compile -- to an UNCONDITIONAL cell, having also erased the
-        RELATED,ESTABLISHED an earlier rule had set. Refusing is the
-        improvement; correcting the inventory is an owner decision that has not
-        been taken, so this pins the state rather than hiding it. When `Server`
-        is given `offers HTTP` / `offers HTTPS` (or the rule names its services
-        directly), this test goes red and should be replaced by one asserting
-        the resulting cell.
+        Note `roles_to_csv` still prints this cell as `(X)`: the renderer
+        short-circuits whenever `RELATED,ESTABLISHED` is among the conditions,
+        so the ports are in the policy but not in the matrix. That is a
+        rendering question, not a policy one, which is why this asserts the
+        conditions.
         """
         with open(os.path.join(_HERE, 'examples', 'ifi-policy.txt'),
                   encoding='utf-8') as raw:
             text = raw.read()
 
-        policy = Policy(strict=False)
-        with self.assertRaises(NoServicesOfferedException) as caught:
-            PolicyBuilder.build(text, policy)
+        self.assertNotIn('.*', text, "the wildcard rules were meant to go")
 
-        self.assertIn('Server', str(caught.exception))
+        policy = Policy(strict=False)
+        PolicyBuilder.build(text, policy)
+        conditions = policy.policies[('Internet', 'Webserver')].conditions
+
+        self.assertEqual(sorted(c['port'] for c in conditions if 'port' in c),
+                         [80, 443])
+        self.assertIn({'state': 'RELATED,ESTABLISHED'}, conditions,
+                      "the earlier rule's condition was erased")
 
 
 if __name__ == '__main__':

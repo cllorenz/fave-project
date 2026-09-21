@@ -1472,24 +1472,30 @@ identically at `HEAD~8`, before any of this branch's translator work.
       deduplication is covered from here on.
 
 **Artifacts:** every inventory/policy pair recompiled; **nine workloads
-byte-identical**. The two examples trade places — `fml-paper-policy.txt`
-produces a matrix where it produced an error, and `ifi-policy.txt` stops
-compiling, which is the next box.
+byte-identical**. Both examples compile: `fml-paper-policy.txt` produces a
+matrix where it produced an error, and `ifi-policy.txt` was corrected (below).
 
-- [ ] **`examples/ifi-policy.txt` is under-specified, and now says so.** It
-      writes `Internet ---> Server.*` where `def role Server` is `vlan = 5`
-      plus `includes Webserver` and declares no `offers`. Under the invariant
-      that group offers nothing, so the rule cannot mean what its comment says
-      ("Alle Rechner im Internet können die Server erreichen" — HTTP and HTTPS,
-      per the rule above it). It *used* to compile, to an **unconditional**
-      cell that had also erased the `RELATED,ESTABLISHED` an earlier rule set,
-      so refusing is the improvement. Correcting the inventory is an owner
-      decision and has not been taken; the candidates are `offers HTTP` /
-      `offers HTTPS` on `Server` (propagates down to `Webserver`, which already
-      offers both, so nothing else moves) or `includes Webserver.*`.
-      `test_ifi_policy_is_under_specified_AND_SAYS_SO` pins the current state
-      as a tripwire and says in its docstring that it should be replaced, not
-      repaired, once the file is corrected.
+- [x] **`examples/ifi-policy.txt` corrected** (owner, 2026-09-21): both
+      wildcard rules now name the webserver and its services directly —
+      `All <->> Webserver.HTTP` / `.HTTPS` and `Internet ---> Webserver.HTTP` /
+      `.HTTPS` — rather than pointing `.*` at `Server`, a group that is
+      `vlan = 5` plus `includes Webserver` and declares no `offers`. Under the
+      invariant that group offers nothing, so the old rules could not mean what
+      the file's own comment says ("Alle Rechner können den Webserver mit HTTP
+      und HTTPS erreichen"); before item 19 they compiled to an
+      **unconditional** cell that had also erased the `RELATED,ESTABLISHED` an
+      earlier rule set for the pair. One cell moves against the historical
+      output, and it is the one that was wrong: `Internet`→`Webserver` now
+      carries HTTP, HTTPS and the earlier rule's state condition.
+      **No file in the tree uses `.*` any longer**, so item 18's cross-seed
+      coverage runs on fixtures — noted there, since that was the workload
+      argument for fixing it.
+- [ ] **Cosmetic, pre-existing, now more visible:** `roles_to_csv` prints
+      `(X)` for any cell whose conditions include `RELATED,ESTABLISHED` and
+      drops the rest, so `Internet`→`Webserver` renders as `(X)` although the
+      policy holds ports 80 and 443. The matrix understates the policy wherever
+      a stateful rule and a service rule meet. Not touched here — the
+      conditions are right and the tests assert those, not the rendering.
 - [ ] **Also still open** (unchanged by the above): with a `provider`
       (`Internet ---> Group.*`) the owner of the services is the GROUP;
       without one (`All <->> Group.*`) it is each MEMBER, which under this
