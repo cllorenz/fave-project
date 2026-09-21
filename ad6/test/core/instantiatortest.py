@@ -648,6 +648,117 @@ class InstantiatorTest(unittest.TestCase):
             "vlan=7 is not in {4,5} -- must be admitted")
 
 
+    def _rewrite_chain_model(self, first, second, gate_value):
+        """ entry --(rewrite vlan=`first`)--> mid --(rewrite vlan=`second`)-->
+        gate(vlan == `gate_value`) --> accept.
+
+        Two rewrites in series with a full-value gate at the end, so what the
+        SECOND one did to the bits the FIRST one set is exactly what decides
+        reachability. `second` may be a masked (ternary) value; either may be
+        None, meaning that hop rewrites nothing at all. """
+        def hop(name, key, target, value):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rewrites = [('vlan', value)] if value is not None else None
+            rule.append(GenUtils.action('jump', target=target, rewrites=rewrites))
+            table.append(rule)
+            return table
+
+        def gate(name, key, target, value):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.fieldmatch('vlan', value))
+            rule.append(GenUtils.action('jump', target=target))
+            table.append(rule)
+            return table
+
+        def sink(name, key):
+            table = GenUtils.table(name)
+            rule = GenUtils.rule(name, key=key)
+            rule.append(GenUtils.action('accept'))
+            table.append(rule)
+            return table
+
+        firewall = GenUtils.firewall('rwfw')
+        firewall.append(hop('t0', 'entry_r0', 'mid_r0', first))
+        firewall.append(hop('t1', 'mid_r0', 'gate_r0', second))
+        firewall.append(gate('t2', 'gate_r0', 'accept_r0', gate_value))
+        firewall.append(sink('t3', 'accept_r0'))
+
+        config = GenUtils.config()
+        firewalls = GenUtils.firewalls()
+        firewalls.append(firewall)
+        config.append(firewalls)
+
+        kripke, encoding = Instantiator.InstantiateBase(
+            config, Inits=['entry_r0'], default_inits=False,
+            MutableFields={'vlan': 12})
+        instance = Instantiator.InstantiateEndToEnd(
+            kripke, encoding, 'entry_r0', 'accept_r0')
+        return bool(PycoSATAdapter().Solve(instance))
+
+
+    def testMaskedRewritePRESERVESTheBitsItDoesNotWrite(self):
+        """ A rewrite whose value carries don't-cares writes its DETERMINED
+        bits and leaves the rest of the field exactly as it arrived.
+
+        This is Hassel's `(h & mask) | rewrite` (owner ruling 2026-09-21): the
+        bits a rule does not replace are PRESERVED from the incoming header,
+        not cleared and not made arbitrary. wl_cloud needs it -- its 28 NAT
+        rules rewrite the destination to a SUBNET (/23-/25, 24 distinct values,
+        none of them a host address), so a rewrite that could only write a whole
+        integer could not express them and the workload was refused
+        (CLOUD_BENCH_PLAN.md Sec. 1.7.2).
+
+        The encoding falls out of the machinery that was already there:
+        _CreateMutationConstraints emits, per bit, either a REWRITE axiom
+        (target bit = constant) or a FRAME axiom (target bit = source bit). A
+        masked rewrite is simply the two MIXED within one field, chosen per bit
+        by the mask.
+
+        vlan = 000000000101 (5), then a rewrite of 000000001xxx: the top nine
+        bits become 000000001 and the low three survive as 101, giving
+        000000001101 = 13. An implementation that zeroed the unwritten bits
+        would give 8 instead, and one that freed them would make both
+        satisfiable. """
+        self.assertTrue(
+            self._rewrite_chain_model(5, 'b000000001xxx', 13),
+            "the low three bits of 5 (101) must survive the masked rewrite, "
+            "giving 13 -- this is the preservation ruling itself")
+        self.assertFalse(
+            self._rewrite_chain_model(5, 'b000000001xxx', 8),
+            "8 is what zeroing the unwritten bits would produce; they are "
+            "preserved, not cleared")
+        self.assertFalse(
+            self._rewrite_chain_model(5, 'b000000001xxx', 5),
+            "the WRITTEN bits must actually change -- 5 is what no rewrite "
+            "at all would leave")
+
+
+    def testMaskedRewriteIsNotAClear(self):
+        """ An ALL-don't-care rewrite preserves the whole field. It must NOT
+        behave like a CLEAR, which leaves the field unconstrained downstream
+        (Sec. 9.10.2, what FaVe's post_routing does to in_port/out_port).
+
+        The two are adjacent and easy to conflate -- both "write nothing" -- but
+        they are opposite downstream: preserved means the old value still holds,
+        cleared means any value does. Pinned because only the gate value tells
+        them apart. """
+        self.assertTrue(
+            self._rewrite_chain_model(5, 'b' + 'x' * 12, 5),
+            "an all-don't-care rewrite preserves 5")
+        self.assertFalse(
+            self._rewrite_chain_model(5, 'b' + 'x' * 12, 6),
+            "6 must be unreachable -- if it is not, the all-don't-care rewrite "
+            "was treated as a CLEAR and freed the field")
+
+    def testAnUnmaskedRewriteStillOverwritesEverything(self):
+        """ The no-regression end: a fully determined rewrite value keeps the
+        decimal path and replaces the whole field, whatever arrived. """
+        self.assertTrue(self._rewrite_chain_model(5, 9, 9))
+        self.assertFalse(self._rewrite_chain_model(5, 9, 5))
+
+
     def testReach(self):
         examinee = et.parse('./test/core/testReach.xml').getroot()
         InstantiatorTest.deannotate(examinee)

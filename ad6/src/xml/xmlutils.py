@@ -342,6 +342,30 @@ class XMLUtils:
 
     TERNARY = 'b'
 
+    def ValueToBitvector(Value,Width):
+        """ A field value -> its per-bit vector, as a list of '0'/'1'/'x'.
+
+        The ONE place that knows the two value forms apart, so the MATCH side
+        (ConvertFieldToVariables) and the REWRITE side
+        (Instantiator._CreateMutationConstraints) cannot drift: a decimal
+        canonizes to `Width` fully determined bits, a TERNARY string keeps its
+        don't-cares. """
+        Text = str(Value)
+        if Text.startswith(XMLUtils.TERNARY):
+            return XMLUtils._CanonizeTernary(Text[len(XMLUtils.TERNARY):], Width).split(' ')
+        return XMLUtils._CanonizeBitvector(Value, Width).split(' ')
+
+
+    def ParseFieldValue(Text):
+        """ A `value`/`rewrite_value` XML attribute -> the value to carry.
+
+        An integer becomes one; a TERNARY string stays a string, sigil and all,
+        for ValueToBitvector to read later. Kept here rather than at each
+        reader so the sigil is known in exactly one place. """
+        Text = str(Text)
+        return Text if Text.startswith(XMLUtils.TERNARY) else int(Text)
+
+
     def _CanonizeTernary(Bits,Length):
         """ A TERNARY bit-string ('0'/'1'/'x') -> the same space-separated
         shape _CanonizeBitvector produces from an integer.
@@ -626,12 +650,7 @@ class XMLUtils:
         <fieldmatch> everywhere and <fieldmatch> could only compare for
         equality. ConvertPortToVariables and ConvertCIDRToVariables were
         already prefix-capable; this is the third and last. """
-        Text = str(Value)
-        if Text.startswith(XMLUtils.TERNARY):
-            BitVector = XMLUtils._CanonizeTernary(
-                Text[len(XMLUtils.TERNARY):], Width).split(' ')
-        else:
-            BitVector = XMLUtils._CanonizeBitvector(Value, Width).split(' ')
+        BitVector = XMLUtils.ValueToBitvector(Value, Width)
 
         XML = XMLUtils.conjunction()
 

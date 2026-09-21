@@ -294,14 +294,20 @@ class KripkeUtils:
             Rewrites = []
             RewriteField = Action.attrib.get('rewrite_field')
             if RewriteField is not None:
-                Rewrites.append((RewriteField, int(Action.attrib['rewrite_value'])))
+                Rewrites.append((RewriteField,
+                                 XMLUtils.ParseFieldValue(Action.attrib['rewrite_value'])))
             # AD6_PLAN.md §9.10.2: <rewrite field= value=/> children carry what
             # the attribute pair cannot -- several fields at once, and a CLEAR
             # (no value) meaning the field becomes unconstrained downstream.
             for Rewrite in Action.xpath(XMLUtils.REWRITEPATH):
                 Value = Rewrite.attrib.get('value')
+                # ParseFieldValue, not int(): a rewrite value may be a
+                # TERNARY bit-string, which writes only its determined bits and
+                # PRESERVES the rest (AD6_PLAN.md §9.36). Distinct from a CLEAR,
+                # which frees the field downstream instead of preserving it.
                 Rewrites.append((Rewrite.attrib['field'],
-                                 XMLUtils.CLEAR if Value is None else int(Value)))
+                                 XMLUtils.CLEAR if Value is None
+                                 else XMLUtils.ParseFieldValue(Value)))
 
             for Field, Value in Rewrites:
                 Previous = Node.Rewrites.get(Field)

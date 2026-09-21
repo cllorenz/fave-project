@@ -700,13 +700,24 @@ class Instantiator:
 
                     Conjunction = XMLUtils.conjunction()
                     if RewriteValue is not None:
-                        BitVector = XMLUtils._CanonizeBitvector(RewriteValue, Width).split(' ')
+                        BitVector = XMLUtils.ValueToBitvector(RewriteValue, Width)
                     else:
                         BitVector = None
 
+                    # AD6_PLAN.md §9.36: a MASKED rewrite is the two axioms
+                    # above MIXED WITHIN ONE FIELD, chosen per bit. A determined
+                    # bit takes the rewrite axiom (forced to the constant); a
+                    # don't-care bit takes the frame axiom (copied from the
+                    # source), because under Hassel's `(h & mask) | rewrite` the
+                    # bits a rule does not replace are PRESERVED from the
+                    # incoming header -- not cleared, and not made arbitrary
+                    # (owner ruling 2026-09-21). wl_cloud's NAT needs exactly
+                    # this: it rewrites the destination to a SUBNET, so the host
+                    # bits must survive. Note this is NOT the CLEAR above, which
+                    # emits neither axiom and frees the field.
                     for Index in range(Width):
                         TargetBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, Target, Index))
-                        if BitVector is not None:
+                        if BitVector is not None and BitVector[Index] != 'x':
                             SourceBit = XMLUtils.constant(BitVector[Index] == '1')
                         else:
                             SourceBit = XMLUtils.variable(XMLUtils.FieldBitName(Field, NodeKey, Index))
