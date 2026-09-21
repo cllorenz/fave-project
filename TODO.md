@@ -1407,6 +1407,12 @@ it fails. Characterised over a superrole `Both` including `Alpha` and `Beta`:
 | `includes Alpha.*` | `ServiceUnknownException: Service Both.Telnet unbekannt.` |
 | `includes Alpha.HTTPS` | `ServiceUnknownException: Service Both.HTTPS unbekannt.` |
 
+Read the first row as a *symptom*, not as a missing feature: under the
+invariant decided below, `includes Alpha` correctly gives the group nothing —
+what is wrong is that "nothing" compiled to an unconditional rule instead of
+being refused. The other two rows are services the group genuinely declares and
+should always have resolved.
+
 **The cause is one method.** `PolicyBuilder` passes `provider=<the superrole>`,
 so `add_reachability_policy` takes `owner = 'Both'` and then guards each service
 with `self.roles[owner].offers_service(service)` — and `Superrole.offers_service`
@@ -1427,62 +1433,68 @@ paper's own policy, tracked in this repository — declares `def role All` with
 **does not compile**, failing with `Service All.ARP unbekannt.` It fails
 identically at `HEAD~8`, before any of this branch's translator work.
 
-- [x] **Decided: superroles DO offer services** (owner, 2026-09-21) — the
-      services of their subroles, narrowed where the inventory narrowed them.
-      That is what the class already said about itself ("may contain all
-      services of a role or only a certain subset of services") and what
-      `subservices` was built to record; `offers_service` returning False was
-      the leftover. The consequence is that an EMPTY `subservices` entry means
-      *nothing was narrowed*, not *nothing is offered*, so `get_services()` now
-      asks the subrole — by delegating to `Role.get_services`, so a superrole
-      containing `Internet` gets the Internet's answer rather than a second
-      copy of that special case.
-- [x] **The empty case is loud** — `NoServicesOfferedException`. Worth stating
-      exactly how bad the silent case was: an empty condition list is how FPL
-      spells an *unconditional* rule, and `update_conditions` documents that
-      "the empty list overpowers all other lists of conditions", so a `.*`
+- [x] **Decided: a superrole offers what IT declares, and that travels DOWN**
+      (owner, 2026-09-21). A superrole may offer services; its services are
+      propagated transitively to its subroles. A subrole's own services are
+      **not** reachable through the group: `R ---> SR.*` accesses only what
+      `SR` offers, whether from its own `offers` lines or from a superrole
+      above it. So `offers_service`/`offers_services` are now answered from
+      what the superrole records rather than hard-wired to False, and
+      `get_services` still returns `subservices` **as written** — an empty
+      entry is a statement ("the group offers nothing through this member"),
+      not a gap to be filled from the member.
+      *An intermediate version of this fix had it backwards*, letting a plain
+      `includes Alpha` hand the group Alpha's services; that was reverted. The
+      reading is now pinned by tests — restoring the fallback turns six red.
+- [x] **The empty case is loud** — `NoServicesOfferedException`, and this half
+      is independent of superroles. An empty condition list is how FPL spells
+      an *unconditional* rule, and `update_conditions` documents that "the
+      empty list overpowers all other lists of conditions", so a `.*`
       resolving to nothing did not merely fail to restrict its own rule, it
-      **erased the conditions an earlier rule had set for the same pair**. The
-      refusal covers atomic roles too, not just superroles — the shape is the
-      same wherever `.*` resolves to nothing.
-- [x] **`fml-paper-policy.txt` compiles**, and `ifi-policy.txt`'s
-      `Internet ---> Server.*` now carries HTTP and HTTPS instead of a plain
-      `X`. Both are in `test/test_superrole_services.py` (10 tests) together
-      with one test per row of the table above; `test_policy.py`'s two
-      `TestSuperrole` `offers_*` tests pinned the overruled behaviour and were
-      rewritten, plus two new ones for the narrowed/unnarrowed distinction.
+      **erased the conditions an earlier rule had set for the same pair**.
+- [x] **A third defect, found while checking that propagation is transitive:**
+      `add_subrole` handed an outer group the inner group's own `subservices`
+      **dict** rather than a copy, so `Outer.add_service` wrote through into
+      `Mid` and `Mid.*` resolved to a service `Mid` never declared — a role's
+      offering changing because something *else* included it. Copied now.
+- [x] **`fml-paper-policy.txt` compiles.** `All ---> All.ARP` over a
+      `def role All` whose body reads `offers ARP` used to raise
+      `ServiceUnknownException`; the file could not be compiled at all, and
+      still cannot at `HEAD~8`, so it predates this work.
+- [x] **Tests:** `test/test_superrole_services.py` (13) and four rewritten or
+      new `TestSuperrole` cases in `test_policy.py`. Mutation-verified five
+      ways, all red: `offers_service` back to `False`; `get_services` falling
+      back to the member (the overruled reading); the empty-wildcard refusal
+      removed; the `subservices` dict shared again; and item 18's
+      `dict.fromkeys` deduplication removed — that last one **stayed green two
+      commits ago**, and `includes Alpha.*` + `includes Beta.*` where both
+      offer HTTPS is now exactly the shape it needs, so item 18's
+      deduplication is covered from here on.
 
-**Mutation-verified, four ways**, all red: `offers_service` back to `False`;
-`get_services` back to bare `subservices`; the empty-wildcard refusal removed;
-and — new — item 18's `dict.fromkeys` deduplication removed. That last one
-**stayed green one commit ago** because no reachable inventory could produce a
-duplicate service; `includes Alpha` + `includes Beta` where both offer HTTPS is
-now exactly that shape, so item 18's deduplication is covered from here on.
+**Artifacts:** every inventory/policy pair recompiled; **nine workloads
+byte-identical**. The two examples trade places — `fml-paper-policy.txt`
+produces a matrix where it produced an error, and `ifi-policy.txt` stops
+compiling, which is the next box.
 
-**Artifacts:** every inventory/policy pair recompiled, nine workloads
-byte-identical. Exactly two files move, both intended and both examples:
-`fml-paper-policy.txt` produces a matrix where it produced an error, and
-`ifi-policy.txt`'s `Internet`→`Webserver` cell goes from `X` to `(X)` (the
-renderer prints `(X)` whenever `RELATED,ESTABLISHED` is among the conditions —
-the conditions list itself now carries that *and* ports 80/443, where before it
-was empty).
-
-- [ ] **Left open deliberately, a decision that is not mine:** with a
-      `provider` (`Internet ---> Group.*`) the owner of the services is the
-      GROUP, so every member's cell gets the group's whole service list — a
-      member that does not offer Telnet still gets a Telnet condition. Without
-      a provider (`All <->> Group.*`) the owner is each MEMBER, so each gets
-      only its own. The two forms of the same idea disagree, and the
-      disagreement was invisible until now because the provider form did not
-      work at all. No tracked file distinguishes them (in `fml-paper-policy.txt`
-      the superrole's `offers` propagates to every member, so the two answers
-      coincide). Deciding costs nothing today and changes what a matrix means,
-      so it is filed rather than guessed.
-
-**Not urgent.** No workload uses a superrole with `.*` (checked: the nine
-inventories compile, and only `examples/ifi-policy.txt` uses `.*` at all, over
-an atomic role). It is filed because it is a *silent widening*, which is the
-class of defect §1.8 and item 15 exist to refuse.
+- [ ] **`examples/ifi-policy.txt` is under-specified, and now says so.** It
+      writes `Internet ---> Server.*` where `def role Server` is `vlan = 5`
+      plus `includes Webserver` and declares no `offers`. Under the invariant
+      that group offers nothing, so the rule cannot mean what its comment says
+      ("Alle Rechner im Internet können die Server erreichen" — HTTP and HTTPS,
+      per the rule above it). It *used* to compile, to an **unconditional**
+      cell that had also erased the `RELATED,ESTABLISHED` an earlier rule set,
+      so refusing is the improvement. Correcting the inventory is an owner
+      decision and has not been taken; the candidates are `offers HTTP` /
+      `offers HTTPS` on `Server` (propagates down to `Webserver`, which already
+      offers both, so nothing else moves) or `includes Webserver.*`.
+      `test_ifi_policy_is_under_specified_AND_SAYS_SO` pins the current state
+      as a tripwire and says in its docstring that it should be replaced, not
+      repaired, once the file is corrected.
+- [ ] **Also still open** (unchanged by the above): with a `provider`
+      (`Internet ---> Group.*`) the owner of the services is the GROUP;
+      without one (`All <->> Group.*`) it is each MEMBER, which under this
+      invariant now means the two forms read *different sets* rather than the
+      same one. No tracked file distinguishes them today.
 
 ---
 

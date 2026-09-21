@@ -469,12 +469,11 @@ class TestSuperrole(unittest.TestCase):
             "a superrole must not claim a service none of its members offers")
 
 
-    def test_an_unnarrowed_subrole_contributes_all_its_services(self):
+    def test_a_members_own_services_stay_its_own(self):
 
-        """ `includes Alpha` names no service, so `subservices[Alpha]` is
-        empty -- and empty there means NOTHING WAS NARROWED, not that nothing
-        is offered. Reading it as the latter is what made `Internet --->
-        Server.*` in `examples/ifi-policy.txt` resolve to no service at all.
+        """ SERVICES TRAVEL DOWN, NEVER UP (owner decision). `includes
+        WebService` makes the role a member; it does not hand the group what
+        that member offers, however much that is.
         """
 
         self.superrole.policy.add_service("HTTP")
@@ -483,17 +482,35 @@ class TestSuperrole(unittest.TestCase):
 
         self.superrole.add_subrole("WebService")          # no service named
 
-        self.assertEqual(self.superrole.subservices, {"WebService" : {}})
-        self.assertEqual(
-            list(self.superrole.get_services()["WebService"]), ["HTTP"])
+        self.assertEqual(self.superrole.get_services(), {"WebService" : {}})
+        self.assertFalse(self.superrole.offers_service("HTTP"))
+        self.assertTrue(
+            self.superrole.policy.roles["WebService"].offers_service("HTTP"),
+            "the member itself must be unaffected")
+
+
+    def test_a_service_the_superrole_declares_reaches_every_member(self):
+
+        """ The downward half, and the one that makes `offers` on a group mean
+        something: `add_service` writes into each member AND records what the
+        group offers through it. """
+
+        self.superrole.policy.add_service("HTTP")
+        self.superrole.policy.add_role("WebService")
+        self.superrole.add_subrole("WebService")
+
+        self.superrole.add_service("HTTP")
+
         self.assertTrue(self.superrole.offers_service("HTTP"))
+        self.assertTrue(
+            self.superrole.policy.roles["WebService"].offers_service("HTTP"),
+            "the group's service did not reach its member")
 
 
-    def test_a_narrowed_subrole_contributes_only_what_was_named(self):
+    def test_a_named_include_is_the_explicit_way_in(self):
 
-        """ The other side of the line, and the reason the empty entry cannot
-        simply be replaced by the subrole's services everywhere: `includes
-        Alpha.HTTPS` is a deliberate restriction and must survive. """
+        """ `includes WebService.HTTPS` names one service deliberately, which
+        is how a group is given access to a member's service at all. """
 
         for name in ("HTTP", "HTTPS"):
             self.superrole.policy.add_service(name)
@@ -507,6 +524,29 @@ class TestSuperrole(unittest.TestCase):
             list(self.superrole.get_services()["WebService"]), ["HTTPS"])
         self.assertTrue(self.superrole.offers_service("HTTPS"))
         self.assertFalse(self.superrole.offers_service("HTTP"))
+
+
+    def test_including_a_superrole_does_not_alias_its_records(self):
+
+        """ `add_subrole` used to hand the outer group the INNER group's own
+        `subservices` dict, so `Outer.add_service` wrote through into `Mid` and
+        `Mid.*` resolved to a service `Mid` never declared -- purely because
+        something else had included it. """
+
+        self.superrole.policy.add_service("HTTP")
+        self.superrole.policy.add_role("WebService")
+
+        inner = Superrole("Inner", self.superrole.policy)
+        self.superrole.policy.roles["Inner"] = inner
+        inner.add_subrole("WebService")
+
+        self.superrole.add_subrole("Inner")
+        self.superrole.add_service("HTTP")
+
+        self.assertTrue(self.superrole.offers_service("HTTP"))
+        self.assertFalse(
+            inner.offers_service("HTTP"),
+            "the inner group gained a service it never declared")
 
 
 class TestAbstractRole(unittest.TestCase):

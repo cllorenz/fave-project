@@ -32,6 +32,11 @@ same inventory compiled to a different CSV from one run to the next:
     ... (protocol:tcp;port:443|protocol:tcp;port:80)
     ... (protocol:tcp;port:443|protocol:tcp;port:80)
 
+(That transcript no longer reproduces: `examples/ifi-policy.txt` stopped
+compiling when item 19 refused its `Internet ---> Server.*`, which names a
+group declaring no `offers`. The behaviour below is unchanged; only the file
+that first showed it is gone.)
+
 Only `.*` reached that branch -- the named form builds a one-element list --
 and no workload in the tree uses `.*`, so nothing measured was ever wrong.
 It is fixed anyway because CLOUD_BENCH_PLAN.md §1.8 requires every artifact to
@@ -275,20 +280,52 @@ class TestItIsReproducible(unittest.TestCase):
         """ Eight seeds gave eight different answers before the fix. """
         self.assertIn('port:23|', self._assert_stable(_INVENTORY))
 
-    @unittest.skipUnless(
-        os.path.isfile(os.path.join(_HERE, 'examples', 'ifi-policy.txt')),
-        "examples/ifi-policy.txt not present")
-    def test_the_example_that_exposed_it_is_stable_too(self):
-        """ The only file in the tree that uses `.*`, and the one the two
-        spellings in this module's docstring came from. """
-        with tempfile.TemporaryDirectory(prefix='wildcard_order_') as directory:
-            example = os.path.join(_HERE, 'examples', 'ifi-policy.txt')
-            first = self._csv(self._SEEDS[0], example, directory)
-            for seed in self._SEEDS[1:]:
-                self.assertEqual(self._csv(seed, example, directory), first, seed)
+    def test_a_wildcard_over_a_SUPERROLE_is_stable_too(self):
+        """ A second route into the same branch: `Superrole.get_services`
+        rather than `Role.get_services`, and a union across two members that
+        the deduplication then has to keep in order.
 
-            # declaration order is `offers HTTP` then `offers HTTPS`
-            self.assertIn('protocol:tcp;port:80|protocol:tcp;port:443', first)
+        This replaces a run over `examples/ifi-policy.txt`, the file whose two
+        spellings are quoted above. That file no longer compiles: its
+        `Internet ---> Server.*` names a group declaring no `offers`, which
+        item 19 refuses instead of silently reading as an unconditional rule.
+        No file in the tree uses `.*` and compiles, so the second case is a
+        fixture now.
+        """
+        csv = self._assert_stable(_SERVICES + """
+def role Alpha
+    description = 'first'
+    hosts = ['a1']
+    offers Telnet
+    offers HTTPS
+end
+
+def role Beta
+    description = 'second'
+    hosts = ['b1']
+    offers SSH
+    offers DNS
+    offers HTTP
+end
+
+def role Both
+    includes Alpha.*
+    includes Beta.*
+end
+
+def role Client
+    description = 'a client'
+    hosts = ['c1']
+end
+
+def policies (default: deny)
+    Client ---> Both.*
+end
+""")
+
+        self.assertIn(
+            'protocol:tcp;port:23|protocol:tcp;port:443|protocol:tcp;port:22'
+            '|protocol:udp;port:53|protocol:tcp;port:80', csv)
 
 
 if __name__ == '__main__':

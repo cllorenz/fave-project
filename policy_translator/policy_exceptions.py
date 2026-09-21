@@ -73,14 +73,18 @@ class NoServicesOfferedException(PolicyException):
     An empty condition list is how FPL spells UNCONDITIONAL reachability, and
     `ReachabilityPolicy.update_conditions` states that "the empty list
     overpowers all other lists of conditions" -- so a wildcard that resolved to
-    no service did not merely fail to restrict the rule, it ERASED whatever an
-    earlier rule had established. `Internet ---> Server.*` in
-    `examples/ifi-policy.txt` did exactly that: the matrix cell came out
-    unconditional where the inventory asks for HTTP and HTTPS (TODO item 19).
+    no service did not merely fail to restrict its own rule, it ERASED whatever
+    an earlier rule had established for the same pair. `Internet ---> Server.*`
+    in `examples/ifi-policy.txt` did exactly that, and the cell came out a bare
+    `X` (TODO item 19).
 
     A writer naming `.*` is asking for the services a role offers. If there are
     none, every available reading -- "no traffic" and "all traffic" -- is a
     guess, so the rule is refused instead.
+
+    Services travel DOWN, so the usual cause over a superrole is a group that
+    declares no `offers` of its own: its members' services are theirs, not the
+    group's, and `SR.*` is empty however much the members offer.
     """
 
     def __init__(self, role: str) -> None:
@@ -88,9 +92,11 @@ class NoServicesOfferedException(PolicyException):
             "Rolle %s bietet keine Services an, daher ist %s.* leer. Eine "
             "leere Bedingungsliste bedeutet in FPL uneingeschränkte "
             "Erreichbarkeit -- die Regel wäre also weiter als geschrieben. "
-            "Entweder Services über `offers` ergänzen (bei einer Superrolle "
-            "über `includes <Rolle>` bzw. `includes <Rolle>.<Service>`) oder "
-            "den Dienst explizit nennen." % (role, role)
+            "Services werden nach UNTEN vererbt, nicht nach oben: eine "
+            "Superrolle bietet an, was ihre eigenen `offers`-Zeilen nennen "
+            "(bzw. ein `includes <Rolle>.<Service>`), nicht das, was ihre "
+            "Mitglieder anbieten. Entweder `offers` ergänzen oder den Dienst "
+            "in der Regel explizit nennen." % (role, role)
         )
 
 class InvalidAttributeException(PolicyException):

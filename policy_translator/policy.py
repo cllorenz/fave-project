@@ -1106,7 +1106,14 @@ class Superrole(Role):
                 for subrole in new_subrole.get_roles():
                     if service is None:
                         self.subroles[subrole] = self.policy.roles[subrole]
-                        self.subservices[subrole] = new_subrole.subservices[subrole]
+                        # COPIED, not shared. The two superroles then own
+                        # separate records of what each offers through this
+                        # member, and `Outer.add_service` no longer writes
+                        # through into `Mid.subservices` -- which made `Mid.*`
+                        # resolve to a service `Mid` never declared, purely
+                        # because something else included it (TODO item 19).
+                        self.subservices[subrole] = dict(
+                            new_subrole.subservices[subrole])
                     else:
                         self.add_subrole(subrole, service=service)
             else:
@@ -1166,45 +1173,34 @@ class Superrole(Role):
         as keys, i.e., all subroles, and a dictionary of the services this
         superrole offers through each of them.
 
-        A superrole "may contain all services of a role or only a certain
-        subset of services" (this class' own description), and which of the two
-        is what the inventory wrote:
+        SERVICES TRAVEL DOWN, NEVER UP (owner decision 2026-09-21). A superrole
+        offers what its own `offers` lines declare -- `Superrole.add_service`
+        writes those into every subrole and records them here -- plus whatever
+        an `includes Alpha.HTTPS` names explicitly. A subrole's OWN services
+        stay its own: `R ---> SR.*` reaches only what `SR` offers, so a plain
+        `includes Alpha` contributes nothing to the group even when Alpha
+        offers a great deal.
 
-            includes Alpha            all of Alpha's services
-            includes Alpha.*          all of Alpha's services, said explicitly
-            includes Alpha.HTTPS      only HTTPS, through this group
-
-        `subservices` records the narrowing, so an EMPTY entry means nothing
-        was narrowed rather than nothing is offered -- and the subrole is then
-        asked what it offers. Returning `subservices` flat made the unnarrowed
-        case resolve to no services at all, which is how `Internet ---> Server.*`
-        in `examples/ifi-policy.txt` compiled to unconditional reachability
-        instead of HTTP and HTTPS (TODO item 19).
-
-        The subrole is asked rather than read, because `Role.get_services`
-        answers for `Internet` -- whose services are the whole policy's -- and
-        a superrole including it must get the same answer.
+        `subservices` is therefore read as written, with no fallback to the
+        subrole. An entry that is empty means the group offers nothing through
+        that member, which is a statement and not a gap.
 
         Returns:
             A dictionary containing the subrole names as keys and the offered
             services as values.
         """
 
-        services = {}
-        for name, subrole in self.subroles.items():
-            narrowed = self.subservices.get(name)
-            services[name] = narrowed if narrowed else subrole.get_services()[name]
-
-        return services
+        return self.subservices
 
     def offers_services(self) -> bool:
         """Checks whether this role offers services or not.
 
-        A superrole offers what it represents: the services of its subroles,
-        narrowed where the inventory narrowed them. Answering False here made
+        A superrole offers what its own `offers` lines declare, not what its
+        members happen to offer. Answering False unconditionally made
         `X ---> Superrole.SERVICE` raise `ServiceUnknownException` for a service
-        the group demonstrably offers -- `All ---> All.ARP` in
-        `examples/fml-paper-policy.txt` could not be compiled at all.
+        the group declares itself -- `All ---> All.ARP` in
+        `examples/fml-paper-policy.txt`, over a `def role All` whose body reads
+        `offers ARP`, could not be compiled at all.
 
         Returns:
             A boolean value.
