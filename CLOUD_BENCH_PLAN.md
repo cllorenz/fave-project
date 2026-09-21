@@ -474,10 +474,25 @@ endpoints, unconditioned:
 
 and after the correction ad6 matches the dataset at q01, q02 and q03.
 
-**What still blocks the benchmark is the query-seeding path, not the model.**
-`fave_bridge._SUPPORTED_COND_FIELDS` forces only `related`, and the FPL check set
-puts `f=related:0` on every conditional check against a model with no conntrack,
-so the run refuses. Unchanged by any of this, and tracked separately.
+#### ad6 RUNS IT — 6/6, and identical to NetPlumber on all 71 checks
+
+The last blocker was the query-seeding path, not the model:
+`fave_bridge._SUPPORTED_COND_FIELDS` forced only `related`, and the FPL check
+set puts `f=related:0` on every conditional check plus `f=!port:331` on the one
+carrying q04. Generalised at `AD6_PLAN.md` §9.37, and the run now completes:
+
+    ad6, 6/6 oracle verdicts reproduced, 56/65 self-derived violated
+    netplumber, 6/6 oracle verdicts reproduced, 56/65 self-derived violated
+
+Not merely the same totals. Every query is paired to the SAME check line on both
+engines, every per-query record matches, and **all 71 per-check verdicts are
+identical** — 57 violated on each, zero disagreements. The model census
+(86 devices, 145 links, 1,741 routes, 8 generators, 8 probes) is identical too,
+which is what makes the comparison one of engines rather than of two models.
+
+So this workload now has two independent engines agreeing with each other AND
+with six verdicts produced outside this repository a decade earlier. Both stamps
+are committed under `eval/`.
 
 **Guarded from here on.** `fave/test/test_ad6_cloud_differential.py`
 (integration tier, ~2 min) holds ad6 and NetPlumber to the same matrix and both

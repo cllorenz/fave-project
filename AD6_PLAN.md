@@ -7467,6 +7467,99 @@ What still blocks the benchmark itself is the query-seeding path, not the model:
 conntrack) is refused. That is a separate boundary -- CLOUD_BENCH_PLAN.md
 §1.7.2.
 
+---
+
+### 9.37 The query path forces what the MODEL has, not one named field
+
+**DONE 2026-09-21.** `_SUPPORTED_COND_FIELDS = ("related",)` was the last thing
+keeping ad6 off wl_cloud, and replacing it took three changes — none of them an
+extension of the allowlist.
+
+#### 9.37.1 Which namespace a field lives in is a property of the MODEL
+
+ad6 resolves a field either node-scoped, over a per-node SSA copy
+(`FieldBitName`), or against a single global bit-vector shared by the whole
+model (`ConvertPortToVariables` and friends). Which one depends on whether some
+rule REWRITES it (§9.6) — so it is not a fact about the field, and the bridge
+cannot know it. Forcing into the wrong namespace constrains nothing at all,
+which is §5.1's "bug 2" exactly.
+
+So the translator says. `query_field_recipes` ships a per-field recipe in the
+payload, and it is **authoritative by construction**: every field any rule
+matches or rewrites gets an entry.
+
+The protocol's recipe carries ad6's own IANA name table with it, because
+`CanonizeProto` looks up by NAME and silently returns the no-next-header code on
+a miss — `CanonizeProto('6')` is 59, not 6 — so a `RuleField`'s canonical `'6'`
+would force a bit pattern no rule in the model ever matches. `_proto` has
+refused unmapped protocols since §9.6; the table travels so the condition path
+cannot drift from the match path that produced the model's own bits.
+
+#### 9.37.2 A negated condition is a CLAUSE
+
+`f=!port:331` is "some bit differs" — a disjunction, and `extra_vars` are
+assumptions, which are unit by definition. `IncrementalSession.Query` grows
+`extra_clauses`: under `rank` each gets a selector and the permanent clause
+`(¬s ∨ l₁ ∨ … ∨ lₙ)` with `s` assumed for that query; under `flow` a plain
+clause in the per-query solver.
+
+**The negation is the WEAK one, and that is the safe reading rather than a
+compromise.** `_CreateBitConstraints` pairs `=0`/`=1` only for the values the
+model itself mentions, and emits no at-least-one, so a bit no rule pins is
+genuinely free. Asserting "some bit IS the other value" would name variables the
+encoding may not contain, and a fresh variable carries no exclusion against the
+one the path forces — satisfiable for the wrong reason. Negating exactly the
+literals a positive condition would force uses only variables the model already
+has: where the path pins the field every disjunct is false and the query is
+refuted, where it does not a free bit admits a differing value. Right either way.
+
+#### 9.37.3 An ABSENT field is not an UNKNOWN field
+
+The old refusal conflated two opposite situations:
+
+| | `related:0` vs `related:1` | the right answer |
+|---|---|---|
+| the model HAS the field, condition dropped | identical although they differ | **the §9.23 bug** |
+| the model has NO such field | identical by construction | report it |
+
+The recipe map makes absence a *statement* rather than an assumption, so the
+second case is honoured — and announced on stderr per field, because "honoured,
+there was nothing there" and "quietly dropped" must not look alike in a run's
+record. A field the translator can match but not yet force ships
+`scope: unsupported` and is still refused, so absence never stands in for "not
+implemented".
+
+**wl_ifi is where this is demonstrated rather than argued.** Its 54 stateful
+checks used to raise; they are now answered with **27 violations — exactly what
+NetPlumber reports for the same set**, and exactly the 27 CLOUD_BENCH_PLAN.md
+§1.9.0 records for it under `<->>`. And the same checks with the condition
+REMOVED give the identical verdicts, which is what "vacuous" has to *mean*. That
+demonstration is deliberately the shape of the §9.23 bug; what tells them apart
+is the neighbouring test pinning that wl_ifi's Cisco ACLs carry no ctstate
+qualifier at all, so the model provably has no such field. Neither half is
+sufficient alone.
+
+#### 9.37.4 Two more it exposed rather than introduced
+
+* **The src-CIDR seed forced the global `ip4_src_` vector unconditionally**,
+  which is a silent no-op on any model with source NAT — wl_cloud is one, and
+  its seeds had been doing nothing. It goes through the recipe too, forced at
+  the SOURCE's node rather than the probe's: a generator's declared address is
+  the header the packet STARTS with, a different statement from a condition on
+  the header that ARRIVES.
+* **A node-scoped seed of a PREFIX.** wl_cloud's generators carry a `/30` each,
+  so it forces the determined bits and leaves the host part free, exactly as a
+  masked `<fieldmatch>` does.
+
+#### 9.37.5 The result
+
+    ad6,        6/6 oracle verdicts reproduced, 56/65 self-derived violated
+    netplumber, 6/6 oracle verdicts reproduced, 56/65 self-derived violated
+
+Every query paired to the same check line on both engines, every per-query
+record matching, and **all 71 per-check verdicts identical** — 57 violated each,
+zero disagreements, on an identical model census.
+
 Both boundaries `CLOUD_BENCH_PLAN.md` §1.7.2 recorded are closed, and **ad6 no
 longer refuses the workload**.
 
