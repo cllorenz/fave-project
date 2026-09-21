@@ -89,9 +89,18 @@ This behaviour can be disabled by using the ``--strict`` option.
 Two example files that contain both an inventory and policies are enclosed with the policy translator. 
 
 1. ``examples/ifi-policy.txt``
-2. ``examples/fml-paper-policy.txt``
+2. ``examples/fml-paper-policy.txt`` -- **does not compile, deliberately.**
 
-They can be used as input files for the Policy Translator using the first command specified in the section above.
+``ifi-policy.txt`` can be used as an input file for the Policy Translator using
+the first command specified in the section above.
+
+``fml-paper-policy.txt`` is kept as a reference artifact of the FML paper, not
+as a working policy. It is refused because it uses FML's notion of a protocol,
+which FPL does not have: ``protocol`` names an IP protocol and nothing else, so
+``'arp'`` (layer 2) and ``1616``/``1717``/``1818`` (not IP protocol numbers --
+the field is one byte) are rejected where they are declared, and ``SSH`` names a
+port with no protocol. Left as written rather than edited to fit a language it
+predates (owner decision 2026-09-21; TODO items 19 and 21).
 
 Example: ``python3 policy_translator.py --firewall --output ifi.fw examples/ifi-policy.txt``
 

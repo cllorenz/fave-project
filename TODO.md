@@ -1021,11 +1021,15 @@ the fix below is in the parser that actually runs.
       header regex 1, and letting the header regex match mid-line (so comments
       count) 1.
 
-**One pre-existing breakage surfaced, not fixed.**
+**One pre-existing breakage surfaced, not fixed here.**
 `policy_translator/examples/fml-paper-policy.txt` now exits 1 with `Fehler:
 Service All.ARP unbekannt.` It was already producing a truncated CSV — the
 build aborts partway — and simply never said so. It is referenced from
 `policy_translator/README.md` and by no test or script.
+*(Followed up: item 19 fixed that cause, and item 21 then refused the file for a
+different and real one — its protocol values. By owner decision it stays
+failing, and `policy_translator/README.md` now says so. It is covered by a test
+asserting which refusal it gets.)*
 
 #### What the value pattern accepts, and what `+` was really about (measured 2026-09-21)
 
@@ -1457,10 +1461,14 @@ identically at `HEAD~8`, before any of this branch's translator work.
       **dict** rather than a copy, so `Outer.add_service` wrote through into
       `Mid` and `Mid.*` resolved to a service `Mid` never declared — a role's
       offering changing because something *else* included it. Copied now.
-- [x] **`fml-paper-policy.txt` compiles.** `All ---> All.ARP` over a
-      `def role All` whose body reads `offers ARP` used to raise
+- [x] **`fml-paper-policy.txt` gets past the superrole.** `All ---> All.ARP`
+      over a `def role All` whose body reads `offers ARP` used to raise
       `ServiceUnknownException`; the file could not be compiled at all, and
       still cannot at `HEAD~8`, so it predates this work.
+      *(Superseded in part by item 21: the file now fails later and for a
+      different, real reason — `arp` is not an IP protocol — and by owner
+      decision it stays that way. The test asserts WHICH refusal it gets, so
+      this item's property is still pinned.)*
 - [x] **Tests:** `test/test_superrole_services.py` (13) and four rewritten or
       new `TestSuperrole` cases in `test_policy.py`. Mutation-verified five
       ways, all red: `offers_service` back to `False`; `get_services` falling
@@ -1472,8 +1480,9 @@ identically at `HEAD~8`, before any of this branch's translator work.
       deduplication is covered from here on.
 
 **Artifacts:** every inventory/policy pair recompiled; **nine workloads
-byte-identical**. Both examples compile: `fml-paper-policy.txt` produces a
-matrix where it produced an error, and `ifi-policy.txt` was corrected (below).
+byte-identical**. `fml-paper-policy.txt` produced a matrix where it had produced
+an error (item 21 later refuses it earlier, on its protocol values), and
+`ifi-policy.txt` was corrected (below).
 
 - [x] **`examples/ifi-policy.txt` corrected** (owner, 2026-09-21): both
       wildcard rules now name the webserver and its services directly —
@@ -1673,10 +1682,13 @@ no protocol. Item 19's test on that file is replaced by one asserting **which**
 refusal it gets — it now gets *past* the superrole and fails on its data — and
 item 19's own property is asserted on fixtures, so no coverage is lost.
 
-- [ ] **Open, if the example is wanted as a working policy:** give `SSH` a
-      `protocol`, and either drop the `ProtNNNN` rules or express them once an
-      `l2proto`/raw-protocol attribute exists. That is a change to published
-      data and has not been made.
+**Decided (owner, 2026-09-21): the example stays as it is and stays failing.**
+Not an oversight and not a thing to tidy later — the file is an FML-paper
+artifact, and what it exercises is FML's notion of "protocol", which FPL
+deliberately does not have. Making it compile would mean editing published data
+to fit a language it predates. If it is ever wanted as a working policy, `SSH`
+needs a `protocol` and the `ProtNNNN` rules either go or wait for an
+`l2proto`/raw-protocol attribute.
 
 ---
 
