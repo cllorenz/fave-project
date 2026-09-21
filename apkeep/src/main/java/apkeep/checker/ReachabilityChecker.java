@@ -78,6 +78,18 @@ public class ReachabilityChecker {
      *  Set before an isReachable(...) overload -- it survives all of them. */
     public void setRelatedHeader(int relatedBDD) { this.relatedHeader = relatedBDD; }
 
+    /** FaVe fork: AND a further arrival constraint onto the one above -- the
+     *  header CONDITIONS a compliance check carries beyond the connection state
+     *  ("f=protocol:tcp", "f=port:332", and the complement for a negated one).
+     *  Same field, because the two compose by conjunction and neither is ordered
+     *  against the other; the vlan target header stays separate. Set before an
+     *  isReachable(...) overload -- it survives all of them. */
+    public void andArrivalHeader(int headerBDD) {
+        this.relatedHeader = this.relatedHeader == BDDACLWrapper.BDDTrue
+                ? headerBDD
+                : APKeeper.bddengine.and(this.relatedHeader, headerBDD);
+    }
+
     // Witness capture (FaVe fork, gap-2 diagnosis): on the first arrival, record
     // the exact hop sequence and the surviving forwarding APs, so we can compare
     // APKeep's over-approximating path against NetPlumber hop by hop. Public so a

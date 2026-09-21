@@ -93,6 +93,7 @@ public class BDDACLWrapper implements Serializable{
       public int mplsLabelField;
       public int mplsLabelFieldDecoration;
       int dstIPField;
+      int srcIPField;  // FaVe fork: all SOURCE-IP variables AND-ed, for src rewrites (SNAT)
       int vlanField;   // P7b: all VLAN variables AND-ed, for VLAN rewrites (nat)
       //int dstIPInnerField;
 
@@ -167,6 +168,7 @@ public class BDDACLWrapper implements Serializable{
             mplsLabelFieldDecoration = 
                         aclBDD.ref(aclBDD.and(mplsLabelField, mplsLabelBit));
             dstIPField = AndInBatch(dstIP);
+            srcIPField = AndInBatch(srcIP);  // FaVe fork: same, for source-address rewrites
             vlanField = AndInBatch(vlan);   // P7b: existential-quantification set for VLAN rewrites
             //dstIPInnerField = AndInBatch(dstIPInner);
       }
@@ -181,6 +183,7 @@ public class BDDACLWrapper implements Serializable{
       {
             switch(field_name){
             case dst_ip: return dstIPField;
+            case src_ip: return srcIPField;   // FaVe fork: source NAT
             case vlan: return vlanField;
             default: return BDDFalse;
             }
@@ -1565,6 +1568,14 @@ public class BDDACLWrapper implements Serializable{
        * the UNCONDITIONED question and returns a confident number (1651 phantom
        * wl_up violations; APKEEP_BACKEND.md sec. 9).
        */
+      /** FaVe fork: the COMPLEMENT of a packet space, for a negated compliance-
+       *  check condition ("f=!port:331" asks about every port but 331, which is a
+       *  different question from "port 331" rather than a weaker one). */
+      public int negate(int bdd)
+      {
+            return aclBDD.ref(aclBDD.not(bdd));
+      }
+
       public int ConvertRelated(int related)
       {
             return related == 0 ? aclBDD.ref(aclBDD.not(relatedVar))

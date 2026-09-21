@@ -124,6 +124,36 @@ public class NATElement extends Element {
 			return new RewriteRule(match_bdd, match_bdd, new_bdd,
 					common.Fields.vlan, "vlan" + vlan_id, 65535);
 		}
+		// FaVe fork: an ADDRESS rewrite carrying the match it is keyed on --
+		// "+ nat <dev> <natid> match <src|dst> <newIP> <newlen> <ACLRule body>".
+		// The bare form below rewrites the destination and can only be keyed on a
+		// destination prefix. That is not enough for a real NAT: wl_cloud's cores
+		// rewrite the SOURCE of outbound traffic (which is what carries it past the
+		// gateway's anti-spoofing rules), and two of those rules leave the same port
+		// with the same source /24, differing only in tcp_src. So the match is the
+		// whole 5-tuple, encoded exactly as a FilterElement encodes one, and the
+		// field being written is named rather than assumed.
+		//
+		// The rewrite VALUE is a prefix and the bits it leaves unfixed come out
+		// FREE, not preserved: a DNAT onto a /22 reaches the whole /22 (AD6_PLAN.md
+		// 9.36 records the same correction on the other backend, where preserving
+		// them collapsed it to one host).
+		if (tokens[4].equals("match")) {
+			boolean is_src = tokens[5].equals("src");
+			common.Fields field = is_src ? common.Fields.src_ip : common.Fields.dst_ip;
+			long rewrite_prefix = Utility.IPStringToLong(tokens[6]);
+			int rewrite_prefixlen = Integer.valueOf(tokens[7]);
+			int head = 0;
+			for (int k = 0; k <= 7; k++) head += tokens[k].length() + 1;
+			common.ACLRule keyed_on = new common.ACLRule(rule.substring(head));
+			int match_bdd = apk.encodeACLBDD(keyed_on);
+			BDDACLWrapper bdd = apkeep.core.APKeeper.bddengine;
+			int rewrite_bdd = is_src
+					? bdd.encodeSrcIPPrefix(rewrite_prefix, rewrite_prefixlen)
+					: apk.encodePrefixBDD(rewrite_prefix, rewrite_prefixlen);
+			return new RewriteRule(match_bdd, match_bdd, rewrite_bdd, field,
+					(is_src ? "src" : "dst") + tokens[6] + "/" + tokens[7], 65535);
+		}
 		long old_prefix = Utility.IPStringToLong(tokens[4]);
 		int old_prefixlen = Integer.valueOf(tokens[5]);
 		String new_ip = tokens[6];

@@ -69,10 +69,13 @@ public final class NddReachabilityEngine {
     private final Map<String, List<String>> edges = new HashMap<>();
     // device -> out_port -> first-match residual predicate (plain NDD node id).
     private final Map<String, Map<String, Integer>> portPred = new HashMap<>();
-    // "dev|port" -> inline VLAN-rewrite rules (NATElement): each (dst-prefix NDD,
-    // vlan id). A header forwarded out this port has its VLAN set to vlanN on the
-    // dst-prefix-matched part (exist VLAN, then set); unmatched dst is unchanged.
-    private final Map<String, List<int[]>> nat = new HashMap<>();  // val: {dstPredNode, vlanN}
+    // "dev|port" -> inline rewrite rules (NATElement): each {matchPred, field,
+    // rewritePred}. A header forwarded out this port has `field` existentially
+    // removed on the matched part and then constrained to `rewritePred`; the
+    // unmatched part is unchanged. Covers the VLAN rewrite (faithful wl_stanford)
+    // and the IPv4 source/destination rewrite (wl_cloud's NAT). The rewrite
+    // predicate is a PREFIX, so the bits it does not fix come out free.
+    private final Map<String, List<int[]>> nat = new HashMap<>();
     // source key "dev|port|cidr" -> device -> union of reached headers (NDD node,
     // reffed). Cached so the adapter's probe x source loop floods once per source.
     private final Map<String, Map<String, Integer>> reachCache = new HashMap<>();
@@ -171,8 +174,34 @@ public final class NddReachabilityEngine {
                 int plen = Integer.parseInt(t[6]);
                 int dstPred = plen == 0 ? NDD.getTrue()
                         : prefixV4(DST4, ipv4ToLong(t[5]), plen);
+                int vlanNew = exact(VLAN, Long.parseLong(t[7]), W[VLAN]);
                 nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
-                   .add(new int[]{NDD.ref(dstPred), Integer.parseInt(t[7])});
+                   .add(new int[]{NDD.ref(dstPred), VLAN, NDD.ref(vlanNew)});
+                continue;
+            } else if (t[1].equals("nat") && t.length >= 20 && t[4].equals("match")) {
+                // "+ nat <dev> <port> match <src|dst> <newIP> <newlen> <ACLRule
+                // body>": an inline IPv4 address rewrite on (dev, port), keyed on
+                // the SAME 5-tuple the forwarding rule matched. The gateway's DNAT
+                // publishes a service on one public /32 and rewrites it onto a
+                // whole subnet; the cores rewrite the SOURCE of outbound traffic,
+                // which is what carries it past the gateway's anti-spoofing rules.
+                // Two source rewrites can share a port and a source prefix and
+                // differ only in tcp_src, so the address alone cannot key them.
+                //
+                // Both are prefix rewrites: the bits the new prefix does not fix
+                // come out FREE, so a DNAT onto a /22 reaches every host in it.
+                int fld = t[5].equals("src") ? SRC4 : DST4;
+                int rlen = Integer.parseInt(t[7]);
+                int rwPred = rlen == 0 ? NDD.getTrue()
+                        : prefixV4(fld, ipv4ToLong(t[6]), rlen);
+                // The body from t[8] on has a FilterElement rule's field layout;
+                // re-head it so ruleToNDD reads the fields at its own indices.
+                String[] body = new String[t.length - 8 + 3];
+                body[0] = "+"; body[1] = "filter"; body[2] = t[2];
+                System.arraycopy(t, 8, body, 3, t.length - 8);
+                int matchPred = ruleToNDD(body);
+                nat.computeIfAbsent(key(t[2], t[3]), k -> new ArrayList<>())
+                   .add(new int[]{NDD.ref(matchPred), fld, NDD.ref(rwPred)});
                 continue;
             } else {
                 continue;
@@ -326,6 +355,40 @@ public final class NddReachabilityEngine {
         return arriving != NDD.getFalse();
     }
 
+    /**
+     * As above, plus the arbitrary header CONDITIONS a FaVe compliance check may
+     * carry beyond the connection state -- "f=protocol:tcp", "f=port:332",
+     * "f=!port:331". Each entry is "&lt;0|1&gt; &lt;filter rule string&gt;": 0
+     * constrains the arriving traffic to that rule's packet space, 1 to its
+     * COMPLEMENT (a negated condition is a different question, not a weaker one).
+     *
+     * Constrained at arrival for the same reason {@code related} is, and under the
+     * same precondition: it is equivalent to seeding the source only while no rule
+     * REWRITES a field a condition names. The caller checks that -- see
+     * {@code APKeepAdapter._query_conditions}, which refuses the check rather than
+     * answering a different one.
+     */
+    public boolean isReachable(String srcDev, String srcPort, String cidr,
+                               String dstDev, String dstPort, int targetVlan,
+                               int related, java.util.List<String> conds) {
+        Integer h = reachedHeaders(srcDev, srcPort, cidr).get(dstDev);
+        if (h == null) return false;
+        int arriving = h;
+        if (targetVlan >= 0)
+            arriving = NDD.and(arriving, exact(VLAN, targetVlan, W[VLAN]));
+        if (related >= 0)
+            arriving = NDD.and(arriving, exact(REL, related, W[REL]));
+        if (conds != null) {
+            for (String c : conds) {
+                if (arriving == NDD.getFalse()) break;
+                boolean negated = c.charAt(0) == '1';
+                int pred = ruleToNDD(c.substring(2).trim().split("\\s+"));
+                arriving = NDD.and(arriving, negated ? NDD.not(pred) : pred);
+            }
+        }
+        return arriving != NDD.getFalse();
+    }
+
     /** Back-compat: no VLAN constraint. */
     public boolean isReachable(String srcDev, String srcPort, String cidr,
                                String dstDev, String dstPort) {
@@ -429,7 +492,10 @@ public final class NddReachabilityEngine {
         for (int[] rl : rules) {
             int part = NDD.and(h, rl[0]);
             if (part != NDD.getFalse()) {
-                int rw = NDD.and(NDD.exist(part, VLAN), exact(VLAN, rl[1], W[VLAN]));
+                // Free the rewritten field on the matched part, then constrain it
+                // to the new value. Whatever the new predicate leaves open stays
+                // open -- a rewrite onto a prefix yields the whole prefix.
+                int rw = NDD.and(NDD.exist(part, rl[1]), rl[2]);
                 result = NDD.or(result, rw);
             }
             matched = NDD.or(matched, rl[0]);
