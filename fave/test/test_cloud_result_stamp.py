@@ -37,7 +37,8 @@ import shutil
 import tempfile
 import unittest
 
-from bench.wl_cloud.benchmark import RawDataError, verify_raw, violated_queries
+from bench.wl_cloud.benchmark import RawDataError, verify_raw
+from bench.wl_cloud.cloud_provenance import check_key, parse_violations
 
 
 _NO_VIOLATIONS = """# Report
@@ -54,40 +55,56 @@ _VIOLATIONS = """# Report
 ## Compliance Check
 The following compliance violations have been found:
 
-- `source.q01` does not reach `probe.dc1_leaf5_host5_rx`
-- `source.q04` reaches `probe.dc4_leaf3_host22_rx` with
-    - packet.upper.dport=331
+- `source.internet` does not reach `probe.dc1_leaf5_host5`
+- `source.internet` reaches `probe.dc4_leaf3_host22` with
+    - related=0
+    - packet.upper.dport=0000000101001011
 
 ## Anomaly Check
 No anomalies have been found.
 """
 
+#: The two checks `_VIOLATIONS` reports, as the generator writes them.
+_Q01 = 's=source.internet && EF p=probe.dc1_leaf5_host5'
+_Q04 = ('! s=source.internet && EF p=probe.dc4_leaf3_host22 '
+        '&& f=related:0 && f=!port:331')
+#: Query 04's SIBLING complement term, which contradicts the same cell on the
+#: protocol instead of the port. Same pair, same direction -- so it is the one
+#: check a coarser key would confuse with q04.
+_Q04_SIBLING = ('! s=source.internet && EF p=probe.dc4_leaf3_host22 '
+                '&& f=related:0 && f=!protocol:tcp')
+
 
 class TestReadingTheVerdict(unittest.TestCase):
 
-    def _report(self, text):
-        handle, path = tempfile.mkstemp(suffix='.md')
-        os.close(handle)
-        self.addCleanup(os.unlink, path)
-        with open(path, 'w') as out:
-            out.write(text)
-        return path
-
-    def test_a_clean_report_names_no_violated_query(self):
-        self.assertEqual(violated_queries(self._report(_NO_VIOLATIONS)), set())
+    def test_a_clean_report_names_no_violated_check(self):
+        self.assertEqual(parse_violations(_NO_VIOLATIONS), set())
 
     def test_both_violation_shapes_are_recognised(self):
-        """ "does not reach" (a sat query that failed) and "reaches ... with"
-        (an unsat query that failed) are different lines and both count. """
-        self.assertEqual(
-            violated_queries(self._report(_VIOLATIONS)), {'q01', 'q04'})
+        """ A violated must-reach check reads "does not reach" and a violated
+        must-not-reach one reads "reaches" -- the direction in the line is the
+        polarity of the CHECK, not of the finding. Both are violations. """
+        violated = parse_violations(_VIOLATIONS)
+        self.assertIn(check_key(_Q01), violated)
+        self.assertIn(check_key(_Q04), violated)
 
-    def test_a_missing_report_is_not_silently_clean(self):
+    def test_a_sibling_complement_term_is_not_confused_with_the_query(self):
+        """ The reason a violation is keyed on its condition FIELDS and not on
+        the pair alone: `Internet ---> host22.S331` compiles to two
+        must-not-reach complement checks over the same pair, and only one of
+        them is what the dataset's query 04 asks. Attributing the other one's
+        violation to q04 would report a third-party verdict as reproduced (or
+        not) on the strength of an expectation we invented. """
+        violated = parse_violations(_VIOLATIONS)
+        self.assertNotIn(check_key(_Q04_SIBLING), violated)
+
+    def test_an_empty_report_is_not_silently_clean(self):
         """ A run that produced no report at all must not read as "nothing was
         violated" -- AD6_PLAN.md §9.34.3 is exactly that mistake. The caller
-        checks the file exists; this pins that an absent file yields no
-        evidence rather than positive evidence. """
-        self.assertEqual(violated_queries('/nonexistent/report.md'), set())
+        passes '' for a missing file; what makes that safe is not this function
+        but `pair_oracle_to_checks`, which refuses a query no check carries.
+        Pinned here so the pairing stays the thing that notices. """
+        self.assertEqual(parse_violations(''), set())
 
 
 class TestRawDataIntegrity(unittest.TestCase):
