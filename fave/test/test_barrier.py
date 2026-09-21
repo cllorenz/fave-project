@@ -240,5 +240,92 @@ def _wait_for_state(pid, state, tries=500):
     raise AssertionError("pid %s never reached state %s" % (pid, state))
 
 
+
+class TestWithdrawalIsIdentityChecked(BarrierTestCase):
+    """ A DYING aggregator must not deregister its SUCCESSOR (TODO item 17).
+
+    `aggregator/stop.py` sends the stop request and returns without waiting for
+    the process to exit, so an aggregator can still be shutting down while the
+    next one is already up and registered. `withdraw_owner` used to unlink the
+    file unconditionally, so the predecessor deleted the successor's
+    registration on its way out -- and the successor's very next barrier
+    reported "no aggregator is registered", a live aggregator declared dead by
+    its predecessor.
+
+    Two benchmarks run back to back hit this every time: six consecutive
+    wl_cloud policy runs failed at `check_compliance` before the fix and all six
+    pass after it.
+    """
+
+    def _publish_pid(self, pid, starttime="1"):
+        with open(barrier.owner_path(self.dir), "w", encoding="utf-8") as raw:
+            json.dump({"pid": pid, "starttime": starttime}, raw)
+
+    def test_withdrawing_removes_our_OWN_registration(self):
+        """ The behaviour that must survive the fix: a clean shutdown still
+        leaves "nobody will release anything any more". """
+        self._own()
+        self.assertTrue(os.path.exists(barrier.owner_path(self.dir)))
+
+        barrier.withdraw_owner(self.dir)
+
+        self.assertFalse(os.path.exists(barrier.owner_path(self.dir)))
+
+    def test_withdrawing_leaves_a_SUCCESSOR_registration_alone(self):
+        """ THE DEFECT. The file names another pid, so it is not ours to
+        remove -- whatever we once wrote there. """
+        self._own()
+        successor = os.getpid() + 1              # any pid that is not ours
+        self._publish_pid(successor)
+
+        barrier.withdraw_owner(self.dir)
+
+        self.assertTrue(
+            os.path.exists(barrier.owner_path(self.dir)),
+            "a predecessor deleted its successor's registration")
+        with open(barrier.owner_path(self.dir), encoding="utf-8") as raw:
+            self.assertEqual(json.load(raw)["pid"], successor)
+
+    def test_a_successors_registration_still_reads_as_alive(self):
+        """ The consequence the benchmark actually saw, end to end.
+
+        A REAL other process stands in for the successor, because the point is
+        that the waiter finds a LIVE owner afterwards -- `_owner_alive` checks
+        the pid exists and its start time matches, so a fabricated pid would
+        pass this for the wrong reason.
+        """
+        successor = subprocess.Popen(  # pylint: disable=consider-using-with
+            [sys.executable, '-c', 'import time; time.sleep(30)'])
+        self.addCleanup(successor.wait)
+        self.addCleanup(successor.kill)
+
+        self._own()                              # we register first
+        self._publish_pid(                       # then the successor replaces us
+            successor.pid, self._starttime_of(successor.pid))
+
+        barrier.withdraw_owner(self.dir)         # we shut down late
+
+        alive, reason = barrier._owner_alive(self.dir)  # pylint: disable=protected-access
+        self.assertTrue(alive, "the successor was declared dead: %s" % reason)
+
+    def test_withdrawing_an_absent_registration_is_quiet(self):
+        barrier.withdraw_owner(self.dir)         # must not raise
+        self.assertFalse(os.path.exists(barrier.owner_path(self.dir)))
+
+    def test_an_unreadable_registration_is_left_alone(self):
+        """ We cannot tell whose it is, and `_owner_alive` already says so
+        loudly. Removing it on a guess is how the defect above happened. """
+        with open(barrier.owner_path(self.dir), "w", encoding="utf-8") as raw:
+            raw.write("not json")
+
+        barrier.withdraw_owner(self.dir)
+
+        self.assertTrue(os.path.exists(barrier.owner_path(self.dir)))
+
+    @staticmethod
+    def _starttime_of(pid):
+        identity = barrier._proc_identity(pid)   # pylint: disable=protected-access
+        return identity[1] if identity else None
+
 if __name__ == '__main__':
     unittest.main()

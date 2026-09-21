@@ -142,8 +142,33 @@ def publish_owner(directory: str = None) -> str:
 
 def withdraw_owner(directory: str = None) -> None:
     """ Aggregator side, on clean shutdown: a missing owner file is an
-    unambiguous "nobody will release anything any more". """
-    _unlink(owner_path(directory))
+    unambiguous "nobody will release anything any more".
+
+    ONLY IF THE REGISTRATION IS STILL OURS. `aggregator/stop.py` sends the
+    request and returns without waiting for the process to exit, so an
+    aggregator can still be shutting down while the NEXT one is already up and
+    registered. Withdrawing unconditionally then deleted the successor's
+    registration, and its very next barrier reported "no aggregator is
+    registered" -- a live aggregator declared dead by its predecessor. Two
+    benchmarks run back to back hit this every time (TODO.md item 17).
+
+    A file we cannot read is left alone rather than removed: we cannot tell
+    whose it is, and `_owner_alive` already diagnoses that case loudly.
+    """
+    path = owner_path(directory)
+
+    try:
+        with open(path, encoding="utf-8") as owner_file:
+            owner = json.load(owner_file)
+    except (IOError, OSError):
+        return                                  # already gone
+    except ValueError:
+        return                                  # unreadable: not ours to judge
+
+    # The pid alone is exact here: a reused pid would mean this process is gone,
+    # and a gone process is not running this line.
+    if owner.get("pid") == os.getpid():
+        _unlink(path)
 
 
 def _owner_alive(directory: str = None) -> Tuple[bool, str]:
