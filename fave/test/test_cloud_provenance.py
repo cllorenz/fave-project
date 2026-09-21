@@ -53,7 +53,7 @@ _INVENTORY = 'bench/wl_cloud/roles_and_services.txt'
 _POLICY = 'bench/wl_cloud/reach.txt'
 
 
-def _generate_checks(tmpdir):
+def _generate_checks(tmpdir, complement=True):
     """ The real 71, through the real two-step pipeline.
 
     Generated rather than committed: a check set transcribed into a test is a
@@ -78,8 +78,9 @@ def _generate_checks(tmpdir):
             dict((role, [member.name]) for role, member in members.items())))
 
     subprocess.run(
-        [sys.executable, 'bench/reach_csv_to_checks.py',
-         '--strict', '--complement', '-p', csv, '-m', inventory,
+        [sys.executable, 'bench/reach_csv_to_checks.py', '--strict']
+        + (['--complement'] if complement else []) +
+        ['-p', csv, '-m', inventory,
          '--roles', roles, '-c', checks,
          '--cchecks', os.path.join(tmpdir, 'cchecks.json'),
          '-j', os.path.join(tmpdir, 'reachable.json')],
@@ -156,6 +157,30 @@ class TestTheRealCheckSet(unittest.TestCase):
         attributed to the other, silently. """
         keys = [check_key(c) for c in self.checks]
         self.assertEqual(len(set(keys)), len(self.checks))
+
+    def test_without_the_complement_query_04_is_carried_by_NOTHING(self):
+        """ Why `use_complement=True` is not optional for this workload.
+
+        q04 asks whether anything OUTSIDE port 331 arrives. That is the
+        complement half of `Internet ---> host22.S331`, and without
+        `--complement` the cell is only checked in the direction that confirms
+        it -- §1.9.3's "q04 would have degraded from 'nothing outside 331
+        enters' to '331 enters'".
+
+        The point is not that the check is missing; it is that the run REFUSES
+        instead of reporting six verdicts reproduced on the strength of five.
+        The hand-built check set this replaces had no such guard, and a stamp
+        recording `agrees: true` for a check that was not run is the exact
+        vacuity this module exists to close.
+        """
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(__import__('shutil').rmtree, tmp, True)
+        checks, endpoint_of = _generate_checks(tmp, complement=False)
+
+        with self.assertRaises(UnmatchedQuery) as ctx:
+            pair_oracle_to_checks(self.queries, checks, endpoint_of)
+        self.assertIn('q04', str(ctx.exception))
+        self.assertIn('matches 0', str(ctx.exception))
 
     def test_the_six_are_a_minority_of_the_checks(self):
         """ Not a number to pin, but a property: most of what this workload
