@@ -67,6 +67,18 @@ bench/wl_cloud/*.csv
 # rather than comparing against a file in the tree.
 bench/wl_cloud/matrix/
 
+# wl_deltanet: EVERYTHING derived, including the FPL itself. Unlike wl_cloud,
+# this workload has no hand-written half at all -- the inventory and the policy
+# are emitted by `deltanet_policy.py` from the vendored traces on every run, so
+# there is no pair of same-named files to keep apart and the whole lot is
+# ignored. What is tracked is the code that derives them, `TRACES.md` (pinned
+# by a test), the raw traces under deltanet-traces/, and eval/, which a single
+# `*` does not reach because it does not cross `/`.
+bench/wl_deltanet/*.json
+bench/wl_deltanet/*.csv
+bench/wl_deltanet/roles_and_services.txt
+bench/wl_deltanet/reach.txt
+
 
 *.pdf
 out
