@@ -7,10 +7,10 @@ dataset's own 26x26 ACL matrix (C7, §1.9.6). All six third-party oracle verdict
 reproduced on NetPlumber before and after the switch (§1.7.1). Both other
 engine families first got it wrong and both were fixed: ad6 refused the workload
 outright, then answered every cell (§1.7.2), and APKeep answered ten of
-sixty-four cells wrong, then all of them (§1.7.3). **APKeep and NetPlumber now
-agree on every check of all three phases**; ad6 agrees on the oracle phase and
-the all-pairs matrix and over-approximates the 4,224-check matrix phase by 463,
-which is an OPEN finding of its own (§1.7.4). Three defects fixed in shared code building it (§1.6) and two more
+sixty-four cells wrong, then all of them (§1.7.3). Running the matrix phase then
+found a third defect, in ad6's rule reader -- a rule matching both transport
+ports was read as an OR (§1.7.4). **With that fixed, all three engines agree on
+every check of all three phases.** Three defects fixed in shared code building it (§1.6) and two more
 building the policy (§1.9.6). Delta-net not started.
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
@@ -695,57 +695,87 @@ sizing it properly is its own piece of work.
 
 ---
 
-### 1.7.4 ad6 — a rule that matches both transport ports loses both (OPEN)
+### 1.7.4 ad6 — a rule matching both transport ports meant OR (FIXED 2026-09-22)
 
-**Found by running the matrix phase on ad6, 2026-09-22.** The oracle phase had
-agreed with everything (6/6 verdicts, 57 violated of 71, §1.7.2), and the
-all-pairs matrix agrees on all 64 cells, so the workload looked settled. The
-4,224-check matrix phase does not: **1,778 violations against NetPlumber's
-1,315 — 463 unexpected, 0 missing.** A pure over-approximation, which is
-reachability nobody authorised.
+**Found by running the matrix phase on ad6, which had never been run.** The
+oracle phase agreed with everything (6/6 verdicts, 57 violated of 71, §1.7.2)
+and the all-pairs matrix agreed with NetPlumber on all 64 cells, so the workload
+looked settled. The 4,224-check matrix phase did not: **1,778 violations against
+NetPlumber's 1,315 — 463 unexpected, 0 missing.** A pure over-approximation.
 
-**Minimal reproducer** (`fave/test/test_ad6_port_pair.py`). Two switches in
-series, each permitting a different SOURCE port; no packet carries two source
-ports, so the probe is unreachable:
+**The cause, in the rule reader.** `KripkeUtils.ConvertToKripke` collected every
+`<port>` element of a rule into one list, regardless of direction, and combined
+them with a **disjunction** whenever there was more than one. That is right for
+several ports in the same direction — `--dports 80,443` is an alternation — and
+wrong for a source port beside a destination port, which is a conjunction. So
+`sport=342 AND dport=346` was encoded as:
 
-| the rules match | ad6 | APKeep / expected |
+    <disjunction>
+      <variable name="src_port_342"/>
+      <variable name="dst_port_346"/>
+    </disjunction>
+
+an over-approximation on ANY rule carrying both ports. The interface reader
+immediately above it and the VLAN reader immediately below both split their
+elements by direction; only the port reader did not.
+
+**Reduced to two switches in series**, each permitting a different SOURCE port.
+No packet carries two source ports, so the probe is unreachable:
+
+| the rules match | ad6, before | ad6, after / NetPlumber |
 |---|---|---|
 | conflicting src ports | unreachable | unreachable |
 | conflicting src ports **+ a dst port** | **reachable** | unreachable |
 | conflicting dst ports | unreachable | unreachable |
 | conflicting dst ports **+ a src port** | **reachable** | unreachable |
+| both ports conflict | **reachable** | unreachable |
 
-Either port alone is honoured. The two together are both lost — and the second
-port need not discriminate anything; the same value at both hops is enough.
+Either port alone was honoured; the two together were both lost, and the second
+port did not need to discriminate anything — the same value at both hops was
+enough.
 
-**Why the matrix phase and not the oracle phase.** wl_cloud's leaf ACLs match
-both ports on every rule, so the defect is present in both. The oracle phase's
-generators inject no source port, so the port is free, a permitted value always
-exists, and every engine agrees the traffic gets through. The matrix phase pins
-each endpoint's source port at its generator, and that is what the lost
-constraint was carrying.
+**Why the oracle phase never showed it.** wl_cloud's leaf ACLs match both ports
+on every rule, so the defect was present in both runs. The oracle generators
+inject no source port: the port is free, a permitted value always exists, and
+every engine agrees the traffic gets through. The matrix generators pin each
+endpoint's source port, and the pinned constraint is the one that went missing.
+A defect can sit in a shared reader for as long as no workload states the thing
+it drops.
 
-**Not the generator seed.** That was the guess, by analogy with §1.7.3's fourth
-defect, and it is wrong: `translate.generator_device` carries the whole injected
-header — an immutable field as a match, a mutable one as a rewrite on the
-injection edge (§5.4 B2). The defect is in how matches compose along a path, and
-the generator is only where wl_cloud happens to state a source port.
+**The first suspect was wrong, and checking beat arguing.**
+`Instantiator._ShortenPrefixes` is the IP-prefix shortening optimisation, and its
+caller really does hand it every key beginning `src_`/`dst_` — so `src_port_342`
+arrives there and is read as a dotted-quad with an implicit `/32`. That looked
+conclusive. Instrumenting it showed it mutates nothing in either the passing or
+the failing case; it is a separate latent oddity, not this. Printing the rule
+condition settled it in one line.
 
-**Suspected mechanism, demonstrated in part and not yet proven to fire here.**
-`Instantiator._ShortenPrefixes` is the IP-prefix shortening optimisation, and
-the loop that drives it selects `[key for key in Keys if key.startswith('src_')]`
-— which catches `src_port_342` as readily as `src_ip_10.0.0.0/24`. Fed a port
-key it reads `342` as a dotted-quad with an implicit `/32` and canonises it to a
-nine-bit string; its rewriting step then removes `Conjunction[:lastCIDR]` with
-`lastCIDR = 32` from what is a sixteen-variable port equality, i.e. all of it,
-and splices in a reference to another key. That port keys reach it and are
-mangled is demonstrable at the keyboard; that this is the path taken in the
-failing case is not yet shown, and the exact trigger is where a fix starts.
+**Fix:** split the port list by direction and mirror the neighbours —
+alternatives within a direction, a conjunction across them. One change, in the
+one place both the upstream `InstantiateBase` path and FaVe's
+`fave_bridge._instantiate_literal` call. `ad6/FAVE_CHANGES.md` item 32.
 
-**Not fixed here.** It is inside ad6's encoding, the same territory as §9.35-§9.37,
-and the owner decides whether it is worth a phase. The guard is `expectedFailure`
-rather than skipped, so it runs and a fix reports an unexpected success instead
-of passing unnoticed.
+**Blast radius, counted rather than assumed.** Rules carrying `--sport` and
+`--dport` together: zero in ad6's own `bench/tum` and `bench/up`, zero in
+wl_tum, wl_up, wl_ifi, wl_example and wl_generic_fw, zero in wl_stanford (its
+ACLs match a destination port only). wl_shadow has 138,666 and does not reach
+this code — it exists for anomaly detection, `BACKENDS_WITH_ANOMALIES` is
+NetPlumber alone, and no ad6 result for it exists in the tree. The fix only ever
+narrows an answer, so it cannot invalidate a recorded one.
+
+**Result: three engines, three phases, one set of answers.**
+
+| phase | checks | ad6 | APKeep | NetPlumber |
+|---|---:|---:|---:|---:|
+| oracle | 71 | 6/6 verdicts, 57 violated | 6/6, 57 | 6/6, 57 |
+| matrix | 4,224 | 1,315 violations | 1,315 | 1,315 |
+| public | 4,199 | 3 violations | 3 | 3 |
+
+The violated SETS are equal across all three engines in all three phases, not
+merely the totals, and the two policy phases match their derived expectations
+exactly. Guarded by `fave/test/test_ad6_port_pair.py` (7 tests, mutation-verified
+in both directions: not splitting by direction fails 4, AND-ing same-direction
+ports fails the alternation test). `AD6_PLAN.md` §9.38.
 
 ---
 

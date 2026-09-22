@@ -7578,3 +7578,94 @@ SSA copy over ~2,500 nodes, plus a frame or rewrite axiom per bit per edge. Size
 the instance before solving it, and item 0a applies to any number that comes out.
 Regression: ad6 `make test` 10 suites OK (72 -> 75); fave `fast` 694 -> 698; the
 ad6 fave suites 178 passed / 2 skipped; mypy clean.
+
+### 9.38 A rule matching BOTH transport ports meant OR
+
+§9.37 left wl_cloud's oracle phase agreeing with NetPlumber on all 71 checks,
+and §9.36 left the all-pairs matrix agreeing on all 64 cells. Neither says
+anything about the MATRIX phase, which had never been run on ad6 and which asks
+4,224 questions instead of 71.
+
+It disagreed: **1,778 violations against NetPlumber's 1,315 — 463 unexpected, 0
+missing.** A pure over-approximation, i.e. reachability nobody authorised, which
+is the direction that matters.
+
+#### 9.38.1 The cause is in the rule reader, not the query path
+
+`KripkeUtils.ConvertToKripke` collected every `<port>` element of a rule into one
+list, regardless of direction, and combined them with a **disjunction** whenever
+there was more than one. For several ports in the same direction that is
+correct — `--dports 80,443` is an alternation. For a source port beside a
+destination port it is not: they are a conjunction, and `sport=342 AND dport=346`
+came out as
+
+    <disjunction>
+      <variable name="src_port_342"/>
+      <variable name="dst_port_346"/>
+    </disjunction>
+
+so the rule fired on traffic matching either. An over-approximation on ANY rule
+carrying both ports, in a reader every workload goes through.
+
+The two readers on either side of it — interfaces above, VLANs below — both
+split their elements by direction and always have. Only the port reader did not,
+which reads as an oversight rather than a decision.
+
+#### 9.38.2 Why eleven workloads never showed it
+
+Because none of them states the thing it drops. Rules carrying `--sport` and
+`--dport` together, counted across the tree: zero in ad6's own `bench/tum` and
+`bench/up`, zero in wl_tum, wl_up, wl_ifi, wl_example, wl_generic_fw, zero in
+wl_stanford (its ACLs match a destination port only). wl_shadow has 138,666 and
+does not reach this code — `BACKENDS_WITH_ANOMALIES` is NetPlumber alone.
+
+wl_cloud's leaf ACLs DO match both ports, on every rule, and its oracle phase
+still agreed throughout — because its generators inject no source port. The
+source port is free there, a permitted value always exists, and every engine
+says the traffic gets through. The matrix phase pins each endpoint's source
+port at its generator, and the pinned constraint is the one that went missing.
+
+A defect can sit in a shared reader indefinitely while every workload happens to
+under-specify the field it mishandles. That is an argument for workload
+diversity rather than for more unit tests: the unit tests here were all green.
+
+#### 9.38.3 The first suspect was wrong
+
+`Instantiator._ShortenPrefixes` is the IP-prefix shortening optimisation, and
+its caller hands it every key beginning `src_`/`dst_` — so `src_port_342` does
+arrive there, is read as a dotted-quad with an implicit `/32`, canonises to a
+nine-bit string, and its rewriting step would strip `Conjunction[:32]` from a
+sixteen-variable equality. All of that is true and none of it fires here:
+instrumenting the function showed it mutates nothing in either the passing or
+the failing case. It is a separate latent oddity, worth its own look.
+
+What settled it was printing the rule condition, where the disjunction is
+plainly visible. The lesson is §1.7.3's, twice in two days: a mechanism that
+explains the symptom is not the same as the mechanism that produced it.
+
+#### 9.38.4 Fix, and the over-correction it has to avoid
+
+Split the port list by direction and mirror the neighbours: alternatives within
+a direction, a conjunction across them. One change, in the one place both the
+upstream `InstantiateBase` path and FaVe's `fave_bridge._instantiate_literal`
+call.
+
+The obvious over-correction is to conjoin everything, which would break
+`--dports 80,443`. `fave/test/test_ad6_port_pair.py` (7 tests) is mutation-
+verified in BOTH directions: not splitting by direction fails 4, AND-ing
+same-direction ports fails the alternation test. Four tests drive two switches in
+series through the adapter; two inspect the rule condition ad6 builds from its
+own XML, because FaVe's translator emits one port per field and the
+same-direction shape does not exist on the FaVe side.
+
+#### 9.38.5 The result
+
+| phase | checks | ad6 | NetPlumber |
+|---|---:|---:|---:|
+| oracle | 71 | 6/6 verdicts, 57 violated | 6/6, 57 violated |
+| matrix | 4,224 | 1,315 violations | 1,315 |
+| public | 4,199 | 3 violations | 3 |
+
+The violated SETS are equal in all three, not merely the totals, and the matrix
+and public phases match their derived expectations exactly. `ad6/FAVE_CHANGES.md`
+item 32, `CLOUD_BENCH_PLAN.md` §1.7.4.
