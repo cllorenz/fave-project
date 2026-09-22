@@ -1743,13 +1743,21 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       edge-to-edge property has both of its ends: traffic enters at port 1 and
       leaves at its prefix's home switch.
 
-      **Still open: the property.** Edge-to-edge reachability matrix versus
-      loop-freedom. The homing makes the first one cheap to state — for each
-      (source switch, prefix) the expected egress is known — so this is now a
-      choice about what the benchmark should MEASURE, not about what can be
-      expressed. Note the expectation would be derived from the same data the
-      model is, so it is a consistency property, not an oracle.
+      **The property is DECIDED and BUILT — 2026-09-22, §2.5.** Owner's call:
+      the reachability matrix, stated as an FPL inventory and policy. 16 roles,
+      210 rules, **256 checks = 210 must-reach + 46 must-NOT-reach**, and
+      **0 violations on NetPlumber**, verified non-vacuous by a mutation. The
+      matrix avoids the all-reachable trap because s8 and s9 home no prefix, so
+      30 off-diagonal cells are denials an over-approximating engine fails.
+      It remains a **consistency property, not an oracle** — the expectation is
+      derived from the same traces as the model. Recorded alongside it: the
+      paper's own goals were forwarding loops and the link-failure "what if",
+      neither of which is a reachability matrix, and §4.3.2 stays the sharper
+      experiment for later.
 - [ ] **D4** Static run on all three backends.
+- [~] **D4 — NetPlumber DONE 2026-09-22 (§2.5): 256 checks, 0 violations, non-vacuous.**
+      ad6 and APKeep are next, and §1.7's history says to expect both to find
+      something.
 - [ ] **D5** *Then* revisit the incremental benchmark, with D4's costs known.
       **D2 bounds what it can claim.** An insert-only trace that never
       overwrites a rule measures incremental FIB *construction*, not churn:
@@ -1890,6 +1898,121 @@ The model a converter can build from this, with nothing invented:
 What is NOT derivable, and would have to be invented if the property needs it:
 the addresses behind each border router (the traces carry prefixes, not host
 addresses), and any notion of an ACL — there are none (§2.1).
+
+---
+
+## 2.5 The property: a reachability matrix as FPL — and the goals it is NOT
+
+Owner decision 2026-09-22: state the property as an **FPL inventory and
+policy**, the `wl_cloud` route, and record separately that the paper's own
+verification goals were different ones.
+
+### What the paper actually verifies, and why that matters here
+
+Two experiments, and neither is a reachability matrix:
+
+| §  | goal | run over | scale |
+|---|---|---|---|
+| 4.3.1 | **forwarding loops** — "a common network-wide invariant" | the full traces, in file order | 14.2M / 505.2M operations |
+| 4.3.2 | **"what is the fate of packets that are using a link that fails?"** | the data-plane snapshot we hold | **one query per link — 158** |
+
+Pairwise reachability between externally-facing ports is **described but never
+run**. Algorithm 3 computes all-pairs reachability — a Floyd–Warshall
+adaptation over atoms — and the paper offers it as a capability that
+"illustrates how Delta-net facilitates use cases beyond the usual reachability
+checks", relevant "during pre-deployment testing". No all-pairs figure appears
+in any table. Where that sentence points is worth noting: it cites the
+**Datalog** line, references [17] and [33], which is the NoD family `wl_cloud`
+comes from. The paper hands the edge-to-edge framing to the tradition
+`wl_cloud` already covers rather than claiming it.
+
+So this workload reproduces the **data**, under a property **we** chose. That
+is a weaker claim than `wl_cloud`'s and it is to be written that way. §4.3.2
+remains the sharper experiment and is the obvious next thing to build (D5 or a
+successor), because it is the one property whose expected answer is not uniform
+— measured here at 100–1,300 affected flows per link, median 200.
+
+### Measured before choosing, because two of the three candidates are weak
+
+| property | result, both traces | discriminating? |
+|---|---|---|
+| loop-freedom (§4.3.1) | **0 loops** | no — a negative property whose answer is "none" |
+| edge-to-edge reachability, per prefix | **21,000 / 21,000 delivered**, 0 black holes | no — all-reachable |
+| link-failure impact (§4.3.2) | 158 links, **100–1,300 flows each** | yes |
+
+The middle row is the trap `AD6_PLAN.md` §5.5 C3 already records for wl_i2:
+matching an all-reachable oracle "is guaranteed for any relaxed encoding and
+therefore proves nothing". **The FPL matrix avoids it, and that is the point of
+stating it at SWITCH granularity**: s8 and s9 home no prefix, so 30 of the 240
+off-diagonal cells are must-**NOT**-reach, and an engine that over-approximates
+fails them.
+
+### The inventory and the policy
+
+`bench/wl_deltanet/deltanet_policy.py` emits both from the traces on every run;
+neither is hand-written, so both are gitignored and there is no tracked/derived
+pair to keep apart the way §1.9.6 needs for `wl_cloud`.
+
+* **16 roles**, one per switch — the networks behind its Quagga border router —
+  and one model endpoint each. A role per *prefix* would be 1,400 roles and,
+  since checks expand over endpoint pairs, about two million checks.
+* **No services.** There are no transport fields anywhere in the data, so a
+  service would be a condition the data plane cannot express.
+* **No `ipv4`.** A homing switch stands for 100 prefixes and the attribute
+  carries one; §1.9.6's rule is that it is emitted only when it is the whole
+  truth. It also decides `_abstracts_a_subnet`, and a self-check would ask
+  whether a border network reaches itself, which this data plane does not say.
+* **210 rules**, `s_i ---> s_j` for every ordered pair whose destination homes
+  a prefix. Unidirectional: the two directions are different facts about a
+  destination-routed plane.
+
+Compiled: **256 checks = 210 must-reach + 46 must-NOT-reach** (30 ending at
+s8/s9, 16 the diagonal).
+
+### The model, and the one thing in it that is invented
+
+| | |
+|---|---:|
+| devices (one per switch) | 16 |
+| links (directed) | 52 |
+| rules read from the trace | 38,100 |
+| **delivery rules SYNTHESISED** | **1,400** |
+| rules total | 39,500 |
+| generators / probes | 16 / 16 |
+
+**The port structure is not invented, and that is the difference from
+`wl_cloud`** — whose `cloud_preparation` has to say "THE PORT STRUCTURE IS
+INVENTED, AND THAT IS THE RISK" because the NoD transfer function has no
+interfaces. Here every device, port and link is read off the data (§2.4).
+
+**The delivery rules are the invention.** The trace carries inter-switch
+forwarding only: a prefix's rules thin towards its home switch and stop, which
+is how `homes()` finds the home. A packet therefore arrives and dies, and no
+probe could ever fire. So one rule per prefix is added at its home switch,
+forwarding out port 1 — what SDN-IP installs and the data set omits. Three
+things keep it honest: it is **derived** from the homing (itself cross-checked
+against the paper's "100 prefixes per border router"); it **shadows nothing**,
+measured — no prefix has a single rule at its own home switch, on any port, in
+either trace; and it is **counted separately** everywhere, because a rule total
+that silently mixes 38,100 read rules with 1,400 invented ones is the figure
+nobody can audit later.
+
+Rule order is longest-prefix-first per device, since NetPlumber resolves
+priority by rule index. Only two of the 1,400 prefixes nest inside another
+(`117.53.131.0/24` in `117.53.128.0/20`, `196.28.238.0/24` in
+`196.28.236.0/22`), so the ordering is load-bearing for exactly those two.
+
+### Result — NetPlumber, 2026-09-22
+
+**256 checks, 0 violations**, `report.md` present and the log carrying
+`completed task check_compliance` (§3's guardrail).
+
+**Verified non-vacuous rather than asserted.** Adding one rule the data plane
+cannot satisfy — `s1 ---> s8`, a destination that homes no prefix — yields
+exactly one violation, naming `source.s1` does not reach `probe.s8`, and the
+check total stays 256 because the cell moves from the deny half to the permit
+half. Not yet run on ad6 or APKeep; that is the next step, and §1.7's history
+says to expect both to find something.
 
 ---
 
