@@ -34,6 +34,7 @@ violation naming it. §2.5 records that run.
 """
 
 import collections
+import ipaddress
 import os
 import unittest
 
@@ -263,6 +264,134 @@ class TestDeltanetPolicy(unittest.TestCase):
         self.assertEqual(emit_policy(other_topology, other_homed), self.policy)
         self.assertEqual(emit_inventory(other_topology, other_homed),
                          self.inventory)
+
+
+class TestDeltanetLPM(unittest.TestCase):
+    """ Longest-prefix-match, which the compliance run CANNOT check.
+
+    FaVe does not reorder a table on its own. Priority is the rule index --
+    `netplumber/adapter._calc_rule_index` shifts it and hands it to NetPlumber,
+    where the lower index wins -- so `build_model` emitting longest-prefix-first
+    IS the FIB semantics, and nothing downstream will repair it.
+
+    **Measured 2026-09-22: the reachability matrix cannot catch that going
+    wrong.** Inverting the ordering so the SHORTEST prefix wins still yields 256
+    checks and 0 violations, because the matrix asks an existential question per
+    switch pair and a misrouted prefix still leaves its 99 siblings arriving.
+    That is the same shape as the wl_i2 defect `_reprioritise_fib_lpm` records,
+    where 3,731 rules sat shadowed behind a containing prefix and every number
+    computed on them looked fine.
+
+    So the guard is here instead, and it is a real one: it resolves the model's
+    own rules the way NetPlumber does -- lowest matching index wins, per
+    in-port -- and follows the packet. Invert the ordering and it fails.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.inserts, cls.topology, cls.homed = _load()
+        cls.model = build_model(cls.inserts, cls.topology, cls.homed)
+        cls.nested = cls._nested_pairs(cls.homed)
+
+    @staticmethod
+    def _nested_pairs(homed):
+        """ (specific, container) prefixes where one contains the other. """
+        nets = {p: ipaddress.ip_network(p) for p in homed}
+        return [(a, b) for a, na in nets.items() for b, nb in nets.items()
+                if a != b and na.subnet_of(nb)]
+
+    def _walk(self, routes, address, start):
+        """ Forward one address from a switch's external port.
+
+        NetPlumber's semantics, not a re-implementation of the workload: among
+        the rules of a device whose in-ports include the arriving port, the one
+        with the LOWEST index wins.
+        """
+        table = collections.defaultdict(list)
+        for device, _tid, index, match, actions, in_ports in routes:
+            table[device].append((
+                index,
+                ipaddress.ip_network(match[0].split('=')[1]),
+                actions[0].split('=')[1],
+                set(in_ports),
+            ))
+        for device in table:
+            table[device].sort(key=lambda row: row[0])
+
+        links = {link[0]: link[1] for link in self.model['topology']['links']}
+        ip = ipaddress.ip_address(address)
+        device = device_name(start)
+        port = in_port(start, EXTERNAL_PORT)
+
+        for _hop in range(2 * len(self.topology.switches) + 2):
+            hit = next(
+                (row for row in table[device]
+                 if ip in row[1] and '%s.%d' % (device, port) in row[3]), None)
+            if hit is None:
+                return None                                    # no rule: dropped
+            egress = hit[2]
+            egress_device, egress_port = egress.rsplit('.', 1)
+            switch = int(egress_device.split('.s')[1])
+            if int(egress_port) == out_port(switch, EXTERNAL_PORT):
+                return switch                                  # delivered
+            if egress not in links:
+                return None
+            next_device, next_port = links[egress].rsplit('.', 1)
+            device, port = next_device, int(next_port)
+        return None
+
+    def test_the_data_contains_a_pair_this_can_discriminate(self):
+        """ Without one, the test below would pass on any ordering at all. """
+        self.assertTrue(self.nested)
+        self.assertTrue(
+            [(a, b) for a, b in self.nested if self.homed[a] != self.homed[b]],
+            "no nested pair is homed at two different switches, so LPM has no "
+            "observable consequence in this snapshot and this guard is vacuous")
+
+    def test_a_contained_prefix_is_delivered_to_its_own_home(self):
+        for specific, container in self.nested:
+            if self.homed[specific] == self.homed[container]:
+                continue                     # same egress either way: no witness
+            address = str(
+                ipaddress.ip_network(specific).network_address + 1)
+            for start in self.topology.switches:
+                if start == self.homed[specific]:
+                    continue
+                self.assertEqual(
+                    self._walk(self.model['routes'], address, start),
+                    self.homed[specific],
+                    "%s (inside %s) must be delivered where IT homes, not "
+                    "where its container does" % (specific, container))
+
+    def test_inverting_the_priority_breaks_it(self):
+        """ The guard guards: shortest-prefix-first must change the answer.
+
+        Without this, a `_walk` that ignored the index would pass the test
+        above and prove nothing.
+        """
+        by_device = collections.defaultdict(list)
+        for route in self.model['routes']:
+            by_device[route[0]].append(route)
+
+        inverted = []
+        for rows in by_device.values():
+            rows.sort(key=lambda r: (int(r[3][0].split('/')[1]), r[3][0]))
+            inverted.extend(
+                (r[0], r[1], index, r[3], r[4], r[5])
+                for index, r in enumerate(rows, start=1))
+
+        witnesses = [(a, b) for a, b in self.nested
+                     if self.homed[a] != self.homed[b]]
+        specific, container = witnesses[0]
+        address = str(ipaddress.ip_network(specific).network_address + 1)
+        start = next(s for s in self.topology.switches
+                     if s != self.homed[specific])
+
+        self.assertEqual(
+            self._walk(self.model['routes'], address, start),
+            self.homed[specific])
+        self.assertEqual(
+            self._walk(inverted, address, start), self.homed[container])
 
 
 if __name__ == '__main__':

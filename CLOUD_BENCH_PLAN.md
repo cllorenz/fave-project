@@ -2019,10 +2019,40 @@ either trace; and it is **counted separately** everywhere, because a rule total
 that silently mixes 38,100 read rules with 1,400 invented ones is the figure
 nobody can audit later.
 
-Rule order is longest-prefix-first per device, since NetPlumber resolves
-priority by rule index. Only two of the 1,400 prefixes nest inside another
-(`117.53.131.0/24` in `117.53.128.0/20`, `196.28.238.0/24` in
-`196.28.236.0/22`), so the ordering is load-bearing for exactly those two.
+### LPM: carried by the rule index, and NOT observable in the matrix
+
+**FaVe does not reorder a table on its own.** Priority IS the rule index:
+`build_model` assigns it longest-prefix-first, `netplumber/adapter`'s
+`_calc_rule_index` shifts it (`rid << 12`) and hands it to NetPlumber, where the
+lower index wins. Nothing downstream repairs a wrong order — which is exactly
+what `np_preparation._reprioritise_fib_lpm` exists to fix for the workloads that
+load raw tables in file order. This one emits the order directly, so that
+function is not in its path.
+
+Only two of the 1,400 prefixes nest inside another, and only one of those two
+has an observable consequence:
+
+| specific | container | homes | observable? |
+|---|---|---|---|
+| `117.53.131.0/24` | `117.53.128.0/20` | **s13 vs s2** | yes — 10 of 20 shared nodes forward them differently |
+| `196.28.238.0/24` | `196.28.236.0/22` | s6 vs s6 | no — same egress either way |
+
+**Measured 2026-09-22: inverting the ordering so the SHORTEST prefix wins still
+yields 256 checks and 0 violations.** The matrix cannot catch a priority
+inversion, because it asks an existential question per switch pair and a
+misrouted prefix still leaves its 99 siblings arriving. That is the shape of the
+wl_i2 defect `_reprioritise_fib_lpm` records, where 3,731 rules sat shadowed
+behind a containing prefix and every number computed on them looked fine.
+
+So the guard is a fast-tier test instead (`TestDeltanetLPM`), and it is a real
+one: it resolves the model's own rules the way NetPlumber does — lowest matching
+index wins, per in-port — and follows a packet addressed into the /24. Correct
+ordering delivers it at s13; inverted, at s2. The test asserts both, so a `_walk`
+that ignored the index could not pass it.
+
+**This is an argument for §4.3.2 later.** A link-failure property is
+path-sensitive and would notice; a switch-granularity reachability matrix
+structurally cannot.
 
 ### Result — NetPlumber, 2026-09-22
 
