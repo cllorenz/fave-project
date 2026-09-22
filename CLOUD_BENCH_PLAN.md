@@ -2352,10 +2352,65 @@ not bounce back down" that §2.7 found it had been losing.
 * **Carry ingress qualification into `_build_pf_pipeline`** (§2.7's other open
   item) — packet filters are excluded from both the contract and the demux, and
   that is a scope statement, not a claim that the pipeline honours in-ports.
-* **The wl_up APKeep-vs-NetPlumber differential** §2.7 calls for. wl_up now
-  agrees, but the reason nobody noticed the earlier unsoundness is that its
-  APKeep tests compare BDD against NDD and `test_backend_differential` is still
-  `wl_ifi` only.
+* **The wl_up APKeep-vs-NetPlumber differential** — now built, §2.9.
+
+---
+
+## 2.9 The differential covers more than one workload now
+
+`test_backend_differential` was `wl_ifi` only, and **that is precisely how
+APKeep came to over-approximate wl_up silently for months**: wl_up's own APKeep
+tests compare BDD against NDD, which share any approximation, and nothing
+compared it against a second *family*. A differential that covers one workload
+gates one workload.
+
+It is now parameterised over three:
+
+| workload | why it is here |
+|---|---|
+| `wl_ifi` | forwarding + ACLs — the original gate |
+| `wl_deltanet` | 16 switches whose forwarding is in-port-qualified throughout; the workload that made the gap visible |
+| `wl_up` | IPv6 routers, packet filters, and the in-port-qualified switch defaults that *were* the gap |
+
+Each class drives the engines through the identical in-process path and asserts
+that they agree, and — where the oracle answers the same question — that each
+matches the workload's `reachable.json`. The agreement is the one that matters:
+two independent algorithms on one model, so an approximation in either shows up
+as a disagreement rather than as a plausible number.
+
+**It now covers BOTH APKeep engines**, which it did not. The aggregator defaults
+to `ndd` (`aggregator_service.py`), while this file ran `bdd` only — so the
+differential was validating an engine the benchmarks do not use. Measured on
+wl_up: the two give the same 137-role matrix and both agree with NetPlumber, but
+`bdd` takes **688 s** against `ndd`'s **4.7 s**, because APKeep's BDD path
+answers per pair and wl_up asks 18,769 of them. So the cheap workloads run both
+and wl_up runs `ndd`, which is the engine its published numbers come from.
+
+**wl_up asserts agreement only, and that is a property of its ORACLE.** Its
+policy is stateful — 3,302 of its 18,811 checks carry `f=related:1` — so
+`reachable.json` records what the policy permits *under connection tracking*,
+while this differential asks an unconditioned all-pairs question that the data
+plane answers more generously. 96 roles differ, identically for both APKeep
+engines and for NetPlumber, so asserting it would pin a mismatch of questions
+rather than of engines. `test_apkeep_compliance_cond.py` is what checks wl_up
+against its conditioned policy.
+
+### Result
+
+| workload | engines | backends agree | oracle |
+|---|---|---|---|
+| `wl_ifi` | bdd + ndd | yes | matches |
+| `wl_deltanet` | bdd + ndd | yes | matches |
+| `wl_up` | ndd | **yes** | not comparable (stateful policy) |
+
+7 passed, 2 skipped, **56 s** for all three — affordable for the gating tier,
+which is the point: a gate nobody can afford to run is the gap this closes.
+
+**`test/gen_wl_deltanet_inputs.sh`** is new, because wl_deltanet's whole
+directory is derived from the two vendored traces and a clean checkout has none
+of it. It runs the benchmark's `_pre_preparation` plus the two policy steps and
+stops before anything that needs a live engine, so the deterministic integration
+tier can generate it. `test.sh` calls it beside the other generators.
 
 ---
 

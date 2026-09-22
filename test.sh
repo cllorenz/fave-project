@@ -292,6 +292,14 @@ run_integration() {
     echo "== integration: generate wl_up inputs (for test_ad6_wl_up, test_apkeep_ndd_wlup) =="
     bash "$ROOT/fave/test/gen_wl_up_inputs.sh" || rc=1
 
+    # wl_deltanet's whole directory is derived from the two vendored traces, so
+    # a clean checkout has none of it and the backend differential would skip
+    # the workload that exposed APKeep's ingress gap in the first place
+    # (CLOUD_BENCH_PLAN.md §2.6). No live backend: the model, the FPL and
+    # reachable.json all come out of deltanet-traces/.
+    echo "== integration: generate wl_deltanet inputs (for test_backend_differential) =="
+    bash "$ROOT/fave/test/gen_wl_deltanet_inputs.sh" || rc=1
+
     echo "== integration: fave bison-dependent tests (no backend) =="
     ( cd "$ROOT/fave" && PYTHONPATH=. $pt "${FAVE_INTEGRATION_TESTS[@]}" ) || rc=1
 
