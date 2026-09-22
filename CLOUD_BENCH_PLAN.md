@@ -2081,17 +2081,72 @@ that ignored the index could not pass it.
 path-sensitive and would notice; a switch-granularity reachability matrix
 structurally cannot.
 
-### Result — NetPlumber, 2026-09-22
+## 2.6 D4 — all three engines, 2026-09-22
 
-**256 checks, 0 violations**, `report.md` present and the log carrying
-`completed task check_compliance` (§3's guardrail).
+Same 256 checks (210 must-reach + 46 must-NOT-reach), same model, one policy.
+Every run carries `completed task check_compliance` in the log and produced a
+`report.md` — §3's guardrail, because a missing output file is not a clean
+verdict.
 
-**Verified non-vacuous rather than asserted.** Adding one rule the data plane
-cannot satisfy — `s1 ---> s8`, a destination that homes no prefix — yields
-exactly one violation, naming `source.s1` does not reach `probe.s8`, and the
-check total stays 256 because the cell moves from the deny half to the permit
-half. Not yet run on ad6 or APKeep; that is the next step, and §1.7's history
-says to expect both to find something.
+| engine | violations | compliance time | verdict |
+|---|---:|---:|---|
+| **NetPlumber** (HSA) | **0** | 0.007 s | agrees |
+| **ad6** (SAT, minisat22, literal/rank) | **0** | 56.9 s | agrees |
+| **APKeep** (BDD) | **14** | 1.6 s | **disagrees — over-approximates** |
+
+**Both zero-verdicts are verified non-vacuous, not asserted.** Claiming
+`s1 ---> s8` — a destination that homes no prefix — yields exactly one
+violation naming it, on NetPlumber *and* on ad6, with the check total still 256
+because the cell moves from the deny half to the permit half. ad6's 56.9 s of
+solving is itself evidence it did the work.
+
+### APKeep: the forwarding translation drops `in_ports`
+
+All 14 violations are self-pairs — `source.sX reaches probe.sX` — and they are
+exactly the **14 switches that have a synthesised delivery rule**. s8 and s9,
+which home no prefix and so have none, do not fire. That points at one cause and
+two independent lines of evidence confirm it:
+
+1. **By code.** `apkeep/adapter._translate_fwd_rule` never reads
+   `rule.in_ports`. APKeep's `ForwardElement` is a destination-prefix trie keyed
+   by DEVICE, so a rule that should apply only to traffic arriving on certain
+   ingress ports applies to all of them. This is the same shape as the four
+   defects §1.7.3 records — "a field the model states that the translation did
+   not read" — and it is an OVER-approximation, so it produces reachability
+   false positives rather than false negatives.
+2. **By experiment.** Rebuilding the model with the delivery rules over EVERY
+   in-port, including the external one, and running **NetPlumber**, reproduces
+   **exactly APKeep's 14 violations**, name for name. So APKeep answers as
+   though the in-port restriction were not there, because for it, it is not.
+
+**The data itself never needs the restriction.** Measured: of 21,000
+`(switch, prefix)` pairs, **0** forward differently depending on ingress port.
+Delta-net's per-port node split is about graph structure — an edge-labelled
+graph needs a node per port — not about differing forwarding decisions. So
+APKeep's per-device trie is adequate for all 38,100 trace rules; the only
+in-port-qualified rules in the model are the 1,400 delivery rules this plan
+synthesised (§2.5), where the external in-port is excluded to stop a packet
+hairpinning back to its own border router.
+
+### Which leaves a choice, and it is not obviously APKeep's to fix
+
+* **(a) Fix APKeep.** Honest, but its `ForwardElement` is per-device by
+  construction; per-ingress-port forwarding would need either an ACLElement gate
+  or a device split. Substantial, and it is the §9-for-APKeep question again.
+* **(b) Remodel wl_deltanet with one device per `(switch, port)` — 68 instead of
+  16.** That is *literally Delta-net's own model*, the one the paper describes
+  and Table 2 counts. Every ingress port becomes a device, so **no rule needs
+  in-port qualification at all**, APKeep's trie is exact, and all three engines
+  should agree. It is more faithful to the source data, not less. Cost: 68
+  devices, more links, and the role-to-endpoint mapping has to name the port-1
+  device of each switch.
+* **(c) Record it and move on**, as C6 originally stood for `wl_cloud`.
+
+**Recommendation: (b).** It removes the disagreement by making the model match
+the data set more closely rather than by weakening a check, and the 68-device
+count is one the paper independently publishes. (a) remains worth doing on its
+own merits — the gap is real for any future workload whose *forwarding* is
+in-port-qualified — but nothing in this data set requires it.
 
 ---
 
