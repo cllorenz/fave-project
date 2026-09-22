@@ -1214,11 +1214,22 @@ class APKeepAdapter(AbstractVerificationEngine):
         `in.something` would inherit it. Removing it means giving the
         FilterElement a VLAN field, which is its own piece of work
         (CLOUD_BENCH_PLAN.md §1.7.3).
+
+        A packet_filter and an IPv6 router are exempt for a plainer reason:
+        their `routing` table is not a forwarding table at all. It carries the
+        egress in an `out_port` MATCH feeding the device's internal pipeline,
+        which `_translate_fib_rule` reads and `_build_pf_pipeline` realises as a
+        companion dst-LPM element -- and `_build` drops their `+ fwd` output
+        already. Classifying one here would refuse `out_port` as an
+        unexpressible match (wl_up's `adm.uni-potsdam.de` rule 65535) and take
+        the device away from the mechanism that does model it.
         """
         staged = {d for d in self._fwd_table
                   if d.split('.', 1)[0] in ('in', 'mid', 'out')}
+        owned = self._filter_devices | self._ipv6_fib_devices
         return {dev for dev, rows in self._fwd_table.items()
-                if dev not in staged and not _is_dst_lpm_table(rows)}
+                if dev not in staged and dev not in owned
+                and not _is_dst_lpm_table(rows)}
 
     def _build_first_match_tables(self, devices: set):
         """ Realise each first-match forwarding table as a FilterElement, and

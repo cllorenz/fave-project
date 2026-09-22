@@ -137,6 +137,30 @@ class TestWhichElementATableBecomes(unittest.TestCase):
         adapter = _adapter(_fib(), _leaf(), _gateway())
         self.assertEqual(adapter._first_match_devices(), {'leaf', 'gw'})
 
+    def test_a_PACKET_FILTER_keeps_its_own_pipeline(self):
+        """ A packet_filter's `routing` table is not a forwarding table: it
+        carries the egress in an `out_port` MATCH feeding the device's internal
+        pipeline, which `_build_pf_pipeline` realises as a companion dst-LPM
+        element. Classifying it here would refuse `out_port` as an
+        unexpressible match and take the device away from the mechanism that
+        does model it -- which is what happened to wl_up's
+        `adm.uni-potsdam.de` rule 65535. """
+        device = SimpleNamespace(node='pgf', tables={
+            'pgf.forward_filter': [
+                _rule('pgf', 1, [RuleField(_PROTO, 6), RuleField(_DPORT, 22)],
+                      [Forward(['pgf.forward_filter_accept'])]),
+            ],
+            'pgf.routing': [
+                _rule('pgf', 65535, [RuleField(_DST, '10.0.0.0/8'),
+                                     RuleField('out_port', 'pgf.2')],
+                      [Forward(['pgf.routing_out'])]),
+            ],
+        })
+        adapter = _adapter(device)
+        self.assertIn('pgf', adapter._filter_devices)
+        self.assertFalse(_is_dst_lpm_table(adapter._fwd_table['pgf']))
+        self.assertEqual(adapter._first_match_devices(), set())
+
     def test_an_HSA_STAGE_keeps_its_own_treatment(self):
         """ The one exemption. wl_stanford's and wl_i2's in./mid./out. tables
         carry VLAN matches and are rewritten by the collapse paths, which is a
