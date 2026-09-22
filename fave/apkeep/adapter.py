@@ -522,6 +522,14 @@ class APKeepAdapter(AbstractVerificationEngine):
         # refused rather than silently approximated.
         self._ingress_accounted: Dict[str, Tuple[str, str]] = {}
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
+        # "+ fwd ..." string -> the ingress ports it applies at, or None for
+        # "everywhere". Keyed by the STRING rather than by position because
+        # `_build` filters copies of `_fwd_rules` (the stanford out-stage drop,
+        # the first-match split) and a positional index would not survive that.
+        # Two rules that produce the identical string necessarily share device,
+        # prefix and egress, so merging their ingress sets is not a loss: the
+        # string genuinely applies at the union.
+        self._fwd_ingress: Dict[str, Optional[Set[str]]] = {}
         # Every forwarding-table rule VERBATIM, per device: {'idx', 'ports',
         # 'match', 'rw'}. The dst-LPM translation above throws away whatever it
         # cannot express, so the decision of WHICH element a table becomes has to
@@ -591,6 +599,24 @@ class APKeepAdapter(AbstractVerificationEngine):
                 return [_split_port(p)[1] for p in action.ports]
         return []
 
+    def _emit_fwd(self, rule_string: str, rule: Any) -> None:
+        """ Append a "+ fwd" string and remember which ingress ports it holds at.
+
+        The ingress is what `_demux_ingress` needs and what the string itself
+        cannot carry -- APKeep's ForwardElement has nowhere to put it.
+        """
+        self._fwd_rules.append(rule_string)
+        named = {_split_port(p)[1] for p in (rule.in_ports or [])}
+        if not named:
+            self._fwd_ingress[rule_string] = None          # applies everywhere
+            return
+        if rule_string not in self._fwd_ingress:
+            self._fwd_ingress[rule_string] = named
+            return
+        previous = self._fwd_ingress[rule_string]
+        if previous is not None:                           # None stays None
+            self._fwd_ingress[rule_string] = previous | named
+
     def _translate_fwd_rule(self, device: str, rule: Any) -> None:
         out_ports = self._out_ports(rule)
         if not out_ports:
@@ -615,9 +641,8 @@ class APKeepAdapter(AbstractVerificationEngine):
                 return  # not a pure dst(/vlan) discard
             dst = next(f.value for f in rule.match if f.name == _DST)
             prefix, plen = _cidr_to_apkeep(str(dst))
-            self._fwd_rules.append(
-                "+ fwd %s %d %d __drop__ %d" % (device, prefix, plen, plen)
-            )
+            self._emit_fwd(
+                "+ fwd %s %d %d __drop__ %d" % (device, prefix, plen, plen), rule)
             return
         dst = None
         dst6 = None
@@ -653,9 +678,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # -- otherwise a later-added default route (/0) can shadow a specific
         # route and the device forwards everything to its default port.
         for port in out_ports:
-            self._fwd_rules.append(
-                "+ fwd %s %d %d %s %d" % (device, prefix, plen, port, plen)
-            )
+            self._emit_fwd(
+                "+ fwd %s %d %d %s %d" % (device, prefix, plen, port, plen), rule)
 
     # --- AbstractVerificationEngine: model construction (buffered) -----------
 
@@ -931,6 +955,168 @@ class APKeepAdapter(AbstractVerificationEngine):
             if restricted:
                 qualified[device] = restricted
         return qualified
+
+    #: Separator between a device and the ingress class it was split into.
+    #:
+    #: NOT `|`, and that cost a debugging session worth recording. The NDD
+    #: engine keys its per-hop cache as `device + "|" + port` and recovers the
+    #: device with `indexOf('|')` -- the FIRST bar (`AtomForwarding.java:47`
+    #: and `:153`, `NddReachabilityEngine.java:89`). An element named
+    #: `sw.s1|101` makes the key `sw.s1|101|151`, which parses back as device
+    #: `sw.s1`, port `101|151`. The BDD path was unaffected, so the model built,
+    #: the run completed, and every must-reach check failed -- a silently wrong
+    #: answer produced by a naming choice.
+    #:
+    #: NOT `.` either: device names already contain dots (`sw.s1`, `in.bbra_rtr`)
+    #: and `_fib_name` appends `.fib`, so a dotted suffix is ambiguous with a
+    #: port reference.
+    INGRESS_CLASS_SEP = '@'
+
+    def _element_name(self, device: str, ports: Set[str]) -> str:
+        """ The APKeep element a device's ingress class becomes.
+
+        NO class keeps the bare device name, deliberately. A leftover reference
+        to `device` anywhere then fails loudly (APKeep has no such element)
+        instead of quietly binding to one arbitrary class of it.
+        """
+        return '%s%s%s' % (device, self.INGRESS_CLASS_SEP,
+                           min(ports, key=lambda p: (len(p), p)))
+
+    def _ingress_classes(
+            self, device: str, ingress: Set[str], rules: List[str],
+    ) -> Dict[str, Set[str]]:
+        """ Ingress ports grouped by the rules that apply at them.
+
+        Two ports belong together exactly when the same rules hold there, which
+        is the coarsest split that loses nothing -- a device whose rules do not
+        discriminate yields one class and is not split at all.
+        """
+        classes: Dict[frozenset, Set[str]] = {}
+        for port in ingress:
+            applying = frozenset(
+                rule for rule in rules
+                if self._fwd_ingress.get(rule) is None
+                or port in (self._fwd_ingress.get(rule) or set())
+            )
+            classes.setdefault(applying, set()).add(port)
+        return {self._element_name(device, ports): ports
+                for ports in classes.values()}
+
+    def _demux_ingress(
+            self, edges: List[str], fwd_rules: List[str],
+    ) -> Tuple[List[str], List[str]]:
+        """ Split a device whose forwarding discriminates among ingress ports.
+
+        **Phase (b).** APKeep's `ForwardElement` is a destination-prefix trie
+        keyed by DEVICE: `Checker.traverseFowardingGraph` uses the arrival port
+        only to look the element up and then discards it, so an element is a
+        function of (element, packet) and never of (element, in_port, packet).
+        The semantics ARE expressible in APKeep -- just not in one element -- so
+        the adapter emits one element per ingress class and wires the arriving
+        links to the right one.
+
+        **This is a translation, not a model change** (owner, 2026-09-22). The
+        FaVe model keeps its devices: 16 realistic switches for wl_deltanet, not
+        68. Splitting the BENCHMARK model would have shaped the data around the
+        weakest backend and voided the cross-family comparison the suite exists
+        for. Splitting the TRANSLATION is the adapter's own business, and this
+        file already does it for ACLs, which become per-port `ACLElement`s.
+
+        After the split every element is ingress-uniform by construction, so
+        `_assert_ingress_accounted` passes because there is nothing left to
+        account for -- not because anything was declared.
+
+        The element count is a REAL cost of the atomic-predicate model and is
+        logged rather than absorbed: 16 devices become 68 elements on
+        wl_deltanet, which is exactly the node count Delta-net's own paper
+        reports for this network.
+        """
+        qualified = self._ingress_qualified(edges)
+        if not qualified:
+            return edges, fwd_rules
+
+        arriving = self._ingress_ports(edges)
+        split: Dict[str, Dict[str, Set[str]]] = {}
+        for device in sorted(qualified):
+            # A device whose forwarding is not FULLY carried in `+ fwd` strings
+            # cannot be split here: `_router_fib` is keyed by the original name
+            # and this pass does not rewrite it, so splitting would silently
+            # drop those routes -- the exact failure the contract exists to
+            # prevent, committed inside its own fix. wl_up's dmz/wifi are this
+            # case (IPv6 host routes go to `_router_fib`, and
+            # `_ipv6_fib_devices` is what makes them consumed); they fall
+            # through to the refusal below instead, which is honest: phase (b)
+            # does not cover an IPv6 FIB router yet, and says so.
+            #
+            # Gated on `_ipv6_fib_devices` and not on `_router_fib` alone
+            # because the latter also collects the no-dst defaults of devices
+            # that never read it back (wl_stanford's in-stage), and skipping
+            # those would block a split that demonstrably works.
+            if device in self._ipv6_fib_devices:
+                self.logger.warning(
+                    "apkeep: %s discriminates among its ingress ports but also "
+                    "carries IPv6 routes outside the ForwardElement, which this "
+                    "pass cannot split; leaving it to the refusal", device)
+                continue
+            device_rules = [r for r in fwd_rules if r.split()[2] == device]
+            classes = self._ingress_classes(
+                device, arriving.get(device, set()), device_rules)
+            if len(classes) < 2:
+                continue                       # nothing to gain from a split
+            split[device] = classes
+
+        if not split:
+            return edges, fwd_rules
+
+        # --- the rules ---------------------------------------------------
+        new_rules: List[str] = []
+        for rule in fwd_rules:
+            device = rule.split()[2]
+            if device not in split:
+                new_rules.append(rule)
+                continue
+            held = self._fwd_ingress.get(rule)
+            tokens = rule.split()
+            for name, ports in split[device].items():
+                if held is None or (held & ports):
+                    new_rules.append(' '.join(
+                        tokens[:2] + [name] + tokens[3:]))
+
+        # --- the wiring ---------------------------------------------------
+        port_element: Dict[Tuple[str, str], str] = {}
+        for device, classes in split.items():
+            for name, ports in classes.items():
+                for port in ports:
+                    port_element[(device, port)] = name
+
+        new_edges: List[str] = []
+        for edge in edges:
+            sdev, sport, ddev, dport = edge.split()
+            # Arriving: the link lands on exactly the class that owns the port.
+            destinations = [port_element.get((ddev, dport), ddev)]
+            # Leaving: every class of the source device can forward out of it,
+            # so the egress link is duplicated across them.
+            sources = ([sdev] if sdev not in split
+                       else sorted(split[sdev]))
+            for source in sources:
+                for destination in destinations:
+                    new_edges.append(
+                        '%s %s %s %s' % (source, sport, destination, dport))
+
+        for device, classes in split.items():
+            self._fwd_devices.discard(device)
+            self._fwd_devices.update(classes)
+            self.logger.info(
+                "apkeep: %s discriminates among its ingress ports; "
+                "demultiplexed into %d element(s): %s",
+                device, len(classes), ', '.join(sorted(classes)))
+        self.logger.info(
+            "apkeep: ingress demultiplexing split %d device(s) into %d "
+            "element(s) -- a representational cost of the AP model, not a "
+            "change to the FaVe model",
+            len(split), sum(len(c) for c in split.values()))
+
+        return _dedup(new_edges), new_rules
 
     def _assert_ingress_accounted(self, edges: List[str]) -> None:
         """ Refuse a model whose ingress qualification nothing accounts for.
@@ -1280,6 +1466,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         edges = self._gate_dead_ingress(edges)
         if self._faithful_vlan and (self._stanford or self._i2_faithful):
             self._declare_faithful_admission()
+        # Phase (b): express what one ForwardElement cannot, by using more than
+        # one. After this every element is ingress-uniform, so the contract
+        # below passes because there is nothing left to account for.
+        edges, fwd_rules = self._demux_ingress(edges, fwd_rules)
         # Nothing the model states may go missing in silence: refuse a device
         # whose ingress-qualified forwarding no declared mechanism accounts for.
         self._assert_ingress_accounted(edges)

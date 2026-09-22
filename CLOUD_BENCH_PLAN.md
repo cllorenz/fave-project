@@ -2247,6 +2247,95 @@ by design.
 
 ---
 
+## 2.8 Phase (b): ingress demultiplexing, and what the gate actually said
+
+### What it is
+
+`_demux_ingress`: a device whose forwarding discriminates among its ingress
+ports becomes **one APKeep element per ingress class**, wired so each arriving
+link lands on the class that owns its port. Ports are grouped by *which rules
+apply there*, which is the coarsest split that loses nothing — a device whose
+rules do not discriminate is not split at all.
+
+**A translation, not a model change.** The FaVe model keeps its 16 realistic
+switches; the adapter emits 56 elements. Splitting the *benchmark* model would
+have shaped the data around the weakest backend and voided the cross-family
+comparison the suite exists for (owner, 2026-09-22). Splitting the
+*translation* is the adapter's own business — and this file already did it for
+ACLs, which become per-port `ACLElement`s.
+
+After the split every element is ingress-uniform **by construction**, so §2.7's
+contract passes because there is nothing left to account for, not because
+anything was declared.
+
+### Result: wl_deltanet, all three engines agree
+
+| engine | violations |
+|---|---:|
+| NetPlumber | **0** |
+| ad6 | **0** |
+| APKeep | **0** (was 14 false positives) |
+
+16 devices → 56 elements. That growth is a **real representational cost of the
+atomic-predicate model** and is logged rather than absorbed.
+
+### The `|` that cost a debugging session
+
+The first cut named elements `sw.s1|101`, and every must-reach check failed —
+210 of them — while the BDD path was fine and the built model was *byte
+identical* to a working in-process build. The NDD engine keys its per-hop cache
+as `device + "|" + port` and recovers the device with `indexOf('|')`
+(`AtomForwarding.java:47` and `:153`, `NddReachabilityEngine.java:89`), so
+`sw.s1|101` made the key `sw.s1|101|151`, which parses back as device `sw.s1`,
+port `101|151`. A silently wrong answer produced by a naming choice. The
+separator is now `@` and the reason is recorded next to it.
+
+### The subsumption gate: PARTIALLY met, and the failing half is informative
+
+The gate was that demux must subsume the Stanford special cases, so
+`self._stanford` and the `in.`/`mid.`/`out.` name coupling could be deleted.
+
+* **`_collapse_out_stage` / `_out_perm` — SUBSUMED, proven.** Disabling the
+  collapse entirely and rebuilding, `test_reachability_matches_netplumber`
+  **still passes**: demux splits each out-stage device per ingress port and each
+  class forwards to its own egress, which *is* the permutation. The out-stage
+  collapse is now redundant in plain mode.
+* **`_gate_dead_ingress` — NOT subsumed, and the reason matters.** The
+  in-stage's discrimination is by **VLAN**, and `_translate_fwd_rule` keeps only
+  the destination — so all of an in-stage device's rules translate to the *same*
+  `+ fwd … 0 0 100000 0` string, and demux correctly sees one class. Ingress
+  demultiplexing cannot recover a field that was dropped before it ran. §2.7's
+  contract still declares those devices `ACCOUNT_APPROXIMATE`, which is now
+  known to be the accurate description rather than a placeholder.
+
+Six of Stanford's sixteen in-stage routers *do* discriminate by egress and were
+split: 32 devices become 38 elements, with reachability unchanged against
+NetPlumber.
+
+### wl_up is still refused, deliberately
+
+Demux **must not** split a device whose forwarding is not fully carried in its
+`+ fwd` rules. wl_up's `dmz`/`wifi` hold IPv6 host routes in `_router_fib`,
+keyed by the original device name and not rewritten by this pass; splitting them
+dropped those routes and produced violations NetPlumber and ad6 do not report.
+Committing that inside the fix for silent rule-dropping would have been the
+joke writing itself, so such a device falls through to §2.7's refusal instead.
+
+**Phase (b) therefore does not cover an IPv6 FIB router**, and says so out loud.
+That is the next piece of work, together with the wl_up
+APKeep-vs-NetPlumber differential §2.7 already calls for.
+
+### What is now open
+
+* **Delete the out-stage collapse**, now that it is provably redundant —
+  separate change, because `self._stanford` still gates the faithful-VLAN path
+  and its `bdd_table` sizing.
+* **Extend demux to `_router_fib`**, which is what wl_up needs.
+* **Carry ingress qualification into `_build_pf_pipeline`** (§2.7's other open
+  item) — packet filters are excluded from both the contract and the demux.
+
+---
+
 ## 3. Guardrails carried over
 
 Reused verbatim from `AD6_PLAN.md`'s cross-cutting section, because the failure

@@ -109,11 +109,29 @@ class TestAPKeepStanford(unittest.TestCase):
 
     def test_out_stage_collapsed(self):
         # 16 routers x {in, mid, out}; the out. stage is collapsed into the
-        # topology, so only the 16 in. + 16 mid. switches remain as devices.
+        # topology, so only the 16 in. + 16 mid. switches remain as DEVICES.
         self.assertTrue(self.engine._stanford)
-        self.assertEqual(len(self.engine._fwd_devices), 32)
         self.assertEqual(len(self.sources), 16)
         self.assertEqual(len(self.probes), 16)
+
+        # ELEMENTS are more than devices, because ingress demultiplexing
+        # (CLOUD_BENCH_PLAN.md §2.8) splits a device whose forwarding
+        # discriminates among its ingress ports. Six in-stage routers do --
+        # their rules send different ingress ports to different egress ports --
+        # so 32 devices become 38 elements. The excess is a representational
+        # cost of APKeep's per-device ForwardElement, not a change to the model,
+        # and the reachability test below is what says the split is faithful.
+        sep = self.engine.INGRESS_CLASS_SEP
+        elements = self.engine._fwd_devices
+        devices = {name.split(sep)[0] for name in elements}
+        self.assertEqual(len(devices), 32)
+        self.assertEqual(
+            {d.split('.', 1)[0] for d in devices}, {'in', 'mid'},
+            "the out. stage must still be collapsed out of the element set")
+        split = sorted(d for d in devices
+                       if sum(1 for e in elements if e.split(sep)[0] == d) > 1)
+        self.assertEqual(len(split), 6, split)
+        self.assertEqual(len(elements), 38)
 
     def test_reachability_matches_netplumber(self):
         # NetPlumber in a SEPARATE process (see module docstring); reuse the
