@@ -126,6 +126,14 @@ destination NAT at the gateway and is what a public-service IP requires; and
 decoding under `wl_stanford`'s own layout instead yields nonsense addresses like
 `6.1.75.1` (the proto byte read as the first octet).
 
+**The counts above are per-BIT density, which for an IP field is a range rather
+than a number** — a `/22` constrains 22 of its 32 bits and a `/30` constrains 30,
+so source runs 1,558 down to 0 across bits 16–47 and destination 1,682 down to
+14. That is what the tilde on `~1,555` is doing. `bench/wl_cloud/WORKLOAD.md`
+tabulates the same fields as *rules whose field is not fully wildcarded* — one
+well-defined number each, and 1,558 for the source — and is derived on every
+run rather than written here once.
+
 `packet.ipv4.destination` lands at bit 48 under **both** layouts, which is a
 coincidence worth knowing about: a converter that got the layout wrong would
 still produce plausible-looking forwarding and would fail only on the ACL and
@@ -199,6 +207,14 @@ in size, and comfortably inside what all three backends have already run.
 
 The host transmit rules become generator constraints rather than tables, which
 is why the table-rule count is 2,941 − 1,219.
+
+> **CORRECTION (2026-09-22): it is 1,741, not ~1,722.** The subtraction above
+> removes the internet gateway's 19 rules along with the 1,200 host injectors,
+> while the line above it counts that same gateway as one of the 86 tables. The
+> gateway's rules *are* table rules, so the figure is 2,941 − 1,200. `routes.json`
+> has carried 1,741 entries since the workload was first built — the model was
+> never wrong, only this description of it. Derived and pinned in
+> `bench/wl_cloud/WORKLOAD.md` / `test/test_cloud_census.py`.
 
 **Design decision: a cloud-specific preparation module, not an extension of
 `bench/np_preparation.py`.** That module's `_port_no_to_port_name`,
