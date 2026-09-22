@@ -7,8 +7,10 @@ dataset's own 26x26 ACL matrix (C7, §1.9.6). All six third-party oracle verdict
 reproduced on NetPlumber before and after the switch (§1.7.1). Both other
 engine families first got it wrong and both were fixed: ad6 refused the workload
 outright, then answered every cell (§1.7.2), and APKeep answered ten of
-sixty-four cells wrong, then all of them (§1.7.3). **All three engines now agree
-on every check of all three phases.** Three defects fixed in shared code building it (§1.6) and two more
+sixty-four cells wrong, then all of them (§1.7.3). **APKeep and NetPlumber now
+agree on every check of all three phases**; ad6 agrees on the oracle phase and
+the all-pairs matrix and over-approximates the 4,224-check matrix phase by 463,
+which is an OPEN finding of its own (§1.7.4). Three defects fixed in shared code building it (§1.6) and two more
 building the policy (§1.9.6). Delta-net not started.
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
@@ -690,6 +692,60 @@ carrying a few hundred 5-tuple rules each split the AP partition, and
 `APKeeper.updateSplitAP` touches every element per split. **It is a cost result,
 not a correctness one** — no verdict was produced, so none is reported — and
 sizing it properly is its own piece of work.
+
+---
+
+### 1.7.4 ad6 — a rule that matches both transport ports loses both (OPEN)
+
+**Found by running the matrix phase on ad6, 2026-09-22.** The oracle phase had
+agreed with everything (6/6 verdicts, 57 violated of 71, §1.7.2), and the
+all-pairs matrix agrees on all 64 cells, so the workload looked settled. The
+4,224-check matrix phase does not: **1,778 violations against NetPlumber's
+1,315 — 463 unexpected, 0 missing.** A pure over-approximation, which is
+reachability nobody authorised.
+
+**Minimal reproducer** (`fave/test/test_ad6_port_pair.py`). Two switches in
+series, each permitting a different SOURCE port; no packet carries two source
+ports, so the probe is unreachable:
+
+| the rules match | ad6 | APKeep / expected |
+|---|---|---|
+| conflicting src ports | unreachable | unreachable |
+| conflicting src ports **+ a dst port** | **reachable** | unreachable |
+| conflicting dst ports | unreachable | unreachable |
+| conflicting dst ports **+ a src port** | **reachable** | unreachable |
+
+Either port alone is honoured. The two together are both lost — and the second
+port need not discriminate anything; the same value at both hops is enough.
+
+**Why the matrix phase and not the oracle phase.** wl_cloud's leaf ACLs match
+both ports on every rule, so the defect is present in both. The oracle phase's
+generators inject no source port, so the port is free, a permitted value always
+exists, and every engine agrees the traffic gets through. The matrix phase pins
+each endpoint's source port at its generator, and that is what the lost
+constraint was carrying.
+
+**Not the generator seed.** That was the guess, by analogy with §1.7.3's fourth
+defect, and it is wrong: `translate.generator_device` carries the whole injected
+header — an immutable field as a match, a mutable one as a rewrite on the
+injection edge (§5.4 B2). The defect is in how matches compose along a path, and
+the generator is only where wl_cloud happens to state a source port.
+
+**Suspected mechanism, demonstrated in part and not yet proven to fire here.**
+`Instantiator._ShortenPrefixes` is the IP-prefix shortening optimisation, and
+the loop that drives it selects `[key for key in Keys if key.startswith('src_')]`
+— which catches `src_port_342` as readily as `src_ip_10.0.0.0/24`. Fed a port
+key it reads `342` as a dotted-quad with an implicit `/32` and canonises it to a
+nine-bit string; its rewriting step then removes `Conjunction[:lastCIDR]` with
+`lastCIDR = 32` from what is a sixteen-variable port equality, i.e. all of it,
+and splices in a reference to another key. That port keys reach it and are
+mangled is demonstrable at the keyboard; that this is the path taken in the
+failing case is not yet shown, and the exact trigger is where a fix starts.
+
+**Not fixed here.** It is inside ad6's encoding, the same territory as §9.35-§9.37,
+and the owner decides whether it is worth a phase. The guard is `expectedFailure`
+rather than skipped, so it runs and a fix reports an unexpected success instead
+of passing unnoticed.
 
 ---
 

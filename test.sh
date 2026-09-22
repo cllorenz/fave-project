@@ -108,6 +108,7 @@ FAVE_INTEGRATION_TESTS=(   # need pybison/JVM build, but NOT a running backend (
     test/test_ad6_cloud_differential.py # ad6 vs libnetplumber on wl_cloud, anchored to the dataset's own verdicts (~2 min)
     test/test_apkeep_first_match.py  # a forwarding table decides its APKeep element by its RULES, not by the device name; skips if unavailable
     test/test_apkeep_cloud_differential.py # APKeep vs libnetplumber on wl_cloud, one engine per process, anchored to the dataset
+    test/test_ad6_port_pair.py   # ad6 loses BOTH port matches when one rule carries both (xfail: open finding, CLOUD_BENCH_PLAN.md 1.7.4)
 )
 # Integration-tier too, but these parse a ruleset that USES `-o` in a filter
 # chain, which TODO.md item 13a refuses by default -- so they run in their own
