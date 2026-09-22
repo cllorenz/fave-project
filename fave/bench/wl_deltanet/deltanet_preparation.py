@@ -67,6 +67,7 @@ import collections
 
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
+from bench.np_preparation import _reprioritise_fib_lpm
 from bench.wl_deltanet.deltanet_topology import (
     EXTERNAL_PORT, Topology, parse_node)
 from bench.wl_deltanet.deltanet_trace import Insert
@@ -79,7 +80,31 @@ _PORT_SPAN = 100
 _OUT_OFFSET = 50
 
 #: One device per switch, one table per device.
-_DEVICE_PREFIX = 'sw'
+#
+#: The stage prefix every device name carries, and the declaration
+#: `_reprioritise_fib_lpm` reads to decide which tables have LPM semantics.
+#: `wl_cloud` is the precedent for declaring it as a constant rather than in a
+#: `config.json`: that file belongs to the raw-table JSON path, which reads it
+#: while converting vendored Hassel tables, and this workload's input is two
+#: CSVs.
+#:
+#: ONE STAGE, and the declaration is therefore trivial -- it says "all of
+#: them". That is worth saying out loud rather than letting a reader infer it
+#: is doing work: `wl_cloud`'s equivalent is load-bearing because it EXCLUDES
+#: its NAT gateway, whose /32 rewrites must not be reordered by prefix length,
+#: and there is nothing here to exclude. Every device in this model is a FIB,
+#: every rule in it forwards, and one stage is also the more honest reading of
+#: the original benchmark, which models one flat forwarding table per node.
+#:
+#: What the declaration DOES buy is that there is one LPM mechanism in the tree
+#: rather than two. A per-workload sort is how `_reprioritise_fib_lpm`'s own
+#: predecessor came to do nothing at all on wl_i2, leaving 3,731 rules shadowed
+#: behind a containing prefix.
+STAGE_SWITCH = 'sw'
+TABLE_TYPES = [STAGE_SWITCH]
+FIB_TABLE_TYPES = [STAGE_SWITCH]
+
+_DEVICE_PREFIX = STAGE_SWITCH
 _SOURCE_PREFIX = 'source'
 _PROBE_PREFIX = 'probe'
 
@@ -160,10 +185,10 @@ def build_model(
 
     routes: List[Sequence[Any]] = []
     for index, switch in enumerate(topology.switches, start=1):
-        # Longest prefix first, stable within a length -- LPM by rule index.
-        entries = sorted(
-            table[switch],
-            key=lambda entry: (-int(entry[1].split('/')[1]), entry[1], entry[0]))
+        # Emitted in a deterministic base order; `_reprioritise_fib_lpm` below
+        # does the longest-prefix-first pass. Its sort is STABLE, so the order
+        # within one prefix length is exactly this one.
+        entries = sorted(table[switch], key=lambda entry: (entry[1], entry[0]))
         for rule, (ingress, prefix, egress) in enumerate(entries, start=1):
             routes.append((
                 device_name(switch), index, rule,
@@ -171,6 +196,23 @@ def build_model(
                 ['fd=%s' % _port_name(switch, out_port(switch, egress))],
                 [_port_name(switch, in_port(switch, port)) for port in ingress],
             ))
+
+    # LPM by rule index: NetPlumber resolves priority by the index, FaVe does
+    # not reorder a table on its own, and nothing downstream repairs a wrong
+    # order. Shared with wl_cloud and the raw-table workloads rather than sorted
+    # here, so the semantics are explained in one place.
+    _reprioritise_fib_lpm(routes, FIB_TABLE_TYPES)
+
+    # `_reprioritise_fib_lpm` rewrites each rule's INDEX and leaves the list in
+    # emission order, so afterwards the two disagree. That is safe -- the
+    # adapter hands NetPlumber `rule.idx`, never a list position, which is what
+    # wl_stanford's independently validated 165 pairs rest on -- but it leaves
+    # an artifact whose order invites a reader, or a future adapter, to take
+    # position for priority. Sorting by the index costs nothing and removes the
+    # question; it also keeps `routes.json` byte-identical to the hand-sorted
+    # version this replaced, which is how the refactor was shown to be inert.
+    order = {switch: rank for rank, switch in enumerate(topology.switches)}
+    routes.sort(key=lambda route: (order[int(route[0].split('.s')[1])], route[2]))
 
     sources: List[Sequence[Any]] = []
     source_links: List[Sequence[Any]] = []
