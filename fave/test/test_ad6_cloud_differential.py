@@ -124,6 +124,23 @@ class TestAd6CloudDifferential(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import subprocess
+        import sys as _sys
+        # REGENERATE the oracle-phase model first. `bench/wl_cloud/*.json` is
+        # shared by both phases and rewritten by whichever ran last, so a
+        # preceding `--policy matrix` run leaves the 65-endpoint model in place
+        # and this compares a different network -- which showed up as
+        # NetPlumber "contradicting the oracle", a sentence that cannot be true
+        # of the engine and was only ever true of the inputs. Costs 0.3 s, and
+        # it is the regeneration path CLOUD_BENCH_PLAN.md §1.8 requires anyway.
+        regen = subprocess.run(
+            ['bash', 'test/gen_wl_cloud_inputs.sh'],
+            cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            env=dict(os.environ, PYTHON=_sys.executable), timeout=600)
+        if regen.returncode != 0:
+            raise AssertionError("could not regenerate the wl_cloud inputs:\n%s"
+                                 % regen.stdout.decode()[-3000:])
+
         from ad6.adapter import Ad6Adapter
 
         mapping = json.load(open('%s/mapping.json' % _PREFIX))

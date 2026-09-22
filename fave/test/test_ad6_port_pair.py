@@ -19,38 +19,45 @@
 # You should have received a copy of the GNU General Public License
 # along with FaVe.  If not, see <https://www.gnu.org/licenses/>.
 
-""" ad6 loses a port match when the same rule matches BOTH transport ports.
+""" A rule matching BOTH transport ports means AND, not OR.
 
-THE FINDING, and it is not fixed. Two switches in series, each permitting a
-different SOURCE port. No packet carries two source ports, so the probe is
-unreachable -- and ad6 says so, until each rule ALSO matches a destination port,
-at which point it reports the probe reachable. The same happens with the roles
-swapped: conflicting destination ports bind until a source port is added beside
-them. Either port alone is honoured; the two together are both lost.
+THE DEFECT, fixed 2026-09-22. `KripkeUtils.ConvertToKripke` collected every
+`<port>` element of a rule into one list, regardless of direction, and combined
+them with a DISJUNCTION whenever there was more than one. That is right for
+several ports in the same direction -- `--dports 80,443` is an alternation --
+and wrong for a source port beside a destination port, which is a conjunction.
+So `sport=342 AND dport=346` was encoded as `sport=342 OR dport=346`:
 
-WHERE IT COSTS SOMETHING. wl_cloud's leaf ACLs match both ports on every rule,
+    <disjunction>
+      <variable name="src_port_342"/>
+      <variable name="dst_port_346"/>
+    </disjunction>
+
+An over-approximation on ANY rule carrying both ports. The neighbouring
+interface and VLAN readers split their elements by direction; the port reader
+did not, and nothing compared its answers with another engine on a model where
+it mattered.
+
+WHERE IT COST SOMETHING. wl_cloud's leaf ACLs match both ports on every rule,
 and its matrix phase pins each endpoint's source port at the generator, so ad6
-reports 1,778 violations against NetPlumber's 1,315 -- 463 pairs reachable that
-nobody authorised, and no pair missed (CLOUD_BENCH_PLAN.md §1.7.4). The ORACLE
-phase agrees 6/6 with both other engines, because its generators inject no
-source port: the port is free there, a permitted value always exists, and every
-engine says the same.
+reported 1,778 violations against NetPlumber's 1,315 -- 463 pairs reachable
+that nobody authorised, none missed (CLOUD_BENCH_PLAN.md §1.7.4). The ORACLE
+phase agreed 6/6 with both other engines throughout, because its generators
+inject no source port: the port is free there, a permitted value always exists,
+and every engine says the same. A defect can sit in a shared reader for as long
+as no workload states the thing it drops.
 
-NOT a generator-seeding gap -- `translate.generator_device` carries the whole
-injected header, an immutable field as a match and a mutable one as a rewrite on
-the injection edge. This is about matches composing along a path.
+The first suspect was `Instantiator._ShortenPrefixes`, which really is handed
+port keys it reads as dotted-quad addresses. Instrumenting it showed it mutates
+nothing here, so that is a separate latent oddity and not this.
 
-STRONGLY SUSPECTED, NOT PROVEN: `Instantiator._ShortenPrefixes` is the IP-prefix
-shortening optimisation, and it is handed every key beginning `src_`/`dst_` --
-which includes `src_port_342`. It then reads `342` as a dotted-quad address with
-an implicit /32, canonises it to a nine-bit string, and may splice or truncate
-the equality that binds the port, `Conjunction[:lastCIDR]` with `lastCIDR = 32`
-over a sixteen-variable conjunction. That it receives port keys and mangles
-their canonical form is demonstrable; that this is what fires here is not yet
-shown, and the trigger's exact shape is what a fix has to start from.
-
-MARKED `expectedFailure` rather than skipped, so it runs, and so that FIXING it
-reports an unexpected success instead of passing silently.
+WHAT EACH TEST HOLDS. The first four drive two switches in series through the
+adapter: no packet carries two source ports, so a probe behind hops permitting
+different ones is unreachable, with or without a destination port beside them.
+The last two inspect the rule condition ad6 builds from its own XML, because
+FaVe's translator emits one port per field and the same-direction alternation --
+the case the OR was written for, and which must keep working -- has no shape on
+the FaVe side.
 """
 
 import logging
@@ -106,6 +113,46 @@ def _ad6():
     return Ad6Adapter(_logger('ad6_port_pair'))
 
 
+#: One ad6 rule carrying whatever port elements a test wants to inspect. Used
+#: for the shapes FaVe's own translator cannot emit (it writes one port per
+#: field), which is where the same-direction alternation lives.
+_ONE_RULE = """<config><firewalls><firewall name="fw" key="fw_x">
+<table name="t"><rule name="r0" key="fw_x_t_r0">
+  <proto>tcp</proto>
+  %s
+  <action type="jump" target="net_x_1_out"/>
+</rule></table></firewall></firewalls>
+<networks><network name="net"><node name="x">
+<interface name="1" key="net_x_1"/><firewall keyref="fw_x"/>
+</node></network></networks></config>"""
+
+
+def _port_condition(ports):
+    """ The rule condition ad6 builds for one rule carrying `ports`.
+
+    Imports ad6's reader through `Ad6Adapter.AD6_ROOT` rather than relying on
+    `sys.path`: the adapter puts ad6 there when it translates, so a bare
+    `from src.core.kripke import ...` works only once some other test in this
+    file has run -- which made these two pass together and fail alone.
+    """
+    import sys
+
+    import lxml.etree as et
+
+    from ad6.adapter import AD6_ROOT
+    if AD6_ROOT not in sys.path:
+        sys.path.insert(0, AD6_ROOT)
+    from src.core.kripke import KripkeUtils
+
+    kripke = KripkeUtils.ConvertToKripke(
+        et.fromstring((_ONE_RULE % ports).encode()), default_inits=False)
+    for key in sorted(kripke._Nodes):
+        xml = et.tostring(kripke._Nodes[key].Gamma).decode()
+        if 'port' in xml:
+            return xml
+    raise AssertionError("no rule condition mentions a port")
+
+
 def _apkeep():
     from apkeep.adapter import APKeepAdapter
     return APKeepAdapter(_logger('ak_port_pair'), faithful_vlan=False,
@@ -120,12 +167,40 @@ class TestConflictingPortsOnAPath(unittest.TestCase):
         right -- which is what makes the pair the thing that breaks it. """
         self.assertFalse(_reaches(_ad6(), [(342, None), (999, None)]))
 
-    @unittest.expectedFailure
     def test_a_source_port_binds_when_a_destination_port_is_beside_it(self):
-        """ The defect. Adding a destination port -- the SAME one at both hops,
-        so it discriminates nothing -- makes the conflicting source ports stop
-        conflicting. """
+        """ What the defect was. A destination port beside the source port --
+        the SAME one at both hops, so it discriminates nothing -- used to make
+        the conflicting source ports stop conflicting, because every `<port>` of
+        a rule went into one list and the list was OR-ed. """
         self.assertFalse(_reaches(_ad6(), [(342, 346), (999, 346)]))
+
+    def test_a_destination_port_binds_when_a_source_port_is_beside_it(self):
+        """ The mirror image, which failed the same way. """
+        self.assertFalse(_reaches(_ad6(), [(342, 346), (342, 347)]))
+
+    def test_both_ports_conflicting_is_still_unreachable(self):
+        self.assertFalse(_reaches(_ad6(), [(342, 346), (999, 347)]))
+
+    def test_ports_in_ONE_direction_still_alternate(self):
+        """ The case the OR was written for, kept: several ports in the same
+        direction are alternatives (`--dports 80,443`), so a hop permitting
+        either must pass traffic the other hop permits. FaVe's translator emits
+        one port per field, so this is asserted where the shape exists -- on the
+        rule condition ad6 builds from its own XML. """
+        gamma = _port_condition(
+            '<port direction="dst">80</port><port direction="dst">443</port>')
+        self.assertIn('disjunction', gamma)
+        self.assertIn('dst_port_80', gamma)
+        self.assertIn('dst_port_443', gamma)
+
+    def test_the_two_directions_CONJOIN(self):
+        """ And the defect itself, at the same level: one port per direction is
+        an AND, and used to be emitted as an OR. """
+        gamma = _port_condition(
+            '<port direction="src">342</port><port direction="dst">346</port>')
+        self.assertNotIn('disjunction', gamma)
+        self.assertIn('src_port_342', gamma)
+        self.assertIn('dst_port_346', gamma)
 
     def test_another_engine_gets_both_right(self):
         """ So the model is not the ambiguous thing. """
