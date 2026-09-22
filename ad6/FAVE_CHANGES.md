@@ -2259,3 +2259,97 @@ Verified end-to-end through the real subprocess bridge on wl_ifi: minisat22, glu
 and cadical195 (rank), cadical195 and minisat22 with `lite_acyclic`, and kissat404
 (flow) all return the IDENTICAL 7-unreachable matrix, each stamping its own
 configuration. `make test`: 10 suites, 198 tests, OK.
+
+## 32. A rule matching BOTH transport ports was read as an OR  **[FIX]**
+
+`KripkeUtils.ConvertToKripke` collected every `<port>` element of a rule into one
+list, regardless of direction, and combined them with a **disjunction** whenever
+there was more than one:
+
+```python
+PortFilter = lambda x: x.tag == XMLUtils.PORT
+Ports = list(filter(PortFilter, Gamma))
+PortList = []
+for Port in Ports:
+    Gamma.remove(Port)
+    PortList.append(Port)
+
+if len(PortList) == 1:
+    Ports = XMLUtils.ConvertToVariables(PortList[0])
+elif len(PortList) > 1:
+    Ports = XMLUtils.disjunction()                      # <-- every port, any direction
+    Ports.extend(list(map(XMLUtils.ConvertToVariables, PortList)))
+```
+
+That is right for several ports in the SAME direction -- `--dports 80,443` is an
+alternation -- and wrong for a source port beside a destination port, which is a
+conjunction. `sport=342 AND dport=346` came out as:
+
+```xml
+<disjunction>
+  <variable name="src_port_342"/>
+  <variable name="dst_port_346"/>
+</disjunction>
+```
+
+An **over-approximation on any rule carrying both ports**: the rule fires on
+traffic matching either.
+
+### Why it survived
+
+The two readers on either side of it -- interfaces above, VLANs below -- both
+split their elements by direction and have done since the beginning; only the
+port reader does not, which reads as an oversight rather than a decision. Nothing
+caught it because no workload ad6 runs stated the thing it drops. Counted across
+every ruleset in the tree, lines carrying `--sport` and `--dport` together:
+
+| workload | such rules |
+|---|---:|
+| ad6's own `bench/tum`, `bench/up` | 0 |
+| FaVe's wl_tum, wl_up, wl_ifi, wl_example, wl_generic_fw | 0 |
+| wl_shadow | 138,666 |
+| wl_stanford | 0 (its ACLs match a destination port only) |
+
+wl_shadow is the exception and does not reach this code: it exists for anomaly
+detection, `BACKENDS_WITH_ANOMALIES` is NetPlumber alone, and no ad6 result for
+it exists in the tree. The fix only ever narrows an answer, so it cannot
+invalidate a recorded one; it would change wl_shadow's the day that workload is
+put through ad6, and in the correct direction.
+
+wl_cloud's ORACLE phase does have two-port ACLs and still agreed 6/6 throughout,
+because its generators inject no source port: the port is free there, a permitted
+value always exists, and every engine says the traffic gets through.
+
+It took wl_cloud's MATRIX phase, whose generators pin each endpoint's source
+port, to state a source port that the encoding then dropped: **1,778 violations
+against NetPlumber's 1,315, 463 of them reachability nobody authorised, none
+missed** (`CLOUD_BENCH_PLAN.md` §1.7.4).
+
+### The first suspect was wrong
+
+`Instantiator._ShortenPrefixes` is the IP-prefix shortening optimisation, and its
+caller hands it every key beginning `src_`/`dst_` -- so `src_port_342` really does
+arrive there and really is read as a dotted-quad address with an implicit `/32`.
+That looked conclusive. Instrumenting it showed it mutates nothing in either the
+passing or the failing case, so it is a separate latent oddity and not this. The
+proof came from printing the rule condition itself, where the disjunction is
+plainly visible.
+
+### Fix
+
+Split the port list by direction and mirror the neighbours: alternatives within
+a direction, a conjunction across them. One change, in the one place both the
+upstream `InstantiateBase` path and FaVe's `fave_bridge._instantiate_literal`
+call.
+
+### Tests
+
+`fave/test/test_ad6_port_pair.py` (7). Four drive two switches in series through
+the adapter -- no packet carries two source ports, so a probe behind hops
+permitting different ones is unreachable, with or without a destination port
+beside them -- and two inspect the rule condition ad6 builds from its own XML,
+because FaVe's translator emits one port per field and the same-direction
+alternation has no shape on the FaVe side. The alternation is asserted as well as
+the conjunction: a fix that simply AND-ed everything would break `--dports`.
+
+`make test`: 10 suites, 143 tests, OK.

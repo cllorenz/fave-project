@@ -129,18 +129,40 @@ class KripkeUtils:
                 OutInterfaces = XMLUtils.disjunction()
                 OutInterfaces.extend(list(map(XMLUtils.ConvertToVariables,OutInterfaceList)))
 
+            # SPLIT BY DIRECTION, like the interfaces above and the VLANs
+            # below. Several ports in the SAME direction are alternatives
+            # (`--dports 80,443`) and OR together; a source port and a
+            # destination port are a CONJUNCTION -- "sport 342 and dport 346".
+            # This used to collect every <port> of a rule into one list and OR
+            # the lot whenever there was more than one, so a rule matching both
+            # ports asked for either. That is an over-approximation on ANY such
+            # rule: it made two hops permitting different source ports mutually
+            # satisfiable, and on wl_cloud -- whose leaf ACLs match both ports
+            # on every rule -- it reported 1,778 violations against
+            # NetPlumber's 1,315, 463 of them reachability nobody authorised
+            # (CLOUD_BENCH_PLAN.md 1.7.4).
             PortFilter = lambda x: x.tag == XMLUtils.PORT
             Ports = list(filter(PortFilter,Gamma))
-            PortList = []
+            SrcPortList = []
+            DstPortList = []
             for Port in Ports:
                 Gamma.remove(Port)
-                PortList.append(Port)
+                if Port.attrib[XMLUtils.ATTRDIRECTION] == XMLUtils.SRC:
+                    SrcPortList.append(Port)
+                else:
+                    DstPortList.append(Port)
 
-            if len(PortList) == 1:
-                Ports = XMLUtils.ConvertToVariables(PortList[0])
-            elif len(PortList) > 1:
-                Ports = XMLUtils.disjunction()
-                Ports.extend(list(map(XMLUtils.ConvertToVariables,PortList)))
+            if len(SrcPortList) == 1:
+                SrcPorts = XMLUtils.ConvertToVariables(SrcPortList[0])
+            elif len(SrcPortList) > 1:
+                SrcPorts = XMLUtils.disjunction()
+                SrcPorts.extend(list(map(XMLUtils.ConvertToVariables,SrcPortList)))
+
+            if len(DstPortList) == 1:
+                DstPorts = XMLUtils.ConvertToVariables(DstPortList[0])
+            elif len(DstPortList) > 1:
+                DstPorts = XMLUtils.disjunction()
+                DstPorts.extend(list(map(XMLUtils.ConvertToVariables,DstPortList)))
 
             VlanFilter = lambda x: x.tag == XMLUtils.VLAN
             Vlans = list(filter(VlanFilter, Gamma))
@@ -236,8 +258,10 @@ class KripkeUtils:
                 Node.Gamma.append(InInterfaces)
             if OutInterfaceList:
                 Node.Gamma.append(OutInterfaces)
-            if PortList:
-                Node.Gamma.append(Ports)
+            if SrcPortList:
+                Node.Gamma.append(SrcPorts)
+            if DstPortList:
+                Node.Gamma.append(DstPorts)
             if InVlanList:
                 Node.Gamma.append(InVlans)
             if OutVlanList:
