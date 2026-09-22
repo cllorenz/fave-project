@@ -11,7 +11,12 @@ sixty-four cells wrong, then all of them (§1.7.3). Running the matrix phase the
 found a third defect, in ad6's rule reader -- a rule matching both transport
 ports was read as an OR (§1.7.4). **With that fixed, all three engines agree on
 every check of all three phases.** Three defects fixed in shared code building it (§1.6) and two more
-building the policy (§1.9.6). Delta-net not started.
+building the policy (§1.9.6). **Delta-net: D1 and D2 done 2026-09-22** — the
+fourth CSV column is a priority encoding LPM (`5*plen+100`, exact on all
+76,200 rows), the trace needs no replay because no insert overwrites another,
+and three figures this document stated about the traces were wrong (§2.2 D1).
+What they contain is now derived into `fave/bench/wl_deltanet/TRACES.md` and
+pinned, rather than described here. D3-D5 open.
 
 **C7 headline:** the dataset's own 26x26 ACL matrix compiles to 4,224 checks over
 26 roles. Under the matrix as written, **1,312 violations, every one of them
@@ -1577,10 +1582,23 @@ They were copied out of the archive before it was deleted; nothing else from the
 archive survives in the repository, and re-deriving anything else would need
 Claas to supply the archive again.
 
-The airtel2 insert trace measures: **38,100 inserts, 57 routers, 52 next-hops,
-1,400 distinct prefixes**, prefix lengths 14–25 (so genuine LPM). The fourth CSV
-field takes 18 distinct values in 180–220; its meaning is **not yet established**
-and must not be guessed at in a converter.
+**What the two traces contain is no longer stated here.** It is derived from
+them by `fave/bench/wl_deltanet/deltanet_census.py` into
+[`fave/bench/wl_deltanet/TRACES.md`](fave/bench/wl_deltanet/TRACES.md) and
+pinned byte for byte by `fave/test/test_deltanet_census.py`, on §1.8's principle.
+The headline: **38,100 inserts, 57 routers, 52 next-hops, 1,400 distinct
+prefixes** — the same figures for *both* traces, not airtel2 alone — and prefix
+lengths **14–32** (so genuine LPM).
+
+Three figures this paragraph used to carry were measured by hand at vendoring
+time and were wrong; `TRACES.md` records what each should have said. Two of them
+are D1's subject and are corrected below.
+
+**The paper itself arrived 2026-09-22** (Horn, Kheradmand and Prasad, NSDI'17,
+supplied by Claas) and settles more than D1: it identifies
+`airtel1-only-inserts.csv` as the published data-plane snapshot its §4.3.2
+reports on, explains the node naming, and supplies the origin URL this document
+had as lost. §2.3.
 
 ### 2.1 Why "static snapshot first"
 
@@ -1613,16 +1631,190 @@ weaker claim than the cloud dataset's, and it should be written up as such.
       settled rather than merely noted. `deltanet-traces/` holds both CSVs, a
       `SHA256SUMS`, and a README recording the scope decision, the measured
       shape of the data and the unresolved fourth-column question.
-      **Still open:** the archive's origin URL, which nobody recorded.
-- [ ] **D1** Establish the meaning of the fourth CSV field before writing any
-      converter.
-- [ ] **D2** Replay `airtel2-only-inserts.csv` into a final FIB; report the
-      router/prefix/rule census.
+      **Origin URL — CLOSED 2026-09-22.** It was recorded as lost ("nobody
+      recorded it"); the paper's reference [14] is
+      `https://github.com/delta-net/datasets`. Not verified as still live, and
+      the archive's sha256 is what actually matters for re-derivation, but the
+      provenance gap is closed.
+- [x] **D1 — DONE 2026-09-22. The fourth field is a PRIORITY ENCODING LPM**, and
+      the plan's own description of it was wrong in a way that would have
+      propagated. See §2.3.
+
+          priority = 5 * prefix_length + 100
+
+      Exactly, on every row of both traces — **76,200 of 76,200**, no exception.
+      Longer prefix, higher priority: the standard linearisation of
+      longest-prefix match into a priority-ordered flat rule list.
+
+      **The paper confirms it, twice** (Horn, Kheradmand and Prasad, *Delta-net:
+      Real-time Network Verification Using Atoms*, NSDI'17 — supplied by Claas
+      2026-09-22, after the measurement). §3 states the design: *"longest-prefix
+      routing can be simulated by assigning rule priorities according to prefix
+      lengths"*. §4.2 states it of this very data set: *"SDN-IP sets the priority
+      of rules according to the longest prefix match where rules with longer
+      prefix lengths receive higher priority"*. So `5*plen+100` is the concrete
+      constant SDN-IP happened to use, and D1 is no longer an inference from two
+      files — it is a measurement agreeing with the generator's documented
+      policy.
+
+      **The column therefore carries no information of its own.** Everything it
+      states is already in the prefix, so a converter reads the prefix and
+      ignores the column — which is the answer D1 was blocking on, and it means
+      no converter has to decide what to do with an unexplained number.
+
+      **It is asserted, not merely recorded.** `deltanet_trace.parse_trace`
+      checks the identity on every row it reads and refuses the file otherwise,
+      so a trace that encodes something ELSE in that field — an administrative
+      distance, a metric, a timestamp — is rejected loudly instead of being read
+      as an LPM tie-break it is not. A finding about two files becomes an
+      assumption the moment a third arrives, and this is what keeps it from
+      doing so silently. The parser refuses a withdrawal for the same reason:
+      `*-only-inserts` is a claim about the data, and §2.1's whole static-first
+      argument rests on it, so it is checked rather than trusted.
+
+      **Two stated figures did not survive the measurement**, both in this
+      document's §2 preamble and in `deltanet-traces/README.md`:
+
+      | stated | derived | what happened |
+      |---|---|---|
+      | 18 distinct values in **180–220** | 18 values in **170–260** | the count was right, the range was not |
+      | prefix lengths **14–25** | **14–32** | 14–25 is 12 lengths, and the same sentence says 18 values |
+
+      The two were one error: the range 180–220 is exactly the priorities of
+      /16 through /24, which is where 37,377 of the 38,100 rules sit. A sample
+      of the common case was written down as the whole. /31 is the one absent
+      length, which is why 18 values span 19 lengths — and had D1 been guessed
+      from the stated range instead of measured, **9 of the 18 actual priorities
+      would have fallen outside it**.
+
+      A third figure, "1,400 distinct prefixes", was right about airtel2 and
+      silent about airtel1, where it also holds.
+- [x] **D2 — the census is DONE; the replay turned out to be vacuous.**
+      `TRACES.md` reports it for both traces. **No insert ever overwrites a
+      `(router, prefix)` an earlier one set** — 38,100 inserts, 38,100 distinct
+      keys, in each file — and neither file contains a withdrawal. So no rule
+      supersedes another, replay order cannot matter, and **the final FIB is the
+      file**. D2 as written asked for a replay; the measurement makes it a
+      census.
+
+      Left open by this, and belonging to D3 rather than D2: rules per router
+      run 100–1,400 (mean 668), so the model is markedly non-uniform.
 - [ ] **D3** Decide the property (edge-to-edge reachability matrix vs
       loop-freedom) and whether the topology can be recovered from the
-      `next_hop` column alone.
+      `next_hop` column alone. **Partly answered by D2's census, and the
+      remainder is sharper than it was:** the topology IS recoverable as a
+      directed edge set (158 edges over 68 names in airtel1, 155 in airtel2),
+      but the router and next-hop columns do not span the same set. 11 next-hop
+      names carry no rules at all — a packet forwarded there reaches a device
+      with an empty table — and 16 routers are nobody's next hop. Whether a sink
+      is a drop, an egress edge port, or grounds to refuse the trace is a
+      modelling decision this plan has to take.
+
+      **The real open question is not the topology but the interfaces.** A row
+      names a router and a next-hop and neither end's port, while FaVe's router
+      model is port-based. That, not the fourth column, is what the converter
+      has to invent.
 - [ ] **D4** Static run on all three backends.
 - [ ] **D5** *Then* revisit the incremental benchmark, with D4's costs known.
+      **D2 bounds what it can claim.** An insert-only trace that never
+      overwrites a rule measures incremental FIB *construction*, not churn:
+      nothing is ever withdrawn and nothing is ever revised. The members that
+      would test withdrawal (`airtel1.csv`, `berkley-ribs-add-random-remove-
+      random.csv`) went with the archive, so the churn axis needs Claas to
+      re-supply it. Worth settling before D4 is costed, because it changes
+      whether D5 is a benchmark or a sentence.
+
+---
+
+## 2.3 What the traces ARE, and the differential the pair affords
+
+Not in the original plan; it fell out of D1's census (2026-09-22), and was then
+substantially corrected by the paper Claas supplied the same day.
+
+### The published snapshot, identified
+
+`airtel1-only-inserts.csv` is not "an insert trace". It is the **consistent data
+plane snapshot the paper's §4.3.2 reports on**, and three independently
+published figures say so:
+
+| the paper states | published | derived here |
+|---|---:|---:|
+| rules in the ONOS data-plane snapshot (Table 4) | 38,100 | **38,100** |
+| queries posed on it, one per link (§4.3.2) | 158 | **158** |
+| nodes (Table 2) | 68 | **68** |
+
+**This is the first external check the Delta-net workload has, and it changes
+what §2.1 could claim.** A mis-parse of the traces — a dropped rule, a
+misread name space — would now be caught by something outside this repository.
+It does NOT make the workload an oracle: the paper's results are query *times*,
+not sat/unsat, so every correctness result here is still a consensus between
+implementations in this tree. §0's first gap stays `wl_cloud`'s alone. The
+distinction to hold is **the model is corroborated, the verdicts are not**.
+
+Two further things the paper settles that this document had as unknown or
+guessed:
+
+* **the `s<i>-<j>` names.** The topology is AS 9498 (Airtel) emulated as
+  **16 Open vSwitches**; the paper splits one switch into several graph nodes
+  when its rules match on several input ports ("we report the number of graph
+  nodes rather than the number of switches"). So `i` is the switch, `j` the
+  per-input-port node, and 16 switches become 68 nodes. The §2.2/D3 "sinks" are
+  graph nodes that terminate a link without carrying rules — a consequence of
+  that split, not an anomaly.
+* **1,600 vs 1,400 prefixes — a real open question.** §4.2 says each of the
+  sixteen border routers advertises 100 prefixes, "resulting in a total of
+  1,600 unique (but possibly overlapping) IP prefixes". Both traces carry
+  **1,400**. Unexplained; recorded rather than reconciled, in the manner of
+  §1.4's 331/332 discrepancy.
+
+`airtel2-only-inserts.csv` matches on rules (38,100) and nodes (68) and carries
+**155** links. The paper publishes one snapshot, so nothing states what its edge
+count should be.
+
+### Where the two traces come from — NOT two arbitrary routings
+
+The paper's §4.2 gives the pair a cause, and it is not the one an earlier draft
+of this section assumed. Both data sets are link-failure experiments on the same
+emulated network: **Airtel 1** fails "a single inter-switch link at a time,
+recovering each link before failing the next"; **Airtel 2** induces "all 2-pair
+link failures... including their recovery". So the two are the same network
+under two different failure-injection regimes, which is a sharper account of
+their difference than "routed two ways" — and it explains why airtel2 exercises
+fewer links in its snapshot.
+
+It also raises a question D3 should settle rather than assume: the full traces
+are enormous (Table 2: 14.2M operations for Airtel 1, 505.2M for Airtel 2) while
+these files hold 38,100 rules each and no rule ever overwrites another. The
+`-only-inserts` files are therefore a *distillation*, not a prefix of the trace,
+and exactly how they were distilled is not stated anywhere available here.
+
+### The differential
+
+The two traces are the same network measured as set equality rather than
+inferred from equal counts:
+
+| the two traces agree on | identical |
+|---|:---:|
+| the 1,400 prefixes | yes |
+| the 57 router names | yes |
+| the 52 next-hop names | yes |
+| the directed edge set | **no** — 158 vs 155 |
+
+Of 38,100 rules each, 36,300 `(router, prefix)` keys are common — 3,300 of them
+forwarding somewhere different — and 1,800 keys are unique to each side.
+
+So every reachability difference between the two models is attributable to the
+forwarding change alone, with the topology, the prefix set and the rule count
+held fixed. That is a **stronger cross-engine test than either snapshot on its
+own**:
+three engines agreeing on one model is consensus on an answer, while three
+engines agreeing on the DELTA between two models is consensus on a behaviour,
+and the second is what an incremental claim (§0's third gap) actually needs.
+
+It costs nothing extra — both files are already vendored, and D4 runs them both
+regardless. It does not, however, manufacture an oracle: the differential is
+still a consensus between implementations in this tree, which is §0's first gap
+and only `wl_cloud` closes it.
 
 ---
 
