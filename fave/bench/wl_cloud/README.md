@@ -4,6 +4,13 @@ Full background: `CLOUD_BENCH_PLAN.md` §1. This file covers only what the two
 hand-written inputs in this directory mean, because they are the one part of
 the workload that is *not* derived from the raw data.
 
+**What the workload actually contains** -- devices by class, the topology, the
+ACL/forwarding/NAT rule split, the header fields, the ACL matrix -- is
+[`WORKLOAD.md`](WORKLOAD.md), which is the opposite case: every figure in it is
+derived, so it is *generated* by `cloud_census.py` and pinned byte-for-byte by
+`test/test_cloud_census.py`. Regenerate it with `python3 -m
+bench.wl_cloud.cloud_census` from `fave/`; do not edit it by hand.
+
 **There is a second phase, and its two files have the same names.** The oracle
 phase described here states the dataset's six questions; the matrix phase
 (`--policy matrix` / `--policy public`, C7 / §1.9.6) states the dataset's own
