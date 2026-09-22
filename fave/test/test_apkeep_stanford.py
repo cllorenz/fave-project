@@ -24,11 +24,21 @@
 wl_stanford decomposes each of 16 routers into in./mid./out. switches. mid. is a
 dst-IP FIB; in. is the ingress admission (in-port-qualified: it lists which
 physical ports admit which VLANs); out. is an input-port->output-port permutation
-(a pure wire) that a dst-IP ForwardElement cannot express. The adapter collapses
-the out. stage into the topology, wiring each mid. egress interface straight to
-its external neighbour (see APKeepAdapter._collapse_out_stage), so 48 switches
-become 32 ForwardElements, and honours in-stage admission by dropping traffic
-entering a port no rule admits (APKeepAdapter._gate_dead_ingress).
+(a pure wire) that a dst-IP ForwardElement cannot express.
+
+**The out stage is no longer collapsed** (2026-09-22, CLOUD_BENCH_PLAN.md §2.8).
+A permutation from ingress port to egress port is the general case of what
+`APKeepAdapter._demux_ingress` does, so the bespoke collapse that used to splice
+it into the topology was redundant and is gone: all 48 switches stay, and 22 of
+them are demultiplexed into 719 elements. The excess over 48 is the
+representational cost of a per-device ForwardElement, and the reachability
+assertion below is what says the split is faithful.
+
+In-stage admission is still honoured separately by
+`APKeepAdapter._gate_dead_ingress`, which demultiplexing does NOT subsume: the
+in stage discriminates by VLAN, and the translation keeps only the destination,
+so all of an in-stage device's rules collapse to one identical `+ fwd` string
+and there is nothing left for an ingress split to separate.
 
 This pins forwarding correctness against the FAITHFUL data plane: FaVe+APKeep
 reachability == FaVe+NetPlumber reachability (the two backends must agree exactly,
@@ -75,8 +85,8 @@ def _base(name):
 @require_or_skip(all(os.path.isfile(f) for f in _INPUTS),
                  "wl_stanford inputs not generated (run test/gen_wl_stanford_inputs.sh)")
 class TestAPKeepStanford(unittest.TestCase):
-    """ Real wl_stanford -> APKeepAdapter (out-stage collapsed, in-stage admitted)
-    -> reachability == FaVe+NetPlumber (the faithful data plane). """
+    """ Real wl_stanford -> APKeepAdapter (out stage demultiplexed, in-stage
+    admitted) -> reachability == FaVe+NetPlumber (the faithful data plane). """
 
     @classmethod
     def setUpClass(cls):
@@ -84,9 +94,9 @@ class TestAPKeepStanford(unittest.TestCase):
 
         log = logging.getLogger("test_apkeep_stanford")
         log.setLevel(logging.WARNING)
-        # P7a measures the PLAIN out-stage collapse on the BDD engine; both are
-        # explicit since the defaults became faithful/NDD (2026-09-18), and
-        # faithful wl_stanford does not finish on BDD at all.
+        # P7a measures the PLAIN out stage on the BDD engine; both are explicit
+        # since the defaults became faithful/NDD (2026-09-18), and faithful
+        # wl_stanford does not finish on BDD at all.
         cls.engine = APKeepAdapter(log, faithful_vlan=False, engine='bdd')
 
         with InProcessFaVe(cls.engine) as fave:
@@ -107,31 +117,41 @@ class TestAPKeepStanford(unittest.TestCase):
             for p in cls.probes
         }
 
-    def test_out_stage_collapsed(self):
-        # 16 routers x {in, mid, out}; the out. stage is collapsed into the
-        # topology, so only the 16 in. + 16 mid. switches remain as DEVICES.
+    def test_out_stage_demultiplexed_not_collapsed(self):
+        """ All three stages survive, and the out stage is split per ingress.
+
+        This used to assert the opposite -- that the out stage was collapsed
+        OUT of the element set, 48 switches becoming 32. The bespoke collapse
+        is gone (CLOUD_BENCH_PLAN.md §2.8): an ingress-to-egress permutation is
+        the general case of `_demux_ingress`, so the general mechanism handles
+        it and the special case was redundant. The evidence that the
+        replacement is faithful is `test_reachability_matches_netplumber`, not
+        this count.
+        """
         self.assertTrue(self.engine._stanford)
         self.assertEqual(len(self.sources), 16)
         self.assertEqual(len(self.probes), 16)
 
-        # ELEMENTS are more than devices, because ingress demultiplexing
-        # (CLOUD_BENCH_PLAN.md §2.8) splits a device whose forwarding
-        # discriminates among its ingress ports. Six in-stage routers do --
-        # their rules send different ingress ports to different egress ports --
-        # so 32 devices become 38 elements. The excess is a representational
-        # cost of APKeep's per-device ForwardElement, not a change to the model,
-        # and the reachability test below is what says the split is faithful.
         sep = self.engine.INGRESS_CLASS_SEP
         elements = self.engine._fwd_devices
         devices = {name.split(sep)[0] for name in elements}
-        self.assertEqual(len(devices), 32)
-        self.assertEqual(
-            {d.split('.', 1)[0] for d in devices}, {'in', 'mid'},
-            "the out. stage must still be collapsed out of the element set")
+
+        # 16 routers x {in, mid, out}: nothing is collapsed away any more.
+        self.assertEqual(len(devices), 48)
+        self.assertEqual({d.split('.', 1)[0] for d in devices},
+                         {'in', 'mid', 'out'})
+
+        # ELEMENTS exceed devices because a device whose forwarding
+        # discriminates among its ingress ports becomes one element per class.
+        # The out stage does so by construction (it IS a permutation), and six
+        # in-stage routers do as well.
         split = sorted(d for d in devices
                        if sum(1 for e in elements if e.split(sep)[0] == d) > 1)
-        self.assertEqual(len(split), 6, split)
-        self.assertEqual(len(elements), 38)
+        self.assertEqual(len(split), 22, split)
+        self.assertEqual(
+            {d.split('.', 1)[0] for d in split}, {'in', 'out'},
+            "the mid. stage is a plain dst FIB and must not need splitting")
+        self.assertEqual(len(elements), 719)
 
     def test_reachability_matches_netplumber(self):
         # NetPlumber in a SEPARATE process (see module docstring); reuse the

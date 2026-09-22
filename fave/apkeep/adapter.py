@@ -712,10 +712,16 @@ class APKeepAdapter(AbstractVerificationEngine):
         # internal pipeline ports (e.g. ifi.acl_in_out) -- translating those
         # would emit bogus APKeep ports. So restrict to the forwarding tables.
         if model.node.split('.', 1)[0] == 'out':
-            # wl_stanford: record the in-port permutation (+ VLAN resets) for the
-            # build-time collapse. Harmless for wl_i2 (never collapsed). Fall
-            # through so the out. rules are ALSO translated as a FIB -- correct for
-            # wl_i2; the stanford permutation forwards are dropped at collapse.
+            # wl_stanford: record the in-port permutation (+ VLAN resets) for
+            # `_build_stanford_faithful`, which still owns this stage because it
+            # also has to model the egress VLAN reset. PLAIN mode no longer
+            # reads `_out_perm` -- `_demux_ingress` handles the permutation as
+            # the general case it is (CLOUD_BENCH_PLAN.md §2.8) -- so the
+            # capture is kept for the faithful path alone, and is a small unused
+            # dict otherwise. Fall through either way so the out. rules are ALSO
+            # translated as a FIB: required for wl_i2, whose out. stage IS one,
+            # and in plain wl_stanford those forwards are now kept and split
+            # rather than dropped.
             self._capture_out_perm(model)
             if self._faithful_vlan:
                 self._capture_out_reset(model)
@@ -1440,19 +1446,28 @@ class APKeepAdapter(AbstractVerificationEngine):
         device_nats = None
         acl_rules: List[str] = []
         nat_rules: List[str] = []
-        if self._stanford:
-            # The out. stage is not a ForwardElement: drop its devices and the
-            # (broken /0) forwards translated from its permutation rules; the
-            # collapse re-wires the mid. egress interfaces to the neighbours.
+        # PLAIN mode no longer special-cases the out stage. It is an
+        # in-port -> out-port permutation, which is the general case of what
+        # `_demux_ingress` does, so the collapse that used to splice it into the
+        # topology is redundant: with it removed entirely, wl_stanford's
+        # reachability still matches NetPlumber exactly (CLOUD_BENCH_PLAN.md
+        # §2.8's subsumption gate, and `test_apkeep_stanford.py`).
+        #
+        # The FAITHFUL path still owns the stage, because there the out stage
+        # also resets the egress VLAN and `_build_stanford_faithful` models that
+        # as NATs and per-router ACLs -- which demultiplexing ingress does not
+        # and should not do. `_out_perm`/`_capture_out_perm` therefore stay:
+        # they feed that path too, not only the deleted collapse.
+        if self._stanford and self._faithful_vlan:
+            # Drop the out devices and the (broken /0) forwards translated from
+            # their permutation rules; the faithful build re-wires the mid.
+            # egress interfaces itself.
             self._fwd_devices = {d for d in self._fwd_devices
                                  if d.split('.', 1)[0] != 'out'}
             fwd_rules = [r for r in fwd_rules
                          if r.split()[2].split('.', 1)[0] != 'out']
-            if self._faithful_vlan:
-                (edges, device_nats, nat_rules,
-                 device_acls, acl_rules) = self._build_stanford_faithful(edges)
-            else:
-                edges = self._collapse_out_stage(edges)
+            (edges, device_nats, nat_rules,
+             device_acls, acl_rules) = self._build_stanford_faithful(edges)
         # wl_i2 faithful (dst x VLAN): no mid stage; out.X is the dst FIB and also
         # rewrites the egress VLAN, in.X admits VLANs. Emit the VLAN rewrite as
         # inline NATs and the admission as per-router ACLs (keeping the dst FIB).
@@ -1603,9 +1618,10 @@ class APKeepAdapter(AbstractVerificationEngine):
         """ The devices whose forwarding table is a first-match list.
 
         The HSA in./mid./out. stages are exempt, and only because something
-        else already claims them: `_build_stanford_faithful`,
-        `_build_i2_faithful` and `_collapse_out_stage` rewrite those tables
-        themselves, and their rules carry VLAN matches this element cannot
+        else already claims them: `_build_stanford_faithful` and
+        `_build_i2_faithful` rewrite those tables themselves, and in plain mode
+        `_demux_ingress` splits them; their rules carry VLAN matches this
+        element cannot
         express anyway -- so the approximation those paths make is a decision
         already taken (APKEEP_STANFORD_NP_SPEC.md), not one to re-open here.
 
@@ -2181,36 +2197,6 @@ class APKeepAdapter(AbstractVerificationEngine):
             device_acls["iadm"] = sorted(acl_names, key=int)
         return (spliced, {d: sorted(p) for d, p in device_nats.items()}, nat_rules,
                 device_acls or None, acl_rules)
-
-    def _collapse_out_stage(self, edges: List[str]) -> List[str]:
-        """ Remove the wl_stanford out. stage, splicing its port permutation into
-        the topology. The physical path is mid.X.<110n> -> out.X.<130n> (internal
-        link) -> out.X.<120m> (permutation rule) -> in.Y.<p> / probe (external
-        link). ForwardElements route by dst-IP and cannot honour the in-port
-        permutation, so we resolve the chain statically and wire the mid. egress
-        interface straight to the external neighbour(s), dropping out. entirely.
-        """
-        mid_to_out: Dict[Tuple[str, str], Tuple[str, str]] = {}  # (out_dev,inport)->(mid_dev,port)
-        out_ext: Dict[Tuple[str, str], List[Tuple[str, str]]] = {}  # (out_dev,outport)->[(dev,port)]
-        kept: List[str] = []
-        for edge in edges:
-            s_dev, s_port, d_dev, d_port = edge.split()
-            if d_dev.split('.', 1)[0] == 'out':        # mid.X -> out.X (internal)
-                mid_to_out[(d_dev, d_port)] = (s_dev, s_port)
-            elif s_dev.split('.', 1)[0] == 'out':      # out.X -> in.Y / probe (external)
-                out_ext.setdefault((s_dev, s_port), []).append((d_dev, d_port))
-            else:
-                kept.append(edge)
-        for out_dev, perm in self._out_perm.items():
-            for in_port, out_ports in perm.items():
-                mid = mid_to_out.get((out_dev, in_port))
-                if mid is None:
-                    continue
-                m_dev, m_port = mid
-                for out_port in out_ports:
-                    for d_dev, d_port in out_ext.get((out_dev, out_port), []):
-                        kept.append("%s %s %s %s" % (m_dev, m_port, d_dev, d_port))
-        return kept
 
     def _splice_acls(self, edges: List[str]):
         """ Wire the router's acl_in/acl_out as per-port APKeep ACLElements.

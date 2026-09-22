@@ -52,10 +52,12 @@ from time import perf_counter
 # (77k dst-IP routes), so fewer iterations -- it is the scale comparison.
 #
 # wl_stanford's HSA model splits each router into in./mid./out. switches; the
-# out. stage forwards by INPUT PORT (a permutation a dst-IP ForwardElement cannot
-# express), so the adapter collapses it into the topology (mid. egress interface
-# -> external neighbour; see APKeepAdapter._collapse_out_stage). This reproduces
-# the shipped all-to-all reachability oracle exactly (P7). The transport-layer /
+# out. stage forwards by INPUT PORT, a permutation a dst-IP ForwardElement
+# cannot express. The adapter used to collapse it into the topology; since
+# 2026-09-22 the general mechanism handles it instead -- `_demux_ingress` gives
+# each ingress class its own element, of which a permutation is the general case
+# (CLOUD_BENCH_PLAN.md §2.8), so all 48 switches survive as 719 elements. This
+# reproduces the shipped all-to-all reachability oracle exactly (P7). The transport-layer /
 # VLAN ACLs it carries are NOT modelled here -- the fully-connected oracle has no
 # deny cases to exercise them (the ACL cross-check vs NetPlumber is separate).
 _WORKLOADS = {

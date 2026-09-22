@@ -2346,9 +2346,7 @@ not bounce back down" that §2.7 found it had been losing.
 
 ### What is now open
 
-* **Delete the out-stage collapse**, now that it is provably redundant —
-  separate change, because `self._stanford` still gates the faithful-VLAN path
-  and its `bdd_table` sizing.
+* ~~Delete the out-stage collapse~~ — **DONE, see §2.10.**
 * **Carry ingress qualification into `_build_pf_pipeline`** (§2.7's other open
   item) — packet filters are excluded from both the contract and the demux, and
   that is a scope statement, not a claim that the pipeline honours in-ports.
@@ -2411,6 +2409,51 @@ directory is derived from the two vendored traces and a clean checkout has none
 of it. It runs the benchmark's `_pre_preparation` plus the two policy steps and
 stops before anything that needs a live engine, so the deterministic integration
 tier can generate it. `test.sh` calls it beside the other generators.
+
+---
+
+## 2.10 The out-stage collapse is gone
+
+Deleted 2026-09-22, after §2.8 proved it redundant. **Checked first what still
+uses the machinery**, which changed the scope:
+
+| | |
+|---|---|
+| `_collapse_out_stage` | plain mode only — **deleted** |
+| `_out_perm` / `_capture_out_perm` | **KEPT** — `_build_stanford_faithful` reads them too |
+| `self._stanford` | **KEPT** — gates the faithful path, `bdd_table` sizing, `_i2_faithful`, and the faithful probe's `vlan=0` target |
+
+So the deletion is narrower than "remove the special case": the *plain-mode*
+collapse goes, and the faithful path keeps the stage because it also has to
+model the egress VLAN reset, which demultiplexing does not and should not do.
+The `if self._stanford:` block is now `if self._stanford and self._faithful_vlan:`.
+
+### What it changes
+
+All 48 wl_stanford switches now survive as elements instead of 32, and 22 of
+them are demultiplexed into **719 elements** — the out stage splits by
+construction, since it *is* an ingress-to-egress permutation, plus the six
+in-stage routers §2.8 already found.
+
+**Reachability still matches NetPlumber exactly**, and the whole test takes
+11 s, so 719 elements costs nothing measurable here. The APKeep suite is 94
+passed / 2 skipped, unchanged.
+
+`test_out_stage_collapsed` is renamed `test_out_stage_demultiplexed_not_collapsed`
+and now asserts the opposite of what it did — 48 devices, three stages, 22
+split. Its docstring says so, because a test whose name asserts a design that
+was deleted is worse than no test. The counts are description; the reachability
+assertion is the evidence.
+
+### What this does NOT do
+
+`_gate_dead_ingress` stays, for §2.8's reason: the in stage discriminates by
+**VLAN**, the translation keeps only the destination, so all of an in-stage
+device's rules collapse to one identical `+ fwd` string and an ingress split has
+nothing to separate. **The `in.`/`mid.`/`out.` name coupling therefore also
+stays** — `self._stanford` is still derived from the presence of a `mid.` stage.
+Removing that needs the in-stage's VLAN matching to survive translation, which
+is a different piece of work.
 
 ---
 
