@@ -2022,12 +2022,39 @@ nobody can audit later.
 ### LPM: carried by the rule index, and NOT observable in the matrix
 
 **FaVe does not reorder a table on its own.** Priority IS the rule index:
-`build_model` assigns it longest-prefix-first, `netplumber/adapter`'s
-`_calc_rule_index` shifts it (`rid << 12`) and hands it to NetPlumber, where the
-lower index wins. Nothing downstream repairs a wrong order — which is exactly
-what `np_preparation._reprioritise_fib_lpm` exists to fix for the workloads that
-load raw tables in file order. This one emits the order directly, so that
-function is not in its path.
+`netplumber/adapter`'s `_calc_rule_index` shifts it (`rid << 12`) and hands it
+to NetPlumber, where the lower index wins. Nothing downstream repairs a wrong
+order.
+
+The ordering goes through **`np_preparation._reprioritise_fib_lpm`**, shared
+with `wl_cloud` and the raw-table workloads, declared the way `wl_cloud`
+declares it — module constants, not a `config.json`. That file belongs to the
+raw-table JSON path, which reads it while converting vendored Hassel tables;
+this workload's input is two CSVs, so a `config.json` here would be a file
+nothing reads:
+
+    STAGE_SWITCH = 'sw'
+    TABLE_TYPES = [STAGE_SWITCH]
+    FIB_TABLE_TYPES = [STAGE_SWITCH]
+
+**One stage, so the declaration is trivial — it says "all of them", and that is
+recorded rather than left to be inferred.** `wl_cloud`'s equivalent is
+load-bearing because it EXCLUDES its NAT gateway, whose /32 rewrites must not be
+reordered by prefix length; there is nothing here to exclude, every device is a
+FIB and every rule forwards. One stage is also the more honest reading of the
+original benchmark, which models one flat forwarding table per node (owner,
+2026-09-22). What the declaration buys is that the tree has **one** LPM
+mechanism rather than two — a per-workload sort is how that function's own
+predecessor came to do nothing at all on wl_i2.
+
+The refactor was shown **inert**: `routes.json` is byte-identical to the
+hand-sorted version it replaced. One wrinkle worth knowing —
+`_reprioritise_fib_lpm` rewrites each rule's INDEX and leaves the list in
+emission order, so afterwards the two disagree. That is safe, because the
+adapter hands NetPlumber `rule.idx` and never a list position, which is what
+wl_stanford's independently validated 165 pairs rest on. `build_model`
+nevertheless sorts by the index afterwards, so no reader and no future adapter
+can take position for priority.
 
 Only two of the 1,400 prefixes nest inside another, and only one of those two
 has an observable consequence:
@@ -2078,6 +2105,31 @@ modes are the same:
   count (§9.34.3).
 - **State the denominator.** Never compare totals across different query counts
   (TODO item 0a).
+- **A FIB workload must PROVE its evidence can see LPM** (added 2026-09-22,
+  owner: "the sanity question concerning LPM needs to be addressed in future
+  benchmarks"). Emitting rules longest-prefix-first is not evidence that
+  anything would notice if they were not. The check is cheap and mechanical:
+  **invert the ordering so the shortest prefix wins, and re-run.** If the
+  verdict does not change, the workload's gating evidence is blind to rule
+  priority and needs a dedicated guard.
+
+  `wl_deltanet` failed exactly this — inverted, it still reported 256 checks and
+  0 violations, because a switch-granularity reachability matrix asks an
+  existential question per pair and a misrouted prefix still leaves its 99
+  siblings arriving. Its guard is `TestDeltanetLPM`, which resolves the model's
+  own rules the way NetPlumber does and follows a packet into a nested prefix;
+  it asserts both that the correct order delivers at the specific prefix's home
+  and that inverting changes the answer, so it cannot pass vacuously.
+
+  Two prerequisites, both of which that test asserts: the data must CONTAIN a
+  nested prefix pair, and the two prefixes must have different egresses — one
+  of `wl_deltanet`'s two pairs shares a home and witnesses nothing.
+
+  **Open for the existing workloads.** wl_stanford's LPM result is
+  independently validated (165 pairs) and wl_i2's was the defect that motivated
+  `_reprioritise_fib_lpm` in the first place, but whether either check SET is
+  sensitive to an inversion has not been measured, and `wl_cloud` -- where the
+  re-prioritisation is called "load-bearing" -- has not been measured either.
 - **Every measurement-affecting choice is a stamped result field**, not an
   undocumented habit — including, for these workloads, the header layout of
   §1.1 and the node-class derivation of §1.2.
