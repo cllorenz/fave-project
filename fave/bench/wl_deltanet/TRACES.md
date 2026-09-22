@@ -152,6 +152,65 @@ cross-engine test than either snapshot on its own — three engines
 agreeing on one model is weaker evidence than three engines agreeing on
 the DELTA between two. `CLOUD_BENCH_PLAN.md` §2.3.
 
+## D3 — the ports are in the data
+
+`s<i>-<j>` is not a router. It is a **(switch, port) pair**, which is
+the paper's own device: Delta-net splits one switch into a graph node
+per input port its rules match, "if a switch s contains rules that can
+match three input ports, we encode s as three separate nodes" (§4.1).
+So both columns of every row name a port, and a port-annotated topology
+comes out of the traces with nothing invented:
+
+| trace | switches | inter-switch links | ports |
+|---|---:|---:|---:|
+| airtel1-only-inserts.csv | 16 | 26 | 68 |
+| airtel2-only-inserts.csv | 16 | 26 | 68 |
+
+**Every switch has exactly `degree + 1` ports** — one per neighbour,
+plus port 1, which no inter-switch link ever lands on. That is the
+external, border-router-facing port (the paper connects each of the
+16 Open vSwitches to a Quagga border router), and it is where traffic
+enters the modelled network.
+
+The invariants that make the model exact, all measured and all REFUSED
+by `deltanet_topology.py` rather than assumed — each is a property of
+these two files, not of the format:
+
+| invariant | why FaVe needs it |
+|---|---|
+| the destination port is a function of the switch PAIR | one link per pair, so a neighbour always lands on one port |
+| distinct neighbours occupy distinct ports | the port identifies the link, so the map inverts |
+| the switch-level edge set is symmetric | **this is what recovers the EGRESS port**, which no row states |
+| ports are exactly 1..degree+1 | no port is unaccounted for |
+| no rule forwards within a switch, or back out its ingress port | neither has a FaVe counterpart |
+
+The egress port is the one figure a row genuinely does not carry, and
+it does not need to: the port `i` sends out of to reach `k` is the port
+`i` receives from `k` on, and symmetry makes that total. So the
+converter has no interface to invent — which is the opposite of what
+D3 was filed believing.
+
+### Where traffic leaves
+
+A reachability property needs an egress as well as an ingress. A
+prefix's rules thin towards one switch and stop; the node that
+RECEIVES a prefix while carrying no rule for it is where it is
+delivered. Every one of the 1,400 prefixes terminates at exactly one
+switch, and **14 switches home 100 prefixes each**:
+
+    14 x 100 = 1,400
+
+which is the paper's "each border router advertises one hundred IP
+prefixes" (§4.2) — and it accounts for the 1,600-versus-1,400 prefix gap
+recorded below: switches s8 and s9 home nothing, and the shortfall is exactly
+2 x 100. They are well connected (degree 7 and 6) but not the best connected
+(s2 has degree 8 and homes its hundred), so "pure transit" describes
+what they do here rather than explaining why.
+
+**Both traces derive the SAME topology** — same switches, same links,
+same port map, same homing. Only the forwarding differs, which is what
+makes §2.3's differential a clean one.
+
 ## Checked against the paper that published the data set
 
 Horn, Kheradmand and Prasad, *Delta-net: Real-time Network
@@ -182,11 +241,16 @@ Two figures do NOT line up, and are recorded rather than reconciled:
 | unique IP prefixes advertised (§4.2) | 1,600 | 1,400 |
 | max links in the topology (Table 2) | 260 | 158 |
 
-The first is a genuine open question — 16 switches advertising 100
-prefixes each gives the paper's "1,600 unique (but possibly overlapping)"
-and the traces carry 1,400. The second is not a discrepancy: 260 is the
-topology's capacity and 158 is how many links the snapshot's rules
-actually use.
+The first is **accounted for, not resolved**, by the homing above: 16
+switches advertising 100 prefixes each gives the paper's "1,600 unique
+(but possibly overlapping)", the traces home 1,400 at 14 switches, and s8 and s9
+home none. So the gap is exactly those two switches' hundreds. WHY
+they have none — no border router attached, nothing advertised, or a
+distillation that dropped them — the data does not say.
+
+The second is not a discrepancy at all: 260 is the topology's capacity
+and 158 is how many node-level edges this snapshot's rules use, over
+26 inter-switch links.
 
 The paper also settles two things this repository recorded as unknown:
 the data set's home, `https://github.com/delta-net/datasets` (reference [14]) —

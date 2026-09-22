@@ -39,6 +39,7 @@ This workload had a head start on that failure mode: three figures in
 survived because nothing read them.
 """
 
+import collections
 import os
 import unittest
 
@@ -63,6 +64,13 @@ from bench.wl_deltanet.deltanet_trace import (
     lpm_priority,
     parse_trace,
     read_trace,
+)
+from bench.wl_deltanet.deltanet_topology import (
+    EXTERNAL_PORT,
+    TopologyError,
+    derive_topology,
+    homes,
+    parse_node,
 )
 from util.raw_data import RawDataError, verify_raw
 
@@ -226,6 +234,101 @@ class TestDeltanetShape(unittest.TestCase):
 
     def test_census_reads_both_traces(self):
         self.assertEqual(len(census()['traces']), len(TRACES))
+
+
+class TestDeltanetTopology(unittest.TestCase):
+    """ D3: the ports are in the data, and the topology is exact.
+
+    The plan filed D3 believing "a row names a router and a next-hop and
+    neither end's port". It names both: `s<i>-<j>` is a (switch, port) pair,
+    which is the paper's own way of modelling ports without modelling ports.
+    These assert the invariants FaVe's port-based model needs, and they are
+    stated over the traces rather than over `derive_topology`'s own output
+    wherever that is possible.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.traces = _load()
+        cls.topologies = [derive_topology(i) for i in cls.traces]
+
+    def test_a_switch_has_one_port_per_neighbour_plus_the_external_one(self):
+        for topology in self.topologies:
+            for switch in topology.switches:
+                self.assertEqual(
+                    topology.ports[switch],
+                    set(range(EXTERNAL_PORT,
+                              topology.degree(switch) + EXTERNAL_PORT + 1)))
+
+    def test_no_inter_switch_link_lands_on_the_external_port(self):
+        """ Which is what makes port 1 the entry point. """
+        for inserts in self.traces:
+            for insert in inserts:
+                self.assertNotEqual(parse_node(insert.next_hop)[1],
+                                    EXTERNAL_PORT)
+
+    def test_the_egress_port_is_the_reverse_ingress_port(self):
+        """ The one figure no row states, recovered from symmetry. """
+        for topology in self.topologies:
+            for (switch, neighbour), port in topology.port_of.items():
+                self.assertEqual(topology.egress_port(switch, neighbour), port)
+                self.assertIn((neighbour, switch), topology.port_of)
+
+    def test_the_destination_port_is_a_function_of_the_switch_pair(self):
+        """ Asserted over the raw inserts, not over the derived map. """
+        for inserts in self.traces:
+            seen = {}
+            for insert in inserts:
+                src = parse_node(insert.router)[0]
+                dst_switch, dst_port = parse_node(insert.next_hop)
+                key = (src, dst_switch)
+                self.assertEqual(seen.setdefault(key, dst_port), dst_port)
+
+    def test_both_traces_derive_the_same_topology(self):
+        """ Same network, two forwarding states -- §2.3's differential. """
+        left, right = self.topologies
+        self.assertEqual(left.switches, right.switches)
+        self.assertEqual(left.links, right.links)
+        self.assertEqual(left.port_of, right.port_of)
+        self.assertEqual(homes(self.traces[0]), homes(self.traces[1]))
+
+    def test_every_prefix_is_delivered_at_exactly_one_switch(self):
+        for inserts in self.traces:
+            homed = homes(inserts)
+            self.assertEqual(len(homed), 1400)
+            per = collections.Counter(homed.values())
+            self.assertEqual(set(per.values()), {100})
+            self.assertEqual(len(per), 14)
+
+    def test_the_two_switches_that_home_nothing_account_for_the_prefix_gap(self):
+        """ The paper's 1,600 against the traces' 1,400 (§4.2). """
+        topology, inserts = self.topologies[0], self.traces[0]
+        homeless = set(topology.switches) - set(homes(inserts).values())
+        self.assertEqual(sorted(homeless), [8, 9])
+        self.assertEqual(len(homeless) * 100, 1600 - 1400)
+
+    def test_the_derivation_refuses_what_would_break_the_port_model(self):
+        """ A default reading would model a network nobody described. """
+        self.assertRaises(TopologyError, parse_node, 'router7')
+
+        one = self.traces[0][0]
+        # a neighbour landing on two different ports
+        two_ports = [one._replace(router='s1-2', next_hop='s2-3'),
+                     one._replace(router='s1-4', next_hop='s2-4')]
+        self.assertRaises(TopologyError, derive_topology, two_ports)
+        # forwarding within one switch
+        self.assertRaises(
+            TopologyError, derive_topology,
+            [one._replace(router='s1-2', next_hop='s1-3')])
+        # an inter-switch link landing on the external port
+        self.assertRaises(
+            TopologyError, derive_topology,
+            [one._replace(router='s1-2', next_hop='s2-1')])
+
+    def test_egress_towards_a_non_neighbour_is_refused(self):
+        topology = self.topologies[0]
+        stranger = max(topology.switches) + 1
+        self.assertRaises(TopologyError, topology.egress_port, 1, stranger)
 
 
 class TestDeltanetAgainstThePublishedPaper(unittest.TestCase):

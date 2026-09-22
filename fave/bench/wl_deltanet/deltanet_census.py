@@ -60,6 +60,8 @@ import os
 from typing import Dict, List, Sequence
 
 from util.raw_data import verify_raw
+from bench.wl_deltanet.deltanet_topology import (
+    EXTERNAL_PORT, derive_topology, homes)
 from bench.wl_deltanet.deltanet_trace import (
     PRIORITY_BASE,
     PRIORITY_SLOPE,
@@ -108,7 +110,18 @@ def trace_census(name: str, inserts: List[Insert]) -> Dict:
     next_hops = {i.next_hop for i in inserts}
     per_router = collections.Counter(i.router for i in inserts)
 
+    topology = derive_topology(inserts)
+    homed = homes(inserts)
+    per_home = collections.Counter(homed.values())
+
     return {
+        'switches': len(topology.switches),
+        'links': len(topology.links),
+        'ports': sum(len(p) for p in topology.ports.values()),
+        'degrees': {s: topology.degree(s) for s in topology.switches},
+        'homing_switches': len(per_home),
+        'prefixes_per_home': sorted(set(per_home.values())),
+        'homes_nothing': sorted(set(topology.switches) - set(per_home)),
         'name': name,
         'sha256': _digest(os.path.join(RAW, name)),
         'inserts': len(inserts),
@@ -366,6 +379,87 @@ def render(c: Dict) -> str:
     w('the DELTA between two. `CLOUD_BENCH_PLAN.md` §2.3.')
     w('')
 
+    w('## D3 — the ports are in the data')
+    w('')
+    w('`s<i>-<j>` is not a router. It is a **(switch, port) pair**, which is')
+    w('the paper\'s own device: Delta-net splits one switch into a graph node')
+    w('per input port its rules match, "if a switch s contains rules that can')
+    w('match three input ports, we encode s as three separate nodes" (§4.1).')
+    w('So both columns of every row name a port, and a port-annotated topology')
+    w('comes out of the traces with nothing invented:')
+    w('')
+    out.extend(_table(
+        ('trace', 'switches', 'inter-switch links', 'ports'),
+        [(t['name'], t['switches'], t['links'], t['ports'])
+         for t in c['traces']],
+        align='lrrr'))
+    w('')
+    w('**Every switch has exactly `degree + 1` ports** — one per neighbour,')
+    w('plus port %d, which no inter-switch link ever lands on. That is the'
+      % EXTERNAL_PORT)
+    w('external, border-router-facing port (the paper connects each of the')
+    w('%d Open vSwitches to a Quagga border router), and it is where traffic'
+      % PAPER_SWITCHES)
+    w('enters the modelled network.')
+    w('')
+    w('The invariants that make the model exact, all measured and all REFUSED')
+    w('by `deltanet_topology.py` rather than assumed — each is a property of')
+    w('these two files, not of the format:')
+    w('')
+    out.extend(_table(
+        ('invariant', 'why FaVe needs it'),
+        [('the destination port is a function of the switch PAIR',
+          'one link per pair, so a neighbour always lands on one port'),
+         ('distinct neighbours occupy distinct ports',
+          'the port identifies the link, so the map inverts'),
+         ('the switch-level edge set is symmetric',
+          '**this is what recovers the EGRESS port**, which no row states'),
+         ('ports are exactly 1..degree+1', 'no port is unaccounted for'),
+         ('no rule forwards within a switch, or back out its ingress port',
+          'neither has a FaVe counterpart')]))
+    w('')
+    w('The egress port is the one figure a row genuinely does not carry, and')
+    w('it does not need to: the port `i` sends out of to reach `k` is the port')
+    w('`i` receives from `k` on, and symmetry makes that total. So the')
+    w('converter has no interface to invent — which is the opposite of what')
+    w('D3 was filed believing.')
+    w('')
+    w('### Where traffic leaves')
+    w('')
+    w('A reachability property needs an egress as well as an ingress. A')
+    w('prefix\'s rules thin towards one switch and stop; the node that')
+    w('RECEIVES a prefix while carrying no rule for it is where it is')
+    w('delivered. Every one of the %s prefixes terminates at exactly one'
+      % _n(first['prefixes']))
+    w('switch, and **%d switches home %s prefixes each**:'
+      % (first['homing_switches'],
+         ' or '.join(str(v) for v in first['prefixes_per_home'])))
+    w('')
+    w('    %s x %s = %s'
+      % (first['homing_switches'],
+         ' or '.join(str(v) for v in first['prefixes_per_home']),
+         _n(first['prefixes'])))
+    w('')
+    w('which is the paper\'s "each border router advertises one hundred IP')
+    w('prefixes" (§4.2) — and it accounts for the %s-versus-%s prefix gap'
+      % (_n(PAPER_PREFIXES), _n(first['prefixes'])))
+    w('recorded below: switches %s home nothing, and the shortfall is exactly'
+      % ' and '.join('s%d' % s for s in first['homes_nothing']))
+    w('%d x %s. They are well connected (degree %s) but not the best connected'
+      % (len(first['homes_nothing']),
+         ' or '.join(str(v) for v in first['prefixes_per_home']),
+         ' and '.join(str(first['degrees'][s])
+                      for s in first['homes_nothing'])))
+    w('(s%d has degree %d and homes its hundred), so "pure transit" describes'
+      % (max(first['degrees'], key=lambda s: first['degrees'][s]),
+         max(first['degrees'].values())))
+    w('what they do here rather than explaining why.')
+    w('')
+    w('**Both traces derive the SAME topology** — same switches, same links,')
+    w('same port map, same homing. Only the forwarding differs, which is what')
+    w('makes §2.3\'s differential a clean one.')
+    w('')
+
     w('## Checked against the paper that published the data set')
     w('')
     w('Horn, Kheradmand and Prasad, *Delta-net: Real-time Network')
@@ -407,15 +501,22 @@ def render(c: Dict) -> str:
           first['edges'])],
         align='lrr'))
     w('')
-    w('The first is a genuine open question — %d switches advertising 100'
+    w('The first is **accounted for, not resolved**, by the homing above: %d'
       % PAPER_SWITCHES)
-    w('prefixes each gives the paper\'s "%s unique (but possibly overlapping)"'
+    w('switches advertising 100 prefixes each gives the paper\'s "%s unique'
       % _n(PAPER_PREFIXES))
-    w('and the traces carry %s. The second is not a discrepancy: %d is the'
-      % (_n(first['prefixes']), PAPER_MAX_LINKS))
-    w('topology\'s capacity and %d is how many links the snapshot\'s rules'
+    w('(but possibly overlapping)", the traces home %s at %d switches, and %s'
+      % (_n(first['prefixes']), first['homing_switches'],
+         ' and '.join('s%d' % s for s in first['homes_nothing'])))
+    w('home none. So the gap is exactly those two switches\' hundreds. WHY')
+    w('they have none — no border router attached, nothing advertised, or a')
+    w('distillation that dropped them — the data does not say.')
+    w('')
+    w('The second is not a discrepancy at all: %d is the topology\'s capacity'
+      % PAPER_MAX_LINKS)
+    w('and %d is how many node-level edges this snapshot\'s rules use, over'
       % first['edges'])
-    w('actually use.')
+    w('%d inter-switch links.' % first['links'])
     w('')
     w('The paper also settles two things this repository recorded as unknown:')
     w('the data set\'s home, `%s` (reference [14]) —' % PAPER_URL)
