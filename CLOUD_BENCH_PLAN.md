@@ -2347,9 +2347,7 @@ not bounce back down" that §2.7 found it had been losing.
 ### What is now open
 
 * ~~Delete the out-stage collapse~~ — **DONE, see §2.10.**
-* **Carry ingress qualification into `_build_pf_pipeline`** (§2.7's other open
-  item) — packet filters are excluded from both the contract and the demux, and
-  that is a scope statement, not a claim that the pipeline honours in-ports.
+* ~~Carry ingress qualification into `_build_pf_pipeline`~~ — **DONE, §2.11.**
 * **The wl_up APKeep-vs-NetPlumber differential** — now built, §2.9.
 
 ---
@@ -2454,6 +2452,55 @@ nothing to separate. **The `in.`/`mid.`/`out.` name coupling therefore also
 stays** — `self._stanford` is still derived from the presence of a `mid.` stage.
 Removing that needs the in-stage's VLAN matching to survive translation, which
 is a different piece of work.
+
+---
+
+## 2.11 Packet filters: the pipeline already carried it, so the contract now checks
+
+§2.7 excluded packet filters from the contract and called that *"a scope
+statement, not a claim that the pipeline honours in-ports"*. Closing it started
+by finding out which it was — and the answer changed the work.
+
+### `_build_pf_pipeline` already demultiplexes ingress
+
+It has all along, by a mechanism the contract does not measure. An **`in_port`
+MATCH field** (`-i eth0`, captured as `in_qual`) becomes a **per-port prefilter
+element** `<elem>.inP` that only that port's ingress traverses, dropping the
+qualified subset and default-passing the rest. `out_port`-qualified rules are
+dropped as redundant with routing. That *is* ingress demultiplexing, arrived at
+independently for the filter pipeline.
+
+So there was nothing to build. `rule.in_ports` and an `in_port` match are two
+different fields, and neither mechanism subsumes the other.
+
+### Measured, rather than assumed
+
+| workload | filter devices | rules discriminating on physical ingress via `rule.in_ports` | devices with >1 physical ingress port |
+|---|---:|---:|---:|
+| `wl_up` | 136 | **0** | 1 (`pgf`) |
+| `wl_tum` | 1 | **0** | 0 |
+
+6,554 wl_up chain rules *carry* `in_ports`, but they name FaVe's internal
+pipeline ports — the phase-(a) false positive again. None discriminate among
+*physical* ingress ports.
+
+### What changed
+
+The blanket exclusion is gone, so a packet_filter's `routing` table is measured
+like any other device's. **Verified not load-bearing before removing it**: with
+the exclusion deleted the whole APKeep suite passed, the only failure being the
+unit test that asserted the exclusion existed.
+
+`_demux_ingress` now skips filter devices *explicitly*, because it re-keys
+`_fwd_rules` and `_router_fib` but not `_pf_rules`/`_filter_fib` — splitting one
+would drop its chain rules, which is §2.8's wl_up defect committed one store
+further along. Such a device falls through to the refusal instead.
+
+So the contract refuses nothing today and stands as a guard for a shape no
+workload has yet: a packet filter whose forwarding discriminates among physical
+ingress ports through `rule.in_ports` rather than through an `in_port` match.
+**That is the difference between a scope statement and a checked claim**, which
+is the whole point of §2.7.
 
 ---
 

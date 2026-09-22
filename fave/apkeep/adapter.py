@@ -950,21 +950,23 @@ class APKeepAdapter(AbstractVerificationEngine):
         """
         arriving = self._ingress_ports(edges)
         qualified: Dict[str, List[int]] = {}
-        # `_build_pf_pipeline` subtracts the packet_filter devices locally
-        # (`self._fwd_devices - as_filter`) and runs AFTER this check, so
-        # `_fwd_devices` still lists them here. Excluded for the same reason
-        # `first_match` is: they are realised as a FilterElement pipeline, not
-        # as a ForwardElement, and this contract is about what a ForwardElement
-        # cannot carry.
+        # PACKET FILTERS ARE COVERED TOO (2026-09-22). They used to be excluded
+        # wholesale, which §2.7 flagged as "a scope statement, not a claim that
+        # the pipeline honours in-ports". It is now a checked claim: a
+        # packet_filter's `routing` table lands in `_fwd_table` like any other,
+        # and it is measured here rather than waved past.
         #
-        # NOT a claim that the pipeline carries ingress qualification. wl_up's
-        # `dmz`/`wifi` default route (idx 65535) IS in-port-qualified, and
-        # whether `_build_pf_pipeline` honours that is an OPEN question, not a
-        # settled one -- CLOUD_BENCH_PLAN.md §2.7 records it as the next thing
-        # this contract should grow to cover.
-        realised = self._fwd_devices - self._filter_devices
+        # `_build_pf_pipeline` DOES carry ingress qualification, but by a
+        # different mechanism and from a different field: an `in_port` MATCH
+        # (`-i eth0`) becomes a per-port prefilter element `<elem>.inP` that
+        # only that port's ingress traverses. That is not `rule.in_ports`, which
+        # is what this contract measures, so neither subsumes the other.
+        # Measured across wl_up (136 filter devices) and wl_tum (1): ZERO rules
+        # discriminate among physical ingress ports via `rule.in_ports`, so this
+        # refuses nothing today and stands as a guard for a shape no workload
+        # has yet.
         for device, rows in self._fwd_table.items():
-            if device not in realised:
+            if device not in self._fwd_devices:
                 continue                      # not realised as a ForwardElement
             ingress = arriving.get(device, set())
             restricted = []
@@ -1079,6 +1081,20 @@ class APKeepAdapter(AbstractVerificationEngine):
         arriving = self._ingress_ports(edges)
         split: Dict[str, Dict[str, Set[str]]] = {}
         for device in sorted(qualified):
+            # A packet_filter is NOT split here. This pass re-keys `_fwd_rules`
+            # and `_router_fib`; a filter device's behaviour also lives in
+            # `_pf_rules` and `_filter_fib`, which it does not touch, so
+            # splitting one would drop its chain rules -- the wl_up defect of
+            # §2.8, committed again one store further along. It falls through to
+            # the refusal instead, which is the honest outcome: the pipeline
+            # carries an `in_port` MATCH, not `rule.in_ports`, and nothing in
+            # the tree currently needs the latter.
+            if device in self._filter_devices:
+                self.logger.warning(
+                    "apkeep: %s discriminates among its ingress ports and is a "
+                    "packet_filter, whose chain rules this pass cannot re-key; "
+                    "leaving it to the refusal", device)
+                continue
             classes = self._ingress_classes(
                 device, arriving.get(device, set()),
                 self._device_tokens(device, fwd_rules))

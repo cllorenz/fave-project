@@ -121,17 +121,21 @@ class TestIngressContract(unittest.TestCase):
             {'d': [_row(1, ['1'])]}, [], ['x 9 d 1', 'y 9 d 2'])
         self.assertEqual(adapter._ingress_qualified(edges), {})
 
-    def test_a_packet_filter_device_is_not_checked_here(self):
-        """ It becomes a FilterElement pipeline, and `_build_pf_pipeline`
-        subtracts it AFTER this check runs -- so the exclusion has to be
-        explicit. Not a claim that the pipeline carries ingress qualification:
-        wl_up's dmz/wifi default route is in-port-qualified and that is an open
-        question (§2.7). """
+    def test_a_packet_filter_device_IS_checked(self):
+        """ It used to be excluded wholesale, which was a scope statement rather
+        than a claim (§2.7). Now it is a checked claim.
+
+        `_build_pf_pipeline` does carry ingress qualification -- an `in_port`
+        MATCH becomes a per-port prefilter element -- but that is a different
+        field from `rule.in_ports`, which is what this measures, so neither
+        subsumes the other and a device discriminating by the latter is refused.
+        """
         adapter, edges = _adapter(
             {'d': [_row(1, ['1'])]}, ['d'], ['x 9 d 1', 'y 9 d 2'])
         adapter._filter_devices = {'d'}
-        self.assertEqual(adapter._ingress_qualified(edges), {})
-        adapter._assert_ingress_accounted(edges)          # must not raise
+        self.assertEqual(adapter._ingress_qualified(edges), {'d': [1]})
+        self.assertRaises(UntranslatedSemantics,
+                          adapter._assert_ingress_accounted, edges)
 
     def test_ingress_is_read_from_the_FINAL_wiring(self):
         """ The collapses and gates rewrite the topology before this runs, so a
@@ -204,6 +208,25 @@ class TestIngressDemux(unittest.TestCase):
         self.assertEqual(len(adapter._router_fib['d%s2' % sep]), 1)
         self.assertEqual(adapter._ipv6_fib_devices,
                          {'d%s1' % sep, 'd%s2' % sep})
+
+    def test_a_packet_filter_is_NOT_split_by_the_demux(self):
+        """ The demux re-keys `_fwd_rules` and `_router_fib`; a filter device
+        also lives in `_pf_rules`/`_filter_fib`, which it does not touch. So it
+        must leave one alone rather than drop its chain rules -- the §2.8 wl_up
+        defect, one store further along. """
+        rule = '+ fwd d 0 0 9 0'
+        adapter = self._adapter_with({'d': [_row(1, ['1'])]}, [rule], {}, set())
+        adapter._fwd_ingress = {rule: {'1'}}
+        adapter._filter_devices = {'d'}
+        edges = ['x 9 d 1', 'y 9 d 2', 'd 9 z 1']
+        new_edges, new_rules = adapter._demux_ingress(edges, [rule])
+
+        self.assertEqual(new_edges, edges)        # untouched
+        self.assertEqual(new_rules, [rule])
+        self.assertEqual(adapter._fwd_devices, {'d'})
+        # and therefore still refused, which is the honest outcome
+        self.assertRaises(UntranslatedSemantics,
+                          adapter._assert_ingress_accounted, edges)
 
     def test_the_class_split_accounts_for_router_FIB_entries_too(self):
         """ A device with NO `+ fwd` rules can still discriminate, via the FIB. """
