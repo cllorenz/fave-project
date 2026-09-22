@@ -2150,6 +2150,103 @@ in-port-qualified — but nothing in this data set requires it.
 
 ---
 
+## 2.7 Phase (a): the APKeep translation refuses what it cannot carry
+
+Owner direction 2026-09-22: do (a) first, then attempt (b) with the Stanford
+subsumption gate. This is (a).
+
+### What it is
+
+`apkeep/adapter.UntranslatedSemantics`, modelled on
+`ad6/translate.UnsupportedField` — raised, never swallowed, because a dropped
+constraint is a silently weaker model and a weaker forwarding model still
+answers every query, just wrongly and in the direction that reads as a result.
+
+**The contract is not "APKeep must express everything".** It is that an
+approximation must be **declared**. `_ingress_accounted` records per device
+which mechanism stands in for a semantic the element type cannot carry, and how
+completely, giving three outcomes:
+
+| | |
+|---|---|
+| nothing qualified | silence |
+| qualified + declared `ACCOUNT_COMPLETE` | logged at INFO |
+| qualified + declared `ACCOUNT_APPROXIMATE` | logged at **WARNING**, so the approximation travels with the result |
+| qualified + **undeclared** | **refused** |
+
+### It had to be narrowed twice to be true, and both narrowings are the lesson
+
+The first form compared every rule's `in_ports` against the device's topology
+ingress. It flagged **every router in the tree**, because FaVe's router and
+packet_filter models key their pipeline stages to INTERNAL ports (`r.routing_in`,
+`ifi.acl_in_out`) that are not topology ingress at all. The second form still
+flagged wl_up's packet filters, because `_build_pf_pipeline` subtracts them from
+`_fwd_devices` *locally* and runs **after** the check.
+
+So the contract now covers exactly: **discrimination among PHYSICAL ingress
+ports, on devices realised as a `ForwardElement`** — a rule that names at least
+one port the device receives on and omits at least one other. That scope is
+stated in the code as a decision rather than left as an oversight, and the two
+false positives are pinned by tests so the narrowing cannot silently widen back.
+
+### Results
+
+| workload | outcome |
+|---|---|
+| `wl_ifi`, `wl_cloud` | pass, nothing qualified |
+| `wl_stanford`, `wl_i2` | pass, **WARNING**: the in-stage is declared `ACCOUNT_APPROXIMATE` |
+| `wl_deltanet` | **REFUSED** — as intended |
+| `wl_up` | **REFUSED — a new finding, see below** |
+
+The Stanford/i2 declaration is deliberately `APPROXIMATE` rather than
+`COMPLETE`, and checking that claim is what established it:
+`_gate_dead_ingress` drops an edge to a port **no** rule admits, which is the
+dead-interface half. A port that admits a *different VLAN set* from its
+neighbour keeps its edge and the element then applies every in-stage rule to
+it — the over-approximation P7b/P7c already record (240 → 77, sound but not
+exact). The faithful VLAN paths upgrade it to `COMPLETE` via per-port
+ACLElements. **Declaring it `COMPLETE` would have been exactly the sin this
+contract exists to prevent.**
+
+### The new finding: wl_up has been over-approximating on APKeep all along
+
+`dmz.uni-potsdam.de` and `wifi.uni-potsdam.de` are **switches**, not packet
+filters, so they are real `ForwardElement`s. Their default route is
+in-port-qualified:
+
+    ['dmz.uni-potsdam.de', 1, 65535, [], ['fd=dmz.uni-potsdam.de.1'],
+     [... ports 2..9 ...]]
+
+Match-all, lowest priority, out of port 1 (the uplink), **from the host-facing
+ports only** — "traffic from a host goes up, and does not bounce back down".
+APKeep drops the restriction, so traffic arriving from the uplink that matches
+no host route is sent straight back out the uplink. The same hairpin
+wl_deltanet's 14 false positives were.
+
+**Whether it changes any wl_up verdict is NOT measured.** The existing wl_up
+APKeep tests compare BDD against NDD — both APKeep engines, so both share the
+approximation — and `test_backend_differential` is still `wl_ifi` only, which
+is the open item that made this invisible. A wl_up APKeep-vs-NetPlumber
+differential is what would settle it.
+
+**The gate I set for (a) — "every currently-green workload stays green" — is
+therefore violated by a TRUE positive**, and the gate was wrong as stated. The
+honest version is "no workload's *correct* behaviour changes": wl_up+APKeep was
+never correct, it was silently approximating, and the refusal is a result rather
+than a regression. Until (b) lands, `wl_up` and `wl_deltanet` on APKeep are red
+by design.
+
+### Still open after (a)
+
+* **Does `_build_pf_pipeline` carry ingress qualification?** Packet filters are
+  excluded from this contract because they are not `ForwardElement`s, which is
+  not a claim that their pipeline honours in-ports. wl_tum and wl_up both have
+  them. This is the next thing the contract should grow to cover.
+* **A wl_up APKeep-vs-NetPlumber differential**, to turn the finding above from
+  "unsound in principle" into a measured verdict delta or the absence of one.
+
+---
+
 ## 3. Guardrails carried over
 
 Reused verbatim from `AD6_PLAN.md`'s cross-cutting section, because the failure

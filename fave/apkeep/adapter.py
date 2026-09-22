@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import logging
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 from aggregator.abstract_engine import AbstractVerificationEngine
 from aggregator.aggregator_abstract import TraceLogger
@@ -168,6 +168,29 @@ _NAT_IP_FIELDS = {_SRC: 'src', _DST: 'dst'}
 #: approximated.
 _FILTER_MATCH_FIELDS = frozenset({
     _PROTO, _SRC, _SRC6, _DST, _DST6, _SPORT, _DPORT, _RELATED})
+
+
+class UntranslatedSemantics(Exception):
+    """ Something the FaVe model states that this translation does not carry.
+
+    Raised, never swallowed, for the reason `ad6/translate.UnsupportedField`
+    gives: a dropped constraint is a SILENTLY WEAKER model, and a weaker
+    forwarding model still answers every query -- just wrongly, and in the
+    direction that looks like a result. Every APKeep gap this project has spent
+    time on has that shape (the out-stage in-port permutation, the dead-ingress
+    admission, and now the in-port-qualified forwarding wl_deltanet exposed).
+
+    The contract is NOT "APKeep must express everything". It is that an
+    approximation must be DECLARED: `_ingress_accounted` records, per device,
+    which mechanism accounts for a semantic this element type cannot carry and
+    whether that account is complete. An undeclared one is refused here rather
+    than discovered later as a wrong number.
+    """
+
+
+#: How completely a declared mechanism accounts for a semantic it stands in for.
+ACCOUNT_COMPLETE = 'complete'
+ACCOUNT_APPROXIMATE = 'approximate'
 
 
 def _is_full_space(value: Any) -> bool:
@@ -493,6 +516,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         # routing as a companion FilterElement (a first-match dst-LPM FIB) chained
         # off the accept port -- see _build_pf_pipeline. device -> [(dst, egress, plen)].
         self._filter_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
+        # device -> (ACCOUNT_*, why). Which mechanism stands in for a semantic
+        # the chosen element type cannot carry, and how completely. Read by
+        # `_assert_ingress_accounted`; an unlisted device that needs one is
+        # refused rather than silently approximated.
+        self._ingress_accounted: Dict[str, Tuple[str, str]] = {}
         self._fwd_rules: List[str] = []      # APKeep "+ fwd ..." strings
         # Every forwarding-table rule VERBATIM, per device: {'idx', 'ports',
         # 'match', 'rw'}. The dst-LPM translation above throws away whatever it
@@ -711,6 +739,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         row: Dict[str, Any] = {
             'idx': rule.idx,
             'ports': self._out_ports(rule),
+            # The INGRESS ports the rule applies at. Kept because APKeep's
+            # ForwardElement is a per-DEVICE trie and cannot carry them, which
+            # is precisely why they have to be accounted for rather than
+            # dropped -- see `_assert_ingress_accounted`.
+            'in_ports': [_split_port(p)[1] for p in (rule.in_ports or [])],
             'match': {},
             'rw': {},
         }
@@ -823,6 +856,136 @@ class APKeepAdapter(AbstractVerificationEngine):
         for port in rule.in_ports:
             cur.add(_split_port(port)[1])
         self._in_admit[node] = cur
+        # DECLARED, and deliberately as APPROXIMATE. `_gate_dead_ingress` drops
+        # an edge to a port NO rule admits, which is the dead-interface half of
+        # the in-stage's ingress dependence. It does not model the other half --
+        # a port that admits a DIFFERENT VLAN set from its neighbour keeps its
+        # edge, and the element then applies every in-stage rule to it. That is
+        # the over-approximation P7b/P7c record (240 -> 77, sound but not
+        # exact); the faithful path upgrades this to complete below.
+        self._ingress_accounted[node] = (
+            ACCOUNT_APPROXIMATE,
+            "_gate_dead_ingress (dead interfaces only; per-port VLAN admission "
+            "is the known P7b/P7c over-approximation)")
+
+    def _ingress_ports(self, edges: List[str]) -> Dict[str, Set[str]]:
+        """ device -> the ports traffic ARRIVES on, from the final wiring.
+
+        Taken from `edges` rather than from the declared device ports because
+        the collapses and gates above rewrite the topology, and what matters is
+        the network as built.
+        """
+        arriving: Dict[str, Set[str]] = {}
+        for edge in edges:
+            _sdev, _sport, ddev, dport = edge.split()
+            arriving.setdefault(ddev, set()).add(dport)
+        return arriving
+
+    def _ingress_qualified(self, edges: List[str]) -> Dict[str, List[int]]:
+        """ Forwarding devices whose rules DISCRIMINATE among their ingress ports.
+
+        A rule qualifies ingress when it names at least one port the device
+        actually receives on AND omits at least one other. Both halves matter:
+
+          * omitting all of them is not discrimination, it is a rule keyed to
+            something else entirely. FaVe's router and packet_filter models
+            key their pipeline stages to INTERNAL ports -- `r.routing_in`,
+            `ifi.acl_in_out` -- which are not topology ingress at all, and
+            comparing those against the physical ports flagged every router in
+            the tree. That was this check's first form and it was wrong.
+          * naming all of them is not discrimination either: the rule applies
+            wherever traffic arrives, which is exactly what a per-device trie
+            does.
+
+        **The stated limit of this contract**, so it is a decision and not an
+        oversight: it covers discrimination among PHYSICAL ingress ports, which
+        is what `ForwardElement` provably cannot carry. A rule keyed only to an
+        internal pipeline port is a different question -- the pipeline is
+        modelled as separate elements (`_build_pf_pipeline`, `_splice_acls`) --
+        and is out of scope here rather than silently in it.
+        """
+        arriving = self._ingress_ports(edges)
+        qualified: Dict[str, List[int]] = {}
+        # `_build_pf_pipeline` subtracts the packet_filter devices locally
+        # (`self._fwd_devices - as_filter`) and runs AFTER this check, so
+        # `_fwd_devices` still lists them here. Excluded for the same reason
+        # `first_match` is: they are realised as a FilterElement pipeline, not
+        # as a ForwardElement, and this contract is about what a ForwardElement
+        # cannot carry.
+        #
+        # NOT a claim that the pipeline carries ingress qualification. wl_up's
+        # `dmz`/`wifi` default route (idx 65535) IS in-port-qualified, and
+        # whether `_build_pf_pipeline` honours that is an OPEN question, not a
+        # settled one -- CLOUD_BENCH_PLAN.md §2.7 records it as the next thing
+        # this contract should grow to cover.
+        realised = self._fwd_devices - self._filter_devices
+        for device, rows in self._fwd_table.items():
+            if device not in realised:
+                continue                      # not realised as a ForwardElement
+            ingress = arriving.get(device, set())
+            restricted = []
+            for row in rows:
+                named = set(row['in_ports'])
+                if named & ingress and (ingress - named):
+                    restricted.append(row['idx'])
+            if restricted:
+                qualified[device] = restricted
+        return qualified
+
+    def _assert_ingress_accounted(self, edges: List[str]) -> None:
+        """ Refuse a model whose ingress qualification nothing accounts for.
+
+        APKeep's `ForwardElement` is a destination-prefix trie keyed by DEVICE:
+        `Checker.traverseFowardingGraph` uses the arrival port only to look the
+        element up and then discards it, so an element is a function of
+        (element, packet) and never of (element, in_port, packet). A rule
+        restricted to some ingress ports therefore applies at all of them, which
+        OVER-approximates and yields reachability false positives.
+
+        Three outcomes, and the middle one is the point:
+
+          * nothing qualified -- silence;
+          * qualified and DECLARED -- logged, at WARNING when the declared
+            account is approximate, so the approximation travels with the
+            result instead of being rediscovered;
+          * qualified and UNDECLARED -- refused.
+
+        wl_deltanet is the third case and is why this exists: its 14 false
+        positives were exactly the devices carrying an ingress-restricted rule.
+        """
+        qualified = self._ingress_qualified(edges)
+        if not qualified:
+            return
+
+        undeclared = {d: r for d, r in qualified.items()
+                      if d not in self._ingress_accounted}
+        if undeclared:
+            device = sorted(undeclared)[0]
+            raise UntranslatedSemantics(
+                "APKeep cannot express in-port-qualified forwarding: %d device(s) "
+                "carry rules that apply at some ingress ports and not others, and "
+                "nothing accounts for it. Its ForwardElement is a per-DEVICE "
+                "destination-prefix trie, so those rules would apply at EVERY "
+                "ingress port -- an over-approximation, i.e. reachability false "
+                "positives that read as results. First: %s, %d restricted rule(s) "
+                "(idx %s). Devices: %s. Either declare a mechanism in "
+                "`_ingress_accounted` that stands in for it, or the model needs "
+                "the ingress demultiplexing this refusal is the placeholder for."
+                % (len(undeclared), device, len(undeclared[device]),
+                   ', '.join(str(i) for i in sorted(undeclared[device])[:5]),
+                   ', '.join(sorted(undeclared))))
+
+        for device in sorted(qualified):
+            kind, why = self._ingress_accounted[device]
+            if kind == ACCOUNT_APPROXIMATE:
+                self.logger.warning(
+                    "apkeep: %s has %d ingress-restricted forwarding rule(s); "
+                    "%s accounts for them only APPROXIMATELY -- this run "
+                    "over-approximates here", device, len(qualified[device]), why)
+            else:
+                self.logger.info(
+                    "apkeep: %s has %d ingress-restricted forwarding rule(s), "
+                    "accounted for by %s", device, len(qualified[device]), why)
 
     def _gate_dead_ingress(self, edges: List[str]) -> List[str]:
         """ Drop topology edges delivering traffic to an in-stage device on a
@@ -896,6 +1059,18 @@ class APKeepAdapter(AbstractVerificationEngine):
             if field.name in (_DST, _DST6):
                 dst = str(field.value)
         self._out_rw.setdefault(node, []).append((dst, ports[0], vlan_m))
+
+    def _declare_faithful_admission(self) -> None:
+        """ The faithful VLAN paths model per-port admission as real ACLs.
+
+        `_build_stanford_faithful` / `_build_i2_faithful` splice a per-router
+        ACLElement carrying the admitted VLANs, so the in-stage's ingress
+        dependence is then carried rather than approximated.
+        """
+        for node in self._in_admit:
+            self._ingress_accounted[node] = (
+                ACCOUNT_COMPLETE,
+                "faithful VLAN admission (per-port ACLElement)")
 
     def _capture_in_admission(self, node: str, rule: Any) -> None:
         """ P7b: an in-stage rule admits (permits, forwards to mid) traffic on a
@@ -1103,6 +1278,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         # admits (a real router drops it; our in-port-agnostic ForwardElement would
         # not). No-op unless an in-stage device has a finite admitted-port set.
         edges = self._gate_dead_ingress(edges)
+        if self._faithful_vlan and (self._stanford or self._i2_faithful):
+            self._declare_faithful_admission()
+        # Nothing the model states may go missing in silence: refuse a device
+        # whose ingress-qualified forwarding no declared mechanism accounts for.
+        self._assert_ingress_accounted(edges)
         # ForwardElement device names not implied by a topology edge still need
         # to exist; pass them all explicitly.
         # The faithful VLAN model builds far more BDD nodes (per-route rewrites +
