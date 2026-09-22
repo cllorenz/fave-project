@@ -38,6 +38,7 @@ import os
 import unittest
 
 from bench.wl_deltanet.deltanet_policy import (
+    directed_pairs,
     emit_inventory,
     emit_policy,
     homing_switches,
@@ -188,23 +189,69 @@ class TestDeltanetPolicy(unittest.TestCase):
         for attribute in attributes:
             self.assertFalse(attribute.startswith(('ipv4', 'ipv6')), attribute)
 
-    def test_the_policy_names_every_addressable_destination_and_no_other(self):
-        targets = homing_switches(self.homed)
-        for switch in self.topology.switches:
-            rule = '---> %s\n' % role_name(switch)
-            self.assertEqual(rule in self.policy, switch in targets,
-                             role_name(switch))
+    def test_the_policy_permits_the_full_cross_product_minus_the_diagonal(self):
+        """ Stated over the EXPANDED pairs, because the policy mixes operators.
 
-    def test_the_policy_is_the_full_cross_product_minus_the_diagonal(self):
+        This is the assertion that lets `emit_policy` be concise: whatever mix
+        of `<-->` and `--->` it writes, the permissions have to come to the same
+        210 ordered pairs an all-unidirectional policy would state.
+        """
         targets = homing_switches(self.homed)
-        expected = len(targets) * (len(self.topology.switches) - 1)
-        self.assertEqual(self.policy.count('--->'), expected)
-        self.assertEqual(expected, 210)
+        expected = {
+            (role_name(source), role_name(target))
+            for target in targets
+            for source in self.topology.switches
+            if source != target
+        }
+        self.assertEqual(directed_pairs(self.policy), expected)
+        self.assertEqual(len(expected), 210)
+
+    def _rules(self):
+        """ The policy's rule lines, without its explanatory header.
+
+        Every assertion about operators goes through this. Twice now a plain
+        `assertNotIn` over the whole file has matched the comment explaining
+        why an operator is NOT used, which is a test that fails on its own
+        documentation.
+        """
+        return [line.strip() for line in self.policy.splitlines()
+                if line.startswith('    ')]
+
+    def test_symmetric_pairs_are_bidirectional_and_the_rest_are_not(self):
+        """ The mix is the s8/s9 finding made visible in the policy itself. """
+        rules = self._rules()
+        targets = homing_switches(self.homed)
+        senders = [s for s in self.topology.switches if s not in targets]
+
+        self.assertEqual(sum('<-->' in rule for rule in rules),
+                         len(targets) * (len(targets) - 1) // 2)
+        self.assertEqual(sum('--->' in rule for rule in rules),
+                         len(senders) * len(targets))
+        self.assertEqual(len(rules), 119)
+
+        # A switch that homes nothing may never appear on the right of a rule.
+        for switch in senders:
+            for rule in rules:
+                self.assertFalse(rule.endswith(' %s' % role_name(switch)), rule)
+
+    def test_no_rule_is_stateful(self):
+        """ `<->>` would condition the return on RELATED,ESTABLISHED, which is
+        a claim about conntrack in a plane that matches only a prefix.
+
+        Over the RULE lines, not the file: the header explains why the operator
+        is unused, and an `assertNotIn` over the whole text matches that.
+        """
+        for rule in self._rules():
+            self.assertNotIn('<->>', rule)
 
     def test_no_rule_names_a_role_as_its_own_peer(self):
         for switch in self.topology.switches:
             name = role_name(switch)
-            self.assertNotIn('    %s ---> %s\n' % (name, name), self.policy)
+            for operator in ('--->', '<-->'):
+                self.assertNotIn(
+                    '    %s %s %s\n' % (name, operator, name), self.policy)
+        self.assertFalse(
+            [pair for pair in directed_pairs(self.policy) if pair[0] == pair[1]])
 
     def test_two_switches_are_sources_but_never_destinations(self):
         """ s8 and s9 home nothing, which is what makes 30 cells DENY. """

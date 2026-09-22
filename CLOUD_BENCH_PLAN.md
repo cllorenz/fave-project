@@ -1962,9 +1962,31 @@ pair to keep apart the way §1.9.6 needs for `wl_cloud`.
   carries one; §1.9.6's rule is that it is emitted only when it is the whole
   truth. It also decides `_abstracts_a_subnet`, and a self-check would ask
   whether a border network reaches itself, which this data plane does not say.
-* **210 rules**, `s_i ---> s_j` for every ordered pair whose destination homes
-  a prefix. Unidirectional: the two directions are different facts about a
-  destination-routed plane.
+* **119 rules** stating 210 ordered permissions: `s_i <--> s_j` for each
+  unordered pair of addressable switches (91), and `--->` only from s8 and s9
+  (28), which home no prefix and so can send but never receive.
+
+  **Corrected 2026-09-22 after owner review.** The first version wrote all 210
+  as `--->`, reasoning that "the two directions are different facts and stating
+  them as one would assert a symmetry nothing here guarantees". That was
+  borrowed from §1.9's `wl_cloud` rationale, where it is sound for two reasons
+  that do not hold here — its ACLs are stateless, so a symmetric operator would
+  have claimed something about conntrack, and its 26x26 matrix is genuinely
+  asymmetric cell by cell. This matrix is symmetric wherever both ends are
+  addressable, *by construction*, since this policy is what asserts it; and it
+  carries no services, so there is no statefulness to misstate.
+  `policy_builder` expands a serviceless `<-->` into the two unconditional
+  permissions, and the compiled `reachability.csv` is byte-identical either
+  way — verified, not assumed.
+
+  The mix is worth more than the brevity: the 28 rules that **cannot** be
+  written `<-->` are exactly the s8/s9 finding, and 210 identical-looking
+  unidirectional lines bury it. `deltanet_policy.directed_pairs` expands the
+  operators so the equivalence is asserted rather than trusted.
+
+  `<->>` stays wrong for a third reason, and that one does hold: it makes the
+  return direction conditional on RELATED,ESTABLISHED — connection tracking, in
+  a data plane that matches nothing but a destination prefix.
 
 Compiled: **256 checks = 210 must-reach + 46 must-NOT-reach** (30 ending at
 s8/s9, 16 the diagonal).
