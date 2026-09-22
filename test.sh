@@ -325,7 +325,7 @@ run_e2e() {
 run_bench() {
     local rc=0 wl
     local envs
-    for wl in wl_up wl_tum wl_stanford wl_i2; do
+    for wl in wl_up wl_tum wl_stanford wl_i2 wl_deltanet; do
         echo "== bench: $wl =="
         # TODO.md item 13a, as in run_smoke. wl_up's gateway firewall carries
         # one `-o` rule and wl_tum's tum-ruleset carries 3,286; wl_stanford and
