@@ -2378,9 +2378,9 @@ as a disagreement rather than as a plausible number.
 to `ndd` (`aggregator_service.py`), while this file ran `bdd` only — so the
 differential was validating an engine the benchmarks do not use. Measured on
 wl_up: the two give the same 137-role matrix and both agree with NetPlumber, but
-`bdd` takes **688 s** against `ndd`'s **4.7 s**, because APKeep's BDD path
-answers per pair and wl_up asks 18,769 of them. So the cheap workloads run both
-and wl_up runs `ndd`, which is the engine its published numbers come from.
+`bdd` takes **688.5 s** against `ndd`'s **4.7 s** (§2.12). So the cheap workloads
+run both and wl_up runs `ndd`, which is the engine its published numbers come
+from.
 
 **wl_up asserts agreement only, and that is a property of its ORACLE.** Its
 policy is stateful — 3,302 of its 18,811 checks carry `f=related:1` — so
@@ -2501,6 +2501,72 @@ workload has yet: a packet filter whose forwarding discriminates among physical
 ingress ports through `rule.in_ports` rather than through an `in_port` match.
 **That is the difference between a scope statement and a checked claim**, which
 is the whole point of §2.7.
+
+---
+
+## 2.12 The BDD engine is the one that does not scale (2026-09-22)
+
+A cost result, recorded because engine choice is now a published-numbers
+question and §2.9 needed a reason for running `ndd` where it runs only one.
+
+### Measured on wl_up — same path, same verdict
+
+All three drive the identical in-process `_matrix` path over the same model, so
+the numbers are comparable to each other and to nothing else:
+
+| backend | wl_up matrix | roles | verdict |
+|---|---:|---:|---|
+| NetPlumber | 28.4 s | 137 | — |
+| APKeep **BDD** | **688.5 s** | 137 | identical to NDD and to NetPlumber |
+| APKeep **NDD** | **4.7 s** | 137 | identical to BDD and to NetPlumber |
+
+**It is a cost result, not a correctness one.** Where BDD finishes it agrees
+with everything, so nothing about §2.8's demux verdict rests on the engine. NDD
+is also the only APKeep engine competitive with NetPlumber here — 6× faster,
+against BDD's 24× slower.
+
+### The cause: NDD caches a flood per SOURCE, BDD caches nothing
+
+The obvious explanation is wrong and this file said it for a day: *"the BDD path
+answers per pair"*. **Both** engines answer per pair — `adapter.py:2394-2420`
+calls `is_reachable(sdev, sport, pdev, pport)` once per (source, probe) on
+either branch. That cannot explain a 146× gap.
+
+The difference is what survives between queries:
+
+| | per query |
+|---|---|
+| `lib_ndd.is_reachable` | floods from the source; **the flood is cached engine-side** and reused for every destination, and is state-independent so `related` variants share it |
+| `lib_apkeep.is_reachable` | constructs a **fresh** `ReachabilityChecker(self._net)` (`lib_apkeep.py:243`) — the only construction site, and there is no cache anywhere in the file |
+
+So wl_up's 137 roles cost NDD ~137 floods and cost BDD 18,769 independent
+traversals. That predicts a factor near 137; the measurement is **146×**. The
+residual is the per-query JVM object construction the cache also avoids.
+
+### It is consistent with the one other place BDD was measured
+
+§1.7.3: on the corrected wl_cloud model the BDD engine **did not complete the
+build in 40 minutes**, where NDD takes seconds. That is a different mechanism —
+the AP-partition wall of `APKEEP_BACKEND.md`'s "BDDs vs APs", where
+`updateSplitAP` touches every element per split — but it points the same way,
+and two independent mechanisms both penalising BDD is why the engine choice is
+worth writing down rather than leaving to the default.
+
+### The forward-looking half
+
+§2.8's demux **multiplies elements** — 22 wl_stanford switches became 719
+elements in §2.10. Per-element split cost is exactly what the wl_cloud wall is
+made of, so demux and the BDD engine push against each other. wl_stanford costs
+11 s today and nothing here is urgent, but **a demux'd workload timing out on
+BDD is an expected failure mode, not a surprise**, and the first thing to check
+is element count rather than correctness.
+
+### What is NOT claimed
+
+Single runs, wall-clock, one machine, no repetition, JVM warm-up not controlled.
+These are order-of-magnitude figures that justify an engine choice. **They are
+not benchmark figures** and must not reach a results table without being
+re-measured under the harness that produces the rest of them.
 
 ---
 
