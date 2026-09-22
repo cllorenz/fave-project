@@ -1699,21 +1699,56 @@ weaker claim than the cloud dataset's, and it should be written up as such.
 
       Left open by this, and belonging to D3 rather than D2: rules per router
       run 100–1,400 (mean 668), so the model is markedly non-uniform.
-- [ ] **D3** Decide the property (edge-to-edge reachability matrix vs
-      loop-freedom) and whether the topology can be recovered from the
-      `next_hop` column alone. **Partly answered by D2's census, and the
-      remainder is sharper than it was:** the topology IS recoverable as a
-      directed edge set (158 edges over 68 names in airtel1, 155 in airtel2),
-      but the router and next-hop columns do not span the same set. 11 next-hop
-      names carry no rules at all — a packet forwarded there reaches a device
-      with an empty table — and 16 routers are nobody's next hop. Whether a sink
-      is a drop, an egress edge port, or grounds to refuse the trace is a
-      modelling decision this plan has to take.
+- [~] **D3 — the INTERFACE half is DONE 2026-09-22 (§2.4). The property choice
+      is what remains.** The topology is recoverable, exactly and with nothing
+      invented, and the question as filed rested on a misreading of the data —
+      mine, recorded here because it is the kind that survives by sounding
+      obvious.
 
-      **The real open question is not the topology but the interfaces.** A row
-      names a router and a next-hop and neither end's port, while FaVe's router
-      model is port-based. That, not the fourth column, is what the converter
-      has to invent.
+      **What I had wrong.** The previous revision of this item said "a row names
+      a router and a next-hop and neither end's port, while FaVe's router model
+      is port-based. That, not the fourth column, is what the converter has to
+      invent." Every clause of that is false. `s<i>-<j>` is not a router, it is
+      a **(switch, port) pair**, and both columns of every row name one. It is
+      the paper's own device for modelling ports without a port field: Delta-net
+      splits a switch into one graph node per input port its rules match — "if a
+      switch s contains rules that can match three input ports, we encode s as
+      three separate nodes" (§4.1) — which is exactly why Table 2 reports 68
+      nodes for a 16-switch network. The count was in front of me from the
+      first census and I read it as a name space rather than as a model.
+
+      **What the data gives.** 16 switches, 26 undirected inter-switch links,
+      68 ports, and **every switch with exactly `degree + 1` ports**: one per
+      neighbour, plus port 1, which no inter-switch link ever lands on. Port 1
+      is the external, border-router-facing port — the paper attaches a Quagga
+      border router to each of the sixteen switches (§4.2) — and it is where
+      traffic enters. Both traces derive the **same** topology, port map and
+      homing; only the forwarding differs, which is what makes §2.3's
+      differential clean.
+
+      **The egress port is the one figure no row carries, and it does not need
+      to.** The port `i` sends out of to reach `k` is the port `i` receives from
+      `k` on, and the switch-level edge set is symmetric, so the map is total.
+      `bench/wl_deltanet/deltanet_topology.py` derives all of it and REFUSES
+      each invariant rather than assuming it — one link per switch pair,
+      injective neighbour-to-port, symmetry, ports exactly `1..degree+1`, no
+      intra-switch forwarding, no U-turn — because every one is a property of
+      these two files and not of the format.
+
+      **The sinks are answered too, and they are not a modelling decision.** A
+      node receiving a prefix while carrying no rule for it is where that prefix
+      is DELIVERED. Every one of the 1,400 prefixes terminates at exactly one
+      switch, and **14 switches home exactly 100 each** — the paper's "each
+      border router advertises one hundred IP prefixes" (§4.2). So an
+      edge-to-edge property has both of its ends: traffic enters at port 1 and
+      leaves at its prefix's home switch.
+
+      **Still open: the property.** Edge-to-edge reachability matrix versus
+      loop-freedom. The homing makes the first one cheap to state — for each
+      (source switch, prefix) the expected egress is known — so this is now a
+      choice about what the benchmark should MEASURE, not about what can be
+      expressed. Note the expectation would be derived from the same data the
+      model is, so it is a consistency property, not an oracle.
 - [ ] **D4** Static run on all three backends.
 - [ ] **D5** *Then* revisit the incremental benchmark, with D4's costs known.
       **D2 bounds what it can claim.** An insert-only trace that never
@@ -1761,11 +1796,16 @@ guessed:
   per-input-port node, and 16 switches become 68 nodes. The §2.2/D3 "sinks" are
   graph nodes that terminate a link without carrying rules — a consequence of
   that split, not an anomaly.
-* **1,600 vs 1,400 prefixes — a real open question.** §4.2 says each of the
-  sixteen border routers advertises 100 prefixes, "resulting in a total of
-  1,600 unique (but possibly overlapping) IP prefixes". Both traces carry
-  **1,400**. Unexplained; recorded rather than reconciled, in the manner of
-  §1.4's 331/332 discrepancy.
+* **1,600 vs 1,400 prefixes — ACCOUNTED FOR by D3's homing, not resolved.**
+  §4.2 says each of the sixteen border routers advertises 100 prefixes,
+  "resulting in a total of 1,600 unique (but possibly overlapping) IP
+  prefixes". Both traces carry **1,400**, homed 100 apiece at **14** switches;
+  **s8 and s9 home none**, and 2 x 100 is exactly the shortfall. So the gap has
+  a shape rather than being a mystery. WHY those two have none — no border
+  router attached, nothing advertised, or a distillation that dropped them —
+  the data does not say. They are well connected (degree 7 and 6) but not the
+  best connected: s2 has degree 8 and homes its hundred, so "pure transit"
+  describes what they do rather than explaining it.
 
 `airtel2-only-inserts.csv` matches on rules (38,100) and nodes (68) and carries
 **155** links. The paper publishes one snapshot, so nothing states what its edge
@@ -1815,6 +1855,41 @@ It costs nothing extra — both files are already vendored, and D4 runs them bot
 regardless. It does not, however, manufacture an oracle: the differential is
 still a consensus between implementations in this tree, which is §0's first gap
 and only `wl_cloud` closes it.
+
+---
+
+## 2.4 The topology, derived (D3's interface half)
+
+Derived by `bench/wl_deltanet/deltanet_topology.py`, rendered into
+[`fave/bench/wl_deltanet/TRACES.md`](fave/bench/wl_deltanet/TRACES.md) and
+asserted by `fave/test/test_deltanet_census.py`. Identical from both traces.
+
+| | |
+|---|---:|
+| switches | 16 |
+| inter-switch links (undirected) | 26 |
+| ports | 68 |
+| ports per switch | `degree + 1` |
+| prefixes | 1,400 |
+| switches homing prefixes | 14, at 100 each |
+
+The model a converter can build from this, with nothing invented:
+
+* a **device per switch**, with `degree + 1` ports;
+* **port 1** external, facing the border router — the traffic source, and the
+  only port no inter-switch link lands on;
+* **ports 2..degree+1** one per neighbour, bijectively, so a port identifies
+  its link;
+* a **link** for each of the 26 pairs, its two port numbers recovered from the
+  two directions of the symmetric edge set;
+* a **rule** per row: at switch `i` port `j`, match the prefix, forward out
+  `egress_port(i, k)` — the egress being the one figure no row states and the
+  symmetry supplies;
+* **delivery** at each prefix's home switch, where its rules stop.
+
+What is NOT derivable, and would have to be invented if the property needs it:
+the addresses behind each border router (the traces carry prefixes, not host
+addresses), and any notion of an ACL — there are none (§2.1).
 
 ---
 
