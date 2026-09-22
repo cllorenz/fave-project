@@ -2312,27 +2312,50 @@ Six of Stanford's sixteen in-stage routers *do* discriminate by egress and were
 split: 32 devices become 38 elements, with reachability unchanged against
 NetPlumber.
 
-### wl_up is still refused, deliberately
+### wl_up: the split had to carry BOTH forwarding stores
 
-Demux **must not** split a device whose forwarding is not fully carried in its
-`+ fwd` rules. wl_up's `dmz`/`wifi` hold IPv6 host routes in `_router_fib`,
-keyed by the original device name and not rewritten by this pass; splitting them
-dropped those routes and produced violations NetPlumber and ad6 do not report.
-Committing that inside the fix for silent rule-dropping would have been the
-joke writing itself, so such a device falls through to §2.7's refusal instead.
+The first cut of (b) split only `_fwd_rules`, and wl_up got *worse* rather than
+refused: its `dmz`/`wifi` hold IPv6 host routes in `_router_fib`, keyed by the
+original device name, so splitting the element left those routes filed under a
+name that no longer existed and the run reported violations NetPlumber and ad6
+do not. **Committing the silent rule-dropping defect inside its own fix**, which
+is why the pass briefly refused such devices instead.
 
-**Phase (b) therefore does not cover an IPv6 FIB router**, and says so out loud.
-That is the next piece of work, together with the wl_up
-APKeep-vs-NetPlumber differential §2.7 already calls for.
+Now it splits both. A device's forwarding lives in `_fwd_rules` (a
+`ForwardElement`) or in `_router_fib` (a dst-LPM `FilterElement`, for an IPv6
+router), and **neither element type carries an ingress port**, so both are
+grouped by the same ingress classes and re-keyed in lockstep —
+`_ipv6_fib_devices` with them. `_device_tokens` is what makes the class
+computation see both, so a device that discriminates only through its IPv6
+routes is still split correctly.
+
+**wl_up now passes on APKeep**, including `test_the_conditioned_policy_holds`
+("wl_up must report no violations, as FaVe+NetPlumber and FaVe+ad6 do"). Its
+`dmz` splits into `@1` (the uplink) and `@2` (the host-facing ports), and `wifi`
+into `@1` and `@3` — which is exactly the "traffic from a host goes up and does
+not bounce back down" that §2.7 found it had been losing.
+
+### Scoreboard after (a) + (b)
+
+| workload | APKeep |
+|---|---|
+| `wl_ifi`, `wl_cloud`, `wl_i2`, `wl_tum` | pass, unchanged |
+| `wl_stanford` | pass, reachability unchanged vs NetPlumber; 32 devices → 38 elements |
+| `wl_up` | **pass — was silently over-approximating for months** |
+| `wl_deltanet` | **pass, agrees with NetPlumber and ad6 at 0 violations** |
 
 ### What is now open
 
 * **Delete the out-stage collapse**, now that it is provably redundant —
   separate change, because `self._stanford` still gates the faithful-VLAN path
   and its `bdd_table` sizing.
-* **Extend demux to `_router_fib`**, which is what wl_up needs.
 * **Carry ingress qualification into `_build_pf_pipeline`** (§2.7's other open
-  item) — packet filters are excluded from both the contract and the demux.
+  item) — packet filters are excluded from both the contract and the demux, and
+  that is a scope statement, not a claim that the pipeline honours in-ports.
+* **The wl_up APKeep-vs-NetPlumber differential** §2.7 calls for. wl_up now
+  agrees, but the reason nobody noticed the earlier unsoundness is that its
+  APKeep tests compare BDD against NDD and `test_backend_differential` is still
+  `wl_ifi` only.
 
 ---
 

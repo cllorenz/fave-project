@@ -142,5 +142,85 @@ class TestIngressContract(unittest.TestCase):
         self.assertEqual(adapter._ingress_qualified(edges), {})
 
 
+class TestIngressDemux(unittest.TestCase):
+    """ Phase (b): the split, and that it carries BOTH forwarding stores.
+
+    A device's forwarding can live in `_fwd_rules` (a `ForwardElement`) or in
+    `_router_fib` (a dst-LPM `FilterElement`, for an IPv6 router), and neither
+    element type carries an ingress port. A split that re-keyed only one of
+    them would drop the other's routes -- which is exactly what happened on
+    wl_up before this: its dmz/wifi IPv6 host routes stayed filed under a name
+    that no longer existed as an element, and the run reported violations
+    NetPlumber and ad6 do not.
+    """
+
+    def _adapter_with(self, fwd_rows, fwd_rules, fib, ipv6):
+        adapter = APKeepAdapter(logging.getLogger('test_apkeep_demux'))
+        adapter._fwd_table = fwd_rows
+        adapter._fwd_devices = set(fwd_rows)
+        adapter._fwd_rules = list(fwd_rules)
+        adapter._router_fib = dict(fib)
+        adapter._ipv6_fib_devices = set(ipv6)
+        return adapter
+
+    def test_a_discriminating_device_is_split_per_ingress_class(self):
+        rule_a = '+ fwd d 0 0 9 0'
+        adapter = self._adapter_with(
+            {'d': [_row(1, ['1'])]}, [rule_a], {}, set())
+        adapter._fwd_ingress = {rule_a: {'1'}}
+        edges = ['x 9 d 1', 'y 9 d 2', 'd 9 z 1']
+        new_edges, new_rules = adapter._demux_ingress(edges, [rule_a])
+
+        sep = adapter.INGRESS_CLASS_SEP
+        self.assertEqual(adapter._fwd_devices, {'d%s1' % sep, 'd%s2' % sep})
+        # the rule follows its own class only
+        self.assertEqual(new_rules, ['+ fwd d%s1 0 0 9 0' % sep])
+        # arriving links land on the class owning the port; the egress is
+        # duplicated across classes
+        self.assertIn('x 9 d%s1 1' % sep, new_edges)
+        self.assertIn('y 9 d%s2 2' % sep, new_edges)
+        self.assertIn('d%s1 9 z 1' % sep, new_edges)
+        self.assertIn('d%s2 9 z 1' % sep, new_edges)
+        # and nothing still refers to the unsplit device
+        adapter._assert_ingress_accounted(new_edges)
+
+    def test_the_router_FIB_is_re_keyed_in_lockstep(self):
+        """ The wl_up defect: split the element, lose the IPv6 routes. """
+        rule = '+ fwd d 0 0 9 0'
+        fib = {'d': [('2001:db8::1', '8', 128, None),      # holds everywhere
+                     (None, '9', 0, frozenset({'1'}))]}    # holds at port 1
+        adapter = self._adapter_with(
+            {'d': [_row(1, ['1'])]}, [rule], fib, {'d'})
+        adapter._fwd_ingress = {rule: {'1'}}
+        edges = ['x 9 d 1', 'y 9 d 2', 'd 9 z 1']
+        adapter._demux_ingress(edges, [rule])
+
+        sep = adapter.INGRESS_CLASS_SEP
+        self.assertNotIn('d', adapter._router_fib)
+        self.assertNotIn('d', adapter._ipv6_fib_devices)
+        self.assertEqual(set(adapter._router_fib), {'d%s1' % sep, 'd%s2' % sep})
+        # the everywhere-entry reaches both classes, the qualified one only its own
+        self.assertEqual(len(adapter._router_fib['d%s1' % sep]), 2)
+        self.assertEqual(len(adapter._router_fib['d%s2' % sep]), 1)
+        self.assertEqual(adapter._ipv6_fib_devices,
+                         {'d%s1' % sep, 'd%s2' % sep})
+
+    def test_the_class_split_accounts_for_router_FIB_entries_too(self):
+        """ A device with NO `+ fwd` rules can still discriminate, via the FIB. """
+        fib = {'d': [('2001:db8::1', '8', 128, frozenset({'1'}))]}
+        adapter = self._adapter_with({'d': [_row(1, ['1'])]}, [], fib, {'d'})
+        edges = ['x 9 d 1', 'y 9 d 2', 'd 9 z 1']
+        adapter._demux_ingress(edges, [])
+        sep = adapter.INGRESS_CLASS_SEP
+        self.assertEqual(set(adapter._router_fib), {'d%s1' % sep})
+        self.assertEqual(adapter._fwd_devices, {'d%s1' % sep, 'd%s2' % sep})
+
+    def test_the_separator_is_not_one_the_NDD_engine_reserves(self):
+        """ `|` keys NddReachabilityEngine/AtomForwarding's per-hop cache and is
+        recovered with indexOf('|'); an element named `d|1` corrupts it, which
+        cost 210 silently-failed checks. """
+        self.assertNotIn(APKeepAdapter.INGRESS_CLASS_SEP, '|.')
+
+
 if __name__ == '__main__':
     unittest.main()

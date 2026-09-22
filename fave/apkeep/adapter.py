@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import logging
 
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
 
 from aggregator.abstract_engine import AbstractVerificationEngine
 from aggregator.aggregator_abstract import TraceLogger
@@ -506,7 +506,13 @@ class APKeepAdapter(AbstractVerificationEngine):
         # A plain router that routes IPv6 cannot use APKeep's dst-IP ForwardElement
         # (its trie is 32/64-bit). Such devices become dst-LPM FilterElement FIBs;
         # here we buffer their routes and mark them. device -> [(dst, egress, plen)].
-        self._router_fib: Dict[str, List[Tuple[Optional[str], str, int]]] = {}
+        # device -> [(dst, egress, prefix_len, ingress)]. `ingress` is the set of
+        # ports the entry holds at, or None for "everywhere" -- recorded for the
+        # same reason `_fwd_ingress` is: a FilterElement is keyed by DEVICE and
+        # has nowhere to put it, so `_demux_ingress` needs it to split the
+        # device correctly instead of dropping the qualification.
+        self._router_fib: Dict[
+            str, List[Tuple[Optional[str], str, int, Optional[FrozenSet[str]]]]] = {}
         self._ipv6_fib_devices: set = set()
         # A transit packet_filter (wl_up: pgf, dept routers) both filters AND routes:
         # its forward_filter accepts to the internal `forward_filter_accept` port,
@@ -599,6 +605,12 @@ class APKeepAdapter(AbstractVerificationEngine):
                 return [_split_port(p)[1] for p in action.ports]
         return []
 
+    @staticmethod
+    def _rule_ingress(rule: Any) -> Optional[FrozenSet[str]]:
+        """ The ports a rule holds at, or None when it holds everywhere. """
+        named = frozenset(_split_port(p)[1] for p in (rule.in_ports or []))
+        return named or None
+
     def _emit_fwd(self, rule_string: str, rule: Any) -> None:
         """ Append a "+ fwd" string and remember which ingress ports it holds at.
 
@@ -659,7 +671,8 @@ class APKeepAdapter(AbstractVerificationEngine):
             tail = str(dst6).partition('/')[2]
             plen6 = int(tail) if tail else 128
             for port in out_ports:
-                self._router_fib.setdefault(device, []).append((dst6, port, plen6))
+                self._router_fib.setdefault(device, []).append(
+                    (dst6, port, plen6, self._rule_ingress(rule)))
             self._ipv6_fib_devices.add(device)
             return
         # A forwarding rule with no dst match is the default route (FIB idx
@@ -670,7 +683,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # ignored for ordinary IPv4 routers (which use the ForwardElement below).
         if dst is None:
             for port in out_ports:
-                self._router_fib.setdefault(device, []).append((None, port, 0))
+                self._router_fib.setdefault(device, []).append(
+                    (None, port, 0, self._rule_ingress(rule)))
         prefix, plen = (0, 0) if dst is None else _cidr_to_apkeep(str(dst))
         # APKeep's ForwardElement is higher-priority-wins, so the priority must
         # encode longest-prefix-match: a longer prefix must outrank a shorter
@@ -982,8 +996,30 @@ class APKeepAdapter(AbstractVerificationEngine):
         return '%s%s%s' % (device, self.INGRESS_CLASS_SEP,
                            min(ports, key=lambda p: (len(p), p)))
 
+    def _device_tokens(
+            self, device: str, fwd_rules: List[str],
+    ) -> List[Tuple[Any, Optional[FrozenSet[str]]]]:
+        """ Everything that forwards at `device`, each with where it holds.
+
+        BOTH stores, because a device's forwarding can live in either and a
+        split that saw only one would drop the other. `+ fwd` strings become a
+        `ForwardElement`; `_router_fib` entries become a dst-LPM
+        `FilterElement` -- and neither element type carries an ingress port, so
+        both have to be split the same way.
+        """
+        tokens: List[Tuple[Any, Optional[FrozenSet[str]]]] = [
+            (('fwd', rule), self._fwd_ingress.get(rule))
+            for rule in fwd_rules if rule.split()[2] == device
+        ]
+        tokens.extend(
+            (('fib', entry[:3]), entry[3])
+            for entry in self._router_fib.get(device, [])
+        )
+        return tokens
+
     def _ingress_classes(
-            self, device: str, ingress: Set[str], rules: List[str],
+            self, device: str, ingress: Set[str],
+            tokens: List[Tuple[Any, Optional[FrozenSet[str]]]],
     ) -> Dict[str, Set[str]]:
         """ Ingress ports grouped by the rules that apply at them.
 
@@ -994,9 +1030,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         classes: Dict[frozenset, Set[str]] = {}
         for port in ingress:
             applying = frozenset(
-                rule for rule in rules
-                if self._fwd_ingress.get(rule) is None
-                or port in (self._fwd_ingress.get(rule) or set())
+                token for token, held in tokens
+                if held is None or port in held
             )
             classes.setdefault(applying, set()).add(port)
         return {self._element_name(device, ports): ports
@@ -1038,29 +1073,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         arriving = self._ingress_ports(edges)
         split: Dict[str, Dict[str, Set[str]]] = {}
         for device in sorted(qualified):
-            # A device whose forwarding is not FULLY carried in `+ fwd` strings
-            # cannot be split here: `_router_fib` is keyed by the original name
-            # and this pass does not rewrite it, so splitting would silently
-            # drop those routes -- the exact failure the contract exists to
-            # prevent, committed inside its own fix. wl_up's dmz/wifi are this
-            # case (IPv6 host routes go to `_router_fib`, and
-            # `_ipv6_fib_devices` is what makes them consumed); they fall
-            # through to the refusal below instead, which is honest: phase (b)
-            # does not cover an IPv6 FIB router yet, and says so.
-            #
-            # Gated on `_ipv6_fib_devices` and not on `_router_fib` alone
-            # because the latter also collects the no-dst defaults of devices
-            # that never read it back (wl_stanford's in-stage), and skipping
-            # those would block a split that demonstrably works.
-            if device in self._ipv6_fib_devices:
-                self.logger.warning(
-                    "apkeep: %s discriminates among its ingress ports but also "
-                    "carries IPv6 routes outside the ForwardElement, which this "
-                    "pass cannot split; leaving it to the refusal", device)
-                continue
-            device_rules = [r for r in fwd_rules if r.split()[2] == device]
             classes = self._ingress_classes(
-                device, arriving.get(device, set()), device_rules)
+                device, arriving.get(device, set()),
+                self._device_tokens(device, fwd_rules))
             if len(classes) < 2:
                 continue                       # nothing to gain from a split
             split[device] = classes
@@ -1102,6 +1117,22 @@ class APKeepAdapter(AbstractVerificationEngine):
                 for destination in destinations:
                     new_edges.append(
                         '%s %s %s %s' % (source, sport, destination, dport))
+
+        # `_router_fib` is keyed by device and consumed per element, so it is
+        # re-keyed here in lockstep. Without this a split device's IPv6 routes
+        # would stay filed under a name that no longer exists as an element and
+        # vanish -- the silent rule-dropping this whole contract is about.
+        for device, classes in split.items():
+            entries = self._router_fib.pop(device, [])
+            if entries:
+                for name, ports in classes.items():
+                    held = [e for e in entries if e[3] is None or (e[3] & ports)]
+                    if held:
+                        self._router_fib[name] = held
+            if device in self._ipv6_fib_devices:
+                self._ipv6_fib_devices.discard(device)
+                self._ipv6_fib_devices.update(
+                    name for name in classes if name in self._router_fib)
 
         for device, classes in split.items():
             self._fwd_devices.discard(device)
@@ -1497,7 +1528,11 @@ class APKeepAdapter(AbstractVerificationEngine):
         ipv6_routers = sorted(self._ipv6_fib_devices - self._filter_devices)
         router_fib_rules: List[str] = []
         for dev in ipv6_routers:
-            for dst, egress, plen in self._router_fib.get(dev, []):
+            for dst, egress, plen, _ingress in self._router_fib.get(dev, []):
+                # `_ingress` is not read here: after `_demux_ingress` every
+                # element is ingress-uniform, so the entry holds wherever its
+                # element is entered. A device that could NOT be split never
+                # reaches this point -- the contract refuses it first.
                 router_fib_rules.append(_fib_rule_string(dev, egress, dst, plen))
         filter_devices = pf_elems + ipv6_routers + sorted(first_match)
         as_filter = self._filter_devices | set(ipv6_routers) | first_match
