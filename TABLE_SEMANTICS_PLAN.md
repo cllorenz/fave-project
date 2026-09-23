@@ -616,7 +616,7 @@ different prefixes and longest-prefix-match resolves them. Refusing that shape
 would block every real FIB, which is the mistake `_cross_class_promotions`
 records an earlier design making.
 
-### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON
+### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON. **NetPlumber DONE 2026-09-23; ad6 OUTSTANDING.**
 
 The NetPlumber adapter decouples the `r_idx` it passes to `add_rule` from the key
 it uses in `rule_ids` (§9.1), and orders a declared-`lpm` table longest-prefix
@@ -638,6 +638,59 @@ the adapter (16 for wl_stanford, 9 for wl_i2) before comparing anything --
 otherwise it is the "a skip is NOT a pass" failure in the shape this tree has now
 hit twice, most recently as the wl_up differential that errored at setup in every
 integration run while its number sat in a results table.
+
+#### The decoupling was already structural
+
+§9.1 expected this step to need one. It does not: `jsonrpc.add_rules_batch`
+unpacks `_np_rid, t_idx, r_idx, ...`, so the tuple's **element 0 is the local
+identity key** (`rule_ids`) and **element 2 is the index NetPlumber uses as
+priority**. They were always separate slots -- only their VALUES were both
+derived from `rule.idx`. `_prepare_generic_rule` now takes an optional priority
+and uses it for element 2 alone.
+
+#### Measured: the association is identical, the send order is not
+
+On wl_stanford's 16 declared tables / 3,844 rules, with the RPC mocked so no
+backend is involved:
+
+| | |
+|---|---|
+| rule -> priority association | **identical** whether the adapter orders or the generator does |
+| send order | **differs**, by construction |
+
+The multiset comparison is the right one, and the sequence comparison is not:
+`_reprioritise_fib_lpm` rewrites `idx` IN PLACE and leaves the rule list in file
+order, while the adapter sends the sorted list. A second test asserts the send
+orders DO differ, so the first cannot pass by the adapter quietly doing nothing.
+
+#### The sort key is `(-prefix length, idx)`, not a stable sort
+
+A stable sort on the list order is correct only while the generation-time repair
+leaves the list in file order. After S3b `idx` is the file position again, and
+this key reproduces the generator's assignment in both worlds: longest prefix
+first, ties in the order the table was written.
+
+#### §9.1's incremental question is now a refusal
+
+Indices are dense (1..n), so a second batch for an already-ordered declared
+table has no free index below an existing one and a longer prefix arriving late
+would silently lose. `LpmOrderingError` instead. Measured: every declared table
+in wl_stanford and wl_i2 arrives in **exactly one batch** today (16 of 16, 9 of
+9), so this refuses nothing now and guards the continuous-verification path.
+
+#### ad6 is NOT done, and S3b is blocked on it
+
+`ad6/translate.py::table_to_ad6` already sorts rules by ascending `idx`, and its
+docstring records exactly why: *"`np_preparation._reprioritise_fib_lpm` repairs a
+FIB by REASSIGNING indices in descending prefix-length order, so the longest
+prefix gets the lowest index and is evaluated first."* ad6 therefore **consumes
+the generation-time repair**. Deleting it without teaching ad6 the declaration
+reintroduces the wl_i2 defect in the one backend whose whole design point is
+that it reads no names. `table_to_ad6` has no access to the model's declared
+semantics today, so this needs the declaration threaded to it -- the same
+`(-prefix length, idx)` key, applied there.
+
+---
 
 ### 9.6 S3b -- remove the generation-time reordering
 

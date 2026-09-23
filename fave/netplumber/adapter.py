@@ -41,6 +41,7 @@ from netplumber.vector import Vector, HeaderSpace
 
 from util.ip6np_util import field_value_to_bitvector
 from rule.rule_model import Rule, Match, Forward, Rewrite, RuleField
+from devices.abstract_device import LPM, lpm_prefix_len
 
 
 def _calc_port(tab: int, model: Any, port: str) -> int:
@@ -142,6 +143,11 @@ def _meet_all(left: List[Vector], right: List[Vector]) -> List[Vector]:
 
 
 
+class LpmOrderingError(Exception):
+    """ Raised when a table declared longest-prefix-match cannot be given a
+    correct NetPlumber priority -- see `_lpm_ordered_batch`. """
+
+
 class NetPlumberAdapter(AbstractVerificationEngine):
     """ Class that maps and translates a FaVe model to a NetPlumber model.
     """
@@ -159,6 +165,17 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self.mapping_keys: Set[str] = set(self.mapping.keys())
         self.tables: Dict[str, int] = {}
         self.model_types: Dict[str, str] = {}
+        # Tables the model DECLARES longest-prefix-match (TABLE_SEMANTICS_PLAN.md
+        # S3a). NetPlumber resolves priority by rule INDEX, so honouring the
+        # declaration means assigning that index longest-prefix-first here --
+        # the job `bench/np_preparation._reprioritise_fib_lpm` does at generation
+        # time today. Both run for now, and because the ordering is idempotent
+        # the result must be byte-identical; that is the step's whole safety
+        # argument (§9.5).
+        self._lpm_tables: Set[str] = set()
+        # Declared tables already ordered, so a SECOND batch is refused rather
+        # than silently mis-ordered (§9.1's open incremental question).
+        self._lpm_ordered: Set[str] = set()
         self.links: Dict[Any, List[Any]] = {}
         self.fresh_table_index = 1
         self.ports: Dict[str, int] = {}
@@ -434,6 +451,12 @@ class NetPlumberAdapter(AbstractVerificationEngine):
 
         self.model_types.setdefault(model.node, model.type)
 
+        semantics_of = getattr(model, 'semantics_of', None)
+        if semantics_of is not None:
+            for table in model.tables:
+                if semantics_of(table) == LPM:
+                    self._lpm_tables.add(table)
+
         for table in model.tables:
             name = table
 
@@ -655,9 +678,16 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self.rule_ids[np_rid].append(r_id)
 
 
-    def _prepare_generic_rule(self, rule: Any) -> List[Any]:
+    def _prepare_generic_rule(self, rule: Any, priority: Optional[int] = None) -> List[Any]:
         tid = self.tables[rule.tid]
         rid = rule.idx
+        # NetPlumber resolves priority by the index it is SENT, while this
+        # adapter keys `rule_ids` on the index the MODEL gave the rule. They are
+        # separate slots of the tuple below (element 0 is the local identity,
+        # element 2 is what the RPC forwards as "index"), so a declared-LPM
+        # table can be re-prioritised without disturbing rule identity -- the
+        # decoupling TABLE_SEMANTICS_PLAN.md §9.1 said this step needs.
+        prio = rid if priority is None else priority
         out_ports = []
         mask = None
         rewrite = None
@@ -709,7 +739,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             res.append((
                 np_rid,
                 tid,
-                _calc_rule_index(rid, n_idx=nid),
+                _calc_rule_index(prio, n_idx=nid),
                 in_ports,
                 out_ports,
                 match.vector if match else None,
@@ -790,7 +820,7 @@ class NetPlumberAdapter(AbstractVerificationEngine):
                     )
                 )
 
-            self.add_rules_batch(model.tables[table])
+            self.add_rules_batch(*self._lpm_ordered_batch(table, model.tables[table]))
 
         if model.node+".post_routing" in model.tables:
             self._add_post_routing_rules(model)
@@ -799,10 +829,63 @@ class NetPlumberAdapter(AbstractVerificationEngine):
             self._add_pre_routing_rules(model)
 
 
-    def add_rules_batch(self, rules: List[Any]) -> None:
+    def _lpm_ordered_batch(self, table: str,
+                           rules: List[Any]) -> Tuple[List[Any], Optional[List[int]]]:
+        """ (rules, priorities) for one table, honouring a declared LPM table.
+
+        NetPlumber resolves priority by rule index (lower wins), so a table
+        DECLARED longest-prefix-match is given indices 1..n assigned
+        longest-prefix-first -- a **stable** sort, so rules of equal prefix
+        length keep the order the model gave them. That is deliberately the same
+        assignment `np_preparation._reprioritise_fib_lpm` makes at generation
+        time (`enumerate(order, start=1)` over a stable sort by descending prefix
+        length), because both run for now and the ordering has to be IDEMPOTENT:
+        applied to an already-ordered table it must be the identity, so the RPC
+        payload is byte-identical and any disagreement is a real defect rather
+        than a renumbering.
+
+        Refuses a SECOND batch for a table it has already ordered. Rule indices
+        here are dense (1..n), so a later batch has no free index below an
+        existing one and a longer prefix arriving late would silently lose --
+        §9.1's incremental-insert question, which this turns into a refusal
+        rather than a wrong answer. Measured: every declared table in wl_stanford
+        and wl_i2 arrives in exactly one batch today (16 of 16, 9 of 9).
+        """
+        if table not in self._lpm_tables or not rules:
+            return rules, None
+
+        if table in self._lpm_ordered:
+            raise LpmOrderingError(
+                "%s is declared %s and has already been ordered, but a second "
+                "batch of %d rule(s) arrived. Longest-prefix-match is assigned "
+                "over a whole table here, and the indices already used are "
+                "dense, so this batch cannot be given a correct priority "
+                "without renumbering the table." % (table, LPM, len(rules))
+            )
+        self._lpm_ordered.add(table)
+
+        # Key (-prefix length, idx), not a stable sort on the list order.
+        # Relying on stability is correct only while `_reprioritise_fib_lpm`
+        # rewrites `idx` IN PLACE and leaves the list in file order; once that
+        # repair is deleted (S3b) `idx` is the file position again, and this key
+        # reproduces the generator's assignment in BOTH worlds -- longest prefix
+        # first, ties in the order the table was written.
+        order = sorted(range(len(rules)),
+                       key=lambda i: (-lpm_prefix_len(rules[i]),
+                                      getattr(rules[i], 'idx', i)))
+        ordered = [rules[i] for i in order]
+        return ordered, list(range(1, len(ordered) + 1))
+
+
+    def add_rules_batch(self, rules: List[Any],
+                        priorities: Optional[List[int]] = None) -> None:
         """ Add a batch of rules.
 
         rules -- a list of rules
+        priorities -- optional per-rule NetPlumber index, aligned with `rules`;
+                      used for a table the model declares longest-prefix-match,
+                      where the index IS the priority. `None` keeps each rule's
+                      own `idx`, which is every other table.
         """
 
         if self.logger.isEnabledFor(logging.DEBUG):
@@ -816,8 +899,10 @@ class NetPlumberAdapter(AbstractVerificationEngine):
         self._update_mapping(fields)
 
         batch = []
-        for rule in rules:
-            batch.extend(self._prepare_generic_rule(rule))
+        for position, rule in enumerate(rules):
+            batch.extend(self._prepare_generic_rule(
+                rule, None if priorities is None else priorities[position]
+            ))
 
         for rule in batch:
             np_rid, tid, fave_rid, in_ports, out_ports, match, mask, rewrite = rule

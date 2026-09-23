@@ -405,5 +405,119 @@ class TestValidationRunsOnTheRealWorkloads(unittest.TestCase):
         self.assertEqual(seen['rules'], 3844)
 
 
+_OXM = {'ipv4_dst': 'packet.ipv4.destination'}
+
+
+def _mid_models_and_rules(honour_declaration):
+    """ wl_stanford's 16 `mid` devices with their real routes, as models. """
+    from devices.switch import SwitchModel
+    from rule.rule_model import Rule, Match, RuleField, Forward
+
+    routes = json.load(open("%s/routes.json" % _STANFORD))
+    topology = json.load(open("%s/device_topology.json" % _STANFORD))
+
+    models = []
+    for name, _type, ports, table_ids, semantics in [
+            d for d in topology['devices'] if d[0].startswith('mid.')]:
+        model = SwitchModel(name, ports=[str(p) for p in ports],
+                            table_ids=table_ids)
+        if honour_declaration:
+            for table, kind in semantics.items():
+                model.set_table_semantics(table, kind)
+
+        rules = []
+        for route in [r for r in routes if r[0] == name]:
+            fields = []
+            for clause in route[3]:
+                key, _, value = clause.partition('=')
+                fields.append(RuleField(_OXM.get(key, key), value))
+            out_ports = [a.split('=', 1)[1] for a in route[4]
+                         if a.startswith('fd=')]
+            rules.append(Rule(
+                name, name + '.1', route[2], match=Match(fields),
+                actions=[Forward(ports=out_ports)] if out_ports else []
+            ))
+        model.tables[name + '.1'] = rules
+        models.append(model)
+    return models
+
+
+def _rules_netplumber_would_receive(honour_declaration):
+    """ (the (table, index, match, out_ports) tuples sent, declared table count).
+
+    The RPC is mocked, so no backend is involved: what is asserted is the
+    payload, which is where the priority lives.
+    """
+    from unittest import mock
+    with mock.patch('netplumber.adapter.jsonrpc') as rpc:
+        from netplumber.adapter import NetPlumberAdapter
+        log = logging.getLogger("s3a")
+        log.setLevel(logging.ERROR)
+        adapter = NetPlumberAdapter(['SOCK'], log)
+        for model in _mid_models_and_rules(honour_declaration):
+            adapter.add_tables(model)
+            adapter.add_rules(model)
+        sent = [
+            (rule[1], rule[2], str(rule[5]), str(rule[4]))
+            for call in rpc.add_rules_batch.call_args_list
+            for rule in call.args[1]
+        ]
+        return sent, len(adapter._lpm_tables)
+
+
+@require_or_skip(os.path.isfile("%s/device_topology.json" % _STANFORD),
+                 "wl_stanford inputs not generated")
+class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
+    """ S3a: the adapter orders a declared-LPM table itself.
+
+    NetPlumber resolves priority by rule index, so honouring the declaration
+    means assigning that index longest-prefix-first -- the job
+    `_reprioritise_fib_lpm` does at generation time. BOTH run for now, and
+    because the ordering is idempotent the association between each rule and its
+    priority must be IDENTICAL either way. That equivalence is the whole safety
+    argument of the step: if the adapter's ordering is right nothing changes, and
+    if it is wrong the real workloads say so at once.
+    """
+
+    def test_the_rule_to_priority_association_is_unchanged(self):
+        """ Compared as a MULTISET, not a sequence: `_reprioritise_fib_lpm`
+        rewrites `idx` in place and leaves the rule list in file order, while
+        the adapter sends the sorted list. The send order differs by
+        construction; what must not differ is which rule gets which index. """
+        honoured, declared = _rules_netplumber_would_receive(True)
+        ignored, control = _rules_netplumber_would_receive(False)
+
+        # non-vacuous: the declaration must actually have reached the adapter,
+        # or this compares two runs of the same code path and proves nothing.
+        self.assertEqual(declared, 16)
+        self.assertEqual(control, 0)
+        self.assertEqual(len(honoured), 3844)
+
+        self.assertEqual(sorted(honoured), sorted(ignored))
+
+    def test_the_send_order_DOES_differ(self):
+        """ Guards the test above from passing for the wrong reason: if the
+        adapter silently did nothing, the sequences would match too. """
+        honoured, _ = _rules_netplumber_would_receive(True)
+        ignored, _ = _rules_netplumber_would_receive(False)
+        self.assertNotEqual(honoured, ignored)
+
+    def test_a_second_batch_for_a_declared_table_is_REFUSED(self):
+        """ Indices are dense (1..n), so a later batch has no free index below
+        an existing one and a longer prefix arriving late would silently lose.
+        §9.1's incremental-insert question, turned into a refusal. """
+        from unittest import mock
+        with mock.patch('netplumber.adapter.jsonrpc'):
+            from netplumber.adapter import NetPlumberAdapter, LpmOrderingError
+            log = logging.getLogger("s3a_second")
+            log.setLevel(logging.ERROR)
+            adapter = NetPlumberAdapter(['SOCK'], log)
+            model = _mid_models_and_rules(True)[0]
+            adapter.add_tables(model)
+            adapter.add_rules(model)
+            with self.assertRaises(LpmOrderingError):
+                adapter.add_rules(model)
+
+
 if __name__ == '__main__':
     unittest.main()

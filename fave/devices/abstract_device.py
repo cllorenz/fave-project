@@ -90,6 +90,25 @@ def _lpm_key(rule: "Rule") -> Tuple[Optional[str], List[str]]:
     return prefix, sorted(others)
 
 
+def lpm_prefix_len(rule: "Rule") -> int:
+    """ The destination prefix length a rule matches; **-1** when it matches no
+    destination at all, so a default route sorts to the LOWEST priority.
+
+    The counterpart of `bench/np_preparation._prefix_len`, which answers the same
+    question over raw match-field STRINGS at generation time. Both must agree, or
+    an adapter ordering a declared-LPM table would disagree with the ordering the
+    generator produced -- which is exactly the equivalence
+    TABLE_SEMANTICS_PLAN.md §9.5 relies on to make its differential free.
+    """
+    for field in (rule.match or []):
+        if field.name in _DST_FIELDS:
+            value = str(field.value)
+            if '/' in value:
+                return int(value.split('/', 1)[1])
+            return 128 if ':' in value else 32
+    return -1
+
+
 def _action_signature(rule: "Rule") -> str:
     """ What the rule DOES, as a comparable string. `str()` on the action models
     is their own stable rendering (`forward:[...]`, and Rewrite's equivalent);
