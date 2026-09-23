@@ -56,6 +56,11 @@ class TestRouterModel(unittest.TestCase):
             self.model.to_json(),
             {
                 'node': 'foo',
+                # A router DECLARES its routing table a destination-prefix FIB
+                # (TABLE_SEMANTICS_PLAN.md S5), and the declaration rides in the
+                # model's JSON -- overrides only, so every model that declares
+                # nothing still serialises exactly as it did before.
+                'table_semantics': {'foo.routing': 'lpm'},
                 'ports': {
                     'foo.acl_in_in': 'foo.acl_in',
                     'foo.acl_in_out': 'foo.acl_in',

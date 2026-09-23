@@ -620,5 +620,29 @@ class TestAd6OrderingIsIdempotentOnRealData(unittest.TestCase):
         self.assertEqual(total, 3844)
 
 
+class TestRichModelsDeclareTheirOwnFib(unittest.TestCase):
+    """ S5: the model is the thing that knows its `routing` table is a FIB, so
+    it declares it and no producer has to remember. """
+
+    def test_a_router_declares_its_routing_table(self):
+        model = RouterModel('r', ports=['1', '2'])
+        self.assertEqual(model.semantics_of('r.routing'), LPM)
+
+    def test_a_packet_filter_does_NOT(self):
+        """ Measured before deciding, because a false declaration is refused
+        rather than approximated: a packet_filter's `routing` rules select the
+        egress with an `out_port` MATCH -- 25 of wl_up `pgf`'s 50 match
+        `out_port` alone and 23 match `out_port` plus a destination -- so the
+        table is not a destination-prefix trie. Declaring it would be false, and
+        §9.4's declarability check would refuse it. """
+        model = PacketFilterModel('pf', ports=['1'])
+        self.assertEqual(model.semantics_of('pf.routing'), FIRST_MATCH)
+        self.assertEqual(model.table_semantics, {})
+
+    def test_the_declaration_survives_to_json(self):
+        model = RouterModel('r', ports=['1', '2'])
+        self.assertEqual(model.to_json()['table_semantics'], {'r.routing': LPM})
+
+
 if __name__ == '__main__':
     unittest.main()

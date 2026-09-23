@@ -842,12 +842,44 @@ follow-up rather than taken here.
 
 ---
 
-### 9.7 S5 -- the rich models
+### 9.7 S5 -- the rich models. DONE 2026-09-23, and HALF of it was refused.
 
 `RouterModel` and the packet-filter model declare their `routing` table `lpm`
 (§7.3). **Last**, because §2.5 measured the coverage: exactly one `RouterModel`
 exists in the whole suite, and wl_up's dst routes sit on 23 switches plus one
 packet_filter. Its value is for the *next* benchmark, not this one.
+
+#### Measured before declaring, and the packet filter did NOT qualify
+
+The plan said "`RouterModel` and the packet-filter model declare their `routing`
+table `lpm`". Only the router does.
+
+| model | `routing` table's match fields | declared? |
+|---|---|---|
+| `RouterModel` (wl_ifi `ifi`) | 9 rules matching **only** `packet.ipv4.destination`, plus one default | **yes** |
+| `PacketFilterModel` (wl_up `pgf`) | 25 rules matching `out_port` ALONE, 23 matching `out_port` + destination, 2 matching nothing | **no** |
+
+A packet filter selects its egress with an `out_port` MATCH feeding the device's
+internal pipeline -- which is what `apkeep/adapter._first_match_devices` already
+says in prose -- so the table is not a destination-prefix trie and declaring it
+would be false. §9.4's declarability check would refuse it, correctly. **The
+plan asserted a property of that model that measuring disproved**, and the
+declaration is worth exactly as much as the measuring behind it.
+
+#### Coverage is one device, as §2.5 said
+
+Exactly one `RouterModel` exists in the suite. The value is for the next
+benchmark: a router built tomorrow declares its FIB without its producer having
+to remember, and both positional backends order it.
+
+#### One pinned snapshot moved
+
+`test_models.py::TestRouterModel::test_to_json` compares the router's whole JSON,
+so it gained the `table_semantics` entry. That is the ONLY generated-JSON
+expectation this plan moved anywhere -- the overrides-only design (§6.1) kept
+every model that declares nothing byte-identical.
+
+---
 
 ### 9.8 What NOT to do
 

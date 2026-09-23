@@ -31,7 +31,7 @@ from typing import Any, Collection, Dict, Iterable, List, Optional, Tuple, Union
 
 from copy import copy
 
-from devices.abstract_device import AbstractDeviceModel
+from devices.abstract_device import AbstractDeviceModel, LPM
 from util.match_util import OXM_FIELD_TO_MATCH_FIELD
 from rule.rule_model import RuleField, RuleAction, Match, Forward, Rule, Rewrite
 from util.typing_util import JSONDict
@@ -200,6 +200,21 @@ class RouterModel(AbstractDeviceModel):
         self.routes = routes if routes is not None else []
 
         self.persist()
+
+        # A router's `routing` table IS a destination-prefix FIB, and the model
+        # is the thing that knows it (TABLE_SEMANTICS_PLAN.md S5). Declaring it
+        # here means no producer has to remember, and the positional backends
+        # order it themselves rather than depending on the rule index having
+        # been assigned longest-prefix-first upstream.
+        #
+        # Measured before declaring, because a false declaration is refused
+        # rather than approximated: wl_ifi's `ifi.routing` holds 9 rules matching
+        # only `packet.ipv4.destination` plus one default. The packet-filter
+        # model deliberately does NOT do this -- its `routing` rules select the
+        # egress with an `out_port` MATCH (25 of `pgf`'s 50 match `out_port`
+        # alone), so it is not a destination-prefix trie and declaring it would
+        # be false.
+        self.set_table_semantics(self.node + '.routing', LPM)
 
 
     # is idempotent
