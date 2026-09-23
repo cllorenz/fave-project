@@ -279,5 +279,131 @@ class TestAdapterCrossCheck(unittest.TestCase):
         self.assertEqual(len(engine._declared_lpm), 16)
 
 
+class TestDeclaredLpmValidation(unittest.TestCase):
+    """ S4: a table declared longest-prefix-match must be able to mean it.
+
+    Backend-neutral -- a property of the rules alone -- and run in the
+    aggregator before the model reaches any engine, so all three see the same
+    answer instead of each deciding privately.
+    """
+
+    @staticmethod
+    def _rule(idx, dst=None, ports=None, extra=None):
+        from rule.rule_model import Rule, Match, RuleField, Forward
+        fields = []
+        if dst is not None:
+            fields.append(RuleField('packet.ipv4.destination', dst))
+        for name, value in (extra or []):
+            fields.append(RuleField(name, value))
+        actions = [Forward(ports=list(ports))] if ports else []
+        return Rule('d', 'd.1', idx, match=Match(fields), actions=actions)
+
+    def test_a_destination_only_table_is_accepted(self):
+        from devices.abstract_device import validate_lpm_rules
+        validate_lpm_rules('d', 'd.1', [
+            self._rule(0, '10.240.0.0/12', ['d.2']),
+            self._rule(1, '10.0.0.0/8', ['d.3']),
+        ])
+
+    def test_a_DISCARD_AGGREGATE_is_accepted(self):
+        """ The FIB idiom np_preparation documents: a drop for an aggregate with
+        a more-specific forward punched through it. Different prefixes, so
+        longest-prefix-match resolves it and nothing is ambiguous. Refusing this
+        would block every real FIB. """
+        from devices.abstract_device import validate_lpm_rules
+        validate_lpm_rules('d', 'd.1', [
+            self._rule(0, '10.0.0.0/8'),                    # no action -> drop
+            self._rule(1, '10.240.0.0/12', ['d.2']),        # punched through
+        ])
+
+    def test_a_rule_matching_MORE_than_the_destination_is_refused(self):
+        from devices.abstract_device import validate_lpm_rules, TableSemanticsError
+        with self.assertRaises(TableSemanticsError) as caught:
+            validate_lpm_rules('d', 'd.1', [
+                self._rule(0, '10.0.0.0/8', ['d.2'],
+                           extra=[('packet.upper.tcp.srcport', '80')]),
+            ])
+        self.assertIn('packet.upper.tcp.srcport', str(caught.exception))
+
+    def test_two_rules_on_ONE_prefix_doing_different_things_are_refused(self):
+        """ Then which wins is decided by their ORDER -- exactly what declaring
+        longest-prefix-match says it is not. """
+        from devices.abstract_device import validate_lpm_rules, TableSemanticsError
+        with self.assertRaises(TableSemanticsError) as caught:
+            validate_lpm_rules('d', 'd.1', [
+                self._rule(0, '10.0.0.0/8', ['d.2']),
+                self._rule(1, '10.0.0.0/8', ['d.3']),
+            ])
+        self.assertIn('10.0.0.0/8', str(caught.exception))
+
+    def test_two_IDENTICAL_rules_are_not_ambiguous(self):
+        """ Same prefix AND same action: order cannot change the outcome. """
+        from devices.abstract_device import validate_lpm_rules
+        validate_lpm_rules('d', 'd.1', [
+            self._rule(0, '10.0.0.0/8', ['d.2']),
+            self._rule(1, '10.0.0.0/8', ['d.2']),
+        ])
+
+    def test_colliding_DEFAULT_routes_are_refused(self):
+        """ A rule with no destination field matches everything; two of them
+        disagreeing is as ambiguous as any other colliding pair. """
+        from devices.abstract_device import validate_lpm_rules, TableSemanticsError
+        with self.assertRaises(TableSemanticsError):
+            validate_lpm_rules('d', 'd.1', [
+                self._rule(0, None, ['d.2']),
+                self._rule(1, None, ['d.3']),
+            ])
+
+    def test_the_index_spans_BATCHES(self):
+        """ Rules arrive in batches and a collision between two batches is still
+        a collision -- which is why the caller carries the index. """
+        from devices.abstract_device import validate_lpm_rules, TableSemanticsError
+        index = {}
+        validate_lpm_rules('d', 'd.1', [self._rule(0, '10.0.0.0/8', ['d.2'])], index)
+        with self.assertRaises(TableSemanticsError):
+            validate_lpm_rules('d', 'd.1', [self._rule(1, '10.0.0.0/8', ['d.3'])], index)
+
+
+@require_or_skip(os.path.isfile("%s/device_topology.json" % _STANFORD),
+                 "wl_stanford inputs not generated")
+class TestValidationRunsOnTheRealWorkloads(unittest.TestCase):
+    """ Non-vacuous: the checks must actually SEE the declared tables.
+
+    Asserted because §9.3 found the declaration silently dropped at two of its
+    four boundaries -- a validation that runs over nothing passes just as
+    quietly as one that runs over everything.
+    """
+
+    def test_stanford_and_i2_rules_are_actually_validated(self):
+        import devices.abstract_device as device_module
+        import aggregator.aggregator_service as aggregator_module
+        from apkeep.adapter import APKeepAdapter
+        from util.in_process_driver import InProcessFaVe
+
+        seen = {'rules': 0, 'tables': set()}
+        original = device_module.validate_lpm_rules
+
+        def spy(node, table, rules, index=None):
+            rules = list(rules)
+            seen['rules'] += len(rules)
+            seen['tables'].add((node, table))
+            return original(node, table, rules, index)
+
+        device_module.validate_lpm_rules = spy
+        aggregator_module.validate_lpm_rules = spy
+        try:
+            log = logging.getLogger("s4_nonvacuous")
+            log.setLevel(logging.WARNING)
+            engine = APKeepAdapter(log, faithful_vlan=False, engine='ndd')
+            with InProcessFaVe(engine) as fave:
+                fave.replay(_STANFORD, files=_FILES)
+        finally:
+            device_module.validate_lpm_rules = original
+            aggregator_module.validate_lpm_rules = original
+
+        self.assertEqual(len(seen['tables']), 16)
+        self.assertEqual(seen['rules'], 3844)
+
+
 if __name__ == '__main__':
     unittest.main()

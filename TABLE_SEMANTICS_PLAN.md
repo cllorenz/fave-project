@@ -564,13 +564,57 @@ it would have been cheaper to look at `add_tables`' callers first.
 
 ---
 
-### 9.4 S4 -- the checks. PROMOTED ahead of the migration.
+### 9.4 S4 -- the checks. PROMOTED ahead of the migration. DONE 2026-09-23.
 
 Declarability and ambiguity in the aggregator, with the §4.1 caveat in the
 docstring. They belong **before** S3, not after it: they are what establishes
 that a declaration is coherent before anything starts trusting it to drive
 reordering. They are cheap, and §2.6 measured them as finding nothing -- which
 makes them a clean baseline now, rather than noise arriving mid-migration.
+
+#### What the two checks actually ask
+
+* **declarability** -- every rule matches a destination prefix **and nothing
+  else**. Deliberately narrower than the APKeep adapter's `_LPM_MATCH_FIELDS`,
+  which also admits VLAN and `in_port` because APKeep handles those by other
+  machinery: LPM is a statement about which rule WINS, so the neutral question
+  is about the match alone. **Rewrites are not checked** -- they change what a
+  rule does, never which rule wins. (Measured first: the declared tables carry
+  3,372 VLAN rewrites on wl_stanford and 77,451 on wl_i2, so a check that
+  rejected rewrites would reject both declarations.)
+* **ambiguity** -- no two rules share a prefix and differ in action. A rule
+  with no destination field matches everything and is keyed as the default
+  route, so two disagreeing defaults are caught like any other pair.
+
+#### Incremental, because rules arrive in batches
+
+The index is carried per `(node, table)` across calls on the aggregator. Rules
+arrive in batches and a collision between two batches is still a collision, but
+re-scanning the whole table per batch would be quadratic -- wl_i2 sends 77,451.
+Measured: wl_i2 replays in **7.0 s**, wl_stanford in 2.0 s.
+
+#### Non-vacuous, and asserted to stay so
+
+| workload | declared tables validated | rules validated |
+|---|---:|---:|
+| wl_stanford | 16 | 3,844 |
+| wl_i2 | 9 | 77,451 |
+
+Exactly the rule counts §2.6 measured from the raw data. A test pins these,
+because §9.3 found the declaration silently dropped at two of four boundaries
+and **a validation that runs over nothing passes just as quietly as one that
+runs over everything**.
+
+#### Both checks pass everywhere, which is what §2.6 predicted
+
+They are a guardrail, not a repair. `test/test_table_semantics.py` gained 8
+tests that fire them deliberately -- a non-destination match, two rules on one
+prefix, colliding default routes, a collision spanning two batches -- plus the
+one that matters for not over-refusing: **a discard aggregate is accepted**
+(`10.0.0.0/8` drop ahead of a `10.240.0.0/12` forward), because those are
+different prefixes and longest-prefix-match resolves them. Refusing that shape
+would block every real FIB, which is the mistake `_cross_class_promotions`
+records an earlier design making.
 
 ### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON
 

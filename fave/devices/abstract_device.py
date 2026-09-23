@@ -65,6 +65,99 @@ class TableSemanticsError(Exception):
     """ Raised on an unknown semantics, or on one a model cannot carry. """
 
 
+# The destination fields a longest-prefix-match table resolves on. Deliberately
+# NOT the adapter's `_LPM_MATCH_FIELDS`, which also admits VLAN and in_port
+# because APKeep handles those by other machinery: LPM is a statement about
+# which rule WINS, so the neutral question is whether the match is a destination
+# prefix and nothing else.
+_DST_FIELDS = frozenset({'packet.ipv4.destination', 'packet.ipv6.destination'})
+
+
+def _lpm_key(rule: "Rule") -> Tuple[Optional[str], List[str]]:
+    """ (the destination prefix this rule matches, the other fields it matches).
+
+    A rule with no destination field matches everything, which in a FIB is the
+    default route -- reported as `None`, which is a real key: two default routes
+    with different actions are as ambiguous as any other colliding pair.
+    """
+    prefix = None
+    others = []
+    for field in (rule.match or []):
+        if field.name in _DST_FIELDS:
+            prefix = str(field.value)
+        else:
+            others.append(field.name)
+    return prefix, sorted(others)
+
+
+def _action_signature(rule: "Rule") -> str:
+    """ What the rule DOES, as a comparable string. `str()` on the action models
+    is their own stable rendering (`forward:[...]`, and Rewrite's equivalent);
+    an empty action list is a drop, which must compare equal to other drops and
+    unequal to any forward. """
+    return "|".join(sorted(str(action) for action in rule.actions))
+
+
+def validate_lpm_rules(
+        node: str,
+        table: str,
+        rules: Iterable["Rule"],
+        seen: Optional[Dict[Tuple[Optional[str], ...], str]] = None
+) -> None:
+    """ Check that a table DECLARED longest-prefix-match can mean it.
+
+    Two backend-neutral properties, both of the rules alone:
+
+    * **declarability** -- every rule matches a destination prefix and nothing
+      else. A rule that also matches a source, a protocol or a port is not
+      resolved by longest prefix under any backend, so the declaration is false.
+      Rewrites are NOT checked: they change what a rule does, never which rule
+      wins.
+    * **ambiguity** -- no two rules share a prefix and differ in action. If two
+      do, the table's meaning depends on their ORDER, which is precisely what
+      declaring it LPM says it does not.
+
+    `seen` carries the prefix->action index ACROSS calls, because rules arrive in
+    batches and a collision between two batches is still a collision. Pass the
+    same dict for one (node, table) throughout.
+
+    WHAT THIS CANNOT DO, and it is the case that matters most: it cannot catch a
+    table that is genuinely first-match but was DECLARED lpm, when its rules
+    happen to be destination-only. `np_preparation._cross_class_promotions`
+    documents why -- a FIB with a discard aggregate (`10.0.0.0/8` DROP ahead of a
+    `10.240.0.0/12` forward) and a deny-before-permit filter have identical
+    shape, which is exactly why FIB-ness was made a declaration rather than an
+    inference. **A passing validation is not evidence that a table really is a
+    FIB.** It catches a declaration that is grossly wrong, and nothing subtler.
+    """
+    index = seen if seen is not None else {}
+    for rule in rules:
+        prefix, others = _lpm_key(rule)
+        if others:
+            raise TableSemanticsError(
+                "%s.%s is declared %s, but rule %s also matches %s -- a table "
+                "resolved by longest prefix matches the destination and nothing "
+                "else, so either the declaration is wrong or this is not a FIB."
+                % (node, table, LPM, getattr(rule, 'idx', '?'), ', '.join(others))
+            )
+
+        action = _action_signature(rule)
+        key = (prefix,)
+        previous = index.get(key)
+        if previous is not None and previous != action:
+            raise TableSemanticsError(
+                "%s.%s is declared %s, but two rules match %s and do different "
+                "things (%r vs %r). Which one wins is then decided by their "
+                "ORDER, which is what declaring longest-prefix-match says it is "
+                "not." % (
+                    node, table, LPM,
+                    prefix if prefix is not None else "everything (the default route)",
+                    previous, action
+                )
+            )
+        index[key] = action
+
+
 def restore_table_semantics(model: Any, j: JSONDict) -> Any:
     """ Read declared table semantics back off a serialised model.
 

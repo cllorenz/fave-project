@@ -57,7 +57,7 @@ from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
 from netplumber.adapter import NetPlumberAdapter
 
 from netplumber.slice import SlicingCommand
-from devices.abstract_device import restore_table_semantics
+from devices.abstract_device import LPM, restore_table_semantics, validate_lpm_rules
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
 from devices.switch import SwitchModel, SwitchCommand
@@ -158,6 +158,10 @@ class AggregatorService(AbstractAggregator):
     ) -> None:
         self.queue: Queue[Any] = Queue()
         self.models: Dict[str, Any] = {}
+        # (node, table) -> {matched prefix: action signature}, for the
+        # declared-LPM ambiguity check. Carried across syncs because rules
+        # arrive in batches and a collision between two batches is still one.
+        self._lpm_index: Dict[Tuple[str, str], Dict[Any, str]] = {}
         self.port_to_model: Dict[str, Any] = {}
         self.links: Dict[Any, List[Any]] = {}
         self.stop = False
@@ -534,6 +538,23 @@ class AggregatorService(AbstractAggregator):
         self.stop = True
 
 
+    def _validate_declared_tables(self, model: Any) -> None:
+        """ Run the declared-semantics checks over this model's rules.
+
+        Silent on a model that declares nothing, which is every workload but
+        wl_stanford and wl_i2 today -- so the cost is one `getattr` per sync.
+        """
+        semantics_of = getattr(model, 'semantics_of', None)
+        if semantics_of is None:
+            return
+
+        for table, rules in getattr(model, 'tables', {}).items():
+            if semantics_of(table) != LPM or not rules:
+                continue
+            index = self._lpm_index.setdefault((model.node, table), {})
+            validate_lpm_rules(model.node, table, rules, index)
+
+
     def _sync_diff(self, model: Any) -> None:
         if AggregatorService.LOGGER.isEnabledFor(logging.DEBUG):
             AggregatorService.LOGGER.debug('worker: synchronize model')
@@ -701,6 +722,17 @@ class AggregatorService(AbstractAggregator):
 #            self._delete_model(sub)
 
             # add new items
+        # TABLE_SEMANTICS_PLAN.md S4: a table DECLARED longest-prefix-match must
+        # be able to mean it. Backend-neutral (a property of the rules alone) and
+        # run BEFORE the model reaches any engine, so all three see the same
+        # answer instead of each deciding privately -- and so a false declaration
+        # is refused rather than acted on.
+        #
+        # Validated over the rules being ADDED, with a per-(node, table) index
+        # carried across calls: rules arrive in batches, and re-scanning the
+        # whole table per batch would be quadratic (wl_i2 sends 77,451).
+        self._validate_declared_tables(model)
+
         self._add_model(model)
 
         self.models.setdefault(model.node, model)
