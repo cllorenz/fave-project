@@ -475,7 +475,7 @@ rule. It surfaced during this discussion but depends on nothing in it, and it is
 a prerequisite for ever declaring `admission` (§7.2). It jumps the queue because
 it is a defect; everything below is a guardrail (§2.4).
 
-### 9.3 S1 + S2 -- ONE landing, not two
+### 9.3 S1 + S2 -- ONE landing, not two. DONE 2026-09-23.
 
 `AbstractDeviceModel.table_semantics` (overrides only) + `semantics_of()`
 defaulting to `FIRST_MATCH`, `to_json`/`from_json` round-tripping overrides;
@@ -490,6 +490,79 @@ adapters, and only a producer plus a consumer demonstrates that.
 
 *Gates:* existing model JSON byte-identical (30 test modules read it, §2.7);
 wl_stanford and wl_i2 reachability unchanged on all three backends.
+
+#### What it took, and the two places it was silently lost
+
+Landing them together was the right call for a sharper reason than "a channel
+with no consumer cannot be validated": **the channel crosses four boundaries and
+was dropped at two of them, silently, with the identical symptom each time** --
+every table arriving as `first_match` and nothing raising. Only a probe of what
+the ADAPTER received caught either; the serialised JSON was correct throughout.
+
+| boundary | outcome |
+|---|---|
+| `SwitchModel.to_json` -> wire | carried first try |
+| `AggregatorService._model_from_json` | **LOST** -- it is handed the whole COMMAND, whose own type is `topology_command`, so the device and its declarations sit one level down under `"model"` |
+| `_sync_diff`: `add = model - self.models[node]` | **LOST** -- the engine is handed the DIFF, a different object, and there are **four** `__sub__` implementations (`AbstractDeviceModel`, `AbstractFirewallModel`, `RouterModel`, `SwitchModel`), none of which carried the field |
+| `APKeepAdapter.add_tables` | now `lpm` on BOTH of the two calls each device gets |
+
+Both fixes went to the **single consumer**, not the N producers: one restore in
+`_model_from_json` (recursing through the wrapper), one carry at the sole
+`model - model` call site. Eight independent `from_json` methods and four
+`__sub__` methods would each have to remember; one call site stays right when a
+ninth or a fifth is added. That is the same reasoning twice, and it is the
+transferable lesson of this slice.
+
+#### Result
+
+```
+wl_stanford   mid = lpm (16)    in/out = first_match (32)
+wl_i2         out = lpm  (9)    in     = first_match  (9)
+```
+
+Each tracks **its own** `config.json` rather than a hardcoded name -- which
+makes the wl_i2 defect (`dev.startswith('mid.')` doing nothing at all, 3,731
+rules shadowed) structurally impossible rather than merely fixed.
+
+#### A claim of mine that was wrong, corrected
+
+This document and two code comments asserted that four device models would
+silently drop a base-class field because they "override `to_json` without
+chaining". That was a `def to_json` grep that never checked class membership.
+**All five `AbstractDeviceModel` subclasses carry it** -- `SwitchModel` and
+`RouterModel` chain, `PacketFilterModel`, `ApplicationLayerGatewayModel` and
+`SnapshotPacketFilterModel` inherit -- and the two apparent counterexamples,
+`GeneratorModel` and `ProbeModel`, do not subclass `AbstractDeviceModel` at all,
+so neither can reach `set_table_semantics`. The refusal guard in that method is
+kept, and its docstring now says plainly that **it fires on nothing today**.
+
+#### The consumer
+
+`_is_dst_lpm_table` stops deciding alone: a device whose forwarding table is
+DECLARED `lpm` is cross-checked against the rules, and a disagreement raises
+`UntranslatedSemantics` naming the offending field. The converse is deliberately
+not enforced -- an UNDECLARED dst-only table still becomes a `ForwardElement`,
+because making the declaration authoritative for undeclared tables would change
+every workload that declares nothing, and that belongs to §9.7.
+
+`test/test_table_semantics.py`, 16 tests.
+
+#### One regression it caused, and the assumption behind it
+
+The first integration run after this landed was **22 failed, 13 errors**, all one
+cause: `_capture_declared_semantics` called `model.semantics_of(...)`
+unconditionally, and not every object reaching `add_tables` is an
+`AbstractDeviceModel` -- the unit tests build models as `SimpleNamespace`. Fixed
+by treating a missing `semantics_of` as "declares nothing", which costs no
+coverage, because the cross-check only ever CONSTRAINS a table that was declared
+and such an object cannot declare one.
+
+The assumption worth naming: **an adapter entry point is not typed by the model
+hierarchy**, and a new call on `model` there is a new requirement on every
+producer, test fakes included. Cheap to find (the tier said so immediately) but
+it would have been cheaper to look at `add_tables`' callers first.
+
+---
 
 ### 9.4 S4 -- the checks. PROMOTED ahead of the migration.
 
@@ -510,6 +583,17 @@ With `_reprioritise_fib_lpm` still running, the reordering is **idempotent, so t
 output must be byte-identical**. That turns the risky step into a free
 differential: if adapter-side ordering is correct nothing changes anywhere, and
 if it is not, the existing benchmarks say so immediately.
+
+**The differential is only as good as the declaration ARRIVING, and §9.3 is why
+that has to be asserted rather than assumed.** The channel was silently dropped
+at two of its four boundaries, both times with no error. If a future boundary
+drops it again, this step passes *trivially*: the adapter reorders nothing, the
+generation-time repair does all the work, and the output is byte-identical for
+the wrong reason. So S3a must assert a NON-ZERO count of declared tables reaching
+the adapter (16 for wl_stanford, 9 for wl_i2) before comparing anything --
+otherwise it is the "a skip is NOT a pass" failure in the shape this tree has now
+hit twice, most recently as the wl_up differential that errored at setup in every
+integration run while its number sat in a results table.
 
 ### 9.6 S3b -- remove the generation-time reordering
 

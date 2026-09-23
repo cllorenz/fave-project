@@ -28,7 +28,7 @@ import json
 import ast
 import argparse
 
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, cast
 
 from itertools import product
 
@@ -37,6 +37,7 @@ from util.aggregator_utils import connect_to_fave, fave_sendmsg
 from util.typing_util import JSONDict
 from rule.rule_model import RuleField, Match
 
+from devices.abstract_device import AbstractDeviceModel
 from devices.switch import SwitchModel
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel
@@ -396,6 +397,13 @@ def main(argv: List[str]) -> None:
         help="add tables with these ids to the switch"
     )
     parser.add_argument(
+        '-S', '--table-semantics',
+        dest="table_semantics",
+        type=ast.literal_eval,
+        help="declare non-default table semantics, {table: 'lpm'} "
+             "(TABLE_SEMANTICS_PLAN.md; omitted tables are first-match)"
+    )
+    parser.add_argument(
         '-T', '--test-fields',
         dest="test_fields",
         type=_parse_probe_fields,
@@ -479,6 +487,18 @@ def main(argv: List[str]) -> None:
                 vlan_to_acls=parse_cisco_interfaces(args.ruleset)[3],
                 if_to_vlans=parse_cisco_interfaces(args.ruleset)[4],
             )}[args.type]()
+
+        # TABLE_SEMANTICS_PLAN.md S2: declared non-default table semantics.
+        # Applied through `set_table_semantics` rather than a constructor kwarg
+        # so the declaration goes through its own validation -- an unknown term,
+        # or a model whose to_json would drop it, is refused here rather than
+        # discovered as a missing declaration in an adapter.
+        declared = getattr(args, 'table_semantics', None)
+        if declared:
+            for table, semantics in declared.items():
+                # The lambda table above is typed `object`; only device models
+                # reach here with a declaration (the `-S` option is switch-only).
+                cast(AbstractDeviceModel, model).set_table_semantics(table, semantics)
 
         topo = TopologyCommand(args.node, args.command, model=model)
 

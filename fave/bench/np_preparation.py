@@ -24,6 +24,8 @@ import ipaddress
 import json
 import sys
 
+from devices.abstract_device import LPM
+
 from netplumber.mapping import FIELD_SIZES
 from netplumber.vector import Vector
 from bench.bench_helpers import array_ipv4_to_cidr, array_vlan_to_number, array_to_int
@@ -372,11 +374,26 @@ def prepare_benchmark(
                 ) for p in table_json['ports']
             ]
 
+            # TABLE_SEMANTICS_PLAN.md S2: DECLARE which tables are FIBs, on the
+            # model, instead of leaving every consumer to infer it from the
+            # device-name prefix. `fib_table_types` still says which stage is the
+            # FIB -- that part was always a declaration -- but it stops being a
+            # statement about NAMES the moment it is attached to the table.
+            #
+            # Keyed `<node>.1` because that is SwitchModel's own table name
+            # (`self.tables = {node+".1": rules}`); `table_ids` above is keyed by
+            # the bare node, which is a different convention in the same tuple.
+            semantics = (
+                { "%s.1" % table_name : LPM } if ttype in set(fib_table_types)
+                else {}
+            )
+
             topology['devices'].append((
                 table_name,
                 "switch",
                 device_ports,
-                { table_name : table_id }
+                { table_name : table_id },
+                semantics
             ))
 
             for rule in table_json['rules']:

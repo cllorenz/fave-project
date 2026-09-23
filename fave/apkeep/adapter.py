@@ -44,6 +44,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Set
 from aggregator.abstract_engine import AbstractVerificationEngine
 from aggregator.aggregator_abstract import TraceLogger
 from rule.rule_model import Forward, Rewrite
+from devices.abstract_device import LPM
 
 from apkeep.lib_apkeep import LibAPKeep, available  # noqa: F401  (available re-exported)
 
@@ -542,6 +543,12 @@ class APKeepAdapter(AbstractVerificationEngine):
         # be made from something that still has the whole rule -- see
         # _is_dst_lpm_table and _build_first_match_tables.
         self._fwd_table: Dict[str, List[Dict[str, Any]]] = {}
+        # Devices whose FORWARDING table the model DECLARES longest-prefix-match
+        # (TABLE_SEMANTICS_PLAN.md S2). Not used to decide the element -- the
+        # shape still does that -- but to cross-check the decision, so a
+        # declaration and the rules disagreeing is a refusal rather than a
+        # silent choice between them.
+        self._declared_lpm: Set[str] = set()
         self._edges: List[str] = []          # topology "dev port dev port"
         self._generators: Dict[str, str] = {}  # name -> ingress port (FaVe)
         self._probes: Dict[str, str] = {}      # name -> port (FaVe)
@@ -697,6 +704,31 @@ class APKeepAdapter(AbstractVerificationEngine):
 
     # --- AbstractVerificationEngine: model construction (buffered) -----------
 
+    def _capture_declared_semantics(self, model: Any) -> None:
+        """ Record a DECLARED longest-prefix-match forwarding table.
+
+        Asked of the two table names that carry real dst forwarding -- a
+        switch's `<node>.1` and a router's `<node>.routing` -- rather than
+        iterating `model.tables`, because `semantics_of` answers for any name
+        (first-match by default) and those are the only two this adapter
+        translates as a FIB anyway.
+        """
+        semantics_of = getattr(model, 'semantics_of', None)
+        if semantics_of is None:
+            # Not every object reaching this adapter is an AbstractDeviceModel:
+            # the unit tests build models as `SimpleNamespace`, and a producer is
+            # free to hand over anything with `.node` and `.tables`. Such an
+            # object cannot carry a declaration in the first place, so there is
+            # nothing to record -- and nothing is lost, because the cross-check
+            # only ever CONSTRAINS a table that was declared. Treating this as an
+            # error instead cost 22 failures and 13 errors in the integration
+            # tier the first time round.
+            return
+        for table in (model.node + '.1', model.node + '.routing'):
+            if semantics_of(table) == LPM:
+                self._declared_lpm.add(model.node)
+
+
     def add_tables(self, model: Any) -> None:
         # Routers and switches all become dst-IP ForwardElements. The wl_stanford
         # out. stage is an in-port permutation (not a FIB) collapsed into the
@@ -704,6 +736,7 @@ class APKeepAdapter(AbstractVerificationEngine):
         # (unique to stanford; wl_i2 is in/out only and its out. stage is a real
         # dst-IP FIB that must be kept). Add every device here.
         self._fwd_devices.add(model.node)
+        self._capture_declared_semantics(model)
 
     def add_rules(self, model: Any) -> None:
         # Only the router's routing table and the switch's flat table hold real
@@ -1502,6 +1535,8 @@ class APKeepAdapter(AbstractVerificationEngine):
         # _is_dst_lpm_table -- so it needs no device naming convention and fires
         # on any workload whose forwarding tables carry ACL matches, rather than
         # on the one that first needed it.
+        # Cross-check the declarations before anything acts on a table's shape.
+        self._assert_declared_lpm_is_triable()
         first_match = self._first_match_devices()
         fm_rules: List[str] = []
         if first_match:
@@ -1629,6 +1664,41 @@ class APKeepAdapter(AbstractVerificationEngine):
         is provably identical to the per-pair DFS. Requires _build() first. """
         self._build()
         return self._single_universe
+
+    def _assert_declared_lpm_is_triable(self) -> None:
+        """ A table the model DECLARES longest-prefix-match must be one this
+        adapter can realise as a destination-prefix trie.
+
+        Shape decides what is POSSIBLE and the declaration decides among what
+        shape cannot distinguish -- so agreeing is unremarkable and disagreeing
+        is a refusal, never a silent preference for one of them. A table
+        declared `lpm` whose rules match a source, a protocol or a port is not a
+        FIB under any backend, and translating it as one would answer a
+        different question (CLOUD_BENCH_PLAN.md §1.7.3 is what that costs).
+
+        The converse is deliberately NOT checked: an UNDECLARED dst-only table
+        still becomes a `ForwardElement`, as it always has. Making the
+        declaration authoritative for undeclared tables would change every
+        workload that declares nothing, and belongs to a later step
+        (TABLE_SEMANTICS_PLAN.md §9.7) once every producer declares.
+        """
+        for device in sorted(self._declared_lpm & set(self._fwd_table)):
+            rows = self._fwd_table[device]
+            if _is_dst_lpm_table(rows):
+                continue
+            offending = sorted({
+                f for row in rows
+                for f in (set(row['match']) - _LPM_MATCH_FIELDS)
+                          | (set(row['rw']) - _LPM_REWRITE_FIELDS)
+            })
+            raise UntranslatedSemantics(
+                "%s declares its forwarding table longest-prefix-match, but its "
+                "rules match or rewrite %s, which a destination-prefix trie "
+                "cannot express. Either the declaration is wrong or the table "
+                "is not a FIB; this adapter will not choose between them."
+                % (device, ', '.join(offending))
+            )
+
 
     def _first_match_devices(self) -> set:
         """ The devices whose forwarding table is a first-match list.

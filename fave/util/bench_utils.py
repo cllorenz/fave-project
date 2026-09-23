@@ -66,8 +66,17 @@ def _add_application_layer_gateway(name, _type, ports, address, ruleset, use_uni
         "-r", ruleset
     ] + (['-u'] if use_unix else []))
 
-def _add_switch(name, _type, ports, table_ids, use_unix=False, interweave=False):
-    topo.main(["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)] + (["-u"] if use_unix else []))
+def _add_switch(name, _type, ports, table_ids, table_semantics=None,
+                use_unix=False, interweave=False):
+    # `table_semantics` is the OPTIONAL fifth element of a switch device tuple
+    # (TABLE_SEMANTICS_PLAN.md S2): {table: 'lpm'} for the tables that are not
+    # first-match. Optional because every other benchmark emits four-element
+    # tuples and declares nothing, which is the default.
+    topo.main(
+        ["-a", "-t", "switch", "-n", name, "-p", str(ports), '-I', str(table_ids)]
+        + (['-S', str(table_semantics)] if table_semantics else [])
+        + (["-u"] if use_unix else [])
+    )
 
 
 def _add_router(name, _type, ports, acls, use_unix=False, interweave=False):

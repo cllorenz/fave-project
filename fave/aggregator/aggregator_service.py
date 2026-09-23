@@ -57,6 +57,7 @@ from netplumber.jsonrpc import NET_PLUMBER_DEFAULT_PORT, NET_PLUMBER_DEFAULT_IP
 from netplumber.adapter import NetPlumberAdapter
 
 from netplumber.slice import SlicingCommand
+from devices.abstract_device import restore_table_semantics
 from devices.packet_filter import PacketFilterModel
 from devices.snapshot_packet_filter import SnapshotPacketFilterModel, StateCommand
 from devices.switch import SwitchModel, SwitchCommand
@@ -251,7 +252,10 @@ class AggregatorService(AbstractAggregator):
             raise Exception("model type not implemented: %s" % j["type"])
 
         else:
-            return model.from_json(j)
+            # TABLE_SEMANTICS_PLAN.md S1: declared table semantics ride beside
+            # the tables, and every model's own from_json predates the field, so
+            # restore them here -- the one place all model types are rebuilt.
+            return restore_table_semantics(model.from_json(j), j)
 
 
     def _dispatch(self, j: JSONDict) -> str:
@@ -674,6 +678,14 @@ class AggregatorService(AbstractAggregator):
         if model.node in self.models:
             # calculate items to remove and items to add
             add = model - self.models[model.node]
+            # The ENGINE is handed this diff, not the model it came from, so a
+            # declaration left behind here never reaches an adapter at all.
+            # MEASURED, not hypothesised: without this, `add_tables` saw
+            # wl_stanford's 16 `mid` tables as `first_match` on the second of
+            # the two calls it gets per device, although they are declared
+            # `lpm`. Done here rather than in `__sub__` because there are four
+            # of those and one of these.
+            add.table_semantics = dict(model.table_semantics)
             for table in model._adds: # TODO: better interface :-/
                 model.tables.setdefault(table, [])
                 model.tables[table].extend(model._adds[table])
