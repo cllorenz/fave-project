@@ -399,35 +399,119 @@ Worth doing independently of this plan, and a prerequisite for ever declaring
 
 ## 9. Build plan
 
-Deliberately sliced so the channel is proven end-to-end before anything is built
-on it.
+Sliced so that the channel is proven end-to-end before anything is built on it,
+and so that the one risky step is verifiable by construction rather than by
+hoping the tests cover it. **The order below revises an earlier draft** (S1..S5
+in sequence); the two changes are that the checks move ahead of the migration,
+and that the migration splits in two. Both changes follow from §9.1.
 
-**S1 — the channel.** `AbstractDeviceModel.table_semantics` + `semantics_of()`
-defaulting to `FIRST_MATCH`; `to_json`/`from_json` round-tripping overrides only.
-No producer, no consumer. Test: existing model JSON is byte-identical.
+### 9.1 The constraint that shapes the order: `rule.idx` does two jobs
 
-**S2 — one producer, one consumer.** `np_preparation` sets `lpm` on wl_stanford's
-`mid` and wl_i2's `out` tables, replacing `fib_table_types`' name-prefix match;
-`_is_dst_lpm_table` becomes a cross-check that refuses on conflict. Test: the
-declaration survives aggregator dispatch into the adapter, and wl_stanford /
-wl_i2 reachability is unchanged on all three backends.
+In the NetPlumber path a rule's index is simultaneously:
 
-**S3 — delete what it replaces.** `_reprioritise_fib_lpm` moves from generation
-time into the NetPlumber and ad6 adapters; `wl_deltanet`'s `sw.` prefix and
-`_DEVICE_PREFIX` go away. Test: wl_deltanet's model is unchanged apart from
-device names, and the LPM walker test (`test_deltanet_model.py::TestDeltanetLPM`)
-still passes.
+* **priority** -- `jsonrpc.add_rule(socks, t_idx, r_idx, ...)` is called with
+  `r_idx = _calc_rule_index(rule.idx)`, and NetPlumber resolves priority by that
+  index (lower wins);
+* **identity** -- `delete_rules` looks up
+  `self.rule_ids[_calc_rule_index(rid, t_idx=tid)]`, keyed on the model's
+  `rule.idx`, to find the handles to remove.
 
-**S4 — the checks.** Declarability and ambiguity in the aggregator, with the
-§4.1 caveat in the docstring. Expected to find nothing (§2.6); the test is what
-gives them value.
+`_reprioritise_fib_lpm` makes the two consistent by **rewriting the idx field**
+at generation time (`routes[p] = (t[0], t[1], new_idx, t[3], t[4], t[5])`).
 
-**S5 — the rich models.** `RouterModel` and the packet-filter model declare their
-`routing` table `lpm` (§7.3), which is where §2.5 says the coverage is.
+**So S3 is a decoupling, not a move.** The good news is that the mapping layer
+already exists: `add_rule` *returns* an NP-assigned `r_id` and `self.rule_ids`
+maps model-idx -> handles, so an adapter can pass a reordered `r_idx` for
+priority while continuing to key `rule_ids` on the model's own idx for identity.
+No redesign of rule identity is required -- but the step must be scheduled as a
+decoupling, and that is why it is split and why the checks precede it.
 
-Anything beyond S5 — group identity, `admission`/`permutation`, retiring the
-remaining name tests — is gated on §7.1 and on the APKeep `FilterElement` VLAN
-work, and should not be started with this plan as its justification.
+**Open risk, to be decided before S3b.** `_calc_rule_index` shifts by 12 bits and
+those 4,096 slots between consecutive rules are reserved for negation expansion
+(`n_idx`), not for new rules. An **incremental insert** into an already-built LPM
+table therefore has no priority headroom without renumbering. Irrelevant to the
+static benchmarks; a real question for the continuous-verification path, and S3b
+is where it stops being hypothetical.
+
+### 9.2 Step 0 -- the NDD VLAN slot (§8). FIRST, and independent.
+
+The only thing in this package that is **wrong today**: BDD honours filter token
+17, NDD silently ignores it. Two lines mirroring the adjacent `+ acl` branch,
+plus a differential test asserting both engines agree on a VLAN-qualified filter
+rule. It surfaced during this discussion but depends on nothing in it, and it is
+a prerequisite for ever declaring `admission` (§7.2). It jumps the queue because
+it is a defect; everything below is a guardrail (§2.4).
+
+### 9.3 S1 + S2 -- ONE landing, not two
+
+`AbstractDeviceModel.table_semantics` (overrides only) + `semantics_of()`
+defaulting to `FIRST_MATCH`, `to_json`/`from_json` round-tripping overrides;
+**and in the same landing** one producer (`np_preparation` sets `lpm` on
+wl_stanford's `mid` and wl_i2's `out`, replacing `fib_table_types`' name-prefix
+match) and one consumer (`_is_dst_lpm_table` becomes a cross-check that
+**refuses** on conflict).
+
+Landed separately, S1 is unvalidated plumbing nobody reads. The single biggest
+unknown is whether the declaration survives **aggregator dispatch** into the
+adapters, and only a producer plus a consumer demonstrates that.
+
+*Gates:* existing model JSON byte-identical (30 test modules read it, §2.7);
+wl_stanford and wl_i2 reachability unchanged on all three backends.
+
+### 9.4 S4 -- the checks. PROMOTED ahead of the migration.
+
+Declarability and ambiguity in the aggregator, with the §4.1 caveat in the
+docstring. They belong **before** S3, not after it: they are what establishes
+that a declaration is coherent before anything starts trusting it to drive
+reordering. They are cheap, and §2.6 measured them as finding nothing -- which
+makes them a clean baseline now, rather than noise arriving mid-migration.
+
+### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON
+
+The NetPlumber adapter decouples the `r_idx` it passes to `add_rule` from the key
+it uses in `rule_ids` (§9.1), and orders a declared-`lpm` table longest-prefix
+-first at translation time. **ad6 must be covered in the same step**: it is
+first-match in document order, so it consumes FaVe's ordering too.
+
+With `_reprioritise_fib_lpm` still running, the reordering is **idempotent, so the
+output must be byte-identical**. That turns the risky step into a free
+differential: if adapter-side ordering is correct nothing changes anywhere, and
+if it is not, the existing benchmarks say so immediately.
+
+### 9.6 S3b -- remove the generation-time reordering
+
+Delete `_reprioritise_fib_lpm` from the generation path, and with it
+`wl_deltanet`'s `sw.` prefix and `_DEVICE_PREFIX`.
+
+*Gated on S3a being green for **both** positional backends.* If only NetPlumber
+honours `lpm` when the generation-time repair goes away, **ad6 silently regresses
+into the wl_i2 defect** -- the exact failure this plan exists to prevent.
+
+*Test:* wl_deltanet's model unchanged apart from device names, and
+`test_deltanet_model.py::TestDeltanetLPM` still passes (item 12a's guard).
+
+### 9.7 S5 -- the rich models
+
+`RouterModel` and the packet-filter model declare their `routing` table `lpm`
+(§7.3). **Last**, because §2.5 measured the coverage: exactly one `RouterModel`
+exists in the whole suite, and wl_up's dst routes sit on 23 switches plus one
+packet_filter. Its value is for the *next* benchmark, not this one.
+
+### 9.8 What NOT to do
+
+* **Not S1 alone** -- unvalidated plumbing nobody reads.
+* **Not S3 before S4** -- reordering driven by a declaration nothing has verified
+  is coherent.
+* **Not S5 early** on the strength of "rich models should enforce LPM"; measured,
+  that is one device.
+* **Not new vocabulary without a consumer.** `admission`/`permutation` have none
+  until step 0 lands and the `FilterElement` carries VLAN on both engines.
+  Declaring a semantics nothing honours is the failure mode this plan exists to
+  end.
+
+Anything beyond S5 -- group identity, retiring the remaining name tests -- is
+gated on §7.1 and on the APKeep `FilterElement` VLAN work, and should not be
+started with this plan as its justification.
 
 ---
 
