@@ -1636,10 +1636,9 @@ class APKeepAdapter(AbstractVerificationEngine):
         The HSA in./mid./out. stages are exempt, and only because something
         else already claims them: `_build_stanford_faithful` and
         `_build_i2_faithful` rewrite those tables themselves, and in plain mode
-        `_demux_ingress` splits them; their rules carry VLAN matches this
-        element cannot
-        express anyway -- so the approximation those paths make is a decision
-        already taken (APKEEP_STANFORD_NP_SPEC.md), not one to re-open here.
+        `_demux_ingress` splits them -- so the approximation those paths make is
+        a decision already taken (APKEEP_STANFORD_NP_SPEC.md), not one to
+        re-open here.
 
         Keyed on the STAGE PREFIX rather than on whether a faithful path is
         active, because the plain path (`faithful_vlan=False`, the convergence
@@ -1648,9 +1647,20 @@ class APKeepAdapter(AbstractVerificationEngine):
 
         That exemption is the last device-name test left in this decision, and
         it is a real limit: a new workload that happened to call a device
-        `in.something` would inherit it. Removing it means giving the
-        FilterElement a VLAN field, which is its own piece of work
-        (CLOUD_BENCH_PLAN.md §1.7.3).
+        `in.something` would inherit it.
+
+        This used to say removing it meant "giving the FilterElement a VLAN
+        field, which is its own piece of work". **That is no longer true and was
+        already half-wrong when written**: `FilterElement` encodes through
+        `ACLRule`, which has carried a VLAN match since P9a, so the BDD engine
+        always honoured one. Only the NDD engine dropped it, and that is fixed
+        (TABLE_SEMANTICS_PLAN.md §8; `test/test_ndd_vlan_slot.py` pins both
+        engines to the same reading). What remains in the way is upstream of the
+        element: `_translate_fwd_rule` keeps only the destination, so an
+        in-stage rule's VLAN is gone before any element could carry it -- 2,063
+        wl_stanford in-stage rules collapse to 52 identical default routes.
+        Retiring the exemption is therefore a TRANSLATION change, not an element
+        one.
 
         A packet_filter and an IPv6 router are exempt for a plainer reason:
         their `routing` table is not a forwarding table at all. It carries the

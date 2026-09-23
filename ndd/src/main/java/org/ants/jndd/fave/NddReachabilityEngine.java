@@ -103,6 +103,23 @@ public final class NddReachabilityEngine {
         return best;
     }
 
+    /**
+     * Conjoin the optional VLAN token that slot 17 carries in the `+ filter`
+     * and `+ acl` rule layouts alike; absent or "null" leaves the predicate
+     * unconstrained.
+     *
+     * <p>Shared deliberately. The two branches carried their own copy of this
+     * and only the `+ acl` one had it, so a VLAN-qualified FILTER rule was
+     * silently unconstrained here while the BDD engine honoured it. One helper
+     * is what stops them drifting apart again.
+     */
+    private static int withVlanSlot(int hit, String[] t) {
+        if (t.length > 17 && !t[17].equals("null")) {
+            return NDD.and(hit, vlanPred(t[17]));
+        }
+        return hit;
+    }
+
     /** {VLAN == v} over the 16-bit VLAN field (comma-separated set -> OR). */
     private static int vlanPred(String vlanSet) {
         int r = NDD.getFalse();
@@ -135,7 +152,17 @@ public final class NddReachabilityEngine {
             Rule r = new Rule();
             String dev;
             if (t[1].equals("filter") && t.length >= 17) {
-                r.hit = NDD.ref(ruleToNDD(t));
+                // The VLAN slot is token 17 in BOTH layouts ("<prio> [vlan]
+                // [rel]"), and ruleToNDD reads the 5-tuple plus `related` at 18
+                // but never 17. Conjoining it here is not an extension: the BDD
+                // engine has always honoured it, because FilterElement encodes
+                // through ACLRule, whose token[14] IS this slot (P9a). Omitting
+                // it made one rule string mean two different things depending
+                // on the engine. See test/test_ndd_vlan_slot.py, which fails on
+                // a pre-fix jar -- and note its warning that a test pinning the
+                // arrival VLAN at a `probe.*` device cannot observe this at all,
+                // because the flood quantifies VLAN out of probes first.
+                r.hit = NDD.ref(withVlanSlot(ruleToNDD(t), t));
                 r.out = t[5];
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];
@@ -160,10 +187,7 @@ public final class NddReachabilityEngine {
                 // deny drops. The element node appears in the topology as
                 // "<elem>_..._{in,out}" (resolved in the flood). A trailing VLAN
                 // token (VLAN-admission ACL, faithful wl_stanford) constrains VLAN.
-                int hit = ruleToNDD(t);
-                if (t.length > 17 && !t[17].equals("null"))
-                    hit = NDD.and(hit, vlanPred(t[17]));
-                r.hit = NDD.ref(hit);
+                r.hit = NDD.ref(withVlanSlot(ruleToNDD(t), t));
                 r.out = t[5].equals("permit") ? "permit" : DROP;
                 r.prio = Long.parseLong(t[16]);
                 dev = t[2];

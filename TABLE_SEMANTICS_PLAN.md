@@ -364,36 +364,69 @@ caught the wl_i2 shadowing at the time rather than years later.
 
 ---
 
-## 8. A defect found during this discussion (not yet filed)
+## 8. Step 0 -- the `+ filter` VLAN slot. FIXED 2026-09-23.
 
-Tracing whether `FilterElement` could carry VLAN — the blocker recorded in
-`_first_match_devices`' docstring — turned up a live inconsistency:
+Tracing whether `FilterElement` could carry VLAN -- the blocker recorded in
+`_first_match_devices`' docstring -- turned up a live inconsistency, now fixed.
 
-* `_filter_rule_string` already emits a **VLAN slot** (token 17), always `null`.
-* **BDD honours it.** `FilterElement.encodeOneRule` -> `ACLRule` (parses the VLAN
-  token, `ACLRule.java:216`, P9a) -> `ConvertACLRule` (conjoins it, including
-  comma-separated VLAN sets, P7b).
-* **NDD ignores it.** `NddReachabilityEngine.ruleToNDD` reads tokens 6-15 and 18
-  and never touches token 17; the `+ acl` branch adds `vlanPred(t[17])`
-  explicitly, the `+ filter` branch does not.
+### What it was
 
-Measured on the real wl_tum model, forcing the slot to `10` and pinning the
-arrival VLAN:
+* `_filter_rule_string` emits a **VLAN slot** (token 17), always `null`.
+* **BDD honoured it.** `FilterElement.encodeOneRule` -> `ACLRule` (parses the
+  VLAN token, `ACLRule.java:216`, P9a) -> `ConvertACLRule` (conjoins it,
+  including comma-separated VLAN sets, P7b).
+* **NDD ignored it.** `NddReachabilityEngine.ruleToNDD` reads tokens 6-15 and 18
+  and never touched token 17; only the `+ acl` branch conjoined
+  `vlanPred(t[17])`.
 
-| engine | slot `null` | slot `10` | |
-|---|---|---|---|
-| BDD | vlan10 reachable, vlan20 reachable | vlan10 reachable, **vlan20 NOT** | honoured |
-| NDD | vlan10 reachable, vlan20 reachable | vlan10 reachable, vlan20 reachable | **ignored** |
+So one rule string meant two different things depending on the engine. It cost
+nothing while the adapter always wrote `null`, and would have cost a silently
+over-permissive NDD model the moment anyone emitted a real tag.
 
-It costs nothing today only because the adapter always writes `null`. Anyone
-"fixing" `_filter_rule_string` in the obvious way would get a correct BDD model
-and a silently over-permissive NDD one. **The fix is the two lines the adjacent
-`+ acl` branch already has**, plus a differential test asserting both engines
-agree on a VLAN-qualified filter rule — which the two-engine differential of
-CLOUD_BENCH_PLAN.md §2.9 would now catch and would not have caught a week ago.
+### The fix
 
-Worth doing independently of this plan, and a prerequisite for ever declaring
-`admission` (§7.2).
+Both branches now share one helper, `withVlanSlot(hit, t)`, rather than the
+`+ acl` branch carrying its own copy -- the two having private copies is what let
+them drift. `ndd/src/main/java/org/ants/jndd/fave/NddReachabilityEngine.java`.
+
+Verified by construction: `test/test_ndd_vlan_slot.py` (6 tests, integration
+tier) **fails on the pre-fix jar and passes on the fixed one**, checked by
+reverting the source, rebuilding, and re-running. The assertion that guards the
+defect is the *differential* -- either engine alone can be self-consistently
+wrong, and it was the divergence that made this a defect rather than a choice.
+
+### The trap: the FIRST measurement of this was confounded
+
+The table this section used to carry was measured **at a probe**, and is not
+evidence for what it claimed:
+
+| engine | slot `10`, arrival vlan=20 | |
+|---|---|---|
+| BDD | unreachable | |
+| NDD | reachable | reported as "NDD ignores the slot" |
+
+**The NDD engine existentially quantifies VLAN out of any device whose name
+starts with `probe.`** (a host on an access port receives the frame untagged),
+and it does so *before* the `target_vlan` arrival constraint is applied. So a
+test that pins the arrival VLAN at a probe cannot observe a VLAN constraint on
+NDD **whatever the filter rule says** -- it measures the untag, not the slot.
+
+The code reading was sound and is what the fix rests on: before the change,
+nothing in the `+ filter` path referenced `t[17]`. The *measurement* was not.
+`test_ndd_vlan_slot.py` therefore routes to a destination deliberately **not**
+named `probe.*`, and its docstring records why.
+
+### Still open, and NOT part of step 0
+
+The confounded measurement uncovered a second, genuine divergence that the fix
+does **not** address: **BDD does not untag probe VLANs, NDD does.** The two model
+the same intent by different mechanisms -- the adapter sets `target_vlan=0` at
+faithful-wl_stanford probes, which BDD enforces as a real constraint while NDD's
+untag makes it vacuous. Both are gated green today, and the divergence is
+unobservable wherever nothing constrains VLAN (every plain-mode workload). It is
+recorded here rather than chased: it belongs to the faithful-VLAN path, not to
+the declaration channel, and it needs its own measurement before anyone decides
+which engine is right.
 
 ---
 
