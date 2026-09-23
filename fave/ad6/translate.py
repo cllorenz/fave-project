@@ -58,6 +58,8 @@ matched in total -- but nothing here depends on those numbers. """
 from __future__ import annotations
 
 import sys
+
+from devices.abstract_device import lpm_prefix_len
 import os
 
 from typing import Any, Dict, Iterable, Optional, Set
@@ -703,7 +705,7 @@ def rule_key(device: str, table: str, port: Optional[str], position: int) -> str
 
 def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
                  resolve_target: Any, port_id: Any,
-                 mutable: Iterable[str] = ()) -> Any:
+                 mutable: Iterable[str] = (), lpm: bool = False) -> Any:
     """ One FaVe table -> one ad6 <table>, rules ordered by ASCENDING `idx`.
 
     `Rule.idx` IS A PRIORITY, NOT A LIST POSITION -- measured on real data
@@ -746,7 +748,18 @@ def table_to_ad6(device: str, table: str, port: Optional[str], rules: Any,
     # all keeps exactly the order it was handed, and a PARTIALLY indexed one is
     # refused above rather than silently interleaved -- there is no sensible
     # place to put an unindexed rule among prioritised ones.
-    if len(seen) == len(indexed):
+    if lpm:
+        # The table DECLARES longest-prefix-match (TABLE_SEMANTICS_PLAN.md S3a).
+        # Order it by prefix length here rather than trusting `idx` to already
+        # carry that rank. Both hold today -- `_reprioritise_fib_lpm` reassigns
+        # idx in descending prefix-length order at generation time, which is why
+        # the docstring above says the index IS the priority -- but that repair
+        # is what S3b deletes, and after it `idx` is the file position again.
+        # The key reproduces the generator's assignment in BOTH worlds: longest
+        # prefix first, ties in the order the table was written.
+        indexed.sort(key=lambda pair: (-lpm_prefix_len(pair[1]),
+                                       getattr(pair[1], 'idx', pair[0])))
+    elif len(seen) == len(indexed):
         indexed.sort(key=lambda pair: pair[1].idx)
     elif seen:
         raise ValueError(
@@ -1208,9 +1221,11 @@ def model_to_config(devices: Dict[str, Any], links: Iterable[Any] = ()) -> Any:
         for chain_device, table, port, rules in graph.chains():
             if chain_device != device:
                 continue
+            declared = devices.get(device, {}).get('table_semantics', {})
             firewall.append(table_to_ad6(device, table, port, rules,
                                          graph.target, graph.port_id,
-                                         mutable=mutable))
+                                         mutable=mutable,
+                                         lpm=declared.get(table) == 'lpm'))
         firewalls.append(firewall)
     config.append(firewalls)
 

@@ -616,7 +616,7 @@ different prefixes and longest-prefix-match resolves them. Refusing that shape
 would block every real FIB, which is the mistake `_cross_class_promotions`
 records an earlier design making.
 
-### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON. **NetPlumber DONE 2026-09-23; ad6 OUTSTANDING.**
+### 9.5 S3a -- adapters honour `lpm`, with generation-time reordering STILL ON. **DONE 2026-09-23, both backends.**
 
 The NetPlumber adapter decouples the `r_idx` it passes to `add_rule` from the key
 it uses in `rule_ids` (§9.1), and orders a declared-`lpm` table longest-prefix
@@ -686,9 +686,24 @@ FIB by REASSIGNING indices in descending prefix-length order, so the longest
 prefix gets the lowest index and is evaluated first."* ad6 therefore **consumes
 the generation-time repair**. Deleting it without teaching ad6 the declaration
 reintroduces the wl_i2 defect in the one backend whose whole design point is
-that it reads no names. `table_to_ad6` has no access to the model's declared
-semantics today, so this needs the declaration threaded to it -- the same
-`(-prefix length, idx)` key, applied there.
+that it reads no names. `table_to_ad6` had no access to the model's declared
+semantics, so the declaration is threaded to it through the adapter's `devices`
+dict, and it sorts by the same `(-prefix length, idx)` key.
+
+**Idempotence measured the same way:** all 16 wl_stanford declared tables /
+3,844 rules order identically whether sorted by `idx` or by the LPM key.
+
+**One test nearly shipped vacuous, and the reason generalises.** The first
+version compared the rule NAMES ad6 emits -- but those are positional (`r0`,
+`r1`, assigned AFTER the sort), so they are identical whatever the order and the
+test would have passed against any implementation, including one that ignored
+the flag. It compares the emitted destination addresses instead, and a companion
+test asserts the flag DOES reorder a table whose `idx` does not carry the rank --
+which is exactly the state S3b creates.
+
+**Unrelated, pre-existing:** `test_ad6_translate.py` and `test_ad6_grounding.py`
+cannot be collected in one pytest invocation (they are in different tier groups,
+so nothing runs them together). Reproduced at HEAD with these changes stashed.
 
 ---
 

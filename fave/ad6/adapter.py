@@ -271,6 +271,11 @@ class Ad6Adapter(AbstractVerificationEngine):
         # UNNORMALISED port names -- the "_ingress"/"_egress" suffix is what
         # names which interface a port is, and translate.PortGraph needs it.
         self._tables: Dict[str, Dict[str, Any]] = {}
+        # device -> {table: declared semantics}. ad6 evaluates a table
+        # first-match-wins in DOCUMENT order, so a table declared
+        # longest-prefix-match has to be emitted in that order -- see
+        # `translate.table_to_ad6` (TABLE_SEMANTICS_PLAN.md S3a).
+        self._table_semantics: Dict[str, Dict[str, str]] = {}
         self._wiring: Dict[str, List[Any]] = {}
         self._raw_edges: List[List[str]] = []
         self._gen_fields: Dict[str, Any] = {}
@@ -324,8 +329,14 @@ class Ad6Adapter(AbstractVerificationEngine):
 
     def add_rules(self, model: Any) -> None:
         device_tables = self._tables.setdefault(model.node, {})
+        semantics_of = getattr(model, 'semantics_of', None)
         for table_name, table_rules in model.tables.items():
             device_tables[table_name] = list(table_rules)
+            if semantics_of is not None:
+                declared = semantics_of(table_name)
+                if declared != 'first_match':
+                    self._table_semantics.setdefault(
+                        model.node, {})[table_name] = declared
 
     def add_wiring(self, model: Any) -> None:
         """ FaVe DECLARES each device's internal pipeline as unidirectional
@@ -397,7 +408,8 @@ class Ad6Adapter(AbstractVerificationEngine):
         devices: Dict[str, Any] = {
             device: {'tables': tables,
                      'ports': [],
-                     'wiring': self._wiring.get(device, [])}
+                     'wiring': self._wiring.get(device, []),
+                     'table_semantics': self._table_semantics.get(device, {})}
             for device, tables in self._tables.items()
         }
 

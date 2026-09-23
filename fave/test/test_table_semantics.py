@@ -519,5 +519,88 @@ class TestNetPlumberHonoursTheDeclaration(unittest.TestCase):
                 adapter.add_rules(model)
 
 
+def _ad6_target(port):
+    return 'T_' + str(port).replace('.', '_') + '_out'
+
+
+_AD6_PORT_IDS = {}
+
+
+def _ad6_port_id(port):
+    return _AD6_PORT_IDS.setdefault(str(port), len(_AD6_PORT_IDS) + 1)
+
+
+def _ad6_order(rules, lpm):
+    """ The destination prefixes `table_to_ad6` emits, in DOCUMENT order -- ad6
+    evaluates a table first-match-wins in that order, so this IS the priority.
+
+    Read off the emitted addresses rather than the rule NAMES: those are
+    positional (`r0`, `r1`, assigned after the sort), so they are identical
+    whatever the order and would make this test pass against any implementation.
+    """
+    from ad6.translate import table_to_ad6
+    element = table_to_ad6('dev', 'dev.1', None, rules,
+                           _ad6_target, _ad6_port_id, lpm=lpm)
+    return [address.text
+            for rule in element
+            for address in rule.iter('address')]
+
+
+class TestAd6HonoursTheDeclaration(unittest.TestCase):
+    """ S3a, ad6 half. ad6 evaluates a table first-match-wins in document order
+    and sorts by `idx`, which it can only do because `_reprioritise_fib_lpm`
+    reassigns indices in descending prefix-length order at generation time --
+    so ad6 CONSUMES the repair S3b deletes. """
+
+    @staticmethod
+    def _rule(idx, dst, port='dev.2'):
+        from rule.rule_model import Rule, Match, RuleField, Forward
+        return Rule('dev', 'dev.1', idx,
+                    match=Match([RuleField('packet.ipv4.destination', dst)]),
+                    actions=[Forward(ports=[port])])
+
+    def test_lpm_reorders_a_table_whose_idx_does_NOT_carry_the_rank(self):
+        """ The case S3b creates: raw file order, shortest prefix first. Sorting
+        by `idx` evaluates the /8 before the /24 it is meant to back up. """
+        rules = [self._rule(1, '10.0.0.0/8'), self._rule(2, '10.1.2.0/24')]
+        by_idx = _ad6_order(rules, lpm=False)
+        by_lpm = _ad6_order(rules, lpm=True)
+        self.assertNotEqual(by_idx, by_lpm,
+                            "lpm=True changed nothing -- the flag is inert")
+
+    def test_lpm_is_a_NO_OP_where_idx_already_carries_the_rank(self):
+        """ The case today: both repairs active, so the ordering is idempotent
+        and the emitted document must be identical either way. """
+        rules = [self._rule(1, '10.1.2.0/24'), self._rule(2, '10.0.0.0/8')]
+        self.assertEqual(_ad6_order(rules, lpm=False), _ad6_order(rules, lpm=True))
+
+
+@require_or_skip(os.path.isfile("%s/routes.json" % _STANFORD),
+                 "wl_stanford inputs not generated")
+class TestAd6OrderingIsIdempotentOnRealData(unittest.TestCase):
+    """ On every declared wl_stanford table, ordering by the declaration and
+    ordering by `idx` must agree -- the same free differential §9.5 makes for
+    NetPlumber, on the backend that reads no names. """
+
+    def test_all_sixteen_mid_tables_order_identically(self):
+        from devices.abstract_device import lpm_prefix_len
+
+        models = _mid_models_and_rules(True)
+        self.assertEqual(len(models), 16)
+
+        total = 0
+        for model in models:
+            rules = model.tables[model.node + '.1']
+            total += len(rules)
+            by_idx = [i for i, _ in
+                      sorted(enumerate(rules), key=lambda p: p[1].idx)]
+            by_lpm = [i for i, _ in
+                      sorted(enumerate(rules),
+                             key=lambda p: (-lpm_prefix_len(p[1]),
+                                            getattr(p[1], 'idx', p[0])))]
+            self.assertEqual(by_idx, by_lpm, "%s orders differently" % model.node)
+        self.assertEqual(total, 3844)
+
+
 if __name__ == '__main__':
     unittest.main()
