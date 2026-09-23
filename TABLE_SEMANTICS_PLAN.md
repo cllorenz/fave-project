@@ -1,8 +1,23 @@
 # Declared table semantics: making FaVe's implicit first-match contract explicit
 
-**Status 2026-09-23 — DESIGN AGREED, NOTHING BUILT.** This document records a
-design discussion with the owner and the measurements taken during it. No code
-has changed. It is the sibling of [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md)
+**Status 2026-09-23 — BUILT. Every step of §9 is done** (step 0, S1+S2, S4,
+S3a on both positional backends, S3b, S5), each gated on `./test.sh fast` and
+`./test.sh integration`. The declaration now reaches the engines, both
+positional backends order a declared-LPM table themselves, and the
+generation-time repair is gone. Still open, deliberately: the group-identity
+question (§7.1) and the `admission`/`permutation` vocabulary, which has no
+consumer until the APKeep `FilterElement` work.
+
+**What it cost to be right, recorded because the pattern repeated.** The channel
+was silently dropped at **two of its four boundaries** (§9.3); a NetPlumber
+harness reported the exact number a broken ordering produces and was itself
+broken (§9.6); a test compared positional rule NAMES and would have passed
+against any implementation (§9.5); and two claims in this document -- that four
+device models would drop the field (§9.3), and that the packet filter's routing
+table is a FIB (§9.7) -- were disproved by measuring them. Every one was caught
+by a control run or a deliberately-failing assertion, and none by reading.
+
+It is the sibling of [`CLOUD_BENCH_PLAN.md`](CLOUD_BENCH_PLAN.md)
 (the benchmark axis) and [`AD6_PLAN.md`](AD6_PLAN.md) / [`APKEEP_BACKEND.md`](APKEEP_BACKEND.md)
 (the backend axis) for the *model* axis: what a FaVe table means, and who is
 allowed to decide it.

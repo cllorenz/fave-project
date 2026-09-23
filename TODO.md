@@ -1018,7 +1018,7 @@ Owner's framing: *"the sanity question concerning LPM needs to be addressed in f
 
 ---
 
-### 23. FaVe's table semantics are implicit — DESIGN AGREED, NOTHING BUILT (owner discussion 2026-09-23; PLAN: [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md))
+### 23. FaVe's table semantics are implicit — **BUILT 2026-09-23** (owner discussion + implementation; PLAN: [`TABLE_SEMANTICS_PLAN.md`](TABLE_SEMANTICS_PLAN.md))
 
 **Every table in FaVe is implicitly first-match, and nothing states it.** A table whose real semantics differs — a FIB resolved by longest prefix, an ingress admission list — must be *preprocessed into* first-match order before it enters the model, and every adapter must *re-derive* what it originally was. Two of three backends share the implicit default (NetPlumber resolves priority by rule index; ad6 is first-match in document order), so the assumption stayed invisible until APKeep arrived with a destination-prefix trie, for which it is wrong.
 
